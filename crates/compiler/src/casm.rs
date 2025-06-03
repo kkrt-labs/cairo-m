@@ -23,6 +23,30 @@ pub enum CasmInstructionType {
     Ret,
 }
 
+impl CasmInstructionType {
+    pub fn get_opcode(&self) -> u32 {
+        match self {
+            CasmInstructionType::MovFpFp => 0,
+            CasmInstructionType::MovFpImm => 1,
+            CasmInstructionType::AddFpFp => 2,
+            CasmInstructionType::AddFpImm => 3,
+            CasmInstructionType::SubFpFp => 4,
+            CasmInstructionType::SubFpImm => 5,
+            CasmInstructionType::MulFpFp => 6,
+            CasmInstructionType::MulFpImm => 7,
+            CasmInstructionType::JmpAbs => 8,
+            CasmInstructionType::JmpRel => 9,
+            CasmInstructionType::JmpAbsIfNeq => 10,
+            CasmInstructionType::JmpRelIfNeq => 11,
+            CasmInstructionType::CallRel => 12,
+            CasmInstructionType::CallAbs => 13,
+            CasmInstructionType::Label => 14,
+            CasmInstructionType::Ret => 15,
+            _ => panic!("Label instructions cannot be lowered to bytecode."),
+        }
+    }
+}
+
 impl Display for CasmInstructionType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -41,10 +65,10 @@ impl Display for CasmInstructionType {
             CasmInstructionType::CallRel => write!(f, "call_rel"),
             CasmInstructionType::CallAbs => write!(f, "call_abs"),
             CasmInstructionType::Label => write!(f, "label"),
+            CasmInstructionType::Ret => write!(f, "ret"),
             CasmInstructionType::JmpLabel => write!(f, "jmp_label"),
             CasmInstructionType::JmpLabelIfNeq => write!(f, "jmp_label_if_neq"),
             CasmInstructionType::CallLabel => write!(f, "call_label"),
-            CasmInstructionType::Ret => write!(f, "ret"),
         }
     }
 }
@@ -56,6 +80,16 @@ pub struct CasmInstruction {
     pub arg0: i32,
     pub arg1: i32,
     pub arg2: i32,
+}
+
+impl CasmInstruction {
+    pub fn to_bytes(&self) -> (u32, u32, u32, u32) {
+        let opcode = self.instruction_type.get_opcode();
+        let arg0 = (0x8000 + self.arg0) as u32;
+        let arg1 = (0x8000 + self.arg1) as u32;
+        let arg2 = (0x8000 + self.arg2) as u32;
+        (opcode, arg0, arg1, arg2)
+    }
 }
 
 impl Display for CasmInstruction {
@@ -140,7 +174,24 @@ impl Display for CasmInstruction {
                     write!(f, "jmp if [fp + {}] != 0;", self.arg1)
                 }
             }
-            _ => write!(f, "{}", self.instruction_type),
+            CasmInstructionType::JmpAbs => {
+                write!(f, "jmp {};", self.arg0)
+            }
+            CasmInstructionType::JmpRel => {
+                write!(f, "jmp {};", self.arg0)
+            }
+            CasmInstructionType::JmpAbsIfNeq => {
+                write!(f, "jmp {} if [fp + {}] != 0;", self.arg0, self.arg1)
+            }
+            CasmInstructionType::JmpRelIfNeq => {
+                write!(f, "jmp {} if [fp + {}] != 0;", self.arg0, self.arg1)
+            }
+            CasmInstructionType::CallRel => {
+                write!(f, "call {};", self.arg0)
+            }
+            CasmInstructionType::CallAbs => {
+                write!(f, "call {};", self.arg0)
+            }
         }
     }
 }

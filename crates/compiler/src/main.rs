@@ -1,4 +1,5 @@
 use std::env;
+mod assembler;
 mod ast;
 mod casm;
 mod error;
@@ -20,6 +21,13 @@ fn run(input: &str, file_name: &str) {
     for (i, instruction) in casm.clone().iter().enumerate() {
         println!("{} {}", i, instruction);
     }
+    let mut assembler = assembler::Assembler::new(casm);
+    assembler.resolve_jumps();
+    for (i, instruction) in assembler.casm.clone().iter().enumerate() {
+        println!("{} {}", i, instruction);
+    }
+    let json = assembler.to_json();
+    println!("{}", json);
 }
 
 fn from_file(path: &str) {

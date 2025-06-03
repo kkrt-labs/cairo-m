@@ -1,18 +1,16 @@
-use crate::{ast::*, casm::*};
+use crate::casm::*;
 use json;
 use std::collections::HashMap;
 
 pub struct Assembler {
     pub casm: Vec<CasmInstruction>,
-    pub instructions: Vec<Instruction>,
     pub function_adresses: HashMap<String, u64>,
 }
 
 impl Assembler {
-    pub fn new() -> Self {
+    pub fn new(casm: Vec<CasmInstruction>) -> Self {
         Self {
-            casm: Vec::new(),
-            instructions: Vec::new(),
+            casm,
             function_adresses: HashMap::new(),
         }
     }
@@ -20,62 +18,58 @@ impl Assembler {
     pub fn resolve_jumps(&mut self) {
         let mut new = Vec::new();
         let mut instruction_number = 0;
-        //let mut function_adresses = HashMap::new();
+
+        let mut label_adresses = HashMap::new();
+
+        // First pass to get the adresses of the labels
         for instruction in self.casm.clone() {
-            match instruction {
-                CasmInstruction::Label(label) => {
-                    self.function_adresses.insert(label, instruction_number);
-                }
-                CasmInstruction::Call(label) => {
-                    instruction_number += 2;
-                }
-                CasmInstruction::Jmp(label) => {
-                    instruction_number += 2;
-                }
-                CasmInstruction::JmpIfNeq(label, op) => {
-                    instruction_number += 2;
+            match instruction.instruction_type {
+                CasmInstructionType::Label => {
+                    label_adresses.insert(instruction.label, instruction_number);
                 }
                 _ => {
-                    instruction_number += nops(instruction.clone());
+                    instruction_number += 1;
                 }
             }
         }
-        instruction_number = 0;
+
+        // Second pass to resolve the jumps
         for instruction in self.casm.clone() {
-            match instruction {
-                CasmInstruction::Call(label) => {
-                    new.push(CasmInstruction::CallRel(
-                        self.function_adresses[&label] as i32 - instruction_number as i32,
-                    ));
-                    instruction_number += 2;
+            match instruction.instruction_type {
+                CasmInstructionType::CallLabel => {
+                    new.push(CasmInstruction {
+                        instruction_type: CasmInstructionType::CallAbs,
+                        label: instruction.label.clone(),
+                        arg0: label_adresses[&instruction.label.clone()] as i32,
+                        arg1: 0,
+                        arg2: 0,
+                    });
                 }
-                CasmInstruction::Label(label) => {}
-                CasmInstruction::Jmp(label) => {
-                    new.push(CasmInstruction::JmpRel(
-                        self.function_adresses[&label] as i32 - instruction_number as i32,
-                    ));
-                    instruction_number += 2;
+                CasmInstructionType::Label => {}
+                CasmInstructionType::JmpLabel => {
+                    new.push(CasmInstruction {
+                        instruction_type: CasmInstructionType::JmpAbs,
+                        label: instruction.label.clone(),
+                        arg0: label_adresses[&instruction.label.clone()] as i32,
+                        arg1: 0,
+                        arg2: 0,
+                    });
                 }
-                CasmInstruction::JmpIfNeq(label, op) => {
-                    new.push(CasmInstruction::JmpIfNeqRel(
-                        self.function_adresses[&label] as i32 - instruction_number as i32,
-                        op,
-                    ));
-                    instruction_number += 2;
+                CasmInstructionType::JmpLabelIfNeq => {
+                    new.push(CasmInstruction {
+                        instruction_type: CasmInstructionType::JmpAbsIfNeq,
+                        label: instruction.label.clone(),
+                        arg0: label_adresses[&instruction.label.clone()] as i32,
+                        arg1: instruction.arg1,
+                        arg2: 0,
+                    });
                 }
                 _ => {
                     new.push(instruction.clone());
-                    instruction_number += nops(instruction);
                 }
             }
         }
         self.casm = new;
-    }
-
-    pub fn build_instructions(&mut self) {
-        for instruction in self.casm.clone() {
-            self.instructions.push(build_instruction(instruction));
-        }
     }
 
     pub fn to_json(&self) -> String {
@@ -84,12 +78,12 @@ impl Assembler {
         data["builtins"] = json::JsonValue::new_array();
         data["compiler_version"] = json::JsonValue::from("0.1");
         data["data"] = json::JsonValue::new_array();
-        for instruction in self.instructions.clone() {
-            let (bytes, imm) = instruction.to_bytes();
-            data["data"].push(format!("{:#x}", bytes));
-            if let Some(imm) = imm {
-                data["data"].push(format!("{:#x}", imm));
-            }
+        for instruction in self.casm.clone() {
+            let (opcode, arg0, arg1, arg2) = instruction.to_bytes();
+            data["data"].push(format!("{:#x}", opcode));
+            data["data"].push(format!("{:#x}", arg0));
+            data["data"].push(format!("{:#x}", arg1));
+            data["data"].push(format!("{:#x}", arg2));
         }
         data["hints"] = json::JsonValue::new_object();
         data["identifiers"] = json::JsonValue::new_object();
