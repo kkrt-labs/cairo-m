@@ -8,18 +8,23 @@ mod lower_to_casm;
 mod minivm;
 mod parser;
 
+use assembler::Assembler;
+use lexer::lex;
+use lower_to_casm::Compiler;
+use parser::Parser;
+
 fn run(input: &str, file_name: &str) {
-    let (tokens, errors) = lexer::lex(input, file_name);
+    let (tokens, errors) = lex(input, file_name);
     if errors > 0 {
         panic!("Lexing failed with {} errors", errors);
     }
 
-    let mut parser = parser::Parser::new(tokens, file_name.to_string(), input.to_string());
+    let mut parser = Parser::new(tokens, file_name.to_string(), input.to_string());
     let code_elements = parser.parse();
 
-    let mut compiler = lower_to_casm::Compiler::new(code_elements);
+    let mut compiler = Compiler::new(code_elements);
     let casm = compiler.compile();
-    let mut assembler = assembler::Assembler::new(casm);
+    let mut assembler = Assembler::new(casm);
     assembler.resolve_jumps();
     for (i, instruction) in assembler.casm.clone().iter().enumerate() {
         println!("{} {}", i * 4, instruction);
