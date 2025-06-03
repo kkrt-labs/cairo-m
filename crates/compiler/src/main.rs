@@ -5,6 +5,7 @@ mod casm;
 mod error;
 mod lexer;
 mod lower_to_casm;
+mod minivm;
 mod parser;
 
 fn run(input: &str, file_name: &str) {
@@ -18,16 +19,12 @@ fn run(input: &str, file_name: &str) {
 
     let mut compiler = lower_to_casm::Compiler::new(code_elements);
     let casm = compiler.compile();
-    for (i, instruction) in casm.clone().iter().enumerate() {
-        println!("{} {}", i, instruction);
-    }
     let mut assembler = assembler::Assembler::new(casm);
     assembler.resolve_jumps();
     for (i, instruction) in assembler.casm.clone().iter().enumerate() {
-        println!("{} {}", i, instruction);
+        println!("{} {}", i * 4, instruction);
     }
-    let json = assembler.to_json();
-    println!("{}", json);
+    println!("{}", assembler.to_json());
 }
 
 fn from_file(path: &str) {

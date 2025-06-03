@@ -123,7 +123,7 @@ impl Compiler {
         let instr = CasmInstruction {
             instruction_type: CasmInstructionType::CallLabel,
             label: Some(func_name),
-            arg0: 0,
+            arg0: self.fp_offset as i32, // frame size
             arg1: 0,
             arg2: 0,
         };
@@ -197,16 +197,20 @@ impl Compiler {
             arg2: 0,
         });
 
+        // adding arguments to local variables
+        // arguments are stored in [fp-4], [fp-5], ...
+        // [fp-3] is return value, [fp-2] is old fp, [fp-1] is return address
         for (i, arg) in args.iter().enumerate() {
             self.local_variables.insert(
                 arg.token.lexeme.clone(),
-                -(args.len() as i32 + 2) + i as i32,
+                -(args.len() as i32 + 3) + i as i32,
             );
         }
         for code_element in body {
             self.compile_code_element(code_element);
         }
 
+        // restoring state of previous frame
         self.fp_offset = save_fp_offset;
         self.local_variables = save_locals;
         self.local_variables_count = save_local_variables_count;
@@ -238,7 +242,16 @@ impl Compiler {
     fn compile_return(&mut self, expr: Expr) {
         // calculating return value
         // it is automatically at top of stack
-        let _ = self.compile_expr(expr);
+        let offset = self.compile_expr(expr);
+
+        // moving return value to bottom of frame
+        self.casm_instructions.push(CasmInstruction {
+            instruction_type: CasmInstructionType::MovFpFp,
+            label: None,
+            arg0: -3,
+            arg1: offset as i32,
+            arg2: 0,
+        });
 
         self.casm_instructions.push(CasmInstruction {
             instruction_type: CasmInstructionType::Ret,

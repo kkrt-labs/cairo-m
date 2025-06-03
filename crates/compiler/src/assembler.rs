@@ -4,14 +4,14 @@ use std::collections::HashMap;
 
 pub struct Assembler {
     pub casm: Vec<CasmInstruction>,
-    pub function_adresses: HashMap<String, u64>,
+    pub label_adresses: HashMap<String, i32>,
 }
 
 impl Assembler {
     pub fn new(casm: Vec<CasmInstruction>) -> Self {
         Self {
             casm,
-            function_adresses: HashMap::new(),
+            label_adresses: HashMap::new(),
         }
     }
 
@@ -19,16 +19,15 @@ impl Assembler {
         let mut new = Vec::new();
         let mut instruction_number = 0;
 
-        let mut label_adresses = HashMap::new();
-
         // First pass to get the adresses of the labels
         for instruction in self.casm.clone() {
             match instruction.instruction_type {
                 CasmInstructionType::Label => {
-                    label_adresses.insert(instruction.label, instruction_number);
+                    self.label_adresses
+                        .insert(instruction.label.clone().unwrap(), instruction_number);
                 }
                 _ => {
-                    instruction_number += 1;
+                    instruction_number += 4;
                 }
             }
         }
@@ -40,8 +39,8 @@ impl Assembler {
                     new.push(CasmInstruction {
                         instruction_type: CasmInstructionType::CallAbs,
                         label: instruction.label.clone(),
-                        arg0: label_adresses[&instruction.label.clone()] as i32,
-                        arg1: 0,
+                        arg0: self.label_adresses[&instruction.label.clone().unwrap()],
+                        arg1: instruction.arg0,
                         arg2: 0,
                     });
                 }
@@ -50,7 +49,7 @@ impl Assembler {
                     new.push(CasmInstruction {
                         instruction_type: CasmInstructionType::JmpAbs,
                         label: instruction.label.clone(),
-                        arg0: label_adresses[&instruction.label.clone()] as i32,
+                        arg0: self.label_adresses[&instruction.label.clone().unwrap()],
                         arg1: 0,
                         arg2: 0,
                     });
@@ -59,7 +58,7 @@ impl Assembler {
                     new.push(CasmInstruction {
                         instruction_type: CasmInstructionType::JmpAbsIfNeq,
                         label: instruction.label.clone(),
-                        arg0: label_adresses[&instruction.label.clone()] as i32,
+                        arg0: self.label_adresses[&instruction.label.clone().unwrap()],
                         arg1: instruction.arg1,
                         arg2: 0,
                     });
@@ -72,22 +71,27 @@ impl Assembler {
         self.casm = new;
     }
 
+    pub fn to_bytes(&self) -> Vec<u32> {
+        let mut bytes = Vec::new();
+        for instruction in self.casm.clone() {
+            let (opcode, arg0, arg1, arg2) = instruction.to_bytes();
+            bytes.push(opcode);
+            bytes.push(arg0);
+            bytes.push(arg1);
+            bytes.push(arg2);
+        }
+        bytes
+    }
+
     pub fn to_json(&self) -> String {
         let mut data = json::JsonValue::new_object();
         data["attributes"] = json::JsonValue::new_array();
         data["builtins"] = json::JsonValue::new_array();
         data["compiler_version"] = json::JsonValue::from("0.1");
-        data["data"] = json::JsonValue::new_array();
-        for instruction in self.casm.clone() {
-            let (opcode, arg0, arg1, arg2) = instruction.to_bytes();
-            data["data"].push(format!("{:#x}", opcode));
-            data["data"].push(format!("{:#x}", arg0));
-            data["data"].push(format!("{:#x}", arg1));
-            data["data"].push(format!("{:#x}", arg2));
-        }
+        data["data"] = json::JsonValue::from(self.to_bytes());
         data["hints"] = json::JsonValue::new_object();
         data["identifiers"] = json::JsonValue::new_object();
-        for (label, address) in self.function_adresses.clone() {
+        for (label, address) in self.label_adresses.clone() {
             let label2 = format!("__main__.{}", label);
             data["identifiers"][label2.clone()] = json::JsonValue::new_object();
             data["identifiers"][label2.clone()]["decorators"] = json::JsonValue::new_array();

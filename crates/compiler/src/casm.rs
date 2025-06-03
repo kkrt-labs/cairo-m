@@ -40,8 +40,7 @@ impl CasmInstructionType {
             CasmInstructionType::JmpRelIfNeq => 11,
             CasmInstructionType::CallRel => 12,
             CasmInstructionType::CallAbs => 13,
-            CasmInstructionType::Label => 14,
-            CasmInstructionType::Ret => 15,
+            CasmInstructionType::Ret => 14,
             _ => panic!("Label instructions cannot be lowered to bytecode."),
         }
     }
