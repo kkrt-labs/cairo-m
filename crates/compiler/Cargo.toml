@@ -2,3 +2,8 @@
 name = "cairo-m-compiler"
 version.workspace = true
 edition.workspace = true
+
+[dependencies]
+ariadne = "0.5.1"
+json = "0.12.4"
+logos = "0.15.0"
