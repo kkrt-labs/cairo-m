@@ -8,12 +8,10 @@ pub struct Token {
     pub span: (usize, usize),
 }
 
-
 #[derive(Logos, Debug, Clone, PartialEq, Eq)]
 #[logos(skip r"[\t\n ]+")]
 #[logos(skip r"//.*\n")]
 pub enum TokenType {
-
     #[regex("[0-9]+")]
     Int,
 
@@ -59,7 +57,7 @@ pub enum TokenType {
     LParen,
     #[token(")")]
     RParen,
-    
+
     #[token("=")]
     Equal,
 
@@ -96,7 +94,6 @@ pub enum TokenType {
 
     #[token("and")]
     And,
-    
 
     #[token("local")]
     Local,
@@ -105,7 +102,6 @@ pub enum TokenType {
     Ret,
 
     //Instructions
-
     #[token("call")]
     Call,
     #[token("rel")]
@@ -151,7 +147,6 @@ pub enum TokenType {
     // #[token("\n")]
     // Newline,
 
-
     // Code elements
     #[token(";")]
     Semicolon,
@@ -174,9 +169,7 @@ pub enum TokenType {
 
     EOF,
     Error,
-
 }
-
 
 pub fn lex(input: &str, file_name: &str) -> (Vec<Token>, u32) {
     let mut error_counter = 0;
@@ -195,9 +188,11 @@ pub fn lex(input: &str, file_name: &str) -> (Vec<Token>, u32) {
             let error_span = (file_name, lex.span().start..lex.span().end);
             let _ = Report::build(ReportKind::Error, error_span.clone())
                 .with_message("Lexer error")
-                .with_label(Label::new(error_span)
-                    .with_message(format!("Unknown token '{}'", lexeme))
-                    .with_color(Color::Red))
+                .with_label(
+                    Label::new(error_span)
+                        .with_message(format!("Unknown token '{}'", lexeme))
+                        .with_color(Color::Red),
+                )
                 .finish()
                 .print((file_name, Source::from(input)));
             error_counter += 1;

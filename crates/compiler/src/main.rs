@@ -6,8 +6,6 @@ mod lexer;
 mod lower_to_casm;
 mod parser;
 
-extern crate ebnf;
-
 fn run(input: &str, file_name: &str) {
     let (tokens, errors) = lexer::lex(input, file_name);
     if errors > 0 {
