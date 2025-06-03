@@ -1,0 +1,7 @@
+[workspace]
+members = ["crates/prover", "crates/compiler", "crates/runner"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.1"
+edition = "2021"

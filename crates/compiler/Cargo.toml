@@ -1,0 +1,4 @@
+[package]
+name = "cairo-m-compiler"
+version.workspace = true
+edition.workspace = true

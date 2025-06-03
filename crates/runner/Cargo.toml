@@ -1,0 +1,4 @@
+[package]
+name = "cairo-m-runner"
+version.workspace = true
+edition.workspace = true

@@ -1,0 +1,4 @@
+[package]
+name = "cairo-m-prover"
+version.workspace = true
+edition.workspace = true
