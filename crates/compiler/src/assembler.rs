@@ -5,7 +5,7 @@
 //! for jumps and function calls.
 
 use crate::casm::*;
-use json;
+use serde_json::{json, Value};
 use std::collections::HashMap;
 
 /// The main assembler struct for converting CASM instructions to bytecode.
@@ -117,7 +117,7 @@ impl Assembler {
     /// Generates a Cairo-compatible JSON representation of the program.
     ///
     /// The JSON output includes:
-    /// - Program bytecode
+    /// - Program bytecode (as hexadecimal strings)
     /// - Label addresses and types
     /// - Compiler version
     /// - Other Cairo-specific metadata
@@ -125,24 +125,40 @@ impl Assembler {
     /// # Returns
     /// A JSON string containing the program representation
     pub fn to_json(&self) -> String {
-        let mut data = json::JsonValue::new_object();
-        data["attributes"] = json::JsonValue::new_array();
-        data["builtins"] = json::JsonValue::new_array();
-        data["compiler_version"] = json::JsonValue::from("0.1");
-        data["data"] = json::JsonValue::from(self.to_bytes());
-        data["hints"] = json::JsonValue::new_object();
-        data["identifiers"] = json::JsonValue::new_object();
-        for (label, address) in self.label_adresses.clone() {
+        let mut identifiers = json!({});
+
+        // Add label information to identifiers
+        for (label, address) in &self.label_adresses {
             let label2 = format!("__main__.{}", label);
-            data["identifiers"][label2.clone()] = json::JsonValue::new_object();
-            data["identifiers"][label2.clone()]["decorators"] = json::JsonValue::new_array();
-            data["identifiers"][label2.clone()]["pc"] = json::JsonValue::from(address);
-            data["identifiers"][label2.clone()]["type"] = json::JsonValue::from("function");
+            identifiers[&label2] = json!({
+                "decorators": [],
+                "pc": address,
+                "type": "function"
+            });
         }
-        data["main_scope"] = json::JsonValue::from("__main__");
-        data["prime"] = json::JsonValue::from("0x7fffffff");
-        data["reference_manager"] = json::JsonValue::new_object();
-        data["reference_manager"]["references"] = json::JsonValue::new_array();
-        data.to_string()
+
+        // Convert bytecode to hex strings
+        let hex_bytes: Vec<String> = self
+            .to_bytes()
+            .iter()
+            .map(|&x| format!("0x{:x}", x))
+            .collect();
+
+        // Create the complete program JSON
+        let program = json!({
+            "attributes": [],
+            "builtins": [],
+            "compiler_version": "0.1",
+            "data": hex_bytes,
+            "hints": {},
+            "identifiers": identifiers,
+            "main_scope": "__main__",
+            "prime": "0x7fffffff",
+            "reference_manager": {
+                "references": []
+            }
+        });
+
+        program.to_string()
     }
 }
