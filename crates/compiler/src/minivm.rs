@@ -47,7 +47,6 @@ impl MiniVm {
                 14 => self.ret(),
                 _ => panic!("Unknown instruction: {}", instr),
             }
-            self.pc += 4;
         }
     }
 
@@ -60,12 +59,14 @@ impl MiniVm {
         let offdst = self.get_arg(1);
         let offop0 = self.get_arg(2);
         self.mem[(self.fp as i32 + offdst) as usize] = self.mem[(self.fp as i32 + offop0) as usize];
+        self.pc += 4;
     }
 
     fn mov_fp_imm(&mut self) {
         let offdst = self.get_arg(1);
         let imm = self.get_arg(2);
         self.mem[(self.fp as i32 + offdst) as usize] = imm as u32;
+        self.pc += 4;
     }
 
     fn add_fp_fp(&mut self) {
@@ -74,6 +75,7 @@ impl MiniVm {
         let offop1 = self.get_arg(3);
         self.mem[(self.fp as i32 + offdst) as usize] = self.mem[(self.fp as i32 + offop0) as usize]
             + self.mem[(self.fp as i32 + offop1) as usize];
+        self.pc += 4;
     }
 
     fn add_fp_imm(&mut self) {
@@ -82,6 +84,7 @@ impl MiniVm {
         let imm = self.get_arg(3);
         self.mem[(self.fp as i32 + offdst) as usize] =
             self.mem[(self.fp as i32 + offop0) as usize] + imm as u32;
+        self.pc += 4;
     }
 
     fn sub_fp_fp(&mut self) {
@@ -90,6 +93,7 @@ impl MiniVm {
         let offop1 = self.get_arg(3);
         self.mem[(self.fp as i32 + offdst) as usize] = self.mem[(self.fp as i32 + offop0) as usize]
             - self.mem[(self.fp as i32 + offop1) as usize];
+        self.pc += 4;
     }
 
     fn sub_fp_imm(&mut self) {
@@ -98,6 +102,7 @@ impl MiniVm {
         let imm = self.get_arg(3);
         self.mem[(self.fp as i32 + offdst) as usize] =
             self.mem[(self.fp as i32 + offop0) as usize] - imm as u32;
+        self.pc += 4;
     }
 
     fn mul_fp_fp(&mut self) {
@@ -106,6 +111,7 @@ impl MiniVm {
         let offop1 = self.get_arg(3);
         self.mem[(self.fp as i32 + offdst) as usize] = self.mem[(self.fp as i32 + offop0) as usize]
             * self.mem[(self.fp as i32 + offop1) as usize];
+        self.pc += 4;
     }
 
     fn mul_fp_imm(&mut self) {
@@ -114,23 +120,25 @@ impl MiniVm {
         let imm = self.get_arg(3);
         self.mem[(self.fp as i32 + offdst) as usize] =
             self.mem[(self.fp as i32 + offop0) as usize] * imm as u32;
+        self.pc += 4;
     }
 
     fn jmp_abs(&mut self) {
         let address = self.get_arg(1);
         self.pc = address as u32 - 4;
+        self.pc += 4;
     }
 
     fn jmp_rel(&mut self) {
         let offset = self.get_arg(1);
-        self.pc = self.pc.wrapping_add(offset as u32) - 4;
+        self.pc = self.pc.wrapping_add(offset as u32);
     }
 
     fn jmp_abs_if_neq(&mut self) {
         let address = self.get_arg(1);
         let offset = self.get_arg(2);
         if self.mem[(self.fp as i32 + offset) as usize] != 0 {
-            self.pc = address as u32 - 4;
+            self.pc = address as u32;
         }
     }
 
@@ -138,7 +146,7 @@ impl MiniVm {
         let offset = self.get_arg(1);
         let check_offset = self.get_arg(2);
         if self.mem[(self.fp as i32 + check_offset) as usize] != 0 {
-            self.pc = self.pc.wrapping_add(offset as u32) - 4;
+            self.pc = self.pc.wrapping_add(offset as u32);
         }
     }
 
@@ -152,7 +160,7 @@ impl MiniVm {
         // set new fp
         self.fp = self.fp + frame_size as u32 + 2;
         // jump to function (relative)
-        self.pc = self.pc.wrapping_add(offset as u32) - 4;
+        self.pc = self.pc.wrapping_add(offset as u32);
     }
 
     fn call_abs(&mut self) {
@@ -165,7 +173,7 @@ impl MiniVm {
         // set new fp
         self.fp = self.fp + frame_size as u32 + 3;
         // jump to function (absolute)
-        self.pc = address as u32 - 4;
+        self.pc = address as u32;
     }
 
     fn ret(&mut self) {
@@ -178,7 +186,7 @@ impl MiniVm {
         // pop old fp
         self.fp = self.mem[(self.fp - 2) as usize];
         // jump to return address
-        self.pc = return_addr - 4;
+        self.pc = return_addr;
     }
 
     pub fn print_mem(&self) {
