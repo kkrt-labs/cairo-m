@@ -16,6 +16,7 @@
 //! The parser is currently incomplete and does not support all features of Cairo-0.
 
 use crate::ast::*;
+use crate::error::report_error;
 use crate::lexer::*;
 
 /// A recursive descent parser for Cairo-M source code.
@@ -52,7 +53,7 @@ impl Parser {
 
     /// Attempts to match and consume the current token if it matches the expected type.
     /// Returns true if the token was matched and consumed, false otherwise.
-    fn match_token(&mut self, token_type: crate::lexer::TokenType) -> bool {
+    fn match_token(&mut self, token_type: TokenType) -> bool {
         if self.check(token_type) {
             self.advance();
             return true;
@@ -61,7 +62,7 @@ impl Parser {
     }
 
     /// Checks if the current token matches the expected type without consuming it.
-    fn check(&mut self, token_type: crate::lexer::TokenType) -> bool {
+    fn check(&mut self, token_type: TokenType) -> bool {
         if self.is_at_end() {
             return false;
         }
@@ -70,22 +71,22 @@ impl Parser {
 
     /// Returns true if we've reached the end of the token stream.
     fn is_at_end(&mut self) -> bool {
-        self.peek().token_type == crate::lexer::TokenType::EOF
+        self.peek().token_type == TokenType::EOF
     }
 
     /// Advances the parser to the next token and returns the consumed token.
-    fn advance(&mut self) -> crate::lexer::Token {
+    fn advance(&mut self) -> Token {
         self.current += 1;
         self.tokens[self.current - 1].clone()
     }
 
     /// Returns the current token without consuming it.
-    fn peek(&mut self) -> crate::lexer::Token {
+    fn peek(&mut self) -> Token {
         self.tokens[self.current].clone()
     }
 
     /// Returns the next token without consuming it.
-    fn peekpeek(&mut self) -> crate::lexer::Token {
+    fn peekpeek(&mut self) -> Token {
         self.tokens[self.current + 1].clone()
     }
 
@@ -94,12 +95,12 @@ impl Parser {
     /// # Arguments
     /// * `token_type` - The expected token type
     /// * `message` - Error message to display if the token doesn't match
-    fn consume(&mut self, token_type: crate::lexer::TokenType, message: &str) -> Token {
+    fn consume(&mut self, token_type: TokenType, message: &str) -> Token {
         if self.check(token_type) {
             self.advance()
         } else {
             let span = self.peek().span;
-            crate::error::report_error(
+            report_error(
                 self.file_name.clone(),
                 self.source.clone(),
                 span,
@@ -107,7 +108,7 @@ impl Parser {
                 message.to_string(),
             );
             Token {
-                token_type: crate::lexer::TokenType::Error,
+                token_type: TokenType::Error,
                 lexeme: "".to_string(),
                 span: (span.0, span.0),
             }
@@ -133,10 +134,10 @@ impl Parser {
     /// Parses a named type, which can be an identifier followed by a colon and type,
     /// or just a pointer type.
     fn named_type(&mut self) -> Type {
-        if self.peek().token_type == crate::lexer::TokenType::Identifier {
-            if self.peekpeek().token_type == crate::lexer::TokenType::Colon {
+        if self.peek().token_type == TokenType::Identifier {
+            if self.peekpeek().token_type == TokenType::Colon {
                 let ident = self.identifier();
-                self.consume(crate::lexer::TokenType::Colon, "");
+                self.consume(TokenType::Colon, "");
                 let type_ = self.type_();
                 Type::Named(ident, Box::new(type_))
             } else {
@@ -150,12 +151,12 @@ impl Parser {
     /// Parses a pointer type, which can be a base type followed by one or two asterisks.
     fn pointer(&mut self) -> Type {
         let type_ = self.type_atom();
-        if self.check(crate::lexer::TokenType::Star) {
-            self.advance();
-            Type::Pointer(Box::new(type_))
-        } else if self.check(crate::lexer::TokenType::DoubleStar) {
+        if self.check(TokenType::Star) {
             self.advance();
             Type::Pointer2(Box::new(type_))
+        } else if self.check(TokenType::Star) {
+            self.advance();
+            Type::Pointer(Box::new(type_))
         } else {
             type_
         }
@@ -164,15 +165,15 @@ impl Parser {
     /// Parses a list of types enclosed in parentheses, separated by commas.
     fn paren_type_list(&mut self) -> Vec<Type> {
         let mut args = Vec::new();
-        self.consume(crate::lexer::TokenType::LParen, "Expected '('");
-        while !self.check(crate::lexer::TokenType::RParen) {
+        self.consume(TokenType::LParen, "Expected '('");
+        while !self.check(TokenType::RParen) {
             args.push(self.named_type());
-            if !self.check(crate::lexer::TokenType::Comma) {
+            if !self.check(TokenType::Comma) {
                 break;
             }
             self.advance();
         }
-        self.consume(crate::lexer::TokenType::RParen, "Expected ')'");
+        self.consume(TokenType::RParen, "Expected ')'");
         args
     }
 
@@ -184,21 +185,21 @@ impl Parser {
     fn type_atom(&mut self) -> Type {
         let token = self.peek();
         match token.token_type {
-            crate::lexer::TokenType::Felt => {
+            TokenType::Felt => {
                 self.advance();
                 Type::Felt
             }
-            crate::lexer::TokenType::CodeOffset => {
+            TokenType::CodeOffset => {
                 self.advance();
                 Type::CodeOffset
             }
-            crate::lexer::TokenType::Identifier => Type::Struct(self.identifier()),
-            crate::lexer::TokenType::LParen => {
+            TokenType::Identifier => Type::Struct(self.identifier()),
+            TokenType::LParen => {
                 let types = self.paren_type_list();
                 Type::Tuple(types)
             }
             _ => {
-                crate::error::report_error(
+                report_error(
                     self.file_name.clone(),
                     self.source.clone(),
                     self.peek().span,
@@ -212,7 +213,7 @@ impl Parser {
 
     /// Parses an identifier token and returns an Identifier struct.
     fn identifier(&mut self) -> Identifier {
-        let token = self.consume(crate::lexer::TokenType::Identifier, "Expected identifier");
+        let token = self.consume(TokenType::Identifier, "Expected identifier");
         Identifier { token }
     }
 
@@ -227,7 +228,7 @@ impl Parser {
         let expr = self.expression();
         if let ExprType::Identifier = expr.expr_type {
             let ident = expr.ident.clone().unwrap();
-            if self.check(crate::lexer::TokenType::Equal) {
+            if self.check(TokenType::Equal) {
                 self.advance();
                 let expr = self.expression();
                 ExprAssignment::Assign(ident.clone(), expr)
@@ -242,9 +243,9 @@ impl Parser {
     /// Parses a list of expressions separated by commas.
     fn arglist(&mut self) -> Vec<ExprAssignment> {
         let mut args = Vec::new();
-        while !self.check(crate::lexer::TokenType::RParen) {
+        while !self.check(TokenType::RParen) {
             args.push(self.expr_assignment());
-            if !self.check(crate::lexer::TokenType::Comma) {
+            if !self.check(TokenType::Comma) {
                 break;
             }
             self.advance();
@@ -254,17 +255,17 @@ impl Parser {
 
     /// Parses a parenthesized list of expressions.
     fn paren_arglist(&mut self) -> Vec<ExprAssignment> {
-        self.consume(crate::lexer::TokenType::LParen, "Expected '('");
+        self.consume(TokenType::LParen, "Expected '('");
         let args = self.arglist();
-        self.consume(crate::lexer::TokenType::RParen, "Expected ')'");
+        self.consume(TokenType::RParen, "Expected ')'");
         args
     }
 
     /// Parses a brace-enclosed list of expressions.
     fn brace_arglist(&mut self) -> Vec<ExprAssignment> {
-        self.consume(crate::lexer::TokenType::LBrace, "Expected '{'");
+        self.consume(TokenType::LBrace, "Expected '{'");
         let args = self.arglist();
-        self.consume(crate::lexer::TokenType::RBrace, "Expected '}'");
+        self.consume(TokenType::RBrace, "Expected '}'");
         args
     }
 
@@ -272,16 +273,14 @@ impl Parser {
     /// Handles operator precedence for + and - operators.
     fn sum(&mut self) -> Expr {
         let mut expr = self.product();
-        while self.check(crate::lexer::TokenType::Plus)
-            || self.check(crate::lexer::TokenType::Minus)
-        {
+        while self.check(TokenType::Plus) || self.check(TokenType::Minus) {
             let operator = self.advance();
             let right = self.product();
             match operator.token_type {
-                crate::lexer::TokenType::Plus => {
+                TokenType::Plus => {
                     expr = Expr::new_binary(ExprType::Add, expr, right);
                 }
-                crate::lexer::TokenType::Minus => {
+                TokenType::Minus => {
                     expr = Expr::new_binary(ExprType::Sub, expr, right);
                 }
                 _ => unreachable!(),
@@ -294,16 +293,14 @@ impl Parser {
     /// Handles operator precedence for * and / operators.
     fn product(&mut self) -> Expr {
         let mut expr = self.unary();
-        while self.check(crate::lexer::TokenType::Star)
-            || self.check(crate::lexer::TokenType::Slash)
-        {
+        while self.check(TokenType::Star) || self.check(TokenType::Slash) {
             let operator = self.advance();
             let right = self.expression();
             match operator.token_type {
-                crate::lexer::TokenType::Star => {
+                TokenType::Star => {
                     expr = Expr::new_binary(ExprType::Mul, expr, right);
                 }
-                crate::lexer::TokenType::Slash => {
+                TokenType::Slash => {
                     expr = Expr::new_binary(ExprType::Div, expr, right);
                 }
                 _ => unreachable!(),
@@ -316,17 +313,17 @@ impl Parser {
     fn unary(&mut self) -> Expr {
         let next = self.peek();
         match next.token_type {
-            crate::lexer::TokenType::Ampersand => {
+            TokenType::Ampersand => {
                 self.advance();
                 let right = self.unary();
                 Expr::new_unary(ExprType::AddressOf, right)
             }
-            crate::lexer::TokenType::Minus => {
+            TokenType::Minus => {
                 self.advance();
                 let right = self.unary();
                 Expr::new_unary(ExprType::Neg, right)
             }
-            crate::lexer::TokenType::New => {
+            TokenType::New => {
                 self.advance();
                 let right = self.unary();
                 Expr::new_unary(ExprType::New, right)
@@ -338,7 +335,7 @@ impl Parser {
     /// Parses a power expression (exponentiation).
     fn pow(&mut self) -> Expr {
         let mut expr = self.bool_and();
-        while self.check(crate::lexer::TokenType::DoubleStar) {
+        while self.check(TokenType::DoubleStar) {
             self.advance();
             let right = self.expression();
             expr = Expr::new_binary(ExprType::Pow, expr, right);
@@ -349,7 +346,7 @@ impl Parser {
     /// Parses a boolean AND expression.
     fn bool_and(&mut self) -> Expr {
         let mut expr = self.bool_atom();
-        while self.check(crate::lexer::TokenType::And) {
+        while self.check(TokenType::And) {
             self.advance();
             let right = self.bool_atom();
             expr = Expr::new_binary(ExprType::And, expr, right);
@@ -362,12 +359,12 @@ impl Parser {
         let expr = self.atom();
         let op = self.peek();
         match op.token_type {
-            crate::lexer::TokenType::DoubleEq => {
+            TokenType::DoubleEq => {
                 self.advance();
                 let right = self.atom();
                 Expr::new_binary(ExprType::Eq, expr, right)
             }
-            crate::lexer::TokenType::Neq => {
+            TokenType::Neq => {
                 self.advance();
                 let right = self.atom();
                 Expr::new_binary(ExprType::Neq, expr, right)
@@ -386,7 +383,7 @@ impl Parser {
     /// - A cast operation
     fn atom(&mut self) -> Expr {
         let token = self.peek();
-        if self.check(crate::lexer::TokenType::LParen) {
+        if self.check(TokenType::LParen) {
             let args = self.paren_arglist();
             // in the case of a single expression, we return it directly
             if args.len() == 1 {
@@ -401,63 +398,48 @@ impl Parser {
         } else {
             self.advance();
             match token.token_type {
-                crate::lexer::TokenType::Int => Expr::new_terminal(ExprType::IntegerLiteral, token),
-                crate::lexer::TokenType::Identifier => {
-                    if self.check(crate::lexer::TokenType::LBrace) {
+                TokenType::Int => Expr::new_terminal(ExprType::IntegerLiteral, token),
+                TokenType::Identifier => {
+                    if self.check(TokenType::LBrace) {
                         let brace_args = self.brace_arglist();
                         let paren_args = self.paren_arglist();
                         Expr::new_function_call(Identifier { token }, paren_args, brace_args)
-                    } else if self.check(crate::lexer::TokenType::LParen) {
+                    } else if self.check(TokenType::LParen) {
                         let paren_args = self.paren_arglist();
                         Expr::new_function_call(Identifier { token }, paren_args, vec![])
-                    } else if self.check(crate::lexer::TokenType::LBracket) {
+                    } else if self.check(TokenType::LBracket) {
                         self.advance();
                         let expr = self.expression();
-                        self.consume(
-                            crate::lexer::TokenType::RBracket,
-                            "Expected ']' after expression",
-                        );
+                        self.consume(TokenType::RBracket, "Expected ']' after expression");
                         Expr::new_unary(ExprType::Subscript, expr)
                     } else {
                         Expr::new_identifier(Identifier { token })
                     }
                 }
-                crate::lexer::TokenType::HexInt => {
-                    Expr::new_terminal(ExprType::IntegerLiteral, token)
-                }
-                crate::lexer::TokenType::ShortString => {
-                    Expr::new_terminal(ExprType::IntegerLiteral, token)
-                }
-                crate::lexer::TokenType::NonDet => {
-                    let hint = self.consume(
-                        crate::lexer::TokenType::NonDet,
-                        "Expected hint after nondet",
-                    );
+                TokenType::HexInt => Expr::new_terminal(ExprType::IntegerLiteral, token),
+                TokenType::ShortString => Expr::new_terminal(ExprType::IntegerLiteral, token),
+                TokenType::NonDet => {
+                    let hint = self.consume(TokenType::NonDet, "Expected hint after nondet");
                     Expr::new_terminal(ExprType::Hint, hint)
                 }
-                crate::lexer::TokenType::Ap | crate::lexer::TokenType::Fp => {
-                    Expr::new_terminal(ExprType::Register, token)
-                }
-                crate::lexer::TokenType::LBracket => {
+                TokenType::Ap | TokenType::Fp => Expr::new_terminal(ExprType::Register, token),
+                TokenType::LBracket => {
                     let expr = self.expression();
-                    self.consume(
-                        crate::lexer::TokenType::RBracket,
-                        "Expected ']' after dereferencing",
-                    );
+                    self.consume(TokenType::RBracket, "Expected ']' after dereferencing");
                     Expr::new_unary(ExprType::Deref, expr)
                 }
 
-                crate::lexer::TokenType::Cast => {
-                    self.consume(crate::lexer::TokenType::LParen, "Expected '(' after cast");
+                TokenType::Cast => {
+                    self.consume(TokenType::LParen, "Expected '(' after cast");
                     let expr = self.expression();
-                    self.consume(crate::lexer::TokenType::Comma, "Expected ','");
+                    self.consume(TokenType::Comma, "Expected ','");
                     let type_ = self.type_();
                     println!("type_ is :{:?}", type_.clone());
-                    self.consume(crate::lexer::TokenType::RParen, "Expected ')'");
+                    self.consume(TokenType::RParen, "Expected ')'");
                     Expr::new_cast(type_, expr)
                 }
                 _ => {
-                    crate::error::report_error(
+                    report_error(
                         self.file_name.clone(),
                         self.source.clone(),
                         token.span,
@@ -473,9 +455,9 @@ impl Parser {
     /// Checks if the current token sequence indicates an AP increment operation.
     fn does_increment_ap(&mut self) -> bool {
         let old_current = self.current;
-        if self.match_token(crate::lexer::TokenType::Comma)
-            && self.match_token(crate::lexer::TokenType::Ap)
-            && self.match_token(crate::lexer::TokenType::PlusPlus)
+        if self.match_token(TokenType::Comma)
+            && self.match_token(TokenType::Ap)
+            && self.match_token(TokenType::PlusPlus)
         {
             true
         } else {
@@ -492,14 +474,14 @@ impl Parser {
     /// - Data word declarations
     /// - Assertions
     fn instruction(&mut self) -> Instruction {
-        if self.match_token(crate::lexer::TokenType::Call) {
-            if self.match_token(crate::lexer::TokenType::Rel) {
+        if self.match_token(TokenType::Call) {
+            if self.match_token(TokenType::Rel) {
                 Instruction::new_unary(
                     InstructionType::CallRel,
                     self.expression(),
                     self.does_increment_ap(),
                 )
-            } else if self.match_token(crate::lexer::TokenType::Abs) {
+            } else if self.match_token(TokenType::Abs) {
                 Instruction::new_unary(
                     InstructionType::CallAbs,
                     self.expression(),
@@ -512,10 +494,10 @@ impl Parser {
                     self.does_increment_ap(),
                 )
             }
-        } else if self.match_token(crate::lexer::TokenType::Jmp) {
-            if self.match_token(crate::lexer::TokenType::Rel) {
+        } else if self.match_token(TokenType::Jmp) {
+            if self.match_token(TokenType::Rel) {
                 let expr = self.expression();
-                if self.match_token(crate::lexer::TokenType::If) {
+                if self.match_token(TokenType::If) {
                     let condition = self.expression();
                     // jump rel if
                     Instruction::new_binary(
@@ -528,13 +510,13 @@ impl Parser {
                     // jump rel
                     Instruction::new_unary(InstructionType::JmpRel, expr, self.does_increment_ap())
                 }
-            } else if self.match_token(crate::lexer::TokenType::Abs) {
+            } else if self.match_token(TokenType::Abs) {
                 let expr = self.expression();
                 // jump abs
                 Instruction::new_unary(InstructionType::JmpAbs, expr, self.does_increment_ap())
             } else {
                 let ident = self.identifier();
-                if self.match_token(crate::lexer::TokenType::If) {
+                if self.match_token(TokenType::If) {
                     let condition = self.expression();
                     // jump if
                     Instruction::new_jmp_label_if(
@@ -552,16 +534,16 @@ impl Parser {
                     )
                 }
             }
-        } else if self.match_token(crate::lexer::TokenType::Ret) {
+        } else if self.match_token(TokenType::Ret) {
             Instruction::new_ret(self.does_increment_ap())
-        } else if self.match_token(crate::lexer::TokenType::Ap) {
-            self.consume(crate::lexer::TokenType::PlusEq, "Expected '+=' after ap");
+        } else if self.match_token(TokenType::Ap) {
+            self.consume(TokenType::PlusEq, "Expected '+=' after ap");
             Instruction::new_unary(
                 InstructionType::AddAp,
                 self.expression(),
                 self.does_increment_ap(),
             )
-        } else if self.match_token(crate::lexer::TokenType::Dw) {
+        } else if self.match_token(TokenType::Dw) {
             Instruction::new_unary(
                 InstructionType::DataWord,
                 self.expression(),
@@ -569,7 +551,7 @@ impl Parser {
             )
         } else {
             let left = self.expression();
-            self.consume(crate::lexer::TokenType::Equal, "Expected '=' in assertion");
+            self.consume(TokenType::Equal, "Expected '=' in assertion");
             let right = self.expression();
             Instruction::new_binary(
                 InstructionType::AssertEq,
@@ -583,15 +565,15 @@ impl Parser {
     /// Parses a list of identifiers enclosed in parentheses.
     fn identifier_list_paren(&mut self) -> Vec<Identifier> {
         let mut identifiers = Vec::new();
-        self.consume(crate::lexer::TokenType::LParen, "Expected '('");
-        while !self.check(crate::lexer::TokenType::RParen) {
+        self.consume(TokenType::LParen, "Expected '('");
+        while !self.check(TokenType::RParen) {
             identifiers.push(self.identifier());
-            if !self.check(crate::lexer::TokenType::Comma) {
+            if !self.check(TokenType::Comma) {
                 break;
             }
             self.advance();
         }
-        self.consume(crate::lexer::TokenType::RParen, "Expected ')'");
+        self.consume(TokenType::RParen, "Expected ')'");
         identifiers
     }
 
@@ -606,107 +588,83 @@ impl Parser {
     fn code_element(&mut self) -> CodeElement {
         let token = self.peek();
         match token.token_type {
-            crate::lexer::TokenType::If => {
+            TokenType::If => {
                 self.advance();
-                self.consume(crate::lexer::TokenType::LParen, "Expected '(' after if");
+                self.consume(TokenType::LParen, "Expected '(' after if");
                 let cond = self.expression();
-                self.consume(crate::lexer::TokenType::RParen, "Expected ')' after if");
-                self.consume(crate::lexer::TokenType::LBrace, "Expected '{' after if");
+                self.consume(TokenType::RParen, "Expected ')' after if");
+                self.consume(TokenType::LBrace, "Expected '{' after if");
                 let mut body = Vec::new();
-                while !self.check(crate::lexer::TokenType::RBrace) {
+                while !self.check(TokenType::RBrace) {
                     body.push(self.code_element());
                 }
-                self.consume(crate::lexer::TokenType::RBrace, "Expected '}' after if");
-                if self.match_token(crate::lexer::TokenType::Else) {
-                    self.consume(crate::lexer::TokenType::LBrace, "Expected '{' after else");
+                self.consume(TokenType::RBrace, "Expected '}' after if");
+                if self.match_token(TokenType::Else) {
+                    self.consume(TokenType::LBrace, "Expected '{' after else");
                     let mut else_body = Vec::new();
-                    while !self.check(crate::lexer::TokenType::RBrace) {
+                    while !self.check(TokenType::RBrace) {
                         else_body.push(self.code_element());
                     }
-                    self.consume(crate::lexer::TokenType::RBrace, "Expected '}' after else");
+                    self.consume(TokenType::RBrace, "Expected '}' after else");
                     CodeElement::If(cond, body, else_body)
                 } else {
                     CodeElement::If(cond, body, vec![])
                 }
             }
 
-            crate::lexer::TokenType::Func => {
+            TokenType::Func => {
                 self.advance();
                 let ident = self.identifier();
 
                 let args = self.identifier_list_paren();
 
-                self.consume(
-                    crate::lexer::TokenType::LBrace,
-                    "Expected '{' after function",
-                );
+                self.consume(TokenType::LBrace, "Expected '{' after function");
                 let mut body = Vec::new();
-                while !self.check(crate::lexer::TokenType::RBrace) {
+                while !self.check(TokenType::RBrace) {
                     body.push(self.code_element());
                 }
-                self.consume(
-                    crate::lexer::TokenType::RBrace,
-                    "Expected '}' after function",
-                );
+                self.consume(TokenType::RBrace, "Expected '}' after function");
                 CodeElement::Function(ident, args, body)
             }
 
-            crate::lexer::TokenType::Local => {
+            TokenType::Local => {
                 self.advance();
                 let ident = self.identifier();
-                if self.match_token(crate::lexer::TokenType::Equal) {
+                if self.match_token(TokenType::Equal) {
                     let expr = self.expression();
-                    self.consume(
-                        crate::lexer::TokenType::Semicolon,
-                        "Expected ';' after local",
-                    );
+                    self.consume(TokenType::Semicolon, "Expected ';' after local");
                     CodeElement::LocalVar(ident, Some(expr))
                 } else {
-                    self.consume(
-                        crate::lexer::TokenType::Semicolon,
-                        "Expected ';' after local",
-                    );
+                    self.consume(TokenType::Semicolon, "Expected ';' after local");
                     CodeElement::LocalVar(ident, None)
                 }
             }
 
-            crate::lexer::TokenType::Assert => {
+            TokenType::Assert => {
                 self.advance();
                 let left = self.expression();
-                self.consume(crate::lexer::TokenType::Equal, "Expected '=' after assert");
+                self.consume(TokenType::Equal, "Expected '=' after assert");
                 let right = self.expression();
-                self.consume(
-                    crate::lexer::TokenType::Semicolon,
-                    "Expected ';' after static assert",
-                );
+                self.consume(TokenType::Semicolon, "Expected ';' after static assert");
                 CodeElement::CompoundAssertEqual(left, right)
             }
 
-            crate::lexer::TokenType::Return => {
+            TokenType::Return => {
                 self.advance();
                 let expr = self.expression();
-                self.consume(
-                    crate::lexer::TokenType::Semicolon,
-                    "Expected ';' after return",
-                );
+                self.consume(TokenType::Semicolon, "Expected ';' after return");
                 CodeElement::Return(expr)
             }
 
-            crate::lexer::TokenType::AllocLocals => {
+            TokenType::AllocLocals => {
                 self.advance();
-                self.consume(
-                    crate::lexer::TokenType::Semicolon,
-                    "Expected ';' after alloc_locals",
-                );
+                self.consume(TokenType::Semicolon, "Expected ';' after alloc_locals");
                 CodeElement::AllocLocals
             }
 
             _ => {
                 let instr = self.instruction();
-                self.consume(
-                    crate::lexer::TokenType::Semicolon,
-                    "Expected ';' after instruction",
-                );
+                self.consume(TokenType::Semicolon, "Expected ';' after instruction");
                 CodeElement::Instruction(instr)
             }
         }
