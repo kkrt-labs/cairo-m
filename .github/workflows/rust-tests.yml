@@ -35,7 +35,7 @@ jobs:
           cache-on-failure: "true"
 
       - name: Build ${{ matrix.crate }}
-        run: cargo build --workspace --all-features -p ${{ matrix.crate }}
+        run: cargo build -p ${{ matrix.crate }}
 
       - name: Run tests for ${{ matrix.crate }}
-        run: cargo test --workspace --all-features -p ${{ matrix.crate }}
+        run: cargo test -p ${{ matrix.crate }}
