@@ -378,11 +378,11 @@ impl Compiler {
             }
             ExprType::Eq => {
                 // in the case of an equality, the structure of the assembly is as follows:
-                // jz <if_label>
-                // <else_body>
+                // jnz <else_label>
+                // <if_body>
                 // jmp <end_label>
-                // <if_label>
-                // <body>
+                // <else_label>
+                // <else_body>
                 // <end_label>
                 let offset = self.compile_expr(Expr::new_binary(
                     ExprType::Sub,
