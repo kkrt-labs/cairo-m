@@ -5,7 +5,7 @@
 //! and supports basic arithmetic operations, control flow, and function calls.
 //!
 //! Architecture:
-//! - Memory: Linear array of 32-bit words
+//! - Memory: Dynamic array of 32-bit words that grows as needed
 //! - Registers: Program Counter (PC) and Frame Pointer (FP)
 //! - Stack: Grows upward from the end of the program
 //!
@@ -35,7 +35,7 @@ pub struct MiniVm {
     pub pc: u32,
     /// Frame Pointer: Points to the current stack frame
     pub fp: u32,
-    /// Memory: Array of 32-bit words containing both program and stack
+    /// Memory: Dynamic array of 32-bit words containing both program and stack
     pub mem: Vec<u32>,
     /// Exit flag: Set to true when the program should terminate
     pub exit: bool,
@@ -49,10 +49,33 @@ impl MiniVm {
         Self {
             pc: 0,
             fp: 0,
-            mem: vec![0; 512],
+            mem: Vec::new(),
             exit: false,
             program_size: 0,
         }
+    }
+
+    /// Ensures memory is large enough for the given address and returns a mutable reference.
+    /// If the address is beyond current memory size, memory is extended with zeros.
+    fn ensure_memory(&mut self, addr: usize) -> &mut u32 {
+        if addr >= self.mem.len() {
+            self.mem.resize(addr + 1, 0);
+        }
+        &mut self.mem[addr]
+    }
+
+    /// Gets a value from memory, extending memory if needed.
+    fn get_memory(&mut self, addr: usize) -> u32 {
+        if addr >= self.mem.len() {
+            println!("Warning: Reading uninitialized memory at address {}", addr);
+        }
+        self.mem[addr]
+    }
+
+    /// Sets a value in memory, extending memory if needed.
+    fn set_memory(&mut self, addr: usize, value: u32) {
+        self.ensure_memory(addr);
+        self.mem[addr] = value;
     }
 
     /// Loads a program into VM memory and initializes the frame pointer.
@@ -60,6 +83,8 @@ impl MiniVm {
     /// The program is copied to the beginning of memory, and the frame pointer
     /// is set to the end of the program, where the stack will begin.
     pub fn load_program(&mut self, program: Vec<u32>) {
+        // Ensure memory is large enough for the program
+        self.mem.resize(program.len(), 0);
         // Copy program to beginning of memory
         for (i, &instruction) in program.iter().enumerate() {
             self.mem[i] = instruction;
@@ -75,8 +100,7 @@ impl MiniVm {
     /// - An unknown instruction is encountered
     pub fn run(&mut self) {
         while !self.exit {
-            let instr = self.mem[self.pc as usize];
-            //println!("pc: {}, instr: {}", self.pc, instr);
+            let instr = self.get_memory(self.pc as usize);
             match instr {
                 0 => self.mov_fp_fp(),
                 1 => self.mov_fp_imm(),
@@ -102,8 +126,8 @@ impl MiniVm {
     ///
     /// Arguments are stored as signed offsets from 0x8000 to allow for both
     /// positive and negative frame pointer offsets.
-    fn get_arg(&self, offset: u32) -> i32 {
-        let arg = self.mem[(self.pc + offset) as usize];
+    fn get_arg(&mut self, offset: u32) -> i32 {
+        let arg = self.get_memory((self.pc + offset) as usize);
         (arg as i32) - 0x8000
     }
 
@@ -113,7 +137,8 @@ impl MiniVm {
     fn mov_fp_fp(&mut self) {
         let offdst = self.get_arg(1);
         let offop0 = self.get_arg(2);
-        self.mem[(self.fp as i32 + offdst) as usize] = self.mem[(self.fp as i32 + offop0) as usize];
+        let src_value = self.get_memory((self.fp as i32 + offop0) as usize);
+        self.set_memory((self.fp as i32 + offdst) as usize, src_value);
         self.pc += 4;
     }
 
@@ -123,7 +148,7 @@ impl MiniVm {
     fn mov_fp_imm(&mut self) {
         let offdst = self.get_arg(1);
         let imm = self.get_arg(2);
-        self.mem[(self.fp as i32 + offdst) as usize] = imm as u32;
+        self.set_memory((self.fp as i32 + offdst) as usize, imm as u32);
         self.pc += 4;
     }
 
@@ -134,8 +159,9 @@ impl MiniVm {
         let offdst = self.get_arg(1);
         let offop0 = self.get_arg(2);
         let offop1 = self.get_arg(3);
-        self.mem[(self.fp as i32 + offdst) as usize] = self.mem[(self.fp as i32 + offop0) as usize]
-            + self.mem[(self.fp as i32 + offop1) as usize];
+        let src1 = self.get_memory((self.fp as i32 + offop0) as usize);
+        let src2 = self.get_memory((self.fp as i32 + offop1) as usize);
+        self.set_memory((self.fp as i32 + offdst) as usize, src1 + src2);
         self.pc += 4;
     }
 
@@ -146,8 +172,8 @@ impl MiniVm {
         let offdst = self.get_arg(1);
         let offop0 = self.get_arg(2);
         let imm = self.get_arg(3);
-        self.mem[(self.fp as i32 + offdst) as usize] =
-            self.mem[(self.fp as i32 + offop0) as usize] + imm as u32;
+        let src = self.get_memory((self.fp as i32 + offop0) as usize);
+        self.set_memory((self.fp as i32 + offdst) as usize, src + imm as u32);
         self.pc += 4;
     }
 
@@ -158,8 +184,9 @@ impl MiniVm {
         let offdst = self.get_arg(1);
         let offop0 = self.get_arg(2);
         let offop1 = self.get_arg(3);
-        self.mem[(self.fp as i32 + offdst) as usize] = self.mem[(self.fp as i32 + offop0) as usize]
-            - self.mem[(self.fp as i32 + offop1) as usize];
+        let src1 = self.get_memory((self.fp as i32 + offop0) as usize);
+        let src2 = self.get_memory((self.fp as i32 + offop1) as usize);
+        self.set_memory((self.fp as i32 + offdst) as usize, src1 - src2);
         self.pc += 4;
     }
 
@@ -170,8 +197,8 @@ impl MiniVm {
         let offdst = self.get_arg(1);
         let offop0 = self.get_arg(2);
         let imm = self.get_arg(3);
-        self.mem[(self.fp as i32 + offdst) as usize] =
-            self.mem[(self.fp as i32 + offop0) as usize] - imm as u32;
+        let src = self.get_memory((self.fp as i32 + offop0) as usize);
+        self.set_memory((self.fp as i32 + offdst) as usize, src - imm as u32);
         self.pc += 4;
     }
 
@@ -182,8 +209,9 @@ impl MiniVm {
         let offdst = self.get_arg(1);
         let offop0 = self.get_arg(2);
         let offop1 = self.get_arg(3);
-        self.mem[(self.fp as i32 + offdst) as usize] = self.mem[(self.fp as i32 + offop0) as usize]
-            * self.mem[(self.fp as i32 + offop1) as usize];
+        let src1 = self.get_memory((self.fp as i32 + offop0) as usize);
+        let src2 = self.get_memory((self.fp as i32 + offop1) as usize);
+        self.set_memory((self.fp as i32 + offdst) as usize, src1 * src2);
         self.pc += 4;
     }
 
@@ -194,8 +222,8 @@ impl MiniVm {
         let offdst = self.get_arg(1);
         let offop0 = self.get_arg(2);
         let imm = self.get_arg(3);
-        self.mem[(self.fp as i32 + offdst) as usize] =
-            self.mem[(self.fp as i32 + offop0) as usize] * imm as u32;
+        let src = self.get_memory((self.fp as i32 + offop0) as usize);
+        self.set_memory((self.fp as i32 + offdst) as usize, src * imm as u32);
         self.pc += 4;
     }
 
@@ -221,7 +249,7 @@ impl MiniVm {
     fn jmp_abs_if_neq(&mut self) {
         let address = self.get_arg(1);
         let offset = self.get_arg(2);
-        if self.mem[(self.fp as i32 + offset) as usize] != 0 {
+        if self.get_memory((self.fp as i32 + offset) as usize) != 0 {
             self.pc = address as u32;
         } else {
             self.pc += 4;
@@ -234,7 +262,7 @@ impl MiniVm {
     fn jmp_rel_if_neq(&mut self) {
         let offset = self.get_arg(1);
         let check_offset = self.get_arg(2);
-        if self.mem[(self.fp as i32 + check_offset) as usize] != 0 {
+        if self.get_memory((self.fp as i32 + check_offset) as usize) != 0 {
             self.pc = self.pc.wrapping_add(offset as u32);
         } else {
             self.pc += 4;
@@ -253,9 +281,9 @@ impl MiniVm {
         let offset = self.get_arg(1);
         let frame_size = self.get_arg(2);
         // push old fp
-        self.mem[(self.fp as i32 + frame_size) as usize] = self.fp;
+        self.set_memory((self.fp as i32 + frame_size) as usize, self.fp);
         // push return address
-        self.mem[(self.fp as i32 + frame_size + 1) as usize] = self.pc + 4;
+        self.set_memory((self.fp as i32 + frame_size + 1) as usize, self.pc + 4);
         // set new fp
         self.fp = self.fp + frame_size as u32 + 2;
         // jump to function (relative)
@@ -276,9 +304,9 @@ impl MiniVm {
         let address = self.get_arg(1);
         let frame_size = self.get_arg(2);
         // frame size + 0 is reserved for return value
-        self.mem[(self.fp as i32 + frame_size + 1) as usize] = self.fp;
+        self.set_memory((self.fp as i32 + frame_size + 1) as usize, self.fp);
         // push return address
-        self.mem[(self.fp as i32 + frame_size + 2) as usize] = self.pc + 4;
+        self.set_memory((self.fp as i32 + frame_size + 2) as usize, self.pc + 4);
         // set new fp
         self.fp = self.fp + frame_size as u32 + 3;
         // jump to function (absolute)
@@ -299,9 +327,9 @@ impl MiniVm {
             return;
         }
         // pop return adress
-        let return_addr = self.mem[(self.fp - 1) as usize];
+        let return_addr = self.get_memory((self.fp - 1) as usize);
         // pop old fp
-        self.fp = self.mem[(self.fp - 2) as usize];
+        self.fp = self.get_memory((self.fp - 2) as usize);
         // jump to return address
         self.pc = return_addr;
     }
