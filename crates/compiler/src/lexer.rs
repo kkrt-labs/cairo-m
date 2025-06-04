@@ -153,10 +153,6 @@ pub enum TokenType {
     #[token("else")]
     Else,
 
-    // Cairo file
-    // #[token("\n")]
-    // Newline,
-
     // Code elements
     #[token(";")]
     Semicolon,

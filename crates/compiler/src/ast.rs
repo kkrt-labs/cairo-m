@@ -415,7 +415,7 @@ impl Expr {
             }
 
             // Print args if present
-            for (i, arg) in self.paren_args.iter().enumerate() {
+            for (_i, arg) in self.paren_args.iter().enumerate() {
                 arg.fmt_with_indent(f, indent + 1)?;
                 writeln!(f)?;
             }

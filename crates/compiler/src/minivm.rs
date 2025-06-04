@@ -76,6 +76,7 @@ impl MiniVm {
     pub fn run(&mut self) {
         while !self.exit {
             let instr = self.mem[self.pc as usize];
+            //println!("pc: {}, instr: {}", self.pc, instr);
             match instr {
                 0 => self.mov_fp_fp(),
                 1 => self.mov_fp_imm(),
@@ -203,8 +204,7 @@ impl MiniVm {
     /// Format: jmp_abs address
     fn jmp_abs(&mut self) {
         let address = self.get_arg(1);
-        self.pc = address as u32 - 4;
-        self.pc += 4;
+        self.pc = address as u32;
     }
 
     /// Performs a relative jump by adding an offset to the program counter.
@@ -223,6 +223,8 @@ impl MiniVm {
         let offset = self.get_arg(2);
         if self.mem[(self.fp as i32 + offset) as usize] != 0 {
             self.pc = address as u32;
+        } else {
+            self.pc += 4;
         }
     }
 
@@ -234,6 +236,8 @@ impl MiniVm {
         let check_offset = self.get_arg(2);
         if self.mem[(self.fp as i32 + check_offset) as usize] != 0 {
             self.pc = self.pc.wrapping_add(offset as u32);
+        } else {
+            self.pc += 4;
         }
     }
 

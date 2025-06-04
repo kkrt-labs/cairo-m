@@ -24,6 +24,7 @@ mod parser;
 use assembler::Assembler;
 use lexer::lex;
 use lower_to_casm::Compiler;
+use minivm::MiniVm;
 use parser::Parser;
 
 /// Runs the complete compilation pipeline on the given source code.
@@ -53,6 +54,11 @@ fn run(input: &str, file_name: &str) {
         println!("{} {}", i * 4, instruction);
     }
     println!("{}", assembler.to_json());
+
+    let mut vm = MiniVm::new();
+    vm.load_program(assembler.to_bytes());
+    vm.run();
+    vm.print_mem();
 }
 
 /// Reads and compiles a source file.

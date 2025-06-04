@@ -1,13 +1,13 @@
-func main(){
-   return fib(7, 0, 1);
+func main() {
+    return fib(7);
 }
 
-func fib(n, a, b) {
+func fib(n) {
     if (n == 0) {
-        return a;
+        return 0;
     }
     if (n == 1) {
-        return b;
+        return 1;
     }
-    return fib(n - 1, b, a + b);
+    return fib(n - 1) + fib(n - 2);
 }

@@ -148,7 +148,7 @@ impl Compiler {
         for arg in expr.paren_args {
             match arg {
                 ExprAssignment::Expr(expr) => arg_offsets.push(self.compile_expr(expr)),
-                ExprAssignment::Assign(ident, expr) => todo!(),
+                ExprAssignment::Assign(_ident, _expr) => todo!(),
             };
         }
 
@@ -236,7 +236,7 @@ impl Compiler {
         // counting number of local declarations
         for code_element in body.clone() {
             match code_element {
-                CodeElement::LocalVar(ident, expr) => {
+                CodeElement::LocalVar(_ident, _expr) => {
                     self.fp_offset += 1;
                 }
                 _ => {}

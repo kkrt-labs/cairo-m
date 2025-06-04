@@ -15,7 +15,7 @@
 //! - Control Flow: Absolute and relative jumps, conditional jumps, and function calls
 //! - Labels: Mark locations in the code for jumps and calls
 
-use std::fmt::{self, Debug, Display};
+use std::fmt::{self, Display};
 
 /// Represents the different types of Cairo-M assembly instructions.
 ///

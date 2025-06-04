@@ -5,7 +5,7 @@
 //! for jumps and function calls.
 
 use crate::casm::*;
-use serde_json::{json, Value};
+use serde_json::json;
 use std::collections::HashMap;
 
 /// The main assembler struct for converting CASM instructions to bytecode.
