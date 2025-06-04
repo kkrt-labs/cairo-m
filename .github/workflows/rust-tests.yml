@@ -16,7 +16,7 @@ env:
 
 jobs:
   test:
-    name: Test ${{ matrix.crate }}
+    name: ${{ matrix.crate }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
