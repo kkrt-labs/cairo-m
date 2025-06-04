@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        crate: [compiler, runner, prover]
+        crate: [cairo-m-compiler, cairo-m-runner, cairo-m-prover]
 
     steps:
       - uses: actions/checkout@v4
