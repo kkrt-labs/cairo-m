@@ -25,11 +25,9 @@ pub enum TokenType {
     #[regex("[0-9]+")]
     Int,
 
-    #[regex(r"[a-zA-Z_][a-zA-Z_0-9]*(\.[a-zA-Z_][a-zA-Z_0-9]*)*")]
+    #[regex(r"[a-zA-Z_][a-zA-Z_0-9]*")]
     Identifier,
 
-    #[token("++")]
-    PlusPlus,
     #[token("==")]
     DoubleEq,
     #[token("!=")]
