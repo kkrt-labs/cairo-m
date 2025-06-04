@@ -1,5 +1,5 @@
 func main() {
-    return fib(7);
+    return fib(11);
 }
 
 func fib(n) {
