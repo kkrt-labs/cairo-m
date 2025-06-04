@@ -88,13 +88,13 @@ impl Compiler {
         let instr = CasmInstruction {
             instruction_type: CasmInstructionType::AddFpFp,
             label: None,
-            arg0: self.fp_offset as i32,
+            arg0: left_offset as i32,
             arg1: left_offset as i32,
             arg2: right_offset as i32,
         };
         self.casm_instructions.push(instr);
-        self.fp_offset += 1;
-        return self.fp_offset - 1;
+        self.fp_offset = left_offset + 1;
+        return left_offset;
     }
 
     /// Compile a subtraction expression.
@@ -107,13 +107,13 @@ impl Compiler {
         let instr = CasmInstruction {
             instruction_type: CasmInstructionType::SubFpFp,
             label: None,
-            arg0: self.fp_offset as i32,
+            arg0: left_offset as i32,
             arg1: left_offset as i32,
             arg2: right_offset as i32,
         };
         self.casm_instructions.push(instr);
-        self.fp_offset += 1;
-        return self.fp_offset - 1;
+        self.fp_offset = left_offset + 1;
+        return left_offset;
     }
 
     /// Compile a multiplication expression.
@@ -126,13 +126,13 @@ impl Compiler {
         let instr = CasmInstruction {
             instruction_type: CasmInstructionType::MulFpFp,
             label: None,
-            arg0: self.fp_offset as i32,
+            arg0: left_offset as i32,
             arg1: left_offset as i32,
             arg2: right_offset as i32,
         };
         self.casm_instructions.push(instr);
-        self.fp_offset += 1;
-        return self.fp_offset - 1;
+        self.fp_offset = left_offset + 1;
+        return left_offset;
     }
 
     /// Compile a function call expression.
