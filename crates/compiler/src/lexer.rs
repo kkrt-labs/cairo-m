@@ -1,3 +1,13 @@
+//! Cairo-M Lexer Module
+//!
+//! This module implements a lexical analyzer (lexer) for the Cairo-M language.
+//! The lexer converts source code into a sequence of tokens that can be processed
+//! by the parser.
+//!
+//! This lexer currently supports the entirety of the Cairo0 syntax as defined here:
+//! https://docs.cairo-lang.org/cairozero/
+//! The parser and compiler are not complete yet.
+
 use ariadne::{Color, Label, Report, ReportKind, Source};
 use logos::Logos;
 
@@ -171,6 +181,33 @@ pub enum TokenType {
     Error,
 }
 
+/// Lexical analysis function that converts source code into a sequence of tokens.
+///
+/// This function processes the input source code character by character, identifying
+/// tokens according to the Cairo-M language grammar. It handles error reporting
+/// and maintains source location information for each token.
+///
+/// # Arguments
+/// * `input` - The source code string to tokenize
+/// * `file_name` - Name of the source file (used for error reporting)
+///
+/// # Returns
+/// A tuple containing:
+/// * `Vec<Token>` - The sequence of tokens found in the source code
+/// * `u32` - The number of lexical errors encountered
+///
+/// # Error Handling
+/// * Unknown tokens are reported using Ariadne's error reporting system
+/// * Each error includes the source location and the problematic token
+/// * The function continues processing after errors to find all tokens
+/// * The error count is returned to allow the caller to handle errors appropriately
+///
+/// # Example
+/// ```
+/// let source = "func main() { return 42; }";
+/// let (tokens, error_count) = lex(source, "main.cairo");
+/// assert_eq!(error_count, 0);
+/// ```
 pub fn lex(input: &str, file_name: &str) -> (Vec<Token>, u32) {
     let mut error_counter = 0;
     let mut lex = TokenType::lexer(input);

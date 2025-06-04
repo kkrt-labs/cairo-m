@@ -1,14 +1,46 @@
-use crate::ast::*;
-use crate::lexer::Token;
+//! Cairo-M Parser Module
+//!
+//! This module implements a recursive descent parser for the Cairo-M language.
+//! The parser converts a stream of tokens into an Abstract Syntax Tree (AST)
+//! that represents the program's structure.
+//!
+//! The parser follows Cairo's syntax rules and supports:
+//! - Function definitions and calls
+//! - Control flow statements (if/else)
+//! - Local variable declarations
+//! - Arithmetic and logical expressions
+//! - Pointer operations
+//! - Type annotations
+//! - Assertions and returns
+//!
+//! The parser is currently incomplete and does not support all features of Cairo-0.
 
+use crate::ast::*;
+use crate::lexer::*;
+
+/// A recursive descent parser for Cairo-M source code.
+///
+/// The parser maintains its current position in the token stream and provides
+/// methods for parsing different language constructs. It handles error reporting
+/// and builds an AST representation of the program.
 pub struct Parser {
+    /// The complete list of tokens to parse
     tokens: Vec<Token>,
+    /// Current position in the token stream
     current: usize,
+    /// Original source code for error reporting
     source: String,
+    /// Name of the file being parsed for error reporting
     file_name: String,
 }
 
 impl Parser {
+    /// Creates a new parser instance with the given tokens and source information.
+    ///
+    /// # Arguments
+    /// * `tokens` - Vector of tokens to parse
+    /// * `file_name` - Name of the source file
+    /// * `source` - Original source code
     pub fn new(tokens: Vec<Token>, file_name: String, source: String) -> Self {
         Self {
             tokens,
@@ -18,6 +50,8 @@ impl Parser {
         }
     }
 
+    /// Attempts to match and consume the current token if it matches the expected type.
+    /// Returns true if the token was matched and consumed, false otherwise.
     fn match_token(&mut self, token_type: crate::lexer::TokenType) -> bool {
         if self.check(token_type) {
             self.advance();
@@ -26,6 +60,7 @@ impl Parser {
         false
     }
 
+    /// Checks if the current token matches the expected type without consuming it.
     fn check(&mut self, token_type: crate::lexer::TokenType) -> bool {
         if self.is_at_end() {
             return false;
@@ -33,23 +68,32 @@ impl Parser {
         self.peek().token_type == token_type
     }
 
+    /// Returns true if we've reached the end of the token stream.
     fn is_at_end(&mut self) -> bool {
         self.peek().token_type == crate::lexer::TokenType::EOF
     }
 
+    /// Advances the parser to the next token and returns the consumed token.
     fn advance(&mut self) -> crate::lexer::Token {
         self.current += 1;
         self.tokens[self.current - 1].clone()
     }
 
+    /// Returns the current token without consuming it.
     fn peek(&mut self) -> crate::lexer::Token {
         self.tokens[self.current].clone()
     }
 
+    /// Returns the next token without consuming it.
     fn peekpeek(&mut self) -> crate::lexer::Token {
         self.tokens[self.current + 1].clone()
     }
 
+    /// Consumes the current token if it matches the expected type, otherwise reports an error.
+    ///
+    /// # Arguments
+    /// * `token_type` - The expected token type
+    /// * `message` - Error message to display if the token doesn't match
     fn consume(&mut self, token_type: crate::lexer::TokenType, message: &str) -> Token {
         if self.check(token_type) {
             self.advance()
@@ -70,6 +114,9 @@ impl Parser {
         }
     }
 
+    /// Parses the entire token stream into a vector of code elements.
+    ///
+    /// This is the main entry point for parsing a complete program.
     pub fn parse(&mut self) -> Vec<CodeElement> {
         let mut code_elements = Vec::new();
         while !self.is_at_end() {
@@ -78,10 +125,13 @@ impl Parser {
         code_elements
     }
 
+    /// Parses a type expression, which can be a pointer type or a base type.
     fn type_(&mut self) -> Type {
         self.pointer()
     }
 
+    /// Parses a named type, which can be an identifier followed by a colon and type,
+    /// or just a pointer type.
     fn named_type(&mut self) -> Type {
         if self.peek().token_type == crate::lexer::TokenType::Identifier {
             if self.peekpeek().token_type == crate::lexer::TokenType::Colon {
@@ -97,6 +147,7 @@ impl Parser {
         }
     }
 
+    /// Parses a pointer type, which can be a base type followed by one or two asterisks.
     fn pointer(&mut self) -> Type {
         let type_ = self.type_atom();
         if self.check(crate::lexer::TokenType::Star) {
@@ -110,6 +161,7 @@ impl Parser {
         }
     }
 
+    /// Parses a list of types enclosed in parentheses, separated by commas.
     fn paren_type_list(&mut self) -> Vec<Type> {
         let mut args = Vec::new();
         self.consume(crate::lexer::TokenType::LParen, "Expected '('");
@@ -124,6 +176,11 @@ impl Parser {
         args
     }
 
+    /// Parses an atomic type, which can be:
+    /// - A felt type
+    /// - A code offset type
+    /// - A struct type (identifier)
+    /// - A tuple type (parenthesized list of types)
     fn type_atom(&mut self) -> Type {
         let token = self.peek();
         match token.token_type {
@@ -153,15 +210,19 @@ impl Parser {
         }
     }
 
+    /// Parses an identifier token and returns an Identifier struct.
     fn identifier(&mut self) -> Identifier {
         let token = self.consume(crate::lexer::TokenType::Identifier, "Expected identifier");
         Identifier { token }
     }
 
+    /// Parses an expression, starting with the lowest precedence level (sum).
     fn expression(&mut self) -> Expr {
         self.sum()
     }
 
+    /// Parses an assignment expression or a regular expression.
+    /// Handles both variable assignments and regular expressions.
     fn expr_assignment(&mut self) -> ExprAssignment {
         let expr = self.expression();
         if let ExprType::Identifier = expr.expr_type {
@@ -178,6 +239,7 @@ impl Parser {
         }
     }
 
+    /// Parses a list of expressions separated by commas.
     fn arglist(&mut self) -> Vec<ExprAssignment> {
         let mut args = Vec::new();
         while !self.check(crate::lexer::TokenType::RParen) {
@@ -190,6 +252,7 @@ impl Parser {
         args
     }
 
+    /// Parses a parenthesized list of expressions.
     fn paren_arglist(&mut self) -> Vec<ExprAssignment> {
         self.consume(crate::lexer::TokenType::LParen, "Expected '('");
         let args = self.arglist();
@@ -197,6 +260,7 @@ impl Parser {
         args
     }
 
+    /// Parses a brace-enclosed list of expressions.
     fn brace_arglist(&mut self) -> Vec<ExprAssignment> {
         self.consume(crate::lexer::TokenType::LBrace, "Expected '{'");
         let args = self.arglist();
@@ -204,6 +268,8 @@ impl Parser {
         args
     }
 
+    /// Parses a sum expression (addition and subtraction).
+    /// Handles operator precedence for + and - operators.
     fn sum(&mut self) -> Expr {
         let mut expr = self.product();
         while self.check(crate::lexer::TokenType::Plus)
@@ -224,6 +290,8 @@ impl Parser {
         expr
     }
 
+    /// Parses a product expression (multiplication and division).
+    /// Handles operator precedence for * and / operators.
     fn product(&mut self) -> Expr {
         let mut expr = self.unary();
         while self.check(crate::lexer::TokenType::Star)
@@ -244,6 +312,7 @@ impl Parser {
         expr
     }
 
+    /// Parses a unary expression (address-of, negation, or new).
     fn unary(&mut self) -> Expr {
         let next = self.peek();
         match next.token_type {
@@ -266,6 +335,7 @@ impl Parser {
         }
     }
 
+    /// Parses a power expression (exponentiation).
     fn pow(&mut self) -> Expr {
         let mut expr = self.bool_and();
         while self.check(crate::lexer::TokenType::DoubleStar) {
@@ -276,6 +346,7 @@ impl Parser {
         expr
     }
 
+    /// Parses a boolean AND expression.
     fn bool_and(&mut self) -> Expr {
         let mut expr = self.bool_atom();
         while self.check(crate::lexer::TokenType::And) {
@@ -286,6 +357,7 @@ impl Parser {
         expr
     }
 
+    /// Parses a boolean atom (equality or inequality comparison).
     fn bool_atom(&mut self) -> Expr {
         let expr = self.atom();
         let op = self.peek();
@@ -304,6 +376,14 @@ impl Parser {
         }
     }
 
+    /// Parses an atomic expression, which can be:
+    /// - A parenthesized expression
+    /// - A literal (integer, hex, string)
+    /// - An identifier
+    /// - A function call
+    /// - A register reference (ap/fp)
+    /// - A dereference operation
+    /// - A cast operation
     fn atom(&mut self) -> Expr {
         let token = self.peek();
         if self.check(crate::lexer::TokenType::LParen) {
@@ -390,6 +470,7 @@ impl Parser {
         }
     }
 
+    /// Checks if the current token sequence indicates an AP increment operation.
     fn does_increment_ap(&mut self) -> bool {
         let old_current = self.current;
         if self.match_token(crate::lexer::TokenType::Comma)
@@ -403,6 +484,13 @@ impl Parser {
         }
     }
 
+    /// Parses a Cairo-M instruction, which can be:
+    /// - Call instructions (call, call_rel, call_abs)
+    /// - Jump instructions (jmp, jmp_rel, jmp_abs, jnz)
+    /// - Return instructions
+    /// - AP manipulation
+    /// - Data word declarations
+    /// - Assertions
     fn instruction(&mut self) -> Instruction {
         if self.match_token(crate::lexer::TokenType::Call) {
             if self.match_token(crate::lexer::TokenType::Rel) {
@@ -492,6 +580,7 @@ impl Parser {
         }
     }
 
+    /// Parses a list of identifiers enclosed in parentheses.
     fn identifier_list_paren(&mut self) -> Vec<Identifier> {
         let mut identifiers = Vec::new();
         self.consume(crate::lexer::TokenType::LParen, "Expected '('");
@@ -506,6 +595,14 @@ impl Parser {
         identifiers
     }
 
+    /// Parses a code element, which can be:
+    /// - An if statement
+    /// - A function definition
+    /// - A local variable declaration
+    /// - An assertion
+    /// - A return statement
+    /// - An alloc_locals directive
+    /// - An instruction
     fn code_element(&mut self) -> CodeElement {
         let token = self.peek();
         match token.token_type {

@@ -1,17 +1,45 @@
+//!
+//! Cairo-M Lowering to CASM
+//!
+//! This module implements the lowering (compilation) of the Cairo-M Abstract Syntax Tree (AST)
+//! into a sequence of CASM (Cairo Assembly) instructions. The `Compiler` struct is responsible
+//! for traversing the parsed code elements and generating the corresponding low-level instructions
+//! that can be executed by the Cairo-M virtual machine or assembler.
+//!
+//! Only the most basic features are supported for now :
+//! - Integer literals
+//! - Addition, subtraction, multiplication
+//! - Function calls
+//! - Local variable declarations and assignments
+//! - If/else statements
+//! - Return statements
+
 use crate::ast::*;
 use crate::casm::{CasmInstruction, CasmInstructionType};
 use std::collections::HashMap;
 
+/// The main compiler/lowering struct for converting AST code elements into CASM instructions.
+///
+/// The `Compiler` maintains state for local variables, stack frame offsets, and label generation.
+/// It provides methods for compiling expressions, statements, and functions, emitting CASM instructions
+/// as it traverses the AST.
 pub struct Compiler {
+    /// The list of top-level code elements (functions, statements, etc.) to compile
     code_elements: Vec<CodeElement>,
+    /// The list of generated CASM instructions
     casm_instructions: Vec<CasmInstruction>,
+    /// Mapping from local variable names to their frame pointer offsets
     local_variables: HashMap<String, i32>,
+    /// The number of local variables currently allocated
     local_variables_count: u64,
+    /// The current frame pointer offset (top of stack)
     fp_offset: u64,
+    /// Counter for generating unique labels (for control flow)
     label_counter: u64,
 }
 
 impl Compiler {
+    /// Create a new compiler instance from a list of code elements (AST root).
     pub fn new(code_elements: Vec<CodeElement>) -> Self {
         Self {
             code_elements,
@@ -23,6 +51,9 @@ impl Compiler {
         }
     }
 
+    /// Compile all code elements into a vector of CASM instructions.
+    ///
+    /// This is the main entry point for lowering a program.
     pub fn compile(&mut self) -> Vec<CasmInstruction> {
         for code_element in self.code_elements.clone() {
             self.compile_code_element(code_element);
@@ -30,7 +61,9 @@ impl Compiler {
         self.casm_instructions.clone()
     }
 
-    // pushes litteral on stack and returns fp offset at which it is stored
+    /// Compile an integer literal expression.
+    ///
+    /// Pushes the literal onto the stack and returns the frame pointer offset where it is stored.
     fn compile_int_literal(&mut self, expr: Expr) -> u64 {
         assert!(matches!(expr.expr_type, ExprType::IntegerLiteral));
         let instr = CasmInstruction {
@@ -45,6 +78,9 @@ impl Compiler {
         return self.fp_offset - 1;
     }
 
+    /// Compile an addition expression.
+    ///
+    /// Evaluates both operands, emits an add instruction, and returns the result offset.
     fn compile_add(&mut self, expr: Expr) -> u64 {
         assert!(matches!(expr.expr_type, ExprType::Add));
         let left_offset = self.compile_expr(*expr.left.unwrap());
@@ -61,6 +97,9 @@ impl Compiler {
         return self.fp_offset - 1;
     }
 
+    /// Compile a subtraction expression.
+    ///
+    /// Evaluates both operands, emits a sub instruction, and returns the result offset.
     fn compile_sub(&mut self, expr: Expr) -> u64 {
         assert!(matches!(expr.expr_type, ExprType::Sub));
         let left_offset = self.compile_expr(*expr.left.unwrap());
@@ -77,6 +116,9 @@ impl Compiler {
         return self.fp_offset - 1;
     }
 
+    /// Compile a multiplication expression.
+    ///
+    /// Evaluates both operands, emits a mul instruction, and returns the result offset.
     fn compile_mul(&mut self, expr: Expr) -> u64 {
         assert!(matches!(expr.expr_type, ExprType::Mul));
         let left_offset = self.compile_expr(*expr.left.unwrap());
@@ -93,6 +135,10 @@ impl Compiler {
         return self.fp_offset - 1;
     }
 
+    /// Compile a function call expression.
+    ///
+    /// Evaluates all arguments, pushes them to the stack, emits a call instruction,
+    /// and returns the offset of the return value.
     fn compile_function_call(&mut self, expr: Expr) -> u64 {
         assert!(matches!(expr.expr_type, ExprType::FunctionCall));
         let func_name = expr.ident.unwrap().token.lexeme;
@@ -134,7 +180,9 @@ impl Compiler {
         return self.fp_offset - 1;
     }
 
-    // pushes local variable on stack and returns fp offset
+    /// Compile an identifier expression (variable reference).
+    ///
+    /// Pushes the value of the local variable onto the stack and returns its offset.
     fn compile_identifier(&mut self, expr: Expr) -> u64 {
         assert!(matches!(expr.expr_type, ExprType::Identifier));
         let ident = expr.ident.unwrap().token.lexeme;
@@ -150,11 +198,13 @@ impl Compiler {
         return self.fp_offset - 1;
     }
 
+    /// Compile an expression and return the frame pointer offset where the result is stored.
+    ///
+    /// This method dispatches to the appropriate compile_* method based on the expression type.
+    ///
+    /// Note that for ease of implementation, integers as well as references to variables are all pushed on stack
+    /// which creates a lot of unecessary copies and instructions
     pub fn compile_expr(&mut self, expr: Expr) -> u64 {
-        // compiles an expression and returns the fp offset at which the result is stored
-        // operations are done at the top of the stack
-        // note that for ease of implementation, integers as well as references to variables are all pushed on stack
-        // which creates a lot of unecessary copies and instructions
         match expr.expr_type {
             ExprType::IntegerLiteral => self.compile_int_literal(expr),
             ExprType::Add => self.compile_add(expr),
@@ -167,6 +217,10 @@ impl Compiler {
         }
     }
 
+    /// Compile a function definition.
+    ///
+    /// Sets up the local variable environment, emits a label, and compiles the function body.
+    /// Restores the previous compiler state after the function is compiled.
     pub fn compile_function(
         &mut self,
         name: Identifier,
@@ -216,6 +270,9 @@ impl Compiler {
         self.local_variables_count = save_local_variables_count;
     }
 
+    /// Compile a local variable declaration.
+    ///
+    /// Allocates a new local variable and optionally initializes it with an expression.
     fn compile_local_var(&mut self, ident: Identifier, expr: Option<Expr>) {
         self.local_variables.insert(
             ident.token.lexeme.clone(),
@@ -239,6 +296,9 @@ impl Compiler {
         }
     }
 
+    /// Compile a return statement.
+    ///
+    /// Moves the return value to the appropriate frame slot and emits a return instruction.
     fn compile_return(&mut self, expr: Expr) {
         // calculating return value
         // it is automatically at top of stack
@@ -262,9 +322,19 @@ impl Compiler {
         });
     }
 
+    /// Compile an if/else statement.
+    ///
+    /// Emits conditional and unconditional jumps and labels for the if/else branches.
     fn compile_if(&mut self, expr: Expr, body: Vec<CodeElement>, else_body: Vec<CodeElement>) {
         match expr.expr_type {
             ExprType::Neq => {
+                // in the case of an inequality, the structure of the assembly is as follows:
+                // jnz <if_label>
+                // <else_body>
+                // jmp <end_label>
+                // <if_label>
+                // <body>
+                // <end_label>
                 let offset = self.compile_expr(Expr::new_binary(
                     ExprType::Sub,
                     *expr.left.unwrap(),
@@ -307,6 +377,13 @@ impl Compiler {
                 self.label_counter += 1;
             }
             ExprType::Eq => {
+                // in the case of an equality, the structure of the assembly is as follows:
+                // jz <if_label>
+                // <else_body>
+                // jmp <end_label>
+                // <if_label>
+                // <body>
+                // <end_label>
                 let offset = self.compile_expr(Expr::new_binary(
                     ExprType::Sub,
                     *expr.left.unwrap(),
@@ -352,6 +429,9 @@ impl Compiler {
         }
     }
 
+    /// Compile an assert-equal instruction (assignment or assertion).
+    ///
+    /// Handles assignment to identifiers and local variable creation if needed.
     fn compile_assert_equal(&mut self, instr: Instruction) {
         assert!(matches!(instr.instruction_type, InstructionType::AssertEq));
         let left = instr.args[0].clone();
@@ -379,6 +459,9 @@ impl Compiler {
         }
     }
 
+    /// Compile a single instruction (statement).
+    ///
+    /// Dispatches to the appropriate handler based on the instruction type.
     fn compile_instruction(&mut self, instr: Instruction) {
         match instr.instruction_type {
             InstructionType::Ret => self.casm_instructions.push(CasmInstruction {
@@ -393,6 +476,9 @@ impl Compiler {
         }
     }
 
+    /// Compile a top-level code element (function, statement, etc.).
+    ///
+    /// This is the main entry point for compiling each AST node.
     pub fn compile_code_element(&mut self, code_element: CodeElement) {
         match code_element {
             CodeElement::LocalVar(ident, expr) => self.compile_local_var(ident, expr),

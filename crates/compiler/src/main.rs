@@ -1,3 +1,16 @@
+//! Cairo-M Compiler
+//!
+//! This is the main executable for the Cairo-M compiler. It implements the complete
+//! compilation pipeline from source code to executable bytecode:
+//!
+//! 1. Lexical Analysis: Converts source code to tokens
+//! 2. Parsing: Builds an Abstract Syntax Tree (AST)
+//! 3. Lowering: Converts AST to CASM instructions
+//! 4. Assembly: Resolves labels and generates bytecode
+//!
+//! The compiler supports reading source files and outputs both human-readable
+//! assembly and Cairo-compatible JSON format.
+
 use std::env;
 mod assembler;
 mod ast;
@@ -13,6 +26,16 @@ use lexer::lex;
 use lower_to_casm::Compiler;
 use parser::Parser;
 
+/// Runs the complete compilation pipeline on the given source code.
+///
+/// # Arguments
+/// * `input` - The source code to compile
+/// * `file_name` - Name of the source file (used for error reporting)
+///
+/// # Panics
+/// * If lexical analysis fails
+/// * If parsing fails
+/// * If compilation fails
 fn run(input: &str, file_name: &str) {
     let (tokens, errors) = lex(input, file_name);
     if errors > 0 {
@@ -32,11 +55,28 @@ fn run(input: &str, file_name: &str) {
     println!("{}", assembler.to_json());
 }
 
+/// Reads and compiles a source file.
+///
+/// # Arguments
+/// * `path` - Path to the source file to compile
+///
+/// # Panics
+/// * If the file cannot be read
+/// * If compilation fails
 fn from_file(path: &str) {
     let contents = std::fs::read_to_string(path).expect("Could not read file.");
     run(&contents, path);
 }
 
+/// Main entry point for the compiler.
+///
+/// # Arguments
+/// Command line arguments:
+/// * First argument: Path to the source file to compile
+///
+/// # Panics
+/// * If no source file is provided
+/// * If compilation fails
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() > 1 {
