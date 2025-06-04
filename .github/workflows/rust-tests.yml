@@ -1,0 +1,41 @@
+name: Rust Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions: read-all
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  test:
+    name: ${{ matrix.crate }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        crate: [cairo-m-compiler, cairo-m-runner, cairo-m-prover]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust toolchain
+        run: rustup show
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: "true"
+
+      - name: Build ${{ matrix.crate }}
+        run: cargo build -p ${{ matrix.crate }}
+
+      - name: Run tests for ${{ matrix.crate }}
+        run: cargo test -p ${{ matrix.crate }}
