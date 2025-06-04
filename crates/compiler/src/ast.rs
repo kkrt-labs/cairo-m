@@ -1,20 +1,6 @@
 use crate::lexer::Token;
 use std::fmt::{self, Debug};
 
-// Types
-
-#[derive(Clone)]
-pub enum Type {
-    Felt,
-    CodeOffset,
-    Pointer(Box<Type>),
-    Pointer2(Box<Type>),
-    Tuple(Vec<Type>),
-    Struct(Identifier),
-    Named(Identifier, Box<Type>),
-    Error,
-}
-
 // Expressions
 
 #[derive(Debug, Clone)]

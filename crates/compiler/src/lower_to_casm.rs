@@ -457,7 +457,6 @@ impl Compiler {
             CodeElement::Function(name, args, body) => self.compile_function(name, args, body),
             CodeElement::If(expr, body, else_body) => self.compile_if(expr, body, else_body),
             CodeElement::Assign(ident, expr) => self.compile_assign(ident, expr),
-            _ => todo!(),
         }
     }
 }

@@ -85,11 +85,6 @@ impl Parser {
         self.tokens[self.current].clone()
     }
 
-    /// Returns the next token without consuming it.
-    fn peekpeek(&mut self) -> Token {
-        self.tokens[self.current + 1].clone()
-    }
-
     /// Consumes the current token if it matches the expected type, otherwise reports an error.
     ///
     /// # Arguments
