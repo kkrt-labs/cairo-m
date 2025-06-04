@@ -146,10 +146,7 @@ impl Compiler {
         // evaluating each argument and storing offsets
         let mut arg_offsets = Vec::new();
         for arg in expr.paren_args {
-            match arg {
-                ExprAssignment::Expr(expr) => arg_offsets.push(self.compile_expr(expr)),
-                ExprAssignment::Assign(_ident, _expr) => todo!(),
-            };
+            arg_offsets.push(self.compile_expr(arg));
         }
 
         // pushing arguments to stack
@@ -432,47 +429,21 @@ impl Compiler {
     /// Compile an assert-equal instruction (assignment or assertion).
     ///
     /// Handles assignment to identifiers and local variable creation if needed.
-    fn compile_assert_equal(&mut self, instr: Instruction) {
-        assert!(matches!(instr.instruction_type, InstructionType::AssertEq));
-        let left = instr.args[0].clone();
-        let right = instr.args[1].clone();
-
-        if matches!(left.expr_type, ExprType::Identifier) {
-            let ident = left.ident.clone().unwrap().token.lexeme;
-            if self.local_variables.contains_key(&ident) {
-                // If identifier exists, assign new value
-                let _ = self.compile_expr(right);
-                let instr = CasmInstruction {
-                    instruction_type: CasmInstructionType::MovFpFp,
-                    label: None,
-                    arg0: self.local_variables[&ident],
-                    arg1: (self.fp_offset - 1) as i32,
-                    arg2: 0,
-                };
-                self.casm_instructions.push(instr);
-            } else {
-                // If identifier doesn't exist, create new local variable
-                self.compile_local_var(left.ident.unwrap(), Some(right));
-            }
-        } else {
-            panic!("Can't assign to non-identifier");
-        }
-    }
-
-    /// Compile a single instruction (statement).
-    ///
-    /// Dispatches to the appropriate handler based on the instruction type.
-    fn compile_instruction(&mut self, instr: Instruction) {
-        match instr.instruction_type {
-            InstructionType::Ret => self.casm_instructions.push(CasmInstruction {
-                instruction_type: CasmInstructionType::Ret,
+    fn compile_assign(&mut self, ident: Identifier, expr: Expr) {
+        let ident = ident.token.lexeme;
+        let offset = self.compile_expr(expr);
+        if self.local_variables.contains_key(&ident) {
+            // If identifier exists, assign new value
+            let instr = CasmInstruction {
+                instruction_type: CasmInstructionType::MovFpFp,
                 label: None,
-                arg0: 0,
-                arg1: 0,
+                arg0: self.local_variables[&ident],
+                arg1: offset as i32,
                 arg2: 0,
-            }),
-            InstructionType::AssertEq => self.compile_assert_equal(instr),
-            _ => todo!(),
+            };
+            self.casm_instructions.push(instr);
+        } else {
+            panic!("Variable {} not found", ident);
         }
     }
 
@@ -485,8 +456,7 @@ impl Compiler {
             CodeElement::Return(expr) => self.compile_return(expr),
             CodeElement::Function(name, args, body) => self.compile_function(name, args, body),
             CodeElement::If(expr, body, else_body) => self.compile_if(expr, body, else_body),
-            CodeElement::Instruction(instr) => self.compile_instruction(instr),
-            CodeElement::AllocLocals => (), // locals are already allocated by default at the beginning of a function
+            CodeElement::Assign(ident, expr) => self.compile_assign(ident, expr),
             _ => todo!(),
         }
     }

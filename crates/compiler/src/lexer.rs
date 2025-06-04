@@ -25,41 +25,18 @@ pub enum TokenType {
     #[regex("[0-9]+")]
     Int,
 
-    #[regex(r"%\{(.*)%\}")]
-    Hint,
-
-    #[regex(r"0x[0-9a-fA-F]+")]
-    HexInt,
     #[regex(r"[a-zA-Z_][a-zA-Z_0-9]*(\.[a-zA-Z_][a-zA-Z_0-9]*)*")]
     Identifier,
-    #[regex(r#"".""#)]
-    String,
-    #[regex(r"'.'")]
-    ShortString,
 
     #[token("++")]
     PlusPlus,
     #[token("==")]
     DoubleEq,
-    #[token("**")]
-    DoubleStar,
     #[token("!=")]
     Neq,
-    #[token("->")]
-    Arrow,
-    #[token("@")]
-    At,
 
     #[token(",")]
     Comma,
-
-    #[token(":")]
-    Colon,
-
-    #[token("felt")]
-    Felt,
-    #[token("codeoffset")]
-    CodeOffset,
 
     #[token("*")]
     Star,
@@ -78,29 +55,8 @@ pub enum TokenType {
     #[token("/")]
     Slash,
 
-    #[token("&")]
-    Ampersand,
-    #[token("new")]
-    New,
-
     #[token(".")]
     Dot,
-
-    //Atom
-    #[token("nondet")]
-    NonDet,
-    #[token("[")]
-    LBracket,
-    #[token("]")]
-    RBracket,
-    #[token("cast")]
-    Cast,
-
-    //Reg
-    #[token("ap")]
-    Ap,
-    #[token("fp")]
-    Fp,
 
     #[token("and")]
     And,
@@ -108,73 +64,28 @@ pub enum TokenType {
     #[token("local")]
     Local,
 
-    #[token("ret")]
-    Ret,
-
     //Instructions
-    #[token("call")]
-    Call,
-    #[token("rel")]
-    Rel,
-    #[token("abs")]
-    Abs,
-    #[token("jmp")]
-    Jmp,
     #[token("if")]
     If,
-    #[token("+=")]
-    PlusEq,
-    #[token("dw")]
-    Dw,
     #[token("{")]
     LBrace,
     #[token("}")]
     RBrace,
 
-    // Import statement
-    #[token("import")]
-    Import,
-    #[token("from")]
-    From,
-    #[token("as")]
-    As,
-
     // Function/Namespace/Struct definition.
     #[token("func")]
     Func,
-    #[token("with")]
-    With,
-    #[token("struct")]
-    Struct,
-    #[token("namespace")]
-    Namespace,
-    #[token("with_attr")]
-    WithAttr,
     #[token("else")]
     Else,
 
     // Code elements
     #[token(";")]
     Semicolon,
-    #[token("const")]
-    Const,
-    #[token("let")]
-    Let,
-    #[token("tempvar")]
-    TempVar,
-    #[token("assert")]
-    Assert,
-    #[token("static_assert")]
-    StaticAssert,
     #[token("return")]
     Return,
-    #[token("using")]
-    Using,
-    #[token("alloc_locals")]
-    AllocLocals,
 
-    EOF,
     Error,
+    EOF,
 }
 
 /// Lexical analysis function that converts source code into a sequence of tokens.
@@ -237,4 +148,164 @@ pub fn lex(input: &str, file_name: &str) -> (Vec<Token>, u32) {
         span: (0, 0),
     });
     (tokens, error_counter)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_token(
+        tokens: &[Token],
+        index: usize,
+        expected_type: TokenType,
+        expected_lexeme: &str,
+    ) {
+        assert_eq!(tokens[index].token_type, expected_type);
+        assert_eq!(tokens[index].lexeme, expected_lexeme);
+    }
+
+    #[test]
+    fn test_basic_tokens() {
+        let input = "func main() { return 42; }";
+        let (tokens, errors) = lex(input, "test.cairo");
+        assert_eq!(errors, 0);
+        assert_eq!(tokens.len(), 10); // Including EOF
+
+        assert_token(&tokens, 0, TokenType::Func, "func");
+        assert_token(&tokens, 1, TokenType::Identifier, "main");
+        assert_token(&tokens, 2, TokenType::LParen, "(");
+        assert_token(&tokens, 3, TokenType::RParen, ")");
+        assert_token(&tokens, 4, TokenType::LBrace, "{");
+        assert_token(&tokens, 5, TokenType::Return, "return");
+        assert_token(&tokens, 6, TokenType::Int, "42");
+        assert_token(&tokens, 7, TokenType::Semicolon, ";");
+        assert_token(&tokens, 8, TokenType::RBrace, "}");
+        assert_token(&tokens, 9, TokenType::EOF, "");
+    }
+
+    #[test]
+    fn test_arithmetic_operators() {
+        let input = "1 + 2 * 3 - 4 / 2";
+        let (tokens, errors) = lex(input, "test.cairo");
+        assert_eq!(errors, 0);
+        assert_eq!(tokens.len(), 10); // Including EOF
+
+        assert_token(&tokens, 0, TokenType::Int, "1");
+        assert_token(&tokens, 1, TokenType::Plus, "+");
+        assert_token(&tokens, 2, TokenType::Int, "2");
+        assert_token(&tokens, 3, TokenType::Star, "*");
+        assert_token(&tokens, 4, TokenType::Int, "3");
+        assert_token(&tokens, 5, TokenType::Minus, "-");
+        assert_token(&tokens, 6, TokenType::Int, "4");
+        assert_token(&tokens, 7, TokenType::Slash, "/");
+        assert_token(&tokens, 8, TokenType::Int, "2");
+    }
+
+    #[test]
+    fn test_comparison_operators() {
+        let input = "x == y and z != w";
+        let (tokens, errors) = lex(input, "test.cairo");
+        assert_eq!(errors, 0);
+        assert_eq!(tokens.len(), 8); // Including EOF
+
+        assert_token(&tokens, 0, TokenType::Identifier, "x");
+        assert_token(&tokens, 1, TokenType::DoubleEq, "==");
+        assert_token(&tokens, 2, TokenType::Identifier, "y");
+        assert_token(&tokens, 3, TokenType::And, "and");
+        assert_token(&tokens, 4, TokenType::Identifier, "z");
+        assert_token(&tokens, 5, TokenType::Neq, "!=");
+        assert_token(&tokens, 6, TokenType::Identifier, "w");
+    }
+
+    #[test]
+    fn test_identifiers() {
+        let input = "main foo_bar baz123 _test";
+        let (tokens, errors) = lex(input, "test.cairo");
+        assert_eq!(errors, 0);
+        assert_eq!(tokens.len(), 5); // Including EOF
+
+        assert_token(&tokens, 0, TokenType::Identifier, "main");
+        assert_token(&tokens, 1, TokenType::Identifier, "foo_bar");
+        assert_token(&tokens, 2, TokenType::Identifier, "baz123");
+        assert_token(&tokens, 3, TokenType::Identifier, "_test");
+    }
+
+    #[test]
+    fn test_comments() {
+        let input = "// This is a comment\nfunc main() { // Another comment\nreturn 42; }";
+        let (tokens, errors) = lex(input, "test.cairo");
+        assert_eq!(errors, 0);
+        assert_eq!(tokens.len(), 10); // Including EOF
+
+        assert_token(&tokens, 0, TokenType::Func, "func");
+        assert_token(&tokens, 1, TokenType::Identifier, "main");
+        assert_token(&tokens, 2, TokenType::LParen, "(");
+        assert_token(&tokens, 3, TokenType::RParen, ")");
+        assert_token(&tokens, 4, TokenType::LBrace, "{");
+        assert_token(&tokens, 5, TokenType::Return, "return");
+        assert_token(&tokens, 6, TokenType::Int, "42");
+        assert_token(&tokens, 7, TokenType::Semicolon, ";");
+        assert_token(&tokens, 8, TokenType::RBrace, "}");
+    }
+
+    #[test]
+    fn test_whitespace() {
+        let input = "func\tmain()\n{\n    return\t42;\n}";
+        let (tokens, errors) = lex(input, "test.cairo");
+        assert_eq!(errors, 0);
+        assert_eq!(tokens.len(), 10); // Including EOF
+
+        assert_token(&tokens, 0, TokenType::Func, "func");
+        assert_token(&tokens, 1, TokenType::Identifier, "main");
+        assert_token(&tokens, 2, TokenType::LParen, "(");
+        assert_token(&tokens, 3, TokenType::RParen, ")");
+        assert_token(&tokens, 4, TokenType::LBrace, "{");
+        assert_token(&tokens, 5, TokenType::Return, "return");
+        assert_token(&tokens, 6, TokenType::Int, "42");
+        assert_token(&tokens, 7, TokenType::Semicolon, ";");
+        assert_token(&tokens, 8, TokenType::RBrace, "}");
+        assert_token(&tokens, 9, TokenType::EOF, "");
+    }
+
+    #[test]
+    fn test_error_handling() {
+        let input = "func main() { return @#$; }";
+        let (tokens, errors) = lex(input, "test.cairo");
+        assert_eq!(errors, 3); // # and $ are invalid tokens
+        assert_eq!(tokens.len(), 9); // Including EOF
+
+        assert_token(&tokens, 0, TokenType::Func, "func");
+        assert_token(&tokens, 1, TokenType::Identifier, "main");
+        assert_token(&tokens, 2, TokenType::LParen, "(");
+        assert_token(&tokens, 3, TokenType::RParen, ")");
+        assert_token(&tokens, 4, TokenType::LBrace, "{");
+        assert_token(&tokens, 5, TokenType::Return, "return");
+        assert_token(&tokens, 6, TokenType::Semicolon, ";");
+        assert_token(&tokens, 7, TokenType::RBrace, "}");
+        assert_token(&tokens, 8, TokenType::EOF, "");
+    }
+
+    #[test]
+    fn test_keywords() {
+        let input = "func local return";
+        let (tokens, errors) = lex(input, "test.cairo");
+        assert_eq!(errors, 0);
+        assert_eq!(tokens.len(), 4); // Including EOF
+
+        assert_token(&tokens, 0, TokenType::Func, "func");
+        assert_token(&tokens, 1, TokenType::Local, "local");
+        assert_token(&tokens, 2, TokenType::Return, "return");
+        assert_token(&tokens, 3, TokenType::EOF, "");
+    }
+
+    #[test]
+    fn test_compound_operators() {
+        let input = " == != ";
+        let (tokens, errors) = lex(input, "test.cairo");
+        assert_eq!(errors, 0);
+        assert_eq!(tokens.len(), 3); // Including EOF
+
+        assert_token(&tokens, 0, TokenType::DoubleEq, "==");
+        assert_token(&tokens, 1, TokenType::Neq, "!=");
+    }
 }
