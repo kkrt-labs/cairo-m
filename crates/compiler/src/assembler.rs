@@ -43,55 +43,51 @@ impl Assembler {
         let mut instruction_number = 0;
 
         // First pass to get the adresses of the labels
-        for instruction in self.casm.clone() {
-            match instruction.instruction_type {
-                CasmInstructionType::Label => {
-                    self.label_adresses
-                        .insert(instruction.label.clone().unwrap(), instruction_number);
+        self.label_adresses = self
+            .casm
+            .iter()
+            .fold((HashMap::new(), 0), |(mut map, mut addr), instruction| {
+                match instruction.instruction_type {
+                    CasmInstructionType::Label => {
+                        println!("{}", instruction.label.clone().unwrap());
+                        map.insert(instruction.label.clone().unwrap(), addr);
+                    }
+                    _ => addr += 4,
                 }
-                _ => {
-                    instruction_number += 4;
-                }
-            }
-        }
+                (map, addr)
+            })
+            .0;
 
         // Second pass to resolve the jumps
-        for instruction in self.casm.clone() {
-            match instruction.instruction_type {
-                CasmInstructionType::CallLabel => {
-                    new.push(CasmInstruction {
-                        instruction_type: CasmInstructionType::CallAbs,
-                        label: instruction.label.clone(),
-                        arg0: self.label_adresses[&instruction.label.clone().unwrap()],
-                        arg1: instruction.arg0,
-                        arg2: 0,
-                    });
-                }
-                CasmInstructionType::Label => {}
-                CasmInstructionType::JmpLabel => {
-                    new.push(CasmInstruction {
-                        instruction_type: CasmInstructionType::JmpAbs,
-                        label: instruction.label.clone(),
-                        arg0: self.label_adresses[&instruction.label.clone().unwrap()],
-                        arg1: 0,
-                        arg2: 0,
-                    });
-                }
-                CasmInstructionType::JmpLabelIfNeq => {
-                    new.push(CasmInstruction {
-                        instruction_type: CasmInstructionType::JmpAbsIfNeq,
-                        label: instruction.label.clone(),
-                        arg0: self.label_adresses[&instruction.label.clone().unwrap()],
-                        arg1: instruction.arg1,
-                        arg2: 0,
-                    });
-                }
-                _ => {
-                    new.push(instruction.clone());
-                }
-            }
-        }
-        self.casm = new;
+        self.casm = self
+            .casm
+            .iter()
+            .filter_map(|instruction| match instruction.instruction_type {
+                CasmInstructionType::CallLabel => Some(CasmInstruction {
+                    instruction_type: CasmInstructionType::CallAbs,
+                    label: instruction.label.clone(),
+                    arg0: self.label_adresses[&instruction.label.clone().unwrap()],
+                    arg1: instruction.arg0,
+                    arg2: 0,
+                }),
+                CasmInstructionType::Label => None,
+                CasmInstructionType::JmpLabel => Some(CasmInstruction {
+                    instruction_type: CasmInstructionType::JmpAbs,
+                    label: instruction.label.clone(),
+                    arg0: self.label_adresses[&instruction.label.clone().unwrap()],
+                    arg1: 0,
+                    arg2: 0,
+                }),
+                CasmInstructionType::JmpLabelIfNeq => Some(CasmInstruction {
+                    instruction_type: CasmInstructionType::JmpAbsIfNeq,
+                    label: instruction.label.clone(),
+                    arg0: self.label_adresses[&instruction.label.clone().unwrap()],
+                    arg1: instruction.arg1,
+                    arg2: 0,
+                }),
+                _ => Some(instruction.clone()),
+            })
+            .collect();
     }
 
     /// Converts the CASM instructions to bytecode format.
@@ -103,15 +99,13 @@ impl Assembler {
     /// # Returns
     /// A vector of 32-bit words representing the bytecode
     pub fn to_bytes(&self) -> Vec<u32> {
-        let mut bytes = Vec::new();
-        for instruction in self.casm.clone() {
-            let (opcode, arg0, arg1, arg2) = instruction.to_bytes();
-            bytes.push(opcode);
-            bytes.push(arg0);
-            bytes.push(arg1);
-            bytes.push(arg2);
-        }
-        bytes
+        self.casm
+            .iter()
+            .flat_map(|instruction| {
+                let (opcode, arg0, arg1, arg2) = instruction.to_bytes();
+                [opcode, arg0, arg1, arg2]
+            })
+            .collect()
     }
 
     /// Generates a Cairo-compatible JSON representation of the program.
