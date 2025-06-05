@@ -160,7 +160,7 @@ impl Expr {
             }
 
             // Print args if present
-            for (_i, arg) in self.paren_args.iter().enumerate() {
+            for arg in self.paren_args.iter() {
                 arg.fmt_with_indent(f, indent + 1)?;
                 writeln!(f)?;
             }
