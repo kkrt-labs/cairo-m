@@ -1,5 +1,10 @@
 [workspace]
-members = ["crates/prover", "crates/compiler", "crates/runner"]
+members = [
+  "crates/compiler/parser",
+  "crates/compiler",
+  "crates/runner",
+  "crates/prover",
+]
 resolver = "2"
 
 [workspace.package]
