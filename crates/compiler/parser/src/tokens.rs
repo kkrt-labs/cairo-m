@@ -6,8 +6,16 @@ use logos::Logos;
 #[logos(skip r"//[^\n]*")] // Skip single-line comments
 pub enum TokenType<'a> {
     // Literals
-    #[regex(r"[0-9]+|0x[0-9a-fA-F]+|0o[0-7]+|0b[01]+")]
-    LiteralNumber(&'a str),
+    #[regex(r"[0-9]+|0x[0-9a-fA-F]+|0o[0-7]+|0b[01]+", |lex| {
+        lex.slice().parse::<u32>().ok().and_then(|n| {
+            if n >= 0x80000000 {
+                None
+            } else {
+                Some(n)
+            }
+        })
+    })]
+    LiteralNumber(u32),
     // Keywords
     #[token("as")]
     As,
@@ -144,7 +152,7 @@ mod tests {
             TokenType::If,
             TokenType::Identifier("result"),
             TokenType::Identifier("result"),
-            TokenType::LiteralNumber("0"),
+            TokenType::LiteralNumber(0),
             TokenType::LBrace,
             TokenType::Return,
             TokenType::Identifier("result"),
@@ -153,7 +161,7 @@ mod tests {
             TokenType::Else,
             TokenType::LBrace,
             TokenType::Return,
-            TokenType::LiteralNumber("0"),
+            TokenType::LiteralNumber(0),
             TokenType::Semicolon,
             TokenType::RBrace,
             TokenType::RBrace,
@@ -162,15 +170,15 @@ mod tests {
             TokenType::Eq,
             TokenType::Identifier("add"),
             TokenType::LParen,
-            TokenType::LiteralNumber("10"),
+            TokenType::LiteralNumber(10),
             TokenType::Comma,
-            TokenType::LiteralNumber("20"),
+            TokenType::LiteralNumber(20),
             TokenType::RParen,
             TokenType::Semicolon,
             TokenType::Const,
             TokenType::Identifier("MAX_SIZE"),
             TokenType::Eq,
-            TokenType::LiteralNumber("100"),
+            TokenType::LiteralNumber(100),
             TokenType::Semicolon,
             TokenType::Let,
             TokenType::Identifier("array"),
@@ -181,7 +189,7 @@ mod tests {
             TokenType::Semicolon,
             TokenType::Identifier("array"),
             TokenType::LBrack,
-            TokenType::LiteralNumber("1"),
+            TokenType::LiteralNumber(1),
             TokenType::RBrack,
             TokenType::Semicolon,
         ];
