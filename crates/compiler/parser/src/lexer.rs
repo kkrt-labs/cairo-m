@@ -98,8 +98,8 @@ pub enum TokenType<'a> {
 impl<'a> fmt::Display for TokenType<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TokenType::LiteralNumber(n) => write!(f, "{}", n),
-            TokenType::Identifier(s) => write!(f, "{}", s),
+            TokenType::LiteralNumber(n) => write!(f, "{n}"),
+            TokenType::Identifier(s) => write!(f, "{s}"),
             TokenType::As => write!(f, "as"),
             TokenType::Const => write!(f, "const"),
             TokenType::Else => write!(f, "else"),
@@ -174,7 +174,7 @@ mod tests {
         }
 
         if !errors.is_empty() {
-            panic!("lexer errors: {:?}", errors);
+            panic!("lexer errors: {errors:?}");
         }
 
         let expected = vec![
