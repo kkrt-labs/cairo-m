@@ -1,5 +1,6 @@
 // crates/cairo-m-compiler-parser/src/tokens.rs
 use logos::Logos;
+use std::fmt;
 
 #[derive(Logos, Debug, Clone, Copy, PartialEq, Eq)]
 #[logos(skip r"[\t\n\r ]+")] // Skip whitespace, including carriage return
@@ -94,6 +95,50 @@ pub enum TokenType<'a> {
     Error,
 }
 
+impl<'a> fmt::Display for TokenType<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TokenType::LiteralNumber(n) => write!(f, "{n}"),
+            TokenType::Identifier(s) => write!(f, "{s}"),
+            TokenType::As => write!(f, "as"),
+            TokenType::Const => write!(f, "const"),
+            TokenType::Else => write!(f, "else"),
+            TokenType::False => write!(f, "false"),
+            TokenType::From => write!(f, "from"),
+            TokenType::Function => write!(f, "func"),
+            TokenType::If => write!(f, "if"),
+            TokenType::Import => write!(f, "import"),
+            TokenType::Let => write!(f, "let"),
+            TokenType::Local => write!(f, "local"),
+            TokenType::Namespace => write!(f, "namespace"),
+            TokenType::Return => write!(f, "return"),
+            TokenType::Struct => write!(f, "struct"),
+            TokenType::True => write!(f, "true"),
+            TokenType::AndAnd => write!(f, "&&"),
+            TokenType::OrOr => write!(f, "||"),
+            TokenType::EqEq => write!(f, "=="),
+            TokenType::Neq => write!(f, "!="),
+            TokenType::Plus => write!(f, "+"),
+            TokenType::Minus => write!(f, "-"),
+            TokenType::Mul => write!(f, "*"),
+            TokenType::Div => write!(f, "/"),
+            TokenType::Eq => write!(f, "="),
+            TokenType::Arrow => write!(f, "->"),
+            TokenType::LParen => write!(f, "("),
+            TokenType::RParen => write!(f, ")"),
+            TokenType::LBrace => write!(f, "{{"),
+            TokenType::RBrace => write!(f, "}}"),
+            TokenType::LBrack => write!(f, "["),
+            TokenType::RBrack => write!(f, "]"),
+            TokenType::Comma => write!(f, ","),
+            TokenType::Semicolon => write!(f, ";"),
+            TokenType::Colon => write!(f, ":"),
+            TokenType::Dot => write!(f, "."),
+            TokenType::Error => write!(f, "Error"),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -129,7 +174,7 @@ mod tests {
         }
 
         if !errors.is_empty() {
-            panic!("lexer errors: {:?}", errors);
+            panic!("lexer errors: {errors:?}");
         }
 
         let expected = vec![

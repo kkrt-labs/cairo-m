@@ -5,4 +5,7 @@ edition = "2024"
 
 [dependencies]
 logos = "0.15"
-smol_str = "0.2"
+ariadne = "0.5.1"
+chumsky = "0.10.1"
+smol_str = "0.3.2"
+insta = "1.43.1"
