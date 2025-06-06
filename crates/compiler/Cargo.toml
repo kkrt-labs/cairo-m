@@ -2,3 +2,6 @@
 name = "cairo-m-compiler"
 version.workspace = true
 edition.workspace = true
+
+[dependencies]
+cairo-m-compiler-parser = { path = "./parser" }
