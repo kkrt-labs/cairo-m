@@ -101,32 +101,37 @@ mod tests {
     #[test]
     fn test_basic_lexer() {
         let input = r#"
-        func add(x: felt, y: felt) -> felt {
-            let result = x + y;
-            if result > 0 {
-                return result;
-            } else {
-                return 0;
+            func add(x: felt, y: felt) -> felt {
+                let result = x + y;
+                if result == 0 {
+                    return result;
+                } else {
+                    return 0;
+                }
             }
-        }
 
-        let value = add(10, 20);
-        const MAX_SIZE = 100;
-        let array = alloc();
-        array[1];
-    "#;
+            let value = add(10, 20);
+            const MAX_SIZE = 100;
+            let array = alloc();
+            array[1];
+        "#;
         let lexer = TokenType::lexer(input);
 
         let mut tokens = vec![];
+        let mut errors = vec![];
         for (token, span) in lexer.spanned() {
             match token {
                 Ok(token) => tokens.push(token),
                 Err(e) => {
-                    println!("lexer error at {:?}: {:?}", span, e);
-                    return;
+                    errors.push((span, e));
                 }
             }
         }
+
+        if !errors.is_empty() {
+            panic!("lexer errors: {:?}", errors);
+        }
+
         let expected = vec![
             TokenType::Function,
             TokenType::Identifier("add"),
@@ -151,7 +156,7 @@ mod tests {
             TokenType::Semicolon,
             TokenType::If,
             TokenType::Identifier("result"),
-            TokenType::Identifier("result"),
+            TokenType::EqEq,
             TokenType::LiteralNumber(0),
             TokenType::LBrace,
             TokenType::Return,
@@ -193,6 +198,20 @@ mod tests {
             TokenType::RBrack,
             TokenType::Semicolon,
         ];
+
         assert_eq!(tokens, expected);
+    }
+
+    #[test]
+    fn test_should_err_on_number_too_large() {
+        let input = "let x = 0x80000000;";
+        let lexer = TokenType::lexer(input);
+        let tokens = lexer.spanned().collect::<Vec<_>>();
+        assert_eq!(tokens.len(), 5);
+        assert_eq!(tokens[0].0, Ok(TokenType::Let));
+        assert_eq!(tokens[1].0, Ok(TokenType::Identifier("x")));
+        assert_eq!(tokens[2].0, Ok(TokenType::Eq));
+        assert_eq!(tokens[3].0, Err(()));
+        assert_eq!(tokens[4].0, Ok(TokenType::Semicolon));
     }
 }
