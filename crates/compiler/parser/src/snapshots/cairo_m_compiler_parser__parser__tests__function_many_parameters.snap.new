@@ -1,0 +1,84 @@
+---
+source: crates/compiler/parser/src/parser.rs
+assertion_line: 852
+expression: snapshot_entry
+---
+code: func complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStruct*) -> (felt, felt) { return (a, b); }
+result: [
+    Function(
+        FunctionDef {
+            name: "complex_function",
+            params: [
+                Parameter {
+                    name: "a",
+                    type_expr: Named(
+                        "felt",
+                    ),
+                },
+                Parameter {
+                    name: "b",
+                    type_expr: Pointer(
+                        Named(
+                            "felt",
+                        ),
+                    ),
+                },
+                Parameter {
+                    name: "c",
+                    type_expr: Tuple(
+                        [
+                            Named(
+                                "felt",
+                            ),
+                            Named(
+                                "felt",
+                            ),
+                        ],
+                    ),
+                },
+                Parameter {
+                    name: "d",
+                    type_expr: Named(
+                        "MyStruct",
+                    ),
+                },
+                Parameter {
+                    name: "e",
+                    type_expr: Pointer(
+                        Named(
+                            "MyStruct",
+                        ),
+                    ),
+                },
+            ],
+            return_type: Some(
+                Tuple(
+                    [
+                        Named(
+                            "felt",
+                        ),
+                        Named(
+                            "felt",
+                        ),
+                    ],
+                ),
+            ),
+            body: [
+                Return {
+                    value: Some(
+                        Tuple(
+                            [
+                                Identifier(
+                                    "a",
+                                ),
+                                Identifier(
+                                    "b",
+                                ),
+                            ],
+                        ),
+                    ),
+                },
+            ],
+        },
+    ),
+]

@@ -1,0 +1,18 @@
+---
+source: crates/compiler/parser/src/parser.rs
+assertion_line: 852
+expression: snapshot_entry
+---
+code: from std.math import add
+result: [
+    Import(
+        ImportStmt {
+            path: [
+                "std",
+                "math",
+            ],
+            item: "add",
+            alias: None,
+        },
+    ),
+]

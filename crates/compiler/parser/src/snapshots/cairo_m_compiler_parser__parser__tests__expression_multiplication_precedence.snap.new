@@ -1,0 +1,34 @@
+---
+source: crates/compiler/parser/src/parser.rs
+assertion_line: 852
+expression: snapshot_entry
+---
+code: func test() { a + b * c; }
+result: [
+    Function(
+        FunctionDef {
+            name: "test",
+            params: [],
+            return_type: None,
+            body: [
+                Expression(
+                    BinaryOp {
+                        op: Add,
+                        left: Identifier(
+                            "a",
+                        ),
+                        right: BinaryOp {
+                            op: Mul,
+                            left: Identifier(
+                                "b",
+                            ),
+                            right: Identifier(
+                                "c",
+                            ),
+                        },
+                    },
+                ),
+            ],
+        },
+    ),
+]

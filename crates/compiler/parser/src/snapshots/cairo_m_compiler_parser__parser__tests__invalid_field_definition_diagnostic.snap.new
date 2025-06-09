@@ -1,0 +1,13 @@
+---
+source: crates/compiler/parser/src/parser.rs
+assertion_line: 865
+expression: snapshot_entry
+---
+code: struct Point { x, y: felt }
+result: [03] Error: found ',' expected ':'
+   ╭─[ <unknown>:1:17 ]
+   │
+ 1 │ struct Point { x, y: felt }
+   │                 ┬  
+   │                 ╰── found ',' expected ':'
+───╯

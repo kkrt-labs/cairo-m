@@ -1,0 +1,13 @@
+---
+source: crates/compiler/parser/src/parser.rs
+assertion_line: 865
+expression: snapshot_entry
+---
+code: func test() { let x = 5 }
+result: [03] Error: found '}' expected '(', '.', '[', '*', '/', '+', '-', '==', '!=', '&&', '||', or ';'
+   ╭─[ <unknown>:1:25 ]
+   │
+ 1 │ func test() { let x = 5 }
+   │                         ┬  
+   │                         ╰── found '}' expected '(', '.', '[', '*', '/', '+', '-', '==', '!=', '&&', '||', or ';'
+───╯

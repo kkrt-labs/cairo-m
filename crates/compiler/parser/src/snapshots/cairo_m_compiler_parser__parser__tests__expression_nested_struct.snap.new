@@ -1,0 +1,50 @@
+---
+source: crates/compiler/parser/src/parser.rs
+assertion_line: 852
+expression: snapshot_entry
+---
+code: func test() { Rectangle { top_left: Point { x: 0, y: 0 }, width: 10 }; }
+result: [
+    Function(
+        FunctionDef {
+            name: "test",
+            params: [],
+            return_type: None,
+            body: [
+                Expression(
+                    StructLiteral {
+                        name: "Rectangle",
+                        fields: [
+                            (
+                                "top_left",
+                                StructLiteral {
+                                    name: "Point",
+                                    fields: [
+                                        (
+                                            "x",
+                                            Literal(
+                                                0,
+                                            ),
+                                        ),
+                                        (
+                                            "y",
+                                            Literal(
+                                                0,
+                                            ),
+                                        ),
+                                    ],
+                                },
+                            ),
+                            (
+                                "width",
+                                Literal(
+                                    10,
+                                ),
+                            ),
+                        ],
+                    },
+                ),
+            ],
+        },
+    ),
+]

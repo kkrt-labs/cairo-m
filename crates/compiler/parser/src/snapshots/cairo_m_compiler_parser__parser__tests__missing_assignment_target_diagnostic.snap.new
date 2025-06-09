@@ -1,0 +1,13 @@
+---
+source: crates/compiler/parser/src/parser.rs
+assertion_line: 865
+expression: snapshot_entry
+---
+code: func test() { = 5; }
+result: [03] Error: found '=' expected '{', 'if', 'let', 'local', 'const', 'return', something else, identifier, '(', or '}'
+   ╭─[ <unknown>:1:15 ]
+   │
+ 1 │ func test() { = 5; }
+   │               ┬  
+   │               ╰── found '=' expected '{', 'if', 'let', 'local', 'const', 'return', something else, identifier, '(', or '}'
+───╯

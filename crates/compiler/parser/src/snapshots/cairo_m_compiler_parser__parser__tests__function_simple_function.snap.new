@@ -1,0 +1,47 @@
+---
+source: crates/compiler/parser/src/parser.rs
+assertion_line: 852
+expression: snapshot_entry
+---
+code: func add(a: felt, b: felt) -> felt { return a + b; }
+result: [
+    Function(
+        FunctionDef {
+            name: "add",
+            params: [
+                Parameter {
+                    name: "a",
+                    type_expr: Named(
+                        "felt",
+                    ),
+                },
+                Parameter {
+                    name: "b",
+                    type_expr: Named(
+                        "felt",
+                    ),
+                },
+            ],
+            return_type: Some(
+                Named(
+                    "felt",
+                ),
+            ),
+            body: [
+                Return {
+                    value: Some(
+                        BinaryOp {
+                            op: Add,
+                            left: Identifier(
+                                "a",
+                            ),
+                            right: Identifier(
+                                "b",
+                            ),
+                        },
+                    ),
+                },
+            ],
+        },
+    ),
+]

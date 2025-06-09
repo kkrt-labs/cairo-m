@@ -1,0 +1,13 @@
+---
+source: crates/compiler/parser/src/parser.rs
+assertion_line: 865
+expression: snapshot_entry
+---
+code: 42;
+result: [03] Error: found '42' expected 'func', 'struct', 'from', 'const', 'namespace', or end of input
+   ╭─[ <unknown>:1:1 ]
+   │
+ 1 │ 42;
+   │ ─┬  
+   │  ╰── found '42' expected 'func', 'struct', 'from', 'const', 'namespace', or end of input
+───╯

@@ -1,0 +1,13 @@
+---
+source: crates/compiler/parser/src/parser.rs
+assertion_line: 865
+expression: snapshot_entry
+---
+code: func test() { a +; }
+result: [03] Error: found ';' expected something else, identifier, or '('
+   ╭─[ <unknown>:1:18 ]
+   │
+ 1 │ func test() { a +; }
+   │                  ┬  
+   │                  ╰── found ';' expected something else, identifier, or '('
+───╯

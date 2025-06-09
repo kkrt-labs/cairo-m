@@ -1,0 +1,52 @@
+---
+source: crates/compiler/parser/src/parser.rs
+assertion_line: 852
+expression: snapshot_entry
+---
+code: func test() { a + b * c == d && e || f; }
+result: [
+    Function(
+        FunctionDef {
+            name: "test",
+            params: [],
+            return_type: None,
+            body: [
+                Expression(
+                    BinaryOp {
+                        op: Or,
+                        left: BinaryOp {
+                            op: And,
+                            left: BinaryOp {
+                                op: Eq,
+                                left: BinaryOp {
+                                    op: Add,
+                                    left: Identifier(
+                                        "a",
+                                    ),
+                                    right: BinaryOp {
+                                        op: Mul,
+                                        left: Identifier(
+                                            "b",
+                                        ),
+                                        right: Identifier(
+                                            "c",
+                                        ),
+                                    },
+                                },
+                                right: Identifier(
+                                    "d",
+                                ),
+                            },
+                            right: Identifier(
+                                "e",
+                            ),
+                        },
+                        right: Identifier(
+                            "f",
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+]

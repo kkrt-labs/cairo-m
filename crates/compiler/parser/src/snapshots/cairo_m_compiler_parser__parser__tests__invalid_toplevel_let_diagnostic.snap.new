@@ -1,0 +1,13 @@
+---
+source: crates/compiler/parser/src/parser.rs
+assertion_line: 865
+expression: snapshot_entry
+---
+code: let x = 5;
+result: [03] Error: found 'let' expected 'func', 'struct', 'from', 'const', 'namespace', or end of input
+   ╭─[ <unknown>:1:1 ]
+   │
+ 1 │ let x = 5;
+   │ ─┬─  
+   │  ╰─── found 'let' expected 'func', 'struct', 'from', 'const', 'namespace', or end of input
+───╯

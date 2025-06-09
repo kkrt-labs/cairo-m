@@ -1,0 +1,13 @@
+---
+source: crates/compiler/parser/src/parser.rs
+assertion_line: 865
+expression: snapshot_entry
+---
+code: import std.math
+result: [03] Error: found 'import' expected 'func', 'struct', 'from', 'const', 'namespace', or end of input
+   ╭─[ <unknown>:1:1 ]
+   │
+ 1 │ import std.math
+   │ ───┬──  
+   │    ╰──── found 'import' expected 'func', 'struct', 'from', 'const', 'namespace', or end of input
+───╯

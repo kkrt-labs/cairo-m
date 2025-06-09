@@ -1,169 +1,263 @@
-# Cairo M Compiler
+# Cairo-M Parser Testing Framework
 
-The Cairo M Compiler is responsible for parsing and compiling Cairo code into
-Cairo Assembly for execution in the Cairo M virtual machine.
+This document describes the comprehensive testing framework for the Cairo-M
+parser, which provides granular testing capabilities similar to the Cairo
+compiler's testing approach.
 
 ## Overview
 
-The compiler consists of several components and in this crate are implemented:
+The testing framework supports multiple testing modes and provides extensive
+coverage for all language constructs. It uses `insta` for snapshot testing,
+allowing us to capture and verify both successful parse results and diagnostic
+messages for malformed code.
 
-- **Lexer**: Tokenizes Cairo source code into a stream of tokens
-- **Parser**: Parses the token stream into an Abstract Syntax Tree (AST)
+## Test Architecture
 
-## Testing with Insta
+### Test Modes
 
-The compiler uses [insta](https://insta.rs/) for snapshot testing, which allows
-us to capture the output of parser operations and automatically compare them
-against saved snapshots. This approach is particularly useful for testing
-parsers because it lets us verify the exact structure of ASTs and error
-messages.
+The framework supports three testing modes:
 
-### What is Snapshot Testing?
+1. **Parse Mode** (`mode: parse`): Tests successful parsing and snapshots the
+   resulting AST
+2. **Diagnostics Mode** (`mode: diagnostics`): Tests parsing errors and
+   snapshots diagnostic messages
+3. **Both Mode** (`mode: both`): Tests both successful parsing and error cases
 
-Snapshot testing captures the output of your code and saves it to a file (a
-"snapshot"). On subsequent test runs, the output is compared against the saved
-snapshot. If they differ, the test fails and you can review the changes.
+### Test Case Structure
 
-### Running Insta Tests
+Tests are defined using the `test_case!` macro:
 
-To run the insta-based tests for the parser:
-
-```bash
-# Run all tests in the compiler crate
-cargo test -p cairo-m-compiler-parser
-
-# Run only parser tests
-cargo test -p cairo-m-compiler-parser parser::tests
-
-# Run a specific test
-cargo test -p cairo-m-compiler-parser test_simple_let_declaration
+```rust
+test_case!(
+    name: "test_name",
+    code: "cairo_code_here",
+    mode: parse,
+    construct: "optional_construct_tag"
+)
 ```
 
-### Working with Snapshots
+### Test Organization
 
-#### Reviewing Failed Snapshots
+Tests are organized into logical groups:
 
-When a test fails because the output doesn't match the snapshot, insta will show
-you a diff.
+## Test Categories
 
-Install [cargo-insta](https://insta.rs/docs/cli/) if you haven't already
+### 1. Expression Tests
 
-You can review and accept changes using:
+Comprehensive testing of all expression types:
+
+- **Literals**: Integer literals, edge cases like zero and max values
+- **Identifiers**: Simple and complex identifier names
+- **Binary Operations**: All operators with proper precedence testing
+- **Function Calls**: Simple calls, calls with arguments, chained calls
+- **Member Access**: Simple and nested member access
+- **Index Access**: Array indexing, nested indexing
+- **Struct Literals**: Simple, nested, and empty struct literals
+- **Tuples**: Simple tuples, nested tuples, parenthesized expressions
+
+### 2. Type Expression Tests
+
+Testing of type annotations:
+
+- **Named Types**: Basic type names like `felt`
+- **Pointer Types**: Single and multiple pointer levels (`felt*`, `felt**`)
+- **Tuple Types**: Type tuples like `(felt, felt)`
+- **Complex Types**: Nested combinations
+
+### 3. Statement Tests
+
+All statement types with variations:
+
+- **Let Statements**: Simple declarations and complex expressions
+- **Local Statements**: With and without type annotations
+- **Const Statements**: Simple constants and computed values
+- **Assignments**: Variable, member, and index assignments
+- **Return Statements**: With and without values
+- **If Statements**: Simple if, if-else, nested conditionals
+- **Blocks**: Simple and nested blocks
+
+### 4. Top-Level Item Tests
+
+Complete coverage of program structure:
+
+- **Function Definitions**: Various parameter and return type combinations
+- **Struct Definitions**: Simple, empty, and complex structs
+- **Namespace Definitions**: Simple, nested, and mixed content namespaces
+- **Import Statements**: Simple imports, imports with aliases, nested paths
+- **Const Definitions**: Top-level constants with expressions
+
+### 5. Diagnostic Tests
+
+Comprehensive error testing:
+
+- **Expression Diagnostics**: Missing semicolons, invalid operators, syntax
+  errors
+- **Function Diagnostics**: Missing names, invalid parameters, missing bodies
+- **Struct Diagnostics**: Missing names, invalid field definitions
+- **Statement Diagnostics**: Invalid control flow, missing targets
+- **Import Diagnostics**: Invalid syntax, empty paths
+
+### 6. Integration Tests
+
+Real-world program testing:
+
+- **Complete Programs**: Full programs with multiple constructs
+- **Complex Expressions**: Intricate precedence and associativity testing
+- **Mixed Content**: Programs combining all language features
+
+### 7. Edge Case Tests
+
+Boundary condition testing:
+
+- **Empty Programs**: Empty and whitespace-only inputs
+- **Deep Nesting**: Testing parser stack depth limits
+- **Large Numbers**: Maximum value testing
+- **Long Identifiers**: Stress testing identifier parsing
+- **Complex Structures**: Multi-field structs and many-parameter functions
+
+### 8. Regression Tests
+
+Tests for previously problematic cases:
+
+- **Trailing Commas**: Various contexts where trailing commas are allowed
+- **Operator Associativity**: Left-associative operators like subtraction and
+  division
+- **Chained Operations**: Complex method chaining and member access
+- **Tuple Disambiguation**: Single-element tuples vs parenthesized expressions
+
+### 9. Boundary Tests
+
+Testing parser limits:
+
+- **Deep Nesting**: Maximum nesting levels for control structures
+- **Large Numbers**: Edge cases for numeric literals
+- **Precedence Chains**: Complex operator precedence combinations
+
+### 10. Error Recovery Tests
+
+Testing parser resilience:
+
+- **Multiple Errors**: Programs with multiple syntax errors
+- **Mixed Valid/Invalid**: Programs with both correct and incorrect syntax
+
+## Specialized Test Modules
+
+### Expression Tests Module
+
+Focused testing of expression parsing:
+
+- Literal expression edge cases
+- Operator associativity verification
+- Precedence rule validation
+
+### Statement Tests Module
+
+Detailed statement parsing verification:
+
+- Control flow variations
+- Variable declaration patterns
+- Complex statement combinations
+
+### Top-Level Tests Module
+
+Program structure testing:
+
+- Function definition variations
+- Namespace organization patterns
+- Import statement formats
+
+## Running Tests
+
+### All Tests
 
 ```bash
-# Review all pending snapshots
+cargo test
+```
+
+### Specific Categories
+
+```bash
+# Expression tests only
+cargo test test_literals
+cargo test test_binary_operations
+
+# Diagnostic tests only
+cargo test test_expression_diagnostics
+cargo test test_function_diagnostics
+
+# Edge cases
+cargo test test_edge_cases
+cargo test test_boundary_conditions
+```
+
+### Updating Snapshots
+
+When parser output changes, update snapshots:
+
+```bash
 cargo insta review
-
-# Accept all changes (use with caution)
-cargo insta accept
-
-# Review changes for a specific crate
-cargo insta review -p cairo-m-compiler-parser
 ```
 
-#### Creating New Tests
+## Test Naming Conventions
 
-To add a new parser test with snapshot testing:
+- Test function names: `test_<category>`
+- Snapshot names: `<construct>_<test_name>` for successful parses
+- Diagnostic snapshots: `<test_name>_diagnostic` for error cases
+- Multiple diagnostics: `<test_name>_diagnostic_<index>`
 
-1. Add a test function in `parser/src/parser.rs`:
+## Adding New Tests
+
+1. Identify the construct type (expression, statement, etc.)
+2. Choose appropriate test mode (parse, diagnostics, both)
+3. Use the `test_case!` macro with descriptive name
+4. Add to appropriate test function
+5. Run `cargo test` to generate snapshots
+6. Review snapshots with `cargo insta review`
+
+## Snapshot Organization
+
+Snapshots are organized by:
+
+- Construct type (expression, statement, function, etc.)
+- Test name
+- Whether it's a successful parse or diagnostic
+
+Each snapshot contains both the source code and the result, making manual review
+easy:
 
 ```rust
-#[test]
-fn test_my_new_feature() {
-    assert_parse_snapshot!("let x = 42;", "my_new_feature");
+SnapshotEntry {
+    code: "func add(a: felt, b: felt) -> felt { return a + b; }",
+    result: ParseSuccess(
+        [Function(FunctionDef { ... })]
+    ),
 }
 ```
 
-2. Run the test - it will fail initially because no snapshot exists:
-
-```bash
-cargo test test_my_new_feature
-```
-
-3. Review and accept the new snapshot:
-
-```bash
-cargo insta review
-```
-
-### Test Macro: `assert_parse_snapshot!`
-
-The parser tests use a custom macro `assert_parse_snapshot!` that:
-
-1. Parses the input string using the parser
-2. Creates snapshots for both successful parse results and parsing errors
-3. Handles error formatting with nice diagnostic messages using `ariadne`
-
-Usage patterns:
+For diagnostic snapshots:
 
 ```rust
-// Simple usage - snapshot name will be the input string
-assert_parse_snapshot!("let x = 3;");
-
-// Custom snapshot name
-assert_parse_snapshot!("let x = 3;", "simple_let_declaration");
-```
-
-### Snapshot Files
-
-Snapshots are stored in `parser/src/snapshots/` with names following the
-pattern:
-
-```text
-{crate_name}__{module}__{test_name}.snap
-```
-
-For example:
-
-- `cairo_m_compiler_parser__parser__tests__simple_let_error.snap`
-
-### Error Snapshots
-
-When parsing fails, the macro creates formatted error messages using `ariadne`
-for beautiful error reporting. These error snapshots help ensure that:
-
-1. Error messages are helpful and consistent
-2. Error reporting doesn't regress over time
-3. Error positions are accurate
-
-### Best Practices
-
-1. **Descriptive Test Names**: Use clear, descriptive names for your tests and
-   snapshots
-2. **Small, Focused Tests**: Each test should focus on a specific parsing
-   scenario
-3. **Review Changes Carefully**: Always review snapshot changes to ensure
-   they're intentional
-4. **Version Control**: Commit snapshot files alongside your code changes
-
-### Example Test Structure
-
-```rust
-#[test]
-fn test_function_declaration() {
-    assert_parse_snapshot!(
-        "func add(x: felt, y: felt) -> felt { return x + y; }",
-        "function_declaration"
-    );
-}
-
-#[test]
-fn test_invalid_syntax() {
-    // This will capture the error message in a snapshot
-    assert_parse_snapshot!(
-        "let x = ;", // Missing value
-        "missing_value_error"
-    );
+SnapshotEntry {
+    code: "let x = 5",
+    result: ParseError(
+        "[03] Error: found end of input expected ';'..."
+    ),
 }
 ```
 
-## Development Workflow
+This provides clear organization and makes it easy to understand what each
+snapshot represents.
 
-1. Write your test with `assert_parse_snapshot!`
-2. Run the test (it will fail initially)
-3. Use `cargo insta review` to examine the generated snapshot
-4. Accept the snapshot if it looks correct
-5. Commit both your code and the snapshot file
+## Benefits
 
-This workflow ensures that any changes to parser behavior are intentional and
-properly reviewed.
+This testing approach provides:
+
+1. **Comprehensive Coverage**: Every language construct is tested
+2. **Regression Protection**: Changes that break parsing are immediately
+   detected
+3. **Documentation**: Tests serve as examples of valid Cairo-M syntax
+4. **Diagnostic Quality**: Error messages are verified to be helpful
+5. **Maintenance**: Easy to add new tests and update existing ones
+
+The framework ensures the parser remains robust and provides excellent error
+messages as the language evolves.

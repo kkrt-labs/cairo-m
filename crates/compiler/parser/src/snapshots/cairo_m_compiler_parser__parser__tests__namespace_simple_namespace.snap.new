@@ -1,0 +1,23 @@
+---
+source: crates/compiler/parser/src/parser.rs
+assertion_line: 852
+expression: snapshot_entry
+---
+code: namespace Math { const PI = 314; }
+result: [
+    Namespace(
+        Namespace {
+            name: "Math",
+            body: [
+                Const(
+                    ConstDef {
+                        name: "PI",
+                        value: Literal(
+                            314,
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+]
