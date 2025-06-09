@@ -76,11 +76,11 @@ impl Memory {
     /// # Errors
     ///
     /// Returns `MemoryError::AddressOutOfBounds` if the address exceeds the maximum allowed size.
-    const fn validate_address(address: M31) -> Result<(), MemoryError> {
+    const fn validate_address(addr: M31) -> Result<(), MemoryError> {
         let max_address = 1 << MAX_MEMORY_SIZE_BITS;
-        if address.0 > max_address {
+        if addr.0 > max_address {
             return Err(MemoryError::AddressOutOfBounds {
-                address,
+                address: addr,
                 max_address,
             });
         }
