@@ -15,6 +15,8 @@ pub enum MemoryError {
     AddressOutOfBounds { address: M31, max_address: u32 },
     #[error("Cannot project value at address {address} to base field M31: {value:?}")]
     BaseFieldProjectionFailed { address: M31, value: QM31 },
+    #[error("Memory cell at address {address} is not initialized")]
+    UninitializedMemoryCell { address: M31 },
 }
 
 /// Represents the Cairo M VM's memory, a flat, read-write address space.
@@ -28,7 +30,7 @@ pub struct Memory {
 }
 
 impl Memory {
-    /// Checks if a given memory address is within the allowed range (`0` to `2^MAX_MEMORY_SIZE_BITS`).
+    /// Checks if a given memory address is within the allowed range (`0` to `1 << MAX_MEMORY_SIZE_BITS`).
     ///
     /// # Arguments
     ///
@@ -36,7 +38,7 @@ impl Memory {
     ///
     /// # Errors
     ///
-    /// Returns `MemoryError::AddressOutOfBounds` if the address exceeds the maximum allowed size.
+    /// Returns [`MemoryError::AddressOutOfBounds`] if the address exceeds the maximum allowed size.
     const fn validate_address(addr: M31) -> Result<(), MemoryError> {
         let max_address = 1 << MAX_MEMORY_SIZE_BITS;
         if addr.0 > max_address {
@@ -51,15 +53,22 @@ impl Memory {
     /// Retrieves a `QM31` value from the specified memory address.
     ///
     /// This is used to fetch instructions of the program, which are represented as
-    /// `QM31` values. If the address is out of bounds, it returns
-    /// `QM31::zero()`, simulating that uninitialized memory reads as zero.
+    /// `QM31` values. Returns an error if the address points to an uninitialized
+    /// memory cell.
     ///
     /// # Arguments
     ///
     /// * `addr` - The `M31` memory address to read from.
-    pub fn get_instruction(&self, addr: M31) -> QM31 {
+    ///
+    /// # Errors
+    ///
+    /// Returns [`MemoryError::UninitializedMemoryCell`] if the memory cell at the address is not initialized.
+    pub fn get_instruction(&self, addr: M31) -> Result<QM31, MemoryError> {
         let address = addr.0 as usize;
-        self.data.get(address).copied().unwrap_or_default()
+        self.data
+            .get(address)
+            .copied()
+            .ok_or(MemoryError::UninitializedMemoryCell { address: addr })
     }
 
     /// Retrieves a value from memory and projects it to a base field element `M31`.
@@ -74,11 +83,11 @@ impl Memory {
     ///
     /// # Errors
     ///
-    /// Returns `MemoryError::BaseFieldProjectionFailed` if the value at the address
+    /// Returns [`MemoryError::BaseFieldProjectionFailed`] if the value at the address
     /// cannot be projected to a base field element.
     pub fn get_data(&self, addr: M31) -> Result<M31, MemoryError> {
         let address = addr.0 as usize;
-        let value = self.data.get(address).copied().unwrap_or_else(QM31::zero);
+        let value = self.data.get(address).copied().unwrap_or_default();
         if !value.1.is_zero() || !value.0 .1.is_zero() {
             return Err(MemoryError::BaseFieldProjectionFailed {
                 address: addr,
@@ -100,7 +109,7 @@ impl Memory {
     ///
     /// # Errors
     ///
-    /// Returns `MemoryError::AddressOutOfBounds` if the address exceeds the maximum allowed size.
+    /// Returns [`MemoryError::AddressOutOfBounds`] if the address exceeds the maximum allowed size.
     pub fn insert(&mut self, addr: M31, value: QM31) -> Result<(), MemoryError> {
         Self::validate_address(addr)?;
         let address = addr.0 as usize;
@@ -127,7 +136,7 @@ impl Memory {
     ///
     /// # Errors
     ///
-    /// Returns `MemoryError::AddressOutOfBounds` if any address in the range exceeds the maximum allowed size.
+    /// Returns [`MemoryError::AddressOutOfBounds`] if any address in the range exceeds the maximum allowed size.
     pub fn insert_slice(&mut self, start_addr: M31, values: &[QM31]) -> Result<(), MemoryError> {
         if values.is_empty() {
             return Ok(());
@@ -143,7 +152,7 @@ impl Memory {
                 max_address: 1 << MAX_MEMORY_SIZE_BITS,
             },
         )?;
-        Self::validate_address(M31::from(last_addr))?;
+        Self::validate_address(last_addr.into())?;
 
         let end_address = last_addr as usize + 1;
 
@@ -197,14 +206,17 @@ mod tests {
         let addr = M31::from(42);
         let value = QM31::from_m31_array([123, 0, 0, 0].map(Into::into));
         memory.insert(addr, value).unwrap();
-        assert_eq!(memory.get_instruction(addr), value);
+        assert_eq!(memory.get_instruction(addr).unwrap(), value);
     }
 
     #[test]
     fn test_get_instruction_from_empty_address() {
         let memory = Memory::default();
         let addr = M31::from(10);
-        assert_eq!(memory.get_instruction(addr), QM31::zero());
+        assert!(matches!(
+            memory.get_instruction(addr),
+            Err(MemoryError::UninitializedMemoryCell { .. })
+        ));
     }
 
     #[test]
@@ -242,15 +254,15 @@ mod tests {
         let value = QM31::from_m31_array([42, 0, 0, 0].map(Into::into));
         memory.insert(addr, value).unwrap();
         assert_eq!(memory.data.len(), 101);
-        assert_eq!(memory.get_instruction(addr), value);
+        assert_eq!(memory.get_instruction(addr).unwrap(), value);
     }
 
     #[test]
     fn test_validate_address() {
-        assert!(Memory::validate_address(M31::from(100)).is_ok());
-        assert!(Memory::validate_address(M31::from(1_000_000)).is_ok());
+        assert!(Memory::validate_address(100.into()).is_ok());
+        assert!(Memory::validate_address(1_000_000.into()).is_ok());
         assert!(Memory::validate_address(M31::from((1 << MAX_MEMORY_SIZE_BITS) - 1)).is_ok());
-        assert!(Memory::validate_address(M31::from(1 << MAX_MEMORY_SIZE_BITS)).is_ok());
+        assert!(Memory::validate_address((1 << MAX_MEMORY_SIZE_BITS).into()).is_ok());
     }
 
     #[test]
@@ -275,15 +287,15 @@ mod tests {
         memory.insert_slice(start_addr, &values).unwrap();
 
         assert_eq!(
-            memory.get_instruction(M31::from(10)),
+            memory.get_instruction(10.into()).unwrap(),
             QM31::from_m31_array([1, 0, 0, 0].map(Into::into))
         );
         assert_eq!(
-            memory.get_instruction(M31::from(11)),
+            memory.get_instruction(11.into()).unwrap(),
             QM31::from_m31_array([2, 0, 0, 0].map(Into::into))
         );
         assert_eq!(
-            memory.get_instruction(M31::from(12)),
+            memory.get_instruction(12.into()).unwrap(),
             QM31::from_m31_array([3, 0, 0, 0].map(Into::into))
         );
     }
@@ -322,9 +334,9 @@ mod tests {
         ];
         memory.extend(values);
         assert_eq!(memory.data.len(), 3);
-        assert_eq!(memory.get_instruction(M31::from(0)), M31::from(10).into());
-        assert_eq!(memory.get_instruction(M31::one()), M31::from(20).into());
-        assert_eq!(memory.get_instruction(M31::from(2)), M31::from(30).into());
+        assert_eq!(memory.get_data(0.into()).unwrap(), M31::from(10));
+        assert_eq!(memory.get_data(1.into()).unwrap(), M31::from(20));
+        assert_eq!(memory.get_data(2.into()).unwrap(), M31::from(30));
     }
 
     #[test]
@@ -335,7 +347,13 @@ mod tests {
         ];
         let memory: Memory = values.into_iter().collect();
         assert_eq!(memory.data.len(), 2);
-        assert_eq!(memory.get_instruction(M31::from(0)), M31::from(100).into());
-        assert_eq!(memory.get_instruction(M31::one()), M31::from(200).into());
+        assert_eq!(
+            memory.get_instruction(M31::zero()).unwrap(),
+            QM31::from_m31_array([100, 0, 0, 0].map(Into::into))
+        );
+        assert_eq!(
+            memory.get_instruction(M31::one()).unwrap(),
+            QM31::from_m31_array([200, 0, 0, 0].map(Into::into))
+        );
     }
 }
