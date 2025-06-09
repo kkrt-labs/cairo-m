@@ -15,6 +15,7 @@
 //! - **Top-level item parsing**: Functions, structs, namespaces, imports, and constants
 
 use crate::lexer::TokenType;
+use crate::const_eval::maybe_evaluate_const_expr;
 use chumsky::{input::ValueInput, prelude::*};
 
 /// Represents a type expression in the Cairo-M language.
@@ -280,6 +281,16 @@ where
     })
 }
 
+
+/// Helper function to create binary operations with compile-time evaluation
+fn create_binary_op(op: BinaryOp, left: Expression, right: Expression) -> Expression {
+    let expr = Expression::BinaryOp {
+        op,
+        left: Box::new(left),
+        right: Box::new(right),
+    };
+    maybe_evaluate_const_expr(expr)
+}
 /// Creates a parser for expressions with proper operator precedence
 fn expression_parser<'tokens, 'src: 'tokens, I>(
 ) -> impl Parser<'tokens, I, Expression, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
@@ -385,11 +396,7 @@ where
             ))
             .then(call.clone())
             .repeated(),
-            |lhs, (op, rhs)| Expression::BinaryOp {
-                op,
-                left: Box::new(lhs),
-                right: Box::new(rhs),
-            },
+            |lhs, (op, rhs)| create_binary_op(op, lhs, rhs),
         );
 
         // Additive operators: +, - (left-associative)
@@ -400,11 +407,7 @@ where
             ))
             .then(mul.clone())
             .repeated(),
-            |lhs, (op, rhs)| Expression::BinaryOp {
-                op,
-                left: Box::new(lhs),
-                right: Box::new(rhs),
-            },
+            |lhs, (op, rhs)| create_binary_op(op, lhs, rhs),
         );
 
         // Comparison operators: ==, != (left-associative)
@@ -415,11 +418,7 @@ where
             ))
             .then(add.clone())
             .repeated(),
-            |lhs, (op, rhs)| Expression::BinaryOp {
-                op,
-                left: Box::new(lhs),
-                right: Box::new(rhs),
-            },
+            |lhs, (op, rhs)| create_binary_op(op, lhs, rhs),
         );
 
         // Logical AND operator: && (left-associative)
@@ -427,11 +426,7 @@ where
             op(TokenType::AndAnd, BinaryOp::And)
                 .then(cmp.clone())
                 .repeated(),
-            |lhs, (op, rhs)| Expression::BinaryOp {
-                op,
-                left: Box::new(lhs),
-                right: Box::new(rhs),
-            },
+            |lhs, (op, rhs)| create_binary_op(op, lhs, rhs),
         );
 
         // Logical OR operator: || (left-associative, lowest precedence)
@@ -439,11 +434,7 @@ where
             op(TokenType::OrOr, BinaryOp::Or)
                 .then(and.clone())
                 .repeated(),
-            |lhs, (op, rhs)| Expression::BinaryOp {
-                op,
-                left: Box::new(lhs),
-                right: Box::new(rhs),
-            },
+            |lhs, (op, rhs)| create_binary_op(op, lhs, rhs),
         )
     })
 }
