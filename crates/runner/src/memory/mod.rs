@@ -6,7 +6,7 @@ use stwo_prover::core::fields::qm31::QM31;
 /// This limits the memory size to 2^30 elements.
 const MAX_MEMORY_SIZE_BITS: u8 = 30;
 
-/// Represents the Cairo VM's memory, a flat, read-write address space.
+/// Represents the Cairo M VM's memory, a flat, read-write address space.
 ///
 /// Memory is addressable by `M31` field elements and stores `QM31` values.
 #[derive(Debug, Clone, Default)]
