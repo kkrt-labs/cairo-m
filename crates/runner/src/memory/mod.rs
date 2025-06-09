@@ -38,7 +38,7 @@ impl Memory {
     /// * `addr` - The `M31` memory address to read from.
     pub fn get_instruction(&self, addr: M31) -> QM31 {
         let address = addr.0 as usize;
-        self.data.get(address).copied().unwrap_or_else(QM31::zero)
+        self.data.get(address).copied().unwrap_or_default()
     }
 
     /// Retrieves a value from memory and projects it to a base field element `M31`.
