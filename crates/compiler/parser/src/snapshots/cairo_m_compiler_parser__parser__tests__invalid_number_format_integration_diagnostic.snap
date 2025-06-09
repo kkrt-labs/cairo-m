@@ -1,0 +1,12 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entries
+---
+code: func test() { let x = 0xGG; }
+result: [03] Error: Invalid number '0xGG': Invalid number format
+   ╭─[ <unknown>:1:23 ]
+   │
+ 1 │ func test() { let x = 0xGG; }
+   │                       ──┬─  
+   │                         ╰─── Invalid number '0xGG': Invalid number format
+───╯

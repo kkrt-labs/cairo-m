@@ -755,6 +755,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::lexer::LexingError;
     use ariadne::{Label, Report, ReportKind, Source};
     use chumsky::input::Stream;
     use chumsky::Parser;
@@ -877,24 +878,57 @@ mod tests {
 
     // Helper function to parse a string input
     fn parse_str(input: &str) -> Result<Vec<TopLevelItem>, Vec<String>> {
-        let token_iter = TokenType::lexer(input)
-            .spanned()
-            .map(|(tok, span)| match tok {
-                Ok(tok) => (tok, span.into()),
-                Err(()) => (TokenType::Error, span.into()),
-            });
+        // First, collect all tokens and check for lexer errors
+        let mut tokens = Vec::new();
+        let mut lexer_errors = Vec::new();
 
+        for (token_result, span) in TokenType::lexer(input).spanned() {
+            match token_result {
+                Ok(token) => tokens.push((token, span.into())),
+                Err(lexing_error) => {
+                    lexer_errors.push(build_lexer_error_message(input, lexing_error, span.into()));
+                }
+            }
+        }
+
+        // If there are lexer errors, return them immediately
+        if !lexer_errors.is_empty() {
+            return Err(lexer_errors);
+        }
+
+        // Create token stream from the successfully lexed tokens
         let token_stream =
-            Stream::from_iter(token_iter).map((0..input.len()).into(), |(t, s): (_, _)| (t, s));
+            Stream::from_iter(tokens).map((0..input.len()).into(), |(t, s): (_, _)| (t, s));
 
+        // Parse the token stream
         parser()
             .then_ignore(end())
             .parse(token_stream)
             .into_result()
-            .map_err(|errs| build_error_message(input, errs))
+            .map_err(|errs| build_parser_error_message(input, errs))
     }
 
-    fn build_error_message(source: &str, errs: Vec<Rich<TokenType, SimpleSpan>>) -> Vec<String> {
+    fn build_lexer_error_message(source: &str, error: LexingError, span: SimpleSpan) -> String {
+        let mut write_buffer = Vec::new();
+        Report::build(ReportKind::Error, ((), span.into_range()))
+            .with_config(
+                ariadne::Config::new()
+                    .with_index_type(ariadne::IndexType::Byte)
+                    .with_color(false),
+            )
+            .with_code(3)
+            .with_message(error.to_string())
+            .with_label(Label::new(((), span.into_range())).with_message(format!("{}", error)))
+            .finish()
+            .write(Source::from(source), &mut write_buffer)
+            .unwrap();
+        String::from_utf8_lossy(&write_buffer).to_string()
+    }
+
+    fn build_parser_error_message(
+        source: &str,
+        errs: Vec<Rich<TokenType, SimpleSpan>>,
+    ) -> Vec<String> {
         let mut reports = Vec::new();
         for err in errs {
             let mut write_buffer = Vec::new();
@@ -1906,6 +1940,22 @@ mod tests {
                 const ALSO_GOOD = 2;
             "#,
 
+        ));
+    }
+
+    #[test]
+    fn test_lexer_error_integration() {
+        run_test_case(test_case!(
+            name: "lexer_error_integration",
+            code: "func test() { let x = 0x80000000; }",
+        ));
+    }
+
+    #[test]
+    fn test_invalid_number_format_integration() {
+        run_test_case(test_case!(
+            name: "invalid_number_format_integration",
+            code: "func test() { let x = 0xGG; }",
         ));
     }
 }
