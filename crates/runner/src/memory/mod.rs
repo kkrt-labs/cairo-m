@@ -27,6 +27,26 @@ pub struct Memory {
 }
 
 impl Memory {
+    /// Checks if a given memory address is within the allowed range (`0` to `2^MAX_MEMORY_SIZE_BITS`).
+    ///
+    /// # Arguments
+    ///
+    /// * `address` - The `M31` address to validate.
+    ///
+    /// # Errors
+    ///
+    /// Returns `MemoryError::AddressOutOfBounds` if the address exceeds the maximum allowed size.
+    const fn validate_address(addr: M31) -> Result<(), MemoryError> {
+        let max_address = 1 << MAX_MEMORY_SIZE_BITS;
+        if addr.0 > max_address {
+            return Err(MemoryError::AddressOutOfBounds {
+                address: addr,
+                max_address,
+            });
+        }
+        Ok(())
+    }
+
     /// Retrieves a `QM31` value from the specified memory address.
     ///
     /// This is used to fetch instructions of the program, which are represented as
@@ -65,26 +85,6 @@ impl Memory {
             });
         }
         Ok(value.0 .0)
-    }
-
-    /// Checks if a given memory address is within the allowed range (`0` to `2^MAX_MEMORY_SIZE_BITS`).
-    ///
-    /// # Arguments
-    ///
-    /// * `address` - The `M31` address to validate.
-    ///
-    /// # Errors
-    ///
-    /// Returns `MemoryError::AddressOutOfBounds` if the address exceeds the maximum allowed size.
-    const fn validate_address(addr: M31) -> Result<(), MemoryError> {
-        let max_address = 1 << MAX_MEMORY_SIZE_BITS;
-        if addr.0 > max_address {
-            return Err(MemoryError::AddressOutOfBounds {
-                address: addr,
-                max_address,
-            });
-        }
-        Ok(())
     }
 
     /// Inserts a `QM31` value at a specified validated memory address.
