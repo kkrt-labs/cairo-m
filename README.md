@@ -36,5 +36,7 @@ To get started with Cairo M, clone the repository and build the project using
 Cargo. Make sure you have the Rust nightly toolchain installed as specified in
 `rust-toolchain.toml`.
 
+**Note for MacOS users**: You need to have `lld` installed, which can be done easily with `brew install lld`.
+
 The project uses [trunk.io](https://trunk.io/) for managing all the linters, so
 make sure to install both the CLI and the VScode extension.
