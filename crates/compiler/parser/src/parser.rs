@@ -14,8 +14,8 @@
 //! - **Statement parsing**: Handles control flow, variable declarations, assignments
 //! - **Top-level item parsing**: Functions, structs, namespaces, imports, and constants
 
-use crate::lexer::TokenType;
 use crate::const_eval::maybe_evaluate_const_expr;
+use crate::lexer::TokenType;
 use chumsky::{input::ValueInput, prelude::*};
 
 /// Represents a type expression in the Cairo-M language.
@@ -280,7 +280,6 @@ where
         })
     })
 }
-
 
 /// Helper function to create binary operations with compile-time evaluation
 fn create_binary_op(op: BinaryOp, left: Expression, right: Expression) -> Expression {

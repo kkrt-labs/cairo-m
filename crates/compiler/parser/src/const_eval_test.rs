@@ -1,6 +1,5 @@
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::const_eval::{maybe_evaluate_const_expr, try_evaluate_const_expr, EvalError};
     use crate::parser::{BinaryOp, Expression};
 
@@ -11,7 +10,7 @@ mod tests {
             left: Box::new(Expression::Literal(3)),
             right: Box::new(Expression::Literal(4)),
         };
-        
+
         let result = maybe_evaluate_const_expr(expr);
         assert_eq!(result, Expression::Literal(7));
     }
@@ -23,7 +22,7 @@ mod tests {
             left: Box::new(Expression::Literal(10)),
             right: Box::new(Expression::Literal(3)),
         };
-        
+
         let result = maybe_evaluate_const_expr(expr);
         assert_eq!(result, Expression::Literal(7));
     }
@@ -35,7 +34,7 @@ mod tests {
             left: Box::new(Expression::Literal(3)),
             right: Box::new(Expression::Literal(4)),
         };
-        
+
         let result = maybe_evaluate_const_expr(expr);
         assert_eq!(result, Expression::Literal(12));
     }
@@ -47,7 +46,7 @@ mod tests {
             left: Box::new(Expression::Literal(12)),
             right: Box::new(Expression::Literal(3)),
         };
-        
+
         let result = maybe_evaluate_const_expr(expr);
         assert_eq!(result, Expression::Literal(4));
     }
@@ -60,13 +59,13 @@ mod tests {
             left: Box::new(Expression::Literal(4)),
             right: Box::new(Expression::Literal(2)),
         };
-        
+
         let expr = Expression::BinaryOp {
             op: BinaryOp::Add,
             left: Box::new(Expression::Literal(3)),
             right: Box::new(mul_expr),
         };
-        
+
         let result = maybe_evaluate_const_expr(expr);
         assert_eq!(result, Expression::Literal(11));
     }
@@ -79,7 +78,7 @@ mod tests {
             left: Box::new(Expression::Literal(2147483647)), // M31_MAX
             right: Box::new(Expression::Literal(1)),
         };
-        
+
         let result = try_evaluate_const_expr(&expr);
         assert!(matches!(result, Err(EvalError::Overflow)));
     }
@@ -92,7 +91,7 @@ mod tests {
             left: Box::new(Expression::Literal(100000)),
             right: Box::new(Expression::Literal(100000)),
         };
-        
+
         let result = try_evaluate_const_expr(&expr);
         assert!(matches!(result, Err(EvalError::Overflow)));
     }
@@ -104,7 +103,7 @@ mod tests {
             left: Box::new(Expression::Literal(10)),
             right: Box::new(Expression::Literal(0)),
         };
-        
+
         let result = try_evaluate_const_expr(&expr);
         assert!(matches!(result, Err(EvalError::DivisionByZero)));
     }
@@ -117,7 +116,7 @@ mod tests {
             left: Box::new(Expression::Literal(10)),
             right: Box::new(Expression::Literal(3)),
         };
-        
+
         let result = try_evaluate_const_expr(&expr);
         assert!(matches!(result, Err(EvalError::NonConstant)));
     }
@@ -130,9 +129,9 @@ mod tests {
             left: Box::new(Expression::Literal(3)),
             right: Box::new(Expression::Literal(5)),
         };
-        
+
         let result = try_evaluate_const_expr(&expr);
-        assert!(matches!(result, Err(EvalError::NonConstant)));
+        assert!(matches!(result, Err(EvalError::Overflow)));
     }
 
     #[test]
@@ -140,10 +139,10 @@ mod tests {
         // Test with a variable (non-constant)
         let expr = Expression::BinaryOp {
             op: BinaryOp::Add,
-            left: Box::new(Expression::Variable("x".to_string())),
+            left: Box::new(Expression::Identifier("x".to_string())),
             right: Box::new(Expression::Literal(5)),
         };
-        
+
         let result = maybe_evaluate_const_expr(expr.clone());
         assert_eq!(result, expr); // Should return original expression unchanged
     }
@@ -156,7 +155,7 @@ mod tests {
             left: Box::new(Expression::Literal(3)),
             right: Box::new(Expression::Literal(3)),
         };
-        
+
         let result = maybe_evaluate_const_expr(expr.clone());
         assert_eq!(result, expr); // Should return original expression unchanged
     }
@@ -169,7 +168,7 @@ mod tests {
             left: Box::new(Expression::Literal(1)),
             right: Box::new(Expression::Literal(1)),
         };
-        
+
         let result = maybe_evaluate_const_expr(expr.clone());
         assert_eq!(result, expr); // Should return original expression unchanged
     }
@@ -182,7 +181,7 @@ mod tests {
             left: Box::new(Expression::Literal(2147483647)), // M31_MAX
             right: Box::new(Expression::Literal(1)),
         };
-        
+
         let result = maybe_evaluate_const_expr(expr);
         assert_eq!(result, Expression::Literal(2147483646));
     }
@@ -195,9 +194,8 @@ mod tests {
             left: Box::new(Expression::Literal(0)),
             right: Box::new(Expression::Literal(12345)),
         };
-        
+
         let result = maybe_evaluate_const_expr(expr);
         assert_eq!(result, Expression::Literal(0));
     }
 }
-

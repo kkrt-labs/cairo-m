@@ -4,7 +4,7 @@
 //! It supports arithmetic operations on integer literals while ensuring that results
 //! do not overflow the M31 maximum value (2^31 - 1).
 
-use crate::parser::{Expression, BinaryOp};
+use crate::parser::{BinaryOp, Expression};
 
 /// Maximum value for M31 field (2^31 - 1)
 const M31_MAX: u32 = 2147483647;
@@ -23,9 +23,14 @@ pub enum EvalError {
 impl std::fmt::Display for EvalError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Overflow => write!(f, "Arithmetic overflow: result exceeds M31 maximum value (2^31 - 1)"),
+            Self::Overflow => write!(
+                f,
+                "Arithmetic overflow: result exceeds M31 maximum value (2^31 - 1)"
+            ),
             Self::DivisionByZero => write!(f, "Division by zero in compile-time evaluation"),
-            Self::NonConstant => write!(f, "Cannot evaluate non-constant expression at compile time"),
+            Self::NonConstant => {
+                write!(f, "Cannot evaluate non-constant expression at compile time")
+            }
         }
     }
 }
@@ -38,7 +43,7 @@ pub fn try_evaluate_const_expr(expr: &Expression) -> Result<u32, EvalError> {
         Expression::BinaryOp { op, left, right } => {
             let left_val = try_evaluate_const_expr(left)?;
             let right_val = try_evaluate_const_expr(right)?;
-            
+
             match op {
                 BinaryOp::Add => {
                     let result = left_val as u64 + right_val as u64;
@@ -105,7 +110,7 @@ mod tests {
             left: Box::new(Expression::Literal(3)),
             right: Box::new(Expression::Literal(4)),
         };
-        
+
         assert_eq!(try_evaluate_const_expr(&expr), Ok(7));
         assert_eq!(maybe_evaluate_const_expr(expr), Expression::Literal(7));
     }
@@ -122,7 +127,7 @@ mod tests {
                 right: Box::new(Expression::Literal(2)),
             }),
         };
-        
+
         assert_eq!(try_evaluate_const_expr(&expr), Ok(11));
         assert_eq!(maybe_evaluate_const_expr(expr), Expression::Literal(11));
     }
@@ -134,9 +139,9 @@ mod tests {
             left: Box::new(Expression::Literal(M31_MAX)),
             right: Box::new(Expression::Literal(1)),
         };
-        
+
         assert_eq!(try_evaluate_const_expr(&expr), Err(EvalError::Overflow));
-        
+
         // Should return original expression when evaluation fails
         let original = expr.clone();
         assert_eq!(maybe_evaluate_const_expr(expr), original);
@@ -149,8 +154,11 @@ mod tests {
             left: Box::new(Expression::Literal(10)),
             right: Box::new(Expression::Literal(0)),
         };
-        
-        assert_eq!(try_evaluate_const_expr(&expr), Err(EvalError::DivisionByZero));
+
+        assert_eq!(
+            try_evaluate_const_expr(&expr),
+            Err(EvalError::DivisionByZero)
+        );
     }
 
     #[test]
@@ -160,7 +168,7 @@ mod tests {
             left: Box::new(Expression::Literal(10)),
             right: Box::new(Expression::Literal(2)),
         };
-        
+
         assert_eq!(try_evaluate_const_expr(&expr), Ok(5));
         assert_eq!(maybe_evaluate_const_expr(expr), Expression::Literal(5));
     }
@@ -172,7 +180,7 @@ mod tests {
             left: Box::new(Expression::Literal(10)),
             right: Box::new(Expression::Literal(3)),
         };
-        
+
         assert_eq!(try_evaluate_const_expr(&expr), Err(EvalError::NonConstant));
     }
 
@@ -183,14 +191,14 @@ mod tests {
             left: Box::new(Expression::Literal(3)),
             right: Box::new(Expression::Literal(5)),
         };
-        
+
         assert_eq!(try_evaluate_const_expr(&expr), Err(EvalError::Overflow));
     }
 
     #[test]
     fn test_non_constant_expression() {
         let expr = Expression::Identifier("x".to_string());
-        
+
         assert_eq!(try_evaluate_const_expr(&expr), Err(EvalError::NonConstant));
         assert_eq!(maybe_evaluate_const_expr(expr.clone()), expr);
     }
@@ -202,8 +210,7 @@ mod tests {
             left: Box::new(Expression::Literal(3)),
             right: Box::new(Expression::Literal(3)),
         };
-        
+
         assert_eq!(try_evaluate_const_expr(&expr), Err(EvalError::NonConstant));
     }
 }
-

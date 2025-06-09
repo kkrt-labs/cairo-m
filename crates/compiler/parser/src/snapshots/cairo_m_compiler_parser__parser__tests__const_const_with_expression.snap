@@ -1,5 +1,6 @@
 ---
 source: crates/compiler/parser/src/parser.rs
+assertion_line: 854
 expression: snapshot_entry
 ---
 code: const COMPUTED = 2 * 3 + 1;
@@ -7,21 +8,9 @@ result: [
     Const(
         ConstDef {
             name: "COMPUTED",
-            value: BinaryOp {
-                op: Add,
-                left: BinaryOp {
-                    op: Mul,
-                    left: Literal(
-                        2,
-                    ),
-                    right: Literal(
-                        3,
-                    ),
-                },
-                right: Literal(
-                    1,
-                ),
-            },
+            value: Literal(
+                7,
+            ),
         },
     ),
 ]
