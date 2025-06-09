@@ -260,7 +260,7 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_address_error() {
+    fn test_validate_address_out_of_bounds() {
         let result = Memory::validate_address(M31::from((1 << MAX_MEMORY_SIZE_BITS) + 1));
         assert!(matches!(
             result,
