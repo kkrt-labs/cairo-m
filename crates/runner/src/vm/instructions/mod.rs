@@ -32,3 +32,26 @@ impl<T: Into<M31>> From<[T; 4]> for Instruction {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use num_traits::One;
+    use stwo_prover::core::fields::{m31::M31, qm31::QM31};
+
+    use crate::vm::instructions::Instruction;
+
+    #[test]
+    fn test_instruction_from_qm31() {
+        let instruction = QM31::from_m31_array([1, 2, 3, 4].map(Into::into));
+        let instruction = Instruction::from(instruction);
+        assert_eq!(instruction.op, M31::one());
+        assert_eq!(instruction.args, [M31::from(2), M31::from(3), M31::from(4)]);
+    }
+
+    #[test]
+    fn test_instruction_from_array() {
+        let instruction = Instruction::from([1, 2, 3, 4].map(Into::<M31>::into));
+        assert_eq!(instruction.op, M31::one());
+        assert_eq!(instruction.args, [M31::from(2), M31::from(3), M31::from(4)]);
+    }
+}
