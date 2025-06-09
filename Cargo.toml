@@ -13,6 +13,6 @@ edition = "2021"
 
 [workspace.dependencies]
 num-traits = "0.2.19"
-stwo-prover = { git = "https://github.com/starkware-libs/stwo", rev = "8b5436d", features = [
+stwo-prover = { git = "https://github.com/starkware-libs/stwo", features = [
   "parallel",
 ] }
