@@ -56,14 +56,15 @@ impl Memory {
     /// Returns `MemoryError::NotBaseFieldElement` if the value at the address
     /// is not a base field element.
     pub fn get_data(&self, addr: M31) -> Result<M31, MemoryError> {
-        let qm31_value = self.get_instruction(addr);
-        if !qm31_value.1.is_zero() || !qm31_value.0 .1.is_zero() {
+        let address = addr.0 as usize;
+        let value = self.data.get(address).copied().unwrap_or_else(QM31::zero);
+        if !value.1.is_zero() || !value.0 .1.is_zero() {
             return Err(MemoryError::NotBaseFieldElement {
                 address: addr,
-                value: qm31_value,
+                value,
             });
         }
-        Ok(qm31_value.0 .0)
+        Ok(value.0 .0)
     }
 
     /// Checks if a given memory address is within the allowed range (`0` to `2^MAX_MEMORY_SIZE_BITS`).
