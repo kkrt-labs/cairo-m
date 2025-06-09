@@ -28,7 +28,7 @@ impl<T: Into<M31>> From<[T; 4]> for Instruction {
         let [op, args @ ..] = instruction;
         Self {
             op: op.into(),
-            args: args.map(|x| x.into()),
+            args: args.map(Into::into),
         }
     }
 }
