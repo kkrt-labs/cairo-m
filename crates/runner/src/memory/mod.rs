@@ -11,12 +11,12 @@ const MAX_MEMORY_SIZE_BITS: u8 = 30;
 /// Custom error types for memory operations.
 #[derive(Debug, Clone, Error)]
 pub enum MemoryError {
-    #[error("Address {address} is out of bounds. Maximum allowed address is {max_address}")]
-    AddressOutOfBounds { address: M31, max_address: u32 },
-    #[error("Cannot project value at address {address} to base field M31: {value:?}")]
-    BaseFieldProjectionFailed { address: M31, value: QM31 },
-    #[error("Memory cell at address {address} is not initialized")]
-    UninitializedMemoryCell { address: M31 },
+    #[error("Address {addr} is out of bounds. Maximum allowed address is {max_addr}")]
+    AddressOutOfBounds { addr: M31, max_addr: u32 },
+    #[error("Cannot project value at address {addr} to base field M31: {value:?}")]
+    BaseFieldProjectionFailed { addr: M31, value: QM31 },
+    #[error("Memory cell at address {addr} is not initialized")]
+    UninitializedMemoryCell { addr: M31 },
 }
 
 /// Represents the Cairo M VM's memory, a flat, read-write address space.
@@ -40,12 +40,9 @@ impl Memory {
     ///
     /// Returns [`MemoryError::AddressOutOfBounds`] if the address exceeds the maximum allowed size.
     const fn validate_address(addr: M31) -> Result<(), MemoryError> {
-        let max_address = 1 << MAX_MEMORY_SIZE_BITS;
-        if addr.0 > max_address {
-            return Err(MemoryError::AddressOutOfBounds {
-                address: addr,
-                max_address,
-            });
+        let max_addr = 1 << MAX_MEMORY_SIZE_BITS;
+        if addr.0 > max_addr {
+            return Err(MemoryError::AddressOutOfBounds { addr, max_addr });
         }
         Ok(())
     }
@@ -68,7 +65,7 @@ impl Memory {
         self.data
             .get(address)
             .copied()
-            .ok_or(MemoryError::UninitializedMemoryCell { address: addr })
+            .ok_or(MemoryError::UninitializedMemoryCell { addr })
     }
 
     /// Retrieves a value from memory and projects it to a base field element `M31`.
@@ -89,10 +86,7 @@ impl Memory {
         let address = addr.0 as usize;
         let value = self.data.get(address).copied().unwrap_or_default();
         if !value.1.is_zero() || !value.0 .1.is_zero() {
-            return Err(MemoryError::BaseFieldProjectionFailed {
-                address: addr,
-                value,
-            });
+            return Err(MemoryError::BaseFieldProjectionFailed { addr, value });
         }
         Ok(value.0 .0)
     }
@@ -148,8 +142,8 @@ impl Memory {
         // Since we already checked for empty slice, slice_len >= 1
         let last_addr = start_addr.0.checked_add((slice_len - 1) as u32).ok_or(
             MemoryError::AddressOutOfBounds {
-                address: start_addr,
-                max_address: 1 << MAX_MEMORY_SIZE_BITS,
+                addr: start_addr,
+                max_addr: 1 << MAX_MEMORY_SIZE_BITS,
             },
         )?;
         Self::validate_address(last_addr.into())?;
