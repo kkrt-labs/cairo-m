@@ -1,0 +1,29 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entry
+---
+code: func test(x: (felt, felt)) { }
+result: [
+    Function(
+        FunctionDef {
+            name: "test",
+            params: [
+                Parameter {
+                    name: "x",
+                    type_expr: Tuple(
+                        [
+                            Named(
+                                "felt",
+                            ),
+                            Named(
+                                "felt",
+                            ),
+                        ],
+                    ),
+                },
+            ],
+            return_type: None,
+            body: [],
+        },
+    ),
+]

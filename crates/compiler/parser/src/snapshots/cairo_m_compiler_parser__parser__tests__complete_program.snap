@@ -1,0 +1,226 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entry
+---
+code: 
+                struct Vector {
+                    x: felt,
+                    y: felt
+                }
+
+                namespace MathUtils {
+                    func magnitude(v: Vector) -> felt {
+                        return (v.x * v.x + v.y * v.y);
+                    }
+
+                    func rfib(n: felt) -> felt {
+                        if (n == 0) {
+                            return 0;
+                        }
+                        if (n == 1) {
+                            return 1;
+                        }
+                        return rfib(n - 1) + rfib(n - 2);
+                    }
+                }
+
+                const TOP_LEVEL_CONST = 100;
+            
+result: [
+    Struct(
+        StructDef {
+            name: "Vector",
+            fields: [
+                (
+                    "x",
+                    Named(
+                        "felt",
+                    ),
+                ),
+                (
+                    "y",
+                    Named(
+                        "felt",
+                    ),
+                ),
+            ],
+        },
+    ),
+    Namespace(
+        Namespace {
+            name: "MathUtils",
+            body: [
+                Function(
+                    FunctionDef {
+                        name: "magnitude",
+                        params: [
+                            Parameter {
+                                name: "v",
+                                type_expr: Named(
+                                    "Vector",
+                                ),
+                            },
+                        ],
+                        return_type: Some(
+                            Named(
+                                "felt",
+                            ),
+                        ),
+                        body: [
+                            Return {
+                                value: Some(
+                                    BinaryOp {
+                                        op: Add,
+                                        left: BinaryOp {
+                                            op: Mul,
+                                            left: MemberAccess {
+                                                object: Identifier(
+                                                    "v",
+                                                ),
+                                                field: "x",
+                                            },
+                                            right: MemberAccess {
+                                                object: Identifier(
+                                                    "v",
+                                                ),
+                                                field: "x",
+                                            },
+                                        },
+                                        right: BinaryOp {
+                                            op: Mul,
+                                            left: MemberAccess {
+                                                object: Identifier(
+                                                    "v",
+                                                ),
+                                                field: "y",
+                                            },
+                                            right: MemberAccess {
+                                                object: Identifier(
+                                                    "v",
+                                                ),
+                                                field: "y",
+                                            },
+                                        },
+                                    },
+                                ),
+                            },
+                        ],
+                    },
+                ),
+                Function(
+                    FunctionDef {
+                        name: "rfib",
+                        params: [
+                            Parameter {
+                                name: "n",
+                                type_expr: Named(
+                                    "felt",
+                                ),
+                            },
+                        ],
+                        return_type: Some(
+                            Named(
+                                "felt",
+                            ),
+                        ),
+                        body: [
+                            If {
+                                condition: BinaryOp {
+                                    op: Eq,
+                                    left: Identifier(
+                                        "n",
+                                    ),
+                                    right: Literal(
+                                        0,
+                                    ),
+                                },
+                                then_block: Block(
+                                    [
+                                        Return {
+                                            value: Some(
+                                                Literal(
+                                                    0,
+                                                ),
+                                            ),
+                                        },
+                                    ],
+                                ),
+                                else_block: None,
+                            },
+                            If {
+                                condition: BinaryOp {
+                                    op: Eq,
+                                    left: Identifier(
+                                        "n",
+                                    ),
+                                    right: Literal(
+                                        1,
+                                    ),
+                                },
+                                then_block: Block(
+                                    [
+                                        Return {
+                                            value: Some(
+                                                Literal(
+                                                    1,
+                                                ),
+                                            ),
+                                        },
+                                    ],
+                                ),
+                                else_block: None,
+                            },
+                            Return {
+                                value: Some(
+                                    BinaryOp {
+                                        op: Add,
+                                        left: FunctionCall {
+                                            callee: Identifier(
+                                                "rfib",
+                                            ),
+                                            args: [
+                                                BinaryOp {
+                                                    op: Sub,
+                                                    left: Identifier(
+                                                        "n",
+                                                    ),
+                                                    right: Literal(
+                                                        1,
+                                                    ),
+                                                },
+                                            ],
+                                        },
+                                        right: FunctionCall {
+                                            callee: Identifier(
+                                                "rfib",
+                                            ),
+                                            args: [
+                                                BinaryOp {
+                                                    op: Sub,
+                                                    left: Identifier(
+                                                        "n",
+                                                    ),
+                                                    right: Literal(
+                                                        2,
+                                                    ),
+                                                },
+                                            ],
+                                        },
+                                    },
+                                ),
+                            },
+                        ],
+                    },
+                ),
+            ],
+        },
+    ),
+    Const(
+        ConstDef {
+            name: "TOP_LEVEL_CONST",
+            value: Literal(
+                100,
+            ),
+        },
+    ),
+]

@@ -1,0 +1,63 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entry
+---
+code: 
+                struct ComplexStruct {
+                    field1: felt,
+                    field2: felt*,
+                    field3: (felt, felt),
+                    field4: AnotherStruct,
+                    field5: AnotherStruct*
+                }
+            
+result: [
+    Struct(
+        StructDef {
+            name: "ComplexStruct",
+            fields: [
+                (
+                    "field1",
+                    Named(
+                        "felt",
+                    ),
+                ),
+                (
+                    "field2",
+                    Pointer(
+                        Named(
+                            "felt",
+                        ),
+                    ),
+                ),
+                (
+                    "field3",
+                    Tuple(
+                        [
+                            Named(
+                                "felt",
+                            ),
+                            Named(
+                                "felt",
+                            ),
+                        ],
+                    ),
+                ),
+                (
+                    "field4",
+                    Named(
+                        "AnotherStruct",
+                    ),
+                ),
+                (
+                    "field5",
+                    Pointer(
+                        Named(
+                            "AnotherStruct",
+                        ),
+                    ),
+                ),
+            ],
+        },
+    ),
+]

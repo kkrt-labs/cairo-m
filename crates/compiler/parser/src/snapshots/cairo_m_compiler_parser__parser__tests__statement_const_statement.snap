@@ -1,0 +1,24 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entry
+---
+code: func test() { const PI = 314; }
+result: [
+    Function(
+        FunctionDef {
+            name: "test",
+            params: [],
+            return_type: None,
+            body: [
+                Const(
+                    ConstDef {
+                        name: "PI",
+                        value: Literal(
+                            314,
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+]

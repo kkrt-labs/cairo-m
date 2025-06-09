@@ -1,0 +1,22 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entry
+---
+code: func test() { let very_long_variable_name_that_tests_identifier_parsing = another_very_long_identifier; }
+result: [
+    Function(
+        FunctionDef {
+            name: "test",
+            params: [],
+            return_type: None,
+            body: [
+                Let {
+                    name: "very_long_variable_name_that_tests_identifier_parsing",
+                    value: Identifier(
+                        "another_very_long_identifier",
+                    ),
+                },
+            ],
+        },
+    ),
+]

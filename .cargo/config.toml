@@ -1,0 +1,3 @@
+# lld must be installed! Run: `brew install lld`
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "link-arg=-fuse-ld=/opt/homebrew/opt/lld/bin/ld64.lld"]

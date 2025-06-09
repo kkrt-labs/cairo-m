@@ -1,0 +1,12 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entries
+---
+code: func test(: felt) { }
+result: [03] Error: found ':' expected identifier, or ')'
+   ╭─[ <unknown>:1:11 ]
+   │
+ 1 │ func test(: felt) { }
+   │           ┬  
+   │           ╰── found ':' expected identifier, or ')'
+───╯

@@ -1,0 +1,12 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entries
+---
+code: func test() { 4294967295; }
+result: [03] Error: found 'Error' expected '{', 'if', 'let', 'local', 'const', 'return', something else, identifier, '(', or '}'
+   ╭─[ <unknown>:1:15 ]
+   │
+ 1 │ func test() { 4294967295; }
+   │               ─────┬────  
+   │                    ╰────── found 'Error' expected '{', 'if', 'let', 'local', 'const', 'return', something else, identifier, '(', or '}'
+───╯

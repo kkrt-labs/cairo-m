@@ -1,0 +1,17 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entries
+---
+code: 
+                func bad1( { }
+                func good() { return 1; }
+                struct bad2 x: felt }
+                struct Good { x: felt }
+            
+result: [03] Error: found '{' expected identifier, or ')'
+   ╭─[ <unknown>:2:28 ]
+   │
+ 2 │                 func bad1( { }
+   │                            ┬  
+   │                            ╰── found '{' expected identifier, or ')'
+───╯

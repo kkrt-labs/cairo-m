@@ -1,0 +1,22 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entry
+---
+code: func test() { Unit {}; }
+result: [
+    Function(
+        FunctionDef {
+            name: "test",
+            params: [],
+            return_type: None,
+            body: [
+                Expression(
+                    StructLiteral {
+                        name: "Unit",
+                        fields: [],
+                    },
+                ),
+            ],
+        },
+    ),
+]

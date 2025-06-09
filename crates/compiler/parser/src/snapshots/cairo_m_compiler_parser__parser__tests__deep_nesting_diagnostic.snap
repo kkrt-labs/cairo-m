@@ -1,0 +1,12 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entries
+---
+code: func test() { if (true) { if (true) { if (true) { if (true) { if (true) { x = 1; } } } } } }
+result: [03] Error: found 'true' expected something else, identifier, or '('
+   ╭─[ <unknown>:1:19 ]
+   │
+ 1 │ func test() { if (true) { if (true) { if (true) { if (true) { if (true) { x = 1; } } } } } }
+   │                   ──┬─  
+   │                     ╰─── found 'true' expected something else, identifier, or '('
+───╯

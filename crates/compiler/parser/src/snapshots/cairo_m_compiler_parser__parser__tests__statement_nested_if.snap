@@ -1,0 +1,57 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entry
+---
+code: func test() { if (a) { if (b) { c = 1; } else { c = 2; } } }
+result: [
+    Function(
+        FunctionDef {
+            name: "test",
+            params: [],
+            return_type: None,
+            body: [
+                If {
+                    condition: Identifier(
+                        "a",
+                    ),
+                    then_block: Block(
+                        [
+                            If {
+                                condition: Identifier(
+                                    "b",
+                                ),
+                                then_block: Block(
+                                    [
+                                        Assignment {
+                                            lhs: Identifier(
+                                                "c",
+                                            ),
+                                            rhs: Literal(
+                                                1,
+                                            ),
+                                        },
+                                    ],
+                                ),
+                                else_block: Some(
+                                    Block(
+                                        [
+                                            Assignment {
+                                                lhs: Identifier(
+                                                    "c",
+                                                ),
+                                                rhs: Literal(
+                                                    2,
+                                                ),
+                                            },
+                                        ],
+                                    ),
+                                ),
+                            },
+                        ],
+                    ),
+                    else_block: None,
+                },
+            ],
+        },
+    ),
+]

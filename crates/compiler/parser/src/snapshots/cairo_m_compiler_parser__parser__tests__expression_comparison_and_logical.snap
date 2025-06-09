@@ -1,0 +1,39 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entry
+---
+code: func test() { a == b && c != d; }
+result: [
+    Function(
+        FunctionDef {
+            name: "test",
+            params: [],
+            return_type: None,
+            body: [
+                Expression(
+                    BinaryOp {
+                        op: And,
+                        left: BinaryOp {
+                            op: Eq,
+                            left: Identifier(
+                                "a",
+                            ),
+                            right: Identifier(
+                                "b",
+                            ),
+                        },
+                        right: BinaryOp {
+                            op: Neq,
+                            left: Identifier(
+                                "c",
+                            ),
+                            right: Identifier(
+                                "d",
+                            ),
+                        },
+                    },
+                ),
+            ],
+        },
+    ),
+]

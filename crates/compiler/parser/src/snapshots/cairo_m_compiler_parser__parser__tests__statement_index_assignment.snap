@@ -1,0 +1,29 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entry
+---
+code: func test() { arr[0] = item; }
+result: [
+    Function(
+        FunctionDef {
+            name: "test",
+            params: [],
+            return_type: None,
+            body: [
+                Assignment {
+                    lhs: IndexAccess {
+                        array: Identifier(
+                            "arr",
+                        ),
+                        index: Literal(
+                            0,
+                        ),
+                    },
+                    rhs: Identifier(
+                        "item",
+                    ),
+                },
+            ],
+        },
+    ),
+]

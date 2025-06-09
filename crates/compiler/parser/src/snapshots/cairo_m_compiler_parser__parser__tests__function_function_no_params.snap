@@ -1,0 +1,27 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entry
+---
+code: func get_constant() -> felt { return 42; }
+result: [
+    Function(
+        FunctionDef {
+            name: "get_constant",
+            params: [],
+            return_type: Some(
+                Named(
+                    "felt",
+                ),
+            ),
+            body: [
+                Return {
+                    value: Some(
+                        Literal(
+                            42,
+                        ),
+                    ),
+                },
+            ],
+        },
+    ),
+]
