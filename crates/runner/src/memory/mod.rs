@@ -136,10 +136,15 @@ impl Memory {
         let start_address = start_addr.0 as usize;
         let slice_len = values.len();
         // Since we already checked for empty slice, slice_len >= 1
-        let last_addr = start_addr.0.saturating_add((slice_len - 1) as u32);
+        let last_addr = start_addr.0.checked_add((slice_len - 1) as u32).ok_or(
+            MemoryError::AddressOutOfBounds {
+                address: start_addr,
+                max_address: 1 << MAX_MEMORY_SIZE_BITS,
+            },
+        )?;
         Self::validate_address(M31::from(last_addr))?;
 
-        let end_address = start_address + slice_len;
+        let end_address = last_addr as usize + 1;
 
         // Resize vector if necessary
         if end_address > self.data.len() {
