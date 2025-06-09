@@ -196,9 +196,7 @@ mod tests {
         let mut memory = Memory::default();
         let addr = M31::from(42);
         let value = QM31::from_m31_array([123, 0, 0, 0].map(Into::into));
-
         memory.insert(addr, value).unwrap();
-
         assert_eq!(memory.get_instruction(addr), value);
     }
 
@@ -206,7 +204,6 @@ mod tests {
     fn test_get_instruction_from_empty_address() {
         let memory = Memory::default();
         let addr = M31::from(10);
-
         assert_eq!(memory.get_instruction(addr), QM31::zero());
     }
 
@@ -215,9 +212,7 @@ mod tests {
         let mut memory = Memory::default();
         let addr = M31::from(42);
         let value = QM31::from_m31_array([123, 0, 0, 0].map(Into::into));
-
         memory.insert(addr, value).unwrap();
-
         assert_eq!(memory.get_data(addr).unwrap(), M31::from(123));
     }
 
@@ -225,7 +220,6 @@ mod tests {
     fn test_get_data_from_empty_address() {
         let memory = Memory::default();
         let addr = M31::from(10);
-
         assert_eq!(memory.get_data(addr).unwrap(), M31::zero());
     }
 
@@ -234,9 +228,7 @@ mod tests {
         let mut memory = Memory::default();
         let addr = M31::from(42);
         let value = QM31::from_m31_array([0, 0, 123, 0].map(Into::into));
-
         memory.insert(addr, value).unwrap();
-
         assert!(matches!(
             memory.get_data(addr),
             Err(MemoryError::BaseFieldProjectionFailed { .. })
@@ -248,9 +240,7 @@ mod tests {
         let mut memory = Memory::default();
         let addr = M31::from(100);
         let value = QM31::from_m31_array([42, 0, 0, 0].map(Into::into));
-
         memory.insert(addr, value).unwrap();
-
         assert_eq!(memory.data.len(), 101);
         assert_eq!(memory.get_instruction(addr), value);
     }
@@ -303,7 +293,6 @@ mod tests {
         let mut memory = Memory::default();
         let invalid_addr = M31::from((1 << MAX_MEMORY_SIZE_BITS) + 1);
         let values = vec![QM31::zero()];
-
         let result = memory.insert_slice(invalid_addr, &values);
         assert!(matches!(
             result,
@@ -316,7 +305,6 @@ mod tests {
         let mut memory = Memory::default();
         let start_addr = M31::from((1 << MAX_MEMORY_SIZE_BITS) - 5);
         let values = vec![QM31::zero(); 10];
-
         let result = memory.insert_slice(start_addr, &values);
         assert!(matches!(
             result,
@@ -332,9 +320,7 @@ mod tests {
             QM31::from_m31_array([20, 0, 0, 0].map(Into::into)),
             QM31::from_m31_array([30, 0, 0, 0].map(Into::into)),
         ];
-
         memory.extend(values);
-
         assert_eq!(memory.data.len(), 3);
         assert_eq!(memory.get_instruction(M31::from(0)), M31::from(10).into());
         assert_eq!(memory.get_instruction(M31::one()), M31::from(20).into());
@@ -347,9 +333,7 @@ mod tests {
             QM31::from_m31_array([100, 0, 0, 0].map(Into::into)),
             QM31::from_m31_array([200, 0, 0, 0].map(Into::into)),
         ];
-
         let memory: Memory = values.into_iter().collect();
-
         assert_eq!(memory.data.len(), 2);
         assert_eq!(memory.get_instruction(M31::from(0)), M31::from(100).into());
         assert_eq!(memory.get_instruction(M31::one()), M31::from(200).into());
