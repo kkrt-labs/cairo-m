@@ -5,6 +5,7 @@ use thiserror::Error;
 
 /// The maximum number of bits for a memory address, set to 30.
 /// This limits the memory size to 2^30 elements.
+/// TODO: check with Starkware
 const MAX_MEMORY_SIZE_BITS: u8 = 30;
 
 /// Custom error types for memory operations.
