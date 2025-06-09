@@ -1,10 +1,20 @@
 use num_traits::identities::Zero;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
+use thiserror::Error;
 
 /// The maximum number of bits for a memory address, set to 30.
 /// This limits the memory size to 2^30 elements.
 const MAX_MEMORY_SIZE_BITS: u8 = 30;
+
+/// Custom error types for memory operations.
+#[derive(Debug, Clone, Error)]
+pub enum MemoryError {
+    #[error("Address {address} is out of bounds. Maximum allowed address is {max_address}")]
+    AddressOutOfBounds { address: M31, max_address: u32 },
+    #[error("Value at address {address} is not a base field element: {value:?}")]
+    NotBaseFieldElement { address: M31, value: QM31 },
+}
 
 /// Represents the Cairo M VM's memory, a flat, read-write address space.
 ///
@@ -34,21 +44,26 @@ impl Memory {
     /// Retrieves a value from memory and projects it to a base field element `M31`.
     ///
     /// This is used for instruction arguments or other data that are expected to
-    /// be simple field elements. It asserts that the retrieved `QM31` value is
-    /// in the base field (i.e., its extension components are zero).
+    /// be simple field elements. Returns an error if the retrieved `QM31` value is
+    /// not in the base field (i.e., its extension components are non-zero).
     ///
     /// # Arguments
     ///
     /// * `addr` - The `M31` memory address to read from.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the value at the address is not a base field element.
-    pub fn get_data(&self, addr: M31) -> M31 {
+    /// Returns `MemoryError::NotBaseFieldElement` if the value at the address
+    /// is not a base field element.
+    pub fn get_data(&self, addr: M31) -> Result<M31, MemoryError> {
         let qm31_value = self.get_instruction(addr);
-        assert!(qm31_value.1.is_zero());
-        assert!(qm31_value.0 .1.is_zero());
-        qm31_value.0 .0
+        if !qm31_value.1.is_zero() || !qm31_value.0 .1.is_zero() {
+            return Err(MemoryError::NotBaseFieldElement {
+                address: addr,
+                value: qm31_value,
+            });
+        }
+        Ok(qm31_value.0 .0)
     }
 
     /// Checks if a given memory address is within the allowed range (`0` to `2^MAX_MEMORY_SIZE_BITS`).
@@ -57,14 +72,18 @@ impl Memory {
     ///
     /// * `address` - The `M31` address to validate.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the address is out of bounds. This helps prevent memory
-    /// access violations.
-    fn validate_address(address: M31) {
-        if address.0 > (1 << MAX_MEMORY_SIZE_BITS) {
-            panic!("Max memory size is 2 ** {MAX_MEMORY_SIZE_BITS}; got address: {address}.")
+    /// Returns `MemoryError::AddressOutOfBounds` if the address exceeds the maximum allowed size.
+    const fn validate_address(address: M31) -> Result<(), MemoryError> {
+        let max_address = 1 << MAX_MEMORY_SIZE_BITS;
+        if address.0 > max_address {
+            return Err(MemoryError::AddressOutOfBounds {
+                address,
+                max_address,
+            });
         }
+        Ok(())
     }
 
     /// Inserts a `QM31` value at a specified validated memory address.
@@ -76,8 +95,12 @@ impl Memory {
     ///
     /// * `addr` - The `M31` memory address to write to.
     /// * `value` - The `QM31` value to insert.
-    pub fn insert(&mut self, addr: M31, value: QM31) {
-        Self::validate_address(addr);
+    ///
+    /// # Errors
+    ///
+    /// Returns `MemoryError::AddressOutOfBounds` if the address exceeds the maximum allowed size.
+    pub fn insert(&mut self, addr: M31, value: QM31) -> Result<(), MemoryError> {
+        Self::validate_address(addr)?;
         let address = addr.0 as usize;
 
         // Resize vector if necessary
@@ -86,6 +109,7 @@ impl Memory {
         }
 
         self.data[address] = value;
+        Ok(())
     }
 
     /// Inserts a slice of `QM31` values starting from a given address.
@@ -98,9 +122,13 @@ impl Memory {
     ///
     /// * `start_addr` - The `M31` starting address for the slice.
     /// * `values` - The slice of `QM31` values to insert.
-    pub fn insert_slice(&mut self, start_addr: M31, values: &[QM31]) {
+    ///
+    /// # Errors
+    ///
+    /// Returns `MemoryError::AddressOutOfBounds` if any address in the range exceeds the maximum allowed size.
+    pub fn insert_slice(&mut self, start_addr: M31, values: &[QM31]) -> Result<(), MemoryError> {
         if values.is_empty() {
-            return;
+            return Ok(());
         }
 
         // Check that the entire slice fits within memory limits
@@ -108,7 +136,7 @@ impl Memory {
         let slice_len = values.len();
         // Since we already checked for empty slice, slice_len >= 1
         let last_addr = start_addr.0.saturating_add((slice_len - 1) as u32);
-        Self::validate_address(M31::from(last_addr));
+        Self::validate_address(M31::from(last_addr))?;
 
         let end_address = start_address + slice_len;
 
@@ -119,6 +147,7 @@ impl Memory {
 
         // Copy the slice into memory
         self.data[start_address..end_address].copy_from_slice(values);
+        Ok(())
     }
 
     /// Extends the memory by appending values from an iterator.
@@ -160,7 +189,7 @@ mod tests {
         // Create a QM31 value that represents a base field element (only first component non-zero)
         let value = QM31::from_m31(M31::from(123), M31::from(123), M31::zero(), M31::zero());
 
-        memory.insert(addr, value);
+        memory.insert(addr, value).unwrap();
 
         let retrieved = memory.get_instruction(addr);
         assert_eq!(retrieved, value); // Should get the full QM31 value
@@ -182,9 +211,9 @@ mod tests {
         // Create a QM31 value that represents a base field element (only first component non-zero)
         let value = QM31::from_m31(M31::from(123), M31::zero(), M31::zero(), M31::zero());
 
-        memory.insert(addr, value);
+        memory.insert(addr, value).unwrap();
 
-        let retrieved = memory.get_data(addr);
+        let retrieved = memory.get_data(addr).unwrap();
         assert_eq!(retrieved, M31::from(123)); // Should get the projected M31 value
     }
 
@@ -193,20 +222,24 @@ mod tests {
         let memory = Memory::default();
         let addr = M31::from(10);
 
-        let result = memory.get_data(addr);
+        let result = memory.get_data(addr).unwrap();
         assert_eq!(result, M31::zero());
     }
 
     #[test]
-    #[should_panic(expected = "assertion failed: qm31_value.1.is_zero()")]
-    fn test_get_data_panic_on_non_base_field() {
+    fn test_get_data_error_on_non_base_field() {
         let mut memory = Memory::default();
         let addr = M31::from(42);
         // Create a QM31 value that is NOT in the base field
         let value = QM31::from_m31(M31::zero(), M31::zero(), M31::from(123), M31::zero());
 
-        memory.insert(addr, value);
-        memory.get_data(addr);
+        memory.insert(addr, value).unwrap();
+
+        let result = memory.get_data(addr);
+        assert!(matches!(
+            result,
+            Err(MemoryError::NotBaseFieldElement { .. })
+        ));
     }
 
     #[test]
@@ -215,7 +248,7 @@ mod tests {
         let addr = M31::from(100);
         let value = QM31::from_m31(M31::from(42), M31::zero(), M31::zero(), M31::zero());
 
-        memory.insert(addr, value);
+        memory.insert(addr, value).unwrap();
 
         assert_eq!(memory.data.len(), 101); // Should resize to address + 1
         assert_eq!(memory.get_instruction(addr), value);
@@ -224,17 +257,20 @@ mod tests {
     #[test]
     fn test_validate_address() {
         // Test valid addresses (within 2^30 limit)
-        Memory::validate_address(M31::from(100));
-        Memory::validate_address(M31::from(1_000_000));
-        Memory::validate_address(M31::from((1 << MAX_MEMORY_SIZE_BITS) - 1));
-        Memory::validate_address(M31::from(1 << MAX_MEMORY_SIZE_BITS));
+        assert!(Memory::validate_address(M31::from(100)).is_ok());
+        assert!(Memory::validate_address(M31::from(1_000_000)).is_ok());
+        assert!(Memory::validate_address(M31::from((1 << MAX_MEMORY_SIZE_BITS) - 1)).is_ok());
+        assert!(Memory::validate_address(M31::from(1 << MAX_MEMORY_SIZE_BITS)).is_ok());
     }
 
     #[test]
-    #[should_panic(expected = "Max memory size is 2 ** 30; got address: ")]
-    fn test_validate_address_panic() {
-        // Test address that exceeds the limit - should panic
-        Memory::validate_address(M31::from((1 << MAX_MEMORY_SIZE_BITS) + 1));
+    fn test_validate_address_error() {
+        // Test address that exceeds the limit - should return error
+        let result = Memory::validate_address(M31::from((1 << MAX_MEMORY_SIZE_BITS) + 1));
+        assert!(matches!(
+            result,
+            Err(MemoryError::AddressOutOfBounds { .. })
+        ));
     }
 
     #[test]
@@ -247,7 +283,7 @@ mod tests {
             QM31::from_m31(M31::from(3), M31::zero(), M31::zero(), M31::zero()),
         ];
 
-        memory.insert_slice(start_addr, &values);
+        memory.insert_slice(start_addr, &values).unwrap();
 
         assert_eq!(
             memory.get_instruction(M31::from(10)),
@@ -264,21 +300,29 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Max memory size is 2 ** 30")]
     fn test_insert_slice_start_addr_out_of_bounds() {
         let mut memory = Memory::default();
         let invalid_addr = M31::from((1 << MAX_MEMORY_SIZE_BITS) + 1);
         let values = vec![QM31::zero()];
-        memory.insert_slice(invalid_addr, &values);
+
+        let result = memory.insert_slice(invalid_addr, &values);
+        assert!(matches!(
+            result,
+            Err(MemoryError::AddressOutOfBounds { .. })
+        ));
     }
 
     #[test]
-    #[should_panic(expected = "Max memory size is 2 ** 30")]
     fn test_insert_slice_end_addr_out_of_bounds() {
         let mut memory = Memory::default();
         let start_addr = M31::from((1 << MAX_MEMORY_SIZE_BITS) - 5);
         let values = vec![QM31::zero(); 10]; // Would exceed limit
-        memory.insert_slice(start_addr, &values);
+
+        let result = memory.insert_slice(start_addr, &values);
+        assert!(matches!(
+            result,
+            Err(MemoryError::AddressOutOfBounds { .. })
+        ));
     }
 
     #[test]
