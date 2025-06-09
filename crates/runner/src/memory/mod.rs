@@ -13,8 +13,8 @@ const MAX_MEMORY_SIZE_BITS: u8 = 30;
 pub enum MemoryError {
     #[error("Address {address} is out of bounds. Maximum allowed address is {max_address}")]
     AddressOutOfBounds { address: M31, max_address: u32 },
-    #[error("Value at address {address} is not a base field element: {value:?}")]
-    NotBaseFieldElement { address: M31, value: QM31 },
+    #[error("Cannot project value at address {address} to base field M31: {value:?}")]
+    BaseFieldProjectionFailed { address: M31, value: QM31 },
 }
 
 /// Represents the Cairo M VM's memory, a flat, read-write address space.
@@ -65,8 +65,8 @@ impl Memory {
     /// Retrieves a value from memory and projects it to a base field element `M31`.
     ///
     /// This is used for instruction arguments or other data that are expected to
-    /// be simple field elements. Returns an error if the retrieved `QM31` value is
-    /// not in the base field (i.e., its extension components are non-zero).
+    /// be simple field elements. Returns an error if the retrieved `QM31` value cannot
+    /// be projected to the base field (i.e., its extension components are non-zero).
     ///
     /// # Arguments
     ///
@@ -74,13 +74,13 @@ impl Memory {
     ///
     /// # Errors
     ///
-    /// Returns `MemoryError::NotBaseFieldElement` if the value at the address
-    /// is not a base field element.
+    /// Returns `MemoryError::BaseFieldProjectionFailed` if the value at the address
+    /// cannot be projected to a base field element.
     pub fn get_data(&self, addr: M31) -> Result<M31, MemoryError> {
         let address = addr.0 as usize;
         let value = self.data.get(address).copied().unwrap_or_else(QM31::zero);
         if !value.1.is_zero() || !value.0 .1.is_zero() {
-            return Err(MemoryError::NotBaseFieldElement {
+            return Err(MemoryError::BaseFieldProjectionFailed {
                 address: addr,
                 value,
             });
@@ -230,7 +230,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_data_error_on_non_base_field() {
+    fn test_get_data_error_on_projection_failure() {
         let mut memory = Memory::default();
         let addr = M31::from(42);
         let value = QM31::from_m31_array([0, 0, 123, 0].map(Into::into));
@@ -239,7 +239,7 @@ mod tests {
 
         assert!(matches!(
             memory.get_data(addr),
-            Err(MemoryError::NotBaseFieldElement { .. })
+            Err(MemoryError::BaseFieldProjectionFailed { .. })
         ));
     }
 
