@@ -1,0 +1,72 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entry
+---
+code: func test() { result = a.field[0].method(b + c * d, e && f || g).value; }
+result: [
+    Function(
+        FunctionDef {
+            name: "test",
+            params: [],
+            return_type: None,
+            body: [
+                Assignment {
+                    lhs: Identifier(
+                        "result",
+                    ),
+                    rhs: MemberAccess {
+                        object: FunctionCall {
+                            callee: MemberAccess {
+                                object: IndexAccess {
+                                    array: MemberAccess {
+                                        object: Identifier(
+                                            "a",
+                                        ),
+                                        field: "field",
+                                    },
+                                    index: Literal(
+                                        0,
+                                    ),
+                                },
+                                field: "method",
+                            },
+                            args: [
+                                BinaryOp {
+                                    op: Add,
+                                    left: Identifier(
+                                        "b",
+                                    ),
+                                    right: BinaryOp {
+                                        op: Mul,
+                                        left: Identifier(
+                                            "c",
+                                        ),
+                                        right: Identifier(
+                                            "d",
+                                        ),
+                                    },
+                                },
+                                BinaryOp {
+                                    op: Or,
+                                    left: BinaryOp {
+                                        op: And,
+                                        left: Identifier(
+                                            "e",
+                                        ),
+                                        right: Identifier(
+                                            "f",
+                                        ),
+                                    },
+                                    right: Identifier(
+                                        "g",
+                                    ),
+                                },
+                            ],
+                        },
+                        field: "value",
+                    },
+                },
+            ],
+        },
+    ),
+]

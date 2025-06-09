@@ -1,0 +1,23 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entry
+---
+code: func test() { local x = infer_me; }
+result: [
+    Function(
+        FunctionDef {
+            name: "test",
+            params: [],
+            return_type: None,
+            body: [
+                Local {
+                    name: "x",
+                    ty: None,
+                    value: Identifier(
+                        "infer_me",
+                    ),
+                },
+            ],
+        },
+    ),
+]

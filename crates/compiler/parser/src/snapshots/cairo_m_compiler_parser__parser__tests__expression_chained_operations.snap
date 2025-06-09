@@ -1,0 +1,44 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entry
+---
+code: func test() { obj.method1().field.method2()[0].final_field; }
+result: [
+    Function(
+        FunctionDef {
+            name: "test",
+            params: [],
+            return_type: None,
+            body: [
+                Expression(
+                    MemberAccess {
+                        object: IndexAccess {
+                            array: FunctionCall {
+                                callee: MemberAccess {
+                                    object: MemberAccess {
+                                        object: FunctionCall {
+                                            callee: MemberAccess {
+                                                object: Identifier(
+                                                    "obj",
+                                                ),
+                                                field: "method1",
+                                            },
+                                            args: [],
+                                        },
+                                        field: "field",
+                                    },
+                                    field: "method2",
+                                },
+                                args: [],
+                            },
+                            index: Literal(
+                                0,
+                            ),
+                        },
+                        field: "final_field",
+                    },
+                ),
+            ],
+        },
+    ),
+]

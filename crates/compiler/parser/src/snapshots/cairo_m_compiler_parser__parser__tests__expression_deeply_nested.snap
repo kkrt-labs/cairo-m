@@ -1,0 +1,57 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entry
+---
+code: func test() { ((((((a + b) * c) - d) / e) == f) && g); }
+result: [
+    Function(
+        FunctionDef {
+            name: "test",
+            params: [],
+            return_type: None,
+            body: [
+                Expression(
+                    BinaryOp {
+                        op: And,
+                        left: BinaryOp {
+                            op: Eq,
+                            left: BinaryOp {
+                                op: Div,
+                                left: BinaryOp {
+                                    op: Sub,
+                                    left: BinaryOp {
+                                        op: Mul,
+                                        left: BinaryOp {
+                                            op: Add,
+                                            left: Identifier(
+                                                "a",
+                                            ),
+                                            right: Identifier(
+                                                "b",
+                                            ),
+                                        },
+                                        right: Identifier(
+                                            "c",
+                                        ),
+                                    },
+                                    right: Identifier(
+                                        "d",
+                                    ),
+                                },
+                                right: Identifier(
+                                    "e",
+                                ),
+                            },
+                            right: Identifier(
+                                "f",
+                            ),
+                        },
+                        right: Identifier(
+                            "g",
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+]

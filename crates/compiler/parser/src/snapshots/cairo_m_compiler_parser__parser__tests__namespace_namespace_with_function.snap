@@ -1,0 +1,34 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entry
+---
+code: namespace Utils { func helper() -> felt { return 1; } }
+result: [
+    Namespace(
+        Namespace {
+            name: "Utils",
+            body: [
+                Function(
+                    FunctionDef {
+                        name: "helper",
+                        params: [],
+                        return_type: Some(
+                            Named(
+                                "felt",
+                            ),
+                        ),
+                        body: [
+                            Return {
+                                value: Some(
+                                    Literal(
+                                        1,
+                                    ),
+                                ),
+                            },
+                        ],
+                    },
+                ),
+            ],
+        },
+    ),
+]

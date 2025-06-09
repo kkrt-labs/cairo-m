@@ -253,11 +253,10 @@ where
 
     recursive(|type_expr| {
         // Named types: felt, Vector, MyStruct, etc.
-        let named_type = ident.clone().map(TypeExpr::Named);
+        let named_type = ident.map(TypeExpr::Named);
 
         // Tuple types: (felt, felt), (Vector, bool, felt), etc.
         let tuple_type = type_expr
-            .clone()
             .separated_by(just(TokenType::Comma))
             .allow_trailing()
             .collect::<Vec<_>>()
@@ -814,9 +813,20 @@ mod tests {
         result: SnapshotResult,
     }
 
+    struct SnapshotEntries(Vec<SnapshotEntry>);
+
     impl std::fmt::Display for SnapshotEntry {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(f, "code: {}\nresult: {}", self.code, self.result)
+        }
+    }
+
+    impl std::fmt::Display for SnapshotEntries {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            for entry in self.0.iter() {
+                write!(f, "{}", entry)?;
+            }
+            Ok(())
         }
     }
 
@@ -852,18 +862,15 @@ mod tests {
                 insta::assert_snapshot!(snapshot_name, snapshot_entry);
             }
             Err(errs) => {
-                for (i, err) in errs.iter().enumerate() {
-                    let snapshot_name = if errs.len() == 1 {
-                        format!("{}_diagnostic", test_case.name)
-                    } else {
-                        format!("{}_diagnostic_{}", test_case.name, i)
-                    };
-                    let snapshot_entry = SnapshotEntry {
+                let snapshot_name = format!("{}_diagnostic", test_case.name);
+                let mut snapshot_entries = SnapshotEntries(Vec::new());
+                for err in errs.iter() {
+                    snapshot_entries.0.push(SnapshotEntry {
                         code: test_case.code.to_string(),
                         result: SnapshotResult::ParseError(err.clone()),
-                    };
-                    insta::assert_snapshot!(snapshot_name, snapshot_entry);
+                    });
                 }
+                insta::assert_snapshot!(snapshot_name, snapshot_entries);
             }
         }
     }

@@ -1,0 +1,12 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entries
+---
+code: return 5;
+result: [03] Error: found 'return' expected 'func', 'struct', 'from', 'const', 'namespace', or end of input
+   ╭─[ <unknown>:1:1 ]
+   │
+ 1 │ return 5;
+   │ ───┬──  
+   │    ╰──── found 'return' expected 'func', 'struct', 'from', 'const', 'namespace', or end of input
+───╯

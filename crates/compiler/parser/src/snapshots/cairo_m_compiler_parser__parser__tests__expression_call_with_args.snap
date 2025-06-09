@@ -1,0 +1,34 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entry
+---
+code: func test() { add(a, b, c); }
+result: [
+    Function(
+        FunctionDef {
+            name: "test",
+            params: [],
+            return_type: None,
+            body: [
+                Expression(
+                    FunctionCall {
+                        callee: Identifier(
+                            "add",
+                        ),
+                        args: [
+                            Identifier(
+                                "a",
+                            ),
+                            Identifier(
+                                "b",
+                            ),
+                            Identifier(
+                                "c",
+                            ),
+                        ],
+                    },
+                ),
+            ],
+        },
+    ),
+]

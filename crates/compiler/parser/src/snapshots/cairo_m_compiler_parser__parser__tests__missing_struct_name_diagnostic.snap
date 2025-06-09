@@ -1,0 +1,12 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entries
+---
+code: struct { x: felt }
+result: [03] Error: found '{' expected identifier
+   ╭─[ <unknown>:1:8 ]
+   │
+ 1 │ struct { x: felt }
+   │        ┬  
+   │        ╰── found '{' expected identifier
+───╯

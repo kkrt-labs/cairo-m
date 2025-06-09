@@ -1,0 +1,22 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entry
+---
+code: func print_hello() { let msg = hello; }
+result: [
+    Function(
+        FunctionDef {
+            name: "print_hello",
+            params: [],
+            return_type: None,
+            body: [
+                Let {
+                    name: "msg",
+                    value: Identifier(
+                        "hello",
+                    ),
+                },
+            ],
+        },
+    ),
+]

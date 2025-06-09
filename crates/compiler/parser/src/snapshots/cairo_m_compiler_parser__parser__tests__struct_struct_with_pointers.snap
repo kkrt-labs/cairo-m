@@ -1,0 +1,28 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entry
+---
+code: struct Node { data: felt, next: Node* }
+result: [
+    Struct(
+        StructDef {
+            name: "Node",
+            fields: [
+                (
+                    "data",
+                    Named(
+                        "felt",
+                    ),
+                ),
+                (
+                    "next",
+                    Pointer(
+                        Named(
+                            "Node",
+                        ),
+                    ),
+                ),
+            ],
+        },
+    ),
+]

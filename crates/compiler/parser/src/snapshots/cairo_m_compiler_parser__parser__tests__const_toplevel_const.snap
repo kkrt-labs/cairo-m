@@ -1,0 +1,15 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entry
+---
+code: const MAX_SIZE = 100;
+result: [
+    Const(
+        ConstDef {
+            name: "MAX_SIZE",
+            value: Literal(
+                100,
+            ),
+        },
+    ),
+]

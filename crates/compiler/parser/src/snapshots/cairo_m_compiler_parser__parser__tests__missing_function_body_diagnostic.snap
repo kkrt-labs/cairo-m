@@ -1,0 +1,12 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entries
+---
+code: func test() -> felt
+result: [03] Error: found end of input expected '*', or '{'
+   ╭─[ <unknown>:1:20 ]
+   │
+ 1 │ func test() -> felt
+   │                    │ 
+   │                    ╰─ found end of input expected '*', or '{'
+───╯

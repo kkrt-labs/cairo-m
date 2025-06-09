@@ -1,0 +1,21 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entry
+---
+code: func test() { (single_element,); }
+result: [
+    Function(
+        FunctionDef {
+            name: "test",
+            params: [],
+            return_type: None,
+            body: [
+                Expression(
+                    Identifier(
+                        "single_element",
+                    ),
+                ),
+            ],
+        },
+    ),
+]

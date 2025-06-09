@@ -1,0 +1,19 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entry
+---
+code: from very.deep.module.path import function
+result: [
+    Import(
+        ImportStmt {
+            path: [
+                "very",
+                "deep",
+                "module",
+                "path",
+            ],
+            item: "function",
+            alias: None,
+        },
+    ),
+]

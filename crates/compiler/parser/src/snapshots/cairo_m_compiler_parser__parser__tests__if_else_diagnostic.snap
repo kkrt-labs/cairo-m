@@ -1,0 +1,12 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entries
+---
+code: func test() { if (a > b) { return a; } else { return b; } }
+result: [03] Error: found 'Error' expected '{', '(', '.', '[', '*', '/', '+', '-', '==', '!=', '&&', '||', or ')'
+   ╭─[ <unknown>:1:21 ]
+   │
+ 1 │ func test() { if (a > b) { return a; } else { return b; } }
+   │                     ┬  
+   │                     ╰── found 'Error' expected '{', '(', '.', '[', '*', '/', '+', '-', '==', '!=', '&&', '||', or ')'
+───╯

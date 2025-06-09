@@ -1,0 +1,26 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entry
+---
+code: struct Point { x: felt, y: felt }
+result: [
+    Struct(
+        StructDef {
+            name: "Point",
+            fields: [
+                (
+                    "x",
+                    Named(
+                        "felt",
+                    ),
+                ),
+                (
+                    "y",
+                    Named(
+                        "felt",
+                    ),
+                ),
+            ],
+        },
+    ),
+]
