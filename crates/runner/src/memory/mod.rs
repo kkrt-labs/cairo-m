@@ -32,7 +32,7 @@ impl Memory {
     ///
     /// # Arguments
     ///
-    /// * `address` - The `M31` address to validate.
+    /// * `addr` - The `M31` address to validate.
     ///
     /// # Errors
     ///
