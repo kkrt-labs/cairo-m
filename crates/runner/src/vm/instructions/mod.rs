@@ -1,3 +1,15 @@
+//! Instructions for the Cairo M VM.
+//!
+//! Cairo M instructions are currently of fixed size, encoded on 4 M31:
+//! - One for the opcode.
+//! - One for the first operand
+//! - One for the second operand
+//! - One for the destination
+//! - Some instructions might use less than 3 arguments.
+//!
+//! A QM31 is made of 4 M31 (extension field of CM31, the extension field of M31).
+//! This is why we can represent instructions as a QM31.
+
 use stwo_prover::core::fields::{m31::M31, qm31::QM31};
 
 /// The arguments of a Cairo M instruction.
