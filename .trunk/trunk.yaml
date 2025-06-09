@@ -27,12 +27,12 @@ lint:
   enabled:
     - cspell@8.19.4
     - checkov@3.2.436
-    - clippy@1.87.0
+    - clippy@nightly
     - git-diff-check
     - markdownlint@0.45.0
     - osv-scanner@2.0.2
     - prettier@3.5.3
-    - rustfmt@1.87.0
+    - rustfmt@nightly
     - taplo@0.9.3
     - trufflehog@3.88.35
     - yamllint@1.37.1

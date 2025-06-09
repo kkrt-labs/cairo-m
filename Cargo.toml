@@ -10,3 +10,10 @@ resolver = "2"
 [workspace.package]
 version = "0.1.1"
 edition = "2021"
+
+[workspace.dependencies]
+num-traits = "0.2.19"
+stwo-prover = { git = "https://github.com/starkware-libs/stwo", features = [
+  "parallel",
+] }
+thiserror = "2.0.12"
