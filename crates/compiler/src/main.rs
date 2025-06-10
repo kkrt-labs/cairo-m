@@ -1,4 +1,4 @@
-use ariadne::{Color, Label, Report, ReportKind, Source, Span};
+use ariadne::{Label, Report, ReportKind, Source};
 use cairo_m_compiler_parser::lexer::{LexingError, TokenType};
 use cairo_m_compiler_parser::parser::parser;
 use chumsky::input::Stream;
@@ -7,6 +7,7 @@ use chumsky::span::SimpleSpan;
 use chumsky::Parser as ChumskyParser;
 use clap::Parser;
 use logos::Logos;
+use salsa::Database;
 use std::fs;
 use std::path::PathBuf;
 
@@ -26,8 +27,8 @@ struct LexResult<'a> {
 }
 
 /// Result of parsing tokens
-struct ParseResult<'a> {
-    ast: Vec<cairo_m_compiler_parser::parser::TopLevelItem>,
+struct ParseResult<'a, 'db> {
+    ast: Vec<cairo_m_compiler_parser::parser::TopLevelItem<'db>>,
     errors: Vec<Rich<'a, TokenType<'a>, SimpleSpan>>,
 }
 
@@ -51,20 +52,24 @@ fn main() {
             }
 
             // Step 2: Parsing
-            let parse_result = parse_tokens(lex_result.tokens, &content);
-            if !parse_result.errors.is_empty() {
-                println!("\nParsing errors:");
-                for error in parse_result.errors {
-                    println!("{}", build_parser_error_message(&content, error));
+            let db = cairo_m_compiler_parser::ParserDatabaseImpl::default();
+            // Attaching the database for debug printouts
+            db.attach(|db| {
+                let parse_result = parse_tokens(lex_result.tokens, &content, db);
+                if !parse_result.errors.is_empty() {
+                    println!("\nParsing errors:");
+                    for error in parse_result.errors {
+                        println!("{}", build_parser_error_message(&content, error));
+                    }
+                    std::process::exit(1);
                 }
-                std::process::exit(1);
-            }
 
-            // For now, just print the AST
-            println!("\nAST:");
-            println!("{:#?}", parse_result.ast);
+                // For now, just print the AST
+                println!("\nAST:");
+                println!("{:#?}", parse_result.ast);
+            });
         }
-        Err(e) => eprintln!("Error reading file: {}", e),
+        Err(e) => eprintln!("Error reading file: {e}"),
     }
 }
 
@@ -86,11 +91,15 @@ fn lex_source(source: &str) -> LexResult {
 }
 
 /// Parse tokens into an AST
-fn parse_tokens<'a>(tokens: Vec<(TokenType<'a>, logos::Span)>, source: &str) -> ParseResult<'a> {
+fn parse_tokens<'a: 'db, 'db>(
+    tokens: Vec<(TokenType<'a>, logos::Span)>,
+    source: &str,
+    db: &'db dyn salsa::Database,
+) -> ParseResult<'a, 'db> {
     let token_stream =
         Stream::from_iter(tokens).map((0..source.len()).into(), |(t, s): (_, _)| (t, s.into()));
 
-    match parser()
+    match parser(db)
         .then_ignore(end())
         .parse(token_stream)
         .into_result()
@@ -116,7 +125,7 @@ fn build_lexer_error_message(source: &str, error: LexingError, span: SimpleSpan)
         )
         .with_code(3)
         .with_message(error.to_string())
-        .with_label(Label::new(((), span.into_range())).with_message(format!("{}", error)))
+        .with_label(Label::new(((), span.into_range())).with_message(format!("{error}")))
         .finish()
         .write(Source::from(source), &mut write_buffer)
         .unwrap();
