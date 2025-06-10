@@ -1,8 +1,9 @@
 //! # Cairo-M Parser
 //!
 //! This module implements a recursive descent parser for the Cairo-M language using the `chumsky`
-//! parsing library. The parser transforms a stream of tokens into an Abstract Syntax Tree (AST)
-//! consisting of top-level items like functions, structs, namespaces, and statements.
+//! parsing library with Salsa integration for incremental compilation. The parser transforms a
+//! stream of tokens into an Abstract Syntax Tree (AST) consisting of top-level items like
+//! functions, structs, namespaces, and statements.
 //!
 //! ## Architecture
 //!
@@ -13,15 +14,37 @@
 //! - **Type expression parsing**: Parses type annotations like `felt`, `Vector*`, `(felt, felt)`
 //! - **Statement parsing**: Handles control flow, variable declarations, assignments
 //! - **Top-level item parsing**: Functions, structs, namespaces, imports, and constants
+//!
+//! ## Salsa Integration & Incremental Compilation
+//!
+//! This parser is integrated with [Salsa](https://salsa-rs.github.io/salsa/) to enable
+//! incremental compilation and caching of parse results. The integration includes:
+//!
+//! ### Current Implementation
+//! - **Input types**: `SourceProgram` marked with `#[salsa::input]` represents source code
+//! - **Interned types**: AST nodes like `FunctionDef`, `StructDef`, etc. use `#[salsa::interned]`
+//!   for efficient memory usage and comparison
+//! - **Database integration**: All parser functions take a `&dyn Db` parameter
+//!
+//! ### Current Caching Behavior
+//! With the current implementation, caching only occurs when the **exact same source text**
+//! is parsed multiple times. Any change to the source code, even whitespace or comments,
+//! will trigger a complete re-parse.
 
 use crate::lexer::TokenType;
 use chumsky::{input::ValueInput, prelude::*};
+
+#[salsa::input(debug)]
+pub struct SourceProgram {
+    #[returns(ref)]
+    pub text: String,
+}
 
 /// Represents a type expression in the Cairo-M language.
 ///
 /// Type expressions describe the shape and structure of data, including
 /// basic types, pointers, and tuple types.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeExpr {
     /// A named type (e.g., `felt`, `Vector`)
     Named(String),
@@ -35,7 +58,7 @@ pub enum TypeExpr {
 ///
 /// These operators have different precedence levels that are handled
 /// during expression parsing to ensure correct operator precedence.
-#[derive(Debug, Clone, PartialEq, Eq, Copy)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
 pub enum BinaryOp {
     /// Addition operator `+`
     Add,
@@ -59,7 +82,7 @@ pub enum BinaryOp {
 ///
 /// Expressions are constructs that evaluate to a value, including literals,
 /// variables, function calls, binary operations, and data structure access.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Expression {
     /// Integer literal (e.g., `42`, `0`, `1337`)
     Literal(u32),
@@ -98,8 +121,8 @@ pub enum Expression {
 /// Represents a function parameter with its name and type.
 ///
 /// Used in function definitions to specify the expected arguments.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Parameter {
+#[salsa::interned(debug)]
+pub struct Parameter<'db> {
     /// The parameter name
     pub name: String,
     /// The parameter's type
@@ -110,8 +133,8 @@ pub struct Parameter {
 ///
 /// Statements are constructs that perform actions but don't necessarily
 /// evaluate to a value. They form the body of functions and control flow.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Statement {
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Statement<'db> {
     /// Global variable declaration (e.g., `let x = 5;`)
     Let { name: String, value: Expression },
     /// Local variable declaration with optional type annotation (e.g., `local x: felt = 5;`)
@@ -121,7 +144,7 @@ pub enum Statement {
         value: Expression,
     },
     /// Constant declaration (e.g., `const PI = 314;`)
-    Const(ConstDef),
+    Const(ConstDef<'db>),
     /// Assignment to an existing variable (e.g., `x = new_value;`)
     Assignment { lhs: Expression, rhs: Expression },
     /// Return statement (e.g., `return x;`, `return;`)
@@ -129,39 +152,39 @@ pub enum Statement {
     /// Conditional statement (e.g., `if (condition) { ... } else { ... }`)
     If {
         condition: Expression,
-        then_block: Box<Statement>,
-        else_block: Option<Box<Statement>>,
+        then_block: Box<Statement<'db>>,
+        else_block: Option<Box<Statement<'db>>>,
     },
     /// Expression used as a statement (e.g., `foo();`)
     Expression(Expression),
     /// Block of statements (e.g., `{ stmt1; stmt2; stmt3; }`)
-    Block(Vec<Statement>),
+    Block(Vec<Statement<'db>>),
 }
 
 /// Represents a top-level item in a Cairo-M program.
 ///
 /// These are the constructs that can appear at the module level,
 /// outside of any function or namespace body.
-#[derive(Debug, Clone, PartialEq)]
-pub enum TopLevelItem {
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum TopLevelItem<'db> {
     /// Function definition
-    Function(FunctionDef),
+    Function(FunctionDef<'db>),
     /// Struct definition
-    Struct(StructDef),
+    Struct(StructDef<'db>),
     /// Namespace definition
-    Namespace(Namespace),
+    Namespace(Namespace<'db>),
     /// Import statement
-    Import(ImportStmt),
+    Import(ImportStmt<'db>),
     /// Constant definition
-    Const(ConstDef),
+    Const(ConstDef<'db>),
 }
 
 /// Represents a constant definition.
 ///
 /// Constants are immutable values that are defined once and can be
 /// referenced throughout the program.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ConstDef {
+#[salsa::interned(debug)]
+pub struct ConstDef<'db> {
     /// The constant's name
     pub name: String,
     /// The constant's value expression
@@ -169,21 +192,21 @@ pub struct ConstDef {
 }
 
 /// Represents a function definition.
-#[derive(Debug, Clone, PartialEq)]
-pub struct FunctionDef {
+#[salsa::interned(debug)]
+pub struct FunctionDef<'db> {
     /// The function's name
     pub name: String,
     /// The function's parameters
-    pub params: Vec<Parameter>,
+    pub params: Vec<Parameter<'db>>,
     /// The function's return type (optional)
     pub return_type: Option<TypeExpr>,
     /// The function's body (list of statements)
-    pub body: Vec<Statement>,
+    pub body: Vec<Statement<'db>>,
 }
 
 /// Represents a struct definition.
-#[derive(Debug, Clone, PartialEq)]
-pub struct StructDef {
+#[salsa::interned(debug)]
+pub struct StructDef<'db> {
     /// The struct's name
     pub name: String,
     /// The struct's fields (name and type pairs)
@@ -194,20 +217,20 @@ pub struct StructDef {
 ///
 /// Namespaces provide a way to organize related functions, types,
 /// and constants under a common name, preventing naming conflicts.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Namespace {
+#[salsa::interned(debug)]
+pub struct Namespace<'db> {
     /// The namespace's name
     pub name: String,
     /// The items contained within the namespace
-    pub body: Vec<TopLevelItem>,
+    pub body: Vec<TopLevelItem<'db>>,
 }
 
 /// Represents an import statement.
 ///
 /// Import statements allow code to reference items from other modules
 /// or namespaces, with optional aliasing for name resolution.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ImportStmt {
+#[salsa::interned(debug)]
+pub struct ImportStmt<'db> {
     /// The path to the module (e.g., `["std", "math"]` for `std.math`)
     pub path: Vec<String>,
     /// The specific item being imported
@@ -220,7 +243,7 @@ pub struct ImportStmt {
 ///
 /// This is used internally by the parser to handle chained operations
 /// like `obj.field().index[0]` in a left-associative manner.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum PostfixOp {
     /// Function call with arguments
     Call(Vec<Expression>),
@@ -449,8 +472,9 @@ where
 }
 
 /// Creates a parser for function parameters
-fn parameter_parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, Parameter, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+fn parameter_parser<'tokens: 'db, 'src: 'tokens, 'db, I>(
+    db: &'db dyn crate::Db,
+) -> impl Parser<'tokens, I, Parameter<'db>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone + 'db
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
@@ -461,12 +485,13 @@ where
     ident
         .then_ignore(just(TokenType::Colon)) // parameter name, ignore ':'
         .then(type_expr) // parameter type
-        .map(|(name, type_expr)| Parameter { name, type_expr })
+        .map(|(name, type_expr)| Parameter::new(db, name, type_expr))
 }
 
 /// Creates a parser for statements
-fn statement_parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, Statement, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+fn statement_parser<'tokens: 'db, 'src: 'tokens, 'db, I>(
+    db: &'db dyn crate::Db,
+) -> impl Parser<'tokens, I, Statement<'db>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone + 'db
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
@@ -479,7 +504,7 @@ where
         let block = statement
             .clone()
             .repeated()
-            .collect()
+            .collect::<Vec<Statement<'db>>>()
             .delimited_by(just(TokenType::LBrace), just(TokenType::RBrace))
             .map(Statement::Block);
 
@@ -510,7 +535,7 @@ where
             .then_ignore(just(TokenType::Eq)) // ignore '='
             .then(expr.clone()) // value expression
             .then_ignore(just(TokenType::Semicolon)) // ignore ';'
-            .map(|(name, value)| Statement::Const(ConstDef { name, value }));
+            .map(|(name, value)| Statement::Const(ConstDef::new(db, name, value)));
 
         // If statement: if (condition) then_stmt else else_stmt
         let if_stmt = just(TokenType::If)
@@ -558,15 +583,16 @@ where
 }
 
 /// Creates a parser for function definitions
-fn function_def_parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, FunctionDef, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+fn function_def_parser<'tokens: 'db, 'src: 'tokens, 'db, I>(
+    db: &'db dyn crate::Db,
+) -> impl Parser<'tokens, I, FunctionDef<'db>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone + 'db
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
     let ident = ident_parser();
-    let param = parameter_parser();
+    let param = parameter_parser(db);
     let type_expr = type_expr_parser();
-    let statement = statement_parser();
+    let statement = statement_parser(db);
 
     // Function definition: func name(param1: type1, param2: type2) -> return_type { body }
     just(TokenType::Function)
@@ -586,20 +612,18 @@ where
         .then(
             statement
                 .repeated()
-                .collect()
+                .collect::<Vec<Statement<'db>>>()
                 .delimited_by(just(TokenType::LBrace), just(TokenType::RBrace)), // body in {}
         )
-        .map(|(((name, params), return_type), body)| FunctionDef {
-            name,
-            params,
-            return_type,
-            body,
+        .map(|(((name, params), return_type), body)| {
+            FunctionDef::new(db, name, params, return_type, body)
         })
 }
 
 /// Creates a parser for struct definitions
-fn struct_def_parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, StructDef, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+fn struct_def_parser<'tokens: 'db, 'src: 'tokens, 'db, I>(
+    db: &'db dyn crate::Db,
+) -> impl Parser<'tokens, I, StructDef<'db>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone + 'db
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
@@ -622,12 +646,13 @@ where
                 .collect::<Vec<_>>()
                 .delimited_by(just(TokenType::LBrace), just(TokenType::RBrace)), // wrapped in {}
         )
-        .map(|(name, fields)| StructDef { name, fields })
+        .map(|(name, fields)| StructDef::new(db, name, fields))
 }
 
 /// Creates a parser for import statements
-fn import_stmt_parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, ImportStmt, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+fn import_stmt_parser<'tokens: 'db, 'src: 'tokens, 'db, I>(
+    db: &'db dyn crate::Db,
+) -> impl Parser<'tokens, I, ImportStmt<'db>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone + 'db
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
@@ -645,12 +670,13 @@ where
         .then_ignore(just(TokenType::Import)) // ignore 'import' keyword
         .then(ident.clone()) // imported item name
         .then(just(TokenType::As).ignore_then(ident).or_not()) // optional alias
-        .map(|((path, item), alias)| ImportStmt { path, item, alias })
+        .map(|((path, item), alias)| ImportStmt::new(db, path, item, alias))
 }
 
 /// Creates a parser for constant definitions
-fn const_def_parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, ConstDef, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+fn const_def_parser<'tokens: 'db, 'src: 'tokens, 'db, I>(
+    db: &'db dyn crate::Db,
+) -> impl Parser<'tokens, I, ConstDef<'db>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone + 'db
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
@@ -663,14 +689,16 @@ where
         .then_ignore(just(TokenType::Eq)) // ignore '='
         .then(expr) // value expression
         .then_ignore(just(TokenType::Semicolon)) // ignore ';'
-        .map(|(name, value)| ConstDef { name, value })
+        .map(|(name, value)| ConstDef::new(db, name, value))
 }
 
 /// Creates a parser for namespace definitions
-fn namespace_parser<'tokens, 'src: 'tokens, I>(
-    top_level_item: impl Parser<'tokens, I, TopLevelItem, extra::Err<Rich<'tokens, TokenType<'src>>>>
-        + Clone,
-) -> impl Parser<'tokens, I, Namespace, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+fn namespace_parser<'tokens: 'db, 'src: 'tokens, 'db, I>(
+    db: &'db dyn crate::Db,
+    top_level_item: impl Parser<'tokens, I, TopLevelItem<'db>, extra::Err<Rich<'tokens, TokenType<'src>>>>
+        + Clone
+        + 'db,
+) -> impl Parser<'tokens, I, Namespace<'db>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone + 'db
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
@@ -682,24 +710,25 @@ where
         .then(
             top_level_item
                 .repeated()
-                .collect()
+                .collect::<Vec<TopLevelItem<'db>>>()
                 .delimited_by(just(TokenType::LBrace), just(TokenType::RBrace)), // items in {}
         )
-        .map(|(name, body)| Namespace { name, body })
+        .map(|(name, body)| Namespace::new(db, name, body))
 }
 
 /// Creates a parser for top-level items
-fn top_level_item_parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, TopLevelItem, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+fn top_level_item_parser<'tokens: 'db, 'src: 'tokens, 'db, I>(
+    db: &'db dyn crate::Db,
+) -> impl Parser<'tokens, I, TopLevelItem<'db>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone + 'db
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
     recursive(|top_level_item| {
-        let func_def = function_def_parser().map(TopLevelItem::Function);
-        let struct_def = struct_def_parser().map(TopLevelItem::Struct);
-        let import_stmt = import_stmt_parser().map(TopLevelItem::Import);
-        let const_def = const_def_parser().map(TopLevelItem::Const);
-        let namespace_def = namespace_parser(top_level_item).map(TopLevelItem::Namespace);
+        let func_def = function_def_parser(db).map(TopLevelItem::Function);
+        let struct_def = struct_def_parser(db).map(TopLevelItem::Struct);
+        let import_stmt = import_stmt_parser(db).map(TopLevelItem::Import);
+        let const_def = const_def_parser(db).map(TopLevelItem::Const);
+        let namespace_def = namespace_parser(db, top_level_item).map(TopLevelItem::Namespace);
 
         // Try top-level item alternatives in order
         func_def
@@ -743,23 +772,27 @@ where
 ///
 /// A parser that produces a `Vec<TopLevelItem>` representing the complete program,
 /// or parsing errors if the input is malformed.
-pub fn parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, Vec<TopLevelItem>, extra::Err<Rich<'tokens, TokenType<'src>>>>
+pub fn parser<'tokens: 'db, 'src: 'tokens, 'db, I>(
+    db: &'db dyn crate::Db,
+) -> impl Parser<'tokens, I, Vec<TopLevelItem<'db>>, extra::Err<Rich<'tokens, TokenType<'src>>>>
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
     // Parse zero or more top-level items to form a complete program
-    top_level_item_parser().repeated().collect()
+    top_level_item_parser(db).repeated().collect()
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::db::ParserDatabaseImpl;
+
     use super::*;
     use crate::lexer::LexingError;
     use ariadne::{Label, Report, ReportKind, Source};
     use chumsky::input::Stream;
     use chumsky::Parser;
     use logos::Logos;
+    use salsa::Database;
 
     /// A test case specification
     pub struct TestCase {
@@ -809,20 +842,20 @@ mod tests {
 
     /// A snapshot entry that includes both the source code and the result
     #[derive(Debug)]
-    struct SnapshotEntry {
+    struct SnapshotEntry<'db> {
         code: String,
-        result: SnapshotResult,
+        result: SnapshotResult<'db>,
     }
 
-    struct SnapshotEntries(Vec<SnapshotEntry>);
+    struct SnapshotEntries<'db>(Vec<SnapshotEntry<'db>>);
 
-    impl std::fmt::Display for SnapshotEntry {
+    impl<'db> std::fmt::Display for SnapshotEntry<'db> {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(f, "code: {}\nresult: {}", self.code, self.result)
         }
     }
 
-    impl std::fmt::Display for SnapshotEntries {
+    impl<'db> std::fmt::Display for SnapshotEntries<'db> {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             for entry in self.0.iter() {
                 write!(f, "{}", entry)?;
@@ -832,12 +865,12 @@ mod tests {
     }
 
     #[derive(Debug)]
-    enum SnapshotResult {
-        ParseSuccess(Vec<TopLevelItem>),
+    enum SnapshotResult<'db> {
+        ParseSuccess(Vec<TopLevelItem<'db>>),
         ParseError(String),
     }
 
-    impl std::fmt::Display for SnapshotResult {
+    impl<'db> std::fmt::Display for SnapshotResult<'db> {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             match self {
                 Self::ParseSuccess(ast) => write!(f, "{:#?}", ast),
@@ -848,36 +881,47 @@ mod tests {
 
     /// Execute a test case and create appropriate snapshots
     fn run_test_case(test_case: TestCase) {
-        let result = parse_str(test_case.code);
+        let db = ParserDatabaseImpl::default();
+        db.attach(|db| {
+            run_test_case_inner(db, test_case);
+        });
+        fn run_test_case_inner(db: &dyn crate::Db, test_case: TestCase) {
+            let source = SourceProgram::new(db, test_case.code.to_string());
+            let result = parse_program(db, source);
 
-        match result {
-            Ok(ast) => {
-                let snapshot_name = test_case.expected_construct.map_or_else(
-                    || test_case.name.to_string(),
-                    |construct| format!("{}_{}", construct, test_case.name),
-                );
-                let snapshot_entry = SnapshotEntry {
-                    code: test_case.code.to_string(),
-                    result: SnapshotResult::ParseSuccess(ast),
-                };
-                insta::assert_snapshot!(snapshot_name, snapshot_entry);
-            }
-            Err(errs) => {
-                let snapshot_name = format!("{}_diagnostic", test_case.name);
-                let mut snapshot_entries = SnapshotEntries(Vec::new());
-                for err in errs.iter() {
-                    snapshot_entries.0.push(SnapshotEntry {
+            match result {
+                Ok(ast) => {
+                    let snapshot_name = test_case.expected_construct.map_or_else(
+                        || test_case.name.to_string(),
+                        |construct| format!("{}_{}", construct, test_case.name),
+                    );
+                    let snapshot_entry = SnapshotEntry {
                         code: test_case.code.to_string(),
-                        result: SnapshotResult::ParseError(err.clone()),
-                    });
+                        result: SnapshotResult::ParseSuccess(ast),
+                    };
+                    insta::assert_snapshot!(snapshot_name, snapshot_entry);
                 }
-                insta::assert_snapshot!(snapshot_name, snapshot_entries);
+                Err(errs) => {
+                    let snapshot_name = format!("{}_diagnostic", test_case.name);
+                    let mut snapshot_entries = SnapshotEntries(Vec::new());
+                    for err in errs.iter() {
+                        snapshot_entries.0.push(SnapshotEntry {
+                            code: test_case.code.to_string(),
+                            result: SnapshotResult::ParseError(err.clone()),
+                        });
+                    }
+                    insta::assert_snapshot!(snapshot_name, snapshot_entries);
+                }
             }
         }
     }
 
     // Helper function to parse a string input
-    fn parse_str(input: &str) -> Result<Vec<TopLevelItem>, Vec<String>> {
+    fn parse_program<'db>(
+        db: &'db dyn crate::Db,
+        source: SourceProgram,
+    ) -> Result<Vec<TopLevelItem<'db>>, Vec<String>> {
+        let input = source.text(db);
         // First, collect all tokens and check for lexer errors
         let mut tokens = Vec::new();
         let mut lexer_errors = Vec::new();
@@ -900,8 +944,7 @@ mod tests {
         let token_stream =
             Stream::from_iter(tokens).map((0..input.len()).into(), |(t, s): (_, _)| (t, s));
 
-        // Parse the token stream
-        parser()
+        parser(db)
             .then_ignore(end())
             .parse(token_stream)
             .into_result()
