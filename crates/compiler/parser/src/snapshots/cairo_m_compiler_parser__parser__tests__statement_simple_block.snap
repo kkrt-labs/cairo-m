@@ -23,6 +23,7 @@ result: [
                                             "x",
                                             20..21,
                                         ),
+                                        statement_type: None,
                                         value: Spanned(
                                             Literal(
                                                 1,
@@ -38,6 +39,7 @@ result: [
                                             "y",
                                             31..32,
                                         ),
+                                        statement_type: None,
                                         value: Spanned(
                                             Literal(
                                                 2,

@@ -20,6 +20,7 @@ result: [
                                 "msg",
                                 25..28,
                             ),
+                            statement_type: None,
                             value: Spanned(
                                 Identifier(
                                     Spanned(

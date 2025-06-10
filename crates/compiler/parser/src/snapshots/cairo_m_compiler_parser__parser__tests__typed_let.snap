@@ -2,7 +2,7 @@
 source: crates/compiler/parser/src/parser.rs
 expression: snapshot_entry
 ---
-code: func test() { let x = 5; }
+code: func test() { let x: felt = 5; }
 result: [
     Function(
         Spanned(
@@ -20,19 +20,23 @@ result: [
                                 "x",
                                 18..19,
                             ),
-                            statement_type: None,
+                            statement_type: Some(
+                                Named(
+                                    "felt",
+                                ),
+                            ),
                             value: Spanned(
                                 Literal(
                                     5,
                                 ),
-                                22..23,
+                                28..29,
                             ),
                         },
-                        14..24,
+                        14..30,
                     ),
                 ],
             },
-            0..26,
+            0..32,
         ),
     ),
 ]

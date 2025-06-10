@@ -20,6 +20,7 @@ result: [
                                 "very_long_variable_name_that_tests_identifier_parsing",
                                 18..71,
                             ),
+                            statement_type: None,
                             value: Spanned(
                                 Identifier(
                                     Spanned(

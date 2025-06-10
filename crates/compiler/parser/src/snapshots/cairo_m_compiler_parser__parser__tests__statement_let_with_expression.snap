@@ -20,6 +20,7 @@ result: [
                                 "result",
                                 18..24,
                             ),
+                            statement_type: None,
                             value: Spanned(
                                 BinaryOp {
                                     op: Add,
@@ -54,10 +55,10 @@ result: [
                                                 35..36,
                                             ),
                                         },
-                                        31..32,
+                                        31..36,
                                     ),
                                 },
-                                27..28,
+                                27..36,
                             ),
                         },
                         14..37,
