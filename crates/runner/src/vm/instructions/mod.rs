@@ -12,6 +12,8 @@
 
 use stwo_prover::core::fields::{m31::M31, qm31::QM31};
 
+pub mod store;
+
 /// The arguments of a Cairo M instruction.
 /// It is represented as a fixed-size array of 3 M31 values.
 /// * off0 - The first element of the array.
