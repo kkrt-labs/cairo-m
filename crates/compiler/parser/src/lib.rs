@@ -1,4 +1,5 @@
-mod db;
+pub mod ast;
+pub mod db;
 pub mod lexer;
 pub mod parser;
 

@@ -1,4 +1,5 @@
 use ariadne::{Label, Report, ReportKind, Source};
+use cairo_m_compiler_parser::ast::TopLevelItem;
 use cairo_m_compiler_parser::lexer::{LexingError, TokenType};
 use cairo_m_compiler_parser::parser::parser;
 use chumsky::input::Stream;
@@ -28,7 +29,7 @@ struct LexResult<'a> {
 
 /// Result of parsing tokens
 struct ParseResult<'a, 'db> {
-    ast: Vec<cairo_m_compiler_parser::parser::TopLevelItem<'db>>,
+    ast: Vec<TopLevelItem<'db>>,
     errors: Vec<Rich<'a, TokenType<'a>, SimpleSpan>>,
 }
 
