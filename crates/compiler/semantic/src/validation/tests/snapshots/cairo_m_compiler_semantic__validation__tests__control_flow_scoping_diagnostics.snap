@@ -1,0 +1,98 @@
+---
+source: crates/compiler/semantic/src/validation/tests/mod.rs
+expression: snapshot_content
+---
+Fixture: control_flow_scoping.cm
+============================================================
+Source code:
+func test(condition: felt) {
+    let before = 1;
+
+    if (condition) {
+        let in_if = before + 1; // OK: before is visible
+        let unused_if = 42; // Should warn: Unused variable 'unused_if'
+    } else {
+        let in_else = before + 2; // OK: before is visible
+        let unused_else = 24; // Should warn: Unused variable 'unused_else'
+    }
+
+    let after_if = in_if; // Should error: Undeclared variable 'in_if'
+    let after_else = in_else; // Should error: Undeclared variable 'in_else'
+
+    return before;
+}
+
+============================================================
+Found 8 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1001] Error: Undeclared variable 'in_if'
+    ╭─[ <unknown>:12:20 ]
+    │
+ 12 │     let after_if = in_if; // Should error: Undeclared variable 'in_if'
+    │                    ──┬──  
+    │                      ╰──── Undeclared variable 'in_if'
+────╯
+
+--- Diagnostic 2 ---
+[1001] Error: Undeclared variable 'in_else'
+    ╭─[ <unknown>:13:22 ]
+    │
+ 13 │     let after_else = in_else; // Should error: Undeclared variable 'in_else'
+    │                      ───┬───  
+    │                         ╰───── Undeclared variable 'in_else'
+────╯
+
+--- Diagnostic 3 ---
+[1002] Warning: Unused variable 'after_if'
+    ╭─[ <unknown>:12:9 ]
+    │
+ 12 │     let after_if = in_if; // Should error: Undeclared variable 'in_if'
+    │         ────┬───  
+    │             ╰───── Unused variable 'after_if'
+────╯
+
+--- Diagnostic 4 ---
+[1002] Warning: Unused variable 'after_else'
+    ╭─[ <unknown>:13:9 ]
+    │
+ 13 │     let after_else = in_else; // Should error: Undeclared variable 'in_else'
+    │         ─────┬────  
+    │              ╰────── Unused variable 'after_else'
+────╯
+
+--- Diagnostic 5 ---
+[1002] Warning: Unused variable 'in_if'
+   ╭─[ <unknown>:5:13 ]
+   │
+ 5 │         let in_if = before + 1; // OK: before is visible
+   │             ──┬──  
+   │               ╰──── Unused variable 'in_if'
+───╯
+
+--- Diagnostic 6 ---
+[1002] Warning: Unused variable 'unused_if'
+   ╭─[ <unknown>:6:13 ]
+   │
+ 6 │         let unused_if = 42; // Should warn: Unused variable 'unused_if'
+   │             ────┬────  
+   │                 ╰────── Unused variable 'unused_if'
+───╯
+
+--- Diagnostic 7 ---
+[1002] Warning: Unused variable 'in_else'
+   ╭─[ <unknown>:8:13 ]
+   │
+ 8 │         let in_else = before + 2; // OK: before is visible
+   │             ───┬───  
+   │                ╰───── Unused variable 'in_else'
+───╯
+
+--- Diagnostic 8 ---
+[1002] Warning: Unused variable 'unused_else'
+   ╭─[ <unknown>:9:13 ]
+   │
+ 9 │         let unused_else = 24; // Should warn: Unused variable 'unused_else'
+   │             ─────┬─────  
+   │                  ╰─────── Unused variable 'unused_else'
+───╯

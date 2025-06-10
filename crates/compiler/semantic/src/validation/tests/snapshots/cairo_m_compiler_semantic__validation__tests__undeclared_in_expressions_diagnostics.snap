@@ -1,0 +1,81 @@
+---
+source: crates/compiler/semantic/src/validation/tests/mod.rs
+expression: snapshot_content
+---
+Fixture: undeclared_in_expressions.cm
+============================================================
+Source code:
+func test() {
+    let result = a + b; // Should error: Undeclared variable 'a' and 'b'
+    let call_result = foo(); // Should error: Undeclared variable 'foo'
+
+    if (undefined) { // Should error: Undeclared variable 'undefined'
+        let x = 1;
+    }
+}
+
+============================================================
+Found 7 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1001] Error: Undeclared variable 'a'
+   ╭─[ <unknown>:2:18 ]
+   │
+ 2 │     let result = a + b; // Should error: Undeclared variable 'a' and 'b'
+   │                  ┬  
+   │                  ╰── Undeclared variable 'a'
+───╯
+
+--- Diagnostic 2 ---
+[1001] Error: Undeclared variable 'b'
+   ╭─[ <unknown>:2:22 ]
+   │
+ 2 │     let result = a + b; // Should error: Undeclared variable 'a' and 'b'
+   │                      ┬  
+   │                      ╰── Undeclared variable 'b'
+───╯
+
+--- Diagnostic 3 ---
+[1001] Error: Undeclared variable 'foo'
+   ╭─[ <unknown>:3:23 ]
+   │
+ 3 │     let call_result = foo(); // Should error: Undeclared variable 'foo'
+   │                       ─┬─  
+   │                        ╰─── Undeclared variable 'foo'
+───╯
+
+--- Diagnostic 4 ---
+[1001] Error: Undeclared variable 'undefined'
+   ╭─[ <unknown>:5:9 ]
+   │
+ 5 │     if (undefined) { // Should error: Undeclared variable 'undefined'
+   │         ────┬────  
+   │             ╰────── Undeclared variable 'undefined'
+───╯
+
+--- Diagnostic 5 ---
+[1002] Warning: Unused variable 'result'
+   ╭─[ <unknown>:2:9 ]
+   │
+ 2 │     let result = a + b; // Should error: Undeclared variable 'a' and 'b'
+   │         ───┬──  
+   │            ╰──── Unused variable 'result'
+───╯
+
+--- Diagnostic 6 ---
+[1002] Warning: Unused variable 'call_result'
+   ╭─[ <unknown>:3:9 ]
+   │
+ 3 │     let call_result = foo(); // Should error: Undeclared variable 'foo'
+   │         ─────┬─────  
+   │              ╰─────── Unused variable 'call_result'
+───╯
+
+--- Diagnostic 7 ---
+[1002] Warning: Unused variable 'x'
+   ╭─[ <unknown>:6:13 ]
+   │
+ 6 │         let x = 1;
+   │             ┬  
+   │             ╰── Unused variable 'x'
+───╯

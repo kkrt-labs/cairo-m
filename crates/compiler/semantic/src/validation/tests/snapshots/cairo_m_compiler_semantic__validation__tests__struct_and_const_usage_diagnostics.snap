@@ -1,0 +1,54 @@
+---
+source: crates/compiler/semantic/src/validation/tests/mod.rs
+expression: snapshot_content
+---
+Fixture: struct_and_const_usage.cm
+============================================================
+Source code:
+struct Point {
+    x: felt
+}
+
+const GLOBAL = 42;
+const UNUSED = 100; // Should warn: Unused variable 'UNUSED'
+
+func test_struct_field_access() {
+    let p = Point { x: 1 };
+    let value = p.x; // OK: p is defined
+}
+
+func test_const_usage() {
+    let value = GLOBAL; // OK: GLOBAL is defined
+    const LOCAL = GLOBAL; // OK: can use GLOBAL in const
+    return LOCAL;
+}
+
+============================================================
+Found 3 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1002] Warning: Unused variable 'UNUSED'
+   ╭─[ <unknown>:6:7 ]
+   │
+ 6 │ const UNUSED = 100; // Should warn: Unused variable 'UNUSED'
+   │       ───┬──  
+   │          ╰──── Unused variable 'UNUSED'
+───╯
+
+--- Diagnostic 2 ---
+[1002] Warning: Unused variable 'value'
+    ╭─[ <unknown>:10:9 ]
+    │
+ 10 │     let value = p.x; // OK: p is defined
+    │         ──┬──  
+    │           ╰──── Unused variable 'value'
+────╯
+
+--- Diagnostic 3 ---
+[1002] Warning: Unused variable 'value'
+    ╭─[ <unknown>:14:9 ]
+    │
+ 14 │     let value = GLOBAL; // OK: GLOBAL is defined
+    │         ──┬──  
+    │           ╰──── Unused variable 'value'
+────╯

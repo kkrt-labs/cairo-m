@@ -69,18 +69,18 @@ impl ScopeValidator {
     /// - Check initialization before use within the scope
     fn check_scope(
         &self,
-        _scope_id: crate::FileScopeId,
+        scope_id: crate::FileScopeId,
         _scope: &crate::Scope,
         place_table: &crate::PlaceTable,
-        _index: &SemanticIndex,
+        index: &SemanticIndex,
     ) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
 
         // Check for duplicate definitions within this scope
-        diagnostics.extend(self.check_duplicate_definitions(place_table));
+        diagnostics.extend(self.check_duplicate_definitions(scope_id, place_table, index));
 
         // Check for unused variables (but not in the global scope for functions/structs)
-        diagnostics.extend(self.check_unused_variables(place_table));
+        diagnostics.extend(self.check_unused_variables(scope_id, place_table, index));
 
         diagnostics
     }
@@ -91,15 +91,25 @@ impl ScopeValidator {
     /// - Function overloading (if supported by Cairo-M)
     /// - Different kinds of definitions (type vs value)
     /// - Generic specializations
-    fn check_duplicate_definitions(&self, place_table: &crate::PlaceTable) -> Vec<Diagnostic> {
+    fn check_duplicate_definitions(
+        &self,
+        scope_id: crate::FileScopeId,
+        place_table: &crate::PlaceTable,
+        index: &SemanticIndex,
+    ) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
         let mut seen_names = HashSet::new();
 
-        for (_, place) in place_table.places() {
+        for (place_id, place) in place_table.places() {
             if place.flags.contains(PlaceFlags::DEFINED) && !seen_names.insert(&place.name) {
-                // TODO: Get proper span from definition when available
-                let dummy_span = chumsky::span::SimpleSpan::from(0..0);
-                diagnostics.push(Diagnostic::duplicate_definition(&place.name, dummy_span));
+                // Get the proper span from the definition
+                let span =
+                    if let Some((_, definition)) = index.definition_for_place(scope_id, place_id) {
+                        definition.name_span
+                    } else {
+                        chumsky::span::SimpleSpan::from(0..0)
+                    };
+                diagnostics.push(Diagnostic::duplicate_definition(&place.name, span));
             }
         }
 
@@ -112,20 +122,28 @@ impl ScopeValidator {
     /// - Different handling for different variable types (params vs locals)
     /// - Allow-list for common unused patterns (e.g., _unused prefix)
     /// - Consider usage in different contexts (read vs write)
-    fn check_unused_variables(&self, place_table: &crate::PlaceTable) -> Vec<Diagnostic> {
+    fn check_unused_variables(
+        &self,
+        scope_id: crate::FileScopeId,
+        place_table: &crate::PlaceTable,
+        index: &SemanticIndex,
+    ) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
 
-        for (_, place) in place_table.places() {
+        for (place_id, place) in place_table.places() {
             // Only check local variables and parameters, not functions or structs
             let is_local_or_param = !place.flags.contains(PlaceFlags::FUNCTION)
                 && !place.flags.contains(PlaceFlags::STRUCT);
 
             if is_local_or_param && place.flags.contains(PlaceFlags::DEFINED) && !place.is_used() {
-                // TODO: Consider allowing variables with '_' prefix to be unused (common pattern)
-                // TODO: Different severity for parameters vs local variables
-                // TODO: Get proper span from definition when available
-                let dummy_span = chumsky::span::SimpleSpan::from(0..0);
-                diagnostics.push(Diagnostic::unused_variable(&place.name, dummy_span));
+                // Get the proper span from the definition
+                let span =
+                    if let Some((_, definition)) = index.definition_for_place(scope_id, place_id) {
+                        definition.name_span
+                    } else {
+                        chumsky::span::SimpleSpan::from(0..0)
+                    };
+                diagnostics.push(Diagnostic::unused_variable(&place.name, span));
             }
         }
 

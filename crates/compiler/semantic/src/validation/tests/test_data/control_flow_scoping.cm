@@ -1,0 +1,16 @@
+func test(condition: felt) {
+    let before = 1;
+
+    if (condition) {
+        let in_if = before + 1; // OK: before is visible
+        let unused_if = 42; // Should warn: Unused variable 'unused_if'
+    } else {
+        let in_else = before + 2; // OK: before is visible
+        let unused_else = 24; // Should warn: Unused variable 'unused_else'
+    }
+
+    let after_if = in_if; // Should error: Undeclared variable 'in_if'
+    let after_else = in_else; // Should error: Undeclared variable 'in_else'
+
+    return before;
+}

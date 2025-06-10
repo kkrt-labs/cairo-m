@@ -136,8 +136,16 @@ impl ValidatorRegistry {
 /// - **ScopeValidator**: Undeclared variables, unused variables, duplicate definitions
 ///
 /// TODO: Expand default registry with additional validators:
-/// - **TypeValidator**: Type checking and compatibility
+/// - **StructFieldValidator**: Validate field access on struct types (p.z should error)
+/// - **StructLiteralValidator**: Validate struct literal completeness and field names
+/// - **IndexingValidator**: Validate indexing on non-array types (num[0] should error)
+/// - **FunctionCallValidator**: Validate function call arity and argument types
+/// - **AssignmentValidator**: Validate assignment compatibility and mutability
+/// - **ReturnValidator**: Validate return type consistency and placement
+/// - **TypeValidator**: General type checking and compatibility
 /// - **ControlFlowValidator**: Reachability analysis, dead code detection
+/// - **RecursiveTypeValidator**: Detect recursive struct definitions without indirection
+/// - **ConstExpressionValidator**: Validate const expressions are compile-time evaluable
 /// - **ModuleValidator**: Import/export validation, module resolution
 /// - **StyleValidator**: Code style and best practices
 /// - **SecurityValidator**: Security-related checks

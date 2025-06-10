@@ -1,0 +1,31 @@
+---
+source: crates/compiler/semantic/src/validation/tests/mod.rs
+expression: snapshot_content
+---
+Fixture: simple_undeclared_variable.cm
+============================================================
+Source code:
+func test() {
+    let x = y; // Should error: Undeclared variable 'y'
+}
+
+============================================================
+Found 2 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1001] Error: Undeclared variable 'y'
+   ╭─[ <unknown>:2:13 ]
+   │
+ 2 │     let x = y; // Should error: Undeclared variable 'y'
+   │             ┬  
+   │             ╰── Undeclared variable 'y'
+───╯
+
+--- Diagnostic 2 ---
+[1002] Warning: Unused variable 'x'
+   ╭─[ <unknown>:2:9 ]
+   │
+ 2 │     let x = y; // Should error: Undeclared variable 'y'
+   │         ┬  
+   │         ╰── Unused variable 'x'
+───╯

@@ -684,15 +684,21 @@ impl<'db> SemanticIndexBuilder<'db> {
                 // Visit both sides - assignment targets and values
                 self.visit_expression(lhs);
                 self.visit_expression(rhs);
-                // TODO: Validate assignment compatibility (types, mutability)
-                // TODO: Check that LHS is actually assignable (not a constant, etc.)
+                // TODO: Validate assignment compatibility (AssignmentValidator)
+                // - Check that LHS is actually assignable (not a constant, etc.)
+                // - Validate type compatibility between LHS and RHS
+                // - Check mutability constraints (let vs mutable variables)
+                // - Validate assignment to valid lvalue expressions
             }
             Statement::Return { value } => {
                 if let Some(expr) = value {
                     self.visit_expression(expr);
                 }
-                // TODO: Validate return type compatibility with function signature
-                // TODO: Check that we're actually inside a function
+                // TODO: Validate return type compatibility (ReturnValidator)
+                // - Check return type compatibility with function signature
+                // - Validate that we're actually inside a function
+                // - Handle multiple return statements with consistent types
+                // - Check for missing return in non-void functions
             }
             Statement::If {
                 condition,
@@ -700,26 +706,31 @@ impl<'db> SemanticIndexBuilder<'db> {
                 else_block,
             } => {
                 self.visit_expression(condition);
-                // TODO: Consider adding block scoping for if statements
-                // Currently, if blocks don't create new scopes which may not match Cairo-M semantics
-                self.visit_statement(then_block);
+                // Create new scopes for if/else blocks to properly handle variable visibility
+                self.with_new_scope(crate::place::ScopeKind::Block, |builder| {
+                    builder.visit_statement(then_block);
+                });
                 if let Some(else_stmt) = else_block {
-                    self.visit_statement(else_stmt);
+                    self.with_new_scope(crate::place::ScopeKind::Block, |builder| {
+                        builder.visit_statement(else_stmt);
+                    });
                 }
-                // TODO: Implement control flow analysis to track reachability
-                // TODO: Validate boolean condition type when type system is ready
+                // TODO: Implement control flow analysis (ControlFlowValidator)
+                // - Track reachability and dead code detection
+                // - Validate boolean condition type when type system is ready
+                // - Check for unreachable code after returns
             }
             Statement::Expression(expr) => {
                 self.visit_expression(expr);
             }
             Statement::Block(statements) => {
-                // TODO: Decide whether blocks should create new scopes
-                // For now, blocks don't create new scopes
-                // This could be changed later for block-scoped variables
-                // Consider: Does Cairo-M have block scoping like Rust?
-                for stmt in statements {
-                    self.visit_statement(stmt);
-                }
+                // Create new scope for block statements to ensure proper variable scoping
+                // Variables declared in blocks should not be visible outside the block
+                self.with_new_scope(crate::place::ScopeKind::Block, |builder| {
+                    for stmt in statements {
+                        builder.visit_statement(stmt);
+                    }
+                });
             }
         }
     }
@@ -771,15 +782,21 @@ impl<'db> SemanticIndexBuilder<'db> {
                 for arg in args {
                     self.visit_expression(arg);
                 }
+                // TODO: Validate function call arity (FunctionCallValidator)
+                // - Check argument count matches parameter count
+                // - Validate argument types match parameter types
+                // - Check function exists and is callable
             }
             Expression::MemberAccess { object, .. } => {
                 self.visit_expression(object);
                 // TODO: Implement proper member access analysis
                 // Current limitation: Field access doesn't introduce new scope issues for now
                 // Future improvements needed:
-                // - Validate that the field exists on the type
+                // - Validate that the field exists on the type (StructFieldValidator)
+                // - Validate that the object type has the accessed field
                 // - Handle method calls vs field access
                 // - Support for nested member access chains
+                // - Validate member access on primitive types (should error)
                 // Field access doesn't introduce new scope issues for now
             }
             Expression::IndexAccess { array, index } => {
@@ -787,14 +804,18 @@ impl<'db> SemanticIndexBuilder<'db> {
                 self.visit_expression(index);
                 // TODO: Add array bounds checking validation in future passes
                 // provided the array size is known.
+                // TODO: Validate indexing on non-array types (IndexingValidator)
+                // - Check that the array expression has an indexable type
+                // - Validate index expression is integer type
             }
             Expression::StructLiteral { fields, .. } => {
                 for (_, field_value) in fields {
                     self.visit_expression(field_value);
                 }
-                // TODO: Validate struct literal field names against struct definition
+                // TODO: Validate struct literal field names against struct definition (StructLiteralValidator)
                 // TODO: Check for missing required fields
                 // TODO: Check for unknown fields
+                // TODO: Validate field value types match struct definition
             }
             Expression::Tuple(exprs) => {
                 for expr in exprs {

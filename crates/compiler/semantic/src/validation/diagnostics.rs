@@ -47,6 +47,13 @@ pub enum DiagnosticCode {
 
     // Type-related errors (2000-2999) - placeholder for future
     TypeMismatch,
+    InvalidFieldAccess,
+    InvalidIndexAccess,
+    InvalidStructLiteral,
+    InvalidFunctionCall,
+    InvalidAssignment,
+    InvalidReturnType,
+    InvalidTypeDefinition,
     // TODO: Add more type-related diagnostic codes:
     // - InvalidTypeAnnotation
     // - TypeArgumentMismatch

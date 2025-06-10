@@ -1,0 +1,64 @@
+---
+source: crates/compiler/semantic/src/validation/tests/mod.rs
+expression: snapshot_content
+---
+Fixture: function_call_validation.cm
+============================================================
+Source code:
+func valid_function(x: felt) -> felt {
+    return x + 1;
+}
+
+func test() {
+    let result1 = valid_function(42); // OK: function exists
+    let result2 = invalid_function(24); // Should error: Undeclared variable 'invalid_function'
+    let result3 = valid_function(undefined_var); // Should error: Undeclared variable 'undefined_var'
+}
+
+============================================================
+Found 5 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1001] Error: Undeclared variable 'invalid_function'
+   ╭─[ <unknown>:7:19 ]
+   │
+ 7 │     let result2 = invalid_function(24); // Should error: Undeclared variable 'invalid_function'
+   │                   ────────┬───────  
+   │                           ╰───────── Undeclared variable 'invalid_function'
+───╯
+
+--- Diagnostic 2 ---
+[1001] Error: Undeclared variable 'undefined_var'
+   ╭─[ <unknown>:8:34 ]
+   │
+ 8 │     let result3 = valid_function(undefined_var); // Should error: Undeclared variable 'undefined_var'
+   │                                  ──────┬──────  
+   │                                        ╰──────── Undeclared variable 'undefined_var'
+───╯
+
+--- Diagnostic 3 ---
+[1002] Warning: Unused variable 'result1'
+   ╭─[ <unknown>:6:9 ]
+   │
+ 6 │     let result1 = valid_function(42); // OK: function exists
+   │         ───┬───  
+   │            ╰───── Unused variable 'result1'
+───╯
+
+--- Diagnostic 4 ---
+[1002] Warning: Unused variable 'result2'
+   ╭─[ <unknown>:7:9 ]
+   │
+ 7 │     let result2 = invalid_function(24); // Should error: Undeclared variable 'invalid_function'
+   │         ───┬───  
+   │            ╰───── Unused variable 'result2'
+───╯
+
+--- Diagnostic 5 ---
+[1002] Warning: Unused variable 'result3'
+   ╭─[ <unknown>:8:9 ]
+   │
+ 8 │     let result3 = valid_function(undefined_var); // Should error: Undeclared variable 'undefined_var'
+   │         ───┬───  
+   │            ╰───── Unused variable 'result3'
+───╯

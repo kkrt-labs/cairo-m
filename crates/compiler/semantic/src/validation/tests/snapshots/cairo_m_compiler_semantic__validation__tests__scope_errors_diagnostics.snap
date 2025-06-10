@@ -1,0 +1,205 @@
+---
+source: crates/compiler/semantic/src/validation/tests/mod.rs
+expression: snapshot_content
+---
+Fixture: scope_errors.cm
+============================================================
+Source code:
+// Test fixture for scope validation errors
+// This file intentionally contains various scope-related errors
+
+func test_undeclared_variables() {
+    let x = undefined_var; // Should error: undeclared variable
+    let y = another_undefined; // Should error: undeclared variable
+    return x + y;
+}
+
+func test_unused_variables() {
+    let unused1 = 42; // Should warn: unused variable
+    let unused2 = 24; // Should warn: unused variable
+    let used = 100;
+    return used;
+}
+
+func test_duplicate_definitions() {
+    let duplicate = 1;
+    let duplicate = 2; // Should error: duplicate definition
+    return duplicate;
+}
+
+func test_scope_visibility() {
+    let outer = 1;
+    {
+        let inner = outer + 1; // OK: outer is visible
+    }
+    let bad = inner; // Should error: undeclared variable (inner out of scope)
+    return bad;
+}
+
+func test_complex_scope_errors(param: felt) {
+    let local1 = param; // OK: param is visible
+    let unused_local = 42; // Should warn: unused variable
+
+    {
+        let level2 = local1 + 1; // OK: local1 is visible
+        let also_unused = level2; // Should warn: unused variable
+
+        if (undefined_condition) { // Should error: undeclared variable
+            let inner = level2; // OK: level2 is visible
+            return inner;
+        }
+    }
+
+    let bad_ref = level2; // Should error: undeclared variable (level2 out of scope)
+    return bad_ref;
+}
+
+struct TestStruct {
+    field1: felt,
+    field2: felt
+}
+
+func test_struct_usage() {
+    let s = TestStruct { field1: 1, field2: undefined_field }; // Should error: undeclared variable
+    let value = s.field1; // OK: s is defined, field1 exists
+    let bad = undefined_struct.field; // Should error: undeclared variable
+    return value;
+}
+
+============================================================
+Found 15 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1001] Error: Undeclared variable 'undefined_var'
+   ╭─[ <unknown>:5:13 ]
+   │
+ 5 │     let x = undefined_var; // Should error: undeclared variable
+   │             ──────┬──────  
+   │                   ╰──────── Undeclared variable 'undefined_var'
+───╯
+
+--- Diagnostic 2 ---
+[1001] Error: Undeclared variable 'another_undefined'
+   ╭─[ <unknown>:6:13 ]
+   │
+ 6 │     let y = another_undefined; // Should error: undeclared variable
+   │             ────────┬────────  
+   │                     ╰────────── Undeclared variable 'another_undefined'
+───╯
+
+--- Diagnostic 3 ---
+[1001] Error: Undeclared variable 'inner'
+    ╭─[ <unknown>:28:15 ]
+    │
+ 28 │     let bad = inner; // Should error: undeclared variable (inner out of scope)
+    │               ──┬──  
+    │                 ╰──── Undeclared variable 'inner'
+────╯
+
+--- Diagnostic 4 ---
+[1001] Error: Undeclared variable 'undefined_condition'
+    ╭─[ <unknown>:40:13 ]
+    │
+ 40 │         if (undefined_condition) { // Should error: undeclared variable
+    │             ─────────┬─────────  
+    │                      ╰─────────── Undeclared variable 'undefined_condition'
+────╯
+
+--- Diagnostic 5 ---
+[1001] Error: Undeclared variable 'level2'
+    ╭─[ <unknown>:46:19 ]
+    │
+ 46 │     let bad_ref = level2; // Should error: undeclared variable (level2 out of scope)
+    │                   ───┬──  
+    │                      ╰──── Undeclared variable 'level2'
+────╯
+
+--- Diagnostic 6 ---
+[1001] Error: Undeclared variable 'undefined_field'
+    ╭─[ <unknown>:56:45 ]
+    │
+ 56 │     let s = TestStruct { field1: 1, field2: undefined_field }; // Should error: undeclared variable
+    │                                             ───────┬───────  
+    │                                                    ╰───────── Undeclared variable 'undefined_field'
+────╯
+
+--- Diagnostic 7 ---
+[1001] Error: Undeclared variable 'undefined_struct'
+    ╭─[ <unknown>:58:15 ]
+    │
+ 58 │     let bad = undefined_struct.field; // Should error: undeclared variable
+    │               ────────┬───────  
+    │                       ╰───────── Undeclared variable 'undefined_struct'
+────╯
+
+--- Diagnostic 8 ---
+[1002] Warning: Unused variable 'unused1'
+    ╭─[ <unknown>:11:9 ]
+    │
+ 11 │     let unused1 = 42; // Should warn: unused variable
+    │         ───┬───  
+    │            ╰───── Unused variable 'unused1'
+────╯
+
+--- Diagnostic 9 ---
+[1002] Warning: Unused variable 'unused2'
+    ╭─[ <unknown>:12:9 ]
+    │
+ 12 │     let unused2 = 24; // Should warn: unused variable
+    │         ───┬───  
+    │            ╰───── Unused variable 'unused2'
+────╯
+
+--- Diagnostic 10 ---
+[1003] Error: Duplicate definition of 'duplicate'
+    ╭─[ <unknown>:19:9 ]
+    │
+ 19 │     let duplicate = 2; // Should error: duplicate definition
+    │         ────┬────  
+    │             ╰────── Duplicate definition of 'duplicate'
+────╯
+
+--- Diagnostic 11 ---
+[1002] Warning: Unused variable 'duplicate'
+    ╭─[ <unknown>:18:9 ]
+    │
+ 18 │     let duplicate = 1;
+    │         ────┬────  
+    │             ╰────── Unused variable 'duplicate'
+────╯
+
+--- Diagnostic 12 ---
+[1002] Warning: Unused variable 'inner'
+    ╭─[ <unknown>:26:13 ]
+    │
+ 26 │         let inner = outer + 1; // OK: outer is visible
+    │             ──┬──  
+    │               ╰──── Unused variable 'inner'
+────╯
+
+--- Diagnostic 13 ---
+[1002] Warning: Unused variable 'unused_local'
+    ╭─[ <unknown>:34:9 ]
+    │
+ 34 │     let unused_local = 42; // Should warn: unused variable
+    │         ──────┬─────  
+    │               ╰─────── Unused variable 'unused_local'
+────╯
+
+--- Diagnostic 14 ---
+[1002] Warning: Unused variable 'also_unused'
+    ╭─[ <unknown>:38:13 ]
+    │
+ 38 │         let also_unused = level2; // Should warn: unused variable
+    │             ─────┬─────  
+    │                  ╰─────── Unused variable 'also_unused'
+────╯
+
+--- Diagnostic 15 ---
+[1002] Warning: Unused variable 'bad'
+    ╭─[ <unknown>:58:9 ]
+    │
+ 58 │     let bad = undefined_struct.field; // Should error: undeclared variable
+    │         ─┬─  
+    │          ╰─── Unused variable 'bad'
+────╯
