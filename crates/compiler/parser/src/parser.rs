@@ -33,6 +33,7 @@
 
 use crate::lexer::TokenType;
 use chumsky::{input::ValueInput, prelude::*};
+use std::ops::Range;
 
 #[salsa::input(debug)]
 pub struct SourceProgram {
@@ -501,7 +502,12 @@ where
         // Apply postfix operations left-to-right: expr.field().index[0]
         let call = atom.foldl(postfix_op.repeated(), |expr, op| match op {
             PostfixOp::Call(args) => {
-                let span = expr.span(); // Get the span for the whole call expression
+                let span_callee = expr.span();
+                let max_range: Range<usize> = args.iter().map(|arg| arg.span().into()).fold(
+                    span_callee.into(),
+                    |acc: Range<usize>, range: Range<usize>| acc.start..range.end.max(acc.end),
+                );
+                let span = SimpleSpan::from(span_callee.start..max_range.end); // Span from start of callee to end of args
                 Spanned::new(
                     Expression::FunctionCall {
                         callee: Box::new(expr),
@@ -511,7 +517,9 @@ where
                 )
             }
             PostfixOp::Member(field) => {
-                let span = expr.span(); // Get the span for the whole member access
+                let span_obj = expr.span();
+                let span_field = field.span();
+                let span = SimpleSpan::from(span_obj.start..span_field.end); // Span from start of object to end of field
                 Spanned::new(
                     Expression::MemberAccess {
                         object: Box::new(expr),
@@ -521,7 +529,9 @@ where
                 )
             }
             PostfixOp::Index(index) => {
-                let span = expr.span(); // Get the span for the whole index access
+                let span_obj = expr.span();
+                let span_index = index.span();
+                let span = SimpleSpan::from(span_obj.start..span_index.end); // Span from start of object to end of index
                 Spanned::new(
                     Expression::IndexAccess {
                         array: Box::new(expr),
@@ -544,7 +554,9 @@ where
             .then(call.clone())
             .repeated(),
             |lhs, (op, rhs)| {
-                let span = lhs.span(); // Could extend to include rhs span
+                let span_lhs = lhs.span();
+                let span_rhs = rhs.span();
+                let span = SimpleSpan::from(span_lhs.start..span_rhs.end);
                 Spanned::new(
                     Expression::BinaryOp {
                         op,
@@ -565,7 +577,9 @@ where
             .then(mul.clone())
             .repeated(),
             |lhs, (op, rhs)| {
-                let span = lhs.span(); // Could extend to include rhs span
+                let span_lhs = lhs.span();
+                let span_rhs = rhs.span();
+                let span = SimpleSpan::from(span_lhs.start..span_rhs.end);
                 Spanned::new(
                     Expression::BinaryOp {
                         op,
@@ -586,7 +600,9 @@ where
             .then(add.clone())
             .repeated(),
             |lhs, (op, rhs)| {
-                let span = lhs.span(); // Could extend to include rhs span
+                let span_lhs = lhs.span();
+                let span_rhs = rhs.span();
+                let span = SimpleSpan::from(span_lhs.start..span_rhs.end);
                 Spanned::new(
                     Expression::BinaryOp {
                         op,
@@ -604,7 +620,9 @@ where
                 .then(cmp.clone())
                 .repeated(),
             |lhs, (op, rhs)| {
-                let span = lhs.span(); // Could extend to include rhs span
+                let span_lhs = lhs.span();
+                let span_rhs = rhs.span();
+                let span = SimpleSpan::from(span_lhs.start..span_rhs.end);
                 Spanned::new(
                     Expression::BinaryOp {
                         op,
@@ -622,7 +640,9 @@ where
                 .then(and.clone())
                 .repeated(),
             |lhs, (op, rhs)| {
-                let span = lhs.span(); // Could extend to include rhs span
+                let span_lhs = lhs.span();
+                let span_rhs = rhs.span();
+                let span = SimpleSpan::from(span_lhs.start..span_rhs.end);
                 Spanned::new(
                     Expression::BinaryOp {
                         op,
