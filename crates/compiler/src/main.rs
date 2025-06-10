@@ -74,7 +74,7 @@ fn main() {
 }
 
 /// Lex the source code into tokens
-fn lex_source(source: &str) -> LexResult {
+fn lex_source(source: &str) -> LexResult<'_> {
     let mut tokens = Vec::new();
     let mut errors = Vec::new();
 
