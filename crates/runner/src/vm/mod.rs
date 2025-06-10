@@ -2,7 +2,7 @@ pub mod instructions;
 
 use crate::memory::{Memory, MemoryError};
 use instructions::Instruction;
-use num_traits::One;
+use num_traits::{One, Zero};
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 use thiserror::Error;
@@ -100,8 +100,8 @@ impl TryFrom<Program> for VM {
 
         // Create state with PC at entrypoint and FP just after the bytecode
         let state = State {
-            pc: M31::from(0),
-            fp: M31::from(instructions_len),
+            pc: M31::zero(),
+            fp: M31(instructions_len),
         };
 
         Ok(Self { memory, state })
@@ -142,7 +142,7 @@ mod tests {
     }
 
     #[test]
-    fn test_vm_load_program() {
+    fn test_vm_try_from() {
         // Create a simple program with two instructions
         let instructions = vec![
             Instruction::from([1, 2, 3, 4]),
