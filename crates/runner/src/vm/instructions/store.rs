@@ -190,7 +190,7 @@ pub fn store_div_fp_fp(
     Ok(state.advance())
 }
 
-/// Store the division of the value at the offset `fp + off0` and the immediate value `imm
+/// Store the division of the value at the offset `fp + off0` and the immediate value `imm` in the memory at the offset `fp + off2`.
 ///
 /// CASM equivalent:
 /// ```casm
