@@ -8,7 +8,6 @@ use stwo_prover::core::fields::m31::M31;
 /// * `pc` is the program counter, pointing to the current instruction.
 /// * `fp` is the frame pointer, pointing to the current frame.
 #[derive(Clone, Copy, Debug, Default)]
-#[allow(dead_code)]
 pub struct State {
     fp: M31,
     pc: M31,

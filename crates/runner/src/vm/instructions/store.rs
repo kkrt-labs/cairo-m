@@ -1,7 +1,6 @@
 //! STORE instructions for the Cairo M VM.
 //!
 //! STORE instructions are used to store values in the memory.
-//! They are used to store the result of an operation or the value of a variable.
 
 use crate::{
     memory::{Memory, MemoryError},
@@ -9,8 +8,6 @@ use crate::{
 };
 
 /// Store the sum of the values at the offsets `fp + off0` and `fp + off1` in the memory at the offset `fp + off2`.
-///
-/// OPCODE ID: 0
 ///
 /// CASM equivalent:
 /// ```casm
@@ -30,8 +27,6 @@ pub fn store_add_fp_fp(
 
 /// Store the sum of the value at the offset `fp + off0` and the immediate value `off1` in the memory at the offset `fp + off2`.
 ///
-/// OPCODE ID: 1
-///
 /// CASM equivalent:
 /// ```casm
 /// [fp + off2] = [fp + off0] + off1
@@ -49,8 +44,6 @@ pub fn store_add_fp_imm(
 }
 
 /// Store the subtraction of the values at the offsets `fp + off0` and `fp + off1` in the memory at the offset `fp + off2`.
-///
-/// OPCODE ID: 2
 ///
 /// CASM equivalent:
 /// ```casm
@@ -70,8 +63,6 @@ pub fn store_sub_fp_fp(
 
 /// Store the subtraction of the value at the offset `fp + off0` and the immediate value `off1` in the memory at the offset `fp + off2`.
 ///
-/// OPCODE ID: 3
-///
 /// CASM equivalent:
 /// ```casm
 /// [fp + off2] = [fp + off0] - off1
@@ -90,8 +81,6 @@ pub fn store_sub_fp_imm(
 
 /// Store the value at the offset `fp + off0` in the memory at the offset `fp + off2`.
 ///
-/// OPCODE ID: 4
-///
 /// CASM equivalent:
 /// ```casm
 /// [fp + off2] = [fp + off0]
@@ -101,7 +90,7 @@ pub fn store_deref_fp(
     state: State,
     instruction: Instruction,
 ) -> Result<State, MemoryError> {
-    let [off0, _off1, off2] = instruction.args;
+    let [off0, _, off2] = instruction.args;
     let value = memory.get_data(state.fp + off0)?;
     memory.insert(state.fp + off2, value.into())?;
 
@@ -131,8 +120,6 @@ pub fn store_double_deref_fp(
 
 /// Store the immediate value `off0` in the memory at the offset `fp + off2`.
 ///
-/// OPCODE ID: 6
-///
 /// CASM equivalent:
 /// ```casm
 /// [fp + off2] = off0
@@ -142,7 +129,7 @@ pub fn store_imm(
     state: State,
     instruction: Instruction,
 ) -> Result<State, MemoryError> {
-    let [off0, _off1, off2] = instruction.args;
+    let [off0, _, off2] = instruction.args;
     let value = off0;
     memory.insert(state.fp + off2, value.into())?;
 
@@ -150,8 +137,6 @@ pub fn store_imm(
 }
 
 /// Store the product of the values at the offsets `fp + off0` and `fp + off1` in the memory at the offset `fp + off2`.
-///
-/// OPCODE ID: 7
 ///
 /// CASM equivalent:
 /// ```casm
@@ -171,8 +156,6 @@ pub fn store_mul_fp_fp(
 
 /// Store the product of the value at the offset `fp + off0` and the immediate value `off1` in the memory at the offset `fp + off2`.
 ///
-/// OPCODE ID: 8
-///
 /// CASM equivalent:
 /// ```casm
 /// [fp + off2] = [fp + off0] * off1
@@ -191,8 +174,6 @@ pub fn store_mul_fp_imm(
 
 /// Store the division of the values at the offsets `fp + off0` and `fp + off1` in the memory at the offset `fp + off2`.
 ///
-/// OPCODE ID: 9
-///
 /// CASM equivalent:
 /// ```casm
 /// [fp + off2] = [fp + off0] / [fp + off1]
@@ -210,8 +191,6 @@ pub fn store_div_fp_fp(
 }
 
 /// Store the division of the value at the offset `fp + off0` and the immediate value `off1` in the memory at the offset `fp + off2`.
-///
-/// OPCODE ID: 10
 ///
 /// CASM equivalent:
 /// ```casm
@@ -421,7 +400,7 @@ mod tests {
     fn test_store_div_fp_imm() -> Result<(), MemoryError> {
         let mut memory = Memory::from_iter([0, 4].map(Into::into));
         let state = State::default();
-        let instruction = Instruction::from([9, 1, 2, 2]);
+        let instruction = Instruction::from([10, 1, 2, 2]);
 
         let new_state = store_div_fp_imm(&mut memory, state, instruction)?;
 
@@ -439,7 +418,7 @@ mod tests {
     fn test_store_div_fp_imm_by_zero() {
         let mut memory = Memory::from_iter([0, 4].map(Into::into));
         let state = State::default();
-        let instruction = Instruction::from([9, 1, 0, 2]);
+        let instruction = Instruction::from([10, 1, 0, 2]);
 
         let _ = store_div_fp_imm(&mut memory, state, instruction);
     }
