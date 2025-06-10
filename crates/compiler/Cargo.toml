@@ -1,7 +1,17 @@
 [package]
 name = "cairo-m-compiler"
-version.workspace = true
-edition.workspace = true
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "cairo-m"
+path = "src/main.rs"
 
 [dependencies]
-cairo-m-compiler-parser = { path = "./parser" }
+cairo-m-compiler-parser = { path = "parser" }
+clap = { version = "4.4", features = ["derive"] }
+ariadne = "0.5.1"
+anyhow = "1.0"
+logos = "0.15"
+chumsky = "0.10.1"
+salsa = "0.22"
