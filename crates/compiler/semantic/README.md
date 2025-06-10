@@ -19,7 +19,7 @@ understands:
 
 The crate follows a layered approach inspired by Ruff and rust-analyzer:
 
-```
+```text
 ┌─────────────────────────────────────┐
 │           Validation Layer          │ ← Semantic rules & diagnostics
 ├─────────────────────────────────────┤
@@ -122,7 +122,7 @@ fn test_undeclared_variables() {
 
 ### Test Data Structure
 
-```
+```text
 semantic/
 ├── src/validation/tests/
 │   ├── mod.rs                    # Core testing infrastructure
@@ -177,7 +177,7 @@ fn test_scope_errors() {
 
 ### Example Snapshot Output
 
-```
+```text
 Fixture: undeclared_variables.cm
 ============================================================
 Source code:
@@ -228,7 +228,7 @@ cargo test -- --nocapture
 
 ### Adding New Tests
 
-#### For New Validation Rules:
+#### For New Validation Rules
 
 1. **Create a test fixture**:
 

@@ -6,10 +6,14 @@
 use crate::place::{FileScopeId, ScopedPlaceId};
 use crate::File;
 use cairo_m_compiler_parser::parser::{
-    ConstDef, FunctionDef, ImportStmt, Namespace, Parameter, Spanned, StructDef,
+    ConstDef, FunctionDef, ImportStmt, Namespace, Parameter, Spanned, StructDef, TypeExpr,
 };
 use chumsky::span::SimpleSpan;
 use std::fmt;
+
+// Import ExpressionId from semantic_index
+// We'll define it here temporarily to avoid circular dependencies
+use crate::semantic_index::ExpressionId;
 
 /// A definition that links a semantic place to its AST node
 ///
@@ -77,18 +81,23 @@ impl fmt::Display for DefinitionKind {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FunctionDefRef {
     pub name: String,
-    pub parameter_count: usize,
-    pub has_return_type: bool,
-    // In a full implementation, you might store the actual AST node reference
-    // or a stable ID that can be used to retrieve it
+    /// Parameter information with names and AST type expressions
+    pub params_ast: Vec<(String, TypeExpr)>,
+    /// Return type AST expression, if specified
+    pub return_type_ast: Option<TypeExpr>,
 }
 
 impl FunctionDefRef {
     pub fn from_ast(func: &Spanned<FunctionDef>) -> Self {
         Self {
             name: func.value().name.value().clone(),
-            parameter_count: func.value().params.len(),
-            has_return_type: func.value().return_type.is_some(),
+            params_ast: func
+                .value()
+                .params
+                .iter()
+                .map(|param| (param.name.value().clone(), param.type_expr.clone()))
+                .collect(),
+            return_type_ast: func.value().return_type.clone(),
         }
     }
 }
@@ -97,14 +106,20 @@ impl FunctionDefRef {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct StructDefRef {
     pub name: String,
-    pub field_count: usize,
+    /// Field information with names and AST type expressions
+    pub fields_ast: Vec<(String, TypeExpr)>,
 }
 
 impl StructDefRef {
     pub fn from_ast(struct_def: &Spanned<StructDef>) -> Self {
         Self {
             name: struct_def.value().name.value().clone(),
-            field_count: struct_def.value().fields.len(),
+            fields_ast: struct_def
+                .value()
+                .fields
+                .iter()
+                .map(|(name, type_expr)| (name.value().clone(), type_expr.clone()))
+                .collect(),
         }
     }
 }
@@ -113,12 +128,15 @@ impl StructDefRef {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ConstDefRef {
     pub name: String,
+    /// The expression ID for the constant's value (to be assigned during semantic analysis)
+    pub value_expr_id: Option<ExpressionId>,
 }
 
 impl ConstDefRef {
     pub fn from_ast(const_def: &Spanned<ConstDef>) -> Self {
         Self {
             name: const_def.value().name.value().clone(),
+            value_expr_id: None, // Will be set during semantic analysis
         }
     }
 }
@@ -127,12 +145,18 @@ impl ConstDefRef {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LetDefRef {
     pub name: String,
+    /// The expression ID for the let's value (to be assigned during semantic analysis)
+    pub value_expr_id: Option<ExpressionId>,
+    /// Explicit type annotation, if provided
+    pub explicit_type_ast: Option<TypeExpr>,
 }
 
 impl LetDefRef {
     pub fn from_let_statement(name: &str) -> Self {
         Self {
             name: name.to_string(),
+            value_expr_id: None,     // Will be set during semantic analysis
+            explicit_type_ast: None, // TODO: Extract from let statement when parser supports it
         }
     }
 }
@@ -141,14 +165,18 @@ impl LetDefRef {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LocalDefRef {
     pub name: String,
-    pub has_type_annotation: bool,
+    /// The expression ID for the local's value (to be assigned during semantic analysis)
+    pub value_expr_id: Option<ExpressionId>,
+    /// Explicit type annotation, if provided
+    pub explicit_type_ast: Option<TypeExpr>,
 }
 
 impl LocalDefRef {
-    pub fn from_local_statement(name: &str, has_type: bool) -> Self {
+    pub fn from_local_statement(name: &str, type_ast: Option<TypeExpr>) -> Self {
         Self {
             name: name.to_string(),
-            has_type_annotation: has_type,
+            value_expr_id: None, // Will be set during semantic analysis
+            explicit_type_ast: type_ast,
         }
     }
 }
@@ -157,22 +185,15 @@ impl LocalDefRef {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ParameterDefRef {
     pub name: String,
-    // TODO: Replace with proper type reference system when type analysis is implemented
-    // This simplified representation loses important type information and should be
-    // replaced with a TypeId or TypeRef that can properly represent:
-    // - Generic types
-    // - Complex types (arrays, tuples, function types)
-    // - Type constraints and bounds
-    pub type_name: String, // Simplified - in full implementation would be a type reference
+    /// The AST type expression for this parameter
+    pub type_ast: TypeExpr,
 }
 
 impl ParameterDefRef {
     pub fn from_ast(param: &Parameter) -> Self {
         Self {
             name: param.name.value().clone(),
-            // TODO: This debug representation is temporary and lossy
-            // Need proper type analysis to preserve full type information
-            type_name: format!("{:?}", param.type_expr), // Simplified type representation
+            type_ast: param.type_expr.clone(),
         }
     }
 }
@@ -295,8 +316,8 @@ mod tests {
         let spanned_func = Spanned::new(func_def, SimpleSpan::from(0..10));
         let func_ref = FunctionDefRef::from_ast(&spanned_func);
         assert_eq!(func_ref.name, "test_func");
-        assert!(func_ref.has_return_type);
-        assert_eq!(func_ref.parameter_count, 0);
+        assert!(func_ref.return_type_ast.is_some());
+        assert_eq!(func_ref.params_ast.len(), 0);
 
         let struct_def = StructDef {
             name: Spanned::new("Point".to_string(), SimpleSpan::from(0..5)),
@@ -314,7 +335,7 @@ mod tests {
         let spanned_struct = Spanned::new(struct_def, SimpleSpan::from(0..10));
         let struct_ref = StructDefRef::from_ast(&spanned_struct);
         assert_eq!(struct_ref.name, "Point");
-        assert_eq!(struct_ref.field_count, 2);
+        assert_eq!(struct_ref.fields_ast.len(), 2);
 
         let const_def = ConstDef {
             name: Spanned::new("PI".to_string(), SimpleSpan::from(0..2)),
@@ -333,12 +354,13 @@ mod tests {
 
         let def1_kind = DefinitionKind::Function(FunctionDefRef {
             name: "func1".to_string(),
-            parameter_count: 0,
-            has_return_type: false,
+            params_ast: vec![],
+            return_type_ast: None,
         });
 
         let def2_kind = DefinitionKind::Const(ConstDefRef {
             name: "CONST1".to_string(),
+            value_expr_id: None,
         });
 
         let mut definitions = Definitions::new();
@@ -363,8 +385,8 @@ mod tests {
 
         let def_kind = DefinitionKind::Function(FunctionDefRef {
             name: "test".to_string(),
-            parameter_count: 1,
-            has_return_type: true,
+            params_ast: vec![("param".to_string(), TypeExpr::Named("felt".to_string()))],
+            return_type_ast: Some(TypeExpr::Named("felt".to_string())),
         });
 
         let definitions = Definitions::single(scope_id, place_id, def_kind);

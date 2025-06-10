@@ -8,17 +8,33 @@ use crate::definition::DefinitionKind;
 use crate::place::{FileScopeId, PlaceTable, Scope};
 use crate::{Definition, File, SemanticDb};
 use cairo_m_compiler_parser::parser::{
-    ConstDef, FunctionDef, ImportStmt, Namespace, Spanned, StructDef,
+    ConstDef, Expression, FunctionDef, ImportStmt, Namespace, Spanned, Statement, StructDef,
+    TopLevelItem,
 };
 use cairo_m_compiler_parser::{parse_program, ParsedModule};
 use chumsky::span::SimpleSpan;
 use index_vec::IndexVec;
 use rustc_hash::FxHashMap;
 
-// Define DefinitionId as an index type
+// Define DefinitionIndex as an index type for definitions within a single file.
 index_vec::define_index_type! {
-    /// Unique identifier for a definition within a file
-    pub struct DefinitionId = usize;
+    /// Unique identifier for a definition within a single file.
+    pub struct DefinitionIndex = usize;
+}
+
+/// A globally unique identifier for a definition.
+/// It combines the file with a file-local index.
+#[salsa::interned(debug)]
+pub struct DefinitionId {
+    pub file: File,
+    #[id]
+    pub id_in_file: DefinitionIndex,
+}
+
+// Define ExpressionId as an index type
+index_vec::define_index_type! {
+    /// Unique identifier for an AST expression node within a file, used for type inference.
+    pub struct ExpressionId = usize;
 }
 
 /// Information about an identifier usage site
@@ -29,6 +45,17 @@ pub struct IdentifierUsage {
     /// The span of the identifier in the source
     pub span: SimpleSpan<usize>,
     /// The scope where this identifier is used
+    pub scope_id: FileScopeId,
+}
+
+/// Information about an expression node in the AST
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExpressionInfo {
+    /// File containing this expression
+    pub file: File,
+    /// Span of the original AST node for diagnostics
+    pub ast_node_text_range: SimpleSpan<usize>,
+    /// Scope in which this expression occurs
     pub scope_id: FileScopeId,
 }
 
@@ -67,15 +94,22 @@ pub struct SemanticIndex {
     /// For now, we'll use simple span-based mapping
     scopes_by_span: FxHashMap<(usize, usize), FileScopeId>,
 
-    /// All definitions in the file, indexed by DefinitionId
-    definitions: IndexVec<DefinitionId, Definition>,
+    /// All definitions in the file, indexed by DefinitionIndex
+    definitions: IndexVec<DefinitionIndex, Definition>,
 
     /// Use-def tracking: maps identifier usage to their resolved definitions
     /// Key: identifier usage index, Value: definition that this usage resolves to
-    uses: FxHashMap<usize, DefinitionId>,
+    uses: FxHashMap<usize, DefinitionIndex>,
 
     /// Track all identifier usages with their spans and containing scopes
     identifier_usages: Vec<IdentifierUsage>,
+
+    /// Information about each expression node, indexed by `ExpressionId`.
+    expressions: IndexVec<ExpressionId, ExpressionInfo>,
+
+    /// Maps an AST expression's span to its `ExpressionId`.
+    /// Used by validators/consumers to get an ExpressionId from an AST node.
+    pub span_to_expression_id: FxHashMap<SimpleSpan<usize>, ExpressionId>,
 }
 
 impl SemanticIndex {
@@ -87,6 +121,8 @@ impl SemanticIndex {
             definitions: IndexVec::new(),
             uses: FxHashMap::default(),
             identifier_usages: Vec::new(),
+            expressions: IndexVec::new(),
+            span_to_expression_id: FxHashMap::default(),
         }
     }
 
@@ -176,7 +212,7 @@ impl SemanticIndex {
         &self,
         name: &str,
         starting_scope: FileScopeId,
-    ) -> Option<(DefinitionId, &Definition)> {
+    ) -> Option<(DefinitionIndex, &Definition)> {
         if let Some((scope_id, place_id)) = self.resolve_name(name, starting_scope) {
             self.definition_for_place(scope_id, place_id)
         } else {
@@ -185,7 +221,7 @@ impl SemanticIndex {
     }
 
     /// Add a definition to the index
-    pub fn add_definition(&mut self, definition: Definition) -> DefinitionId {
+    pub fn add_definition(&mut self, definition: Definition) -> DefinitionIndex {
         self.definitions.push(definition)
     }
 
@@ -193,19 +229,19 @@ impl SemanticIndex {
     pub fn definitions_in_scope(
         &self,
         scope_id: FileScopeId,
-    ) -> impl Iterator<Item = (DefinitionId, &Definition)> + '_ {
+    ) -> impl Iterator<Item = (DefinitionIndex, &Definition)> + '_ {
         self.definitions
             .iter_enumerated()
             .filter(move |(_, def)| def.scope_id == scope_id)
     }
 
     /// Get all definitions in the file
-    pub fn all_definitions(&self) -> impl Iterator<Item = (DefinitionId, &Definition)> + '_ {
+    pub fn all_definitions(&self) -> impl Iterator<Item = (DefinitionIndex, &Definition)> + '_ {
         self.definitions.iter_enumerated()
     }
 
     /// Find definition by ID
-    pub fn definition(&self, id: DefinitionId) -> Option<&Definition> {
+    pub fn definition(&self, id: DefinitionIndex) -> Option<&Definition> {
         self.definitions.get(id)
     }
 
@@ -214,7 +250,7 @@ impl SemanticIndex {
         &self,
         scope_id: FileScopeId,
         place_id: crate::place::ScopedPlaceId,
-    ) -> Option<(DefinitionId, &Definition)> {
+    ) -> Option<(DefinitionIndex, &Definition)> {
         self.definitions
             .iter_enumerated()
             .find(|(_, def)| def.scope_id == scope_id && def.place_id == place_id)
@@ -228,7 +264,7 @@ impl SemanticIndex {
     }
 
     /// Add a use-def relationship
-    pub fn add_use(&mut self, usage_index: usize, definition_id: DefinitionId) {
+    pub fn add_use(&mut self, usage_index: usize, definition_id: DefinitionIndex) {
         self.uses.insert(usage_index, definition_id);
     }
 
@@ -247,6 +283,29 @@ impl SemanticIndex {
         self.uses
             .get(&usage_index)
             .and_then(|def_id| self.definitions.get(*def_id))
+    }
+
+    /// Add an expression and return its ID
+    pub fn add_expression(&mut self, expression_info: ExpressionInfo) -> ExpressionId {
+        let expr_id = self.expressions.push(expression_info.clone());
+        self.span_to_expression_id
+            .insert(expression_info.ast_node_text_range, expr_id);
+        expr_id
+    }
+
+    /// Get expression info by ID
+    pub fn expression(&self, id: ExpressionId) -> Option<&ExpressionInfo> {
+        self.expressions.get(id)
+    }
+
+    /// Get expression ID by span
+    pub fn expression_id_by_span(&self, span: SimpleSpan<usize>) -> Option<ExpressionId> {
+        self.span_to_expression_id.get(&span).copied()
+    }
+
+    /// Get all expressions
+    pub fn all_expressions(&self) -> impl Iterator<Item = (ExpressionId, &ExpressionInfo)> + '_ {
+        self.expressions.iter_enumerated()
     }
 }
 
@@ -439,7 +498,7 @@ impl<'db> SemanticIndexBuilder<'db> {
         def_kind: DefinitionKind,
         name_span: SimpleSpan<usize>,
         full_span: SimpleSpan<usize>,
-    ) -> (crate::place::ScopedPlaceId, DefinitionId) {
+    ) -> (crate::place::ScopedPlaceId, DefinitionIndex) {
         let place_id = self.add_place(name, flags);
         let scope_id = self.current_scope();
 
@@ -459,12 +518,7 @@ impl<'db> SemanticIndexBuilder<'db> {
 
     /// Pass 1: Collect top-level declarations without processing bodies
     /// This enables forward references by declaring all symbols first
-    fn collect_top_level_declaration(
-        &mut self,
-        item: &cairo_m_compiler_parser::parser::TopLevelItem,
-    ) {
-        use cairo_m_compiler_parser::parser::TopLevelItem;
-
+    fn collect_top_level_declaration(&mut self, item: &TopLevelItem) {
         match item {
             TopLevelItem::Function(func) => self.declare_function(func),
             TopLevelItem::Struct(struct_def) => self.visit_struct(struct_def), // Structs don't have bodies
@@ -476,12 +530,7 @@ impl<'db> SemanticIndexBuilder<'db> {
 
     /// Pass 2: Process the bodies of top-level items
     /// This is where we analyze function bodies, namespace contents, etc.
-    fn process_top_level_item_body(
-        &mut self,
-        item: &cairo_m_compiler_parser::parser::TopLevelItem,
-    ) {
-        use cairo_m_compiler_parser::parser::TopLevelItem;
-
+    fn process_top_level_item_body(&mut self, item: &TopLevelItem) {
         match item {
             TopLevelItem::Function(func) => self.process_function_body(func),
             TopLevelItem::Struct(_) => {} // Structs don't have bodies to process
@@ -547,7 +596,7 @@ impl<'db> SemanticIndexBuilder<'db> {
         );
 
         // Visit the value expression to find any identifier uses
-        self.visit_expression(&const_def_inner.value);
+        let _value_expr_id = self.visit_expression(&const_def_inner.value);
     }
 
     /// Pass 1: Declare function without processing its body
@@ -635,12 +684,8 @@ impl<'db> SemanticIndexBuilder<'db> {
         });
     }
 
-    fn visit_statement(
-        &mut self,
-        stmt: &cairo_m_compiler_parser::parser::Spanned<cairo_m_compiler_parser::parser::Statement>,
-    ) {
+    fn visit_statement(&mut self, stmt: &Spanned<Statement>) {
         use crate::place::PlaceFlags;
-        use cairo_m_compiler_parser::parser::Statement;
 
         match stmt.value() {
             Statement::Let { name, value } => {
@@ -655,14 +700,14 @@ impl<'db> SemanticIndexBuilder<'db> {
                     stmt.span(),
                 );
                 // Visit the value expression
-                self.visit_expression(value);
+                let _value_expr_id = self.visit_expression(value);
             }
             Statement::Local { name, value, ty } => {
                 use crate::definition::{DefinitionKind, LocalDefRef};
                 // Define the local variable
                 let def_kind = DefinitionKind::Local(LocalDefRef::from_local_statement(
                     name.value(),
-                    ty.is_some(),
+                    ty.clone(),
                 ));
                 self.add_place_with_definition(
                     name.value(),
@@ -672,7 +717,7 @@ impl<'db> SemanticIndexBuilder<'db> {
                     stmt.span(),
                 );
                 // Visit the value expression
-                self.visit_expression(value);
+                let _value_expr_id = self.visit_expression(value);
                 // TODO: Analyze type annotation when type system is implemented
             }
             Statement::Const(const_def) => {
@@ -682,8 +727,8 @@ impl<'db> SemanticIndexBuilder<'db> {
             }
             Statement::Assignment { lhs, rhs } => {
                 // Visit both sides - assignment targets and values
-                self.visit_expression(lhs);
-                self.visit_expression(rhs);
+                let _lhs_expr_id = self.visit_expression(lhs);
+                let _rhs_expr_id = self.visit_expression(rhs);
                 // TODO: Validate assignment compatibility (AssignmentValidator)
                 // - Check that LHS is actually assignable (not a constant, etc.)
                 // - Validate type compatibility between LHS and RHS
@@ -692,7 +737,7 @@ impl<'db> SemanticIndexBuilder<'db> {
             }
             Statement::Return { value } => {
                 if let Some(expr) = value {
-                    self.visit_expression(expr);
+                    let _return_expr_id = self.visit_expression(expr);
                 }
                 // TODO: Validate return type compatibility (ReturnValidator)
                 // - Check return type compatibility with function signature
@@ -705,7 +750,7 @@ impl<'db> SemanticIndexBuilder<'db> {
                 then_block,
                 else_block,
             } => {
-                self.visit_expression(condition);
+                let _condition_expr_id = self.visit_expression(condition);
                 // Create new scopes for if/else blocks to properly handle variable visibility
                 self.with_new_scope(crate::place::ScopeKind::Block, |builder| {
                     builder.visit_statement(then_block);
@@ -721,7 +766,7 @@ impl<'db> SemanticIndexBuilder<'db> {
                 // - Check for unreachable code after returns
             }
             Statement::Expression(expr) => {
-                self.visit_expression(expr);
+                let _stmt_expr_id = self.visit_expression(expr);
             }
             Statement::Block(statements) => {
                 // Create new scope for block statements to ensure proper variable scoping
@@ -735,13 +780,14 @@ impl<'db> SemanticIndexBuilder<'db> {
         }
     }
 
-    fn visit_expression(
-        &mut self,
-        expr: &cairo_m_compiler_parser::parser::Spanned<
-            cairo_m_compiler_parser::parser::Expression,
-        >,
-    ) {
-        use cairo_m_compiler_parser::parser::Expression;
+    fn visit_expression(&mut self, expr: &Spanned<Expression>) -> ExpressionId {
+        // First, create an ExpressionInfo for this expression and track it
+        let expr_info = ExpressionInfo {
+            file: self._file,
+            ast_node_text_range: expr.span(),
+            scope_id: self.current_scope(),
+        };
+        let expr_id = self.index.add_expression(expr_info);
 
         match expr.value() {
             Expression::Identifier(name) => {
@@ -829,6 +875,8 @@ impl<'db> SemanticIndexBuilder<'db> {
               // - Conditional expressions (ternary operator)
               // - Array/slice literals
         }
+
+        expr_id
     }
 }
 

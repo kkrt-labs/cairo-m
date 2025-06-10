@@ -1,4 +1,5 @@
 #![feature(let_chains)]
+#![allow(clippy::option_if_let_else)]
 
 //! # Cairo-M Semantic Analysis
 //!
@@ -27,6 +28,8 @@ pub use parser::{parse_program, ParsedModule, SourceProgram};
 pub mod definition;
 pub mod place;
 pub mod semantic_index;
+pub mod type_resolution;
+pub mod types;
 
 pub mod db;
 pub use db::{SemanticDatabaseImpl, SemanticDb};
@@ -35,7 +38,11 @@ pub mod validation;
 // Re-export main types and functions
 pub use definition::{Definition, DefinitionKind, Definitions};
 pub use place::{FileScopeId, PlaceFlags, PlaceTable, Scope, ScopeKind, ScopedPlaceId};
-pub use semantic_index::{semantic_index as analyze_semantics, validate_semantics, SemanticIndex};
+pub use semantic_index::{
+    semantic_index as analyze_semantics, validate_semantics, DefinitionId, ExpressionId,
+    SemanticIndex,
+};
+pub use types::{FunctionSignatureId, StructTypeId, TypeData, TypeId};
 pub use validation::{
     Diagnostic, DiagnosticCode, DiagnosticCollection, DiagnosticSeverity, Validator,
 };

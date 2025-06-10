@@ -17,15 +17,11 @@ use parser::ParserDatabaseImpl;
 /// Database trait for semantic analysis, extending the parser database
 ///
 /// This trait defines the interface for semantic-specific database operations.
-/// Currently minimal, but will be extended with semantic-specific queries as the
-/// system grows in complexity.
+/// Type resolution and inference queries are defined as standalone tracked functions.
 #[salsa::db]
 pub trait SemanticDb: ParserDb + Upcast<dyn ParserDb> {
-    // TODO: Add semantic-specific database methods here as the system grows:
-    // - fn semantic_settings(&self) -> &SemanticSettings;
-    // - fn type_environment(&self) -> TypeEnvironment;
-    // - fn import_resolution_cache(&self) -> ImportResolutionCache;
-    // - fn diagnostic_settings(&self) -> DiagnosticSettings;
+    // Type queries are defined as standalone tracked functions in type_resolution.rs
+    // This trait includes any database-specific configuration or settings
 }
 
 /// Concrete database implementation for semantic analysis
