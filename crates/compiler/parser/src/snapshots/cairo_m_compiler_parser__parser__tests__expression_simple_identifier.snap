@@ -5,17 +5,32 @@ expression: snapshot_entry
 code: func test() { my_var; }
 result: [
     Function(
-        FunctionDef {
-            name: "test",
-            params: [],
-            return_type: None,
-            body: [
-                Expression(
-                    Identifier(
-                        "my_var",
-                    ),
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
                 ),
-            ],
-        },
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                Identifier(
+                                    Spanned(
+                                        "my_var",
+                                        14..20,
+                                    ),
+                                ),
+                                14..20,
+                            ),
+                        ),
+                        14..21,
+                    ),
+                ],
+            },
+            0..23,
+        ),
     ),
 ]

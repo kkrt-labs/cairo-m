@@ -5,30 +5,48 @@ expression: snapshot_entry
 code: namespace Utils { func helper() -> felt { return 1; } }
 result: [
     Namespace(
-        Namespace {
-            name: "Utils",
-            body: [
-                Function(
-                    FunctionDef {
-                        name: "helper",
-                        params: [],
-                        return_type: Some(
-                            Named(
-                                "felt",
-                            ),
-                        ),
-                        body: [
-                            Return {
-                                value: Some(
-                                    Literal(
-                                        1,
+        Spanned(
+            Namespace {
+                name: Spanned(
+                    "Utils",
+                    10..15,
+                ),
+                body: [
+                    Function(
+                        Spanned(
+                            FunctionDef {
+                                name: Spanned(
+                                    "helper",
+                                    23..29,
+                                ),
+                                params: [],
+                                return_type: Some(
+                                    Named(
+                                        "felt",
                                     ),
                                 ),
+                                body: [
+                                    Spanned(
+                                        Return {
+                                            value: Some(
+                                                Spanned(
+                                                    Literal(
+                                                        1,
+                                                    ),
+                                                    49..50,
+                                                ),
+                                            ),
+                                        },
+                                        42..51,
+                                    ),
+                                ],
                             },
-                        ],
-                    },
-                ),
-            ],
-        },
+                            18..53,
+                        ),
+                    ),
+                ],
+            },
+            0..55,
+        ),
     ),
 ]

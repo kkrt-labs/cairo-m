@@ -5,22 +5,34 @@ expression: snapshot_entry
 code: struct Point { x: felt, y: felt }
 result: [
     Struct(
-        StructDef {
-            name: "Point",
-            fields: [
-                (
-                    "x",
-                    Named(
-                        "felt",
-                    ),
+        Spanned(
+            StructDef {
+                name: Spanned(
+                    "Point",
+                    7..12,
                 ),
-                (
-                    "y",
-                    Named(
-                        "felt",
+                fields: [
+                    (
+                        Spanned(
+                            "x",
+                            15..16,
+                        ),
+                        Named(
+                            "felt",
+                        ),
                     ),
-                ),
-            ],
-        },
+                    (
+                        Spanned(
+                            "y",
+                            24..25,
+                        ),
+                        Named(
+                            "felt",
+                        ),
+                    ),
+                ],
+            },
+            0..33,
+        ),
     ),
 ]

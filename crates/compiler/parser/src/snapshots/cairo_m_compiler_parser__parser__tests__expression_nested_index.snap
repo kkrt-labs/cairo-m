@@ -5,27 +5,60 @@ expression: snapshot_entry
 code: func test() { matrix[i][j]; }
 result: [
     Function(
-        FunctionDef {
-            name: "test",
-            params: [],
-            return_type: None,
-            body: [
-                Expression(
-                    IndexAccess {
-                        array: IndexAccess {
-                            array: Identifier(
-                                "matrix",
-                            ),
-                            index: Identifier(
-                                "i",
-                            ),
-                        },
-                        index: Identifier(
-                            "j",
-                        ),
-                    },
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
                 ),
-            ],
-        },
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                IndexAccess {
+                                    array: Spanned(
+                                        IndexAccess {
+                                            array: Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "matrix",
+                                                        14..20,
+                                                    ),
+                                                ),
+                                                14..20,
+                                            ),
+                                            index: Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "i",
+                                                        21..22,
+                                                    ),
+                                                ),
+                                                21..22,
+                                            ),
+                                        },
+                                        14..20,
+                                    ),
+                                    index: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "j",
+                                                24..25,
+                                            ),
+                                        ),
+                                        24..25,
+                                    ),
+                                },
+                                14..20,
+                            ),
+                        ),
+                        14..27,
+                    ),
+                ],
+            },
+            0..29,
+        ),
     ),
 ]

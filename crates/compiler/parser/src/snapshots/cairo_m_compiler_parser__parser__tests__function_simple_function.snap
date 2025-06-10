@@ -5,42 +5,72 @@ expression: snapshot_entry
 code: func add(a: felt, b: felt) -> felt { return a + b; }
 result: [
     Function(
-        FunctionDef {
-            name: "add",
-            params: [
-                Parameter {
-                    name: "a",
-                    type_expr: Named(
-                        "felt",
-                    ),
-                },
-                Parameter {
-                    name: "b",
-                    type_expr: Named(
-                        "felt",
-                    ),
-                },
-            ],
-            return_type: Some(
-                Named(
-                    "felt",
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "add",
+                    5..8,
                 ),
-            ),
-            body: [
-                Return {
-                    value: Some(
-                        BinaryOp {
-                            op: Add,
-                            left: Identifier(
-                                "a",
-                            ),
-                            right: Identifier(
-                                "b",
+                params: [
+                    Parameter {
+                        name: Spanned(
+                            "a",
+                            9..10,
+                        ),
+                        type_expr: Named(
+                            "felt",
+                        ),
+                    },
+                    Parameter {
+                        name: Spanned(
+                            "b",
+                            18..19,
+                        ),
+                        type_expr: Named(
+                            "felt",
+                        ),
+                    },
+                ],
+                return_type: Some(
+                    Named(
+                        "felt",
+                    ),
+                ),
+                body: [
+                    Spanned(
+                        Return {
+                            value: Some(
+                                Spanned(
+                                    BinaryOp {
+                                        op: Add,
+                                        left: Spanned(
+                                            Identifier(
+                                                Spanned(
+                                                    "a",
+                                                    44..45,
+                                                ),
+                                            ),
+                                            44..45,
+                                        ),
+                                        right: Spanned(
+                                            Identifier(
+                                                Spanned(
+                                                    "b",
+                                                    48..49,
+                                                ),
+                                            ),
+                                            48..49,
+                                        ),
+                                    },
+                                    44..45,
+                                ),
                             ),
                         },
+                        37..50,
                     ),
-                },
-            ],
-        },
+                ],
+            },
+            0..52,
+        ),
     ),
 ]

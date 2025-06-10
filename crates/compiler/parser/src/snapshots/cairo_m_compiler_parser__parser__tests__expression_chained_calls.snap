@@ -5,29 +5,62 @@ expression: snapshot_entry
 code: func test() { obj.method().another(); }
 result: [
     Function(
-        FunctionDef {
-            name: "test",
-            params: [],
-            return_type: None,
-            body: [
-                Expression(
-                    FunctionCall {
-                        callee: MemberAccess {
-                            object: FunctionCall {
-                                callee: MemberAccess {
-                                    object: Identifier(
-                                        "obj",
-                                    ),
-                                    field: "method",
-                                },
-                                args: [],
-                            },
-                            field: "another",
-                        },
-                        args: [],
-                    },
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
                 ),
-            ],
-        },
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                FunctionCall {
+                                    callee: Spanned(
+                                        MemberAccess {
+                                            object: Spanned(
+                                                FunctionCall {
+                                                    callee: Spanned(
+                                                        MemberAccess {
+                                                            object: Spanned(
+                                                                Identifier(
+                                                                    Spanned(
+                                                                        "obj",
+                                                                        14..17,
+                                                                    ),
+                                                                ),
+                                                                14..17,
+                                                            ),
+                                                            field: Spanned(
+                                                                "method",
+                                                                18..24,
+                                                            ),
+                                                        },
+                                                        14..17,
+                                                    ),
+                                                    args: [],
+                                                },
+                                                14..17,
+                                            ),
+                                            field: Spanned(
+                                                "another",
+                                                27..34,
+                                            ),
+                                        },
+                                        14..17,
+                                    ),
+                                    args: [],
+                                },
+                                14..17,
+                            ),
+                        ),
+                        14..37,
+                    ),
+                ],
+            },
+            0..39,
+        ),
     ),
 ]

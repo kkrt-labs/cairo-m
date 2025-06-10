@@ -5,32 +5,62 @@ expression: snapshot_entry
 code: func test() { { { let inner = 1; } let outer = 2; } }
 result: [
     Function(
-        FunctionDef {
-            name: "test",
-            params: [],
-            return_type: None,
-            body: [
-                Block(
-                    [
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
+                ),
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
                         Block(
                             [
-                                Let {
-                                    name: "inner",
-                                    value: Literal(
-                                        1,
+                                Spanned(
+                                    Block(
+                                        [
+                                            Spanned(
+                                                Let {
+                                                    name: Spanned(
+                                                        "inner",
+                                                        22..27,
+                                                    ),
+                                                    value: Spanned(
+                                                        Literal(
+                                                            1,
+                                                        ),
+                                                        30..31,
+                                                    ),
+                                                },
+                                                18..32,
+                                            ),
+                                        ],
                                     ),
-                                },
+                                    16..34,
+                                ),
+                                Spanned(
+                                    Let {
+                                        name: Spanned(
+                                            "outer",
+                                            39..44,
+                                        ),
+                                        value: Spanned(
+                                            Literal(
+                                                2,
+                                            ),
+                                            47..48,
+                                        ),
+                                    },
+                                    35..49,
+                                ),
                             ],
                         ),
-                        Let {
-                            name: "outer",
-                            value: Literal(
-                                2,
-                            ),
-                        },
-                    ],
-                ),
-            ],
-        },
+                        14..51,
+                    ),
+                ],
+            },
+            0..53,
+        ),
     ),
 ]

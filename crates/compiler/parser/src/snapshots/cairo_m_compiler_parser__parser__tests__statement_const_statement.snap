@@ -5,20 +5,35 @@ expression: snapshot_entry
 code: func test() { const PI = 314; }
 result: [
     Function(
-        FunctionDef {
-            name: "test",
-            params: [],
-            return_type: None,
-            body: [
-                Const(
-                    ConstDef {
-                        name: "PI",
-                        value: Literal(
-                            314,
-                        ),
-                    },
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
                 ),
-            ],
-        },
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Const(
+                            ConstDef {
+                                name: Spanned(
+                                    "PI",
+                                    20..22,
+                                ),
+                                value: Spanned(
+                                    Literal(
+                                        314,
+                                    ),
+                                    25..28,
+                                ),
+                            },
+                        ),
+                        14..29,
+                    ),
+                ],
+            },
+            0..31,
+        ),
     ),
 ]

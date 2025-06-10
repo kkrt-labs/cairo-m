@@ -5,24 +5,36 @@ expression: snapshot_entry
 code: struct Node { data: felt, next: Node* }
 result: [
     Struct(
-        StructDef {
-            name: "Node",
-            fields: [
-                (
-                    "data",
-                    Named(
-                        "felt",
-                    ),
+        Spanned(
+            StructDef {
+                name: Spanned(
+                    "Node",
+                    7..11,
                 ),
-                (
-                    "next",
-                    Pointer(
+                fields: [
+                    (
+                        Spanned(
+                            "data",
+                            14..18,
+                        ),
                         Named(
-                            "Node",
+                            "felt",
                         ),
                     ),
-                ),
-            ],
-        },
+                    (
+                        Spanned(
+                            "next",
+                            26..30,
+                        ),
+                        Pointer(
+                            Named(
+                                "Node",
+                            ),
+                        ),
+                    ),
+                ],
+            },
+            0..39,
+        ),
     ),
 ]

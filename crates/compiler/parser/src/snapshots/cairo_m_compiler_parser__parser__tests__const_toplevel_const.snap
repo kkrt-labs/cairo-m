@@ -5,11 +5,20 @@ expression: snapshot_entry
 code: const MAX_SIZE = 100;
 result: [
     Const(
-        ConstDef {
-            name: "MAX_SIZE",
-            value: Literal(
-                100,
-            ),
-        },
+        Spanned(
+            ConstDef {
+                name: Spanned(
+                    "MAX_SIZE",
+                    6..14,
+                ),
+                value: Spanned(
+                    Literal(
+                        100,
+                    ),
+                    17..20,
+                ),
+            },
+            0..21,
+        ),
     ),
 ]

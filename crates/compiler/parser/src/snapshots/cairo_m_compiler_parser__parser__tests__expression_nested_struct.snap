@@ -5,45 +5,87 @@ expression: snapshot_entry
 code: func test() { Rectangle { top_left: Point { x: 0, y: 0 }, width: 10 }; }
 result: [
     Function(
-        FunctionDef {
-            name: "test",
-            params: [],
-            return_type: None,
-            body: [
-                Expression(
-                    StructLiteral {
-                        name: "Rectangle",
-                        fields: [
-                            (
-                                "top_left",
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
+                ),
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
                                 StructLiteral {
-                                    name: "Point",
+                                    name: Spanned(
+                                        "Rectangle",
+                                        14..23,
+                                    ),
                                     fields: [
                                         (
-                                            "x",
-                                            Literal(
-                                                0,
+                                            Spanned(
+                                                "top_left",
+                                                26..34,
+                                            ),
+                                            Spanned(
+                                                StructLiteral {
+                                                    name: Spanned(
+                                                        "Point",
+                                                        36..41,
+                                                    ),
+                                                    fields: [
+                                                        (
+                                                            Spanned(
+                                                                "x",
+                                                                44..45,
+                                                            ),
+                                                            Spanned(
+                                                                Literal(
+                                                                    0,
+                                                                ),
+                                                                47..48,
+                                                            ),
+                                                        ),
+                                                        (
+                                                            Spanned(
+                                                                "y",
+                                                                50..51,
+                                                            ),
+                                                            Spanned(
+                                                                Literal(
+                                                                    0,
+                                                                ),
+                                                                53..54,
+                                                            ),
+                                                        ),
+                                                    ],
+                                                },
+                                                36..56,
                                             ),
                                         ),
                                         (
-                                            "y",
-                                            Literal(
-                                                0,
+                                            Spanned(
+                                                "width",
+                                                58..63,
+                                            ),
+                                            Spanned(
+                                                Literal(
+                                                    10,
+                                                ),
+                                                65..67,
                                             ),
                                         ),
                                     ],
                                 },
+                                14..69,
                             ),
-                            (
-                                "width",
-                                Literal(
-                                    10,
-                                ),
-                            ),
-                        ],
-                    },
-                ),
-            ],
-        },
+                        ),
+                        14..70,
+                    ),
+                ],
+            },
+            0..72,
+        ),
     ),
 ]

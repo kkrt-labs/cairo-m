@@ -5,18 +5,33 @@ expression: snapshot_entry
 code: func test() { Unit {}; }
 result: [
     Function(
-        FunctionDef {
-            name: "test",
-            params: [],
-            return_type: None,
-            body: [
-                Expression(
-                    StructLiteral {
-                        name: "Unit",
-                        fields: [],
-                    },
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
                 ),
-            ],
-        },
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                StructLiteral {
+                                    name: Spanned(
+                                        "Unit",
+                                        14..18,
+                                    ),
+                                    fields: [],
+                                },
+                                14..21,
+                            ),
+                        ),
+                        14..22,
+                    ),
+                ],
+            },
+            0..24,
+        ),
     ),
 ]

@@ -5,23 +5,50 @@ expression: snapshot_entry
 code: func test() { obj.inner.field; }
 result: [
     Function(
-        FunctionDef {
-            name: "test",
-            params: [],
-            return_type: None,
-            body: [
-                Expression(
-                    MemberAccess {
-                        object: MemberAccess {
-                            object: Identifier(
-                                "obj",
-                            ),
-                            field: "inner",
-                        },
-                        field: "field",
-                    },
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
                 ),
-            ],
-        },
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                MemberAccess {
+                                    object: Spanned(
+                                        MemberAccess {
+                                            object: Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "obj",
+                                                        14..17,
+                                                    ),
+                                                ),
+                                                14..17,
+                                            ),
+                                            field: Spanned(
+                                                "inner",
+                                                18..23,
+                                            ),
+                                        },
+                                        14..17,
+                                    ),
+                                    field: Spanned(
+                                        "field",
+                                        24..29,
+                                    ),
+                                },
+                                14..17,
+                            ),
+                        ),
+                        14..30,
+                    ),
+                ],
+            },
+            0..32,
+        ),
     ),
 ]

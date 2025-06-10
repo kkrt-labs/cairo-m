@@ -5,15 +5,33 @@ expression: snapshot_entry
 code: from very.deep.module.path import function
 result: [
     Import(
-        ImportStmt {
-            path: [
-                "very",
-                "deep",
-                "module",
-                "path",
-            ],
-            item: "function",
-            alias: None,
-        },
+        Spanned(
+            ImportStmt {
+                path: [
+                    Spanned(
+                        "very",
+                        5..9,
+                    ),
+                    Spanned(
+                        "deep",
+                        10..14,
+                    ),
+                    Spanned(
+                        "module",
+                        15..21,
+                    ),
+                    Spanned(
+                        "path",
+                        22..26,
+                    ),
+                ],
+                item: Spanned(
+                    "function",
+                    34..42,
+                ),
+                alias: None,
+            },
+            0..42,
+        ),
     ),
 ]
