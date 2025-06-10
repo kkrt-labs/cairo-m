@@ -35,7 +35,7 @@ impl fmt::Display for LexingError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidNumber { value, reason } => {
-                write!(f, "Invalid number '{}': {}", value, reason)
+                write!(f, "Invalid number '{value}': {reason}")
             }
             Self::InvalidCharacter => {
                 write!(f, "Invalid character")
@@ -434,15 +434,12 @@ mod tests {
         for (input, expected) in test_cases {
             let lexer = TokenType::lexer(input);
             let tokens: Vec<_> = lexer.spanned().collect();
-            assert_eq!(tokens.len(), 1, "Input: {}", input);
+            assert_eq!(tokens.len(), 1, "Input: {input}");
             match &tokens[0].0 {
                 Ok(TokenType::LiteralNumber(n)) => {
-                    assert_eq!(*n, expected, "Input: {}", input);
+                    assert_eq!(*n, expected, "Input: {input}");
                 }
-                other => panic!(
-                    "Expected LiteralNumber for input '{}', got: {:?}",
-                    input, other
-                ),
+                other => panic!("Expected LiteralNumber for input '{input}', got: {other:?}"),
             }
         }
     }
