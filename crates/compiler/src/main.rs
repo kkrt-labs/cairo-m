@@ -57,6 +57,7 @@ fn main() {
             // Step 2: Parsing
             let db = cairo_m_compiler_parser::ParserDatabaseImpl::default();
             // Attaching the database for debug printouts
+            //TODO: unify APIs. the parse result here is unused (only used for reporting.)
             let parse_result = db.attach(|db| {
                 let parse_result = parse_tokens(db, lex_result.tokens, &content);
                 if !parse_result.errors.is_empty() {
@@ -69,7 +70,6 @@ fn main() {
                 parse_result
             });
 
-            //TODO: unify APIs
             let source_content = SourceProgram::new(&db, content.clone());
 
             let semantic_db = cairo_m_compiler_semantic::SemanticDatabaseImpl::default();

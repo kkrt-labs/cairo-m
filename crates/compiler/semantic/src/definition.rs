@@ -10,12 +10,13 @@ use cairo_m_compiler_parser::parser::{
 };
 use std::fmt;
 
-/// A tracked definition that links a semantic place to its AST node
+/// A definition that links a semantic place to its AST node
 ///
 /// This is the primary way to connect semantic analysis results back to
 /// the original source code for error reporting, IDE features, etc.
-#[salsa::tracked]
-pub struct Definition<'db> {
+/// This is now a plain data container - the SemanticIndex owns the collection.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Definition {
     /// The file containing this definition
     pub file: File,
     /// The scope containing this definition
@@ -23,7 +24,6 @@ pub struct Definition<'db> {
     /// The place (symbol) this definition defines
     pub place: ScopedPlaceId,
     /// The kind of definition and reference to AST node
-    #[no_eq]
     pub kind: DefinitionKind,
 }
 

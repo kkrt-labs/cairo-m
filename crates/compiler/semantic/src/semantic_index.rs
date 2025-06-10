@@ -29,6 +29,16 @@ pub struct SemanticIndex {
     /// All definitions in the file
     /// For now, we'll store them in a simple Vec and provide access methods
     definitions: Vec<(FileScopeId, DefinitionKind, crate::place::ScopedPlaceId)>,
+
+    /// Use-def tracking: maps identifier names to their resolved definitions
+    /// Key: (identifier_name, scope_where_used)
+    /// Value: (definition_scope, definition_place)
+    /// TODO: Replace with span-based tracking when parser provides spans
+    uses: FxHashMap<(String, FileScopeId), (FileScopeId, crate::place::ScopedPlaceId)>,
+
+    /// Track all identifier usages with their containing scopes
+    /// This will help implement undeclared variable detection
+    identifier_usages: Vec<(String, FileScopeId)>,
 }
 
 impl SemanticIndex {
@@ -38,6 +48,8 @@ impl SemanticIndex {
             scopes: Vec::new(),
             scopes_by_span: FxHashMap::default(),
             definitions: Vec::new(),
+            uses: FxHashMap::default(),
+            identifier_usages: Vec::new(),
         }
     }
 
@@ -158,6 +170,42 @@ impl SemanticIndex {
             .find(|(s, _, p)| *s == scope_id && *p == place_id)
             .map(|(_, kind, _)| kind)
     }
+
+    /// Add a use-def relationship
+    pub fn add_use(
+        &mut self,
+        identifier: String,
+        use_scope: FileScopeId,
+        def_scope: FileScopeId,
+        def_place: crate::place::ScopedPlaceId,
+    ) {
+        self.uses
+            .insert((identifier, use_scope), (def_scope, def_place));
+    }
+
+    /// Add an identifier usage (for undeclared variable detection)
+    pub fn add_identifier_usage(&mut self, identifier: String, scope: FileScopeId) {
+        self.identifier_usages.push((identifier, scope));
+    }
+
+    /// Get all identifier usages
+    pub fn identifier_usages(&self) -> &[(String, FileScopeId)] {
+        &self.identifier_usages
+    }
+
+    /// Check if an identifier usage has a corresponding definition
+    pub fn is_identifier_resolved(&self, identifier: &str, scope: FileScopeId) -> bool {
+        self.uses.contains_key(&(identifier.to_string(), scope))
+    }
+
+    /// Get the definition for a specific identifier usage
+    pub fn get_use_definition(
+        &self,
+        identifier: &str,
+        scope: FileScopeId,
+    ) -> Option<(FileScopeId, crate::place::ScopedPlaceId)> {
+        self.uses.get(&(identifier.to_string(), scope)).copied()
+    }
 }
 
 impl Default for SemanticIndex {
@@ -171,7 +219,7 @@ impl Default for SemanticIndex {
 /// This is the primary Salsa-tracked query that builds the complete semantic
 /// index for a source file. It takes a parsed module and produces the semantic
 /// analysis result.
-#[salsa::tracked(returns(ref), no_eq)]
+#[salsa::tracked(returns(ref))]
 pub fn semantic_index(db: &dyn SemanticDb, file: File) -> SemanticIndex {
     // Get the parsed module from the parser
     let module = parse_program(db, file);
@@ -181,7 +229,7 @@ pub fn semantic_index(db: &dyn SemanticDb, file: File) -> SemanticIndex {
     builder.build()
 }
 
-#[salsa::tracked(returns(ref), no_eq)]
+#[salsa::tracked(returns(ref))]
 pub fn semantic_index_from_module<'a>(
     db: &'a dyn SemanticDb,
     module: &'a ParsedModule,
@@ -195,7 +243,6 @@ pub fn semantic_index_from_module<'a>(
 ///
 /// This query runs all semantic validators on the semantic index
 /// and returns any issues found.
-//TODO: unify APIs
 #[salsa::tracked(returns(ref))]
 pub fn validate_semantics<'a>(
     db: &'a dyn SemanticDb,
@@ -471,16 +518,24 @@ impl<'db> SemanticIndexBuilder<'db> {
 
         match expr {
             Expression::Identifier(name) => {
+                let current_scope = self.current_scope_id();
+
+                // Record this identifier usage for undeclared variable detection
+                self.index.add_identifier_usage(name.clone(), current_scope);
+
                 // This is a use of an identifier - mark it as used if we can resolve it
-                if let Some((scope_id, place_id)) =
-                    self.index.resolve_name(name, self.current_scope_id())
-                    && let Some(place_table) = self.index.place_table_mut(scope_id)
+                if let Some((def_scope_id, place_id)) = self.index.resolve_name(name, current_scope)
+                    && let Some(place_table) = self.index.place_table_mut(def_scope_id)
                 {
+                    // Mark the place as used
                     place_table.mark_as_used(place_id);
+
+                    // Record the use-def relationship
+                    self.index
+                        .add_use(name.clone(), current_scope, def_scope_id, place_id);
                 }
-                // TODO:
-                // Note: We don't report unresolved symbols as errors here,
-                // that would be done in a separate validation pass
+                // Note: Unresolved symbols will be detected in the validation pass
+                // using the identifier_usages tracking
             }
             Expression::BinaryOp { left, right, .. } => {
                 self.visit_expression(left);

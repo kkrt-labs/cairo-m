@@ -95,6 +95,36 @@ mod tests {
     }
 
     #[test]
+    fn test_undeclared_variable_detection() {
+        let db = SemanticDatabaseImpl::default();
+
+        // Test program with undeclared variable usage
+        let source = SourceProgram::new(
+            &db,
+            r#"
+            func test() -> felt {
+                let local_var = 42;
+                return local_var + undeclared_var;  // Error: undeclared variable
+            }
+        "#
+            .to_string(),
+        );
+
+        let parsed_module = parse_program(&db, source);
+        let diagnostics = validate_semantics(&db, parsed_module, source);
+
+        let undeclared_errors: Vec<_> = diagnostics
+            .all()
+            .iter()
+            .filter(|d| d.code == DiagnosticCode::UndeclaredVariable)
+            .collect();
+
+        assert_eq!(undeclared_errors.len(), 1);
+        assert!(undeclared_errors[0].message.contains("undeclared_var"));
+        assert_eq!(undeclared_errors[0].severity, DiagnosticSeverity::Error);
+    }
+
+    #[test]
     fn test_clean_program_validation() {
         let db = SemanticDatabaseImpl::default();
 

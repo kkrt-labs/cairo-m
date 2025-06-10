@@ -22,7 +22,10 @@ impl Validator for ScopeValidator {
     ) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
 
-        // Check each scope for violations
+        // Check for undeclared variables once globally (not per scope)
+        diagnostics.extend(self.check_undeclared_variables_global(index));
+
+        // Check each scope for other violations
         for (scope_id, scope) in index.scopes() {
             if let Some(place_table) = index.place_table(scope_id) {
                 diagnostics.extend(self.check_scope(scope_id, scope, place_table, index));
@@ -41,10 +44,10 @@ impl ScopeValidator {
     /// Check a single scope for violations
     fn check_scope(
         &self,
-        scope_id: crate::FileScopeId,
+        _scope_id: crate::FileScopeId,
         _scope: &crate::Scope,
         place_table: &crate::PlaceTable,
-        index: &SemanticIndex,
+        _index: &SemanticIndex,
     ) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
 
@@ -53,9 +56,6 @@ impl ScopeValidator {
 
         // Check for unused variables (but not in the global scope for functions/structs)
         diagnostics.extend(self.check_unused_variables(place_table));
-
-        // Check for undeclared variables by examining all identifier usages
-        diagnostics.extend(self.check_undeclared_variables(scope_id, index));
 
         diagnostics
     }
@@ -91,24 +91,22 @@ impl ScopeValidator {
         diagnostics
     }
 
-    /// Check for undeclared variables by looking at the use-def chains
-    const fn check_undeclared_variables(
-        &self,
-        _current_scope: crate::FileScopeId,
-        _index: &SemanticIndex,
-    ) -> Vec<Diagnostic> {
-        // For now, we'll implement a basic check
-        // A more sophisticated implementation would track all identifier uses
-        // and verify they can be resolved to a definition
+    /// Check for undeclared variables globally by looking at all use-def chains
+    fn check_undeclared_variables_global(&self, index: &SemanticIndex) -> Vec<Diagnostic> {
+        let mut diagnostics = Vec::new();
+        let mut seen_undeclared = HashSet::new();
 
-        // This is a simplified approach - in a real implementation we'd need
-        // to track all identifier expressions during semantic index building
-        // For now, we can't detect undeclared variables without that information
+        // Check each identifier usage to see if it was resolved to a definition
+        for (identifier, usage_scope) in index.identifier_usages() {
+            if !index.is_identifier_resolved(identifier, *usage_scope) {
+                // Only report each undeclared variable once
+                if seen_undeclared.insert(identifier.clone()) {
+                    diagnostics.push(Diagnostic::undeclared_variable(identifier));
+                }
+            }
+        }
 
-        // TODO: Enhance semantic index to track identifier usage locations
-        // Then we can check each usage against the resolution in the semantic index
-
-        Vec::new()
+        diagnostics
     }
 
     /// Helper method to resolve a name in the scope chain
