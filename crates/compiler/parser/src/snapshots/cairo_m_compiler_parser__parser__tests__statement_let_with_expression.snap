@@ -20,6 +20,7 @@ result: [
                                 "result",
                                 18..24,
                             ),
+                            statement_type: None,
                             value: Spanned(
                                 BinaryOp {
                                     op: Add,

@@ -138,6 +138,7 @@ pub enum Statement {
     /// Global variable declaration (e.g., `let x = 5;`)
     Let {
         name: Spanned<String>,
+        statement_type: Option<TypeExpr>,
         value: Spanned<Expression>,
     },
     /// Local variable declaration with optional type annotation (e.g., `local x: felt = 5;`)
@@ -671,13 +672,22 @@ where
             .map(Statement::Block)
             .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
 
-        // Let statement: let variable = expression;
+        // Let statement: let variable (: type)? = expression;
         let let_stmt = just(TokenType::Let)
             .ignore_then(spanned_ident.clone()) // variable name
+            .then(
+                just(TokenType::Colon)
+                    .ignore_then(type_expr.clone()) // optional type annotation
+                    .or_not(),
+            )
             .then_ignore(just(TokenType::Eq)) // ignore '='
             .then(expr.clone()) // value expression
             .then_ignore(just(TokenType::Semicolon)) // ignore ';'
-            .map(|(name, value)| Statement::Let { name, value })
+            .map(|((name, statement_type), value)| Statement::Let {
+                name,
+                statement_type,
+                value,
+            })
             .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
 
         // Local statement: local variable: type = expression;
@@ -1408,6 +1418,14 @@ mod tests {
             code: "func test() { let x = 5; }",
 
             construct: "statement"
+        ));
+    }
+
+    #[test]
+    fn test_typed_let() {
+        run_test_case(test_case!(
+            name: "typed_let",
+            code: "func test() { let x: felt = 5; }",
         ));
     }
 
