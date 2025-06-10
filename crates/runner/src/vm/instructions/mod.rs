@@ -8,7 +8,7 @@
 //! - Some instructions might use less than 3 arguments.
 //!
 //! A QM31 is made of 4 M31 (extension field of CM31, the extension field of M31).
-//! This is why we can represent instructions as a QM31.
+//! This is why instructions can be represented as a QM31.
 
 use stwo_prover::core::fields::{m31::M31, qm31::QM31};
 
