@@ -87,35 +87,35 @@ pub enum Expression {
     /// Integer literal (e.g., `42`, `0`, `1337`)
     Literal(u32),
     /// Variable identifier (e.g., `x`, `my_var`, `result`)
-    Identifier(String),
+    Identifier(Spanned<String>),
     /// Binary operation (e.g., `a + b`, `x == y`, `p && q`)
     BinaryOp {
         op: BinaryOp,
-        left: Box<Expression>,
-        right: Box<Expression>,
+        left: Box<Spanned<Expression>>,
+        right: Box<Spanned<Expression>>,
     },
     /// Function call (e.g., `foo()`, `add(x, y)`)
     FunctionCall {
-        callee: Box<Expression>,
-        args: Vec<Expression>,
+        callee: Box<Spanned<Expression>>,
+        args: Vec<Spanned<Expression>>,
     },
     /// Member access (e.g., `obj.field`, `vector.x`)
     MemberAccess {
-        object: Box<Expression>,
-        field: String,
+        object: Box<Spanned<Expression>>,
+        field: Spanned<String>,
     },
     /// Array/collection indexing (e.g., `arr[0]`, `matrix[i][j]`)
     IndexAccess {
-        array: Box<Expression>,
-        index: Box<Expression>,
+        array: Box<Spanned<Expression>>,
+        index: Box<Spanned<Expression>>,
     },
     /// Struct literal (e.g., `Point { x: 1, y: 2 }`)
     StructLiteral {
-        name: String,
-        fields: Vec<(String, Expression)>,
+        name: Spanned<String>,
+        fields: Vec<(Spanned<String>, Spanned<Expression>)>,
     },
     /// Tuple literal (e.g., `(1, 2, 3)`, `(x, y)`)
-    Tuple(Vec<Expression>),
+    Tuple(Vec<Spanned<Expression>>),
 }
 
 /// Represents a function parameter with its name and type.
@@ -124,7 +124,7 @@ pub enum Expression {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Parameter {
     /// The parameter name
-    pub name: String,
+    pub name: Spanned<String>,
     /// The parameter's type
     pub type_expr: TypeExpr,
 }
@@ -136,29 +136,35 @@ pub struct Parameter {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Statement {
     /// Global variable declaration (e.g., `let x = 5;`)
-    Let { name: String, value: Expression },
+    Let {
+        name: Spanned<String>,
+        value: Spanned<Expression>,
+    },
     /// Local variable declaration with optional type annotation (e.g., `local x: felt = 5;`)
     Local {
-        name: String,
+        name: Spanned<String>,
         ty: Option<TypeExpr>,
-        value: Expression,
+        value: Spanned<Expression>,
     },
     /// Constant declaration (e.g., `const PI = 314;`)
     Const(ConstDef),
     /// Assignment to an existing variable (e.g., `x = new_value;`)
-    Assignment { lhs: Expression, rhs: Expression },
+    Assignment {
+        lhs: Spanned<Expression>,
+        rhs: Spanned<Expression>,
+    },
     /// Return statement (e.g., `return x;`, `return;`)
-    Return { value: Option<Expression> },
+    Return { value: Option<Spanned<Expression>> },
     /// Conditional statement (e.g., `if (condition) { ... } else { ... }`)
     If {
-        condition: Expression,
-        then_block: Box<Statement>,
-        else_block: Option<Box<Statement>>,
+        condition: Spanned<Expression>,
+        then_block: Box<Spanned<Statement>>,
+        else_block: Option<Box<Spanned<Statement>>>,
     },
     /// Expression used as a statement (e.g., `foo();`)
-    Expression(Expression),
+    Expression(Spanned<Expression>),
     /// Block of statements (e.g., `{ stmt1; stmt2; stmt3; }`)
-    Block(Vec<Statement>),
+    Block(Vec<Spanned<Statement>>),
 }
 
 /// Represents a top-level item in a Cairo-M program.
@@ -168,15 +174,15 @@ pub enum Statement {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TopLevelItem {
     /// Function definition
-    Function(FunctionDef),
+    Function(Spanned<FunctionDef>),
     /// Struct definition
-    Struct(StructDef),
+    Struct(Spanned<StructDef>),
     /// Namespace definition
-    Namespace(Namespace),
+    Namespace(Spanned<Namespace>),
     /// Import statement
-    Import(ImportStmt),
+    Import(Spanned<ImportStmt>),
     /// Constant definition
-    Const(ConstDef),
+    Const(Spanned<ConstDef>),
 }
 
 /// Represents a constant definition.
@@ -186,31 +192,56 @@ pub enum TopLevelItem {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ConstDef {
     /// The constant's name
-    pub name: String,
+    pub name: Spanned<String>,
     /// The constant's value expression
-    pub value: Expression,
+    pub value: Spanned<Expression>,
+}
+
+#[derive(Debug, PartialEq, Clone, Hash, Eq)]
+pub struct Spanned<T>(T, SimpleSpan<usize>);
+
+impl<T> Spanned<T> {
+    /// Create a new spanned value
+    pub const fn new(value: T, span: SimpleSpan<usize>) -> Self {
+        Self(value, span)
+    }
+
+    /// Get the inner value
+    pub const fn value(&self) -> &T {
+        &self.0
+    }
+
+    /// Get the span
+    pub const fn span(&self) -> SimpleSpan<usize> {
+        self.1
+    }
+
+    /// Destructure into value and span
+    pub fn into_parts(self) -> (T, SimpleSpan<usize>) {
+        (self.0, self.1)
+    }
 }
 
 /// Represents a function definition.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FunctionDef {
     /// The function's name
-    pub name: String,
+    pub name: Spanned<String>,
     /// The function's parameters
     pub params: Vec<Parameter>,
     /// The function's return type (optional)
     pub return_type: Option<TypeExpr>,
     /// The function's body (list of statements)
-    pub body: Vec<Statement>,
+    pub body: Vec<Spanned<Statement>>,
 }
 
 /// Represents a struct definition.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct StructDef {
     /// The struct's name
-    pub name: String,
+    pub name: Spanned<String>,
     /// The struct's fields (name and type pairs)
-    pub fields: Vec<(String, TypeExpr)>,
+    pub fields: Vec<(Spanned<String>, TypeExpr)>,
 }
 
 /// Represents a namespace definition.
@@ -220,7 +251,7 @@ pub struct StructDef {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Namespace {
     /// The namespace's name
-    pub name: String,
+    pub name: Spanned<String>,
     /// The items contained within the namespace
     pub body: Vec<TopLevelItem>,
 }
@@ -232,11 +263,11 @@ pub struct Namespace {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ImportStmt {
     /// The path to the module (e.g., `["std", "math"]` for `std.math`)
-    pub path: Vec<String>,
+    pub path: Vec<Spanned<String>>,
     /// The specific item being imported
-    pub item: String,
+    pub item: Spanned<String>,
     /// Optional alias for the imported item
-    pub alias: Option<String>,
+    pub alias: Option<Spanned<String>>,
 }
 
 /// Wrapper for the parsed AST result.
@@ -314,11 +345,11 @@ pub fn parse_program(db: &dyn crate::Db, source: SourceProgram) -> ParsedModule 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum PostfixOp {
     /// Function call with arguments
-    Call(Vec<Expression>),
+    Call(Vec<Spanned<Expression>>),
     /// Member access with field name
-    Member(String),
+    Member(Spanned<String>),
     /// Index access with index expression
-    Index(Expression),
+    Index(Spanned<Expression>),
 }
 
 // ===================
@@ -332,6 +363,17 @@ where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
     select! { TokenType::Identifier(s) => s.to_string() }.labelled("identifier")
+}
+
+/// Creates a spanned identifier parser that captures both the identifier and its span
+fn spanned_ident_parser<'tokens, 'src: 'tokens, I>(
+) -> impl Parser<'tokens, I, Spanned<String>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+where
+    I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
+{
+    select! { TokenType::Identifier(s) => s.to_string() }
+        .map_with(|s, extra| Spanned::new(s, extra.span()))
+        .labelled("identifier")
 }
 
 /// Creates a parser for type expressions (named types, pointers, tuples)
@@ -373,23 +415,27 @@ where
 
 /// Creates a parser for expressions with proper operator precedence
 fn expression_parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, Expression, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+) -> impl Parser<'tokens, I, Spanned<Expression>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
-    let ident = ident_parser();
+    let spanned_ident = spanned_ident_parser();
 
     recursive(|expr| {
         // Atomic expressions (cannot be broken down further)
 
         // Integer literals (e.g., 42, 0, 1337)
-        let literal = select! { TokenType::LiteralNumber(n) => Expression::Literal(n) };
+        let literal = select! { TokenType::LiteralNumber(n) => Expression::Literal(n) }
+            .map_with(|lit, extra| Spanned::new(lit, extra.span()));
 
         // Variable identifiers (e.g., x, my_var, result)
-        let ident_expr = ident.clone().map(Expression::Identifier);
+        let ident_expr = spanned_ident
+            .clone()
+            .map(Expression::Identifier)
+            .map_with(|expr, extra| Spanned::new(expr, extra.span()));
 
         // Struct literal field parsing: "field_name: expression"
-        let struct_literal_fields = ident
+        let struct_literal_fields = spanned_ident
             .clone()
             .then_ignore(just(TokenType::Colon)) // field name, then ignore ':'
             .then(expr.clone()) // followed by the field value
@@ -399,10 +445,11 @@ where
             .delimited_by(just(TokenType::LBrace), just(TokenType::RBrace)); // wrapped in {}
 
         // Struct literals: "StructName { field1: value1, field2: value2 }"
-        let struct_literal = ident
+        let struct_literal = spanned_ident
             .clone()
             .then(struct_literal_fields)
-            .map(|(name, fields)| Expression::StructLiteral { name, fields });
+            .map(|(name, fields)| Expression::StructLiteral { name, fields })
+            .map_with(|expr, extra| Spanned::new(expr, extra.span()));
 
         // Tuple expressions and parenthesized expressions: "(a, b, c)" or "(expr)"
         let tuple_expr = expr
@@ -414,12 +461,13 @@ where
             .map(|exprs| {
                 // Single element in parens is just a parenthesized expression
                 if exprs.len() == 1 {
-                    exprs.into_iter().next().unwrap()
+                    exprs.into_iter().next().unwrap().value().clone()
                 } else {
                     // Multiple elements form a tuple
                     Expression::Tuple(exprs)
                 }
-            });
+            })
+            .map_with(|expr, extra| Spanned::new(expr, extra.span()));
 
         // Basic atomic expressions - try each alternative in order
         let atom = literal
@@ -441,7 +489,7 @@ where
                 .map(PostfixOp::Call),
             // Member access: "expr.field"
             just(TokenType::Dot)
-                .ignore_then(ident.clone())
+                .ignore_then(spanned_ident.clone())
                 .map(PostfixOp::Member),
             // Index access: "expr[index]"
             expr.clone()
@@ -451,18 +499,36 @@ where
 
         // Apply postfix operations left-to-right: expr.field().index[0]
         let call = atom.foldl(postfix_op.repeated(), |expr, op| match op {
-            PostfixOp::Call(args) => Expression::FunctionCall {
-                callee: Box::new(expr),
-                args,
-            },
-            PostfixOp::Member(field) => Expression::MemberAccess {
-                object: Box::new(expr),
-                field,
-            },
-            PostfixOp::Index(index) => Expression::IndexAccess {
-                array: Box::new(expr),
-                index: Box::new(index),
-            },
+            PostfixOp::Call(args) => {
+                let span = expr.span(); // Get the span for the whole call expression
+                Spanned::new(
+                    Expression::FunctionCall {
+                        callee: Box::new(expr),
+                        args,
+                    },
+                    span,
+                )
+            }
+            PostfixOp::Member(field) => {
+                let span = expr.span(); // Get the span for the whole member access
+                Spanned::new(
+                    Expression::MemberAccess {
+                        object: Box::new(expr),
+                        field,
+                    },
+                    span,
+                )
+            }
+            PostfixOp::Index(index) => {
+                let span = expr.span(); // Get the span for the whole index access
+                Spanned::new(
+                    Expression::IndexAccess {
+                        array: Box::new(expr),
+                        index: Box::new(index),
+                    },
+                    span,
+                )
+            }
         });
 
         // Helper to create binary operator parsers
@@ -476,10 +542,16 @@ where
             ))
             .then(call.clone())
             .repeated(),
-            |lhs, (op, rhs)| Expression::BinaryOp {
-                op,
-                left: Box::new(lhs),
-                right: Box::new(rhs),
+            |lhs, (op, rhs)| {
+                let span = lhs.span(); // Could extend to include rhs span
+                Spanned::new(
+                    Expression::BinaryOp {
+                        op,
+                        left: Box::new(lhs),
+                        right: Box::new(rhs),
+                    },
+                    span,
+                )
             },
         );
 
@@ -491,10 +563,16 @@ where
             ))
             .then(mul.clone())
             .repeated(),
-            |lhs, (op, rhs)| Expression::BinaryOp {
-                op,
-                left: Box::new(lhs),
-                right: Box::new(rhs),
+            |lhs, (op, rhs)| {
+                let span = lhs.span(); // Could extend to include rhs span
+                Spanned::new(
+                    Expression::BinaryOp {
+                        op,
+                        left: Box::new(lhs),
+                        right: Box::new(rhs),
+                    },
+                    span,
+                )
             },
         );
 
@@ -506,10 +584,16 @@ where
             ))
             .then(add.clone())
             .repeated(),
-            |lhs, (op, rhs)| Expression::BinaryOp {
-                op,
-                left: Box::new(lhs),
-                right: Box::new(rhs),
+            |lhs, (op, rhs)| {
+                let span = lhs.span(); // Could extend to include rhs span
+                Spanned::new(
+                    Expression::BinaryOp {
+                        op,
+                        left: Box::new(lhs),
+                        right: Box::new(rhs),
+                    },
+                    span,
+                )
             },
         );
 
@@ -518,10 +602,16 @@ where
             op(TokenType::AndAnd, BinaryOp::And)
                 .then(cmp.clone())
                 .repeated(),
-            |lhs, (op, rhs)| Expression::BinaryOp {
-                op,
-                left: Box::new(lhs),
-                right: Box::new(rhs),
+            |lhs, (op, rhs)| {
+                let span = lhs.span(); // Could extend to include rhs span
+                Spanned::new(
+                    Expression::BinaryOp {
+                        op,
+                        left: Box::new(lhs),
+                        right: Box::new(rhs),
+                    },
+                    span,
+                )
             },
         );
 
@@ -530,10 +620,16 @@ where
             op(TokenType::OrOr, BinaryOp::Or)
                 .then(and.clone())
                 .repeated(),
-            |lhs, (op, rhs)| Expression::BinaryOp {
-                op,
-                left: Box::new(lhs),
-                right: Box::new(rhs),
+            |lhs, (op, rhs)| {
+                let span = lhs.span(); // Could extend to include rhs span
+                Spanned::new(
+                    Expression::BinaryOp {
+                        op,
+                        left: Box::new(lhs),
+                        right: Box::new(rhs),
+                    },
+                    span,
+                )
             },
         )
     })
@@ -545,11 +641,11 @@ fn parameter_parser<'tokens, 'src: 'tokens, I>(
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
-    let ident = ident_parser();
+    let spanned_ident = spanned_ident_parser();
     let type_expr = type_expr_parser();
 
     // Function parameter: name: type
-    ident
+    spanned_ident
         .then_ignore(just(TokenType::Colon)) // parameter name, ignore ':'
         .then(type_expr) // parameter type
         .map(|(name, type_expr)| Parameter { name, type_expr })
@@ -557,11 +653,11 @@ where
 
 /// Creates a parser for statements
 fn statement_parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, Statement, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+) -> impl Parser<'tokens, I, Spanned<Statement>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
-    let ident = ident_parser();
+    let spanned_ident = spanned_ident_parser();
     let expr = expression_parser();
     let type_expr = type_expr_parser();
 
@@ -570,21 +666,23 @@ where
         let block = statement
             .clone()
             .repeated()
-            .collect::<Vec<Statement>>()
+            .collect::<Vec<Spanned<Statement>>>()
             .delimited_by(just(TokenType::LBrace), just(TokenType::RBrace))
-            .map(Statement::Block);
+            .map(Statement::Block)
+            .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
 
         // Let statement: let variable = expression;
         let let_stmt = just(TokenType::Let)
-            .ignore_then(ident.clone()) // variable name
+            .ignore_then(spanned_ident.clone()) // variable name
             .then_ignore(just(TokenType::Eq)) // ignore '='
             .then(expr.clone()) // value expression
             .then_ignore(just(TokenType::Semicolon)) // ignore ';'
-            .map(|(name, value)| Statement::Let { name, value });
+            .map(|(name, value)| Statement::Let { name, value })
+            .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
 
         // Local statement: local variable: type = expression;
         let local_stmt = just(TokenType::Local)
-            .ignore_then(ident.clone()) // variable name
+            .ignore_then(spanned_ident.clone()) // variable name
             .then(
                 just(TokenType::Colon)
                     .ignore_then(type_expr.clone()) // optional type annotation
@@ -593,15 +691,17 @@ where
             .then_ignore(just(TokenType::Eq)) // ignore '='
             .then(expr.clone()) // value expression
             .then_ignore(just(TokenType::Semicolon)) // ignore ';'
-            .map(|((name, ty), value)| Statement::Local { name, ty, value });
+            .map(|((name, ty), value)| Statement::Local { name, ty, value })
+            .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
 
         // Const statement: const NAME = expression;
         let const_stmt = just(TokenType::Const)
-            .ignore_then(ident.clone()) // constant name
+            .ignore_then(spanned_ident.clone()) // constant name
             .then_ignore(just(TokenType::Eq)) // ignore '='
             .then(expr.clone()) // value expression
             .then_ignore(just(TokenType::Semicolon)) // ignore ';'
-            .map(|(name, value)| Statement::Const(ConstDef { name, value }));
+            .map(|(name, value)| Statement::Const(ConstDef { name, value }))
+            .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
 
         // If statement: if (condition) then_stmt else else_stmt
         let if_stmt = just(TokenType::If)
@@ -619,13 +719,15 @@ where
                 condition,
                 then_block: Box::new(then_block),
                 else_block: else_block.map(Box::new),
-            });
+            })
+            .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
 
         // Return statement: return expression; or return;
         let return_stmt = just(TokenType::Return)
             .ignore_then(expr.clone().or_not()) // optional return value
             .then_ignore(just(TokenType::Semicolon)) // ignore ';'
-            .map(|value| Statement::Return { value });
+            .map(|value| Statement::Return { value })
+            .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
 
         // Assignment or expression statement: lhs = rhs; or expr;
         let assignment_or_expr = expr
@@ -635,7 +737,8 @@ where
             .map(|(lhs, rhs)| match rhs {
                 Some(rhs) => Statement::Assignment { lhs, rhs },
                 None => Statement::Expression(lhs),
-            });
+            })
+            .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
 
         // Try statement alternatives in order
         block
@@ -650,18 +753,18 @@ where
 
 /// Creates a parser for function definitions
 fn function_def_parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, FunctionDef, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+) -> impl Parser<'tokens, I, Spanned<FunctionDef>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
-    let ident = ident_parser();
+    let spanned_ident = spanned_ident_parser();
     let param = parameter_parser();
     let type_expr = type_expr_parser();
     let statement = statement_parser();
 
     // Function definition: func name(param1: type1, param2: type2) -> return_type { body }
     just(TokenType::Function)
-        .ignore_then(ident) // function name
+        .ignore_then(spanned_ident) // function name
         .then(
             param
                 .separated_by(just(TokenType::Comma)) // parameters separated by commas
@@ -677,35 +780,40 @@ where
         .then(
             statement
                 .repeated()
-                .collect::<Vec<Statement>>()
+                .collect::<Vec<Spanned<Statement>>>()
                 .delimited_by(just(TokenType::LBrace), just(TokenType::RBrace)), // body in {}
         )
-        .map(|(((name, params), return_type), body)| FunctionDef {
-            name,
-            params,
-            return_type,
-            body,
+        .map_with(|(((name, params), return_type), body), extra| {
+            Spanned(
+                FunctionDef {
+                    name,
+                    params,
+                    return_type,
+                    body,
+                },
+                extra.span(),
+            )
         })
 }
 
 /// Creates a parser for struct definitions
 fn struct_def_parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, StructDef, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+) -> impl Parser<'tokens, I, Spanned<StructDef>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
-    let ident = ident_parser();
+    let spanned_ident = spanned_ident_parser();
     let type_expr = type_expr_parser();
 
     // Struct field: name: type
-    let struct_field = ident
+    let struct_field = spanned_ident
         .clone()
         .then_ignore(just(TokenType::Colon)) // field name, ignore ':'
         .then(type_expr); // field type
 
     // Struct definition: struct Name { field1: type1, field2: type2 }
     just(TokenType::Struct)
-        .ignore_then(ident) // struct name
+        .ignore_then(spanned_ident) // struct name
         .then(
             struct_field
                 .separated_by(just(TokenType::Comma)) // fields separated by commas
@@ -713,70 +821,72 @@ where
                 .collect::<Vec<_>>()
                 .delimited_by(just(TokenType::LBrace), just(TokenType::RBrace)), // wrapped in {}
         )
-        .map(|(name, fields)| StructDef { name, fields })
+        .map_with(|(name, fields), extra| Spanned(StructDef { name, fields }, extra.span()))
 }
 
 /// Creates a parser for import statements
 fn import_stmt_parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, ImportStmt, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+) -> impl Parser<'tokens, I, Spanned<ImportStmt>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
-    let ident = ident_parser();
+    let spanned_ident = spanned_ident_parser();
 
     // Import statement: from path.to.module import item as alias
     just(TokenType::From)
         .ignore_then(
-            ident
+            spanned_ident
                 .clone()
                 .separated_by(just(TokenType::Dot)) // module path separated by dots
                 .at_least(1)
                 .collect::<Vec<_>>(),
         )
         .then_ignore(just(TokenType::Import)) // ignore 'import' keyword
-        .then(ident.clone()) // imported item name
-        .then(just(TokenType::As).ignore_then(ident).or_not()) // optional alias
-        .map(|((path, item), alias)| ImportStmt { path, item, alias })
+        .then(spanned_ident.clone()) // imported item name
+        .then(just(TokenType::As).ignore_then(spanned_ident).or_not()) // optional alias
+        .map_with(|((path, item), alias), extra| {
+            Spanned(ImportStmt { path, item, alias }, extra.span())
+        })
 }
 
 /// Creates a parser for constant definitions
 fn const_def_parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, ConstDef, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+) -> impl Parser<'tokens, I, Spanned<ConstDef>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
-    let ident = ident_parser();
+    let spanned_ident = spanned_ident_parser();
     let expr = expression_parser();
 
     // Constant definition: const NAME = expression;
     just(TokenType::Const)
-        .ignore_then(ident) // constant name
+        .ignore_then(spanned_ident) // constant name
         .then_ignore(just(TokenType::Eq)) // ignore '='
         .then(expr) // value expression
         .then_ignore(just(TokenType::Semicolon)) // ignore ';'
-        .map(|(name, value)| ConstDef { name, value })
+        .map_with(|(name, value), extra| Spanned(ConstDef { name, value }, extra.span()))
 }
 
 /// Creates a parser for namespace definitions
 fn namespace_parser<'tokens, 'src: 'tokens, I>(
     top_level_item: impl Parser<'tokens, I, TopLevelItem, extra::Err<Rich<'tokens, TokenType<'src>>>>
         + Clone,
-) -> impl Parser<'tokens, I, Namespace, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+) -> impl Parser<'tokens, I, Spanned<Namespace>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
-    let ident = ident_parser();
+    let spanned_ident = spanned_ident_parser();
 
     // Namespace definition: namespace Name { items... }
     just(TokenType::Namespace)
-        .ignore_then(ident) // namespace name
+        .ignore_then(spanned_ident) // namespace name
         .then(
             top_level_item
                 .repeated()
                 .collect::<Vec<TopLevelItem>>()
                 .delimited_by(just(TokenType::LBrace), just(TokenType::RBrace)), // items in {}
         )
-        .map(|(name, body)| Namespace { name, body })
+        .map_with(|(name, body), extra| Spanned(Namespace { name, body }, extra.span()))
 }
 
 /// Creates a parser for top-level items
