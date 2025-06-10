@@ -1,6 +1,9 @@
 use ariadne::{Label, Report, ReportKind, Source};
 use cairo_m_compiler_parser::lexer::{LexingError, TokenType};
 use cairo_m_compiler_parser::parser::parser;
+use cairo_m_compiler_parser::{ParsedModule, SourceProgram};
+use cairo_m_compiler_semantic::validate_semantics;
+use cairo_m_compiler_semantic::Diagnostic;
 use chumsky::input::Stream;
 use chumsky::prelude::*;
 use chumsky::span::SimpleSpan;
@@ -28,7 +31,7 @@ struct LexResult<'a> {
 
 /// Result of parsing tokens
 struct ParseResult<'a> {
-    ast: Vec<cairo_m_compiler_parser::parser::TopLevelItem>,
+    ast: ParsedModule,
     errors: Vec<Rich<'a, TokenType<'a>, SimpleSpan>>,
 }
 
@@ -54,7 +57,7 @@ fn main() {
             // Step 2: Parsing
             let db = cairo_m_compiler_parser::ParserDatabaseImpl::default();
             // Attaching the database for debug printouts
-            db.attach(|db| {
+            let parse_result = db.attach(|db| {
                 let parse_result = parse_tokens(db, lex_result.tokens, &content);
                 if !parse_result.errors.is_empty() {
                     println!("\nParsing errors:");
@@ -63,11 +66,23 @@ fn main() {
                     }
                     std::process::exit(1);
                 }
-
-                // For now, just print the AST
-                println!("\nAST:");
-                println!("{:#?}", parse_result.ast);
+                parse_result
             });
+
+            //TODO: unify APIs
+            let source_content = SourceProgram::new(&db, content.clone());
+
+            let semantic_db = cairo_m_compiler_semantic::SemanticDatabaseImpl::default();
+            // Step 3: Semantic analysis
+            let diagnostics = validate_semantics(&semantic_db, &parse_result.ast, source_content);
+
+            if diagnostics.has_errors() {
+                println!("\nSemantic analysis:");
+                for error in diagnostics.errors() {
+                    println!("{}", build_semantic_error_message(&content, error));
+                }
+                std::process::exit(1);
+            }
         }
         Err(e) => eprintln!("Error reading file: {e}"),
     }
@@ -106,11 +121,11 @@ fn parse_tokens<'a>(
         .into_result()
     {
         Ok(ast) => ParseResult {
-            ast,
+            ast: ParsedModule::new(ast),
             errors: Vec::new(),
         },
         Err(errs) => ParseResult {
-            ast: Vec::new(),
+            ast: ParsedModule::new(vec![]),
             errors: errs,
         },
     }
@@ -122,7 +137,7 @@ fn build_lexer_error_message(source: &str, error: LexingError, span: SimpleSpan)
         .with_config(
             ariadne::Config::new()
                 .with_index_type(ariadne::IndexType::Byte)
-                .with_color(false),
+                .with_color(true),
         )
         .with_code(3)
         .with_message(error.to_string())
@@ -139,13 +154,31 @@ fn build_parser_error_message(source: &str, error: Rich<TokenType, SimpleSpan>) 
         .with_config(
             ariadne::Config::new()
                 .with_index_type(ariadne::IndexType::Byte)
-                .with_color(false),
+                .with_color(true),
         )
         .with_code(3)
         .with_message(error.to_string())
         .with_label(
             Label::new(((), error.span().into_range())).with_message(error.reason().to_string()),
         )
+        .finish()
+        .write(Source::from(source), &mut write_buffer)
+        .unwrap();
+    String::from_utf8_lossy(&write_buffer).to_string()
+}
+
+// TODO: add proper error reporting spans
+fn build_semantic_error_message(source: &str, error: &Diagnostic) -> String {
+    let mut write_buffer = Vec::new();
+    Report::build(ReportKind::Error, ((), 0..source.len()))
+        .with_config(
+            ariadne::Config::new()
+                .with_index_type(ariadne::IndexType::Byte)
+                .with_color(true),
+        )
+        .with_code(3)
+        .with_message(error.to_string())
+        .with_label(Label::new(((), 0..source.len())).with_message(error.to_string()))
         .finish()
         .write(Source::from(source), &mut write_buffer)
         .unwrap();

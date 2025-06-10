@@ -9,6 +9,7 @@ path = "src/main.rs"
 
 [dependencies]
 cairo-m-compiler-parser = { path = "parser" }
+cairo-m-compiler-semantic = { path = "semantic" }
 clap = { version = "4.4", features = ["derive"] }
 ariadne = "0.5.1"
 anyhow = "1.0"

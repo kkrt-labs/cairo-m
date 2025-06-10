@@ -276,7 +276,7 @@ pub struct ImportStmt {
 ///
 /// This follows the Salsa best practice of caching the entire parse result
 /// rather than individual AST nodes.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ParsedModule {
     /// The top-level items in the module
     pub items: Vec<TopLevelItem>,

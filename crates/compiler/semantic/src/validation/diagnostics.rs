@@ -1,0 +1,272 @@
+//! # Diagnostic System for Semantic Analysis
+//!
+//! This module provides the diagnostic infrastructure for reporting semantic errors,
+//! warnings, and hints during semantic analysis.
+
+use std::fmt;
+
+/// A diagnostic message from semantic analysis
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Diagnostic {
+    pub severity: DiagnosticSeverity,
+    pub code: DiagnosticCode,
+    pub message: String,
+    /// Optional location information - for now we'll use simple string names
+    /// This will be enhanced with proper spans in the next iteration
+    pub location: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum DiagnosticSeverity {
+    Error,
+    Warning,
+    Info,
+    Hint,
+}
+
+impl fmt::Display for DiagnosticSeverity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Error => write!(f, "error"),
+            Self::Warning => write!(f, "warning"),
+            Self::Info => write!(f, "info"),
+            Self::Hint => write!(f, "hint"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DiagnosticCode {
+    // Scope-related errors (1000-1999)
+    UndeclaredVariable,
+    UnusedVariable,
+    DuplicateDefinition,
+    UseBeforeDefinition,
+
+    // Type-related errors (2000-2999) - placeholder for future
+    TypeMismatch,
+
+    // Flow-related errors (3000-3999) - placeholder for future
+    UnreachableCode,
+}
+
+impl Diagnostic {
+    /// Create an error diagnostic
+    pub const fn error(code: DiagnosticCode, message: String) -> Self {
+        Self {
+            severity: DiagnosticSeverity::Error,
+            code,
+            message,
+            location: None,
+        }
+    }
+
+    /// Create a warning diagnostic
+    pub const fn warning(code: DiagnosticCode, message: String) -> Self {
+        Self {
+            severity: DiagnosticSeverity::Warning,
+            code,
+            message,
+            location: None,
+        }
+    }
+
+    /// Create an info diagnostic
+    pub const fn info(code: DiagnosticCode, message: String) -> Self {
+        Self {
+            severity: DiagnosticSeverity::Info,
+            code,
+            message,
+            location: None,
+        }
+    }
+
+    /// Add location information to this diagnostic
+    pub fn with_location(mut self, location: String) -> Self {
+        self.location = Some(location);
+        self
+    }
+
+    /// Convenience method for undeclared variable error
+    pub fn undeclared_variable(name: &str) -> Self {
+        Self::error(
+            DiagnosticCode::UndeclaredVariable,
+            format!("Undeclared variable '{name}'"),
+        )
+        .with_location(name.to_string())
+    }
+
+    /// Convenience method for unused variable warning
+    pub fn unused_variable(name: &str) -> Self {
+        Self::warning(
+            DiagnosticCode::UnusedVariable,
+            format!("Unused variable '{name}'"),
+        )
+        .with_location(name.to_string())
+    }
+
+    /// Convenience method for duplicate definition error
+    pub fn duplicate_definition(name: &str) -> Self {
+        Self::error(
+            DiagnosticCode::DuplicateDefinition,
+            format!("Duplicate definition of '{name}'"),
+        )
+        .with_location(name.to_string())
+    }
+
+    /// Convenience method for use before definition error
+    pub fn use_before_definition(name: &str) -> Self {
+        Self::error(
+            DiagnosticCode::UseBeforeDefinition,
+            format!("Variable '{name}' used before definition"),
+        )
+        .with_location(name.to_string())
+    }
+}
+
+impl fmt::Display for Diagnostic {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}: {}", self.severity, self.message)?;
+        if let Some(location) = &self.location {
+            write!(f, " (at '{location}')")?;
+        }
+        Ok(())
+    }
+}
+
+/// Collection of diagnostics from semantic analysis
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct DiagnosticCollection {
+    diagnostics: Vec<Diagnostic>,
+}
+
+impl DiagnosticCollection {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Add a diagnostic to the collection
+    pub fn add(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+
+    /// Add multiple diagnostics
+    pub fn extend(&mut self, diagnostics: impl IntoIterator<Item = Diagnostic>) {
+        self.diagnostics.extend(diagnostics);
+    }
+
+    /// Get all diagnostics, sorted by severity and message
+    pub fn all(&self) -> &[Diagnostic] {
+        &self.diagnostics
+    }
+
+    /// Get only error diagnostics
+    pub fn errors(&self) -> Vec<&Diagnostic> {
+        self.diagnostics
+            .iter()
+            .filter(|d| d.severity == DiagnosticSeverity::Error)
+            .collect()
+    }
+
+    /// Get only warning diagnostics
+    pub fn warnings(&self) -> Vec<&Diagnostic> {
+        self.diagnostics
+            .iter()
+            .filter(|d| d.severity == DiagnosticSeverity::Warning)
+            .collect()
+    }
+
+    /// Check if there are any errors
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics
+            .iter()
+            .any(|d| d.severity == DiagnosticSeverity::Error)
+    }
+
+    /// Get the total number of diagnostics
+    pub const fn len(&self) -> usize {
+        self.diagnostics.len()
+    }
+
+    /// Check if the collection is empty
+    pub const fn is_empty(&self) -> bool {
+        self.diagnostics.is_empty()
+    }
+
+    /// Sort diagnostics by severity (errors first) and then by message
+    pub fn sort(&mut self) {
+        self.diagnostics
+            .sort_by(|a, b| a.severity.cmp(&b.severity).then(a.message.cmp(&b.message)));
+    }
+
+    /// Print all diagnostics to stdout
+    pub fn print(&self) {
+        for diagnostic in &self.diagnostics {
+            println!("{diagnostic}");
+        }
+    }
+
+    /// Get summary statistics
+    pub fn summary(&self) -> String {
+        let errors = self.errors().len();
+        let warnings = self.warnings().len();
+        let total = self.diagnostics.len();
+
+        if total == 0 {
+            "No issues found".to_string()
+        } else {
+            format!("{errors} errors, {warnings} warnings")
+        }
+    }
+}
+
+impl From<Vec<Diagnostic>> for DiagnosticCollection {
+    fn from(diagnostics: Vec<Diagnostic>) -> Self {
+        Self { diagnostics }
+    }
+}
+
+impl IntoIterator for DiagnosticCollection {
+    type Item = Diagnostic;
+    type IntoIter = std::vec::IntoIter<Diagnostic>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.diagnostics.into_iter()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_diagnostic_creation() {
+        let diag = Diagnostic::undeclared_variable("test_var");
+        assert_eq!(diag.severity, DiagnosticSeverity::Error);
+        assert_eq!(diag.code, DiagnosticCode::UndeclaredVariable);
+        assert!(diag.message.contains("test_var"));
+        assert_eq!(diag.location, Some("test_var".to_string()));
+    }
+
+    #[test]
+    fn test_diagnostic_collection() {
+        let mut collection = DiagnosticCollection::new();
+
+        collection.add(Diagnostic::undeclared_variable("var1"));
+        collection.add(Diagnostic::unused_variable("var2"));
+
+        assert_eq!(collection.len(), 2);
+        assert_eq!(collection.errors().len(), 1);
+        assert_eq!(collection.warnings().len(), 1);
+        assert!(collection.has_errors());
+    }
+
+    #[test]
+    fn test_diagnostic_display() {
+        let diag = Diagnostic::undeclared_variable("test");
+        let display = format!("{diag}");
+        assert!(display.contains("error"));
+        assert!(display.contains("Undeclared variable"));
+        assert!(display.contains("test"));
+    }
+}
