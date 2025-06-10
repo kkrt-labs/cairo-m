@@ -5,20 +5,38 @@ expression: snapshot_entry
 code: func test() { x = 5; }
 result: [
     Function(
-        FunctionDef {
-            name: "test",
-            params: [],
-            return_type: None,
-            body: [
-                Assignment {
-                    lhs: Identifier(
-                        "x",
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
+                ),
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Assignment {
+                            lhs: Spanned(
+                                Identifier(
+                                    Spanned(
+                                        "x",
+                                        14..15,
+                                    ),
+                                ),
+                                14..15,
+                            ),
+                            rhs: Spanned(
+                                Literal(
+                                    5,
+                                ),
+                                18..19,
+                            ),
+                        },
+                        14..20,
                     ),
-                    rhs: Literal(
-                        5,
-                    ),
-                },
-            ],
-        },
+                ],
+            },
+            0..22,
+        ),
     ),
 ]

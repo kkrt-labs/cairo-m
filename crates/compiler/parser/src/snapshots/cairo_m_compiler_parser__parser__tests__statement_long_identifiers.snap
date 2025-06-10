@@ -5,18 +5,36 @@ expression: snapshot_entry
 code: func test() { let very_long_variable_name_that_tests_identifier_parsing = another_very_long_identifier; }
 result: [
     Function(
-        FunctionDef {
-            name: "test",
-            params: [],
-            return_type: None,
-            body: [
-                Let {
-                    name: "very_long_variable_name_that_tests_identifier_parsing",
-                    value: Identifier(
-                        "another_very_long_identifier",
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
+                ),
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Let {
+                            name: Spanned(
+                                "very_long_variable_name_that_tests_identifier_parsing",
+                                18..71,
+                            ),
+                            value: Spanned(
+                                Identifier(
+                                    Spanned(
+                                        "another_very_long_identifier",
+                                        74..102,
+                                    ),
+                                ),
+                                74..102,
+                            ),
+                        },
+                        14..103,
                     ),
-                },
-            ],
-        },
+                ],
+            },
+            0..105,
+        ),
     ),
 ]

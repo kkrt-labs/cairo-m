@@ -5,29 +5,62 @@ expression: snapshot_entry
 code: func test() { a + b * c; }
 result: [
     Function(
-        FunctionDef {
-            name: "test",
-            params: [],
-            return_type: None,
-            body: [
-                Expression(
-                    BinaryOp {
-                        op: Add,
-                        left: Identifier(
-                            "a",
-                        ),
-                        right: BinaryOp {
-                            op: Mul,
-                            left: Identifier(
-                                "b",
-                            ),
-                            right: Identifier(
-                                "c",
-                            ),
-                        },
-                    },
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
                 ),
-            ],
-        },
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                BinaryOp {
+                                    op: Add,
+                                    left: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "a",
+                                                14..15,
+                                            ),
+                                        ),
+                                        14..15,
+                                    ),
+                                    right: Spanned(
+                                        BinaryOp {
+                                            op: Mul,
+                                            left: Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "b",
+                                                        18..19,
+                                                    ),
+                                                ),
+                                                18..19,
+                                            ),
+                                            right: Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "c",
+                                                        22..23,
+                                                    ),
+                                                ),
+                                                22..23,
+                                            ),
+                                        },
+                                        18..19,
+                                    ),
+                                },
+                                14..15,
+                            ),
+                        ),
+                        14..24,
+                    ),
+                ],
+            },
+            0..26,
+        ),
     ),
 ]

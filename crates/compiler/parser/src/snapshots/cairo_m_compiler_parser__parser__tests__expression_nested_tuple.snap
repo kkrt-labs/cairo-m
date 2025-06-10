@@ -5,38 +5,68 @@ expression: snapshot_entry
 code: func test() { ((1, 2), (3, 4)); }
 result: [
     Function(
-        FunctionDef {
-            name: "test",
-            params: [],
-            return_type: None,
-            body: [
-                Expression(
-                    Tuple(
-                        [
-                            Tuple(
-                                [
-                                    Literal(
-                                        1,
-                                    ),
-                                    Literal(
-                                        2,
-                                    ),
-                                ],
-                            ),
-                            Tuple(
-                                [
-                                    Literal(
-                                        3,
-                                    ),
-                                    Literal(
-                                        4,
-                                    ),
-                                ],
-                            ),
-                        ],
-                    ),
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
                 ),
-            ],
-        },
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                Tuple(
+                                    [
+                                        Spanned(
+                                            Tuple(
+                                                [
+                                                    Spanned(
+                                                        Literal(
+                                                            1,
+                                                        ),
+                                                        16..17,
+                                                    ),
+                                                    Spanned(
+                                                        Literal(
+                                                            2,
+                                                        ),
+                                                        19..20,
+                                                    ),
+                                                ],
+                                            ),
+                                            15..21,
+                                        ),
+                                        Spanned(
+                                            Tuple(
+                                                [
+                                                    Spanned(
+                                                        Literal(
+                                                            3,
+                                                        ),
+                                                        24..25,
+                                                    ),
+                                                    Spanned(
+                                                        Literal(
+                                                            4,
+                                                        ),
+                                                        27..28,
+                                                    ),
+                                                ],
+                                            ),
+                                            23..29,
+                                        ),
+                                    ],
+                                ),
+                                14..30,
+                            ),
+                        ),
+                        14..31,
+                    ),
+                ],
+            },
+            0..33,
+        ),
     ),
 ]

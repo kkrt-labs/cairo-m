@@ -5,35 +5,77 @@ expression: snapshot_entry
 code: func test() { a == b && c != d; }
 result: [
     Function(
-        FunctionDef {
-            name: "test",
-            params: [],
-            return_type: None,
-            body: [
-                Expression(
-                    BinaryOp {
-                        op: And,
-                        left: BinaryOp {
-                            op: Eq,
-                            left: Identifier(
-                                "a",
-                            ),
-                            right: Identifier(
-                                "b",
-                            ),
-                        },
-                        right: BinaryOp {
-                            op: Neq,
-                            left: Identifier(
-                                "c",
-                            ),
-                            right: Identifier(
-                                "d",
-                            ),
-                        },
-                    },
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
                 ),
-            ],
-        },
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                BinaryOp {
+                                    op: And,
+                                    left: Spanned(
+                                        BinaryOp {
+                                            op: Eq,
+                                            left: Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "a",
+                                                        14..15,
+                                                    ),
+                                                ),
+                                                14..15,
+                                            ),
+                                            right: Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "b",
+                                                        19..20,
+                                                    ),
+                                                ),
+                                                19..20,
+                                            ),
+                                        },
+                                        14..15,
+                                    ),
+                                    right: Spanned(
+                                        BinaryOp {
+                                            op: Neq,
+                                            left: Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "c",
+                                                        24..25,
+                                                    ),
+                                                ),
+                                                24..25,
+                                            ),
+                                            right: Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "d",
+                                                        29..30,
+                                                    ),
+                                                ),
+                                                29..30,
+                                            ),
+                                        },
+                                        24..25,
+                                    ),
+                                },
+                                14..15,
+                            ),
+                        ),
+                        14..31,
+                    ),
+                ],
+            },
+            0..33,
+        ),
     ),
 ]

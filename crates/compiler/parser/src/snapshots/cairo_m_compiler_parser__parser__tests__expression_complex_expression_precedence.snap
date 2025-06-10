@@ -5,68 +5,164 @@ expression: snapshot_entry
 code: func test() { result = a.field[0].method(b + c * d, e && f || g).value; }
 result: [
     Function(
-        FunctionDef {
-            name: "test",
-            params: [],
-            return_type: None,
-            body: [
-                Assignment {
-                    lhs: Identifier(
-                        "result",
-                    ),
-                    rhs: MemberAccess {
-                        object: FunctionCall {
-                            callee: MemberAccess {
-                                object: IndexAccess {
-                                    array: MemberAccess {
-                                        object: Identifier(
-                                            "a",
-                                        ),
-                                        field: "field",
-                                    },
-                                    index: Literal(
-                                        0,
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
+                ),
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Assignment {
+                            lhs: Spanned(
+                                Identifier(
+                                    Spanned(
+                                        "result",
+                                        14..20,
+                                    ),
+                                ),
+                                14..20,
+                            ),
+                            rhs: Spanned(
+                                MemberAccess {
+                                    object: Spanned(
+                                        FunctionCall {
+                                            callee: Spanned(
+                                                MemberAccess {
+                                                    object: Spanned(
+                                                        IndexAccess {
+                                                            array: Spanned(
+                                                                MemberAccess {
+                                                                    object: Spanned(
+                                                                        Identifier(
+                                                                            Spanned(
+                                                                                "a",
+                                                                                23..24,
+                                                                            ),
+                                                                        ),
+                                                                        23..24,
+                                                                    ),
+                                                                    field: Spanned(
+                                                                        "field",
+                                                                        25..30,
+                                                                    ),
+                                                                },
+                                                                23..24,
+                                                            ),
+                                                            index: Spanned(
+                                                                Literal(
+                                                                    0,
+                                                                ),
+                                                                31..32,
+                                                            ),
+                                                        },
+                                                        23..24,
+                                                    ),
+                                                    field: Spanned(
+                                                        "method",
+                                                        34..40,
+                                                    ),
+                                                },
+                                                23..24,
+                                            ),
+                                            args: [
+                                                Spanned(
+                                                    BinaryOp {
+                                                        op: Add,
+                                                        left: Spanned(
+                                                            Identifier(
+                                                                Spanned(
+                                                                    "b",
+                                                                    41..42,
+                                                                ),
+                                                            ),
+                                                            41..42,
+                                                        ),
+                                                        right: Spanned(
+                                                            BinaryOp {
+                                                                op: Mul,
+                                                                left: Spanned(
+                                                                    Identifier(
+                                                                        Spanned(
+                                                                            "c",
+                                                                            45..46,
+                                                                        ),
+                                                                    ),
+                                                                    45..46,
+                                                                ),
+                                                                right: Spanned(
+                                                                    Identifier(
+                                                                        Spanned(
+                                                                            "d",
+                                                                            49..50,
+                                                                        ),
+                                                                    ),
+                                                                    49..50,
+                                                                ),
+                                                            },
+                                                            45..46,
+                                                        ),
+                                                    },
+                                                    41..42,
+                                                ),
+                                                Spanned(
+                                                    BinaryOp {
+                                                        op: Or,
+                                                        left: Spanned(
+                                                            BinaryOp {
+                                                                op: And,
+                                                                left: Spanned(
+                                                                    Identifier(
+                                                                        Spanned(
+                                                                            "e",
+                                                                            52..53,
+                                                                        ),
+                                                                    ),
+                                                                    52..53,
+                                                                ),
+                                                                right: Spanned(
+                                                                    Identifier(
+                                                                        Spanned(
+                                                                            "f",
+                                                                            57..58,
+                                                                        ),
+                                                                    ),
+                                                                    57..58,
+                                                                ),
+                                                            },
+                                                            52..53,
+                                                        ),
+                                                        right: Spanned(
+                                                            Identifier(
+                                                                Spanned(
+                                                                    "g",
+                                                                    62..63,
+                                                                ),
+                                                            ),
+                                                            62..63,
+                                                        ),
+                                                    },
+                                                    52..53,
+                                                ),
+                                            ],
+                                        },
+                                        23..24,
+                                    ),
+                                    field: Spanned(
+                                        "value",
+                                        65..70,
                                     ),
                                 },
-                                field: "method",
-                            },
-                            args: [
-                                BinaryOp {
-                                    op: Add,
-                                    left: Identifier(
-                                        "b",
-                                    ),
-                                    right: BinaryOp {
-                                        op: Mul,
-                                        left: Identifier(
-                                            "c",
-                                        ),
-                                        right: Identifier(
-                                            "d",
-                                        ),
-                                    },
-                                },
-                                BinaryOp {
-                                    op: Or,
-                                    left: BinaryOp {
-                                        op: And,
-                                        left: Identifier(
-                                            "e",
-                                        ),
-                                        right: Identifier(
-                                            "f",
-                                        ),
-                                    },
-                                    right: Identifier(
-                                        "g",
-                                    ),
-                                },
-                            ],
+                                23..24,
+                            ),
                         },
-                        field: "value",
-                    },
-                },
-            ],
-        },
+                        14..71,
+                    ),
+                ],
+            },
+            0..73,
+        ),
     ),
 ]

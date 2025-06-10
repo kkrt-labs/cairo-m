@@ -5,53 +5,110 @@ expression: snapshot_entry
 code: func test() { if (a) { if (b) { c = 1; } else { c = 2; } } }
 result: [
     Function(
-        FunctionDef {
-            name: "test",
-            params: [],
-            return_type: None,
-            body: [
-                If {
-                    condition: Identifier(
-                        "a",
-                    ),
-                    then_block: Block(
-                        [
-                            If {
-                                condition: Identifier(
-                                    "b",
-                                ),
-                                then_block: Block(
-                                    [
-                                        Assignment {
-                                            lhs: Identifier(
-                                                "c",
-                                            ),
-                                            rhs: Literal(
-                                                1,
-                                            ),
-                                        },
-                                    ],
-                                ),
-                                else_block: Some(
-                                    Block(
-                                        [
-                                            Assignment {
-                                                lhs: Identifier(
-                                                    "c",
-                                                ),
-                                                rhs: Literal(
-                                                    2,
-                                                ),
-                                            },
-                                        ],
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
+                ),
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        If {
+                            condition: Spanned(
+                                Identifier(
+                                    Spanned(
+                                        "a",
+                                        18..19,
                                     ),
                                 ),
-                            },
-                        ],
+                                18..19,
+                            ),
+                            then_block: Spanned(
+                                Block(
+                                    [
+                                        Spanned(
+                                            If {
+                                                condition: Spanned(
+                                                    Identifier(
+                                                        Spanned(
+                                                            "b",
+                                                            27..28,
+                                                        ),
+                                                    ),
+                                                    27..28,
+                                                ),
+                                                then_block: Spanned(
+                                                    Block(
+                                                        [
+                                                            Spanned(
+                                                                Assignment {
+                                                                    lhs: Spanned(
+                                                                        Identifier(
+                                                                            Spanned(
+                                                                                "c",
+                                                                                32..33,
+                                                                            ),
+                                                                        ),
+                                                                        32..33,
+                                                                    ),
+                                                                    rhs: Spanned(
+                                                                        Literal(
+                                                                            1,
+                                                                        ),
+                                                                        36..37,
+                                                                    ),
+                                                                },
+                                                                32..38,
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    30..40,
+                                                ),
+                                                else_block: Some(
+                                                    Spanned(
+                                                        Block(
+                                                            [
+                                                                Spanned(
+                                                                    Assignment {
+                                                                        lhs: Spanned(
+                                                                            Identifier(
+                                                                                Spanned(
+                                                                                    "c",
+                                                                                    48..49,
+                                                                                ),
+                                                                            ),
+                                                                            48..49,
+                                                                        ),
+                                                                        rhs: Spanned(
+                                                                            Literal(
+                                                                                2,
+                                                                            ),
+                                                                            52..53,
+                                                                        ),
+                                                                    },
+                                                                    48..54,
+                                                                ),
+                                                            ],
+                                                        ),
+                                                        46..56,
+                                                    ),
+                                                ),
+                                            },
+                                            23..56,
+                                        ),
+                                    ],
+                                ),
+                                21..58,
+                            ),
+                            else_block: None,
+                        },
+                        14..58,
                     ),
-                    else_block: None,
-                },
-            ],
-        },
+                ],
+            },
+            0..60,
+        ),
     ),
 ]

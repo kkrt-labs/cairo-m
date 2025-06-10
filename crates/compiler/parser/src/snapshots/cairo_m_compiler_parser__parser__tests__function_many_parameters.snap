@@ -5,26 +5,72 @@ expression: snapshot_entry
 code: func complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStruct*) -> (felt, felt) { return (a, b); }
 result: [
     Function(
-        FunctionDef {
-            name: "complex_function",
-            params: [
-                Parameter {
-                    name: "a",
-                    type_expr: Named(
-                        "felt",
-                    ),
-                },
-                Parameter {
-                    name: "b",
-                    type_expr: Pointer(
-                        Named(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "complex_function",
+                    5..21,
+                ),
+                params: [
+                    Parameter {
+                        name: Spanned(
+                            "a",
+                            22..23,
+                        ),
+                        type_expr: Named(
                             "felt",
                         ),
-                    ),
-                },
-                Parameter {
-                    name: "c",
-                    type_expr: Tuple(
+                    },
+                    Parameter {
+                        name: Spanned(
+                            "b",
+                            31..32,
+                        ),
+                        type_expr: Pointer(
+                            Named(
+                                "felt",
+                            ),
+                        ),
+                    },
+                    Parameter {
+                        name: Spanned(
+                            "c",
+                            41..42,
+                        ),
+                        type_expr: Tuple(
+                            [
+                                Named(
+                                    "felt",
+                                ),
+                                Named(
+                                    "felt",
+                                ),
+                            ],
+                        ),
+                    },
+                    Parameter {
+                        name: Spanned(
+                            "d",
+                            58..59,
+                        ),
+                        type_expr: Named(
+                            "MyStruct",
+                        ),
+                    },
+                    Parameter {
+                        name: Spanned(
+                            "e",
+                            71..72,
+                        ),
+                        type_expr: Pointer(
+                            Named(
+                                "MyStruct",
+                            ),
+                        ),
+                    },
+                ],
+                return_type: Some(
+                    Tuple(
                         [
                             Named(
                                 "felt",
@@ -34,50 +80,43 @@ result: [
                             ),
                         ],
                     ),
-                },
-                Parameter {
-                    name: "d",
-                    type_expr: Named(
-                        "MyStruct",
-                    ),
-                },
-                Parameter {
-                    name: "e",
-                    type_expr: Pointer(
-                        Named(
-                            "MyStruct",
-                        ),
-                    ),
-                },
-            ],
-            return_type: Some(
-                Tuple(
-                    [
-                        Named(
-                            "felt",
-                        ),
-                        Named(
-                            "felt",
-                        ),
-                    ],
                 ),
-            ),
-            body: [
-                Return {
-                    value: Some(
-                        Tuple(
-                            [
-                                Identifier(
-                                    "a",
+                body: [
+                    Spanned(
+                        Return {
+                            value: Some(
+                                Spanned(
+                                    Tuple(
+                                        [
+                                            Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "a",
+                                                        111..112,
+                                                    ),
+                                                ),
+                                                111..112,
+                                            ),
+                                            Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "b",
+                                                        114..115,
+                                                    ),
+                                                ),
+                                                114..115,
+                                            ),
+                                        ],
+                                    ),
+                                    110..116,
                                 ),
-                                Identifier(
-                                    "b",
-                                ),
-                            ],
-                        ),
+                            ),
+                        },
+                        103..117,
                     ),
-                },
-            ],
-        },
+                ],
+            },
+            0..119,
+        ),
     ),
 ]

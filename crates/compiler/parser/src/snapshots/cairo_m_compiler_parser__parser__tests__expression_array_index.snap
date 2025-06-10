@@ -5,22 +5,43 @@ expression: snapshot_entry
 code: func test() { arr[0]; }
 result: [
     Function(
-        FunctionDef {
-            name: "test",
-            params: [],
-            return_type: None,
-            body: [
-                Expression(
-                    IndexAccess {
-                        array: Identifier(
-                            "arr",
-                        ),
-                        index: Literal(
-                            0,
-                        ),
-                    },
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
                 ),
-            ],
-        },
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                IndexAccess {
+                                    array: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "arr",
+                                                14..17,
+                                            ),
+                                        ),
+                                        14..17,
+                                    ),
+                                    index: Spanned(
+                                        Literal(
+                                            0,
+                                        ),
+                                        18..19,
+                                    ),
+                                },
+                                14..17,
+                            ),
+                        ),
+                        14..21,
+                    ),
+                ],
+            },
+            0..23,
+        ),
     ),
 ]

@@ -13,51 +13,72 @@ code:
             
 result: [
     Struct(
-        StructDef {
-            name: "ComplexStruct",
-            fields: [
-                (
-                    "field1",
-                    Named(
-                        "felt",
-                    ),
+        Spanned(
+            StructDef {
+                name: Spanned(
+                    "ComplexStruct",
+                    24..37,
                 ),
-                (
-                    "field2",
-                    Pointer(
+                fields: [
+                    (
+                        Spanned(
+                            "field1",
+                            60..66,
+                        ),
                         Named(
                             "felt",
                         ),
                     ),
-                ),
-                (
-                    "field3",
-                    Tuple(
-                        [
+                    (
+                        Spanned(
+                            "field2",
+                            94..100,
+                        ),
+                        Pointer(
                             Named(
                                 "felt",
                             ),
-                            Named(
-                                "felt",
-                            ),
-                        ],
+                        ),
                     ),
-                ),
-                (
-                    "field4",
-                    Named(
-                        "AnotherStruct",
+                    (
+                        Spanned(
+                            "field3",
+                            129..135,
+                        ),
+                        Tuple(
+                            [
+                                Named(
+                                    "felt",
+                                ),
+                                Named(
+                                    "felt",
+                                ),
+                            ],
+                        ),
                     ),
-                ),
-                (
-                    "field5",
-                    Pointer(
+                    (
+                        Spanned(
+                            "field4",
+                            171..177,
+                        ),
                         Named(
                             "AnotherStruct",
                         ),
                     ),
-                ),
-            ],
-        },
+                    (
+                        Spanned(
+                            "field5",
+                            214..220,
+                        ),
+                        Pointer(
+                            Named(
+                                "AnotherStruct",
+                            ),
+                        ),
+                    ),
+                ],
+            },
+            17..254,
+        ),
     ),
 ]

@@ -5,23 +5,35 @@ expression: snapshot_entry
 code: func get_constant() -> felt { return 42; }
 result: [
     Function(
-        FunctionDef {
-            name: "get_constant",
-            params: [],
-            return_type: Some(
-                Named(
-                    "felt",
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "get_constant",
+                    5..17,
                 ),
-            ),
-            body: [
-                Return {
-                    value: Some(
-                        Literal(
-                            42,
-                        ),
+                params: [],
+                return_type: Some(
+                    Named(
+                        "felt",
                     ),
-                },
-            ],
-        },
+                ),
+                body: [
+                    Spanned(
+                        Return {
+                            value: Some(
+                                Spanned(
+                                    Literal(
+                                        42,
+                                    ),
+                                    37..39,
+                                ),
+                            ),
+                        },
+                        30..40,
+                    ),
+                ],
+            },
+            0..42,
+        ),
     ),
 ]

@@ -5,18 +5,36 @@ expression: snapshot_entry
 code: func print_hello() { let msg = hello; }
 result: [
     Function(
-        FunctionDef {
-            name: "print_hello",
-            params: [],
-            return_type: None,
-            body: [
-                Let {
-                    name: "msg",
-                    value: Identifier(
-                        "hello",
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "print_hello",
+                    5..16,
+                ),
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Let {
+                            name: Spanned(
+                                "msg",
+                                25..28,
+                            ),
+                            value: Spanned(
+                                Identifier(
+                                    Spanned(
+                                        "hello",
+                                        31..36,
+                                    ),
+                                ),
+                                31..36,
+                            ),
+                        },
+                        21..37,
                     ),
-                },
-            ],
-        },
+                ],
+            },
+            0..39,
+        ),
     ),
 ]

@@ -5,20 +5,38 @@ expression: snapshot_entry
 code: func test() { foo(); }
 result: [
     Function(
-        FunctionDef {
-            name: "test",
-            params: [],
-            return_type: None,
-            body: [
-                Expression(
-                    FunctionCall {
-                        callee: Identifier(
-                            "foo",
-                        ),
-                        args: [],
-                    },
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
                 ),
-            ],
-        },
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                FunctionCall {
+                                    callee: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "foo",
+                                                14..17,
+                                            ),
+                                        ),
+                                        14..17,
+                                    ),
+                                    args: [],
+                                },
+                                14..17,
+                            ),
+                        ),
+                        14..20,
+                    ),
+                ],
+            },
+            0..22,
+        ),
     ),
 ]

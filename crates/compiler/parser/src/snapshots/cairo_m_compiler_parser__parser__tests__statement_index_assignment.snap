@@ -5,25 +5,52 @@ expression: snapshot_entry
 code: func test() { arr[0] = item; }
 result: [
     Function(
-        FunctionDef {
-            name: "test",
-            params: [],
-            return_type: None,
-            body: [
-                Assignment {
-                    lhs: IndexAccess {
-                        array: Identifier(
-                            "arr",
-                        ),
-                        index: Literal(
-                            0,
-                        ),
-                    },
-                    rhs: Identifier(
-                        "item",
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
+                ),
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Assignment {
+                            lhs: Spanned(
+                                IndexAccess {
+                                    array: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "arr",
+                                                14..17,
+                                            ),
+                                        ),
+                                        14..17,
+                                    ),
+                                    index: Spanned(
+                                        Literal(
+                                            0,
+                                        ),
+                                        18..19,
+                                    ),
+                                },
+                                14..17,
+                            ),
+                            rhs: Spanned(
+                                Identifier(
+                                    Spanned(
+                                        "item",
+                                        23..27,
+                                    ),
+                                ),
+                                23..27,
+                            ),
+                        },
+                        14..28,
                     ),
-                },
-            ],
-        },
+                ],
+            },
+            0..30,
+        ),
     ),
 ]

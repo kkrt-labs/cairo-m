@@ -5,23 +5,47 @@ expression: snapshot_entry
 code: func test() { (a + b); }
 result: [
     Function(
-        FunctionDef {
-            name: "test",
-            params: [],
-            return_type: None,
-            body: [
-                Expression(
-                    BinaryOp {
-                        op: Add,
-                        left: Identifier(
-                            "a",
-                        ),
-                        right: Identifier(
-                            "b",
-                        ),
-                    },
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
                 ),
-            ],
-        },
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                BinaryOp {
+                                    op: Add,
+                                    left: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "a",
+                                                15..16,
+                                            ),
+                                        ),
+                                        15..16,
+                                    ),
+                                    right: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "b",
+                                                19..20,
+                                            ),
+                                        ),
+                                        19..20,
+                                    ),
+                                },
+                                14..21,
+                            ),
+                        ),
+                        14..22,
+                    ),
+                ],
+            },
+            0..24,
+        ),
     ),
 ]

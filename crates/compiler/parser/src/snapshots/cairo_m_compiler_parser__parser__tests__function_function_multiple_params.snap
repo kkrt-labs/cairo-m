@@ -5,39 +5,54 @@ expression: snapshot_entry
 code: func complex(a: felt, b: felt*, c: (felt, felt)) { }
 result: [
     Function(
-        FunctionDef {
-            name: "complex",
-            params: [
-                Parameter {
-                    name: "a",
-                    type_expr: Named(
-                        "felt",
-                    ),
-                },
-                Parameter {
-                    name: "b",
-                    type_expr: Pointer(
-                        Named(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "complex",
+                    5..12,
+                ),
+                params: [
+                    Parameter {
+                        name: Spanned(
+                            "a",
+                            13..14,
+                        ),
+                        type_expr: Named(
                             "felt",
                         ),
-                    ),
-                },
-                Parameter {
-                    name: "c",
-                    type_expr: Tuple(
-                        [
+                    },
+                    Parameter {
+                        name: Spanned(
+                            "b",
+                            22..23,
+                        ),
+                        type_expr: Pointer(
                             Named(
                                 "felt",
                             ),
-                            Named(
-                                "felt",
-                            ),
-                        ],
-                    ),
-                },
-            ],
-            return_type: None,
-            body: [],
-        },
+                        ),
+                    },
+                    Parameter {
+                        name: Spanned(
+                            "c",
+                            32..33,
+                        ),
+                        type_expr: Tuple(
+                            [
+                                Named(
+                                    "felt",
+                                ),
+                                Named(
+                                    "felt",
+                                ),
+                            ],
+                        ),
+                    },
+                ],
+                return_type: None,
+                body: [],
+            },
+            0..52,
+        ),
     ),
 ]

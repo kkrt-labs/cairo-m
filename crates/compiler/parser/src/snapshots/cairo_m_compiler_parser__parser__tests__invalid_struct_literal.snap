@@ -5,25 +5,46 @@ expression: snapshot_entry
 code: func test() { Point { x: 1, }; }
 result: [
     Function(
-        FunctionDef {
-            name: "test",
-            params: [],
-            return_type: None,
-            body: [
-                Expression(
-                    StructLiteral {
-                        name: "Point",
-                        fields: [
-                            (
-                                "x",
-                                Literal(
-                                    1,
-                                ),
-                            ),
-                        ],
-                    },
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
                 ),
-            ],
-        },
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                StructLiteral {
+                                    name: Spanned(
+                                        "Point",
+                                        14..19,
+                                    ),
+                                    fields: [
+                                        (
+                                            Spanned(
+                                                "x",
+                                                22..23,
+                                            ),
+                                            Spanned(
+                                                Literal(
+                                                    1,
+                                                ),
+                                                25..26,
+                                            ),
+                                        ),
+                                    ],
+                                },
+                                14..29,
+                            ),
+                        ),
+                        14..30,
+                    ),
+                ],
+            },
+            0..32,
+        ),
     ),
 ]

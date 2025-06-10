@@ -5,23 +5,38 @@ expression: snapshot_entry
 code: func test() { local x: felt = 42; }
 result: [
     Function(
-        FunctionDef {
-            name: "test",
-            params: [],
-            return_type: None,
-            body: [
-                Local {
-                    name: "x",
-                    ty: Some(
-                        Named(
-                            "felt",
-                        ),
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
+                ),
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Local {
+                            name: Spanned(
+                                "x",
+                                20..21,
+                            ),
+                            ty: Some(
+                                Named(
+                                    "felt",
+                                ),
+                            ),
+                            value: Spanned(
+                                Literal(
+                                    42,
+                                ),
+                                30..32,
+                            ),
+                        },
+                        14..33,
                     ),
-                    value: Literal(
-                        42,
-                    ),
-                },
-            ],
-        },
+                ],
+            },
+            0..35,
+        ),
     ),
 ]

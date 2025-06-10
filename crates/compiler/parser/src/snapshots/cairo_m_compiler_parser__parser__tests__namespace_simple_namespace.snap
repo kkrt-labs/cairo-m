@@ -5,18 +5,33 @@ expression: snapshot_entry
 code: namespace Math { const PI = 314; }
 result: [
     Namespace(
-        Namespace {
-            name: "Math",
-            body: [
-                Const(
-                    ConstDef {
-                        name: "PI",
-                        value: Literal(
-                            314,
-                        ),
-                    },
+        Spanned(
+            Namespace {
+                name: Spanned(
+                    "Math",
+                    10..14,
                 ),
-            ],
-        },
+                body: [
+                    Const(
+                        Spanned(
+                            ConstDef {
+                                name: Spanned(
+                                    "PI",
+                                    23..25,
+                                ),
+                                value: Spanned(
+                                    Literal(
+                                        314,
+                                    ),
+                                    28..31,
+                                ),
+                            },
+                            17..32,
+                        ),
+                    ),
+                ],
+            },
+            0..34,
+        ),
     ),
 ]
