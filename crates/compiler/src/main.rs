@@ -1,4 +1,6 @@
-use ariadne::{Label, Report, ReportKind, Source};
+mod errors;
+
+use crate::errors::*;
 use cairo_m_compiler_parser::ast::TopLevelItem;
 use cairo_m_compiler_parser::lexer::{LexingError, TokenType};
 use cairo_m_compiler_parser::parser::parser;
@@ -114,40 +116,4 @@ fn parse_tokens<'a: 'db, 'db>(
             errors: errs,
         },
     }
-}
-
-fn build_lexer_error_message(source: &str, error: LexingError, span: SimpleSpan) -> String {
-    let mut write_buffer = Vec::new();
-    Report::build(ReportKind::Error, ((), span.into_range()))
-        .with_config(
-            ariadne::Config::new()
-                .with_index_type(ariadne::IndexType::Byte)
-                .with_color(false),
-        )
-        .with_code(3)
-        .with_message(error.to_string())
-        .with_label(Label::new(((), span.into_range())).with_message(format!("{error}")))
-        .finish()
-        .write(Source::from(source), &mut write_buffer)
-        .unwrap();
-    String::from_utf8_lossy(&write_buffer).to_string()
-}
-
-fn build_parser_error_message(source: &str, error: Rich<TokenType, SimpleSpan>) -> String {
-    let mut write_buffer = Vec::new();
-    Report::build(ReportKind::Error, ((), error.span().into_range()))
-        .with_config(
-            ariadne::Config::new()
-                .with_index_type(ariadne::IndexType::Byte)
-                .with_color(false),
-        )
-        .with_code(3)
-        .with_message(error.to_string())
-        .with_label(
-            Label::new(((), error.span().into_range())).with_message(error.reason().to_string()),
-        )
-        .finish()
-        .write(Source::from(source), &mut write_buffer)
-        .unwrap();
-    String::from_utf8_lossy(&write_buffer).to_string()
 }
