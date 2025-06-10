@@ -20,3 +20,4 @@ indexmap = "2.6.0"
 
 # Reference to parser crate for AST types
 cairo-m-compiler-parser = { path = "../parser" }
+index_vec = "0.1.4"

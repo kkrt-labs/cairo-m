@@ -8,7 +8,20 @@ struct A {
 }
 
 func main() {
-    let a = A { a: 1, b: 2 };
-    let b = a.a;
-    return b;
+    let a = 1;
+    let b = 2;
+    let n = add(a, b);
+
+    let c = fib(n);
+    return c;
+}
+
+func fib(n: felt) -> felt {
+    if (n == 0) {
+        return 0;
+    }
+    if (n == 1) {
+        return 1;
+    }
+    return fib(n - 1) + fib(n - 2);
 }

@@ -3,6 +3,7 @@
 //! This module provides the diagnostic infrastructure for reporting semantic errors,
 //! warnings, and hints during semantic analysis.
 
+use chumsky::span::SimpleSpan;
 use std::fmt;
 
 /// A diagnostic message from semantic analysis
@@ -11,16 +12,10 @@ pub struct Diagnostic {
     pub severity: DiagnosticSeverity,
     pub code: DiagnosticCode,
     pub message: String,
-    /// Optional location information - for now we'll use simple string names
-    /// TODO: Replace with proper source spans when parser provides them
-    /// This will enable:
-    /// - Precise error location highlighting in IDEs
-    /// - Multi-line error spans
-    /// - Source code snippets in error messages
-    /// - Better integration with Language Server Protocol
-    ///
-    /// This will be enhanced with proper spans in the next iteration
-    pub location: Option<String>,
+    /// Source span where this diagnostic applies
+    pub span: SimpleSpan<usize>,
+    /// Optional related spans for additional context
+    pub related_spans: Vec<(SimpleSpan<usize>, String)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -77,83 +72,94 @@ pub enum DiagnosticCode {
 
 impl Diagnostic {
     /// Create an error diagnostic
-    pub const fn error(code: DiagnosticCode, message: String) -> Self {
+    /// Make const once spanned is given as input
+    pub fn error(code: DiagnosticCode, message: String) -> Self {
         Self {
             severity: DiagnosticSeverity::Error,
             code,
             message,
-            location: None,
+            span: SimpleSpan::from(0..0),
+            related_spans: Vec::new(),
         }
     }
 
     /// Create a warning diagnostic
-    pub const fn warning(code: DiagnosticCode, message: String) -> Self {
+    pub fn warning(code: DiagnosticCode, message: String) -> Self {
         Self {
             severity: DiagnosticSeverity::Warning,
             code,
             message,
-            location: None,
+            span: SimpleSpan::from(0..0),
+            related_spans: Vec::new(),
         }
     }
 
     /// Create an info diagnostic
-    pub const fn info(code: DiagnosticCode, message: String) -> Self {
+    pub fn info(code: DiagnosticCode, message: String) -> Self {
         Self {
             severity: DiagnosticSeverity::Info,
             code,
             message,
-            location: None,
+            span: SimpleSpan::from(0..0),
+            related_spans: Vec::new(),
         }
     }
 
     /// Add location information to this diagnostic
-    pub fn with_location(mut self, location: String) -> Self {
-        self.location = Some(location);
+    pub const fn with_location(mut self, span: SimpleSpan<usize>) -> Self {
+        self.span = span;
+        self
+    }
+
+    /// Add a related span with context message
+    pub fn with_related_span(mut self, span: SimpleSpan<usize>, message: String) -> Self {
+        self.related_spans.push((span, message));
         self
     }
 
     /// Convenience method for undeclared variable error
-    pub fn undeclared_variable(name: &str) -> Self {
+    pub fn undeclared_variable(name: &str, span: SimpleSpan<usize>) -> Self {
         Self::error(
             DiagnosticCode::UndeclaredVariable,
             format!("Undeclared variable '{name}'"),
         )
-        .with_location(name.to_string())
+        .with_location(span)
     }
 
     /// Convenience method for unused variable warning
-    pub fn unused_variable(name: &str) -> Self {
+    pub fn unused_variable(name: &str, span: SimpleSpan<usize>) -> Self {
         Self::warning(
             DiagnosticCode::UnusedVariable,
             format!("Unused variable '{name}'"),
         )
-        .with_location(name.to_string())
+        .with_location(span)
     }
 
     /// Convenience method for duplicate definition error
-    pub fn duplicate_definition(name: &str) -> Self {
+    pub fn duplicate_definition(name: &str, span: SimpleSpan<usize>) -> Self {
         Self::error(
             DiagnosticCode::DuplicateDefinition,
             format!("Duplicate definition of '{name}'"),
         )
-        .with_location(name.to_string())
+        .with_location(span)
     }
 
     /// Convenience method for use before definition error
-    pub fn use_before_definition(name: &str) -> Self {
+    pub fn use_before_definition(name: &str, span: SimpleSpan<usize>) -> Self {
         Self::error(
             DiagnosticCode::UseBeforeDefinition,
             format!("Variable '{name}' used before definition"),
         )
-        .with_location(name.to_string())
+        .with_location(span)
     }
 }
 
 impl fmt::Display for Diagnostic {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: {}", self.severity, self.message)?;
-        if let Some(location) = &self.location {
-            write!(f, " (at '{location}')")?;
+        write!(f, " (at {}:{})", self.span.start, self.span.end)?;
+        for (span, message) in &self.related_spans {
+            write!(f, "\n  note: {} (at {}:{})", message, span.start, span.end)?;
         }
         Ok(())
     }
@@ -266,19 +272,22 @@ mod tests {
 
     #[test]
     fn test_diagnostic_creation() {
-        let diag = Diagnostic::undeclared_variable("test_var");
+        let span = SimpleSpan::from(10..20);
+        let diag = Diagnostic::undeclared_variable("test_var", span);
         assert_eq!(diag.severity, DiagnosticSeverity::Error);
         assert_eq!(diag.code, DiagnosticCode::UndeclaredVariable);
         assert!(diag.message.contains("test_var"));
-        assert_eq!(diag.location, Some("test_var".to_string()));
+        assert_eq!(diag.span, span);
     }
 
     #[test]
     fn test_diagnostic_collection() {
         let mut collection = DiagnosticCollection::new();
 
-        collection.add(Diagnostic::undeclared_variable("var1"));
-        collection.add(Diagnostic::unused_variable("var2"));
+        let span1 = SimpleSpan::from(0..5);
+        let span2 = SimpleSpan::from(10..15);
+        collection.add(Diagnostic::undeclared_variable("var1", span1));
+        collection.add(Diagnostic::unused_variable("var2", span2));
 
         assert_eq!(collection.len(), 2);
         assert_eq!(collection.errors().len(), 1);
@@ -288,10 +297,12 @@ mod tests {
 
     #[test]
     fn test_diagnostic_display() {
-        let diag = Diagnostic::undeclared_variable("test");
+        let span = SimpleSpan::from(5..10);
+        let diag = Diagnostic::undeclared_variable("test", span);
         let display = format!("{diag}");
         assert!(display.contains("error"));
         assert!(display.contains("Undeclared variable"));
         assert!(display.contains("test"));
+        assert!(display.contains("5:10"));
     }
 }

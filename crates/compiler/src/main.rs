@@ -55,7 +55,8 @@ fn main() {
             }
 
             // Step 2: Parsing
-            let db = cairo_m_compiler_parser::ParserDatabaseImpl::default();
+            // TODO remove SemanticDatabaseImpl and instead define a single global, top-level compiler db
+            let db = cairo_m_compiler_semantic::SemanticDatabaseImpl::default();
             // Attaching the database for debug printouts
             //TODO: unify APIs. the parse result here is unused (only used for reporting.)
             let parse_result = db.attach(|db| {
@@ -72,9 +73,8 @@ fn main() {
 
             let source_content = SourceProgram::new(&db, content.clone());
 
-            let semantic_db = cairo_m_compiler_semantic::SemanticDatabaseImpl::default();
             // Step 3: Semantic analysis
-            let diagnostics = validate_semantics(&semantic_db, &parse_result.ast, source_content);
+            let diagnostics = validate_semantics(&db, &parse_result.ast, source_content);
 
             if diagnostics.has_errors() {
                 println!("\nSemantic analysis:");
@@ -170,7 +170,7 @@ fn build_parser_error_message(source: &str, error: Rich<TokenType, SimpleSpan>) 
 // TODO: add proper error reporting spans
 fn build_semantic_error_message(source: &str, error: &Diagnostic) -> String {
     let mut write_buffer = Vec::new();
-    Report::build(ReportKind::Error, ((), 0..source.len()))
+    Report::build(ReportKind::Error, ((), error.span.into_range()))
         .with_config(
             ariadne::Config::new()
                 .with_index_type(ariadne::IndexType::Byte)
@@ -178,7 +178,7 @@ fn build_semantic_error_message(source: &str, error: &Diagnostic) -> String {
         )
         .with_code(3)
         .with_message(error.to_string())
-        .with_label(Label::new(((), 0..source.len())).with_message(error.to_string()))
+        .with_label(Label::new(((), error.span.into_range())).with_message(error.to_string()))
         .finish()
         .write(Source::from(source), &mut write_buffer)
         .unwrap();

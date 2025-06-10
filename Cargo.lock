@@ -299,6 +299,7 @@ dependencies = [
  "bitflags",
  "cairo-m-compiler-parser",
  "chumsky",
+ "index_vec",
  "indexmap",
  "insta",
  "logos",
@@ -660,6 +661,12 @@ checksum = "6c49c37c09c17a53d937dfbb742eb3a961d65a994e6bcdcf37e7399d0cc8ab5e"
 dependencies = [
  "digest",
 ]
+
+[[package]]
+name = "index_vec"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "44faf5bb8861a9c72e20d3fb0fdbd59233e43056e2b80475ab0aacdc2e781355"
 
 [[package]]
 name = "indexmap"

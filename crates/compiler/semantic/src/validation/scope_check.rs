@@ -97,7 +97,9 @@ impl ScopeValidator {
 
         for (_, place) in place_table.places() {
             if place.flags.contains(PlaceFlags::DEFINED) && !seen_names.insert(&place.name) {
-                diagnostics.push(Diagnostic::duplicate_definition(&place.name));
+                // TODO: Get proper span from definition when available
+                let dummy_span = chumsky::span::SimpleSpan::from(0..0);
+                diagnostics.push(Diagnostic::duplicate_definition(&place.name, dummy_span));
             }
         }
 
@@ -121,7 +123,9 @@ impl ScopeValidator {
             if is_local_or_param && place.flags.contains(PlaceFlags::DEFINED) && !place.is_used() {
                 // TODO: Consider allowing variables with '_' prefix to be unused (common pattern)
                 // TODO: Different severity for parameters vs local variables
-                diagnostics.push(Diagnostic::unused_variable(&place.name));
+                // TODO: Get proper span from definition when available
+                let dummy_span = chumsky::span::SimpleSpan::from(0..0);
+                diagnostics.push(Diagnostic::unused_variable(&place.name, dummy_span));
             }
         }
 
@@ -139,11 +143,11 @@ impl ScopeValidator {
         let mut seen_undeclared = HashSet::new();
 
         // Check each identifier usage to see if it was resolved to a definition
-        for (identifier, usage_scope) in index.identifier_usages() {
-            if !index.is_identifier_resolved(identifier, *usage_scope) {
+        for (usage_index, usage) in index.identifier_usages().iter().enumerate() {
+            if !index.is_usage_resolved(usage_index) {
                 // Only report each undeclared variable once
-                if seen_undeclared.insert(identifier.clone()) {
-                    diagnostics.push(Diagnostic::undeclared_variable(identifier));
+                if seen_undeclared.insert(usage.name.clone()) {
+                    diagnostics.push(Diagnostic::undeclared_variable(&usage.name, usage.span));
                 }
             }
         }

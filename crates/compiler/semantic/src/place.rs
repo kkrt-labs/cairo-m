@@ -10,20 +10,20 @@
 //! - **PlaceTable**: Symbol table for a specific scope, mapping names to places
 
 use bitflags::bitflags;
+use index_vec;
 use rustc_hash::FxHashMap;
 use std::fmt;
 
-/// A unique ID for a scope within a file
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct FileScopeId(pub usize);
+index_vec::define_index_type! {
+    /// A unique ID for a scope within a file
+    pub struct FileScopeId = usize;
+
+    MAX_INDEX = usize::MAX;
+}
 
 impl FileScopeId {
-    pub const fn new(id: usize) -> Self {
-        Self(id)
-    }
-
     pub const fn as_usize(self) -> usize {
-        self.0
+        self.raw()
     }
 }
 

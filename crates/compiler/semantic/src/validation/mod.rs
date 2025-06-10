@@ -15,12 +15,13 @@ pub use validator::Validator;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{validate_semantics, SemanticDatabaseImpl};
+    use crate::db::tests::test_db;
+    use crate::validate_semantics;
     use cairo_m_compiler_parser::{parse_program, SourceProgram};
 
     #[test]
     fn test_validation_framework_integration() {
-        let db = SemanticDatabaseImpl::default();
+        let db = test_db();
 
         // Test program with multiple validation issues
         let source = SourceProgram::new(
@@ -66,7 +67,7 @@ mod tests {
 
     #[test]
     fn test_duplicate_definition_validation() {
-        let db = SemanticDatabaseImpl::default();
+        let db = test_db();
 
         // Test program with duplicate definitions
         let source = SourceProgram::new(
@@ -96,7 +97,7 @@ mod tests {
 
     #[test]
     fn test_undeclared_variable_detection() {
-        let db = SemanticDatabaseImpl::default();
+        let db = test_db();
 
         // Test program with undeclared variable usage
         let source = SourceProgram::new(
@@ -126,7 +127,7 @@ mod tests {
 
     #[test]
     fn test_clean_program_validation() {
-        let db = SemanticDatabaseImpl::default();
+        let db = test_db();
 
         // Test program with no validation issues
         let source = SourceProgram::new(

@@ -6,9 +6,31 @@
 
 use crate::definition::DefinitionKind;
 use crate::place::{FileScopeId, PlaceTable, Scope};
-use crate::{File, SemanticDb};
+use crate::{Definition, File, SemanticDb};
+use cairo_m_compiler_parser::parser::{
+    ConstDef, FunctionDef, ImportStmt, Namespace, Spanned, StructDef,
+};
 use cairo_m_compiler_parser::{parse_program, ParsedModule};
+use chumsky::span::SimpleSpan;
+use index_vec::IndexVec;
 use rustc_hash::FxHashMap;
+
+// Define DefinitionId as an index type
+index_vec::define_index_type! {
+    /// Unique identifier for a definition within a file
+    pub struct DefinitionId = usize;
+}
+
+/// Information about an identifier usage site
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct IdentifierUsage {
+    /// The name of the identifier
+    pub name: String,
+    /// The span of the identifier in the source
+    pub span: SimpleSpan<usize>,
+    /// The scope where this identifier is used
+    pub scope_id: FileScopeId,
+}
 
 /// The main semantic analysis result for a source file
 ///
@@ -29,11 +51,11 @@ use rustc_hash::FxHashMap;
 /// validation and IDE features like go-to-definition.
 #[derive(Debug, PartialEq, Eq)]
 pub struct SemanticIndex {
-    /// A place table for each scope in the file
-    place_tables: Vec<PlaceTable>,
+    /// List of all place tables in this file, indexed by scope.
+    place_tables: IndexVec<FileScopeId, PlaceTable>,
 
-    /// The scope hierarchy
-    scopes: Vec<Scope>,
+    /// List of all scopes in this file.
+    scopes: IndexVec<FileScopeId, Scope>,
 
     /// Maps AST node positions to their containing scope
     /// TODO: Replace with proper span-based tracking when parser provides spans
@@ -45,38 +67,24 @@ pub struct SemanticIndex {
     /// For now, we'll use simple span-based mapping
     scopes_by_span: FxHashMap<(usize, usize), FileScopeId>,
 
-    /// All definitions in the file
-    /// TODO: Consider using a more efficient data structure for large files
-    /// Current Vec is simple but may not scale well for:
-    /// - Large files with many definitions
-    /// - Frequent lookup operations
-    ///
-    /// Consider: BTreeMap<DefinitionId, Definition> or similar indexed structure
-    /// For now, we'll store them in a simple Vec and provide access methods
-    definitions: Vec<(FileScopeId, DefinitionKind, crate::place::ScopedPlaceId)>,
+    /// All definitions in the file, indexed by DefinitionId
+    definitions: IndexVec<DefinitionId, Definition>,
 
-    /// Use-def tracking: maps identifier names to their resolved definitions
-    /// Key: (identifier_name, scope_where_used)
-    /// Value: (definition_scope, definition_place)
-    /// TODO: Replace with span-based tracking when parser provides spans
-    /// TODO: Handle multiple definitions with the same name in different scopes
-    /// TODO: Support shadowing and proper scope resolution order
-    uses: FxHashMap<(String, FileScopeId), (FileScopeId, crate::place::ScopedPlaceId)>,
+    /// Use-def tracking: maps identifier usage to their resolved definitions
+    /// Key: identifier usage index, Value: definition that this usage resolves to
+    uses: FxHashMap<usize, DefinitionId>,
 
-    /// Track all identifier usages with their containing scopes
-    /// This will help implement undeclared variable detection
-    /// TODO: Include position information for better error reporting
-    /// TODO: Distinguish between different kinds of identifier usage (value, type, etc.)
-    identifier_usages: Vec<(String, FileScopeId)>,
+    /// Track all identifier usages with their spans and containing scopes
+    identifier_usages: Vec<IdentifierUsage>,
 }
 
 impl SemanticIndex {
     pub fn new() -> Self {
         Self {
-            place_tables: Vec::new(),
-            scopes: Vec::new(),
+            place_tables: IndexVec::new(),
+            scopes: IndexVec::new(),
             scopes_by_span: FxHashMap::default(),
-            definitions: Vec::new(),
+            definitions: IndexVec::new(),
             uses: FxHashMap::default(),
             identifier_usages: Vec::new(),
         }
@@ -163,29 +171,42 @@ impl SemanticIndex {
         None
     }
 
+    /// Resolve a name to its definition ID, starting from a given scope and walking up the scope chain
+    pub fn resolve_name_to_definition(
+        &self,
+        name: &str,
+        starting_scope: FileScopeId,
+    ) -> Option<(DefinitionId, &Definition)> {
+        if let Some((scope_id, place_id)) = self.resolve_name(name, starting_scope) {
+            self.definition_for_place(scope_id, place_id)
+        } else {
+            None
+        }
+    }
+
     /// Add a definition to the index
-    pub fn add_definition(
-        &mut self,
-        scope_id: FileScopeId,
-        place_id: crate::place::ScopedPlaceId,
-        kind: DefinitionKind,
-    ) {
-        self.definitions.push((scope_id, kind, place_id));
+    pub fn add_definition(&mut self, definition: Definition) -> DefinitionId {
+        self.definitions.push(definition)
     }
 
     /// Get all definitions in a specific scope
     pub fn definitions_in_scope(
         &self,
         scope_id: FileScopeId,
-    ) -> impl Iterator<Item = &(FileScopeId, DefinitionKind, crate::place::ScopedPlaceId)> {
+    ) -> impl Iterator<Item = (DefinitionId, &Definition)> + '_ {
         self.definitions
-            .iter()
-            .filter(move |(s, _, _)| *s == scope_id)
+            .iter_enumerated()
+            .filter(move |(_, def)| def.scope_id == scope_id)
     }
 
     /// Get all definitions in the file
-    pub fn all_definitions(&self) -> &[(FileScopeId, DefinitionKind, crate::place::ScopedPlaceId)] {
-        &self.definitions
+    pub fn all_definitions(&self) -> impl Iterator<Item = (DefinitionId, &Definition)> + '_ {
+        self.definitions.iter_enumerated()
+    }
+
+    /// Find definition by ID
+    pub fn definition(&self, id: DefinitionId) -> Option<&Definition> {
+        self.definitions.get(id)
     }
 
     /// Find definition by place
@@ -193,47 +214,39 @@ impl SemanticIndex {
         &self,
         scope_id: FileScopeId,
         place_id: crate::place::ScopedPlaceId,
-    ) -> Option<&DefinitionKind> {
+    ) -> Option<(DefinitionId, &Definition)> {
         self.definitions
-            .iter()
-            .find(|(s, _, p)| *s == scope_id && *p == place_id)
-            .map(|(_, kind, _)| kind)
+            .iter_enumerated()
+            .find(|(_, def)| def.scope_id == scope_id && def.place_id == place_id)
+    }
+
+    /// Add an identifier usage
+    pub fn add_identifier_usage(&mut self, usage: IdentifierUsage) -> usize {
+        let index = self.identifier_usages.len();
+        self.identifier_usages.push(usage);
+        index
     }
 
     /// Add a use-def relationship
-    pub fn add_use(
-        &mut self,
-        identifier: String,
-        use_scope: FileScopeId,
-        def_scope: FileScopeId,
-        def_place: crate::place::ScopedPlaceId,
-    ) {
-        self.uses
-            .insert((identifier, use_scope), (def_scope, def_place));
-    }
-
-    /// Add an identifier usage (for undeclared variable detection)
-    pub fn add_identifier_usage(&mut self, identifier: String, scope: FileScopeId) {
-        self.identifier_usages.push((identifier, scope));
+    pub fn add_use(&mut self, usage_index: usize, definition_id: DefinitionId) {
+        self.uses.insert(usage_index, definition_id);
     }
 
     /// Get all identifier usages
-    pub fn identifier_usages(&self) -> &[(String, FileScopeId)] {
+    pub fn identifier_usages(&self) -> &[IdentifierUsage] {
         &self.identifier_usages
     }
 
     /// Check if an identifier usage has a corresponding definition
-    pub fn is_identifier_resolved(&self, identifier: &str, scope: FileScopeId) -> bool {
-        self.uses.contains_key(&(identifier.to_string(), scope))
+    pub fn is_usage_resolved(&self, usage_index: usize) -> bool {
+        self.uses.contains_key(&usage_index)
     }
 
     /// Get the definition for a specific identifier usage
-    pub fn get_use_definition(
-        &self,
-        identifier: &str,
-        scope: FileScopeId,
-    ) -> Option<(FileScopeId, crate::place::ScopedPlaceId)> {
-        self.uses.get(&(identifier.to_string(), scope)).copied()
+    pub fn get_use_definition(&self, usage_index: usize) -> Option<&Definition> {
+        self.uses
+            .get(&usage_index)
+            .and_then(|def_id| self.definitions.get(*def_id))
     }
 }
 
@@ -360,9 +373,15 @@ impl<'db> SemanticIndexBuilder<'db> {
     }
 
     pub fn build(mut self) -> SemanticIndex {
-        // Visit all top-level items in the module
+        // Pass 1: Collect all top-level declarations (functions, structs, etc.)
+        // This allows forward references to work correctly
         for item in self.module.items() {
-            self.visit_top_level_item(item);
+            self.collect_top_level_declaration(item);
+        }
+
+        // Pass 2: Process function bodies and other content
+        for item in self.module.items() {
+            self.process_top_level_item_body(item);
         }
 
         // Pop the root scope
@@ -371,7 +390,7 @@ impl<'db> SemanticIndexBuilder<'db> {
         self.index
     }
 
-    fn current_scope_id(&self) -> FileScopeId {
+    fn current_scope(&self) -> FileScopeId {
         *self
             .scope_stack
             .last()
@@ -379,7 +398,7 @@ impl<'db> SemanticIndexBuilder<'db> {
     }
 
     fn push_scope(&mut self, kind: crate::place::ScopeKind) -> FileScopeId {
-        let parent = Some(self.current_scope_id());
+        let parent = Some(self.current_scope());
         let scope = Scope::new(parent, kind);
         let scope_id = self.index.add_scope(scope);
         self.scope_stack.push(scope_id);
@@ -406,7 +425,7 @@ impl<'db> SemanticIndexBuilder<'db> {
         name: &str,
         flags: crate::place::PlaceFlags,
     ) -> crate::place::ScopedPlaceId {
-        let scope_id = self.current_scope_id();
+        let scope_id = self.current_scope();
         self.index
             .place_table_mut(scope_id)
             .expect("current scope should have a place table")
@@ -418,140 +437,248 @@ impl<'db> SemanticIndexBuilder<'db> {
         name: &str,
         flags: crate::place::PlaceFlags,
         def_kind: DefinitionKind,
-    ) -> crate::place::ScopedPlaceId {
+        name_span: SimpleSpan<usize>,
+        full_span: SimpleSpan<usize>,
+    ) -> (crate::place::ScopedPlaceId, DefinitionId) {
         let place_id = self.add_place(name, flags);
-        let scope_id = self.current_scope_id();
-        self.index.add_definition(scope_id, place_id, def_kind);
-        place_id
+        let scope_id = self.current_scope();
+
+        let definition = Definition {
+            file: self._file,
+            scope_id,
+            place_id,
+            name: name.to_string(),
+            name_span,
+            full_span,
+            kind: def_kind,
+        };
+
+        let def_id = self.index.add_definition(definition);
+        (place_id, def_id)
     }
 
-    fn visit_top_level_item(&mut self, item: &cairo_m_compiler_parser::parser::TopLevelItem) {
+    /// Pass 1: Collect top-level declarations without processing bodies
+    /// This enables forward references by declaring all symbols first
+    fn collect_top_level_declaration(
+        &mut self,
+        item: &cairo_m_compiler_parser::parser::TopLevelItem,
+    ) {
         use cairo_m_compiler_parser::parser::TopLevelItem;
 
         match item {
-            TopLevelItem::Function(func) => self.visit_function(func),
-            TopLevelItem::Struct(struct_def) => self.visit_struct(struct_def),
-            TopLevelItem::Namespace(namespace) => self.visit_namespace(namespace),
-            TopLevelItem::Import(import) => self.visit_import(import),
-            TopLevelItem::Const(const_def) => self.visit_const(const_def),
+            TopLevelItem::Function(func) => self.declare_function(func),
+            TopLevelItem::Struct(struct_def) => self.visit_struct(struct_def), // Structs don't have bodies
+            TopLevelItem::Namespace(namespace) => self.declare_namespace(namespace),
+            TopLevelItem::Import(import) => self.visit_import(import), // Imports are just declarations
+            TopLevelItem::Const(const_def) => self.visit_const(const_def), // Constants need full processing
         }
     }
 
-    fn visit_function(&mut self, func: &cairo_m_compiler_parser::parser::FunctionDef) {
-        use crate::definition::{DefinitionKind, FunctionDefRef};
-        use crate::place::PlaceFlags;
+    /// Pass 2: Process the bodies of top-level items
+    /// This is where we analyze function bodies, namespace contents, etc.
+    fn process_top_level_item_body(
+        &mut self,
+        item: &cairo_m_compiler_parser::parser::TopLevelItem,
+    ) {
+        use cairo_m_compiler_parser::parser::TopLevelItem;
 
-        // Define the function in the current scope
-        let def_kind = DefinitionKind::Function(FunctionDefRef::from_ast(func));
-        self.add_place_with_definition(
-            &func.name,
-            PlaceFlags::DEFINED | PlaceFlags::FUNCTION,
-            def_kind,
-        );
-
-        // Create a new scope for the function body
-        self.with_new_scope(crate::place::ScopeKind::Function, |builder| {
-            // Define parameters in the function scope
-            for param in &func.params {
-                use crate::definition::{DefinitionKind, ParameterDefRef};
-                let def_kind = DefinitionKind::Parameter(ParameterDefRef::from_ast(param));
-                builder.add_place_with_definition(
-                    &param.name,
-                    PlaceFlags::DEFINED | PlaceFlags::PARAMETER,
-                    def_kind,
-                );
-            }
-
-            // Visit function body statements
-            for stmt in &func.body {
-                builder.visit_statement(stmt);
-            }
-        });
+        match item {
+            TopLevelItem::Function(func) => self.process_function_body(func),
+            TopLevelItem::Struct(_) => {} // Structs don't have bodies to process
+            TopLevelItem::Namespace(namespace) => self.process_namespace_body(namespace),
+            TopLevelItem::Import(_) => {} // Imports already fully processed
+            TopLevelItem::Const(_) => {}  // Constants already fully processed
+        }
     }
 
-    fn visit_struct(&mut self, struct_def: &cairo_m_compiler_parser::parser::StructDef) {
+    fn visit_struct(&mut self, struct_def: &Spanned<StructDef>) {
         use crate::definition::{DefinitionKind, StructDefRef};
         use crate::place::PlaceFlags;
+
+        let struct_def_inner = struct_def.value();
+        let struct_span = struct_def.span();
 
         // Define the struct in the current scope
         let def_kind = DefinitionKind::Struct(StructDefRef::from_ast(struct_def));
         self.add_place_with_definition(
-            &struct_def.name,
+            struct_def_inner.name.value(),
             PlaceFlags::DEFINED | PlaceFlags::STRUCT,
             def_kind,
+            struct_def_inner.name.span(),
+            struct_span,
         );
 
         // Note: Struct fields are not separate scopes in most languages,
         // so we don't create a new scope here. The fields are part of the type system.
     }
 
-    fn visit_namespace(&mut self, namespace: &cairo_m_compiler_parser::parser::Namespace) {
-        use crate::definition::{DefinitionKind, NamespaceDefRef};
-        use crate::place::PlaceFlags;
-
-        // Define the namespace in the current scope
-        let def_kind = DefinitionKind::Namespace(NamespaceDefRef::from_ast(namespace));
-        self.add_place_with_definition(&namespace.name, PlaceFlags::DEFINED, def_kind);
-
-        // Create a new scope for the namespace contents
-        self.with_new_scope(crate::place::ScopeKind::Namespace, |builder| {
-            for item in &namespace.body {
-                builder.visit_top_level_item(item);
-            }
-        });
-    }
-
-    fn visit_import(&mut self, import: &cairo_m_compiler_parser::parser::ImportStmt) {
+    fn visit_import(&mut self, import: &Spanned<ImportStmt>) {
         use crate::definition::{DefinitionKind, ImportDefRef};
         use crate::place::PlaceFlags;
 
+        let import_inner = import.value();
+        let import_span = import.span();
+
         // The imported name (or alias) is defined in the current scope
-        let name = import.alias.as_ref().unwrap_or(&import.item);
+        let (name, name_span) = import_inner.alias.as_ref().map_or_else(
+            || (import_inner.item.value(), import_inner.item.span()),
+            |alias| (alias.value(), alias.span()),
+        );
+
         let def_kind = DefinitionKind::Import(ImportDefRef::from_ast(import));
-        self.add_place_with_definition(name, PlaceFlags::DEFINED, def_kind);
+        self.add_place_with_definition(name, PlaceFlags::DEFINED, def_kind, name_span, import_span);
     }
 
-    fn visit_const(&mut self, const_def: &cairo_m_compiler_parser::parser::ConstDef) {
+    fn visit_const(&mut self, const_def: &Spanned<ConstDef>) {
         use crate::definition::{ConstDefRef, DefinitionKind};
         use crate::place::PlaceFlags;
+
+        let const_def_inner = const_def.value();
+        let const_span = const_def.span();
 
         // Define the constant in the current scope
         let def_kind = DefinitionKind::Const(ConstDefRef::from_ast(const_def));
         self.add_place_with_definition(
-            &const_def.name,
+            const_def_inner.name.value(),
             PlaceFlags::DEFINED | PlaceFlags::CONSTANT,
             def_kind,
+            const_def_inner.name.span(),
+            const_span,
         );
 
         // Visit the value expression to find any identifier uses
-        self.visit_expression(&const_def.value);
+        self.visit_expression(&const_def_inner.value);
     }
 
-    fn visit_statement(&mut self, stmt: &cairo_m_compiler_parser::parser::Statement) {
+    /// Pass 1: Declare function without processing its body
+    /// This allows forward references to work
+    fn declare_function(&mut self, func: &Spanned<FunctionDef>) {
+        use crate::definition::{DefinitionKind, FunctionDefRef};
+        use crate::place::PlaceFlags;
+
+        let func_def = func.value();
+        let func_span = func.span();
+
+        // Define the function in the current scope
+        let def_kind = DefinitionKind::Function(FunctionDefRef::from_ast(func));
+        self.add_place_with_definition(
+            func_def.name.value(),
+            PlaceFlags::DEFINED | PlaceFlags::FUNCTION,
+            def_kind,
+            func_def.name.span(),
+            func_span,
+        );
+    }
+
+    /// Pass 2: Process function body with parameters and statements
+    fn process_function_body(&mut self, func: &Spanned<FunctionDef>) {
+        use crate::definition::{DefinitionKind, ParameterDefRef};
+        use crate::place::PlaceFlags;
+
+        let func_def = func.value();
+
+        // Create a new scope for the function body
+        self.with_new_scope(crate::place::ScopeKind::Function, |builder| {
+            // Define parameters in the function scope
+            for param in &func_def.params {
+                let def_kind = DefinitionKind::Parameter(ParameterDefRef::from_ast(param));
+                builder.add_place_with_definition(
+                    param.name.value(),
+                    PlaceFlags::DEFINED | PlaceFlags::PARAMETER,
+                    def_kind,
+                    param.name.span(),
+                    param.name.span(), // TODO: Extend to full parameter span when available
+                );
+            }
+
+            // Visit function body statements
+            for stmt in &func_def.body {
+                builder.visit_statement(stmt);
+            }
+        });
+    }
+
+    /// Pass 1: Declare namespace without processing its contents
+    fn declare_namespace(&mut self, namespace: &Spanned<Namespace>) {
+        use crate::definition::{DefinitionKind, NamespaceDefRef};
+        use crate::place::PlaceFlags;
+
+        let namespace_inner = namespace.value();
+        let namespace_span = namespace.span();
+
+        // Define the namespace in the current scope
+        let def_kind = DefinitionKind::Namespace(NamespaceDefRef::from_ast(namespace));
+        self.add_place_with_definition(
+            namespace_inner.name.value(),
+            PlaceFlags::DEFINED,
+            def_kind,
+            namespace_inner.name.span(),
+            namespace_span,
+        );
+    }
+
+    /// Pass 2: Process namespace contents
+    fn process_namespace_body(&mut self, namespace: &Spanned<Namespace>) {
+        let namespace_inner = namespace.value();
+
+        // Create a new scope for the namespace contents
+        self.with_new_scope(crate::place::ScopeKind::Namespace, |builder| {
+            // Pass 1: Collect declarations within the namespace
+            for item in &namespace_inner.body {
+                builder.collect_top_level_declaration(item);
+            }
+
+            // Pass 2: Process bodies within the namespace
+            for item in &namespace_inner.body {
+                builder.process_top_level_item_body(item);
+            }
+        });
+    }
+
+    fn visit_statement(
+        &mut self,
+        stmt: &cairo_m_compiler_parser::parser::Spanned<cairo_m_compiler_parser::parser::Statement>,
+    ) {
         use crate::place::PlaceFlags;
         use cairo_m_compiler_parser::parser::Statement;
 
-        match stmt {
+        match stmt.value() {
             Statement::Let { name, value } => {
                 use crate::definition::{DefinitionKind, LetDefRef};
-                // Define the variable
-                let def_kind = DefinitionKind::Let(LetDefRef::from_let_statement(name));
-                self.add_place_with_definition(name, PlaceFlags::DEFINED, def_kind);
+                // Define the let variable
+                let def_kind = DefinitionKind::Let(LetDefRef::from_let_statement(name.value()));
+                self.add_place_with_definition(
+                    name.value(),
+                    PlaceFlags::DEFINED,
+                    def_kind,
+                    name.span(),
+                    stmt.span(),
+                );
                 // Visit the value expression
                 self.visit_expression(value);
             }
             Statement::Local { name, value, ty } => {
                 use crate::definition::{DefinitionKind, LocalDefRef};
                 // Define the local variable
-                let def_kind =
-                    DefinitionKind::Local(LocalDefRef::from_local_statement(name, ty.is_some()));
-                self.add_place_with_definition(name, PlaceFlags::DEFINED, def_kind);
+                let def_kind = DefinitionKind::Local(LocalDefRef::from_local_statement(
+                    name.value(),
+                    ty.is_some(),
+                ));
+                self.add_place_with_definition(
+                    name.value(),
+                    PlaceFlags::DEFINED,
+                    def_kind,
+                    name.span(),
+                    stmt.span(),
+                );
                 // Visit the value expression
                 self.visit_expression(value);
                 // TODO: Analyze type annotation when type system is implemented
             }
             Statement::Const(const_def) => {
-                self.visit_const(const_def);
+                // Statement-level const is wrapped in a spanned context
+                let spanned_const = Spanned::new(const_def.clone(), stmt.span());
+                self.visit_const(&spanned_const);
             }
             Statement::Assignment { lhs, rhs } => {
                 // Visit both sides - assignment targets and values
@@ -597,26 +724,40 @@ impl<'db> SemanticIndexBuilder<'db> {
         }
     }
 
-    fn visit_expression(&mut self, expr: &cairo_m_compiler_parser::parser::Expression) {
+    fn visit_expression(
+        &mut self,
+        expr: &cairo_m_compiler_parser::parser::Spanned<
+            cairo_m_compiler_parser::parser::Expression,
+        >,
+    ) {
         use cairo_m_compiler_parser::parser::Expression;
 
-        match expr {
+        match expr.value() {
             Expression::Identifier(name) => {
-                let current_scope = self.current_scope_id();
+                let current_scope = self.current_scope();
 
-                // Record this identifier usage for undeclared variable detection
-                self.index.add_identifier_usage(name.clone(), current_scope);
+                let usage = IdentifierUsage {
+                    name: name.value().clone(),
+                    span: name.span(),
+                    scope_id: current_scope,
+                };
+
+                let usage_index = self.index.add_identifier_usage(usage);
 
                 // This is a use of an identifier - mark it as used if we can resolve it
-                if let Some((def_scope_id, place_id)) = self.index.resolve_name(name, current_scope)
+                if let Some((def_scope_id, place_id)) =
+                    self.index.resolve_name(name.value(), current_scope)
                     && let Some(place_table) = self.index.place_table_mut(def_scope_id)
                 {
                     // Mark the place as used
                     place_table.mark_as_used(place_id);
 
-                    // Record the use-def relationship
-                    self.index
-                        .add_use(name.clone(), current_scope, def_scope_id, place_id);
+                    // Find the corresponding definition ID and record the use-def relationship
+                    if let Some((def_id, _)) =
+                        self.index.definition_for_place(def_scope_id, place_id)
+                    {
+                        self.index.add_use(usage_index, def_id);
+                    }
                 }
                 // Note: Unresolved symbols will be detected in the validation pass
                 // using the identifier_usages tracking
@@ -673,13 +814,23 @@ impl<'db> SemanticIndexBuilder<'db> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::SemanticDatabaseImpl;
+    use crate::db::tests::{test_db, TestDb};
     use cairo_m_compiler_parser::SourceProgram;
+
+    struct TestCase {
+        db: TestDb,
+        source: SourceProgram,
+    }
+
+    fn test_case(content: &str) -> TestCase {
+        let db = test_db();
+        let source = SourceProgram::new(&db, content.to_string());
+        TestCase { db, source }
+    }
 
     #[test]
     fn test_empty_program() {
-        let db = SemanticDatabaseImpl::default();
-        let source = SourceProgram::new(&db, "".to_string());
+        let TestCase { db, source } = test_case("");
         let index = semantic_index(&db, source);
 
         // Should have a root module scope
@@ -691,8 +842,7 @@ mod tests {
 
     #[test]
     fn test_simple_function() {
-        let db = SemanticDatabaseImpl::default();
-        let source = SourceProgram::new(&db, "func test() { }".to_string());
+        let TestCase { db, source } = test_case("func test() { }");
         let index = semantic_index(&db, source);
 
         // Should have root scope and function scope
@@ -719,8 +869,7 @@ mod tests {
 
     #[test]
     fn test_function_with_parameters() {
-        let db = SemanticDatabaseImpl::default();
-        let source = SourceProgram::new(&db, "func add(a: felt, b: felt) { }".to_string());
+        let TestCase { db, source } = test_case("func add(a: felt, b: felt) { }");
         let index = semantic_index(&db, source);
 
         let root = index.root_scope().unwrap();
@@ -744,11 +893,8 @@ mod tests {
 
     #[test]
     fn test_variable_resolution() {
-        let db = SemanticDatabaseImpl::default();
-        let source = SourceProgram::new(
-            &db,
-            "func test(param: felt) { let local_var = param; }".to_string(),
-        );
+        let TestCase { db, source } =
+            test_case("func test(param: felt) { let local_var = param; }");
         let index = semantic_index(&db, source);
 
         let root = index.root_scope().unwrap();
@@ -769,9 +915,7 @@ mod tests {
 
     #[test]
     fn test_comprehensive_semantic_analysis() {
-        let db = SemanticDatabaseImpl::default();
-        let source = SourceProgram::new(
-            &db,
+        let TestCase { db, source } = test_case(
             r#"
             const PI = 314;
 
@@ -791,8 +935,7 @@ mod tests {
                     return x * x;
                 }
             }
-        "#
-            .to_string(),
+        "#,
         );
 
         let index = semantic_index(&db, source);
@@ -826,16 +969,16 @@ mod tests {
         );
 
         // Check definitions are tracked
-        let all_definitions = index.all_definitions();
+        let all_definitions = index.all_definitions().count();
         // 1 const, 1 struct, 2 functions, 1 namespace, 3 function params, 2 inner fn variables
-        assert_eq!(all_definitions.len(), 10,);
+        assert_eq!(all_definitions, 10);
 
         // Find function definition
         let distance_def =
             index.definition_for_place(root, root_table.place_id_by_name("distance").unwrap());
         assert!(matches!(
             distance_def,
-            Some(crate::definition::DefinitionKind::Function(_))
+            Some((_, def)) if matches!(def.kind, crate::definition::DefinitionKind::Function(_))
         ));
 
         // Check parameters and locals in function scope
@@ -877,5 +1020,55 @@ mod tests {
             namespace_table.place_id_by_name("square").is_some(),
             "square function should be defined in Math namespace"
         );
+    }
+
+    #[test]
+    fn test_real_spans_are_used() {
+        let TestCase { db, source } = test_case("func test(x: felt) { let y = x; }");
+        let index = semantic_index(&db, source);
+
+        // Get all identifier usages
+        let usages = index.identifier_usages();
+
+        // Should have at least one usage for the identifier 'x' being used
+        let x_usage = usages.iter().find(|u| u.name == "x");
+        assert!(x_usage.is_some(), "Should find usage of identifier 'x'");
+
+        let x_usage = x_usage.unwrap();
+        // Verify that real spans are being used (not dummy spans)
+        assert_ne!(
+            x_usage.span,
+            SimpleSpan::from(0..0),
+            "Should not use dummy span for identifier usage"
+        );
+        assert!(
+            x_usage.span.start < x_usage.span.end,
+            "Span should have positive length"
+        );
+
+        // Check definitions also have real spans
+        let definitions: Vec<_> = index.all_definitions().collect();
+        assert!(!definitions.is_empty(), "Should have definitions");
+
+        for (_, def) in definitions {
+            assert_ne!(
+                def.name_span,
+                SimpleSpan::from(0..0),
+                "Definition name span should not be dummy"
+            );
+            assert_ne!(
+                def.full_span,
+                SimpleSpan::from(0..0),
+                "Definition full span should not be dummy"
+            );
+            assert!(
+                def.name_span.start < def.name_span.end,
+                "Name span should have positive length"
+            );
+            assert!(
+                def.full_span.start < def.full_span.end,
+                "Full span should have positive length"
+            );
+        }
     }
 }

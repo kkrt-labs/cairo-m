@@ -8,7 +8,7 @@
 //! and invalidating them only when their dependencies change.
 
 use cairo_m_compiler_parser as parser;
-use parser::Db as ParserDb;
+use parser::{Db as ParserDb, Upcast};
 
 // We may need the parser implementation later for cross-database operations
 #[allow(unused_imports)]
@@ -20,7 +20,7 @@ use parser::ParserDatabaseImpl;
 /// Currently minimal, but will be extended with semantic-specific queries as the
 /// system grows in complexity.
 #[salsa::db]
-pub trait SemanticDb: ParserDb {
+pub trait SemanticDb: ParserDb + Upcast<dyn ParserDb> {
     // TODO: Add semantic-specific database methods here as the system grows:
     // - fn semantic_settings(&self) -> &SemanticSettings;
     // - fn type_environment(&self) -> TypeEnvironment;
@@ -43,11 +43,49 @@ pub struct SemanticDatabaseImpl {
     storage: salsa::Storage<Self>,
 }
 
-#[salsa::db]
 impl salsa::Database for SemanticDatabaseImpl {}
-
 #[salsa::db]
 impl ParserDb for SemanticDatabaseImpl {}
-
 #[salsa::db]
 impl SemanticDb for SemanticDatabaseImpl {}
+
+impl Upcast<dyn ParserDb> for SemanticDatabaseImpl {
+    fn upcast(&self) -> &(dyn ParserDb + 'static) {
+        self
+    }
+    fn upcast_mut(&mut self) -> &mut (dyn ParserDb + 'static) {
+        self
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::*;
+
+    #[salsa::db]
+    #[derive(Clone)]
+    pub struct TestDb {
+        storage: salsa::Storage<Self>,
+    }
+
+    impl salsa::Database for TestDb {}
+    #[salsa::db]
+    impl ParserDb for TestDb {}
+    #[salsa::db]
+    impl SemanticDb for TestDb {}
+
+    impl Upcast<dyn ParserDb> for TestDb {
+        fn upcast(&self) -> &(dyn ParserDb + 'static) {
+            self
+        }
+        fn upcast_mut(&mut self) -> &mut (dyn ParserDb + 'static) {
+            self
+        }
+    }
+
+    pub fn test_db() -> TestDb {
+        TestDb {
+            storage: salsa::Storage::default(),
+        }
+    }
+}

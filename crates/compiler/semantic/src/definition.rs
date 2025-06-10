@@ -6,8 +6,9 @@
 use crate::place::{FileScopeId, ScopedPlaceId};
 use crate::File;
 use cairo_m_compiler_parser::parser::{
-    ConstDef, FunctionDef, ImportStmt, Namespace, Parameter, StructDef,
+    ConstDef, FunctionDef, ImportStmt, Namespace, Parameter, Spanned, StructDef,
 };
+use chumsky::span::SimpleSpan;
 use std::fmt;
 
 /// A definition that links a semantic place to its AST node
@@ -20,9 +21,15 @@ pub struct Definition {
     /// The file containing this definition
     pub file: File,
     /// The scope containing this definition
-    pub scope: FileScopeId,
+    pub scope_id: FileScopeId,
     /// The place (symbol) this definition defines
-    pub place: ScopedPlaceId,
+    pub place_id: ScopedPlaceId,
+    /// The name of the defined entity
+    pub name: String,
+    /// The span of the name identifier
+    pub name_span: SimpleSpan<usize>,
+    /// The span of the entire definition statement/construct
+    pub full_span: SimpleSpan<usize>,
     /// The kind of definition and reference to AST node
     pub kind: DefinitionKind,
 }
@@ -77,11 +84,11 @@ pub struct FunctionDefRef {
 }
 
 impl FunctionDefRef {
-    pub fn from_ast(func: &FunctionDef) -> Self {
+    pub fn from_ast(func: &Spanned<FunctionDef>) -> Self {
         Self {
-            name: func.name.clone(),
-            parameter_count: func.params.len(),
-            has_return_type: func.return_type.is_some(),
+            name: func.value().name.value().clone(),
+            parameter_count: func.value().params.len(),
+            has_return_type: func.value().return_type.is_some(),
         }
     }
 }
@@ -94,10 +101,10 @@ pub struct StructDefRef {
 }
 
 impl StructDefRef {
-    pub fn from_ast(struct_def: &StructDef) -> Self {
+    pub fn from_ast(struct_def: &Spanned<StructDef>) -> Self {
         Self {
-            name: struct_def.name.clone(),
-            field_count: struct_def.fields.len(),
+            name: struct_def.value().name.value().clone(),
+            field_count: struct_def.value().fields.len(),
         }
     }
 }
@@ -109,9 +116,9 @@ pub struct ConstDefRef {
 }
 
 impl ConstDefRef {
-    pub fn from_ast(const_def: &ConstDef) -> Self {
+    pub fn from_ast(const_def: &Spanned<ConstDef>) -> Self {
         Self {
-            name: const_def.name.clone(),
+            name: const_def.value().name.value().clone(),
         }
     }
 }
@@ -162,7 +169,7 @@ pub struct ParameterDefRef {
 impl ParameterDefRef {
     pub fn from_ast(param: &Parameter) -> Self {
         Self {
-            name: param.name.clone(),
+            name: param.name.value().clone(),
             // TODO: This debug representation is temporary and lossy
             // Need proper type analysis to preserve full type information
             type_name: format!("{:?}", param.type_expr), // Simplified type representation
@@ -179,11 +186,16 @@ pub struct ImportDefRef {
 }
 
 impl ImportDefRef {
-    pub fn from_ast(import: &ImportStmt) -> Self {
+    pub fn from_ast(import: &Spanned<ImportStmt>) -> Self {
         Self {
-            imported_name: import.item.clone(),
-            alias: import.alias.clone(),
-            module_path: import.path.clone(),
+            imported_name: import.value().item.value().clone(),
+            alias: import.value().alias.as_ref().map(|a| a.value().clone()),
+            module_path: import
+                .value()
+                .path
+                .iter()
+                .map(|p| p.value().clone())
+                .collect(),
         }
     }
 }
@@ -196,10 +208,10 @@ pub struct NamespaceDefRef {
 }
 
 impl NamespaceDefRef {
-    pub fn from_ast(namespace: &Namespace) -> Self {
+    pub fn from_ast(namespace: &Spanned<Namespace>) -> Self {
         Self {
-            name: namespace.name.clone(),
-            item_count: namespace.body.len(),
+            name: namespace.value().name.value().clone(),
+            item_count: namespace.value().body.len(),
         }
     }
 }
@@ -271,34 +283,45 @@ mod tests {
 
     #[test]
     fn test_definition_kinds() {
+        use chumsky::span::SimpleSpan;
+
         // Test various definition kind constructors
         let func_def = FunctionDef {
-            name: "test_func".to_string(),
+            name: Spanned::new("test_func".to_string(), SimpleSpan::from(0..5)),
             params: vec![],
             return_type: Some(TypeExpr::Named("felt".to_string())),
             body: vec![],
         };
-        let func_ref = FunctionDefRef::from_ast(&func_def);
+        let spanned_func = Spanned::new(func_def, SimpleSpan::from(0..10));
+        let func_ref = FunctionDefRef::from_ast(&spanned_func);
         assert_eq!(func_ref.name, "test_func");
         assert!(func_ref.has_return_type);
         assert_eq!(func_ref.parameter_count, 0);
 
         let struct_def = StructDef {
-            name: "Point".to_string(),
+            name: Spanned::new("Point".to_string(), SimpleSpan::from(0..5)),
             fields: vec![
-                ("x".to_string(), TypeExpr::Named("felt".to_string())),
-                ("y".to_string(), TypeExpr::Named("felt".to_string())),
+                (
+                    Spanned::new("x".to_string(), SimpleSpan::from(6..7)),
+                    TypeExpr::Named("felt".to_string()),
+                ),
+                (
+                    Spanned::new("y".to_string(), SimpleSpan::from(8..9)),
+                    TypeExpr::Named("felt".to_string()),
+                ),
             ],
         };
-        let struct_ref = StructDefRef::from_ast(&struct_def);
+        let spanned_struct = Spanned::new(struct_def, SimpleSpan::from(0..10));
+        let struct_ref = StructDefRef::from_ast(&spanned_struct);
         assert_eq!(struct_ref.name, "Point");
         assert_eq!(struct_ref.field_count, 2);
 
         let const_def = ConstDef {
-            name: "PI".to_string(),
-            value: Expression::Literal(314),
+            name: Spanned::new("PI".to_string(), SimpleSpan::from(0..2)),
+            value: Spanned::new(Expression::Literal(314), SimpleSpan::from(3..6)),
         };
-        let const_ref = ConstDefRef::from_ast(&const_def);
+        let spanned_const = Spanned::new(const_def, SimpleSpan::from(0..10));
+        let const_ref = ConstDefRef::from_ast(&spanned_const);
         assert_eq!(const_ref.name, "PI");
     }
 
