@@ -150,6 +150,12 @@ impl LocalDefRef {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ParameterDefRef {
     pub name: String,
+    // TODO: Replace with proper type reference system when type analysis is implemented
+    // This simplified representation loses important type information and should be
+    // replaced with a TypeId or TypeRef that can properly represent:
+    // - Generic types
+    // - Complex types (arrays, tuples, function types)
+    // - Type constraints and bounds
     pub type_name: String, // Simplified - in full implementation would be a type reference
 }
 
@@ -157,6 +163,8 @@ impl ParameterDefRef {
     pub fn from_ast(param: &Parameter) -> Self {
         Self {
             name: param.name.clone(),
+            // TODO: This debug representation is temporary and lossy
+            // Need proper type analysis to preserve full type information
             type_name: format!("{:?}", param.type_expr), // Simplified type representation
         }
     }

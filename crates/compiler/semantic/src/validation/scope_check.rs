@@ -1,9 +1,23 @@
 //! # Scope Validation
 //!
-//! This module implements scope-related validation rules:
-//! - Undeclared variable detection
-//! - Unused variable detection
-//! - Duplicate definition detection
+//! This module implements scope-related validation rules for Cairo-M:
+//! - **Undeclared variable detection**: Identifies uses of undefined identifiers
+//! - **Unused variable detection**: Warns about defined but unused variables
+//! - **Duplicate definition detection**: Catches multiple definitions of the same name
+//!
+//! # Implementation Notes
+//!
+//! The validator works by analyzing the complete semantic index and checking
+//! for violations across all scopes. It uses the use-def chains built during
+//! semantic analysis to efficiently detect scope-related issues.
+//!
+//! # Future Improvements
+//!
+//! TODO: Add support for more advanced scope validation:
+//! - Variable shadowing analysis
+//! - Use-before-definition detection with proper ordering
+//! - Cross-module scope validation
+//! - Const vs mutable variable validation
 
 use crate::db::SemanticDb;
 use crate::validation::{Diagnostic, Validator};
@@ -11,6 +25,9 @@ use crate::{File, PlaceFlags, SemanticIndex};
 use std::collections::HashSet;
 
 /// Validator for scope-related semantic rules
+///
+/// This validator implements comprehensive scope checking to catch common
+/// programming errors related to variable scope and usage.
 pub struct ScopeValidator;
 
 impl Validator for ScopeValidator {
@@ -42,6 +59,14 @@ impl Validator for ScopeValidator {
 
 impl ScopeValidator {
     /// Check a single scope for violations
+    ///
+    /// This analyzes a single scope for scope-specific issues like duplicate
+    /// definitions and unused variables.
+    ///
+    /// TODO: Add more sophisticated scope-level validation:
+    /// - Check for variable shadowing within the same scope
+    /// - Validate const vs mutable usage patterns
+    /// - Check initialization before use within the scope
     fn check_scope(
         &self,
         _scope_id: crate::FileScopeId,
@@ -61,6 +86,11 @@ impl ScopeValidator {
     }
 
     /// Check for duplicate definitions within a scope
+    ///
+    /// TODO: Improve duplicate detection to handle:
+    /// - Function overloading (if supported by Cairo-M)
+    /// - Different kinds of definitions (type vs value)
+    /// - Generic specializations
     fn check_duplicate_definitions(&self, place_table: &crate::PlaceTable) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
         let mut seen_names = HashSet::new();
@@ -75,6 +105,11 @@ impl ScopeValidator {
     }
 
     /// Check for unused variables (warnings for local variables)
+    ///
+    /// TODO: Improve unused variable detection:
+    /// - Different handling for different variable types (params vs locals)
+    /// - Allow-list for common unused patterns (e.g., _unused prefix)
+    /// - Consider usage in different contexts (read vs write)
     fn check_unused_variables(&self, place_table: &crate::PlaceTable) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
 
@@ -84,6 +119,8 @@ impl ScopeValidator {
                 && !place.flags.contains(PlaceFlags::STRUCT);
 
             if is_local_or_param && place.flags.contains(PlaceFlags::DEFINED) && !place.is_used() {
+                // TODO: Consider allowing variables with '_' prefix to be unused (common pattern)
+                // TODO: Different severity for parameters vs local variables
                 diagnostics.push(Diagnostic::unused_variable(&place.name));
             }
         }
@@ -92,6 +129,11 @@ impl ScopeValidator {
     }
 
     /// Check for undeclared variables globally by looking at all use-def chains
+    ///
+    /// TODO: Improve undeclared variable detection:
+    /// - Better error messages with suggestions for similar names
+    /// - Handle different identifier contexts (types vs values vs modules)
+    /// - Support for qualified names and module resolution
     fn check_undeclared_variables_global(&self, index: &SemanticIndex) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
         let mut seen_undeclared = HashSet::new();

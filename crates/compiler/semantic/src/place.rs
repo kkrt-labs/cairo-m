@@ -66,7 +66,10 @@ pub enum ScopeKind {
     /// Namespace scope
     Namespace,
     /// Block scope (for future block scoping support)
+    /// TODO: Clarify Cairo-M's block scoping rules
+    /// - Do blocks create new scopes like Rust?
     Block,
+    // TODO: Add more scope types as Cairo-M language features are defined:
 }
 
 impl fmt::Display for ScopeKind {
@@ -176,6 +179,7 @@ impl Place {
 
 bitflags! {
     /// Flags indicating properties of a place
+    // TODO: assess whether we need this
     #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
     pub struct PlaceFlags: u8 {
         /// The place is defined in this scope (e.g., `let x = ...`)

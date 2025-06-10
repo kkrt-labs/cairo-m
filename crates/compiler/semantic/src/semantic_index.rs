@@ -14,6 +14,19 @@ use rustc_hash::FxHashMap;
 ///
 /// This contains all semantic information derived from the AST,
 /// including scopes, symbol tables, and relationships between them.
+///
+/// # Architecture
+///
+/// The SemanticIndex follows a layered approach:
+/// 1. **Scopes**: Hierarchical containers for symbols
+/// 2. **Place Tables**: Symbol tables for each scope
+/// 3. **Definitions**: Links between symbols and their AST nodes
+/// 4. **Use-Def Chains**: Tracks how identifiers resolve to definitions
+///
+/// # Performance Considerations
+///
+/// This structure is designed for efficient lookup operations during
+/// validation and IDE features like go-to-definition.
 #[derive(Debug, PartialEq, Eq)]
 pub struct SemanticIndex {
     /// A place table for each scope in the file
@@ -23,10 +36,22 @@ pub struct SemanticIndex {
     scopes: Vec<Scope>,
 
     /// Maps AST node positions to their containing scope
+    /// TODO: Replace with proper span-based tracking when parser provides spans
+    /// Current limitation: Using simple tuple positions is insufficient for:
+    /// - Nested constructs with overlapping spans
+    /// - Precise error location reporting
+    /// - IDE features requiring exact position mapping
+    ///
     /// For now, we'll use simple span-based mapping
     scopes_by_span: FxHashMap<(usize, usize), FileScopeId>,
 
     /// All definitions in the file
+    /// TODO: Consider using a more efficient data structure for large files
+    /// Current Vec is simple but may not scale well for:
+    /// - Large files with many definitions
+    /// - Frequent lookup operations
+    ///
+    /// Consider: BTreeMap<DefinitionId, Definition> or similar indexed structure
     /// For now, we'll store them in a simple Vec and provide access methods
     definitions: Vec<(FileScopeId, DefinitionKind, crate::place::ScopedPlaceId)>,
 
@@ -34,10 +59,14 @@ pub struct SemanticIndex {
     /// Key: (identifier_name, scope_where_used)
     /// Value: (definition_scope, definition_place)
     /// TODO: Replace with span-based tracking when parser provides spans
+    /// TODO: Handle multiple definitions with the same name in different scopes
+    /// TODO: Support shadowing and proper scope resolution order
     uses: FxHashMap<(String, FileScopeId), (FileScopeId, crate::place::ScopedPlaceId)>,
 
     /// Track all identifier usages with their containing scopes
     /// This will help implement undeclared variable detection
+    /// TODO: Include position information for better error reporting
+    /// TODO: Distinguish between different kinds of identifier usage (value, type, etc.)
     identifier_usages: Vec<(String, FileScopeId)>,
 }
 
@@ -214,22 +243,45 @@ impl Default for SemanticIndex {
     }
 }
 
-/// Main semantic analysis query
+/// Main entry point for semantic analysis
 ///
-/// This is the primary Salsa-tracked query that builds the complete semantic
-/// index for a source file. It takes a parsed module and produces the semantic
-/// analysis result.
+/// This is the primary Salsa query that produces a complete semantic model for a source file.
+/// The result is cached by Salsa for incremental compilation - if the input file hasn't
+/// changed, this function won't be re-executed.
+///
+/// # Parameters
+///
+/// - `db`: The semantic database instance
+/// - `file`: The source file to analyze
+///
+/// # Returns
+///
+/// A complete `SemanticIndex` containing all semantic information for the file.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// let db = SemanticDatabaseImpl::default();
+/// let file = SourceProgram::new(&db, source_code);
+/// let index = semantic_index(&db, file);
+/// ```
 #[salsa::tracked(returns(ref))]
 pub fn semantic_index(db: &dyn SemanticDb, file: File) -> SemanticIndex {
-    // Get the parsed module from the parser
-    let module = parse_program(db, file);
-
-    // Create the semantic index builder and build the index
-    let builder = SemanticIndexBuilder::new(db, file, module);
-    builder.build()
+    // Parse the file and analyze its semantics
+    let parsed_module = parse_program(db, file);
+    semantic_index_from_module(db, parsed_module, file)
 }
 
-#[salsa::tracked(returns(ref))]
+/// Build semantic index from an already-parsed module
+///
+/// This function is useful when you already have a parsed module and want to
+/// perform semantic analysis without re-parsing. It's also used internally
+/// by the main `semantic_index` function.
+///
+/// # Note
+///
+/// This function performs the actual semantic analysis work by building
+/// scope trees, symbol tables, and use-def chains.
 pub fn semantic_index_from_module<'a>(
     db: &'a dyn SemanticDb,
     module: &'a ParsedModule,
@@ -239,25 +291,44 @@ pub fn semantic_index_from_module<'a>(
     builder.build()
 }
 
-/// Validate semantic analysis and return diagnostics
+/// Validate semantics and return diagnostics
 ///
-/// This query runs all semantic validators on the semantic index
-/// and returns any issues found.
-#[salsa::tracked(returns(ref))]
+/// This is the main entry point for semantic validation. It builds the semantic
+/// index and runs all registered validators to produce a collection of diagnostics.
+///
+/// # Validators
+///
+/// Currently includes:
+/// - Scope validation (undeclared variables, unused variables, duplicates)
+///
+/// # TODO: Add more validators
+/// - Type checking validation
+/// - Control flow validation
+/// - Module/import validation
+/// - Style/lint validation
 pub fn validate_semantics<'a>(
     db: &'a dyn SemanticDb,
     module: &'a ParsedModule,
     file: File,
 ) -> crate::validation::DiagnosticCollection {
     let index = semantic_index_from_module(db, module, file);
+
+    // Create validator registry with all available validators
     let registry = crate::validation::validator::create_default_registry();
-    registry.validate_all(db, file, index)
+    registry.validate_all(db, file, &index)
 }
 
-/// Builder for constructing the semantic index
+/// Internal builder for constructing semantic indices
 ///
-/// This follows the visitor pattern to walk the AST and build up
-/// the semantic information incrementally.
+/// This struct encapsulates the state needed during semantic analysis,
+/// including the current scope stack and the index being built.
+/// It implements a visitor pattern to traverse the AST and build
+/// the semantic model incrementally.
+///
+/// # Design Notes
+///
+/// The builder uses a stack-based approach to track nested scopes,
+/// which simplifies the implementation of scope-aware analysis.
 pub(crate) struct SemanticIndexBuilder<'db> {
     _db: &'db dyn SemanticDb,
     _file: File,
@@ -265,6 +336,8 @@ pub(crate) struct SemanticIndexBuilder<'db> {
 
     // Current building state
     index: SemanticIndex,
+    /// Stack of scope IDs representing the current nesting level
+    /// The top of the stack is the currently active scope
     scope_stack: Vec<FileScopeId>,
 }
 
@@ -475,6 +548,7 @@ impl<'db> SemanticIndexBuilder<'db> {
                 self.add_place_with_definition(name, PlaceFlags::DEFINED, def_kind);
                 // Visit the value expression
                 self.visit_expression(value);
+                // TODO: Analyze type annotation when type system is implemented
             }
             Statement::Const(const_def) => {
                 self.visit_const(const_def);
@@ -483,11 +557,15 @@ impl<'db> SemanticIndexBuilder<'db> {
                 // Visit both sides - assignment targets and values
                 self.visit_expression(lhs);
                 self.visit_expression(rhs);
+                // TODO: Validate assignment compatibility (types, mutability)
+                // TODO: Check that LHS is actually assignable (not a constant, etc.)
             }
             Statement::Return { value } => {
                 if let Some(expr) = value {
                     self.visit_expression(expr);
                 }
+                // TODO: Validate return type compatibility with function signature
+                // TODO: Check that we're actually inside a function
             }
             Statement::If {
                 condition,
@@ -495,17 +573,23 @@ impl<'db> SemanticIndexBuilder<'db> {
                 else_block,
             } => {
                 self.visit_expression(condition);
+                // TODO: Consider adding block scoping for if statements
+                // Currently, if blocks don't create new scopes which may not match Cairo-M semantics
                 self.visit_statement(then_block);
                 if let Some(else_stmt) = else_block {
                     self.visit_statement(else_stmt);
                 }
+                // TODO: Implement control flow analysis to track reachability
+                // TODO: Validate boolean condition type when type system is ready
             }
             Statement::Expression(expr) => {
                 self.visit_expression(expr);
             }
             Statement::Block(statements) => {
+                // TODO: Decide whether blocks should create new scopes
                 // For now, blocks don't create new scopes
                 // This could be changed later for block-scoped variables
+                // Consider: Does Cairo-M have block scoping like Rust?
                 for stmt in statements {
                     self.visit_statement(stmt);
                 }
@@ -549,16 +633,27 @@ impl<'db> SemanticIndexBuilder<'db> {
             }
             Expression::MemberAccess { object, .. } => {
                 self.visit_expression(object);
+                // TODO: Implement proper member access analysis
+                // Current limitation: Field access doesn't introduce new scope issues for now
+                // Future improvements needed:
+                // - Validate that the field exists on the type
+                // - Handle method calls vs field access
+                // - Support for nested member access chains
                 // Field access doesn't introduce new scope issues for now
             }
             Expression::IndexAccess { array, index } => {
                 self.visit_expression(array);
                 self.visit_expression(index);
+                // TODO: Add array bounds checking validation in future passes
+                // provided the array size is known.
             }
             Expression::StructLiteral { fields, .. } => {
                 for (_, field_value) in fields {
                     self.visit_expression(field_value);
                 }
+                // TODO: Validate struct literal field names against struct definition
+                // TODO: Check for missing required fields
+                // TODO: Check for unknown fields
             }
             Expression::Tuple(exprs) => {
                 for expr in exprs {
@@ -567,7 +662,10 @@ impl<'db> SemanticIndexBuilder<'db> {
             }
             Expression::Literal(_) => {
                 // Literals don't reference any symbols
-            }
+                // TODO: Consider adding literal validation (e.g., numeric range checks)
+            } // TODO: Add support for more expression types as the parser is extended:
+              // - Conditional expressions (ternary operator)
+              // - Array/slice literals
         }
     }
 }

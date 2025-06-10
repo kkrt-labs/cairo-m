@@ -12,6 +12,13 @@ pub struct Diagnostic {
     pub code: DiagnosticCode,
     pub message: String,
     /// Optional location information - for now we'll use simple string names
+    /// TODO: Replace with proper source spans when parser provides them
+    /// This will enable:
+    /// - Precise error location highlighting in IDEs
+    /// - Multi-line error spans
+    /// - Source code snippets in error messages
+    /// - Better integration with Language Server Protocol
+    ///
     /// This will be enhanced with proper spans in the next iteration
     pub location: Option<String>,
 }
@@ -45,9 +52,27 @@ pub enum DiagnosticCode {
 
     // Type-related errors (2000-2999) - placeholder for future
     TypeMismatch,
+    // TODO: Add more type-related diagnostic codes:
+    // - InvalidTypeAnnotation
+    // - TypeArgumentMismatch
+    // - IncompatibleTypes
+    // - MissingTypeAnnotation
+    // - CyclicTypeDefinition
 
     // Flow-related errors (3000-3999) - placeholder for future
     UnreachableCode,
+    // TODO: Add more control flow diagnostic codes:
+    // - DeadCode
+    // - MissingReturn
+    // - InvalidBreak
+    // - InvalidContinue
+    // - UnreachablePattern
+
+    // TODO: Add more diagnostic categories:
+    // - Import/module errors (4000-4999)
+    // - Syntax/style warnings (5000-5999)
+    // - Performance hints (6000-6999)
+    // - Security warnings (7000-7999)
 }
 
 impl Diagnostic {

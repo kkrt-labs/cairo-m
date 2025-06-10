@@ -1,3 +1,12 @@
+//! # Semantic Analysis Database
+//!
+//! This module defines the database traits and implementations for semantic analysis
+//! using the Salsa incremental computation framework. It extends the parser database
+//! to provide semantic-specific functionality.
+//!
+//! The database system enables incremental recompilation by caching query results
+//! and invalidating them only when their dependencies change.
+
 use cairo_m_compiler_parser as parser;
 use parser::Db as ParserDb;
 
@@ -6,13 +15,28 @@ use parser::Db as ParserDb;
 use parser::ParserDatabaseImpl;
 
 /// Database trait for semantic analysis, extending the parser database
+///
+/// This trait defines the interface for semantic-specific database operations.
+/// Currently minimal, but will be extended with semantic-specific queries as the
+/// system grows in complexity.
 #[salsa::db]
 pub trait SemanticDb: ParserDb {
-    // Future: Add semantic-specific database methods here
-    // fn semantic_settings(&self) -> &SemanticSettings;
+    // TODO: Add semantic-specific database methods here as the system grows:
+    // - fn semantic_settings(&self) -> &SemanticSettings;
+    // - fn type_environment(&self) -> TypeEnvironment;
+    // - fn import_resolution_cache(&self) -> ImportResolutionCache;
+    // - fn diagnostic_settings(&self) -> DiagnosticSettings;
 }
 
 /// Concrete database implementation for semantic analysis
+///
+/// This provides the actual storage and implementation for all database queries.
+/// It combines both parser and semantic analysis capabilities in a single database.
+///
+/// # Thread Safety
+///
+/// This implementation is `Clone` and can be safely shared between threads.
+/// Salsa handles the synchronization internally.
 #[salsa::db]
 #[derive(Clone, Default)]
 pub struct SemanticDatabaseImpl {
