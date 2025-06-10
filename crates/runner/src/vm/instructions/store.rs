@@ -25,19 +25,19 @@ pub fn store_add_fp_fp(
     Ok(state.advance())
 }
 
-/// Store the sum of the value at the offset `fp + off0` and the immediate value `off1` in the memory at the offset `fp + off2`.
+/// Store the sum of the value at the offset `fp + off0` and the immediate value `imm` in the memory at the offset `fp + off2`.
 ///
 /// CASM equivalent:
 /// ```casm
-/// [fp + off2] = [fp + off0] + off1
+/// [fp + off2] = [fp + off0] + imm
 /// ```
 pub fn store_add_fp_imm(
     memory: &mut Memory,
     state: State,
     instruction: Instruction,
 ) -> Result<State, MemoryError> {
-    let [off0, off1, off2] = instruction.args;
-    let value = memory.get_data(state.fp + off0)? + off1;
+    let [off0, imm, off2] = instruction.args;
+    let value = memory.get_data(state.fp + off0)? + imm;
     memory.insert(state.fp + off2, value.into())?;
 
     Ok(state.advance())
@@ -61,19 +61,19 @@ pub fn store_sub_fp_fp(
     Ok(state.advance())
 }
 
-/// Store the subtraction of the value at the offset `fp + off0` and the immediate value `off1` in the memory at the offset `fp + off2`.
+/// Store the subtraction of the value at the offset `fp + off0` and the immediate value `imm` in the memory at the offset `fp + off2`.
 ///
 /// CASM equivalent:
 /// ```casm
-/// [fp + off2] = [fp + off0] - off1
+/// [fp + off2] = [fp + off0] - imm
 /// ```
 pub fn store_sub_fp_imm(
     memory: &mut Memory,
     state: State,
     instruction: Instruction,
 ) -> Result<State, MemoryError> {
-    let [off0, off1, off2] = instruction.args;
-    let value = memory.get_data(state.fp + off0)? - off1;
+    let [off0, imm, off2] = instruction.args;
+    let value = memory.get_data(state.fp + off0)? - imm;
     memory.insert(state.fp + off2, value.into())?;
 
     Ok(state.advance())
@@ -154,19 +154,19 @@ pub fn store_mul_fp_fp(
     Ok(state.advance())
 }
 
-/// Store the product of the value at the offset `fp + off0` and the immediate value `off1` in the memory at the offset `fp + off2`.
+/// Store the product of the value at the offset `fp + off0` and the immediate value `imm` in the memory at the offset `fp + off2`.
 ///
 /// CASM equivalent:
 /// ```casm
-/// [fp + off2] = [fp + off0] * off1
+/// [fp + off2] = [fp + off0] * imm
 /// ```
 pub fn store_mul_fp_imm(
     memory: &mut Memory,
     state: State,
     instruction: Instruction,
 ) -> Result<State, MemoryError> {
-    let [off0, off1, off2] = instruction.args;
-    let value = memory.get_data(state.fp + off0)? * off1;
+    let [off0, imm, off2] = instruction.args;
+    let value = memory.get_data(state.fp + off0)? * imm;
     memory.insert(state.fp + off2, value.into())?;
 
     Ok(state.advance())
@@ -190,19 +190,19 @@ pub fn store_div_fp_fp(
     Ok(state.advance())
 }
 
-/// Store the division of the value at the offset `fp + off0` and the immediate value `off1` in the memory at the offset `fp + off2`.
+/// Store the division of the value at the offset `fp + off0` and the immediate value `imm
 ///
 /// CASM equivalent:
 /// ```casm
-/// [fp + off2] = [fp + off0] / off1
+/// [fp + off2] = [fp + off0] / imm
 /// ```
 pub fn store_div_fp_imm(
     memory: &mut Memory,
     state: State,
     instruction: Instruction,
 ) -> Result<State, MemoryError> {
-    let [off0, off1, off2] = instruction.args;
-    let value = memory.get_data(state.fp + off0)? / off1;
+    let [off0, imm, off2] = instruction.args;
+    let value = memory.get_data(state.fp + off0)? / imm;
     memory.insert(state.fp + off2, value.into())?;
 
     Ok(state.advance())
