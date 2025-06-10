@@ -27,8 +27,8 @@ struct LexResult<'a> {
 }
 
 /// Result of parsing tokens
-struct ParseResult<'a, 'db> {
-    ast: Vec<cairo_m_compiler_parser::parser::TopLevelItem<'db>>,
+struct ParseResult<'a> {
+    ast: Vec<cairo_m_compiler_parser::parser::TopLevelItem>,
     errors: Vec<Rich<'a, TokenType<'a>, SimpleSpan>>,
 }
 
@@ -55,7 +55,7 @@ fn main() {
             let db = cairo_m_compiler_parser::ParserDatabaseImpl::default();
             // Attaching the database for debug printouts
             db.attach(|db| {
-                let parse_result = parse_tokens(lex_result.tokens, &content, db);
+                let parse_result = parse_tokens(db, lex_result.tokens, &content);
                 if !parse_result.errors.is_empty() {
                     println!("\nParsing errors:");
                     for error in parse_result.errors {
@@ -91,15 +91,16 @@ fn lex_source(source: &str) -> LexResult<'_> {
 }
 
 /// Parse tokens into an AST
-fn parse_tokens<'a: 'db, 'db>(
+/// TODO: use cached salsa result
+fn parse_tokens<'a>(
+    _db: &dyn salsa::Database,
     tokens: Vec<(TokenType<'a>, logos::Span)>,
     source: &str,
-    db: &'db dyn salsa::Database,
-) -> ParseResult<'a, 'db> {
+) -> ParseResult<'a> {
     let token_stream =
         Stream::from_iter(tokens).map((0..source.len()).into(), |(t, s): (_, _)| (t, s.into()));
 
-    match parser(db)
+    match parser()
         .then_ignore(end())
         .parse(token_stream)
         .into_result()
