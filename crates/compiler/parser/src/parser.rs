@@ -858,7 +858,7 @@ mod tests {
     impl<'db> std::fmt::Display for SnapshotEntries<'db> {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             for entry in self.0.iter() {
-                write!(f, "{}", entry)?;
+                write!(f, "{entry}")?;
             }
             Ok(())
         }
@@ -873,8 +873,8 @@ mod tests {
     impl<'db> std::fmt::Display for SnapshotResult<'db> {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             match self {
-                Self::ParseSuccess(ast) => write!(f, "{:#?}", ast),
-                Self::ParseError(err) => write!(f, "{}", err),
+                Self::ParseSuccess(ast) => write!(f, "{ast:#?}"),
+                Self::ParseError(err) => write!(f, "{err}"),
             }
         }
     }
@@ -961,7 +961,7 @@ mod tests {
             )
             .with_code(3)
             .with_message(error.to_string())
-            .with_label(Label::new(((), span.into_range())).with_message(format!("{}", error)))
+            .with_label(Label::new(((), span.into_range())).with_message(format!("{error}")))
             .finish()
             .write(Source::from(source), &mut write_buffer)
             .unwrap();
