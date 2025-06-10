@@ -688,10 +688,17 @@ impl<'db> SemanticIndexBuilder<'db> {
         use crate::place::PlaceFlags;
 
         match stmt.value() {
-            Statement::Let { name, value } => {
+            Statement::Let {
+                name,
+                value,
+                statement_type,
+            } => {
                 use crate::definition::{DefinitionKind, LetDefRef};
                 // Define the let variable
-                let def_kind = DefinitionKind::Let(LetDefRef::from_let_statement(name.value()));
+                let def_kind = DefinitionKind::Let(LetDefRef::from_let_statement(
+                    name.value(),
+                    statement_type.clone(),
+                ));
                 self.add_place_with_definition(
                     name.value(),
                     PlaceFlags::DEFINED,

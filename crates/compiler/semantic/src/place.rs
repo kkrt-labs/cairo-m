@@ -10,7 +10,7 @@
 //! - **PlaceTable**: Symbol table for a specific scope, mapping names to places
 
 use bitflags::bitflags;
-use index_vec;
+use index_vec::{self, IndexVec};
 use rustc_hash::FxHashMap;
 use std::fmt;
 
@@ -27,17 +27,16 @@ impl FileScopeId {
     }
 }
 
-/// A unique ID for a place within a scope
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ScopedPlaceId(pub usize);
+index_vec::define_index_type! {
+    /// A unique ID for a place within a scope
+    pub struct ScopedPlaceId = usize;
+
+    MAX_INDEX = usize::MAX;
+}
 
 impl ScopedPlaceId {
-    pub const fn new(id: usize) -> Self {
-        Self(id)
-    }
-
     pub const fn as_usize(self) -> usize {
-        self.0
+        self.raw()
     }
 }
 
@@ -66,10 +65,7 @@ pub enum ScopeKind {
     /// Namespace scope
     Namespace,
     /// Block scope (for future block scoping support)
-    /// TODO: Clarify Cairo-M's block scoping rules
-    /// - Do blocks create new scopes like Rust?
     Block,
-    // TODO: Add more scope types as Cairo-M language features are defined:
 }
 
 impl fmt::Display for ScopeKind {
@@ -90,7 +86,7 @@ impl fmt::Display for ScopeKind {
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct PlaceTable {
     /// All places in this scope, indexed by ScopedPlaceId
-    places: Vec<Place>,
+    places: IndexVec<ScopedPlaceId, Place>,
     /// Mapping from name to place ID for fast lookup
     places_by_name: FxHashMap<String, ScopedPlaceId>,
 }
@@ -118,12 +114,12 @@ impl PlaceTable {
 
     /// Get a place by its ID
     pub fn place(&self, id: ScopedPlaceId) -> Option<&Place> {
-        self.places.get(id.as_usize())
+        self.places.get(id)
     }
 
     /// Get a mutable reference to a place by its ID
     pub fn place_mut(&mut self, id: ScopedPlaceId) -> Option<&mut Place> {
-        self.places.get_mut(id.as_usize())
+        self.places.get_mut(id)
     }
 
     /// Mark a place as used
@@ -142,12 +138,12 @@ impl PlaceTable {
     }
 
     /// Get the number of places in this scope
-    pub const fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.places.len()
     }
 
     /// Check if this scope has no places
-    pub const fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.places.is_empty()
     }
 }
@@ -179,7 +175,7 @@ impl Place {
 
 bitflags! {
     /// Flags indicating properties of a place
-    // TODO: assess whether we need this
+    // TODO: assess whether we need this. This might be thrown away as un-needed.
     #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
     pub struct PlaceFlags: u8 {
         /// The place is defined in this scope (e.g., `let x = ...`)

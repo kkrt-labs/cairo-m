@@ -154,7 +154,8 @@ pub fn expression_semantic_type<'db>(
     };
 
     // To get the AST node, we need to re-access the parsed module and search by span.
-    // This is inefficient but necessary without an AST ID map.
+    // Even if cached, this is inefficient but necessary without an AST ID map.
+    // TODO: make this more efficient!
     let parsed_module = parse_program(db, file);
     let Some(ast_expr) = find_expression_in_module(parsed_module, expr_info.ast_node_text_range)
     else {
@@ -174,7 +175,7 @@ pub fn expression_semantic_type<'db>(
             }
         }
         Expression::BinaryOp { left, op: _, right } => {
-            // For now, assume all binary ops are on felts and return felt.
+            // TODO For now, assume all binary ops are on felts and return felt.
             // A real implementation would check left/right types.
             let left_id = semantic_index.expression_id_by_span(left.span()).unwrap();
             let right_id = semantic_index.expression_id_by_span(right.span()).unwrap();
@@ -182,7 +183,8 @@ pub fn expression_semantic_type<'db>(
             let left_type = expression_semantic_type(db, file, left_id);
             let right_type = expression_semantic_type(db, file, right_id);
 
-            // Basic type check
+            // Basic type check - both should be felt, or fail.
+            // TODO: add test for this.
             if are_types_compatible(db, left_type, TypeId::new(db, TypeData::Felt))
                 && are_types_compatible(db, right_type, TypeId::new(db, TypeData::Felt))
             {
@@ -195,6 +197,7 @@ pub fn expression_semantic_type<'db>(
             let object_id = semantic_index.expression_id_by_span(object.span()).unwrap();
             let object_type = expression_semantic_type(db, file, object_id);
 
+            // TODO: add test for this.
             if let TypeData::Struct(struct_id) = object_type.data(db) {
                 struct_id
                     .field_type(db, field.value())

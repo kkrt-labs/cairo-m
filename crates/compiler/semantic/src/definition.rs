@@ -4,16 +4,13 @@
 //! It provides the connection between syntax (AST) and semantics (places/symbols).
 
 use crate::place::{FileScopeId, ScopedPlaceId};
+use crate::semantic_index::ExpressionId;
 use crate::File;
 use cairo_m_compiler_parser::parser::{
     ConstDef, FunctionDef, ImportStmt, Namespace, Parameter, Spanned, StructDef, TypeExpr,
 };
 use chumsky::span::SimpleSpan;
 use std::fmt;
-
-// Import ExpressionId from semantic_index
-// We'll define it here temporarily to avoid circular dependencies
-use crate::semantic_index::ExpressionId;
 
 /// A definition that links a semantic place to its AST node
 ///
@@ -152,11 +149,11 @@ pub struct LetDefRef {
 }
 
 impl LetDefRef {
-    pub fn from_let_statement(name: &str) -> Self {
+    pub fn from_let_statement(name: &str, explicit_type_ast: Option<TypeExpr>) -> Self {
         Self {
             name: name.to_string(),
-            value_expr_id: None,     // Will be set during semantic analysis
-            explicit_type_ast: None, // TODO: Extract from let statement when parser supports it
+            value_expr_id: None, // Will be set during semantic analysis, and verified against an eventual explicit type.
+            explicit_type_ast,
         }
     }
 }
@@ -225,6 +222,7 @@ impl ImportDefRef {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NamespaceDefRef {
     pub name: String,
+    // TODO: is this field needed?
     pub item_count: usize,
 }
 
