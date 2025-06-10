@@ -99,8 +99,6 @@ pub fn store_deref_fp(
 
 /// Store the double derefence of the value at the offset `fp + off0` and the offset `off1` in the memory at the offset `fp + off2`.
 ///
-/// OPCODE ID: 5
-///
 /// CASM equivalent:
 /// ```casm
 /// [fp + off2] = [[fp + off0] + off1]
