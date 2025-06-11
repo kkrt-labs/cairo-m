@@ -79,6 +79,7 @@ pub enum DiagnosticCode {
     TypeMismatch,
     InvalidFieldAccess,
     InvalidIndexAccess,
+    InvalidIndexType,
     InvalidStructLiteral,
     InvalidFunctionCall,
     InvalidAssignment,

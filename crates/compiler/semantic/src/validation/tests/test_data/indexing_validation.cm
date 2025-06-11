@@ -1,0 +1,31 @@
+// Test cases for indexing validation
+
+// Valid indexing cases
+func valid_indexing() {
+    // Tuple indexing
+    let tup = (1, 2, 3);
+    let first = tup[0];
+    let second = tup[1];
+    let third = tup[2];
+}
+
+// Invalid indexing cases
+func invalid_indexing() {
+    // Indexing non-indexable types
+    let num = 42;
+    let bad1 = num[0];  // Should error: cannot index felt
+
+    // Non-integer indices
+    let tup = (1, 2, 3);
+    let bad2 = tup["string"];  // Should error: index must be integer
+
+    struct Point {
+        x: felt,
+        y: felt,
+    }
+    let bad3 = tup[Point { x: 1, y: 2 }];  // Should error: index must be integer
+
+    // Out of bounds (when possible to detect)
+    let small_tup = (1, 2);
+    let bad4 = small_tup[2];  // Should error: index out of bounds
+} 
