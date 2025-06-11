@@ -195,7 +195,7 @@ pub fn jmp_rel_double_deref_fp(
 /// jmp rel imm
 /// ```
 pub fn jmp_rel_imm(
-    _memory: &mut Memory,
+    _: &mut Memory,
     state: State,
     instruction: Instruction,
 ) -> Result<State, MemoryError> {
@@ -244,6 +244,11 @@ mod tests {
     use stwo_prover::core::fields::m31::M31;
 
     use super::*;
+
+    const JMP_REL_INITIALSTATE: State = State {
+        pc: M31(3),
+        fp: M31(0),
+    };
 
     #[test]
     fn test_jmp_abs_add_fp_fp() -> Result<(), MemoryError> {
@@ -367,13 +372,12 @@ mod tests {
     #[test]
     fn test_jmp_rel_add_fp_fp() -> Result<(), MemoryError> {
         let mut memory = Memory::from_iter([1, 2].map(Into::into));
-        let state = State::default();
         let instruction = Instruction::from([23, 0, 1, 0]);
 
-        let new_state = jmp_rel_add_fp_fp(&mut memory, state, instruction)?;
+        let new_state = jmp_rel_add_fp_fp(&mut memory, JMP_REL_INITIALSTATE, instruction)?;
 
         let expected_state = State {
-            pc: M31(3),
+            pc: M31(6),
             fp: M31::zero(),
         };
         assert_eq!(new_state, expected_state);
@@ -384,13 +388,12 @@ mod tests {
     #[test]
     fn test_jmp_rel_add_fp_imm() -> Result<(), MemoryError> {
         let mut memory = Memory::from_iter([2].map(Into::into));
-        let state = State::default();
         let instruction = Instruction::from([24, 0, 4, 0]);
 
-        let new_state = jmp_rel_add_fp_imm(&mut memory, state, instruction)?;
+        let new_state = jmp_rel_add_fp_imm(&mut memory, JMP_REL_INITIALSTATE, instruction)?;
 
         let expected_state = State {
-            pc: M31(6),
+            pc: M31(9),
             fp: M31::zero(),
         };
         assert_eq!(new_state, expected_state);
@@ -401,13 +404,12 @@ mod tests {
     #[test]
     fn test_jmp_rel_deref_fp() -> Result<(), MemoryError> {
         let mut memory = Memory::from_iter([2].map(Into::into));
-        let state = State::default();
         let instruction = Instruction::from([25, 0, 0, 0]);
 
-        let new_state = jmp_rel_deref_fp(&mut memory, state, instruction)?;
+        let new_state = jmp_rel_deref_fp(&mut memory, JMP_REL_INITIALSTATE, instruction)?;
 
         let expected_state = State {
-            pc: M31(2),
+            pc: M31(5),
             fp: M31::zero(),
         };
         assert_eq!(new_state, expected_state);
@@ -418,44 +420,9 @@ mod tests {
     #[test]
     fn test_jmp_rel_double_deref_fp() -> Result<(), MemoryError> {
         let mut memory = Memory::from_iter([0, 3].map(Into::into));
-        let state = State::default();
         let instruction = Instruction::from([26, 0, 1, 0]);
 
-        let new_state = jmp_rel_double_deref_fp(&mut memory, state, instruction)?;
-
-        let expected_state = State {
-            pc: M31(3),
-            fp: M31::zero(),
-        };
-        assert_eq!(new_state, expected_state);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_jmp_rel_imm() -> Result<(), MemoryError> {
-        let mut memory = Memory::default();
-        let state = State::default();
-        let instruction = Instruction::from([27, 4, 0, 0]);
-
-        let new_state = jmp_rel_imm(&mut memory, state, instruction)?;
-
-        let expected_state = State {
-            pc: M31(4),
-            fp: M31::zero(),
-        };
-        assert_eq!(new_state, expected_state);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_jmp_rel_mul_fp_fp() -> Result<(), MemoryError> {
-        let mut memory = Memory::from_iter([2, 3].map(Into::into));
-        let state = State::default();
-        let instruction = Instruction::from([28, 0, 1, 0]);
-
-        let new_state = jmp_rel_mul_fp_fp(&mut memory, state, instruction)?;
+        let new_state = jmp_rel_double_deref_fp(&mut memory, JMP_REL_INITIALSTATE, instruction)?;
 
         let expected_state = State {
             pc: M31(6),
@@ -467,15 +434,46 @@ mod tests {
     }
 
     #[test]
-    fn test_jmp_rel_mul_fp_imm() -> Result<(), MemoryError> {
-        let mut memory = Memory::from_iter([2].map(Into::into));
-        let state = State::default();
-        let instruction = Instruction::from([29, 0, 4, 0]);
+    fn test_jmp_rel_imm() -> Result<(), MemoryError> {
+        let mut memory = Memory::default();
+        let instruction = Instruction::from([27, 4, 0, 0]);
 
-        let new_state = jmp_rel_mul_fp_imm(&mut memory, state, instruction)?;
+        let new_state = jmp_rel_imm(&mut memory, JMP_REL_INITIALSTATE, instruction)?;
 
         let expected_state = State {
-            pc: M31(8),
+            pc: M31(7),
+            fp: M31::zero(),
+        };
+        assert_eq!(new_state, expected_state);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_jmp_rel_mul_fp_fp() -> Result<(), MemoryError> {
+        let mut memory = Memory::from_iter([2, 3].map(Into::into));
+        let instruction = Instruction::from([28, 0, 1, 0]);
+
+        let new_state = jmp_rel_mul_fp_fp(&mut memory, JMP_REL_INITIALSTATE, instruction)?;
+
+        let expected_state = State {
+            pc: M31(9),
+            fp: M31::zero(),
+        };
+        assert_eq!(new_state, expected_state);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_jmp_rel_mul_fp_imm() -> Result<(), MemoryError> {
+        let mut memory = Memory::from_iter([2].map(Into::into));
+        let instruction = Instruction::from([29, 0, 4, 0]);
+
+        let new_state = jmp_rel_mul_fp_imm(&mut memory, JMP_REL_INITIALSTATE, instruction)?;
+
+        let expected_state = State {
+            pc: M31(11),
             fp: M31::zero(),
         };
         assert_eq!(new_state, expected_state);
