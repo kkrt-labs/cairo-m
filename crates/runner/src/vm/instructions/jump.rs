@@ -5,8 +5,6 @@ use crate::{
     vm::{instructions::Instruction, State},
 };
 
-/// Absolute Jump - Replace PC by the sum of the memory values at the offsets `fp + off0` and `fp + off1`.
-///
 /// CASM equivalent:
 /// ```casm
 /// jmp abs [fp + off0] + [fp + off1]
@@ -22,8 +20,6 @@ pub fn jmp_abs_add_fp_fp(
     Ok(state.jump_abs(offset))
 }
 
-/// Absolute Jump - Replace PC by the sum of the memory value at the offset `fp + off0` and the immediate value `imm`.
-///
 /// CASM equivalent:
 /// ```casm
 /// jmp abs [fp + off0] + imm
@@ -39,8 +35,6 @@ pub fn jmp_abs_add_fp_imm(
     Ok(state.jump_abs(offset))
 }
 
-/// Absolute Jump - Replace PC by the memory value at the offset `fp + off0`.
-///
 /// CASM equivalent:
 /// ```casm
 /// jmp abs [fp + off0]
@@ -56,8 +50,6 @@ pub fn jmp_abs_deref_fp(
     Ok(state.jump_abs(offset))
 }
 
-/// Absolute Jump - Replace PC by the memory value at the offset `[[fp + off0] + off1]`.
-///
 /// CASM equivalent:
 /// ```casm
 /// jmp abs [[fp + off0] + off1]
@@ -74,8 +66,6 @@ pub fn jmp_abs_double_deref_fp(
     Ok(state.jump_abs(offset))
 }
 
-/// Absolute Jump - Replace PC by the immediate value `imm`.
-///
 /// CASM equivalent:
 /// ```casm
 /// jmp abs imm
@@ -90,8 +80,6 @@ pub const fn jmp_abs_imm(
     Ok(state.jump_abs(imm))
 }
 
-/// Absolute Jump - Replace PC by the product of the memory values at the offsets `fp + off0` and `fp + off1`.
-///
 /// CASM equivalent:
 /// ```casm
 /// jmp abs [fp + off0] * [fp + off1]
@@ -107,8 +95,6 @@ pub fn jmp_abs_mul_fp_fp(
     Ok(state.jump_abs(offset))
 }
 
-/// Absolute Jump - Replace PC by the product of the memory value at the offset `fp + off0` and the immediate value `imm`.
-///
 /// CASM equivalent:
 /// ```casm
 /// jmp abs [fp + off0] * imm
@@ -124,7 +110,6 @@ pub fn jmp_abs_mul_fp_imm(
     Ok(state.jump_abs(offset))
 }
 
-/// Relative Jump - Add to PC the sum of the memory values at the offsets `fp + off0` and `fp + off1`.
 pub fn jmp_rel_add_fp_fp(
     memory: &mut Memory,
     state: State,
@@ -136,8 +121,6 @@ pub fn jmp_rel_add_fp_fp(
     Ok(state.jump_rel(offset))
 }
 
-/// Relative Jump - Add to PC the sum of the memory value at the offset `fp + off0` and the immediate value `imm`.
-///
 /// CASM equivalent:
 /// ```casm
 /// jmp rel [fp + off0] + imm
@@ -153,8 +136,6 @@ pub fn jmp_rel_add_fp_imm(
     Ok(state.jump_rel(offset))
 }
 
-/// Relative Jump - Add to PC the memory value at the offset `fp + off0`.
-///
 /// CASM equivalent:
 /// ```casm
 /// jmp rel [fp + off0]
@@ -170,8 +151,6 @@ pub fn jmp_rel_deref_fp(
     Ok(state.jump_rel(offset))
 }
 
-/// Relative Jump - Add to PC the memory value at the offset `[[fp + off0] + off1]`.
-///
 /// CASM equivalent:
 /// ```casm
 /// jmp rel [[fp + off0] + off1]
@@ -188,8 +167,6 @@ pub fn jmp_rel_double_deref_fp(
     Ok(state.jump_rel(offset))
 }
 
-/// Relative Jump - Add to PC the immediate value `imm`.
-///
 /// CASM equivalent:
 /// ```casm
 /// jmp rel imm
@@ -204,8 +181,6 @@ pub fn jmp_rel_imm(
     Ok(state.jump_rel(imm))
 }
 
-/// Relative Jump - Add to PC the product of the memory values at the offsets `fp + off0` and `fp + off1`.
-///
 /// CASM equivalent:
 /// ```casm
 /// jmp rel [fp + off0] * [fp + off1]
@@ -221,8 +196,6 @@ pub fn jmp_rel_mul_fp_fp(
     Ok(state.jump_rel(offset))
 }
 
-/// Relative Jump - Add to PC the product of the memory value at the offset `fp + off0` and the immediate value `imm`.
-///
 /// CASM equivalent:
 /// ```casm
 /// jmp rel [fp + off0] * imm
