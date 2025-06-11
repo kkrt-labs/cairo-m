@@ -32,6 +32,7 @@
 //! efficient than tracking individual nodes.
 
 use crate::lexer::TokenType;
+use cairo_m_compiler_diagnostics::Diagnostic;
 use chumsky::{input::ValueInput, prelude::*};
 use std::ops::Range;
 
@@ -39,20 +40,6 @@ use std::ops::Range;
 pub struct SourceProgram {
     #[returns(ref)]
     pub text: String,
-}
-
-/// A diagnostic message from parsing
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ParseDiagnostic {
-    pub message: String,
-    /// Source span where this diagnostic applies
-    pub span: SimpleSpan<usize>,
-}
-
-impl ParseDiagnostic {
-    pub const fn new(message: String, span: SimpleSpan<usize>) -> Self {
-        Self { message, span }
-    }
 }
 
 /// Represents a type expression in the Cairo-M language.
@@ -312,11 +299,11 @@ impl ParsedModule {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ParseOutput {
     pub module: ParsedModule,
-    pub diagnostics: Vec<ParseDiagnostic>,
+    pub diagnostics: Vec<Diagnostic>,
 }
 
 impl ParseOutput {
-    pub const fn new(module: ParsedModule, diagnostics: Vec<ParseDiagnostic>) -> Self {
+    pub const fn new(module: ParsedModule, diagnostics: Vec<Diagnostic>) -> Self {
         Self {
             module,
             diagnostics,
@@ -342,7 +329,7 @@ pub fn parse_program(db: &dyn crate::Db, source: SourceProgram) -> ParseOutput {
             Ok(token) => tokens.push((token, span.into())),
             Err(lexing_error) => {
                 // Create a meaningful diagnostic for lexer errors
-                let diagnostic = ParseDiagnostic::new(format!("{lexing_error}"), span.into());
+                let diagnostic = Diagnostic::lexical_error(format!("{lexing_error}"), span.into());
                 diagnostics.push(diagnostic);
             }
         }
@@ -367,7 +354,7 @@ pub fn parse_program(db: &dyn crate::Db, source: SourceProgram) -> ParseOutput {
         Err(parse_errors) => {
             // Convert parser errors to diagnostics with better messages
             for error in parse_errors {
-                let diagnostic = ParseDiagnostic::new(format!("{error}"), *error.span());
+                let diagnostic = Diagnostic::syntax_error(format!("{error}"), *error.span());
                 diagnostics.push(diagnostic);
             }
             ParseOutput::new(ParsedModule::new(vec![]), diagnostics)
@@ -1028,8 +1015,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::build_parse_diagnostic_message;
     use crate::db::ParserDatabaseImpl;
+    use cairo_m_compiler_diagnostics::build_diagnostic_message;
 
     use super::*;
     use crate::lexer::LexingError;
@@ -1145,8 +1132,7 @@ mod tests {
             let mut snapshot_entries = SnapshotEntries(Vec::new());
             for diagnostic in result.diagnostics.iter() {
                 // Use the error module from the same crate for nice formatting
-                let formatted_error =
-                    build_parse_diagnostic_message(test_case.code, diagnostic, false);
+                let formatted_error = build_diagnostic_message(test_case.code, diagnostic, false);
                 snapshot_entries.0.push(SnapshotEntry {
                     code: test_case.code.to_string(),
                     result: SnapshotResult::ParseError(formatted_error),
@@ -2097,7 +2083,7 @@ mod tests {
     fn test_deep_nesting() {
         run_test_case(test_case!(
             name: "deep_nesting",
-            code: "func test() { if (true) { if (false) { if (true) { if (true) { if (true) { x = 1; } } } } } }",
+            code: "func test() { if (true) { if (false) { if (true) { if (true) { if (true) { let x = 1; } } } } } }",
 
             construct: "statement"
         ));

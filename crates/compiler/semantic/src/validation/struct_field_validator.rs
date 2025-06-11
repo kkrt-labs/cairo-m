@@ -10,9 +10,9 @@
 use crate::db::SemanticDb;
 use crate::type_resolution::expression_semantic_type;
 use crate::types::TypeData;
-use crate::validation::{Diagnostic, Validator};
-use crate::DiagnosticCode;
+use crate::validation::Validator;
 use crate::{File, SemanticIndex};
+use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode};
 use cairo_m_compiler_parser::parser::Expression;
 use std::collections::HashSet;
 

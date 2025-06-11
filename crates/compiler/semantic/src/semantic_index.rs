@@ -48,11 +48,12 @@
 use crate::definition::DefinitionKind;
 use crate::place::{FileScopeId, PlaceTable, Scope};
 use crate::{Definition, File, SemanticDb};
+use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCollection};
 use cairo_m_compiler_parser::parser::{
     ConstDef, Expression, FunctionDef, ImportStmt, Namespace, Spanned, Statement, StructDef,
     TopLevelItem,
 };
-use cairo_m_compiler_parser::{parse_program, ParseDiagnostic, ParsedModule, SourceProgram};
+use cairo_m_compiler_parser::{parse_program, ParsedModule};
 use chumsky::span::SimpleSpan;
 use index_vec::IndexVec;
 use rustc_hash::FxHashMap;
@@ -457,10 +458,7 @@ impl Default for SemanticIndex {
 /// let index = semantic_index(&db, file).as_ref().expect("Got unexpected parse errors");
 /// ```
 #[salsa::tracked(returns(ref))]
-pub fn semantic_index(
-    db: &dyn SemanticDb,
-    file: File,
-) -> Result<SemanticIndex, Vec<ParseDiagnostic>> {
+pub fn semantic_index(db: &dyn SemanticDb, file: File) -> Result<SemanticIndex, Vec<Diagnostic>> {
     // Parse the file and analyze its semantics
     let parsed_module = parse_program(db, file);
     if parsed_module.diagnostics.is_empty() {
@@ -508,7 +506,7 @@ pub fn validate_semantics<'a>(
     db: &'a dyn SemanticDb,
     module: &'a ParsedModule,
     file: File,
-) -> crate::validation::DiagnosticCollection {
+) -> DiagnosticCollection {
     let index = semantic_index_from_module(db, module, file);
 
     // Create validator registry with all available validators

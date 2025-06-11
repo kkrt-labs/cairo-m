@@ -4,7 +4,7 @@
 //! - Diagnostic creation and formatting
 //! - DiagnosticCollection operations
 
-use crate::validation::diagnostics::{
+use cairo_m_compiler_diagnostics::{
     Diagnostic, DiagnosticCode, DiagnosticCollection, DiagnosticSeverity,
 };
 use chumsky::span::SimpleSpan;

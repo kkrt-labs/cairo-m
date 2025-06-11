@@ -19,8 +19,9 @@
 //!
 use crate::db::SemanticDb;
 use crate::definition::DefinitionKind;
-use crate::validation::{Diagnostic, Validator};
+use crate::validation::Validator;
 use crate::{File, SemanticIndex};
+use cairo_m_compiler_diagnostics::Diagnostic;
 use cairo_m_compiler_parser::parser::{
     parse_program, FunctionDef, Spanned, Statement, TopLevelItem,
 };

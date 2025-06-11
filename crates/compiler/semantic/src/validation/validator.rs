@@ -29,8 +29,8 @@
 //! ```
 
 use crate::db::SemanticDb;
-use crate::validation::diagnostics::{Diagnostic, DiagnosticCollection};
 use crate::{File, SemanticIndex};
+use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCollection};
 
 /// Trait for semantic validators
 ///

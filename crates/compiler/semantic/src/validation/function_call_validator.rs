@@ -8,9 +8,9 @@
 use crate::db::SemanticDb;
 use crate::type_resolution::{are_types_compatible, expression_semantic_type};
 use crate::types::TypeData;
-use crate::validation::diagnostics::{Diagnostic, DiagnosticCode};
 use crate::validation::Validator;
 use crate::File;
+use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode};
 use cairo_m_compiler_parser::parser::Expression;
 
 /// Validator for function call expressions

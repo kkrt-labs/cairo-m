@@ -1,6 +1,7 @@
 use ariadne::{Label, Report, ReportKind, Source};
-use cairo_m_compiler_parser::SourceProgram;
-use cairo_m_compiler_semantic::{validate_semantics, Diagnostic};
+use cairo_m_compiler_diagnostics::build_diagnostic_message;
+use cairo_m_compiler_parser::{parse_program, SourceProgram};
+use cairo_m_compiler_semantic::validate_semantics;
 use clap::Parser;
 use salsa::Database;
 use std::fs;
@@ -25,39 +26,26 @@ fn main() {
             let db = cairo_m_compiler_semantic::SemanticDatabaseImpl::default();
             let source = SourceProgram::new(&db, content.clone());
 
-            // Unified compilation: parsing + semantic analysis
-            let semantic_diagnostics = validate_semantics(&db, source);
+            let parsed_program = parse_program(&db, source);
 
-            if semantic_diagnostics.has_errors() {
-                println!("\nCompilation errors:");
-                for error in semantic_diagnostics.errors() {
-                    println!("{}", build_semantic_diagnostic_message(&content, error));
+            if !parsed_program.diagnostics.is_empty() {
+                for error in parsed_program.diagnostics {
+                    println!("{}", build_diagnostic_message(&content, &error, true));
                 }
                 std::process::exit(1);
             }
 
+            // For now, just collect diagnostics
+            let semantic_diagnostics = validate_semantics(&db, &parsed_program.module, source);
+
+            for diagnostic in semantic_diagnostics.iter() {
+                println!("{}", build_diagnostic_message(&content, diagnostic, true));
+            }
+            if !semantic_diagnostics.is_empty() {
+                std::process::exit(1);
+            }
             println!("\nCompilation successful!");
         }
         Err(e) => eprintln!("Error reading file: {e}"),
     }
-}
-
-/// Build a formatted error message for a semantic diagnostic
-fn build_semantic_diagnostic_message(source: &str, diagnostic: &Diagnostic) -> String {
-    let mut write_buffer = Vec::new();
-    Report::build(ReportKind::Error, ((), diagnostic.span.into_range()))
-        .with_config(
-            ariadne::Config::new()
-                .with_index_type(ariadne::IndexType::Byte)
-                .with_color(true), // Use color for better visibility in terminal
-        )
-        .with_code(3)
-        .with_message(&diagnostic.message)
-        .with_label(
-            Label::new(((), diagnostic.span.into_range())).with_message(&diagnostic.message),
-        )
-        .finish()
-        .write(Source::from(source), &mut write_buffer)
-        .unwrap();
-    String::from_utf8_lossy(&write_buffer).to_string()
 }

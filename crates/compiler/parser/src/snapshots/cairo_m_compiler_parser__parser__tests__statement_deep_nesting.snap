@@ -2,7 +2,7 @@
 source: crates/compiler/parser/src/parser.rs
 expression: snapshot_entry
 ---
-code: func test() { if (true) { if (false) { if (true) { if (true) { if (true) { x = 1; } } } } } }
+code: func test() { if (true) { if (false) { if (true) { if (true) { if (true) { let x = 1; } } } } } }
 result: [
     Function(
         Spanned(
@@ -70,68 +70,64 @@ result: [
                                                                                                                 Block(
                                                                                                                     [
                                                                                                                         Spanned(
-                                                                                                                            Assignment {
-                                                                                                                                lhs: Spanned(
-                                                                                                                                    Identifier(
-                                                                                                                                        Spanned(
-                                                                                                                                            "x",
-                                                                                                                                            75..76,
-                                                                                                                                        ),
-                                                                                                                                    ),
-                                                                                                                                    75..76,
+                                                                                                                            Let {
+                                                                                                                                name: Spanned(
+                                                                                                                                    "x",
+                                                                                                                                    79..80,
                                                                                                                                 ),
-                                                                                                                                rhs: Spanned(
+                                                                                                                                statement_type: None,
+                                                                                                                                value: Spanned(
                                                                                                                                     Literal(
                                                                                                                                         1,
                                                                                                                                     ),
-                                                                                                                                    79..80,
+                                                                                                                                    83..84,
                                                                                                                                 ),
                                                                                                                             },
-                                                                                                                            75..81,
+                                                                                                                            75..85,
                                                                                                                         ),
                                                                                                                     ],
                                                                                                                 ),
-                                                                                                                73..83,
+                                                                                                                73..87,
                                                                                                             ),
                                                                                                             else_block: None,
                                                                                                         },
-                                                                                                        63..83,
+                                                                                                        63..87,
                                                                                                     ),
                                                                                                 ],
                                                                                             ),
-                                                                                            61..85,
+                                                                                            61..89,
                                                                                         ),
                                                                                         else_block: None,
                                                                                     },
-                                                                                    51..85,
+                                                                                    51..89,
                                                                                 ),
                                                                             ],
                                                                         ),
-                                                                        49..87,
+                                                                        49..91,
                                                                     ),
                                                                     else_block: None,
                                                                 },
-                                                                39..87,
+                                                                39..91,
                                                             ),
                                                         ],
                                                     ),
-                                                    37..89,
+                                                    37..93,
                                                 ),
                                                 else_block: None,
                                             },
-                                            26..89,
+                                            26..93,
                                         ),
                                     ],
                                 ),
-                                24..91,
+                                24..95,
                             ),
                             else_block: None,
                         },
-                        14..91,
+                        14..95,
                     ),
                 ],
             },
-            0..93,
+            0..97,
         ),
     ),
 ]

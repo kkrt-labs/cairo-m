@@ -3,11 +3,12 @@
 //! This module provides the diagnostic infrastructure for reporting semantic errors,
 //! warnings, and hints during semantic analysis.
 
+use ariadne::ReportKind;
 use chumsky::span::SimpleSpan;
 use std::fmt;
 
 /// A diagnostic message from semantic analysis
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Diagnostic {
     pub severity: DiagnosticSeverity,
     pub code: DiagnosticCode,
@@ -18,12 +19,34 @@ pub struct Diagnostic {
     pub related_spans: Vec<(SimpleSpan<usize>, String)>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DiagnosticSeverity {
     Error,
     Warning,
     Info,
     Hint,
+}
+
+impl From<ReportKind<'static>> for DiagnosticSeverity {
+    fn from(kind: ReportKind<'static>) -> Self {
+        match kind {
+            ReportKind::Error => Self::Error,
+            ReportKind::Warning => Self::Warning,
+            ReportKind::Advice => Self::Info,
+            ReportKind::Custom(_, _) => Self::Info,
+        }
+    }
+}
+
+impl From<DiagnosticSeverity> for ReportKind<'static> {
+    fn from(severity: DiagnosticSeverity) -> Self {
+        match severity {
+            DiagnosticSeverity::Error => ReportKind::Error,
+            DiagnosticSeverity::Warning => ReportKind::Warning,
+            DiagnosticSeverity::Info => ReportKind::Advice,
+            DiagnosticSeverity::Hint => ReportKind::Advice,
+        }
+    }
 }
 
 impl fmt::Display for DiagnosticSeverity {
@@ -37,8 +60,15 @@ impl fmt::Display for DiagnosticSeverity {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DiagnosticCode {
+    // Parse-related errors (0-999)
+    LexicalError,
+    SyntaxError,
+    UnexpectedToken,
+    UnexpectedEndOfFile,
+    InvalidCharacter,
+
     // Scope-related errors (1000-1999)
     UndeclaredVariable,
     UnusedVariable,
@@ -75,6 +105,32 @@ pub enum DiagnosticCode {
     // - Syntax/style warnings (5000-5999)
     // - Performance hints (6000-6999)
     // - Security warnings (7000-7999)
+}
+
+impl From<DiagnosticCode> for u32 {
+    fn from(code: DiagnosticCode) -> Self {
+        match code {
+            DiagnosticCode::LexicalError => 1,
+            DiagnosticCode::SyntaxError => 2,
+            DiagnosticCode::UnexpectedToken => 3,
+            DiagnosticCode::UnexpectedEndOfFile => 4,
+            DiagnosticCode::InvalidCharacter => 5,
+            DiagnosticCode::UndeclaredVariable => 1001,
+            DiagnosticCode::UnusedVariable => 1002,
+            DiagnosticCode::DuplicateDefinition => 1003,
+            DiagnosticCode::UseBeforeDefinition => 1004,
+            DiagnosticCode::TypeMismatch => 2001,
+            DiagnosticCode::InvalidFieldAccess => 2002,
+            DiagnosticCode::InvalidIndexAccess => 2003,
+            DiagnosticCode::InvalidStructLiteral => 2004,
+            DiagnosticCode::InvalidFunctionCall => 2005,
+            DiagnosticCode::InvalidAssignment => 2006,
+            DiagnosticCode::InvalidReturnType => 2007,
+            DiagnosticCode::InvalidTypeDefinition => 2008,
+            DiagnosticCode::UnreachableCode => 3001,
+            DiagnosticCode::MissingReturn => 3002,
+        }
+    }
 }
 
 impl Diagnostic {
@@ -177,6 +233,25 @@ impl Diagnostic {
         )
         .with_location(span)
     }
+
+    /// Convenience method for lexical errors
+    pub fn lexical_error(message: String, span: SimpleSpan<usize>) -> Self {
+        Self::error(DiagnosticCode::LexicalError, message).with_location(span)
+    }
+
+    /// Convenience method for syntax errors
+    pub fn syntax_error(message: String, span: SimpleSpan<usize>) -> Self {
+        Self::error(DiagnosticCode::SyntaxError, message).with_location(span)
+    }
+
+    /// Convenience method for unexpected token errors
+    pub fn unexpected_token(expected: &str, found: &str, span: SimpleSpan<usize>) -> Self {
+        Self::error(
+            DiagnosticCode::UnexpectedToken,
+            format!("Expected {expected}, found {found}"),
+        )
+        .with_location(span)
+    }
 }
 
 impl fmt::Display for Diagnostic {
@@ -273,6 +348,10 @@ impl DiagnosticCollection {
         } else {
             format!("{errors} errors, {warnings} warnings")
         }
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<'_, Diagnostic> {
+        self.diagnostics.iter()
     }
 }
 

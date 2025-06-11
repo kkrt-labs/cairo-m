@@ -20,8 +20,9 @@
 //! - Const vs mutable variable validation
 
 use crate::db::SemanticDb;
-use crate::validation::{Diagnostic, Validator};
+use crate::validation::Validator;
 use crate::{File, PlaceFlags, SemanticIndex};
+use cairo_m_compiler_diagnostics::Diagnostic;
 use std::collections::HashSet;
 
 /// Validator for scope-related semantic rules

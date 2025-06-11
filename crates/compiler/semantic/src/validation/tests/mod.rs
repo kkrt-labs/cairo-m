@@ -21,8 +21,10 @@
 //! ```
 
 use crate::db::SemanticDatabaseImpl;
-use crate::validation::diagnostics::{DiagnosticCode, DiagnosticCollection, DiagnosticSeverity};
 use crate::{semantic_index::semantic_index, File};
+use cairo_m_compiler_diagnostics::{
+    build_diagnostic_message, DiagnosticCode, DiagnosticCollection,
+};
 use cairo_m_compiler_parser::{parse_program, SourceProgram};
 use std::fs;
 use std::path::PathBuf;
@@ -134,8 +136,6 @@ fn format_diagnostics_for_snapshot(
     source: &str,
     fixture_name: &str,
 ) -> String {
-    use ariadne::{Label, Report, ReportKind, Source};
-
     let mut result = String::new();
 
     // Add header
@@ -155,73 +155,15 @@ fn format_diagnostics_for_snapshot(
 
     // Create ariadne reports for each diagnostic
     for (i, diagnostic) in diagnostics.all().iter().enumerate() {
-        let mut write_buffer = Vec::new();
-
-        let report_kind = match diagnostic.severity {
-            crate::validation::diagnostics::DiagnosticSeverity::Error => ReportKind::Error,
-            crate::validation::diagnostics::DiagnosticSeverity::Warning => ReportKind::Warning,
-            crate::validation::diagnostics::DiagnosticSeverity::Info => ReportKind::Advice,
-            crate::validation::diagnostics::DiagnosticSeverity::Hint => ReportKind::Advice,
-        };
-
-        let mut report_builder = Report::build(report_kind, ((), diagnostic.span.into_range()))
-            .with_config(
-                ariadne::Config::new()
-                    .with_index_type(ariadne::IndexType::Byte)
-                    .with_color(false), // No color for snapshots
-            )
-            .with_code(diagnostic_code_to_u32(diagnostic.code))
-            .with_message(&diagnostic.message)
-            .with_label(
-                Label::new(((), diagnostic.span.into_range())).with_message(&diagnostic.message),
-            );
-
-        // Add related spans as additional labels
-        for (related_span, related_message) in &diagnostic.related_spans {
-            report_builder = report_builder.with_label(
-                Label::new(((), related_span.into_range()))
-                    .with_message(related_message)
-                    .with_color(ariadne::Color::Blue),
-            );
-        }
-
-        report_builder
-            .finish()
-            .write(Source::from(source), &mut write_buffer)
-            .unwrap();
-
-        let report_string = String::from_utf8_lossy(&write_buffer);
+        let message = build_diagnostic_message(source, diagnostic, false);
         result.push_str(&format!("--- Diagnostic {} ---\n", i + 1));
-        result.push_str(&report_string);
-
+        result.push_str(&message);
         if i < diagnostics.len() - 1 {
             result.push('\n');
         }
     }
 
     result
-}
-
-// ===== Utility functions =====
-
-/// Convert DiagnosticCode to u32 for ariadne reporting
-fn diagnostic_code_to_u32(code: DiagnosticCode) -> u32 {
-    match code {
-        DiagnosticCode::UndeclaredVariable => 1001,
-        DiagnosticCode::UnusedVariable => 1002,
-        DiagnosticCode::DuplicateDefinition => 1003,
-        DiagnosticCode::UseBeforeDefinition => 1004,
-        DiagnosticCode::TypeMismatch => 2001,
-        DiagnosticCode::InvalidFieldAccess => 2002,
-        DiagnosticCode::InvalidIndexAccess => 2003,
-        DiagnosticCode::InvalidStructLiteral => 2004,
-        DiagnosticCode::InvalidFunctionCall => 2005,
-        DiagnosticCode::InvalidAssignment => 2006,
-        DiagnosticCode::InvalidReturnType => 2007,
-        DiagnosticCode::InvalidTypeDefinition => 2008,
-        DiagnosticCode::UnreachableCode => 3001,
-        DiagnosticCode::MissingReturn => 3002,
-    }
 }
 
 #[cfg(test)]

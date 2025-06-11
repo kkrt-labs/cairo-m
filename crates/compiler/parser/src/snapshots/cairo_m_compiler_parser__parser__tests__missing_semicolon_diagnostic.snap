@@ -3,7 +3,7 @@ source: crates/compiler/parser/src/parser.rs
 expression: snapshot_entries
 ---
 code: func test() { let x = 5 }
-result: [03] Error: found '}' expected '(', '.', '[', '*', '/', '+', '-', '==', '!=', '&&', '||', or ';'
+result: [02] Error: found '}' expected '(', '.', '[', '*', '/', '+', '-', '==', '!=', '&&', '||', or ';'
    ╭─[ <unknown>:1:25 ]
    │
  1 │ func test() { let x = 5 }

@@ -4,7 +4,6 @@
 //! It provides a diagnostic system and validator trait pattern for extensible
 //! semantic checking.
 
-pub mod diagnostics;
 pub mod scope_check;
 pub mod validator;
 
@@ -19,7 +18,6 @@ pub mod struct_literal_validator;
 pub mod tests;
 
 pub use control_flow_validator::ControlFlowValidator;
-pub use diagnostics::{Diagnostic, DiagnosticCode, DiagnosticCollection, DiagnosticSeverity};
 pub use function_call_validator::FunctionCallValidator;
 pub use scope_check::ScopeValidator;
 pub use validator::Validator;

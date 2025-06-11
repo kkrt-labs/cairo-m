@@ -3,7 +3,7 @@ source: crates/compiler/parser/src/parser.rs
 expression: snapshot_entries
 ---
 code: func test() { 4294967295; }
-result: [03] Error: Invalid number '4294967295': Number overflows 2**31 - 1
+result: [01] Error: Invalid number '4294967295': Number overflows 2**31 - 1
    ╭─[ <unknown>:1:15 ]
    │
  1 │ func test() { 4294967295; }

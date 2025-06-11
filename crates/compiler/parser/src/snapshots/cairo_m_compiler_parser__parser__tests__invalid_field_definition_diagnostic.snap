@@ -3,7 +3,7 @@ source: crates/compiler/parser/src/parser.rs
 expression: snapshot_entries
 ---
 code: struct Point { x, y: felt }
-result: [03] Error: found ',' expected ':'
+result: [02] Error: found ',' expected ':'
    ╭─[ <unknown>:1:17 ]
    │
  1 │ struct Point { x, y: felt }

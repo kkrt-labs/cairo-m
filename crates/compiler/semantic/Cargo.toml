@@ -18,6 +18,6 @@ bitflags = "2.6.0"
 rustc-hash = "1.1.0"
 indexmap = "2.6.0"
 
-# Reference to parser crate for AST types
 cairo-m-compiler-parser = { path = "../parser" }
+cairo-m-compiler-diagnostics = { path = "../diagnostics" }
 index_vec = "0.1.4"
