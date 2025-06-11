@@ -1,0 +1,11 @@
+struct Point {
+    x: felt,
+    y: felt
+}
+
+func test() {
+    let p = Point { x: 1, y: 2 }; // OK: all fields defined
+    let x_val = p.x; // OK: p exists, x is a field
+    let bad_struct = UndefinedStruct { x: 1 }; // Should error: Undeclared variable 'UndefinedStruct'
+    let bad_field = p.z; // This might be a future semantic error (field doesn't exist)
+}

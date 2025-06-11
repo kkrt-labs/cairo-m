@@ -1,0 +1,100 @@
+---
+source: crates/compiler/semantic/src/validation/tests/mod.rs
+expression: snapshot_content
+---
+Fixture: deeply_nested_scopes.cm
+============================================================
+Source code:
+func test() {
+    let level0 = 0;
+    {
+        let level1 = level0 + 1; // OK: level0 visible
+        {
+            let level2 = level1 + 1; // OK: level1 visible
+            {
+                let level3 = level2 + 1; // OK: level2 visible
+                let all = level0 + level1 + level2 + level3; // OK: all visible
+                let unused_deep = 99; // Should warn: Unused variable 'unused_deep'
+            }
+            let bad = level3; // Should error: Undeclared variable 'level3'
+        }
+        let bad = level2; // Should error: Undeclared variable 'level2'
+    }
+    let bad = level1; // Should error: Undeclared variable 'level1'
+    return level0;
+}
+
+============================================================
+Found 8 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1001] Error: Undeclared variable 'level3'
+    ╭─[ <unknown>:12:23 ]
+    │
+ 12 │             let bad = level3; // Should error: Undeclared variable 'level3'
+    │                       ───┬──  
+    │                          ╰──── Undeclared variable 'level3'
+────╯
+
+--- Diagnostic 2 ---
+[1001] Error: Undeclared variable 'level2'
+    ╭─[ <unknown>:14:19 ]
+    │
+ 14 │         let bad = level2; // Should error: Undeclared variable 'level2'
+    │                   ───┬──  
+    │                      ╰──── Undeclared variable 'level2'
+────╯
+
+--- Diagnostic 3 ---
+[1001] Error: Undeclared variable 'level1'
+    ╭─[ <unknown>:16:15 ]
+    │
+ 16 │     let bad = level1; // Should error: Undeclared variable 'level1'
+    │               ───┬──  
+    │                  ╰──── Undeclared variable 'level1'
+────╯
+
+--- Diagnostic 4 ---
+[1002] Warning: Unused variable 'bad'
+    ╭─[ <unknown>:16:9 ]
+    │
+ 16 │     let bad = level1; // Should error: Undeclared variable 'level1'
+    │         ─┬─  
+    │          ╰─── Unused variable 'bad'
+────╯
+
+--- Diagnostic 5 ---
+[1002] Warning: Unused variable 'bad'
+    ╭─[ <unknown>:14:13 ]
+    │
+ 14 │         let bad = level2; // Should error: Undeclared variable 'level2'
+    │             ─┬─  
+    │              ╰─── Unused variable 'bad'
+────╯
+
+--- Diagnostic 6 ---
+[1002] Warning: Unused variable 'bad'
+    ╭─[ <unknown>:12:17 ]
+    │
+ 12 │             let bad = level3; // Should error: Undeclared variable 'level3'
+    │                 ─┬─  
+    │                  ╰─── Unused variable 'bad'
+────╯
+
+--- Diagnostic 7 ---
+[1002] Warning: Unused variable 'all'
+   ╭─[ <unknown>:9:21 ]
+   │
+ 9 │                 let all = level0 + level1 + level2 + level3; // OK: all visible
+   │                     ─┬─  
+   │                      ╰─── Unused variable 'all'
+───╯
+
+--- Diagnostic 8 ---
+[1002] Warning: Unused variable 'unused_deep'
+    ╭─[ <unknown>:10:21 ]
+    │
+ 10 │                 let unused_deep = 99; // Should warn: Unused variable 'unused_deep'
+    │                     ─────┬─────  
+    │                          ╰─────── Unused variable 'unused_deep'
+────╯

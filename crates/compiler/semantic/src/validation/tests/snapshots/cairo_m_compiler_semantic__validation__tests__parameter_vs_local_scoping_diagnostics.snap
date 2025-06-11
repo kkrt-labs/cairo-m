@@ -1,0 +1,19 @@
+---
+source: crates/compiler/semantic/src/validation/tests/mod.rs
+expression: snapshot_content
+---
+Fixture: parameter_vs_local_scoping.cm
+============================================================
+Source code:
+func test(param: felt) {
+    let local = param; // OK: param is visible
+    {
+        let inner = local; // OK: local is visible
+        let param = 42; // OK: shadowing parameter (might warn in future)
+    }
+    let result = inner; // Should error: Undeclared variable 'inner'
+    return result;
+}
+
+============================================================
+No diagnostics found.

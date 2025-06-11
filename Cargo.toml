@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "crates/compiler/parser",
+  "crates/compiler/semantic",
   "crates/compiler",
   "crates/runner",
   "crates/prover",

@@ -1,0 +1,63 @@
+---
+source: crates/compiler/semantic/src/validation/tests/mod.rs
+expression: snapshot_content
+---
+Fixture: nested_scope_access.cm
+============================================================
+Source code:
+func test_nested_access() {
+    let level1 = 1;
+    {
+        let level2 = level1; // OK: level1 visible
+        {
+            let level3 = level2; // OK: level2 visible
+            let all = level1 + level2 + level3; // OK: all visible
+        }
+    }
+}
+
+func test_out_of_scope() {
+    {
+        let inner = 42;
+    }
+    let x = inner; // Should error: Undeclared variable 'inner'
+}
+
+============================================================
+Found 4 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1001] Error: Undeclared variable 'inner'
+    ╭─[ <unknown>:16:13 ]
+    │
+ 16 │     let x = inner; // Should error: Undeclared variable 'inner'
+    │             ──┬──  
+    │               ╰──── Undeclared variable 'inner'
+────╯
+
+--- Diagnostic 2 ---
+[1002] Warning: Unused variable 'all'
+   ╭─[ <unknown>:7:17 ]
+   │
+ 7 │             let all = level1 + level2 + level3; // OK: all visible
+   │                 ─┬─  
+   │                  ╰─── Unused variable 'all'
+───╯
+
+--- Diagnostic 3 ---
+[1002] Warning: Unused variable 'x'
+    ╭─[ <unknown>:16:9 ]
+    │
+ 16 │     let x = inner; // Should error: Undeclared variable 'inner'
+    │         ┬  
+    │         ╰── Unused variable 'x'
+────╯
+
+--- Diagnostic 4 ---
+[1002] Warning: Unused variable 'inner'
+    ╭─[ <unknown>:14:13 ]
+    │
+ 14 │         let inner = 42;
+    │             ──┬──  
+    │               ╰──── Unused variable 'inner'
+────╯

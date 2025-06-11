@@ -1,0 +1,18 @@
+func test() {
+    let level0 = 0;
+    {
+        let level1 = level0 + 1; // OK: level0 visible
+        {
+            let level2 = level1 + 1; // OK: level1 visible
+            {
+                let level3 = level2 + 1; // OK: level2 visible
+                let all = level0 + level1 + level2 + level3; // OK: all visible
+                let unused_deep = 99; // Should warn: Unused variable 'unused_deep'
+            }
+            let bad = level3; // Should error: Undeclared variable 'level3'
+        }
+        let bad = level2; // Should error: Undeclared variable 'level2'
+    }
+    let bad = level1; // Should error: Undeclared variable 'level1'
+    return level0;
+}

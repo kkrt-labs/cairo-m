@@ -1,0 +1,9 @@
+func valid_function(x: felt) -> felt {
+    return x + 1;
+}
+
+func test() {
+    let result1 = valid_function(42); // OK: function exists
+    let result2 = invalid_function(24); // Should error: Undeclared variable 'invalid_function'
+    let result3 = valid_function(undefined_var); // Should error: Undeclared variable 'undefined_var'
+}

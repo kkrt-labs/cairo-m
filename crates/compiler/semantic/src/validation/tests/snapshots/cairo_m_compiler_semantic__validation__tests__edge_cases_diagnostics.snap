@@ -1,0 +1,72 @@
+---
+source: crates/compiler/semantic/src/validation/tests/mod.rs
+expression: snapshot_content
+---
+Fixture: edge_cases.cm
+============================================================
+Source code:
+func empty() {
+    // Empty function - no diagnostics expected
+}
+
+func test_parameter_shadowing(param: felt) {
+    let param = 42; // OK: shadowing (might warn in future)
+    return param;
+}
+
+func test_multiple_undeclared() {
+    let a = undefined; // Should error: Undeclared variable 'undefined'
+    let b = undefined; // Should error: Undeclared variable 'undefined' (may be reported multiple times)
+}
+
+func test_assignment_to_undeclared() {
+    undefined = 42; // Should error: Undeclared variable 'undefined'
+}
+
+============================================================
+Found 5 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1001] Error: Undeclared variable 'undefined'
+    ╭─[ <unknown>:11:13 ]
+    │
+ 11 │     let a = undefined; // Should error: Undeclared variable 'undefined'
+    │             ────┬────  
+    │                 ╰────── Undeclared variable 'undefined'
+────╯
+
+--- Diagnostic 2 ---
+[1003] Error: Duplicate definition of 'param'
+   ╭─[ <unknown>:6:9 ]
+   │
+ 6 │     let param = 42; // OK: shadowing (might warn in future)
+   │         ──┬──  
+   │           ╰──── Duplicate definition of 'param'
+───╯
+
+--- Diagnostic 3 ---
+[1002] Warning: Unused variable 'param'
+   ╭─[ <unknown>:5:31 ]
+   │
+ 5 │ func test_parameter_shadowing(param: felt) {
+   │                               ──┬──  
+   │                                 ╰──── Unused variable 'param'
+───╯
+
+--- Diagnostic 4 ---
+[1002] Warning: Unused variable 'a'
+    ╭─[ <unknown>:11:9 ]
+    │
+ 11 │     let a = undefined; // Should error: Undeclared variable 'undefined'
+    │         ┬  
+    │         ╰── Unused variable 'a'
+────╯
+
+--- Diagnostic 5 ---
+[1002] Warning: Unused variable 'b'
+    ╭─[ <unknown>:12:9 ]
+    │
+ 12 │     let b = undefined; // Should error: Undeclared variable 'undefined' (may be reported multiple times)
+    │         ┬  
+    │         ╰── Unused variable 'b'
+────╯

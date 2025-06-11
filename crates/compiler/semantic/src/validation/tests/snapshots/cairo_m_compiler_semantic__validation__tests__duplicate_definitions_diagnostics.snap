@@ -1,0 +1,88 @@
+---
+source: crates/compiler/semantic/src/validation/tests/mod.rs
+expression: snapshot_content
+---
+Fixture: duplicate_definitions.cm
+============================================================
+Source code:
+func test_duplicate_local() {
+    let x = 1;
+    let x = 2; // Should error: duplicate definition of 'x'
+}
+
+func test_duplicate_parameter(param: felt, param: felt) { // Should error: duplicate definition of 'param'
+}
+
+func test_different_scopes_ok() {
+    let x = 1;
+    {
+        let x = 2; // OK: different scope
+    }
+    return x;
+}
+
+============================================================
+Found 7 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1003] Error: Duplicate definition of 'x'
+   ╭─[ <unknown>:3:9 ]
+   │
+ 3 │     let x = 2; // Should error: duplicate definition of 'x'
+   │         ┬  
+   │         ╰── Duplicate definition of 'x'
+───╯
+
+--- Diagnostic 2 ---
+[1002] Warning: Unused variable 'x'
+   ╭─[ <unknown>:2:9 ]
+   │
+ 2 │     let x = 1;
+   │         ┬  
+   │         ╰── Unused variable 'x'
+───╯
+
+--- Diagnostic 3 ---
+[1002] Warning: Unused variable 'x'
+   ╭─[ <unknown>:3:9 ]
+   │
+ 3 │     let x = 2; // Should error: duplicate definition of 'x'
+   │         ┬  
+   │         ╰── Unused variable 'x'
+───╯
+
+--- Diagnostic 4 ---
+[1003] Error: Duplicate definition of 'param'
+   ╭─[ <unknown>:6:44 ]
+   │
+ 6 │ func test_duplicate_parameter(param: felt, param: felt) { // Should error: duplicate definition of 'param'
+   │                                            ──┬──  
+   │                                              ╰──── Duplicate definition of 'param'
+───╯
+
+--- Diagnostic 5 ---
+[1002] Warning: Unused variable 'param'
+   ╭─[ <unknown>:6:31 ]
+   │
+ 6 │ func test_duplicate_parameter(param: felt, param: felt) { // Should error: duplicate definition of 'param'
+   │                               ──┬──  
+   │                                 ╰──── Unused variable 'param'
+───╯
+
+--- Diagnostic 6 ---
+[1002] Warning: Unused variable 'param'
+   ╭─[ <unknown>:6:44 ]
+   │
+ 6 │ func test_duplicate_parameter(param: felt, param: felt) { // Should error: duplicate definition of 'param'
+   │                                            ──┬──  
+   │                                              ╰──── Unused variable 'param'
+───╯
+
+--- Diagnostic 7 ---
+[1002] Warning: Unused variable 'x'
+    ╭─[ <unknown>:12:13 ]
+    │
+ 12 │         let x = 2; // OK: different scope
+    │             ┬  
+    │             ╰── Unused variable 'x'
+────╯

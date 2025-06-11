@@ -1,0 +1,17 @@
+func test_nested_access() {
+    let level1 = 1;
+    {
+        let level2 = level1; // OK: level1 visible
+        {
+            let level3 = level2; // OK: level2 visible
+            let all = level1 + level2 + level3; // OK: all visible
+        }
+    }
+}
+
+func test_out_of_scope() {
+    {
+        let inner = 42;
+    }
+    let x = inner; // Should error: Undeclared variable 'inner'
+}

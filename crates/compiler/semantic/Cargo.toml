@@ -1,0 +1,23 @@
+[package]
+name = "cairo-m-compiler-semantic"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+logos = "0.15"
+ariadne = "0.5.1"
+chumsky = "0.10.1"
+smol_str = "0.3.2"
+insta = "1.43.1"
+rowan = "0.16.1"
+num-traits = "0.2.19"
+num-derive = "0.4.2"
+salsa = "0.22.0"
+salsa-macros = "0.22.0"
+bitflags = "2.6.0"
+rustc-hash = "1.1.0"
+indexmap = "2.6.0"
+
+# Reference to parser crate for AST types
+cairo-m-compiler-parser = { path = "../parser" }
+index_vec = "0.1.4"

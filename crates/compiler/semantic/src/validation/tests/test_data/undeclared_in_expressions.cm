@@ -1,0 +1,8 @@
+func test() {
+    let result = a + b; // Should error: Undeclared variable 'a' and 'b'
+    let call_result = foo(); // Should error: Undeclared variable 'foo'
+
+    if (undefined) { // Should error: Undeclared variable 'undefined'
+        let x = 1;
+    }
+}

@@ -1,0 +1,48 @@
+---
+source: crates/compiler/semantic/src/validation/tests/mod.rs
+expression: snapshot_content
+---
+Fixture: struct_field_validation.cm
+============================================================
+Source code:
+struct Point {
+    x: felt,
+    y: felt
+}
+
+func test() {
+    let p = Point { x: 1, y: 2 }; // OK: all fields defined
+    let x_val = p.x; // OK: p exists, x is a field
+    let bad_struct = UndefinedStruct { x: 1 }; // Should error: Undeclared variable 'UndefinedStruct'
+    let bad_field = p.z; // This might be a future semantic error (field doesn't exist)
+}
+
+============================================================
+Found 3 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1002] Warning: Unused variable 'x_val'
+   ╭─[ <unknown>:8:9 ]
+   │
+ 8 │     let x_val = p.x; // OK: p exists, x is a field
+   │         ──┬──  
+   │           ╰──── Unused variable 'x_val'
+───╯
+
+--- Diagnostic 2 ---
+[1002] Warning: Unused variable 'bad_struct'
+   ╭─[ <unknown>:9:9 ]
+   │
+ 9 │     let bad_struct = UndefinedStruct { x: 1 }; // Should error: Undeclared variable 'UndefinedStruct'
+   │         ─────┬────  
+   │              ╰────── Unused variable 'bad_struct'
+───╯
+
+--- Diagnostic 3 ---
+[1002] Warning: Unused variable 'bad_field'
+    ╭─[ <unknown>:10:9 ]
+    │
+ 10 │     let bad_field = p.z; // This might be a future semantic error (field doesn't exist)
+    │         ────┬────  
+    │             ╰────── Unused variable 'bad_field'
+────╯

@@ -1,0 +1,69 @@
+---
+source: crates/compiler/semantic/src/validation/tests/mod.rs
+expression: snapshot_content
+---
+Fixture: clean_program.cm
+============================================================
+Source code:
+// Test fixture for a clean program with no validation errors
+// All variables are properly declared and used
+
+struct Point {
+    x: felt,
+    y: felt
+}
+
+struct Vector {
+    start: Point,
+    end: Point
+}
+
+const MAX_COORDINATE = 1000;
+
+func create_point(x: felt, y: felt) -> Point {
+    return Point { x: x, y: y };
+}
+
+func distance_squared(p1: Point, p2: Point) -> felt {
+    let dx = p1.x - p2.x;
+    let dy = p1.y - p2.y;
+    return dx * dx + dy * dy;
+}
+
+func create_vector(start_x: felt, start_y: felt, end_x: felt, end_y: felt) -> Vector {
+    let start_point = create_point(start_x, start_y);
+    let end_point = create_point(end_x, end_y);
+    return Vector { start: start_point, end: end_point };
+}
+
+func vector_length_squared(v: Vector) -> felt {
+    return distance_squared(v.start, v.end);
+}
+
+func main() -> felt {
+    let origin = create_point(0, 0);
+    let target = Point { x: MAX_COORDINATE, y: MAX_COORDINATE };
+
+    let distance = distance_squared(origin, target);
+
+    // Create a vector and calculate its length
+    let my_vector = create_vector(0, 0, 10, 20);
+    let vector_length = vector_length_squared(my_vector);
+
+    // Use nested scopes properly
+    {
+        let local_point = create_point(5, 10);
+        let local_distance = distance_squared(origin, local_point);
+
+        // All variables in this scope are used
+        if (local_distance > 0) {
+            let result = local_distance + vector_length;
+            return result;
+        }
+    }
+
+    return distance;
+}
+
+============================================================
+No diagnostics found.
