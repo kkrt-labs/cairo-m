@@ -3,7 +3,7 @@ pub mod state;
 
 use crate::memory::{Memory, MemoryError};
 use crate::vm::state::State;
-use instructions::Instruction;
+use instructions::{opcode_to_instruction_fn, Instruction, InstructionError};
 use num_traits::Zero;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
@@ -12,9 +12,10 @@ use thiserror::Error;
 /// Custom error type for VM operations.
 #[derive(Debug, Error)]
 pub enum VmError {
-    /// An error occurred in the memory module.
     #[error("VM memory error: {0}")]
     Memory(#[from] MemoryError),
+    #[error("VM instruction error: {0}")]
+    Instruction(#[from] InstructionError),
 }
 
 /// A compiled Cairo M program containing decoded instructions.
@@ -89,11 +90,50 @@ impl TryFrom<Program> for VM {
     }
 }
 
+impl VM {
+    /// Executes a single instruction at the current program counter (PC).
+    ///
+    /// ## Errors
+    ///
+    /// Returns a [`VmError`] if:
+    /// - The opcode is invalid ([`VmError::Instruction`])
+    /// - The instruction execution fails due to memory operations ([`VmError::Memory`])
+    fn step(&mut self) -> Result<(), VmError> {
+        let instruction = Instruction::from(self.memory.get_instruction(self.state.pc)?);
+        let instruction_fn = opcode_to_instruction_fn(instruction.op)?;
+        self.state = instruction_fn(&mut self.memory, self.state, instruction)?;
+        Ok(())
+    }
+
+    /// Executes the loaded program from start to completion.
+    ///
+    /// This method runs the VM by repeatedly calling [`step()`](Self::step) until the program
+    /// counter reaches the end of the loaded instructions. It assumes that the program is loaded
+    /// at the beginning of the memory ([0..instructions_length]).
+    ///
+    /// ## Errors
+    ///
+    /// Returns a [`VmError`] if any instruction execution fails:
+    /// - Invalid opcodes ([`VmError::Instruction`])
+    /// - Memory errors ([`VmError::Memory`])
+    pub fn execute(&mut self) -> Result<(), VmError> {
+        let instructions_len = self.memory.data.len();
+        if instructions_len == 0 {
+            return Ok(());
+        }
+
+        let final_pc = M31::from(instructions_len);
+        while self.state.pc != final_pc {
+            self.step()?;
+        }
+        Ok(())
+    }
+}
 #[cfg(test)]
 mod tests {
     use num_traits::{One, Zero};
 
-    use crate::vm::{Instruction, Program, VM};
+    use crate::vm::{instructions::InstructionError, Instruction, Program, VmError, VM};
     use stwo_prover::core::fields::m31::M31;
 
     #[test]
@@ -135,5 +175,160 @@ mod tests {
         let loaded_instruction_2 = Instruction::from(loaded_instruction_qm31_2);
         assert_eq!(loaded_instruction_2.op, M31(5));
         assert_eq!(loaded_instruction_2, instructions[1]);
+    }
+
+    #[test]
+    fn test_step_single_instruction() {
+        // Create a program with a single store_imm instruction: [fp + 0] = 42
+        let instructions = vec![Instruction::from([6, 42, 0, 0])]; // opcode 6 = store_imm
+        let program = Program::from(instructions);
+        let mut vm = VM::try_from(program).unwrap();
+
+        // Initial state should have PC = 0, FP = 1
+        assert_eq!(vm.state.pc, M31::zero());
+        assert_eq!(vm.state.fp, M31::one());
+
+        // Execute one step
+        let result = vm.step();
+        assert!(result.is_ok());
+
+        // PC should have advanced to 1, FP should be the same
+        assert_eq!(vm.state.pc, M31::one());
+        assert_eq!(vm.state.fp, M31::one());
+
+        // The value 42 should be stored at memory[fp + 0] = memory[1]
+        let stored_value = vm.memory.get_data(M31::one()).unwrap();
+        assert_eq!(stored_value, M31::from(42));
+    }
+
+    #[test]
+    fn test_step_invalid_instruction() {
+        // Create a program with an invalid opcode
+        let instructions = vec![Instruction::from([2_u32.pow(30), 0, 0, 0])];
+        let program = Program::from(instructions);
+        let mut vm = VM::try_from(program).unwrap();
+
+        // Step should return an error for invalid opcode
+        let result = vm.step();
+        assert!(result.is_err());
+        assert!(matches!(
+            result.err().unwrap(),
+            VmError::Instruction(InstructionError::InvalidOpcode(M31(1073741824))) // 2^30, matches macro use pattern binding
+        ));
+    }
+
+    #[test]
+    fn test_execute_empty_program() {
+        let program = Program::from(vec![]);
+        let mut vm = VM::try_from(program).unwrap();
+        let result = vm.execute();
+        assert!(result.is_ok());
+        assert_eq!(vm.state.pc, M31::zero());
+        assert_eq!(vm.state.fp, M31::zero());
+        assert_eq!(vm.memory.data.len(), 0);
+    }
+
+    #[test]
+    fn test_execute_single_instruction() {
+        // Create a program with a single store_imm instruction
+        let instructions = vec![Instruction::from([6, 42, 0, 0])]; // [fp + 0] = 42
+        let program = Program::from(instructions);
+        let mut vm = VM::try_from(program).unwrap();
+
+        let result = vm.execute();
+        assert!(result.is_ok());
+
+        // PC should be at final position (memory.len() = 1)
+        assert_eq!(vm.state.pc, M31::one());
+        assert_eq!(vm.state.fp, M31::one());
+
+        // The value should be stored correctly at fp + 0 = 1 + 0 = 1
+        let stored_value = vm.memory.get_data(M31::one()).unwrap();
+        assert_eq!(stored_value, M31(42));
+    }
+
+    #[test]
+    fn test_execute_multiple_instructions() {
+        // Create a program with multiple instructions:
+        // 1. [fp + 0] = 10 (store_imm)
+        // 2. [fp + 1] = 5 (store_imm)
+        // 3. [fp + 2] = [fp + 0] + [fp + 1] (store_add_fp_fp)
+        let instructions = vec![
+            Instruction::from([6, 10, 0, 0]), // [fp + 0] = 10
+            Instruction::from([6, 5, 0, 1]),  // [fp + 1] = 5
+            Instruction::from([0, 0, 1, 2]),  // [fp + 2] = [fp + 0] + [fp + 1]
+        ];
+        let program = Program::from(instructions);
+        let mut vm = VM::try_from(program).unwrap();
+
+        // Initial state
+        assert_eq!(vm.state.pc, M31::zero());
+        assert_eq!(vm.state.fp, M31(3)); // FP should be after 3 instructions
+
+        let result = vm.execute();
+        assert!(result.is_ok());
+
+        // PC should be at final position (memory.len() = 3)
+        assert_eq!(vm.state.pc, M31(3));
+        assert_eq!(vm.state.fp, M31(3));
+
+        // Check the computed values
+        let val1 = vm.memory.get_data(M31(3)).unwrap(); // [fp + 0] = 10
+        let val2 = vm.memory.get_data(M31(4)).unwrap(); // [fp + 1] = 5
+        let sum = vm.memory.get_data(M31(5)).unwrap(); // [fp + 2] = 15
+
+        assert_eq!(val1, M31(10));
+        assert_eq!(val2, M31(5));
+        assert_eq!(sum, M31(15));
+    }
+
+    #[test]
+    fn test_execute_with_error() {
+        // Create a program with an invalid instruction
+        let instructions = vec![
+            Instruction::from([6, 10, 0, 0]), // Valid: [fp + 0] = 10
+            Instruction::from([99, 0, 0, 0]), // Invalid opcode
+        ];
+        let program = Program::from(instructions);
+        let mut vm = VM::try_from(program).unwrap();
+
+        // Execute should fail when it hits the invalid instruction
+        let result = vm.execute();
+        assert!(result.is_err());
+        assert!(matches!(
+            result.err().unwrap(),
+            VmError::Instruction(InstructionError::InvalidOpcode(M31(99)))
+        ));
+
+        // PC should be at 1 (where it failed)
+        assert_eq!(vm.state.pc, M31::one());
+
+        // First instruction should have executed successfully
+        let stored_value = vm.memory.get_data(M31::from(2)).unwrap();
+        assert_eq!(stored_value, M31::from(10));
+    }
+
+    #[test]
+    fn test_execute_arithmetic_operations() {
+        // Test a program that performs various arithmetic operations
+        let instructions = vec![
+            Instruction::from([6, 12, 0, 0]), // [fp + 0] = 12
+            Instruction::from([6, 3, 0, 1]),  // [fp + 1] = 3
+            Instruction::from([7, 0, 1, 2]),  // [fp + 2] = [fp + 0] * [fp + 1] = 36
+            Instruction::from([9, 2, 1, 3]),  // [fp + 3] = [fp + 2] / [fp + 1] = 12
+            Instruction::from([2, 3, 0, 4]),  // [fp + 4] = [fp + 3] - [fp + 0] = 0
+        ];
+        let program = Program::from(instructions);
+        let mut vm = VM::try_from(program).unwrap();
+
+        let result = vm.execute();
+        assert!(result.is_ok());
+
+        // Check all computed values
+        assert_eq!(vm.memory.get_data(M31(5)).unwrap(), M31(12)); // original 12
+        assert_eq!(vm.memory.get_data(M31(6)).unwrap(), M31(3)); // original 3
+        assert_eq!(vm.memory.get_data(M31(7)).unwrap(), M31(36)); // 12 * 3
+        assert_eq!(vm.memory.get_data(M31(8)).unwrap(), M31(12)); // 36 / 3
+        assert_eq!(vm.memory.get_data(M31(9)).unwrap(), M31(0)); // 12 - 12
     }
 }
