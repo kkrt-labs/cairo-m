@@ -6,7 +6,7 @@
 use crate::Diagnostic;
 use ariadne::{Label, Report, Source};
 
-/// Build a formatted error message for a parse diagnostic
+/// Build a formatted message for a parse diagnostic
 pub fn build_diagnostic_message(source: &str, diagnostic: &Diagnostic, with_color: bool) -> String {
     let mut write_buffer = Vec::new();
     let code_u32: u32 = diagnostic.code.into();
