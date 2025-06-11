@@ -7,8 +7,6 @@ use crate::{
     vm::{instructions::Instruction, State},
 };
 
-/// Store the sum of the values at the offsets `fp + off0` and `fp + off1` in the memory at the offset `fp + off2`.
-///
 /// CASM equivalent:
 /// ```casm
 /// [fp + off2] = [fp + off0] + [fp + off1]
@@ -25,8 +23,6 @@ pub fn store_add_fp_fp(
     Ok(state.advance())
 }
 
-/// Store the sum of the value at the offset `fp + off0` and the immediate value `imm` in the memory at the offset `fp + off2`.
-///
 /// CASM equivalent:
 /// ```casm
 /// [fp + off2] = [fp + off0] + imm
@@ -43,8 +39,6 @@ pub fn store_add_fp_imm(
     Ok(state.advance())
 }
 
-/// Store the subtraction of the values at the offsets `fp + off0` and `fp + off1` in the memory at the offset `fp + off2`.
-///
 /// CASM equivalent:
 /// ```casm
 /// [fp + off2] = [fp + off0] - [fp + off1]
@@ -61,8 +55,6 @@ pub fn store_sub_fp_fp(
     Ok(state.advance())
 }
 
-/// Store the subtraction of the value at the offset `fp + off0` and the immediate value `imm` in the memory at the offset `fp + off2`.
-///
 /// CASM equivalent:
 /// ```casm
 /// [fp + off2] = [fp + off0] - imm
@@ -79,8 +71,6 @@ pub fn store_sub_fp_imm(
     Ok(state.advance())
 }
 
-/// Store the value at the offset `fp + off0` in the memory at the offset `fp + off2`.
-///
 /// CASM equivalent:
 /// ```casm
 /// [fp + off2] = [fp + off0]
@@ -97,8 +87,6 @@ pub fn store_deref_fp(
     Ok(state.advance())
 }
 
-/// Store the double derefence of the value at the offset `fp + off0` and the offset `off1` in the memory at the offset `fp + off2`.
-///
 /// CASM equivalent:
 /// ```casm
 /// [fp + off2] = [[fp + off0] + off1]
@@ -116,8 +104,6 @@ pub fn store_double_deref_fp(
     Ok(state.advance())
 }
 
-/// Store the immediate value `off0` in the memory at the offset `fp + off2`.
-///
 /// CASM equivalent:
 /// ```casm
 /// [fp + off2] = off0
@@ -134,8 +120,6 @@ pub fn store_imm(
     Ok(state.advance())
 }
 
-/// Store the product of the values at the offsets `fp + off0` and `fp + off1` in the memory at the offset `fp + off2`.
-///
 /// CASM equivalent:
 /// ```casm
 /// [fp + off2] = [fp + off0] * [fp + off1]
@@ -152,8 +136,6 @@ pub fn store_mul_fp_fp(
     Ok(state.advance())
 }
 
-/// Store the product of the value at the offset `fp + off0` and the immediate value `imm` in the memory at the offset `fp + off2`.
-///
 /// CASM equivalent:
 /// ```casm
 /// [fp + off2] = [fp + off0] * imm
@@ -170,8 +152,6 @@ pub fn store_mul_fp_imm(
     Ok(state.advance())
 }
 
-/// Store the division of the values at the offsets `fp + off0` and `fp + off1` in the memory at the offset `fp + off2`.
-///
 /// CASM equivalent:
 /// ```casm
 /// [fp + off2] = [fp + off0] / [fp + off1]
@@ -188,8 +168,6 @@ pub fn store_div_fp_fp(
     Ok(state.advance())
 }
 
-/// Store the division of the value at the offset `fp + off0` and the immediate value `imm` in the memory at the offset `fp + off2`.
-///
 /// CASM equivalent:
 /// ```casm
 /// [fp + off2] = [fp + off0] / imm
