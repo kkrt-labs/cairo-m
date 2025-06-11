@@ -8,12 +8,13 @@ Source code:
 // Test cases for indexing validation
 
 // Valid indexing cases
-func valid_indexing() {
+func valid_indexing() -> felt {
     // Tuple indexing
     let tup = (1, 2, 3);
     let first = tup[0];
     let second = tup[1];
     let third = tup[2];
+    return third;
 }
 
 struct Point{
@@ -22,22 +23,23 @@ struct Point{
 }
 
 // Invalid indexing cases
-func invalid_indexing() {
+func invalid_indexing() -> felt{
     // Indexing non-indexable types
     let num = 42;
     let bad1 = num[0];  // Should error: cannot index felt
 
     // Non-integer indices
     let tup = (1, 2, 3);
-    let bad2 = tup[Point{x: 0, y: 0}];  // Should error: index must be integer
+    let bad2 = tup[Point{x: 0, y: 0}];  // Should error: index must be felt
 
     // Out of bounds (when possible to detect)
     let small_tup = (1, 2);
     let bad3 = small_tup[2];  // TODO Should error: index out of bounds
+    return 0;
 } 
 
 ============================================================
-Found 10 diagnostic(s):
+Found 7 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1002] Warning: Unused variable 'first'
@@ -58,73 +60,46 @@ Found 10 diagnostic(s):
 ───╯
 
 --- Diagnostic 3 ---
-[1002] Warning: Unused variable 'third'
-   ╭─[ <unknown>:9:9 ]
-   │
- 9 │     let third = tup[2];
-   │         ──┬──  
-   │           ╰──── Unused variable 'third'
-───╯
-
---- Diagnostic 4 ---
 [1002] Warning: Unused variable 'bad1'
-    ╭─[ <unknown>:21:9 ]
+    ╭─[ <unknown>:22:9 ]
     │
- 21 │     let bad1 = num[0];  // Should error: cannot index felt
+ 22 │     let bad1 = num[0];  // Should error: cannot index felt
     │         ──┬─  
     │           ╰─── Unused variable 'bad1'
 ────╯
 
---- Diagnostic 5 ---
+--- Diagnostic 4 ---
 [1002] Warning: Unused variable 'bad2'
-    ╭─[ <unknown>:25:9 ]
+    ╭─[ <unknown>:26:9 ]
     │
- 25 │     let bad2 = tup[Point{x: 0, y: 0}];  // Should error: index must be integer
+ 26 │     let bad2 = tup[Point{x: 0, y: 0}];  // Should error: index must be felt
     │         ──┬─  
     │           ╰─── Unused variable 'bad2'
 ────╯
 
---- Diagnostic 6 ---
+--- Diagnostic 5 ---
 [1002] Warning: Unused variable 'bad3'
-    ╭─[ <unknown>:29:9 ]
+    ╭─[ <unknown>:30:9 ]
     │
- 29 │     let bad3 = small_tup[2];  // TODO Should error: index out of bounds
+ 30 │     let bad3 = small_tup[2];  // TODO Should error: index out of bounds
     │         ──┬─  
     │           ╰─── Unused variable 'bad3'
 ────╯
 
---- Diagnostic 7 ---
-[3002] Error: Function 'valid_indexing' doesn't return on all paths
-   ╭─[ <unknown>:4:6 ]
-   │
- 4 │ func valid_indexing() {
-   │      ───────┬──────  
-   │             ╰──────── Function 'valid_indexing' doesn't return on all paths
-───╯
-
---- Diagnostic 8 ---
-[3002] Error: Function 'invalid_indexing' doesn't return on all paths
-    ╭─[ <unknown>:18:6 ]
-    │
- 18 │ func invalid_indexing() {
-    │      ────────┬───────  
-    │              ╰───────── Function 'invalid_indexing' doesn't return on all paths
-────╯
-
---- Diagnostic 9 ---
+--- Diagnostic 6 ---
 [2003] Error: Cannot index type Felt
-    ╭─[ <unknown>:21:16 ]
+    ╭─[ <unknown>:22:16 ]
     │
- 21 │     let bad1 = num[0];  // Should error: cannot index felt
+ 22 │     let bad1 = num[0];  // Should error: cannot index felt
     │                ─┬─  
     │                 ╰─── Cannot index type Felt
 ────╯
 
---- Diagnostic 10 ---
-[2009] Error: Expected integer type for index, got Struct(StructTypeId(Id(1400)))
-    ╭─[ <unknown>:25:20 ]
+--- Diagnostic 7 ---
+[2009] Error: Expected felt type for index, got Struct(StructTypeId(Id(1400)))
+    ╭─[ <unknown>:26:20 ]
     │
- 25 │     let bad2 = tup[Point{x: 0, y: 0}];  // Should error: index must be integer
+ 26 │     let bad2 = tup[Point{x: 0, y: 0}];  // Should error: index must be felt
     │                    ────────┬────────  
-    │                            ╰────────── Expected integer type for index, got Struct(StructTypeId(Id(1400)))
+    │                            ╰────────── Expected felt type for index, got Struct(StructTypeId(Id(1400)))
 ────╯

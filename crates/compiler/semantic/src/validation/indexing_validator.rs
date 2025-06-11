@@ -57,7 +57,7 @@ impl Validator for IndexingValidator {
                             diagnostics.push(
                                 Diagnostic::error(
                                     DiagnosticCode::InvalidIndexType,
-                                    format!("Expected integer type for index, got {index_type:?}"),
+                                    format!("Expected felt type for index, got {index_type:?}"),
                                 )
                                 .with_location(index_expr.span()),
                             );
