@@ -17,6 +17,7 @@ use crate::vm::{Memory, State};
 use stwo_prover::core::fields::{m31::M31, qm31::QM31};
 use thiserror::Error;
 
+pub mod jnz;
 pub mod jump;
 pub mod store;
 
