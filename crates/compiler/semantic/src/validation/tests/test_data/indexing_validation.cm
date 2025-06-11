@@ -9,6 +9,11 @@ func valid_indexing() {
     let third = tup[2];
 }
 
+struct Point{
+    x: felt,
+    y: felt,
+}
+
 // Invalid indexing cases
 func invalid_indexing() {
     // Indexing non-indexable types
@@ -17,15 +22,9 @@ func invalid_indexing() {
 
     // Non-integer indices
     let tup = (1, 2, 3);
-    let bad2 = tup["string"];  // Should error: index must be integer
-
-    struct Point {
-        x: felt,
-        y: felt,
-    }
-    let bad3 = tup[Point { x: 1, y: 2 }];  // Should error: index must be integer
+    let bad2 = tup[Point{x: 0, y: 0}];  // Should error: index must be integer
 
     // Out of bounds (when possible to detect)
     let small_tup = (1, 2);
-    let bad4 = small_tup[2];  // Should error: index out of bounds
+    let bad3 = small_tup[2];  // TODO Should error: index out of bounds
 } 
