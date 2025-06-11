@@ -1,0 +1,137 @@
+---
+source: crates/compiler/parser/src/parser.rs
+expression: snapshot_entry
+---
+code: func test() { if (true) { if (false) { if (true) { if (true) { if (true) { x = 1; } } } } } }
+result: [
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
+                ),
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        If {
+                            condition: Spanned(
+                                BooleanLiteral(
+                                    true,
+                                ),
+                                18..22,
+                            ),
+                            then_block: Spanned(
+                                Block(
+                                    [
+                                        Spanned(
+                                            If {
+                                                condition: Spanned(
+                                                    BooleanLiteral(
+                                                        false,
+                                                    ),
+                                                    30..35,
+                                                ),
+                                                then_block: Spanned(
+                                                    Block(
+                                                        [
+                                                            Spanned(
+                                                                If {
+                                                                    condition: Spanned(
+                                                                        BooleanLiteral(
+                                                                            true,
+                                                                        ),
+                                                                        43..47,
+                                                                    ),
+                                                                    then_block: Spanned(
+                                                                        Block(
+                                                                            [
+                                                                                Spanned(
+                                                                                    If {
+                                                                                        condition: Spanned(
+                                                                                            BooleanLiteral(
+                                                                                                true,
+                                                                                            ),
+                                                                                            55..59,
+                                                                                        ),
+                                                                                        then_block: Spanned(
+                                                                                            Block(
+                                                                                                [
+                                                                                                    Spanned(
+                                                                                                        If {
+                                                                                                            condition: Spanned(
+                                                                                                                BooleanLiteral(
+                                                                                                                    true,
+                                                                                                                ),
+                                                                                                                67..71,
+                                                                                                            ),
+                                                                                                            then_block: Spanned(
+                                                                                                                Block(
+                                                                                                                    [
+                                                                                                                        Spanned(
+                                                                                                                            Assignment {
+                                                                                                                                lhs: Spanned(
+                                                                                                                                    Identifier(
+                                                                                                                                        Spanned(
+                                                                                                                                            "x",
+                                                                                                                                            75..76,
+                                                                                                                                        ),
+                                                                                                                                    ),
+                                                                                                                                    75..76,
+                                                                                                                                ),
+                                                                                                                                rhs: Spanned(
+                                                                                                                                    Literal(
+                                                                                                                                        1,
+                                                                                                                                    ),
+                                                                                                                                    79..80,
+                                                                                                                                ),
+                                                                                                                            },
+                                                                                                                            75..81,
+                                                                                                                        ),
+                                                                                                                    ],
+                                                                                                                ),
+                                                                                                                73..83,
+                                                                                                            ),
+                                                                                                            else_block: None,
+                                                                                                        },
+                                                                                                        63..83,
+                                                                                                    ),
+                                                                                                ],
+                                                                                            ),
+                                                                                            61..85,
+                                                                                        ),
+                                                                                        else_block: None,
+                                                                                    },
+                                                                                    51..85,
+                                                                                ),
+                                                                            ],
+                                                                        ),
+                                                                        49..87,
+                                                                    ),
+                                                                    else_block: None,
+                                                                },
+                                                                39..87,
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    37..89,
+                                                ),
+                                                else_block: None,
+                                            },
+                                            26..89,
+                                        ),
+                                    ],
+                                ),
+                                24..91,
+                            ),
+                            else_block: None,
+                        },
+                        14..91,
+                    ),
+                ],
+            },
+            0..93,
+        ),
+    ),
+]

@@ -101,6 +101,8 @@ pub enum BinaryOp {
 pub enum Expression {
     /// Integer literal (e.g., `42`, `0`, `1337`)
     Literal(u32),
+    /// Boolean literal (e.g., `true`, `false`)
+    BooleanLiteral(bool),
     /// Variable identifier (e.g., `x`, `my_var`, `result`)
     Identifier(Spanned<String>),
     /// Binary operation (e.g., `a + b`, `x == y`, `p && q`)
@@ -463,6 +465,13 @@ where
         let literal = select! { TokenType::LiteralNumber(n) => Expression::Literal(n) }
             .map_with(|lit, extra| Spanned::new(lit, extra.span()));
 
+        // Boolean literals (e.g., true, false)
+        let boolean_literal = select! {
+            TokenType::True => Expression::BooleanLiteral(true),
+            TokenType::False => Expression::BooleanLiteral(false),
+        }
+        .map_with(|lit, extra| Spanned::new(lit, extra.span()));
+
         // Variable identifiers (e.g., x, my_var, result)
         let ident_expr = spanned_ident
             .clone()
@@ -506,6 +515,7 @@ where
 
         // Basic atomic expressions - try each alternative in order
         let atom = literal
+            .or(boolean_literal)
             .or(struct_literal)
             .or(ident_expr)
             .or(tuple_expr)
@@ -2087,7 +2097,7 @@ mod tests {
     fn test_deep_nesting() {
         run_test_case(test_case!(
             name: "deep_nesting",
-            code: "func test() { if (true) { if (true) { if (true) { if (true) { if (true) { x = 1; } } } } } }",
+            code: "func test() { if (true) { if (false) { if (true) { if (true) { if (true) { x = 1; } } } } } }",
 
             construct: "statement"
         ));
