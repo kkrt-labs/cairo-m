@@ -14,11 +14,13 @@ func test() {
     let p = Point { x: 1, y: 2 }; // OK: all fields defined
     let x_val = p.x; // OK: p exists, x is a field
     let bad_struct = UndefinedStruct { x: 1 }; // Should error: Undeclared variable 'UndefinedStruct'
-    let bad_field = p.z; // This might be a future semantic error (field doesn't exist)
+    let bad_field = p.z; // Should error: Field z does not exist in struct Point
+    let non_struct = 10;
+    let try_access = non_struct.x; // Should error: Expected struct type, got Felt
 }
 
 ============================================================
-Found 3 diagnostic(s):
+Found 6 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1002] Warning: Unused variable 'x_val'
@@ -42,7 +44,34 @@ Found 3 diagnostic(s):
 [1002] Warning: Unused variable 'bad_field'
     ╭─[ <unknown>:10:9 ]
     │
- 10 │     let bad_field = p.z; // This might be a future semantic error (field doesn't exist)
+ 10 │     let bad_field = p.z; // Should error: Field z does not exist in struct Point
     │         ────┬────  
     │             ╰────── Unused variable 'bad_field'
+────╯
+
+--- Diagnostic 4 ---
+[1002] Warning: Unused variable 'try_access'
+    ╭─[ <unknown>:12:9 ]
+    │
+ 12 │     let try_access = non_struct.x; // Should error: Expected struct type, got Felt
+    │         ─────┬────  
+    │              ╰────── Unused variable 'try_access'
+────╯
+
+--- Diagnostic 5 ---
+[2002] Error: Field z does not exist in struct Point
+    ╭─[ <unknown>:10:21 ]
+    │
+ 10 │     let bad_field = p.z; // Should error: Field z does not exist in struct Point
+    │                     ┬  
+    │                     ╰── Field z does not exist in struct Point
+────╯
+
+--- Diagnostic 6 ---
+[2004] Error: Expected struct type, got Felt
+    ╭─[ <unknown>:12:22 ]
+    │
+ 12 │     let try_access = non_struct.x; // Should error: Expected struct type, got Felt
+    │                      ─────┬────  
+    │                           ╰────── Expected struct type, got Felt
 ────╯
