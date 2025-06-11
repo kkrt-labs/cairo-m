@@ -230,3 +230,249 @@ fn test_expression_type_inference() {
     let c_expr_type = expression_semantic_type(&db, file, c_expr_id);
     assert_eq!(c_expr_type, felt_type);
 }
+
+#[test]
+fn test_let_variable_type_inference() {
+    let db = test_db();
+    let program = r#"
+        struct Point { x: felt, y: felt }
+        func test() {
+            let a = 42;
+            let b = 13;
+            let p = Point { x: 1, y: 2 };
+        }
+    "#;
+    let file = File::new(&db, program.to_string());
+    let semantic_index = semantic_index(&db, file);
+    let func_scope = semantic_index
+        .scopes()
+        .find(|(_, scope)| scope.kind == crate::place::ScopeKind::Function)
+        .map(|(scope_id, _)| scope_id)
+        .unwrap();
+
+    // Helper function to get variable type
+    let get_var_type = |var_name: &str| {
+        let (def_idx, _) = semantic_index
+            .resolve_name_to_definition(var_name, func_scope)
+            .unwrap_or_else(|| panic!("Variable '{var_name}' not found"));
+        let def_id = DefinitionId::new(&db, file, def_idx);
+        definition_semantic_type(&db, def_id)
+    };
+
+    let felt_type = TypeId::new(&db, TypeData::Felt);
+
+    // Test: `let a = 42` should infer `felt`
+    let a_type = get_var_type("a");
+    assert_eq!(a_type, felt_type, "Variable 'a' should be inferred as felt");
+
+    // Test: `let b = 13` should also infer `felt`
+    let b_type = get_var_type("b");
+    assert_eq!(
+        b_type, felt_type,
+        "Variable 'b' should be inferred as felt, not affected by other variables"
+    );
+
+    // Test: `let p = Point { x: 1, y: 2 }` should infer struct type
+    let p_type = get_var_type("p");
+    match p_type.data(&db) {
+        TypeData::Struct(struct_id) => {
+            assert_eq!(struct_id.name(&db), "Point");
+        }
+        other => panic!("Variable 'p' should be inferred as Point struct, got {other:?}"),
+    }
+}
+
+#[test]
+fn test_const_variable_type_inference() {
+    let db = test_db();
+    let program = r#"
+        const MAGIC_NUMBER = 42;
+        const PI_APPROX = 314;
+    "#;
+    let file = File::new(&db, program.to_string());
+    let semantic_index = semantic_index(&db, file);
+    let root_scope = semantic_index.root_scope().unwrap();
+
+    // Helper function to get constant type
+    let get_const_type = |const_name: &str| {
+        let (def_idx, _) = semantic_index
+            .resolve_name_to_definition(const_name, root_scope)
+            .unwrap_or_else(|| panic!("Constant '{const_name}' not found"));
+        let def_id = DefinitionId::new(&db, file, def_idx);
+        definition_semantic_type(&db, def_id)
+    };
+
+    let felt_type = TypeId::new(&db, TypeData::Felt);
+
+    // Test: Both constants should infer felt type correctly
+    let magic_type = get_const_type("MAGIC_NUMBER");
+    assert_eq!(
+        magic_type, felt_type,
+        "MAGIC_NUMBER should be inferred as felt"
+    );
+
+    let pi_type = get_const_type("PI_APPROX");
+    assert_eq!(
+        pi_type, felt_type,
+        "PI_APPROX should be inferred as felt, not affected by other constants"
+    );
+}
+
+#[test]
+fn test_explicit_type_annotations_priority() {
+    let db = test_db();
+    let program = r#"
+        struct Point { x: felt, y: felt }
+        func test() {
+            let x: felt = 42;
+            local y: Point = 13;
+            let p: Point = Point { x: 1, y: 2 };
+        }
+    "#;
+    let file = File::new(&db, program.to_string());
+    let semantic_index = semantic_index(&db, file);
+    let func_scope = semantic_index
+        .scopes()
+        .find(|(_, scope)| scope.kind == crate::place::ScopeKind::Function)
+        .map(|(scope_id, _)| scope_id)
+        .unwrap();
+
+    // Helper function to get variable type
+    let get_var_type = |var_name: &str| {
+        let (def_idx, _) = semantic_index
+            .resolve_name_to_definition(var_name, func_scope)
+            .unwrap_or_else(|| panic!("Variable '{var_name}' not found"));
+        let def_id = DefinitionId::new(&db, file, def_idx);
+        definition_semantic_type(&db, def_id)
+    };
+
+    let felt_type = TypeId::new(&db, TypeData::Felt);
+
+    // Test: `let x: felt = 42` should use explicit type annotation
+    let x_type = get_var_type("x");
+    assert_eq!(
+        x_type, felt_type,
+        "Variable 'x' should use explicit felt annotation"
+    );
+
+    // Test: `local y: Point = 13` should use explicit type annotation (even if incorrect)
+    let y_type = get_var_type("y");
+    match y_type.data(&db) {
+        TypeData::Struct(struct_id) => {
+            assert_eq!(struct_id.name(&db), "Point");
+        }
+        other => panic!("Variable 'y' should use explicit Point annotation, got {other:?}"),
+    }
+
+    // Test: `let p: Point = Point { x: 1, y: 2 }` should use explicit struct annotation
+    let p_type = get_var_type("p");
+    match p_type.data(&db) {
+        TypeData::Struct(struct_id) => {
+            assert_eq!(struct_id.name(&db), "Point");
+        }
+        other => panic!("Variable 'p' should use explicit Point annotation, got {other:?}"),
+    }
+}
+
+#[test]
+fn test_local_variable_inference_without_annotation() {
+    let db = test_db();
+    let program = r#"
+        struct Point { x: felt, y: felt }
+        func test() {
+            local x = 42;
+            local y = Point { x: 1, y: 2 };
+        }
+    "#;
+    let file = File::new(&db, program.to_string());
+    let semantic_index = semantic_index(&db, file);
+    let func_scope = semantic_index
+        .scopes()
+        .find(|(_, scope)| scope.kind == crate::place::ScopeKind::Function)
+        .map(|(scope_id, _)| scope_id)
+        .unwrap();
+
+    // Helper function to get variable type
+    let get_var_type = |var_name: &str| {
+        let (def_idx, _) = semantic_index
+            .resolve_name_to_definition(var_name, func_scope)
+            .unwrap_or_else(|| panic!("Variable '{var_name}' not found"));
+        let def_id = DefinitionId::new(&db, file, def_idx);
+        definition_semantic_type(&db, def_id)
+    };
+
+    let felt_type = TypeId::new(&db, TypeData::Felt);
+
+    // Test: local variables without explicit types should infer from their values
+    let x_type = get_var_type("x");
+    assert_eq!(
+        x_type, felt_type,
+        "Local variable 'x' should be inferred as felt"
+    );
+
+    let y_type = get_var_type("y");
+    match y_type.data(&db) {
+        TypeData::Struct(struct_id) => {
+            assert_eq!(struct_id.name(&db), "Point");
+        }
+        other => panic!("Variable 'y' should be inferred Point, got {other:?}"),
+    }
+}
+
+#[test]
+fn test_mixed_variable_scenarios() {
+    let db = test_db();
+    let program = r#"
+        struct Vector { x: felt, y: felt }
+        func complex_test() {
+            let a = 42;                    // infer from literal
+            let b: felt = a + 1;           // explicit annotation, infer from expression
+            local c = Vector { x: 1, y: 2 }; // infer from struct literal
+            local d: Vector = c;           // explicit annotation, infer from identifier
+        }
+    "#;
+    let file = File::new(&db, program.to_string());
+    let semantic_index = semantic_index(&db, file);
+    let func_scope = semantic_index
+        .scopes()
+        .find(|(_, scope)| scope.kind == crate::place::ScopeKind::Function)
+        .map(|(scope_id, _)| scope_id)
+        .unwrap();
+
+    // Helper function to get variable type
+    let get_var_type = |var_name: &str| {
+        let (def_idx, _) = semantic_index
+            .resolve_name_to_definition(var_name, func_scope)
+            .unwrap_or_else(|| panic!("Variable '{var_name}' not found"));
+        let def_id = DefinitionId::new(&db, file, def_idx);
+        definition_semantic_type(&db, def_id)
+    };
+
+    let felt_type = TypeId::new(&db, TypeData::Felt);
+
+    // Test all variables get the correct types
+    let a_type = get_var_type("a");
+    assert_eq!(a_type, felt_type, "Variable 'a' should be inferred as felt");
+
+    let b_type = get_var_type("b");
+    assert_eq!(
+        b_type, felt_type,
+        "Variable 'b' should use explicit felt annotation"
+    );
+
+    let c_type = get_var_type("c");
+    match c_type.data(&db) {
+        TypeData::Struct(struct_id) => {
+            assert_eq!(struct_id.name(&db), "Vector");
+        }
+        other => panic!("Variable 'c' should be inferred as Vector struct, got {other:?}"),
+    }
+
+    let d_type = get_var_type("d");
+    match d_type.data(&db) {
+        TypeData::Struct(struct_id) => {
+            assert_eq!(struct_id.name(&db), "Vector");
+        }
+        other => panic!("Variable 'd' should use explicit Vector annotation, got {other:?}"),
+    }
+}

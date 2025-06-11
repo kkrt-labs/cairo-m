@@ -13,9 +13,7 @@
 //! - `are_types_compatible`: Checks type compatibility
 
 use crate::db::SemanticDb;
-use crate::definition::{
-    DefinitionKind, FunctionDefRef, LocalDefRef, ParameterDefRef, StructDefRef,
-};
+use crate::definition::{DefinitionKind, FunctionDefRef, ParameterDefRef, StructDefRef};
 use crate::place::FileScopeId;
 use crate::semantic_index::{semantic_index, DefinitionId, ExpressionId};
 use crate::types::{FunctionSignatureId, StructTypeId, TypeData, TypeId};
@@ -102,31 +100,37 @@ pub fn definition_semantic_type<'db>(
             name: _name,
             type_ast,
         }) => resolve_ast_type(db, file, type_ast.clone(), definition.scope_id),
-        DefinitionKind::Local(LocalDefRef {
-            explicit_type_ast, ..
-        }) => resolve_ast_type(
-            db,
-            file,
-            explicit_type_ast.clone().unwrap(),
-            definition.scope_id,
-        ),
-        // For `let` and `local` without type hints, we need to infer from the value.
-        // This requires finding the expression associated with the definition.
-        // This part of the semantic index is not yet fully implemented.
-        DefinitionKind::Let(_) | DefinitionKind::Const(_) => {
-            // For variables without explicit type annotations, infer from their value expression
-            // First, try to find the expression associated with this definition
-            if let Some((value_expr_id, _)) =
-                semantic_index.all_expressions().find(|(_, expr_info)| {
-                    // Look for expressions in the same scope that might be the initializer
-                    expr_info.scope_id == definition.scope_id
-                })
-            {
-                // If we found a potential value expression, infer its type
+        DefinitionKind::Local(local_ref) => {
+            // Prioritize explicit type annotation if available
+            if let Some(type_ast) = &local_ref.explicit_type_ast {
+                resolve_ast_type(db, file, type_ast.clone(), definition.scope_id)
+            } else if let Some(value_expr_id) = local_ref.value_expr_id {
+                // Infer from the stored value expression ID
                 expression_semantic_type(db, file, value_expr_id)
             } else {
-                // Fallback to Unknown if we can't find the associated expression
+                // No type annotation and no value to infer from
                 TypeId::new(db, TypeData::Unknown)
+            }
+        }
+        DefinitionKind::Let(let_ref) => {
+            // Prioritize explicit type annotation if available
+            if let Some(type_ast) = &let_ref.explicit_type_ast {
+                resolve_ast_type(db, file, type_ast.clone(), definition.scope_id)
+            } else if let Some(value_expr_id) = let_ref.value_expr_id {
+                // Infer from the stored value expression ID
+                expression_semantic_type(db, file, value_expr_id)
+            } else {
+                // No type annotation and no value to infer from
+                TypeId::new(db, TypeData::Unknown)
+            }
+        }
+        DefinitionKind::Const(const_ref) => {
+            // Constants must be initialized, so we infer from the value expression
+            if let Some(value_expr_id) = const_ref.value_expr_id {
+                expression_semantic_type(db, file, value_expr_id)
+            } else {
+                // Constants without initialization is an error in the language
+                TypeId::new(db, TypeData::Error)
             }
         }
         DefinitionKind::Import(_) | DefinitionKind::Namespace(_) => {
@@ -194,7 +198,70 @@ pub fn expression_semantic_type<'db>(
                 TypeId::new(db, TypeData::Error)
             }
         }
-        _ => TypeId::new(db, TypeData::Unknown),
+        Expression::FunctionCall { callee, args: _ } => {
+            // Get ExpressionId for the callee
+            if let Some(callee_expr_id) = semantic_index.expression_id_by_span(callee.span()) {
+                // Infer callee's type recursively
+                let callee_type = expression_semantic_type(db, file, callee_expr_id);
+                // If it's a function type, return the return type
+                match callee_type.data(db) {
+                    TypeData::Function(signature_id) => signature_id.return_type(db),
+                    _ => TypeId::new(db, TypeData::Error),
+                }
+            } else {
+                TypeId::new(db, TypeData::Error)
+            }
+        }
+        Expression::StructLiteral { name, fields: _ } => {
+            // Resolve the struct name to a definition
+            if let Some((def_idx, _)) =
+                semantic_index.resolve_name_to_definition(name.value(), expr_info.scope_id)
+            {
+                let def_id = DefinitionId::new(db, file, def_idx);
+                let def_type = definition_semantic_type(db, def_id);
+
+                // Ensure it's a struct type
+                if let TypeData::Struct(_) = def_type.data(db) {
+                    def_type
+                } else {
+                    TypeId::new(db, TypeData::Error) // Found a name, but it's not a type
+                }
+            } else {
+                TypeId::new(db, TypeData::Error) // Struct type not found
+            }
+        }
+        Expression::IndexAccess { array, index: _ } => {
+            // Infer the array/pointer type
+            if let Some(array_expr_id) = semantic_index.expression_id_by_span(array.span()) {
+                let array_type = expression_semantic_type(db, file, array_expr_id);
+
+                match array_type.data(db) {
+                    // For pointer types, return the dereferenced type
+                    TypeData::Pointer(inner_type) => inner_type,
+                    // TODO: For tuple types, we could return the element type if all elements are the same
+                    // For now, return error for index access on non-pointer types
+                    _ => TypeId::new(db, TypeData::Error),
+                }
+            } else {
+                TypeId::new(db, TypeData::Error)
+            }
+        }
+        Expression::Tuple(elements) => {
+            // Infer types of all elements
+            let element_types: Vec<TypeId> = elements
+                .iter()
+                .filter_map(|element| semantic_index.expression_id_by_span(element.span()))
+                .map(|element_id| expression_semantic_type(db, file, element_id))
+                .collect();
+
+            // If we successfully resolved all element types, create a tuple type
+            if element_types.len() == elements.len() {
+                TypeId::new(db, TypeData::Tuple(element_types))
+            } else {
+                // Some elements couldn't be resolved
+                TypeId::new(db, TypeData::Error)
+            }
+        }
     }
 }
 
@@ -470,5 +537,90 @@ mod tests {
             // Verify that span information is still available for diagnostics
             assert!(expr_info.ast_span.start < expr_info.ast_span.end);
         }
+    }
+
+    #[test]
+    fn test_expression_type_coverage() {
+        let db = test_db();
+
+        // Simple test program that exercises all expression types
+        let program = r#"
+            struct Point { x: felt, y: felt }
+            func test() {
+                let p = Point { x: 1, y: 2 };
+                let sum = 1 + 2;
+                let coord = p.x;
+                return;
+            }
+        "#;
+        let file = crate::File::new(&db, program.to_string());
+        let semantic_index = semantic_index(&db, file);
+
+        // Count how many different expression types we find
+        let mut expression_types_found = std::collections::HashSet::new();
+
+        // We are expecting to find that many expressions;
+        let expected_expression_count = 8;
+        assert_eq!(
+            semantic_index.all_expressions().count(),
+            expected_expression_count
+        );
+
+        for (expr_id, expr_info) in semantic_index.all_expressions() {
+            let expr_type = expression_semantic_type(&db, file, expr_id);
+
+            // Record the expression variant we found
+            let variant_name = match &expr_info.ast_node {
+                Expression::Literal(_) => "Literal",
+                Expression::Identifier(_) => "Identifier",
+                Expression::BinaryOp { .. } => "BinaryOp",
+                Expression::FunctionCall { .. } => "FunctionCall",
+                Expression::MemberAccess { .. } => "MemberAccess",
+                Expression::IndexAccess { .. } => "IndexAccess",
+                Expression::StructLiteral { .. } => "StructLiteral",
+                Expression::Tuple(_) => "Tuple",
+            };
+            expression_types_found.insert(variant_name);
+
+            // Verify we never return Unknown type
+            assert!(!matches!(expr_type.data(&db), TypeData::Unknown));
+
+            // Basic sanity checks
+            match &expr_info.ast_node {
+                Expression::Literal(_) => {
+                    assert!(matches!(expr_type.data(&db), TypeData::Felt));
+                }
+                Expression::BinaryOp {
+                    op: _,
+                    left: _,
+                    right: _,
+                } => {
+                    assert!(matches!(expr_type.data(&db), TypeData::Felt));
+                }
+                Expression::MemberAccess {
+                    object: _,
+                    field: _,
+                } => {
+                    assert_eq!(expr_type.data(&db), TypeData::Felt);
+                }
+                Expression::StructLiteral { name, .. } if name.value() == "Point" => {
+                    if let TypeData::Struct(struct_id) = expr_type.data(&db) {
+                        assert_eq!(struct_id.name(&db), "Point");
+                    } else {
+                        panic!("Expected struct type, got {:?}", expr_type.data(&db));
+                    }
+                }
+                _ => {
+                    // For other expression types, just ensure we get some valid type
+                    assert!(!matches!(expr_type.data(&db), TypeData::Unknown));
+                }
+            }
+        }
+
+        // Verify we found the main expression types in our test program
+        assert!(expression_types_found.contains("Literal"));
+        assert!(expression_types_found.contains("StructLiteral"));
+        assert!(expression_types_found.contains("BinaryOp"));
+        assert!(expression_types_found.contains("MemberAccess"));
     }
 }
