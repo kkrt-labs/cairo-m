@@ -58,15 +58,7 @@ impl Validator for StructFieldValidator {
                             );
                         }
                     }
-                    TypeData::Error => {
-                        diagnostics.push(
-                            Diagnostic::error(
-                                DiagnosticCode::UndeclaredVariable,
-                                "Undeclared variable".to_string(),
-                            )
-                            .with_location(object.span()),
-                        );
-                    }
+                    TypeData::Error => (), // already handled by scope validator
                     _ => {
                         diagnostics.push(
                             Diagnostic::error(
@@ -156,25 +148,6 @@ mod tests {
         assert!(diagnostics[0]
             .message
             .contains("Expected struct type, got Felt"));
-    }
-
-    #[test]
-    fn test_field_access_on_undefined_struct() {
-        let db = test_db();
-        let program = r#"
-            func test() {
-                let p = undefined_struct.field;  // Error: undeclared variable
-            }
-        "#;
-        let file = File::new(&db, program.to_string());
-        let semantic_index = semantic_index(&db, file);
-
-        let validator = StructFieldValidator;
-        let diagnostics = validator.validate(&db, file, semantic_index);
-
-        assert_eq!(diagnostics.len(), 1);
-        assert_eq!(diagnostics[0].code, DiagnosticCode::UndeclaredVariable);
-        assert!(diagnostics[0].message.contains("Undeclared variable"));
     }
 
     #[test]

@@ -67,7 +67,7 @@ func test_struct_usage() {
 }
 
 ============================================================
-Found 16 diagnostic(s):
+Found 15 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1001] Error: Undeclared variable 'undefined_var'
@@ -202,13 +202,4 @@ Found 16 diagnostic(s):
  58 │     let bad = undefined_struct.field; // Should error: undeclared variable
     │         ─┬─  
     │          ╰─── Unused variable 'bad'
-────╯
-
---- Diagnostic 16 ---
-[1001] Error: Undeclared variable
-    ╭─[ <unknown>:58:15 ]
-    │
- 58 │     let bad = undefined_struct.field; // Should error: undeclared variable
-    │               ────────┬───────  
-    │                       ╰───────── Undeclared variable
 ────╯
