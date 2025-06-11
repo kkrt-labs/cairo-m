@@ -62,7 +62,7 @@ impl Validator for StructFieldValidator {
                         diagnostics.push(
                             Diagnostic::error(
                                 DiagnosticCode::UndeclaredVariable,
-                                format!("Undeclared variable"),
+                                "Undeclared variable".to_string(),
                             )
                             .with_location(object.span()),
                         );
