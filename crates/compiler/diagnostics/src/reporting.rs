@@ -1,7 +1,7 @@
 //! # Error Reporting Utilities for Parser
 //!
 //! This module provides error reporting and diagnostic formatting
-//! utilities for parser-related errors.
+//! utilities for compiler-related diagnostics.
 
 use crate::Diagnostic;
 use ariadne::{Label, Report, Source};
