@@ -1,9 +1,7 @@
-use ariadne::{Label, Report, ReportKind, Source};
 use cairo_m_compiler_diagnostics::build_diagnostic_message;
 use cairo_m_compiler_parser::{parse_program, SourceProgram};
 use cairo_m_compiler_semantic::validate_semantics;
 use clap::Parser;
-use salsa::Database;
 use std::fs;
 use std::path::PathBuf;
 

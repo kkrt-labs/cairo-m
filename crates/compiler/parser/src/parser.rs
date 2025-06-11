@@ -1019,11 +1019,6 @@ mod tests {
     use cairo_m_compiler_diagnostics::build_diagnostic_message;
 
     use super::*;
-    use crate::lexer::LexingError;
-    use ariadne::{Label, Report, ReportKind, Source};
-    use chumsky::input::Stream;
-    use chumsky::Parser;
-    use logos::Logos;
 
     /// A test case specification
     pub struct TestCase {
