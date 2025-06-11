@@ -1,0 +1,93 @@
+// Comprehensive Function Call Validation Test
+// This file tests all scenarios handled by the FunctionCallValidator
+
+// Valid function definitions for testing
+func add(x: felt, y: felt) -> felt {
+    return x + y;
+}
+
+func no_params() -> felt {
+    return 42;
+}
+
+func single_param(value: felt) -> felt {
+    return value * 2;
+}
+
+func multi_param(a: felt, b: felt, c: felt) -> felt {
+    return a + b + c;
+}
+
+struct Point {
+    x: felt,
+    y: felt
+}
+
+func point_func(p: Point) -> felt {
+    return p.x + p.y;
+}
+
+func test_function_calls() {
+    // ========== VALID CALLS (should not error) ==========
+    let result1 = add(1, 2);                    // OK: correct arity and types
+    let result2 = no_params();                  // OK: no parameters
+    let result3 = single_param(42);             // OK: single parameter
+    let result4 = multi_param(1, 2, 3);         // OK: multiple parameters
+    let p = Point { x: 1, y: 2 };
+    let result5 = point_func(p);                // OK: struct parameter
+
+    // ========== ARITY MISMATCH ERRORS ==========
+    let error1 = add(1);                        // Error: too few args (expects 2, got 1)
+    let error2 = add(1, 2, 3);                  // Error: too many args (expects 2, got 3)
+    let error3 = no_params(1);                  // Error: too many args (expects 0, got 1)
+    let error4 = single_param();                // Error: too few args (expects 1, got 0)
+    let error5 = multi_param(1, 2);             // Error: too few args (expects 3, got 2)
+
+    // ========== TYPE MISMATCH ERRORS ==========
+    // Note: Currently we only have 'felt' and struct types, so type mismatches
+    // are limited. These would error if we had different primitive types:
+    // let error6 = add("hello", 42);           // Would be: type mismatch (string vs felt)
+
+    // ========== NON-CALLABLE TYPE ERRORS ==========
+    let x = 42;
+    let error7 = x(1, 2);                       // Error: cannot call felt as function
+
+    let y = Point { x: 1, y: 2 };
+    let error8 = y();                           // Error: cannot call struct as function
+
+    // ========== UNDECLARED FUNCTION CALLS ==========
+    // These should NOT generate FunctionCallValidator errors, only ScopeValidator errors
+    let error9 = undefined_function(42);        // ScopeValidator: undeclared variable
+    let error10 = another_missing_func(1, 2);   // ScopeValidator: undeclared variable
+    let error11 = foo();                        // ScopeValidator: undeclared variable
+
+    // ========== CHAINED CALLS ==========
+    // These test more complex scenarios
+    let chain1 = add(single_param(5), 10);      // OK: nested valid calls
+    let chain2 = undefined_func(add(1, 2));     // Mixed: valid inner call, undeclared outer
+}
+
+// Test calls in different contexts
+func test_calls_in_expressions() {
+    // Function calls in binary operations
+    let sum = add(1, 2) + add(3, 4);            // OK: both calls valid
+    let bad_sum = add(1) + add(2, 3);           // Error: first call has wrong arity
+
+    // Function calls in conditionals
+    if (no_params() == 42) {                    // OK: valid call
+        let x = 1;
+    }
+
+    if (add(1)) {                               // Error: wrong arity in condition
+        let y = 2;
+    }
+}
+
+// Test function calls as return values
+func test_return_calls() -> felt {
+    return add(5, 10);                          // OK: valid call in return
+}
+
+func test_bad_return_calls() -> felt {
+    return add(5);                              // Error: wrong arity in return
+}

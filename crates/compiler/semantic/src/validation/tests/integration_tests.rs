@@ -154,3 +154,11 @@ fn test_missing_validation_cases() {
         "missing_validation_cases_diagnostics"
     );
 }
+
+#[test]
+fn test_function_call_comprehensive() {
+    assert_diagnostics_snapshot!(
+        "function_call_comprehensive.cm",
+        "function_call_comprehensive_diagnostics"
+    );
+}

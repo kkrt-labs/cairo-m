@@ -18,6 +18,7 @@ pub mod struct_literal_validator;
 pub mod tests;
 
 pub use diagnostics::{Diagnostic, DiagnosticCode, DiagnosticCollection, DiagnosticSeverity};
+pub use function_call_validator::FunctionCallValidator;
 pub use scope_check::ScopeValidator;
 pub use validator::Validator;
 
@@ -25,4 +26,3 @@ pub use validator::Validator;
 // pub use struct_field_validator::StructFieldValidator;
 // pub use struct_literal_validator::StructLiteralValidator;
 // pub use indexing_validator::IndexingValidator;
-// pub use function_call_validator::FunctionCallValidator;
