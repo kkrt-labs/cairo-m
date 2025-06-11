@@ -12,6 +12,7 @@
 
 use stwo_prover::core::fields::{m31::M31, qm31::QM31};
 
+pub mod jump;
 pub mod store;
 
 /// The arguments of a Cairo M instruction.
