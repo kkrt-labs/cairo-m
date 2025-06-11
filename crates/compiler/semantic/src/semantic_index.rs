@@ -585,8 +585,11 @@ impl<'db> SemanticIndexBuilder<'db> {
         let const_def_inner = const_def.value();
         let const_span = const_def.span();
 
-        // Define the constant in the current scope
-        let def_kind = DefinitionKind::Const(ConstDefRef::from_ast(const_def));
+        // Visit the value expression to find any identifier uses and capture the ID
+        let value_expr_id = self.visit_expression(&const_def_inner.value);
+
+        // Define the constant in the current scope with the captured expression ID
+        let def_kind = DefinitionKind::Const(ConstDefRef::from_ast(const_def, Some(value_expr_id)));
         self.add_place_with_definition(
             const_def_inner.name.value(),
             PlaceFlags::DEFINED | PlaceFlags::CONSTANT,
@@ -594,9 +597,6 @@ impl<'db> SemanticIndexBuilder<'db> {
             const_def_inner.name.span(),
             const_span,
         );
-
-        // Visit the value expression to find any identifier uses
-        let _value_expr_id = self.visit_expression(&const_def_inner.value);
     }
 
     /// Pass 1: Declare function without processing its body
@@ -694,10 +694,13 @@ impl<'db> SemanticIndexBuilder<'db> {
                 statement_type,
             } => {
                 use crate::definition::{DefinitionKind, LetDefRef};
-                // Define the let variable
+                // Visit the value expression and capture the ID
+                let value_expr_id = self.visit_expression(value);
+                // Define the let variable with the captured expression ID
                 let def_kind = DefinitionKind::Let(LetDefRef::from_let_statement(
                     name.value(),
                     statement_type.clone(),
+                    Some(value_expr_id),
                 ));
                 self.add_place_with_definition(
                     name.value(),
@@ -706,15 +709,16 @@ impl<'db> SemanticIndexBuilder<'db> {
                     name.span(),
                     stmt.span(),
                 );
-                // Visit the value expression
-                let _value_expr_id = self.visit_expression(value);
             }
             Statement::Local { name, value, ty } => {
                 use crate::definition::{DefinitionKind, LocalDefRef};
-                // Define the local variable
+                // Visit the value expression and capture the ID
+                let value_expr_id = self.visit_expression(value);
+                // Define the local variable with the captured expression ID
                 let def_kind = DefinitionKind::Local(LocalDefRef::from_local_statement(
                     name.value(),
                     ty.clone(),
+                    Some(value_expr_id),
                 ));
                 self.add_place_with_definition(
                     name.value(),
@@ -723,8 +727,6 @@ impl<'db> SemanticIndexBuilder<'db> {
                     name.span(),
                     stmt.span(),
                 );
-                // Visit the value expression
-                let _value_expr_id = self.visit_expression(value);
                 // TODO: Analyze type annotation when type system is implemented
             }
             Statement::Const(const_def) => {
@@ -1145,6 +1147,111 @@ mod tests {
                 def.full_span.start < def.full_span.end,
                 "Full span should have positive length"
             );
+        }
+    }
+
+    #[test]
+    fn test_definition_expression_ids_are_captured() {
+        let TestCase { db, source } = test_case(
+            r#"
+            const Z = 314;
+
+            func test() -> felt {
+                let x = 42;
+                local y: felt = 100;
+                return x + y;
+            }
+            "#,
+        );
+        let index = semantic_index(&db, source);
+
+        // Find the let definition
+        let let_definitions: Vec<_> = index
+            .all_definitions()
+            .filter_map(|(_, def)| match &def.kind {
+                DefinitionKind::Let(let_ref) => Some(let_ref),
+                _ => None,
+            })
+            .collect();
+
+        // Find the local definition
+        let local_definitions: Vec<_> = index
+            .all_definitions()
+            .filter_map(|(_, def)| match &def.kind {
+                DefinitionKind::Local(local_ref) => Some(local_ref),
+                _ => None,
+            })
+            .collect();
+
+        // Find the const definition
+        let const_definitions: Vec<_> = index
+            .all_definitions()
+            .filter_map(|(_, def)| match &def.kind {
+                DefinitionKind::Const(const_ref) => Some(const_ref),
+                _ => None,
+            })
+            .collect();
+
+        // Check that we found the expected definitions
+        assert_eq!(
+            let_definitions.len(),
+            1,
+            "Should find exactly 1 let definition"
+        );
+        assert_eq!(
+            local_definitions.len(),
+            1,
+            "Should find exactly 1 local definition"
+        );
+        assert_eq!(
+            const_definitions.len(),
+            1,
+            "Should find exactly 1 const definition"
+        );
+
+        // Verify the names and expression IDs
+        assert_eq!(let_definitions[0].name, "x");
+        assert!(
+            let_definitions[0].value_expr_id.is_some(),
+            "Let definition should have a value expression ID"
+        );
+
+        assert_eq!(local_definitions[0].name, "y");
+        assert!(
+            local_definitions[0].value_expr_id.is_some(),
+            "Local definition should have a value expression ID"
+        );
+
+        assert_eq!(const_definitions[0].name, "Z");
+        assert!(
+            const_definitions[0].value_expr_id.is_some(),
+            "Const definition should have a value expression ID"
+        );
+
+        // Verify that the expression IDs actually correspond to real expressions in the index
+        for let_def in &let_definitions {
+            if let Some(expr_id) = let_def.value_expr_id {
+                assert!(
+                    index.expression(expr_id).is_some(),
+                    "Expression ID should be valid"
+                );
+            }
+        }
+        for local_def in &local_definitions {
+            if let Some(expr_id) = local_def.value_expr_id {
+                assert!(
+                    index.expression(expr_id).is_some(),
+                    "Expression ID should be valid"
+                );
+            }
+        }
+        for const_def in &const_definitions {
+            if let Some(expr_id) = const_def.value_expr_id {
+                assert!(
+                    index.expression(expr_id).is_some(),
+                    "Expression ID should be valid"
+                );
+            }
         }
     }
 }

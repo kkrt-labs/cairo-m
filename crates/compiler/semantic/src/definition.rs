@@ -130,10 +130,10 @@ pub struct ConstDefRef {
 }
 
 impl ConstDefRef {
-    pub fn from_ast(const_def: &Spanned<ConstDef>) -> Self {
+    pub fn from_ast(const_def: &Spanned<ConstDef>, value_expr_id: Option<ExpressionId>) -> Self {
         Self {
             name: const_def.value().name.value().clone(),
-            value_expr_id: None, // Will be set during semantic analysis
+            value_expr_id,
         }
     }
 }
@@ -149,10 +149,14 @@ pub struct LetDefRef {
 }
 
 impl LetDefRef {
-    pub fn from_let_statement(name: &str, explicit_type_ast: Option<TypeExpr>) -> Self {
+    pub fn from_let_statement(
+        name: &str,
+        explicit_type_ast: Option<TypeExpr>,
+        value_expr_id: Option<ExpressionId>,
+    ) -> Self {
         Self {
             name: name.to_string(),
-            value_expr_id: None, // Will be set during semantic analysis, and verified against an eventual explicit type.
+            value_expr_id,
             explicit_type_ast,
         }
     }
@@ -169,10 +173,14 @@ pub struct LocalDefRef {
 }
 
 impl LocalDefRef {
-    pub fn from_local_statement(name: &str, type_ast: Option<TypeExpr>) -> Self {
+    pub fn from_local_statement(
+        name: &str,
+        type_ast: Option<TypeExpr>,
+        value_expr_id: Option<ExpressionId>,
+    ) -> Self {
         Self {
             name: name.to_string(),
-            value_expr_id: None, // Will be set during semantic analysis
+            value_expr_id,
             explicit_type_ast: type_ast,
         }
     }
@@ -340,7 +348,7 @@ mod tests {
             value: Spanned::new(Expression::Literal(314), SimpleSpan::from(3..6)),
         };
         let spanned_const = Spanned::new(const_def, SimpleSpan::from(0..10));
-        let const_ref = ConstDefRef::from_ast(&spanned_const);
+        let const_ref = ConstDefRef::from_ast(&spanned_const, None);
         assert_eq!(const_ref.name, "PI");
     }
 
