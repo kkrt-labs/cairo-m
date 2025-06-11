@@ -154,6 +154,7 @@ pub fn create_default_registry() -> ValidatorRegistry {
     ValidatorRegistry::new()
         .add_validator(crate::validation::scope_check::ScopeValidator)
         .add_validator(crate::validation::function_call_validator::FunctionCallValidator)
+        .add_validator(crate::validation::struct_field_validator::StructFieldValidator)
 }
 
 #[cfg(test)]
