@@ -5,7 +5,7 @@ use crate::{
     vm::{instructions::Instruction, State},
 };
 
-/// Jump to the absolute address of the sum of the memory values at the offsets `fp + off0` and `fp + off1`.
+/// Absolute Jump - Replace PC by the sum of the memory values at the offsets `fp + off0` and `fp + off1`.
 ///
 /// CASM equivalent:
 /// ```casm
@@ -22,7 +22,7 @@ pub fn jmp_abs_add_fp_fp(
     Ok(state.jump_abs(offset))
 }
 
-/// Jump to the absolute address of the sum of the memory value at the offset `fp + off0` and the immediate value `imm`.
+/// Absolute Jump - Replace PC by the sum of the memory value at the offset `fp + off0` and the immediate value `imm`.
 ///
 /// CASM equivalent:
 /// ```casm
@@ -39,7 +39,7 @@ pub fn jmp_abs_add_fp_imm(
     Ok(state.jump_abs(offset))
 }
 
-/// Jump to the absolute address of the memory value at the offset `fp + off0`.
+/// Absolute Jump - Replace PC by the memory value at the offset `fp + off0`.
 ///
 /// CASM equivalent:
 /// ```casm
@@ -56,7 +56,7 @@ pub fn jmp_abs_deref_fp(
     Ok(state.jump_abs(offset))
 }
 
-/// Jump to the absolute address of the memory value at the offset `[[fp + off0] + off1]`.
+/// Absolute Jump - Replace PC by the memory value at the offset `[[fp + off0] + off1]`.
 ///
 /// CASM equivalent:
 /// ```casm
@@ -74,7 +74,7 @@ pub fn jmp_abs_double_deref_fp(
     Ok(state.jump_abs(offset))
 }
 
-/// Jump to the absolute address of the immediate value `imm`.
+/// Absolute Jump - Replace PC by the immediate value `imm`.
 ///
 /// CASM equivalent:
 /// ```casm
@@ -90,7 +90,7 @@ pub const fn jmp_abs_imm(
     Ok(state.jump_abs(imm))
 }
 
-/// Jump to the absolute address of the product of the memory values at the offsets `fp + off0` and `fp + off1`.
+/// Absolute Jump - Replace PC by the product of the memory values at the offsets `fp + off0` and `fp + off1`.
 ///
 /// CASM equivalent:
 /// ```casm
@@ -107,7 +107,7 @@ pub fn jmp_abs_mul_fp_fp(
     Ok(state.jump_abs(offset))
 }
 
-/// Jump to the absolute address of the product of the memory value at the offset `fp + off0` and the immediate value `imm`.
+/// Absolute Jump - Replace PC by the product of the memory value at the offset `fp + off0` and the immediate value `imm`.
 ///
 /// CASM equivalent:
 /// ```casm
