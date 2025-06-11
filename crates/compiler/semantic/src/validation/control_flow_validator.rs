@@ -36,13 +36,17 @@ impl Validator for ControlFlowValidator {
         let mut diagnostics = Vec::new();
 
         // Get the parsed module to access the AST.
-        let parsed_module = parse_program(db, file);
+        let parsed_program = parse_program(db, file);
+        if !parsed_program.diagnostics.is_empty() {
+            panic!("Got unexpected parse errors");
+        }
+        let parsed_module = parsed_program.module;
 
         // Analyse each function’s control-flow.
         for (_def_idx, definition) in index.all_definitions() {
             if let DefinitionKind::Function(_) = &definition.kind {
                 self.analyze_function_control_flow(
-                    parsed_module,
+                    &parsed_module,
                     &definition.name,
                     &mut diagnostics,
                 );

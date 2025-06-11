@@ -32,7 +32,9 @@ func clean_function() {
     let db = SemanticDatabaseImpl::default();
     let source_program = SourceProgram::new(&db, source.to_string());
     let file = File::new(&db, source_program.text(&db).clone());
-    let index = semantic_index(&db, file);
+    let index = semantic_index(&db, file)
+        .as_ref()
+        .expect("Got unexpected parse errors");
     let registry = create_default_registry();
     let diagnostics = registry.validate_all(&db, file, index);
 
@@ -62,7 +64,9 @@ func should_return(x: felt) -> felt {
     let db = SemanticDatabaseImpl::default();
     let source_program = SourceProgram::new(&db, source.to_string());
     let file = File::new(&db, source_program.text(&db).clone());
-    let index = semantic_index(&db, file);
+    let index = semantic_index(&db, file)
+        .as_ref()
+        .expect("Got unexpected parse errors");
     let registry = create_default_registry();
     let diagnostics = registry.validate_all(&db, file, index);
 
@@ -102,7 +106,9 @@ func unit_return_type(x: felt) -> () {
     let db = SemanticDatabaseImpl::default();
     let source_program = SourceProgram::new(&db, source.to_string());
     let file = File::new(&db, source_program.text(&db).clone());
-    let index = semantic_index(&db, file);
+    let index = semantic_index(&db, file)
+        .as_ref()
+        .expect("Got unexpected parse errors");
     let registry = create_default_registry();
     let diagnostics = registry.validate_all(&db, file, index);
 

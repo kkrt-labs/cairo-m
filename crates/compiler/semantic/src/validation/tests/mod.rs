@@ -119,7 +119,9 @@ fn run_validation(source: &str) -> DiagnosticCollection {
     let source_program = SourceProgram::new(&db, source.to_string());
 
     // Build semantic index
-    let index = semantic_index(&db, source_program);
+    let index = semantic_index(&db, source_program)
+        .as_ref()
+        .expect("Got unexpected parse errors");
 
     // Run validation
     let registry = create_default_registry();
@@ -275,8 +277,8 @@ mod tests_inner {
         );
 
         // Run validation
-        let parsed_module = parse_program(&db, source);
-        let diagnostics = validate_semantics(&db, parsed_module, source);
+        let parse_output = parse_program(&db, source);
+        let diagnostics = validate_semantics(&db, &parse_output.module, source);
 
         // Should find the Unused variable
         assert!(!diagnostics.is_empty());
@@ -305,9 +307,7 @@ mod tests_inner {
 
     #[test]
     fn test_duplicate_definition_validation() {
-        let db = test_db();
-
-        // Test program with duplicate definitions
+        let db = SemanticDatabaseImpl::default();
         let source = SourceProgram::new(
             &db,
             r#"
@@ -319,71 +319,79 @@ mod tests_inner {
             .to_string(),
         );
 
-        let parsed_module = parse_program(&db, source);
-        let diagnostics = validate_semantics(&db, parsed_module, source);
+        let parse_output = parse_program(&db, source);
+        let diagnostics = validate_semantics(&db, &parse_output.module, source);
 
         let duplicate_errors: Vec<_> = diagnostics
-            .all()
-            .iter()
-            .filter(|d| d.code == DiagnosticCode::DuplicateDefinition)
+            .errors()
+            .into_iter()
+            .filter(|d| d.message.contains("already declared"))
             .collect();
 
-        assert_eq!(duplicate_errors.len(), 1);
-        assert!(duplicate_errors[0].message.contains("var"));
-        assert_eq!(duplicate_errors[0].severity, DiagnosticSeverity::Error);
+        // Should find both duplicate declarations
+        assert_eq!(duplicate_errors.len(), 2);
+
+        // Check that both duplicates are found
+        assert!(duplicate_errors
+            .iter()
+            .any(|d| d.message.contains("'var' is already declared")));
+        assert!(duplicate_errors
+            .iter()
+            .any(|d| d.message.contains("'var' is already declared")));
     }
 
     #[test]
     fn test_undeclared_variable_detection() {
-        let db = test_db();
-
-        // Test program with undeclared variable usage
+        let db = SemanticDatabaseImpl::default();
         let source = SourceProgram::new(
             &db,
             r#"
-                func test() -> felt {
-                    let local_var = 42;
-                    return local_var + undeclared_var;  // Error: undeclared variable
-                }
-            "#
+            func test_func() {
+                let declared_var = 5;
+                undeclared_var = 10;
+                let result = another_undeclared + declared_var;
+            }
+        "#
             .to_string(),
         );
 
-        let parsed_module = parse_program(&db, source);
-        let diagnostics = validate_semantics(&db, parsed_module, source);
+        let parse_output = parse_program(&db, source);
+        let diagnostics = validate_semantics(&db, &parse_output.module, source);
 
         let undeclared_errors: Vec<_> = diagnostics
-            .all()
-            .iter()
-            .filter(|d| d.code == DiagnosticCode::UndeclaredVariable)
+            .errors()
+            .into_iter()
+            .filter(|d| d.message.contains("not declared"))
             .collect();
 
-        assert_eq!(undeclared_errors.len(), 1);
-        assert!(undeclared_errors[0].message.contains("undeclared_var"));
-        assert_eq!(undeclared_errors[0].severity, DiagnosticSeverity::Error);
+        // Should find both undeclared variables
+        assert_eq!(undeclared_errors.len(), 2);
+
+        // Check that both undeclared variables are found
+        assert!(undeclared_errors
+            .iter()
+            .any(|d| d.message.contains("'undeclared_var' is not declared")));
+        assert!(undeclared_errors
+            .iter()
+            .any(|d| d.message.contains("'another_undeclared' is not declared")));
     }
 
     #[test]
-    fn test_clean_program_validation() {
-        let db = test_db();
-
-        // Test program with no validation issues
+    fn test_valid_program_no_errors() {
+        let db = SemanticDatabaseImpl::default();
         let source = SourceProgram::new(
             &db,
             r#"
-                func add(a: felt, b: felt) -> felt {
-                    return a + b;
-                }
-
-                func main() -> felt {
-                    return add(1, 2);
-                }
-            "#
+            func test_func(param: felt) -> felt {
+                let local_var = param;
+                return local_var;
+            }
+        "#
             .to_string(),
         );
 
-        let parsed_module = parse_program(&db, source);
-        let diagnostics = validate_semantics(&db, parsed_module, source);
+        let parse_output = parse_program(&db, source);
+        let diagnostics = validate_semantics(&db, &parse_output.module, source);
 
         // Should have no errors
         let errors: Vec<_> = diagnostics.errors();

@@ -98,7 +98,9 @@ mod tests {
             }
         "#;
         let file = File::new(&db, program.to_string());
-        let semantic_index = semantic_index(&db, file);
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
 
         let validator = StructFieldValidator;
         let diagnostics = validator.validate(&db, file, semantic_index);
@@ -118,7 +120,9 @@ mod tests {
             }
         "#;
         let file = File::new(&db, program.to_string());
-        let semantic_index = semantic_index(&db, file);
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
 
         let validator = StructFieldValidator;
         let diagnostics = validator.validate(&db, file, semantic_index);
@@ -138,7 +142,9 @@ mod tests {
             }
         "#;
         let file = File::new(&db, program.to_string());
-        let semantic_index = semantic_index(&db, file);
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
 
         let validator = StructFieldValidator;
         let diagnostics = validator.validate(&db, file, semantic_index);
@@ -157,7 +163,7 @@ mod tests {
             struct Point { x: felt, y: felt }
             struct Line { start: Point, end: Point }
             func test() {
-                let line = Line { 
+                let line = Line {
                     start: Point { x: 1, y: 2 },
                     end: Point { x: 3, y: 4 }
                 };
@@ -166,7 +172,9 @@ mod tests {
             }
         "#;
         let file = File::new(&db, program.to_string());
-        let semantic_index = semantic_index(&db, file);
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
 
         let validator = StructFieldValidator;
         let diagnostics = validator.validate(&db, file, semantic_index);

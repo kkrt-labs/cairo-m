@@ -159,7 +159,9 @@ mod tests {
             }
         "#;
         let file = crate::File::new(&db, program.to_string());
-        let semantic_index = semantic_index(&db, file);
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
 
         let validator = FunctionCallValidator;
         let diagnostics = validator.validate(&db, file, semantic_index);
@@ -178,7 +180,9 @@ mod tests {
             }
         "#;
         let file = crate::File::new(&db, program.to_string());
-        let semantic_index = semantic_index(&db, file);
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
 
         let validator = FunctionCallValidator;
         let diagnostics = validator.validate(&db, file, semantic_index);
@@ -200,7 +204,9 @@ mod tests {
             }
         "#;
         let file = crate::File::new(&db, program.to_string());
-        let semantic_index = semantic_index(&db, file);
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
 
         let validator = FunctionCallValidator;
         let diagnostics = validator.validate(&db, file, semantic_index);
@@ -222,7 +228,9 @@ mod tests {
             }
         "#;
         let file = crate::File::new(&db, program.to_string());
-        let semantic_index = semantic_index(&db, file);
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
 
         let validator = FunctionCallValidator;
         let diagnostics = validator.validate(&db, file, semantic_index);
@@ -241,7 +249,9 @@ mod tests {
             }
         "#;
         let file = crate::File::new(&db, program.to_string());
-        let semantic_index = semantic_index(&db, file);
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
 
         let validator = FunctionCallValidator;
         let diagnostics = validator.validate(&db, file, semantic_index);

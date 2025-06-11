@@ -16,7 +16,9 @@ use cairo_m_compiler_parser::parser::TypeExpr as AstTypeExpr;
 fn test_resolve_primitive_types() {
     let db = test_db();
     let file = File::new(&db, "".to_string());
-    let semantic_index = semantic_index(&db, file);
+    let semantic_index = semantic_index(&db, file)
+        .as_ref()
+        .expect("Got unexpected parse errors");
     let root_scope = semantic_index.root_scope().unwrap();
 
     let felt_type = resolve_ast_type(
@@ -48,7 +50,9 @@ fn test_struct_type_resolution() {
         }
     "#;
     let file = File::new(&db, program.to_string());
-    let semantic_index = semantic_index(&db, file);
+    let semantic_index = semantic_index(&db, file)
+        .as_ref()
+        .expect("Got unexpected parse errors");
     let root_scope = semantic_index.root_scope().unwrap();
 
     // 1. Resolve `Point` as a type name.
@@ -96,7 +100,9 @@ fn test_function_signature_resolution() {
         }
     "#;
     let file = File::new(&db, program.to_string());
-    let semantic_index = semantic_index(&db, file);
+    let semantic_index = semantic_index(&db, file)
+        .as_ref()
+        .expect("Got unexpected parse errors");
     let root_scope = semantic_index.root_scope().unwrap();
 
     // 1. Get the function definition.
@@ -143,7 +149,9 @@ fn test_parameter_type_resolution() {
         }
     "#;
     let file = File::new(&db, program.to_string());
-    let semantic_index = semantic_index(&db, file);
+    let semantic_index = semantic_index(&db, file)
+        .as_ref()
+        .expect("Got unexpected parse errors");
     let root_scope = semantic_index.root_scope().unwrap();
     let func_scope = semantic_index
         .child_scopes(root_scope)
@@ -181,7 +189,9 @@ fn test_expression_type_inference() {
         }
     "#;
     let file = File::new(&db, program.to_string());
-    let semantic_index = semantic_index(&db, file);
+    let semantic_index = semantic_index(&db, file)
+        .as_ref()
+        .expect("Got unexpected parse errors");
 
     // Helper to find an expression by matching against tracked expressions
     let find_expr_id = |target_text: &str| {
@@ -243,7 +253,9 @@ fn test_let_variable_type_inference() {
         }
     "#;
     let file = File::new(&db, program.to_string());
-    let semantic_index = semantic_index(&db, file);
+    let semantic_index = semantic_index(&db, file)
+        .as_ref()
+        .expect("Got unexpected parse errors");
     let func_scope = semantic_index
         .scopes()
         .find(|(_, scope)| scope.kind == crate::place::ScopeKind::Function)
@@ -290,7 +302,9 @@ fn test_const_variable_type_inference() {
         const PI_APPROX = 314;
     "#;
     let file = File::new(&db, program.to_string());
-    let semantic_index = semantic_index(&db, file);
+    let semantic_index = semantic_index(&db, file)
+        .as_ref()
+        .expect("Got unexpected parse errors");
     let root_scope = semantic_index.root_scope().unwrap();
 
     // Helper function to get constant type
@@ -330,7 +344,9 @@ fn test_explicit_type_annotations_priority() {
         }
     "#;
     let file = File::new(&db, program.to_string());
-    let semantic_index = semantic_index(&db, file);
+    let semantic_index = semantic_index(&db, file)
+        .as_ref()
+        .expect("Got unexpected parse errors");
     let func_scope = semantic_index
         .scopes()
         .find(|(_, scope)| scope.kind == crate::place::ScopeKind::Function)
@@ -385,7 +401,9 @@ fn test_local_variable_inference_without_annotation() {
         }
     "#;
     let file = File::new(&db, program.to_string());
-    let semantic_index = semantic_index(&db, file);
+    let semantic_index = semantic_index(&db, file)
+        .as_ref()
+        .expect("Got unexpected parse errors");
     let func_scope = semantic_index
         .scopes()
         .find(|(_, scope)| scope.kind == crate::place::ScopeKind::Function)
@@ -432,7 +450,9 @@ fn test_mixed_variable_scenarios() {
         }
     "#;
     let file = File::new(&db, program.to_string());
-    let semantic_index = semantic_index(&db, file);
+    let semantic_index = semantic_index(&db, file)
+        .as_ref()
+        .expect("Got unexpected parse errors");
     let func_scope = semantic_index
         .scopes()
         .find(|(_, scope)| scope.kind == crate::place::ScopeKind::Function)

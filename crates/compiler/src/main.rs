@@ -1,15 +1,7 @@
 use ariadne::{Label, Report, ReportKind, Source};
-use cairo_m_compiler_parser::lexer::{LexingError, TokenType};
-use cairo_m_compiler_parser::parser::parser;
-use cairo_m_compiler_parser::{ParsedModule, SourceProgram};
-use cairo_m_compiler_semantic::validate_semantics;
-use cairo_m_compiler_semantic::Diagnostic;
-use chumsky::input::Stream;
-use chumsky::prelude::*;
-use chumsky::span::SimpleSpan;
-use chumsky::Parser as ChumskyParser;
+use cairo_m_compiler_parser::SourceProgram;
+use cairo_m_compiler_semantic::{validate_semantics, Diagnostic};
 use clap::Parser;
-use logos::Logos;
 use salsa::Database;
 use std::fs;
 use std::path::PathBuf;
@@ -23,162 +15,47 @@ struct Args {
     input: PathBuf,
 }
 
-/// Result of lexing a source file
-struct LexResult<'a> {
-    tokens: Vec<(TokenType<'a>, logos::Span)>,
-    errors: Vec<(LexingError, logos::Span)>,
-}
-
-/// Result of parsing tokens
-struct ParseResult<'a> {
-    ast: ParsedModule,
-    errors: Vec<Rich<'a, TokenType<'a>, SimpleSpan>>,
-}
-
 fn main() {
     let args = Args::parse();
     println!("Reading file: {}", args.input.display());
 
     match fs::read_to_string(&args.input) {
         Ok(content) => {
-            // Step 1: Lexing
-            let lex_result = lex_source(&content);
-            if !lex_result.errors.is_empty() {
-                println!("\nLexing errors:");
-                for (error, span) in lex_result.errors {
-                    println!(
-                        "{}",
-                        build_lexer_error_message(&content, error, span.into())
-                    );
-                }
-                std::process::exit(1);
-            }
-
-            // Step 2: Parsing
-            // TODO remove SemanticDatabaseImpl and instead define a single global, top-level compiler db
+            // Initialize DB and source input
             let db = cairo_m_compiler_semantic::SemanticDatabaseImpl::default();
-            // Attaching the database for debug printouts
-            //TODO: unify APIs. the parse result here is unused (only used for reporting.)
-            let parse_result = db.attach(|db| {
-                let parse_result = parse_tokens(db, lex_result.tokens, &content);
-                if !parse_result.errors.is_empty() {
-                    println!("\nParsing errors:");
-                    for error in parse_result.errors {
-                        println!("{}", build_parser_error_message(&content, error));
-                    }
-                    std::process::exit(1);
-                }
-                parse_result
-            });
+            let source = SourceProgram::new(&db, content.clone());
 
-            let source_content = SourceProgram::new(&db, content.clone());
+            // Unified compilation: parsing + semantic analysis
+            let semantic_diagnostics = validate_semantics(&db, source);
 
-            // Step 3: Semantic analysis
-            let diagnostics = validate_semantics(&db, &parse_result.ast, source_content);
-
-            if diagnostics.has_errors() {
-                println!("\nSemantic analysis:");
-                for error in diagnostics.errors() {
-                    println!("{}", build_semantic_error_message(&content, error));
+            if semantic_diagnostics.has_errors() {
+                println!("\nCompilation errors:");
+                for error in semantic_diagnostics.errors() {
+                    println!("{}", build_semantic_diagnostic_message(&content, error));
                 }
                 std::process::exit(1);
             }
+
+            println!("\nCompilation successful!");
         }
         Err(e) => eprintln!("Error reading file: {e}"),
     }
 }
 
-/// Lex the source code into tokens
-fn lex_source(source: &str) -> LexResult<'_> {
-    let mut tokens = Vec::new();
-    let mut errors = Vec::new();
-
-    for (token_result, span) in TokenType::lexer(source).spanned() {
-        match token_result {
-            Ok(token) => tokens.push((token, span)),
-            Err(lexing_error) => {
-                errors.push((lexing_error, span));
-            }
-        }
-    }
-
-    LexResult { tokens, errors }
-}
-
-/// Parse tokens into an AST
-/// TODO: use cached salsa result
-fn parse_tokens<'a>(
-    _db: &dyn salsa::Database,
-    tokens: Vec<(TokenType<'a>, logos::Span)>,
-    source: &str,
-) -> ParseResult<'a> {
-    let token_stream =
-        Stream::from_iter(tokens).map((0..source.len()).into(), |(t, s): (_, _)| (t, s.into()));
-
-    match parser()
-        .then_ignore(end())
-        .parse(token_stream)
-        .into_result()
-    {
-        Ok(ast) => ParseResult {
-            ast: ParsedModule::new(ast),
-            errors: Vec::new(),
-        },
-        Err(errs) => ParseResult {
-            ast: ParsedModule::new(vec![]),
-            errors: errs,
-        },
-    }
-}
-
-fn build_lexer_error_message(source: &str, error: LexingError, span: SimpleSpan) -> String {
+/// Build a formatted error message for a semantic diagnostic
+fn build_semantic_diagnostic_message(source: &str, diagnostic: &Diagnostic) -> String {
     let mut write_buffer = Vec::new();
-    Report::build(ReportKind::Error, ((), span.into_range()))
+    Report::build(ReportKind::Error, ((), diagnostic.span.into_range()))
         .with_config(
             ariadne::Config::new()
                 .with_index_type(ariadne::IndexType::Byte)
-                .with_color(true),
+                .with_color(true), // Use color for better visibility in terminal
         )
         .with_code(3)
-        .with_message(error.to_string())
-        .with_label(Label::new(((), span.into_range())).with_message(format!("{error}")))
-        .finish()
-        .write(Source::from(source), &mut write_buffer)
-        .unwrap();
-    String::from_utf8_lossy(&write_buffer).to_string()
-}
-
-fn build_parser_error_message(source: &str, error: Rich<TokenType, SimpleSpan>) -> String {
-    let mut write_buffer = Vec::new();
-    Report::build(ReportKind::Error, ((), error.span().into_range()))
-        .with_config(
-            ariadne::Config::new()
-                .with_index_type(ariadne::IndexType::Byte)
-                .with_color(true),
-        )
-        .with_code(3)
-        .with_message(error.to_string())
+        .with_message(&diagnostic.message)
         .with_label(
-            Label::new(((), error.span().into_range())).with_message(error.reason().to_string()),
+            Label::new(((), diagnostic.span.into_range())).with_message(&diagnostic.message),
         )
-        .finish()
-        .write(Source::from(source), &mut write_buffer)
-        .unwrap();
-    String::from_utf8_lossy(&write_buffer).to_string()
-}
-
-// TODO: add proper error reporting spans
-fn build_semantic_error_message(source: &str, error: &Diagnostic) -> String {
-    let mut write_buffer = Vec::new();
-    Report::build(ReportKind::Error, ((), error.span.into_range()))
-        .with_config(
-            ariadne::Config::new()
-                .with_index_type(ariadne::IndexType::Byte)
-                .with_color(true),
-        )
-        .with_code(3)
-        .with_message(error.to_string())
-        .with_label(Label::new(((), error.span.into_range())).with_message(error.to_string()))
         .finish()
         .write(Source::from(source), &mut write_buffer)
         .unwrap();
