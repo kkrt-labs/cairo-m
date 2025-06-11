@@ -1,8 +1,10 @@
 pub mod instructions;
+pub mod state;
 
 use crate::memory::{Memory, MemoryError};
+use crate::vm::state::State;
 use instructions::Instruction;
-use num_traits::{One, Zero};
+use num_traits::Zero;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 use thiserror::Error;
@@ -24,27 +26,6 @@ pub struct Program {
 impl From<Vec<Instruction>> for Program {
     fn from(instructions: Vec<Instruction>) -> Self {
         Self { instructions }
-    }
-}
-
-/// The state of the VM, updated at each step.
-///
-/// * `pc` is the program counter, pointing to the current instruction.
-/// * `fp` is the frame pointer, pointing to the current frame.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct State {
-    fp: M31,
-    pc: M31,
-}
-
-impl State {
-    /// Regular register update.
-    /// Advance the program counter by 1.
-    pub fn advance(self) -> Self {
-        Self {
-            fp: self.fp,
-            pc: self.pc + M31::one(),
-        }
     }
 }
 
@@ -112,23 +93,8 @@ impl TryFrom<Program> for VM {
 mod tests {
     use num_traits::{One, Zero};
 
-    use crate::vm::{Instruction, Program, State, VM};
+    use crate::vm::{Instruction, Program, VM};
     use stwo_prover::core::fields::m31::M31;
-
-    #[test]
-    fn test_state_default() {
-        let state = State::default();
-        assert_eq!(state.fp, M31::zero());
-        assert_eq!(state.pc, M31::zero());
-    }
-
-    #[test]
-    fn test_state_advance() {
-        let state = State::default();
-        let new_state = state.advance();
-        assert_eq!(new_state.fp, M31::zero());
-        assert_eq!(new_state.pc, M31::one());
-    }
 
     #[test]
     fn test_program_from_vec_instructions() {
