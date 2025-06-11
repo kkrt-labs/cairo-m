@@ -71,7 +71,7 @@ impl Validator for StructFieldValidator {
                         diagnostics.push(
                             Diagnostic::error(
                                 DiagnosticCode::InvalidStructLiteral,
-                                format!("Expected struct type, got {:?}", object_type),
+                                format!("Expected struct type, got {object_type:?}"),
                             )
                             .with_location(object.span()),
                         );
@@ -109,7 +109,7 @@ mod tests {
         let semantic_index = semantic_index(&db, file);
 
         let validator = StructFieldValidator;
-        let diagnostics = validator.validate(&db, file, &semantic_index);
+        let diagnostics = validator.validate(&db, file, semantic_index);
 
         // Should not have any diagnostics for valid field access
         assert!(diagnostics.is_empty());
@@ -129,7 +129,7 @@ mod tests {
         let semantic_index = semantic_index(&db, file);
 
         let validator = StructFieldValidator;
-        let diagnostics = validator.validate(&db, file, &semantic_index);
+        let diagnostics = validator.validate(&db, file, semantic_index);
 
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].code, DiagnosticCode::InvalidFieldAccess);
@@ -149,7 +149,7 @@ mod tests {
         let semantic_index = semantic_index(&db, file);
 
         let validator = StructFieldValidator;
-        let diagnostics = validator.validate(&db, file, &semantic_index);
+        let diagnostics = validator.validate(&db, file, semantic_index);
 
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].code, DiagnosticCode::InvalidStructLiteral);
@@ -170,7 +170,7 @@ mod tests {
         let semantic_index = semantic_index(&db, file);
 
         let validator = StructFieldValidator;
-        let diagnostics = validator.validate(&db, file, &semantic_index);
+        let diagnostics = validator.validate(&db, file, semantic_index);
 
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].code, DiagnosticCode::UndeclaredVariable);
@@ -196,7 +196,7 @@ mod tests {
         let semantic_index = semantic_index(&db, file);
 
         let validator = StructFieldValidator;
-        let diagnostics = validator.validate(&db, file, &semantic_index);
+        let diagnostics = validator.validate(&db, file, semantic_index);
 
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].code, DiagnosticCode::InvalidFieldAccess);
