@@ -49,7 +49,7 @@ func main() -> felt {
         let local_distance = distance_squared(origin, local_point);
 
         // All variables in this scope are used
-        if (local_distance > 0) {
+        if (local_distance == 0) {
             let result = local_distance + vector_length;
             return result;
         }

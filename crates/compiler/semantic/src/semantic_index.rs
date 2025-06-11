@@ -1021,6 +1021,10 @@ impl<'db> SemanticIndexBuilder<'db> {
             Expression::Literal(_) => {
                 // Literals don't reference any symbols
                 // TODO: Consider adding literal validation (e.g., numeric range checks)
+            }
+            Expression::BooleanLiteral(_) => {
+                // Boolean literals don't reference any symbols
+                // TODO: Consider adding boolean literal validation
             } // TODO: Add support for more expression types as the parser is extended:
               // - Conditional expressions (ternary operator)
               // - Array/slice literals

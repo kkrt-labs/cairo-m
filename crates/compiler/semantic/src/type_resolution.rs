@@ -162,6 +162,7 @@ pub fn expression_semantic_type<'db>(
     // Access the AST node directly from ExpressionInfo - no lookup needed!
     match &expr_info.ast_node {
         Expression::Literal(_) => TypeId::new(db, TypeData::Felt),
+        Expression::BooleanLiteral(_) => TypeId::new(db, TypeData::Felt),
         Expression::Identifier(name) => {
             if let Some((def_idx, _)) =
                 semantic_index.resolve_name_to_definition(name.value(), expr_info.scope_id)
@@ -586,6 +587,7 @@ mod tests {
             // Record the expression variant we found
             let variant_name = match &expr_info.ast_node {
                 Expression::Literal(_) => "Literal",
+                Expression::BooleanLiteral(_) => "BooleanLiteral",
                 Expression::Identifier(_) => "Identifier",
                 Expression::BinaryOp { .. } => "BinaryOp",
                 Expression::FunctionCall { .. } => "FunctionCall",
