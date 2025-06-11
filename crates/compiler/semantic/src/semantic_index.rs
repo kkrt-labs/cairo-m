@@ -53,8 +53,10 @@ pub struct IdentifierUsage {
 pub struct ExpressionInfo {
     /// File containing this expression
     pub file: File,
+    /// The actual AST node for direct access without lookup
+    pub ast_node: Expression,
     /// Span of the original AST node for diagnostics
-    pub ast_node_text_range: SimpleSpan<usize>,
+    pub ast_span: SimpleSpan<usize>,
     /// Scope in which this expression occurs
     pub scope_id: FileScopeId,
 }
@@ -289,7 +291,7 @@ impl SemanticIndex {
     pub fn add_expression(&mut self, expression_info: ExpressionInfo) -> ExpressionId {
         let expr_id = self.expressions.push(expression_info.clone());
         self.span_to_expression_id
-            .insert(expression_info.ast_node_text_range, expr_id);
+            .insert(expression_info.ast_span, expr_id);
         expr_id
     }
 
@@ -793,7 +795,8 @@ impl<'db> SemanticIndexBuilder<'db> {
         // First, create an ExpressionInfo for this expression and track it
         let expr_info = ExpressionInfo {
             file: self._file,
-            ast_node_text_range: expr.span(),
+            ast_node: expr.value().clone(),
+            ast_span: expr.span(),
             scope_id: self.current_scope(),
         };
         let expr_id = self.index.add_expression(expr_info);

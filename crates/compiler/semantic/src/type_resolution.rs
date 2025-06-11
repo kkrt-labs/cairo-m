@@ -20,11 +20,7 @@ use crate::place::FileScopeId;
 use crate::semantic_index::{semantic_index, DefinitionId, ExpressionId};
 use crate::types::{FunctionSignatureId, StructTypeId, TypeData, TypeId};
 use crate::File;
-use cairo_m_compiler_parser::parser::{
-    Expression, Spanned, Statement, TopLevelItem, TypeExpr as AstTypeExpr,
-};
-use cairo_m_compiler_parser::{parse_program, ParsedModule};
-use chumsky::span::SimpleSpan;
+use cairo_m_compiler_parser::parser::{Expression, TypeExpr as AstTypeExpr};
 
 /// Resolves an AST type expression to a `TypeId`
 #[salsa::tracked]
@@ -153,16 +149,8 @@ pub fn expression_semantic_type<'db>(
         return TypeId::new(db, TypeData::Error);
     };
 
-    // To get the AST node, we need to re-access the parsed module and search by span.
-    // Even if cached, this is inefficient but necessary without an AST ID map.
-    // TODO: make this more efficient!
-    let parsed_module = parse_program(db, file);
-    let Some(ast_expr) = find_expression_in_module(parsed_module, expr_info.ast_node_text_range)
-    else {
-        return TypeId::new(db, TypeData::Error);
-    };
-
-    match ast_expr.value() {
+    // Access the AST node directly from ExpressionInfo - no lookup needed!
+    match &expr_info.ast_node {
         Expression::Literal(_) => TypeId::new(db, TypeData::Felt),
         Expression::Identifier(name) => {
             if let Some((def_idx, _)) =
@@ -322,111 +310,6 @@ pub fn are_types_compatible<'db>(
     }
 }
 
-// Helper to find an expression in the AST by span. This is inefficient and should be
-// replaced with a more direct mapping if possible in the future.
-fn find_expression_in_module(
-    module: &ParsedModule,
-    span_to_find: SimpleSpan<usize>,
-) -> Option<&Spanned<Expression>> {
-    for item in module.items() {
-        if let Some(expr) = find_expression_in_toplevel(item, span_to_find) {
-            return Some(expr);
-        }
-    }
-    None
-}
-
-fn find_expression_in_toplevel(
-    item: &TopLevelItem,
-    span_to_find: SimpleSpan<usize>,
-) -> Option<&Spanned<Expression>> {
-    match item {
-        TopLevelItem::Function(func) => {
-            for stmt in &func.value().body {
-                if let Some(expr) = find_expression_in_statement(stmt, span_to_find) {
-                    return Some(expr);
-                }
-            }
-        }
-        TopLevelItem::Const(c) => {
-            if let Some(expr) = find_expression_in_expr(&c.value().value, span_to_find) {
-                return Some(expr);
-            }
-        }
-        TopLevelItem::Namespace(ns) => {
-            for inner_item in &ns.value().body {
-                if let Some(expr) = find_expression_in_toplevel(inner_item, span_to_find) {
-                    return Some(expr);
-                }
-            }
-        }
-        _ => {}
-    }
-    None
-}
-
-fn find_expression_in_statement(
-    stmt: &Spanned<Statement>,
-    span_to_find: SimpleSpan<usize>,
-) -> Option<&Spanned<Expression>> {
-    if stmt.span() == span_to_find
-        && let Statement::Expression(expr) = stmt.value()
-    {
-        return Some(expr);
-    }
-    match stmt.value() {
-        Statement::Let { value, .. } => find_expression_in_expr(value, span_to_find),
-        Statement::Local { value, .. } => find_expression_in_expr(value, span_to_find),
-        Statement::Const(c) => find_expression_in_expr(&c.value, span_to_find),
-        Statement::Assignment { lhs, rhs } => find_expression_in_expr(lhs, span_to_find)
-            .or_else(|| find_expression_in_expr(rhs, span_to_find)),
-        Statement::Return { value: Some(v), .. } => find_expression_in_expr(v, span_to_find),
-        Statement::If {
-            condition,
-            then_block,
-            else_block,
-        } => find_expression_in_expr(condition, span_to_find)
-            .or_else(|| find_expression_in_statement(then_block, span_to_find))
-            .or_else(|| {
-                else_block
-                    .as_ref()
-                    .and_then(|eb| find_expression_in_statement(eb, span_to_find))
-            }),
-        Statement::Expression(expr) => find_expression_in_expr(expr, span_to_find),
-        Statement::Block(stmts) => stmts
-            .iter()
-            .find_map(|s| find_expression_in_statement(s, span_to_find)),
-        _ => None,
-    }
-}
-
-fn find_expression_in_expr(
-    expr: &Spanned<Expression>,
-    span_to_find: SimpleSpan<usize>,
-) -> Option<&Spanned<Expression>> {
-    if expr.span() == span_to_find {
-        return Some(expr);
-    }
-    match expr.value() {
-        Expression::BinaryOp { left, right, .. } => find_expression_in_expr(left, span_to_find)
-            .or_else(|| find_expression_in_expr(right, span_to_find)),
-        Expression::FunctionCall { callee, args } => find_expression_in_expr(callee, span_to_find)
-            .or_else(|| {
-                args.iter()
-                    .find_map(|arg| find_expression_in_expr(arg, span_to_find))
-            }),
-        Expression::MemberAccess { object, .. } => find_expression_in_expr(object, span_to_find),
-        Expression::IndexAccess { array, index } => find_expression_in_expr(array, span_to_find)
-            .or_else(|| find_expression_in_expr(index, span_to_find)),
-        Expression::StructLiteral { fields, .. } => fields
-            .iter()
-            .find_map(|(_, val)| find_expression_in_expr(val, span_to_find)),
-        Expression::Tuple(exprs) => exprs
-            .iter()
-            .find_map(|e| find_expression_in_expr(e, span_to_find)),
-        _ => None,
-    }
-}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -549,5 +432,43 @@ mod tests {
         let tuple1 = TypeId::new(&db, TypeData::Tuple(vec![felt1, felt2]));
         let tuple2 = TypeId::new(&db, TypeData::Tuple(vec![felt1, felt2]));
         assert!(are_types_compatible(&db, tuple1, tuple2));
+    }
+
+    #[test]
+    fn test_direct_ast_node_access() {
+        let db = test_db();
+        let file = crate::File::new(&db, "func test() { let x = 42; }".to_string());
+        let semantic_index = semantic_index(&db, file);
+
+        // Find any expression in the index
+        let all_expressions: Vec<_> = semantic_index.all_expressions().collect();
+        assert!(
+            !all_expressions.is_empty(),
+            "Should have at least one expression"
+        );
+
+        for (expr_id, expr_info) in all_expressions {
+            // Verify that we can access the AST node directly without lookup
+            match &expr_info.ast_node {
+                Expression::Literal(value) => {
+                    // Test that we can access literal values directly
+                    assert_eq!(*value, 42);
+
+                    // Verify the expression type can be resolved efficiently
+                    let expr_type = expression_semantic_type(&db, file, expr_id);
+                    assert!(matches!(expr_type.data(&db), TypeData::Felt));
+                }
+                Expression::Identifier(name) => {
+                    // Test that we can access identifier names directly
+                    assert_eq!(name.value(), "x");
+                }
+                _ => {
+                    panic!("Test data does not contain this expr")
+                }
+            }
+
+            // Verify that span information is still available for diagnostics
+            assert!(expr_info.ast_span.start < expr_info.ast_span.end);
+        }
     }
 }
