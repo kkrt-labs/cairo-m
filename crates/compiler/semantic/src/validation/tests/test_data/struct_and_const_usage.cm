@@ -8,6 +8,7 @@ const UNUSED = 100; // Should warn: Unused variable 'UNUSED'
 func test_struct_field_access() {
     let p = Point { x: 1 };
     let value = p.x; // OK: p is defined
+    return();
 }
 
 func test_const_usage() {

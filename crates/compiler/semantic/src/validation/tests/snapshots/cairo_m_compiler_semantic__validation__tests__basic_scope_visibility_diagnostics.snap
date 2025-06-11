@@ -11,6 +11,7 @@ func test() {
         let inner = outer; // OK: outer is visible
     }
     let bad = inner; // Should error: Undeclared variable 'inner'
+    return();
 }
 
 ============================================================

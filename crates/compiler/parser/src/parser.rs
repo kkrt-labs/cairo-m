@@ -335,6 +335,7 @@ pub fn parse_program(db: &dyn crate::Db, source: SourceProgram) -> ParsedModule 
         Err(_parse_errors) => {
             // For now, return empty module on parse errors
             // In a full implementation, you'd want to report these
+            // TODO: Add reporting of parsing errors ASAP!
             ParsedModule::new(vec![])
         }
     }

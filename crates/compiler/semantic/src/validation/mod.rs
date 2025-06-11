@@ -9,6 +9,7 @@ pub mod scope_check;
 pub mod validator;
 
 // TODO: Implement these validators once type system is available
+pub mod control_flow_validator;
 pub mod function_call_validator;
 pub mod indexing_validator;
 pub mod struct_field_validator;
@@ -17,6 +18,7 @@ pub mod struct_literal_validator;
 #[cfg(test)]
 pub mod tests;
 
+pub use control_flow_validator::ControlFlowValidator;
 pub use diagnostics::{Diagnostic, DiagnosticCode, DiagnosticCollection, DiagnosticSeverity};
 pub use function_call_validator::FunctionCallValidator;
 pub use scope_check::ScopeValidator;

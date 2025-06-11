@@ -1,0 +1,71 @@
+func test_unreachable_after_return() -> felt {
+    return 42;
+    let x = 5;  // unreachable
+    let y = 10; // unreachable
+}
+
+func test_nested_blocks() -> felt {
+    {
+        return 1;
+        let y = 2;  // unreachable
+    }
+}
+
+func test_if_statements() -> felt {
+    if (1 == 1) {
+        return 100;
+        let z = 3;  // unreachable
+    }
+    let after_if = 4;  // reachable
+    return after_if;
+}
+
+func test_if_else_both_terminate() -> felt {
+    if (1 == 1) {
+        return 100;
+    } else {
+        return 200;
+    }
+    let unreachable_after_if_else = 5;  // unreachable - both branches return
+    return();
+}
+
+func test_if_else_only_then_terminates() -> felt {
+    if (1 == 1) {
+        return 100;
+    } else {
+        let x = 1;  // reachable
+    }
+    let reachable_after_if = 6;  // reachable - else doesn't return
+    return reachable_after_if;
+    return();
+}
+
+func test_nested_if_else() -> felt {
+    if (1 == 1) {
+        if (2 == 2) {
+            return 300;
+        } else {
+            return 400;
+        }
+        let unreachable_in_outer_if = 7;  // unreachable - inner if-else both return
+    } else {
+        return 500;
+    }
+    let unreachable_after_outer_if = 8;  // unreachable - all branches return
+    return();
+}
+
+func test_clean_function() -> felt {
+    let a = 1;
+    let b = 2;
+    return a + b;
+}
+
+func test_multiple_returns() -> felt {
+    let x = 1;
+    if (x == 1) {
+        return x;
+    }
+    return 0;  // reachable (else case)
+}

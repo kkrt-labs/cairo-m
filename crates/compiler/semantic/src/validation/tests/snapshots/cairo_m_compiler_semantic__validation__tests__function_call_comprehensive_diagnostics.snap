@@ -72,6 +72,8 @@ func test_function_calls() {
     // These test more complex scenarios
     let chain1 = add(single_param(5), 10);      // OK: nested valid calls
     let chain2 = undefined_func(add(1, 2));     // Mixed: valid inner call, undeclared outer
+   
+    return();
 }
 
 // Test calls in different contexts
@@ -88,6 +90,8 @@ func test_calls_in_expressions() {
     if (add(1)) {                               // Error: wrong arity in condition
         let y = 2;
     }
+
+    return();
 }
 
 // Test function calls as return values
@@ -293,36 +297,36 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 22 ---
 [1002] Warning: Unused variable 'sum'
-    ╭─[ <unknown>:73:9 ]
+    ╭─[ <unknown>:75:9 ]
     │
- 73 │     let sum = add(1, 2) + add(3, 4);            // OK: both calls valid
+ 75 │     let sum = add(1, 2) + add(3, 4);            // OK: both calls valid
     │         ─┬─  
     │          ╰─── Unused variable 'sum'
 ────╯
 
 --- Diagnostic 23 ---
 [1002] Warning: Unused variable 'bad_sum'
-    ╭─[ <unknown>:74:9 ]
+    ╭─[ <unknown>:76:9 ]
     │
- 74 │     let bad_sum = add(1) + add(2, 3);           // Error: first call has wrong arity
+ 76 │     let bad_sum = add(1) + add(2, 3);           // Error: first call has wrong arity
     │         ───┬───  
     │            ╰───── Unused variable 'bad_sum'
 ────╯
 
 --- Diagnostic 24 ---
 [1002] Warning: Unused variable 'x'
-    ╭─[ <unknown>:78:13 ]
+    ╭─[ <unknown>:80:13 ]
     │
- 78 │         let x = 1;
+ 80 │         let x = 1;
     │             ┬  
     │             ╰── Unused variable 'x'
 ────╯
 
 --- Diagnostic 25 ---
 [1002] Warning: Unused variable 'y'
-    ╭─[ <unknown>:82:13 ]
+    ╭─[ <unknown>:84:13 ]
     │
- 82 │         let y = 2;
+ 84 │         let y = 2;
     │             ┬  
     │             ╰── Unused variable 'y'
 ────╯
@@ -392,27 +396,27 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 33 ---
 [2005] Error: Function expects 2 argument(s), but 1 were provided
-    ╭─[ <unknown>:74:19 ]
+    ╭─[ <unknown>:76:19 ]
     │
- 74 │     let bad_sum = add(1) + add(2, 3);           // Error: first call has wrong arity
+ 76 │     let bad_sum = add(1) + add(2, 3);           // Error: first call has wrong arity
     │                   ─┬─  
     │                    ╰─── Function expects 2 argument(s), but 1 were provided
 ────╯
 
 --- Diagnostic 34 ---
 [2005] Error: Function expects 2 argument(s), but 1 were provided
-    ╭─[ <unknown>:81:9 ]
+    ╭─[ <unknown>:83:9 ]
     │
- 81 │     if (add(1)) {                               // Error: wrong arity in condition
+ 83 │     if (add(1)) {                               // Error: wrong arity in condition
     │         ─┬─  
     │          ╰─── Function expects 2 argument(s), but 1 were provided
 ────╯
 
 --- Diagnostic 35 ---
 [2005] Error: Function expects 2 argument(s), but 1 were provided
-    ╭─[ <unknown>:92:12 ]
+    ╭─[ <unknown>:96:12 ]
     │
- 92 │     return add(5);                              // Error: wrong arity in return
+ 96 │     return add(5);                              // Error: wrong arity in return
     │            ─┬─  
     │             ╰─── Function expects 2 argument(s), but 1 were provided
 ────╯

@@ -15,6 +15,7 @@ const UNUSED = 100; // Should warn: Unused variable 'UNUSED'
 func test_struct_field_access() {
     let p = Point { x: 1 };
     let value = p.x; // OK: p is defined
+    return();
 }
 
 func test_const_usage() {
@@ -46,9 +47,9 @@ Found 3 diagnostic(s):
 
 --- Diagnostic 3 ---
 [1002] Warning: Unused variable 'value'
-    ╭─[ <unknown>:14:9 ]
+    ╭─[ <unknown>:15:9 ]
     │
- 14 │     let value = GLOBAL; // OK: GLOBAL is defined
+ 15 │     let value = GLOBAL; // OK: GLOBAL is defined
     │         ──┬──  
     │           ╰──── Unused variable 'value'
 ────╯

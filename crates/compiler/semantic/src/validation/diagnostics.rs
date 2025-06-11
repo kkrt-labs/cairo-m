@@ -63,9 +63,9 @@ pub enum DiagnosticCode {
 
     // Flow-related errors (3000-3999) - placeholder for future
     UnreachableCode,
+    MissingReturn,
     // TODO: Add more control flow diagnostic codes:
     // - DeadCode
-    // - MissingReturn
     // - InvalidBreak
     // - InvalidContinue
     // - UnreachablePattern
@@ -156,6 +156,24 @@ impl Diagnostic {
         Self::error(
             DiagnosticCode::UseBeforeDefinition,
             format!("Variable '{name}' used before definition"),
+        )
+        .with_location(span)
+    }
+
+    /// Convenience method for unreachable code warning
+    pub fn unreachable_code(statement_type: &str, span: SimpleSpan<usize>) -> Self {
+        Self::warning(
+            DiagnosticCode::UnreachableCode,
+            format!("Unreachable {statement_type}"),
+        )
+        .with_location(span)
+    }
+
+    /// Convenience method for missing return warning
+    pub fn missing_return(function_name: &str, span: SimpleSpan<usize>) -> Self {
+        Self::error(
+            DiagnosticCode::MissingReturn,
+            format!("Function '{function_name}' doesn't return on all paths"),
         )
         .with_location(span)
     }

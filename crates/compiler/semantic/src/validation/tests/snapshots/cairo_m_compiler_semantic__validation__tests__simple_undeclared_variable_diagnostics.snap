@@ -7,6 +7,7 @@ Fixture: simple_undeclared_variable.cm
 Source code:
 func test() {
     let x = y; // Should error: Undeclared variable 'y'
+    return();
 }
 
 ============================================================

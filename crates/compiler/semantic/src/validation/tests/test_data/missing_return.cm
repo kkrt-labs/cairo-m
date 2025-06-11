@@ -1,0 +1,60 @@
+// Function with return type but missing return on some paths
+func missing_return_if(x: felt) -> felt {
+    if (x == 0) {
+        return x;
+    }
+    let x = 3;
+    // Missing return here - function doesn't return on all paths
+}
+
+// Function with return type but no return at all
+func no_return_at_all(x: felt) -> felt {
+    let y = x + 1;
+    // Missing return entirely
+}
+
+// Function that returns on all paths (should be fine)
+func proper_return(x: felt) -> felt {
+    if (x == 0) {
+        return x;
+    } else {
+        return 0;
+    }
+}
+
+// Function with no return type (should be fine without explicit return)
+func no_return_type(x: felt) {
+    let y = x + 1;
+}
+
+// Function with unit return type (should not be fine without explicit return)
+func unit_return_type(x: felt) -> () {
+    let y = x + 1;
+    // Error: Missing return here
+}
+
+// Function with nested control flow missing return
+func nested_missing_return(x: felt, y: felt) -> felt {
+    if (x == 0) {
+        if (y == 0) {
+            return x + y;
+        }
+        // Missing return here
+    } else {
+        return 0;
+    }
+    // Also missing return here
+}
+
+// Function that returns in nested blocks correctly
+func nested_proper_return(x: felt, y: felt) -> felt {
+    if (x == 0) {
+        if (y == 0) {
+            return x + y;
+        } else {
+            return x;
+        }
+    } else {
+        return 0;
+    }
+}
