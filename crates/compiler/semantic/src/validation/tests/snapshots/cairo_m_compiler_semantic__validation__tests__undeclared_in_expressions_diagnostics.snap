@@ -12,6 +12,7 @@ func test() {
     if (undefined) { // Should error: Undeclared variable 'undefined'
         let x = 1;
     }
+    return();
 }
 
 ============================================================

@@ -17,6 +17,7 @@ func test() {
     let bad_field = p.z; // Should error: Field z does not exist in struct Point
     let non_struct = 10;
     let try_access = non_struct.x; // Should error: Expected struct type, got Felt
+    return();
 }
 
 ============================================================

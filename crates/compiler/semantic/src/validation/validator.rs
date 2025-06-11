@@ -135,6 +135,7 @@ impl ValidatorRegistry {
 /// Currently includes:
 /// - **ScopeValidator**: Undeclared variables, unused variables, duplicate definitions
 /// - **FunctionCallValidator**: Validate function call arity and argument types
+/// - **ControlFlowValidator**: Reachability analysis, dead code detection
 ///
 /// TODO: Expand default registry with additional validators:
 /// - **StructFieldValidator**: Validate field access on struct types (p.z should error)
@@ -143,7 +144,6 @@ impl ValidatorRegistry {
 /// - **AssignmentValidator**: Validate assignment compatibility and mutability
 /// - **ReturnValidator**: Validate return type consistency and placement
 /// - **TypeValidator**: General type checking and compatibility
-/// - **ControlFlowValidator**: Reachability analysis, dead code detection
 /// - **RecursiveTypeValidator**: Detect recursive struct definitions without indirection
 /// - **ConstExpressionValidator**: Validate const expressions are compile-time evaluable
 /// - **ModuleValidator**: Import/export validation, module resolution
@@ -155,6 +155,7 @@ pub fn create_default_registry() -> ValidatorRegistry {
         .add_validator(crate::validation::scope_check::ScopeValidator)
         .add_validator(crate::validation::function_call_validator::FunctionCallValidator)
         .add_validator(crate::validation::struct_field_validator::StructFieldValidator)
+        .add_validator(crate::validation::control_flow_validator::ControlFlowValidator)
 }
 
 #[cfg(test)]

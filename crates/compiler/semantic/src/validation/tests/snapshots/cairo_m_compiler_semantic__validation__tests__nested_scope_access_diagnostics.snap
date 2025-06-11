@@ -14,6 +14,7 @@ func test_nested_access() {
             let all = level1 + level2 + level3; // OK: all visible
         }
     }
+    return();
 }
 
 func test_out_of_scope() {
@@ -21,6 +22,7 @@ func test_out_of_scope() {
         let inner = 42;
     }
     let x = inner; // Should error: Undeclared variable 'inner'
+    return();
 }
 
 ============================================================
@@ -28,9 +30,9 @@ Found 4 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1001] Error: Undeclared variable 'inner'
-    ╭─[ <unknown>:16:13 ]
+    ╭─[ <unknown>:17:13 ]
     │
- 16 │     let x = inner; // Should error: Undeclared variable 'inner'
+ 17 │     let x = inner; // Should error: Undeclared variable 'inner'
     │             ──┬──  
     │               ╰──── Undeclared variable 'inner'
 ────╯
@@ -46,18 +48,18 @@ Found 4 diagnostic(s):
 
 --- Diagnostic 3 ---
 [1002] Warning: Unused variable 'x'
-    ╭─[ <unknown>:16:9 ]
+    ╭─[ <unknown>:17:9 ]
     │
- 16 │     let x = inner; // Should error: Undeclared variable 'inner'
+ 17 │     let x = inner; // Should error: Undeclared variable 'inner'
     │         ┬  
     │         ╰── Unused variable 'x'
 ────╯
 
 --- Diagnostic 4 ---
 [1002] Warning: Unused variable 'inner'
-    ╭─[ <unknown>:14:13 ]
+    ╭─[ <unknown>:15:13 ]
     │
- 14 │         let inner = 42;
+ 15 │         let inner = 42;
     │             ──┬──  
     │               ╰──── Unused variable 'inner'
 ────╯

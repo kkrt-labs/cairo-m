@@ -7,6 +7,7 @@ func test_nested_access() {
             let all = level1 + level2 + level3; // OK: all visible
         }
     }
+    return();
 }
 
 func test_out_of_scope() {
@@ -14,4 +15,5 @@ func test_out_of_scope() {
         let inner = 42;
     }
     let x = inner; // Should error: Undeclared variable 'inner'
+    return();
 }

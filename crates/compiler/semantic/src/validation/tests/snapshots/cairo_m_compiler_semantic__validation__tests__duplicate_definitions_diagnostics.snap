@@ -8,9 +8,11 @@ Source code:
 func test_duplicate_local() {
     let x = 1;
     let x = 2; // Should error: duplicate definition of 'x'
+    return();
 }
 
 func test_duplicate_parameter(param: felt, param: felt) { // Should error: duplicate definition of 'param'
+    return();
 }
 
 func test_different_scopes_ok() {
@@ -53,36 +55,36 @@ Found 7 diagnostic(s):
 
 --- Diagnostic 4 ---
 [1003] Error: Duplicate definition of 'param'
-   ╭─[ <unknown>:6:44 ]
+   ╭─[ <unknown>:7:44 ]
    │
- 6 │ func test_duplicate_parameter(param: felt, param: felt) { // Should error: duplicate definition of 'param'
+ 7 │ func test_duplicate_parameter(param: felt, param: felt) { // Should error: duplicate definition of 'param'
    │                                            ──┬──  
    │                                              ╰──── Duplicate definition of 'param'
 ───╯
 
 --- Diagnostic 5 ---
 [1002] Warning: Unused variable 'param'
-   ╭─[ <unknown>:6:31 ]
+   ╭─[ <unknown>:7:31 ]
    │
- 6 │ func test_duplicate_parameter(param: felt, param: felt) { // Should error: duplicate definition of 'param'
+ 7 │ func test_duplicate_parameter(param: felt, param: felt) { // Should error: duplicate definition of 'param'
    │                               ──┬──  
    │                                 ╰──── Unused variable 'param'
 ───╯
 
 --- Diagnostic 6 ---
 [1002] Warning: Unused variable 'param'
-   ╭─[ <unknown>:6:44 ]
+   ╭─[ <unknown>:7:44 ]
    │
- 6 │ func test_duplicate_parameter(param: felt, param: felt) { // Should error: duplicate definition of 'param'
+ 7 │ func test_duplicate_parameter(param: felt, param: felt) { // Should error: duplicate definition of 'param'
    │                                            ──┬──  
    │                                              ╰──── Unused variable 'param'
 ───╯
 
 --- Diagnostic 7 ---
 [1002] Warning: Unused variable 'x'
-    ╭─[ <unknown>:12:13 ]
+    ╭─[ <unknown>:14:13 ]
     │
- 12 │         let x = 2; // OK: different scope
+ 14 │         let x = 2; // OK: different scope
     │             ┬  
     │             ╰── Unused variable 'x'
 ────╯

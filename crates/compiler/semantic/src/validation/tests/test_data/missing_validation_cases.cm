@@ -64,4 +64,5 @@ const INVALID_CONST = some_function(42);
 func test_mutability() {
     let immutable = 42;
     immutable = 43; // Should error: cannot assign to immutable variable
+    return();
 }

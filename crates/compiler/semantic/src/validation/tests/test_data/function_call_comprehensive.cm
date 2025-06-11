@@ -65,6 +65,8 @@ func test_function_calls() {
     // These test more complex scenarios
     let chain1 = add(single_param(5), 10);      // OK: nested valid calls
     let chain2 = undefined_func(add(1, 2));     // Mixed: valid inner call, undeclared outer
+   
+    return();
 }
 
 // Test calls in different contexts
@@ -81,6 +83,8 @@ func test_calls_in_expressions() {
     if (add(1)) {                               // Error: wrong arity in condition
         let y = 2;
     }
+
+    return();
 }
 
 // Test function calls as return values

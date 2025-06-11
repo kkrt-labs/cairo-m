@@ -29,6 +29,7 @@ use std::path::PathBuf;
 
 use super::validator::create_default_registry;
 
+pub mod control_flow_tests;
 pub mod diagnostic_tests;
 pub mod integration_tests;
 
@@ -117,15 +118,12 @@ fn run_validation(source: &str) -> DiagnosticCollection {
     let db = SemanticDatabaseImpl::default();
     let source_program = SourceProgram::new(&db, source.to_string());
 
-    // Create a file handle
-    let file = File::new(&db, source_program.text(&db).clone());
-
     // Build semantic index
-    let index = semantic_index(&db, file);
+    let index = semantic_index(&db, source_program);
 
     // Run validation
     let registry = create_default_registry();
-    registry.validate_all(&db, file, index)
+    registry.validate_all(&db, source_program, index)
 }
 
 /// Format diagnostics for snapshot testing using ariadne for beautiful error reports
@@ -220,6 +218,7 @@ fn diagnostic_code_to_u32(code: DiagnosticCode) -> u32 {
         DiagnosticCode::InvalidReturnType => 2007,
         DiagnosticCode::InvalidTypeDefinition => 2008,
         DiagnosticCode::UnreachableCode => 3001,
+        DiagnosticCode::MissingReturn => 3002,
     }
 }
 

@@ -1,3 +1,4 @@
 func test() {
     let x = y; // Should error: Undeclared variable 'y'
+    return();
 }
