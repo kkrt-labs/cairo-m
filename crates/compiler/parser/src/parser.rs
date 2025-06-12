@@ -34,7 +34,6 @@
 use crate::lexer::TokenType;
 use cairo_m_compiler_diagnostics::Diagnostic;
 use chumsky::{input::ValueInput, prelude::*};
-use std::ops::Range;
 
 #[salsa::input(debug)]
 pub struct SourceProgram {
@@ -533,11 +532,16 @@ where
         let call = atom.foldl(postfix_op.repeated(), |expr, op| match op {
             PostfixOp::Call(args) => {
                 let span_callee = expr.span();
-                let max_range: Range<usize> = args.iter().map(|arg| arg.span().into()).fold(
-                    span_callee.into(),
-                    |acc: Range<usize>, range: Range<usize>| acc.start..range.end.max(acc.end),
-                );
-                let span = SimpleSpan::from(span_callee.start..max_range.end); // Span from start of callee to end of args
+                let span = if args.is_empty() {
+                    // For empty argument lists, we need to include the parentheses
+                    // Since we don't have direct access to the closing paren position,
+                    // we'll extend minimally beyond the callee span
+                    SimpleSpan::from(span_callee.start..span_callee.end + 2) // +2 for "()"
+                } else {
+                    // With arguments, span from start of callee to end of last argument
+                    let last_arg_end = args.last().unwrap().span().end;
+                    SimpleSpan::from(span_callee.start..last_arg_end)
+                };
                 Spanned::new(
                     Expression::FunctionCall {
                         callee: Box::new(expr),
