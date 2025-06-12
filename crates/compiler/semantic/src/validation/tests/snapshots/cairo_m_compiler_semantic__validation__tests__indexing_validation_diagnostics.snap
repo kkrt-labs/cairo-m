@@ -1,0 +1,105 @@
+---
+source: crates/compiler/semantic/src/validation/tests/mod.rs
+expression: snapshot_content
+---
+Fixture: indexing_validation.cm
+============================================================
+Source code:
+// Test cases for indexing validation
+
+// Valid indexing cases
+func valid_indexing() -> felt {
+    // Tuple indexing
+    let tup = (1, 2, 3);
+    let first = tup[0];
+    let second = tup[1];
+    let third = tup[2];
+    return third;
+}
+
+struct Point{
+    x: felt,
+    y: felt,
+}
+
+// Invalid indexing cases
+func invalid_indexing() -> felt{
+    // Indexing non-indexable types
+    let num = 42;
+    let bad1 = num[0];  // Should error: cannot index felt
+
+    // Non-integer indices
+    let tup = (1, 2, 3);
+    let bad2 = tup[Point{x: 0, y: 0}];  // Should error: index must be felt
+
+    // Out of bounds (when possible to detect)
+    let small_tup = (1, 2);
+    let bad3 = small_tup[2];  // TODO Should error: index out of bounds
+    return 0;
+} 
+
+============================================================
+Found 7 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1002] Warning: Unused variable 'first'
+   ╭─[ <unknown>:7:9 ]
+   │
+ 7 │     let first = tup[0];
+   │         ──┬──  
+   │           ╰──── Unused variable 'first'
+───╯
+
+--- Diagnostic 2 ---
+[1002] Warning: Unused variable 'second'
+   ╭─[ <unknown>:8:9 ]
+   │
+ 8 │     let second = tup[1];
+   │         ───┬──  
+   │            ╰──── Unused variable 'second'
+───╯
+
+--- Diagnostic 3 ---
+[1002] Warning: Unused variable 'bad1'
+    ╭─[ <unknown>:22:9 ]
+    │
+ 22 │     let bad1 = num[0];  // Should error: cannot index felt
+    │         ──┬─  
+    │           ╰─── Unused variable 'bad1'
+────╯
+
+--- Diagnostic 4 ---
+[1002] Warning: Unused variable 'bad2'
+    ╭─[ <unknown>:26:9 ]
+    │
+ 26 │     let bad2 = tup[Point{x: 0, y: 0}];  // Should error: index must be felt
+    │         ──┬─  
+    │           ╰─── Unused variable 'bad2'
+────╯
+
+--- Diagnostic 5 ---
+[1002] Warning: Unused variable 'bad3'
+    ╭─[ <unknown>:30:9 ]
+    │
+ 30 │     let bad3 = small_tup[2];  // TODO Should error: index out of bounds
+    │         ──┬─  
+    │           ╰─── Unused variable 'bad3'
+────╯
+
+--- Diagnostic 6 ---
+[2003] Error: Cannot index type felt
+    ╭─[ <unknown>:22:16 ]
+    │
+ 22 │     let bad1 = num[0];  // Should error: cannot index felt
+    │                ─┬─  
+    │                 ╰─── Cannot index type felt
+────╯
+
+--- Diagnostic 7 ---
+[2009] Error: Expected felt type for index, got Point
+    ╭─[ <unknown>:26:20 ]
+    │
+ 26 │     let bad2 = tup[Point{x: 0, y: 0}];  // Should error: index must be felt
+    │                    ────────┬────────  
+    │                            ╰────────── Expected felt type for index, got Point
+────╯

@@ -162,3 +162,8 @@ fn test_function_call_comprehensive() {
         "function_call_comprehensive_diagnostics"
     );
 }
+
+#[test]
+fn test_indexing_validation() {
+    assert_diagnostics_snapshot!("indexing_validation.cm", "indexing_validation_diagnostics");
+}

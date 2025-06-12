@@ -377,21 +377,21 @@ Found 35 diagnostic(s):
 ────╯
 
 --- Diagnostic 31 ---
-[2005] Error: Cannot call value of type 'Felt' as a function
+[2005] Error: Cannot call value of type felt as a function
     ╭─[ <unknown>:53:18 ]
     │
  53 │     let error7 = x(1, 2);                       // Error: cannot call felt as function
     │                  ┬  
-    │                  ╰── Cannot call value of type 'Felt' as a function
+    │                  ╰── Cannot call value of type felt as a function
 ────╯
 
 --- Diagnostic 32 ---
-[2005] Error: Cannot call value of type 'Struct(StructTypeId(Id(1c00)))' as a function
+[2005] Error: Cannot call value of type Point as a function
     ╭─[ <unknown>:56:18 ]
     │
  56 │     let error8 = y();                           // Error: cannot call struct as function
     │                  ┬  
-    │                  ╰── Cannot call value of type 'Struct(StructTypeId(Id(1c00)))' as a function
+    │                  ╰── Cannot call value of type Point as a function
 ────╯
 
 --- Diagnostic 33 ---
