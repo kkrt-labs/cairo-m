@@ -331,4 +331,89 @@ mod tests {
         assert_eq!(vm.memory.get_data(M31(8)).unwrap(), M31(12)); // 36 / 3
         assert_eq!(vm.memory.get_data(M31(9)).unwrap(), M31(0)); // 12 - 12
     }
+
+    /// Reference implementation of Fibonacci sequence for diff testing.
+    fn fib(n: u32) -> u32 {
+        let mut a = 0;
+        let mut b = 1;
+        for _ in 0..n {
+            let temp = a;
+            a = b;
+            b += temp;
+        }
+        a
+    }
+
+    /// Runs a Fibonacci program on the VM and asserts the result against the reference implementation.
+    /// The program is written in Cairo M assembly and performs the following steps:
+    /// 1. **Setup**:
+    ///    - `[fp+0]` is initialized with `n` (the loop counter).
+    ///    - `[fp+1]` is initialized with `0` (Fibonacci number `a = F_0`).
+    ///    - `[fp+2]` is initialized with `1` (Fibonacci number `b = F_1`).
+    ///
+    /// 2. **Loop Condition**:
+    ///    - Checks if the counter at `[fp+0]` is zero.
+    ///    - If `counter != 0`, it jumps to the loop body.
+    ///    - If `counter == 0`, it jumps to the end of the program.
+    ///
+    /// 3. **Loop Body**:
+    ///    - `tmp = a` (`[fp+3] = [fp+1]`)
+    ///    - `a = b` (`[fp+1] = [fp+2]`)
+    ///    - `b = tmp + b` (`[fp+2] = [fp+3] + [fp+2]`)
+    ///    - `counter--` (`[fp+0] = [fp+0] - 1`)
+    ///    - Jumps back to the loop condition.
+    ///
+    /// After `n` iterations, `[fp+1]` will hold `F(n)` and `[fp+2]` will hold `F(n+1)`.
+    fn run_fib_test(n: u32) {
+        let instructions = vec![
+            // Setup
+            Instruction::from([6, n, 0, 0]), // store_imm: [fp+0] = counter
+            Instruction::from([6, 0, 0, 1]), // store_imm: [fp+1] = a = F_0 = 0
+            Instruction::from([6, 1, 0, 2]), // store_imm: [fp+2] = b = F_1 = 1
+            // Loop condition check
+            // while counter != 0 jump to loop body
+            Instruction::from([26, 0, 2, 0]), // jnz_fp_imm: jmp rel 2 if [fp + 0] != 0  (pc=3 here, pc=5 in beginning of loop body)
+            // Exit jump if counter was 0
+            Instruction::from([15, 10, 0, 0]), // jmp_abs_imm: jmp abs 10
+            // Loop body
+            Instruction::from([4, 1, 0, 3]), // store_deref_fp: [fp+3] = [fp+1] (tmp = a)
+            Instruction::from([4, 2, 0, 1]), // store_deref_fp: [fp+1] = [fp+2] (a = b)
+            Instruction::from([0, 3, 2, 2]), // store_add_fp_fp: [fp+2] = [fp+3] + [fp+2] (b = temp + b)
+            Instruction::from([3, 0, 1, 0]), // store_sub_fp_imm: [fp+0] = [fp+0] - 1 (counter--)
+            // Jump back to condition check
+            Instruction::from([15, 3, 0, 0]), // jmp_abs_imm: jmp abs 3
+        ];
+        let instructions_len = instructions.len() as u32;
+        let program = Program::from(instructions);
+        let mut vm = VM::try_from(program).unwrap();
+
+        let result = vm.execute();
+        assert!(result.is_ok());
+        // Verify that FP is still at the end of the program
+        assert_eq!(vm.state.fp, M31(instructions_len));
+        // Verify PC reached the end of the program
+        assert_eq!(vm.state.pc, M31(instructions_len));
+        // Verify counter reached zero
+        assert_eq!(vm.memory.get_data(vm.state.fp).unwrap(), M31::zero());
+
+        // After n iterations, a = F(n) and b = F(n+1).
+        // F(n) is at [fp+1].
+        // F(n+1) is at [fp+2].
+        assert_eq!(
+            vm.memory.get_data(vm.state.fp + M31::one()).unwrap(),
+            M31(fib(n))
+        );
+        assert_eq!(
+            vm.memory.get_data(vm.state.fp + M31(2)).unwrap(),
+            M31(fib(n + 1))
+        );
+    }
+
+    #[test]
+    fn test_execute_fibonacci() {
+        let test_cases = [0, 1, 2, 3, 10, 20];
+        for &n in &test_cases {
+            run_fib_test(n);
+        }
+    }
 }
