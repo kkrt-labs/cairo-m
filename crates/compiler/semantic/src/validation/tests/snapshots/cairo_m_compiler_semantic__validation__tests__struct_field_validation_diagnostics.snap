@@ -60,19 +60,19 @@ Found 6 diagnostic(s):
 ────╯
 
 --- Diagnostic 5 ---
-[2002] Error: Field z does not exist in struct Point
+[2002] Error: Field 'z' does not exist in struct Point
     ╭─[ <unknown>:10:23 ]
     │
  10 │     let bad_field = p.z; // Should error: Field z does not exist in struct Point
     │                       ┬  
-    │                       ╰── Field z does not exist in struct Point
+    │                       ╰── Field 'z' does not exist in struct Point
 ────╯
 
 --- Diagnostic 6 ---
-[2004] Error: Expected struct type, got Felt
+[2002] Error: Expected struct type, found felt
     ╭─[ <unknown>:12:22 ]
     │
  12 │     let try_access = non_struct.x; // Should error: Expected struct type, got Felt
     │                      ─────┬────  
-    │                           ╰────── Expected struct type, got Felt
+    │                           ╰────── Expected struct type, found felt
 ────╯
