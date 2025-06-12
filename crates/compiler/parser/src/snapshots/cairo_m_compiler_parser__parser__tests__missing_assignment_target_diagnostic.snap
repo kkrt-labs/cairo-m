@@ -3,7 +3,7 @@ source: crates/compiler/parser/src/parser.rs
 expression: snapshot_entries
 ---
 code: func test() { = 5; }
-result: [03] Error: found '=' expected '{', 'if', 'let', 'local', 'const', 'return', something else, identifier, '(', or '}'
+result: [02] Error: found '=' expected '{', 'if', 'let', 'local', 'const', 'return', something else, identifier, '(', or '}'
    ╭─[ <unknown>:1:15 ]
    │
  1 │ func test() { = 5; }

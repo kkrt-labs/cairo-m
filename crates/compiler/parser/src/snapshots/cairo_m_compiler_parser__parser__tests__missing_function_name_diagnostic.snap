@@ -3,7 +3,7 @@ source: crates/compiler/parser/src/parser.rs
 expression: snapshot_entries
 ---
 code: func (a: felt) -> felt { }
-result: [03] Error: found '(' expected identifier
+result: [02] Error: found '(' expected identifier
    ╭─[ <unknown>:1:6 ]
    │
  1 │ func (a: felt) -> felt { }

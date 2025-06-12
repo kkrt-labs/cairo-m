@@ -32,6 +32,7 @@
 //! efficient than tracking individual nodes.
 
 use crate::lexer::TokenType;
+use cairo_m_compiler_diagnostics::Diagnostic;
 use chumsky::{input::ValueInput, prelude::*};
 use std::ops::Range;
 
@@ -87,6 +88,8 @@ pub enum BinaryOp {
 pub enum Expression {
     /// Integer literal (e.g., `42`, `0`, `1337`)
     Literal(u32),
+    /// Boolean literal (e.g., `true`, `false`)
+    BooleanLiteral(bool),
     /// Variable identifier (e.g., `x`, `my_var`, `result`)
     Identifier(Spanned<String>),
     /// Binary operation (e.g., `a + b`, `x == y`, `p && q`)
@@ -292,33 +295,49 @@ impl ParsedModule {
     }
 }
 
-/// Parse a source program into a module AST.
+/// Output from the parsing process, including both AST and diagnostics
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ParseOutput {
+    pub module: ParsedModule,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl ParseOutput {
+    pub const fn new(module: ParsedModule, diagnostics: Vec<Diagnostic>) -> Self {
+        Self {
+            module,
+            diagnostics,
+        }
+    }
+}
+
+/// Parse a source program into a module AST with diagnostics.
 ///
 /// This is the main Salsa-tracked parsing function. It caches the entire
 /// parse result, following best practices from the Ruff codebase.
-#[salsa::tracked(returns(ref), no_eq)]
-pub fn parse_program(db: &dyn crate::Db, source: SourceProgram) -> ParsedModule {
+#[salsa::tracked]
+pub fn parse_program(db: &dyn crate::Db, source: SourceProgram) -> ParseOutput {
     use logos::Logos;
     let input = source.text(db);
 
     // Collect tokens and handle lexer errors
     let mut tokens = Vec::new();
-    let mut lexer_errors = Vec::new();
+    let mut diagnostics = Vec::new();
 
     for (token_result, span) in TokenType::lexer(input).spanned() {
         match token_result {
             Ok(token) => tokens.push((token, span.into())),
-            Err(_lexing_error) => {
-                // For now, we'll skip lexer errors and handle them later
-                // In a full implementation, you'd want to report these
-                lexer_errors.push(span);
+            Err(lexing_error) => {
+                // Create a meaningful diagnostic for lexer errors
+                let diagnostic = Diagnostic::lexical_error(format!("{lexing_error}"), span.into());
+                diagnostics.push(diagnostic);
             }
         }
     }
 
-    // If there are lexer errors, return empty module
-    if !lexer_errors.is_empty() {
-        return ParsedModule::new(vec![]);
+    // If there are lexer errors, return empty module with diagnostics
+    if !diagnostics.is_empty() {
+        return ParseOutput::new(ParsedModule::new(vec![]), diagnostics);
     }
 
     // Create token stream from the successfully lexed tokens
@@ -331,12 +350,14 @@ pub fn parse_program(db: &dyn crate::Db, source: SourceProgram) -> ParsedModule 
         .parse(token_stream)
         .into_result()
     {
-        Ok(items) => ParsedModule::new(items),
-        Err(_parse_errors) => {
-            // For now, return empty module on parse errors
-            // In a full implementation, you'd want to report these
-            // TODO: Add reporting of parsing errors ASAP!
-            ParsedModule::new(vec![])
+        Ok(items) => ParseOutput::new(ParsedModule::new(items), diagnostics),
+        Err(parse_errors) => {
+            // Convert parser errors to diagnostics with better messages
+            for error in parse_errors {
+                let diagnostic = Diagnostic::syntax_error(format!("{error}"), *error.span());
+                diagnostics.push(diagnostic);
+            }
+            ParseOutput::new(ParsedModule::new(vec![]), diagnostics)
         }
     }
 }
@@ -431,6 +452,13 @@ where
         let literal = select! { TokenType::LiteralNumber(n) => Expression::Literal(n) }
             .map_with(|lit, extra| Spanned::new(lit, extra.span()));
 
+        // Boolean literals (e.g., true, false)
+        let boolean_literal = select! {
+            TokenType::True => Expression::BooleanLiteral(true),
+            TokenType::False => Expression::BooleanLiteral(false),
+        }
+        .map_with(|lit, extra| Spanned::new(lit, extra.span()));
+
         // Variable identifiers (e.g., x, my_var, result)
         let ident_expr = spanned_ident
             .clone()
@@ -474,6 +502,7 @@ where
 
         // Basic atomic expressions - try each alternative in order
         let atom = literal
+            .or(boolean_literal)
             .or(struct_literal)
             .or(ident_expr)
             .or(tuple_expr)
@@ -987,13 +1016,9 @@ where
 #[cfg(test)]
 mod tests {
     use crate::db::ParserDatabaseImpl;
+    use cairo_m_compiler_diagnostics::build_diagnostic_message;
 
     use super::*;
-    use crate::lexer::LexingError;
-    use ariadne::{Label, Report, ReportKind, Source};
-    use chumsky::input::Stream;
-    use chumsky::Parser;
-    use logos::Logos;
 
     /// A test case specification
     pub struct TestCase {
@@ -1085,111 +1110,31 @@ mod tests {
         let db = ParserDatabaseImpl::default();
         let source = SourceProgram::new(&db, test_case.code.to_string());
         let result = parse_program(&db, source);
-        match result {
-            Ok(ast) => {
-                let snapshot_name = test_case.expected_construct.map_or_else(
-                    || test_case.name.to_string(),
-                    |construct| format!("{}_{}", construct, test_case.name),
-                );
-                let snapshot_entry = SnapshotEntry {
+
+        // Check if there are any diagnostics (errors)
+        if result.diagnostics.is_empty() {
+            let snapshot_name = test_case.expected_construct.map_or_else(
+                || test_case.name.to_string(),
+                |construct| format!("{}_{}", construct, test_case.name),
+            );
+            let snapshot_entry = SnapshotEntry {
+                code: test_case.code.to_string(),
+                result: SnapshotResult::ParseSuccess(result.module.items().to_vec()),
+            };
+            insta::assert_snapshot!(snapshot_name, snapshot_entry);
+        } else {
+            let snapshot_name = format!("{}_diagnostic", test_case.name);
+            let mut snapshot_entries = SnapshotEntries(Vec::new());
+            for diagnostic in result.diagnostics.iter() {
+                // Use the error module from the same crate for nice formatting
+                let formatted_error = build_diagnostic_message(test_case.code, diagnostic, false);
+                snapshot_entries.0.push(SnapshotEntry {
                     code: test_case.code.to_string(),
-                    result: SnapshotResult::ParseSuccess(ast.items().to_vec()),
-                };
-                insta::assert_snapshot!(snapshot_name, snapshot_entry);
+                    result: SnapshotResult::ParseError(formatted_error),
+                });
             }
-            Err(errs) => {
-                let snapshot_name = format!("{}_diagnostic", test_case.name);
-                let mut snapshot_entries = SnapshotEntries(Vec::new());
-                for err in errs.iter() {
-                    snapshot_entries.0.push(SnapshotEntry {
-                        code: test_case.code.to_string(),
-                        result: SnapshotResult::ParseError(err.clone()),
-                    });
-                }
-                insta::assert_snapshot!(snapshot_name, snapshot_entries);
-            }
+            insta::assert_snapshot!(snapshot_name, snapshot_entries);
         }
-    }
-
-    // Helper function to parse a string input
-    fn parse_program(
-        db: &dyn crate::Db,
-        source: SourceProgram,
-    ) -> Result<ParsedModule, Vec<String>> {
-        let input = source.text(db);
-        // First, collect all tokens and check for lexer errors
-        let mut tokens = Vec::new();
-        let mut lexer_errors = Vec::new();
-
-        for (token_result, span) in TokenType::lexer(input).spanned() {
-            match token_result {
-                Ok(token) => tokens.push((token, span.into())),
-                Err(lexing_error) => {
-                    lexer_errors.push(build_lexer_error_message(input, lexing_error, span.into()));
-                }
-            }
-        }
-
-        // If there are lexer errors, return them immediately
-        if !lexer_errors.is_empty() {
-            return Err(lexer_errors);
-        }
-
-        // Create token stream from the successfully lexed tokens
-        let token_stream =
-            Stream::from_iter(tokens).map((0..input.len()).into(), |(t, s): (_, _)| (t, s));
-
-        parser()
-            .then_ignore(end())
-            .parse(token_stream)
-            .into_result()
-            .map_err(|errs| build_parser_error_message(input, errs))
-            .map(ParsedModule::new)
-    }
-
-    fn build_lexer_error_message(source: &str, error: LexingError, span: SimpleSpan) -> String {
-        let mut write_buffer = Vec::new();
-        Report::build(ReportKind::Error, ((), span.into_range()))
-            .with_config(
-                ariadne::Config::new()
-                    .with_index_type(ariadne::IndexType::Byte)
-                    .with_color(false),
-            )
-            .with_code(3)
-            .with_message(error.to_string())
-            .with_label(Label::new(((), span.into_range())).with_message(format!("{error}")))
-            .finish()
-            .write(Source::from(source), &mut write_buffer)
-            .unwrap();
-        String::from_utf8_lossy(&write_buffer).to_string()
-    }
-
-    fn build_parser_error_message(
-        source: &str,
-        errs: Vec<Rich<TokenType, SimpleSpan>>,
-    ) -> Vec<String> {
-        let mut reports = Vec::new();
-        for err in errs {
-            let mut write_buffer = Vec::new();
-            Report::build(ReportKind::Error, ((), err.span().into_range()))
-                .with_config(
-                    ariadne::Config::new()
-                        .with_index_type(ariadne::IndexType::Byte)
-                        .with_color(false),
-                )
-                .with_code(3)
-                .with_message(err.to_string())
-                .with_label(
-                    Label::new(((), err.span().into_range()))
-                        .with_message(err.reason().to_string()),
-                )
-                .finish()
-                .write(Source::from(source), &mut write_buffer)
-                .unwrap();
-            let report = String::from_utf8_lossy(&write_buffer).to_string();
-            reports.push(report);
-        }
-        reports
     }
 
     // ===================
@@ -2133,7 +2078,7 @@ mod tests {
     fn test_deep_nesting() {
         run_test_case(test_case!(
             name: "deep_nesting",
-            code: "func test() { if (true) { if (true) { if (true) { if (true) { if (true) { x = 1; } } } } } }",
+            code: "func test() { if (true) { if (false) { if (true) { if (true) { if (true) { let x = 1; } } } } } }",
 
             construct: "statement"
         ));

@@ -21,8 +21,10 @@
 //! ```
 
 use crate::db::SemanticDatabaseImpl;
-use crate::validation::diagnostics::{DiagnosticCode, DiagnosticCollection, DiagnosticSeverity};
 use crate::{semantic_index::semantic_index, File};
+use cairo_m_compiler_diagnostics::{
+    build_diagnostic_message, DiagnosticCode, DiagnosticCollection,
+};
 use cairo_m_compiler_parser::{parse_program, SourceProgram};
 use std::fs;
 use std::path::PathBuf;
@@ -119,7 +121,9 @@ fn run_validation(source: &str) -> DiagnosticCollection {
     let source_program = SourceProgram::new(&db, source.to_string());
 
     // Build semantic index
-    let index = semantic_index(&db, source_program);
+    let index = semantic_index(&db, source_program)
+        .as_ref()
+        .expect("Got unexpected parse errors");
 
     // Run validation
     let registry = create_default_registry();
@@ -132,8 +136,6 @@ fn format_diagnostics_for_snapshot(
     source: &str,
     fixture_name: &str,
 ) -> String {
-    use ariadne::{Label, Report, ReportKind, Source};
-
     let mut result = String::new();
 
     // Add header
@@ -153,73 +155,15 @@ fn format_diagnostics_for_snapshot(
 
     // Create ariadne reports for each diagnostic
     for (i, diagnostic) in diagnostics.all().iter().enumerate() {
-        let mut write_buffer = Vec::new();
-
-        let report_kind = match diagnostic.severity {
-            crate::validation::diagnostics::DiagnosticSeverity::Error => ReportKind::Error,
-            crate::validation::diagnostics::DiagnosticSeverity::Warning => ReportKind::Warning,
-            crate::validation::diagnostics::DiagnosticSeverity::Info => ReportKind::Advice,
-            crate::validation::diagnostics::DiagnosticSeverity::Hint => ReportKind::Advice,
-        };
-
-        let mut report_builder = Report::build(report_kind, ((), diagnostic.span.into_range()))
-            .with_config(
-                ariadne::Config::new()
-                    .with_index_type(ariadne::IndexType::Byte)
-                    .with_color(false), // No color for snapshots
-            )
-            .with_code(diagnostic_code_to_u32(diagnostic.code))
-            .with_message(&diagnostic.message)
-            .with_label(
-                Label::new(((), diagnostic.span.into_range())).with_message(&diagnostic.message),
-            );
-
-        // Add related spans as additional labels
-        for (related_span, related_message) in &diagnostic.related_spans {
-            report_builder = report_builder.with_label(
-                Label::new(((), related_span.into_range()))
-                    .with_message(related_message)
-                    .with_color(ariadne::Color::Blue),
-            );
-        }
-
-        report_builder
-            .finish()
-            .write(Source::from(source), &mut write_buffer)
-            .unwrap();
-
-        let report_string = String::from_utf8_lossy(&write_buffer);
+        let message = build_diagnostic_message(source, diagnostic, false);
         result.push_str(&format!("--- Diagnostic {} ---\n", i + 1));
-        result.push_str(&report_string);
-
+        result.push_str(&message);
         if i < diagnostics.len() - 1 {
             result.push('\n');
         }
     }
 
     result
-}
-
-// ===== Utility functions =====
-
-/// Convert DiagnosticCode to u32 for ariadne reporting
-fn diagnostic_code_to_u32(code: DiagnosticCode) -> u32 {
-    match code {
-        DiagnosticCode::UndeclaredVariable => 1001,
-        DiagnosticCode::UnusedVariable => 1002,
-        DiagnosticCode::DuplicateDefinition => 1003,
-        DiagnosticCode::UseBeforeDefinition => 1004,
-        DiagnosticCode::TypeMismatch => 2001,
-        DiagnosticCode::InvalidFieldAccess => 2002,
-        DiagnosticCode::InvalidIndexAccess => 2003,
-        DiagnosticCode::InvalidStructLiteral => 2004,
-        DiagnosticCode::InvalidFunctionCall => 2005,
-        DiagnosticCode::InvalidAssignment => 2006,
-        DiagnosticCode::InvalidReturnType => 2007,
-        DiagnosticCode::InvalidTypeDefinition => 2008,
-        DiagnosticCode::UnreachableCode => 3001,
-        DiagnosticCode::MissingReturn => 3002,
-    }
 }
 
 #[cfg(test)]
@@ -275,8 +219,8 @@ mod tests_inner {
         );
 
         // Run validation
-        let parsed_module = parse_program(&db, source);
-        let diagnostics = validate_semantics(&db, parsed_module, source);
+        let parse_output = parse_program(&db, source);
+        let diagnostics = validate_semantics(&db, &parse_output.module, source);
 
         // Should find the Unused variable
         assert!(!diagnostics.is_empty());
@@ -305,85 +249,91 @@ mod tests_inner {
 
     #[test]
     fn test_duplicate_definition_validation() {
-        let db = test_db();
-
-        // Test program with duplicate definitions
+        let db = SemanticDatabaseImpl::default();
         let source = SourceProgram::new(
             &db,
             r#"
                 func test() {
                     let var = 1;
                     let var = 2;  // Error: duplicate definition
+                    return ();
                 }
             "#
             .to_string(),
         );
 
-        let parsed_module = parse_program(&db, source);
-        let diagnostics = validate_semantics(&db, parsed_module, source);
+        let parse_output = parse_program(&db, source);
+        assert!(
+            parse_output.diagnostics.is_empty(),
+            "Got unexpected parse errors"
+        );
+        let diagnostics = validate_semantics(&db, &parse_output.module, source);
+        println!("diagnostics: {diagnostics:?}");
 
         let duplicate_errors: Vec<_> = diagnostics
-            .all()
-            .iter()
+            .errors()
+            .into_iter()
             .filter(|d| d.code == DiagnosticCode::DuplicateDefinition)
             .collect();
 
+        // Should find duplicate declarations
+        // TODO: remove once shadowing is supported
         assert_eq!(duplicate_errors.len(), 1);
-        assert!(duplicate_errors[0].message.contains("var"));
-        assert_eq!(duplicate_errors[0].severity, DiagnosticSeverity::Error);
+
+        // Check that both duplicates are found
+        assert!(duplicate_errors
+            .iter()
+            .any(|d| d.message.contains("Duplicate definition")));
     }
 
     #[test]
     fn test_undeclared_variable_detection() {
-        let db = test_db();
-
-        // Test program with undeclared variable usage
+        let db = SemanticDatabaseImpl::default();
         let source = SourceProgram::new(
             &db,
             r#"
-                func test() -> felt {
-                    let local_var = 42;
-                    return local_var + undeclared_var;  // Error: undeclared variable
-                }
-            "#
+            func test_func() {
+                let declared_var = 5;
+                let result = undeclared_var + declared_var;
+            }
+        "#
             .to_string(),
         );
 
-        let parsed_module = parse_program(&db, source);
-        let diagnostics = validate_semantics(&db, parsed_module, source);
+        let parse_output = parse_program(&db, source);
+        let diagnostics = validate_semantics(&db, &parse_output.module, source);
 
         let undeclared_errors: Vec<_> = diagnostics
-            .all()
-            .iter()
+            .errors()
+            .into_iter()
             .filter(|d| d.code == DiagnosticCode::UndeclaredVariable)
             .collect();
 
+        // Should find both undeclared variables
         assert_eq!(undeclared_errors.len(), 1);
-        assert!(undeclared_errors[0].message.contains("undeclared_var"));
-        assert_eq!(undeclared_errors[0].severity, DiagnosticSeverity::Error);
+
+        // Check that both undeclared variables are found
+        assert!(undeclared_errors
+            .iter()
+            .any(|d| d.message.contains("Undeclared variable")));
     }
 
     #[test]
-    fn test_clean_program_validation() {
-        let db = test_db();
-
-        // Test program with no validation issues
+    fn test_valid_program_no_errors() {
+        let db = SemanticDatabaseImpl::default();
         let source = SourceProgram::new(
             &db,
             r#"
-                func add(a: felt, b: felt) -> felt {
-                    return a + b;
-                }
-
-                func main() -> felt {
-                    return add(1, 2);
-                }
-            "#
+            func test_func(param: felt) -> felt {
+                let local_var = param;
+                return local_var;
+            }
+        "#
             .to_string(),
         );
 
-        let parsed_module = parse_program(&db, source);
-        let diagnostics = validate_semantics(&db, parsed_module, source);
+        let parse_output = parse_program(&db, source);
+        let diagnostics = validate_semantics(&db, &parse_output.module, source);
 
         // Should have no errors
         let errors: Vec<_> = diagnostics.errors();

@@ -1,0 +1,8 @@
+[package]
+name = "cairo-m-compiler-diagnostics"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ariadne = "0.5.1"
+chumsky = "0.10.1"

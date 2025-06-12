@@ -8,9 +8,9 @@
 use crate::db::SemanticDb;
 use crate::type_resolution::{are_types_compatible, expression_semantic_type};
 use crate::types::TypeData;
-use crate::validation::diagnostics::{Diagnostic, DiagnosticCode};
 use crate::validation::Validator;
 use crate::File;
+use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode};
 use cairo_m_compiler_parser::parser::Expression;
 
 /// Validator for function call expressions
@@ -159,7 +159,9 @@ mod tests {
             }
         "#;
         let file = crate::File::new(&db, program.to_string());
-        let semantic_index = semantic_index(&db, file);
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
 
         let validator = FunctionCallValidator;
         let diagnostics = validator.validate(&db, file, semantic_index);
@@ -178,7 +180,9 @@ mod tests {
             }
         "#;
         let file = crate::File::new(&db, program.to_string());
-        let semantic_index = semantic_index(&db, file);
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
 
         let validator = FunctionCallValidator;
         let diagnostics = validator.validate(&db, file, semantic_index);
@@ -200,7 +204,9 @@ mod tests {
             }
         "#;
         let file = crate::File::new(&db, program.to_string());
-        let semantic_index = semantic_index(&db, file);
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
 
         let validator = FunctionCallValidator;
         let diagnostics = validator.validate(&db, file, semantic_index);
@@ -222,7 +228,9 @@ mod tests {
             }
         "#;
         let file = crate::File::new(&db, program.to_string());
-        let semantic_index = semantic_index(&db, file);
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
 
         let validator = FunctionCallValidator;
         let diagnostics = validator.validate(&db, file, semantic_index);
@@ -241,7 +249,9 @@ mod tests {
             }
         "#;
         let file = crate::File::new(&db, program.to_string());
-        let semantic_index = semantic_index(&db, file);
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
 
         let validator = FunctionCallValidator;
         let diagnostics = validator.validate(&db, file, semantic_index);

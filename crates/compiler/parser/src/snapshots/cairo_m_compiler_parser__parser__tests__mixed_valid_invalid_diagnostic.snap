@@ -7,7 +7,7 @@ code:
                 let bad = 42;
                 const ALSO_GOOD = 2;
             
-result: [03] Error: found 'let' expected 'func', 'struct', 'from', 'const', 'namespace', or end of input
+result: [02] Error: found 'let' expected 'func', 'struct', 'from', 'const', 'namespace', or end of input
    ╭─[ <unknown>:3:17 ]
    │
  3 │                 let bad = 42;

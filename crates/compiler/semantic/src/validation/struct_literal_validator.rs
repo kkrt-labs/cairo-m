@@ -6,8 +6,9 @@
 //! - Field value types match struct definition
 
 use crate::db::SemanticDb;
-use crate::validation::{Diagnostic, Validator};
+use crate::validation::Validator;
 use crate::{File, SemanticIndex};
+use cairo_m_compiler_diagnostics::Diagnostic;
 
 /// Validator for struct literal expressions
 ///

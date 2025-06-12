@@ -267,6 +267,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ariadne",
+ "cairo-m-compiler-diagnostics",
  "cairo-m-compiler-parser",
  "cairo-m-compiler-semantic",
  "chumsky",
@@ -276,10 +277,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "cairo-m-compiler-diagnostics"
+version = "0.1.0"
+dependencies = [
+ "ariadne",
+ "chumsky",
+]
+
+[[package]]
 name = "cairo-m-compiler-parser"
 version = "0.1.0"
 dependencies = [
  "ariadne",
+ "cairo-m-compiler-diagnostics",
  "chumsky",
  "insta",
  "logos",
@@ -297,6 +307,7 @@ version = "0.1.0"
 dependencies = [
  "ariadne",
  "bitflags",
+ "cairo-m-compiler-diagnostics",
  "cairo-m-compiler-parser",
  "chumsky",
  "index_vec",

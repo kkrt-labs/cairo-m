@@ -48,6 +48,7 @@
 use crate::definition::DefinitionKind;
 use crate::place::{FileScopeId, PlaceTable, Scope};
 use crate::{Definition, File, SemanticDb};
+use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCollection};
 use cairo_m_compiler_parser::parser::{
     ConstDef, Expression, FunctionDef, ImportStmt, Namespace, Spanned, Statement, StructDef,
     TopLevelItem,
@@ -454,13 +455,17 @@ impl Default for SemanticIndex {
 /// ```rust,ignore
 /// let db = SemanticDatabaseImpl::default();
 /// let file = SourceProgram::new(&db, source_code);
-/// let index = semantic_index(&db, file);
+/// let index = semantic_index(&db, file).as_ref().expect("Got unexpected parse errors");
 /// ```
 #[salsa::tracked(returns(ref))]
-pub fn semantic_index(db: &dyn SemanticDb, file: File) -> SemanticIndex {
+pub fn semantic_index(db: &dyn SemanticDb, file: File) -> Result<SemanticIndex, Vec<Diagnostic>> {
     // Parse the file and analyze its semantics
     let parsed_module = parse_program(db, file);
-    semantic_index_from_module(db, parsed_module, file)
+    if parsed_module.diagnostics.is_empty() {
+        Ok(semantic_index_from_module(db, &parsed_module.module, file))
+    } else {
+        Err(parsed_module.diagnostics)
+    }
 }
 
 /// Build semantic index from an already-parsed module
@@ -482,7 +487,7 @@ pub fn semantic_index_from_module<'a>(
     builder.build()
 }
 
-/// Validate semantics and return diagnostics
+/// Main entry point for semantic analysis with automatic parsing
 ///
 /// This is the main entry point for semantic validation. It builds the semantic
 /// index and runs all registered validators to produce a collection of diagnostics.
@@ -501,7 +506,7 @@ pub fn validate_semantics<'a>(
     db: &'a dyn SemanticDb,
     module: &'a ParsedModule,
     file: File,
-) -> crate::validation::DiagnosticCollection {
+) -> DiagnosticCollection {
     let index = semantic_index_from_module(db, module, file);
 
     // Create validator registry with all available validators
@@ -1014,6 +1019,10 @@ impl<'db> SemanticIndexBuilder<'db> {
             Expression::Literal(_) => {
                 // Literals don't reference any symbols
                 // TODO: Consider adding literal validation (e.g., numeric range checks)
+            }
+            Expression::BooleanLiteral(_) => {
+                // Boolean literals don't reference any symbols
+                // TODO: Consider adding boolean literal validation
             } // TODO: Add support for more expression types as the parser is extended:
               // - Conditional expressions (ternary operator)
               // - Array/slice literals
@@ -1043,9 +1052,8 @@ mod tests {
     #[test]
     fn test_empty_program() {
         let TestCase { db, source } = test_case("");
-        let index = semantic_index(&db, source);
+        let index = semantic_index(&db, source).as_ref().unwrap();
 
-        // Should have a root module scope
         let root = index.root_scope().expect("should have root scope");
         let scope = index.scope(root).unwrap();
         assert_eq!(scope.kind, crate::place::ScopeKind::Module);
@@ -1055,7 +1063,7 @@ mod tests {
     #[test]
     fn test_simple_function() {
         let TestCase { db, source } = test_case("func test() { }");
-        let index = semantic_index(&db, source);
+        let index = semantic_index(&db, source).as_ref().unwrap();
 
         // Should have root scope and function scope
         let root = index.root_scope().unwrap();
@@ -1082,7 +1090,7 @@ mod tests {
     #[test]
     fn test_function_with_parameters() {
         let TestCase { db, source } = test_case("func add(a: felt, b: felt) { }");
-        let index = semantic_index(&db, source);
+        let index = semantic_index(&db, source).as_ref().unwrap();
 
         let root = index.root_scope().unwrap();
         let child_scopes: Vec<_> = index.child_scopes(root).collect();
@@ -1107,7 +1115,7 @@ mod tests {
     fn test_variable_resolution() {
         let TestCase { db, source } =
             test_case("func test(param: felt) { let local_var = param; }");
-        let index = semantic_index(&db, source);
+        let index = semantic_index(&db, source).as_ref().unwrap();
 
         let root = index.root_scope().unwrap();
         let child_scopes: Vec<_> = index.child_scopes(root).collect();
@@ -1150,7 +1158,7 @@ mod tests {
         "#,
         );
 
-        let index = semantic_index(&db, source);
+        let index = semantic_index(&db, source).as_ref().unwrap();
 
         // Should have root scope plus function scope and namespace scope
         let root = index.root_scope().unwrap();
@@ -1237,7 +1245,7 @@ mod tests {
     #[test]
     fn test_real_spans_are_used() {
         let TestCase { db, source } = test_case("func test(x: felt) { let y = x; }");
-        let index = semantic_index(&db, source);
+        let index = semantic_index(&db, source).as_ref().unwrap();
 
         // Get all identifier usages
         let usages = index.identifier_usages();
@@ -1297,7 +1305,7 @@ mod tests {
             }
             "#,
         );
-        let index = semantic_index(&db, source);
+        let index = semantic_index(&db, source).as_ref().unwrap();
 
         // Find the let definition
         let let_definitions: Vec<_> = index

@@ -3,7 +3,7 @@ source: crates/compiler/parser/src/parser.rs
 expression: snapshot_entries
 ---
 code: func test() { if { x = 1; } }
-result: [03] Error: found '{' expected '('
+result: [02] Error: found '{' expected '('
    ╭─[ <unknown>:1:18 ]
    │
  1 │ func test() { if { x = 1; } }

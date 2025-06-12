@@ -6,8 +6,9 @@
 //! - Bounds checking where possible
 
 use crate::db::SemanticDb;
-use crate::validation::{Diagnostic, Validator};
+use crate::validation::Validator;
 use crate::{File, SemanticIndex};
+use cairo_m_compiler_diagnostics::Diagnostic;
 
 /// Validator for indexing operations
 ///

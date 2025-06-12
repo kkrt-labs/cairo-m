@@ -43,9 +43,6 @@ pub use semantic_index::{
     SemanticIndex,
 };
 pub use types::{FunctionSignatureId, StructTypeId, TypeData, TypeId};
-pub use validation::{
-    Diagnostic, DiagnosticCode, DiagnosticCollection, DiagnosticSeverity, Validator,
-};
 
 /// A file in the semantic analysis system
 /// For now, we reuse the parser's file concept

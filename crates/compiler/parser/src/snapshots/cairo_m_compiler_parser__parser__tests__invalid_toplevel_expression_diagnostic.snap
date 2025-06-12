@@ -3,7 +3,7 @@ source: crates/compiler/parser/src/parser.rs
 expression: snapshot_entries
 ---
 code: 42;
-result: [03] Error: found '42' expected 'func', 'struct', 'from', 'const', 'namespace', or end of input
+result: [02] Error: found '42' expected 'func', 'struct', 'from', 'const', 'namespace', or end of input
    ╭─[ <unknown>:1:1 ]
    │
  1 │ 42;

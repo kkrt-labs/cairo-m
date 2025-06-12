@@ -28,7 +28,9 @@ pub fn resolve_ast_type<'db>(
     ast_type_expr: AstTypeExpr,
     context_scope_id: FileScopeId,
 ) -> TypeId<'db> {
-    let semantic_index = semantic_index(db, file);
+    let semantic_index = semantic_index(db, file)
+        .as_ref()
+        .expect("Got unexpected parse errors");
 
     match ast_type_expr {
         AstTypeExpr::Named(name_str) => {
@@ -75,7 +77,9 @@ pub fn definition_semantic_type<'db>(
 ) -> TypeId<'db> {
     let file = definition_id.file(db);
     let def_index = definition_id.id_in_file(db);
-    let semantic_index = semantic_index(db, file);
+    let semantic_index = semantic_index(db, file)
+        .as_ref()
+        .expect("Got unexpected parse errors");
 
     let Some(definition) = semantic_index.definition(def_index) else {
         return TypeId::new(db, TypeData::Error);
@@ -147,7 +151,9 @@ pub fn expression_semantic_type<'db>(
     file: File,
     expression_id: ExpressionId,
 ) -> TypeId<'db> {
-    let semantic_index = semantic_index(db, file);
+    let semantic_index = semantic_index(db, file)
+        .as_ref()
+        .expect("Got unexpected parse errors");
 
     let Some(expr_info) = semantic_index.expression(expression_id) else {
         return TypeId::new(db, TypeData::Error);
@@ -156,6 +162,7 @@ pub fn expression_semantic_type<'db>(
     // Access the AST node directly from ExpressionInfo - no lookup needed!
     match &expr_info.ast_node {
         Expression::Literal(_) => TypeId::new(db, TypeData::Felt),
+        Expression::BooleanLiteral(_) => TypeId::new(db, TypeData::Felt),
         Expression::Identifier(name) => {
             if let Some((def_idx, _)) =
                 semantic_index.resolve_name_to_definition(name.value(), expr_info.scope_id)
@@ -273,7 +280,9 @@ pub fn struct_semantic_data<'db>(
 ) -> Option<StructTypeId<'db>> {
     let file = struct_definition_id.file(db);
     let def_index = struct_definition_id.id_in_file(db);
-    let semantic_index = semantic_index(db, file);
+    let semantic_index = semantic_index(db, file)
+        .as_ref()
+        .expect("Got unexpected parse errors");
 
     let definition = semantic_index.definition(def_index)?;
 
@@ -304,7 +313,9 @@ pub fn function_semantic_signature<'db>(
 ) -> Option<FunctionSignatureId<'db>> {
     let file = func_definition_id.file(db);
     let def_index = func_definition_id.id_in_file(db);
-    let semantic_index = semantic_index(db, file);
+    let semantic_index = semantic_index(db, file)
+        .as_ref()
+        .expect("Got unexpected parse errors");
 
     let definition = semantic_index.definition(def_index)?;
 
@@ -505,7 +516,9 @@ mod tests {
     fn test_direct_ast_node_access() {
         let db = test_db();
         let file = crate::File::new(&db, "func test() { let x = 42; }".to_string());
-        let semantic_index = semantic_index(&db, file);
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
 
         // Find any expression in the index
         let all_expressions: Vec<_> = semantic_index.all_expressions().collect();
@@ -554,7 +567,9 @@ mod tests {
             }
         "#;
         let file = crate::File::new(&db, program.to_string());
-        let semantic_index = semantic_index(&db, file);
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
 
         // Count how many different expression types we find
         let mut expression_types_found = std::collections::HashSet::new();
@@ -572,6 +587,7 @@ mod tests {
             // Record the expression variant we found
             let variant_name = match &expr_info.ast_node {
                 Expression::Literal(_) => "Literal",
+                Expression::BooleanLiteral(_) => "BooleanLiteral",
                 Expression::Identifier(_) => "Identifier",
                 Expression::BinaryOp { .. } => "BinaryOp",
                 Expression::FunctionCall { .. } => "FunctionCall",

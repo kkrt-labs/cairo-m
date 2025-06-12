@@ -75,4 +75,112 @@ func test_mutability() {
 }
 
 ============================================================
-No diagnostics found.
+Found 12 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1002] Warning: Unused variable 'INVALID_CONST'
+    ╭─[ <unknown>:61:7 ]
+    │
+ 61 │ const INVALID_CONST = some_function(42);
+    │       ──────┬──────  
+    │             ╰──────── Unused variable 'INVALID_CONST'
+────╯
+
+--- Diagnostic 2 ---
+[1002] Warning: Unused variable 'bad_field'
+    ╭─[ <unknown>:18:9 ]
+    │
+ 18 │     let bad_field = p.z;
+    │         ────┬────  
+    │             ╰────── Unused variable 'bad_field'
+────╯
+
+--- Diagnostic 3 ---
+[1002] Warning: Unused variable 'incomplete'
+    ╭─[ <unknown>:21:9 ]
+    │
+ 21 │     let incomplete = Point { x: 1 };
+    │         ─────┬────  
+    │              ╰────── Unused variable 'incomplete'
+────╯
+
+--- Diagnostic 4 ---
+[1002] Warning: Unused variable 'unknown_field'
+    ╭─[ <unknown>:24:9 ]
+    │
+ 24 │     let unknown_field = Point { x: 1, y: 2, w: 3 };
+    │         ──────┬──────  
+    │               ╰──────── Unused variable 'unknown_field'
+────╯
+
+--- Diagnostic 5 ---
+[1002] Warning: Unused variable 'bad_index'
+    ╭─[ <unknown>:28:9 ]
+    │
+ 28 │     let bad_index = num[0];
+    │         ────┬────  
+    │             ╰────── Unused variable 'bad_index'
+────╯
+
+--- Diagnostic 6 ---
+[1002] Warning: Unused variable 'bad_member'
+    ╭─[ <unknown>:32:9 ]
+    │
+ 32 │     let bad_member = another_num.field;
+    │         ─────┬────  
+    │              ╰────── Unused variable 'bad_member'
+────╯
+
+--- Diagnostic 7 ---
+[1002] Warning: Unused variable 'wrong_args'
+    ╭─[ <unknown>:35:9 ]
+    │
+ 35 │     let wrong_args = some_function(1, 2, 3);
+    │         ─────┬────  
+    │              ╰────── Unused variable 'wrong_args'
+────╯
+
+--- Diagnostic 8 ---
+[2005] Error: Function expects 1 argument(s), but 3 were provided
+    ╭─[ <unknown>:35:22 ]
+    │
+ 35 │     let wrong_args = some_function(1, 2, 3);
+    │                      ──────┬──────  
+    │                            ╰──────── Function expects 1 argument(s), but 3 were provided
+────╯
+
+--- Diagnostic 9 ---
+[2002] Error: Field z does not exist in struct Point
+    ╭─[ <unknown>:18:23 ]
+    │
+ 18 │     let bad_field = p.z;
+    │                       ┬  
+    │                       ╰── Field z does not exist in struct Point
+────╯
+
+--- Diagnostic 10 ---
+[2004] Error: Missing field 'y' in struct literal for Point
+    ╭─[ <unknown>:21:22 ]
+    │
+ 21 │     let incomplete = Point { x: 1 };
+    │                      ──┬──  
+    │                        ╰──── Missing field 'y' in struct literal for Point
+────╯
+
+--- Diagnostic 11 ---
+[2002] Error: Field w does not exist in struct Point
+    ╭─[ <unknown>:24:45 ]
+    │
+ 24 │     let unknown_field = Point { x: 1, y: 2, w: 3 };
+    │                                             ┬  
+    │                                             ╰── Field w does not exist in struct Point
+────╯
+
+--- Diagnostic 12 ---
+[2004] Error: Expected struct type, got Felt
+    ╭─[ <unknown>:32:22 ]
+    │
+ 32 │     let bad_member = another_num.field;
+    │                      ─────┬─────  
+    │                           ╰─────── Expected struct type, got Felt
+────╯
