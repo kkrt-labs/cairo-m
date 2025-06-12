@@ -6,11 +6,13 @@
 //! - Bounds checking where possible
 
 use crate::db::SemanticDb;
-use crate::validation::{Diagnostic, Validator};
-use crate::{File, SemanticIndex};
-
 use crate::type_resolution::expression_semantic_type;
 use crate::types::TypeData;
+use crate::validation::Validator;
+use crate::File;
+use crate::SemanticIndex;
+use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode};
+use cairo_m_compiler_parser::parser::Expression;
 
 /// Validator for indexing operations
 ///
@@ -57,7 +59,10 @@ impl Validator for IndexingValidator {
                             diagnostics.push(
                                 Diagnostic::error(
                                     DiagnosticCode::InvalidIndexType,
-                                    format!("Expected felt type for index, got {index_type:?}"),
+                                    format!(
+                                        "Expected felt type for index, got {}",
+                                        index_type_id.data(db).display_name(db)
+                                    ),
                                 )
                                 .with_location(index_expr.span()),
                             );
@@ -68,7 +73,10 @@ impl Validator for IndexingValidator {
                         diagnostics.push(
                             Diagnostic::error(
                                 DiagnosticCode::InvalidIndexAccess,
-                                format!("Cannot index type {array_type:?}"),
+                                format!(
+                                    "Cannot index type {}",
+                                    array_type_id.data(db).display_name(db)
+                                ),
                             )
                             .with_location(array.span()),
                         );
@@ -102,7 +110,9 @@ mod tests {
             }
         "#;
         let file = File::new(&db, program.to_string());
-        let semantic_index = semantic_index(&db, file);
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
 
         let validator = IndexingValidator;
         let diagnostics = validator.validate(&db, file, semantic_index);
@@ -122,7 +132,9 @@ mod tests {
             }
         "#;
         let file = File::new(&db, program.to_string());
-        let semantic_index = semantic_index(&db, file);
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
 
         let validator = IndexingValidator;
         let diagnostics = validator.validate(&db, file, semantic_index);
@@ -141,7 +153,9 @@ mod tests {
             }
         "#;
         let file = File::new(&db, program.to_string());
-        let semantic_index = semantic_index(&db, file);
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
 
         let validator = IndexingValidator;
         let diagnostics = validator.validate(&db, file, semantic_index);
@@ -161,21 +175,21 @@ mod tests {
             }
             func test() {
                 let tuple = (1, 2, 3);
-                let bad = tuple[Point { x: 1, y: 2 }];  // Error: index must be integer
+                let bad = tuple[Point { x: 1, y: 2 }];  // Error: index must be felt
             }
         "#;
         let file = File::new(&db, program.to_string());
-        let semantic_index = semantic_index(&db, file);
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
 
         let validator = IndexingValidator;
         let diagnostics = validator.validate(&db, file, semantic_index);
 
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].code, DiagnosticCode::InvalidIndexType);
-        assert!(
-            diagnostics[0]
-                .message
-                .contains("Expected integer type for index")
-        );
+        assert!(diagnostics[0]
+            .message
+            .contains("Expected felt type for index"));
     }
 }

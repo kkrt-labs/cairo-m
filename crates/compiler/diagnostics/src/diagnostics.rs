@@ -128,6 +128,7 @@ impl From<DiagnosticCode> for u32 {
             DiagnosticCode::InvalidAssignment => 2006,
             DiagnosticCode::InvalidReturnType => 2007,
             DiagnosticCode::InvalidTypeDefinition => 2008,
+            DiagnosticCode::InvalidIndexType => 2009,
             DiagnosticCode::UnreachableCode => 3001,
             DiagnosticCode::MissingReturn => 3002,
         }

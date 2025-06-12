@@ -87,19 +87,19 @@ Found 7 diagnostic(s):
 ────╯
 
 --- Diagnostic 6 ---
-[2003] Error: Cannot index type Felt
+[2003] Error: Cannot index type felt
     ╭─[ <unknown>:22:16 ]
     │
  22 │     let bad1 = num[0];  // Should error: cannot index felt
     │                ─┬─  
-    │                 ╰─── Cannot index type Felt
+    │                 ╰─── Cannot index type felt
 ────╯
 
 --- Diagnostic 7 ---
-[2009] Error: Expected felt type for index, got Struct(StructTypeId(Id(1400)))
+[2009] Error: Expected felt type for index, got Point
     ╭─[ <unknown>:26:20 ]
     │
  26 │     let bad2 = tup[Point{x: 0, y: 0}];  // Should error: index must be felt
     │                    ────────┬────────  
-    │                            ╰────────── Expected felt type for index, got Struct(StructTypeId(Id(1400)))
+    │                            ╰────────── Expected felt type for index, got Point
 ────╯

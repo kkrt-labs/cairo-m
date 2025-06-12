@@ -75,7 +75,7 @@ func test_mutability() {
 }
 
 ============================================================
-Found 12 diagnostic(s):
+Found 13 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1002] Warning: Unused variable 'INVALID_CONST'
@@ -183,4 +183,13 @@ Found 12 diagnostic(s):
  32 │     let bad_member = another_num.field;
     │                      ─────┬─────  
     │                           ╰─────── Expected struct type, got Felt
+────╯
+
+--- Diagnostic 13 ---
+[2003] Error: Cannot index type felt
+    ╭─[ <unknown>:28:21 ]
+    │
+ 28 │     let bad_index = num[0];
+    │                     ─┬─  
+    │                      ╰─── Cannot index type felt
 ────╯

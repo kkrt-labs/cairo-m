@@ -21,11 +21,11 @@
 //! ```
 
 use crate::db::SemanticDatabaseImpl;
-use crate::{File, semantic_index::semantic_index};
+use crate::{semantic_index::semantic_index, File};
 use cairo_m_compiler_diagnostics::{
-    DiagnosticCode, DiagnosticCollection, build_diagnostic_message,
+    build_diagnostic_message, DiagnosticCode, DiagnosticCollection,
 };
-use cairo_m_compiler_parser::{SourceProgram, parse_program};
+use cairo_m_compiler_parser::{parse_program, SourceProgram};
 use std::fs;
 use std::path::PathBuf;
 
@@ -281,11 +281,9 @@ mod tests_inner {
         assert_eq!(duplicate_errors.len(), 1);
 
         // Check that both duplicates are found
-        assert!(
-            duplicate_errors
-                .iter()
-                .any(|d| d.message.contains("Duplicate definition"))
-        );
+        assert!(duplicate_errors
+            .iter()
+            .any(|d| d.message.contains("Duplicate definition")));
     }
 
     #[test]
@@ -315,11 +313,9 @@ mod tests_inner {
         assert_eq!(undeclared_errors.len(), 1);
 
         // Check that both undeclared variables are found
-        assert!(
-            undeclared_errors
-                .iter()
-                .any(|d| d.message.contains("Undeclared variable"))
-        );
+        assert!(undeclared_errors
+            .iter()
+            .any(|d| d.message.contains("Undeclared variable")));
     }
 
     #[test]

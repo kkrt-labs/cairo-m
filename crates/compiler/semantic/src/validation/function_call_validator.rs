@@ -78,9 +78,9 @@ impl Validator for FunctionCallValidator {
                                             Diagnostic::error(
                                                 DiagnosticCode::TypeMismatch,
                                                 format!(
-                                                    "Argument type mismatch: expected '{:?}', found '{:?}'",
-                                                    param_type.data(db),
-                                                    arg_type.data(db)
+                                                    "Argument type mismatch: expected {}, found {}",
+                                                    param_type.data(db).display_name(db),
+                                                    arg_type.data(db).display_name(db)
                                                 ),
                                             )
                                             .with_location(arg.span()),
@@ -123,8 +123,8 @@ impl Validator for FunctionCallValidator {
                                 Diagnostic::error(
                                     DiagnosticCode::InvalidFunctionCall,
                                     format!(
-                                        "Cannot call value of type '{:?}' as a function",
-                                        callee_type.data(db)
+                                        "Cannot call value of type {} as a function",
+                                        callee_type.data(db).display_name(db)
                                     ),
                                 )
                                 .with_location(callee.span()),
