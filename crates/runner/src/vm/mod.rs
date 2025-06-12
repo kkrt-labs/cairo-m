@@ -387,8 +387,7 @@ mod tests {
         let program = Program::from(instructions);
         let mut vm = VM::try_from(program).unwrap();
 
-        let result = vm.execute();
-        assert!(result.is_ok());
+        assert!(vm.execute().is_ok());
         // Verify that FP is still at the end of the program
         assert_eq!(vm.state.fp, M31(instructions_len));
         // Verify PC reached the end of the program
@@ -411,9 +410,6 @@ mod tests {
 
     #[test]
     fn test_execute_fibonacci() {
-        let test_cases = [0, 1, 2, 3, 10, 20];
-        for &n in &test_cases {
-            run_fib_test(n);
-        }
+        [0, 1, 2, 3, 10, 20].iter().for_each(|n| run_fib_test(*n));
     }
 }
