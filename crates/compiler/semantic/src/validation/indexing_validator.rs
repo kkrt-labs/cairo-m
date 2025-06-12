@@ -104,7 +104,7 @@ mod tests {
         let db = test_db();
         let program = r#"
             func test() {
-                let ptr = &1;
+                let ptr = alloc();
                 let first = ptr[0];
                 let second = ptr[1];
             }
