@@ -11,12 +11,15 @@
 
 use crate::db::SemanticDb;
 use crate::semantic_index::ExpressionInfo;
-use crate::type_resolution::{are_types_compatible, expression_semantic_type};
+use crate::type_resolution::{are_types_compatible, expression_semantic_type, resolve_ast_type};
 use crate::types::{TypeData, TypeId};
 use crate::validation::Validator;
-use crate::{ExpressionId, File, SemanticIndex};
+use crate::{DefinitionKind, ExpressionId, File, SemanticIndex};
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode};
-use cairo_m_compiler_parser::parser::{BinaryOp, Expression, Spanned};
+use cairo_m_compiler_parser::parser::{
+    parse_program, BinaryOp, Expression, FunctionDef, Spanned, Statement, TopLevelItem, TypeExpr,
+};
+use chumsky::span::SimpleSpan;
 use std::collections::HashSet;
 
 /// Unified validator for all type-related semantic checks
@@ -38,13 +41,30 @@ impl Validator for TypeValidator {
     fn validate(&self, db: &dyn SemanticDb, file: File, index: &SemanticIndex) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
 
+        // Get the parsed module to access the AST.
+        let parsed_program = parse_program(db, file);
+        if !parsed_program.diagnostics.is_empty() {
+            panic!("Got unexpected parse errors");
+        }
+        let parsed_module = parsed_program.module;
+
         // Single pass through all expressions for type checking
         for (expr_id, expr_info) in index.all_expressions() {
             self.check_expression_types(db, file, index, expr_id, expr_info, &mut diagnostics);
         }
 
-        // Check statement-level type constraints
-        self.check_statement_types(db, file, index, &diagnostics);
+        for (_def_idx, definition) in index.all_definitions() {
+            if let DefinitionKind::Function(_) = &definition.kind {
+                self.analyze_function_statement_types(
+                    db,
+                    file,
+                    index,
+                    &parsed_module,
+                    &definition.name,
+                    &mut diagnostics,
+                )
+            }
+        }
 
         diagnostics
     }
@@ -497,22 +517,380 @@ impl TypeValidator {
         }
     }
 
-    /// Check statement-level type constraints
-    fn check_statement_types(
+    /// Analyze statement types in a specific function
+    fn analyze_function_statement_types(
         &self,
-        _db: &dyn SemanticDb,
-        _file: File,
-        _index: &SemanticIndex,
-        _diagnostics: &[Diagnostic],
+        db: &dyn SemanticDb,
+        file: File,
+        index: &SemanticIndex,
+        parsed_module: &cairo_m_compiler_parser::parser::ParsedModule,
+        function_name: &str,
+        diagnostics: &mut Vec<Diagnostic>,
     ) {
-        // TODO: Implement statement-level type checking:
-        // - Let statement type compatibility
-        // - Assignment type compatibility
-        // - Return statement type matching
-        // - If condition type checking
+        // Find the function definition in the AST
+        if let Some(function_def) = self.find_function_in_module(parsed_module, function_name) {
+            // Analyze each statement in the function body
+            for stmt in &function_def.body {
+                self.check_statement_type(db, file, index, function_def, stmt, diagnostics);
+            }
+        }
+    }
 
-        // This would require iterating through function bodies and checking statements
-        // For now, basic expression type checking covers most cases
+    /// Check types for a single statement
+    fn check_statement_type(
+        &self,
+        db: &dyn SemanticDb,
+        file: File,
+        index: &SemanticIndex,
+        function_def: &FunctionDef,
+        stmt: &Spanned<Statement>,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) {
+        match stmt.value() {
+            Statement::Let {
+                name,
+                value,
+                statement_type,
+            } => {
+                self.check_let_statement_types(
+                    db,
+                    file,
+                    index,
+                    name,
+                    value,
+                    statement_type,
+                    diagnostics,
+                );
+            }
+            Statement::Local { name, value, ty } => {
+                self.check_local_statement_types(db, file, index, name, value, ty, diagnostics);
+            }
+            Statement::Assignment { lhs, rhs } => {
+                self.check_assignment_types(db, file, index, lhs, rhs, diagnostics);
+            }
+            Statement::Return { value } => {
+                self.check_return_types(
+                    db,
+                    file,
+                    index,
+                    function_def,
+                    value,
+                    stmt.span(),
+                    diagnostics,
+                );
+            }
+            Statement::If {
+                condition,
+                then_block,
+                else_block,
+            } => {
+                self.check_if_statement_types(
+                    db,
+                    file,
+                    index,
+                    function_def,
+                    condition,
+                    then_block,
+                    else_block,
+                    diagnostics,
+                );
+            }
+            Statement::Block(statements) => {
+                // Recursively check statements in the block
+                for stmt in statements {
+                    self.check_statement_type(db, file, index, function_def, stmt, diagnostics);
+                }
+            }
+            Statement::Expression(expr) => {
+                // Expression statements are handled by check_expression_types
+                let _expr_id = index.expression_id_by_span(expr.span());
+            }
+            Statement::Const(_) => {
+                // Const statements are handled during definition processing
+            }
+        }
+    }
+
+    /// Check types for let statements
+    #[allow(clippy::too_many_arguments)]
+    fn check_let_statement_types(
+        &self,
+        db: &dyn SemanticDb,
+        file: File,
+        index: &SemanticIndex,
+        name: &Spanned<String>,
+        value: &Spanned<Expression>,
+        statement_type: &Option<TypeExpr>,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) {
+        let Some(value_expr_id) = index.expression_id_by_span(value.span()) else {
+            return;
+        };
+        let value_type = expression_semantic_type(db, file, value_expr_id);
+
+        if let Some(ty) = statement_type {
+            let scope_id = index
+                .expression(value_expr_id)
+                .expect("No expression info found")
+                .scope_id;
+            let expected_type = resolve_ast_type(db, file, ty.clone(), scope_id);
+            if !are_types_compatible(db, value_type, expected_type) {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::TypeMismatch,
+                        format!(
+                            "Type mismatch for let statement '{}'. Expected '{}', found '{}'",
+                            name.value(),
+                            expected_type.data(db).display_name(db),
+                            value_type.data(db).display_name(db)
+                        ),
+                    )
+                    .with_location(value.span()),
+                );
+            }
+        }
+    }
+
+    /// Check types for local statements
+    #[allow(clippy::too_many_arguments)]
+    fn check_local_statement_types(
+        &self,
+        db: &dyn SemanticDb,
+        file: File,
+        index: &SemanticIndex,
+        name: &Spanned<String>,
+        value: &Spanned<Expression>,
+        ty: &Option<TypeExpr>,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) {
+        let Some(value_expr_id) = index.expression_id_by_span(value.span()) else {
+            return;
+        };
+        let value_type = expression_semantic_type(db, file, value_expr_id);
+
+        if let Some(expected_type_expr) = ty {
+            let scope_id = index
+                .expression(value_expr_id)
+                .expect("No expression info found")
+                .scope_id;
+            let expected_type = resolve_ast_type(db, file, expected_type_expr.clone(), scope_id);
+            if !are_types_compatible(db, value_type, expected_type) {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::TypeMismatch,
+                        format!(
+                            "Type mismatch for local statement '{}'. Expected '{}', found '{}'",
+                            name.value(),
+                            expected_type.data(db).display_name(db),
+                            value_type.data(db).display_name(db)
+                        ),
+                    )
+                    .with_location(value.span()),
+                );
+            }
+        }
+    }
+
+    /// Check types for assignment statements
+    fn check_assignment_types(
+        &self,
+        db: &dyn SemanticDb,
+        file: File,
+        index: &SemanticIndex,
+        lhs: &Spanned<Expression>,
+        rhs: &Spanned<Expression>,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) {
+        let Some(lhs_expr_id) = index.expression_id_by_span(lhs.span()) else {
+            return;
+        };
+        let Some(rhs_expr_id) = index.expression_id_by_span(rhs.span()) else {
+            return;
+        };
+
+        let lhs_type = expression_semantic_type(db, file, lhs_expr_id);
+        let rhs_type = expression_semantic_type(db, file, rhs_expr_id);
+
+        // Check if LHS is assignable
+        match lhs.value() {
+            Expression::Identifier(_) => {
+                // Check if the identifier is mutable
+                if let Expression::Identifier(ident) = lhs.value() {
+                    let scope_id = index
+                        .expression(lhs_expr_id)
+                        .expect("No expression info found")
+                        .scope_id;
+                    if let Some((_def_idx, _def)) =
+                        index.resolve_name_to_definition(ident.value(), scope_id)
+                    {
+                        // TODO: Check if the definition is mutable
+                    }
+                }
+            }
+            Expression::MemberAccess {
+                object: _,
+                field: _,
+            } => {
+                // TODO: Check if the field is mutable
+            }
+            Expression::IndexAccess { array: _, index: _ } => {
+                // TODO: Check if the array element is mutable
+            }
+            _ => {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::InvalidAssignmentTarget,
+                        "Invalid assignment target - must be a variable, field, or array element"
+                            .to_string(),
+                    )
+                    .with_location(lhs.span()),
+                );
+                return;
+            }
+        }
+
+        // Check type compatibility
+        if !are_types_compatible(db, lhs_type, rhs_type) {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::TypeMismatch,
+                    format!(
+                        "Type mismatch in assignment. Cannot assign '{}' to '{}'",
+                        rhs_type.data(db).display_name(db),
+                        lhs_type.data(db).display_name(db)
+                    ),
+                )
+                .with_location(rhs.span()),
+            );
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    /// Check types for return statements
+    fn check_return_types(
+        &self,
+        db: &dyn SemanticDb,
+        file: File,
+        index: &SemanticIndex,
+        function_def: &FunctionDef,
+        value: &Option<Spanned<Expression>>,
+        span: SimpleSpan<usize>,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) {
+        // Only check return types if the function has an explicit return type
+        if let Some(expected_return_type_expr) = &function_def.return_type {
+            let scope_id = index.root_scope().expect("No root scope found");
+            let expected_return_type =
+                resolve_ast_type(db, file, expected_return_type_expr.clone(), scope_id);
+
+            // Skip type checking if the expected type is Unknown
+            if matches!(expected_return_type.data(db), TypeData::Tuple(_)) {
+                return;
+            }
+
+            // If there's no return value but a return type is expected, that's an error
+            let return_expr = match value {
+                Some(expr) => expr,
+                None => {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::MissingReturnValue,
+                            "Function with return type must return a value".to_string(),
+                        )
+                        .with_location(span),
+                    );
+                    return;
+                }
+            };
+
+            let return_expr_id = index
+                .expression_id_by_span(return_expr.span())
+                .expect("Return expression not found");
+            let return_type = expression_semantic_type(db, file, return_expr_id);
+            if !are_types_compatible(db, return_type, expected_return_type) {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::TypeMismatch,
+                        format!(
+                            "Type mismatch in return statement. Expected '{}', found '{}'",
+                            expected_return_type.data(db).display_name(db),
+                            return_type.data(db).display_name(db)
+                        ),
+                    )
+                    .with_location(span),
+                );
+            }
+        }
+    }
+
+    /// Check types for if statements
+    #[allow(clippy::too_many_arguments)]
+    fn check_if_statement_types(
+        &self,
+        db: &dyn SemanticDb,
+        file: File,
+        index: &SemanticIndex,
+        function_def: &FunctionDef,
+        condition: &Spanned<Expression>,
+        then_block: &Spanned<Statement>,
+        else_block: &Option<Box<Spanned<Statement>>>,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) {
+        // Check condition type
+        let Some(condition_expr_id) = index.expression_id_by_span(condition.span()) else {
+            return;
+        };
+        let condition_type = expression_semantic_type(db, file, condition_expr_id);
+        let felt_type = TypeId::new(db, TypeData::Felt);
+
+        if !are_types_compatible(db, condition_type, felt_type) {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::TypeMismatch,
+                    format!(
+                        "Condition must be of type felt, found '{}'",
+                        condition_type.data(db).display_name(db)
+                    ),
+                )
+                .with_location(condition.span()),
+            );
+        }
+
+        // Check then and else block types
+        self.check_statement_type(db, file, index, function_def, then_block, diagnostics);
+        if let Some(else_stmt) = else_block {
+            self.check_statement_type(db, file, index, function_def, else_stmt, diagnostics);
+        }
+    }
+
+    /// Locate a function definition by name in the parsed module.
+    fn find_function_in_module<'a>(
+        &self,
+        parsed_module: &'a cairo_m_compiler_parser::parser::ParsedModule,
+        function_name: &str,
+    ) -> Option<&'a FunctionDef> {
+        for item in parsed_module.items() {
+            match item {
+                TopLevelItem::Function(func_spanned) => {
+                    if func_spanned.value().name.value() == function_name {
+                        return Some(func_spanned.value());
+                    }
+                }
+                TopLevelItem::Namespace(namespace_spanned) => {
+                    // Recursively search namespaces.
+                    let namespace = namespace_spanned.value();
+                    for namespace_item in &namespace.body {
+                        if let TopLevelItem::Function(func_spanned) = namespace_item
+                            && func_spanned.value().name.value() == function_name
+                        {
+                            return Some(func_spanned.value());
+                        }
+                    }
+                }
+                _ => {} // Ignore other top-level items.
+            }
+        }
+        None
     }
 }
 
@@ -633,5 +1011,270 @@ mod tests {
 
         assert!(field_errors > 0, "Should have field access errors");
         assert!(index_errors > 0, "Should have indexing errors");
+    }
+
+    #[test]
+    fn test_let_statement_validation() {
+        let db = test_db();
+        let program = r#"
+            struct Point { x: felt, y: felt }
+            func test() {
+                // Let statement tests
+                let a: felt = 1;              // OK: correct type
+                let b: Point = Point { x: 1, y: 2 }; // OK: correct type
+                let c = 42;                   // OK: type inference
+                let d = Point { x: 1, y: 2 }; // OK: type inference
+
+                // Invalid let statements
+                let e: felt = Point { x: 1, y: 2 }; // Error: type mismatch
+                let f: Point = 42;            // Error: type mismatch
+                let h: Point = (1, 2);        // Error: type mismatch
+            }
+        "#;
+        let file = crate::File::new(&db, program.to_string());
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
+
+        let validator = TypeValidator;
+        let diagnostics = validator.validate(&db, file, semantic_index);
+
+        // Count type mismatch errors
+        let type_mismatch_errors = diagnostics
+            .iter()
+            .filter(|d| d.code == DiagnosticCode::TypeMismatch)
+            .count();
+
+        assert_eq!(
+            type_mismatch_errors, 3,
+            "Should have 3 type mismatch errors"
+        );
+    }
+
+    #[test]
+    fn test_return_type_validation() {
+        let db = test_db();
+        let program = r#"
+            struct Point { x: felt, y: felt }
+
+            // Valid return type functions
+            func valid_return_felt() -> felt {
+                return 42;                    // OK: correct return type
+            }
+
+            func valid_return_point() -> Point {
+                return Point { x: 1, y: 2 };  // OK: correct return type
+            }
+
+            func valid_return_conditional() -> felt {
+                if (1) {
+                    return 1;                 // OK: correct return type
+                } else {
+                    return 2;                 // OK: correct return type
+                }
+            }
+
+            // Invalid return type functions
+            func invalid_return_felt() -> felt {
+                return Point { x: 1, y: 2 };  // Error: wrong return type
+            }
+
+            func invalid_return_point() -> Point {
+                return 42;                    // Error: wrong return type
+            }
+
+            func invalid_return_conditional() -> felt {
+                if (1) {
+                    return Point { x: 1, y: 2 }; // Error: wrong return type
+                } else {
+                    return 42;                 // OK: correct return type
+                }
+            }
+        "#;
+        let file = crate::File::new(&db, program.to_string());
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
+
+        let validator = TypeValidator;
+        let diagnostics = validator.validate(&db, file, semantic_index);
+
+        // Count type mismatch errors
+        let type_mismatch_errors = diagnostics
+            .iter()
+            .filter(|d| d.code == DiagnosticCode::TypeMismatch)
+            .count();
+
+        assert_eq!(
+            type_mismatch_errors, 3,
+            "Should have 3 type mismatch errors"
+        );
+    }
+
+    #[test]
+    fn test_if_statement_validation() {
+        let db = test_db();
+        let program = r#"
+            struct Point { x: felt, y: felt }
+            func test() {
+                // Valid if statements
+                if (1) {                      // OK: felt condition
+                    let a = 42;
+                }
+
+                if (1) {                      // OK: felt condition
+                    return 1;
+                } else {
+                    return 2;
+                }
+
+                if (1 && 2) {                 // OK: logical operation on felt
+                    let b = 42;
+                }
+
+                // Invalid if statements
+                if (Point { x: 1, y: 2 }) {   // Error: non-felt condition
+                    let c = 42;
+                }
+
+                if ((1, 2)) {                 // Error: non-felt condition
+                    let e = 42;
+                }
+
+                // Nested if statements
+                if (1) {
+                    if (2) {                   // OK: felt condition
+                        let f = 42;
+                    }
+                }
+
+                if (1) {
+                    if (Point { x: 1, y: 2 }) { // Error: non-felt condition
+                        let g = 42;
+                    }
+                }
+            }
+        "#;
+        let file = crate::File::new(&db, program.to_string());
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
+
+        let validator = TypeValidator;
+        let diagnostics = validator.validate(&db, file, semantic_index);
+
+        // Count type mismatch errors
+        let type_mismatch_errors = diagnostics
+            .iter()
+            .filter(|d| d.code == DiagnosticCode::TypeMismatch)
+            .count();
+
+        assert_eq!(
+            type_mismatch_errors, 3,
+            "Should have 3 type mismatch errors"
+        );
+    }
+
+    #[test]
+    fn test_local_statement_validation() {
+        let db = test_db();
+        let program = r#"
+            struct Point { x: felt, y: felt }
+            func test() {
+                // Valid local statements
+                local a: felt = 1;            // OK: correct type
+                local b: Point = Point { x: 1, y: 2 }; // OK: correct type
+                local c = 42;                 // OK: type inference
+                local d = Point { x: 1, y: 2 }; // OK: type inference
+
+                // Invalid local statements
+                local e: felt = Point { x: 1, y: 2 }; // Error: type mismatch
+                local f: Point = 42;          // Error: type mismatch
+                local h: Point = (1, 2);      // Error: type mismatch
+
+                // Local statements with expressions
+                local i: felt = 1 + 2;        // OK: arithmetic result
+                local j: felt = 1 && 2;       // OK: logical result
+                local k: Point = Point { x: 1 + 2, y: 3 + 4 }; // OK: complex initialization
+            }
+        "#;
+        let file = crate::File::new(&db, program.to_string());
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
+
+        let validator = TypeValidator;
+        let diagnostics = validator.validate(&db, file, semantic_index);
+
+        // Count type mismatch errors
+        let type_mismatch_errors = diagnostics
+            .iter()
+            .filter(|d| d.code == DiagnosticCode::TypeMismatch)
+            .count();
+
+        assert_eq!(
+            type_mismatch_errors, 3,
+            "Should have 3 type mismatch errors"
+        );
+    }
+
+    #[test]
+    fn test_assignment_validation() {
+        let db = test_db();
+        let program = r#"
+            struct Point { x: felt, y: felt }
+            func test() {
+                // Valid assignments
+                let a: felt = 1;
+                a = 2;                        // OK: same type
+                a = 1 + 2;                    // OK: arithmetic result
+                a = 1 && 2;                   // OK: logical result
+
+                let b: Point = Point { x: 1, y: 2 };
+                b = Point { x: 3, y: 4 };     // OK: same type
+                b = Point { x: 1 + 2, y: 3 + 4 }; // OK: complex initialization
+
+                // Invalid assignments
+                a = Point { x: 1, y: 2 };     // Error: type mismatch
+                a = (1, 2);                   // Error: type mismatch
+                b = 42;                       // Error: type mismatch
+
+                // Field assignments
+                let c: Point = Point { x: 1, y: 2 };
+                c.x = 3;                      // OK: felt to felt
+                c.y = 4;                      // OK: felt to felt
+                c.x = Point { x: 1, y: 2 };   // Error: type mismatch
+
+                // Invalid assignment targets
+                42 = 1;                       // Error: invalid target
+                (1, 2) = 1;                   // Error: invalid target
+            }
+        "#;
+        let file = crate::File::new(&db, program.to_string());
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
+
+        let validator = TypeValidator;
+        let diagnostics = validator.validate(&db, file, semantic_index);
+
+        // Count different types of errors
+        let type_mismatch_errors = diagnostics
+            .iter()
+            .filter(|d| d.code == DiagnosticCode::TypeMismatch)
+            .count();
+        let invalid_target_errors = diagnostics
+            .iter()
+            .filter(|d| d.code == DiagnosticCode::InvalidAssignmentTarget)
+            .count();
+
+        assert_eq!(
+            type_mismatch_errors, 4,
+            "Should have 4 type mismatch errors"
+        );
+        assert_eq!(
+            invalid_target_errors, 2,
+            "Should have 2 invalid target errors"
+        );
     }
 }

@@ -1,0 +1,26 @@
+// Test cases for local statement type validation
+
+struct Point {
+    x: felt,
+    y: felt,
+}
+
+func local_statement_validation() {
+    // Valid local statements
+    local a: felt = 1;            // OK: correct type
+    local b: Point = Point { x: 1, y: 2 }; // OK: correct type
+    local c = 42;                 // OK: type inference
+    local d = Point { x: 1, y: 2 }; // OK: type inference
+
+    // Invalid local statements
+    local e: felt = Point { x: 1, y: 2 }; // Error: type mismatch
+    local f: Point = 42;          // Error: type mismatch
+    local h: Point = (1, 2);      // Error: type mismatch
+
+    // Local statements with expressions
+    local i: felt = 1 + 2;        // OK: arithmetic result
+    local j: felt = 1 && 2;       // OK: logical result
+    local k: Point = Point { x: 1 + 2, y: 3 + 4 }; // OK: complex initialization
+
+    return 0;
+} 

@@ -1,0 +1,121 @@
+---
+source: crates/compiler/semantic/src/validation/tests/mod.rs
+expression: snapshot_content
+---
+Fixture: let_statement_validation.cm
+============================================================
+Source code:
+// Test cases for let statement type validation
+
+struct Point {
+    x: felt,
+    y: felt,
+}
+
+func let_statement_validation() {
+    // Valid let statements
+    let a: felt = 1;              // OK: correct type
+    let b: Point = Point { x: 1, y: 2 }; // OK: correct type
+    let c = 42;                   // OK: type inference
+    let d = Point { x: 1, y: 2 }; // OK: type inference
+
+    // Invalid let statements
+    let e: felt = Point { x: 1, y: 2 }; // Error: type mismatch
+    let f: Point = 42;            // Error: type mismatch
+    let h: Point = (1, 2);        // Error: type mismatch
+
+    return 0;
+} 
+
+============================================================
+Found 10 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1002] Warning: Unused variable 'a'
+    ╭─[ <unknown>:10:9 ]
+    │
+ 10 │     let a: felt = 1;              // OK: correct type
+    │         ┬  
+    │         ╰── Unused variable 'a'
+────╯
+
+--- Diagnostic 2 ---
+[1002] Warning: Unused variable 'b'
+    ╭─[ <unknown>:11:9 ]
+    │
+ 11 │     let b: Point = Point { x: 1, y: 2 }; // OK: correct type
+    │         ┬  
+    │         ╰── Unused variable 'b'
+────╯
+
+--- Diagnostic 3 ---
+[1002] Warning: Unused variable 'c'
+    ╭─[ <unknown>:12:9 ]
+    │
+ 12 │     let c = 42;                   // OK: type inference
+    │         ┬  
+    │         ╰── Unused variable 'c'
+────╯
+
+--- Diagnostic 4 ---
+[1002] Warning: Unused variable 'd'
+    ╭─[ <unknown>:13:9 ]
+    │
+ 13 │     let d = Point { x: 1, y: 2 }; // OK: type inference
+    │         ┬  
+    │         ╰── Unused variable 'd'
+────╯
+
+--- Diagnostic 5 ---
+[1002] Warning: Unused variable 'e'
+    ╭─[ <unknown>:16:9 ]
+    │
+ 16 │     let e: felt = Point { x: 1, y: 2 }; // Error: type mismatch
+    │         ┬  
+    │         ╰── Unused variable 'e'
+────╯
+
+--- Diagnostic 6 ---
+[1002] Warning: Unused variable 'f'
+    ╭─[ <unknown>:17:9 ]
+    │
+ 17 │     let f: Point = 42;            // Error: type mismatch
+    │         ┬  
+    │         ╰── Unused variable 'f'
+────╯
+
+--- Diagnostic 7 ---
+[1002] Warning: Unused variable 'h'
+    ╭─[ <unknown>:18:9 ]
+    │
+ 18 │     let h: Point = (1, 2);        // Error: type mismatch
+    │         ┬  
+    │         ╰── Unused variable 'h'
+────╯
+
+--- Diagnostic 8 ---
+[2001] Error: Type mismatch for let statement 'e'. Expected 'felt', found 'Point'
+    ╭─[ <unknown>:16:19 ]
+    │
+ 16 │     let e: felt = Point { x: 1, y: 2 }; // Error: type mismatch
+    │                   ──────────┬─────────  
+    │                             ╰─────────── Type mismatch for let statement 'e'. Expected 'felt', found 'Point'
+────╯
+
+--- Diagnostic 9 ---
+[2001] Error: Type mismatch for let statement 'f'. Expected 'Point', found 'felt'
+    ╭─[ <unknown>:17:20 ]
+    │
+ 17 │     let f: Point = 42;            // Error: type mismatch
+    │                    ─┬  
+    │                     ╰── Type mismatch for let statement 'f'. Expected 'Point', found 'felt'
+────╯
+
+--- Diagnostic 10 ---
+[2001] Error: Type mismatch for let statement 'h'. Expected 'Point', found '(felt, felt)'
+    ╭─[ <unknown>:18:20 ]
+    │
+ 18 │     let h: Point = (1, 2);        // Error: type mismatch
+    │                    ───┬──  
+    │                       ╰──── Type mismatch for let statement 'h'. Expected 'Point', found '(felt, felt)'
+────╯

@@ -1,0 +1,156 @@
+---
+source: crates/compiler/semantic/src/validation/tests/mod.rs
+expression: snapshot_content
+---
+Fixture: if_statement_validation.cm
+============================================================
+Source code:
+// Test cases for if statement type validation
+
+struct Point {
+    x: felt,
+    y: felt,
+}
+
+func if_statement_validation() {
+    // Valid if statements
+    if (1) {                      // OK: felt condition
+        let a = 42;
+    }
+
+    if (1) {                      // OK: felt condition
+        let x = 0;
+    } else {
+        let x = 1;
+    }
+
+    if (1 && 2) {                 // OK: logical operation on felt
+        let b = 42;
+    }
+
+    // Invalid if statements
+    if (Point { x: 1, y: 2 }) {   // Error: non-felt condition
+        let c = 42;
+    }
+
+    if ((1, 2)) {                 // Error: non-felt condition
+        let e = 42;
+    }
+
+    // Nested if statements
+    if (1) {
+        if (2) {                   // OK: felt condition
+            let f = 42;
+        }
+    }
+
+    if (1) {
+        if (Point { x: 1, y: 2 }) { // Error: non-felt condition
+            let g = 42;
+        }
+    }
+
+    return 0;
+} 
+
+============================================================
+Found 11 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1002] Warning: Unused variable 'a'
+    ╭─[ <unknown>:11:13 ]
+    │
+ 11 │         let a = 42;
+    │             ┬  
+    │             ╰── Unused variable 'a'
+────╯
+
+--- Diagnostic 2 ---
+[1002] Warning: Unused variable 'x'
+    ╭─[ <unknown>:15:13 ]
+    │
+ 15 │         let x = 0;
+    │             ┬  
+    │             ╰── Unused variable 'x'
+────╯
+
+--- Diagnostic 3 ---
+[1002] Warning: Unused variable 'x'
+    ╭─[ <unknown>:17:13 ]
+    │
+ 17 │         let x = 1;
+    │             ┬  
+    │             ╰── Unused variable 'x'
+────╯
+
+--- Diagnostic 4 ---
+[1002] Warning: Unused variable 'b'
+    ╭─[ <unknown>:21:13 ]
+    │
+ 21 │         let b = 42;
+    │             ┬  
+    │             ╰── Unused variable 'b'
+────╯
+
+--- Diagnostic 5 ---
+[1002] Warning: Unused variable 'c'
+    ╭─[ <unknown>:26:13 ]
+    │
+ 26 │         let c = 42;
+    │             ┬  
+    │             ╰── Unused variable 'c'
+────╯
+
+--- Diagnostic 6 ---
+[1002] Warning: Unused variable 'e'
+    ╭─[ <unknown>:30:13 ]
+    │
+ 30 │         let e = 42;
+    │             ┬  
+    │             ╰── Unused variable 'e'
+────╯
+
+--- Diagnostic 7 ---
+[1002] Warning: Unused variable 'f'
+    ╭─[ <unknown>:36:17 ]
+    │
+ 36 │             let f = 42;
+    │                 ┬  
+    │                 ╰── Unused variable 'f'
+────╯
+
+--- Diagnostic 8 ---
+[1002] Warning: Unused variable 'g'
+    ╭─[ <unknown>:42:17 ]
+    │
+ 42 │             let g = 42;
+    │                 ┬  
+    │                 ╰── Unused variable 'g'
+────╯
+
+--- Diagnostic 9 ---
+[2001] Error: Condition must be of type felt, found 'Point'
+    ╭─[ <unknown>:25:9 ]
+    │
+ 25 │     if (Point { x: 1, y: 2 }) {   // Error: non-felt condition
+    │         ──────────┬─────────  
+    │                   ╰─────────── Condition must be of type felt, found 'Point'
+────╯
+
+--- Diagnostic 10 ---
+[2001] Error: Condition must be of type felt, found '(felt, felt)'
+    ╭─[ <unknown>:29:9 ]
+    │
+ 29 │     if ((1, 2)) {                 // Error: non-felt condition
+    │         ───┬──  
+    │            ╰──── Condition must be of type felt, found '(felt, felt)'
+────╯
+
+--- Diagnostic 11 ---
+[2001] Error: Condition must be of type felt, found 'Point'
+    ╭─[ <unknown>:41:13 ]
+    │
+ 41 │         if (Point { x: 1, y: 2 }) { // Error: non-felt condition
+    │             ──────────┬─────────  
+    │                       ╰─────────── Condition must be of type felt, found 'Point'
+────╯

@@ -78,7 +78,7 @@ func test_multiple_returns() -> felt {
 }
 
 ============================================================
-Found 18 diagnostic(s):
+Found 21 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1002] Warning: Unused variable 'x'
@@ -153,6 +153,33 @@ Found 18 diagnostic(s):
 ────╯
 
 --- Diagnostic 9 ---
+[2001] Error: Type mismatch in return statement. Expected 'felt', found '()'
+    ╭─[ <unknown>:30:5 ]
+    │
+ 30 │     return();
+    │     ────┬────  
+    │         ╰────── Type mismatch in return statement. Expected 'felt', found '()'
+────╯
+
+--- Diagnostic 10 ---
+[2001] Error: Type mismatch in return statement. Expected 'felt', found '()'
+    ╭─[ <unknown>:41:5 ]
+    │
+ 41 │     return();
+    │     ────┬────  
+    │         ╰────── Type mismatch in return statement. Expected 'felt', found '()'
+────╯
+
+--- Diagnostic 11 ---
+[2001] Error: Type mismatch in return statement. Expected 'felt', found '()'
+    ╭─[ <unknown>:56:5 ]
+    │
+ 56 │     return();
+    │     ────┬────  
+    │         ╰────── Type mismatch in return statement. Expected 'felt', found '()'
+────╯
+
+--- Diagnostic 12 ---
 [3001] Warning: Unreachable variable declaration
    ╭─[ <unknown>:3:5 ]
    │
@@ -161,7 +188,7 @@ Found 18 diagnostic(s):
    │          ╰────── Unreachable variable declaration
 ───╯
 
---- Diagnostic 10 ---
+--- Diagnostic 13 ---
 [3001] Warning: Unreachable variable declaration
    ╭─[ <unknown>:4:5 ]
    │
@@ -170,7 +197,7 @@ Found 18 diagnostic(s):
    │          ╰─────── Unreachable variable declaration
 ───╯
 
---- Diagnostic 11 ---
+--- Diagnostic 14 ---
 [3001] Warning: Unreachable variable declaration
     ╭─[ <unknown>:10:9 ]
     │
@@ -179,7 +206,7 @@ Found 18 diagnostic(s):
     │              ╰────── Unreachable variable declaration
 ────╯
 
---- Diagnostic 12 ---
+--- Diagnostic 15 ---
 [3001] Warning: Unreachable variable declaration
     ╭─[ <unknown>:17:9 ]
     │
@@ -188,7 +215,7 @@ Found 18 diagnostic(s):
     │              ╰────── Unreachable variable declaration
 ────╯
 
---- Diagnostic 13 ---
+--- Diagnostic 16 ---
 [3001] Warning: Unreachable variable declaration
     ╭─[ <unknown>:29:5 ]
     │
@@ -197,7 +224,7 @@ Found 18 diagnostic(s):
     │                      ╰────────────────── Unreachable variable declaration
 ────╯
 
---- Diagnostic 14 ---
+--- Diagnostic 17 ---
 [3001] Warning: Unreachable return statement
     ╭─[ <unknown>:30:5 ]
     │
@@ -206,7 +233,7 @@ Found 18 diagnostic(s):
     │         ╰────── Unreachable return statement
 ────╯
 
---- Diagnostic 15 ---
+--- Diagnostic 18 ---
 [3001] Warning: Unreachable return statement
     ╭─[ <unknown>:41:5 ]
     │
@@ -215,7 +242,7 @@ Found 18 diagnostic(s):
     │         ╰────── Unreachable return statement
 ────╯
 
---- Diagnostic 16 ---
+--- Diagnostic 19 ---
 [3001] Warning: Unreachable variable declaration
     ╭─[ <unknown>:51:9 ]
     │
@@ -224,7 +251,7 @@ Found 18 diagnostic(s):
     │                         ╰───────────────── Unreachable variable declaration
 ────╯
 
---- Diagnostic 17 ---
+--- Diagnostic 20 ---
 [3001] Warning: Unreachable variable declaration
     ╭─[ <unknown>:55:5 ]
     │
@@ -233,7 +260,7 @@ Found 18 diagnostic(s):
     │                      ╰─────────────────── Unreachable variable declaration
 ────╯
 
---- Diagnostic 18 ---
+--- Diagnostic 21 ---
 [3001] Warning: Unreachable return statement
     ╭─[ <unknown>:56:5 ]
     │

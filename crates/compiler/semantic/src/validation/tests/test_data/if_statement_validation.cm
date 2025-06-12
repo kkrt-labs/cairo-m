@@ -1,0 +1,47 @@
+// Test cases for if statement type validation
+
+struct Point {
+    x: felt,
+    y: felt,
+}
+
+func if_statement_validation() {
+    // Valid if statements
+    if (1) {                      // OK: felt condition
+        let a = 42;
+    }
+
+    if (1) {                      // OK: felt condition
+        let x = 0;
+    } else {
+        let x = 1;
+    }
+
+    if (1 && 2) {                 // OK: logical operation on felt
+        let b = 42;
+    }
+
+    // Invalid if statements
+    if (Point { x: 1, y: 2 }) {   // Error: non-felt condition
+        let c = 42;
+    }
+
+    if ((1, 2)) {                 // Error: non-felt condition
+        let e = 42;
+    }
+
+    // Nested if statements
+    if (1) {
+        if (2) {                   // OK: felt condition
+            let f = 42;
+        }
+    }
+
+    if (1) {
+        if (Point { x: 1, y: 2 }) { // Error: non-felt condition
+            let g = 42;
+        }
+    }
+
+    return 0;
+} 

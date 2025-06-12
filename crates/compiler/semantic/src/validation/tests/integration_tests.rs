@@ -167,3 +167,43 @@ fn test_function_call_comprehensive() {
 fn test_indexing_validation() {
     assert_diagnostics_snapshot!("indexing_validation.cm", "indexing_validation_diagnostics");
 }
+
+#[test]
+fn test_let_statement_validation() {
+    assert_diagnostics_snapshot!(
+        "let_statement_validation.cm",
+        "let_statement_validation_diagnostics"
+    );
+}
+
+#[test]
+fn test_return_type_validation() {
+    assert_diagnostics_snapshot!(
+        "return_type_validation.cm",
+        "return_type_validation_diagnostics"
+    );
+}
+
+#[test]
+fn test_if_statement_validation() {
+    assert_diagnostics_snapshot!(
+        "if_statement_validation.cm",
+        "if_statement_validation_diagnostics"
+    );
+}
+
+#[test]
+fn test_local_statement_validation() {
+    assert_diagnostics_snapshot!(
+        "local_statement_validation.cm",
+        "local_statement_validation_diagnostics"
+    );
+}
+
+#[test]
+fn test_assignment_validation() {
+    assert_diagnostics_snapshot!(
+        "assignment_validation.cm",
+        "assignment_validation_diagnostics"
+    );
+}

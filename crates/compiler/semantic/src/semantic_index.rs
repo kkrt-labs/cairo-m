@@ -879,14 +879,13 @@ impl<'db> SemanticIndexBuilder<'db> {
                 // - Validate assignment to valid lvalue expressions
             }
             Statement::Return { value } => {
+                // Map the return statement's span to its scope for IDE features
+                let current_scope = self.current_scope();
+                self.index.set_scope_for_span(stmt.span(), current_scope);
+
                 if let Some(expr) = value {
                     let _return_expr_id = self.visit_expression(expr);
                 }
-                // TODO: Validate return type compatibility (ReturnValidator)
-                // - Check return type compatibility with function signature
-                // - Validate that we're actually inside a function
-                // - Handle multiple return statements with consistent types
-                // - Check for missing return in non-void functions
             }
             Statement::If {
                 condition,
