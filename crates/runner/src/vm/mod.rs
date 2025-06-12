@@ -30,6 +30,13 @@ impl From<Vec<Instruction>> for Program {
     }
 }
 
+/// A single entry in the trace.
+#[derive(Debug)]
+pub struct TraceEntry {
+    pub pc: M31,
+    pub fp: M31,
+}
+
 /// The Cairo M Virtual Machine.
 ///
 /// ## Fields
@@ -40,6 +47,7 @@ impl From<Vec<Instruction>> for Program {
 pub struct VM {
     pub memory: Memory,
     pub state: State,
+    pub trace: Vec<TraceEntry>,
 }
 
 impl TryFrom<Program> for VM {
@@ -86,7 +94,11 @@ impl TryFrom<Program> for VM {
             fp: M31(instructions_len),
         };
 
-        Ok(Self { memory, state })
+        Ok(Self {
+            memory,
+            state,
+            trace: vec![],
+        })
     }
 }
 
@@ -101,6 +113,10 @@ impl VM {
     fn step(&mut self) -> Result<(), VmError> {
         let instruction = Instruction::from(self.memory.get_instruction(self.state.pc)?);
         let instruction_fn = opcode_to_instruction_fn(instruction.op)?;
+        self.trace.push(TraceEntry {
+            pc: self.state.pc,
+            fp: self.state.fp,
+        });
         self.state = instruction_fn(&mut self.memory, self.state, instruction)?;
         Ok(())
     }
@@ -126,14 +142,34 @@ impl VM {
         while self.state.pc != final_pc {
             self.step()?;
         }
+
         Ok(())
     }
+
+    /// Serializes the trace to a byte vector.
+    ///
+    /// Each trace entry is composed of two 32-bit values, `fp` and `pc`.
+    /// They are concatenated into a single 64-bit value, where `fp` occupies the
+    /// most significant 32 bits and `pc` the least significant 32 bits.
+    /// The resulting 64-bit values are then serialized into a byte stream
+    /// in little-endian format.
+    ///
+    /// ## Returns
+    ///
+    /// A `Vec<u8>` containing the serialized trace data.
+    pub fn serialize_trace(&self) -> Vec<u8> {
+        self.trace
+            .iter()
+            .flat_map(|entry| ((entry.fp.0 as u64) << 32 | (entry.pc.0 as u64)).to_le_bytes())
+            .collect()
+    }
 }
+
 #[cfg(test)]
 mod tests {
-    use num_traits::{One, Zero};
 
     use crate::vm::{instructions::InstructionError, Instruction, Program, VmError, VM};
+    use num_traits::{One, Zero};
     use stwo_prover::core::fields::m31::M31;
 
     #[test]
@@ -330,6 +366,43 @@ mod tests {
         assert_eq!(vm.memory.get_data(M31(7)).unwrap(), M31(36)); // 12 * 3
         assert_eq!(vm.memory.get_data(M31(8)).unwrap(), M31(12)); // 36 / 3
         assert_eq!(vm.memory.get_data(M31(9)).unwrap(), M31(0)); // 12 - 12
+    }
+
+    #[test]
+    fn test_serialize_trace() {
+        // Create a program with two instructions to generate a trace.
+        let instructions = vec![
+            Instruction::from([6, 10, 0, 0]), // [fp + 0] = 10
+            Instruction::from([6, 20, 0, 1]), // [fp + 1] = 20
+        ];
+        let program = Program::from(instructions);
+        let mut vm = VM::try_from(program).unwrap();
+
+        // Execute the program to generate a trace.
+        assert!(vm.execute().is_ok());
+
+        // The trace should have 2 entries, one for each instruction executed.
+        assert_eq!(vm.trace.len(), 2);
+
+        // Verify the trace contents.
+        assert_eq!(vm.trace[0].pc, M31(0));
+        assert_eq!(vm.trace[0].fp, M31(2));
+        assert_eq!(vm.trace[1].pc, M31(1));
+        assert_eq!(vm.trace[1].fp, M31(2));
+
+        // Serialize the trace and verify its contents.
+        let serialized_trace = vm.serialize_trace();
+        // Expected serialized data:
+        // Entry 1: fp=2, pc=0. u64 = (2 << 32) | 0.
+        // Entry 2: fp=2, pc=1. u64 = (2 << 32) | 1.
+        let val1 = 2u64 << 32;
+        let val2 = (2u64 << 32) | 1u64;
+
+        let mut expected_bytes = Vec::new();
+        expected_bytes.extend_from_slice(&val1.to_le_bytes());
+        expected_bytes.extend_from_slice(&val2.to_le_bytes());
+
+        assert_eq!(serialized_trace, expected_bytes);
     }
 
     /// Reference implementation of Fibonacci sequence for diff testing.
