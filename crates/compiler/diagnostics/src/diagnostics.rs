@@ -75,7 +75,7 @@ pub enum DiagnosticCode {
     DuplicateDefinition,
     UseBeforeDefinition,
 
-    // Type-related errors (2000-2999) - placeholder for future
+    // Type-related errors (2000-2999)
     TypeMismatch,
     InvalidFieldAccess,
     InvalidIndexAccess,
@@ -85,6 +85,8 @@ pub enum DiagnosticCode {
     InvalidAssignment,
     InvalidReturnType,
     InvalidTypeDefinition,
+    InvalidAssignmentTarget,
+    MissingReturnValue,
     // TODO: Add more type-related diagnostic codes:
     // - InvalidTypeAnnotation
     // - TypeArgumentMismatch
@@ -131,6 +133,8 @@ impl From<DiagnosticCode> for u32 {
             DiagnosticCode::InvalidIndexType => 2009,
             DiagnosticCode::UnreachableCode => 3001,
             DiagnosticCode::MissingReturn => 3002,
+            DiagnosticCode::InvalidAssignmentTarget => 2010,
+            DiagnosticCode::MissingReturnValue => 2011,
         }
     }
 }

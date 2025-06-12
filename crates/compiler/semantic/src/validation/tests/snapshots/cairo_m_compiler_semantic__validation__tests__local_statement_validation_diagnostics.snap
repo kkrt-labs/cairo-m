@@ -1,0 +1,153 @@
+---
+source: crates/compiler/semantic/src/validation/tests/mod.rs
+expression: snapshot_content
+---
+Fixture: local_statement_validation.cm
+============================================================
+Source code:
+// Test cases for local statement type validation
+
+struct Point {
+    x: felt,
+    y: felt,
+}
+
+func local_statement_validation() {
+    // Valid local statements
+    local a: felt = 1;            // OK: correct type
+    local b: Point = Point { x: 1, y: 2 }; // OK: correct type
+    local c = 42;                 // OK: type inference
+    local d = Point { x: 1, y: 2 }; // OK: type inference
+
+    // Invalid local statements
+    local e: felt = Point { x: 1, y: 2 }; // Error: type mismatch
+    local f: Point = 42;          // Error: type mismatch
+    local h: Point = (1, 2);      // Error: type mismatch
+
+    // Local statements with expressions
+    local i: felt = 1 + 2;        // OK: arithmetic result
+    local j: felt = 1 && 2;       // OK: logical result
+    local k: Point = Point { x: 1 + 2, y: 3 + 4 }; // OK: complex initialization
+
+    return 0;
+} 
+
+============================================================
+Found 13 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1002] Warning: Unused variable 'a'
+    ╭─[ <unknown>:10:11 ]
+    │
+ 10 │     local a: felt = 1;            // OK: correct type
+    │           ┬  
+    │           ╰── Unused variable 'a'
+────╯
+
+--- Diagnostic 2 ---
+[1002] Warning: Unused variable 'b'
+    ╭─[ <unknown>:11:11 ]
+    │
+ 11 │     local b: Point = Point { x: 1, y: 2 }; // OK: correct type
+    │           ┬  
+    │           ╰── Unused variable 'b'
+────╯
+
+--- Diagnostic 3 ---
+[1002] Warning: Unused variable 'c'
+    ╭─[ <unknown>:12:11 ]
+    │
+ 12 │     local c = 42;                 // OK: type inference
+    │           ┬  
+    │           ╰── Unused variable 'c'
+────╯
+
+--- Diagnostic 4 ---
+[1002] Warning: Unused variable 'd'
+    ╭─[ <unknown>:13:11 ]
+    │
+ 13 │     local d = Point { x: 1, y: 2 }; // OK: type inference
+    │           ┬  
+    │           ╰── Unused variable 'd'
+────╯
+
+--- Diagnostic 5 ---
+[1002] Warning: Unused variable 'e'
+    ╭─[ <unknown>:16:11 ]
+    │
+ 16 │     local e: felt = Point { x: 1, y: 2 }; // Error: type mismatch
+    │           ┬  
+    │           ╰── Unused variable 'e'
+────╯
+
+--- Diagnostic 6 ---
+[1002] Warning: Unused variable 'f'
+    ╭─[ <unknown>:17:11 ]
+    │
+ 17 │     local f: Point = 42;          // Error: type mismatch
+    │           ┬  
+    │           ╰── Unused variable 'f'
+────╯
+
+--- Diagnostic 7 ---
+[1002] Warning: Unused variable 'h'
+    ╭─[ <unknown>:18:11 ]
+    │
+ 18 │     local h: Point = (1, 2);      // Error: type mismatch
+    │           ┬  
+    │           ╰── Unused variable 'h'
+────╯
+
+--- Diagnostic 8 ---
+[1002] Warning: Unused variable 'i'
+    ╭─[ <unknown>:21:11 ]
+    │
+ 21 │     local i: felt = 1 + 2;        // OK: arithmetic result
+    │           ┬  
+    │           ╰── Unused variable 'i'
+────╯
+
+--- Diagnostic 9 ---
+[1002] Warning: Unused variable 'j'
+    ╭─[ <unknown>:22:11 ]
+    │
+ 22 │     local j: felt = 1 && 2;       // OK: logical result
+    │           ┬  
+    │           ╰── Unused variable 'j'
+────╯
+
+--- Diagnostic 10 ---
+[1002] Warning: Unused variable 'k'
+    ╭─[ <unknown>:23:11 ]
+    │
+ 23 │     local k: Point = Point { x: 1 + 2, y: 3 + 4 }; // OK: complex initialization
+    │           ┬  
+    │           ╰── Unused variable 'k'
+────╯
+
+--- Diagnostic 11 ---
+[2001] Error: Type mismatch for local statement 'e'. Expected 'felt', found 'Point'
+    ╭─[ <unknown>:16:21 ]
+    │
+ 16 │     local e: felt = Point { x: 1, y: 2 }; // Error: type mismatch
+    │                     ──────────┬─────────  
+    │                               ╰─────────── Type mismatch for local statement 'e'. Expected 'felt', found 'Point'
+────╯
+
+--- Diagnostic 12 ---
+[2001] Error: Type mismatch for local statement 'f'. Expected 'Point', found 'felt'
+    ╭─[ <unknown>:17:22 ]
+    │
+ 17 │     local f: Point = 42;          // Error: type mismatch
+    │                      ─┬  
+    │                       ╰── Type mismatch for local statement 'f'. Expected 'Point', found 'felt'
+────╯
+
+--- Diagnostic 13 ---
+[2001] Error: Type mismatch for local statement 'h'. Expected 'Point', found '(felt, felt)'
+    ╭─[ <unknown>:18:22 ]
+    │
+ 18 │     local h: Point = (1, 2);      // Error: type mismatch
+    │                      ───┬──  
+    │                         ╰──── Type mismatch for local statement 'h'. Expected 'Point', found '(felt, felt)'
+────╯
