@@ -1,0 +1,11 @@
+//!ASSERT FUNCTION_COUNT: 1
+//!ASSERT BLOCK_COUNT(test): 1
+//!ASSERT CONTAINS: stackalloc
+//!ASSERT CONTAINS: store %0, 10
+//!ASSERT CONTAINS: return 99
+
+// Tests that a `let` statement correctly generates stack allocation and storage.
+func test() -> felt {
+    let x = 10;
+    return 99;
+}

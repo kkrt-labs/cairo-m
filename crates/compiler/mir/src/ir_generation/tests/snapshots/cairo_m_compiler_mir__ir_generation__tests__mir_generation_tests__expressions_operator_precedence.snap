@@ -1,0 +1,45 @@
+---
+source: crates/compiler/mir/src/ir_generation/tests/mir_generation_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/compiler/mir/src/ir_generation/tests/mir_generation_tests.rs
+expression: mir_output
+---
+Fixture: operator_precedence.cm
+============================================================
+Source code:
+//!ASSERT CONTAINS: Mul
+//!ASSERT CONTAINS: Add
+
+// Tests that operator precedence (multiplication before addition) is respected.
+// The snapshot will confirm that the `Mul` instruction precedes the `Add` instruction.
+func test_precedence(a: felt, b: felt, c: felt) -> felt {
+    return a + b * c;
+}
+
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_precedence {
+    parameters: [0, 2, 4]
+    entry: 0
+
+    0:
+      %1 = stackalloc 1
+      store %1, %0
+      %3 = stackalloc 1
+      store %3, %2
+      %5 = stackalloc 1
+      store %5, %4
+      %6 = load %1
+      %7 = load %3
+      %8 = load %5
+      %9 = %7 Mul %8
+      %10 = %6 Add %9
+      return %10
+
+  }
+
+}

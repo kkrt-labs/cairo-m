@@ -1,0 +1,8 @@
+//!ASSERT FUNCTION_COUNT: 1
+//!ASSERT BLOCK_COUNT(add): 1
+//!ASSERT CONTAINS: Add
+
+// Tests that function parameters are correctly allocated on the stack, loaded, and used.
+func add(a: felt, b: felt) -> felt {
+    return a + b;
+}

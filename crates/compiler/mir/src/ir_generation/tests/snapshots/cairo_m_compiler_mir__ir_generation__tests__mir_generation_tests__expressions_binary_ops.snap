@@ -1,0 +1,57 @@
+---
+source: crates/compiler/mir/src/ir_generation/tests/mir_generation_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/compiler/mir/src/ir_generation/tests/mir_generation_tests.rs
+expression: mir_output
+---
+Fixture: binary_ops.cm
+============================================================
+Source code:
+//!ASSERT CONTAINS: Add
+//!ASSERT CONTAINS: Mul
+//!ASSERT CONTAINS: Eq
+
+// Tests various binary operations.
+func test_ops(a: felt, b: felt) -> felt {
+    let c = a + b;
+    let d = a * b;
+    let e = a == b;
+    return c;
+}
+
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_ops {
+    parameters: [0, 2]
+    entry: 0
+
+    0:
+      %1 = stackalloc 1
+      store %1, %0
+      %3 = stackalloc 1
+      store %3, %2
+      %4 = load %1
+      %5 = load %3
+      %6 = %4 Add %5
+      %7 = stackalloc 1
+      store %7, %6
+      %8 = load %1
+      %9 = load %3
+      %10 = %8 Mul %9
+      %11 = stackalloc 1
+      store %11, %10
+      %12 = load %1
+      %13 = load %3
+      %14 = %12 Eq %13
+      %15 = stackalloc 1
+      store %15, %14
+      %16 = load %7
+      return %16
+
+  }
+
+}

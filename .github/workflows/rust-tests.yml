@@ -27,6 +27,7 @@ jobs:
             cairo-m-compiler-parser,
             cairo-m-compiler-semantic,
             cairo-m-compiler-diagnostics,
+            cairo-m-compiler-mir,
             cairo-m-runner,
             cairo-m-prover,
           ]

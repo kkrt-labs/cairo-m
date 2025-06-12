@@ -1,0 +1,8 @@
+//!ASSERT FUNCTION_COUNT: 1
+//!ASSERT BLOCK_COUNT(test): 1
+//!ASSERT CONTAINS: return 42
+
+// A very simple function that returns a literal.
+func test() -> felt {
+    return 42;
+}

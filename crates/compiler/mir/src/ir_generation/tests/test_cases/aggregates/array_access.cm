@@ -1,0 +1,7 @@
+// Tests l-value and r-value access for pointer types, mimicking array access.
+// NOTE: `felt*` is a placeholder for a proper array/pointer type.
+func test_array_access(index: felt) -> felt {
+    let arr: felt* = 42;  // Placeholder for getting a base address.
+    arr[index] = 10;      // L-value: getelementptr for assignment.
+    return arr[0];        // R-value: getelementptr + load for reading.
+}

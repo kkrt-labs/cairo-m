@@ -1,0 +1,49 @@
+---
+source: crates/compiler/mir/src/ir_generation/tests/mir_generation_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/compiler/mir/src/ir_generation/tests/mir_generation_tests.rs
+expression: mir_output
+---
+Fixture: multiple_functions.cm
+============================================================
+Source code:
+//!ASSERT FUNCTION_COUNT: 3
+
+// Tests that a module can contain multiple function definitions.
+func first() -> felt { return 1; }
+func second() -> felt { return 2; }
+func third() -> felt { return 3; }
+
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn first {
+    entry: 0
+
+    0:
+      return 1
+
+  }
+
+  // Function 1
+  fn second {
+    entry: 0
+
+    0:
+      return 2
+
+  }
+
+  // Function 2
+  fn third {
+    entry: 0
+
+    0:
+      return 3
+
+  }
+
+}

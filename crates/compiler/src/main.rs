@@ -1,4 +1,5 @@
 use cairo_m_compiler_diagnostics::build_diagnostic_message;
+use cairo_m_compiler_mir::{generate_mir, PrettyPrint};
 use cairo_m_compiler_parser::{parse_program, SourceProgram};
 use cairo_m_compiler_semantic::validate_semantics;
 use clap::Parser;
@@ -12,6 +13,10 @@ struct Args {
     /// Input file to compile
     #[arg(short, long)]
     input: PathBuf,
+
+    /// Enable verbose output (shows MIR)
+    #[arg(short, long)]
+    verbose: bool,
 }
 
 fn main() {
@@ -42,7 +47,36 @@ fn main() {
             if !semantic_diagnostics.is_empty() {
                 std::process::exit(1);
             }
-            println!("\nCompilation successful!");
+
+            // Generate MIR
+            println!("Generating MIR...");
+            match generate_mir(&db, source) {
+                Some(mir_module) => {
+                    if args.verbose {
+                        println!("\n=== Generated MIR ===");
+                        println!("{}", mir_module.pretty_print(0));
+                        println!("=====================\n");
+                    }
+
+                    // Validate MIR structure
+                    if let Err(validation_error) = mir_module.validate() {
+                        eprintln!("MIR validation failed: {validation_error}");
+                        std::process::exit(1);
+                    }
+
+                    println!("MIR generation successful!");
+                    println!("Generated {} function(s)", mir_module.function_count());
+
+                    // TODO: In Phase 4, this will be passed to code generation
+                    println!("\nCompilation successful!");
+                }
+                None => {
+                    eprintln!(
+                        "Failed to generate MIR - semantic analysis errors prevent MIR generation"
+                    );
+                    std::process::exit(1);
+                }
+            }
         }
         Err(e) => eprintln!("Error reading file: {e}"),
     }
