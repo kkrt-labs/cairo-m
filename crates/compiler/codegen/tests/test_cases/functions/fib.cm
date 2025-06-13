@@ -1,0 +1,17 @@
+func main() -> felt {
+    let a = 0;
+    let b = 1;
+    let n = 10;
+    let result = fib(a, b, n);
+    return result;
+}
+
+func fib(a: felt, b: felt, n: felt) -> felt {
+    if (n == 0) {
+        return a;
+    }
+    if (n == 1) {
+        return b;
+    }
+    return fib(b, a + b, n - 1);
+}

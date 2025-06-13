@@ -1,0 +1,27 @@
+---
+source: crates/compiler/codegen/tests/codegen_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/compiler/codegen/tests/codegen_tests.rs
+expression: codegen_output
+---
+Fixture: simple_call.cm
+============================================================
+Source code:
+func helper() -> felt {
+    return 42;
+}
+
+func main() -> felt {
+    return helper();
+}
+============================================================
+Generated CASM:
+helper:
+   0: 6 -3 42              // Return value: [fp-3] = 42
+   1: 15                   // return
+main:
+   2: 12 1 0               // call helper
+   3: 4 0 -3               // Return value: [fp-3] = [fp+0]
+   4: 15                   // return

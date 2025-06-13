@@ -1,0 +1,3 @@
+func add(a: felt, b: felt) -> felt {
+    return a + b;
+}
