@@ -78,7 +78,6 @@ type InstructionFn = fn(&mut Memory, State, Instruction) -> Result<State, Memory
 ///
 /// Returns [`InstructionError::InvalidOpcode`] if the provided opcode does not
 /// correspond to any implemented instruction.
-/// TOOD: update the order to match specs when all instructions are implemented.
 pub fn opcode_to_instruction_fn(op: M31) -> Result<InstructionFn, InstructionError> {
     let f = match op.0 {
         0 => store_add_fp_fp,          // [fp + off2] = [fp + off0] + [fp + off1]
