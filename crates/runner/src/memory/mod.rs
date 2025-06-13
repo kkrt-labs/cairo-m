@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use num_traits::identities::Zero;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
@@ -19,6 +21,12 @@ pub enum MemoryError {
     UninitializedMemoryCell { addr: M31 },
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct TraceEntry {
+    pub addr: M31,
+    pub value: QM31,
+}
+
 /// Represents the Cairo M VM's memory, a flat, read-write address space.
 ///
 /// Memory is addressable by `M31` field elements and stores `QM31` values.
@@ -27,6 +35,13 @@ pub struct Memory {
     /// The index of the vector corresponds to the memory address.
     /// Instructions and data are stored as `QM31` values.
     pub data: Vec<QM31>,
+    /// A trace of memory accesses.
+    ///
+    /// The trace is wrapped in a `RefCell` to enable interior mutability. This
+    /// allows methods with immutable `&self` receivers, like `get_data`, to
+    /// modify the trace. This design choice separates the logical immutability
+    /// of an operation from the implementation detail of tracing.
+    pub trace: RefCell<Vec<TraceEntry>>,
 }
 
 impl Memory {
@@ -62,10 +77,13 @@ impl Memory {
     /// Returns [`MemoryError::UninitializedMemoryCell`] if the memory cell at the address is not initialized.
     pub fn get_instruction(&self, addr: M31) -> Result<QM31, MemoryError> {
         let address = addr.0 as usize;
-        self.data
+        let value = self
+            .data
             .get(address)
             .copied()
-            .ok_or(MemoryError::UninitializedMemoryCell { addr })
+            .ok_or(MemoryError::UninitializedMemoryCell { addr })?;
+        self.trace.borrow_mut().push(TraceEntry { addr, value });
+        Ok(value)
     }
 
     /// Retrieves a value from memory and projects it to a base field element `M31`.
@@ -88,6 +106,7 @@ impl Memory {
         if !value.1.is_zero() || !value.0 .1.is_zero() {
             return Err(MemoryError::BaseFieldProjectionFailed { addr, value });
         }
+        self.trace.borrow_mut().push(TraceEntry { addr, value });
         Ok(value.0 .0)
     }
 
@@ -112,8 +131,8 @@ impl Memory {
         if address >= self.data.len() {
             self.data.resize(address + 1, QM31::zero());
         }
-
         self.data[address] = value;
+        self.trace.borrow_mut().push(TraceEntry { addr, value });
         Ok(())
     }
 
@@ -157,6 +176,12 @@ impl Memory {
 
         // Copy the slice into memory
         self.data[start_address..end_address].copy_from_slice(values);
+        self.trace
+            .borrow_mut()
+            .extend(values.iter().enumerate().map(|(i, value)| TraceEntry {
+                addr: start_addr + M31(i as u32),
+                value: *value,
+            }));
         Ok(())
     }
 
@@ -171,18 +196,51 @@ impl Memory {
     {
         self.data.extend(iter);
     }
+
+    /// Serializes the trace to a byte vector.
+    ///
+    /// Each trace entry consists of an `addr` (`M31`) and a `value` (`QM31`).
+    /// A `QM31` is composed of 4 `M31` values.
+    /// This function serializes the entire trace as a flat sequence of bytes.
+    /// For each entry, it serializes `addr` and then the 4 components of `value`
+    /// into little-endian bytes.
+    ///
+    /// The final output is a single `Vec<u8>` concatenating the bytes for all entries.
+    ///
+    /// ## Returns
+    ///
+    /// A `Vec<u8>` containing the serialized trace data.
+    pub fn serialize_trace(&self) -> Vec<u8> {
+        self.trace
+            .borrow()
+            .iter()
+            .flat_map(|entry| {
+                [
+                    entry.addr.0,
+                    entry.value.0 .0 .0,
+                    entry.value.0 .1 .0,
+                    entry.value.1 .0 .0,
+                    entry.value.1 .1 .0,
+                ]
+            })
+            .flat_map(u32::to_le_bytes)
+            .collect()
+    }
 }
 
 impl FromIterator<QM31> for Memory {
     fn from_iter<I: IntoIterator<Item = QM31>>(iter: I) -> Self {
         Self {
             data: iter.into_iter().collect(),
+            trace: RefCell::new(Vec::new()),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
+
     use num_traits::One;
 
     use super::*;
@@ -196,30 +254,47 @@ mod tests {
 
     #[test]
     fn test_get_instruction() {
-        let mut memory = Memory::default();
-        let addr = M31::from(42);
+        let addr = M31(42);
         let value = QM31::from_m31_array([123, 0, 0, 0].map(Into::into));
-        memory.insert(addr, value).unwrap();
+        let mut data = vec![QM31::zero(); 43];
+        data[42] = value;
+
+        let memory = Memory {
+            data,
+            trace: RefCell::new(Vec::new()),
+        };
+
         assert_eq!(memory.get_instruction(addr).unwrap(), value);
+        assert_eq!(memory.trace.borrow().len(), 1);
+        assert_eq!(memory.trace.borrow()[0], TraceEntry { addr, value });
     }
 
     #[test]
     fn test_get_instruction_from_empty_address() {
         let memory = Memory::default();
-        let addr = M31::from(10);
+        let addr = M31(10);
         assert!(matches!(
             memory.get_instruction(addr),
             Err(MemoryError::UninitializedMemoryCell { .. })
         ));
+        assert!(memory.trace.borrow().is_empty());
     }
 
     #[test]
     fn test_get_data() {
-        let mut memory = Memory::default();
         let addr = M31::from(42);
         let value = QM31::from_m31_array([123, 0, 0, 0].map(Into::into));
-        memory.insert(addr, value).unwrap();
+
+        let mut data: Vec<QM31> = vec![QM31::zero(); 43];
+        data[42] = value;
+        let memory = Memory {
+            data,
+            trace: RefCell::new(Vec::new()),
+        };
+
         assert_eq!(memory.get_data(addr).unwrap(), M31::from(123));
+        assert_eq!(memory.trace.borrow().len(), 1);
+        assert_eq!(memory.trace.borrow()[0], TraceEntry { addr, value });
     }
 
     #[test]
@@ -227,6 +302,14 @@ mod tests {
         let memory = Memory::default();
         let addr = M31::from(10);
         assert_eq!(memory.get_data(addr).unwrap(), M31::zero());
+        assert_eq!(memory.trace.borrow().len(), 1);
+        assert_eq!(
+            memory.trace.borrow()[0],
+            TraceEntry {
+                addr,
+                value: QM31::zero()
+            }
+        );
     }
 
     #[test]
@@ -235,20 +318,52 @@ mod tests {
         let addr = M31::from(42);
         let value = QM31::from_m31_array([0, 0, 123, 0].map(Into::into));
         memory.insert(addr, value).unwrap();
+        memory.trace.borrow_mut().clear();
         assert!(matches!(
             memory.get_data(addr),
             Err(MemoryError::BaseFieldProjectionFailed { .. })
         ));
+        assert!(memory.trace.borrow().is_empty());
     }
 
     #[test]
-    fn test_insert_instruction_auto_resize() {
+    fn test_insert() {
         let mut memory = Memory::default();
-        let addr = M31::from(100);
+        let addr = M31(100);
         let value = QM31::from_m31_array([42, 0, 0, 0].map(Into::into));
         memory.insert(addr, value).unwrap();
         assert_eq!(memory.data.len(), 101);
+        assert_eq!(memory.data[100], value);
+        assert_eq!(memory.trace.borrow().len(), 1);
+        assert_eq!(memory.trace.borrow()[0], TraceEntry { addr, value });
+    }
+
+    #[test]
+    fn test_insert_then_get_instruction() {
+        let mut memory = Memory::default();
+        let addr = M31(42);
+        let value = QM31::from_m31_array([123, 0, 0, 0].map(Into::into));
+
+        memory.insert(addr, value).unwrap();
         assert_eq!(memory.get_instruction(addr).unwrap(), value);
+        assert_eq!(memory.data.len(), 43);
+        assert_eq!(memory.trace.borrow().len(), 2);
+        assert_eq!(memory.trace.borrow()[0], TraceEntry { addr, value });
+        assert_eq!(memory.trace.borrow()[1], TraceEntry { addr, value });
+    }
+
+    #[test]
+    fn test_insert_then_get_data() {
+        let mut memory = Memory::default();
+        let addr = M31(42);
+        let value = QM31::from_m31_array([123, 0, 0, 0].map(Into::into));
+
+        memory.insert(addr, value).unwrap();
+        assert_eq!(memory.get_data(addr).unwrap(), value.0 .0);
+        assert_eq!(memory.data.len(), 43);
+        assert_eq!(memory.trace.borrow().len(), 2);
+        assert_eq!(memory.trace.borrow()[0], TraceEntry { addr, value });
+        assert_eq!(memory.trace.borrow()[1], TraceEntry { addr, value });
     }
 
     #[test]
@@ -271,7 +386,7 @@ mod tests {
     #[test]
     fn test_insert_slice() {
         let mut memory = Memory::default();
-        let start_addr = M31::from(10);
+        let start_addr = M31(10);
         let values = vec![
             QM31::from_m31_array([1, 0, 0, 0].map(Into::into)),
             QM31::from_m31_array([2, 0, 0, 0].map(Into::into)),
@@ -280,18 +395,31 @@ mod tests {
 
         memory.insert_slice(start_addr, &values).unwrap();
 
-        assert_eq!(
-            memory.get_instruction(10.into()).unwrap(),
-            QM31::from_m31_array([1, 0, 0, 0].map(Into::into))
-        );
-        assert_eq!(
-            memory.get_instruction(11.into()).unwrap(),
-            QM31::from_m31_array([2, 0, 0, 0].map(Into::into))
-        );
-        assert_eq!(
-            memory.get_instruction(12.into()).unwrap(),
-            QM31::from_m31_array([3, 0, 0, 0].map(Into::into))
-        );
+        assert_eq!(memory.get_instruction(10.into()).unwrap(), values[0]);
+        assert_eq!(memory.get_instruction(11.into()).unwrap(), values[1]);
+        assert_eq!(memory.get_instruction(12.into()).unwrap(), values[2]);
+
+        assert_eq!(memory.trace.borrow().len(), 6);
+        // Trace entries from `insert_slice`
+        for (i, value) in values.iter().enumerate() {
+            assert_eq!(
+                memory.trace.borrow()[i],
+                TraceEntry {
+                    addr: start_addr + M31(i as u32),
+                    value: *value
+                }
+            );
+        }
+        // Trace entries from `get_instruction`
+        for (i, value) in values.iter().enumerate() {
+            assert_eq!(
+                memory.trace.borrow()[i + values.len()],
+                TraceEntry {
+                    addr: start_addr + M31(i as u32),
+                    value: *value
+                }
+            );
+        }
     }
 
     #[test]
@@ -331,6 +459,7 @@ mod tests {
         assert_eq!(memory.get_data(0.into()).unwrap(), M31::from(10));
         assert_eq!(memory.get_data(1.into()).unwrap(), M31::from(20));
         assert_eq!(memory.get_data(2.into()).unwrap(), M31::from(30));
+        assert_eq!(memory.trace.borrow().len(), 3);
     }
 
     #[test]
@@ -349,5 +478,36 @@ mod tests {
             memory.get_instruction(M31::one()).unwrap(),
             QM31::from_m31_array([200, 0, 0, 0].map(Into::into))
         );
+    }
+
+    #[test]
+    fn test_serialize_trace() {
+        let mut memory = Memory::default();
+        let addr1 = M31(10);
+        let value1 = QM31::from_m31_array([1, 2, 3, 4].map(Into::into));
+        let addr2 = M31(20);
+        let value2 = QM31::from_m31_array([5, 6, 7, 8].map(Into::into));
+
+        memory.insert(addr1, value1).unwrap();
+        memory.insert(addr2, value2).unwrap();
+
+        let serialized_trace = memory.serialize_trace();
+
+        let mut expected_bytes = Vec::new();
+        // Entry 1: addr=10, value=[1, 2, 3, 4]
+        expected_bytes.extend_from_slice(&10u32.to_le_bytes());
+        expected_bytes.extend_from_slice(&1u32.to_le_bytes());
+        expected_bytes.extend_from_slice(&2u32.to_le_bytes());
+        expected_bytes.extend_from_slice(&3u32.to_le_bytes());
+        expected_bytes.extend_from_slice(&4u32.to_le_bytes());
+
+        // Entry 2: addr=20, value=[5, 6, 7, 8]
+        expected_bytes.extend_from_slice(&20u32.to_le_bytes());
+        expected_bytes.extend_from_slice(&5u32.to_le_bytes());
+        expected_bytes.extend_from_slice(&6u32.to_le_bytes());
+        expected_bytes.extend_from_slice(&7u32.to_le_bytes());
+        expected_bytes.extend_from_slice(&8u32.to_le_bytes());
+
+        assert_eq!(serialized_trace, expected_bytes);
     }
 }
