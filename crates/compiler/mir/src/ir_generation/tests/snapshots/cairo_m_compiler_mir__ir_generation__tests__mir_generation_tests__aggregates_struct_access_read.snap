@@ -39,12 +39,10 @@ module {
       // Get address of field 'y'
 %2 = getelementptr %0, 1
       store %2, 20
-      %3 = stackalloc 2
-      store %3, %0
       // Get address of field 'x'
-%4 = getelementptr %3, 0
-      %5 = load %4
-      return %5
+%3 = getelementptr %0, 0
+      %4 = load %3
+      return %4
 
   }
 

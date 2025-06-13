@@ -273,20 +273,35 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     let def_id = DefinitionId::new(self.db, self.file, def_idx);
                     let mir_def_id = self.convert_definition_id(def_id);
 
-                    // Query semantic type system for actual variable type
-                    let semantic_type = definition_semantic_type(self.db, def_id);
-                    let var_type = MirType::from_semantic_type(self.db, semantic_type);
-
-                    let var_addr = self
-                        .mir_function
-                        .new_typed_value_id(MirType::pointer(var_type.clone()));
-                    self.add_instruction(Instruction::stack_alloc(var_addr, var_type.size_units()));
-
-                    // Store the RHS value into the variable's stack slot
-                    self.add_instruction(Instruction::store(Value::operand(var_addr), rhs_value));
-
-                    // Map the variable's definition to its stack address
-                    self.definition_to_value.insert(mir_def_id, var_addr);
+                    // Check if the RHS is already a stack-allocated aggregate.
+                    // If so, we can bind the variable name directly to its address.
+                    if let Expression::StructLiteral { .. } | Expression::Tuple(_) = value.value() {
+                        if let Value::Operand(addr) = rhs_value {
+                            // The RHS expression already allocated the object and returned its address.
+                            // We just need to map the variable `name` to this address.
+                            self.definition_to_value.insert(mir_def_id, addr);
+                        } else {
+                            // This case should ideally not happen if aggregates always return addresses.
+                            // Handle as an error or fall back to old behavior.
+                            return Err("Expected an address from aggregate literal".to_string());
+                        }
+                    } else {
+                        // Original behavior for all other expression types (literals, binary ops, etc.)
+                        let semantic_type = definition_semantic_type(self.db, def_id);
+                        let var_type = MirType::from_semantic_type(self.db, semantic_type);
+                        let var_addr = self
+                            .mir_function
+                            .new_typed_value_id(MirType::pointer(var_type.clone()));
+                        self.add_instruction(Instruction::stack_alloc(
+                            var_addr,
+                            var_type.size_units(),
+                        ));
+                        self.add_instruction(Instruction::store(
+                            Value::operand(var_addr),
+                            rhs_value,
+                        ));
+                        self.definition_to_value.insert(mir_def_id, var_addr);
+                    }
                 } else {
                     return Err(format!(
                         "Failed to resolve variable '{}' in scope {:?}",
@@ -341,10 +356,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                                     expr.span()
                                 )
                             })?;
-                        let expr_info = self
-                            .semantic_index
-                            .expression(expr_id)
-                            .ok_or_else(|| format!("MIR: No ExpressionInfo for statement expression ID {expr_id:?}"))?;
+                        let expr_info =
+                            self.semantic_index.expression(expr_id).ok_or_else(|| {
+                                format!(
+                                    "MIR: No ExpressionInfo for statement expression ID {expr_id:?}"
+                                )
+                            })?;
 
                         if let Some((def_idx, _)) = self
                             .semantic_index

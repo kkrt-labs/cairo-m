@@ -66,9 +66,6 @@ mir_test!(assignment, "variables");
 mir_test!(reassignment_from_var, "variables");
 
 // --- Aggregates (Structs/Tuples) ---
-//TODO: there is an issue in the struct tests where we allocate twice
-// the size of the struct in the IR (once for its members, once for the struct itself...)
-// same for tuples.
 mir_test!(struct_literal, "aggregates");
 mir_test!(struct_access_mut, "aggregates");
 mir_test!(struct_access_read, "aggregates");

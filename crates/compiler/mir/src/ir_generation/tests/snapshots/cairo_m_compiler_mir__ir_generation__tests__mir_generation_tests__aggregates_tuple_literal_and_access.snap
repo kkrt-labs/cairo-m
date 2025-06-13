@@ -35,15 +35,13 @@ module {
       // Get address of tuple element 2
 %3 = getelementptr %0, 2
       store %3, 300
-      %4 = stackalloc 3
-      store %4, %0
       // Get address of array element
-%5 = getelementptr %4, 1
-      store %5, 250
+%4 = getelementptr %0, 1
+      store %4, 250
       // Get address of array element
-%6 = getelementptr %4, 1
-      %7 = load %6
-      return %7
+%5 = getelementptr %0, 1
+      %6 = load %5
+      return %6
 
   }
 
