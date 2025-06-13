@@ -148,11 +148,12 @@ impl VM {
 
     /// Serializes the trace to a byte vector.
     ///
-    /// Each trace entry is composed of two 32-bit values, `fp` and `pc`.
-    /// They are concatenated into a single 64-bit value, where `fp` occupies the
-    /// most significant 32 bits and `pc` the least significant 32 bits.
-    /// The resulting 64-bit values are then serialized into a byte stream
-    /// in little-endian format.
+    /// Each trace entry consists of `fp` and `pc` values, both `u32`.
+    /// This function serializes the entire trace as a flat sequence of bytes.
+    /// For each entry, it first serializes `fp` into little-endian bytes,
+    /// followed by the little-endian bytes of `pc`.
+    ///
+    /// The final output is a single `Vec<u8>` concatenating the bytes for all entries.
     ///
     /// ## Returns
     ///
@@ -160,7 +161,8 @@ impl VM {
     pub fn serialize_trace(&self) -> Vec<u8> {
         self.trace
             .iter()
-            .flat_map(|entry| ((entry.fp.0 as u64) << 32 | (entry.pc.0 as u64)).to_le_bytes())
+            .flat_map(|entry| [entry.fp.0, entry.pc.0])
+            .flat_map(|val| val.to_le_bytes())
             .collect()
     }
 }
@@ -393,14 +395,18 @@ mod tests {
         // Serialize the trace and verify its contents.
         let serialized_trace = vm.serialize_trace();
         // Expected serialized data:
-        // Entry 1: fp=2, pc=0. u64 = (2 << 32) | 0.
-        // Entry 2: fp=2, pc=1. u64 = (2 << 32) | 1.
-        let val1 = 2u64 << 32;
-        let val2 = (2u64 << 32) | 1u64;
+        // Entry 1: fp=2, pc=0.
+        // Entry 2: fp=2, pc=1.
+        let fp1 = 2u32;
+        let pc1 = 0u32;
+        let fp2 = 2u32;
+        let pc2 = 1u32;
 
         let mut expected_bytes = Vec::new();
-        expected_bytes.extend_from_slice(&val1.to_le_bytes());
-        expected_bytes.extend_from_slice(&val2.to_le_bytes());
+        expected_bytes.extend_from_slice(&fp1.to_le_bytes());
+        expected_bytes.extend_from_slice(&pc1.to_le_bytes());
+        expected_bytes.extend_from_slice(&fp2.to_le_bytes());
+        expected_bytes.extend_from_slice(&pc2.to_le_bytes());
 
         assert_eq!(serialized_trace, expected_bytes);
     }
