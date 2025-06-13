@@ -26,7 +26,7 @@ Found 2 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1002] Warning: Unused variable 'unused'
-   ╭─[ <unknown>:2:9 ]
+   ╭─[ unused_variables.cm:2:9 ]
    │
  2 │     let unused = 42; // Should warn: Unused variable 'unused'
    │         ───┬──  
@@ -35,7 +35,7 @@ Found 2 diagnostic(s):
 
 --- Diagnostic 2 ---
 [1002] Warning: Unused variable 'unused_param'
-   ╭─[ <unknown>:7:28 ]
+   ╭─[ unused_variables.cm:7:28 ]
    │
  7 │ func test_unused_parameter(unused_param: felt, used_param: felt) { // Should warn: Unused variable 'unused_param'
    │                            ──────┬─────  

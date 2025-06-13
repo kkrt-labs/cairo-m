@@ -32,21 +32,16 @@ use std::collections::HashSet;
 pub struct ScopeValidator;
 
 impl Validator for ScopeValidator {
-    fn validate(
-        &self,
-        _db: &dyn SemanticDb,
-        _file: File,
-        index: &SemanticIndex,
-    ) -> Vec<Diagnostic> {
+    fn validate(&self, db: &dyn SemanticDb, file: File, index: &SemanticIndex) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
 
         // Check for undeclared variables once globally (not per scope)
-        diagnostics.extend(self.check_undeclared_variables_global(index));
+        diagnostics.extend(self.check_undeclared_variables_global(index, file, db));
 
         // Check each scope for other violations
         for (scope_id, scope) in index.scopes() {
             if let Some(place_table) = index.place_table(scope_id) {
-                diagnostics.extend(self.check_scope(scope_id, scope, place_table, index));
+                diagnostics.extend(self.check_scope(scope_id, scope, place_table, file, db, index));
             }
         }
 
@@ -73,15 +68,23 @@ impl ScopeValidator {
         scope_id: crate::FileScopeId,
         _scope: &crate::Scope,
         place_table: &crate::PlaceTable,
+        file: File,
+        db: &dyn SemanticDb,
         index: &SemanticIndex,
     ) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
 
         // Check for duplicate definitions within this scope
-        diagnostics.extend(self.check_duplicate_definitions(scope_id, place_table, index));
+        diagnostics.extend(self.check_duplicate_definitions(
+            scope_id,
+            place_table,
+            file,
+            db,
+            index,
+        ));
 
         // Check for unused variables (but not in the global scope for functions/structs)
-        diagnostics.extend(self.check_unused_variables(scope_id, place_table, index));
+        diagnostics.extend(self.check_unused_variables(scope_id, place_table, file, db, index));
 
         diagnostics
     }
@@ -96,6 +99,8 @@ impl ScopeValidator {
         &self,
         scope_id: crate::FileScopeId,
         place_table: &crate::PlaceTable,
+        file: File,
+        db: &dyn SemanticDb,
         index: &SemanticIndex,
     ) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
@@ -110,7 +115,11 @@ impl ScopeValidator {
                     } else {
                         chumsky::span::SimpleSpan::from(0..0)
                     };
-                diagnostics.push(Diagnostic::duplicate_definition(&place.name, span));
+                diagnostics.push(Diagnostic::duplicate_definition(
+                    file.file_path(db).to_string(),
+                    &place.name,
+                    span,
+                ));
             }
         }
 
@@ -127,6 +136,8 @@ impl ScopeValidator {
         &self,
         scope_id: crate::FileScopeId,
         place_table: &crate::PlaceTable,
+        file: File,
+        db: &dyn SemanticDb,
         index: &SemanticIndex,
     ) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
@@ -144,7 +155,11 @@ impl ScopeValidator {
                     } else {
                         chumsky::span::SimpleSpan::from(0..0)
                     };
-                diagnostics.push(Diagnostic::unused_variable(&place.name, span));
+                diagnostics.push(Diagnostic::unused_variable(
+                    file.file_path(db).to_string(),
+                    &place.name,
+                    span,
+                ));
             }
         }
 
@@ -157,7 +172,12 @@ impl ScopeValidator {
     /// - Better error messages with suggestions for similar names
     /// - Handle different identifier contexts (types vs values vs modules)
     /// - Support for qualified names and module resolution
-    fn check_undeclared_variables_global(&self, index: &SemanticIndex) -> Vec<Diagnostic> {
+    fn check_undeclared_variables_global(
+        &self,
+        index: &SemanticIndex,
+        file: File,
+        db: &dyn SemanticDb,
+    ) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
         let mut seen_undeclared = HashSet::new();
 
@@ -166,7 +186,11 @@ impl ScopeValidator {
             if !index.is_usage_resolved(usage_index) {
                 // Only report each undeclared variable once
                 if seen_undeclared.insert(usage.name.clone()) {
-                    diagnostics.push(Diagnostic::undeclared_variable(&usage.name, usage.span));
+                    diagnostics.push(Diagnostic::undeclared_variable(
+                        file.file_path(db).to_string(),
+                        &usage.name,
+                        usage.span,
+                    ));
                 }
             }
         }

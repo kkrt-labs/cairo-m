@@ -4,7 +4,7 @@ expression: snapshot_entries
 ---
 code: func test() { a +; }
 result: [02] Error: found ';' expected something else, identifier, or '('
-   ╭─[ <unknown>:1:18 ]
+   ╭─[ invalid_binary_op:1:18 ]
    │
  1 │ func test() { a +; }
    │                  ┬  

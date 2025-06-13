@@ -25,7 +25,7 @@ Found 6 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1002] Warning: Unused variable 'x_val'
-   ╭─[ <unknown>:8:9 ]
+   ╭─[ struct_field_validation.cm:8:9 ]
    │
  8 │     let x_val = p.x; // OK: p exists, x is a field
    │         ──┬──  
@@ -34,7 +34,7 @@ Found 6 diagnostic(s):
 
 --- Diagnostic 2 ---
 [1002] Warning: Unused variable 'bad_struct'
-   ╭─[ <unknown>:9:9 ]
+   ╭─[ struct_field_validation.cm:9:9 ]
    │
  9 │     let bad_struct = UndefinedStruct { x: 1 }; // Should error: Undeclared variable 'UndefinedStruct'
    │         ─────┬────  
@@ -43,7 +43,7 @@ Found 6 diagnostic(s):
 
 --- Diagnostic 3 ---
 [1002] Warning: Unused variable 'bad_field'
-    ╭─[ <unknown>:10:9 ]
+    ╭─[ struct_field_validation.cm:10:9 ]
     │
  10 │     let bad_field = p.z; // Should error: Field z does not exist in struct Point
     │         ────┬────  
@@ -52,7 +52,7 @@ Found 6 diagnostic(s):
 
 --- Diagnostic 4 ---
 [1002] Warning: Unused variable 'try_access'
-    ╭─[ <unknown>:12:9 ]
+    ╭─[ struct_field_validation.cm:12:9 ]
     │
  12 │     let try_access = non_struct.x; // Should error: Expected struct type, got Felt
     │         ─────┬────  
@@ -61,7 +61,7 @@ Found 6 diagnostic(s):
 
 --- Diagnostic 5 ---
 [2002] Error: Field 'z' does not exist in struct Point
-    ╭─[ <unknown>:10:23 ]
+    ╭─[ struct_field_validation.cm:10:23 ]
     │
  10 │     let bad_field = p.z; // Should error: Field z does not exist in struct Point
     │                       ┬  
@@ -70,7 +70,7 @@ Found 6 diagnostic(s):
 
 --- Diagnostic 6 ---
 [2002] Error: Expected struct type, found felt
-    ╭─[ <unknown>:12:22 ]
+    ╭─[ struct_field_validation.cm:12:22 ]
     │
  12 │     let try_access = non_struct.x; // Should error: Expected struct type, got Felt
     │                      ─────┬────  

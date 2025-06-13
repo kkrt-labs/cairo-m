@@ -28,7 +28,7 @@ Found 7 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1003] Error: Duplicate definition of 'x'
-   ╭─[ <unknown>:3:9 ]
+   ╭─[ duplicate_definitions.cm:3:9 ]
    │
  3 │     let x = 2; // Should error: duplicate definition of 'x'
    │         ┬  
@@ -37,7 +37,7 @@ Found 7 diagnostic(s):
 
 --- Diagnostic 2 ---
 [1002] Warning: Unused variable 'x'
-   ╭─[ <unknown>:2:9 ]
+   ╭─[ duplicate_definitions.cm:2:9 ]
    │
  2 │     let x = 1;
    │         ┬  
@@ -46,7 +46,7 @@ Found 7 diagnostic(s):
 
 --- Diagnostic 3 ---
 [1002] Warning: Unused variable 'x'
-   ╭─[ <unknown>:3:9 ]
+   ╭─[ duplicate_definitions.cm:3:9 ]
    │
  3 │     let x = 2; // Should error: duplicate definition of 'x'
    │         ┬  
@@ -55,7 +55,7 @@ Found 7 diagnostic(s):
 
 --- Diagnostic 4 ---
 [1003] Error: Duplicate definition of 'param'
-   ╭─[ <unknown>:7:44 ]
+   ╭─[ duplicate_definitions.cm:7:44 ]
    │
  7 │ func test_duplicate_parameter(param: felt, param: felt) { // Should error: duplicate definition of 'param'
    │                                            ──┬──  
@@ -64,7 +64,7 @@ Found 7 diagnostic(s):
 
 --- Diagnostic 5 ---
 [1002] Warning: Unused variable 'param'
-   ╭─[ <unknown>:7:31 ]
+   ╭─[ duplicate_definitions.cm:7:31 ]
    │
  7 │ func test_duplicate_parameter(param: felt, param: felt) { // Should error: duplicate definition of 'param'
    │                               ──┬──  
@@ -73,7 +73,7 @@ Found 7 diagnostic(s):
 
 --- Diagnostic 6 ---
 [1002] Warning: Unused variable 'param'
-   ╭─[ <unknown>:7:44 ]
+   ╭─[ duplicate_definitions.cm:7:44 ]
    │
  7 │ func test_duplicate_parameter(param: felt, param: felt) { // Should error: duplicate definition of 'param'
    │                                            ──┬──  
@@ -82,7 +82,7 @@ Found 7 diagnostic(s):
 
 --- Diagnostic 7 ---
 [1002] Warning: Unused variable 'x'
-    ╭─[ <unknown>:14:13 ]
+    ╭─[ duplicate_definitions.cm:14:13 ]
     │
  14 │         let x = 2; // OK: different scope
     │             ┬  

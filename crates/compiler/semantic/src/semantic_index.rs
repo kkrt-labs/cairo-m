@@ -1044,7 +1044,7 @@ mod tests {
 
     fn test_case(content: &str) -> TestCase {
         let db = test_db();
-        let source = SourceProgram::new(&db, content.to_string());
+        let source = SourceProgram::new(&db, content.to_string(), "test.cm".to_string());
         TestCase { db, source }
     }
 

@@ -8,7 +8,7 @@ code:
                 const ALSO_GOOD = 2;
             
 result: [02] Error: found 'let' expected 'func', 'struct', 'from', 'const', 'namespace', or end of input
-   ╭─[ <unknown>:3:17 ]
+   ╭─[ mixed_valid_invalid:3:17 ]
    │
  3 │                 let bad = 42;
    │                 ─┬─  

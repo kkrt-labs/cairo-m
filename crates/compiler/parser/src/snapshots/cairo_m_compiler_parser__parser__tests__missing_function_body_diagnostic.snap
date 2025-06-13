@@ -4,7 +4,7 @@ expression: snapshot_entries
 ---
 code: func test() -> felt
 result: [02] Error: found end of input expected '*', or '{'
-   ╭─[ <unknown>:1:20 ]
+   ╭─[ missing_function_body:1:20 ]
    │
  1 │ func test() -> felt
    │                    │ 

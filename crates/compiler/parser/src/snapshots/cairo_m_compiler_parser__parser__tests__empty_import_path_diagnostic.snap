@@ -4,7 +4,7 @@ expression: snapshot_entries
 ---
 code: from import item
 result: [02] Error: found 'import' expected identifier
-   ╭─[ <unknown>:1:6 ]
+   ╭─[ empty_import_path:1:6 ]
    │
  1 │ from import item
    │      ───┬──  

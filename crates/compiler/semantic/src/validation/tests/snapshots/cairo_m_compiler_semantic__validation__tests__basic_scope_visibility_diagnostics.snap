@@ -19,7 +19,7 @@ Found 3 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1001] Error: Undeclared variable 'inner'
-   ╭─[ <unknown>:6:15 ]
+   ╭─[ basic_scope_visibility.cm:6:15 ]
    │
  6 │     let bad = inner; // Should error: Undeclared variable 'inner'
    │               ──┬──  
@@ -28,7 +28,7 @@ Found 3 diagnostic(s):
 
 --- Diagnostic 2 ---
 [1002] Warning: Unused variable 'bad'
-   ╭─[ <unknown>:6:9 ]
+   ╭─[ basic_scope_visibility.cm:6:9 ]
    │
  6 │     let bad = inner; // Should error: Undeclared variable 'inner'
    │         ─┬─  
@@ -37,7 +37,7 @@ Found 3 diagnostic(s):
 
 --- Diagnostic 3 ---
 [1002] Warning: Unused variable 'inner'
-   ╭─[ <unknown>:4:13 ]
+   ╭─[ basic_scope_visibility.cm:4:13 ]
    │
  4 │         let inner = outer; // OK: outer is visible
    │             ──┬──  

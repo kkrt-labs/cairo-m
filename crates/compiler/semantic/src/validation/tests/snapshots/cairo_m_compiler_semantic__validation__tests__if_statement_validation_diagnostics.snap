@@ -58,7 +58,7 @@ Found 11 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1002] Warning: Unused variable 'a'
-    ╭─[ <unknown>:11:13 ]
+    ╭─[ if_statement_validation.cm:11:13 ]
     │
  11 │         let a = 42;
     │             ┬  
@@ -67,7 +67,7 @@ Found 11 diagnostic(s):
 
 --- Diagnostic 2 ---
 [1002] Warning: Unused variable 'x'
-    ╭─[ <unknown>:15:13 ]
+    ╭─[ if_statement_validation.cm:15:13 ]
     │
  15 │         let x = 0;
     │             ┬  
@@ -76,7 +76,7 @@ Found 11 diagnostic(s):
 
 --- Diagnostic 3 ---
 [1002] Warning: Unused variable 'x'
-    ╭─[ <unknown>:17:13 ]
+    ╭─[ if_statement_validation.cm:17:13 ]
     │
  17 │         let x = 1;
     │             ┬  
@@ -85,7 +85,7 @@ Found 11 diagnostic(s):
 
 --- Diagnostic 4 ---
 [1002] Warning: Unused variable 'b'
-    ╭─[ <unknown>:21:13 ]
+    ╭─[ if_statement_validation.cm:21:13 ]
     │
  21 │         let b = 42;
     │             ┬  
@@ -94,7 +94,7 @@ Found 11 diagnostic(s):
 
 --- Diagnostic 5 ---
 [1002] Warning: Unused variable 'c'
-    ╭─[ <unknown>:26:13 ]
+    ╭─[ if_statement_validation.cm:26:13 ]
     │
  26 │         let c = 42;
     │             ┬  
@@ -103,7 +103,7 @@ Found 11 diagnostic(s):
 
 --- Diagnostic 6 ---
 [1002] Warning: Unused variable 'e'
-    ╭─[ <unknown>:30:13 ]
+    ╭─[ if_statement_validation.cm:30:13 ]
     │
  30 │         let e = 42;
     │             ┬  
@@ -112,7 +112,7 @@ Found 11 diagnostic(s):
 
 --- Diagnostic 7 ---
 [1002] Warning: Unused variable 'f'
-    ╭─[ <unknown>:36:17 ]
+    ╭─[ if_statement_validation.cm:36:17 ]
     │
  36 │             let f = 42;
     │                 ┬  
@@ -121,7 +121,7 @@ Found 11 diagnostic(s):
 
 --- Diagnostic 8 ---
 [1002] Warning: Unused variable 'g'
-    ╭─[ <unknown>:42:17 ]
+    ╭─[ if_statement_validation.cm:42:17 ]
     │
  42 │             let g = 42;
     │                 ┬  
@@ -130,7 +130,7 @@ Found 11 diagnostic(s):
 
 --- Diagnostic 9 ---
 [2001] Error: Condition must be of type felt, found 'Point'
-    ╭─[ <unknown>:25:9 ]
+    ╭─[ if_statement_validation.cm:25:9 ]
     │
  25 │     if (Point { x: 1, y: 2 }) {   // Error: non-felt condition
     │         ──────────┬─────────  
@@ -139,7 +139,7 @@ Found 11 diagnostic(s):
 
 --- Diagnostic 10 ---
 [2001] Error: Condition must be of type felt, found '(felt, felt)'
-    ╭─[ <unknown>:29:9 ]
+    ╭─[ if_statement_validation.cm:29:9 ]
     │
  29 │     if ((1, 2)) {                 // Error: non-felt condition
     │         ───┬──  
@@ -148,7 +148,7 @@ Found 11 diagnostic(s):
 
 --- Diagnostic 11 ---
 [2001] Error: Condition must be of type felt, found 'Point'
-    ╭─[ <unknown>:41:13 ]
+    ╭─[ if_statement_validation.cm:41:13 ]
     │
  41 │         if (Point { x: 1, y: 2 }) { // Error: non-felt condition
     │             ──────────┬─────────  

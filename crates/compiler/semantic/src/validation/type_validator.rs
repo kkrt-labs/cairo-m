@@ -156,7 +156,7 @@ impl TypeValidator {
                                 left_type.data(db).display_name(db)
                             ),
                         )
-                        .with_location(left.span()),
+                        .with_location(file.file_path(db).to_string(), left.span()),
                     );
                 }
                 if !are_types_compatible(db, right_type, felt_type) {
@@ -169,7 +169,7 @@ impl TypeValidator {
                                 right_type.data(db).display_name(db)
                             ),
                         )
-                        .with_location(right.span()),
+                        .with_location(file.file_path(db).to_string(), right.span()),
                     );
                 }
             }
@@ -185,7 +185,7 @@ impl TypeValidator {
                                 right_type.data(db).display_name(db)
                             ),
                         )
-                        .with_location(right.span()),
+                        .with_location(file.file_path(db).to_string(), right.span()),
                     );
                 }
             }
@@ -201,7 +201,7 @@ impl TypeValidator {
                                 left_type.data(db).display_name(db)
                             ),
                         )
-                        .with_location(left.span()),
+                        .with_location(file.file_path(db).to_string(), left.span()),
                     );
                 }
                 if !are_types_compatible(db, right_type, felt_type) {
@@ -214,7 +214,7 @@ impl TypeValidator {
                                 right_type.data(db).display_name(db)
                             ),
                         )
-                        .with_location(right.span()),
+                        .with_location(file.file_path(db).to_string(), right.span()),
                     );
                 }
             }
@@ -251,7 +251,7 @@ impl TypeValidator {
                                 args.len()
                             ),
                         )
-                        .with_location(callee.span()),
+                        .with_location(file.file_path(db).to_string(), callee.span()),
                     );
                     return; // Don't check argument types if arity is wrong
                 }
@@ -271,7 +271,7 @@ impl TypeValidator {
                                         arg_type.data(db).display_name(db)
                                     ),
                                 )
-                                .with_location(arg.span()),
+                                .with_location(file.file_path(db).to_string(), arg.span()),
                             );
                         }
                     }
@@ -304,7 +304,7 @@ impl TypeValidator {
                             callee_type.data(db).display_name(db)
                         ),
                     )
-                    .with_location(callee.span()),
+                    .with_location(file.file_path(db).to_string(), callee.span()),
                 );
             }
         }
@@ -339,7 +339,7 @@ impl TypeValidator {
                                 struct_type.name(db)
                             ),
                         )
-                        .with_location(field.span()),
+                        .with_location(file.file_path(db).to_string(), field.span()),
                     );
                 }
             }
@@ -355,7 +355,7 @@ impl TypeValidator {
                             object_type_id.data(db).display_name(db)
                         ),
                     )
-                    .with_location(object.span()),
+                    .with_location(file.file_path(db).to_string(), object.span()),
                 );
             }
         }
@@ -396,7 +396,7 @@ impl TypeValidator {
                                 index_type_id.data(db).display_name(db)
                             ),
                         )
-                        .with_location(index_expr.span()),
+                        .with_location(file.file_path(db).to_string(), index_expr.span()),
                     );
                 }
             }
@@ -412,7 +412,7 @@ impl TypeValidator {
                             array_type_id.data(db).display_name(db)
                         ),
                     )
-                    .with_location(array.span()),
+                    .with_location(file.file_path(db).to_string(), array.span()),
                 );
             }
         }
@@ -448,7 +448,7 @@ impl TypeValidator {
                     DiagnosticCode::InvalidStructLiteral,
                     format!("'{}' is not a struct type", name.value()),
                 )
-                .with_location(name.span()),
+                .with_location(file.file_path(db).to_string(), name.span()),
             );
             return;
         };
@@ -471,7 +471,7 @@ impl TypeValidator {
                             struct_type.name(db)
                         ),
                     )
-                    .with_location(name.span()),
+                    .with_location(file.file_path(db).to_string(), name.span()),
                 );
             }
         }
@@ -497,7 +497,7 @@ impl TypeValidator {
                                     actual_type.data(db).display_name(db)
                                 ),
                             )
-                            .with_location(field_value.span()),
+                            .with_location(file.file_path(db).to_string(), field_value.span()),
                         );
                     }
                 }
@@ -511,7 +511,7 @@ impl TypeValidator {
                             struct_type.name(db)
                         ),
                     )
-                    .with_location(field_name.span()),
+                    .with_location(file.file_path(db).to_string(), field_name.span()),
                 );
             }
         }
@@ -645,7 +645,7 @@ impl TypeValidator {
                             value_type.data(db).display_name(db)
                         ),
                     )
-                    .with_location(value.span()),
+                    .with_location(file.file_path(db).to_string(), value.span()),
                 );
             }
         }
@@ -685,7 +685,7 @@ impl TypeValidator {
                             value_type.data(db).display_name(db)
                         ),
                     )
-                    .with_location(value.span()),
+                    .with_location(file.file_path(db).to_string(), value.span()),
                 );
             }
         }
@@ -743,7 +743,7 @@ impl TypeValidator {
                         "Invalid assignment target - must be a variable, field, or array element"
                             .to_string(),
                     )
-                    .with_location(lhs.span()),
+                    .with_location(file.file_path(db).to_string(), lhs.span()),
                 );
                 return;
             }
@@ -760,7 +760,7 @@ impl TypeValidator {
                         lhs_type.data(db).display_name(db)
                     ),
                 )
-                .with_location(rhs.span()),
+                .with_location(file.file_path(db).to_string(), rhs.span()),
             );
         }
     }
@@ -797,7 +797,7 @@ impl TypeValidator {
                             DiagnosticCode::MissingReturnValue,
                             "Function with return type must return a value".to_string(),
                         )
-                        .with_location(span),
+                        .with_location(file.file_path(db).to_string(), span),
                     );
                     return;
                 }
@@ -817,7 +817,7 @@ impl TypeValidator {
                             return_type.data(db).display_name(db)
                         ),
                     )
-                    .with_location(span),
+                    .with_location(file.file_path(db).to_string(), span),
                 );
             }
         }
@@ -852,7 +852,7 @@ impl TypeValidator {
                         condition_type.data(db).display_name(db)
                     ),
                 )
-                .with_location(condition.span()),
+                .with_location(file.file_path(db).to_string(), condition.span()),
             );
         }
 
@@ -913,7 +913,7 @@ mod tests {
                 let valid_2 = returns_felt() + 1; // OK: felt + felt
             }
         "#;
-        let file = crate::File::new(&db, program.to_string());
+        let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
         let semantic_index = semantic_index(&db, file)
             .as_ref()
             .expect("Got unexpected parse errors");
@@ -945,7 +945,7 @@ mod tests {
                 let invalid = add(point, 1);    // Error: struct instead of felt
             }
         "#;
-        let file = crate::File::new(&db, program.to_string());
+        let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
         let semantic_index = semantic_index(&db, file)
             .as_ref()
             .expect("Got unexpected parse errors");
@@ -982,7 +982,7 @@ mod tests {
                 let invalid_index2 = 42[0];    // Error: indexing non-indexable
             }
         "#;
-        let file = crate::File::new(&db, program.to_string());
+        let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
         let semantic_index = semantic_index(&db, file)
             .as_ref()
             .expect("Got unexpected parse errors");
@@ -1031,7 +1031,7 @@ mod tests {
                 let h: Point = (1, 2);        // Error: type mismatch
             }
         "#;
-        let file = crate::File::new(&db, program.to_string());
+        let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
         let semantic_index = semantic_index(&db, file)
             .as_ref()
             .expect("Got unexpected parse errors");
@@ -1091,7 +1091,7 @@ mod tests {
                 }
             }
         "#;
-        let file = crate::File::new(&db, program.to_string());
+        let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
         let semantic_index = semantic_index(&db, file)
             .as_ref()
             .expect("Got unexpected parse errors");
@@ -1155,7 +1155,7 @@ mod tests {
                 }
             }
         "#;
-        let file = crate::File::new(&db, program.to_string());
+        let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
         let semantic_index = semantic_index(&db, file)
             .as_ref()
             .expect("Got unexpected parse errors");
@@ -1198,7 +1198,7 @@ mod tests {
                 local k: Point = Point { x: 1 + 2, y: 3 + 4 }; // OK: complex initialization
             }
         "#;
-        let file = crate::File::new(&db, program.to_string());
+        let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
         let semantic_index = semantic_index(&db, file)
             .as_ref()
             .expect("Got unexpected parse errors");
@@ -1250,7 +1250,7 @@ mod tests {
                 (1, 2) = 1;                   // Error: invalid target
             }
         "#;
-        let file = crate::File::new(&db, program.to_string());
+        let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
         let semantic_index = semantic_index(&db, file)
             .as_ref()
             .expect("Got unexpected parse errors");

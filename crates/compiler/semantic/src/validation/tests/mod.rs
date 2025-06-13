@@ -41,7 +41,7 @@ const TEST_DATA_DIR: &str = "src/validation/tests/test_data";
 /// Test a fixture file and generate a snapshot of all diagnostics
 pub fn assert_diagnostics_snapshot(fixture_name: &str, snapshot_name: &str) {
     let source = load_fixture(fixture_name);
-    let diagnostics = run_validation(&source);
+    let diagnostics = run_validation(&source, fixture_name);
     let snapshot_content = format_diagnostics_for_snapshot(&diagnostics, &source, fixture_name);
     insta::assert_snapshot!(snapshot_name, snapshot_content);
 }
@@ -49,7 +49,7 @@ pub fn assert_diagnostics_snapshot(fixture_name: &str, snapshot_name: &str) {
 /// Test a fixture file expecting no diagnostics
 pub fn test_fixture_clean(fixture_name: &str) {
     let source = load_fixture(fixture_name);
-    let diagnostics = run_validation(&source);
+    let diagnostics = run_validation(&source, fixture_name);
     if !diagnostics.is_empty() {
         let report = format_diagnostics_for_snapshot(&diagnostics, &source, fixture_name);
         panic!("Expected clean validation for {fixture_name}, but found diagnostics:\n{report}");
@@ -116,9 +116,9 @@ pub fn list_fixtures() -> Vec<String> {
 // ===== Core validation and snapshot logic =====
 
 /// Run semantic validation on source code
-fn run_validation(source: &str) -> DiagnosticCollection {
+fn run_validation(source: &str, file_name: &str) -> DiagnosticCollection {
     let db = SemanticDatabaseImpl::default();
-    let source_program = SourceProgram::new(&db, source.to_string());
+    let source_program = SourceProgram::new(&db, source.to_string(), file_name.to_string());
 
     // Build semantic index
     let index = semantic_index(&db, source_program)
@@ -216,6 +216,7 @@ mod tests_inner {
                 }
             "#
             .to_string(),
+            "test.cm".to_string(),
         );
 
         // Run validation
@@ -260,6 +261,7 @@ mod tests_inner {
                 }
             "#
             .to_string(),
+            "test.cm".to_string(),
         );
 
         let parse_output = parse_program(&db, source);
@@ -298,6 +300,7 @@ mod tests_inner {
             }
         "#
             .to_string(),
+            "test.cm".to_string(),
         );
 
         let parse_output = parse_program(&db, source);
@@ -330,6 +333,7 @@ mod tests_inner {
             }
         "#
             .to_string(),
+            "test.cm".to_string(),
         );
 
         let parse_output = parse_program(&db, source);

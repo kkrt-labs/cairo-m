@@ -43,10 +43,12 @@ impl Validator for ControlFlowValidator {
         }
         let parsed_module = parsed_program.module;
 
-        // Analyse each function’s control-flow.
+        // Analyse each function's control-flow.
         for (_def_idx, definition) in index.all_definitions() {
             if let DefinitionKind::Function(_) = &definition.kind {
                 self.analyze_function_control_flow(
+                    db,
+                    file,
                     &parsed_module,
                     &definition.name,
                     &mut diagnostics,
@@ -66,6 +68,8 @@ impl ControlFlowValidator {
     /// Analyse the control-flow of a specific function, adding diagnostics as needed.
     fn analyze_function_control_flow(
         &self,
+        db: &dyn SemanticDb,
+        file: File,
         parsed_module: &cairo_m_compiler_parser::parser::ParsedModule,
         function_name: &str,
         diagnostics: &mut Vec<Diagnostic>,
@@ -73,11 +77,17 @@ impl ControlFlowValidator {
         // Find the function definition in the AST.
         if let Some(function_def) = self.find_function_in_module(parsed_module, function_name) {
             // Pass 1: Unreachable code analysis.
-            Self::analyze_for_unreachable_code_in_sequence(&function_def.body, diagnostics);
+            Self::analyze_for_unreachable_code_in_sequence(
+                db,
+                file,
+                &function_def.body,
+                diagnostics,
+            );
 
             // Pass 2: Missing-return analysis.
             if !Self::body_returns_on_all_paths(&function_def.body) {
                 diagnostics.push(Diagnostic::missing_return(
+                    file.file_path(db).to_string(),
                     function_name,
                     function_def.name.span(),
                 ));
@@ -122,6 +132,8 @@ impl ControlFlowValidator {
     /// Analyse a sequence of statements for unreachable code.
     /// Returns `true` if the sequence is guaranteed to terminate.
     fn analyze_for_unreachable_code_in_sequence(
+        db: &dyn SemanticDb,
+        file: File,
         statements: &[Spanned<Statement>],
         diagnostics: &mut Vec<Diagnostic>,
     ) -> bool {
@@ -130,14 +142,19 @@ impl ControlFlowValidator {
             if path_has_terminated {
                 let statement_type = Self::statement_type_name(stmt_spanned.value());
                 diagnostics.push(Diagnostic::unreachable_code(
+                    file.file_path(db).to_string(),
                     statement_type,
                     stmt_spanned.span(),
                 ));
             }
 
             // Recurse to find nested unreachable code, even if this statement is already unreachable.
-            let current_statement_terminates =
-                Self::analyze_for_unreachable_code_in_statement(stmt_spanned, diagnostics);
+            let current_statement_terminates = Self::analyze_for_unreachable_code_in_statement(
+                db,
+                file,
+                stmt_spanned,
+                diagnostics,
+            );
 
             if !path_has_terminated {
                 path_has_terminated = current_statement_terminates;
@@ -148,23 +165,29 @@ impl ControlFlowValidator {
 
     /// Analyse a single statement for unreachable code and check if it terminates.
     fn analyze_for_unreachable_code_in_statement(
+        db: &dyn SemanticDb,
+        file: File,
         stmt: &Spanned<Statement>,
         diagnostics: &mut Vec<Diagnostic>,
     ) -> bool {
         match stmt.value() {
             Statement::Return { .. } => true,
             Statement::Block(body) => {
-                Self::analyze_for_unreachable_code_in_sequence(body, diagnostics)
+                Self::analyze_for_unreachable_code_in_sequence(db, file, body, diagnostics)
             }
             Statement::If {
                 then_block,
                 else_block,
                 ..
             } => {
-                let then_terminates =
-                    Self::analyze_for_unreachable_code_in_statement(then_block, diagnostics);
+                let then_terminates = Self::analyze_for_unreachable_code_in_statement(
+                    db,
+                    file,
+                    then_block,
+                    diagnostics,
+                );
                 let else_terminates = else_block.as_ref().is_some_and(|eb| {
-                    Self::analyze_for_unreachable_code_in_statement(eb, diagnostics)
+                    Self::analyze_for_unreachable_code_in_statement(db, file, eb, diagnostics)
                 });
                 then_terminates && else_terminates
             }

@@ -79,7 +79,7 @@ Found 13 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1002] Warning: Unused variable 'INVALID_CONST'
-    ╭─[ <unknown>:61:7 ]
+    ╭─[ missing_validation_cases.cm:61:7 ]
     │
  61 │ const INVALID_CONST = some_function(42);
     │       ──────┬──────  
@@ -88,7 +88,7 @@ Found 13 diagnostic(s):
 
 --- Diagnostic 2 ---
 [1002] Warning: Unused variable 'bad_field'
-    ╭─[ <unknown>:18:9 ]
+    ╭─[ missing_validation_cases.cm:18:9 ]
     │
  18 │     let bad_field = p.z;
     │         ────┬────  
@@ -97,7 +97,7 @@ Found 13 diagnostic(s):
 
 --- Diagnostic 3 ---
 [1002] Warning: Unused variable 'incomplete'
-    ╭─[ <unknown>:21:9 ]
+    ╭─[ missing_validation_cases.cm:21:9 ]
     │
  21 │     let incomplete = Point { x: 1 };
     │         ─────┬────  
@@ -106,7 +106,7 @@ Found 13 diagnostic(s):
 
 --- Diagnostic 4 ---
 [1002] Warning: Unused variable 'unknown_field'
-    ╭─[ <unknown>:24:9 ]
+    ╭─[ missing_validation_cases.cm:24:9 ]
     │
  24 │     let unknown_field = Point { x: 1, y: 2, w: 3 };
     │         ──────┬──────  
@@ -115,7 +115,7 @@ Found 13 diagnostic(s):
 
 --- Diagnostic 5 ---
 [1002] Warning: Unused variable 'bad_index'
-    ╭─[ <unknown>:28:9 ]
+    ╭─[ missing_validation_cases.cm:28:9 ]
     │
  28 │     let bad_index = num[0];
     │         ────┬────  
@@ -124,7 +124,7 @@ Found 13 diagnostic(s):
 
 --- Diagnostic 6 ---
 [1002] Warning: Unused variable 'bad_member'
-    ╭─[ <unknown>:32:9 ]
+    ╭─[ missing_validation_cases.cm:32:9 ]
     │
  32 │     let bad_member = another_num.field;
     │         ─────┬────  
@@ -133,7 +133,7 @@ Found 13 diagnostic(s):
 
 --- Diagnostic 7 ---
 [1002] Warning: Unused variable 'wrong_args'
-    ╭─[ <unknown>:35:9 ]
+    ╭─[ missing_validation_cases.cm:35:9 ]
     │
  35 │     let wrong_args = some_function(1, 2, 3);
     │         ─────┬────  
@@ -142,7 +142,7 @@ Found 13 diagnostic(s):
 
 --- Diagnostic 8 ---
 [2002] Error: Field 'z' does not exist in struct Point
-    ╭─[ <unknown>:18:23 ]
+    ╭─[ missing_validation_cases.cm:18:23 ]
     │
  18 │     let bad_field = p.z;
     │                       ┬  
@@ -151,7 +151,7 @@ Found 13 diagnostic(s):
 
 --- Diagnostic 9 ---
 [2004] Error: Missing field 'y' in struct literal for 'Point'
-    ╭─[ <unknown>:21:22 ]
+    ╭─[ missing_validation_cases.cm:21:22 ]
     │
  21 │     let incomplete = Point { x: 1 };
     │                      ──┬──  
@@ -160,7 +160,7 @@ Found 13 diagnostic(s):
 
 --- Diagnostic 10 ---
 [2002] Error: Field 'w' does not exist in struct 'Point'
-    ╭─[ <unknown>:24:45 ]
+    ╭─[ missing_validation_cases.cm:24:45 ]
     │
  24 │     let unknown_field = Point { x: 1, y: 2, w: 3 };
     │                                             ┬  
@@ -169,7 +169,7 @@ Found 13 diagnostic(s):
 
 --- Diagnostic 11 ---
 [2003] Error: Type 'felt' cannot be indexed
-    ╭─[ <unknown>:28:21 ]
+    ╭─[ missing_validation_cases.cm:28:21 ]
     │
  28 │     let bad_index = num[0];
     │                     ─┬─  
@@ -178,7 +178,7 @@ Found 13 diagnostic(s):
 
 --- Diagnostic 12 ---
 [2002] Error: Expected struct type, found felt
-    ╭─[ <unknown>:32:22 ]
+    ╭─[ missing_validation_cases.cm:32:22 ]
     │
  32 │     let bad_member = another_num.field;
     │                      ─────┬─────  
@@ -187,7 +187,7 @@ Found 13 diagnostic(s):
 
 --- Diagnostic 13 ---
 [2005] Error: Function expects 1 argument(s), but 3 were provided
-    ╭─[ <unknown>:35:22 ]
+    ╭─[ missing_validation_cases.cm:35:22 ]
     │
  35 │     let wrong_args = some_function(1, 2, 3);
     │                      ──────┬──────  

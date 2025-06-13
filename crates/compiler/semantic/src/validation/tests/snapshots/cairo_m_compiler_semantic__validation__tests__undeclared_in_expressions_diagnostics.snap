@@ -20,7 +20,7 @@ Found 7 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1001] Error: Undeclared variable 'a'
-   ╭─[ <unknown>:2:18 ]
+   ╭─[ undeclared_in_expressions.cm:2:18 ]
    │
  2 │     let result = a + b; // Should error: Undeclared variable 'a' and 'b'
    │                  ┬  
@@ -29,7 +29,7 @@ Found 7 diagnostic(s):
 
 --- Diagnostic 2 ---
 [1001] Error: Undeclared variable 'b'
-   ╭─[ <unknown>:2:22 ]
+   ╭─[ undeclared_in_expressions.cm:2:22 ]
    │
  2 │     let result = a + b; // Should error: Undeclared variable 'a' and 'b'
    │                      ┬  
@@ -38,7 +38,7 @@ Found 7 diagnostic(s):
 
 --- Diagnostic 3 ---
 [1001] Error: Undeclared variable 'foo'
-   ╭─[ <unknown>:3:23 ]
+   ╭─[ undeclared_in_expressions.cm:3:23 ]
    │
  3 │     let call_result = foo(); // Should error: Undeclared variable 'foo'
    │                       ─┬─  
@@ -47,7 +47,7 @@ Found 7 diagnostic(s):
 
 --- Diagnostic 4 ---
 [1001] Error: Undeclared variable 'undefined'
-   ╭─[ <unknown>:5:9 ]
+   ╭─[ undeclared_in_expressions.cm:5:9 ]
    │
  5 │     if (undefined) { // Should error: Undeclared variable 'undefined'
    │         ────┬────  
@@ -56,7 +56,7 @@ Found 7 diagnostic(s):
 
 --- Diagnostic 5 ---
 [1002] Warning: Unused variable 'result'
-   ╭─[ <unknown>:2:9 ]
+   ╭─[ undeclared_in_expressions.cm:2:9 ]
    │
  2 │     let result = a + b; // Should error: Undeclared variable 'a' and 'b'
    │         ───┬──  
@@ -65,7 +65,7 @@ Found 7 diagnostic(s):
 
 --- Diagnostic 6 ---
 [1002] Warning: Unused variable 'call_result'
-   ╭─[ <unknown>:3:9 ]
+   ╭─[ undeclared_in_expressions.cm:3:9 ]
    │
  3 │     let call_result = foo(); // Should error: Undeclared variable 'foo'
    │         ─────┬─────  
@@ -74,7 +74,7 @@ Found 7 diagnostic(s):
 
 --- Diagnostic 7 ---
 [1002] Warning: Unused variable 'x'
-   ╭─[ <unknown>:6:13 ]
+   ╭─[ undeclared_in_expressions.cm:6:13 ]
    │
  6 │         let x = 1;
    │             ┬  

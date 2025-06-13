@@ -30,7 +30,7 @@ Found 4 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1001] Error: Undeclared variable 'inner'
-    ╭─[ <unknown>:17:13 ]
+    ╭─[ nested_scope_access.cm:17:13 ]
     │
  17 │     let x = inner; // Should error: Undeclared variable 'inner'
     │             ──┬──  
@@ -39,7 +39,7 @@ Found 4 diagnostic(s):
 
 --- Diagnostic 2 ---
 [1002] Warning: Unused variable 'all'
-   ╭─[ <unknown>:7:17 ]
+   ╭─[ nested_scope_access.cm:7:17 ]
    │
  7 │             let all = level1 + level2 + level3; // OK: all visible
    │                 ─┬─  
@@ -48,7 +48,7 @@ Found 4 diagnostic(s):
 
 --- Diagnostic 3 ---
 [1002] Warning: Unused variable 'x'
-    ╭─[ <unknown>:17:9 ]
+    ╭─[ nested_scope_access.cm:17:9 ]
     │
  17 │     let x = inner; // Should error: Undeclared variable 'inner'
     │         ┬  
@@ -57,7 +57,7 @@ Found 4 diagnostic(s):
 
 --- Diagnostic 4 ---
 [1002] Warning: Unused variable 'inner'
-    ╭─[ <unknown>:15:13 ]
+    ╭─[ nested_scope_access.cm:15:13 ]
     │
  15 │         let inner = 42;
     │             ──┬──  

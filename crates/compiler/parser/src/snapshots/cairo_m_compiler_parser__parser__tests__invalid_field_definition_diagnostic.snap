@@ -4,7 +4,7 @@ expression: snapshot_entries
 ---
 code: struct Point { x, y: felt }
 result: [02] Error: found ',' expected ':'
-   ╭─[ <unknown>:1:17 ]
+   ╭─[ invalid_field_definition:1:17 ]
    │
  1 │ struct Point { x, y: felt }
    │                 ┬  

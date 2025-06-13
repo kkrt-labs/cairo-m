@@ -27,7 +27,7 @@ fn main() {
         Ok(content) => {
             // Initialize DB and source input
             let db = cairo_m_compiler_semantic::SemanticDatabaseImpl::default();
-            let source = SourceProgram::new(&db, content.clone());
+            let source = SourceProgram::new(&db, content.clone(), args.input.display().to_string());
 
             let parsed_program = parse_program(&db, source);
 

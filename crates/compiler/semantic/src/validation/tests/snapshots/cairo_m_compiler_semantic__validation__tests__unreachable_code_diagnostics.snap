@@ -82,7 +82,7 @@ Found 21 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1002] Warning: Unused variable 'x'
-   ╭─[ <unknown>:3:9 ]
+   ╭─[ unreachable_code.cm:3:9 ]
    │
  3 │     let x = 5;  // unreachable
    │         ┬  
@@ -91,7 +91,7 @@ Found 21 diagnostic(s):
 
 --- Diagnostic 2 ---
 [1002] Warning: Unused variable 'y'
-   ╭─[ <unknown>:4:9 ]
+   ╭─[ unreachable_code.cm:4:9 ]
    │
  4 │     let y = 10; // unreachable
    │         ┬  
@@ -100,7 +100,7 @@ Found 21 diagnostic(s):
 
 --- Diagnostic 3 ---
 [1002] Warning: Unused variable 'y'
-    ╭─[ <unknown>:10:13 ]
+    ╭─[ unreachable_code.cm:10:13 ]
     │
  10 │         let y = 2;  // unreachable
     │             ┬  
@@ -109,7 +109,7 @@ Found 21 diagnostic(s):
 
 --- Diagnostic 4 ---
 [1002] Warning: Unused variable 'z'
-    ╭─[ <unknown>:17:13 ]
+    ╭─[ unreachable_code.cm:17:13 ]
     │
  17 │         let z = 3;  // unreachable
     │             ┬  
@@ -118,7 +118,7 @@ Found 21 diagnostic(s):
 
 --- Diagnostic 5 ---
 [1002] Warning: Unused variable 'unreachable_after_if_else'
-    ╭─[ <unknown>:29:9 ]
+    ╭─[ unreachable_code.cm:29:9 ]
     │
  29 │     let unreachable_after_if_else = 5;  // unreachable - both branches return
     │         ────────────┬────────────  
@@ -127,7 +127,7 @@ Found 21 diagnostic(s):
 
 --- Diagnostic 6 ---
 [1002] Warning: Unused variable 'x'
-    ╭─[ <unknown>:37:13 ]
+    ╭─[ unreachable_code.cm:37:13 ]
     │
  37 │         let x = 1;  // reachable
     │             ┬  
@@ -136,7 +136,7 @@ Found 21 diagnostic(s):
 
 --- Diagnostic 7 ---
 [1002] Warning: Unused variable 'unreachable_after_outer_if'
-    ╭─[ <unknown>:55:9 ]
+    ╭─[ unreachable_code.cm:55:9 ]
     │
  55 │     let unreachable_after_outer_if = 8;  // unreachable - all branches return
     │         ─────────────┬────────────  
@@ -145,7 +145,7 @@ Found 21 diagnostic(s):
 
 --- Diagnostic 8 ---
 [1002] Warning: Unused variable 'unreachable_in_outer_if'
-    ╭─[ <unknown>:51:13 ]
+    ╭─[ unreachable_code.cm:51:13 ]
     │
  51 │         let unreachable_in_outer_if = 7;  // unreachable - inner if-else both return
     │             ───────────┬───────────  
@@ -154,7 +154,7 @@ Found 21 diagnostic(s):
 
 --- Diagnostic 9 ---
 [2001] Error: Type mismatch in return statement. Expected 'felt', found '()'
-    ╭─[ <unknown>:30:5 ]
+    ╭─[ unreachable_code.cm:30:5 ]
     │
  30 │     return();
     │     ────┬────  
@@ -163,7 +163,7 @@ Found 21 diagnostic(s):
 
 --- Diagnostic 10 ---
 [2001] Error: Type mismatch in return statement. Expected 'felt', found '()'
-    ╭─[ <unknown>:41:5 ]
+    ╭─[ unreachable_code.cm:41:5 ]
     │
  41 │     return();
     │     ────┬────  
@@ -172,7 +172,7 @@ Found 21 diagnostic(s):
 
 --- Diagnostic 11 ---
 [2001] Error: Type mismatch in return statement. Expected 'felt', found '()'
-    ╭─[ <unknown>:56:5 ]
+    ╭─[ unreachable_code.cm:56:5 ]
     │
  56 │     return();
     │     ────┬────  
@@ -181,7 +181,7 @@ Found 21 diagnostic(s):
 
 --- Diagnostic 12 ---
 [3001] Warning: Unreachable variable declaration
-   ╭─[ <unknown>:3:5 ]
+   ╭─[ unreachable_code.cm:3:5 ]
    │
  3 │     let x = 5;  // unreachable
    │     ─────┬────  
@@ -190,7 +190,7 @@ Found 21 diagnostic(s):
 
 --- Diagnostic 13 ---
 [3001] Warning: Unreachable variable declaration
-   ╭─[ <unknown>:4:5 ]
+   ╭─[ unreachable_code.cm:4:5 ]
    │
  4 │     let y = 10; // unreachable
    │     ─────┬─────  
@@ -199,7 +199,7 @@ Found 21 diagnostic(s):
 
 --- Diagnostic 14 ---
 [3001] Warning: Unreachable variable declaration
-    ╭─[ <unknown>:10:9 ]
+    ╭─[ unreachable_code.cm:10:9 ]
     │
  10 │         let y = 2;  // unreachable
     │         ─────┬────  
@@ -208,7 +208,7 @@ Found 21 diagnostic(s):
 
 --- Diagnostic 15 ---
 [3001] Warning: Unreachable variable declaration
-    ╭─[ <unknown>:17:9 ]
+    ╭─[ unreachable_code.cm:17:9 ]
     │
  17 │         let z = 3;  // unreachable
     │         ─────┬────  
@@ -217,7 +217,7 @@ Found 21 diagnostic(s):
 
 --- Diagnostic 16 ---
 [3001] Warning: Unreachable variable declaration
-    ╭─[ <unknown>:29:5 ]
+    ╭─[ unreachable_code.cm:29:5 ]
     │
  29 │     let unreachable_after_if_else = 5;  // unreachable - both branches return
     │     ─────────────────┬────────────────  
@@ -226,7 +226,7 @@ Found 21 diagnostic(s):
 
 --- Diagnostic 17 ---
 [3001] Warning: Unreachable return statement
-    ╭─[ <unknown>:30:5 ]
+    ╭─[ unreachable_code.cm:30:5 ]
     │
  30 │     return();
     │     ────┬────  
@@ -235,7 +235,7 @@ Found 21 diagnostic(s):
 
 --- Diagnostic 18 ---
 [3001] Warning: Unreachable return statement
-    ╭─[ <unknown>:41:5 ]
+    ╭─[ unreachable_code.cm:41:5 ]
     │
  41 │     return();
     │     ────┬────  
@@ -244,7 +244,7 @@ Found 21 diagnostic(s):
 
 --- Diagnostic 19 ---
 [3001] Warning: Unreachable variable declaration
-    ╭─[ <unknown>:51:9 ]
+    ╭─[ unreachable_code.cm:51:9 ]
     │
  51 │         let unreachable_in_outer_if = 7;  // unreachable - inner if-else both return
     │         ────────────────┬───────────────  
@@ -253,7 +253,7 @@ Found 21 diagnostic(s):
 
 --- Diagnostic 20 ---
 [3001] Warning: Unreachable variable declaration
-    ╭─[ <unknown>:55:5 ]
+    ╭─[ unreachable_code.cm:55:5 ]
     │
  55 │     let unreachable_after_outer_if = 8;  // unreachable - all branches return
     │     ─────────────────┬─────────────────  
@@ -262,7 +262,7 @@ Found 21 diagnostic(s):
 
 --- Diagnostic 21 ---
 [3001] Warning: Unreachable return statement
-    ╭─[ <unknown>:56:5 ]
+    ╭─[ unreachable_code.cm:56:5 ]
     │
  56 │     return();
     │     ────┬────  

@@ -187,10 +187,22 @@ mod tests {
     #[test]
     fn test_validator_registry() {
         let span = chumsky::span::SimpleSpan::from(0..4);
-        let validator1 =
-            MockValidator::new("test1", vec![Diagnostic::undeclared_variable("var1", span)]);
-        let validator2 =
-            MockValidator::new("test2", vec![Diagnostic::unused_variable("var2", span)]);
+        let validator1 = MockValidator::new(
+            "test1",
+            vec![Diagnostic::undeclared_variable(
+                "test.cm".to_string(),
+                "var1",
+                span,
+            )],
+        );
+        let validator2 = MockValidator::new(
+            "test2",
+            vec![Diagnostic::unused_variable(
+                "test.cm".to_string(),
+                "var2",
+                span,
+            )],
+        );
 
         let registry = ValidatorRegistry::new()
             .add_validator(validator1)

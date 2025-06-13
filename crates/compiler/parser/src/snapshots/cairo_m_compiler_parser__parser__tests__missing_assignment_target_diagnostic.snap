@@ -4,7 +4,7 @@ expression: snapshot_entries
 ---
 code: func test() { = 5; }
 result: [02] Error: found '=' expected '{', 'if', 'let', 'local', 'const', 'return', something else, identifier, '(', or '}'
-   ╭─[ <unknown>:1:15 ]
+   ╭─[ missing_assignment_target:1:15 ]
    │
  1 │ func test() { = 5; }
    │               ┬  

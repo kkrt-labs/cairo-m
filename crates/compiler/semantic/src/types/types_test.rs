@@ -15,7 +15,7 @@ use cairo_m_compiler_parser::parser::TypeExpr as AstTypeExpr;
 #[test]
 fn test_resolve_primitive_types() {
     let db = test_db();
-    let file = File::new(&db, "".to_string());
+    let file = File::new(&db, "".to_string(), "test.cm".to_string());
     let semantic_index = semantic_index(&db, file)
         .as_ref()
         .expect("Got unexpected parse errors");
@@ -49,7 +49,7 @@ fn test_struct_type_resolution() {
             y: felt,
         }
     "#;
-    let file = File::new(&db, program.to_string());
+    let file = File::new(&db, program.to_string(), "test.cm".to_string());
     let semantic_index = semantic_index(&db, file)
         .as_ref()
         .expect("Got unexpected parse errors");
@@ -99,7 +99,7 @@ fn test_function_signature_resolution() {
             return Point { x: x, y: 0 };
         }
     "#;
-    let file = File::new(&db, program.to_string());
+    let file = File::new(&db, program.to_string(), "test.cm".to_string());
     let semantic_index = semantic_index(&db, file)
         .as_ref()
         .expect("Got unexpected parse errors");
@@ -148,7 +148,7 @@ fn test_parameter_type_resolution() {
             return 0;
         }
     "#;
-    let file = File::new(&db, program.to_string());
+    let file = File::new(&db, program.to_string(), "test.cm".to_string());
     let semantic_index = semantic_index(&db, file)
         .as_ref()
         .expect("Got unexpected parse errors");
@@ -188,7 +188,7 @@ fn test_expression_type_inference() {
             return c;
         }
     "#;
-    let file = File::new(&db, program.to_string());
+    let file = File::new(&db, program.to_string(), "test.cm".to_string());
     let semantic_index = semantic_index(&db, file)
         .as_ref()
         .expect("Got unexpected parse errors");
@@ -252,7 +252,7 @@ fn test_let_variable_type_inference() {
             let p = Point { x: 1, y: 2 };
         }
     "#;
-    let file = File::new(&db, program.to_string());
+    let file = File::new(&db, program.to_string(), "test.cm".to_string());
     let semantic_index = semantic_index(&db, file)
         .as_ref()
         .expect("Got unexpected parse errors");
@@ -301,7 +301,7 @@ fn test_const_variable_type_inference() {
         const MAGIC_NUMBER = 42;
         const PI_APPROX = 314;
     "#;
-    let file = File::new(&db, program.to_string());
+    let file = File::new(&db, program.to_string(), "test.cm".to_string());
     let semantic_index = semantic_index(&db, file)
         .as_ref()
         .expect("Got unexpected parse errors");
@@ -343,7 +343,7 @@ fn test_explicit_type_annotations_priority() {
             let p: Point = Point { x: 1, y: 2 };
         }
     "#;
-    let file = File::new(&db, program.to_string());
+    let file = File::new(&db, program.to_string(), "test.cm".to_string());
     let semantic_index = semantic_index(&db, file)
         .as_ref()
         .expect("Got unexpected parse errors");
@@ -400,7 +400,7 @@ fn test_local_variable_inference_without_annotation() {
             local y = Point { x: 1, y: 2 };
         }
     "#;
-    let file = File::new(&db, program.to_string());
+    let file = File::new(&db, program.to_string(), "test.cm".to_string());
     let semantic_index = semantic_index(&db, file)
         .as_ref()
         .expect("Got unexpected parse errors");
@@ -449,7 +449,7 @@ fn test_mixed_variable_scenarios() {
             local d: Vector = c;           // explicit annotation, infer from identifier
         }
     "#;
-    let file = File::new(&db, program.to_string());
+    let file = File::new(&db, program.to_string(), "test.cm".to_string());
     let semantic_index = semantic_index(&db, file)
         .as_ref()
         .expect("Got unexpected parse errors");

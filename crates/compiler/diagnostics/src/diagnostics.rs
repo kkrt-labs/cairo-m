@@ -13,8 +13,10 @@ pub struct Diagnostic {
     pub severity: DiagnosticSeverity,
     pub code: DiagnosticCode,
     pub message: String,
+    pub file_path: String,
     /// Source span where this diagnostic applies
     pub span: SimpleSpan<usize>,
+
     /// Optional related spans for additional context
     pub related_spans: Vec<(SimpleSpan<usize>, String)>,
 }
@@ -147,6 +149,7 @@ impl Diagnostic {
             severity: DiagnosticSeverity::Error,
             code,
             message,
+            file_path: "".to_string(),
             span: SimpleSpan::from(0..0),
             related_spans: Vec::new(),
         }
@@ -158,6 +161,7 @@ impl Diagnostic {
             severity: DiagnosticSeverity::Warning,
             code,
             message,
+            file_path: "".to_string(),
             span: SimpleSpan::from(0..0),
             related_spans: Vec::new(),
         }
@@ -169,94 +173,111 @@ impl Diagnostic {
             severity: DiagnosticSeverity::Info,
             code,
             message,
+            file_path: "".to_string(),
             span: SimpleSpan::from(0..0),
             related_spans: Vec::new(),
         }
     }
 
     /// Add location information to this diagnostic
-    pub const fn with_location(mut self, span: SimpleSpan<usize>) -> Self {
+    pub fn with_location(mut self, file_path: String, span: SimpleSpan<usize>) -> Self {
         self.span = span;
+        self.file_path = file_path;
         self
     }
 
     /// Add a related span with context message
-    pub fn with_related_span(mut self, span: SimpleSpan<usize>, message: String) -> Self {
+    pub fn with_related_span(
+        mut self,
+        file_path: String,
+        span: SimpleSpan<usize>,
+        message: String,
+    ) -> Self {
         self.related_spans.push((span, message));
+        self.file_path = file_path;
         self
     }
 
     /// Convenience method for undeclared variable error
-    pub fn undeclared_variable(name: &str, span: SimpleSpan<usize>) -> Self {
+    pub fn undeclared_variable(file_path: String, name: &str, span: SimpleSpan<usize>) -> Self {
         Self::error(
             DiagnosticCode::UndeclaredVariable,
             format!("Undeclared variable '{name}'"),
         )
-        .with_location(span)
+        .with_location(file_path, span)
     }
 
     /// Convenience method for unused variable warning
-    pub fn unused_variable(name: &str, span: SimpleSpan<usize>) -> Self {
+    pub fn unused_variable(file_path: String, name: &str, span: SimpleSpan<usize>) -> Self {
         Self::warning(
             DiagnosticCode::UnusedVariable,
             format!("Unused variable '{name}'"),
         )
-        .with_location(span)
+        .with_location(file_path, span)
     }
 
     /// Convenience method for duplicate definition error
-    pub fn duplicate_definition(name: &str, span: SimpleSpan<usize>) -> Self {
+    pub fn duplicate_definition(file_path: String, name: &str, span: SimpleSpan<usize>) -> Self {
         Self::error(
             DiagnosticCode::DuplicateDefinition,
             format!("Duplicate definition of '{name}'"),
         )
-        .with_location(span)
+        .with_location(file_path, span)
     }
 
     /// Convenience method for use before definition error
-    pub fn use_before_definition(name: &str, span: SimpleSpan<usize>) -> Self {
+    pub fn use_before_definition(file_path: String, name: &str, span: SimpleSpan<usize>) -> Self {
         Self::error(
             DiagnosticCode::UseBeforeDefinition,
             format!("Variable '{name}' used before definition"),
         )
-        .with_location(span)
+        .with_location(file_path, span)
     }
 
     /// Convenience method for unreachable code warning
-    pub fn unreachable_code(statement_type: &str, span: SimpleSpan<usize>) -> Self {
+    pub fn unreachable_code(
+        file_path: String,
+        statement_type: &str,
+        span: SimpleSpan<usize>,
+    ) -> Self {
         Self::warning(
             DiagnosticCode::UnreachableCode,
             format!("Unreachable {statement_type}"),
         )
-        .with_location(span)
+        .with_location(file_path, span)
     }
 
     /// Convenience method for missing return warning
-    pub fn missing_return(function_name: &str, span: SimpleSpan<usize>) -> Self {
+    pub fn missing_return(file_path: String, function_name: &str, span: SimpleSpan<usize>) -> Self {
         Self::error(
             DiagnosticCode::MissingReturn,
             format!("Function '{function_name}' doesn't return on all paths"),
         )
-        .with_location(span)
+        .with_location(file_path, span)
     }
 
     /// Convenience method for lexical errors
-    pub fn lexical_error(message: String, span: SimpleSpan<usize>) -> Self {
-        Self::error(DiagnosticCode::LexicalError, message).with_location(span)
+    pub fn lexical_error(file_path: String, message: String, span: SimpleSpan<usize>) -> Self {
+        Self::error(DiagnosticCode::LexicalError, message).with_location(file_path, span)
     }
 
     /// Convenience method for syntax errors
-    pub fn syntax_error(message: String, span: SimpleSpan<usize>) -> Self {
-        Self::error(DiagnosticCode::SyntaxError, message).with_location(span)
+    pub fn syntax_error(file_path: String, message: String, span: SimpleSpan<usize>) -> Self {
+        Self::error(DiagnosticCode::SyntaxError, message).with_location(file_path, span)
     }
 
     /// Convenience method for unexpected token errors
-    pub fn unexpected_token(expected: &str, found: &str, span: SimpleSpan<usize>) -> Self {
+    pub fn unexpected_token(
+        file_path: String,
+        expected: &str,
+        found: &str,
+        span: SimpleSpan<usize>,
+    ) -> Self {
         Self::error(
             DiagnosticCode::UnexpectedToken,
             format!("Expected {expected}, found {found}"),
         )
-        .with_location(span)
+        .with_location(file_path, span)
     }
 }
 
@@ -383,7 +404,7 @@ mod tests {
     #[test]
     fn test_diagnostic_creation() {
         let span = SimpleSpan::from(10..20);
-        let diag = Diagnostic::undeclared_variable("test_var", span);
+        let diag = Diagnostic::undeclared_variable("test.cm".to_string(), "test_var", span);
         assert_eq!(diag.severity, DiagnosticSeverity::Error);
         assert_eq!(diag.code, DiagnosticCode::UndeclaredVariable);
         assert!(diag.message.contains("test_var"));
@@ -396,8 +417,16 @@ mod tests {
 
         let span1 = SimpleSpan::from(0..5);
         let span2 = SimpleSpan::from(10..15);
-        collection.add(Diagnostic::undeclared_variable("var1", span1));
-        collection.add(Diagnostic::unused_variable("var2", span2));
+        collection.add(Diagnostic::undeclared_variable(
+            "test.cm".to_string(),
+            "var1",
+            span1,
+        ));
+        collection.add(Diagnostic::unused_variable(
+            "test.cm".to_string(),
+            "var2",
+            span2,
+        ));
 
         assert_eq!(collection.len(), 2);
         assert_eq!(collection.errors().len(), 1);
@@ -408,7 +437,7 @@ mod tests {
     #[test]
     fn test_diagnostic_display() {
         let span = SimpleSpan::from(5..10);
-        let diag = Diagnostic::undeclared_variable("test", span);
+        let diag = Diagnostic::undeclared_variable("test.cm".to_string(), "test", span);
         let display = format!("{diag}");
         assert!(display.contains("error"));
         assert!(display.contains("Undeclared variable"));
