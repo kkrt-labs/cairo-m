@@ -40,8 +40,7 @@ module {
       %0 = call 0()
       %1 = stackalloc 1
       store %1, %0
-      %2 = load %1
-      return %2
+      return %1
 
   }
 

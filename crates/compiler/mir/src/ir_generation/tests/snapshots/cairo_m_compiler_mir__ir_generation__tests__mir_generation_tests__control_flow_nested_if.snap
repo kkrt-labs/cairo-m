@@ -38,27 +38,23 @@ module {
       store %3, %2
       %4 = stackalloc 1
       store %4, 0
-      %5 = load %1
-      %6 = %5 Eq 1
-      if %6 then jump 1 else jump 2
+      %5 = %1 Eq 1
+      if %5 then jump 1 else jump 2
 
     1:
-      %7 = load %3
-      %8 = %7 Eq 2
-      if %8 then jump 3 else jump 4
+      %6 = %3 Eq 2
+      if %6 then jump 3 else jump 4
 
     2:
-      %11 = load %4
-      return %11
+      return %4
 
     3:
       store %4, 100
       jump 4
 
     4:
-      %9 = load %4
-      %10 = %9 Add 1
-      store %4, %10
+      %7 = %4 Add 1
+      store %4, %7
       jump 2
 
   }

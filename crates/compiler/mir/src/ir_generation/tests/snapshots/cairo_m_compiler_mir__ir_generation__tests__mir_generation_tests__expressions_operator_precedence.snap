@@ -33,12 +33,9 @@ module {
       store %3, %2
       %5 = stackalloc 1
       store %5, %4
-      %6 = load %1
-      %7 = load %3
-      %8 = load %5
-      %9 = %7 Mul %8
-      %10 = %6 Add %9
-      return %10
+      %6 = %3 Mul %5
+      %7 = %1 Add %6
+      return %7
 
   }
 

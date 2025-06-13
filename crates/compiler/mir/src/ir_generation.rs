@@ -682,16 +682,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                     // Look up the MIR value for this definition
                     if let Some(var_addr) = self.definition_to_value.get(&mir_def_id) {
-                        // Load the value from the variable's stack address
-                        // Query semantic type system for actual variable type
-                        let semantic_type = definition_semantic_type(self.db, def_id);
-                        let var_type = MirType::from_semantic_type(self.db, semantic_type);
-                        let loaded_value = self.mir_function.new_typed_value_id(var_type);
-                        self.add_instruction(Instruction::load(
-                            loaded_value,
-                            Value::operand(*var_addr),
-                        ));
-                        return Ok(Value::operand(loaded_value));
+                        return Ok(Value::operand(*var_addr));
                     }
                 }
 

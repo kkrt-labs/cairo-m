@@ -1,10 +1,6 @@
-Of course. I've thoroughly analyzed the provided code for the MIR generation
-module. This is an excellent start, with a solid foundation and a very
-impressive testing harness.
+# Current state of MIR crate
 
-Here is a detailed assessment covering the three points you requested.
-
----
+##
 
 ### 1. Current Bugs in Implementation
 
@@ -140,7 +136,7 @@ Overall, this is a very strong and well-architected start.
 Here is a logical, incremental plan to build on the current foundation, focusing
 on expanding language features without touching loops.
 
-**Phase 1: Stabilization and Refinement**
+#### **Phase 1: Stabilization and Refinement**
 
 1.  **Fix Critical Bugs:** Implement the solutions for the **Double Allocation**
     detailed in section 1. Add the new test cases to lock in the fixes.
@@ -153,16 +149,16 @@ on expanding language features without touching loops.
       need to be used with a scaling factor for the element size if the index is
       not constant.
 
-**Phase 2: Expanding Expression and Statement Capabilities**
+#### **Phase 2: Expanding Expression and Statement Capabilities**
 
 3.  **Implement Unary Operators:**
     - Support operators like negation (`-`) and logical not (`!`).
     - This will likely require adding a `UnaryOp` variant to `InstructionKind`
       and handling it in `lower_expression`.
 
-**Phase 3: Introducing Enums and Pattern Matching**
+#### **Phase 3: Introducing Enums and Pattern Matching**
 
-**Phase 4: Improving the Compiler Backend**
+#### **Phase 4: Improving the Compiler Backend**
 
 7.  **Enhance MIR Passes:**
     - **Constant Folding:** Implement a pass to evaluate constant expressions.
