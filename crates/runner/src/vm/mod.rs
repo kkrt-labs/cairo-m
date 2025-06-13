@@ -238,7 +238,7 @@ mod tests {
 
         // The value 42 should be stored at memory[fp + 0] = memory[1]
         let stored_value = vm.memory.get_data(M31::one()).unwrap();
-        assert_eq!(stored_value, M31::from(42));
+        assert_eq!(stored_value, M31(42));
     }
 
     #[test]
@@ -344,8 +344,8 @@ mod tests {
         assert_eq!(vm.state.pc, M31::one());
 
         // First instruction should have executed successfully
-        let stored_value = vm.memory.get_data(M31::from(2)).unwrap();
-        assert_eq!(stored_value, M31::from(10));
+        let stored_value = vm.memory.get_data(M31(2)).unwrap();
+        assert_eq!(stored_value, M31(10));
     }
 
     #[test]
