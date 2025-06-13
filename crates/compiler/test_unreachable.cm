@@ -1,6 +1,0 @@
-func example() -> felt {
-    let a = 1;
-    return a;
-    let b = 2;  // This should be detected as unreachable
-    return b;   // This should also be unreachable
-}

@@ -1,5 +1,6 @@
+use cairo_m_compiler_codegen::generate_casm;
 use cairo_m_compiler_diagnostics::build_diagnostic_message;
-use cairo_m_compiler_mir::{generate_mir, PrettyPrint};
+use cairo_m_compiler_mir::generate_mir;
 use cairo_m_compiler_parser::{parse_program, SourceProgram};
 use cairo_m_compiler_semantic::validate_semantics;
 use clap::Parser;
@@ -48,35 +49,23 @@ fn main() {
                 std::process::exit(1);
             }
 
-            // Generate MIR
-            println!("Generating MIR...");
-            match generate_mir(&db, source) {
-                Some(mir_module) => {
-                    if args.verbose {
-                        println!("\n=== Generated MIR ===");
-                        println!("{}", mir_module.pretty_print(0));
-                        println!("=====================\n");
-                    }
+            let generated_mir = generate_mir(&db, source);
 
-                    // Validate MIR structure
-                    if let Err(validation_error) = mir_module.validate() {
-                        eprintln!("MIR validation failed: {validation_error}");
-                        std::process::exit(1);
-                    }
-
-                    println!("MIR generation successful!");
-                    println!("Generated {} function(s)", mir_module.function_count());
-
-                    // TODO: In Phase 4, this will be passed to code generation
-                    println!("\nCompilation successful!");
-                }
-                None => {
-                    eprintln!(
-                        "Failed to generate MIR - semantic analysis errors prevent MIR generation"
-                    );
-                    std::process::exit(1);
-                }
+            if generated_mir.is_none() {
+                eprintln!("Failed to generate MIR");
+                std::process::exit(1);
             }
+
+            let mir_module = generated_mir.unwrap();
+            let generated_casm = generate_casm(&mir_module);
+
+            if let Err(e) = generated_casm {
+                eprintln!("Failed to generate CASM: {e}");
+                std::process::exit(1);
+            }
+
+            //TODO: write output to file
+            println!("(temp output): Generated CASM: {}", generated_casm.unwrap());
         }
         Err(e) => eprintln!("Error reading file: {e}"),
     }

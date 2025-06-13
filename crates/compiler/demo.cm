@@ -1,0 +1,8 @@
+func main() -> felt {
+    let x = 3;
+    let y = 4;
+    let z = 5;
+
+    let a = x + y;
+    return 1;
+}

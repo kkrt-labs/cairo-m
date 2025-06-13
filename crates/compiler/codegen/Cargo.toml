@@ -1,0 +1,31 @@
+[package]
+name = "cairo-m-compiler-codegen"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# Core dependencies for data structures
+index_vec = "0.1.4"
+rustc-hash = "1.1.0"
+
+# Salsa for incremental compilation
+salsa = "0.22.0"
+salsa-macros = "0.22.0"
+
+# Project dependencies
+cairo-m-compiler-parser = { path = "../parser" }
+cairo-m-compiler-semantic = { path = "../semantic" }
+cairo-m-compiler-diagnostics = { path = "../diagnostics" }
+cairo-m-compiler-mir = { path = "../mir" }
+
+# Chumsky types
+chumsky = "0.10.1"
+
+# Field arithmetic for M31
+stwo-prover = { git = "https://github.com/starkware-libs/stwo", features = [
+  "parallel",
+] }
+
+# Testing dependencies
+[dev-dependencies]
+insta = "1.43.1"

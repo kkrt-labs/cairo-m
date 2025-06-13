@@ -1,0 +1,6 @@
+func test_if(x: felt) -> felt {
+    if (x == 0) {
+        return 1;
+    }
+    return 2;
+}

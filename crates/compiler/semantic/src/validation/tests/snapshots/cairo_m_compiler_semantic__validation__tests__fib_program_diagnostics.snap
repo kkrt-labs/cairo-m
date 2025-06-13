@@ -5,24 +5,6 @@ expression: snapshot_content
 Fixture: fib.cm
 ============================================================
 Source code:
-func add(a: felt, b: felt) -> felt {
-    return a + b;
-}
-
-struct A {
-    x: felt,
-    b: felt,
-}
-
-func main() {
-    let a = 1;
-    let b = 2;
-    let n = add(a, b);
-
-    let c = fib(n);
-    return c;
-}
-
 func fib(n: felt) -> felt {
     if (n == 0) {
         return 0;
