@@ -3,11 +3,12 @@
 //! CALL instructions handle functions calls, creating new frames.
 //! There are relative and absolute function calls.
 //!
-//! The first argument, `off0` is the number of arguments of the function. (false, it's the offset between the current frame pointer and the address where the call will store the current frame pointer...)
+//! The first argument, `off0` is the offset between the current frame pointer and the next frame pointer minus 2.
+//! In other words, `next_fp = fp + off0 + 2`.
 //! The second argument, `off1` is the destination offset.
 //!
-//! We assume that the function arguments are already in memory.
-//! Given `off0` arguments, they are stored at [fp + 0, fp + 1, ..., fp + off0 - 1].
+//! The function argumments are assumed to be stored
+//! in memory at [fp + off0 - N, ..., fp + off0 - 1], where N is the number of arguments.
 //!
 //! The function call is performed by:
 //! - Storing FP in memory at fp + off0.
