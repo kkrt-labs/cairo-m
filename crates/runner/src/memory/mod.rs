@@ -282,7 +282,7 @@ mod tests {
 
     #[test]
     fn test_get_data() {
-        let addr = M31::from(42);
+        let addr = M31(42);
         let value = QM31::from_m31_array([123, 0, 0, 0].map(Into::into));
 
         let mut data: Vec<QM31> = vec![QM31::zero(); 43];
@@ -292,7 +292,7 @@ mod tests {
             trace: RefCell::new(Vec::new()),
         };
 
-        assert_eq!(memory.get_data(addr).unwrap(), M31::from(123));
+        assert_eq!(memory.get_data(addr).unwrap(), M31(123));
         assert_eq!(memory.trace.borrow().len(), 1);
         assert_eq!(memory.trace.borrow()[0], TraceEntry { addr, value });
     }
@@ -300,7 +300,7 @@ mod tests {
     #[test]
     fn test_get_data_from_empty_address() {
         let memory = Memory::default();
-        let addr = M31::from(10);
+        let addr = M31(10);
         assert_eq!(memory.get_data(addr).unwrap(), M31::zero());
         assert_eq!(memory.trace.borrow().len(), 1);
         assert_eq!(
@@ -315,7 +315,7 @@ mod tests {
     #[test]
     fn test_get_data_error_on_projection_failure() {
         let mut memory = Memory::default();
-        let addr = M31::from(42);
+        let addr = M31(42);
         let value = QM31::from_m31_array([0, 0, 123, 0].map(Into::into));
         memory.insert(addr, value).unwrap();
         memory.trace.borrow_mut().clear();
@@ -456,9 +456,9 @@ mod tests {
         ];
         memory.extend(values);
         assert_eq!(memory.data.len(), 3);
-        assert_eq!(memory.get_data(0.into()).unwrap(), M31::from(10));
-        assert_eq!(memory.get_data(1.into()).unwrap(), M31::from(20));
-        assert_eq!(memory.get_data(2.into()).unwrap(), M31::from(30));
+        assert_eq!(memory.get_data(0.into()).unwrap(), M31(10));
+        assert_eq!(memory.get_data(1.into()).unwrap(), M31(20));
+        assert_eq!(memory.get_data(2.into()).unwrap(), M31(30));
         assert_eq!(memory.trace.borrow().len(), 3);
     }
 
