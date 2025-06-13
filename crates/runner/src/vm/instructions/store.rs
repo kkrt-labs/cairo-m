@@ -106,16 +106,15 @@ pub fn store_double_deref_fp(
 
 /// CASM equivalent:
 /// ```casm
-/// [fp + off2] = off0
+/// [fp + off2] = imm
 /// ```
 pub fn store_imm(
     memory: &mut Memory,
     state: State,
     instruction: Instruction,
 ) -> Result<State, MemoryError> {
-    let [off0, _, off2] = instruction.args;
-    let value = off0;
-    memory.insert(state.fp + off2, value.into())?;
+    let [imm, _, off2] = instruction.args;
+    memory.insert(state.fp + off2, imm.into())?;
 
     Ok(state.advance())
 }
