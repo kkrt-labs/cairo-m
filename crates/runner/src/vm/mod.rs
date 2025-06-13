@@ -31,7 +31,7 @@ impl From<Vec<Instruction>> for Program {
 }
 
 /// A single entry in the trace.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct TraceEntry {
     pub pc: M31,
     pub fp: M31,
@@ -162,7 +162,7 @@ impl VM {
         self.trace
             .iter()
             .flat_map(|entry| [entry.fp.0, entry.pc.0])
-            .flat_map(|val| val.to_le_bytes())
+            .flat_map(u32::to_le_bytes)
             .collect()
     }
 }
@@ -170,7 +170,9 @@ impl VM {
 #[cfg(test)]
 mod tests {
 
-    use crate::vm::{instructions::InstructionError, Instruction, Program, VmError, VM};
+    use crate::vm::{
+        instructions::InstructionError, Instruction, Program, TraceEntry, VmError, VM,
+    };
     use num_traits::{One, Zero};
     use stwo_prover::core::fields::m31::M31;
 
@@ -387,26 +389,31 @@ mod tests {
         assert_eq!(vm.trace.len(), 2);
 
         // Verify the trace contents.
-        assert_eq!(vm.trace[0].pc, M31(0));
-        assert_eq!(vm.trace[0].fp, M31(2));
-        assert_eq!(vm.trace[1].pc, M31(1));
-        assert_eq!(vm.trace[1].fp, M31(2));
+        assert_eq!(
+            vm.trace[0],
+            TraceEntry {
+                pc: M31::zero(),
+                fp: M31(2)
+            }
+        );
+        assert_eq!(
+            vm.trace[1],
+            TraceEntry {
+                pc: M31::one(),
+                fp: M31(2)
+            }
+        );
 
         // Serialize the trace and verify its contents.
         let serialized_trace = vm.serialize_trace();
         // Expected serialized data:
         // Entry 1: fp=2, pc=0.
         // Entry 2: fp=2, pc=1.
-        let fp1 = 2u32;
-        let pc1 = 0u32;
-        let fp2 = 2u32;
-        let pc2 = 1u32;
-
         let mut expected_bytes = Vec::new();
-        expected_bytes.extend_from_slice(&fp1.to_le_bytes());
-        expected_bytes.extend_from_slice(&pc1.to_le_bytes());
-        expected_bytes.extend_from_slice(&fp2.to_le_bytes());
-        expected_bytes.extend_from_slice(&pc2.to_le_bytes());
+        expected_bytes.extend_from_slice(&2u32.to_le_bytes());
+        expected_bytes.extend_from_slice(&0u32.to_le_bytes());
+        expected_bytes.extend_from_slice(&2u32.to_le_bytes());
+        expected_bytes.extend_from_slice(&1u32.to_le_bytes());
 
         assert_eq!(serialized_trace, expected_bytes);
     }
