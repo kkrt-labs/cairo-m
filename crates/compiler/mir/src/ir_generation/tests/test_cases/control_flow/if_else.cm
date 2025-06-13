@@ -1,0 +1,12 @@
+//!ASSERT BLOCK_COUNT(test): 4 // entry, then, else, merge
+
+// Tests a standard `if-else` statement where both branches continue execution.
+func test(x: felt) -> felt {
+    let a = 0;
+    if (x == 10) {
+        a = 1;
+    } else {
+        a = 2;
+    }
+    return a;
+}

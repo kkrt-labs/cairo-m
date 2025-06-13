@@ -69,6 +69,26 @@ pub fn resolve_ast_type<'db>(
     }
 }
 
+/// Helper function to resolve variable types (for Local and Let definitions)
+fn resolve_variable_type<'db>(
+    db: &'db dyn SemanticDb,
+    file: File,
+    explicit_type_ast: &Option<AstTypeExpr>,
+    value_expr_id: Option<ExpressionId>,
+    scope_id: FileScopeId,
+) -> TypeId<'db> {
+    // Prioritize explicit type annotation if available
+    if let Some(type_ast) = explicit_type_ast {
+        resolve_ast_type(db, file, type_ast.clone(), scope_id)
+    } else if let Some(value_expr_id) = value_expr_id {
+        // Infer from the stored value expression ID
+        expression_semantic_type(db, file, value_expr_id)
+    } else {
+        // No type annotation and no value to infer from
+        TypeId::new(db, TypeData::Unknown)
+    }
+}
+
 /// Determines the semantic type of a definition
 #[salsa::tracked]
 pub fn definition_semantic_type<'db>(
@@ -104,30 +124,20 @@ pub fn definition_semantic_type<'db>(
             name: _name,
             type_ast,
         }) => resolve_ast_type(db, file, type_ast.clone(), definition.scope_id),
-        DefinitionKind::Local(local_ref) => {
-            // Prioritize explicit type annotation if available
-            if let Some(type_ast) = &local_ref.explicit_type_ast {
-                resolve_ast_type(db, file, type_ast.clone(), definition.scope_id)
-            } else if let Some(value_expr_id) = local_ref.value_expr_id {
-                // Infer from the stored value expression ID
-                expression_semantic_type(db, file, value_expr_id)
-            } else {
-                // No type annotation and no value to infer from
-                TypeId::new(db, TypeData::Unknown)
-            }
-        }
-        DefinitionKind::Let(let_ref) => {
-            // Prioritize explicit type annotation if available
-            if let Some(type_ast) = &let_ref.explicit_type_ast {
-                resolve_ast_type(db, file, type_ast.clone(), definition.scope_id)
-            } else if let Some(value_expr_id) = let_ref.value_expr_id {
-                // Infer from the stored value expression ID
-                expression_semantic_type(db, file, value_expr_id)
-            } else {
-                // No type annotation and no value to infer from
-                TypeId::new(db, TypeData::Unknown)
-            }
-        }
+        DefinitionKind::Local(local_ref) => resolve_variable_type(
+            db,
+            file,
+            &local_ref.explicit_type_ast,
+            local_ref.value_expr_id,
+            definition.scope_id,
+        ),
+        DefinitionKind::Let(let_ref) => resolve_variable_type(
+            db,
+            file,
+            &let_ref.explicit_type_ast,
+            let_ref.value_expr_id,
+            definition.scope_id,
+        ),
         DefinitionKind::Const(const_ref) => {
             // Constants must be initialized, so we infer from the value expression
             if let Some(value_expr_id) = const_ref.value_expr_id {

@@ -1,0 +1,11 @@
+//!ASSERT NOT_CONTAINS: store %0, 99
+//!ASSERT NOT_CONTAINS: Unreachable code
+
+// Tests that code generation stops after a `return` statement.
+func test() -> felt {
+    return 42;
+
+    // This code should not appear in the MIR.
+    let x = 99; // Unreachable code
+    return x;
+}

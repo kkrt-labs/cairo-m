@@ -1,0 +1,12 @@
+//!ASSERT BLOCK_COUNT(test): 3 // entry, then, else. NO merge block.
+//!ASSERT NOT_CONTAINS: jump 3 // Should not jump to a merge block.
+
+// Tests an `if-else` where both branches terminate with a `return`.
+// No merge block should be generated.
+func test(x: felt) -> felt {
+    if (x == 0) {
+        return 1;
+    } else {
+        return 2;
+    }
+}

@@ -1,0 +1,47 @@
+---
+source: crates/compiler/mir/src/ir_generation/tests/mir_generation_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/compiler/mir/src/ir_generation/tests/mir_generation_tests.rs
+expression: mir_output
+---
+Fixture: compound_expr.cm
+============================================================
+Source code:
+//!ASSERT CONTAINS: Add
+//!ASSERT CONTAINS: Sub
+//!ASSERT CONTAINS: Mul
+
+// Tests a more complex expression involving parentheses and multiple variables.
+func test_complex(x: felt, y: felt) -> felt {
+    let temp = x + y;
+    let result = temp * (x - y);
+    return result;
+}
+
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_complex {
+    parameters: [0, 2]
+    entry: 0
+
+    0:
+      %1 = stackalloc 1
+      store %1, %0
+      %3 = stackalloc 1
+      store %3, %2
+      %4 = %1 Add %3
+      %5 = stackalloc 1
+      store %5, %4
+      %6 = %1 Sub %3
+      %7 = %5 Mul %6
+      %8 = stackalloc 1
+      store %8, %7
+      return %8
+
+  }
+
+}

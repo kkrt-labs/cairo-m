@@ -1,0 +1,37 @@
+---
+source: crates/compiler/mir/src/ir_generation/tests/mir_generation_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/compiler/mir/src/ir_generation/tests/mir_generation_tests.rs
+expression: mir_output
+---
+Fixture: assignment.cm
+============================================================
+Source code:
+//!ASSERT CONTAINS: store %0, 10
+//!ASSERT CONTAINS: store %0, 20
+
+// Tests a simple variable reassignment.
+func test() -> felt {
+    let x = 10;
+    x = 20;
+    return x;
+}
+
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test {
+    entry: 0
+
+    0:
+      %0 = stackalloc 1
+      store %0, 10
+      store %0, 20
+      return %0
+
+  }
+
+}

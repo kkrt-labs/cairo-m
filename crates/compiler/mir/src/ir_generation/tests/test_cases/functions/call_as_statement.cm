@@ -1,0 +1,11 @@
+//!ASSERT CONTAINS: call 0()
+//!ASSERT NOT_CONTAINS: %
+
+// Tests a function call used as a statement, where the return value is ignored.
+// This should generate a `VoidCall` instruction.
+func helper() -> felt { return 123; }
+
+func main() -> felt {
+    helper(); // Call in statement context
+    return 0;
+}

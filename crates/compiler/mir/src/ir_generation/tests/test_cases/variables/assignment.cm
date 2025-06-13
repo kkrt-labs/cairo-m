@@ -1,0 +1,9 @@
+//!ASSERT CONTAINS: store %0, 10
+//!ASSERT CONTAINS: store %0, 20
+
+// Tests a simple variable reassignment.
+func test() -> felt {
+    let x = 10;
+    x = 20;
+    return x;
+}

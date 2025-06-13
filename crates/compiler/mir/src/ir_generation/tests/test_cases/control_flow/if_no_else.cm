@@ -1,0 +1,12 @@
+//!ASSERT BLOCK_COUNT(test): 3 // entry, then, merge
+
+// Tests a simple `if` statement without an `else` branch.
+// A merge block must be created for the fall-through path.
+func test(x: felt) -> felt {
+    let a = 10;
+    if (x == 5) {
+        a = 20;
+    }
+    let x = 4;
+    return a;
+}

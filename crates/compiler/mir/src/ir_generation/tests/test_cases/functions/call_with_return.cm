@@ -1,0 +1,10 @@
+//!ASSERT CONTAINS: %0 = call 0()
+
+// Tests a function call where the return value is assigned to a variable.
+// This should generate a `Call` instruction.
+func helper() -> felt { return 123; }
+
+func main() -> felt {
+    let x = helper();
+    return x;
+}

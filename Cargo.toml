@@ -2,6 +2,7 @@
 members = [
   "crates/compiler/parser",
   "crates/compiler/semantic",
+  "crates/compiler/mir",
   "crates/compiler",
   "crates/runner",
   "crates/prover",

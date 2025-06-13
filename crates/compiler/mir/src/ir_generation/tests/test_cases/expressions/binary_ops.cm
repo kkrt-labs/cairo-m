@@ -1,0 +1,11 @@
+//!ASSERT CONTAINS: Add
+//!ASSERT CONTAINS: Mul
+//!ASSERT CONTAINS: Eq
+
+// Tests various binary operations.
+func test_ops(a: felt, b: felt) -> felt {
+    let c = a + b;
+    let d = a * b;
+    let e = a == b;
+    return c;
+}
