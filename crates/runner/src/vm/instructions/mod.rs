@@ -11,12 +11,13 @@
 //! This is why instructions can be represented as a QM31.
 
 use crate::vm::{
-    instructions::{jnz::*, jump::*, store::*},
+    instructions::{call::*, jnz::*, jump::*, store::*},
     Memory, MemoryError, State,
 };
 use stwo_prover::core::fields::{m31::M31, qm31::QM31};
 use thiserror::Error;
 
+pub mod call;
 pub mod jnz;
 pub mod jump;
 pub mod store;
