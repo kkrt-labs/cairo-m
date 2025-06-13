@@ -31,7 +31,7 @@ Found 6 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1001] Error: Undeclared variable 'undefined'
-    ╭─[ <unknown>:12:13 ]
+    ╭─[ edge_cases.cm:12:13 ]
     │
  12 │     let a = undefined; // Should error: Undeclared variable 'undefined'
     │             ────┬────  
@@ -40,7 +40,7 @@ Found 6 diagnostic(s):
 
 --- Diagnostic 2 ---
 [1003] Error: Duplicate definition of 'param'
-   ╭─[ <unknown>:7:9 ]
+   ╭─[ edge_cases.cm:7:9 ]
    │
  7 │     let param = 42; // OK: shadowing (might warn in future)
    │         ──┬──  
@@ -49,7 +49,7 @@ Found 6 diagnostic(s):
 
 --- Diagnostic 3 ---
 [1002] Warning: Unused variable 'param'
-   ╭─[ <unknown>:6:31 ]
+   ╭─[ edge_cases.cm:6:31 ]
    │
  6 │ func test_parameter_shadowing(param: felt) {
    │                               ──┬──  
@@ -58,7 +58,7 @@ Found 6 diagnostic(s):
 
 --- Diagnostic 4 ---
 [1002] Warning: Unused variable 'param'
-   ╭─[ <unknown>:7:9 ]
+   ╭─[ edge_cases.cm:7:9 ]
    │
  7 │     let param = 42; // OK: shadowing (might warn in future)
    │         ──┬──  
@@ -67,7 +67,7 @@ Found 6 diagnostic(s):
 
 --- Diagnostic 5 ---
 [1002] Warning: Unused variable 'a'
-    ╭─[ <unknown>:12:9 ]
+    ╭─[ edge_cases.cm:12:9 ]
     │
  12 │     let a = undefined; // Should error: Undeclared variable 'undefined'
     │         ┬  
@@ -76,7 +76,7 @@ Found 6 diagnostic(s):
 
 --- Diagnostic 6 ---
 [1002] Warning: Unused variable 'b'
-    ╭─[ <unknown>:13:9 ]
+    ╭─[ edge_cases.cm:13:9 ]
     │
  13 │     let b = undefined; // Should error: Undeclared variable 'undefined' (may be reported multiple times)
     │         ┬  

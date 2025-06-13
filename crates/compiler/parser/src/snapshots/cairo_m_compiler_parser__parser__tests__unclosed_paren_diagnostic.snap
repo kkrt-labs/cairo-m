@@ -4,7 +4,7 @@ expression: snapshot_entries
 ---
 code: func test() { foo(a, b; }
 result: [02] Error: found ';' expected '{', '(', '.', '[', '*', '/', '+', '-', '==', '!=', '&&', '||', ',', or ')'
-   ╭─[ <unknown>:1:23 ]
+   ╭─[ unclosed_paren:1:23 ]
    │
  1 │ func test() { foo(a, b; }
    │                       ┬  

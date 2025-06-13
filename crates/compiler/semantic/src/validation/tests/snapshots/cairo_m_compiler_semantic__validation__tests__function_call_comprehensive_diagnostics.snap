@@ -108,7 +108,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1001] Error: Undeclared variable 'undefined_function'
-    ╭─[ <unknown>:60:18 ]
+    ╭─[ function_call_comprehensive.cm:60:18 ]
     │
  60 │     let error9 = undefined_function(42);        // ScopeValidator: undeclared variable
     │                  ─────────┬────────  
@@ -117,7 +117,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 2 ---
 [1001] Error: Undeclared variable 'another_missing_func'
-    ╭─[ <unknown>:61:19 ]
+    ╭─[ function_call_comprehensive.cm:61:19 ]
     │
  61 │     let error10 = another_missing_func(1, 2);   // ScopeValidator: undeclared variable
     │                   ──────────┬─────────  
@@ -126,7 +126,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 3 ---
 [1001] Error: Undeclared variable 'foo'
-    ╭─[ <unknown>:62:19 ]
+    ╭─[ function_call_comprehensive.cm:62:19 ]
     │
  62 │     let error11 = foo();                        // ScopeValidator: undeclared variable
     │                   ─┬─  
@@ -135,7 +135,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 4 ---
 [1001] Error: Undeclared variable 'undefined_func'
-    ╭─[ <unknown>:67:18 ]
+    ╭─[ function_call_comprehensive.cm:67:18 ]
     │
  67 │     let chain2 = undefined_func(add(1, 2));     // Mixed: valid inner call, undeclared outer
     │                  ───────┬──────  
@@ -144,7 +144,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 5 ---
 [1002] Warning: Unused variable 'result1'
-    ╭─[ <unknown>:32:9 ]
+    ╭─[ function_call_comprehensive.cm:32:9 ]
     │
  32 │     let result1 = add(1, 2);                    // OK: correct arity and types
     │         ───┬───  
@@ -153,7 +153,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 6 ---
 [1002] Warning: Unused variable 'result2'
-    ╭─[ <unknown>:33:9 ]
+    ╭─[ function_call_comprehensive.cm:33:9 ]
     │
  33 │     let result2 = no_params();                  // OK: no parameters
     │         ───┬───  
@@ -162,7 +162,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 7 ---
 [1002] Warning: Unused variable 'result3'
-    ╭─[ <unknown>:34:9 ]
+    ╭─[ function_call_comprehensive.cm:34:9 ]
     │
  34 │     let result3 = single_param(42);             // OK: single parameter
     │         ───┬───  
@@ -171,7 +171,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 8 ---
 [1002] Warning: Unused variable 'result4'
-    ╭─[ <unknown>:35:9 ]
+    ╭─[ function_call_comprehensive.cm:35:9 ]
     │
  35 │     let result4 = multi_param(1, 2, 3);         // OK: multiple parameters
     │         ───┬───  
@@ -180,7 +180,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 9 ---
 [1002] Warning: Unused variable 'result5'
-    ╭─[ <unknown>:37:9 ]
+    ╭─[ function_call_comprehensive.cm:37:9 ]
     │
  37 │     let result5 = point_func(p);                // OK: struct parameter
     │         ───┬───  
@@ -189,7 +189,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 10 ---
 [1002] Warning: Unused variable 'error1'
-    ╭─[ <unknown>:40:9 ]
+    ╭─[ function_call_comprehensive.cm:40:9 ]
     │
  40 │     let error1 = add(1);                        // Error: too few args (expects 2, got 1)
     │         ───┬──  
@@ -198,7 +198,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 11 ---
 [1002] Warning: Unused variable 'error2'
-    ╭─[ <unknown>:41:9 ]
+    ╭─[ function_call_comprehensive.cm:41:9 ]
     │
  41 │     let error2 = add(1, 2, 3);                  // Error: too many args (expects 2, got 3)
     │         ───┬──  
@@ -207,7 +207,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 12 ---
 [1002] Warning: Unused variable 'error3'
-    ╭─[ <unknown>:42:9 ]
+    ╭─[ function_call_comprehensive.cm:42:9 ]
     │
  42 │     let error3 = no_params(1);                  // Error: too many args (expects 0, got 1)
     │         ───┬──  
@@ -216,7 +216,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 13 ---
 [1002] Warning: Unused variable 'error4'
-    ╭─[ <unknown>:43:9 ]
+    ╭─[ function_call_comprehensive.cm:43:9 ]
     │
  43 │     let error4 = single_param();                // Error: too few args (expects 1, got 0)
     │         ───┬──  
@@ -225,7 +225,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 14 ---
 [1002] Warning: Unused variable 'error5'
-    ╭─[ <unknown>:44:9 ]
+    ╭─[ function_call_comprehensive.cm:44:9 ]
     │
  44 │     let error5 = multi_param(1, 2);             // Error: too few args (expects 3, got 2)
     │         ───┬──  
@@ -234,7 +234,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 15 ---
 [1002] Warning: Unused variable 'error7'
-    ╭─[ <unknown>:53:9 ]
+    ╭─[ function_call_comprehensive.cm:53:9 ]
     │
  53 │     let error7 = x(1, 2);                       // Error: cannot call felt as function
     │         ───┬──  
@@ -243,7 +243,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 16 ---
 [1002] Warning: Unused variable 'error8'
-    ╭─[ <unknown>:56:9 ]
+    ╭─[ function_call_comprehensive.cm:56:9 ]
     │
  56 │     let error8 = y();                           // Error: cannot call struct as function
     │         ───┬──  
@@ -252,7 +252,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 17 ---
 [1002] Warning: Unused variable 'error9'
-    ╭─[ <unknown>:60:9 ]
+    ╭─[ function_call_comprehensive.cm:60:9 ]
     │
  60 │     let error9 = undefined_function(42);        // ScopeValidator: undeclared variable
     │         ───┬──  
@@ -261,7 +261,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 18 ---
 [1002] Warning: Unused variable 'error10'
-    ╭─[ <unknown>:61:9 ]
+    ╭─[ function_call_comprehensive.cm:61:9 ]
     │
  61 │     let error10 = another_missing_func(1, 2);   // ScopeValidator: undeclared variable
     │         ───┬───  
@@ -270,7 +270,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 19 ---
 [1002] Warning: Unused variable 'error11'
-    ╭─[ <unknown>:62:9 ]
+    ╭─[ function_call_comprehensive.cm:62:9 ]
     │
  62 │     let error11 = foo();                        // ScopeValidator: undeclared variable
     │         ───┬───  
@@ -279,7 +279,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 20 ---
 [1002] Warning: Unused variable 'chain1'
-    ╭─[ <unknown>:66:9 ]
+    ╭─[ function_call_comprehensive.cm:66:9 ]
     │
  66 │     let chain1 = add(single_param(5), 10);      // OK: nested valid calls
     │         ───┬──  
@@ -288,7 +288,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 21 ---
 [1002] Warning: Unused variable 'chain2'
-    ╭─[ <unknown>:67:9 ]
+    ╭─[ function_call_comprehensive.cm:67:9 ]
     │
  67 │     let chain2 = undefined_func(add(1, 2));     // Mixed: valid inner call, undeclared outer
     │         ───┬──  
@@ -297,7 +297,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 22 ---
 [1002] Warning: Unused variable 'sum'
-    ╭─[ <unknown>:75:9 ]
+    ╭─[ function_call_comprehensive.cm:75:9 ]
     │
  75 │     let sum = add(1, 2) + add(3, 4);            // OK: both calls valid
     │         ─┬─  
@@ -306,7 +306,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 23 ---
 [1002] Warning: Unused variable 'bad_sum'
-    ╭─[ <unknown>:76:9 ]
+    ╭─[ function_call_comprehensive.cm:76:9 ]
     │
  76 │     let bad_sum = add(1) + add(2, 3);           // Error: first call has wrong arity
     │         ───┬───  
@@ -315,7 +315,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 24 ---
 [1002] Warning: Unused variable 'x'
-    ╭─[ <unknown>:80:13 ]
+    ╭─[ function_call_comprehensive.cm:80:13 ]
     │
  80 │         let x = 1;
     │             ┬  
@@ -324,7 +324,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 25 ---
 [1002] Warning: Unused variable 'y'
-    ╭─[ <unknown>:84:13 ]
+    ╭─[ function_call_comprehensive.cm:84:13 ]
     │
  84 │         let y = 2;
     │             ┬  
@@ -333,7 +333,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 26 ---
 [2005] Error: Function expects 2 argument(s), but 1 were provided
-    ╭─[ <unknown>:40:18 ]
+    ╭─[ function_call_comprehensive.cm:40:18 ]
     │
  40 │     let error1 = add(1);                        // Error: too few args (expects 2, got 1)
     │                  ─┬─  
@@ -342,7 +342,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 27 ---
 [2005] Error: Function expects 2 argument(s), but 3 were provided
-    ╭─[ <unknown>:41:18 ]
+    ╭─[ function_call_comprehensive.cm:41:18 ]
     │
  41 │     let error2 = add(1, 2, 3);                  // Error: too many args (expects 2, got 3)
     │                  ─┬─  
@@ -351,7 +351,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 28 ---
 [2005] Error: Function expects 0 argument(s), but 1 were provided
-    ╭─[ <unknown>:42:18 ]
+    ╭─[ function_call_comprehensive.cm:42:18 ]
     │
  42 │     let error3 = no_params(1);                  // Error: too many args (expects 0, got 1)
     │                  ────┬────  
@@ -360,7 +360,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 29 ---
 [2005] Error: Function expects 1 argument(s), but 0 were provided
-    ╭─[ <unknown>:43:18 ]
+    ╭─[ function_call_comprehensive.cm:43:18 ]
     │
  43 │     let error4 = single_param();                // Error: too few args (expects 1, got 0)
     │                  ──────┬─────  
@@ -369,7 +369,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 30 ---
 [2005] Error: Function expects 3 argument(s), but 2 were provided
-    ╭─[ <unknown>:44:18 ]
+    ╭─[ function_call_comprehensive.cm:44:18 ]
     │
  44 │     let error5 = multi_param(1, 2);             // Error: too few args (expects 3, got 2)
     │                  ─────┬─────  
@@ -378,7 +378,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 31 ---
 [2005] Error: Cannot call value of type felt as a function
-    ╭─[ <unknown>:53:18 ]
+    ╭─[ function_call_comprehensive.cm:53:18 ]
     │
  53 │     let error7 = x(1, 2);                       // Error: cannot call felt as function
     │                  ┬  
@@ -387,7 +387,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 32 ---
 [2005] Error: Cannot call value of type Point as a function
-    ╭─[ <unknown>:56:18 ]
+    ╭─[ function_call_comprehensive.cm:56:18 ]
     │
  56 │     let error8 = y();                           // Error: cannot call struct as function
     │                  ┬  
@@ -396,7 +396,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 33 ---
 [2005] Error: Function expects 2 argument(s), but 1 were provided
-    ╭─[ <unknown>:76:19 ]
+    ╭─[ function_call_comprehensive.cm:76:19 ]
     │
  76 │     let bad_sum = add(1) + add(2, 3);           // Error: first call has wrong arity
     │                   ─┬─  
@@ -405,7 +405,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 34 ---
 [2005] Error: Function expects 2 argument(s), but 1 were provided
-    ╭─[ <unknown>:83:9 ]
+    ╭─[ function_call_comprehensive.cm:83:9 ]
     │
  83 │     if (add(1)) {                               // Error: wrong arity in condition
     │         ─┬─  
@@ -414,7 +414,7 @@ Found 35 diagnostic(s):
 
 --- Diagnostic 35 ---
 [2005] Error: Function expects 2 argument(s), but 1 were provided
-    ╭─[ <unknown>:96:12 ]
+    ╭─[ function_call_comprehensive.cm:96:12 ]
     │
  96 │     return add(5);                              // Error: wrong arity in return
     │            ─┬─  

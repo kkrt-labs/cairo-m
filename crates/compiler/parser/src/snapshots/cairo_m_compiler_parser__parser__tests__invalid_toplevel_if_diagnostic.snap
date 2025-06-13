@@ -4,7 +4,7 @@ expression: snapshot_entries
 ---
 code: if (true) { x = 1; }
 result: [02] Error: found 'if' expected 'func', 'struct', 'from', 'const', 'namespace', or end of input
-   ╭─[ <unknown>:1:1 ]
+   ╭─[ invalid_toplevel_if:1:1 ]
    │
  1 │ if (true) { x = 1; }
    │ ─┬  

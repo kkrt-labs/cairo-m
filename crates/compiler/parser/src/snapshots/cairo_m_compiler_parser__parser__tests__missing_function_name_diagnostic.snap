@@ -4,7 +4,7 @@ expression: snapshot_entries
 ---
 code: func (a: felt) -> felt { }
 result: [02] Error: found '(' expected identifier
-   ╭─[ <unknown>:1:6 ]
+   ╭─[ missing_function_name:1:6 ]
    │
  1 │ func (a: felt) -> felt { }
    │      ┬  

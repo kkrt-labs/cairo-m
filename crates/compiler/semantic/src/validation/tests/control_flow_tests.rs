@@ -30,8 +30,8 @@ func clean_function() {
 "#;
 
     let db = SemanticDatabaseImpl::default();
-    let source_program = SourceProgram::new(&db, source.to_string());
-    let file = File::new(&db, source_program.text(&db).clone());
+    let source_program = SourceProgram::new(&db, source.to_string(), "test.cm".to_string());
+    let file = File::new(&db, source_program.text(&db).clone(), "test.cm".to_string());
     let index = semantic_index(&db, file)
         .as_ref()
         .expect("Got unexpected parse errors");
@@ -62,8 +62,8 @@ func should_return(x: felt) -> felt {
 "#;
 
     let db = SemanticDatabaseImpl::default();
-    let source_program = SourceProgram::new(&db, source.to_string());
-    let file = File::new(&db, source_program.text(&db).clone());
+    let source_program = SourceProgram::new(&db, source.to_string(), "test.cm".to_string());
+    let file = File::new(&db, source_program.text(&db).clone(), "test.cm".to_string());
     let index = semantic_index(&db, file)
         .as_ref()
         .expect("Got unexpected parse errors");
@@ -104,8 +104,8 @@ func unit_return_type(x: felt) -> () {
 "#;
 
     let db = SemanticDatabaseImpl::default();
-    let source_program = SourceProgram::new(&db, source.to_string());
-    let file = File::new(&db, source_program.text(&db).clone());
+    let source_program = SourceProgram::new(&db, source.to_string(), "test.cm".to_string());
+    let file = File::new(&db, source_program.text(&db).clone(), "test.cm".to_string());
     let index = semantic_index(&db, file)
         .as_ref()
         .expect("Got unexpected parse errors");

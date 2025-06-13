@@ -29,7 +29,7 @@ Found 8 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1001] Error: Undeclared variable 'level3'
-    ╭─[ <unknown>:12:23 ]
+    ╭─[ deeply_nested_scopes.cm:12:23 ]
     │
  12 │             let bad = level3; // Should error: Undeclared variable 'level3'
     │                       ───┬──  
@@ -38,7 +38,7 @@ Found 8 diagnostic(s):
 
 --- Diagnostic 2 ---
 [1001] Error: Undeclared variable 'level2'
-    ╭─[ <unknown>:14:19 ]
+    ╭─[ deeply_nested_scopes.cm:14:19 ]
     │
  14 │         let bad = level2; // Should error: Undeclared variable 'level2'
     │                   ───┬──  
@@ -47,7 +47,7 @@ Found 8 diagnostic(s):
 
 --- Diagnostic 3 ---
 [1001] Error: Undeclared variable 'level1'
-    ╭─[ <unknown>:16:15 ]
+    ╭─[ deeply_nested_scopes.cm:16:15 ]
     │
  16 │     let bad = level1; // Should error: Undeclared variable 'level1'
     │               ───┬──  
@@ -56,7 +56,7 @@ Found 8 diagnostic(s):
 
 --- Diagnostic 4 ---
 [1002] Warning: Unused variable 'bad'
-    ╭─[ <unknown>:16:9 ]
+    ╭─[ deeply_nested_scopes.cm:16:9 ]
     │
  16 │     let bad = level1; // Should error: Undeclared variable 'level1'
     │         ─┬─  
@@ -65,7 +65,7 @@ Found 8 diagnostic(s):
 
 --- Diagnostic 5 ---
 [1002] Warning: Unused variable 'bad'
-    ╭─[ <unknown>:14:13 ]
+    ╭─[ deeply_nested_scopes.cm:14:13 ]
     │
  14 │         let bad = level2; // Should error: Undeclared variable 'level2'
     │             ─┬─  
@@ -74,7 +74,7 @@ Found 8 diagnostic(s):
 
 --- Diagnostic 6 ---
 [1002] Warning: Unused variable 'bad'
-    ╭─[ <unknown>:12:17 ]
+    ╭─[ deeply_nested_scopes.cm:12:17 ]
     │
  12 │             let bad = level3; // Should error: Undeclared variable 'level3'
     │                 ─┬─  
@@ -83,7 +83,7 @@ Found 8 diagnostic(s):
 
 --- Diagnostic 7 ---
 [1002] Warning: Unused variable 'all'
-   ╭─[ <unknown>:9:21 ]
+   ╭─[ deeply_nested_scopes.cm:9:21 ]
    │
  9 │                 let all = level0 + level1 + level2 + level3; // OK: all visible
    │                     ─┬─  
@@ -92,7 +92,7 @@ Found 8 diagnostic(s):
 
 --- Diagnostic 8 ---
 [1002] Warning: Unused variable 'unused_deep'
-    ╭─[ <unknown>:10:21 ]
+    ╭─[ deeply_nested_scopes.cm:10:21 ]
     │
  10 │                 let unused_deep = 99; // Should warn: Unused variable 'unused_deep'
     │                     ─────┬─────  

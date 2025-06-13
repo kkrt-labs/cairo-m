@@ -4,7 +4,7 @@ expression: snapshot_entries
 ---
 code: func test() { let x = 0xGG; }
 result: [01] Error: Invalid number '0xGG': Invalid number format
-   ╭─[ <unknown>:1:23 ]
+   ╭─[ invalid_number_format_integration:1:23 ]
    │
  1 │ func test() { let x = 0xGG; }
    │                       ──┬─  

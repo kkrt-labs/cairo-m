@@ -71,7 +71,7 @@ Found 10 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1003] Error: Duplicate definition of 'x'
-   ╭─[ <unknown>:6:9 ]
+   ╭─[ missing_return.cm:6:9 ]
    │
  6 │     let x = 3;
    │         ┬  
@@ -80,7 +80,7 @@ Found 10 diagnostic(s):
 
 --- Diagnostic 2 ---
 [1002] Warning: Unused variable 'x'
-   ╭─[ <unknown>:6:9 ]
+   ╭─[ missing_return.cm:6:9 ]
    │
  6 │     let x = 3;
    │         ┬  
@@ -89,7 +89,7 @@ Found 10 diagnostic(s):
 
 --- Diagnostic 3 ---
 [1002] Warning: Unused variable 'y'
-    ╭─[ <unknown>:12:9 ]
+    ╭─[ missing_return.cm:12:9 ]
     │
  12 │     let y = x + 1;
     │         ┬  
@@ -98,7 +98,7 @@ Found 10 diagnostic(s):
 
 --- Diagnostic 4 ---
 [1002] Warning: Unused variable 'y'
-    ╭─[ <unknown>:27:9 ]
+    ╭─[ missing_return.cm:27:9 ]
     │
  27 │     let y = x + 1;
     │         ┬  
@@ -107,7 +107,7 @@ Found 10 diagnostic(s):
 
 --- Diagnostic 5 ---
 [1002] Warning: Unused variable 'y'
-    ╭─[ <unknown>:32:9 ]
+    ╭─[ missing_return.cm:32:9 ]
     │
  32 │     let y = x + 1;
     │         ┬  
@@ -116,7 +116,7 @@ Found 10 diagnostic(s):
 
 --- Diagnostic 6 ---
 [3002] Error: Function 'missing_return_if' doesn't return on all paths
-   ╭─[ <unknown>:2:6 ]
+   ╭─[ missing_return.cm:2:6 ]
    │
  2 │ func missing_return_if(x: felt) -> felt {
    │      ────────┬────────  
@@ -125,7 +125,7 @@ Found 10 diagnostic(s):
 
 --- Diagnostic 7 ---
 [3002] Error: Function 'no_return_at_all' doesn't return on all paths
-    ╭─[ <unknown>:11:6 ]
+    ╭─[ missing_return.cm:11:6 ]
     │
  11 │ func no_return_at_all(x: felt) -> felt {
     │      ────────┬───────  
@@ -134,7 +134,7 @@ Found 10 diagnostic(s):
 
 --- Diagnostic 8 ---
 [3002] Error: Function 'no_return_type' doesn't return on all paths
-    ╭─[ <unknown>:26:6 ]
+    ╭─[ missing_return.cm:26:6 ]
     │
  26 │ func no_return_type(x: felt) {
     │      ───────┬──────  
@@ -143,7 +143,7 @@ Found 10 diagnostic(s):
 
 --- Diagnostic 9 ---
 [3002] Error: Function 'unit_return_type' doesn't return on all paths
-    ╭─[ <unknown>:31:6 ]
+    ╭─[ missing_return.cm:31:6 ]
     │
  31 │ func unit_return_type(x: felt) -> () {
     │      ────────┬───────  
@@ -152,7 +152,7 @@ Found 10 diagnostic(s):
 
 --- Diagnostic 10 ---
 [3002] Error: Function 'nested_missing_return' doesn't return on all paths
-    ╭─[ <unknown>:37:6 ]
+    ╭─[ missing_return.cm:37:6 ]
     │
  37 │ func nested_missing_return(x: felt, y: felt) -> felt {
     │      ──────────┬──────────  

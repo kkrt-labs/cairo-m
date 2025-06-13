@@ -27,7 +27,7 @@ Found 8 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1001] Error: Undeclared variable 'in_if'
-    ╭─[ <unknown>:12:20 ]
+    ╭─[ control_flow_scoping.cm:12:20 ]
     │
  12 │     let after_if = in_if; // Should error: Undeclared variable 'in_if'
     │                    ──┬──  
@@ -36,7 +36,7 @@ Found 8 diagnostic(s):
 
 --- Diagnostic 2 ---
 [1001] Error: Undeclared variable 'in_else'
-    ╭─[ <unknown>:13:22 ]
+    ╭─[ control_flow_scoping.cm:13:22 ]
     │
  13 │     let after_else = in_else; // Should error: Undeclared variable 'in_else'
     │                      ───┬───  
@@ -45,7 +45,7 @@ Found 8 diagnostic(s):
 
 --- Diagnostic 3 ---
 [1002] Warning: Unused variable 'after_if'
-    ╭─[ <unknown>:12:9 ]
+    ╭─[ control_flow_scoping.cm:12:9 ]
     │
  12 │     let after_if = in_if; // Should error: Undeclared variable 'in_if'
     │         ────┬───  
@@ -54,7 +54,7 @@ Found 8 diagnostic(s):
 
 --- Diagnostic 4 ---
 [1002] Warning: Unused variable 'after_else'
-    ╭─[ <unknown>:13:9 ]
+    ╭─[ control_flow_scoping.cm:13:9 ]
     │
  13 │     let after_else = in_else; // Should error: Undeclared variable 'in_else'
     │         ─────┬────  
@@ -63,7 +63,7 @@ Found 8 diagnostic(s):
 
 --- Diagnostic 5 ---
 [1002] Warning: Unused variable 'in_if'
-   ╭─[ <unknown>:5:13 ]
+   ╭─[ control_flow_scoping.cm:5:13 ]
    │
  5 │         let in_if = before + 1; // OK: before is visible
    │             ──┬──  
@@ -72,7 +72,7 @@ Found 8 diagnostic(s):
 
 --- Diagnostic 6 ---
 [1002] Warning: Unused variable 'unused_if'
-   ╭─[ <unknown>:6:13 ]
+   ╭─[ control_flow_scoping.cm:6:13 ]
    │
  6 │         let unused_if = 42; // Should warn: Unused variable 'unused_if'
    │             ────┬────  
@@ -81,7 +81,7 @@ Found 8 diagnostic(s):
 
 --- Diagnostic 7 ---
 [1002] Warning: Unused variable 'in_else'
-   ╭─[ <unknown>:8:13 ]
+   ╭─[ control_flow_scoping.cm:8:13 ]
    │
  8 │         let in_else = before + 2; // OK: before is visible
    │             ───┬───  
@@ -90,7 +90,7 @@ Found 8 diagnostic(s):
 
 --- Diagnostic 8 ---
 [1002] Warning: Unused variable 'unused_else'
-   ╭─[ <unknown>:9:13 ]
+   ╭─[ control_flow_scoping.cm:9:13 ]
    │
  9 │         let unused_else = 24; // Should warn: Unused variable 'unused_else'
    │             ─────┬─────  

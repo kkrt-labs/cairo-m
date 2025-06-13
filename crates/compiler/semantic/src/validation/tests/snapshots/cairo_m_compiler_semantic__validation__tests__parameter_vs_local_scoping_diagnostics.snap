@@ -20,7 +20,7 @@ Found 3 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1001] Error: Undeclared variable 'inner'
-   ╭─[ <unknown>:7:18 ]
+   ╭─[ parameter_vs_local_scoping.cm:7:18 ]
    │
  7 │     let result = inner; // Should error: Undeclared variable 'inner' (outer is not visible)
    │                  ──┬──  
@@ -29,7 +29,7 @@ Found 3 diagnostic(s):
 
 --- Diagnostic 2 ---
 [1002] Warning: Unused variable 'inner'
-   ╭─[ <unknown>:4:13 ]
+   ╭─[ parameter_vs_local_scoping.cm:4:13 ]
    │
  4 │         let inner = outer; // OK: outer is visible
    │             ──┬──  
@@ -38,7 +38,7 @@ Found 3 diagnostic(s):
 
 --- Diagnostic 3 ---
 [1002] Warning: Unused variable 'param'
-   ╭─[ <unknown>:5:13 ]
+   ╭─[ parameter_vs_local_scoping.cm:5:13 ]
    │
  5 │         let param = 42; // OK: shadowing parameter (might warn in future)
    │             ──┬──  

@@ -13,18 +13,18 @@ use chumsky::span::SimpleSpan;
 fn test_diagnostic_creation() {
     let span = SimpleSpan::from(10..20);
 
-    let error = Diagnostic::undeclared_variable("test_var", span);
+    let error = Diagnostic::undeclared_variable("test.cm".to_string(), "test_var", span);
     assert_eq!(error.severity, DiagnosticSeverity::Error);
     assert_eq!(error.code, DiagnosticCode::UndeclaredVariable);
     assert!(error.message.contains("test_var"));
     assert_eq!(error.span, span);
 
-    let warning = Diagnostic::unused_variable("unused_var", span);
+    let warning = Diagnostic::unused_variable("test.cm".to_string(), "unused_var", span);
     assert_eq!(warning.severity, DiagnosticSeverity::Warning);
     assert_eq!(warning.code, DiagnosticCode::UnusedVariable);
     assert!(warning.message.contains("unused_var"));
 
-    let duplicate = Diagnostic::duplicate_definition("dup_var", span);
+    let duplicate = Diagnostic::duplicate_definition("test.cm".to_string(), "dup_var", span);
     assert_eq!(duplicate.severity, DiagnosticSeverity::Error);
     assert_eq!(duplicate.code, DiagnosticCode::DuplicateDefinition);
     assert!(duplicate.message.contains("dup_var"));
@@ -35,8 +35,12 @@ fn test_diagnostic_with_related_spans() {
     let span = SimpleSpan::from(10..20);
     let related_span = SimpleSpan::from(5..8);
 
-    let diagnostic = Diagnostic::undeclared_variable("test_var", span)
-        .with_related_span(related_span, "first defined here".to_string());
+    let diagnostic = Diagnostic::undeclared_variable("test.cm".to_string(), "test_var", span)
+        .with_related_span(
+            "test.cm".to_string(),
+            related_span,
+            "first defined here".to_string(),
+        );
 
     assert_eq!(diagnostic.related_spans.len(), 1);
     assert_eq!(diagnostic.related_spans[0].0, related_span);
@@ -112,7 +116,7 @@ fn test_diagnostic_collection_from_vec() {
 #[test]
 fn test_diagnostic_display() {
     let span = SimpleSpan::from(10..15);
-    let diagnostic = Diagnostic::undeclared_variable("test_var", span);
+    let diagnostic = Diagnostic::undeclared_variable("test.cm".to_string(), "test_var", span);
 
     let display_string = format!("{diagnostic}");
     assert!(display_string.contains("error"));

@@ -4,7 +4,7 @@ expression: snapshot_entries
 ---
 code: func test(: felt) { }
 result: [02] Error: found ':' expected identifier, or ')'
-   ╭─[ <unknown>:1:11 ]
+   ╭─[ invalid_parameter:1:11 ]
    │
  1 │ func test(: felt) { }
    │           ┬  

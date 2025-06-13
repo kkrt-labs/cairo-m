@@ -408,7 +408,7 @@ mod tests {
     #[test]
     fn test_resolve_felt_type() {
         let db = test_db();
-        let file = crate::File::new(&db, "".to_string());
+        let file = crate::File::new(&db, "".to_string(), "test.cm".to_string());
         let scope_id = FileScopeId::new(0);
 
         let felt_type =
@@ -421,7 +421,7 @@ mod tests {
     #[test]
     fn test_resolve_pointer_type() {
         let db = test_db();
-        let file = crate::File::new(&db, "".to_string());
+        let file = crate::File::new(&db, "".to_string(), "test.cm".to_string());
         let scope_id = FileScopeId::new(0);
 
         let pointer_type = resolve_ast_type(
@@ -444,7 +444,7 @@ mod tests {
     #[test]
     fn test_resolve_tuple_type() {
         let db = test_db();
-        let file = crate::File::new(&db, "".to_string());
+        let file = crate::File::new(&db, "".to_string(), "test.cm".to_string());
         let scope_id = FileScopeId::new(0);
 
         let tuple_type = resolve_ast_type(
@@ -473,7 +473,7 @@ mod tests {
     #[test]
     fn test_type_compatibility() {
         let db = test_db();
-        let file = crate::File::new(&db, "".to_string());
+        let file = crate::File::new(&db, "".to_string(), "test.cm".to_string());
 
         let felt1 = TypeId::new(&db, TypeData::Felt);
         let felt2 = TypeId::new(&db, TypeData::Felt);
@@ -525,7 +525,11 @@ mod tests {
     #[test]
     fn test_direct_ast_node_access() {
         let db = test_db();
-        let file = crate::File::new(&db, "func test() { let x = 42; }".to_string());
+        let file = crate::File::new(
+            &db,
+            "func test() { let x = 42; }".to_string(),
+            "test.cm".to_string(),
+        );
         let semantic_index = semantic_index(&db, file)
             .as_ref()
             .expect("Got unexpected parse errors");
@@ -576,7 +580,7 @@ mod tests {
                 return;
             }
         "#;
-        let file = crate::File::new(&db, program.to_string());
+        let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
         let semantic_index = semantic_index(&db, file)
             .as_ref()
             .expect("Got unexpected parse errors");

@@ -4,7 +4,7 @@ expression: snapshot_entries
 ---
 code: import std.math
 result: [02] Error: found 'import' expected 'func', 'struct', 'from', 'const', 'namespace', or end of input
-   ╭─[ <unknown>:1:1 ]
+   ╭─[ invalid_import_syntax:1:1 ]
    │
  1 │ import std.math
    │ ───┬──  

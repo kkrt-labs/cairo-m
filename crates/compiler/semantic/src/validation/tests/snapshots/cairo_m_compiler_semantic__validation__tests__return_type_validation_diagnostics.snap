@@ -56,7 +56,7 @@ Found 4 diagnostic(s):
 
 --- Diagnostic 1 ---
 [2001] Error: Type mismatch in return statement. Expected 'felt', found 'Point'
-    ╭─[ <unknown>:27:5 ]
+    ╭─[ return_type_validation.cm:27:5 ]
     │
  27 │     return Point { x: 1, y: 2 };  // Error: wrong return type
     │     ──────────────┬─────────────  
@@ -65,7 +65,7 @@ Found 4 diagnostic(s):
 
 --- Diagnostic 2 ---
 [2001] Error: Type mismatch in return statement. Expected 'Point', found 'felt'
-    ╭─[ <unknown>:31:5 ]
+    ╭─[ return_type_validation.cm:31:5 ]
     │
  31 │     return 42;                    // Error: wrong return type
     │     ─────┬────  
@@ -74,7 +74,7 @@ Found 4 diagnostic(s):
 
 --- Diagnostic 3 ---
 [2001] Error: Type mismatch in return statement. Expected 'felt', found 'Point'
-    ╭─[ <unknown>:36:9 ]
+    ╭─[ return_type_validation.cm:36:9 ]
     │
  36 │         return Point { x: 1, y: 2 }; // Error: wrong return type
     │         ──────────────┬─────────────  
@@ -83,7 +83,7 @@ Found 4 diagnostic(s):
 
 --- Diagnostic 4 ---
 [3002] Error: Function 'missing_return' doesn't return on all paths
-    ╭─[ <unknown>:43:6 ]
+    ╭─[ return_type_validation.cm:43:6 ]
     │
  43 │ func missing_return() -> felt {
     │      ───────┬──────  

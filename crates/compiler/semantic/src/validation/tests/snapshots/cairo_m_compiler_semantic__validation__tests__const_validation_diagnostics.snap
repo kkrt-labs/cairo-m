@@ -21,7 +21,7 @@ Found 4 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1002] Warning: Unused variable 'UNUSED_CONST'
-   ╭─[ <unknown>:2:7 ]
+   ╭─[ const_validation.cm:2:7 ]
    │
  2 │ const UNUSED_CONST = 100; // Should warn: Unused variable 'UNUSED_CONST'
    │       ──────┬─────  
@@ -30,7 +30,7 @@ Found 4 diagnostic(s):
 
 --- Diagnostic 2 ---
 [1003] Error: Duplicate definition of 'DUPLICATE_CONST'
-   ╭─[ <unknown>:7:11 ]
+   ╭─[ const_validation.cm:7:11 ]
    │
  7 │     const DUPLICATE_CONST = 2; // Should error: duplicate definition of 'DUPLICATE_CONST'
    │           ───────┬───────  
@@ -39,7 +39,7 @@ Found 4 diagnostic(s):
 
 --- Diagnostic 3 ---
 [1002] Warning: Unused variable 'DUPLICATE_CONST'
-   ╭─[ <unknown>:6:11 ]
+   ╭─[ const_validation.cm:6:11 ]
    │
  6 │     const DUPLICATE_CONST = 1;
    │           ───────┬───────  
@@ -48,7 +48,7 @@ Found 4 diagnostic(s):
 
 --- Diagnostic 4 ---
 [1002] Warning: Unused variable 'DUPLICATE_CONST'
-   ╭─[ <unknown>:7:11 ]
+   ╭─[ const_validation.cm:7:11 ]
    │
  7 │     const DUPLICATE_CONST = 2; // Should error: duplicate definition of 'DUPLICATE_CONST'
    │           ───────┬───────  

@@ -4,7 +4,7 @@ expression: snapshot_entries
 ---
 code: local x: felt = 42;
 result: [02] Error: found 'local' expected 'func', 'struct', 'from', 'const', 'namespace', or end of input
-   ╭─[ <unknown>:1:1 ]
+   ╭─[ invalid_toplevel_local:1:1 ]
    │
  1 │ local x: felt = 42;
    │ ──┬──  

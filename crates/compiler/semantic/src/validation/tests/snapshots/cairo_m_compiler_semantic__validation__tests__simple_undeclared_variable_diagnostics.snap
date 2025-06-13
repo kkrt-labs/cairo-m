@@ -15,7 +15,7 @@ Found 2 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1001] Error: Undeclared variable 'y'
-   ╭─[ <unknown>:2:13 ]
+   ╭─[ simple_undeclared_variable.cm:2:13 ]
    │
  2 │     let x = y; // Should error: Undeclared variable 'y'
    │             ┬  
@@ -24,7 +24,7 @@ Found 2 diagnostic(s):
 
 --- Diagnostic 2 ---
 [1002] Warning: Unused variable 'x'
-   ╭─[ <unknown>:2:9 ]
+   ╭─[ simple_undeclared_variable.cm:2:9 ]
    │
  2 │     let x = y; // Should error: Undeclared variable 'y'
    │         ┬  

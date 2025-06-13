@@ -39,6 +39,8 @@ use chumsky::{input::ValueInput, prelude::*};
 pub struct SourceProgram {
     #[returns(ref)]
     pub text: String,
+    #[returns(ref)]
+    pub file_path: String,
 }
 
 /// Represents a type expression in the Cairo-M language.
@@ -328,7 +330,11 @@ pub fn parse_program(db: &dyn crate::Db, source: SourceProgram) -> ParseOutput {
             Ok(token) => tokens.push((token, span.into())),
             Err(lexing_error) => {
                 // Create a meaningful diagnostic for lexer errors
-                let diagnostic = Diagnostic::lexical_error(format!("{lexing_error}"), span.into());
+                let diagnostic = Diagnostic::lexical_error(
+                    source.file_path(db).to_string(),
+                    format!("{lexing_error}"),
+                    span.into(),
+                );
                 diagnostics.push(diagnostic);
             }
         }
@@ -353,7 +359,11 @@ pub fn parse_program(db: &dyn crate::Db, source: SourceProgram) -> ParseOutput {
         Err(parse_errors) => {
             // Convert parser errors to diagnostics with better messages
             for error in parse_errors {
-                let diagnostic = Diagnostic::syntax_error(format!("{error}"), *error.span());
+                let diagnostic = Diagnostic::syntax_error(
+                    source.file_path(db).to_string(),
+                    format!("{error}"),
+                    *error.span(),
+                );
                 diagnostics.push(diagnostic);
             }
             ParseOutput::new(ParsedModule::new(vec![]), diagnostics)
@@ -1112,7 +1122,8 @@ mod tests {
     /// Execute a test case and create appropriate snapshots
     fn run_test_case(test_case: TestCase) {
         let db = ParserDatabaseImpl::default();
-        let source = SourceProgram::new(&db, test_case.code.to_string());
+        let source =
+            SourceProgram::new(&db, test_case.code.to_string(), test_case.name.to_string());
         let result = parse_program(&db, source);
 
         // Check if there are any diagnostics (errors)

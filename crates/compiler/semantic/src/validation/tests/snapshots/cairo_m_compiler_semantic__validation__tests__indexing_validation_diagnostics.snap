@@ -43,7 +43,7 @@ Found 7 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1002] Warning: Unused variable 'first'
-   ╭─[ <unknown>:7:9 ]
+   ╭─[ indexing_validation.cm:7:9 ]
    │
  7 │     let first = tup[0];
    │         ──┬──  
@@ -52,7 +52,7 @@ Found 7 diagnostic(s):
 
 --- Diagnostic 2 ---
 [1002] Warning: Unused variable 'second'
-   ╭─[ <unknown>:8:9 ]
+   ╭─[ indexing_validation.cm:8:9 ]
    │
  8 │     let second = tup[1];
    │         ───┬──  
@@ -61,7 +61,7 @@ Found 7 diagnostic(s):
 
 --- Diagnostic 3 ---
 [1002] Warning: Unused variable 'bad1'
-    ╭─[ <unknown>:22:9 ]
+    ╭─[ indexing_validation.cm:22:9 ]
     │
  22 │     let bad1 = num[0];  // Should error: cannot index felt
     │         ──┬─  
@@ -70,7 +70,7 @@ Found 7 diagnostic(s):
 
 --- Diagnostic 4 ---
 [1002] Warning: Unused variable 'bad2'
-    ╭─[ <unknown>:26:9 ]
+    ╭─[ indexing_validation.cm:26:9 ]
     │
  26 │     let bad2 = tup[Point{x: 0, y: 0}];  // Should error: index must be felt
     │         ──┬─  
@@ -79,7 +79,7 @@ Found 7 diagnostic(s):
 
 --- Diagnostic 5 ---
 [1002] Warning: Unused variable 'bad3'
-    ╭─[ <unknown>:30:9 ]
+    ╭─[ indexing_validation.cm:30:9 ]
     │
  30 │     let bad3 = small_tup[2];  // TODO Should error: index out of bounds
     │         ──┬─  
@@ -88,7 +88,7 @@ Found 7 diagnostic(s):
 
 --- Diagnostic 6 ---
 [2003] Error: Type 'felt' cannot be indexed
-    ╭─[ <unknown>:22:16 ]
+    ╭─[ indexing_validation.cm:22:16 ]
     │
  22 │     let bad1 = num[0];  // Should error: cannot index felt
     │                ─┬─  
@@ -97,7 +97,7 @@ Found 7 diagnostic(s):
 
 --- Diagnostic 7 ---
 [2009] Error: Index expression must be of type felt, found Point
-    ╭─[ <unknown>:26:20 ]
+    ╭─[ indexing_validation.cm:26:20 ]
     │
  26 │     let bad2 = tup[Point{x: 0, y: 0}];  // Should error: index must be felt
     │                    ────────┬────────  

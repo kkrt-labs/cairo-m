@@ -4,7 +4,7 @@ expression: snapshot_entries
 ---
 code: func test() { let x = 5 }
 result: [02] Error: found '}' expected '(', '.', '[', '*', '/', '+', '-', '==', '!=', '&&', '||', or ';'
-   ╭─[ <unknown>:1:25 ]
+   ╭─[ missing_semicolon:1:25 ]
    │
  1 │ func test() { let x = 5 }
    │                         ┬  
