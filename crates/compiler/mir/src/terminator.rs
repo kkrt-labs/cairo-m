@@ -143,7 +143,7 @@ impl Terminator {
     }
 
     /// Validates this terminator
-    pub fn validate(&self) -> Result<(), String> {
+    pub const fn validate(&self) -> Result<(), String> {
         match self {
             Self::Jump { .. } => Ok(()),
             Self::If { .. } => Ok(()),

@@ -17,9 +17,9 @@ fn test_db() -> SemanticDatabaseImpl {
 }
 
 /// Runs the full compilation pipeline from source to CASM.
-pub fn check_codegen(source: &str) -> CodegenOutput {
+pub fn check_codegen(source: &str, path: &str) -> CodegenOutput {
     let db = test_db();
-    let file = File::new(&db, source.to_string());
+    let file = File::new(&db, source.to_string(), path.to_string());
 
     // Generate MIR from source
     let mir_module = generate_mir(&db, file).expect("MIR generation failed");
@@ -49,7 +49,7 @@ macro_rules! codegen_test {
             let source = load_test_source(path);
 
             // Generate CASM from the source code.
-            let codegen_output = check_codegen(&source);
+            let codegen_output = check_codegen(&source, path);
 
             // Use insta to snapshot the entire compilation output.
             let snapshot_content = format!(
