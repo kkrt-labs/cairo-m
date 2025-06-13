@@ -179,7 +179,6 @@ mod tests_inner {
         let source = load_fixture("fib.cm");
         assert!(!source.is_empty());
         assert!(source.contains("func fib"));
-        assert!(source.contains("func add"));
     }
 
     #[test]

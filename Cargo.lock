@@ -267,6 +267,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ariadne",
+ "cairo-m-compiler-codegen",
  "cairo-m-compiler-diagnostics",
  "cairo-m-compiler-mir",
  "cairo-m-compiler-parser",
@@ -275,6 +276,23 @@ dependencies = [
  "clap",
  "logos",
  "salsa",
+]
+
+[[package]]
+name = "cairo-m-compiler-codegen"
+version = "0.1.0"
+dependencies = [
+ "cairo-m-compiler-diagnostics",
+ "cairo-m-compiler-mir",
+ "cairo-m-compiler-parser",
+ "cairo-m-compiler-semantic",
+ "chumsky",
+ "index_vec",
+ "insta",
+ "rustc-hash 1.1.0",
+ "salsa",
+ "salsa-macros",
+ "stwo-prover",
 ]
 
 [[package]]

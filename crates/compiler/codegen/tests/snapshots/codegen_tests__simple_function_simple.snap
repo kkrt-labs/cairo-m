@@ -1,0 +1,19 @@
+---
+source: crates/compiler/codegen/tests/codegen_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/compiler/codegen/tests/codegen_tests.rs
+expression: codegen_output
+---
+Fixture: function_simple.cm
+============================================================
+Source code:
+func test() -> felt {
+    return 42;
+}
+============================================================
+Generated CASM:
+test:
+   0: 6 -3 42              // Return value: [fp-3] = 42
+   1: 15                   // return
