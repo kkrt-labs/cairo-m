@@ -3,12 +3,24 @@
 //! CALL instructions handle functions calls, creating new frames.
 //! There are relative and absolute function calls.
 //!
+//! Call-related memory layout convention:
+//! ```text
+//! [lower addresses]
+//! - Function arguments
+//! - Return values
+//! - Old FP
+//! - Return PC
+//! [higher addresses]
+//! ```
+//!
 //! The first argument, `off0` is the offset between the current frame pointer and the next frame pointer minus 2.
 //! In other words, `next_fp = fp + off0 + 2`.
-//! The second argument, `off1` is the destination offset.
+//! The second argument, `off1` is the destination offset to compute the return address.
 //!
-//! The function argumments are assumed to be stored
-//! in memory at [fp + off0 - N, ..., fp + off0 - 1], where N is the number of arguments.
+//! The function arguments are assumed to be already stored in memory.
+//! Considering a function call with N arguments and M return values,
+//! the arguments are stored in memory at [fp + off0 - N - M, ..., fp + off0 - M - 1],
+//! and the return values have dedicated cells at [fp + off0 - M, fp + off0 - 1].
 //!
 //! The function call is performed by:
 //! - Storing FP in memory at fp + off0.
