@@ -23,7 +23,7 @@ pub fn test_db() -> SemanticDatabaseImpl {
 /// Runs the full lowering pipeline on a source string.
 pub fn check_mir(source: &str) -> MirOutput {
     let db = test_db();
-    let file = File::new(&db, source.to_string());
+    let file = File::new(&db, source.to_string(), "".to_string());
     let module = generate_mir(&db, file).unwrap();
     let mir_string = module.pretty_print(0);
     MirOutput { module, mir_string }
@@ -97,7 +97,9 @@ impl MirTest {
                             func_name.trim()
                         );
                     } else {
-                        panic!("Invalid format for BLOCK_COUNT assertion. Expected 'BLOCK_COUNT(FUNCTION_NAME)'");
+                        panic!(
+                            "Invalid format for BLOCK_COUNT assertion. Expected 'BLOCK_COUNT(FUNCTION_NAME)'"
+                        );
                     }
                 }
                 "CONTAINS" => {
