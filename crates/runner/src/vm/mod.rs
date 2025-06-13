@@ -458,16 +458,16 @@ mod tests {
             Instruction::from([6, 1, 0, 2]), // store_imm: [fp+2] = b = F_1 = 1
             // Loop condition check
             // while counter != 0 jump to loop body
-            Instruction::from([26, 0, 2, 0]), // jnz_fp_imm: jmp rel 2 if [fp + 0] != 0  (pc=3 here, pc=5 in beginning of loop body)
+            Instruction::from([31, 0, 2, 0]), // jnz_fp_imm: jmp rel 2 if [fp + 0] != 0  (pc=3 here, pc=5 in beginning of loop body)
             // Exit jump if counter was 0
-            Instruction::from([15, 10, 0, 0]), // jmp_abs_imm: jmp abs 10
+            Instruction::from([20, 10, 0, 0]), // jmp_abs_imm: jmp abs 10
             // Loop body
             Instruction::from([4, 1, 0, 3]), // store_deref_fp: [fp+3] = [fp+1] (tmp = a)
             Instruction::from([4, 2, 0, 1]), // store_deref_fp: [fp+1] = [fp+2] (a = b)
             Instruction::from([0, 3, 2, 2]), // store_add_fp_fp: [fp+2] = [fp+3] + [fp+2] (b = temp + b)
             Instruction::from([3, 0, 1, 0]), // store_sub_fp_imm: [fp+0] = [fp+0] - 1 (counter--)
             // Jump back to condition check
-            Instruction::from([15, 3, 0, 0]), // jmp_abs_imm: jmp abs 3
+            Instruction::from([20, 3, 0, 0]), // jmp_abs_imm: jmp abs 3
         ];
         let instructions_len = instructions.len() as u32;
         let program = Program::from(instructions);

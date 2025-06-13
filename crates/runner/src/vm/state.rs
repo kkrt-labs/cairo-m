@@ -38,6 +38,41 @@ impl State {
             fp: self.fp,
         }
     }
+
+    /// Call register update.
+    /// The update of PC is absolute.
+    /// Set the program counter to the given value.
+    /// Update the frame pointer to the given value.
+    /// * pc - The next PC.
+    /// * fp_offset - The offset to the new frame pointer.
+    pub fn call_abs(self, pc: M31, fp_offset: M31) -> Self {
+        Self {
+            pc,
+            fp: self.fp + fp_offset,
+        }
+    }
+
+    /// Call register update.
+    /// The update of PC is relative to the current PC.
+    /// Update the program counter by the given offset.
+    /// Update the frame pointer to the given value.
+    /// * pc_offset - The offset to the next PC.
+    /// * fp_offset - The offset to the new frame pointer.
+    pub fn call_rel(self, pc_offset: M31, fp_offset: M31) -> Self {
+        Self {
+            pc: self.pc + pc_offset,
+            fp: self.fp + fp_offset,
+        }
+    }
+
+    /// Function return register update.
+    /// Set the program counter to the given value.
+    /// Set the frame pointer to the given value.
+    /// * pc - The next PC.
+    /// * fp - The caller's frame pointer.
+    pub const fn ret(self, pc: M31, fp: M31) -> Self {
+        Self { pc, fp }
+    }
 }
 
 #[cfg(test)]
