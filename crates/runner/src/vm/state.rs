@@ -70,7 +70,7 @@ impl State {
     /// Set the frame pointer to the given value.
     /// * pc - The next PC.
     /// * fp - The caller's frame pointer.
-    pub fn ret(self, pc: M31, fp: M31) -> Self {
+    pub const fn ret(self, pc: M31, fp: M31) -> Self {
         Self { pc, fp }
     }
 }
