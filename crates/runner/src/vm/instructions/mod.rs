@@ -92,22 +92,27 @@ pub fn opcode_to_instruction_fn(op: M31) -> Result<InstructionFn, InstructionErr
         8 => store_mul_fp_imm,         // [fp + off2] = [fp + off0] * imm
         9 => store_div_fp_fp,          // [fp + off2] = [fp + off0] / [fp + off1]
         10 => store_div_fp_imm,        // [fp + off2] = [fp + off0] / imm
-        11 => jmp_abs_add_fp_fp,       // jmp abs [fp + off0] + [fp + off1]
-        12 => jmp_abs_add_fp_imm,      // jmp abs [fp + off0] + imm
-        13 => jmp_abs_deref_fp,        // jmp abs [fp + off0]
-        14 => jmp_abs_double_deref_fp, // jmp abs [[fp + off0] + off1]
-        15 => jmp_abs_imm,             // jmp abs imm
-        16 => jmp_abs_mul_fp_fp,       // jmp abs [fp + off0] * [fp + off1]
-        17 => jmp_abs_mul_fp_imm,      // jmp abs [fp + off0] * imm
-        18 => jmp_rel_add_fp_fp,       // jmp rel [fp + off0] + [fp + off1]
-        19 => jmp_rel_add_fp_imm,      // jmp rel [fp + off0] + imm
-        20 => jmp_rel_deref_fp,        // jmp rel [fp + off0]
-        21 => jmp_rel_double_deref_fp, // jmp rel [[fp + off0] + off1]
-        22 => jmp_rel_imm,             // jmp rel imm
-        23 => jmp_rel_mul_fp_fp,       // jmp rel [fp + off0] * [fp + off1]
-        24 => jmp_rel_mul_fp_imm,      // jmp rel [fp + off0] * imm
-        25 => jnz_fp_fp,               // jmp rel [fp + off1] if [fp + off0] != 0
-        26 => jnz_fp_imm,              // jmp rel imm if [fp + off0] != 0
+        11 => call_abs_fp,             // call abs [fp + off0]
+        12 => call_abs_imm,            // call abs imm
+        13 => call_rel_fp,             // call rel [fp + off0]
+        14 => call_rel_imm,            // call rel imm
+        15 => ret,                     // ret
+        16 => jmp_abs_add_fp_fp,       // jmp abs [fp + off0] + [fp + off1]
+        17 => jmp_abs_add_fp_imm,      // jmp abs [fp + off0] + imm
+        18 => jmp_abs_deref_fp,        // jmp abs [fp + off0]
+        19 => jmp_abs_double_deref_fp, // jmp abs [[fp + off0] + off1]
+        20 => jmp_abs_imm,             // jmp abs imm
+        21 => jmp_abs_mul_fp_fp,       // jmp abs [fp + off0] * [fp + off1]
+        22 => jmp_abs_mul_fp_imm,      // jmp abs [fp + off0] * imm
+        23 => jmp_rel_add_fp_fp,       // jmp rel [fp + off0] + [fp + off1]
+        24 => jmp_rel_add_fp_imm,      // jmp rel [fp + off0] + imm
+        25 => jmp_rel_deref_fp,        // jmp rel [fp + off0]
+        26 => jmp_rel_double_deref_fp, // jmp rel [[fp + off0] + off1]
+        27 => jmp_rel_imm,             // jmp rel imm
+        28 => jmp_rel_mul_fp_fp,       // jmp rel [fp + off0] * [fp + off1]
+        29 => jmp_rel_mul_fp_imm,      // jmp rel [fp + off0] * imm
+        30 => jnz_fp_fp,               // jmp rel [fp + off1] if [fp + off0] != 0
+        31 => jnz_fp_imm,              // jmp rel imm if [fp + off0] != 0
         _ => return Err(InstructionError::InvalidOpcode(op)),
     };
     Ok(f)
@@ -121,7 +126,7 @@ mod tests {
 
     use crate::vm::instructions::Instruction;
 
-    const LAST_VALID_OPCODE_ID: u32 = 26;
+    const LAST_VALID_OPCODE_ID: u32 = 31;
 
     #[test]
     fn test_instruction_from_qm31() {
