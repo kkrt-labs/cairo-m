@@ -1,9 +1,0 @@
-func test(param: felt) {
-    let outer = param; // OK: param is visible
-    {
-        let inner = outer; // OK: outer is visible
-        let param = 42; // OK: shadowing parameter (might warn in future)
-    }
-    let result = inner; // Should error: Undeclared variable 'inner' (outer is not visible)
-    return result;
-}

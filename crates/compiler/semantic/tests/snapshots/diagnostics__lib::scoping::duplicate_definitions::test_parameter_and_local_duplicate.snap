@@ -1,0 +1,32 @@
+---
+source: crates/compiler/semantic/tests/lib.rs
+description: "Inline semantic validation error test: lib::scoping::duplicate_definitions::test_parameter_and_local_duplicate"
+---
+Fixture: lib::scoping::duplicate_definitions::test_parameter_and_local_duplicate
+============================================================
+Source code:
+
+        func test(param: felt) {
+            let param = 42; // Duplicate with parameter
+        }
+    
+============================================================
+Found 2 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1003] Error: Duplicate definition of 'param'
+   ╭─[ lib::scoping::duplicate_definitions::test_parameter_and_local_duplicate:3:17 ]
+   │
+ 3 │             let param = 42; // Duplicate with parameter
+   │                 ──┬──  
+   │                   ╰──── Duplicate definition of 'param'
+───╯
+
+--- Diagnostic 2 ---
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ lib::scoping::duplicate_definitions::test_parameter_and_local_duplicate:2:14 ]
+   │
+ 2 │         func test(param: felt) {
+   │              ──┬─  
+   │                ╰─── Function 'test' doesn't return on all paths
+───╯

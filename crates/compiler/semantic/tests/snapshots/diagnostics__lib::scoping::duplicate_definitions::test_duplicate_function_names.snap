@@ -1,0 +1,27 @@
+---
+source: crates/compiler/semantic/tests/lib.rs
+description: "Inline semantic validation error test: lib::scoping::duplicate_definitions::test_duplicate_function_names"
+---
+Fixture: lib::scoping::duplicate_definitions::test_duplicate_function_names
+============================================================
+Source code:
+
+        func duplicate_func() {
+            return ();
+        }
+
+        func duplicate_func() {
+            return ();
+        }
+    
+============================================================
+Found 1 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1003] Error: Duplicate definition of 'duplicate_func'
+   ╭─[ lib::scoping::duplicate_definitions::test_duplicate_function_names:6:14 ]
+   │
+ 6 │         func duplicate_func() {
+   │              ───────┬──────  
+   │                     ╰──────── Duplicate definition of 'duplicate_func'
+───╯

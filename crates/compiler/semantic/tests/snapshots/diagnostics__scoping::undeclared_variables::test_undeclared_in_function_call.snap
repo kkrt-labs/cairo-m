@@ -1,0 +1,36 @@
+---
+source: crates/compiler/semantic/tests/mod.rs
+description: "Inline semantic validation error test: scoping::undeclared_variables::test_undeclared_in_function_call"
+---
+Fixture: semantic_tests::scoping::undeclared_variables::test_undeclared_in_function_call
+============================================================
+Source code:
+
+        func valid_func(x: felt) -> felt {
+            return x;
+        }
+
+        func test() {
+            let result = valid_func(undefined_var);
+        }
+    
+============================================================
+Found 2 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1001] Error: Undeclared variable 'undefined_var'
+   ╭─[ semantic_tests::scoping::undeclared_variables::test_undeclared_in_function_call:7:37 ]
+   │
+ 7 │             let result = valid_func(undefined_var);
+   │                                     ──────┬──────  
+   │                                           ╰──────── Undeclared variable 'undefined_var'
+───╯
+
+--- Diagnostic 2 ---
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ semantic_tests::scoping::undeclared_variables::test_undeclared_in_function_call:6:14 ]
+   │
+ 6 │         func test() {
+   │              ──┬─  
+   │                ╰─── Function 'test' doesn't return on all paths
+───╯

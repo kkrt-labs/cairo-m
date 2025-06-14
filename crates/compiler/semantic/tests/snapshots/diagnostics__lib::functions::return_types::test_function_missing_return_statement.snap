@@ -1,0 +1,24 @@
+---
+source: crates/compiler/semantic/tests/lib.rs
+description: "Inline semantic validation error test: lib::functions::return_types::test_function_missing_return_statement"
+---
+Fixture: lib::functions::return_types::test_function_missing_return_statement
+============================================================
+Source code:
+
+        func test() -> felt {
+            let x = 42;
+            // Missing return statement
+        }
+    
+============================================================
+Found 1 diagnostic(s):
+
+--- Diagnostic 1 ---
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ lib::functions::return_types::test_function_missing_return_statement:2:14 ]
+   │
+ 2 │         func test() -> felt {
+   │              ──┬─  
+   │                ╰─── Function 'test' doesn't return on all paths
+───╯
