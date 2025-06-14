@@ -1,0 +1,31 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+from std.math import add
+--- AST ---
+[
+    Import(
+        Spanned(
+            ImportStmt {
+                path: [
+                    Spanned(
+                        "std",
+                        5..8,
+                    ),
+                    Spanned(
+                        "math",
+                        9..13,
+                    ),
+                ],
+                item: Spanned(
+                    "add",
+                    21..24,
+                ),
+                alias: None,
+            },
+            0..24,
+        ),
+    ),
+]

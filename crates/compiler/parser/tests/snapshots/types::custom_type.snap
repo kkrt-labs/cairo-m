@@ -1,0 +1,33 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+func test(x: MyStruct) { }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
+                ),
+                params: [
+                    Parameter {
+                        name: Spanned(
+                            "x",
+                            10..11,
+                        ),
+                        type_expr: Named(
+                            "MyStruct",
+                        ),
+                    },
+                ],
+                return_type: None,
+                body: [],
+            },
+            0..26,
+        ),
+    ),
+]

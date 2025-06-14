@@ -1,6 +1,0 @@
----
-source: crates/compiler/parser/src/parser.rs
-expression: snapshot_entry
----
-code: 
-result: []

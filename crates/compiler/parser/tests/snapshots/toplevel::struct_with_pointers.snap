@@ -1,0 +1,42 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+struct Node { data: felt, next: Node* }
+--- AST ---
+[
+    Struct(
+        Spanned(
+            StructDef {
+                name: Spanned(
+                    "Node",
+                    7..11,
+                ),
+                fields: [
+                    (
+                        Spanned(
+                            "data",
+                            14..18,
+                        ),
+                        Named(
+                            "felt",
+                        ),
+                    ),
+                    (
+                        Spanned(
+                            "next",
+                            26..30,
+                        ),
+                        Pointer(
+                            Named(
+                                "Node",
+                            ),
+                        ),
+                    ),
+                ],
+            },
+            0..39,
+        ),
+    ),
+]

@@ -1,0 +1,72 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+func test() { add(a, b, c); }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
+                ),
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                FunctionCall {
+                                    callee: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "add",
+                                                14..17,
+                                            ),
+                                        ),
+                                        14..17,
+                                    ),
+                                    args: [
+                                        Spanned(
+                                            Identifier(
+                                                Spanned(
+                                                    "a",
+                                                    18..19,
+                                                ),
+                                            ),
+                                            18..19,
+                                        ),
+                                        Spanned(
+                                            Identifier(
+                                                Spanned(
+                                                    "b",
+                                                    21..22,
+                                                ),
+                                            ),
+                                            21..22,
+                                        ),
+                                        Spanned(
+                                            Identifier(
+                                                Spanned(
+                                                    "c",
+                                                    24..25,
+                                                ),
+                                            ),
+                                            24..25,
+                                        ),
+                                    ],
+                                },
+                                14..25,
+                            ),
+                        ),
+                        14..27,
+                    ),
+                ],
+            },
+            0..29,
+        ),
+    ),
+]
