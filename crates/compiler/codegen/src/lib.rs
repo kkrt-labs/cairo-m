@@ -35,6 +35,32 @@ pub fn generate_casm(module: &MirModule) -> Result<String, CodegenError> {
     generator.generate_module(module)
 }
 
+/// Represents an operand that can be either a literal value or a label reference
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Operand {
+    /// A literal immediate value
+    Literal(M31),
+    /// A label reference that needs to be resolved
+    Label(String),
+}
+
+impl Operand {
+    /// Create a literal operand from an integer
+    pub fn literal(value: i32) -> Self {
+        Self::Literal(M31::from(value))
+    }
+
+    /// Create a literal operand from M31
+    pub const fn literal_m31(value: M31) -> Self {
+        Self::Literal(value)
+    }
+
+    /// Create a label operand
+    pub const fn label(name: String) -> Self {
+        Self::Label(name)
+    }
+}
+
 /// Represents a CASM instruction with all necessary information
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CasmInstruction {
@@ -46,8 +72,8 @@ pub struct CasmInstruction {
     pub off1: Option<i32>,
     /// Third offset operand (fp-relative)
     pub off2: Option<i32>,
-    /// Immediate value for instructions that support it
-    pub imm: Option<M31>,
+    /// Operand that can be either a literal or label reference
+    pub operand: Option<Operand>,
     /// Human-readable comment for debugging
     pub comment: Option<String>,
 }
@@ -60,7 +86,7 @@ impl CasmInstruction {
             off0: None,
             off1: None,
             off2: None,
-            imm: None,
+            operand: None,
             comment: None,
         }
     }
@@ -83,9 +109,21 @@ impl CasmInstruction {
         self
     }
 
-    /// Set the immediate value
-    pub const fn with_imm(mut self, imm: M31) -> Self {
-        self.imm = Some(imm);
+    /// Set the operand (replaces with_imm)
+    pub fn with_operand(mut self, operand: Operand) -> Self {
+        self.operand = Some(operand);
+        self
+    }
+
+    /// Set the immediate value (convenience method)
+    pub fn with_imm(mut self, imm: M31) -> Self {
+        self.operand = Some(Operand::Literal(imm));
+        self
+    }
+
+    /// Set a label operand (convenience method)
+    pub fn with_label(mut self, label: String) -> Self {
+        self.operand = Some(Operand::Label(label));
         self
     }
 
@@ -93,6 +131,14 @@ impl CasmInstruction {
     pub fn with_comment(mut self, comment: String) -> Self {
         self.comment = Some(comment);
         self
+    }
+
+    /// Get the immediate value if this instruction has a literal operand
+    pub const fn imm(&self) -> Option<M31> {
+        match &self.operand {
+            Some(Operand::Literal(value)) => Some(*value),
+            _ => None,
+        }
     }
 
     /// Convert to CASM assembly string
@@ -108,8 +154,11 @@ impl CasmInstruction {
         if let Some(off2) = self.off2 {
             parts.push(off2.to_string());
         }
-        if let Some(imm) = self.imm {
-            parts.push(imm.0.to_string());
+        if let Some(operand) = &self.operand {
+            match operand {
+                Operand::Literal(value) => parts.push(value.0.to_string()),
+                Operand::Label(label) => parts.push(format!("<{label}>")), // Show unresolved labels
+            }
         }
 
         let instruction = parts.join(" ");
@@ -200,6 +249,8 @@ pub enum CodegenError {
     UnsupportedInstruction(String),
     /// Layout calculation error
     LayoutError(String),
+    /// Unresolved label reference
+    UnresolvedLabel(String),
 }
 
 impl std::fmt::Display for CodegenError {
@@ -209,6 +260,7 @@ impl std::fmt::Display for CodegenError {
             Self::MissingTarget(msg) => write!(f, "Missing target: {msg}"),
             Self::UnsupportedInstruction(msg) => write!(f, "Unsupported instruction: {msg}"),
             Self::LayoutError(msg) => write!(f, "Layout error: {msg}"),
+            Self::UnresolvedLabel(msg) => write!(f, "Unresolved label: {msg}"),
         }
     }
 }

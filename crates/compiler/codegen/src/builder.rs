@@ -3,7 +3,9 @@
 //! This module provides utilities for building CASM instructions from MIR values
 //! and function layouts.
 
-use crate::{opcodes, CasmInstruction, CodegenError, CodegenResult, FunctionLayout, Label};
+use crate::{
+    opcodes, CasmInstruction, CodegenError, CodegenResult, FunctionLayout, Label, Operand,
+};
 use cairo_m_compiler_mir::{Literal, Value, ValueId};
 use cairo_m_compiler_parser::parser::BinaryOp;
 use stwo_prover::core::fields::m31::M31;
@@ -305,7 +307,7 @@ impl CasmBuilder {
         let off0 = l + m as i32 + k as i32;
         let instr = CasmInstruction::new(opcodes::CALL_ABS_IMM)
             .with_off0(off0)
-            .with_imm(M31::from(0)) // Placeholder, resolved later.
+            .with_operand(Operand::Label(callee_name.to_string()))
             .with_comment(format!("call {callee_name}"));
         self.instructions.push(instr);
 
@@ -335,7 +337,7 @@ impl CasmBuilder {
         let off0 = l + m as i32 + k as i32;
         let instr = CasmInstruction::new(opcodes::CALL_ABS_IMM)
             .with_off0(off0)
-            .with_imm(M31::from(0)) // Placeholder, resolved later.
+            .with_operand(Operand::Label(callee_name.to_string()))
             .with_comment(format!("call {callee_name}"));
         self.instructions.push(instr);
         Ok(())
@@ -479,9 +481,8 @@ impl CasmBuilder {
 
     /// Generate unconditional jump
     pub fn jump(&mut self, target_label: &str) -> CodegenResult<()> {
-        // TODO: Do better for label resolution
         let instr = CasmInstruction::new(opcodes::JMP_ABS_IMM)
-            .with_imm(M31::from(0)) // Placeholder - will be resolved during label resolution
+            .with_operand(Operand::Label(target_label.to_string()))
             .with_comment(format!("jump abs {target_label}"));
 
         self.instructions.push(instr);
@@ -506,10 +507,9 @@ impl CasmBuilder {
             }
         };
 
-        // TODO: Do better for label resolution
         let instr = CasmInstruction::new(opcodes::JNZ_FP_IMM)
             .with_off0(cond_off)
-            .with_imm(M31::from(0)) // Placeholder for label resolution
+            .with_operand(Operand::Label(target_label.to_string()))
             .with_comment(format!("if [fp+{cond_off}] != 0 jmp rel {target_label}"));
 
         self.instructions.push(instr);

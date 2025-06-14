@@ -4,6 +4,7 @@
 
 use crate::{
     opcodes, CasmBuilder, CasmInstruction, CodegenError, CodegenResult, FunctionLayout, Label,
+    Operand,
 };
 use cairo_m_compiler_mir::{Instruction, InstructionKind, MirFunction, MirModule, Terminator};
 use std::collections::HashMap;
@@ -280,52 +281,49 @@ impl CodeGenerator {
             }
         }
 
-        // Resolve jump targets in instructions
+        // Resolve label references in instructions
         for (pc, instruction) in self.instructions.iter_mut().enumerate() {
-            match instruction.opcode {
-                opcodes::JMP_ABS_IMM => {
-                    // Find the target label from the comment
-                    // TODO: don't use comments to find the labels, as it's not a reliable format!
-                    if let Some(comment) = &instruction.comment
-                        && let Some(target) = comment.strip_prefix("jump abs ")
-                        && let Some(&target_addr) = label_map.get(target)
-                    {
-                        instruction.imm = Some(M31::from(target_addr as u32));
-                    }
-                }
-
-                opcodes::JNZ_FP_IMM => {
-                    // Find the target label from the comment
-                    if let Some(comment) = &instruction.comment {
-                        // Look for the label after "jmp rel "
-                        if let Some(idx) = comment.find("jmp rel ") {
-                            let target = comment[(idx + 8)..].trim();
-                            if let Some(&target_addr) = label_map.get(target) {
-                                // Calculate relative offset
-                                let relative_offset = (target_addr as i32) - (pc as i32);
-                                instruction.imm = Some(M31::from(relative_offset));
-                            }
+            if let Some(Operand::Label(label_name)) = &instruction.operand {
+                match instruction.opcode {
+                    opcodes::JMP_ABS_IMM => {
+                        // Absolute jump - use direct address
+                        if let Some(&target_addr) = label_map.get(label_name) {
+                            instruction.operand =
+                                Some(Operand::Literal(M31::from(target_addr as u32)));
+                        } else {
+                            return Err(CodegenError::UnresolvedLabel(label_name.clone()));
                         }
                     }
-                }
 
-                opcodes::CALL_ABS_IMM => {
-                    // Find the target function from the comment
-                    if let Some(comment) = &instruction.comment
-                        && let Some(target) = comment.strip_prefix("call ")
-                    {
-                        if let Some(&target_addr) = label_map.get(target) {
-                            instruction.imm = Some(M31::from(target_addr as u32));
-                        } else if target == "main" {
-                            // Special case for main function
-                            if let Some(&main_addr) = label_map.get("main") {
-                                instruction.imm = Some(M31::from(main_addr as u32));
-                            }
+                    opcodes::JNZ_FP_IMM => {
+                        // Conditional jump - use relative offset
+                        if let Some(&target_addr) = label_map.get(label_name) {
+                            let relative_offset = (target_addr as i32) - (pc as i32);
+                            instruction.operand =
+                                Some(Operand::Literal(M31::from(relative_offset)));
+                        } else {
+                            return Err(CodegenError::UnresolvedLabel(label_name.clone()));
                         }
                     }
-                }
 
-                _ => {} // Other instructions don't need label resolution
+                    opcodes::CALL_ABS_IMM => {
+                        // Function call - use direct address
+                        if let Some(&target_addr) = label_map.get(label_name) {
+                            instruction.operand =
+                                Some(Operand::Literal(M31::from(target_addr as u32)));
+                        } else {
+                            return Err(CodegenError::UnresolvedLabel(label_name.clone()));
+                        }
+                    }
+
+                    _ => {
+                        // Other opcodes with label operands - this shouldn't happen with current implementation
+                        return Err(CodegenError::UnresolvedLabel(format!(
+                            "Unexpected label operand for opcode {}: {label_name}",
+                            instruction.opcode
+                        )));
+                    }
+                }
             }
         }
 
