@@ -1,0 +1,56 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+func test() { obj.field = value; }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
+                ),
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Assignment {
+                            lhs: Spanned(
+                                MemberAccess {
+                                    object: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "obj",
+                                                14..17,
+                                            ),
+                                        ),
+                                        14..17,
+                                    ),
+                                    field: Spanned(
+                                        "field",
+                                        18..23,
+                                    ),
+                                },
+                                14..23,
+                            ),
+                            rhs: Spanned(
+                                Identifier(
+                                    Spanned(
+                                        "value",
+                                        26..31,
+                                    ),
+                                ),
+                                26..31,
+                            ),
+                        },
+                        14..32,
+                    ),
+                ],
+            },
+            0..34,
+        ),
+    ),
+]

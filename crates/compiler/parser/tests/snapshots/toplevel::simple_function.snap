@@ -1,0 +1,78 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+func add(a: felt, b: felt) -> felt { return a + b; }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "add",
+                    5..8,
+                ),
+                params: [
+                    Parameter {
+                        name: Spanned(
+                            "a",
+                            9..10,
+                        ),
+                        type_expr: Named(
+                            "felt",
+                        ),
+                    },
+                    Parameter {
+                        name: Spanned(
+                            "b",
+                            18..19,
+                        ),
+                        type_expr: Named(
+                            "felt",
+                        ),
+                    },
+                ],
+                return_type: Some(
+                    Named(
+                        "felt",
+                    ),
+                ),
+                body: [
+                    Spanned(
+                        Return {
+                            value: Some(
+                                Spanned(
+                                    BinaryOp {
+                                        op: Add,
+                                        left: Spanned(
+                                            Identifier(
+                                                Spanned(
+                                                    "a",
+                                                    44..45,
+                                                ),
+                                            ),
+                                            44..45,
+                                        ),
+                                        right: Spanned(
+                                            Identifier(
+                                                Spanned(
+                                                    "b",
+                                                    48..49,
+                                                ),
+                                            ),
+                                            48..49,
+                                        ),
+                                    },
+                                    44..49,
+                                ),
+                            ),
+                        },
+                        37..50,
+                    ),
+                ],
+            },
+            0..52,
+        ),
+    ),
+]

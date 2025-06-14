@@ -15,3 +15,6 @@ num-derive = "0.4.2"
 salsa = "0.22.0"
 salsa-macros = "0.22.0"
 cairo-m-compiler-diagnostics = { path = "../diagnostics" }
+
+[dev-dependencies]
+stdext = "0.3"

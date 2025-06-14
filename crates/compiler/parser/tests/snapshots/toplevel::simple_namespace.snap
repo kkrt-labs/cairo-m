@@ -1,0 +1,39 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+namespace Math { const PI = 314; }
+--- AST ---
+[
+    Namespace(
+        Spanned(
+            Namespace {
+                name: Spanned(
+                    "Math",
+                    10..14,
+                ),
+                body: [
+                    Const(
+                        Spanned(
+                            ConstDef {
+                                name: Spanned(
+                                    "PI",
+                                    23..25,
+                                ),
+                                value: Spanned(
+                                    Literal(
+                                        314,
+                                    ),
+                                    28..31,
+                                ),
+                            },
+                            17..32,
+                        ),
+                    ),
+                ],
+            },
+            0..34,
+        ),
+    ),
+]

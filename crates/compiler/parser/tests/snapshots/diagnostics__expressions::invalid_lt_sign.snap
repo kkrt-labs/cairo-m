@@ -1,0 +1,14 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+func test() { a < b; }
+--- Diagnostics ---
+[01] Error: Invalid character
+   ╭─[ test.cairo:1:17 ]
+   │
+ 1 │ func test() { a < b; }
+   │                 ┬  
+   │                 ╰── Invalid character
+───╯

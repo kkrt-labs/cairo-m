@@ -1,0 +1,14 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+func test() { let x = 5 }
+--- Diagnostics ---
+[02] Error: found '}' expected '(', '.', '[', '*', '/', '+', '-', '==', '!=', '&&', '||', or ';'
+   ╭─[ test.cairo:1:25 ]
+   │
+ 1 │ func test() { let x = 5 }
+   │                         ┬  
+   │                         ╰── found '}' expected '(', '.', '[', '*', '/', '+', '-', '==', '!=', '&&', '||', or ';'
+───╯

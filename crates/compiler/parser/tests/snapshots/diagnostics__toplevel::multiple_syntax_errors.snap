@@ -1,0 +1,19 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+
+        func bad1( { }
+        func good() { return 1; }
+        struct bad2 x: felt }
+        struct Good { x: felt }
+    
+--- Diagnostics ---
+[02] Error: found '{' expected identifier, or ')'
+   ╭─[ test.cairo:2:20 ]
+   │
+ 2 │         func bad1( { }
+   │                    ┬  
+   │                    ╰── found '{' expected identifier, or ')'
+───╯

@@ -1,0 +1,18 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+
+        const GOOD = 1;
+        let bad = 42;
+        const ALSO_GOOD = 2;
+    
+--- Diagnostics ---
+[02] Error: found 'let' expected 'func', 'struct', 'from', 'const', 'namespace', or end of input
+   ╭─[ test.cairo:3:9 ]
+   │
+ 3 │         let bad = 42;
+   │         ─┬─  
+   │          ╰─── found 'let' expected 'func', 'struct', 'from', 'const', 'namespace', or end of input
+───╯

@@ -1,0 +1,60 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+func complex(a: felt, b: felt*, c: (felt, felt)) { }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "complex",
+                    5..12,
+                ),
+                params: [
+                    Parameter {
+                        name: Spanned(
+                            "a",
+                            13..14,
+                        ),
+                        type_expr: Named(
+                            "felt",
+                        ),
+                    },
+                    Parameter {
+                        name: Spanned(
+                            "b",
+                            22..23,
+                        ),
+                        type_expr: Pointer(
+                            Named(
+                                "felt",
+                            ),
+                        ),
+                    },
+                    Parameter {
+                        name: Spanned(
+                            "c",
+                            32..33,
+                        ),
+                        type_expr: Tuple(
+                            [
+                                Named(
+                                    "felt",
+                                ),
+                                Named(
+                                    "felt",
+                                ),
+                            ],
+                        ),
+                    },
+                ],
+                return_type: None,
+                body: [],
+            },
+            0..52,
+        ),
+    ),
+]

@@ -1,0 +1,40 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+struct Point { x: felt, y: felt }
+--- AST ---
+[
+    Struct(
+        Spanned(
+            StructDef {
+                name: Spanned(
+                    "Point",
+                    7..12,
+                ),
+                fields: [
+                    (
+                        Spanned(
+                            "x",
+                            15..16,
+                        ),
+                        Named(
+                            "felt",
+                        ),
+                    ),
+                    (
+                        Spanned(
+                            "y",
+                            24..25,
+                        ),
+                        Named(
+                            "felt",
+                        ),
+                    ),
+                ],
+            },
+            0..33,
+        ),
+    ),
+]

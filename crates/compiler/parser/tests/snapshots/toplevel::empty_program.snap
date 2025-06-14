@@ -1,0 +1,8 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+
+--- AST ---
+[]

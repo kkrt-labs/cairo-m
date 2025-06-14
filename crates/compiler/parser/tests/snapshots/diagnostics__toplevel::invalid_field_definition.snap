@@ -1,0 +1,14 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+struct Point { x, y: felt }
+--- Diagnostics ---
+[02] Error: found ',' expected ':'
+   ╭─[ test.cairo:1:17 ]
+   │
+ 1 │ struct Point { x, y: felt }
+   │                 ┬  
+   │                 ╰── found ',' expected ':'
+───╯

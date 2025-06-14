@@ -1,0 +1,41 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+func test() { const PI = 314; }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
+                ),
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Const(
+                            ConstDef {
+                                name: Spanned(
+                                    "PI",
+                                    20..22,
+                                ),
+                                value: Spanned(
+                                    Literal(
+                                        314,
+                                    ),
+                                    25..28,
+                                ),
+                            },
+                        ),
+                        14..29,
+                    ),
+                ],
+            },
+            0..31,
+        ),
+    ),
+]

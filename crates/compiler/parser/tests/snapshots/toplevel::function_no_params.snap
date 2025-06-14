@@ -1,0 +1,41 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+func get_constant() -> felt { return 42; }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "get_constant",
+                    5..17,
+                ),
+                params: [],
+                return_type: Some(
+                    Named(
+                        "felt",
+                    ),
+                ),
+                body: [
+                    Spanned(
+                        Return {
+                            value: Some(
+                                Spanned(
+                                    Literal(
+                                        42,
+                                    ),
+                                    37..39,
+                                ),
+                            ),
+                        },
+                        30..40,
+                    ),
+                ],
+            },
+            0..42,
+        ),
+    ),
+]
