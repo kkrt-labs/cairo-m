@@ -1,0 +1,32 @@
+---
+source: crates/compiler/semantic/tests/lib.rs
+description: "Inline semantic validation error test: lib::scoping::undeclared_variables::test_undeclared_function_call"
+---
+Fixture: lib::scoping::undeclared_variables::test_undeclared_function_call
+============================================================
+Source code:
+
+        func test() {
+            let result = undefined_function(42);
+        }
+    
+============================================================
+Found 2 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1001] Error: Undeclared variable 'undefined_function'
+   ╭─[ lib::scoping::undeclared_variables::test_undeclared_function_call:3:26 ]
+   │
+ 3 │             let result = undefined_function(42);
+   │                          ─────────┬────────  
+   │                                   ╰────────── Undeclared variable 'undefined_function'
+───╯
+
+--- Diagnostic 2 ---
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ lib::scoping::undeclared_variables::test_undeclared_function_call:2:14 ]
+   │
+ 2 │         func test() {
+   │              ──┬─  
+   │                ╰─── Function 'test' doesn't return on all paths
+───╯

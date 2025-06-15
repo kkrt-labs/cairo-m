@@ -1,0 +1,28 @@
+---
+source: crates/compiler/semantic/tests/lib.rs
+description: "Inline semantic validation error test: lib::functions::return_types::test_function_return_missing_in_else_branch"
+---
+Fixture: lib::functions::return_types::test_function_return_missing_in_else_branch
+============================================================
+Source code:
+
+        func test(x: felt) -> felt {
+            if (x == 0) {
+                return x;
+            } else {
+                let y = x + 1;
+                // Missing return in else branch
+            }
+        }
+    
+============================================================
+Found 1 diagnostic(s):
+
+--- Diagnostic 1 ---
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ lib::functions::return_types::test_function_return_missing_in_else_branch:2:14 ]
+   │
+ 2 │         func test(x: felt) -> felt {
+   │              ──┬─  
+   │                ╰─── Function 'test' doesn't return on all paths
+───╯

@@ -1,0 +1,49 @@
+---
+source: crates/compiler/semantic/tests/lib.rs
+description: "Inline semantic validation error test: lib::scoping::nested_scopes::test_complex_scope_interaction"
+---
+Fixture: lib::scoping::nested_scopes::test_complex_scope_interaction
+============================================================
+Source code:
+
+        func test() {
+            let a = 1;
+            {
+                let b = a + 1; // OK: a is visible
+                {
+                    let c = b + 1; // OK: b is visible
+                }
+                let bad1 = c; // Error: c not visible
+            }
+            let bad2 = b; // Error: b not visible outside its scope
+        }
+    
+============================================================
+Found 3 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1001] Error: Undeclared variable 'c'
+   ╭─[ lib::scoping::nested_scopes::test_complex_scope_interaction:9:28 ]
+   │
+ 9 │                 let bad1 = c; // Error: c not visible
+   │                            ┬  
+   │                            ╰── Undeclared variable 'c'
+───╯
+
+--- Diagnostic 2 ---
+[1001] Error: Undeclared variable 'b'
+    ╭─[ lib::scoping::nested_scopes::test_complex_scope_interaction:11:24 ]
+    │
+ 11 │             let bad2 = b; // Error: b not visible outside its scope
+    │                        ┬  
+    │                        ╰── Undeclared variable 'b'
+────╯
+
+--- Diagnostic 3 ---
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ lib::scoping::nested_scopes::test_complex_scope_interaction:2:14 ]
+   │
+ 2 │         func test() {
+   │              ──┬─  
+   │                ╰─── Function 'test' doesn't return on all paths
+───╯

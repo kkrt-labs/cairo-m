@@ -1,0 +1,44 @@
+---
+source: crates/compiler/semantic/tests/lib.rs
+description: "Inline semantic validation error test: lib::scoping::unused_variables::test_multiple_unused_variables"
+---
+Fixture: lib::scoping::unused_variables::test_multiple_unused_variables
+============================================================
+Source code:
+
+        func test() {
+            let unused1 = 10;
+            let unused2 = 20;
+            let unused3 = 30;
+            return ();
+        }
+    
+============================================================
+Found 3 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1002] Warning: Unused variable 'unused1'
+   ╭─[ lib::scoping::unused_variables::test_multiple_unused_variables:3:17 ]
+   │
+ 3 │             let unused1 = 10;
+   │                 ───┬───  
+   │                    ╰───── Unused variable 'unused1'
+───╯
+
+--- Diagnostic 2 ---
+[1002] Warning: Unused variable 'unused2'
+   ╭─[ lib::scoping::unused_variables::test_multiple_unused_variables:4:17 ]
+   │
+ 4 │             let unused2 = 20;
+   │                 ───┬───  
+   │                    ╰───── Unused variable 'unused2'
+───╯
+
+--- Diagnostic 3 ---
+[1002] Warning: Unused variable 'unused3'
+   ╭─[ lib::scoping::unused_variables::test_multiple_unused_variables:5:17 ]
+   │
+ 5 │             let unused3 = 30;
+   │                 ───┬───  
+   │                    ╰───── Unused variable 'unused3'
+───╯

@@ -21,3 +21,10 @@ indexmap = "2.6.0"
 cairo-m-compiler-parser = { path = "../parser" }
 cairo-m-compiler-diagnostics = { path = "../diagnostics" }
 index_vec = "0.1.4"
+
+[dev-dependencies]
+stdext = "0.3"
+
+[[test]]
+name = "semantic_tests"
+path = "tests/mod.rs"

@@ -1,0 +1,32 @@
+---
+source: crates/compiler/semantic/tests/lib.rs
+description: "Inline semantic validation error test: lib::statements::expression_statements::test_function_call_statement_with_undeclared_args"
+---
+Fixture: lib::statements::expression_statements::test_function_call_statement_with_undeclared_args
+============================================================
+Source code:
+func process(x: felt) { return (); }
+
+func test() { 
+            process(undefined_var); // Error: undeclared variable in argument
+         }
+============================================================
+Found 2 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1001] Error: Undeclared variable 'undefined_var'
+   ╭─[ lib::statements::expression_statements::test_function_call_statement_with_undeclared_args:4:21 ]
+   │
+ 4 │             process(undefined_var); // Error: undeclared variable in argument
+   │                     ──────┬──────  
+   │                           ╰──────── Undeclared variable 'undefined_var'
+───╯
+
+--- Diagnostic 2 ---
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ lib::statements::expression_statements::test_function_call_statement_with_undeclared_args:3:6 ]
+   │
+ 3 │ func test() {
+   │      ──┬─  
+   │        ╰─── Function 'test' doesn't return on all paths
+───╯

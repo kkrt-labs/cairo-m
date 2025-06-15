@@ -1,0 +1,33 @@
+---
+source: crates/compiler/semantic/tests/lib.rs
+description: "Inline semantic validation error test: lib::scoping::undeclared_variables::test_undeclared_in_assignment"
+---
+Fixture: lib::scoping::undeclared_variables::test_undeclared_in_assignment
+============================================================
+Source code:
+
+        func test() {
+            let x = 5;
+            x = undefined_var;
+        }
+    
+============================================================
+Found 2 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1001] Error: Undeclared variable 'undefined_var'
+   ╭─[ lib::scoping::undeclared_variables::test_undeclared_in_assignment:4:17 ]
+   │
+ 4 │             x = undefined_var;
+   │                 ──────┬──────  
+   │                       ╰──────── Undeclared variable 'undefined_var'
+───╯
+
+--- Diagnostic 2 ---
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ lib::scoping::undeclared_variables::test_undeclared_in_assignment:2:14 ]
+   │
+ 2 │         func test() {
+   │              ──┬─  
+   │                ╰─── Function 'test' doesn't return on all paths
+───╯

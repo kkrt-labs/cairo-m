@@ -1,0 +1,26 @@
+---
+source: crates/compiler/semantic/tests/mod.rs
+description: "Inline semantic validation error test: control_flow::control_flow_paths::test_not_all_paths_return"
+---
+Fixture: semantic_tests::control_flow::control_flow_paths::test_not_all_paths_return
+============================================================
+Source code:
+
+        func test(x: felt) -> felt {
+            if (x == 0) {
+                return 1;
+            }
+            // Missing return for else case
+        }
+    
+============================================================
+Found 1 diagnostic(s):
+
+--- Diagnostic 1 ---
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ semantic_tests::control_flow::control_flow_paths::test_not_all_paths_return:2:14 ]
+   │
+ 2 │         func test(x: felt) -> felt {
+   │              ──┬─  
+   │                ╰─── Function 'test' doesn't return on all paths
+───╯

@@ -1,0 +1,28 @@
+---
+source: crates/compiler/semantic/tests/mod.rs
+description: "Inline semantic validation error test: control_flow::unreachable_code::test_code_after_if_with_returns"
+---
+Fixture: semantic_tests::control_flow::unreachable_code::test_code_after_if_with_returns
+============================================================
+Source code:
+
+        func test(x: felt) -> felt {
+            if (x == 0) {
+                return 1;
+            } else {
+                return 2;
+            }
+            let unreachable = 3; // Error: unreachable code
+        }
+    
+============================================================
+Found 1 diagnostic(s):
+
+--- Diagnostic 1 ---
+[3001] Warning: Unreachable variable declaration
+   ╭─[ semantic_tests::control_flow::unreachable_code::test_code_after_if_with_returns:8:13 ]
+   │
+ 8 │             let unreachable = 3; // Error: unreachable code
+   │             ──────────┬─────────  
+   │                       ╰─────────── Unreachable variable declaration
+───╯

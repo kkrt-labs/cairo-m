@@ -1,0 +1,32 @@
+---
+source: crates/compiler/semantic/tests/lib.rs
+description: "Inline semantic validation error test: lib::functions::parameter_validation::test_multiple_parameters_some_unused"
+---
+Fixture: lib::functions::parameter_validation::test_multiple_parameters_some_unused
+============================================================
+Source code:
+
+        func test(used: felt, unused1: felt, unused2: felt) -> felt {
+            return used;
+        }
+    
+============================================================
+Found 2 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1002] Warning: Unused variable 'unused1'
+   ╭─[ lib::functions::parameter_validation::test_multiple_parameters_some_unused:2:31 ]
+   │
+ 2 │         func test(used: felt, unused1: felt, unused2: felt) -> felt {
+   │                               ───┬───  
+   │                                  ╰───── Unused variable 'unused1'
+───╯
+
+--- Diagnostic 2 ---
+[1002] Warning: Unused variable 'unused2'
+   ╭─[ lib::functions::parameter_validation::test_multiple_parameters_some_unused:2:46 ]
+   │
+ 2 │         func test(used: felt, unused1: felt, unused2: felt) -> felt {
+   │                                              ───┬───  
+   │                                                 ╰───── Unused variable 'unused2'
+───╯

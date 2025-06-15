@@ -1,0 +1,23 @@
+---
+source: crates/compiler/semantic/tests/lib.rs
+description: "Inline semantic validation error test: lib::scoping::undeclared_variables::test_undeclared_in_return"
+---
+Fixture: lib::scoping::undeclared_variables::test_undeclared_in_return
+============================================================
+Source code:
+
+        func test() -> felt {
+            return undefined_var;
+        }
+    
+============================================================
+Found 1 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1001] Error: Undeclared variable 'undefined_var'
+   ╭─[ lib::scoping::undeclared_variables::test_undeclared_in_return:3:20 ]
+   │
+ 3 │             return undefined_var;
+   │                    ──────┬──────  
+   │                          ╰──────── Undeclared variable 'undefined_var'
+───╯

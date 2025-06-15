@@ -1,0 +1,39 @@
+---
+source: crates/compiler/semantic/tests/lib.rs
+description: "Inline semantic validation error test: lib::scoping::nested_scopes::test_nested_scope_variable_access"
+---
+Fixture: lib::scoping::nested_scopes::test_nested_scope_variable_access
+============================================================
+Source code:
+
+        func test() {
+            let outer = 1;
+            {
+                let middle = 2;
+                {
+                    let inner = 3;
+                }
+                let bad = inner; // Error: inner not accessible
+            }
+        }
+    
+============================================================
+Found 2 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1001] Error: Undeclared variable 'inner'
+   ╭─[ lib::scoping::nested_scopes::test_nested_scope_variable_access:9:27 ]
+   │
+ 9 │                 let bad = inner; // Error: inner not accessible
+   │                           ──┬──  
+   │                             ╰──── Undeclared variable 'inner'
+───╯
+
+--- Diagnostic 2 ---
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ lib::scoping::nested_scopes::test_nested_scope_variable_access:2:14 ]
+   │
+ 2 │         func test() {
+   │              ──┬─  
+   │                ╰─── Function 'test' doesn't return on all paths
+───╯
