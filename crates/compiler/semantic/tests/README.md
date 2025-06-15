@@ -34,7 +34,17 @@ visibility into what semantic features are implemented and validated.
   - `assignments.rs` - Tests for assignment validation
   - `expression_statements.rs` - Tests for expression statement validation
 
-- **`types/`** - Type system validation tests (TODO)
+- **`types/`** - Type system validation tests
+
+  - `type_resolution_tests.rs` - Tests for basic type resolution
+  - `definition_type_tests.rs` - Tests for definition type resolution
+  - `expression_type_tests.rs` - Tests for expression type inference
+  - `function_signature_tests.rs` - Tests for function signature resolution
+  - `struct_type_tests.rs` - Tests for struct type resolution
+  - `type_compatibility_tests.rs` - Tests for type compatibility checks
+  - `recursive_and_error_types_tests.rs` - Tests for recursive types and error
+    handling
+
 - **`structures/`** - Struct validation tests (TODO)
 - **`expressions/`** - Expression validation tests (TODO)
 - **`integration/`** - End-to-end integration tests

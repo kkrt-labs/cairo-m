@@ -306,6 +306,8 @@ impl SemanticIndex {
     }
 
     /// Resolve a name by walking up the scope chain
+    // TODO(shadowing): this doesn't support shadowing (will only return the first definition)
+    // The place table only stores the last tracked definition for a given name.
     pub fn resolve_name(
         &self,
         name: &str,
