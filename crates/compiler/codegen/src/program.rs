@@ -31,7 +31,7 @@ impl<'de> Deserialize<'de> for CasmInstruction {
         let off0 = hex_vec[1].parse::<i32>().ok();
         let off1 = hex_vec[2].parse::<i32>().ok();
         let off2 = hex_vec[3].parse::<i32>().ok();
-        let mut instruction = CasmInstruction::new(opcode);
+        let mut instruction = Self::new(opcode);
         if let Some(off0) = off0 {
             instruction = instruction.with_off0(off0);
         }

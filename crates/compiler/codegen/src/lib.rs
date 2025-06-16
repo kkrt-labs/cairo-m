@@ -179,15 +179,15 @@ impl CasmInstruction {
         let off0 = self
             .off0
             .map(|off| format!("{:#02x}", M31::from(off).0))
-            .unwrap_or("0x00".to_string());
+            .unwrap_or_else(|| "0x00".to_string());
         let off1 = self
             .off1
             .map(|off| format!("{:#02x}", M31::from(off).0))
-            .unwrap_or("0x00".to_string());
+            .unwrap_or_else(|| "0x00".to_string());
         let off2 = self
             .off2
             .map(|off| format!("{:#02x}", M31::from(off).0))
-            .unwrap_or("0x00".to_string());
+            .unwrap_or_else(|| "0x00".to_string());
         vec![opcode, off0, off1, off2]
     }
 }

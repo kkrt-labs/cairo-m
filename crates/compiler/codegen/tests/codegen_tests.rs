@@ -1,6 +1,5 @@
 //! Main test runner for CASM code generation.
 
-use cairo_m_compiler_codegen::compile_module;
 use cairo_m_compiler_codegen::CodeGenerator;
 use cairo_m_compiler_mir::generate_mir;
 use cairo_m_compiler_semantic::{File, SemanticDatabaseImpl};
