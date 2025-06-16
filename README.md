@@ -47,3 +47,12 @@ to pull the correct pinned version.
 
 The project uses [trunk.io](https://trunk.io/) for managing all the linters, so
 make sure to install both the CLI and the VScode extension.
+
+## Benchmark VM
+
+```bash
+RUSTFLAGS="-C target-cpu=native" cargo bench --bench vm_benchmark -- --verbose
+```
+
+The command will run all benchmark functions from the VM and display the
+throughput results in your terminal.

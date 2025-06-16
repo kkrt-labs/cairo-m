@@ -27,7 +27,7 @@ pub enum VmError {
 }
 
 /// A compiled Cairo M program containing decoded instructions.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Program {
     pub instructions: Vec<Instruction>,
 }
@@ -63,6 +63,7 @@ pub struct TraceEntry {
 ///
 /// - `memory`: Flat address space storing instructions and data
 /// - `state`: Current processor state (PC, FP)
+/// - `trace`: Execution trace
 #[derive(Debug, Default)]
 pub struct VM {
     pub final_pc: M31,
@@ -266,7 +267,6 @@ impl VM {
 
 #[cfg(test)]
 mod tests {
-
     use std::fs::File;
     use std::io::Read;
 
