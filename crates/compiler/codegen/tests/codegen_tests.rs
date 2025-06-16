@@ -78,6 +78,7 @@ codegen_test!(subtract_numbers, "arithmetic");
 // --- Control Flow ---
 codegen_test!(simple_if, "control_flow");
 codegen_test!(if_else, "control_flow");
+codegen_test!(if_else_with_merge, "control_flow");
 
 // --- Functions ---
 codegen_test!(simple_call, "functions");
