@@ -8,6 +8,11 @@ fn test_simple_let_statement() {
 }
 
 #[test]
+fn test_simple_local_statement() {
+    assert_semantic_ok!(&in_function("local x = 42; \n return();"));
+}
+
+#[test]
 fn test_let_with_expression() {
     assert_semantic_ok!(&in_function(
         "
@@ -19,8 +24,19 @@ fn test_let_with_expression() {
 }
 
 #[test]
+fn test_local_with_expression() {
+    assert_semantic_ok!(&in_function(
+        "
+        local x = 10;
+        local y = x + 20;
+        return y;
+    "
+    ));
+}
+
+#[test]
 fn test_let_with_undeclared_variable() {
-    assert_semantic_err!(&in_function("let x = undefined_var;"));
+    assert_semantic_err!(&in_function("let x = undefined_var; return();"));
 }
 
 #[test]
@@ -31,16 +47,6 @@ fn test_multiple_let_statements() {
         let b = 2;
         let c = a + b;
         return c;
-    "
-    ));
-}
-
-#[test]
-fn test_let_statement_duplicate() {
-    assert_semantic_err!(&in_function(
-        "
-        let x = 1;
-        let x = 2; // Duplicate definition
     "
     ));
 }
@@ -89,6 +95,28 @@ fn test_let_statement_with_complex_expression() {
         let b = 20;
         let result = (a + b) * 2 - 5;
         return result;
+    "
+    ));
+}
+
+#[test]
+fn test_let_statement_shadowing() {
+    assert_semantic_ok!(&in_function(
+        "
+        let x = 1;
+        let x = 2;
+        return x;
+    "
+    ));
+}
+
+#[test]
+fn test_local_statement_shadowing() {
+    assert_semantic_ok!(&in_function(
+        "
+        local x = 1;
+        local x = 2;
+        return x;
     "
     ));
 }

@@ -1,0 +1,19 @@
+---
+source: crates/compiler/semantic/tests/mod.rs
+description: "Inline semantic validation error test: statements::let_local_statements::test_let_with_undeclared_variable"
+---
+Fixture: semantic_tests::statements::let_local_statements::test_let_with_undeclared_variable
+============================================================
+Source code:
+func test() { let x = undefined_var; return(); }
+============================================================
+Found 1 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1001] Error: Undeclared variable 'undefined_var'
+   ╭─[ semantic_tests::statements::let_local_statements::test_let_with_undeclared_variable:1:23 ]
+   │
+ 1 │ func test() { let x = undefined_var; return(); }
+   │                       ──────┬──────  
+   │                             ╰──────── Undeclared variable 'undefined_var'
+───╯

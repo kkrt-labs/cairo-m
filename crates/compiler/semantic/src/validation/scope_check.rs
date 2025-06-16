@@ -91,10 +91,8 @@ impl ScopeValidator {
 
     /// Check for duplicate definitions within a scope
     ///
-    /// TODO: Improve duplicate detection to handle:
-    /// - Function overloading (if supported by Cairo-M)
-    /// - Different kinds of definitions (type vs value)
-    /// - Generic specializations
+    /// Variable shadowing is allowed for let/local bindings, but duplicate
+    /// function names and duplicate parameter names are still errors.
     fn check_duplicate_definitions(
         &self,
         scope_id: crate::FileScopeId,
@@ -104,22 +102,46 @@ impl ScopeValidator {
         index: &SemanticIndex,
     ) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
-        let mut seen_names = HashSet::new();
+        let mut seen_functions = HashSet::new();
+        let mut seen_parameters = HashSet::new();
 
         for (place_id, place) in place_table.places() {
-            if place.flags.contains(PlaceFlags::DEFINED) && !seen_names.insert(&place.name) {
-                // Get the proper span from the definition
-                let span =
-                    if let Some((_, definition)) = index.definition_for_place(scope_id, place_id) {
+            if place.flags.contains(PlaceFlags::DEFINED) {
+                // Check for duplicate function names
+                if place.flags.contains(PlaceFlags::FUNCTION) {
+                    if !seen_functions.insert(&place.name) {
+                        let span = if let Some((_, definition)) =
+                            index.definition_for_place(scope_id, place_id)
+                        {
+                            definition.name_span
+                        } else {
+                            panic!("No definition found for function {}", place.name);
+                        };
+                        diagnostics.push(Diagnostic::duplicate_definition(
+                            file.file_path(db).to_string(),
+                            &place.name,
+                            span,
+                        ));
+                    }
+                }
+                // Check for duplicate parameter names
+                else if place.flags.contains(PlaceFlags::PARAMETER)
+                    && !seen_parameters.insert(&place.name)
+                {
+                    let span = if let Some((_, definition)) =
+                        index.definition_for_place(scope_id, place_id)
+                    {
                         definition.name_span
                     } else {
-                        chumsky::span::SimpleSpan::from(0..0)
+                        panic!("No definition found for parameter {}", place.name);
                     };
-                diagnostics.push(Diagnostic::duplicate_definition(
-                    file.file_path(db).to_string(),
-                    &place.name,
-                    span,
-                ));
+                    diagnostics.push(Diagnostic::duplicate_definition(
+                        file.file_path(db).to_string(),
+                        &place.name,
+                        span,
+                    ));
+                }
+                // Allow shadowing for regular variables (let/local)
             }
         }
 

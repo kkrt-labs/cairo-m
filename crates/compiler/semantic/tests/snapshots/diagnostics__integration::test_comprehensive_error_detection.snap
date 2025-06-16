@@ -12,8 +12,8 @@ Source code:
         }
 
         func test() -> felt {
-            let duplicate = 1;
-            let duplicate = 2; // Duplicate definition
+            let shadowed = 1;
+            let shadowed = 2;
 
             let result = nonexistent_function(10); // Undeclared function
             return result;
@@ -22,7 +22,7 @@ Source code:
         }
     
 ============================================================
-Found 4 diagnostic(s):
+Found 3 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1001] Error: Undeclared variable 'undefined_var'
@@ -43,15 +43,6 @@ Found 4 diagnostic(s):
 ────╯
 
 --- Diagnostic 3 ---
-[1003] Error: Duplicate definition of 'duplicate'
-   ╭─[ semantic_tests::integration::test_comprehensive_error_detection:9:17 ]
-   │
- 9 │             let duplicate = 2; // Duplicate definition
-   │                 ────┬────  
-   │                     ╰────── Duplicate definition of 'duplicate'
-───╯
-
---- Diagnostic 4 ---
 [3001] Warning: Unreachable variable declaration
     ╭─[ semantic_tests::integration::test_comprehensive_error_detection:14:13 ]
     │

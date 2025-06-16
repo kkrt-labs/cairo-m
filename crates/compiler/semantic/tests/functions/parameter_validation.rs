@@ -112,13 +112,12 @@ fn test_parameter_assignment() {
 }
 
 #[test]
-fn test_parameter_vs_local_variable_conflict() {
-    // Parameter and local variable with same name should be an error
-    // TODO: after we support shadowing, this should no longer be an error
-    assert_semantic_err!(
+fn test_parameter_vs_local_variable_shadowing() {
+    // Shadowing is now supported - local variables can shadow parameters
+    assert_semantic_ok!(
         r#"
         func test(param: felt) -> felt {
-            let param = 42; // Error: duplicate definition
+            let param = 42; // OK: shadows parameter
             return param;
         }
     "#

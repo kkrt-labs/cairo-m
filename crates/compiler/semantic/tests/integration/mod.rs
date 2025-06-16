@@ -136,8 +136,8 @@ fn test_comprehensive_error_detection() {
         }
 
         func test() -> felt {
-            let duplicate = 1;
-            let duplicate = 2; // Duplicate definition
+            let shadowed = 1;
+            let shadowed = 2;
 
             let result = nonexistent_function(10); // Undeclared function
             return result;

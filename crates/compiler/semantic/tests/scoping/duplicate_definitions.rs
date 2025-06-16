@@ -3,25 +3,14 @@
 use crate::*;
 
 #[test]
-fn test_simple_duplicate_variable() {
-    assert_semantic_err!(
-        r#"
-        func test() {
-            let x = 1;
-            let x = 2; // Duplicate definition
-        }
-    "#
-    );
-}
-
-#[test]
 fn test_duplicate_in_same_scope() {
-    assert_semantic_err!(
+    assert_semantic_ok!(
         r#"
         func test() {
             let var = 10;
             let another = 20;
-            let var = 30; // Duplicate definition
+            let var = 30;
+            return var;
         }
     "#
     );
@@ -39,11 +28,13 @@ fn test_duplicate_parameters() {
 }
 
 #[test]
-fn test_parameter_and_local_duplicate() {
-    assert_semantic_err!(
+fn test_parameter_and_local_shadowing() {
+    // Local variables can shadow parameters
+    assert_semantic_ok!(
         r#"
         func test(param: felt) {
-            let param = 42; // Duplicate with parameter
+            let param = 42;
+            return param;
         }
     "#
     );
@@ -81,14 +72,16 @@ fn test_duplicate_function_names() {
 }
 
 #[test]
-fn test_multiple_duplicates() {
-    assert_semantic_err!(
+fn test_multiple_shadowing() {
+    // Multiple variables can be shadowed
+    assert_semantic_ok!(
         r#"
         func test() {
             let x = 1;
             let y = 2;
-            let x = 3; // First duplicate
-            let y = 4; // Second duplicate
+            let x = 3;
+            let y = 4;
+            return x + y;
         }
     "#
     );
