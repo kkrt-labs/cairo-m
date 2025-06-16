@@ -23,9 +23,9 @@ pub fn build_diagnostic_message(
     let owned_source_content = source_content.to_string();
 
     // Create a cache that Ariadne can use to fetch source snippets.
-    let cache = ariadne::sources(vec![(file_id, owned_source_content)]);
+    let cache = ariadne::sources(vec![(file_id.clone(), owned_source_content)]);
 
-    Report::build(diagnostic.severity.into(), report_span.clone())
+    let mut report = Report::build(diagnostic.severity.into(), report_span.clone())
         .with_config(
             ariadne::Config::new()
                 .with_index_type(ariadne::IndexType::Byte)
@@ -33,9 +33,18 @@ pub fn build_diagnostic_message(
         )
         .with_code(code_u32)
         .with_message(&diagnostic.message)
-        .with_label(Label::new(report_span).with_message(&diagnostic.message))
-        .finish()
-        .write(cache, &mut write_buffer)
-        .unwrap();
+        .with_label(Label::new(report_span).with_message(&diagnostic.message));
+
+    // Add related spans as notes
+    for (span, message) in &diagnostic.related_spans {
+        let related_span = (file_id.clone(), span.into_range());
+        report = report.with_label(
+            Label::new(related_span)
+                .with_message(message)
+                .with_color(ariadne::Color::Blue),
+        );
+    }
+
+    report.finish().write(cache, &mut write_buffer).unwrap();
     String::from_utf8_lossy(&write_buffer).to_string()
 }

@@ -1,0 +1,37 @@
+---
+source: crates/compiler/semantic/tests/mod.rs
+description: "Inline semantic validation error test: expressions::type_errors::test_struct_in_arithmetic_operation"
+---
+Fixture: semantic_tests::expressions::type_errors::test_struct_in_arithmetic_operation
+============================================================
+Source code:
+
+        struct Point { x: felt, y: felt }
+
+        func test() {
+            let p = Point { x: 10, y: 20 };
+            let result = p + 5;  // Error: struct in arithmetic
+        }
+    
+============================================================
+Found 2 diagnostic(s):
+
+--- Diagnostic 1 ---
+[2001] Error: Invalid left operand for arithmetic operator 'Add'. Expected 'felt', found 'Point'
+   ╭─[ semantic_tests::expressions::type_errors::test_struct_in_arithmetic_operation:6:26 ]
+   │
+ 6 │             let result = p + 5;  // Error: struct in arithmetic
+   │                          ┬  
+   │                          ╰── Invalid left operand for arithmetic operator 'Add'. Expected 'felt', found 'Point'
+   │                          │  
+   │                          ╰── This struct has numeric fields that could be accessed
+───╯
+
+--- Diagnostic 2 ---
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ semantic_tests::expressions::type_errors::test_struct_in_arithmetic_operation:4:14 ]
+   │
+ 4 │         func test() {
+   │              ──┬─  
+   │                ╰─── Function 'test' doesn't return on all paths
+───╯

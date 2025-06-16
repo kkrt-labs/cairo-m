@@ -203,16 +203,36 @@ pub fn expression_semantic_type<'db>(
             }
         }
         Expression::MemberAccess { object, field } => {
-            let object_id = semantic_index.expression_id_by_span(object.span()).unwrap();
+            // Handle potential missing expression ID gracefully
+            let object_id = match semantic_index.expression_id_by_span(object.span()) {
+                Some(id) => id,
+                None => return TypeId::new(db, TypeData::Error),
+            };
+
             let object_type = expression_semantic_type(db, file, object_id);
 
-            // TODO: add test for this.
-            if let TypeData::Struct(struct_id) = object_type.data(db) {
-                struct_id
-                    .field_type(db, field.value())
-                    .unwrap_or_else(|| TypeId::new(db, TypeData::Error))
-            } else {
-                TypeId::new(db, TypeData::Error)
+            match object_type.data(db) {
+                TypeData::Struct(struct_id) => {
+                    // Direct struct field access
+                    struct_id
+                        .field_type(db, field.value())
+                        .unwrap_or_else(|| TypeId::new(db, TypeData::Error))
+                }
+                TypeData::Pointer(inner_type) => {
+                    // Pointer to struct field access - automatic dereference
+                    if let TypeData::Struct(struct_id) = inner_type.data(db) {
+                        struct_id
+                            .field_type(db, field.value())
+                            .unwrap_or_else(|| TypeId::new(db, TypeData::Error))
+                    } else {
+                        // Pointer to non-struct type
+                        TypeId::new(db, TypeData::Error)
+                    }
+                }
+                _ => {
+                    // Field access on non-struct, non-pointer type
+                    TypeId::new(db, TypeData::Error)
+                }
             }
         }
         Expression::FunctionCall { callee, args: _ } => {
@@ -652,5 +672,91 @@ mod tests {
         assert!(expression_types_found.contains("StructLiteral"));
         assert!(expression_types_found.contains("BinaryOp"));
         assert!(expression_types_found.contains("MemberAccess"));
+    }
+
+    #[test]
+    fn test_member_access_edge_cases() {
+        let db = test_db();
+        let program = r#"
+            struct Point { x: felt, y: felt }
+            struct Nested { point: Point, value: felt }
+            
+            func test(p: Point, ptr: felt*, nested: Nested) -> felt {
+                let x1 = p.x;           // Direct struct field access
+                let n1 = nested.value;  // Nested struct field
+                let n2 = nested.point;  // Nested struct returns Point type
+                return x1;
+            }
+        "#;
+        let file = File::new(&db, program.to_string(), "test.cm".to_string());
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
+
+        // Find member access expressions and verify their types
+        for expr_id in semantic_index.span_to_expression_id.values() {
+            let expr_info = semantic_index.expression(*expr_id).unwrap();
+
+            if let Expression::MemberAccess { object: _, field } = &expr_info.ast_node {
+                let expr_type = expression_semantic_type(&db, file, *expr_id);
+
+                match field.value().as_str() {
+                    "x" | "value" => {
+                        // These should be felt type
+                        assert!(
+                            matches!(expr_type.data(&db), TypeData::Felt),
+                            "Field {} should have felt type",
+                            field.value()
+                        );
+                    }
+                    "point" => {
+                        // This should be Point type
+                        assert!(
+                            matches!(expr_type.data(&db), TypeData::Struct(_)),
+                            "Field {} should have struct type",
+                            field.value()
+                        );
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_pointer_to_struct_field_access() {
+        let db = test_db();
+        let program = r#"
+            struct Point { x: felt, y: felt }
+            
+            func test(ptr: Point*) -> felt {
+                let x = ptr.x;  // Should automatically dereference
+                return x;
+            }
+        "#;
+        let file = File::new(&db, program.to_string(), "test.cm".to_string());
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
+
+        // Find the ptr.x expression
+        let mut found_ptr_access = false;
+        for expr_id in semantic_index.span_to_expression_id.values() {
+            let expr_info = semantic_index.expression(*expr_id).unwrap();
+
+            if let Expression::MemberAccess { object, field } = &expr_info.ast_node
+                && let Expression::Identifier(ident) = object.value()
+                && ident.value() == "ptr"
+                && field.value() == "x"
+            {
+                let expr_type = expression_semantic_type(&db, file, *expr_id);
+                assert!(
+                    matches!(expr_type.data(&db), TypeData::Felt),
+                    "ptr.x should have felt type through automatic dereference"
+                );
+                found_ptr_access = true;
+            }
+        }
+        assert!(found_ptr_access, "Should have found ptr.x expression");
     }
 }

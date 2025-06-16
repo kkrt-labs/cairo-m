@@ -85,6 +85,7 @@ impl ControlFlowValidator {
             );
 
             // Pass 2: Missing-return analysis.
+            // Cairo-M requires explicit returns for all functions, including unit-type functions.
             if !Self::body_returns_on_all_paths(&function_def.body) {
                 diagnostics.push(Diagnostic::missing_return(
                     file.file_path(db).to_string(),
