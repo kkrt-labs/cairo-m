@@ -7,6 +7,102 @@ features including arithmetic, control flow, functions, and variables. However,
 there are significant opportunities for optimization and missing features that
 need implementation.
 
+## VM Instruction Usage Reference
+
+The Cairo-M VM current supports 32 instructions (opcodes 0-31). Here's the
+mapping of which instructions are used by the codegen crate for various
+operations:
+
+### Currently Used Instructions
+
+1. **Arithmetic Operations**
+
+   - `STORE_ADD_FP_FP` (opcode 0): Addition between two fp-relative values
+   - `STORE_ADD_FP_IMM` (opcode 1): Addition with immediate value
+   - `STORE_SUB_FP_FP` (opcode 2): Subtraction between two fp-relative values
+   - `STORE_SUB_FP_IMM` (opcode 3): Subtraction with immediate value
+   - `STORE_MUL_FP_FP` (opcode 7): Multiplication between two fp-relative values
+   - `STORE_MUL_FP_IMM` (opcode 8): Multiplication with immediate value
+   - `STORE_DIV_FP_FP` (opcode 9): Division between two fp-relative values
+   - `STORE_DIV_FP_IMM` (opcode 10): Division with immediate value
+
+2. **Data Movement**
+
+   - `STORE_DEREF_FP` (opcode 4): Copy value from one fp location to another
+   - `STORE_IMM` (opcode 6): Store immediate value to fp location
+
+3. **Control Flow**
+   - `CALL_ABS_IMM` (opcode 12): Call function at absolute address (label)
+   - `RET` (opcode 15): Return from function
+   - `JMP_ABS_IMM` (opcode 20): Unconditional jump to absolute address (label)
+   - `JNZ_FP_IMM` (opcode 31): Conditional jump if fp value is non-zero
+
+### Instructions Needed for Missing Features
+
+1. **For Load/Store Operations (TODO)**
+
+   - `STORE_DOUBLE_DEREF_FP` (opcode 5): For dereferencing pointers
+     `[fp + off2] = [[fp + off0] + off1]`
+     - MIR: `InstructionKind::Load { dest, address }` - implements `*ptr`
+       dereferencing
+     - MIR: `InstructionKind::Store { address, value }` - for indirect stores
+       through pointers
+     - Example: `let x = *ptr;` or `*ptr = value;`
+
+2. **For Dynamic Function Calls**
+
+   - `CALL_ABS_FP` (opcode 11): Call function at address stored in fp location
+     - MIR: `InstructionKind::Call` when the callee is a function pointer
+       variable
+     - Example: `let fn_ptr = get_function(); fn_ptr(args);`
+   - `CALL_REL_FP` (opcode 13): Relative call using fp value
+     - MIR: For position-independent code or computed call offsets
+   - `CALL_REL_IMM` (opcode 14): Relative call with immediate offset
+     - MIR: Alternative to absolute calls for local functions
+
+3. **For Advanced Control Flow**
+
+   - `JMP_ABS_DEREF_FP` (opcode 18): Jump to address stored at fp location
+     - MIR: For computed gotos or jump tables (future optimization)
+     - MIR: Switch statements with jump table implementation
+   - `JMP_REL_IMM` (opcode 27): Relative jump with immediate offset
+     - MIR: Alternative to absolute jumps for local branches
+   - `JNZ_FP_FP` (opcode 30): Conditional jump with fp-relative offset
+     - MIR: Complex conditional branches with computed targets
+
+4. **For Address Computation**
+
+   - `JMP_ABS_ADD_FP_FP` (opcode 16): Jump to computed address (sum of two
+     values)
+     - MIR: `InstructionKind::GetElementPtr { dest, base, offset }` for
+       array/struct access
+     - Example: `arr[i]` where both base and index are variables
+   - `JMP_ABS_ADD_FP_IMM` (opcode 17): Jump to fp value plus immediate
+     - MIR: `InstructionKind::GetElementPtr` with constant offset
+     - Example: `struct.field` or `arr[5]`
+   - Note: These jump instructions could be repurposed for address arithmetic
+
+5. **For Address-Of Operations**
+   - No specific VM instruction needed
+     - MIR: `InstructionKind::AddressOf { dest, target }`
+     - Implementation: Can use existing arithmetic to compute fp-relative
+       addresses
+     - Example: `let ptr = &variable;`
+
+### Unused Instructions
+
+The following instructions are not currently used and may not be needed:
+
+- `JMP_ABS_DOUBLE_DEREF_FP` (opcode 19)
+- `JMP_ABS_MUL_FP_FP` (opcode 21)
+- `JMP_ABS_MUL_FP_IMM` (opcode 22)
+- `JMP_REL_ADD_FP_FP` (opcode 23)
+- `JMP_REL_ADD_FP_IMM` (opcode 24)
+- `JMP_REL_DEREF_FP` (opcode 25)
+- `JMP_REL_DOUBLE_DEREF_FP` (opcode 26)
+- `JMP_REL_MUL_FP_FP` (opcode 28)
+- `JMP_REL_MUL_FP_IMM` (opcode 29)
+
 ## High Priority Tasks
 
 ### 1. Implement Missing MIR Instructions
