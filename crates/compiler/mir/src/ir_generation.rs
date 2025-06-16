@@ -205,23 +205,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 let incoming_param_val = self.mir_function.new_typed_value_id(param_type.clone());
                 self.mir_function.parameters.push(incoming_param_val);
 
-                // 2. Allocate stack space for the parameter variable
-                let param_addr = self
-                    .mir_function
-                    .new_typed_value_id(MirType::pointer(param_type.clone()));
-                self.add_instruction(Instruction::stack_alloc(
-                    param_addr,
-                    param_type.size_units(),
-                ));
-
-                // 3. Store the incoming value into its stack slot
-                self.add_instruction(Instruction::store(
-                    Value::operand(param_addr),
-                    Value::operand(incoming_param_val),
-                ));
-
-                // 4. Map the semantic definition to its stack address
-                self.definition_to_value.insert(mir_def_id, param_addr);
+                // 2. Map the semantic definition to its stack address
+                self.definition_to_value
+                    .insert(mir_def_id, incoming_param_val);
             } else {
                 return Err(format!(
                     "Internal Compiler Error: Could not resolve parameter '{}'",

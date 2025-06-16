@@ -27,16 +27,14 @@ module {
 
     0:
       %1 = stackalloc 1
-      store %1, %0
-      %2 = stackalloc 1
-      store %2, 42
+      store %1, 42
       // Get address of array element
-%3 = getelementptr %2, %1
-      store %3, 10
+%2 = getelementptr %1, %0
+      store %2, 10
       // Get address of array element
-%4 = getelementptr %2, 0
-      %5 = load %4
-      return %5
+%3 = getelementptr %1, 0
+      %4 = load %3
+      return %4
 
   }
 
