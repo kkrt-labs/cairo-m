@@ -1,4 +1,4 @@
-use cairo_m_compiler_codegen::generate_casm;
+use cairo_m_compiler_codegen::compile_module;
 use cairo_m_compiler_diagnostics::build_diagnostic_message;
 use cairo_m_compiler_mir::generate_mir;
 use cairo_m_compiler_parser::{parse_program, SourceProgram};
@@ -14,6 +14,10 @@ struct Args {
     /// Input file to compile
     #[arg(short, long)]
     input: PathBuf,
+
+    /// Output file to write the compiled program to
+    #[arg(short, long)]
+    output: Option<PathBuf>,
 
     /// Enable verbose output (shows MIR)
     #[arg(short, long)]
@@ -57,15 +61,21 @@ fn main() {
             }
 
             let mir_module = generated_mir.unwrap();
-            let generated_casm = generate_casm(&mir_module);
 
-            if let Err(e) = generated_casm {
-                eprintln!("Failed to generate CASM: {e}");
+            let program = compile_module(&mir_module);
+
+            if program.is_err() {
+                eprintln!("Failed to generate program");
                 std::process::exit(1);
             }
 
-            //TODO: write output to file
-            println!("(temp output): Generated CASM: {}", generated_casm.unwrap());
+            let generated_json = sonic_rs::to_string_pretty(&program.unwrap()).unwrap();
+
+            if let Some(output_path) = args.output {
+                fs::write(output_path, generated_json).unwrap();
+            } else {
+                println!("Generated JSON: {generated_json}");
+            }
         }
         Err(e) => eprintln!("Error reading file: {e}"),
     }
