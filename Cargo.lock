@@ -338,6 +338,7 @@ dependencies = [
  "salsa",
  "salsa-macros",
  "smol_str",
+ "stdext",
 ]
 
 [[package]]

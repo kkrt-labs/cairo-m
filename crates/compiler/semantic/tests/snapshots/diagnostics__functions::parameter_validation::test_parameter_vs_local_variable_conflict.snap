@@ -1,0 +1,24 @@
+---
+source: crates/compiler/semantic/tests/mod.rs
+description: "Inline semantic validation error test: functions::parameter_validation::test_parameter_vs_local_variable_conflict"
+---
+Fixture: semantic_tests::functions::parameter_validation::test_parameter_vs_local_variable_conflict
+============================================================
+Source code:
+
+        func test(param: felt) -> felt {
+            let param = 42; // Error: duplicate definition
+            return param;
+        }
+    
+============================================================
+Found 1 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1003] Error: Duplicate definition of 'param'
+   ╭─[ semantic_tests::functions::parameter_validation::test_parameter_vs_local_variable_conflict:3:17 ]
+   │
+ 3 │             let param = 42; // Error: duplicate definition
+   │                 ──┬──  
+   │                   ╰──── Duplicate definition of 'param'
+───╯

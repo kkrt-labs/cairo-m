@@ -1,0 +1,32 @@
+---
+source: crates/compiler/semantic/tests/mod.rs
+description: "Inline semantic validation error test: functions::function_calls::test_undeclared_function_call"
+---
+Fixture: semantic_tests::functions::function_calls::test_undeclared_function_call
+============================================================
+Source code:
+
+        func test() {
+            let result = undefined_function(42);
+        }
+    
+============================================================
+Found 2 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1001] Error: Undeclared variable 'undefined_function'
+   ╭─[ semantic_tests::functions::function_calls::test_undeclared_function_call:3:26 ]
+   │
+ 3 │             let result = undefined_function(42);
+   │                          ─────────┬────────  
+   │                                   ╰────────── Undeclared variable 'undefined_function'
+───╯
+
+--- Diagnostic 2 ---
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ semantic_tests::functions::function_calls::test_undeclared_function_call:2:14 ]
+   │
+ 2 │         func test() {
+   │              ──┬─  
+   │                ╰─── Function 'test' doesn't return on all paths
+───╯

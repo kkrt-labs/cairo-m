@@ -1,0 +1,23 @@
+---
+source: crates/compiler/semantic/tests/mod.rs
+description: "Inline semantic validation error test: functions::parameter_validation::test_duplicate_parameter_names"
+---
+Fixture: semantic_tests::functions::parameter_validation::test_duplicate_parameter_names
+============================================================
+Source code:
+
+        func test(x: felt, x: felt) -> felt {
+            return x;
+        }
+    
+============================================================
+Found 1 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1003] Error: Duplicate definition of 'x'
+   ╭─[ semantic_tests::functions::parameter_validation::test_duplicate_parameter_names:2:28 ]
+   │
+ 2 │         func test(x: felt, x: felt) -> felt {
+   │                            ┬  
+   │                            ╰── Duplicate definition of 'x'
+───╯
