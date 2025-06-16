@@ -225,10 +225,10 @@ mod tests {
         instructions::InstructionError, Instruction, Program, TraceEntry, VmError, VM,
     };
     use num_traits::{One, Zero};
-    use std::fs;
     use std::fs::File;
     use std::io::Read;
     use stwo_prover::core::fields::m31::M31;
+    use tempfile::NamedTempFile;
 
     #[test]
     fn test_program_from_vec_instructions() {
@@ -463,11 +463,10 @@ mod tests {
         // Expected serialized data:
         // Entry 1: fp=2, pc=0.
         // Entry 2: fp=2, pc=1.
-        let mut expected_bytes = Vec::new();
-        expected_bytes.extend_from_slice(&2u32.to_le_bytes());
-        expected_bytes.extend_from_slice(&0u32.to_le_bytes());
-        expected_bytes.extend_from_slice(&2u32.to_le_bytes());
-        expected_bytes.extend_from_slice(&1u32.to_le_bytes());
+        let expected_bytes: Vec<u8> = [2u32, 0u32, 2u32, 1u32]
+            .iter()
+            .flat_map(|&x| x.to_le_bytes())
+            .collect();
 
         assert_eq!(serialized_trace, expected_bytes);
     }
@@ -566,8 +565,11 @@ mod tests {
         // Execute the program to generate a trace.
         assert!(vm.execute().is_ok());
 
-        // Write the trace to a temporary file.
-        let temp_file_path = "test_trace.bin";
+        // Create a temporary file for the trace.
+        let temp_file = NamedTempFile::new().unwrap();
+        let temp_file_path = temp_file.path();
+
+        // Write the trace to the temporary file.
         let result = vm.write_binary_trace(temp_file_path);
         assert!(result.is_ok());
 
@@ -577,22 +579,17 @@ mod tests {
         file.read_to_end(&mut file_contents).unwrap();
 
         // Compare with the expected serialized trace.
-        let expected_trace = vm.serialize_trace();
-        assert_eq!(file_contents, expected_trace);
+        assert_eq!(file_contents, vm.serialize_trace());
 
         // Expected serialized data:
         // Entry 1: fp=2, pc=0.
         // Entry 2: fp=2, pc=1.
-        let mut expected_bytes = Vec::new();
-        expected_bytes.extend_from_slice(&2u32.to_le_bytes());
-        expected_bytes.extend_from_slice(&0u32.to_le_bytes());
-        expected_bytes.extend_from_slice(&2u32.to_le_bytes());
-        expected_bytes.extend_from_slice(&1u32.to_le_bytes());
+        let expected_bytes: Vec<u8> = [2u32, 0u32, 2u32, 1u32]
+            .iter()
+            .flat_map(|&x| x.to_le_bytes())
+            .collect();
 
         assert_eq!(file_contents, expected_bytes);
-
-        // Clean up the temporary file.
-        fs::remove_file(temp_file_path).unwrap();
     }
 
     #[test]
@@ -609,8 +606,11 @@ mod tests {
         // Execute the program to generate memory accesses.
         assert!(vm.execute().is_ok());
 
-        // Write the memory trace to a temporary file.
-        let temp_file_path = "test_memory_trace.bin";
+        // Create a temporary file for the memory trace.
+        let temp_file = NamedTempFile::new().unwrap();
+        let temp_file_path = temp_file.path();
+
+        // Write the memory trace to the temporary file.
         let result = vm.write_binary_memory_trace(temp_file_path);
         assert!(result.is_ok());
 
@@ -620,8 +620,7 @@ mod tests {
         file.read_to_end(&mut file_contents).unwrap();
 
         // Compare with the expected serialized memory trace.
-        let expected_memory_trace = vm.memory.serialize_trace();
-        assert_eq!(file_contents, expected_memory_trace);
+        assert_eq!(file_contents, vm.memory.serialize_trace());
 
         // Verify that the memory trace is not empty (we should have memory accesses).
         assert!(!file_contents.is_empty());
@@ -634,8 +633,5 @@ mod tests {
         let expected_entries = 3 + 3 + 2; // instruction fetches + stores + loads
         let expected_size = expected_entries * 5 * 4; // 5 u32 values * 4 bytes each
         assert_eq!(file_contents.len(), expected_size);
-
-        // Clean up the temporary file.
-        fs::remove_file(temp_file_path).unwrap();
     }
 }

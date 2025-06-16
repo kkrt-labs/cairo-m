@@ -20,3 +20,4 @@ stwo-prover = { git = "https://github.com/starkware-libs/stwo", features = [
   "parallel",
 ] }
 thiserror = "2.0.12"
+tempfile = "3.20"
