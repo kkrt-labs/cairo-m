@@ -41,8 +41,6 @@ module {
       jump 2
 
     2:
-      %3 = stackalloc 1
-      store %3, 4
       return %1
 
   }

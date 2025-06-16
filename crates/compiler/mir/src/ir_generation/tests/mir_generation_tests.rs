@@ -65,6 +65,9 @@ mir_test!(multiple_functions, "functions");
 mir_test!(assignment, "variables");
 mir_test!(reassignment_from_var, "variables");
 
+// --- Optimizations ---
+mir_test!(unused_variable_elimination, "optimizations");
+
 // --- Aggregates (Structs/Tuples) ---
 mir_test!(struct_literal, "aggregates");
 mir_test!(struct_access_mut, "aggregates");
