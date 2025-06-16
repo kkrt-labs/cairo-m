@@ -29,19 +29,18 @@ pub use generator::CodeGenerator;
 pub use layout::FunctionLayout;
 
 /// Main entry point for code generation
-///
+//// Converts a MIR module to a JSON representation of the compiled program
+pub fn generate_json(module: &MirModule) -> Result<String, CodegenError> {
+    let mut generator = CodeGenerator::new();
+    generator.generate_module(module)?;
+    Ok(generator.generate_json())
+}
+
 /// Converts a MIR module to CASM assembly code
 pub fn generate_casm(module: &MirModule) -> Result<String, CodegenError> {
     let mut generator = CodeGenerator::new();
     generator.generate_module(module)?;
     Ok(generator.generate_casm())
-}
-
-/// Converts a MIR module to a JSON representation of the compiled program
-pub fn generate_json(module: &MirModule) -> Result<String, CodegenError> {
-    let mut generator = CodeGenerator::new();
-    generator.generate_module(module)?;
-    Ok(generator.generate_json())
 }
 
 /// Represents an operand that can be either a literal value or a label reference
