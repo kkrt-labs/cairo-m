@@ -506,14 +506,11 @@ pub fn semantic_index_from_module<'a>(
 /// - Style/lint validation
 pub fn validate_semantics<'a>(
     db: &'a dyn SemanticDb,
-    module: &'a ParsedModule,
+    _module: &'a ParsedModule,
     file: File,
 ) -> DiagnosticCollection {
-    let index = semantic_index_from_module(db, module, file);
-
-    // Create validator registry with all available validators
-    let registry = crate::validation::validator::create_default_registry();
-    registry.validate_all(db, file, &index)
+    // Call the standalone tracked function
+    crate::db::validate_semantics(db, file)
 }
 
 /// Internal builder for constructing semantic indices

@@ -7,6 +7,7 @@
 //! The database system enables incremental recompilation by caching query results
 //! and invalidating them only when their dependencies change.
 
+use cairo_m_compiler_diagnostics::DiagnosticCollection;
 use cairo_m_compiler_parser as parser;
 use parser::{Db as ParserDb, Upcast};
 
@@ -52,6 +53,26 @@ impl Upcast<dyn ParserDb> for SemanticDatabaseImpl {
     fn upcast_mut(&mut self) -> &mut (dyn ParserDb + 'static) {
         self
     }
+}
+
+/// Validate semantics of a source file and return diagnostics.
+///
+/// This is a tracked query that performs comprehensive semantic validation
+/// including scope checking, type checking, and control flow analysis.
+#[salsa::tracked]
+pub fn validate_semantics(
+    db: &dyn SemanticDb,
+    file: parser::SourceProgram,
+) -> DiagnosticCollection {
+    // Parse the program first
+    let parsed = parser::parse_program(db.upcast(), file);
+
+    // Get the semantic index (this is already a tracked query)
+    let index = crate::semantic_index::semantic_index_from_module(db, &parsed.module, file);
+
+    // Create validator registry with all available validators
+    let registry = crate::validation::validator::create_default_registry();
+    registry.validate_all(db, file, &index)
 }
 
 #[cfg(test)]

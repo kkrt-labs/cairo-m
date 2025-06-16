@@ -3,9 +3,7 @@
 //! This module provides utilities for building CASM instructions from MIR values
 //! and function layouts.
 
-use crate::{
-    opcodes, CasmInstruction, CodegenError, CodegenResult, FunctionLayout, Label, Operand,
-};
+use crate::{CasmInstruction, CodegenError, CodegenResult, FunctionLayout, Label, Opcode, Operand};
 use cairo_m_compiler_mir::{Literal, Value, ValueId};
 use cairo_m_compiler_parser::parser::BinaryOp;
 use stwo_prover::core::fields::m31::M31;
@@ -19,7 +17,6 @@ pub struct CasmBuilder {
     /// Generated instructions
     instructions: Vec<CasmInstruction>,
     /// Labels that need to be resolved
-    /// TODO: find a better way than through attached comments :)
     labels: Vec<Label>,
     /// Current function layout for offset lookups
     layout: Option<FunctionLayout>,
@@ -71,8 +68,8 @@ impl CasmBuilder {
         match op {
             BinaryOp::Add => {
                 self.generate_arithmetic_op(
-                    opcodes::STORE_ADD_FP_FP,
-                    opcodes::STORE_ADD_FP_IMM,
+                    Opcode::StoreAddFpFp.into(),
+                    Opcode::StoreAddFpImm.into(),
                     dest_off,
                     left,
                     right,
@@ -80,8 +77,8 @@ impl CasmBuilder {
             }
             BinaryOp::Sub => {
                 self.generate_arithmetic_op(
-                    opcodes::STORE_SUB_FP_FP,
-                    opcodes::STORE_SUB_FP_IMM,
+                    Opcode::StoreSubFpFp.into(),
+                    Opcode::StoreSubFpImm.into(),
                     dest_off,
                     left,
                     right,
@@ -89,8 +86,8 @@ impl CasmBuilder {
             }
             BinaryOp::Mul => {
                 self.generate_arithmetic_op(
-                    opcodes::STORE_MUL_FP_FP,
-                    opcodes::STORE_MUL_FP_IMM,
+                    Opcode::StoreMulFpFp.into(),
+                    Opcode::StoreMulFpImm.into(),
                     dest_off,
                     left,
                     right,
@@ -98,8 +95,8 @@ impl CasmBuilder {
             }
             BinaryOp::Div => {
                 self.generate_arithmetic_op(
-                    opcodes::STORE_DIV_FP_FP,
-                    opcodes::STORE_DIV_FP_IMM,
+                    Opcode::StoreDivFpFp.into(),
+                    Opcode::StoreDivFpImm.into(),
                     dest_off,
                     left,
                     right,
@@ -186,8 +183,8 @@ impl CasmBuilder {
         // For now, implement equality as a subtraction and let the caller handle the comparison
         // A more sophisticated implementation would use conditional logic
         self.generate_arithmetic_op(
-            opcodes::STORE_SUB_FP_FP,
-            opcodes::STORE_SUB_FP_IMM,
+            Opcode::StoreSubFpFp.into(),
+            Opcode::StoreSubFpImm.into(),
             dest_off,
             left,
             right,
@@ -248,7 +245,7 @@ impl CasmBuilder {
         match source {
             Value::Literal(Literal::Integer(imm)) => {
                 // Store immediate value
-                let instr = CasmInstruction::new(opcodes::STORE_IMM)
+                let instr = CasmInstruction::new(Opcode::StoreImm.into())
                     .with_off2(dest_off)
                     .with_imm(M31::from(imm))
                     .with_comment(format!("[fp + {dest_off}] = {imm}"));
@@ -260,7 +257,7 @@ impl CasmBuilder {
                 // Copy from another value
                 let src_off = layout.get_offset(src_id)?;
 
-                let instr = CasmInstruction::new(opcodes::STORE_DEREF_FP)
+                let instr = CasmInstruction::new(Opcode::StoreDerefFp.into())
                     .with_off0(src_off)
                     .with_off2(dest_off)
                     .with_comment(format!("[fp + {dest_off}] = [fp + {src_off}]"));
@@ -305,7 +302,7 @@ impl CasmBuilder {
 
         // Step 3: Calculate `off0` and emit the `call` instruction.
         let off0 = l + m as i32 + k as i32;
-        let instr = CasmInstruction::new(opcodes::CALL_ABS_IMM)
+        let instr = CasmInstruction::new(Opcode::CallAbsImm.into())
             .with_off0(off0)
             .with_operand(Operand::Label(callee_name.to_string()))
             .with_comment(format!("call {callee_name}"));
@@ -335,7 +332,7 @@ impl CasmBuilder {
         layout.reserve_stack(k);
 
         let off0 = l + m as i32 + k as i32;
-        let instr = CasmInstruction::new(opcodes::CALL_ABS_IMM)
+        let instr = CasmInstruction::new(Opcode::CallAbsImm.into())
             .with_off0(off0)
             .with_operand(Operand::Label(callee_name.to_string()))
             .with_comment(format!("call {callee_name}"));
@@ -356,13 +353,15 @@ impl CasmBuilder {
         for (i, arg) in args.iter().enumerate() {
             let arg_offset = l + i as i32; // Place i-th arg at `[fp_c + L + i]`.
             let instr = match arg {
-                Value::Literal(Literal::Integer(imm)) => CasmInstruction::new(opcodes::STORE_IMM)
-                    .with_off2(arg_offset)
-                    .with_imm(M31::from(*imm))
-                    .with_comment(format!("Arg {i}: [fp + {arg_offset}] = {imm}")),
+                Value::Literal(Literal::Integer(imm)) => {
+                    CasmInstruction::new(Opcode::StoreImm.into())
+                        .with_off2(arg_offset)
+                        .with_imm(M31::from(*imm))
+                        .with_comment(format!("Arg {i}: [fp + {arg_offset}] = {imm}"))
+                }
                 Value::Operand(arg_id) => {
                     let src_off = layout.get_offset(*arg_id)?;
-                    CasmInstruction::new(opcodes::STORE_DEREF_FP)
+                    CasmInstruction::new(Opcode::StoreDerefFp.into())
                         .with_off0(src_off)
                         .with_off2(arg_offset)
                         .with_comment(format!("Arg {i}: [fp + {arg_offset}] = [fp + {src_off}]"))
@@ -394,14 +393,14 @@ impl CasmBuilder {
 
                 let instr = match return_val {
                     Value::Literal(Literal::Integer(imm)) => {
-                        CasmInstruction::new(opcodes::STORE_IMM)
+                        CasmInstruction::new(Opcode::StoreImm.into())
                             .with_off2(return_slot_offset)
                             .with_imm(M31::from(imm))
                             .with_comment(format!("Return value: [fp-3] = {imm}"))
                     }
                     Value::Operand(val_id) => {
                         let src_off = layout.get_offset(val_id)?;
-                        CasmInstruction::new(opcodes::STORE_DEREF_FP)
+                        CasmInstruction::new(Opcode::StoreDerefFp.into())
                             .with_off0(src_off)
                             .with_off2(return_slot_offset)
                             .with_comment(format!("Return value: [fp-3] = [fp+{src_off}]"))
@@ -417,7 +416,7 @@ impl CasmBuilder {
         }
 
         self.instructions
-            .push(CasmInstruction::new(opcodes::RET).with_comment("return".to_string()));
+            .push(CasmInstruction::new(Opcode::Ret.into()).with_comment("return".to_string()));
         Ok(())
     }
 
@@ -481,7 +480,7 @@ impl CasmBuilder {
 
     /// Generate unconditional jump
     pub fn jump(&mut self, target_label: &str) -> CodegenResult<()> {
-        let instr = CasmInstruction::new(opcodes::JMP_ABS_IMM)
+        let instr = CasmInstruction::new(Opcode::JmpAbsImm.into())
             .with_operand(Operand::Label(target_label.to_string()))
             .with_comment(format!("jump abs {target_label}"));
 
@@ -507,7 +506,7 @@ impl CasmBuilder {
             }
         };
 
-        let instr = CasmInstruction::new(opcodes::JNZ_FP_IMM)
+        let instr = CasmInstruction::new(Opcode::JnzFpImm.into())
             .with_off0(cond_off)
             .with_operand(Operand::Label(target_label.to_string()))
             .with_comment(format!("if [fp+{cond_off}] != 0 jmp rel {target_label}"));
@@ -577,7 +576,7 @@ impl CasmBuilder {
 
                 match value {
                     Value::Literal(Literal::Integer(imm)) => {
-                        let instr = CasmInstruction::new(opcodes::STORE_IMM)
+                        let instr = CasmInstruction::new(Opcode::StoreImm.into())
                             .with_off2(dest_offset)
                             .with_imm(M31::from(imm))
                             .with_comment(format!("Store immediate: [fp+{dest_offset}] = {imm}"));
@@ -588,7 +587,7 @@ impl CasmBuilder {
                     Value::Operand(val_id) => {
                         let val_offset = layout.get_offset(val_id)?;
 
-                        let instr = CasmInstruction::new(opcodes::STORE_DEREF_FP)
+                        let instr = CasmInstruction::new(Opcode::StoreDerefFp.into())
                             .with_off0(val_offset)
                             .with_off2(dest_offset)
                             .with_comment(format!("Store: [fp+{dest_offset}] = [fp+{val_offset}]"));
