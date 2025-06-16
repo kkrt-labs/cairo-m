@@ -6,7 +6,9 @@ use crate::{
     opcodes, CasmBuilder, CasmInstruction, CodegenError, CodegenResult, FunctionLayout, Label,
     Operand,
 };
-use cairo_m_compiler_mir::{Instruction, InstructionKind, MirFunction, MirModule, Terminator};
+use cairo_m_compiler_mir::{
+    BasicBlockId, Instruction, InstructionKind, MirFunction, MirModule, Terminator,
+};
 use std::collections::HashMap;
 use stwo_prover::core::fields::m31::M31;
 
@@ -119,6 +121,7 @@ impl CodeGenerator {
         builder: &mut CasmBuilder,
     ) -> CodegenResult<()> {
         // Process blocks in order
+        let block_count = function.basic_blocks.len();
         for (block_id, block) in function.basic_blocks.iter_enumerated() {
             // Add block label
             let block_label = Label::for_block(&function.name, block_id);
@@ -128,8 +131,15 @@ impl CodeGenerator {
                 self.generate_instruction(instruction, function, module, builder)?;
             }
 
-            // Generate terminator
-            self.generate_terminator(&block.terminator, &function.name, builder)?;
+            // Determine the next block in sequence (if any)
+            let next_block_id = if block_id.index() + 1 < block_count {
+                Some(BasicBlockId::from_raw(block_id.index() + 1))
+            } else {
+                None
+            };
+
+            // Generate terminator with fall-through optimization
+            self.generate_terminator(&block.terminator, &function.name, builder, next_block_id)?;
         }
 
         Ok(())
@@ -217,15 +227,23 @@ impl CodeGenerator {
         Ok(())
     }
 
-    /// Generate code for a terminator
+    /// Generate code for a terminator with fall-through optimization
     fn generate_terminator(
         &self,
         terminator: &Terminator,
         function_name: &str,
         builder: &mut CasmBuilder,
+        next_block_id: Option<BasicBlockId>,
     ) -> CodegenResult<()> {
         match terminator {
             Terminator::Jump { target } => {
+                // Check if this jump is to the immediately following block
+                if let Some(next_id) = next_block_id
+                    && *target == next_id
+                {
+                    // Skip generating the jump - fall through to next block
+                    return Ok(());
+                }
                 let target_label = format!("{function_name}_{target:?}");
                 builder.jump(&target_label)?;
             }
@@ -235,6 +253,9 @@ impl CodeGenerator {
                 then_target,
                 else_target,
             } => {
+                // Check if we can optimize the control flow
+                let then_is_next = next_block_id == Some(*then_target);
+
                 let then_label = format!("{function_name}_{then_target:?}");
                 let else_label = format!("{function_name}_{else_target:?}");
 
@@ -243,13 +264,12 @@ impl CodeGenerator {
                 // Our MIR `if` checks for equality, so it branches to `then` if `a - b` is zero.
                 // CASM's `jnz` jumps if the value is non-zero.
                 // Therefore, if the condition value is non-zero (i.e., `a != b`), we jump to the `else` block.
+                // Always jnz to the else label
                 builder.jnz(*condition, &else_label)?;
 
-                // If the condition was zero (`a == b`), we fall through to the `then` block's code.
-                // We add an unconditional jump to the `then` block label. While this might seem
-                // redundant if the `then` block immediately follows, it's safer and handles
-                // arbitrary block ordering. The next block to be generated is not necessarily the `then` block.
-                builder.jump(&then_label)?;
+                if !then_is_next {
+                    builder.jump(&then_label)?;
+                }
             }
 
             Terminator::Return { value } => {
