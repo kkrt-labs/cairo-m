@@ -597,6 +597,89 @@ mod tests {
     }
 
     #[test]
+    fn test_run_from_entrypoint_recursive_fibonacci() {
+        [0, 1, 2, 3, 10, 20]
+            .iter()
+            .for_each(|n| run_recursive_fib_test(*n));
+    }
+
+    /// Runs a Fibonacci program on the VM and asserts the result against the reference implementation.
+    ///
+    /// ```cairo-m
+    /// func main() -> felt {
+    ///   let n = 10;
+    ///   let result = fib(n);
+    ///   return result;
+    /// }
+    ///
+    /// func fib(n: felt) -> felt {
+    ///   if n == 0 {
+    ///     return 0;
+    ///   }
+    ///   if n == 1 {
+    ///     return 1;
+    ///   }
+    ///   return fib(n - 1) + fib(n - 2);
+    /// }
+    /// ```
+    fn run_recursive_fib_test(n: u32) {
+        let minus_4 = -M31(4);
+        let minus_3 = -M31(3);
+        let minus_2 = -M31(2);
+        let minus_1 = -M31::one();
+        let instructions = vec![
+            // main() setup
+            Instruction::from([6, 22, 0, minus_2.0]), // 0: store_imm: [fp - 2] = END_OF_PROGRAM + FP_OFFSET
+            Instruction::from([6, 19, 0, minus_1.0]), // 1: store_imm: [fp - 1] = END_OF_PROGRAM
+            // Setup call to fib(n)
+            Instruction::from([6, n, 0, 0]), // 2: store_imm: [fp] = n
+            Instruction::from([12, 2, 6, 0]), // 3: call_abs_imm: call fib(n)
+            // Store the computed fib(n) and return.
+            Instruction::from([4, 1, 0, minus_3.0]), // 4: store_deref_fp: [fp - 3] = [fp + 1]
+            Instruction::from([15, 0, 0, 0]),        // 5: ret
+            // fib(n: felt) function
+            // Check if argument is 0
+            Instruction::from([31, minus_4.0, 3, 0]), // 6: jnz_fp_imm: jmp rel 3 if [fp - 4] != 0
+            // Argument is 0, return 0
+            Instruction::from([6, 0, 0, minus_3.0]), // 7: store_imm: [fp - 3] = 0
+            Instruction::from([15, 0, 0, 0]),        // 8: ret
+            // Check if argument is 1
+            Instruction::from([3, minus_4.0, 1, 0]), //9: store_sub_fp_imm: [fp] = [fp - 4] - 1
+            Instruction::from([31, 0, 3, 0]),        // 10: jnz_fp_imm: jmp rel 3 if [fp] != 0
+            // Argument is 1, return 1
+            Instruction::from([6, 1, 0, minus_3.0]), // 11: store_imm: [fp - 3] = 1
+            Instruction::from([15, 0, 0, 0]),        // 12: ret
+            // Compute fib(n-1) + fib(n-2)
+            // fib(n-1)
+            // n - 1 is already stored at [fp], ready to be used as argument.
+            Instruction::from([12, 2, 6, 0]), // 13: call_abs_imm: call fib(n-1)
+            Instruction::from([4, 1, 0, minus_3.0]), // 14: store_deref_fp: [fp - 3] = [fp + 1]
+            // fib(n-2)
+            Instruction::from([3, 0, 1, 0]), // 15: Store n - 2, from previously computed n - 1 [fp] = [fp] - 1
+            Instruction::from([12, 2, 6, 0]), // 16: call_abs_imm: call fib(n-2)
+            // Return value of fib(n-1) + fib(n-2)
+            Instruction::from([0, minus_3.0, 1, minus_3.0]), // 17: store_add_fp_fp: [fp - 3] = [fp - 3] + [fp + 1]
+            Instruction::from([15, 0, 0, 0]),                // 18: ret
+        ];
+        let instructions_len = instructions.len() as u32;
+        let program = Program::from(instructions);
+        let mut vm = VM::try_from(program).unwrap();
+
+        let fp_offset = 3;
+        vm.run_from_entrypoint(0, fp_offset).unwrap();
+        // Verify that FP is still at the end of the program
+        assert_eq!(vm.state.fp, M31(instructions_len + fp_offset));
+        // Verify PC reached the end of the program
+        assert_eq!(vm.state.pc, M31(instructions_len));
+
+        // Result is stored at [fp - 3].
+        assert_eq!(
+            vm.memory.get_data(vm.state.fp - M31(3)).unwrap(),
+            M31(fib(n))
+        );
+    }
+
+    #[test]
     fn test_write_binary_trace() {
         // Create a program with two instructions to generate a trace.
         let instructions = vec![
