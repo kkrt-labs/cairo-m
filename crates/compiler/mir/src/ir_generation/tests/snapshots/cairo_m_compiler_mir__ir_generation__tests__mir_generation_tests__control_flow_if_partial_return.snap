@@ -42,8 +42,6 @@ module {
 
     2:
       %3 = %0 Add 1
-      %4 = stackalloc 1
-      store %4, %3
       jump 3
 
     3:

@@ -272,21 +272,51 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                             return Err("Expected an address from aggregate literal".to_string());
                         }
                     } else {
-                        // Original behavior for all other expression types (literals, binary ops, etc.)
-                        let semantic_type = definition_semantic_type(self.db, def_id);
-                        let var_type = MirType::from_semantic_type(self.db, semantic_type);
-                        let var_addr = self
-                            .mir_function
-                            .new_typed_value_id(MirType::pointer(var_type.clone()));
-                        self.add_instruction(Instruction::stack_alloc(
-                            var_addr,
-                            var_type.size_units(),
-                        ));
-                        self.add_instruction(Instruction::store(
-                            Value::operand(var_addr),
-                            rhs_value,
-                        ));
-                        self.definition_to_value.insert(mir_def_id, var_addr);
+                        // Check if this variable is actually used
+                        let is_used =
+                            if let Some(definition) = self.semantic_index.definition(def_idx) {
+                                // Get the place table for this scope
+                                if let Some(place_table) =
+                                    self.semantic_index.place_table(definition.scope_id)
+                                {
+                                    // Check if the place is marked as used
+                                    if let Some(place) = place_table.place(definition.place_id) {
+                                        place.is_used()
+                                    } else {
+                                        true // Conservative: assume used if we can't find the place
+                                    }
+                                } else {
+                                    true // Conservative: assume used if we can't find the place table
+                                }
+                            } else {
+                                true // Conservative: assume used if we can't find the definition
+                            };
+
+                        if is_used {
+                            // Original behavior for used variables
+                            let semantic_type = definition_semantic_type(self.db, def_id);
+                            let var_type = MirType::from_semantic_type(self.db, semantic_type);
+                            let var_addr = self
+                                .mir_function
+                                .new_typed_value_id(MirType::pointer(var_type.clone()));
+                            self.add_instruction(Instruction::stack_alloc(
+                                var_addr,
+                                var_type.size_units(),
+                            ));
+                            self.add_instruction(Instruction::store(
+                                Value::operand(var_addr),
+                                rhs_value,
+                            ));
+                            self.definition_to_value.insert(mir_def_id, var_addr);
+                        } else {
+                            // For unused variables, we still need to evaluate the RHS for side effects,
+                            // but we don't allocate storage. We map the definition to a dummy value.
+                            // Note: In a more sophisticated implementation, we might also eliminate
+                            // the RHS computation if it has no side effects.
+                            // TODO: Implement this.
+                            let dummy_addr = self.mir_function.new_value_id();
+                            self.definition_to_value.insert(mir_def_id, dummy_addr);
+                        }
                     }
                 } else {
                     return Err(format!(
@@ -1026,8 +1056,18 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     /// Sets the terminator for the current basic block
     /// If a return value is set, it will be stored in the function's return_value field
     fn terminate_current_block(&mut self, terminator: Terminator) {
-        if let Terminator::Return { .. } = terminator {
-            self.mir_function.return_value = Some(self.mir_function.new_value_id());
+        if let Terminator::Return { value: Some(val) } = &terminator {
+            // If returning a value, track it in the function
+            // For operands, use the existing value ID; for literals, create a new one
+            let return_value_id = match val {
+                Value::Operand(id) => *id,
+                Value::Literal(_) | Value::Error => {
+                    // For literals and errors, we need to create a value ID
+                    // In a more complete implementation, we might emit an assignment first
+                    self.mir_function.new_value_id()
+                }
+            };
+            self.mir_function.return_value = Some(return_value_id);
         }
         self.current_block_mut().set_terminator(terminator);
     }
