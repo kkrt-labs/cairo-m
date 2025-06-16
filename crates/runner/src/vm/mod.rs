@@ -463,10 +463,7 @@ mod tests {
         // Expected serialized data:
         // Entry 1: fp=2, pc=0.
         // Entry 2: fp=2, pc=1.
-        let expected_bytes: Vec<u8> = [2u32, 0u32, 2u32, 1u32]
-            .iter()
-            .flat_map(|&x| x.to_le_bytes())
-            .collect();
+        let expected_bytes = Vec::from([2, 0, 2, 1].map(u32::to_le_bytes).as_flattened());
 
         assert_eq!(serialized_trace, expected_bytes);
     }
@@ -584,10 +581,7 @@ mod tests {
         // Expected serialized data:
         // Entry 1: fp=2, pc=0.
         // Entry 2: fp=2, pc=1.
-        let expected_bytes: Vec<u8> = [2u32, 0u32, 2u32, 1u32]
-            .iter()
-            .flat_map(|&x| x.to_le_bytes())
-            .collect();
+        let expected_bytes = Vec::from([2, 0, 2, 1].map(u32::to_le_bytes).as_flattened());
 
         assert_eq!(file_contents, expected_bytes);
     }

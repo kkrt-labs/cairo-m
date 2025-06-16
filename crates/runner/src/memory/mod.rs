@@ -495,11 +495,11 @@ mod tests {
 
         // Entry 1: addr=10, value=[1, 2, 3, 4]
         // Entry 2: addr=20, value=[5, 6, 7, 8]
-        let expected_bytes: Vec<u8> =
-            [10u32, 1u32, 2u32, 3u32, 4u32, 20u32, 5u32, 6u32, 7u32, 8u32]
-                .iter()
-                .flat_map(|&x| x.to_le_bytes())
-                .collect();
+        let expected_bytes = Vec::from(
+            [10, 1, 2, 3, 4, 20, 5, 6, 7, 8]
+                .map(u32::to_le_bytes)
+                .as_flattened(),
+        );
         assert_eq!(serialized_trace, expected_bytes);
     }
 }
