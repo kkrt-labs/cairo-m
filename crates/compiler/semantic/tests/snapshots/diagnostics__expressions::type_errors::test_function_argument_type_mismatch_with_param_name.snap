@@ -1,0 +1,39 @@
+---
+source: crates/compiler/semantic/tests/mod.rs
+description: "Inline semantic validation error test: expressions::type_errors::test_function_argument_type_mismatch_with_param_name"
+---
+Fixture: semantic_tests::expressions::type_errors::test_function_argument_type_mismatch_with_param_name
+============================================================
+Source code:
+
+        struct Point { x: felt, y: felt }
+
+        func distance(p1: Point, p2: Point) -> felt {
+            return 0;
+        }
+
+        func test() {
+            let p = Point { x: 1, y: 2 };
+            let d = distance(p, 42);  // Should show parameter name 'p2'
+        }
+    
+============================================================
+Found 2 diagnostic(s):
+
+--- Diagnostic 1 ---
+[2001] Error: Argument type mismatch for parameter 'p2': expected 'Point', found 'felt'
+    ╭─[ semantic_tests::expressions::type_errors::test_function_argument_type_mismatch_with_param_name:10:33 ]
+    │
+ 10 │             let d = distance(p, 42);  // Should show parameter name 'p2'
+    │                                 ─┬  
+    │                                  ╰── Argument type mismatch for parameter 'p2': expected 'Point', found 'felt'
+────╯
+
+--- Diagnostic 2 ---
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ semantic_tests::expressions::type_errors::test_function_argument_type_mismatch_with_param_name:8:14 ]
+   │
+ 8 │         func test() {
+   │              ──┬─  
+   │                ╰─── Function 'test' doesn't return on all paths
+───╯

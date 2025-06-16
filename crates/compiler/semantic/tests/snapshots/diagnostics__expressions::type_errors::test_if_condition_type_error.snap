@@ -1,0 +1,29 @@
+---
+source: crates/compiler/semantic/tests/mod.rs
+description: "Inline semantic validation error test: expressions::type_errors::test_if_condition_type_error"
+---
+Fixture: semantic_tests::expressions::type_errors::test_if_condition_type_error
+============================================================
+Source code:
+
+        struct Point { x: felt, y: felt }
+
+        func test() {
+            let p = Point { x: 1, y: 2 };
+            if (p) {  // Non-felt condition
+                return ();
+            }
+            return ();
+        }
+    
+============================================================
+Found 1 diagnostic(s):
+
+--- Diagnostic 1 ---
+[2001] Error: Condition must be of type felt, found 'Point'
+   ╭─[ semantic_tests::expressions::type_errors::test_if_condition_type_error:6:17 ]
+   │
+ 6 │             if (p) {  // Non-felt condition
+   │                 ┬  
+   │                 ╰── Condition must be of type felt, found 'Point'
+───╯

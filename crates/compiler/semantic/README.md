@@ -1,276 +1,200 @@
-# Cairo-M Semantic Analysis Crate
+# Cairo-M Semantic Analysis
 
-This crate implements semantic analysis for the Cairo-M language, providing
-incremental compilation through Salsa, symbol resolution, scope analysis, and
-comprehensive validation framework.
+This crate implements semantic analysis for the Cairo-M compiler, transforming
+parsed AST into a rich semantic model with comprehensive validation and type
+checking.
 
-## 🎯 What This Crate Does
+## 🎯 Purpose
 
-The semantic crate transforms parsed Cairo-M AST into a rich semantic model that
-understands:
+The semantic crate is the brain of the Cairo-M compiler. It takes the syntactic
+AST from the parser and builds a complete understanding of the program's
+meaning, including:
 
-- **Scopes and Symbols**: Track all named entities and their containing scopes
-- **Definitions**: Link AST nodes to semantic entities
-- **Use-Def Analysis**: Resolve identifier uses to their definitions
-- **Validation**: Comprehensive semantic validation with detailed diagnostics
-- **Incremental Compilation**: Salsa-based caching for fast re-compilation
+- **Name Resolution**: Links every identifier usage to its definition
+- **Type Inference**: Determines the type of every expression
+- **Scope Analysis**: Tracks variable visibility and lifetime
+- **Semantic Validation**: Detects errors like undeclared variables, type
+  mismatches, and dead code
+- **Incremental Compilation**: Uses Salsa framework for efficient caching and
+  recompilation
 
 ## 🏗️ Architecture
 
-The crate follows a layered approach inspired by Ruff and rust-analyzer:
+The crate follows a layered architecture inspired by rust-analyzer and Ruff:
 
 ```text
 ┌─────────────────────────────────────┐
-│           Validation Layer          │ ← Semantic rules & diagnostics
+│        Type System Layer            │ ← Type inference & checking
 ├─────────────────────────────────────┤
-│          Semantic Index             │ ← Main query interface
+│        Validation Layer             │ ← Semantic rules & diagnostics
 ├─────────────────────────────────────┤
-│      Definitions & Use-Def          │ ← Symbol resolution
+│        Semantic Index               │ ← Core semantic model
 ├─────────────────────────────────────┤
-│        Places & Scopes              │ ← Scope tracking
+│    Definitions & Use-Def Chains     │ ← Symbol resolution
 ├─────────────────────────────────────┤
-│          Parser AST                 │ ← From parser crate
+│      Places & Scope Hierarchy       │ ← Scope tracking
+├─────────────────────────────────────┤
+│          Parser AST                 │ ← Input from parser crate
 └─────────────────────────────────────┘
 ```
 
 ### Core Components
 
-- **`semantic_index.rs`** - Main entry point, produces complete semantic model
-- **`place.rs`** - Scope and place tracking system
-- **`definition.rs`** - Definition linking and symbol resolution
-- **`validation/`** - Extensible validation framework with diagnostics
-- **`db.rs`** - Salsa database implementation for incremental compilation
+#### **Semantic Index** (`semantic_index.rs`)
 
-### Main Query
+The heart of semantic analysis. Contains:
 
-The primary entry point is `semantic_index(db, file)` which produces a complete
-semantic model for a source file, cached by Salsa for incremental compilation.
+- Complete scope hierarchy with parent-child relationships
+- Symbol tables (PlaceTable) for each scope
+- Use-def chains linking identifier uses to definitions
+- Expression metadata for type inference
+- Efficient lookups via IndexVec and HashMap
 
-## 🔧 How to Contribute
+#### **Type System** (`types.rs`, `type_resolution.rs`)
 
-### Adding New Validation Rules
+Salsa-based type representation:
 
-1. **Create a new validator** in `src/validation/`:
+- `TypeId`: Interned type identifiers for fast comparison
+- `TypeData`: Actual type information (Felt, Struct, Tuple, Pointer, Function)
+- `StructTypeId` & `FunctionSignatureId`: Interned complex types
+- Type inference for all expressions
+- Type compatibility checking
 
-   ```rust
-   pub struct MyValidator;
+#### **Scope & Symbol Management** (`place.rs`, `definition.rs`)
 
-   impl Validator for MyValidator {
-       fn validate(&self, index: &SemanticIndex, diagnostics: &mut DiagnosticCollection) {
-           // Your validation logic here
-       }
-   }
-   ```
+- `Scope`: Hierarchical containers (Module, Function, Namespace, Block)
+- `Place`: Named entities that can hold values
+- `Definition`: Links symbols to their AST nodes and metadata
+- Two-pass analysis enables forward references
 
-2. **Add diagnostic codes** to `DiagnosticCode` enum in `diagnostics.rs`
+#### **Validation Framework** (`validation/`)
 
-3. **Register your validator** in the appropriate place (usually
-   `semantic_index.rs`)
+Extensible plugin-like system:
 
-4. **Write comprehensive tests** (see testing section below)
+- `ScopeValidator`: Undeclared/unused variables, duplicates
+- `TypeValidator`: Type checking for operations and assignments
+- `ControlFlowValidator`: Reachability and return analysis
+- Beautiful diagnostics with source locations
 
-### Extending Semantic Analysis
+### Key Design Decisions
 
-- **New semantic queries**: Add to `semantic_index.rs` with `#[salsa::tracked]`
-- **New place types**: Extend `ScopeKind` in `place.rs`
-- **New definition kinds**: Extend `DefinitionKind` in `definition.rs`
+1. **Salsa Integration**: All major queries are `#[salsa::tracked]` for
+   incremental compilation
+2. **Interned Types**: Complex types are interned for O(1) comparison
+3. **Direct AST Storage**: ExpressionInfo stores AST nodes directly for fast
+   access
+4. **Two-Pass Analysis**: Declaration collection then body processing for
+   forward refs
+5. **Index-Based Storage**: Uses IndexVec for cache-friendly sequential access
 
-### Code Style Guidelines
+## 📋 Current Capabilities
 
-- Use `#[salsa::tracked]` for cacheable queries
-- Prefer immutable data structures (SmolStr, IndexMap)
-- Document public APIs with examples
-- Use meaningful diagnostic messages with source spans
-- Follow existing naming conventions (CamelCase for types, snake_case for
-  functions)
+### ✅ Implemented
 
-## 🧪 Testing Framework
+- **Complete Scope Analysis**: Hierarchical scope tracking with full
+  parent-child relationships
+- **Name Resolution**: Comprehensive use-def chains linking every identifier to
+  its definition
+- **Type System**:
+  - Primitive types (`felt`)
+  - Struct types with field access
+  - Function types with signatures
+  - Tuple types
+  - Pointer types
+  - Type inference for all expressions
+- **Validation**:
+  - Undeclared variable detection
+  - Unused variable warnings
+  - Duplicate definition errors
+  - Type mismatch detection
+  - Basic control flow analysis
+- **Language Features**:
+  - Functions with parameters and return types
+  - Local variables (`let` and `local`)
+  - Struct definitions and literals
+  - Control flow (`if`/`else`)
+  - Binary operations
+  - Member access
 
-The crate implements a **unified snapshot-driven testing framework** that
-provides robust, maintainable tests for semantic validation. All tests use
-fixture files and snapshot testing for consistency and ease of maintenance.
+### 🚧 Not Yet Implemented
 
-### Testing Philosophy
+- Arrays (parsing exists, semantic support pending)
+- Loops (`for`, `while`)
+- Advanced type inference (constraint solving)
+- Module/import resolution
+- Generic types
+- Pattern matching
 
-Our testing framework follows modern compiler testing practices (similar to
-`rustc`'s UI tests):
+## 🔨 API Usage
 
-- **Single Source of Truth**: `.cm` fixture files contain the test cases
-- **Visual Verification**: Beautiful error reports with `ariadne` formatting
-- **Zero Brittleness**: No line numbers or fragile expectations
-- **Easy Maintenance**: `insta` handles all diffs and updates
-
-### Core Testing Approach
-
-#### **Fixture-Based Snapshot Testing** (Unified Approach)
-
-All semantic validation tests use this pattern:
-
-1. **Create a `.cm` file** in `test_data/` with the code to be tested
-2. **Add a test function** that calls `assert_diagnostics_snapshot!()`
-3. **Run `cargo insta review`** to generate and review the snapshot
-4. **Commit both** the `.cm` file and the generated `.snap` file
-
-**Example**:
-
-```rust
-#[test]
-fn test_undeclared_variables() {
-    assert_diagnostics_snapshot!("undeclared_variables.cm", "undeclared_variables_diagnostics");
-}
-```
-
-### Test Data Structure
-
-```text
-semantic/
-├── src/validation/tests/
-│   ├── mod.rs                    # Core testing infrastructure
-│   ├── integration_tests.rs      # All validation tests
-│   ├── diagnostic_tests.rs       # Diagnostic system tests
-│   └── snapshots/               # Generated snapshot files
-└── test_data/                   # Test fixture files
-    ├── fib.cm                   # Clean Fibonacci program
-    ├── clean_program.cm         # Complex clean program
-    ├── scope_errors.cm          # Comprehensive error cases
-    ├── undeclared_variables.cm  # Undeclared variable tests
-    ├── unused_variables.cm      # Unused variable tests
-    ├── duplicate_definitions.cm # Duplicate definition tests
-    └── ... (more test cases)
-```
-
-### Available Test Fixtures
-
-**Clean Programs** (no diagnostics expected):
-
-- `fib.cm` - Fibonacci implementation
-- `clean_program.cm` - Complex program with structs, functions, and scopes
-
-**Error Test Cases**:
-
-- `scope_errors.cm` - Comprehensive scope validation errors
-- `undeclared_variables.cm` - Undeclared variable detection
-- `unused_variables.cm` - Unused variable warnings
-- `duplicate_definitions.cm` - Duplicate definition errors
-- `control_flow_scoping.cm` - If/else scope issues
-- `deeply_nested_scopes.cm` - Complex nested scope scenarios
-
-### Test Categories
-
-#### 1. **Clean Validation Tests**
+### Basic Usage
 
 ```rust
-#[test]
-fn test_fib_program_is_clean() {
-    test_fixture_clean!("fib.cm");
-}
+use cairo_m_compiler_semantic::{SemanticDb, semantic_index, validate_semantics};
+
+// Create a database
+let db = SemanticDatabaseImpl::default();
+
+// Create a source file
+let file = SourceProgram::new(&db, source_code, "main.cm");
+
+// Get semantic index (cached by Salsa)
+let index = semantic_index(&db, file)?;
+
+// Run validation
+let diagnostics = validate_semantics(&db, &parsed_module, file);
 ```
 
-#### 2. **Diagnostic Snapshot Tests**
+### Querying the Semantic Model
 
 ```rust
-#[test]
-fn test_scope_errors() {
-    assert_diagnostics_snapshot!("scope_errors.cm", "scope_errors_diagnostics");
+// Resolve a name to its definition
+let (def_index, definition) = index.resolve_name_to_definition("variable_name", scope_id)?;
+
+// Get type of an expression
+let expr_type = expression_semantic_type(&db, file, expression_id);
+
+// Check type compatibility
+let compatible = are_types_compatible(&db, actual_type, expected_type);
+
+// Walk scope hierarchy
+let root_scope = index.root_scope()?;
+for child_scope_id in index.child_scopes(root_scope) {
+    let scope = index.scope(child_scope_id)?;
+    println!("Found {} scope", scope.kind);
 }
 ```
 
-### Example Snapshot Output
+## 🧪 Testing
 
-```text
-Fixture: undeclared_variables.cm
-============================================================
-Source code:
-func test() {
-    let x = y; // Should error: Undeclared variable 'y'
-}
+The crate uses a comprehensive testing approach:
 
-============================================================
-Found 2 diagnostic(s):
+- **Inline Tests**: Unit tests with helper macros like `assert_semantic_ok!` and
+  `assert_semantic_err!`
+- **Snapshot Tests**: Complex scenarios using `.cm` fixture files with `insta`
+- **Organized by Concern**: Tests grouped by feature (scoping/, types/,
+  control_flow/, etc.)
 
---- Diagnostic 1 ---
-[1001] Error: Undeclared variable 'y'
-   ╭─[ <unknown>:2:13 ]
-   │
- 2 │     let x = y; // Should error: Undeclared variable 'y'
-   │             ┬
-   │             ╰── Undeclared variable 'y'
-───╯
+See `tests/README.md` for detailed testing documentation.
 
---- Diagnostic 2 ---
-[1002] Warning: Unused variable 'x'
-   ╭─[ <unknown>:2:9 ]
-   │
- 2 │     let x = y; // Should error: Undeclared variable 'y'
-   │         ┬
-   │         ╰── Unused variable 'x'
-───╯
-```
+## 🔧 Contributing
 
-### Running Tests
+### Adding Validation Rules
 
-```bash
-# Run all validation tests
-cargo test validation::tests
+1. Create a new validator implementing the `Validator` trait
+2. Add to the default registry in `validation/validator.rs`
+3. Write comprehensive tests
 
-# Run specific test
-cargo test test_undeclared_variables
+### Extending the Type System
 
-# Update snapshots (when output format changes)
-cargo insta review
+1. Add new variants to `TypeData` if needed
+2. Update `resolve_ast_type` for AST→Type conversion
+3. Update `expression_semantic_type` for inference
+4. Add compatibility rules to `are_types_compatible`
 
-# Accept all pending snapshots
-cargo insta review --accept-all
+### Performance Considerations
 
-# Run with detailed output
-cargo test -- --nocapture
-```
-
-### Adding New Tests
-
-#### For New Validation Rules
-
-1. **Create a test fixture**:
-
-   ```bash
-   # Create test_data/my_new_feature.cm
-   func test_my_feature() {
-       // Your test code here
-   }
-   ```
-
-2. **Add a test function**:
-
-   ```rust
-   #[test]
-   fn test_my_new_feature() {
-       assert_diagnostics_snapshot!("my_new_feature.cm", "my_new_feature_diagnostics");
-   }
-   ```
-
-3. **Generate the snapshot**:
-
-   ```bash
-   cargo test test_my_new_feature
-   cargo insta review
-   ```
-
-4. **Commit both files**:
-   - `test_data/my_new_feature.cm`
-   - `src/validation/tests/snapshots/cairo_m_compiler_semantic__validation__tests__my_new_feature_diagnostics.snap`
-
-### Available Test Helpers
-
-- `assert_diagnostics_snapshot!(fixture, snapshot_name)` - Generate/verify
-  diagnostic snapshots
-- `test_fixture_clean!(fixture)` - Assert no diagnostics are produced
-- Core infrastructure in `src/validation/tests/mod.rs` handles all validation
-  and formatting
-
-### Benefits of This Approach
-
-- **Robust**: No brittle line numbers or manual diagnostic matching
-- **Visual**: Beautiful error reports make it easy to verify correctness
-- **Maintainable**: `insta` handles all the complexity of diffing and updating
-- **Scalable**: Easy to add new test cases and validation rules
-- **Consistent**: All tests follow the same pattern
+- All type queries should be `#[salsa::tracked]`
+- Use interned types for complex type structures
+- Prefer IndexVec over HashMap where possible
+- Keep hot paths allocation-free

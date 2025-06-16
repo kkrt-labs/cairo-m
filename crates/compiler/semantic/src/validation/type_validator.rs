@@ -75,6 +75,53 @@ impl Validator for TypeValidator {
 }
 
 impl TypeValidator {
+    /// Suggest possible type conversions or fixes for type mismatches
+    fn suggest_type_conversion(
+        &self,
+        db: &dyn SemanticDb,
+        from_type: TypeId,
+        to_type: TypeId,
+    ) -> Option<String> {
+        let from_data = from_type.data(db);
+        let to_data = to_type.data(db);
+
+        match (from_data, to_data) {
+            (TypeData::Struct(struct_type), TypeData::Felt) => {
+                // Check if struct has a numeric field that could be used
+                let fields = struct_type.fields(db);
+                let numeric_fields: Vec<_> = fields
+                    .iter()
+                    .filter(|(_, field_type)| matches!(field_type.data(db), TypeData::Felt))
+                    .map(|(name, _)| name)
+                    .collect();
+
+                if numeric_fields.len() == 1 {
+                    Some(format!(
+                        "Did you mean to access the '{}' field?",
+                        numeric_fields[0]
+                    ))
+                } else if !numeric_fields.is_empty() {
+                    Some("This struct has numeric fields that could be accessed".to_string())
+                } else {
+                    Some("Structs cannot be used in arithmetic operations".to_string())
+                }
+            }
+            (TypeData::Tuple(elements), TypeData::Felt) => {
+                if elements.len() == 1 && matches!(elements[0].data(db), TypeData::Felt) {
+                    Some("Did you mean to access the tuple element with [0]?".to_string())
+                } else {
+                    Some("Tuples cannot be used directly in arithmetic operations".to_string())
+                }
+            }
+            (TypeData::Pointer(_), TypeData::Felt) => {
+                Some("Dereference the pointer to access its value".to_string())
+            }
+            (TypeData::Function(_), _) => {
+                Some("Did you forget to call the function with parentheses?".to_string())
+            }
+            _ => None,
+        }
+    }
     /// Check type constraints for a single expression
     fn check_expression_types(
         &self,
@@ -147,46 +194,79 @@ impl TypeValidator {
             BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div => {
                 // Arithmetic operations
                 if !are_types_compatible(db, left_type, felt_type) {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            DiagnosticCode::TypeMismatch,
-                            format!(
-                                "Invalid left operand for arithmetic operator '{:?}'. Expected 'felt', found '{}'",
-                                op,
-                                left_type.data(db).display_name(db)
-                            ),
-                        )
-                        .with_location(file.file_path(db).to_string(), left.span()),
-                    );
+                    let suggestion = self.suggest_type_conversion(db, left_type, felt_type);
+                    let mut diag = Diagnostic::error(
+                        DiagnosticCode::TypeMismatch,
+                        format!(
+                            "Invalid left operand for arithmetic operator '{:?}'. Expected 'felt', found '{}'",
+                            op,
+                            left_type.data(db).display_name(db)
+                        ),
+                    )
+                    .with_location(file.file_path(db).to_string(), left.span());
+
+                    if let Some(suggestion) = suggestion {
+                        diag = diag.with_related_span(
+                            file.file_path(db).to_string(),
+                            left.span(),
+                            suggestion,
+                        );
+                    }
+
+                    diagnostics.push(diag);
                 }
                 if !are_types_compatible(db, right_type, felt_type) {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            DiagnosticCode::TypeMismatch,
-                            format!(
-                                "Invalid right operand for arithmetic operator '{:?}'. Expected 'felt', found '{}'",
-                                op,
-                                right_type.data(db).display_name(db)
-                            ),
-                        )
-                        .with_location(file.file_path(db).to_string(), right.span()),
-                    );
+                    let suggestion = self.suggest_type_conversion(db, right_type, felt_type);
+                    let mut diag = Diagnostic::error(
+                        DiagnosticCode::TypeMismatch,
+                        format!(
+                            "Invalid right operand for arithmetic operator '{:?}'. Expected 'felt', found '{}'",
+                            op,
+                            right_type.data(db).display_name(db)
+                        ),
+                    )
+                    .with_location(file.file_path(db).to_string(), right.span());
+
+                    if let Some(suggestion) = suggestion {
+                        diag = diag.with_related_span(
+                            file.file_path(db).to_string(),
+                            right.span(),
+                            suggestion,
+                        );
+                    }
+
+                    diagnostics.push(diag);
                 }
             }
             BinaryOp::Eq | BinaryOp::Neq => {
                 // Comparison operations - operands must be same type
                 if !are_types_compatible(db, left_type, right_type) {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            DiagnosticCode::TypeMismatch,
-                            format!(
-                                "Type mismatch in comparison. Cannot compare '{}' with '{}'",
-                                left_type.data(db).display_name(db),
-                                right_type.data(db).display_name(db)
-                            ),
-                        )
-                        .with_location(file.file_path(db).to_string(), right.span()),
+                    let mut diag = Diagnostic::error(
+                        DiagnosticCode::TypeMismatch,
+                        format!(
+                            "Type mismatch in {} comparison. Cannot compare '{}' with '{}'",
+                            if matches!(op, BinaryOp::Eq) {
+                                "equality"
+                            } else {
+                                "inequality"
+                            },
+                            left_type.data(db).display_name(db),
+                            right_type.data(db).display_name(db)
+                        ),
+                    )
+                    .with_location(file.file_path(db).to_string(), right.span());
+
+                    // Add helpful context about what types can be compared
+                    diag = diag.with_related_span(
+                        file.file_path(db).to_string(),
+                        left.span(),
+                        format!(
+                            "Left operand has type '{}'",
+                            left_type.data(db).display_name(db)
+                        ),
                     );
+
+                    diagnostics.push(diag);
                 }
             }
             BinaryOp::And | BinaryOp::Or => {
@@ -262,17 +342,28 @@ impl TypeValidator {
                         let arg_type = expression_semantic_type(db, file, arg_expr_id);
 
                         if !are_types_compatible(db, arg_type, *param_type) {
-                            diagnostics.push(
-                                Diagnostic::error(
-                                    DiagnosticCode::TypeMismatch,
-                                    format!(
-                                        "Argument type mismatch: expected '{}', found '{}'",
-                                        param_type.data(db).display_name(db),
-                                        arg_type.data(db).display_name(db)
-                                    ),
-                                )
-                                .with_location(file.file_path(db).to_string(), arg.span()),
-                            );
+                            let suggestion =
+                                self.suggest_type_conversion(db, arg_type, *param_type);
+                            let mut diag = Diagnostic::error(
+                                DiagnosticCode::TypeMismatch,
+                                format!(
+                                    "Argument type mismatch for parameter '{}': expected '{}', found '{}'",
+                                    _param_name,
+                                    param_type.data(db).display_name(db),
+                                    arg_type.data(db).display_name(db)
+                                ),
+                            )
+                            .with_location(file.file_path(db).to_string(), arg.span());
+
+                            if let Some(suggestion) = suggestion {
+                                diag = diag.with_related_span(
+                                    file.file_path(db).to_string(),
+                                    arg.span(),
+                                    suggestion,
+                                );
+                            }
+
+                            diagnostics.push(diag);
                         }
                     }
                 }
@@ -751,17 +842,30 @@ impl TypeValidator {
 
         // Check type compatibility
         if !are_types_compatible(db, lhs_type, rhs_type) {
-            diagnostics.push(
-                Diagnostic::error(
-                    DiagnosticCode::TypeMismatch,
-                    format!(
-                        "Type mismatch in assignment. Cannot assign '{}' to '{}'",
-                        rhs_type.data(db).display_name(db),
-                        lhs_type.data(db).display_name(db)
-                    ),
-                )
-                .with_location(file.file_path(db).to_string(), rhs.span()),
+            let suggestion = self.suggest_type_conversion(db, rhs_type, lhs_type);
+            let mut diag = Diagnostic::error(
+                DiagnosticCode::TypeMismatch,
+                format!(
+                    "Type mismatch in assignment. Cannot assign '{}' to variable of type '{}'",
+                    rhs_type.data(db).display_name(db),
+                    lhs_type.data(db).display_name(db)
+                ),
+            )
+            .with_location(file.file_path(db).to_string(), rhs.span());
+
+            if let Some(suggestion) = suggestion {
+                diag =
+                    diag.with_related_span(file.file_path(db).to_string(), rhs.span(), suggestion);
+            }
+
+            // Add context about the target variable type
+            diag = diag.with_related_span(
+                file.file_path(db).to_string(),
+                lhs.span(),
+                format!("Variable has type '{}'", lhs_type.data(db).display_name(db)),
             );
+
+            diagnostics.push(diag);
         }
     }
 
@@ -808,17 +912,38 @@ impl TypeValidator {
                 .expect("Return expression not found");
             let return_type = expression_semantic_type(db, file, return_expr_id);
             if !are_types_compatible(db, return_type, expected_return_type) {
-                diagnostics.push(
-                    Diagnostic::error(
-                        DiagnosticCode::TypeMismatch,
-                        format!(
-                            "Type mismatch in return statement. Expected '{}', found '{}'",
-                            expected_return_type.data(db).display_name(db),
-                            return_type.data(db).display_name(db)
-                        ),
-                    )
-                    .with_location(file.file_path(db).to_string(), span),
+                let suggestion =
+                    self.suggest_type_conversion(db, return_type, expected_return_type);
+                let mut diag = Diagnostic::error(
+                    DiagnosticCode::TypeMismatch,
+                    format!(
+                        "Type mismatch in return statement. Function expects '{}', but returning '{}'",
+                        expected_return_type.data(db).display_name(db),
+                        return_type.data(db).display_name(db)
+                    ),
+                )
+                .with_location(file.file_path(db).to_string(), span);
+
+                if let Some(suggestion) = suggestion {
+                    diag = diag.with_related_span(
+                        file.file_path(db).to_string(),
+                        return_expr.span(),
+                        suggestion,
+                    );
+                }
+
+                // Add context about the function signature
+                diag = diag.with_related_span(
+                    file.file_path(db).to_string(),
+                    function_def.name.span(),
+                    format!(
+                        "Function '{}' declared here with return type '{}'",
+                        function_def.name.value(),
+                        expected_return_type.data(db).display_name(db)
+                    ),
                 );
+
+                diagnostics.push(diag);
             }
         }
     }
