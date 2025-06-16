@@ -2,6 +2,7 @@
 //!
 //! This module orchestrates the entire MIR to CASM translation process.
 
+use crate::serialize::{SerializedLabel, SerializedProgram};
 use crate::{
     opcodes, CasmBuilder, CasmInstruction, CodegenError, CodegenResult, FunctionLayout, Label,
     Operand,
@@ -37,7 +38,7 @@ impl CodeGenerator {
     }
 
     /// Generate CASM code for an entire MIR module
-    pub fn generate_module(&mut self, module: &MirModule) -> CodegenResult<String> {
+    pub fn generate_module(&mut self, module: &MirModule) -> CodegenResult<()> {
         // Step 1: Calculate layouts for all functions
         self.calculate_all_layouts(module)?;
 
@@ -47,10 +48,31 @@ impl CodeGenerator {
         // Step 3: Resolve labels (second pass)
         self.resolve_labels()?;
 
-        // Step 4: Convert to final assembly string
-        // TODO: this is only for snapshot testing / debugging purposes. in prod environment,
-        // generate a sequence of instructions in JSON format.
-        Ok(self.instructions_to_asm())
+        Ok(())
+    }
+
+    /// Generates a string representation of the compiled program in CASM assembly format.
+    pub fn generate_casm(&self) -> String {
+        self.instructions_to_asm()
+    }
+
+    /// Generates a string representation of the compiled program in JSON format.
+    pub fn generate_json(&self) -> String {
+        let data = self
+            .instructions
+            .iter()
+            .map(|instruction| instruction.to_hex())
+            .collect();
+        let labels = self
+            .labels
+            .iter()
+            .map(|label| SerializedLabel {
+                name: label.name.clone(),
+                address: label.address.unwrap(),
+            })
+            .collect();
+        let program = SerializedProgram::new(data, labels);
+        program.to_json()
     }
 
     /// Calculate layouts for all functions in the module
@@ -466,10 +488,10 @@ mod tests {
         module.functions.push(function);
 
         let mut generator = CodeGenerator::new();
-        let result = generator.generate_module(&module).unwrap();
+        generator.generate_module(&module).unwrap();
 
         // Should generate some instructions
-        assert!(!result.is_empty());
+        assert!(!generator.instructions.is_empty());
 
         // Should contain a main function
         assert!(generator.function_addresses.contains_key("main"));

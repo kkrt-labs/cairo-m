@@ -19,3 +19,34 @@ identity:
    0: 4 -4 0               // Store: [fp+0] = [fp+-4]
    1: 4 0 -3               // Return value: [fp-3] = [fp+0]
    2: 15                   // return
+
+============================================================
+Generated JSON:
+{
+  "compiler_version": "0.1.0",
+  "data": [
+    [
+      "0x4",
+      "0x7ffffffb",
+      "0x0"
+    ],
+    [
+      "0x4",
+      "0x0",
+      "0x7ffffffc"
+    ],
+    [
+      "0xf"
+    ]
+  ],
+  "labels": [
+    {
+      "name": "identity",
+      "address": 0
+    },
+    {
+      "name": "identity_0",
+      "address": 0
+    }
+  ]
+}

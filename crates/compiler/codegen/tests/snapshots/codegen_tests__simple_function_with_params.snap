@@ -18,3 +18,35 @@ add:
    0: 0 -5 -4 0            // [fp + 0] = [fp + -5] op [fp + -4]
    1: 4 0 -3               // Return value: [fp-3] = [fp+0]
    2: 15                   // return
+
+============================================================
+Generated JSON:
+{
+  "compiler_version": "0.1.0",
+  "data": [
+    [
+      "0x0",
+      "0x7ffffffa",
+      "0x7ffffffb",
+      "0x0"
+    ],
+    [
+      "0x4",
+      "0x0",
+      "0x7ffffffc"
+    ],
+    [
+      "0xf"
+    ]
+  ],
+  "labels": [
+    {
+      "name": "add",
+      "address": 0
+    },
+    {
+      "name": "add_0",
+      "address": 0
+    }
+  ]
+}
