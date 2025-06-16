@@ -137,7 +137,7 @@ impl VM {
     /// Returns a [`VmError`] if any instruction execution fails:
     /// - Invalid opcodes ([`VmError::Instruction`])
     /// - Memory errors ([`VmError::Memory`])
-    pub fn execute(&mut self) -> Result<(), VmError> {
+    fn execute(&mut self) -> Result<(), VmError> {
         let instructions_len = self.memory.data.len();
         if instructions_len == 0 {
             return Ok(());
@@ -149,6 +149,33 @@ impl VM {
         }
 
         Ok(())
+    }
+
+    /// Executes the loaded program from a given entrypoint and frame pointer.
+    ///
+    /// The PC entrypoint is the first instruction of the function to execute in the program.
+    ///
+    /// The FP offset accounts for the calling convention of the executed function: arguments, return values, return address.
+    ///
+    /// ## Arguments
+    ///
+    /// * `pc_entrypoint` - The program counter (PC) to start execution from.
+    /// * `fp_offset` - The frame pointer (FP) offset to start execution from.
+    ///
+    /// ## Errors
+    ///
+    /// Returns a [`VmError`] if any instruction execution fails:
+    /// - Invalid opcodes ([`VmError::Instruction`])
+    /// - Memory errors ([`VmError::Memory`])
+    pub fn run_from_entrypoint(
+        &mut self,
+        pc_entrypoint: u32,
+        fp_offset: u32,
+    ) -> Result<(), VmError> {
+        self.state.pc = M31(pc_entrypoint);
+        self.state.fp += M31(fp_offset);
+
+        self.execute()
     }
 
     /// Serializes the trace to a byte vector.
@@ -424,6 +451,26 @@ mod tests {
         assert_eq!(vm.memory.get_data(M31(7)).unwrap(), M31(36)); // 12 * 3
         assert_eq!(vm.memory.get_data(M31(8)).unwrap(), M31(12)); // 36 / 3
         assert_eq!(vm.memory.get_data(M31(9)).unwrap(), M31(0)); // 12 - 12
+    }
+
+    #[test]
+    fn test_run_from_entrypoint() {
+        let instructions = vec![
+            Instruction::from([6, 10, 0, 0]), // [fp] = 10
+            Instruction::from([1, 0, 5, 1]),  // [fp + 1] = [fp] + 5
+        ];
+        let program = Program::from(instructions);
+        let mut vm = VM::try_from(program).unwrap();
+
+        // Initial FP should 2 in the default case, we add an offset of 1.
+        // We run the program from PC = 1, so the first instruction should be ignored.
+        vm.run_from_entrypoint(1, 1).unwrap();
+        assert_eq!(vm.state.pc, M31(2));
+        assert_eq!(vm.state.fp, M31(3));
+        assert_eq!(
+            vm.memory.get_data(vm.state.fp + M31::one()).unwrap(),
+            M31(5)
+        );
     }
 
     #[test]
