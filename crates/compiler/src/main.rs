@@ -1,4 +1,4 @@
-use cairo_m_compiler_codegen::generate_json;
+use cairo_m_compiler_codegen::compile_module;
 use cairo_m_compiler_diagnostics::build_diagnostic_message;
 use cairo_m_compiler_mir::generate_mir;
 use cairo_m_compiler_parser::{parse_program, SourceProgram};
@@ -62,14 +62,14 @@ fn main() {
 
             let mir_module = generated_mir.unwrap();
 
-            let generated_json = generate_json(&mir_module);
+            let program = compile_module(&mir_module);
 
-            if let Err(e) = generated_json {
-                eprintln!("Failed to generate JSON: {e}");
+            if program.is_err() {
+                eprintln!("Failed to generate program");
                 std::process::exit(1);
             }
 
-            let generated_json = generated_json.unwrap();
+            let generated_json = sonic_rs::to_string_pretty(&program.unwrap()).unwrap();
 
             if let Some(output_path) = args.output {
                 fs::write(output_path, generated_json).unwrap();

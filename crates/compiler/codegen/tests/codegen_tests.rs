@@ -1,6 +1,7 @@
 //! Main test runner for CASM code generation.
 
-use cairo_m_compiler_codegen::{generate_casm, generate_json};
+use cairo_m_compiler_codegen::compile_module;
+use cairo_m_compiler_codegen::CodeGenerator;
 use cairo_m_compiler_mir::generate_mir;
 use cairo_m_compiler_semantic::{File, SemanticDatabaseImpl};
 use insta::assert_snapshot;
@@ -10,7 +11,6 @@ use std::path::Path;
 /// The result of running code generation on a test source.
 pub struct CodegenOutput {
     pub casm_code: String,
-    pub json_code: String,
 }
 
 fn test_db() -> SemanticDatabaseImpl {
@@ -25,16 +25,15 @@ pub fn check_codegen(source: &str, path: &str) -> CodegenOutput {
     // Generate MIR from source
     let mir_module = generate_mir(&db, file).expect("MIR generation failed");
 
+    let mut generator = CodeGenerator::new();
+    generator
+        .generate_module(&mir_module)
+        .expect("CASM generation failed");
+
     // Generate CASM from MIR
-    let casm_code = generate_casm(&mir_module).expect("CASM generation failed");
+    let casm_code = generator.stringify_instructions();
 
-    // Generate JSON from MIR
-    let json_code = generate_json(&mir_module).expect("JSON generation failed");
-
-    CodegenOutput {
-        casm_code,
-        json_code,
-    }
+    CodegenOutput { casm_code }
 }
 
 /// Loads a test case from a file.
@@ -60,12 +59,11 @@ macro_rules! codegen_test {
 
             // Use insta to snapshot the entire compilation output.
             let snapshot_content = format!(
-                "---\nsource: {}\nexpression: codegen_output\n---\nFixture: {}.cm\n============================================================\nSource code:\n{}\n============================================================\nGenerated CASM:\n{}\n============================================================\nGenerated JSON:\n{}",
+                "---\nsource: {}\nexpression: codegen_output\n---\nFixture: {}.cm\n============================================================\nSource code:\n{}\n============================================================\nGenerated CASM:\n{}\n",
                 file!(),
                 stringify!($test_name),
                 source,
                 codegen_output.casm_code,
-                codegen_output.json_code
             );
             assert_snapshot!(concat!($subdir, "_", stringify!($test_name)), snapshot_content);
         }

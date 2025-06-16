@@ -2,7 +2,7 @@
 //!
 //! This module orchestrates the entire MIR to CASM translation process.
 
-use crate::serialize::{SerializedLabel, SerializedProgram};
+use crate::program::Program;
 use crate::{
     opcodes, CasmBuilder, CasmInstruction, CodegenError, CodegenResult, FunctionLayout, Label,
     Operand,
@@ -51,28 +51,17 @@ impl CodeGenerator {
         Ok(())
     }
 
-    /// Generates a string representation of the compiled program in CASM assembly format.
-    pub fn generate_casm(&self) -> String {
-        self.instructions_to_asm()
+    /// Generates a string representation of the compiled program in JSON format.
+    pub fn compile(&self) -> Program {
+        Program {
+            data: self.instructions.clone(),
+            function_addresses: self.function_addresses.clone(),
+        }
     }
 
-    /// Generates a string representation of the compiled program in JSON format.
-    pub fn generate_json(&self) -> String {
-        let data = self
-            .instructions
-            .iter()
-            .map(|instruction| instruction.to_hex())
-            .collect();
-        let labels = self
-            .labels
-            .iter()
-            .map(|label| SerializedLabel {
-                name: label.name.clone(),
-                address: label.address.unwrap(),
-            })
-            .collect();
-        let program = SerializedProgram::new(data, labels);
-        program.to_json()
+    /// Generates a string representation of the compiled program in CASM assembly format.
+    pub fn stringify_instructions(&self) -> String {
+        self.instructions_to_asm()
     }
 
     /// Calculate layouts for all functions in the module

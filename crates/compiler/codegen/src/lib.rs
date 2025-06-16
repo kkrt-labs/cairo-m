@@ -21,26 +21,20 @@ use stwo_prover::core::fields::m31::M31;
 pub mod builder;
 pub mod generator;
 pub mod layout;
-pub mod serialize;
+pub mod program;
 
 // Re-export main components
 pub use builder::CasmBuilder;
 pub use generator::CodeGenerator;
 pub use layout::FunctionLayout;
+pub use program::Program;
 
 /// Main entry point for code generation
 //// Converts a MIR module to a JSON representation of the compiled program
-pub fn generate_json(module: &MirModule) -> Result<String, CodegenError> {
+pub fn compile_module(module: &MirModule) -> Result<Program, CodegenError> {
     let mut generator = CodeGenerator::new();
     generator.generate_module(module)?;
-    Ok(generator.generate_json())
-}
-
-/// Converts a MIR module to CASM assembly code
-pub fn generate_casm(module: &MirModule) -> Result<String, CodegenError> {
-    let mut generator = CodeGenerator::new();
-    generator.generate_module(module)?;
-    Ok(generator.generate_casm())
+    Ok(generator.compile())
 }
 
 /// Represents an operand that can be either a literal value or a label reference
@@ -182,18 +176,19 @@ impl CasmInstruction {
     /// Signed offsets are encoded as M31 before being converted to hex.
     pub fn to_hex(&self) -> Vec<String> {
         let opcode = format!("{:#02x}", self.opcode);
-        let off0 = self.off0.map(|off| format!("{:#02x}", M31::from(off).0));
-        let off1 = self.off1.map(|off| format!("{:#02x}", M31::from(off).0));
-        let off2 = self.off2.map(|off| format!("{:#02x}", M31::from(off).0));
-        let operand = match self.operand {
-            Some(Operand::Literal(value)) => Some(format!("{:02x}", value.0)),
-            _ => None,
-        };
-
-        vec![Some(opcode), off0, off1, off2, operand]
-            .into_iter()
-            .flatten()
-            .collect()
+        let off0 = self
+            .off0
+            .map(|off| format!("{:#02x}", M31::from(off).0))
+            .unwrap_or("0x00".to_string());
+        let off1 = self
+            .off1
+            .map(|off| format!("{:#02x}", M31::from(off).0))
+            .unwrap_or("0x00".to_string());
+        let off2 = self
+            .off2
+            .map(|off| format!("{:#02x}", M31::from(off).0))
+            .unwrap_or("0x00".to_string());
+        vec![opcode, off0, off1, off2]
     }
 }
 

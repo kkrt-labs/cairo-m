@@ -282,6 +282,7 @@ dependencies = [
  "clap",
  "logos",
  "salsa",
+ "sonic-rs",
 ]
 
 [[package]]
