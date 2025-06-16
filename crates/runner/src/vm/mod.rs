@@ -5,6 +5,9 @@ use crate::memory::{Memory, MemoryError};
 use crate::vm::state::State;
 use instructions::{opcode_to_instruction_fn, Instruction, InstructionError};
 use num_traits::Zero;
+use std::fs::File;
+use std::io::{self, Write};
+use std::path::Path;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 use thiserror::Error;
@@ -16,6 +19,8 @@ pub enum VmError {
     Memory(#[from] MemoryError),
     #[error("VM instruction error: {0}")]
     Instruction(#[from] InstructionError),
+    #[error("VM I/O error: {0}")]
+    Io(#[from] io::Error),
 }
 
 /// A compiled Cairo M program containing decoded instructions.
@@ -165,6 +170,52 @@ impl VM {
             .flat_map(u32::to_le_bytes)
             .collect()
     }
+
+    /// Writes the serialized trace to a binary file.
+    ///
+    /// This function serializes the trace using [`serialize_trace()`](Self::serialize_trace)
+    /// and writes the resulting bytes to the specified file path.
+    ///
+    /// ## Arguments
+    ///
+    /// * `path` - The file path where the binary trace will be written.
+    ///
+    /// ## Errors
+    ///
+    /// Returns a [`VmError::Io`] if:
+    /// - The file cannot be created or opened for writing
+    /// - Writing to the file fails
+    pub fn write_binary_trace<P: AsRef<Path>>(&self, path: P) -> Result<(), VmError> {
+        let serialized_trace = self.serialize_trace();
+        let mut file = File::create(path)?;
+        file.write_all(&serialized_trace)?;
+        Ok(())
+    }
+
+    /// Writes the serialized memory trace to a binary file.
+    ///
+    /// This function serializes the memory trace using the memory's [`serialize_trace()`](Memory::serialize_trace)
+    /// method and writes the resulting bytes to the specified file path.
+    ///
+    /// Each memory trace entry consists of an address (`M31`) and a value (`QM31`).
+    /// The serialization format includes the address followed by the 4 components of the `QM31` value,
+    /// all in little-endian byte order.
+    ///
+    /// ## Arguments
+    ///
+    /// * `path` - The file path where the binary memory trace will be written.
+    ///
+    /// ## Errors
+    ///
+    /// Returns a [`VmError::Io`] if:
+    /// - The file cannot be created or opened for writing
+    /// - Writing to the file fails
+    pub fn write_binary_memory_trace<P: AsRef<Path>>(&self, path: P) -> Result<(), VmError> {
+        let serialized_memory_trace = self.memory.serialize_trace();
+        let mut file = File::create(path)?;
+        file.write_all(&serialized_memory_trace)?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -174,7 +225,10 @@ mod tests {
         instructions::InstructionError, Instruction, Program, TraceEntry, VmError, VM,
     };
     use num_traits::{One, Zero};
+    use std::fs::File;
+    use std::io::Read;
     use stwo_prover::core::fields::m31::M31;
+    use tempfile::NamedTempFile;
 
     #[test]
     fn test_program_from_vec_instructions() {
@@ -409,11 +463,7 @@ mod tests {
         // Expected serialized data:
         // Entry 1: fp=2, pc=0.
         // Entry 2: fp=2, pc=1.
-        let mut expected_bytes = Vec::new();
-        expected_bytes.extend_from_slice(&2u32.to_le_bytes());
-        expected_bytes.extend_from_slice(&0u32.to_le_bytes());
-        expected_bytes.extend_from_slice(&2u32.to_le_bytes());
-        expected_bytes.extend_from_slice(&1u32.to_le_bytes());
+        let expected_bytes = Vec::from([2, 0, 2, 1].map(u32::to_le_bytes).as_flattened());
 
         assert_eq!(serialized_trace, expected_bytes);
     }
@@ -497,5 +547,85 @@ mod tests {
     #[test]
     fn test_execute_fibonacci() {
         [0, 1, 2, 3, 10, 20].iter().for_each(|n| run_fib_test(*n));
+    }
+
+    #[test]
+    fn test_write_binary_trace() {
+        // Create a program with two instructions to generate a trace.
+        let instructions = vec![
+            Instruction::from([6, 10, 0, 0]), // [fp + 0] = 10
+            Instruction::from([6, 20, 0, 1]), // [fp + 1] = 20
+        ];
+        let program = Program::from(instructions);
+        let mut vm = VM::try_from(program).unwrap();
+
+        // Execute the program to generate a trace.
+        assert!(vm.execute().is_ok());
+
+        // Create a temporary file for the trace.
+        let temp_file = NamedTempFile::new().unwrap();
+        let temp_file_path = temp_file.path();
+
+        // Write the trace to the temporary file.
+        let result = vm.write_binary_trace(temp_file_path);
+        assert!(result.is_ok());
+
+        // Read the file back and verify its contents.
+        let mut file = File::open(temp_file_path).unwrap();
+        let mut file_contents = Vec::new();
+        file.read_to_end(&mut file_contents).unwrap();
+
+        // Compare with the expected serialized trace.
+        assert_eq!(file_contents, vm.serialize_trace());
+
+        // Expected serialized data:
+        // Entry 1: fp=2, pc=0.
+        // Entry 2: fp=2, pc=1.
+        let expected_bytes = Vec::from([2, 0, 2, 1].map(u32::to_le_bytes).as_flattened());
+
+        assert_eq!(file_contents, expected_bytes);
+    }
+
+    #[test]
+    fn test_write_binary_memory_trace() {
+        // Create a program with instructions that access memory to generate a memory trace.
+        let instructions = vec![
+            Instruction::from([6, 10, 0, 0]), // store_imm: [fp + 0] = 10
+            Instruction::from([6, 20, 0, 1]), // store_imm: [fp + 1] = 20
+            Instruction::from([0, 0, 1, 2]),  // store_add_fp_fp: [fp + 2] = [fp + 0] + [fp + 1]
+        ];
+        let program = Program::from(instructions);
+        let mut vm = VM::try_from(program).unwrap();
+
+        // Execute the program to generate memory accesses.
+        assert!(vm.execute().is_ok());
+
+        // Create a temporary file for the memory trace.
+        let temp_file = NamedTempFile::new().unwrap();
+        let temp_file_path = temp_file.path();
+
+        // Write the memory trace to the temporary file.
+        let result = vm.write_binary_memory_trace(temp_file_path);
+        assert!(result.is_ok());
+
+        // Read the file back and verify its contents.
+        let mut file = File::open(temp_file_path).unwrap();
+        let mut file_contents = Vec::new();
+        file.read_to_end(&mut file_contents).unwrap();
+
+        // Compare with the expected serialized memory trace.
+        assert_eq!(file_contents, vm.memory.serialize_trace());
+
+        // Verify that the memory trace is not empty (we should have memory accesses).
+        assert!(!file_contents.is_empty());
+
+        // The memory trace should contain entries for:
+        // 1. Instruction fetches (3 instructions)
+        // 2. Memory stores (3 store operations)
+        // 3. Memory loads (2 loads for the addition operation)
+        // Each entry is 5 * 4 = 20 bytes (addr + 4 QM31 components)
+        let expected_entries = 3 + 3 + 2; // instruction fetches + stores + loads
+        let expected_size = expected_entries * 5 * 4; // 5 u32 values * 4 bytes each
+        assert_eq!(file_contents.len(), expected_size);
     }
 }

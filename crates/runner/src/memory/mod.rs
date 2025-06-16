@@ -493,21 +493,13 @@ mod tests {
 
         let serialized_trace = memory.serialize_trace();
 
-        let mut expected_bytes = Vec::new();
         // Entry 1: addr=10, value=[1, 2, 3, 4]
-        expected_bytes.extend_from_slice(&10u32.to_le_bytes());
-        expected_bytes.extend_from_slice(&1u32.to_le_bytes());
-        expected_bytes.extend_from_slice(&2u32.to_le_bytes());
-        expected_bytes.extend_from_slice(&3u32.to_le_bytes());
-        expected_bytes.extend_from_slice(&4u32.to_le_bytes());
-
         // Entry 2: addr=20, value=[5, 6, 7, 8]
-        expected_bytes.extend_from_slice(&20u32.to_le_bytes());
-        expected_bytes.extend_from_slice(&5u32.to_le_bytes());
-        expected_bytes.extend_from_slice(&6u32.to_le_bytes());
-        expected_bytes.extend_from_slice(&7u32.to_le_bytes());
-        expected_bytes.extend_from_slice(&8u32.to_le_bytes());
-
+        let expected_bytes = Vec::from(
+            [10, 1, 2, 3, 4, 20, 5, 6, 7, 8]
+                .map(u32::to_le_bytes)
+                .as_flattened(),
+        );
         assert_eq!(serialized_trace, expected_bytes);
     }
 }
