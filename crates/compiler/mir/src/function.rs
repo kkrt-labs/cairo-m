@@ -50,6 +50,7 @@ pub struct MirFunction {
     pub parameters: Vec<ValueId>,
 
     /// The return value, if the function returns something
+    /// TODO: add support for multiple return values
     pub return_value: Option<ValueId>,
 
     /// Next available value ID for generating new temporaries
@@ -259,5 +260,51 @@ impl PrettyPrint for MirFunction {
 
         result.push_str(&format!("{base_indent}}}\n"));
         result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Terminator, Value};
+
+    #[test]
+    fn test_return_value_field_with_literal() {
+        let mut func = MirFunction::new("test".to_string());
+
+        // Create a return value assignment
+        let return_value_id = func.new_value_id();
+        func.return_value = Some(return_value_id);
+
+        // Set up the terminator
+        func.get_basic_block_mut(func.entry_block)
+            .unwrap()
+            .set_terminator(Terminator::return_value(Value::integer(42)));
+
+        // Verify the return_value field is set
+        assert_eq!(func.return_value, Some(return_value_id));
+
+        // Verify function validation passes
+        assert!(func.validate().is_ok());
+    }
+
+    #[test]
+    fn test_return_value_field_with_operand() {
+        let mut func = MirFunction::new("test".to_string());
+
+        // Create a value to return
+        let value_id = func.new_value_id();
+        func.return_value = Some(value_id);
+
+        // Set up the terminator
+        func.get_basic_block_mut(func.entry_block)
+            .unwrap()
+            .set_terminator(Terminator::return_value(Value::operand(value_id)));
+
+        // Verify the return_value field is set
+        assert_eq!(func.return_value, Some(value_id));
+
+        // Verify function validation passes
+        assert!(func.validate().is_ok());
     }
 }

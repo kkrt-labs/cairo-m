@@ -39,15 +39,6 @@ pub enum Terminator {
     /// Used as a placeholder during construction and for optimization
     /// Also used for functions that never return (infinite loops, panics)
     Unreachable,
-
-    /// Switch/match statement (for future use)
-    /// Multi-way branch based on a value
-    #[allow(dead_code)]
-    Switch {
-        discriminant: Value,
-        targets: Vec<(Value, BasicBlockId)>,
-        default_target: BasicBlockId,
-    },
 }
 
 impl Terminator {
@@ -97,15 +88,6 @@ impl Terminator {
             } => vec![*then_target, *else_target],
             Self::Return { .. } => vec![], // Returns don't target blocks
             Self::Unreachable => vec![],   // Unreachable code has no targets
-            Self::Switch {
-                targets,
-                default_target,
-                ..
-            } => {
-                let mut result: Vec<_> = targets.iter().map(|(_, target)| *target).collect();
-                result.push(*default_target);
-                result
-            }
         }
     }
 
@@ -133,13 +115,6 @@ impl Terminator {
             Self::Unreachable => {
                 // No values used
             }
-
-            Self::Switch { discriminant, .. } => {
-                if let Value::Operand(id) = discriminant {
-                    used.insert(*id);
-                }
-                // Note: target values are constants, not operands
-            }
         }
 
         used
@@ -159,7 +134,7 @@ impl Terminator {
 
     /// Returns true if this is a conditional branch
     pub const fn is_conditional(&self) -> bool {
-        matches!(self, Self::If { .. } | Self::Switch { .. })
+        matches!(self, Self::If { .. })
     }
 
     /// Returns true if this is an unconditional branch (not counting returns)
@@ -168,22 +143,12 @@ impl Terminator {
     }
 
     /// Validates this terminator
-    pub fn validate(&self) -> Result<(), String> {
+    pub const fn validate(&self) -> Result<(), String> {
         match self {
             Self::Jump { .. } => Ok(()),
             Self::If { .. } => Ok(()),
             Self::Return { .. } => Ok(()),
             Self::Unreachable => Ok(()),
-            Self::Switch { targets, .. } => {
-                // Check for duplicate target values
-                let mut seen_values = HashSet::new();
-                for (value, _) in targets {
-                    if !seen_values.insert(value) {
-                        return Err(format!("Duplicate switch target value: {value:?}"));
-                    }
-                }
-                Ok(())
-            }
         }
     }
 
@@ -193,7 +158,6 @@ impl Terminator {
             Self::Jump { .. } => 1,
             Self::If { .. } => 2,
             Self::Return { .. } | Self::Unreachable => 0,
-            Self::Switch { targets, .. } => targets.len() + 1, // +1 for default
         }
     }
 
@@ -224,21 +188,6 @@ impl Terminator {
             Self::Return { .. } | Self::Unreachable => {
                 // No targets to replace
             }
-
-            Self::Switch {
-                targets,
-                default_target,
-                ..
-            } => {
-                for (_, target) in targets.iter_mut() {
-                    if *target == old_block {
-                        *target = new_block;
-                    }
-                }
-                if *default_target == old_block {
-                    *default_target = new_block;
-                }
-            }
         }
     }
 }
@@ -268,19 +217,6 @@ impl PrettyPrint for Terminator {
             Self::Return { value: None } => "return".to_string(),
 
             Self::Unreachable => "unreachable".to_string(),
-
-            Self::Switch {
-                discriminant,
-                targets,
-                default_target,
-            } => {
-                let mut result = format!("switch {} {{", discriminant.pretty_print(0));
-                for (value, target) in targets {
-                    result.push_str(&format!(" {} => {target:?},", value.pretty_print(0)));
-                }
-                result.push_str(&format!(" default => {default_target:?} }}"));
-                result
-            }
         }
     }
 }

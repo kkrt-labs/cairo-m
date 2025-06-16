@@ -12,6 +12,7 @@ cairo-m-compiler-parser = { path = "parser" }
 cairo-m-compiler-semantic = { path = "semantic" }
 cairo-m-compiler-mir = { path = "mir" }
 cairo-m-compiler-diagnostics = { path = "diagnostics" }
+cairo-m-compiler-codegen = { path = "codegen" }
 clap = { version = "4.4", features = ["derive"] }
 ariadne = "0.5.1"
 anyhow = "1.0"

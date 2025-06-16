@@ -1,0 +1,7 @@
+func helper() -> felt {
+    return 42;
+}
+
+func main() -> felt {
+    return helper();
+}

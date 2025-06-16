@@ -56,7 +56,7 @@ impl BasicBlock {
     }
 
     /// Sets the terminator for this block
-    pub fn set_terminator(&mut self, terminator: Terminator) {
+    pub const fn set_terminator(&mut self, terminator: Terminator) {
         self.terminator = terminator;
     }
 
