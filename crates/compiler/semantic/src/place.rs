@@ -82,13 +82,16 @@ impl fmt::Display for ScopeKind {
 /// The symbol table for a single scope
 ///
 /// This tracks all the places (symbols) within a scope and provides
-/// efficient name-to-place lookup.
+/// efficient name-to-place lookup. Supports variable shadowing by
+/// storing multiple places with the same name.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct PlaceTable {
     /// All places in this scope, indexed by ScopedPlaceId
     places: IndexVec<ScopedPlaceId, Place>,
-    /// Mapping from name to place ID for fast lookup
-    places_by_name: FxHashMap<String, ScopedPlaceId>,
+    /// Mapping from name to place IDs for fast lookup
+    /// Stores a vector to support variable shadowing - the last element
+    /// is the most recent definition
+    places_by_name: FxHashMap<String, Vec<ScopedPlaceId>>,
 }
 
 impl PlaceTable {
@@ -102,14 +105,23 @@ impl PlaceTable {
         let place = Place::new(name.clone(), flags);
 
         self.places.push(place);
-        self.places_by_name.insert(name, place_id);
+
+        // Support shadowing by appending to the vector
+        self.places_by_name.entry(name).or_default().push(place_id);
 
         place_id
     }
 
-    /// Look up a place by name
+    /// Look up a place by name, returning the most recent definition
     pub fn place_id_by_name(&self, name: &str) -> Option<ScopedPlaceId> {
-        self.places_by_name.get(name).copied()
+        self.places_by_name
+            .get(name)
+            .and_then(|vec| vec.last().copied())
+    }
+
+    /// Get all place IDs with the given name (for checking shadowing)
+    pub fn all_place_ids_by_name(&self, name: &str) -> Option<&[ScopedPlaceId]> {
+        self.places_by_name.get(name).map(|vec| vec.as_slice())
     }
 
     /// Get a place by its ID

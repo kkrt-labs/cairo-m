@@ -463,8 +463,6 @@ fn test_nested_scope_name_resolution() {
 }
 
 #[test]
-// TODO(shadowing): this doesn't support shadowing in the same scope (will only return the last seen definition)
-// The place table only stores the last tracked definition for a given name in a scope.
 fn test_variable_shadowing_resolution() {
     let source = r#"
         const x = 1; // Outer x
@@ -556,5 +554,90 @@ fn test_variable_shadowing_resolution() {
             resolved_def.name_span, outer_x.1.name_span,
             "Name resolution from root scope should find the outer 'x'"
         );
+    });
+}
+
+#[test]
+fn test_same_scope_shadowing_resolution() {
+    let source = r#"
+        func test() -> felt {
+            let x = 10;     // First definition
+            let y = x;      // Uses first x (10)
+            let x = 20;     // Shadows x in same scope
+            let z = x;      // Uses second x (20)
+            let x = 30;     // Shadows x again
+            let w = x;      // Uses third x (30)
+            return y + z + w;  // 10 + 20 + 30 = 60
+        }
+    "#;
+
+    with_semantic_index(source, |_db, _file, index| {
+        // Get the function scope
+        let root_scope = index.root_scope().unwrap();
+        let func_scope = index
+            .child_scopes(root_scope)
+            .find(|&scope_id| index.scope(scope_id).unwrap().kind == ScopeKind::Function)
+            .expect("Should find function scope");
+
+        let place_table = index.place_table(func_scope).unwrap();
+
+        // Check that we have multiple definitions of x in the same scope
+        let all_x_places = place_table
+            .all_place_ids_by_name("x")
+            .expect("Should have x definitions");
+        assert_eq!(
+            all_x_places.len(),
+            3,
+            "Should have exactly 3 definitions of x"
+        );
+
+        // Check that place_id_by_name returns the most recent x
+        let current_x = place_table.place_id_by_name("x").unwrap();
+        assert_eq!(
+            current_x, all_x_places[2],
+            "Should return the most recent x"
+        );
+
+        // Find all usages of x
+        let x_usages: Vec<_> = index
+            .identifier_usages()
+            .iter()
+            .enumerate()
+            .filter(|(_, usage)| usage.name == "x")
+            .collect();
+
+        assert_eq!(
+            x_usages.len(),
+            3,
+            "Should have 3 usages of x (in y, z, and w assignments)"
+        );
+
+        // Verify each usage is resolved
+        for (usage_index, usage) in &x_usages {
+            assert!(
+                index.is_usage_resolved(*usage_index),
+                "Usage of '{}' should be resolved",
+                usage.name
+            );
+
+            let definition = index
+                .get_use_definition(*usage_index)
+                .expect("Should resolve to a definition");
+            assert_eq!(definition.name, "x");
+        }
+
+        // Find all definitions of x
+        let all_definitions: Vec<_> = index.all_definitions().collect();
+        let x_definitions: Vec<_> = all_definitions
+            .iter()
+            .filter(|(_, def)| def.name == "x")
+            .collect();
+
+        assert_eq!(x_definitions.len(), 3, "Should have 3 definitions of x");
+
+        // All should be Let definitions
+        for (_, def) in &x_definitions {
+            assert!(matches!(def.kind, DefinitionKind::Let(_)));
+        }
     });
 }
