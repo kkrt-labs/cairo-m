@@ -1,0 +1,52 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+namespace Outer { namespace Inner { const VALUE = 42; } }
+--- AST ---
+[
+    Namespace(
+        Spanned(
+            Namespace {
+                name: Spanned(
+                    "Outer",
+                    10..15,
+                ),
+                body: [
+                    Namespace(
+                        Spanned(
+                            Namespace {
+                                name: Spanned(
+                                    "Inner",
+                                    28..33,
+                                ),
+                                body: [
+                                    Const(
+                                        Spanned(
+                                            ConstDef {
+                                                name: Spanned(
+                                                    "VALUE",
+                                                    42..47,
+                                                ),
+                                                value: Spanned(
+                                                    Literal(
+                                                        42,
+                                                    ),
+                                                    50..52,
+                                                ),
+                                            },
+                                            36..53,
+                                        ),
+                                    ),
+                                ],
+                            },
+                            18..55,
+                        ),
+                    ),
+                ],
+            },
+            0..57,
+        ),
+    ),
+]

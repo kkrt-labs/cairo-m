@@ -1,0 +1,83 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+func test() { a == b && c != d; }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
+                ),
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                BinaryOp {
+                                    op: And,
+                                    left: Spanned(
+                                        BinaryOp {
+                                            op: Eq,
+                                            left: Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "a",
+                                                        14..15,
+                                                    ),
+                                                ),
+                                                14..15,
+                                            ),
+                                            right: Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "b",
+                                                        19..20,
+                                                    ),
+                                                ),
+                                                19..20,
+                                            ),
+                                        },
+                                        14..20,
+                                    ),
+                                    right: Spanned(
+                                        BinaryOp {
+                                            op: Neq,
+                                            left: Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "c",
+                                                        24..25,
+                                                    ),
+                                                ),
+                                                24..25,
+                                            ),
+                                            right: Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "d",
+                                                        29..30,
+                                                    ),
+                                                ),
+                                                29..30,
+                                            ),
+                                        },
+                                        24..30,
+                                    ),
+                                },
+                                14..30,
+                            ),
+                        ),
+                        14..31,
+                    ),
+                ],
+            },
+            0..33,
+        ),
+    ),
+]

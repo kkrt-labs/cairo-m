@@ -1,0 +1,14 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+func test() { foo(a, b; }
+--- Diagnostics ---
+[02] Error: found ';' expected '{', '(', '.', '[', '*', '/', '+', '-', '==', '!=', '&&', '||', ',', or ')'
+   ╭─[ test.cairo:1:23 ]
+   │
+ 1 │ func test() { foo(a, b; }
+   │                       ┬  
+   │                       ╰── found ';' expected '{', '(', '.', '[', '*', '/', '+', '-', '==', '!=', '&&', '||', ',', or ')'
+───╯

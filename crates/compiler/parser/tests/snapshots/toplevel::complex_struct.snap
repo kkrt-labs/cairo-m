@@ -1,0 +1,86 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+
+        struct ComplexStruct {
+            field1: felt,
+            field2: felt*,
+            field3: (felt, felt),
+            field4: AnotherStruct,
+            field5: AnotherStruct*
+        }
+    
+--- AST ---
+[
+    Struct(
+        Spanned(
+            StructDef {
+                name: Spanned(
+                    "ComplexStruct",
+                    16..29,
+                ),
+                fields: [
+                    (
+                        Spanned(
+                            "field1",
+                            44..50,
+                        ),
+                        Named(
+                            "felt",
+                        ),
+                    ),
+                    (
+                        Spanned(
+                            "field2",
+                            70..76,
+                        ),
+                        Pointer(
+                            Named(
+                                "felt",
+                            ),
+                        ),
+                    ),
+                    (
+                        Spanned(
+                            "field3",
+                            97..103,
+                        ),
+                        Tuple(
+                            [
+                                Named(
+                                    "felt",
+                                ),
+                                Named(
+                                    "felt",
+                                ),
+                            ],
+                        ),
+                    ),
+                    (
+                        Spanned(
+                            "field4",
+                            131..137,
+                        ),
+                        Named(
+                            "AnotherStruct",
+                        ),
+                    ),
+                    (
+                        Spanned(
+                            "field5",
+                            166..172,
+                        ),
+                        Pointer(
+                            Named(
+                                "AnotherStruct",
+                            ),
+                        ),
+                    ),
+                ],
+            },
+            9..198,
+        ),
+    ),
+]

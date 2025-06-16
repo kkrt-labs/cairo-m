@@ -1,0 +1,14 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+{ let x = 1; }
+--- Diagnostics ---
+[02] Error: found '{' expected 'func', 'struct', 'from', 'const', 'namespace', or end of input
+   ╭─[ test.cairo:1:1 ]
+   │
+ 1 │ { let x = 1; }
+   │ ┬  
+   │ ╰── found '{' expected 'func', 'struct', 'from', 'const', 'namespace', or end of input
+───╯

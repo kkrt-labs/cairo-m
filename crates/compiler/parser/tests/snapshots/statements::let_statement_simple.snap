@@ -1,0 +1,40 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+func test() { let x = 5; }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
+                ),
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Let {
+                            name: Spanned(
+                                "x",
+                                18..19,
+                            ),
+                            statement_type: None,
+                            value: Spanned(
+                                Literal(
+                                    5,
+                                ),
+                                22..23,
+                            ),
+                        },
+                        14..24,
+                    ),
+                ],
+            },
+            0..26,
+        ),
+    ),
+]
