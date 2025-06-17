@@ -5,7 +5,6 @@
 
 use cairo_m_compiler_mir::{Literal, Value, ValueId};
 use cairo_m_compiler_parser::parser::BinaryOp;
-use stwo_prover::core::fields::m31::M31;
 
 use crate::{CasmInstruction, CodegenError, CodegenResult, FunctionLayout, Label, Opcode, Operand};
 
@@ -153,7 +152,7 @@ impl CasmBuilder {
                 let instr = CasmInstruction::new(fp_imm_opcode)
                     .with_off0(left_off)
                     .with_off2(dest_off)
-                    .with_imm(M31::from(*imm))
+                    .with_imm(*imm)
                     .with_comment(format!("[fp + {dest_off}] = [fp + {left_off}] op {imm}"));
 
                 self.instructions.push(instr);
@@ -248,7 +247,7 @@ impl CasmBuilder {
                 // Store immediate value
                 let instr = CasmInstruction::new(Opcode::StoreImm.into())
                     .with_off2(dest_off)
-                    .with_imm(M31::from(imm))
+                    .with_imm(imm)
                     .with_comment(format!("[fp + {dest_off}] = {imm}"));
 
                 self.instructions.push(instr);
@@ -357,7 +356,7 @@ impl CasmBuilder {
                 Value::Literal(Literal::Integer(imm)) => {
                     CasmInstruction::new(Opcode::StoreImm.into())
                         .with_off2(arg_offset)
-                        .with_imm(M31::from(*imm))
+                        .with_imm(*imm)
                         .with_comment(format!("Arg {i}: [fp + {arg_offset}] = {imm}"))
                 }
                 Value::Operand(arg_id) => {
@@ -396,7 +395,7 @@ impl CasmBuilder {
                     Value::Literal(Literal::Integer(imm)) => {
                         CasmInstruction::new(Opcode::StoreImm.into())
                             .with_off2(return_slot_offset)
-                            .with_imm(M31::from(imm))
+                            .with_imm(imm)
                             .with_comment(format!("Return value: [fp-3] = {imm}"))
                     }
                     Value::Operand(val_id) => {
@@ -579,7 +578,7 @@ impl CasmBuilder {
                     Value::Literal(Literal::Integer(imm)) => {
                         let instr = CasmInstruction::new(Opcode::StoreImm.into())
                             .with_off2(dest_offset)
-                            .with_imm(M31::from(imm))
+                            .with_imm(imm)
                             .with_comment(format!("Store immediate: [fp+{dest_offset}] = {imm}"));
 
                         self.instructions.push(instr);

@@ -26,7 +26,7 @@ pub struct CompiledInstruction {
     pub opcode: u32,
 
     /// The operands for this instruction (offsets and immediate)
-    /// Format: [off0, off1, off2, immediate] where immediate is optional
+    /// Format: [off0, off1_or_imm, off2] where the second operand can be an immediate value or an offset
     pub operands: Vec<M31>,
 }
 
@@ -88,18 +88,13 @@ impl CompiledInstruction {
     }
 
     /// Get offset 1 (fp-relative source 2)
-    pub fn off1(&self) -> Option<M31> {
+    pub fn off1_or_imm(&self) -> Option<M31> {
         self.operands.get(1).copied()
     }
 
     /// Get offset 2 (fp-relative destination)
     pub fn off2(&self) -> Option<M31> {
         self.operands.get(2).copied()
-    }
-
-    /// Get immediate value
-    pub fn immediate(&self) -> Option<M31> {
-        self.operands.get(3).copied()
     }
 }
 
@@ -108,17 +103,19 @@ impl Serialize for CompiledInstruction {
     where
         S: Serializer,
     {
-        let operands = [
-            self.off0().unwrap_or_else(Zero::zero),
-            self.off1().unwrap_or_else(Zero::zero),
-            self.off2().unwrap_or_else(Zero::zero),
-            self.immediate().unwrap_or_else(Zero::zero),
-        ];
-        let hex_operands: Vec<String> = operands
+        // Include opcode as the first element
+        let mut values = vec![M31::from(self.opcode)];
+
+        // Add the three offsets
+        values.push(self.off0().unwrap_or_else(Zero::zero));
+        values.push(self.off1_or_imm().unwrap_or_else(Zero::zero));
+        values.push(self.off2().unwrap_or_else(Zero::zero));
+
+        let hex_values: Vec<String> = values
             .iter()
-            .map(|&op| format!("0x{:08x}", op.0))
+            .map(|&val| format!("0x{:08x}", val.0))
             .collect();
-        hex_operands.serialize(serializer)
+        hex_values.serialize(serializer)
     }
 }
 
@@ -129,7 +126,7 @@ impl<'de> Deserialize<'de> for CompiledInstruction {
     {
         let hex_vec: Vec<String> = Vec::deserialize(deserializer)?;
 
-        // Ensure we have exactly 4 elements
+        // Ensure we have _exactly_ 4 elements (opcode + 3 offsets)
         if hex_vec.len() != 4 {
             return Err(serde::de::Error::custom(
                 "Expected at least 4 elements in instruction array",
@@ -140,15 +137,17 @@ impl<'de> Deserialize<'de> for CompiledInstruction {
         let opcode = u32::from_str_radix(hex_vec[0].trim_start_matches("0x"), 16)
             .map_err(serde::de::Error::custom)?;
 
-        // Parse offsets from hex (they were serialized as hex in to_hex())
-        let off0 = parse_hex_offset(&hex_vec[1]);
-        let off1 = parse_hex_offset(&hex_vec[2]);
-        let off2 = parse_hex_offset(&hex_vec[3]);
+        // Parse offsets from hex
+        let off0 = parse_hex_offset(&hex_vec[1])
+            .ok_or_else(|| serde::de::Error::custom("Failed to parse off0"))?;
+        let off1_or_imm = parse_hex_offset(&hex_vec[2])
+            .ok_or_else(|| serde::de::Error::custom("Failed to parse off1"))?;
+        let off2 = parse_hex_offset(&hex_vec[3])
+            .ok_or_else(|| serde::de::Error::custom("Failed to parse off2"))?;
 
-        Ok(Self::new(
-            opcode,
-            vec![off0.unwrap(), off1.unwrap(), off2.unwrap()],
-        ))
+        let operands = vec![off0, off1_or_imm, off2];
+
+        Ok(Self::new(opcode, operands))
     }
 }
 
@@ -167,7 +166,6 @@ mod tests {
     #[test]
     fn test_compiled_program_serialization() {
         let mut entry_points = HashMap::new();
-        entry_points.insert("main".to_string(), 0);
 
         let instructions = vec![
             CompiledInstruction::new(
@@ -177,10 +175,12 @@ mod tests {
             CompiledInstruction::new(15, vec![]), // ret
         ];
 
+        entry_points.insert("main".to_string(), 0);
         let program = CompiledProgram::new(instructions, entry_points);
 
         // Test serialization round-trip
         let json = sonic_rs::to_string_pretty(&program).unwrap();
+        println!("Serialized JSON:\n{json}");
         let deserialized: CompiledProgram = sonic_rs::from_str(&json).unwrap();
 
         assert_eq!(program.instructions.len(), deserialized.instructions.len());

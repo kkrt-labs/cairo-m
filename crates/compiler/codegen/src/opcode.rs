@@ -1,5 +1,7 @@
 //TODO: sync with VM team to avoid duplication.
 
+use stwo_prover::core::fields::m31::M31;
+
 /// CASM opcodes with type-safe representation
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
@@ -52,6 +54,14 @@ pub enum Opcode {
 impl From<Opcode> for u32 {
     fn from(opcode: Opcode) -> Self {
         opcode as Self
+    }
+}
+
+impl TryFrom<M31> for Opcode {
+    type Error = String;
+
+    fn try_from(value: M31) -> Result<Self, Self::Error> {
+        Self::from_u32(value.0).ok_or_else(|| format!("Invalid opcode: {value}"))
     }
 }
 

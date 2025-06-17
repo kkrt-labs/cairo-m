@@ -603,7 +603,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                             object_mir_type
                         );
                     });
-                let field_offset = Value::integer(field_offset_val as u32);
+                let field_offset = Value::integer(field_offset_val as i32);
 
                 // Query semantic type system for field type from the member access expression
                 let field_semantic_type = expression_semantic_type(self.db, self.file, expr_id);
@@ -648,7 +648,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     // If it's a tuple, calculate the proper element offset
                     if let Some(offset) = array_mir_type.tuple_element_offset(const_index as usize)
                     {
-                        Value::integer(offset as u32)
+                        Value::integer(offset as i32)
                     } else {
                         // For non-tuples or out-of-bounds, use the index directly
                         index_value
@@ -700,7 +700,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         // Use expr_info.ast_node instead of expr.value()
         match &expr_info.ast_node {
-            Expression::Literal(n) => Ok(Value::integer(*n)),
+            Expression::Literal(n) => Ok(Value::integer(*n as i32)),
 
             Expression::BooleanLiteral(b) => Ok(Value::boolean(*b)),
 
@@ -811,7 +811,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                             object_mir_type
                         );
                     });
-                let field_offset = Value::integer(field_offset_val as u32);
+                let field_offset = Value::integer(field_offset_val as i32);
 
                 // Query semantic type system for the field type
                 let semantic_type = expression_semantic_type(self.db, self.file, expr_id);
@@ -861,7 +861,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     // If it's a tuple, calculate the proper element offset
                     if let Some(offset) = array_mir_type.tuple_element_offset(const_index as usize)
                     {
-                        Value::integer(offset as u32)
+                        Value::integer(offset as i32)
                     } else {
                         // For non-tuples or out-of-bounds, use the index directly
                         index_value
@@ -923,7 +923,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                                 struct_type
                             );
                         });
-                    let field_offset = Value::integer(field_offset_val as u32);
+                    let field_offset = Value::integer(field_offset_val as i32);
 
                     // Get the field type from the semantic analysis for the field value
                     let field_val_expr_id = self
@@ -987,10 +987,10 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     // Calculate the actual element offset from the tuple type information
                     let element_offset = tuple_type
                         .tuple_element_offset(element_idx)
-                        .map(|offset| Value::integer(offset as u32))
+                        .map(|offset| Value::integer(offset as i32))
                         .unwrap_or_else(|| {
                             // Fallback to sequential index for error recovery
-                            Value::integer(element_idx as u32)
+                            Value::integer(element_idx as i32)
                         });
 
                     // Get the element type from semantic analysis

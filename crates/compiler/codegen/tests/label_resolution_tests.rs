@@ -109,7 +109,7 @@ fn test_instruction_operand_methods() {
     }
 
     // Test with_imm convenience method
-    let instr3 = CasmInstruction::new(opcodes::JMP_ABS_IMM).with_imm(M31::from(100));
+    let instr3 = CasmInstruction::new(opcodes::JMP_ABS_IMM).with_imm(100);
 
     match &instr3.operand {
         Some(Operand::Literal(val)) => assert_eq!(val.0, 100),

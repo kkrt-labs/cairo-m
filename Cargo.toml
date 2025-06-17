@@ -17,11 +17,13 @@ edition = "2021"
 
 [workspace.dependencies]
 num-traits = "0.2.19"
+sonic-rs = "0.5.1"
 stwo-prover = { git = "https://github.com/starkware-libs/stwo", features = [
   "parallel",
 ] }
 thiserror = "2.0.12"
 tempfile = "3.20"
+clap = { version = "4.5.40", features = ["derive"] }
 cairo-m-compiler-parser = { path = "crates/compiler/parser" }
 cairo-m-compiler-semantic = { path = "crates/compiler/semantic" }
 cairo-m-compiler-mir = { path = "crates/compiler/mir" }

@@ -38,8 +38,8 @@ pub enum Value {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
 pub enum Literal {
     /// Integer literal (felt in Cairo-M)
-    /// We use u32 as all literals are validated to fit in M31 felt
-    Integer(u32),
+    /// We use i32 as all literals are validated to fit in M31 felt
+    Integer(i32),
 
     /// Boolean literal
     Boolean(bool),
@@ -50,7 +50,7 @@ pub enum Literal {
 
 impl Value {
     /// Creates a new integer literal value
-    pub const fn integer(value: u32) -> Self {
+    pub const fn integer(value: i32) -> Self {
         Self::Literal(Literal::Integer(value))
     }
 
@@ -114,7 +114,7 @@ impl Value {
     ///
     /// Returns `Some(value)` if this is an integer literal,
     /// `None` otherwise. Useful for constant folding.
-    pub const fn as_const_integer(&self) -> Option<u32> {
+    pub const fn as_const_integer(&self) -> Option<i32> {
         match self {
             Self::Literal(Literal::Integer(value)) => Some(*value),
             _ => None,
@@ -147,7 +147,7 @@ impl Literal {
     }
 
     /// Returns the integer value if this is an integer literal
-    pub const fn as_integer(&self) -> Option<u32> {
+    pub const fn as_integer(&self) -> Option<i32> {
         match self {
             Self::Integer(value) => Some(*value),
             _ => None,
@@ -196,8 +196,8 @@ impl std::fmt::Display for Literal {
 }
 
 // Convenience conversion methods
-impl From<u32> for Value {
-    fn from(value: u32) -> Self {
+impl From<i32> for Value {
+    fn from(value: i32) -> Self {
         Self::integer(value)
     }
 }
