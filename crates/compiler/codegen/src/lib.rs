@@ -46,7 +46,7 @@ pub fn compile_module(module: &MirModule) -> Result<CompiledProgram, CodegenErro
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Operand {
     /// A literal immediate value
-    Literal(M31),
+    Literal(i32),
     /// A label reference that needs to be resolved
     Label(String),
 }
@@ -54,11 +54,6 @@ pub enum Operand {
 impl Operand {
     /// Create a literal operand from an integer
     pub fn literal(value: i32) -> Self {
-        Self::Literal(M31::from(value))
-    }
-
-    /// Create a literal operand from M31
-    pub const fn literal_m31(value: M31) -> Self {
         Self::Literal(value)
     }
 
@@ -124,8 +119,7 @@ impl CasmInstruction {
 
     /// Set the immediate value (convenience method)
     pub fn with_imm(mut self, imm: i32) -> Self {
-        self.operand = Some(Operand::Literal(M31::from(imm)));
-        self.off1 = Some(imm);
+        self.operand = Some(Operand::Literal(imm));
         self
     }
 
@@ -142,34 +136,61 @@ impl CasmInstruction {
     }
 
     /// Get the immediate value if this instruction has a literal operand
-    pub const fn imm(&self) -> Option<M31> {
+    pub const fn imm(&self) -> Option<i32> {
         match &self.operand {
             Some(Operand::Literal(value)) => Some(*value),
             _ => None,
         }
     }
 
+    /// Get the first operand
+    pub const fn op0(&self) -> Option<i32> {
+        if let Some(off0) = self.off0 {
+            Some(off0)
+        } else {
+            self.imm()
+        }
+    }
+
+    /// Get the second operand
+    pub const fn op1(&self) -> Option<i32> {
+        if let Some(off1) = self.off1 {
+            Some(off1)
+        } else if self.off0.is_some() {
+            self.imm()
+        } else {
+            None
+        }
+    }
+
+    /// Get the third operand
+    pub const fn op2(&self) -> Option<i32> {
+        if let Some(off2) = self.off2 {
+            Some(off2)
+        } else if self.off0.is_some() && self.off1.is_some() {
+            self.imm()
+        } else {
+            None
+        }
+    }
+
+    /// Get the third operand
     /// Convert to CASM assembly string
     pub fn to_asm(&self) -> String {
         let mut parts = vec![self.opcode.to_string()];
 
-        if let Some(off0) = self.off0 {
-            parts.push(off0.to_string());
+        if let Some(op0) = self.op0() {
+            parts.push(op0.to_string());
         } else {
             parts.push("_".to_string());
         }
-        if let Some(off1) = self.off1 {
-            parts.push(off1.to_string());
-        } else if let Some(imm) = self.imm() {
-            parts.push(imm.0.to_string());
-        } else if let Some(Operand::Label(label)) = &self.operand {
-            // show unresolved labels
-            parts.push(format!("<{label}>"));
+        if let Some(op1) = self.op1() {
+            parts.push(op1.to_string());
         } else {
             parts.push("_".to_string());
         }
-        if let Some(off2) = self.off2 {
-            parts.push(off2.to_string());
+        if let Some(op2) = self.op2() {
+            parts.push(op2.to_string());
         } else {
             parts.push("_".to_string());
         }
@@ -187,19 +208,19 @@ impl CasmInstruction {
     /// Signed offsets are encoded as M31 before being converted to hex.
     pub fn to_hex(&self) -> Vec<String> {
         let opcode = format!("{:#02x}", self.opcode);
-        let off0 = self
-            .off0
-            .map(|off| format!("{:#02x}", M31::from(off).0))
+        let op0 = self
+            .op0()
+            .map(|off| format!("{off:#02x}"))
             .unwrap_or_else(|| "0x00".to_string());
-        let off1 = self
-            .off1
-            .map(|off| format!("{:#02x}", M31::from(off).0))
+        let op1 = self
+            .op1()
+            .map(|off| format!("{off:#02x}"))
             .unwrap_or_else(|| "0x00".to_string());
-        let off2 = self
-            .off2
-            .map(|off| format!("{:#02x}", M31::from(off).0))
+        let op2 = self
+            .op2()
+            .map(|off| format!("{off:#02x}"))
             .unwrap_or_else(|| "0x00".to_string());
-        vec![opcode, off0, off1, off2]
+        vec![opcode, op0, op1, op2]
     }
 }
 

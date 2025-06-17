@@ -62,17 +62,11 @@ impl CodeGenerator {
             .iter()
             .map(|instr| {
                 // Convert the instruction to operands array
-                let mut operands: Vec<M31> = Vec::new();
-
-                let off1_or_imm = if instr.off1.is_some() {
-                    M31::from(instr.off1.unwrap())
-                } else {
-                    instr.imm().unwrap_or_else(Zero::zero)
-                };
-
-                operands.push(instr.off0.unwrap_or_else(Zero::zero).into());
-                operands.push(off1_or_imm);
-                operands.push(instr.off2.unwrap_or_else(Zero::zero).into());
+                let operands: Vec<M31> = vec![
+                    instr.op0().unwrap_or(0).into(),
+                    instr.op1().unwrap_or(0).into(),
+                    instr.op2().unwrap_or(0).into(),
+                ];
 
                 CompiledInstruction {
                     opcode: instr.opcode,
@@ -348,8 +342,7 @@ impl CodeGenerator {
                     Some(Opcode::JmpAbsImm) => {
                         // Absolute jump - use direct address
                         if let Some(&target_addr) = label_map.get(label_name) {
-                            instruction.operand =
-                                Some(Operand::Literal(M31::from(target_addr as u32)));
+                            instruction.operand = Some(Operand::Literal(target_addr as i32));
                         } else {
                             return Err(CodegenError::UnresolvedLabel(label_name.clone()));
                         }
@@ -359,8 +352,7 @@ impl CodeGenerator {
                         // Conditional jump - use relative offset
                         if let Some(&target_addr) = label_map.get(label_name) {
                             let relative_offset = (target_addr as i32) - (pc as i32);
-                            instruction.operand =
-                                Some(Operand::Literal(M31::from(relative_offset)));
+                            instruction.operand = Some(Operand::Literal(relative_offset));
                         } else {
                             return Err(CodegenError::UnresolvedLabel(label_name.clone()));
                         }
@@ -369,8 +361,7 @@ impl CodeGenerator {
                     Some(Opcode::CallAbsImm) => {
                         // Function call - use direct address
                         if let Some(&target_addr) = label_map.get(label_name) {
-                            instruction.operand =
-                                Some(Operand::Literal(M31::from(target_addr as u32)));
+                            instruction.operand = Some(Operand::Literal(target_addr as i32));
                         } else {
                             return Err(CodegenError::UnresolvedLabel(label_name.clone()));
                         }
@@ -551,7 +542,7 @@ mod tests {
         assert_eq!(store_imm.opcode, 6); // StoreImm opcode
         assert_eq!(
             store_imm.operands,
-            vec![M31::from(0), M31::from(42), M31::from(0)]
+            vec![M31::from(42), M31::from(0), M31::from(0)]
         );
     }
 }

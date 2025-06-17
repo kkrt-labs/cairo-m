@@ -26,7 +26,7 @@ pub struct CompiledInstruction {
     pub opcode: u32,
 
     /// The operands for this instruction (offsets and immediate)
-    /// Format: [off0, off1_or_imm, off2] where the second operand can be an immediate value or an offset
+    /// Format: [off0, off1, off2] where the second operand can be an immediate value or an offset
     pub operands: Vec<M31>,
 }
 
@@ -82,18 +82,18 @@ impl CompiledInstruction {
         Self { opcode, operands }
     }
 
-    /// Get offset 0 (fp-relative source 1)
-    pub fn off0(&self) -> Option<M31> {
+    /// Get operand 0 (fp-relative source 1)
+    pub fn op0(&self) -> Option<M31> {
         self.operands.first().copied()
     }
 
-    /// Get offset 1 (fp-relative source 2)
-    pub fn off1_or_imm(&self) -> Option<M31> {
+    /// Get operand 1 (fp-relative source 2)
+    pub fn op1(&self) -> Option<M31> {
         self.operands.get(1).copied()
     }
 
-    /// Get offset 2 (fp-relative destination)
-    pub fn off2(&self) -> Option<M31> {
+    /// Get operand 2 (fp-relative destination)
+    pub fn op2(&self) -> Option<M31> {
         self.operands.get(2).copied()
     }
 }
@@ -107,9 +107,9 @@ impl Serialize for CompiledInstruction {
         let mut values = vec![M31::from(self.opcode)];
 
         // Add the three offsets
-        values.push(self.off0().unwrap_or_else(Zero::zero));
-        values.push(self.off1_or_imm().unwrap_or_else(Zero::zero));
-        values.push(self.off2().unwrap_or_else(Zero::zero));
+        values.push(self.op0().unwrap_or_else(Zero::zero));
+        values.push(self.op1().unwrap_or_else(Zero::zero));
+        values.push(self.op2().unwrap_or_else(Zero::zero));
 
         let hex_values: Vec<String> = values
             .iter()
@@ -138,14 +138,14 @@ impl<'de> Deserialize<'de> for CompiledInstruction {
             .map_err(serde::de::Error::custom)?;
 
         // Parse offsets from hex
-        let off0 = parse_hex_offset(&hex_vec[1])
+        let op0 = parse_hex_offset(&hex_vec[1])
             .ok_or_else(|| serde::de::Error::custom("Failed to parse off0"))?;
-        let off1_or_imm = parse_hex_offset(&hex_vec[2])
+        let op1 = parse_hex_offset(&hex_vec[2])
             .ok_or_else(|| serde::de::Error::custom("Failed to parse off1"))?;
-        let off2 = parse_hex_offset(&hex_vec[3])
+        let op2 = parse_hex_offset(&hex_vec[3])
             .ok_or_else(|| serde::de::Error::custom("Failed to parse off2"))?;
 
-        let operands = vec![off0, off1_or_imm, off2];
+        let operands = vec![op0, op1, op2];
 
         Ok(Self::new(opcode, operands))
     }
