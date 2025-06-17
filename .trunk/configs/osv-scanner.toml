@@ -1,0 +1,7 @@
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0388"
+reason = "derivative - temporary ignore until upstream fixes"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0436"
+reason = "paste - temporary ignore until upstream fixes"

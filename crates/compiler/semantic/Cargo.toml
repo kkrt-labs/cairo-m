@@ -18,8 +18,8 @@ bitflags = "2.6.0"
 rustc-hash = "1.1.0"
 indexmap = "2.6.0"
 
-cairo-m-compiler-parser = { path = "../parser" }
-cairo-m-compiler-diagnostics = { path = "../diagnostics" }
+cairo-m-compiler-parser.workspace = true
+cairo-m-compiler-diagnostics.workspace = true
 index_vec = "0.1.4"
 
 [dev-dependencies]

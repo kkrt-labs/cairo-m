@@ -13,9 +13,9 @@ salsa = "0.22.0"
 salsa-macros = "0.22.0"
 
 # Project dependencies
-cairo-m-compiler-parser = { path = "../parser" }
-cairo-m-compiler-semantic = { path = "../semantic" }
-cairo-m-compiler-diagnostics = { path = "../diagnostics" }
+cairo-m-compiler-parser.workspace = true
+cairo-m-compiler-semantic.workspace = true
+cairo-m-compiler-diagnostics.workspace = true
 
 # Chumsky types
 chumsky = "0.10.1"
