@@ -61,10 +61,10 @@ label_name:
 
 Examples:
 
-- `6 -3 42` - Store immediate 42 at [fp-3]
-- `0 -6 -5 2` - Add [fp-6] and [fp-5], store at [fp+2]
+- `6 -3 42` - Store immediate 42 at [fp -3]
+- `0 -6 -5 2` - Add [fp -6] and [fp -5], store at [fp +2]
 - `12 7 10` - Call function at address 10
-- `31 0 4` - Jump relative 4 if [fp+0] != 0
+- `31 0 4` - Jump relative 4 if [fp +0] != 0
 
 ## Contributing
 

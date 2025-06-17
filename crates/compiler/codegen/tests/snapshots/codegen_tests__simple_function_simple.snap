@@ -15,5 +15,5 @@ func test() -> felt {
 ============================================================
 Generated CASM:
 test:
-   0: 6 42 _ -3            // Return value: [fp-3] = 42
+   0: 6 42 _ -3            // Return value: [fp - 3] = 42
    1: 15 _ _ _             // return
