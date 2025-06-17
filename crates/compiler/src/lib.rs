@@ -29,14 +29,14 @@ pub enum CompilerError {
 impl std::fmt::Display for CompilerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CompilerError::ParseErrors(diagnostics) => {
+            Self::ParseErrors(diagnostics) => {
                 write!(f, "Parse errors: {} errors found", diagnostics.len())
             }
-            CompilerError::SemanticErrors(diagnostics) => {
+            Self::SemanticErrors(diagnostics) => {
                 write!(f, "Semantic errors: {} errors found", diagnostics.len())
             }
-            CompilerError::MirGenerationFailed => write!(f, "Failed to generate MIR"),
-            CompilerError::CodeGenerationFailed(e) => write!(f, "Code generation failed: {}", e),
+            Self::MirGenerationFailed => write!(f, "Failed to generate MIR"),
+            Self::CodeGenerationFailed(e) => write!(f, "Code generation failed: {}", e),
         }
     }
 }

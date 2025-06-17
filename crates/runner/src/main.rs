@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::{fs, process};
 
 use cairo_m_compiler::CompiledProgram;
-use cairo_m_runner::{run_cairo_program, RunnerOptions};
+use cairo_m_runner::run_cairo_program;
 use clap::{Parser, ValueHint};
 
 #[derive(Parser, Debug)]

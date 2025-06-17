@@ -40,7 +40,7 @@ fn compile_cairo_file(cairo_file: &str) -> Result<CompiledProgram, String> {
     // Compile using the library API
     let options = CompilerOptions { verbose: false };
 
-    let output = compile_cairo(source_text, source_path.clone(), options)
+    let output = compile_cairo(source_text, source_path, options)
         .map_err(|e| format!("Compilation failed: {}", e))?;
 
     // Clone the Arc<CompiledProgram> to get an owned CompiledProgram
@@ -193,10 +193,10 @@ diff_test!(
 
 // 8. Nested function calls
 fn rust_nested_calls() -> u32 {
-    fn add(a: u32, b: u32) -> u32 {
+    const fn add(a: u32, b: u32) -> u32 {
         a + b
     }
-    fn mul(a: u32, b: u32) -> u32 {
+    const fn mul(a: u32, b: u32) -> u32 {
         (a as u64 * b as u64 % (1u64 << 31)) as u32
     }
     fn compute(x: u32) -> u32 {
