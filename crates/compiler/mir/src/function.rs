@@ -3,9 +3,10 @@
 //! This module defines the function-level MIR representation, including
 //! the Control Flow Graph (CFG) of basic blocks.
 
-use crate::{indent_str, BasicBlock, BasicBlockId, MirType, PrettyPrint, ValueId};
 use index_vec::IndexVec;
 use rustc_hash::FxHashMap;
+
+use crate::{indent_str, BasicBlock, BasicBlockId, MirType, PrettyPrint, ValueId};
 
 /// A simple definition identifier for MIR that doesn't depend on Salsa lifetimes
 ///

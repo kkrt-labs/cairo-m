@@ -21,7 +21,6 @@
 //! semantic model for a source file, cached by Salsa for incremental compilation.
 
 use cairo_m_compiler_parser as parser;
-
 // Import file types from parser
 pub use parser::{parse_program, ParsedModule, SourceProgram};
 

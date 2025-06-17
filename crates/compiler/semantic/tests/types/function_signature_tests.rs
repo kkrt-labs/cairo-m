@@ -3,8 +3,9 @@
 //! These tests verify that function signatures are correctly resolved,
 //! including parameter types, return types, and signature metadata.
 
-use super::*;
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
+
+use super::*;
 
 #[test]
 fn test_simple_function_signature() {

@@ -3,10 +3,12 @@
 //! This module defines the instruction types for MIR.
 //! Instructions perform computations but do not transfer control flow.
 
-use crate::{PrettyPrint, Value, ValueId};
+use std::collections::HashSet;
+
 use cairo_m_compiler_parser::parser::BinaryOp;
 use chumsky::span::SimpleSpan;
-use std::collections::HashSet;
+
+use crate::{PrettyPrint, Value, ValueId};
 
 /// Simple expression identifier for MIR that doesn't depend on Salsa lifetimes
 ///

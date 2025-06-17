@@ -1,6 +1,7 @@
 // crates/cairo-m-compiler-parser/src/tokens.rs
-use logos::Logos;
 use std::fmt;
+
+use logos::Logos;
 
 /// Custom error type for lexing errors in the Cairo-M language.
 ///

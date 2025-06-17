@@ -9,10 +9,11 @@
 //! - **Place**: A named entity that can hold a value (variables, functions, parameters)
 //! - **PlaceTable**: Symbol table for a specific scope, mapping names to places
 
+use std::fmt;
+
 use bitflags::bitflags;
 use index_vec::{self, IndexVec};
 use rustc_hash::FxHashMap;
-use std::fmt;
 
 index_vec::define_index_type! {
     /// A unique ID for a scope within a file

@@ -5,8 +5,9 @@
 //! - Error type propagation and handling
 //! - Type system robustness under error conditions
 
-use super::*;
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
+
+use super::*;
 
 #[test]
 #[ignore] // TODO: Enable when pointer types are supported

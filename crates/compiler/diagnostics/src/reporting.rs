@@ -3,11 +3,12 @@
 //! This module provides error reporting and diagnostic formatting
 //! utilities for compiler-related diagnostics.
 
-use crate::Diagnostic;
 // `Source` import is removed as it's no longer directly used by name in this function.
 // If other functions use `Source::from`, it might still be needed there,
 // or ariadne::Source::from can be used.
 use ariadne::{Label, Report};
+
+use crate::Diagnostic;
 
 /// Build a formatted message for a parse diagnostic
 pub fn build_diagnostic_message(

@@ -3,9 +3,10 @@
 //! This module defines the top-level container for MIR, representing an entire
 //! compilation unit (typically a source file).
 
-use crate::{indent_str, FunctionId, MirFunction, PrettyPrint};
 use index_vec::IndexVec;
 use rustc_hash::FxHashMap;
+
+use crate::{indent_str, FunctionId, MirFunction, PrettyPrint};
 
 /// The MIR for an entire program module (compilation unit)
 ///

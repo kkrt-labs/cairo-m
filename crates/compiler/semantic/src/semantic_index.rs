@@ -45,9 +45,6 @@
 //! - Salsa integration for incremental compilation
 //! - Memory-efficient indexed data structures
 
-use crate::definition::DefinitionKind;
-use crate::place::{FileScopeId, PlaceTable, Scope};
-use crate::{Definition, File, SemanticDb};
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCollection};
 use cairo_m_compiler_parser::parser::{
     ConstDef, Expression, FunctionDef, ImportStmt, Namespace, Spanned, Statement, StructDef,
@@ -57,6 +54,10 @@ use cairo_m_compiler_parser::{parse_program, ParsedModule};
 use chumsky::span::SimpleSpan;
 use index_vec::IndexVec;
 use rustc_hash::FxHashMap;
+
+use crate::definition::DefinitionKind;
+use crate::place::{FileScopeId, PlaceTable, Scope};
+use crate::{Definition, File, SemanticDb};
 
 // Define DefinitionIndex as an index type for definitions within a single file.
 index_vec::define_index_type! {
@@ -1032,9 +1033,10 @@ impl<'db> SemanticIndexBuilder<'db> {
 
 #[cfg(test)]
 mod tests {
+    use cairo_m_compiler_parser::SourceProgram;
+
     use super::*;
     use crate::db::tests::{test_db, TestDb};
-    use cairo_m_compiler_parser::SourceProgram;
 
     struct TestCase {
         db: TestDb,

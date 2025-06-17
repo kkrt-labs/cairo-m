@@ -4,10 +4,8 @@
 //! Salsa database lifetimes. It provides essential type information for MIR
 //! optimizations and code generation while remaining self-contained.
 
-use cairo_m_compiler_semantic::{
-    types::{TypeData, TypeId},
-    SemanticDb,
-};
+use cairo_m_compiler_semantic::types::{TypeData, TypeId};
+use cairo_m_compiler_semantic::SemanticDb;
 
 /// A simplified type representation for MIR
 ///

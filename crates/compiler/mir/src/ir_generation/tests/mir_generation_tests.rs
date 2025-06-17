@@ -1,7 +1,8 @@
 //! Main test runner for MIR generation.
 
-use crate::ir_generation::tests::test_harness::{check_mir, MirTest};
 use insta::assert_snapshot;
+
+use crate::ir_generation::tests::test_harness::{check_mir, MirTest};
 
 /// A macro to define a MIR test case. It loads a source file,
 /// runs MIR generation, checks embedded assertions, and snapshots the output.

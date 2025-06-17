@@ -3,9 +3,10 @@
 //! This module provides the diagnostic infrastructure for reporting semantic errors,
 //! warnings, and hints during semantic analysis.
 
+use std::fmt;
+
 use ariadne::ReportKind;
 use chumsky::span::SimpleSpan;
-use std::fmt;
 
 /// A diagnostic message from semantic analysis
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

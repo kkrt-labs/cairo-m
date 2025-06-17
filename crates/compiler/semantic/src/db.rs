@@ -9,11 +9,10 @@
 
 use cairo_m_compiler_diagnostics::DiagnosticCollection;
 use cairo_m_compiler_parser as parser;
-use parser::{Db as ParserDb, Upcast};
-
 // We may need the parser implementation later for cross-database operations
 #[allow(unused_imports)]
 use parser::ParserDatabaseImpl;
+use parser::{Db as ParserDb, Upcast};
 
 /// Database trait for semantic analysis, extending the parser database
 ///

@@ -34,6 +34,7 @@ pub use layout::FunctionLayout;
 pub use opcode::{opcodes, Opcode};
 
 /// Main entry point for code generation
+///
 /// Converts a MIR module to a JSON representation of the compiled program
 pub fn compile_module(module: &MirModule) -> Result<CompiledProgram, CodegenError> {
     let mut generator = CodeGenerator::new();

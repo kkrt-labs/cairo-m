@@ -3,10 +3,11 @@
 //! This module provides utilities for building CASM instructions from MIR values
 //! and function layouts.
 
-use crate::{CasmInstruction, CodegenError, CodegenResult, FunctionLayout, Label, Opcode, Operand};
 use cairo_m_compiler_mir::{Literal, Value, ValueId};
 use cairo_m_compiler_parser::parser::BinaryOp;
 use stwo_prover::core::fields::m31::M31;
+
+use crate::{CasmInstruction, CodegenError, CodegenResult, FunctionLayout, Label, Opcode, Operand};
 
 /// Builder for generating CASM instructions
 ///

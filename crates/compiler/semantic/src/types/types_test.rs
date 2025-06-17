@@ -2,6 +2,8 @@
 //!
 //! These tests verify that the type system actually works end-to-end
 
+use cairo_m_compiler_parser::parser::TypeExpr as AstTypeExpr;
+
 use crate::db::tests::test_db;
 use crate::semantic_index::{semantic_index, DefinitionId};
 use crate::type_resolution::{
@@ -10,7 +12,6 @@ use crate::type_resolution::{
 };
 use crate::types::{TypeData, TypeId};
 use crate::File;
-use cairo_m_compiler_parser::parser::TypeExpr as AstTypeExpr;
 
 #[test]
 fn test_resolve_primitive_types() {

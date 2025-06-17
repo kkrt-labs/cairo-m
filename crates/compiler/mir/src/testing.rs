@@ -3,10 +3,11 @@
 //! This module provides testing utilities and helpers for working with MIR
 //! in unit tests and integration tests.
 
+use cairo_m_compiler_parser::parser::BinaryOp;
+
 use crate::{
     BasicBlockId, FunctionId, Instruction, MirFunction, MirModule, Terminator, Value, ValueId,
 };
-use cairo_m_compiler_parser::parser::BinaryOp;
 
 /// Builder for creating test MIR modules
 pub struct TestMirBuilder {

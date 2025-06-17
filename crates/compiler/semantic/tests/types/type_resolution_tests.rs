@@ -3,9 +3,10 @@
 //! These tests verify that `resolve_ast_type` correctly resolves AST type expressions
 //! to semantic type IDs, including primitive types, pointers, and user-defined types.
 
-use super::*;
 use cairo_m_compiler_parser::parser::TypeExpr as AstTypeExpr;
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
+
+use super::*;
 
 #[test]
 fn test_resolve_primitive_types() {

@@ -3,8 +3,9 @@
 //! This module defines terminators, which end basic blocks and transfer control flow.
 //! Every basic block must end with exactly one terminator.
 
-use crate::{BasicBlockId, PrettyPrint, Value};
 use std::collections::HashSet;
+
+use crate::{BasicBlockId, PrettyPrint, Value};
 
 /// A terminator ends a basic block and transfers control
 ///

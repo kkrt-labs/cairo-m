@@ -3,14 +3,16 @@
 //! This module defines structures for tracking definitions and linking them to AST nodes.
 //! It provides the connection between syntax (AST) and semantics (places/symbols).
 
-use crate::place::{FileScopeId, ScopedPlaceId};
-use crate::semantic_index::ExpressionId;
-use crate::File;
+use std::fmt;
+
 use cairo_m_compiler_parser::parser::{
     ConstDef, FunctionDef, ImportStmt, Namespace, Parameter, Spanned, StructDef, TypeExpr,
 };
 use chumsky::span::SimpleSpan;
-use std::fmt;
+
+use crate::place::{FileScopeId, ScopedPlaceId};
+use crate::semantic_index::ExpressionId;
+use crate::File;
 
 /// A definition that links a semantic place to its AST node
 ///
@@ -304,9 +306,9 @@ impl Definitions {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     use cairo_m_compiler_parser::parser::{Expression, TypeExpr};
+
+    use super::*;
 
     #[test]
     fn test_definition_kinds() {

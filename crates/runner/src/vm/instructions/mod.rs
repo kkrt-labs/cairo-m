@@ -10,12 +10,15 @@
 //! A QM31 is made of 4 M31 (extension field of CM31, the extension field of M31).
 //! This is why instructions can be represented as a QM31.
 
-use crate::vm::{
-    instructions::{call::*, jnz::*, jump::*, store::*},
-    Memory, MemoryError, State,
-};
-use stwo_prover::core::fields::{m31::M31, qm31::QM31};
+use stwo_prover::core::fields::m31::M31;
+use stwo_prover::core::fields::qm31::QM31;
 use thiserror::Error;
+
+use crate::vm::instructions::call::*;
+use crate::vm::instructions::jnz::*;
+use crate::vm::instructions::jump::*;
+use crate::vm::instructions::store::*;
+use crate::vm::{Memory, MemoryError, State};
 
 pub mod call;
 pub mod jnz;
@@ -119,10 +122,11 @@ pub fn opcode_to_instruction_fn(op: M31) -> Result<InstructionFn, InstructionErr
 
 #[cfg(test)]
 mod tests {
-    use super::{opcode_to_instruction_fn, InstructionError};
     use num_traits::One;
-    use stwo_prover::core::fields::{m31::M31, qm31::QM31};
+    use stwo_prover::core::fields::m31::M31;
+    use stwo_prover::core::fields::qm31::QM31;
 
+    use super::{opcode_to_instruction_fn, InstructionError};
     use crate::vm::instructions::Instruction;
 
     const LAST_VALID_OPCODE_ID: u32 = 31;

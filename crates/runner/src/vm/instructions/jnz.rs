@@ -6,10 +6,9 @@
 
 use num_traits::Zero;
 
-use crate::{
-    memory::{Memory, MemoryError},
-    vm::{instructions::Instruction, state::State},
-};
+use crate::memory::{Memory, MemoryError};
+use crate::vm::instructions::Instruction;
+use crate::vm::state::State;
 
 /// CASM equivalent:
 /// ```casm

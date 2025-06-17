@@ -1,12 +1,13 @@
 //! Main test runner for CASM code generation.
 
+use std::fs;
+use std::path::Path;
+
 use cairo_m_compiler_codegen::{CodeGenerator, CodegenDb};
 use cairo_m_compiler_mir::{generate_mir, MirDb};
 use cairo_m_compiler_parser::Upcast;
 use cairo_m_compiler_semantic::{File, SemanticDb};
 use insta::assert_snapshot;
-use std::fs;
-use std::path::Path;
 
 /// Test database that implements all required traits for code generation
 #[salsa::db]

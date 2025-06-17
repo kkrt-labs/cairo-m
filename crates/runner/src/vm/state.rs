@@ -78,9 +78,9 @@ impl State {
 #[cfg(test)]
 mod tests {
     use num_traits::{One, Zero};
+    use stwo_prover::core::fields::m31::M31;
 
     use crate::vm::State;
-    use stwo_prover::core::fields::m31::M31;
 
     #[test]
     fn test_state_default() {
