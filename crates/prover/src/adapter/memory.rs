@@ -11,7 +11,7 @@ pub struct MemoryBoundaries {
 
 #[derive(Debug, Default)]
 pub struct MemoryCache {
-    memory_cache: HashMap<u32, u32>,
+    clock_cache: HashMap<u32, u32>,
     initial_memory: HashMap<u32, [u32; 4]>,
     final_memory: HashMap<u32, [u32; 4]>,
 }
@@ -19,18 +19,18 @@ pub struct MemoryCache {
 impl MemoryCache {
     pub fn new() -> Self {
         Self {
-            memory_cache: HashMap::new(),
+            clock_cache: HashMap::new(),
             initial_memory: HashMap::new(),
             final_memory: HashMap::new(),
         }
     }
 
     pub fn push(&mut self, mem_entry: MemEntry, clock: u32) -> (u32, QM31, u32, u32) {
-        let prev_clock = self.memory_cache.get(&mem_entry.addr).copied().unwrap_or_else(|| {
+        let prev_clock = self.clock_cache.get(&mem_entry.addr).copied().unwrap_or_else(|| {
             self.initial_memory.insert(mem_entry.addr, mem_entry.val);
             0
         });
-        self.memory_cache.insert(mem_entry.addr, clock);
+        self.clock_cache.insert(mem_entry.addr, clock);
         self.final_memory.insert(mem_entry.addr, mem_entry.val);
         
         (
