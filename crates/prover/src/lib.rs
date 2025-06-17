@@ -6,6 +6,7 @@ pub mod preprocessed;
 pub mod prover;
 pub mod relations;
 pub mod verifier;
+pub mod adapter;
 
 use stwo_prover::core::prover::StarkProof;
 use stwo_prover::core::vcs::ops::MerkleHasher;
