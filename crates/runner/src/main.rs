@@ -43,20 +43,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Convert compiled instructions to VM instructions
     // TODO: unify instruction generation with the compiler
-    let instructions: Vec<Instruction> = compiled_program
+let instructions: Vec<Instruction> = compiled_program
         .instructions
         .iter()
-        .map(|compiled_inst| {
-            let mut args = [M31::zero(); 3];
-            args[0] = compiled_inst.operands[0];
-            args[1] = compiled_inst.operands[1];
-            args[2] = compiled_inst.operands[2];
-
-            Instruction {
-                op: M31::from(compiled_inst.opcode),
-                args,
-            }
-        })
+        .map(Instruction::from)
         .collect();
 
     let program = Program { instructions };
