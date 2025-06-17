@@ -7,7 +7,6 @@ use std::collections::HashMap;
 use cairo_m_compiler_mir::{
     BasicBlockId, Instruction, InstructionKind, MirFunction, MirModule, Terminator,
 };
-use num_traits::Zero;
 use stwo_prover::core::fields::m31::M31;
 
 use crate::compiled_program::{CompiledInstruction, CompiledProgram, ProgramMetadata};

@@ -16,7 +16,6 @@
 #![allow(clippy::option_if_let_else)]
 
 use cairo_m_compiler_mir::{BasicBlockId, MirModule};
-use stwo_prover::core::fields::m31::M31;
 
 pub mod builder;
 pub mod compiled_program;
@@ -53,7 +52,7 @@ pub enum Operand {
 
 impl Operand {
     /// Create a literal operand from an integer
-    pub fn literal(value: i32) -> Self {
+    pub const fn literal(value: i32) -> Self {
         Self::Literal(value)
     }
 
