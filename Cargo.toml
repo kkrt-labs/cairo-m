@@ -4,6 +4,7 @@ members = [
   "crates/compiler/semantic",
   "crates/compiler/mir",
   "crates/compiler/codegen",
+  "crates/compiler/diagnostics",
   "crates/compiler",
   "crates/runner",
   "crates/prover",
@@ -21,3 +22,11 @@ stwo-prover = { git = "https://github.com/starkware-libs/stwo", features = [
 ] }
 thiserror = "2.0.12"
 tempfile = "3.20"
+cairo-m-compiler-parser = { path = "crates/compiler/parser" }
+cairo-m-compiler-semantic = { path = "crates/compiler/semantic" }
+cairo-m-compiler-mir = { path = "crates/compiler/mir" }
+cairo-m-compiler-diagnostics = { path = "crates/compiler/diagnostics" }
+cairo-m-compiler-codegen = { path = "crates/compiler/codegen" }
+cairo-m-compiler = { path = "crates/compiler" }
+cairo-m-runner = { path = "crates/runner" }
+cairo-m-prover = { path = "crates/prover" }

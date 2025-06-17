@@ -8,11 +8,11 @@ name = "cairo-m"
 path = "src/main.rs"
 
 [dependencies]
-cairo-m-compiler-parser = { path = "parser" }
-cairo-m-compiler-semantic = { path = "semantic" }
-cairo-m-compiler-mir = { path = "mir" }
-cairo-m-compiler-diagnostics = { path = "diagnostics" }
-cairo-m-compiler-codegen = { path = "codegen" }
+cairo-m-compiler-parser.workspace = true
+cairo-m-compiler-semantic.workspace = true
+cairo-m-compiler-mir.workspace = true
+cairo-m-compiler-diagnostics.workspace = true
+cairo-m-compiler-codegen.workspace = true
 clap = { version = "4.4", features = ["derive"] }
 ariadne = "0.5.1"
 anyhow = "1.0"
