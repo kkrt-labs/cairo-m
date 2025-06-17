@@ -1,5 +1,6 @@
 use std::io::Read;
 use std::path::Path;
+
 use bytemuck::{bytes_of_mut, Pod, Zeroable};
 use thiserror::Error;
 
@@ -61,9 +62,9 @@ pub fn read_memory_and_trace_from_paths(
 ) -> Result<(Vec<MemEntry>, Vec<TraceEntry>), VmImportError> {
     let mut trace_file = std::io::BufReader::new(std::fs::File::open(trace_path)?);
     let mut mem_file = std::io::BufReader::new(std::fs::File::open(mem_path)?);
-    
+
     let memory_entries: Vec<MemEntry> = MemEntryIter(&mut mem_file).collect();
     let trace_entries: Vec<TraceEntry> = TraceIter(&mut trace_file).collect();
-    
+
     Ok((memory_entries, trace_entries))
-} 
+}
