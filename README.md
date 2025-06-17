@@ -46,7 +46,8 @@ git submodule update --init --recursive
 to pull the correct pinned version.
 
 **Note for MacOS users**: You need to have `lld` installed, which can be done
-easily with `brew install lld`.
+easily with `brew install lld`. Also, make sure that your `clang` is the
+Homebrew one (`brew install llvm`), not the Xcode one.
 
 The project uses [trunk.io](https://trunk.io/) for managing all the linters, so
 make sure to install both the CLI and the VScode extension.
