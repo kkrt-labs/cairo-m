@@ -26,8 +26,9 @@ use cairo_m_compiler_diagnostics::{
     build_diagnostic_message, DiagnosticCode, DiagnosticCollection,
 };
 use cairo_m_compiler_parser::{Db as ParserDb, SourceProgram, Upcast};
+use cairo_m_compiler_semantic::semantic_index::semantic_index;
 use cairo_m_compiler_semantic::validation::validator::create_default_registry;
-use cairo_m_compiler_semantic::{semantic_index::semantic_index, SemanticDb};
+use cairo_m_compiler_semantic::SemanticDb;
 use insta::assert_snapshot;
 
 #[salsa::db]

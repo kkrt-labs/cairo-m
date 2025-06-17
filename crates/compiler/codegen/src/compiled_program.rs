@@ -1,7 +1,8 @@
+use std::collections::HashMap;
+
 use num_traits::Zero;
 use serde::{Deserializer, Serializer};
 use sonic_rs::{Deserialize, Serialize};
-use std::collections::HashMap;
 use stwo_prover::core::fields::m31::M31;
 
 /// Represents a fully compiled Cairo-M program ready for execution

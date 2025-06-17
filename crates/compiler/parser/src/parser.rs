@@ -31,9 +31,11 @@
 //! is re-executed. The resulting AST is stored as a single cached unit, which is much more
 //! efficient than tracking individual nodes.
 
-use crate::lexer::TokenType;
 use cairo_m_compiler_diagnostics::Diagnostic;
-use chumsky::{input::ValueInput, prelude::*};
+use chumsky::input::ValueInput;
+use chumsky::prelude::*;
+
+use crate::lexer::TokenType;
 
 #[salsa::input(debug)]
 pub struct SourceProgram {

@@ -1,8 +1,9 @@
+use std::fs;
+use std::path::PathBuf;
+
 use cairo_m_compiler_diagnostics::build_diagnostic_message;
 use cairo_m_compiler_parser::{parse_program, SourceProgram};
 use clap::Parser;
-use std::fs;
-use std::path::PathBuf;
 
 mod db;
 use db::CompilerDatabase;

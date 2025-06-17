@@ -3,8 +3,9 @@
 //! These tests verify that the type system correctly determines the semantic type
 //! of various definition kinds (variables, parameters, functions, etc.).
 
-use super::*;
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
+
+use super::*;
 
 #[test]
 fn test_let_variable_type_inference() {

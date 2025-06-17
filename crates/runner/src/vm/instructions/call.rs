@@ -35,10 +35,9 @@
 use num_traits::One;
 use stwo_prover::core::fields::m31::M31;
 
-use crate::{
-    memory::{Memory, MemoryError},
-    vm::{instructions::Instruction, state::State},
-};
+use crate::memory::{Memory, MemoryError};
+use crate::vm::instructions::Instruction;
+use crate::vm::state::State;
 
 /// Call instruction
 /// PC update: `next_pc = [fp + off1]`

@@ -19,11 +19,13 @@
 //! - Cross-module scope validation
 //! - Const vs mutable variable validation
 
+use std::collections::HashSet;
+
+use cairo_m_compiler_diagnostics::Diagnostic;
+
 use crate::db::SemanticDb;
 use crate::validation::Validator;
 use crate::{File, PlaceFlags, SemanticIndex};
-use cairo_m_compiler_diagnostics::Diagnostic;
-use std::collections::HashSet;
 
 /// Validator for scope-related semantic rules
 ///

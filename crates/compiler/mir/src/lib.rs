@@ -48,10 +48,9 @@
 #![feature(let_chains)]
 #![allow(clippy::option_if_let_else)]
 
-use chumsky::span::SimpleSpan;
-
 // Re-export commonly used types from submodules
 pub use basic_block::BasicBlock;
+use chumsky::span::SimpleSpan;
 pub use function::{MirDefinitionId, MirFunction};
 pub use instruction::{Instruction, InstructionKind, MirExpressionId};
 pub use mir_types::{MirType, StructField};
@@ -72,10 +71,9 @@ pub mod terminator;
 pub mod value;
 
 // Re-export the main IR generation function
-pub use ir_generation::generate_mir;
-
 // Re-export database traits and functions
 pub use db::{generate_mir as db_generate_mir, mir_errors, MirDb};
+pub use ir_generation::generate_mir;
 
 #[cfg(test)]
 pub mod testing;

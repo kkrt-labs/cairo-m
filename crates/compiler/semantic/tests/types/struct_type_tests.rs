@@ -3,8 +3,9 @@
 //! These tests verify that struct types are correctly resolved with proper
 //! field information, names, and type metadata.
 
-use super::*;
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
+
+use super::*;
 
 #[test]
 fn test_simple_struct_data() {

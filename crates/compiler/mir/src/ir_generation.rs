@@ -24,21 +24,21 @@
 
 use std::sync::Arc;
 
-use crate::{
-    db::MirDb, BasicBlock, BasicBlockId, FunctionId, Instruction, MirDefinitionId, MirFunction,
-    MirModule, MirType, Terminator, Value, ValueId,
+use cairo_m_compiler_parser::parse_program;
+use cairo_m_compiler_parser::parser::{Expression, FunctionDef, Spanned, Statement, TopLevelItem};
+use cairo_m_compiler_semantic::definition::{Definition, DefinitionKind};
+use cairo_m_compiler_semantic::semantic_index::{semantic_index, DefinitionId, SemanticIndex};
+use cairo_m_compiler_semantic::type_resolution::{
+    definition_semantic_type, expression_semantic_type,
 };
-use cairo_m_compiler_parser::{
-    parse_program,
-    parser::{Expression, FunctionDef, Spanned, Statement, TopLevelItem},
-};
-use cairo_m_compiler_semantic::{
-    definition::{Definition, DefinitionKind},
-    semantic_index::{semantic_index, DefinitionId, SemanticIndex},
-    type_resolution::{definition_semantic_type, expression_semantic_type},
-    File, SemanticDb,
-};
+use cairo_m_compiler_semantic::{File, SemanticDb};
 use rustc_hash::FxHashMap;
+
+use crate::db::MirDb;
+use crate::{
+    BasicBlock, BasicBlockId, FunctionId, Instruction, MirDefinitionId, MirFunction, MirModule,
+    MirType, Terminator, Value, ValueId,
+};
 
 #[cfg(test)]
 mod tests {

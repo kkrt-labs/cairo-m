@@ -2,14 +2,15 @@
 //! Provides helpers for loading test files, running the lowering pipeline,
 //! and checking assertions.
 
-use cairo_m_compiler_semantic::File;
-
-use crate::db::tests::test_db;
-use crate::{generate_mir, MirModule, PrettyPrint};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
+
+use cairo_m_compiler_semantic::File;
+
+use crate::db::tests::test_db;
+use crate::{generate_mir, MirModule, PrettyPrint};
 
 /// The result of running MIR generation on a test source.
 pub struct MirOutput {

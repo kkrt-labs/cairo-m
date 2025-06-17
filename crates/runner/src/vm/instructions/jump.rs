@@ -1,9 +1,8 @@
 //! JUMP instructions for the Cairo M VM.
 
-use crate::{
-    memory::{Memory, MemoryError},
-    vm::{instructions::Instruction, State},
-};
+use crate::memory::{Memory, MemoryError};
+use crate::vm::instructions::Instruction;
+use crate::vm::State;
 
 /// CASM equivalent:
 /// ```casm

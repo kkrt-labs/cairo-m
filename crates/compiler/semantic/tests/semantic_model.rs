@@ -12,15 +12,11 @@
 //! - **Span Mappings**: Test source location to semantic entity mappings
 //! - **Expression Tracking**: Verify expression metadata and scope context
 
-use cairo_m_compiler_semantic::{
-    definition::DefinitionKind,
-    place::{PlaceFlags, ScopeKind},
-    semantic_index::{semantic_index, DefinitionId},
-    File,
-};
-
 use cairo_m_compiler_parser::{Db as ParserDb, Upcast};
-use cairo_m_compiler_semantic::SemanticDb;
+use cairo_m_compiler_semantic::definition::DefinitionKind;
+use cairo_m_compiler_semantic::place::{PlaceFlags, ScopeKind};
+use cairo_m_compiler_semantic::semantic_index::{semantic_index, DefinitionId};
+use cairo_m_compiler_semantic::{File, SemanticDb};
 
 #[salsa::db]
 #[derive(Clone, Default)]

@@ -1,8 +1,9 @@
 //! Database traits and implementations for code generation with Salsa integration.
 
+use std::sync::Arc;
+
 use cairo_m_compiler_mir::{MirDb, MirModule};
 use cairo_m_compiler_parser::{SourceProgram, Upcast};
-use std::sync::Arc;
 
 use crate::{CodegenError, CompiledProgram};
 
@@ -62,9 +63,10 @@ pub fn codegen_errors(db: &dyn CodegenDb, file: SourceProgram) -> Vec<CodegenErr
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use super::*;
     use cairo_m_compiler_mir::MirDb;
     use cairo_m_compiler_semantic::SemanticDb;
+
+    use super::*;
 
     /// Test database that implements all required traits for code generation
     #[salsa::db]

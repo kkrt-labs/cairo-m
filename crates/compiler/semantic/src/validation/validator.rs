@@ -28,9 +28,10 @@
 //! let diagnostics = registry.validate_all(&db, file, &index);
 //! ```
 
+use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCollection};
+
 use crate::db::SemanticDb;
 use crate::{File, SemanticIndex};
-use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCollection};
 
 /// Trait for semantic validators
 ///

@@ -4,9 +4,8 @@
 //! These tests verify that the type system correctly handles type compatibility
 //! checks, error propagation, and edge cases.
 
-use crate::test_db;
-
 use super::*;
+use crate::test_db;
 
 #[test]
 fn test_basic_type_compatibility() {

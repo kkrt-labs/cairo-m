@@ -12,13 +12,14 @@
 //! - `function_semantic_signature`: Resolves function signature information
 //! - `are_types_compatible`: Checks type compatibility
 
+use cairo_m_compiler_parser::parser::{Expression, TypeExpr as AstTypeExpr};
+
 use crate::db::SemanticDb;
 use crate::definition::{DefinitionKind, FunctionDefRef, ParameterDefRef, StructDefRef};
 use crate::place::FileScopeId;
 use crate::semantic_index::{semantic_index, DefinitionId, ExpressionId};
 use crate::types::{FunctionSignatureId, StructTypeId, TypeData, TypeId};
 use crate::File;
-use cairo_m_compiler_parser::parser::{Expression, TypeExpr as AstTypeExpr};
 
 /// Resolves an AST type expression to a `TypeId`
 #[salsa::tracked]

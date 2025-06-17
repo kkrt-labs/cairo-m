@@ -29,9 +29,10 @@
 //! | ...                        | ...                    |                             |
 //! ```
 
-use crate::{CodegenError, CodegenResult};
 use cairo_m_compiler_mir::{MirFunction, ValueId};
 use rustc_hash::FxHashMap;
+
+use crate::{CodegenError, CodegenResult};
 
 /// Maps every ValueId in a function to its fp-relative memory offset.
 #[derive(Debug, Clone)]

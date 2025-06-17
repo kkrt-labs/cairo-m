@@ -9,18 +9,20 @@
 //! - Return type matching
 //! - Conditional expression types
 
+use std::collections::HashSet;
+
+use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode};
+use cairo_m_compiler_parser::parser::{
+    parse_program, BinaryOp, Expression, FunctionDef, Spanned, Statement, TopLevelItem, TypeExpr,
+};
+use chumsky::span::SimpleSpan;
+
 use crate::db::SemanticDb;
 use crate::semantic_index::ExpressionInfo;
 use crate::type_resolution::{are_types_compatible, expression_semantic_type, resolve_ast_type};
 use crate::types::{TypeData, TypeId};
 use crate::validation::Validator;
 use crate::{DefinitionKind, ExpressionId, File, SemanticIndex};
-use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode};
-use cairo_m_compiler_parser::parser::{
-    parse_program, BinaryOp, Expression, FunctionDef, Spanned, Statement, TopLevelItem, TypeExpr,
-};
-use chumsky::span::SimpleSpan;
-use std::collections::HashSet;
 
 /// Unified validator for all type-related semantic checks
 ///

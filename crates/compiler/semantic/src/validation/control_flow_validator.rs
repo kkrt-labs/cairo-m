@@ -17,14 +17,15 @@
 //!     non-unit return type guarantees a return value on all paths. If not
 //!     all paths are covered, a `MissingReturn` diagnostic is emitted.
 //!
-use crate::db::SemanticDb;
-use crate::definition::DefinitionKind;
-use crate::validation::Validator;
-use crate::{File, SemanticIndex};
 use cairo_m_compiler_diagnostics::Diagnostic;
 use cairo_m_compiler_parser::parser::{
     parse_program, FunctionDef, Spanned, Statement, TopLevelItem,
 };
+
+use crate::db::SemanticDb;
+use crate::definition::DefinitionKind;
+use crate::validation::Validator;
+use crate::{File, SemanticIndex};
 
 /// Validator for control-flow–related semantic rules.
 ///

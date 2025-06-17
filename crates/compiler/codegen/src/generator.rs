@@ -2,17 +2,19 @@
 //!
 //! This module orchestrates the entire MIR to CASM translation process.
 
+use std::collections::HashMap;
+
+use cairo_m_compiler_mir::{
+    BasicBlockId, Instruction, InstructionKind, MirFunction, MirModule, Terminator,
+};
+use num_traits::Zero;
+use stwo_prover::core::fields::m31::M31;
+
 use crate::compiled_program::{CompiledInstruction, CompiledProgram, ProgramMetadata};
 use crate::{
     CasmBuilder, CasmInstruction, CodegenError, CodegenResult, FunctionLayout, Label, Opcode,
     Operand,
 };
-use cairo_m_compiler_mir::{
-    BasicBlockId, Instruction, InstructionKind, MirFunction, MirModule, Terminator,
-};
-use num_traits::Zero;
-use std::collections::HashMap;
-use stwo_prover::core::fields::m31::M31;
 
 /// Main code generator that orchestrates MIR to CASM translation
 #[derive(Debug)]
@@ -378,8 +380,7 @@ impl CodeGenerator {
                             .map(|op| format!("{op:?}"))
                             .unwrap_or_else(|| format!("Unknown({})", instruction.opcode));
                         return Err(CodegenError::UnresolvedLabel(format!(
-                            "Unexpected label operand for opcode {}: {label_name}",
-                            opcode_name
+                            "Unexpected label operand for opcode {opcode_name}: {label_name}"
                         )));
                     }
                 }
@@ -480,8 +481,9 @@ impl Default for CodeGenerator {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use cairo_m_compiler_mir::{BasicBlock, MirFunction, MirModule, Terminator, Value, ValueId};
+
+    use super::*;
 
     fn create_simple_function() -> MirFunction {
         let mut function = MirFunction::new("main".to_string());
