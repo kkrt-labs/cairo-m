@@ -5,7 +5,6 @@ use cairo_m_compiler::CompiledProgram;
 use cairo_m_runner::vm::instructions::Instruction;
 use cairo_m_runner::vm::{Program, VM};
 use clap::{Parser, ValueHint};
-use num_traits::Zero;
 use stwo_prover::core::fields::m31::M31;
 
 #[derive(Parser, Debug)]
@@ -43,7 +42,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Convert compiled instructions to VM instructions
     // TODO: unify instruction generation with the compiler
-let instructions: Vec<Instruction> = compiled_program
+    let instructions: Vec<Instruction> = compiled_program
         .instructions
         .iter()
         .map(Instruction::from)
