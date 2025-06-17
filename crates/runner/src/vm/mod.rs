@@ -153,9 +153,8 @@ impl VM {
 
     /// Executes the loaded program from a given entrypoint and frame pointer.
     ///
-    /// The PC entrypoint is the first instruction of the function to execute in the program.
-    ///
-    /// The FP offset accounts for the calling convention of the executed function: arguments, return values, return address.
+    /// - The PC entrypoint is the first instruction of the function to execute in the program.
+    /// - The FP offset accounts for the calling convention of the executed function: arguments, return values, return address.
     ///
     /// ## Arguments
     ///
@@ -462,7 +461,7 @@ mod tests {
         let program = Program::from(instructions);
         let mut vm = VM::try_from(program).unwrap();
 
-        // Initial FP should 2 in the default case, we add an offset of 1.
+        // Initial FP is 2 in the default case, we add an offset of 1.
         // We run the program from PC = 1, so the first instruction should be ignored.
         vm.run_from_entrypoint(1, 1).unwrap();
         assert_eq!(vm.state.pc, M31(2));
@@ -597,10 +596,10 @@ mod tests {
     }
 
     #[test]
-    fn test_run_from_entrypoint_recursive_fibonacci() {
+    fn test_run_from_entrypoint_exponential_recursive_fibonacci() {
         [0, 1, 2, 3, 10, 20]
             .iter()
-            .for_each(|n| run_recursive_fib_test(*n));
+            .for_each(|n| run_exponential_recursive_fib_test(*n));
     }
 
     /// Runs a Fibonacci program on the VM and asserts the result against the reference implementation.
@@ -622,7 +621,7 @@ mod tests {
     ///   return fib(n - 1) + fib(n - 2);
     /// }
     /// ```
-    fn run_recursive_fib_test(n: u32) {
+    fn run_exponential_recursive_fib_test(n: u32) {
         let minus_4 = -M31(4);
         let minus_3 = -M31(3);
         let minus_2 = -M31(2);
@@ -644,7 +643,7 @@ mod tests {
             Instruction::from([6, 0, 0, minus_3.0]), // 7: store_imm: [fp - 3] = 0
             Instruction::from([15, 0, 0, 0]),        // 8: ret
             // Check if argument is 1
-            Instruction::from([3, minus_4.0, 1, 0]), //9: store_sub_fp_imm: [fp] = [fp - 4] - 1
+            Instruction::from([3, minus_4.0, 1, 0]), // 9: store_sub_fp_imm: [fp] = [fp - 4] - 1
             Instruction::from([31, 0, 3, 0]),        // 10: jnz_fp_imm: jmp rel 3 if [fp] != 0
             // Argument is 1, return 1
             Instruction::from([6, 1, 0, minus_3.0]), // 11: store_imm: [fp - 3] = 1
