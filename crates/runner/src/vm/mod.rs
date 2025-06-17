@@ -469,11 +469,11 @@ mod tests {
         let program = Program::from(instructions);
         let mut vm = VM::try_from(program).unwrap();
 
-        // Initial FP is 2 in the default case, we add an offset of 1.
+        // Initial FP is 2 in the default case, we add an offset of 2.
         // We run the program from PC = 1, so the first instruction should be ignored.
-        vm.run_from_entrypoint(1, 1).unwrap();
+        vm.run_from_entrypoint(1, 2).unwrap();
         assert_eq!(vm.state.pc, M31(2));
-        assert_eq!(vm.state.fp, M31(3));
+        assert_eq!(vm.state.fp, M31(4));
         assert_eq!(
             vm.memory.get_data(vm.state.fp + M31::one()).unwrap(),
             M31(5)
