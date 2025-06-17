@@ -380,8 +380,7 @@ impl CodeGenerator {
                             .map(|op| format!("{op:?}"))
                             .unwrap_or_else(|| format!("Unknown({})", instruction.opcode));
                         return Err(CodegenError::UnresolvedLabel(format!(
-                            "Unexpected label operand for opcode {}: {label_name}",
-                            opcode_name
+                            "Unexpected label operand for opcode {opcode_name}: {label_name}"
                         )));
                     }
                 }
