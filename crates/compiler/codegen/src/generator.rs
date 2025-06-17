@@ -63,14 +63,16 @@ impl CodeGenerator {
             .map(|instr| {
                 // Convert the instruction to operands array
                 let mut operands: Vec<M31> = Vec::new();
-                operands.push(instr.off0.unwrap_or_else(Zero::zero).into());
-                operands.push(instr.off1.unwrap_or_else(Zero::zero).into());
-                operands.push(instr.off2.unwrap_or_else(Zero::zero).into());
 
-                // Add immediate value if present
-                if let Some(imm) = instr.imm() {
-                    operands.push(imm);
-                }
+                let off1_or_imm = if instr.off1.is_some() {
+                    M31::from(instr.off1.unwrap())
+                } else {
+                    instr.imm().unwrap_or_else(Zero::zero)
+                };
+
+                operands.push(instr.off0.unwrap_or_else(Zero::zero).into());
+                operands.push(off1_or_imm);
+                operands.push(instr.off2.unwrap_or_else(Zero::zero).into());
 
                 CompiledInstruction {
                     opcode: instr.opcode,
@@ -514,5 +516,42 @@ mod tests {
 
         // Should contain a main function
         assert!(generator.function_addresses.contains_key("main"));
+    }
+
+    #[test]
+    fn test_immediate_compilation() {
+        // Create a simple module with a store immediate instruction
+        let mut module = MirModule::new();
+        let mut function = MirFunction::new("test".to_string());
+
+        // Create a simple block that stores an immediate and returns
+        let mut block = BasicBlock::new();
+
+        // Store immediate 42 to local variable
+        let dest = function.new_value_id();
+        block
+            .instructions
+            .push(Instruction::assign(dest, Value::integer(42)));
+
+        // Return the value
+        block.terminator = Terminator::Return {
+            value: Some(Value::Operand(dest)),
+        };
+
+        function.basic_blocks.push(block);
+        module.functions.push(function);
+
+        // Compile the module
+        let mut generator = CodeGenerator::new();
+        generator.generate_module(&module).unwrap();
+        let compiled = generator.compile();
+
+        // Check the store immediate instruction (should be first)
+        let store_imm = &compiled.instructions[0];
+        assert_eq!(store_imm.opcode, 6); // StoreImm opcode
+        assert_eq!(
+            store_imm.operands,
+            vec![M31::from(0), M31::from(42), M31::from(0)]
+        );
     }
 }

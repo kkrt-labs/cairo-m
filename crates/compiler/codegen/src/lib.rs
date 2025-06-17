@@ -123,8 +123,9 @@ impl CasmInstruction {
     }
 
     /// Set the immediate value (convenience method)
-    pub fn with_imm(mut self, imm: M31) -> Self {
-        self.operand = Some(Operand::Literal(imm));
+    pub fn with_imm(mut self, imm: i32) -> Self {
+        self.operand = Some(Operand::Literal(M31::from(imm)));
+        self.off1 = Some(imm);
         self
     }
 
@@ -154,18 +155,23 @@ impl CasmInstruction {
 
         if let Some(off0) = self.off0 {
             parts.push(off0.to_string());
+        } else {
+            parts.push("_".to_string());
         }
         if let Some(off1) = self.off1 {
             parts.push(off1.to_string());
+        } else if let Some(imm) = self.imm() {
+            parts.push(imm.0.to_string());
+        } else if let Some(Operand::Label(label)) = &self.operand {
+            // show unresolved labels
+            parts.push(format!("<{label}>"));
+        } else {
+            parts.push("_".to_string());
         }
         if let Some(off2) = self.off2 {
             parts.push(off2.to_string());
-        }
-        if let Some(operand) = &self.operand {
-            match operand {
-                Operand::Literal(value) => parts.push(value.0.to_string()),
-                Operand::Label(label) => parts.push(format!("<{label}>")), // Show unresolved labels
-            }
+        } else {
+            parts.push("_".to_string());
         }
 
         let instruction = parts.join(" ");
