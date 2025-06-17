@@ -2,3 +2,13 @@
 name = "cairo-m-prover"
 version.workspace = true
 edition.workspace = true
+
+[dependencies]
+stwo-prover.workspace = true
+stwo-air-utils.workspace = true
+stwo-air-utils-derive.workspace = true
+rayon = "1.10.0"
+num-traits.workspace = true
+rand = "0.8.5"
+thiserror.workspace = true
+tracing.workspace = true

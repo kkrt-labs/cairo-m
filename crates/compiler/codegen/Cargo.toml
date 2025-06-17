@@ -17,19 +17,17 @@ salsa = "0.22.0"
 salsa-macros = "0.22.0"
 
 # Project dependencies
-cairo-m-compiler-parser = { path = "../parser" }
-cairo-m-compiler-semantic = { path = "../semantic" }
-cairo-m-compiler-diagnostics = { path = "../diagnostics" }
-cairo-m-compiler-mir = { path = "../mir" }
+cairo-m-compiler-parser.workspace = true
+cairo-m-compiler-semantic.workspace = true
+cairo-m-compiler-diagnostics.workspace = true
+cairo-m-compiler-mir.workspace = true
 
 # Chumsky types
 chumsky = "0.10.1"
 
 # Field arithmetic for M31
-stwo-prover = { git = "https://github.com/starkware-libs/stwo", features = [
-  "parallel",
-] }
 num-traits.workspace = true
+stwo-prover.workspace = true
 
 # Testing dependencies
 [dev-dependencies]
