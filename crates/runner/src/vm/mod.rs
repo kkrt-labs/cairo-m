@@ -5,6 +5,7 @@ use std::fs::File;
 use std::io::{self, Write};
 use std::path::Path;
 
+use cairo_m_compiler::CompiledProgram;
 use instructions::{opcode_to_instruction_fn, Instruction, InstructionError};
 use num_traits::Zero;
 use stwo_prover::core::fields::m31::M31;
@@ -34,6 +35,18 @@ pub struct Program {
 impl From<Vec<Instruction>> for Program {
     fn from(instructions: Vec<Instruction>) -> Self {
         Self { instructions }
+    }
+}
+
+impl From<CompiledProgram> for Program {
+    fn from(program: CompiledProgram) -> Self {
+        Self {
+            instructions: program
+                .instructions
+                .iter()
+                .map(|instruction| instruction.into())
+                .collect(),
+        }
     }
 }
 
