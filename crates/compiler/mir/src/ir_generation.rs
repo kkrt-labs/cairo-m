@@ -25,8 +25,8 @@
 use std::sync::Arc;
 
 use crate::{
-    BasicBlock, BasicBlockId, FunctionId, Instruction, MirDefinitionId, MirFunction, MirModule,
-    MirType, Terminator, Value, ValueId,
+    db::MirDb, BasicBlock, BasicBlockId, FunctionId, Instruction, MirDefinitionId, MirFunction,
+    MirModule, MirType, Terminator, Value, ValueId,
 };
 use cairo_m_compiler_parser::{
     parse_program,
@@ -59,7 +59,7 @@ mod tests {
 /// - Generates partial MIR for functions even if some have semantic errors
 /// - Uses placeholder values for unresolved references
 #[salsa::tracked]
-pub fn generate_mir(db: &dyn SemanticDb, file: File) -> Option<Arc<MirModule>> {
+pub fn generate_mir(db: &dyn MirDb, file: File) -> Option<Arc<MirModule>> {
     // Parse the module to get access to AST
     let parsed_program = parse_program(db, file);
     if !parsed_program.diagnostics.is_empty() {

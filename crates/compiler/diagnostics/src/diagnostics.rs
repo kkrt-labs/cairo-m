@@ -293,7 +293,7 @@ impl fmt::Display for Diagnostic {
 }
 
 /// Collection of diagnostics from semantic analysis
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct DiagnosticCollection {
     diagnostics: Vec<Diagnostic>,
 }

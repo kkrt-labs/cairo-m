@@ -10,6 +10,7 @@ rustc-hash = "1.1.0"
 serde_json = "1.0"
 serde = { version = "1.0.219", features = ["derive"] }
 sonic-rs = "0.3"
+chrono = { version = "0.4", features = ["serde"] }
 
 # Salsa for incremental compilation
 salsa = "0.22.0"
@@ -28,6 +29,7 @@ chumsky = "0.10.1"
 stwo-prover = { git = "https://github.com/starkware-libs/stwo", features = [
   "parallel",
 ] }
+num-traits.workspace = true
 
 # Testing dependencies
 [dev-dependencies]

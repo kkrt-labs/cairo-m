@@ -19,19 +19,23 @@ use cairo_m_compiler_mir::{BasicBlockId, MirModule};
 use stwo_prover::core::fields::m31::M31;
 
 pub mod builder;
+pub mod compiled_program;
+pub mod db;
 pub mod generator;
 pub mod layout;
-pub mod program;
+pub mod opcode;
 
 // Re-export main components
 pub use builder::CasmBuilder;
+pub use compiled_program::{CompiledInstruction, CompiledProgram, ProgramMetadata};
+pub use db::{codegen_errors, codegen_mir_module, compile_module as db_compile_module, CodegenDb};
 pub use generator::CodeGenerator;
 pub use layout::FunctionLayout;
-pub use program::Program;
+pub use opcode::{opcodes, Opcode};
 
 /// Main entry point for code generation
-//// Converts a MIR module to a JSON representation of the compiled program
-pub fn compile_module(module: &MirModule) -> Result<Program, CodegenError> {
+/// Converts a MIR module to a JSON representation of the compiled program
+pub fn compile_module(module: &MirModule) -> Result<CompiledProgram, CodegenError> {
     let mut generator = CodeGenerator::new();
     generator.generate_module(module)?;
     Ok(generator.compile())
@@ -221,44 +225,6 @@ impl Label {
     }
 }
 
-/// CASM opcode constants
-/// These correspond to the opcodes defined in the VM
-/// TODO: unify with a table coming from the runner ?.
-pub mod opcodes {
-    pub const STORE_ADD_FP_FP: u32 = 0; // [fp + off2] = [fp + off0] + [fp + off1]
-    pub const STORE_ADD_FP_IMM: u32 = 1; // [fp + off2] = [fp + off0] + imm
-    pub const STORE_SUB_FP_FP: u32 = 2; // [fp + off2] = [fp + off0] - [fp + off1]
-    pub const STORE_SUB_FP_IMM: u32 = 3; // [fp + off2] = [fp + off0] - imm
-    pub const STORE_DEREF_FP: u32 = 4; // [fp + off2] = [fp + off0]
-    pub const STORE_DOUBLE_DEREF_FP: u32 = 5; // [fp + off2] = [[fp + off0] + off1]
-    pub const STORE_IMM: u32 = 6; // [fp + off2] = imm
-    pub const STORE_MUL_FP_FP: u32 = 7; // [fp + off2] = [fp + off0] * [fp + off1]
-    pub const STORE_MUL_FP_IMM: u32 = 8; // [fp + off2] = [fp + off0] * imm
-    pub const STORE_DIV_FP_FP: u32 = 9; // [fp + off2] = [fp + off0] / [fp + off1]
-    pub const STORE_DIV_FP_IMM: u32 = 10; // [fp + off2] = [fp + off0] / imm
-    pub const CALL_ABS_FP: u32 = 11; // call abs [fp + off0]
-    pub const CALL_ABS_IMM: u32 = 12; // call abs imm
-    pub const CALL_REL_FP: u32 = 13; // call rel [fp + off0]
-    pub const CALL_REL_IMM: u32 = 14; // call rel imm
-    pub const RET: u32 = 15; // ret
-    pub const JMP_ABS_ADD_FP_FP: u32 = 16; // jmp abs [fp + off0] + [fp + off1]
-    pub const JMP_ABS_ADD_FP_IMM: u32 = 17; // jmp abs [fp + off0] + imm
-    pub const JMP_ABS_DEREF_FP: u32 = 18; // jmp abs [fp + off0]
-    pub const JMP_ABS_DOUBLE_DEREF_FP: u32 = 19; // jmp abs [[fp + off0] + off1]
-    pub const JMP_ABS_IMM: u32 = 20; // jmp abs imm
-    pub const JMP_ABS_MUL_FP_FP: u32 = 21; // jmp abs [fp + off0] * [fp + off1]
-    pub const JMP_ABS_MUL_FP_IMM: u32 = 22; // jmp abs [fp + off0] * imm
-    pub const JMP_REL_ADD_FP_FP: u32 = 23; // jmp rel [fp + off0] + [fp + off1]
-    pub const JMP_REL_ADD_FP_IMM: u32 = 24; // jmp rel [fp + off0] + imm
-    pub const JMP_REL_DEREF_FP: u32 = 25; // jmp rel [fp + off0]
-    pub const JMP_REL_DOUBLE_DEREF_FP: u32 = 26; // jmp rel [[fp + off0] + off1]
-    pub const JMP_REL_IMM: u32 = 27; // jmp rel imm
-    pub const JMP_REL_MUL_FP_FP: u32 = 28; // jmp rel [fp + off0] * [fp + off1]
-    pub const JMP_REL_MUL_FP_IMM: u32 = 29; // jmp rel [fp + off0] * imm
-    pub const JNZ_FP_FP: u32 = 30; // jmp rel [fp + off1] if [fp + off0] != 0
-    pub const JNZ_FP_IMM: u32 = 31; // jmp rel imm if [fp + off0] != 0
-}
-
 /// Errors that can occur during code generation
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CodegenError {
@@ -290,3 +256,9 @@ impl std::error::Error for CodegenError {}
 
 /// Result type for codegen operations
 pub type CodegenResult<T> = Result<T, CodegenError>;
+
+impl std::fmt::Display for CasmInstruction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_asm())
+    }
+}

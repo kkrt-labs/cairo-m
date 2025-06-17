@@ -1,11 +1,11 @@
-use cairo_m_compiler_codegen::compile_module;
 use cairo_m_compiler_diagnostics::build_diagnostic_message;
-use cairo_m_compiler_mir::generate_mir;
 use cairo_m_compiler_parser::{parse_program, SourceProgram};
-use cairo_m_compiler_semantic::validate_semantics;
 use clap::Parser;
 use std::fs;
 use std::path::PathBuf;
+
+mod db;
+use db::CompilerDatabase;
 
 /// Cairo-M compiler
 #[derive(Parser, Debug)]
@@ -30,8 +30,8 @@ fn main() {
 
     match fs::read_to_string(&args.input) {
         Ok(content) => {
-            // Initialize DB and source input
-            let db = cairo_m_compiler_semantic::SemanticDatabaseImpl::default();
+            // Initialize unified compiler database
+            let db = CompilerDatabase::new();
             let source = SourceProgram::new(&db, content.clone(), args.input.display().to_string());
 
             let parsed_program = parse_program(&db, source);
@@ -43,17 +43,19 @@ fn main() {
                 std::process::exit(1);
             }
 
-            // For now, just collect diagnostics
-            let semantic_diagnostics = validate_semantics(&db, &parsed_program.module, source);
+            // Validate semantics using the tracked query
+            let semantic_diagnostics =
+                cairo_m_compiler_semantic::db::validate_semantics(&db, source);
 
             for diagnostic in semantic_diagnostics.iter() {
                 println!("{}", build_diagnostic_message(&content, diagnostic, true));
             }
-            if !semantic_diagnostics.is_empty() {
+            if !semantic_diagnostics.errors().is_empty() {
                 std::process::exit(1);
             }
 
-            let generated_mir = generate_mir(&db, source);
+            // Generate MIR using the tracked query
+            let generated_mir = cairo_m_compiler_mir::db::generate_mir(&db, source);
 
             if generated_mir.is_none() {
                 eprintln!("Failed to generate MIR");
@@ -62,14 +64,31 @@ fn main() {
 
             let mir_module = generated_mir.unwrap();
 
-            let program = compile_module(&mir_module);
+            if args.verbose {
+                println!("\nGenerated MIR:\n{mir_module:#?}");
+            }
 
-            if program.is_err() {
-                eprintln!("Failed to generate program");
+            // Compile using the tracked query
+            let compiled_program = cairo_m_compiler_codegen::db::compile_module(&db, source);
+
+            if let Err(ref e) = compiled_program {
+                eprintln!("Failed to generate program: {e}");
                 std::process::exit(1);
             }
 
-            let generated_json = sonic_rs::to_string_pretty(&program.unwrap()).unwrap();
+            let program = compiled_program.unwrap();
+
+            if args.verbose {
+                // Print program statistics
+                println!("\nProgram Statistics:");
+                println!("  Total instructions: {}", program.instructions.len());
+                println!("  Entry points: {}", program.entry_points.len());
+                for (name, pc) in &program.entry_points {
+                    println!("    {name}: PC {pc}");
+                }
+            }
+
+            let generated_json = sonic_rs::to_string_pretty(&program).unwrap();
 
             if let Some(output_path) = args.output {
                 fs::write(output_path, generated_json).unwrap();

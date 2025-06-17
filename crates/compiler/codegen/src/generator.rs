@@ -2,14 +2,15 @@
 //!
 //! This module orchestrates the entire MIR to CASM translation process.
 
-use crate::program::Program;
+use crate::compiled_program::{CompiledInstruction, CompiledProgram, ProgramMetadata};
 use crate::{
-    opcodes, CasmBuilder, CasmInstruction, CodegenError, CodegenResult, FunctionLayout, Label,
+    CasmBuilder, CasmInstruction, CodegenError, CodegenResult, FunctionLayout, Label, Opcode,
     Operand,
 };
 use cairo_m_compiler_mir::{
     BasicBlockId, Instruction, InstructionKind, MirFunction, MirModule, Terminator,
 };
+use num_traits::Zero;
 use std::collections::HashMap;
 use stwo_prover::core::fields::m31::M31;
 
@@ -51,17 +52,41 @@ impl CodeGenerator {
         Ok(())
     }
 
-    /// Generates a string representation of the compiled program in JSON format.
-    pub fn compile(&self) -> Program {
-        Program {
-            data: self.instructions.clone(),
-            function_addresses: self.function_addresses.clone(),
-        }
-    }
+    /// Compile the generated code into a CompiledProgram.
+    pub fn compile(&self) -> CompiledProgram {
+        // Convert CasmInstructions to CompiledInstructions
+        let instructions = self
+            .instructions
+            .iter()
+            .map(|instr| {
+                // Convert the instruction to operands array
+                let mut operands: Vec<M31> = Vec::new();
+                operands.push(instr.off0.unwrap_or_else(Zero::zero).into());
+                operands.push(instr.off1.unwrap_or_else(Zero::zero).into());
+                operands.push(instr.off2.unwrap_or_else(Zero::zero).into());
 
-    /// Generates a string representation of the compiled program in CASM assembly format.
-    pub fn stringify_instructions(&self) -> String {
-        self.instructions_to_asm()
+                // Add immediate value if present
+                if let Some(imm) = instr.imm() {
+                    operands.push(imm);
+                }
+
+                CompiledInstruction {
+                    opcode: instr.opcode,
+                    operands,
+                }
+            })
+            .collect();
+
+        CompiledProgram {
+            metadata: ProgramMetadata {
+                compiler_version: Some(env!("CARGO_PKG_VERSION").to_string()),
+                compiled_at: Some(chrono::Utc::now().to_rfc3339()),
+                source_file: None,
+                extra: HashMap::new(),
+            },
+            entry_points: self.function_addresses.clone(),
+            instructions,
+        }
     }
 
     /// Calculate layouts for all functions in the module
@@ -315,8 +340,8 @@ impl CodeGenerator {
         // Resolve label references in instructions
         for (pc, instruction) in self.instructions.iter_mut().enumerate() {
             if let Some(Operand::Label(label_name)) = &instruction.operand {
-                match instruction.opcode {
-                    opcodes::JMP_ABS_IMM => {
+                match Opcode::from_u32(instruction.opcode) {
+                    Some(Opcode::JmpAbsImm) => {
                         // Absolute jump - use direct address
                         if let Some(&target_addr) = label_map.get(label_name) {
                             instruction.operand =
@@ -326,7 +351,7 @@ impl CodeGenerator {
                         }
                     }
 
-                    opcodes::JNZ_FP_IMM => {
+                    Some(Opcode::JnzFpImm) => {
                         // Conditional jump - use relative offset
                         if let Some(&target_addr) = label_map.get(label_name) {
                             let relative_offset = (target_addr as i32) - (pc as i32);
@@ -337,7 +362,7 @@ impl CodeGenerator {
                         }
                     }
 
-                    opcodes::CALL_ABS_IMM => {
+                    Some(Opcode::CallAbsImm) => {
                         // Function call - use direct address
                         if let Some(&target_addr) = label_map.get(label_name) {
                             instruction.operand =
@@ -349,9 +374,12 @@ impl CodeGenerator {
 
                     _ => {
                         // Other opcodes with label operands - this shouldn't happen with current implementation
+                        let opcode_name = Opcode::from_u32(instruction.opcode)
+                            .map(|op| format!("{op:?}"))
+                            .unwrap_or_else(|| format!("Unknown({})", instruction.opcode));
                         return Err(CodegenError::UnresolvedLabel(format!(
                             "Unexpected label operand for opcode {}: {label_name}",
-                            instruction.opcode
+                            opcode_name
                         )));
                     }
                 }
@@ -361,9 +389,9 @@ impl CodeGenerator {
         Ok(())
     }
 
-    /// Convert instructions to final assembly string
-    /// TODO: use a proper ASM representation.
-    fn instructions_to_asm(&self) -> String {
+    /// Generate a debug representation of instructions with resolved labels
+    /// This is primarily used for snapshot testing
+    pub fn debug_instructions(&self) -> String {
         let mut result = String::new();
 
         // Build a map from address (PC) to label names

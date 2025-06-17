@@ -1,19 +1,69 @@
 //! Main test runner for CASM code generation.
 
-use cairo_m_compiler_codegen::CodeGenerator;
-use cairo_m_compiler_mir::generate_mir;
-use cairo_m_compiler_semantic::{File, SemanticDatabaseImpl};
+use cairo_m_compiler_codegen::{CodeGenerator, CodegenDb};
+use cairo_m_compiler_mir::{generate_mir, MirDb};
+use cairo_m_compiler_parser::Upcast;
+use cairo_m_compiler_semantic::{File, SemanticDb};
 use insta::assert_snapshot;
 use std::fs;
 use std::path::Path;
 
+/// Test database that implements all required traits for code generation
+#[salsa::db]
+#[derive(Clone, Default)]
+pub struct TestDatabase {
+    storage: salsa::Storage<Self>,
+}
+
+#[salsa::db]
+impl salsa::Database for TestDatabase {}
+
+#[salsa::db]
+impl cairo_m_compiler_parser::Db for TestDatabase {}
+
+#[salsa::db]
+impl SemanticDb for TestDatabase {}
+
+#[salsa::db]
+impl MirDb for TestDatabase {}
+
+#[salsa::db]
+impl CodegenDb for TestDatabase {}
+
+impl Upcast<dyn cairo_m_compiler_parser::Db> for TestDatabase {
+    fn upcast(&self) -> &(dyn cairo_m_compiler_parser::Db + 'static) {
+        self
+    }
+    fn upcast_mut(&mut self) -> &mut (dyn cairo_m_compiler_parser::Db + 'static) {
+        self
+    }
+}
+
+impl Upcast<dyn SemanticDb> for TestDatabase {
+    fn upcast(&self) -> &(dyn SemanticDb + 'static) {
+        self
+    }
+    fn upcast_mut(&mut self) -> &mut (dyn SemanticDb + 'static) {
+        self
+    }
+}
+
+impl Upcast<dyn MirDb> for TestDatabase {
+    fn upcast(&self) -> &(dyn MirDb + 'static) {
+        self
+    }
+    fn upcast_mut(&mut self) -> &mut (dyn MirDb + 'static) {
+        self
+    }
+}
+
+pub fn test_db() -> TestDatabase {
+    TestDatabase::default()
+}
+
 /// The result of running code generation on a test source.
 pub struct CodegenOutput {
     pub casm_code: String,
-}
-
-fn test_db() -> SemanticDatabaseImpl {
-    cairo_m_compiler_semantic::SemanticDatabaseImpl::default()
 }
 
 /// Runs the full compilation pipeline from source to CASM.
@@ -29,8 +79,8 @@ pub fn check_codegen(source: &str, path: &str) -> CodegenOutput {
         .generate_module(&mir_module)
         .expect("CASM generation failed");
 
-    // Generate CASM from MIR
-    let casm_code = generator.stringify_instructions();
+    // Generate debug representation for testing
+    let casm_code = generator.debug_instructions();
 
     CodegenOutput { casm_code }
 }
