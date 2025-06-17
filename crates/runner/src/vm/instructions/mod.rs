@@ -10,6 +10,8 @@
 //! A QM31 is made of 4 M31 (extension field of CM31, the extension field of M31).
 //! This is why instructions can be represented as a QM31.
 
+use cairo_m_compiler::CompiledInstruction;
+use num_traits::Zero;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 use thiserror::Error;
@@ -45,6 +47,20 @@ pub(crate) type InstructionArgs = [M31; 3];
 pub struct Instruction {
     pub op: M31,
     pub args: InstructionArgs,
+}
+
+// TODO: de-duplicate with compiler types
+impl From<&CompiledInstruction> for Instruction {
+    fn from(instruction: &CompiledInstruction) -> Self {
+        let mut args = [Zero::zero(); 3];
+        args[0] = instruction.operands[0];
+        args[1] = instruction.operands[1];
+        args[2] = instruction.operands[2];
+        Self {
+            op: M31::from(instruction.opcode),
+            args,
+        }
+    }
 }
 
 impl From<QM31> for Instruction {
