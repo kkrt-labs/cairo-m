@@ -36,5 +36,14 @@ To get started with Cairo M, clone the repository and build the project using
 Cargo. Make sure you have the Rust nightly toolchain installed as specified in
 `rust-toolchain.toml`.
 
+[Stwo](https://github.com/starkware-libs/stwo) is added as a git submodule to
+allow for an easier debugging of the AIRs. Use
+
+```bash
+git submodule update --init --recursive
+```
+
+to pull the correct pinned version.
+
 The project uses [trunk.io](https://trunk.io/) for managing all the linters, so
 make sure to install both the CLI and the VScode extension.
