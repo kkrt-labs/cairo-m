@@ -324,3 +324,259 @@ impl Instructions {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::io::MemEntry;
+    use super::super::memory::MemoryCache;
+    use super::*;
+
+    fn create_mem_entry(addr: u32, val: [u32; 4]) -> MemEntry {
+        MemEntry { addr, val }
+    }
+
+    fn create_memory_iterator(entries: Vec<MemEntry>) -> impl Iterator<Item = MemEntry> {
+        entries.into_iter()
+    }
+
+    #[test]
+    fn test_push_instr_store_add_fp_fp() {
+        let mut instructions = Instructions::default();
+        let mut memory_cache = MemoryCache::new();
+        let state = VmState { pc: 10, fp: 20 };
+        let clock = 5;
+
+        // Create memory entries for store_add_fp_fp (opcode 0)
+        let memory_entries = vec![
+            create_mem_entry(0, [0, 0, 0, 0]),    // instruction with opcode 0
+            create_mem_entry(1, [1, 2, 3, 4]),    // first operand
+            create_mem_entry(2, [5, 6, 7, 8]),    // second operand
+            create_mem_entry(3, [9, 10, 11, 12]), // result location
+        ];
+
+        instructions.push_instr(
+            create_memory_iterator(memory_entries),
+            state,
+            clock,
+            &mut memory_cache,
+        );
+
+        // Check that the instruction was added to the correct opcode vector
+        assert_eq!(instructions.states_by_opcodes.store_add_fp_fp.len(), 1);
+        assert!(instructions.states_by_opcodes.store_add_fp_imm.is_empty());
+
+        let state_data = &instructions.states_by_opcodes.store_add_fp_fp[0];
+        assert_eq!(state_data.state.pc, 10);
+        assert_eq!(state_data.state.fp, 20);
+
+        // Check that memory_args are properly set
+        assert_eq!(state_data.memory_args[0].0, 0); // instruction addr
+        assert_eq!(state_data.memory_args[1].0, 1); // first operand addr
+        assert_eq!(state_data.memory_args[2].0, 2); // second operand addr
+        assert_eq!(state_data.memory_args[3].0, 3); // result addr
+    }
+
+    #[test]
+    fn test_push_instr_store_add_fp_imm() {
+        let mut instructions = Instructions::default();
+        let mut memory_cache = MemoryCache::new();
+        let state = VmState { pc: 15, fp: 25 };
+        let clock = 7;
+
+        // Create memory entries for store_add_fp_imm (opcode 1)
+        let memory_entries = vec![
+            create_mem_entry(0, [1, 0, 0, 0]), // instruction with opcode 1
+            create_mem_entry(1, [1, 2, 3, 4]), // operand
+            create_mem_entry(2, [5, 6, 7, 8]), // result location
+        ];
+
+        instructions.push_instr(
+            create_memory_iterator(memory_entries),
+            state,
+            clock,
+            &mut memory_cache,
+        );
+
+        assert_eq!(instructions.states_by_opcodes.store_add_fp_imm.len(), 1);
+        assert!(instructions.states_by_opcodes.store_add_fp_fp.is_empty());
+
+        let state_data = &instructions.states_by_opcodes.store_add_fp_imm[0];
+        assert_eq!(state_data.state.pc, 15);
+        assert_eq!(state_data.state.fp, 25);
+
+        // For store_add_fp_imm, only 3 memory entries are used
+        assert_eq!(state_data.memory_args[0].0, 0); // instruction
+        assert_eq!(state_data.memory_args[1].0, 1); // operand
+        assert_eq!(state_data.memory_args[2].0, 2); // result
+        assert_eq!(state_data.memory_args[3].0, 0); // unused, should be default
+    }
+
+    #[test]
+    fn test_push_instr_store_imm() {
+        let mut instructions = Instructions::default();
+        let mut memory_cache = MemoryCache::new();
+        let state = VmState { pc: 5, fp: 10 };
+        let clock = 3;
+
+        // Create memory entries for store_imm (opcode 6)
+        let memory_entries = vec![
+            create_mem_entry(0, [6, 0, 0, 0]),  // instruction with opcode 6
+            create_mem_entry(1, [42, 0, 0, 0]), // result location
+        ];
+
+        instructions.push_instr(
+            create_memory_iterator(memory_entries),
+            state,
+            clock,
+            &mut memory_cache,
+        );
+
+        assert_eq!(instructions.states_by_opcodes.store_imm.len(), 1);
+
+        let state_data = &instructions.states_by_opcodes.store_imm[0];
+        assert_eq!(state_data.state.pc, 5);
+        assert_eq!(state_data.state.fp, 10);
+
+        // For store_imm, only 2 memory entries are used
+        assert_eq!(state_data.memory_args[0].0, 0); // instruction
+        assert_eq!(state_data.memory_args[1].0, 1); // result
+        assert_eq!(state_data.memory_args[2].0, 0); // unused
+        assert_eq!(state_data.memory_args[3].0, 0); // unused
+    }
+
+    #[test]
+    fn test_push_instr_call_abs_imm() {
+        let mut instructions = Instructions::default();
+        let mut memory_cache = MemoryCache::new();
+        let state = VmState { pc: 100, fp: 200 };
+        let clock = 15;
+
+        // Create memory entries for call_abs_imm (opcode 12)
+        let memory_entries = vec![
+            create_mem_entry(0, [12, 0, 0, 0]), // instruction with opcode 12
+        ];
+
+        instructions.push_instr(
+            create_memory_iterator(memory_entries),
+            state,
+            clock,
+            &mut memory_cache,
+        );
+
+        assert_eq!(instructions.states_by_opcodes.call_abs_imm.len(), 1);
+
+        let state_data = &instructions.states_by_opcodes.call_abs_imm[0];
+        assert_eq!(state_data.state.pc, 100);
+        assert_eq!(state_data.state.fp, 200);
+
+        // For call_abs_imm, only 1 memory entry is used
+        assert_eq!(state_data.memory_args[0].0, 0); // instruction
+        assert_eq!(state_data.memory_args[1].0, 0); // unused
+        assert_eq!(state_data.memory_args[2].0, 0); // unused
+        assert_eq!(state_data.memory_args[3].0, 0); // unused
+    }
+
+    #[test]
+    #[should_panic(expected = "Unknown opcode: 32")]
+    fn test_push_instr_unknown_opcode() {
+        let mut instructions = Instructions::default();
+        let mut memory_cache = MemoryCache::new();
+        let state = VmState { pc: 0, fp: 0 };
+        let clock = 1;
+
+        // Create memory entry with invalid opcode 32
+        let memory_entries = vec![
+            create_mem_entry(0, [32, 0, 0, 0]), // invalid opcode
+        ];
+
+        instructions.push_instr(
+            create_memory_iterator(memory_entries),
+            state,
+            clock,
+            &mut memory_cache,
+        );
+    }
+
+    #[test]
+    fn test_push_instr_multiple_instructions() {
+        let mut instructions = Instructions::default();
+        let mut memory_cache = MemoryCache::new();
+        let clock = 1;
+
+        // Push store_imm instruction
+        let state1 = VmState { pc: 0, fp: 100 };
+        let memory_entries1 = vec![
+            create_mem_entry(0, [6, 0, 0, 0]),  // store_imm opcode
+            create_mem_entry(1, [42, 0, 0, 0]), // result
+        ];
+        instructions.push_instr(
+            create_memory_iterator(memory_entries1),
+            state1,
+            clock,
+            &mut memory_cache,
+        );
+
+        // Push call_abs_imm instruction
+        let state2 = VmState { pc: 1, fp: 100 };
+        let memory_entries2 = vec![
+            create_mem_entry(2, [12, 0, 0, 0]), // call_abs_imm opcode
+        ];
+        instructions.push_instr(
+            create_memory_iterator(memory_entries2),
+            state2,
+            clock + 1,
+            &mut memory_cache,
+        );
+
+        // Push ret instruction
+        let state3 = VmState { pc: 2, fp: 100 };
+        let memory_entries3 = vec![
+            create_mem_entry(3, [15, 0, 0, 0]), // ret opcode
+        ];
+        instructions.push_instr(
+            create_memory_iterator(memory_entries3),
+            state3,
+            clock + 2,
+            &mut memory_cache,
+        );
+
+        // Verify all instructions were stored in correct vectors
+        assert_eq!(instructions.states_by_opcodes.store_imm.len(), 1);
+        assert_eq!(instructions.states_by_opcodes.call_abs_imm.len(), 1);
+        assert_eq!(instructions.states_by_opcodes.ret.len(), 1);
+
+        // Verify states are correct
+        assert_eq!(instructions.states_by_opcodes.store_imm[0].state.pc, 0);
+        assert_eq!(instructions.states_by_opcodes.call_abs_imm[0].state.pc, 1);
+        assert_eq!(instructions.states_by_opcodes.ret[0].state.pc, 2);
+    }
+
+    #[test]
+    fn test_clock_progression() {
+        let mut instructions = Instructions::default();
+        let mut memory_cache = MemoryCache::new();
+        let state = VmState { pc: 0, fp: 0 };
+
+        // Push multiple instructions with different clocks
+        for i in 0..3 {
+            let memory_entries = vec![
+                create_mem_entry(i, [6, 0, 0, 0]),
+                create_mem_entry(i + 10, [42, 0, 0, 0]),
+            ];
+            instructions.push_instr(
+                create_memory_iterator(memory_entries),
+                state,
+                i + 1,
+                &mut memory_cache,
+            );
+        }
+
+        assert_eq!(instructions.states_by_opcodes.store_imm.len(), 3);
+
+        // Verify clocks are correct
+        for (i, state_data) in instructions.states_by_opcodes.store_imm.iter().enumerate() {
+            assert_eq!(state_data.memory_args[0].4, (i + 1) as u32); // instruction clock
+            assert_eq!(state_data.memory_args[1].4, (i + 1) as u32); // result clock
+        }
+    }
+}
