@@ -16,5 +16,5 @@ func add(a: felt, b: felt) -> felt {
 Generated CASM:
 add:
    0: 0 -5 -4 0            // [fp + 0] = [fp + -5] op [fp + -4]
-   1: 4 0 _ -3             // Return value: [fp-3] = [fp+0]
+   1: 4 0 _ -3             // Return value: [fp - 3] = [fp + 0]
    2: 15 _ _ _             // return

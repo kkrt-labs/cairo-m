@@ -28,31 +28,31 @@ func fib(n: felt) -> felt {
 ============================================================
 Generated CASM:
 main:
-   0: 6 10 _ 0             // Store immediate: [fp+0] = 10
+   0: 6 10 _ 0             // Store immediate: [fp + 0] = 10
    1: 4 0 _ 1              // Arg 0: [fp + 1] = [fp + 0]
    2: 12 3 6 _             // call fib
-   3: 4 2 _ 2              // Store: [fp+2] = [fp+2]
-   4: 4 2 _ -3             // Return value: [fp-3] = [fp+2]
+   3: 4 2 _ 4              // Store: [fp + 4] = [fp + 2]
+   4: 4 4 _ -3             // Return value: [fp - 3] = [fp + 4]
    5: 15 _ _ _             // return
 fib:
-   6: 3 -4 0 0             // Equality check: [fp+0] = [fp+-4] - 0
-   7: 31 0 3 _             // if [fp+0] != 0 jmp rel fib_2
+   6: 3 -4 0 0             // Equality check: [fp + 0] = [fp + -4] - 0
+   7: 31 0 3 _             // if [fp + 0] != 0 jmp rel fib_2
 fib_1:
-   8: 6 0 _ -3             // Return value: [fp-3] = 0
+   8: 6 0 _ -3             // Return value: [fp - 3] = 0
    9: 15 _ _ _             // return
 fib_2:
-  10: 3 -4 1 1             // Equality check: [fp+1] = [fp+-4] - 1
-  11: 31 1 3 _             // if [fp+1] != 0 jmp rel fib_4
+  10: 3 -4 1 1             // Equality check: [fp + 1] = [fp + -4] - 1
+  11: 31 1 3 _             // if [fp + 1] != 0 jmp rel fib_4
 fib_3:
-  12: 6 1 _ -3             // Return value: [fp-3] = 1
+  12: 6 1 _ -3             // Return value: [fp - 3] = 1
   13: 15 _ _ _             // return
 fib_4:
   14: 3 -4 1 2             // [fp + 2] = [fp + -4] op 1
   15: 4 2 _ 3              // Arg 0: [fp + 3] = [fp + 2]
   16: 12 5 6 _             // call fib
-  17: 3 -4 2 4             // [fp + 4] = [fp + -4] op 2
-  18: 4 4 _ 5              // Arg 0: [fp + 5] = [fp + 4]
-  19: 12 7 6 _             // call fib
-  20: 0 4 6 6              // [fp + 6] = [fp + 4] op [fp + 6]
-  21: 4 6 _ -3             // Return value: [fp-3] = [fp+6]
+  17: 3 -4 2 6             // [fp + 6] = [fp + -4] op 2
+  18: 4 6 _ 7              // Arg 0: [fp + 7] = [fp + 6]
+  19: 12 9 6 _             // call fib
+  20: 0 4 8 10             // [fp + 10] = [fp + 4] op [fp + 8]
+  21: 4 10 _ -3            // Return value: [fp - 3] = [fp + 10]
   22: 15 _ _ _             // return

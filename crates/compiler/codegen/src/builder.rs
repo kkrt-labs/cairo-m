@@ -198,7 +198,7 @@ impl CasmBuilder {
                 .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
             let left_str = match left {
                 Value::Operand(id) => match layout.get_offset(id) {
-                    Ok(off) => format!("[fp+{off}]"),
+                    Ok(off) => format!("[fp + {off}]"),
                     Err(_) => format!("%{}", id.index()),
                 },
                 Value::Literal(lit) => match lit {
@@ -211,7 +211,7 @@ impl CasmBuilder {
 
             let right_str = match right {
                 Value::Operand(id) => match layout.get_offset(id) {
-                    Ok(off) => format!("[fp+{off}]"),
+                    Ok(off) => format!("[fp + {off}]"),
                     Err(_) => format!("%{}", id.index()),
                 },
                 Value::Literal(lit) => match lit {
@@ -223,7 +223,7 @@ impl CasmBuilder {
             };
 
             last_instr.comment = Some(format!(
-                "Equality check: [fp+{dest_off}] = {left_str} - {right_str}"
+                "Equality check: [fp + {dest_off}] = {left_str} - {right_str}"
             ));
         }
 
@@ -396,14 +396,14 @@ impl CasmBuilder {
                         CasmInstruction::new(Opcode::StoreImm.into())
                             .with_off2(return_slot_offset)
                             .with_imm(imm)
-                            .with_comment(format!("Return value: [fp-3] = {imm}"))
+                            .with_comment(format!("Return value: [fp - 3] = {imm}"))
                     }
                     Value::Operand(val_id) => {
                         let src_off = layout.get_offset(val_id)?;
                         CasmInstruction::new(Opcode::StoreDerefFp.into())
                             .with_off0(src_off)
                             .with_off2(return_slot_offset)
-                            .with_comment(format!("Return value: [fp-3] = [fp+{src_off}]"))
+                            .with_comment(format!("Return value: [fp - 3] = [fp + {src_off}]"))
                     }
                     _ => {
                         return Err(CodegenError::UnsupportedInstruction(
@@ -509,7 +509,7 @@ impl CasmBuilder {
         let instr = CasmInstruction::new(Opcode::JnzFpImm.into())
             .with_off0(cond_off)
             .with_operand(Operand::Label(target_label.to_string()))
-            .with_comment(format!("if [fp+{cond_off}] != 0 jmp rel {target_label}"));
+            .with_comment(format!("if [fp + {cond_off}] != 0 jmp rel {target_label}"));
 
         self.instructions.push(instr);
         Ok(())
@@ -579,7 +579,7 @@ impl CasmBuilder {
                         let instr = CasmInstruction::new(Opcode::StoreImm.into())
                             .with_off2(dest_offset)
                             .with_imm(imm)
-                            .with_comment(format!("Store immediate: [fp+{dest_offset}] = {imm}"));
+                            .with_comment(format!("Store immediate: [fp + {dest_offset}] = {imm}"));
 
                         self.instructions.push(instr);
                     }
@@ -590,7 +590,9 @@ impl CasmBuilder {
                         let instr = CasmInstruction::new(Opcode::StoreDerefFp.into())
                             .with_off0(val_offset)
                             .with_off2(dest_offset)
-                            .with_comment(format!("Store: [fp+{dest_offset}] = [fp+{val_offset}]"));
+                            .with_comment(format!(
+                                "Store: [fp + {dest_offset}] = [fp + {val_offset}]"
+                            ));
 
                         self.instructions.push(instr);
                     }

@@ -144,8 +144,8 @@ shows multiple optimization opportunities.
 
   - Implement copy propagation in `generator.rs`
   - Track value movement to avoid unnecessary copies
-  - Example: In fib function, eliminate the intermediate copy: `[fp+4] = [fp+6]`
-    followed by `[fp-3] = [fp+4]`
+  - Example: In fib function, eliminate the intermediate copy:
+    `[fp +4] = [fp +6]` followed by `[fp -3] = [fp +4]`
 
 - [ ] **Remove dead code after returns**
 

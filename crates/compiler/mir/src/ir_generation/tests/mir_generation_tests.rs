@@ -61,6 +61,7 @@ mir_test!(unreachable_after_return, "control_flow");
 mir_test!(call_as_statement, "functions");
 mir_test!(call_with_return, "functions");
 mir_test!(multiple_functions, "functions");
+mir_test!(fib, "functions");
 
 // --- Variables ---
 mir_test!(assignment, "variables");

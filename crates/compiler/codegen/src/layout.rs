@@ -100,6 +100,10 @@ impl FunctionLayout {
     /// return value destinations.
     pub fn map_value(&mut self, value_id: ValueId, offset: i32) {
         self.value_offsets.insert(value_id, offset);
+        // Update current_frame_usage if this offset extends beyond it
+        if offset >= self.current_frame_usage {
+            self.current_frame_usage = offset + 1;
+        }
     }
 
     /// Reserves `size` slots on the stack and returns the starting offset.
