@@ -73,19 +73,6 @@ fn main() {
                         "Compilation successful. Output written to '{}'",
                         output_path.display()
                     );
-
-                    if args.verbose {
-                        // Print program statistics
-                        println!("\nProgram Statistics:");
-                        println!(
-                            "  Total instructions: {}",
-                            output.program.instructions.len()
-                        );
-                        println!("  Entry points: {}", output.program.entry_points.len());
-                        for (name, pc) in &output.program.entry_points {
-                            println!("    {}: PC {}", name, pc);
-                        }
-                    }
                 }
                 None => {
                     println!("{}", json);
