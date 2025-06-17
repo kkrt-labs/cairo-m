@@ -1,0 +1,15 @@
+func main() -> felt {
+    let n = 9;
+    let result = double_factorial(n);
+    return result;
+}
+
+func double_factorial(n: felt) -> felt {
+    if (n == 0) {
+        return 1;
+    }
+    if (n == 1) {
+        return 1;
+    }
+    return n * double_factorial(n - 2);
+}

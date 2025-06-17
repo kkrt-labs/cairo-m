@@ -1,12 +1,8 @@
-use std::fs;
 use std::path::PathBuf;
+use std::{fs, process};
 
-use cairo_m_compiler_diagnostics::build_diagnostic_message;
-use cairo_m_compiler_parser::{parse_program, SourceProgram};
+use cairo_m_compiler::{compile_cairo, format_diagnostics, CompilerError, CompilerOptions};
 use clap::Parser;
-
-mod db;
-use db::CompilerDatabase;
 
 /// Cairo-M compiler
 #[derive(Parser, Debug)]
@@ -27,76 +23,96 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
-    println!("Reading file: {}", args.input.display());
 
-    match fs::read_to_string(&args.input) {
-        Ok(content) => {
-            // Initialize unified compiler database
-            let db = CompilerDatabase::new();
-            let source = SourceProgram::new(&db, content.clone(), args.input.display().to_string());
+    // Read the input file
+    let source_text = match fs::read_to_string(&args.input) {
+        Ok(content) => content,
+        Err(e) => {
+            eprintln!("Error reading file '{}': {}", args.input.display(), e);
+            process::exit(1);
+        }
+    };
 
-            let parsed_program = parse_program(&db, source);
+    let source_name = args.input.display().to_string();
+    let options = CompilerOptions {
+        verbose: args.verbose,
+    };
 
-            if !parsed_program.diagnostics.is_empty() {
-                for error in parsed_program.diagnostics {
-                    println!("{}", build_diagnostic_message(&content, &error, true));
+    // Compile the program
+    let result = compile_cairo(source_text.clone(), source_name, options);
+
+    match result {
+        Ok(output) => {
+            // Print any warnings
+            if !output.warnings.is_empty() {
+                let warning_msg = format_diagnostics(&source_text, &output.warnings, true);
+                eprintln!("{}", warning_msg);
+            }
+
+            // Serialize the program to JSON
+            let json = match sonic_rs::to_string_pretty(&*output.program) {
+                Ok(json) => json,
+                Err(e) => {
+                    eprintln!("Failed to serialize program: {}", e);
+                    process::exit(1);
                 }
-                std::process::exit(1);
-            }
+            };
 
-            // Validate semantics using the tracked query
-            let semantic_diagnostics =
-                cairo_m_compiler_semantic::db::validate_semantics(&db, source);
+            // Write output or print to stdout
+            match args.output {
+                Some(output_path) => {
+                    if let Err(e) = fs::write(&output_path, &json) {
+                        eprintln!(
+                            "Failed to write output file '{}': {}",
+                            output_path.display(),
+                            e
+                        );
+                        process::exit(1);
+                    }
+                    println!(
+                        "Compilation successful. Output written to '{}'",
+                        output_path.display()
+                    );
 
-            for diagnostic in semantic_diagnostics.iter() {
-                println!("{}", build_diagnostic_message(&content, diagnostic, true));
-            }
-            if !semantic_diagnostics.errors().is_empty() {
-                std::process::exit(1);
-            }
-
-            // Generate MIR using the tracked query
-            let generated_mir = cairo_m_compiler_mir::db::generate_mir(&db, source);
-
-            if generated_mir.is_none() {
-                eprintln!("Failed to generate MIR");
-                std::process::exit(1);
-            }
-
-            let mir_module = generated_mir.unwrap();
-
-            if args.verbose {
-                println!("\nGenerated MIR:\n{mir_module:#?}");
-            }
-
-            // Compile using the tracked query
-            let compiled_program = cairo_m_compiler_codegen::db::compile_module(&db, source);
-
-            if let Err(ref e) = compiled_program {
-                eprintln!("Failed to generate program: {e}");
-                std::process::exit(1);
-            }
-
-            let program = compiled_program.unwrap();
-
-            if args.verbose {
-                // Print program statistics
-                println!("\nProgram Statistics:");
-                println!("  Total instructions: {}", program.instructions.len());
-                println!("  Entry points: {}", program.entry_points.len());
-                for (name, pc) in &program.entry_points {
-                    println!("    {name}: PC {pc}");
+                    if args.verbose {
+                        // Print program statistics
+                        println!("\nProgram Statistics:");
+                        println!(
+                            "  Total instructions: {}",
+                            output.program.instructions.len()
+                        );
+                        println!("  Entry points: {}", output.program.entry_points.len());
+                        for (name, pc) in &output.program.entry_points {
+                            println!("    {}: PC {}", name, pc);
+                        }
+                    }
                 }
-            }
-
-            let generated_json = sonic_rs::to_string_pretty(&program).unwrap();
-
-            if let Some(output_path) = args.output {
-                fs::write(output_path, generated_json).unwrap();
-            } else {
-                println!("Generated JSON: {generated_json}");
+                None => {
+                    println!("{}", json);
+                }
             }
         }
-        Err(e) => eprintln!("Error reading file: {e}"),
+        Err(e) => {
+            // Print the error
+            match &e {
+                CompilerError::ParseErrors(diagnostics) => {
+                    eprintln!("Parse errors:");
+                    let error_msg = format_diagnostics(&source_text, diagnostics, true);
+                    eprintln!("{}", error_msg);
+                }
+                CompilerError::SemanticErrors(diagnostics) => {
+                    eprintln!("Semantic errors:");
+                    let error_msg = format_diagnostics(&source_text, diagnostics, true);
+                    eprintln!("{}", error_msg);
+                }
+                CompilerError::MirGenerationFailed => {
+                    eprintln!("Failed to generate MIR");
+                }
+                CompilerError::CodeGenerationFailed(msg) => {
+                    eprintln!("Code generation failed: {}", msg);
+                }
+            }
+            process::exit(1);
+        }
     }
 }

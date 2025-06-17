@@ -1,0 +1,13 @@
+func main() -> felt {
+    let base = 3;
+    let exp = 10;
+    let result = power(base, exp);
+    return result;
+}
+
+func power(base: felt, exp: felt) -> felt {
+    if (exp == 0) {
+        return 1;
+    }
+    return base * power(base, exp - 1);
+}

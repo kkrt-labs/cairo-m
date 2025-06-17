@@ -1,0 +1,16 @@
+func main() -> felt {
+    let m = 2;
+    let n = 2;
+    let result = ackermann(m, n);
+    return result;
+}
+
+func ackermann(m: felt, n: felt) -> felt {
+    if (m == 0) {
+        return n + 1;
+    }
+    if (n == 0) {
+        return ackermann(m - 1, 1);
+    }
+    return ackermann(m - 1, ackermann(m, n - 1));
+}

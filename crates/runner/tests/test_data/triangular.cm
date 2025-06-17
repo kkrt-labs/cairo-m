@@ -1,0 +1,12 @@
+func main() -> felt {
+    let n = 100;
+    let result = triangular(n);
+    return result;
+}
+
+func triangular(n: felt) -> felt {
+    if (n == 0) {
+        return 0;
+    }
+    return n + triangular(n - 1);
+}
