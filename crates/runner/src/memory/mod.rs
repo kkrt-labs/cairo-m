@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 
 use num_traits::identities::Zero;
+use num_traits::One;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 use thiserror::Error;
@@ -182,6 +183,49 @@ impl Memory {
                 addr: start_addr + M31(i as u32),
                 value: *value,
             }));
+        Ok(())
+    }
+
+    /// Initializes the call stack for the program entrypoint execution.
+    ///
+    /// Sets up the return frame pointer and return address values required by the Cairo M
+    /// calling convention to properly terminate program execution. This stores:
+    /// - Frame pointer value at address `fp-2`
+    /// - Final program counter at address `fp-1`
+    ///
+    /// ## Arguments
+    ///
+    /// * `final_pc` - The final program counter where execution should end
+    /// * `fp` - The frame pointer for the entrypoint function
+    ///
+    /// ## Errors
+    ///
+    /// Returns [`MemoryError::AddressOutOfBounds`] if either `fp-2` or `fp-1`
+    /// addresses exceed the maximum allowed memory size.
+    ///
+    /// ## Note
+    ///
+    /// This function is only used in the VM `run_from_entrypoint` method.
+    /// It deliberately avoids adding entries to the memory trace.
+    pub(crate) fn insert_entrypoint_call(
+        &mut self,
+        final_pc: &M31,
+        fp: &M31,
+    ) -> Result<(), MemoryError> {
+        let fp_min_two = *fp - M31(2);
+        let fp_min_one = *fp - M31::one();
+        Self::validate_address(fp_min_two)?;
+        Self::validate_address(fp_min_one)?;
+
+        let fp_min_two_addr = fp_min_two.0 as usize;
+        let fp_min_one_addr = fp_min_one.0 as usize;
+        if fp_min_one_addr >= self.data.len() {
+            self.data.resize(fp_min_one_addr + 1, QM31::zero());
+        }
+
+        self.data[fp_min_two_addr] = QM31::from_m31_array([fp.0, 0, 0, 0].map(Into::into));
+        self.data[fp_min_one_addr] = QM31::from_m31_array([final_pc.0, 0, 0, 0].map(Into::into));
+
         Ok(())
     }
 

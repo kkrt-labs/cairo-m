@@ -52,6 +52,7 @@ pub struct TraceEntry {
 /// - `state`: Current processor state (PC, FP)
 #[derive(Debug, Default)]
 pub struct VM {
+    pub final_pc: M31,
     pub memory: Memory,
     pub state: State,
     pub trace: Vec<TraceEntry>,
@@ -92,16 +93,17 @@ impl TryFrom<Program> for VM {
             .collect();
 
         // Create memory and load instructions starting at address 0
-        let instructions_len = qm31_instructions.len() as u32;
+        let final_pc = M31(qm31_instructions.len() as u32);
         let memory = Memory::from_iter(qm31_instructions);
 
         // Create state with PC at entrypoint and FP just after the bytecode
         let state = State {
             pc: M31::zero(),
-            fp: M31(instructions_len),
+            fp: final_pc,
         };
 
         Ok(Self {
+            final_pc,
             memory,
             state,
             trace: vec![],
@@ -140,13 +142,11 @@ impl VM {
     /// - Invalid opcodes ([`VmError::Instruction`])
     /// - Memory errors ([`VmError::Memory`])
     fn execute(&mut self) -> Result<(), VmError> {
-        let instructions_len = self.memory.data.len();
-        if instructions_len == 0 {
+        if self.final_pc.is_zero() {
             return Ok(());
         }
 
-        let final_pc = M31::from(instructions_len);
-        while self.state.pc != final_pc {
+        while self.state.pc != self.final_pc {
             self.step()?;
         }
 
@@ -157,6 +157,8 @@ impl VM {
     ///
     /// - The PC entrypoint is the first instruction of the function to execute in the program.
     /// - The FP offset accounts for the calling convention of the executed function: arguments, return values, return address.
+    ///
+    /// The call stack of the entrypoint is initialized here.
     ///
     /// ## Arguments
     ///
@@ -175,6 +177,9 @@ impl VM {
     ) -> Result<(), VmError> {
         self.state.pc = M31(pc_entrypoint);
         self.state.fp += M31(fp_offset);
+
+        self.memory
+            .insert_entrypoint_call(&self.final_pc, &self.state.fp)?;
 
         self.execute()
     }
@@ -627,41 +632,36 @@ mod tests {
     fn run_exponential_recursive_fib_test(n: u32) {
         let minus_4 = -M31(4);
         let minus_3 = -M31(3);
-        let minus_2 = -M31(2);
-        let minus_1 = -M31::one();
         let instructions = vec![
-            // main() setup
-            Instruction::from([6, 22, 0, minus_2.0]), // 0: store_imm: [fp - 2] = END_OF_PROGRAM + FP_OFFSET
-            Instruction::from([6, 19, 0, minus_1.0]), // 1: store_imm: [fp - 1] = END_OF_PROGRAM
             // Setup call to fib(n)
-            Instruction::from([6, n, 0, 0]), // 2: store_imm: [fp] = n
-            Instruction::from([12, 2, 6, 0]), // 3: call_abs_imm: call fib(n)
+            Instruction::from([6, n, 0, 0]), // 0: store_imm: [fp] = n
+            Instruction::from([12, 2, 4, 0]), // 1: call_abs_imm: call fib(n)
             // Store the computed fib(n) and return.
-            Instruction::from([4, 1, 0, minus_3.0]), // 4: store_deref_fp: [fp - 3] = [fp + 1]
-            Instruction::from([15, 0, 0, 0]),        // 5: ret
+            Instruction::from([4, 1, 0, minus_3.0]), // 2: store_deref_fp: [fp - 3] = [fp + 1]
+            Instruction::from([15, 0, 0, 0]),        // 3: ret
             // fib(n: felt) function
             // Check if argument is 0
-            Instruction::from([31, minus_4.0, 3, 0]), // 6: jnz_fp_imm: jmp rel 3 if [fp - 4] != 0
+            Instruction::from([31, minus_4.0, 3, 0]), // 4: jnz_fp_imm: jmp rel 3 if [fp - 4] != 0
             // Argument is 0, return 0
-            Instruction::from([6, 0, 0, minus_3.0]), // 7: store_imm: [fp - 3] = 0
-            Instruction::from([15, 0, 0, 0]),        // 8: ret
+            Instruction::from([6, 0, 0, minus_3.0]), // 5: store_imm: [fp - 3] = 0
+            Instruction::from([15, 0, 0, 0]),        // 6: ret
             // Check if argument is 1
-            Instruction::from([3, minus_4.0, 1, 0]), // 9: store_sub_fp_imm: [fp] = [fp - 4] - 1
-            Instruction::from([31, 0, 3, 0]),        // 10: jnz_fp_imm: jmp rel 3 if [fp] != 0
+            Instruction::from([3, minus_4.0, 1, 0]), // 7: store_sub_fp_imm: [fp] = [fp - 4] - 1
+            Instruction::from([31, 0, 3, 0]),        // 8: jnz_fp_imm: jmp rel 3 if [fp] != 0
             // Argument is 1, return 1
-            Instruction::from([6, 1, 0, minus_3.0]), // 11: store_imm: [fp - 3] = 1
-            Instruction::from([15, 0, 0, 0]),        // 12: ret
+            Instruction::from([6, 1, 0, minus_3.0]), // 9: store_imm: [fp - 3] = 1
+            Instruction::from([15, 0, 0, 0]),        // 10: ret
             // Compute fib(n-1) + fib(n-2)
             // fib(n-1)
             // n - 1 is already stored at [fp], ready to be used as argument.
-            Instruction::from([12, 2, 6, 0]), // 13: call_abs_imm: call fib(n-1)
-            Instruction::from([4, 1, 0, minus_3.0]), // 14: store_deref_fp: [fp - 3] = [fp + 1]
+            Instruction::from([12, 2, 4, 0]), // 11: call_abs_imm: call fib(n-1)
+            Instruction::from([4, 1, 0, minus_3.0]), // 12: store_deref_fp: [fp - 3] = [fp + 1]
             // fib(n-2)
-            Instruction::from([3, 0, 1, 0]), // 15: Store n - 2, from previously computed n - 1 [fp] = [fp] - 1
-            Instruction::from([12, 2, 6, 0]), // 16: call_abs_imm: call fib(n-2)
+            Instruction::from([3, 0, 1, 0]), // 13: Store n - 2, from previously computed n - 1 [fp] = [fp] - 1
+            Instruction::from([12, 2, 4, 0]), // 14: call_abs_imm: call fib(n-2)
             // Return value of fib(n-1) + fib(n-2)
-            Instruction::from([0, minus_3.0, 1, minus_3.0]), // 17: store_add_fp_fp: [fp - 3] = [fp - 3] + [fp + 1]
-            Instruction::from([15, 0, 0, 0]),                // 18: ret
+            Instruction::from([0, minus_3.0, 1, minus_3.0]), // 15: store_add_fp_fp: [fp - 3] = [fp - 3] + [fp + 1]
+            Instruction::from([15, 0, 0, 0]),                // 16: ret
         ];
         let instructions_len = instructions.len() as u32;
         let program = Program::from(instructions);
