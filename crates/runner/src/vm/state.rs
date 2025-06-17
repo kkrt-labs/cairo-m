@@ -16,8 +16,8 @@ impl State {
     /// Advance the program counter by 1.
     pub fn advance(self) -> Self {
         Self {
-            fp: self.fp,
             pc: self.pc + M31::one(),
+            fp: self.fp,
         }
     }
 
