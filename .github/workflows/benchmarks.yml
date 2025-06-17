@@ -1,0 +1,76 @@
+name: Benchmarks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "crates/runner/**"
+      - ".github/workflows/benchmarks.yml"
+  pull_request:
+    paths:
+      - "crates/runner/**"
+      - ".github/workflows/benchmarks.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  deployments: write
+  id-token: write
+  pages: write
+  pull-requests: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  benchmark:
+    name: Run Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+
+      - name: Run benchmarks
+        run: |
+          cd crates/runner
+          cargo bench --bench vm_benchmark -- --output-format bencher | tee output.txt
+
+      # Store benchmark result - only on main branch
+      - name: Store benchmark result (main only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Cairo-M VM Benchmarks
+          tool: "cargo"
+          output-file-path: crates/runner/output.txt
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          # GitHub Pages deployment
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: "dev/bench"
+
+      # Compare and comment on PRs without storing
+      - name: Compare benchmarks (PR only)
+        if: github.event_name == 'pull_request'
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Cairo-M VM Benchmarks
+          tool: "cargo"
+          output-file-path: crates/runner/output.txt
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          # Only comment, don't store
+          auto-push: false
+          comment-on-alert: true
+          alert-threshold: "105%"
+          comment-always: true
+          fail-on-alert: true
+          # This ensures we compare against the main branch data
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: "dev/bench"
