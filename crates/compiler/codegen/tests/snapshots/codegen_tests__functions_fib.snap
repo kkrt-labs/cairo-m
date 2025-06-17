@@ -28,7 +28,7 @@ func fib(n: felt) -> felt {
 ============================================================
 Generated CASM:
 main:
-   0: 6 _ 10 0             // Store immediate: [fp+0] = 10
+   0: 6 10 _ 0             // Store immediate: [fp+0] = 10
    1: 4 0 _ 1              // Arg 0: [fp + 1] = [fp + 0]
    2: 12 3 6 _             // call fib
    3: 4 2 _ 2              // Store: [fp+2] = [fp+2]
@@ -38,13 +38,13 @@ fib:
    6: 3 -4 0 0             // Equality check: [fp+0] = [fp+-4] - 0
    7: 31 0 3 _             // if [fp+0] != 0 jmp rel fib_2
 fib_1:
-   8: 6 _ 0 -3             // Return value: [fp-3] = 0
+   8: 6 0 _ -3             // Return value: [fp-3] = 0
    9: 15 _ _ _             // return
 fib_2:
   10: 3 -4 1 1             // Equality check: [fp+1] = [fp+-4] - 1
   11: 31 1 3 _             // if [fp+1] != 0 jmp rel fib_4
 fib_3:
-  12: 6 _ 1 -3             // Return value: [fp-3] = 1
+  12: 6 1 _ -3             // Return value: [fp-3] = 1
   13: 15 _ _ _             // return
 fib_4:
   14: 3 -4 1 2             // [fp + 2] = [fp + -4] op 1

@@ -75,7 +75,7 @@ fn test_operand_creation() {
 
     let literal_op = Operand::literal(42);
     match literal_op {
-        Operand::Literal(val) => assert_eq!(val.0, 42),
+        Operand::Literal(val) => assert_eq!(val, 42),
         _ => panic!("Expected literal operand"),
     }
 
@@ -89,7 +89,6 @@ fn test_operand_creation() {
 #[test]
 fn test_instruction_operand_methods() {
     use cairo_m_compiler_codegen::{opcodes, CasmInstruction};
-    use stwo_prover::core::fields::m31::M31;
 
     // Test with_operand method
     let instr1 = CasmInstruction::new(opcodes::JMP_ABS_IMM)
@@ -112,11 +111,11 @@ fn test_instruction_operand_methods() {
     let instr3 = CasmInstruction::new(opcodes::JMP_ABS_IMM).with_imm(100);
 
     match &instr3.operand {
-        Some(Operand::Literal(val)) => assert_eq!(val.0, 100),
+        Some(Operand::Literal(val)) => assert_eq!(*val, 100),
         _ => panic!("Expected literal operand"),
     }
 
     // Test imm() getter method
-    assert_eq!(instr3.imm(), Some(M31::from(100)));
+    assert_eq!(instr3.imm(), Some(100));
     assert_eq!(instr1.imm(), None); // Label operand should return None for imm()
 }

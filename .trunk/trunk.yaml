@@ -22,7 +22,7 @@ lint:
         - run:
             cargo clippy --message-format json --locked --workspace
             --all-targets -- -W clippy::all -W clippy::nursery --cap-lints=warn
-            --no-deps -D warnings
+            --no-deps -D warnings -D unused_imports
       run_timeout: 20m
   enabled:
     - cspell@8.19.4
