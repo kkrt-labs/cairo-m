@@ -64,8 +64,8 @@ fn run_diff_test(test: DiffTest) {
     let rust_result = (test.rust_fn)();
     assert_eq!(
         cairo_result.return_value, rust_result,
-        "Results differ! Cairo-M: {}, Rust: {}",
-        cairo_result.return_value, rust_result
+        "Results differ! Cairo-M: {}, Rust: {} \n for test: {} \n {}",
+        cairo_result.return_value, rust_result, test.name, test.description
     );
 }
 
@@ -196,14 +196,14 @@ diff_test!(
 );
 
 // 8. Nested function calls
-fn rust_nested_calls() -> u32 {
+const fn rust_nested_calls() -> u32 {
     const fn add(a: u32, b: u32) -> u32 {
         a + b
     }
     const fn mul(a: u32, b: u32) -> u32 {
         (a as u64 * b as u64 % (1u64 << 31)) as u32
     }
-    fn compute(x: u32) -> u32 {
+    const fn compute(x: u32) -> u32 {
         add(mul(x, 3), mul(x, 5))
     }
     compute(7)

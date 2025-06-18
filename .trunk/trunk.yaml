@@ -27,7 +27,7 @@ lint:
   enabled:
     - cspell@8.19.4
     - checkov@3.2.436
-    - clippy@nightly
+    - clippy@SYSTEM # For custom parameters
     - git-diff-check
     - markdownlint@0.45.0
     - osv-scanner@2.0.2
