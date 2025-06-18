@@ -83,13 +83,25 @@ end_5:
 or_true_6:
   36: 6 1 _ 16             // Set OR result to 1
 or_end_7:
-  37: 3 5 2 17             // [fp + 17] = [fp + 5] op 2
-  38: 8 17 3 18            // [fp + 18] = [fp + 17] op 3
-  39: 0 6 13 19            // [fp + 19] = [fp + 6] op [fp + 13]
-  40: 12 21 44 _           // call foo
-  41: 0 19 20 22           // [fp + 22] = [fp + 19] op [fp + 20]
-  42: 1 22 32 -3           // [fp + -3] = [fp + 22] op 32
-  43: 15 _ _ _             // return
+  37: 3 5 2 4              // [fp + 4] = [fp + 5] op 2
+  38: 31 4 3 _             // if temp != 0, jump to set result to 1
+  39: 6 0 _ 17             // Set NEQ result to 0
+  40: 20 42 _ _            // jump to end
+neq_non_zero_8:
+  41: 6 1 _ 17             // Set NEQ result to 1
+neq_end_9:
+  42: 8 17 3 4             // [fp + 4] = [fp + 17] op 3
+  43: 31 4 3 _             // if temp != 0, jump to set result to 1
+  44: 6 0 _ 18             // Set AND result to 0
+  45: 20 47 _ _            // jump to end
+and_non_zero_10:
+  46: 6 1 _ 18             // Set AND result to 1
+and_end_11:
+  47: 0 6 13 19            // [fp + 19] = [fp + 6] op [fp + 13]
+  48: 12 21 52 _           // call foo
+  49: 0 19 20 22           // [fp + 22] = [fp + 19] op [fp + 20]
+  50: 1 22 32 -3           // [fp + -3] = [fp + 22] op 32
+  51: 15 _ _ _             // return
 foo:
-  44: 6 32 _ -3            // Return value: [fp - 3] = 32
-  45: 15 _ _ _             // return
+  52: 6 32 _ -3            // Return value: [fp - 3] = 32
+  53: 15 _ _ _             // return
