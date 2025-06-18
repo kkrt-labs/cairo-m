@@ -41,6 +41,12 @@ impl CasmBuilder {
         self
     }
 
+    pub fn new_label_name(&mut self, prefix: &str) -> String {
+        let label_id = self.label_counter;
+        self.label_counter += 1;
+        format!("{}_{}", prefix, label_id)
+    }
+
     /// Add a label at the current position
     pub fn add_label(&mut self, label: Label) {
         let mut label = label;
@@ -289,10 +295,8 @@ impl CasmBuilder {
         )?;
 
         // Step 3: Generate unique labels for this equality check
-        let label_id = self.label_counter;
-        self.label_counter += 1;
-        let not_zero_label = format!("not_zero_{}", label_id);
-        let end_label = format!("end_{}", label_id);
+        let not_zero_label = self.new_label_name("not_zero");
+        let end_label = self.new_label_name("end");
 
         // Step 4: Check if temp == 0 (meaning left == right)
         // jnz jumps if non-zero, so if temp != 0, jump to set result to 0 (or 1 if not equal)
@@ -328,6 +332,99 @@ impl CasmBuilder {
         // Step 7: end label
         let end_label_obj = Label::new(end_label);
         self.add_label(end_label_obj);
+
+        Ok(())
+    }
+
+    pub fn generate_or_op(
+        &mut self,
+        dest_off: i32,
+        left: Value,
+        right: Value,
+    ) -> CodegenResult<()> {
+        // Generate unique labels
+        let set_true_label = self.new_label_name("or_true");
+        let end_label = self.new_label_name("or_end");
+
+        let layout = self.layout.as_mut().unwrap();
+
+        // Step 1: Initialize result to 0
+        let init_instr = CasmInstruction::new(Opcode::StoreImm.into())
+            .with_off2(dest_off)
+            .with_imm(0)
+            .with_comment("Initialize OR result to 0".to_string());
+        self.instructions.push(init_instr);
+
+        // Step 2: Check left operand - if non-zero, jump to set result to 1
+        match left {
+            Value::Operand(left_id) => {
+                let left_off = layout.get_offset(left_id)?;
+                let jnz_left = CasmInstruction::new(Opcode::JnzFpImm.into())
+                    .with_off0(left_off)
+                    .with_operand(Operand::Label(set_true_label.clone()))
+                    .with_comment("if left != 0, set result to 1".to_string());
+                self.instructions.push(jnz_left);
+            }
+            Value::Literal(Literal::Integer(imm)) => {
+                // If left is a non-zero immediate, directly jump to set true
+                if imm != 0 {
+                    let jmp_true = CasmInstruction::new(Opcode::JmpAbsImm.into())
+                        .with_operand(Operand::Label(set_true_label.clone()))
+                        .with_comment("left is non-zero immediate, set result to 1".to_string());
+                    self.instructions.push(jmp_true);
+                }
+                // If left is 0, continue to check right
+            }
+            _ => {
+                return Err(CodegenError::UnsupportedInstruction(
+                    "Unsupported left operand in OR".to_string(),
+                ));
+            }
+        }
+
+        // Step 3: Check right operand - if non-zero, jump to set result to 1
+        match right {
+            Value::Operand(right_id) => {
+                let right_off = layout.get_offset(right_id)?;
+                let jnz_right = CasmInstruction::new(Opcode::JnzFpImm.into())
+                    .with_off0(right_off)
+                    .with_operand(Operand::Label(set_true_label.clone()))
+                    .with_comment("if right != 0, set result to 1".to_string());
+                self.instructions.push(jnz_right);
+            }
+            Value::Literal(Literal::Integer(imm)) => {
+                // If right is a non-zero immediate, directly jump to set true
+                if imm != 0 {
+                    let jmp_true = CasmInstruction::new(Opcode::JmpAbsImm.into())
+                        .with_operand(Operand::Label(set_true_label.clone()))
+                        .with_comment("right is non-zero immediate, set result to 1".to_string());
+                    self.instructions.push(jmp_true);
+                }
+                // If right is 0, fall through to end (result stays 0)
+            }
+            _ => {
+                return Err(CodegenError::UnsupportedInstruction(
+                    "Unsupported right operand in OR".to_string(),
+                ));
+            }
+        }
+
+        // Step 4: Jump to end (both operands were 0, result stays 0)
+        let jmp_end = CasmInstruction::new(Opcode::JmpAbsImm.into())
+            .with_operand(Operand::Label(end_label.clone()))
+            .with_comment("Both operands were 0, keep result as 0".to_string());
+        self.instructions.push(jmp_end);
+
+        // Step 5: set_true label - set result to 1
+        self.add_label(Label::new(set_true_label));
+        let set_true_instr = CasmInstruction::new(Opcode::StoreImm.into())
+            .with_off2(dest_off)
+            .with_imm(1)
+            .with_comment("Set OR result to 1".to_string());
+        self.instructions.push(set_true_instr);
+
+        // Step 6: end label
+        self.add_label(Label::new(end_label));
 
         Ok(())
     }
@@ -694,101 +791,6 @@ impl CasmBuilder {
                 ));
             }
         }
-
-        Ok(())
-    }
-
-    pub fn generate_or_op(
-        &mut self,
-        dest_off: i32,
-        left: Value,
-        right: Value,
-    ) -> CodegenResult<()> {
-        let layout = self.layout.as_ref().unwrap();
-
-        // Generate unique labels
-        let label_id = self.label_counter;
-        self.label_counter += 1;
-        let set_true_label = format!("or_true_{}", label_id);
-        let end_label = format!("or_end_{}", label_id);
-
-        // Step 1: Initialize result to 0
-        let init_instr = CasmInstruction::new(Opcode::StoreImm.into())
-            .with_off2(dest_off)
-            .with_imm(0)
-            .with_comment("Initialize OR result to 0".to_string());
-        self.instructions.push(init_instr);
-
-        // Step 2: Check left operand - if non-zero, jump to set result to 1
-        match left {
-            Value::Operand(left_id) => {
-                let left_off = layout.get_offset(left_id)?;
-                let jnz_left = CasmInstruction::new(Opcode::JnzFpImm.into())
-                    .with_off0(left_off)
-                    .with_operand(Operand::Label(set_true_label.clone()))
-                    .with_comment("if left != 0, set result to 1".to_string());
-                self.instructions.push(jnz_left);
-            }
-            Value::Literal(Literal::Integer(imm)) => {
-                // If left is a non-zero immediate, directly jump to set true
-                if imm != 0 {
-                    let jmp_true = CasmInstruction::new(Opcode::JmpAbsImm.into())
-                        .with_operand(Operand::Label(set_true_label.clone()))
-                        .with_comment("left is non-zero immediate, set result to 1".to_string());
-                    self.instructions.push(jmp_true);
-                }
-                // If left is 0, continue to check right
-            }
-            _ => {
-                return Err(CodegenError::UnsupportedInstruction(
-                    "Unsupported left operand in OR".to_string(),
-                ));
-            }
-        }
-
-        // Step 3: Check right operand - if non-zero, jump to set result to 1
-        match right {
-            Value::Operand(right_id) => {
-                let right_off = layout.get_offset(right_id)?;
-                let jnz_right = CasmInstruction::new(Opcode::JnzFpImm.into())
-                    .with_off0(right_off)
-                    .with_operand(Operand::Label(set_true_label.clone()))
-                    .with_comment("if right != 0, set result to 1".to_string());
-                self.instructions.push(jnz_right);
-            }
-            Value::Literal(Literal::Integer(imm)) => {
-                // If right is a non-zero immediate, directly jump to set true
-                if imm != 0 {
-                    let jmp_true = CasmInstruction::new(Opcode::JmpAbsImm.into())
-                        .with_operand(Operand::Label(set_true_label.clone()))
-                        .with_comment("right is non-zero immediate, set result to 1".to_string());
-                    self.instructions.push(jmp_true);
-                }
-                // If right is 0, fall through to end (result stays 0)
-            }
-            _ => {
-                return Err(CodegenError::UnsupportedInstruction(
-                    "Unsupported right operand in OR".to_string(),
-                ));
-            }
-        }
-
-        // Step 4: Jump to end (both operands were 0, result stays 0)
-        let jmp_end = CasmInstruction::new(Opcode::JmpAbsImm.into())
-            .with_operand(Operand::Label(end_label.clone()))
-            .with_comment("Both operands were 0, keep result as 0".to_string());
-        self.instructions.push(jmp_end);
-
-        // Step 5: set_true label - set result to 1
-        self.add_label(Label::new(set_true_label));
-        let set_true_instr = CasmInstruction::new(Opcode::StoreImm.into())
-            .with_off2(dest_off)
-            .with_imm(1)
-            .with_comment("Set OR result to 1".to_string());
-        self.instructions.push(set_true_instr);
-
-        // Step 6: end label
-        self.add_label(Label::new(end_label));
 
         Ok(())
     }

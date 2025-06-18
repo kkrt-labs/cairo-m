@@ -29,7 +29,7 @@ simple_or_0:
    5: 20 7 _ _             // Both operands were 0, keep result as 0
 or_true_0:
    6: 6 1 _ 2              // Set OR result to 1
-or_end_0:
+or_end_1:
    7: 4 2 _ 3              // Store: [fp + 3] = [fp + 2]
    8: 4 3 _ -3             // Return value: [fp - 3] = [fp + 3]
    9: 15 _ _ _             // return
