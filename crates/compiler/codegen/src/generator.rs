@@ -81,7 +81,7 @@ impl CodeGenerator {
                 source_file: None,
                 extra: HashMap::new(),
             },
-            entry_points: self.function_addresses.clone(),
+            entrypoints: self.function_addresses.clone(),
             instructions,
         }
     }

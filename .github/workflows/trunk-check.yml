@@ -22,5 +22,15 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Set up Rust toolchain
+        run: |
+          rustup show
+          rustup component add clippy
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: "true"
+
       - name: Trunk Check
         uses: trunk-io/trunk-action@v1
