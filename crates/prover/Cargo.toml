@@ -14,3 +14,4 @@ thiserror.workspace = true
 tracing.workspace = true
 bytemuck.workspace = true
 sonic-rs.workspace = true
+itertools.workspace = true

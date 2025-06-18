@@ -1,5 +1,6 @@
-use std::collections::HashMap;
+use std::simd::Simd;
 
+use itertools::{chain, Itertools};
 use num_traits::One;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use stwo_prover::constraint_framework::logup::LogupTraceGenerator;
@@ -10,7 +11,7 @@ use stwo_prover::core::backend::simd::column::BaseColumn;
 use stwo_prover::core::backend::simd::m31::{PackedM31, LOG_N_LANES, N_LANES};
 use stwo_prover::core::backend::simd::qm31::PackedQM31;
 use stwo_prover::core::backend::simd::SimdBackend;
-use stwo_prover::core::backend::BackendForChannel;
+use stwo_prover::core::backend::{BackendForChannel, Column};
 use stwo_prover::core::channel::{Channel, MerkleChannel};
 use stwo_prover::core::fields::m31::{BaseField, M31};
 use stwo_prover::core::fields::qm31::SecureField;
@@ -19,11 +20,16 @@ use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::{CanonicCoset, CircleEvaluation};
 use stwo_prover::core::poly::BitReversedOrder;
 
+use crate::adapter::memory::MemoryBoundaries;
 use crate::relations;
 
-#[derive(Copy, Clone, Default)]
+const N_M31_IN_MEMORY_ENTRY: usize = 6;
+
+#[derive(Clone, Default)]
 pub struct Claim {
     pub log_size: u32,
+    pub initial_memory: Vec<[PackedM31; N_M31_IN_MEMORY_ENTRY]>,
+    pub final_memory: Vec<[PackedM31; N_M31_IN_MEMORY_ENTRY]>,
 }
 
 #[derive(Copy, Clone)]
@@ -32,13 +38,64 @@ pub struct InteractionClaim {
 }
 
 pub struct LookupData {
-    pub memory: Vec<[PackedM31; 3]>,
+    pub initial_memory: Vec<[PackedM31; N_M31_IN_MEMORY_ENTRY]>,
+    pub final_memory: Vec<[PackedM31; N_M31_IN_MEMORY_ENTRY]>,
 }
 
 impl Claim {
+    pub fn new(memory_boundaries: MemoryBoundaries) -> Self {
+        let column_length = std::cmp::max(
+            std::cmp::max(
+                memory_boundaries.initial_memory.len(),
+                memory_boundaries.final_memory.len(),
+            )
+            .next_power_of_two(),
+            N_LANES,
+        );
+        let log_size = column_length.ilog2();
+
+        Self {
+            log_size,
+            initial_memory: memory_boundaries
+                .initial_memory
+                .iter()
+                .map(|(address, value, clock)| {
+                    [*address, value[0], value[1], value[2], value[3], *clock]
+                })
+                .chain(std::iter::repeat([0u32; N_M31_IN_MEMORY_ENTRY]))
+                .take(column_length)
+                .array_chunks::<N_LANES>()
+                .map(|chunk| {
+                    std::array::from_fn(|x| unsafe {
+                        PackedM31::from_simd_unchecked(Simd::from_array(std::array::from_fn(|y| {
+                            chunk[y][x]
+                        })))
+                    })
+                })
+                .collect(),
+            final_memory: memory_boundaries
+                .final_memory
+                .iter()
+                .map(|(address, value, clock)| {
+                    [*address, value[0], value[1], value[2], value[3], *clock]
+                })
+                .chain(std::iter::repeat([0u32; N_M31_IN_MEMORY_ENTRY]))
+                .take(column_length)
+                .array_chunks::<N_LANES>()
+                .map(|chunk| {
+                    std::array::from_fn(|x| unsafe {
+                        PackedM31::from_simd_unchecked(Simd::from_array(std::array::from_fn(|y| {
+                            chunk[y][x]
+                        })))
+                    })
+                })
+                .collect(),
+        }
+    }
+
     pub fn log_sizes(&self) -> TreeVec<Vec<u32>> {
-        let trace_log_sizes = vec![self.log_size; 3];
-        let interaction_log_sizes = vec![self.log_size; SECURE_EXTENSION_DEGREE];
+        let trace_log_sizes = vec![self.log_size; 2 * N_M31_IN_MEMORY_ENTRY];
+        let interaction_log_sizes = vec![self.log_size; SECURE_EXTENSION_DEGREE * 2];
         TreeVec::new(vec![vec![], trace_log_sizes, interaction_log_sizes])
     }
 
@@ -46,74 +103,60 @@ impl Claim {
         channel.mix_u64(self.log_size as u64);
     }
 
-    #[allow(non_snake_case)]
     pub fn write_trace<MC: MerkleChannel>(
         &mut self,
-        lookup_data: &Vec<[PackedM31; 2]>,
     ) -> (
-        [CircleEvaluation<SimdBackend, M31, BitReversedOrder>; 3],
+        Vec<CircleEvaluation<SimdBackend, M31, BitReversedOrder>>,
         LookupData,
     )
     where
         SimdBackend: BackendForChannel<MC>,
     {
-        let mut counts: HashMap<(u32, u32), u32> = HashMap::new();
-        for entry in lookup_data {
-            let arr0 = entry[0].to_array();
-            let arr1 = entry[1].to_array();
-            for (val0, val1) in arr0.iter().zip(arr1.iter()) {
-                let key = (val0.0, val1.0);
-                *counts.entry(key).or_insert(0) += 1;
+        let mut initial_memory = Vec::new();
+        let mut final_memory = Vec::new();
+
+        let mut trace_initial_memory =
+            std::iter::repeat_with(|| BaseColumn::zeros(1 << self.log_size))
+                .take(N_M31_IN_MEMORY_ENTRY)
+                .collect_vec();
+        for (i, values) in self.initial_memory.iter().enumerate() {
+            for (j, value) in values.iter().enumerate() {
+                trace_initial_memory[j].data[i] = *value;
             }
+            initial_memory.push(*values);
         }
 
-        let unique_pairs: Vec<_> = counts.into_iter().collect();
-        let mut addresses = Vec::new();
-        let mut values = Vec::new();
-        let mut mults = Vec::new();
-        let mut memory = Vec::new();
-
-        for chunk in unique_pairs.chunks(N_LANES) {
-            // If chunk is smaller than N_LANES, the remaining slots stay as M31(0)
-            let mut address = [M31(0); N_LANES];
-            let mut value = [M31(0); N_LANES];
-            let mut mult = [M31(0); N_LANES];
-
-            for (i, &((_address, _value), _mult)) in chunk.iter().enumerate() {
-                address[i] = M31(_address);
-                value[i] = M31(_value);
-                mult[i] = M31(_mult);
+        let mut trace_final_memory =
+            std::iter::repeat_with(|| BaseColumn::zeros(1 << self.log_size))
+                .take(N_M31_IN_MEMORY_ENTRY)
+                .collect_vec();
+        for (i, values) in self.final_memory.iter().enumerate() {
+            for (j, value) in values.iter().enumerate() {
+                trace_final_memory[j].data[i] = *value;
             }
-
-            addresses.push(PackedM31::from_array(address));
-            values.push(PackedM31::from_array(value));
-            mults.push(PackedM31::from_array(mult));
-            memory.push([
-                addresses.last().unwrap().to_owned(),
-                values.last().unwrap().to_owned(),
-                mults.last().unwrap().to_owned(),
-            ]);
+            final_memory.push(*values);
         }
-
-        self.log_size = addresses.len().ilog2() + LOG_N_LANES;
-        let domain = CanonicCoset::new(self.log_size).circle_domain();
 
         (
-            [
-                CircleEvaluation::<SimdBackend, M31, BitReversedOrder>::new(
-                    domain,
-                    BaseColumn::from_simd(addresses),
-                ),
-                CircleEvaluation::<SimdBackend, M31, BitReversedOrder>::new(
-                    domain,
-                    BaseColumn::from_simd(values),
-                ),
-                CircleEvaluation::<SimdBackend, M31, BitReversedOrder>::new(
-                    domain,
-                    BaseColumn::from_simd(mults),
-                ),
-            ],
-            LookupData { memory },
+            chain!(
+                trace_initial_memory.into_iter().map(|eval| {
+                    CircleEvaluation::<SimdBackend, M31, BitReversedOrder>::new(
+                        CanonicCoset::new(self.log_size).circle_domain(),
+                        eval,
+                    )
+                }),
+                trace_final_memory.into_iter().map(|eval| {
+                    CircleEvaluation::<SimdBackend, M31, BitReversedOrder>::new(
+                        CanonicCoset::new(self.log_size).circle_domain(),
+                        eval,
+                    )
+                })
+            )
+            .collect_vec(),
+            LookupData {
+                initial_memory,
+                final_memory,
+            },
         )
     }
 }
@@ -130,15 +173,27 @@ impl InteractionClaim {
         impl IntoIterator<Item = CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         Self,
     ) {
-        let log_size = lookup_data.memory.len().ilog2() + LOG_N_LANES;
+        let log_size = std::cmp::max(
+            lookup_data.initial_memory.len().ilog2(),
+            lookup_data.final_memory.len().ilog2(),
+        ) + LOG_N_LANES;
         let mut interaction_trace = LogupTraceGenerator::new(log_size);
 
         let mut col = interaction_trace.new_col();
-        (col.par_iter_mut(), &lookup_data.memory)
+        (col.par_iter_mut(), &lookup_data.initial_memory)
             .into_par_iter()
             .for_each(|(writer, value)| {
-                let denom: PackedQM31 = memory.combine(&value[0..2]);
-                writer.write_frac(-PackedQM31::one() * value[2], denom);
+                let denom: PackedQM31 = memory.combine(value);
+                writer.write_frac(-PackedQM31::one(), denom);
+            });
+        col.finalize_col();
+
+        let mut col = interaction_trace.new_col();
+        (col.par_iter_mut(), &lookup_data.final_memory)
+            .into_par_iter()
+            .for_each(|(writer, value)| {
+                let denom: PackedQM31 = memory.combine(value);
+                writer.write_frac(PackedQM31::one(), denom);
             });
         col.finalize_col();
 
@@ -162,14 +217,21 @@ impl FrameworkEval for Eval {
     }
 
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
-        let address = eval.next_trace_mask();
-        let value = eval.next_trace_mask();
-        let mult = eval.next_trace_mask();
+        let initial_memory_entries: [E::F; N_M31_IN_MEMORY_ENTRY] =
+            std::array::from_fn(|_| eval.next_trace_mask());
+        let final_memory_entries: [E::F; N_M31_IN_MEMORY_ENTRY] =
+            std::array::from_fn(|_| eval.next_trace_mask());
 
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
-            -E::EF::from(mult),
-            &[address, value],
+            -E::EF::one(),
+            &initial_memory_entries,
+        ));
+
+        eval.add_to_relation(RelationEntry::new(
+            &self.memory,
+            E::EF::one(),
+            &final_memory_entries,
         ));
 
         eval.finalize_logup();
