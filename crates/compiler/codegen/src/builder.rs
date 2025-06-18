@@ -6,7 +6,16 @@
 use cairo_m_compiler_mir::{Literal, Value, ValueId};
 use cairo_m_compiler_parser::parser::BinaryOp;
 
+use crate::optimizations::{CopyPropagationPass, NeutralOperationsPass, OptimizationPipeline};
 use crate::{CasmInstruction, CodegenError, CodegenResult, FunctionLayout, Label, Opcode, Operand};
+
+/// Symbolic instructions can be either a label or a CASM instruction.
+/// This allows for efficient label resolution later on
+#[derive(Debug)]
+pub enum SymbolicInstruction {
+    Label(Label),
+    Instruction(CasmInstruction),
+}
 
 /// Builder for generating CASM instructions
 ///
@@ -15,8 +24,10 @@ use crate::{CasmInstruction, CodegenError, CodegenResult, FunctionLayout, Label,
 #[derive(Debug)]
 pub struct CasmBuilder {
     /// Generated instructions
+    symbolic_instructions: Vec<SymbolicInstruction>,
+    /// Instructions with solved labels
     instructions: Vec<CasmInstruction>,
-    /// Labels that need to be resolved
+    /// Labels
     labels: Vec<Label>,
     /// Current function layout for offset lookups
     layout: Option<FunctionLayout>,
@@ -26,6 +37,7 @@ impl CasmBuilder {
     /// Create a new CASM builder
     pub const fn new() -> Self {
         Self {
+            symbolic_instructions: Vec::new(),
             instructions: Vec::new(),
             labels: Vec::new(),
             layout: None,
@@ -38,11 +50,19 @@ impl CasmBuilder {
         self
     }
 
+    /// Run optimizations on the current function's instructions
+    pub fn run_optimizations(&mut self) -> CodegenResult<()> {
+        let mut pipeline = OptimizationPipeline::new();
+        pipeline.add_pass(Box::new(NeutralOperationsPass::new()));
+        pipeline.add_pass(Box::new(CopyPropagationPass::new()));
+        pipeline.run(self)?;
+        Ok(())
+    }
+
     /// Add a label at the current position
     pub fn add_label(&mut self, label: Label) {
-        let mut label = label;
-        label.address = Some(self.instructions.len());
-        self.labels.push(label);
+        self.symbolic_instructions
+            .push(SymbolicInstruction::Label(label));
     }
 
     /// Generate a binary operation instruction
@@ -142,7 +162,8 @@ impl CasmBuilder {
                         "[fp + {dest_off}] = [fp + {left_off}] op [fp + {right_off}]"
                     ));
 
-                self.instructions.push(instr);
+                self.symbolic_instructions
+                    .push(SymbolicInstruction::Instruction(instr));
             }
 
             // Left is value, right is immediate: use fp_imm variant
@@ -155,7 +176,8 @@ impl CasmBuilder {
                     .with_imm(*imm)
                     .with_comment(format!("[fp + {dest_off}] = [fp + {left_off}] op {imm}"));
 
-                self.instructions.push(instr);
+                self.symbolic_instructions
+                    .push(SymbolicInstruction::Instruction(instr));
             }
 
             // For right operand being a value and left being immediate, we'd need to reverse
@@ -191,7 +213,7 @@ impl CasmBuilder {
         )?;
 
         // Add a comment to indicate this is an equality check
-        if let Some(last_instr) = self.instructions.last_mut() {
+        if let Some(last_instr) = self.symbolic_instructions.last_mut() {
             let layout = self
                 .layout
                 .as_ref()
@@ -222,9 +244,11 @@ impl CasmBuilder {
                 Value::Error => "error".to_string(),
             };
 
-            last_instr.comment = Some(format!(
-                "Equality check: [fp + {dest_off}] = {left_str} - {right_str}"
-            ));
+            if let SymbolicInstruction::Instruction(instr) = last_instr {
+                instr.comment = Some(format!(
+                    "Equality check: [fp + {dest_off}] = {left_str} - {right_str}"
+                ));
+            }
         }
 
         Ok(())
@@ -250,7 +274,8 @@ impl CasmBuilder {
                     .with_imm(imm)
                     .with_comment(format!("[fp + {dest_off}] = {imm}"));
 
-                self.instructions.push(instr);
+                self.symbolic_instructions
+                    .push(SymbolicInstruction::Instruction(instr));
             }
 
             Value::Operand(src_id) => {
@@ -262,7 +287,8 @@ impl CasmBuilder {
                     .with_off2(dest_off)
                     .with_comment(format!("[fp + {dest_off}] = [fp + {src_off}]"));
 
-                self.instructions.push(instr);
+                self.symbolic_instructions
+                    .push(SymbolicInstruction::Instruction(instr));
             }
 
             _ => {
@@ -306,7 +332,8 @@ impl CasmBuilder {
             .with_off0(off0)
             .with_operand(Operand::Label(callee_name.to_string()))
             .with_comment(format!("call {callee_name}"));
-        self.instructions.push(instr);
+        self.symbolic_instructions
+            .push(SymbolicInstruction::Instruction(instr));
 
         // Step 4: No copy is needed after the call. The `dest` ValueId is already mapped
         // to the correct stack slot where the callee will place the return value.
@@ -336,7 +363,8 @@ impl CasmBuilder {
             .with_off0(off0)
             .with_operand(Operand::Label(callee_name.to_string()))
             .with_comment(format!("call {callee_name}"));
-        self.instructions.push(instr);
+        self.symbolic_instructions
+            .push(SymbolicInstruction::Instruction(instr));
         Ok(())
     }
 
@@ -372,7 +400,8 @@ impl CasmBuilder {
                     ));
                 }
             };
-            self.instructions.push(instr);
+            self.symbolic_instructions
+                .push(SymbolicInstruction::Instruction(instr));
         }
         Ok(l)
     }
@@ -411,12 +440,15 @@ impl CasmBuilder {
                         ));
                     }
                 };
-                self.instructions.push(instr);
+                self.symbolic_instructions
+                    .push(SymbolicInstruction::Instruction(instr));
             }
         }
 
-        self.instructions
-            .push(CasmInstruction::new(Opcode::Ret.into()).with_comment("return".to_string()));
+        self.symbolic_instructions
+            .push(SymbolicInstruction::Instruction(
+                CasmInstruction::new(Opcode::Ret.into()).with_comment("return".to_string()),
+            ));
         Ok(())
     }
 
@@ -480,11 +512,12 @@ impl CasmBuilder {
 
     /// Generate unconditional jump
     pub fn jump(&mut self, target_label: &str) -> CodegenResult<()> {
-        let instr = CasmInstruction::new(Opcode::JmpAbsImm.into())
+        let instr = CasmInstruction::new(Opcode::JmpRelImm.into())
             .with_operand(Operand::Label(target_label.to_string()))
-            .with_comment(format!("jump abs {target_label}"));
+            .with_comment(format!("jump rel {target_label}"));
 
-        self.instructions.push(instr);
+        self.symbolic_instructions
+            .push(SymbolicInstruction::Instruction(instr));
         Ok(())
     }
 
@@ -511,7 +544,8 @@ impl CasmBuilder {
             .with_operand(Operand::Label(target_label.to_string()))
             .with_comment(format!("if [fp + {cond_off}] != 0 jmp rel {target_label}"));
 
-        self.instructions.push(instr);
+        self.symbolic_instructions
+            .push(SymbolicInstruction::Instruction(instr));
         Ok(())
     }
 
@@ -533,9 +567,96 @@ impl CasmBuilder {
         Ok(())
     }
 
+    pub fn solve_labels(&mut self) -> CodegenResult<()> {
+        use std::collections::HashMap;
+
+        // First pass: collect label positions
+        let mut label_positions: HashMap<String, usize> = HashMap::new();
+        let mut instruction_index = 0;
+
+        for symbolic_instr in &self.symbolic_instructions {
+            match symbolic_instr {
+                SymbolicInstruction::Label(label) => {
+                    label_positions.insert(label.name.clone(), instruction_index);
+                }
+                SymbolicInstruction::Instruction(_) => {
+                    instruction_index += 1;
+                }
+            }
+        }
+
+        // Second pass: resolve labels and generate final instructions
+        self.instructions.clear();
+        let mut current_index = 0;
+
+        for symbolic_instr in &self.symbolic_instructions {
+            match symbolic_instr {
+                SymbolicInstruction::Label(label) => {
+                    let mut new_label = Label::new(label.name.clone());
+                    new_label.address = Some(current_index);
+                    self.labels.push(new_label);
+                }
+                SymbolicInstruction::Instruction(instr) => {
+                    let mut resolved_instr = instr.clone();
+
+                    // Resolve label operands for local jumps only
+                    if let Some(Operand::Label(label_name)) = &instr.operand {
+                        // Only resolve local labels (jumps within the same function)
+                        // Leave function calls unresolved as they will be handled by the linker
+                        let should_resolve = match Opcode::from_u32(instr.opcode) {
+                            Some(Opcode::JnzFpImm) | Some(Opcode::JmpRelImm) => {
+                                // These are local control flow instructions
+                                label_positions.contains_key(label_name)
+                            }
+                            Some(Opcode::CallAbsImm) => {
+                                // Function calls - leave unresolved
+                                false
+                            }
+                            _ => {
+                                // Other instructions with labels - assume local for now
+                                label_positions.contains_key(label_name)
+                            }
+                        };
+
+                        if should_resolve {
+                            let target_position =
+                                label_positions.get(label_name).ok_or_else(|| {
+                                    CodegenError::UnresolvedLabel(format!(
+                                        "Label '{}' not found",
+                                        label_name
+                                    ))
+                                })?;
+
+                            // For relative jumps, calculate relative offset
+                            let offset = match Opcode::from_u32(instr.opcode) {
+                                Some(Opcode::JnzFpImm) | Some(Opcode::JmpRelImm) => {
+                                    // Relative jump: target - current - 1 (PC advances after instruction)
+                                    *target_position as i32 - current_index as i32 - 1
+                                }
+                                _ => {
+                                    // For other local instructions, use absolute addressing
+                                    *target_position as i32
+                                }
+                            };
+
+                            resolved_instr.operand = Some(Operand::Literal(offset));
+                        }
+                        // If not resolving, keep the label as-is for later resolution by linker
+                    }
+
+                    self.instructions.push(resolved_instr);
+                    current_index += 1;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// Add a raw CASM instruction
     pub fn add_instruction(&mut self, instruction: CasmInstruction) {
-        self.instructions.push(instruction);
+        self.symbolic_instructions
+            .push(SymbolicInstruction::Instruction(instruction));
     }
 
     /// Get the generated instructions
@@ -543,19 +664,38 @@ impl CasmBuilder {
         &self.instructions
     }
 
+    /// Get the symbolic instructions
+    pub fn symbolic_instructions(&self) -> &[SymbolicInstruction] {
+        &self.symbolic_instructions
+    }
+
+    /// Update the symbolic instructions
+    pub fn set_symbolic_instructions(&mut self, instructions: Vec<SymbolicInstruction>) {
+        self.symbolic_instructions = instructions;
+    }
+
+    /// Update the generated instructions
+    pub fn set_instructions(&mut self, instructions: Vec<CasmInstruction>) {
+        self.instructions = instructions;
+    }
+
     /// Get the labels
     pub fn labels(&self) -> &[Label] {
         &self.labels
     }
 
-    /// Take ownership of the generated instructions
-    pub fn into_instructions(self) -> Vec<CasmInstruction> {
-        self.instructions
-    }
-
     /// Take ownership of the labels
     pub fn into_labels(self) -> Vec<Label> {
-        self.labels
+        self.symbolic_instructions
+            .iter()
+            .filter_map(|instr| {
+                if let SymbolicInstruction::Label(label) = instr {
+                    Some(label.clone())
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     /// Generate a store instruction
@@ -581,7 +721,8 @@ impl CasmBuilder {
                             .with_imm(imm)
                             .with_comment(format!("Store immediate: [fp + {dest_offset}] = {imm}"));
 
-                        self.instructions.push(instr);
+                        self.symbolic_instructions
+                            .push(SymbolicInstruction::Instruction(instr));
                     }
 
                     Value::Operand(val_id) => {
@@ -594,7 +735,8 @@ impl CasmBuilder {
                                 "Store: [fp + {dest_offset}] = [fp + {val_offset}]"
                             ));
 
-                        self.instructions.push(instr);
+                        self.symbolic_instructions
+                            .push(SymbolicInstruction::Instruction(instr));
                     }
 
                     _ => {

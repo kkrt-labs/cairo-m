@@ -17,7 +17,6 @@ func add_two_numbers() -> felt {
 ============================================================
 Generated CASM:
 add_two_numbers:
-add_two_numbers:
 add_two_numbers_0:
    0: 6 10 _ 0             // Store immediate: [fp + 0] = 10
    1: 6 32 _ 1             // Store immediate: [fp + 1] = 32

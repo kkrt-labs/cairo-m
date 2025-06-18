@@ -122,13 +122,16 @@ impl CodeGenerator {
         let mut builder = CasmBuilder::new().with_layout(layout);
 
         // Add function label - but we'll fix the address later
-        let func_label = Label::for_function(&function.name);
         self.function_addresses
             .insert(function.name.clone(), self.instructions.len());
-        builder.add_label(func_label);
 
         // Generate code for all basic blocks
         self.generate_basic_blocks(function, module, &mut builder)?;
+
+        // Run optimizations on the function's instructions
+        builder.run_optimizations()?;
+
+        builder.solve_labels()?;
 
         // Fix label addresses to be relative to the global instruction stream
         let instruction_offset = self.instructions.len();

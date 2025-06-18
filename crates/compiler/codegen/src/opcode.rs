@@ -6,7 +6,7 @@ use stwo_prover::core::fields::m31::M31;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
 pub enum Opcode {
-    // Arithmetic operations
+    // Arithmetic operationsl
     StoreAddFpFp = 0,  // [fp + off2] = [fp + off0] + [fp + off1]
     StoreAddFpImm = 1, // [fp + off2] = [fp + off0] + imm
     StoreSubFpFp = 2,  // [fp + off2] = [fp + off0] - [fp + off1]

@@ -23,14 +23,15 @@ pub mod db;
 pub mod generator;
 pub mod layout;
 pub mod opcode;
+pub mod optimizations;
 
 // Re-export main components
 pub use builder::CasmBuilder;
 pub use compiled_program::{CompiledInstruction, CompiledProgram, ProgramMetadata};
-pub use db::{codegen_errors, codegen_mir_module, compile_module as db_compile_module, CodegenDb};
+pub use db::{CodegenDb, codegen_errors, codegen_mir_module, compile_module as db_compile_module};
 pub use generator::CodeGenerator;
 pub use layout::FunctionLayout;
-pub use opcode::{opcodes, Opcode};
+pub use opcode::{Opcode, opcodes};
 
 /// Main entry point for code generation
 ///
