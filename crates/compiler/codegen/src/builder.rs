@@ -173,9 +173,61 @@ impl CasmBuilder {
                 )?;
             }
             BinaryOp::Eq => {
-                // For equality, we need to compute (a - b) and check if it's zero
-                // This is a simplification - real implementation might need more sophisticated handling
-                self.generate_equality_check(dest_off, left, right)?;
+                // Generate unique labels for this equality check
+                let eq_false_label = format!("eq_false_{}", dest.index());
+                let eq_end_label = format!("eq_end_{}", dest.index());
+
+                // First, compute the difference (a - b) and get the offset where it's stored
+                let check_offset = self.generate_equality_check(dest_off, left, right)?;
+
+                // Create a temporary value for the subtraction result if needed
+                let _layout = self
+                    .layout
+                    .as_mut()
+                    .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
+
+                // If check_offset != dest_off (happens for x == 0 optimizations),
+                // we need to use a different value for the jnz
+                let check_value = if check_offset != dest_off {
+                    // For optimized cases like x == 0, check_offset points to x directly
+                    // Find the ValueId that maps to check_offset
+                    // For now, we'll create a synthetic value or use the original
+                    match (&left, &right) {
+                        (Value::Operand(id), Value::Literal(Literal::Integer(0)))
+                        | (Value::Literal(Literal::Integer(0)), Value::Operand(id)) => {
+                            Value::Operand(*id)
+                        }
+                        _ => Value::Operand(dest),
+                    }
+                } else {
+                    Value::Operand(dest)
+                };
+
+                // If the difference is non-zero (a != b), jump to false case
+                self.jnz(check_value, &eq_false_label)?;
+
+                // a == b, so store 1
+                let instr = CasmInstruction::new(Opcode::StoreImm.into())
+                    .with_off2(dest_off)
+                    .with_imm(1)
+                    .with_comment(format!("[fp + {}] = 1", dest_off));
+                self.add_instruction(instr);
+
+                // Jump to end
+                self.jump(&eq_end_label)?;
+
+                // Add label for false case
+                self.add_label(Label::new(eq_false_label));
+
+                // a != b, so store 0
+                let instr = CasmInstruction::new(Opcode::StoreImm.into())
+                    .with_off2(dest_off)
+                    .with_imm(0)
+                    .with_comment(format!("[fp + {}] = 0", dest_off));
+                self.add_instruction(instr);
+
+                // Add end label
+                self.add_label(Label::new(eq_end_label));
             }
             _ => {
                 return Err(CodegenError::UnsupportedInstruction(format!(
@@ -265,7 +317,7 @@ impl CasmBuilder {
         dest_off: i32,
         left: Value,
         right: Value,
-    ) -> CodegenResult<()> {
+    ) -> CodegenResult<i32> {
         // For now, implement equality as a subtraction and let the caller handle the comparison
         // A more sophisticated implementation would use conditional logic
         self.generate_arithmetic_op(
@@ -275,6 +327,7 @@ impl CasmBuilder {
             left,
             right,
         )?;
+        let check_offset = dest_off;
 
         // Add a comment to indicate this is an equality check
         if let Some(last_instr) = self.instructions.last_mut() {
@@ -313,7 +366,7 @@ impl CasmBuilder {
             ));
         }
 
-        Ok(())
+        Ok(check_offset)
     }
 
     /// Generate a function call that returns a value.

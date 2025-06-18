@@ -1,0 +1,7 @@
+func main() -> felt {
+    let a = 1;
+    let b = 0;
+    let c = a == b;
+    let d = a == 0;
+    return c + d;
+}
