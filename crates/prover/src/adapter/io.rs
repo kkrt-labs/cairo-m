@@ -1,4 +1,4 @@
-use std::io::Read;
+use std::io::{BufReader, Read};
 use std::path::Path;
 
 use bytemuck::{bytes_of_mut, Pod, Zeroable};
@@ -58,9 +58,12 @@ impl From<IoMemoryEntry> for MemoryEntry {
     }
 }
 
-pub struct TraceIter<'a, R: Read>(pub &'a mut R);
+pub struct TraceIter<R: Read>(pub R);
 
-impl<R: Read> Iterator for TraceIter<'_, R> {
+// Type alias for the concrete iterator from a file path
+pub type TraceFileIter = TraceIter<BufReader<std::fs::File>>;
+
+impl<R: Read> Iterator for TraceIter<R> {
     type Item = TraceEntry;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -72,9 +75,19 @@ impl<R: Read> Iterator for TraceIter<'_, R> {
     }
 }
 
-pub struct MemoryEntryIter<'a, R: Read>(pub &'a mut R);
+// Standalone function to create a TraceIter from a file path
+pub fn trace_iter_from_path(path: &Path) -> Result<TraceFileIter, VmImportError> {
+    let file = std::fs::File::open(path)?;
+    let reader = BufReader::new(file);
+    Ok(TraceIter(reader))
+}
 
-impl<R: Read> Iterator for MemoryEntryIter<'_, R> {
+pub struct MemoryEntryIter<R: Read>(pub R);
+
+// Type alias for the concrete iterator from a file path
+pub type MemoryEntryFileIter = MemoryEntryIter<BufReader<std::fs::File>>;
+
+impl<R: Read> Iterator for MemoryEntryIter<R> {
     type Item = MemoryEntry;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -86,15 +99,19 @@ impl<R: Read> Iterator for MemoryEntryIter<'_, R> {
     }
 }
 
+// Standalone function to create a MemoryEntryIter from a file path
+pub fn memory_entry_iter_from_path(path: &Path) -> Result<MemoryEntryFileIter, VmImportError> {
+    let file = std::fs::File::open(path)?;
+    let reader = BufReader::new(file);
+    Ok(MemoryEntryIter(reader))
+}
+
 pub fn read_memory_and_trace_from_paths(
     trace_path: &Path,
     mem_path: &Path,
 ) -> Result<(Vec<MemoryEntry>, Vec<TraceEntry>), VmImportError> {
-    let mut trace_file = std::io::BufReader::new(std::fs::File::open(trace_path)?);
-    let mut mem_file = std::io::BufReader::new(std::fs::File::open(mem_path)?);
-
-    let memory_entries: Vec<MemoryEntry> = MemoryEntryIter(&mut mem_file).collect();
-    let trace_entries: Vec<TraceEntry> = TraceIter(&mut trace_file).collect();
+    let memory_entries: Vec<MemoryEntry> = memory_entry_iter_from_path(mem_path)?.collect();
+    let trace_entries: Vec<TraceEntry> = trace_iter_from_path(trace_path)?.collect();
 
     Ok((memory_entries, trace_entries))
 }

@@ -1761,27 +1761,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sonic-rs"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93070f7e7c0d7ec7d08406b1b407234af30420320fd854f304029e3c6db4a899"
-dependencies = [
- "ahash",
- "bumpalo",
- "bytes",
- "cfg-if",
- "faststr",
- "itoa",
- "ref-cast",
- "ryu",
- "serde",
- "simdutf8",
- "sonic-number",
- "sonic-simd",
- "thiserror 2.0.12",
-]
-
-[[package]]
 name = "sonic-simd"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
