@@ -92,3 +92,67 @@ The runner integrates with:
 - `cairo-m-compiler`: Loads CompiledProgram JSON format
 - `stwo-prover`: Generates traces compatible with Stwo proving system
 - Binary trace format for efficient proof generation
+
+### Coding Guidelines
+
+#### Error Handling
+
+- Use `thiserror` for custom error types to avoid boilerplate in `Display` and
+  `Error` implementations
+- Use `anyhow` for error handling in binaries with `with_context()` for
+  descriptive error messages
+- Prefer `unwrap_or_else()` over `unwrap()` when providing custom error handling
+- Use `#[from]` attribute with thiserror for automatic error conversion
+- Use `?` operator instead of manual error propagation where possible
+
+Example:
+
+```rust
+// Good - using anyhow with context
+let source_text = fs::read_to_string(&args.input)
+    .with_context(|| format!("Failed to read file '{}'", args.input.display()))?;
+
+// Good - using thiserror #[from]
+ReturnValueError(#[from] MemoryError),
+```
+
+#### Iterator Patterns and Performance
+
+- Use single-pass iteration when possible to avoid multiple traversals
+
+Example:
+
+```rust
+// Good - single pass with partition
+let (semantic_errors, warnings): (Vec<_>, Vec<_>) = semantic_diagnostics
+    .into_iter()
+    .filter(|d| {
+        matches!(
+            d.severity,
+            DiagnosticSeverity::Error | DiagnosticSeverity::Warning
+        )
+    })
+    .partition(|d| d.severity == DiagnosticSeverity::Error);
+
+// Good - using Into trait for conversions
+program.instructions.iter().map(Into::into).collect();
+```
+
+#### Documentation and Comments
+
+- Use standard Rust doc comment format with `## Arguments`, `## Returns`
+  sections
+- Provide context in comments when implementation choices aren't obvious
+- Specify algorithmic complexity or implementation details when relevant
+- Avoid in-code comments unless they are necessary to understand complex code
+
+Example:
+
+```rust
+/// ## Arguments
+/// * `program` - The compiled program to run
+/// * `entrypoint` - Name of the entry point function to execute
+/// * `options` - Runner options
+///
+/// ## Returns
+```

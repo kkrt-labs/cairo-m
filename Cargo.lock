@@ -318,6 +318,7 @@ dependencies = [
  "num-traits",
  "salsa",
  "sonic-rs 0.3.17",
+ "thiserror",
 ]
 
 [[package]]

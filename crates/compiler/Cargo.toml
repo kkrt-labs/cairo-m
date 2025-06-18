@@ -21,3 +21,4 @@ chumsky = "0.10.1"
 salsa = "0.22"
 sonic-rs = "0.3"
 num-traits.workspace = true
+thiserror.workspace = true

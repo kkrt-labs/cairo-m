@@ -12,7 +12,7 @@ pub struct CompiledProgram {
     pub instructions: Vec<CompiledInstruction>,
 
     /// Entry points mapping function names to instruction indices
-    pub entry_points: HashMap<String, usize>,
+    pub entrypoints: HashMap<String, usize>,
 
     /// Metadata about the compilation
     #[serde(default)]
@@ -51,18 +51,18 @@ impl CompiledProgram {
     /// Create a new compiled program
     pub fn new(
         instructions: Vec<CompiledInstruction>,
-        entry_points: HashMap<String, usize>,
+        entrypoints: HashMap<String, usize>,
     ) -> Self {
         Self {
             instructions,
-            entry_points,
+            entrypoints,
             metadata: ProgramMetadata::default(),
         }
     }
 
     /// Get the entry point for a function
-    pub fn get_entry_point(&self, function_name: &str) -> Option<usize> {
-        self.entry_points.get(function_name).copied()
+    pub fn get_entrypoint(&self, function_name: &str) -> Option<usize> {
+        self.entrypoints.get(function_name).copied()
     }
 
     /// Get instruction at a specific program counter
@@ -165,7 +165,7 @@ mod tests {
 
     #[test]
     fn test_compiled_program_serialization() {
-        let mut entry_points = HashMap::new();
+        let mut entrypoints = HashMap::new();
 
         let instructions = vec![
             CompiledInstruction::new(
@@ -175,8 +175,8 @@ mod tests {
             CompiledInstruction::new(15, vec![]), // ret
         ];
 
-        entry_points.insert("main".to_string(), 0);
-        let program = CompiledProgram::new(instructions, entry_points);
+        entrypoints.insert("main".to_string(), 0);
+        let program = CompiledProgram::new(instructions, entrypoints);
 
         // Test serialization round-trip
         let json = sonic_rs::to_string_pretty(&program).unwrap();
@@ -184,6 +184,6 @@ mod tests {
         let deserialized: CompiledProgram = sonic_rs::from_str(&json).unwrap();
 
         assert_eq!(program.instructions.len(), deserialized.instructions.len());
-        assert_eq!(program.entry_points, deserialized.entry_points);
+        assert_eq!(program.entrypoints, deserialized.entrypoints);
     }
 }

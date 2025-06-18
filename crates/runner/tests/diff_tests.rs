@@ -7,20 +7,20 @@ use cairo_m_runner::run_cairo_program;
 struct DiffTest {
     name: &'static str,
     cairo_file: &'static str,
-    entry_point: &'static str,
+    entrypoint: &'static str,
     rust_fn: fn() -> u32,
     description: &'static str,
 }
 
 /// Macro to create a diff test with minimal boilerplate
 macro_rules! diff_test {
-    ($name:ident, $cairo_file:expr, $entry_point:expr, $rust_fn:expr, $description:expr) => {
+    ($name:ident, $cairo_file:expr, $entrypoint:expr, $rust_fn:expr, $description:expr) => {
         #[test]
         fn $name() {
             let test = DiffTest {
                 name: stringify!($name),
                 cairo_file: $cairo_file,
-                entry_point: $entry_point,
+                entrypoint: $entrypoint,
                 rust_fn: $rust_fn,
                 description: $description,
             };
@@ -53,7 +53,7 @@ fn run_diff_test(test: DiffTest) {
     let compiled = compile_cairo_file(test.cairo_file).expect("Failed to compile Cairo-M program");
 
     // Run Cairo-M program using the library API
-    let cairo_result = run_cairo_program(&compiled, test.entry_point, Default::default())
+    let cairo_result = run_cairo_program(&compiled, test.entrypoint, Default::default())
         .expect("Failed to run Cairo-M program");
 
     // Run Rust implementation

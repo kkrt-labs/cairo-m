@@ -29,35 +29,25 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    // Read the compiled program
-    let file_content = match fs::read_to_string(&args.compiled_file) {
-        Ok(content) => content,
-        Err(e) => {
-            eprintln!(
-                "Error reading file '{}': {}",
-                args.compiled_file.display(),
-                e
-            );
-            process::exit(1);
-        }
-    };
+    let file_content = fs::read_to_string(&args.compiled_file).unwrap_or_else(|e| {
+        eprintln!(
+            "Error reading file '{}': {}",
+            args.compiled_file.display(),
+            e
+        );
+        process::exit(1);
+    });
 
-    let compiled_program: CompiledProgram = match sonic_rs::from_str(&file_content) {
-        Ok(program) => program,
-        Err(e) => {
-            eprintln!("Failed to parse compiled program: {}", e);
-            process::exit(1);
-        }
-    };
+    let compiled_program: CompiledProgram = sonic_rs::from_str(&file_content).unwrap_or_else(|e| {
+        eprintln!("Failed to parse compiled program: {}", e);
+        process::exit(1);
+    });
 
-    // Run the program
-    match run_cairo_program(&compiled_program, &args.entrypoint, Default::default()) {
-        Ok(output) => {
-            println!("Run succeeded and returned: [{}]", output.return_value);
-        }
-        Err(e) => {
+    let output = run_cairo_program(&compiled_program, &args.entrypoint, Default::default())
+        .unwrap_or_else(|e| {
             eprintln!("Execution failed: {}", e);
             process::exit(1);
-        }
-    }
+        });
+
+    println!("Run succeeded and returned: [{}]", output.return_value);
 }

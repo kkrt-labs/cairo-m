@@ -9,39 +9,27 @@ pub use cairo_m_compiler_codegen::compiled_program::{
 use cairo_m_compiler_diagnostics::{build_diagnostic_message, Diagnostic, DiagnosticSeverity};
 use cairo_m_compiler_parser::{parse_program, SourceProgram};
 use db::CompilerDatabase;
+use thiserror::Error;
 
 /// Result type for compilation operations
 pub type Result<T> = std::result::Result<T, CompilerError>;
 
 /// Errors that can occur during compilation
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Error)]
 pub enum CompilerError {
     /// Parse errors occurred
+    #[error("Parse errors: {count} errors found", count = .0.len())]
     ParseErrors(Vec<Diagnostic>),
     /// Semantic validation errors occurred
+    #[error("Semantic errors: {count} errors found", count = .0.len())]
     SemanticErrors(Vec<Diagnostic>),
     /// MIR generation failed
+    #[error("Failed to generate MIR")]
     MirGenerationFailed,
     /// Code generation failed
+    #[error("Code generation failed: {0}")]
     CodeGenerationFailed(String),
 }
-
-impl std::fmt::Display for CompilerError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::ParseErrors(diagnostics) => {
-                write!(f, "Parse errors: {} errors found", diagnostics.len())
-            }
-            Self::SemanticErrors(diagnostics) => {
-                write!(f, "Semantic errors: {} errors found", diagnostics.len())
-            }
-            Self::MirGenerationFailed => write!(f, "Failed to generate MIR"),
-            Self::CodeGenerationFailed(e) => write!(f, "Code generation failed: {}", e),
-        }
-    }
-}
-
-impl std::error::Error for CompilerError {}
 
 /// Options for compilation
 #[derive(Debug, Clone, Default)]
@@ -55,8 +43,8 @@ pub struct CompilerOptions {
 pub struct CompilerOutput {
     /// The compiled program
     pub program: Arc<CompiledProgram>,
-    /// Any warnings generated during compilation
-    pub warnings: Vec<Diagnostic>,
+    /// Any non-error diagnostics generated during compilation
+    pub diagnostics: Vec<Diagnostic>,
 }
 
 /// Compiles a Cairo-M source file from a string
@@ -99,28 +87,21 @@ pub fn compile_from_source(
     // Validate semantics
     let semantic_diagnostics = cairo_m_compiler_semantic::db::validate_semantics(db, source);
 
-    let (semantic_errors, warnings): (Vec<_>, Vec<_>) = semantic_diagnostics
+    let (semantic_errors, diagnostics): (Vec<_>, Vec<_>) = semantic_diagnostics
         .into_iter()
-        .filter(|d| {
-            matches!(
-                d.severity,
-                DiagnosticSeverity::Error | DiagnosticSeverity::Warning
-            )
-        })
         .partition(|d| d.severity == DiagnosticSeverity::Error);
 
     if !semantic_errors.is_empty() {
         return Err(CompilerError::SemanticErrors(semantic_errors));
     }
 
-    // Generate MIR
-    cairo_m_compiler_mir::db::generate_mir(db, source).ok_or(CompilerError::MirGenerationFailed)?;
-
-    // Generate code
     let program = cairo_m_compiler_codegen::db::compile_module(db, source)
         .map_err(|e| CompilerError::CodeGenerationFailed(e.to_string()))?;
 
-    Ok(CompilerOutput { program, warnings })
+    Ok(CompilerOutput {
+        program,
+        diagnostics,
+    })
 }
 
 /// Formats diagnostics for display
