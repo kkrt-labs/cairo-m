@@ -27,6 +27,8 @@ pub struct CodeGenerator {
     function_addresses: HashMap<String, usize>,
     /// Function layouts for frame size calculations
     function_layouts: HashMap<String, FunctionLayout>,
+
+    label_counter: usize,
 }
 
 impl CodeGenerator {
@@ -37,6 +39,7 @@ impl CodeGenerator {
             labels: Vec::new(),
             function_addresses: HashMap::new(),
             function_layouts: HashMap::new(),
+            label_counter: 0,
         }
     }
 
@@ -120,7 +123,7 @@ impl CodeGenerator {
             .clone();
 
         // Create a builder for this function
-        let mut builder = CasmBuilder::new().with_layout(layout);
+        let mut builder = CasmBuilder::new(self.label_counter).with_layout(layout);
 
         // Add function label - but we'll fix the address later
         let func_label = Label::for_function(&function.name);
@@ -130,6 +133,8 @@ impl CodeGenerator {
 
         // Generate code for all basic blocks
         self.generate_basic_blocks(function, module, &mut builder)?;
+
+        self.label_counter += builder.label_counter();
 
         // Fix label addresses to be relative to the global instruction stream
         let instruction_offset = self.instructions.len();

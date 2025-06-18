@@ -1,0 +1,23 @@
+func simple_eq() -> felt {
+    let x = 10;
+    let y = x == 20;
+    return y;
+}
+
+func simple_neq() -> felt {
+    let x = 10;
+    let y = x != 20;
+    return y;
+}
+
+func simple_and() -> felt {
+    let x = 10;
+    let y = x && 20;
+    return y;
+}
+
+func simple_or() -> felt {
+    let x = 10;
+    let y = x || 20;
+    return y;
+}

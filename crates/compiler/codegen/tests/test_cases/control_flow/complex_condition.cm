@@ -1,0 +1,10 @@
+func complex_condition() -> felt {
+    let x = 10;
+    let y = 5;
+    let cond = x == 2 && y != 3;
+    if (cond || x == y){
+        return 0;
+    } else {
+        return 1;
+    }
+}
