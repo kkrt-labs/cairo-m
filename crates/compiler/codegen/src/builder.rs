@@ -105,7 +105,14 @@ impl CasmBuilder {
             BinaryOp::Eq => {
                 // For equality, we need to compute (a - b) and check if it's zero
                 // This is a simplification - real implementation might need more sophisticated handling
-                self.generate_equality_check(dest_off, left, right)?;
+                let check_offset = self.generate_equality_check(dest_off, left, right)?;
+                // Map the destination ValueId to the actual check offset
+                // This is important for comparisons with 0 where we skip the subtraction
+                let layout = self
+                    .layout
+                    .as_mut()
+                    .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
+                layout.map_value(dest, check_offset);
             }
             _ => {
                 return Err(CodegenError::UnsupportedInstruction(format!(
@@ -172,62 +179,82 @@ impl CasmBuilder {
 
     /// Generate equality check
     ///
-    /// Equality is implemented as: result = (a - b == 0 ? 1 : 0)
-    /// This is a simplified implementation using subtraction
+    /// Returns the offset of the value to check for the conditional jump.
+    /// For comparisons with 0, returns the original value's offset without generating subtraction.
+    /// For general comparisons, generates subtraction and returns the result offset.
     fn generate_equality_check(
         &mut self,
         dest_off: i32,
         left: Value,
         right: Value,
-    ) -> CodegenResult<()> {
-        // For now, implement equality as a subtraction and let the caller handle the comparison
-        // A more sophisticated implementation would use conditional logic
-        self.generate_arithmetic_op(
-            Opcode::StoreSubFpFp.into(),
-            Opcode::StoreSubFpImm.into(),
-            dest_off,
-            left,
-            right,
-        )?;
+    ) -> CodegenResult<i32> {
+        match (&left, &right) {
+            (Value::Operand(left_id), Value::Literal(Literal::Integer(0))) => {
+                // For n == 0, just return n's offset directly (no subtraction needed)
+                let layout = self
+                    .layout
+                    .as_ref()
+                    .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
+                let left_off = layout.get_offset(*left_id)?;
+                Ok(left_off)
+            }
+            (Value::Literal(Literal::Integer(0)), Value::Operand(right_id)) => {
+                // For 0 == n, just return n's offset directly (no subtraction needed)
+                let layout = self
+                    .layout
+                    .as_ref()
+                    .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
+                let right_off = layout.get_offset(*right_id)?;
+                Ok(right_off)
+            }
+            _ => {
+                // General case: compute a - b
+                self.generate_arithmetic_op(
+                    Opcode::StoreSubFpFp.into(),
+                    Opcode::StoreSubFpImm.into(),
+                    dest_off,
+                    left,
+                    right,
+                )?;
+                // Add a comment to indicate this is an equality check
+                if let Some(last_instr) = self.instructions.last_mut() {
+                    let layout = self
+                        .layout
+                        .as_ref()
+                        .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
+                    let left_str = match left {
+                        Value::Operand(id) => match layout.get_offset(id) {
+                            Ok(off) => format!("[fp + {off}]"),
+                            Err(_) => format!("%{}", id.index()),
+                        },
+                        Value::Literal(lit) => match lit {
+                            Literal::Integer(val) => val.to_string(),
+                            Literal::Boolean(val) => val.to_string(),
+                            Literal::Unit => "()".to_string(),
+                        },
+                        Value::Error => "error".to_string(),
+                    };
 
-        // Add a comment to indicate this is an equality check
-        if let Some(last_instr) = self.instructions.last_mut() {
-            let layout = self
-                .layout
-                .as_ref()
-                .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
-            let left_str = match left {
-                Value::Operand(id) => match layout.get_offset(id) {
-                    Ok(off) => format!("[fp + {off}]"),
-                    Err(_) => format!("%{}", id.index()),
-                },
-                Value::Literal(lit) => match lit {
-                    Literal::Integer(val) => val.to_string(),
-                    Literal::Boolean(val) => val.to_string(),
-                    Literal::Unit => "()".to_string(),
-                },
-                Value::Error => "error".to_string(),
-            };
+                    let right_str = match right {
+                        Value::Operand(id) => match layout.get_offset(id) {
+                            Ok(off) => format!("[fp + {off}]"),
+                            Err(_) => format!("%{}", id.index()),
+                        },
+                        Value::Literal(lit) => match lit {
+                            Literal::Integer(val) => val.to_string(),
+                            Literal::Boolean(val) => val.to_string(),
+                            Literal::Unit => "()".to_string(),
+                        },
+                        Value::Error => "error".to_string(),
+                    };
 
-            let right_str = match right {
-                Value::Operand(id) => match layout.get_offset(id) {
-                    Ok(off) => format!("[fp + {off}]"),
-                    Err(_) => format!("%{}", id.index()),
-                },
-                Value::Literal(lit) => match lit {
-                    Literal::Integer(val) => val.to_string(),
-                    Literal::Boolean(val) => val.to_string(),
-                    Literal::Unit => "()".to_string(),
-                },
-                Value::Error => "error".to_string(),
-            };
-
-            last_instr.comment = Some(format!(
-                "Equality check: [fp + {dest_off}] = {left_str} - {right_str}"
-            ));
+                    last_instr.comment = Some(format!(
+                        "Equality check: [fp + {dest_off}] = {left_str} - {right_str}"
+                    ));
+                }
+                Ok(dest_off)
+            }
         }
-
-        Ok(())
     }
 
     /// Generate assignment instruction
