@@ -2,9 +2,10 @@
 //!
 //! This module contains optimization passes for CASM instructions.
 
+use std::collections::{HashMap, HashSet};
+
 use crate::builder::SymbolicInstruction;
 use crate::{CasmBuilder, CasmInstruction, CodegenResult, Opcode};
-use std::collections::{HashMap, HashSet};
 
 /// Trait for CASM optimization passes
 pub trait CasmOptimization {
