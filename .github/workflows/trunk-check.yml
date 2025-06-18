@@ -23,7 +23,9 @@ jobs:
           submodules: recursive
 
       - name: Set up Rust toolchain
-        run: rustup show
+        run: |
+          rustup show
+          rustup component add clippy
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
