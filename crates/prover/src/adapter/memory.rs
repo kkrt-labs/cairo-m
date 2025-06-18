@@ -36,15 +36,15 @@ impl From<crate::adapter::io::TraceEntry> for TraceEntry {
 
 #[derive(Debug, Default, Clone)]
 pub struct MemoryBoundaries {
-    pub initial_memory: Vec<MemoryEntry>,
-    pub final_memory: Vec<MemoryEntry>,
+    pub initial_memory: Vec<(u32, [u32; 4], u32)>,
+    pub final_memory: Vec<(u32, [u32; 4], u32)>,
 }
 
 #[derive(Debug, Default)]
 pub struct MemoryCache {
     clock_cache: HashMap<u32, u32>,
-    initial_memory: HashMap<u32, [u32; 4]>,
-    current_memory: HashMap<u32, [u32; 4]>,
+    initial_memory: HashMap<u32, ([u32; 4], u32)>,
+    current_memory: HashMap<u32, ([u32; 4], u32)>,
 }
 
 impl MemoryCache {
@@ -55,22 +55,22 @@ impl MemoryCache {
             .copied()
             .unwrap_or_else(|| {
                 self.initial_memory
-                    .insert(mem_entry.address, mem_entry.value);
+                    .insert(mem_entry.address, (mem_entry.value, clock));
                 0
             });
         self.clock_cache.insert(mem_entry.address, clock);
         let old_value = self
             .current_memory
-            .insert(mem_entry.address, mem_entry.value)
-            .unwrap_or([0, 0, 0, 0]);
+            .insert(mem_entry.address, (mem_entry.value, clock))
+            .unwrap_or(([0, 0, 0, 0], clock));
 
         MemoryArg {
             address: mem_entry.address,
             prev_val: QM31::from_u32_unchecked(
-                old_value[0],
-                old_value[1],
-                old_value[2],
-                old_value[3],
+                old_value.0[0],
+                old_value.0[1],
+                old_value.0[2],
+                old_value.0[3],
             ),
             value: QM31::from_u32_unchecked(
                 mem_entry.value[0],
@@ -88,12 +88,12 @@ impl MemoryCache {
             initial_memory: self
                 .initial_memory
                 .iter()
-                .map(|(&address, &value)| MemoryEntry { address, value })
+                .map(|(&address, &(value, clock))| (address, value, clock))
                 .collect(),
             final_memory: self
                 .current_memory
                 .iter()
-                .map(|(&address, &value)| MemoryEntry { address, value })
+                .map(|(&address, &(value, _clock))| (address, value, _clock))
                 .collect(),
         }
     }
@@ -137,8 +137,8 @@ mod tests {
 
         // Check internal state
         assert_eq!(cache.clock_cache.get(&42), Some(&10));
-        assert_eq!(cache.initial_memory.get(&42), Some(&[1, 2, 3, 4]));
-        assert_eq!(cache.current_memory.get(&42), Some(&[1, 2, 3, 4]));
+        assert_eq!(cache.initial_memory.get(&42), Some(&([1, 2, 3, 4], 10)));
+        assert_eq!(cache.current_memory.get(&42), Some(&([1, 2, 3, 4], 10)));
     }
 
     #[test]
@@ -167,8 +167,8 @@ mod tests {
 
         // Check internal state
         assert_eq!(cache.clock_cache.get(&42), Some(&20));
-        assert_eq!(cache.initial_memory.get(&42), Some(&[1, 2, 3, 4])); // Should remain unchanged
-        assert_eq!(cache.current_memory.get(&42), Some(&[5, 6, 7, 8])); // Should be updated
+        assert_eq!(cache.initial_memory.get(&42), Some(&([1, 2, 3, 4], 10))); // Should remain unchanged
+        assert_eq!(cache.current_memory.get(&42), Some(&([5, 6, 7, 8], 20))); // Should be updated
     }
 
     #[test]
@@ -230,9 +230,15 @@ mod tests {
         assert_eq!(memory_arg.clock, 30);
 
         // Initial memory should still be the first value
-        assert_eq!(cache.initial_memory.get(&address), Some(&[1, 2, 3, 4]));
+        assert_eq!(
+            cache.initial_memory.get(&address),
+            Some(&([1, 2, 3, 4], 10))
+        );
         // Current memory should be the latest value
-        assert_eq!(cache.current_memory.get(&address), Some(&[9, 10, 11, 12]));
+        assert_eq!(
+            cache.current_memory.get(&address),
+            Some(&([9, 10, 11, 12], 30))
+        );
     }
 
     #[test]
@@ -248,10 +254,10 @@ mod tests {
 
         assert_eq!(boundaries.initial_memory.len(), 1);
         assert_eq!(boundaries.final_memory.len(), 1);
-        assert_eq!(boundaries.initial_memory[0].address, 42);
-        assert_eq!(boundaries.initial_memory[0].value, [1, 2, 3, 4]);
-        assert_eq!(boundaries.final_memory[0].address, 42);
-        assert_eq!(boundaries.final_memory[0].value, [1, 2, 3, 4]);
+        assert_eq!(boundaries.initial_memory[0].0, 42);
+        assert_eq!(boundaries.initial_memory[0].1, [1, 2, 3, 4]);
+        assert_eq!(boundaries.final_memory[0].0, 42);
+        assert_eq!(boundaries.final_memory[0].1, [1, 2, 3, 4]);
     }
 
     #[test]
@@ -289,15 +295,15 @@ mod tests {
         // Sort for consistent comparison (HashMap iteration order is not guaranteed)
         let mut initial_sorted = boundaries.initial_memory;
         let mut final_sorted = boundaries.final_memory;
-        initial_sorted.sort_by_key(|entry| entry.address);
-        final_sorted.sort_by_key(|entry| entry.address);
+        initial_sorted.sort_by_key(|entry| entry.0);
+        final_sorted.sort_by_key(|entry| entry.0);
 
-        assert_eq!(initial_sorted[0].address, 42);
-        assert_eq!(initial_sorted[0].value, [1, 2, 3, 4]);
-        assert_eq!(initial_sorted[1].address, 100);
-        assert_eq!(initial_sorted[1].value, [5, 6, 7, 8]);
-        assert_eq!(initial_sorted[2].address, 200);
-        assert_eq!(initial_sorted[2].value, [9, 10, 11, 12]);
+        assert_eq!(initial_sorted[0].0, 42);
+        assert_eq!(initial_sorted[0].1, [1, 2, 3, 4]);
+        assert_eq!(initial_sorted[1].0, 100);
+        assert_eq!(initial_sorted[1].1, [5, 6, 7, 8]);
+        assert_eq!(initial_sorted[2].0, 200);
+        assert_eq!(initial_sorted[2].1, [9, 10, 11, 12]);
     }
 
     #[test]
@@ -337,19 +343,19 @@ mod tests {
         // Sort for consistent comparison
         let mut initial_sorted = boundaries.initial_memory;
         let mut final_sorted = boundaries.final_memory;
-        initial_sorted.sort_by_key(|entry| entry.address);
-        final_sorted.sort_by_key(|entry| entry.address);
+        initial_sorted.sort_by_key(|entry| entry.0);
+        final_sorted.sort_by_key(|entry| entry.0);
 
         // Initial memory should contain first values
-        assert_eq!(initial_sorted[0].address, 42);
-        assert_eq!(initial_sorted[0].value, [1, 2, 3, 4]); // Initial value
-        assert_eq!(initial_sorted[1].address, 100);
-        assert_eq!(initial_sorted[1].value, [9, 10, 11, 12]);
+        assert_eq!(initial_sorted[0].0, 42);
+        assert_eq!(initial_sorted[0].1, [1, 2, 3, 4]); // Initial value
+        assert_eq!(initial_sorted[1].0, 100);
+        assert_eq!(initial_sorted[1].1, [9, 10, 11, 12]);
 
         // Final memory should contain current values
-        assert_eq!(final_sorted[0].address, 42);
-        assert_eq!(final_sorted[0].value, [5, 6, 7, 8]); // Updated value
-        assert_eq!(final_sorted[1].address, 100);
-        assert_eq!(final_sorted[1].value, [9, 10, 11, 12]); // Same as initial
+        assert_eq!(final_sorted[0].0, 42);
+        assert_eq!(final_sorted[0].1, [5, 6, 7, 8]); // Updated value
+        assert_eq!(final_sorted[1].0, 100);
+        assert_eq!(final_sorted[1].1, [9, 10, 11, 12]); // Same as initial
     }
 }
