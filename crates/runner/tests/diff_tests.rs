@@ -263,3 +263,33 @@ diff_test!(
     rust_mutual_recursion,
     "Mutual recursion: even/odd check for 42"
 );
+
+// Testing a combination of language constructs
+const fn combination() -> u32 {
+    let x = 3;
+    let y = 13;
+    let even_number = 16;
+    let eq = x == y;
+    let mut mut_val = 1;
+    if eq {
+        mut_val = mut_val + eq as u32 + 1;
+    }
+    mut_val = mut_val * mut_val;
+    mut_val += even_number / 2;
+
+    let eq2 = x == 3;
+
+    mut_val + (eq2 as u32) + random_elements_foo() + 32
+}
+
+const fn random_elements_foo() -> u32 {
+    32
+}
+
+diff_test!(
+    test_combination_operations,
+    "combination.cm",
+    "main",
+    combination,
+    "combination of language constructs"
+);

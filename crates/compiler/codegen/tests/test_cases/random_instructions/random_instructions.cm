@@ -1,0 +1,20 @@
+func main(){
+    let x = 3;
+    let y = 13;
+    let even_number = 16;
+    let eq = x == y;
+    let mut_val = 1;
+    if (eq) {
+        mut_val = mut_val + eq + 1;
+    }
+    mut_val = mut_val * mut_val;
+    mut_val = mut_val + (even_number / 2);
+
+    let eq2 = (x == x);
+
+    return mut_val + eq2 + foo() + 32;
+}
+
+func foo() -> felt {
+    return 32;
+}

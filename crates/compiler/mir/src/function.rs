@@ -153,6 +153,23 @@ impl MirFunction {
         self.locals.len()
     }
 
+    /// Returns a map from each ValueId to its usage count in the function.
+    /// This is useful for optimization passes like dead code elimination or instruction fusion.
+    pub fn get_value_use_counts(&self) -> FxHashMap<ValueId, usize> {
+        let mut counts = FxHashMap::default();
+        for (_id, block) in self.basic_blocks() {
+            for instruction in &block.instructions {
+                for used_value in instruction.used_values() {
+                    *counts.entry(used_value).or_default() += 1;
+                }
+            }
+            for used_value in block.terminator.used_values() {
+                *counts.entry(used_value).or_default() += 1;
+            }
+        }
+        counts
+    }
+
     /// Validates the function structure
     ///
     /// Checks:

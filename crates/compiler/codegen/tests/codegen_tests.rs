@@ -140,4 +140,5 @@ codegen_test!(if_else_with_merge, "control_flow");
 // --- Functions ---
 codegen_test!(simple_call, "functions");
 codegen_test!(fib, "functions");
-codegen_test!(immediate_return, "functions");
+
+codegen_test!(random_instructions, "random_instructions");

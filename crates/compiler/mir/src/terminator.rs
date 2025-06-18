@@ -5,6 +5,8 @@
 
 use std::collections::HashSet;
 
+use cairo_m_compiler_parser::parser::BinaryOp;
+
 use crate::{BasicBlockId, PrettyPrint, Value};
 
 /// A terminator ends a basic block and transfers control
@@ -28,6 +30,16 @@ pub enum Terminator {
     /// Transfers control based on the condition value
     If {
         condition: Value,
+        then_target: BasicBlockId,
+        else_target: BasicBlockId,
+    },
+
+    /// Fused comparison and branch: `if left op right then jump then_target else jump else_target`
+    /// This is an optimized form of a `BinaryOp` followed by an `If`.
+    BranchCmp {
+        op: BinaryOp,
+        left: Value,
+        right: Value,
         then_target: BasicBlockId,
         else_target: BasicBlockId,
     },
@@ -61,6 +73,23 @@ impl Terminator {
         }
     }
 
+    /// Creates a new fused comparison and branch terminator
+    pub const fn branch_cmp(
+        op: BinaryOp,
+        left: Value,
+        right: Value,
+        then_target: BasicBlockId,
+        else_target: BasicBlockId,
+    ) -> Self {
+        Self::BranchCmp {
+            op,
+            left,
+            right,
+            then_target,
+            else_target,
+        }
+    }
+
     /// Creates a new return terminator with a value
     pub const fn return_value(value: Value) -> Self {
         Self::Return { value: Some(value) }
@@ -87,6 +116,11 @@ impl Terminator {
                 else_target,
                 ..
             } => vec![*then_target, *else_target],
+            Self::BranchCmp {
+                then_target,
+                else_target,
+                ..
+            } => vec![*then_target, *else_target],
             Self::Return { .. } => vec![], // Returns don't target blocks
             Self::Unreachable => vec![],   // Unreachable code has no targets
         }
@@ -103,6 +137,15 @@ impl Terminator {
 
             Self::If { condition, .. } => {
                 if let Value::Operand(id) = condition {
+                    used.insert(*id);
+                }
+            }
+
+            Self::BranchCmp { left, right, .. } => {
+                if let Value::Operand(id) = left {
+                    used.insert(*id);
+                }
+                if let Value::Operand(id) = right {
                     used.insert(*id);
                 }
             }
@@ -135,7 +178,7 @@ impl Terminator {
 
     /// Returns true if this is a conditional branch
     pub const fn is_conditional(&self) -> bool {
-        matches!(self, Self::If { .. })
+        matches!(self, Self::If { .. } | Self::BranchCmp { .. })
     }
 
     /// Returns true if this is an unconditional branch (not counting returns)
@@ -148,6 +191,7 @@ impl Terminator {
         match self {
             Self::Jump { .. } => Ok(()),
             Self::If { .. } => Ok(()),
+            Self::BranchCmp { .. } => Ok(()),
             Self::Return { .. } => Ok(()),
             Self::Unreachable => Ok(()),
         }
@@ -157,7 +201,7 @@ impl Terminator {
     pub const fn successor_count(&self) -> usize {
         match self {
             Self::Jump { .. } => 1,
-            Self::If { .. } => 2,
+            Self::If { .. } | Self::BranchCmp { .. } => 2,
             Self::Return { .. } | Self::Unreachable => 0,
         }
     }
@@ -174,6 +218,19 @@ impl Terminator {
             }
 
             Self::If {
+                then_target,
+                else_target,
+                ..
+            } => {
+                if *then_target == old_block {
+                    *then_target = new_block;
+                }
+                if *else_target == old_block {
+                    *else_target = new_block;
+                }
+            }
+
+            Self::BranchCmp {
                 then_target,
                 else_target,
                 ..
@@ -208,6 +265,21 @@ impl PrettyPrint for Terminator {
                 format!(
                     "if {} then jump {then_target:?} else jump {else_target:?}",
                     condition.pretty_print(0)
+                )
+            }
+
+            Self::BranchCmp {
+                op,
+                left,
+                right,
+                then_target,
+                else_target,
+            } => {
+                format!(
+                    "if {} {:?} {} then jump {then_target:?} else jump {else_target:?}",
+                    left.pretty_print(0),
+                    op,
+                    right.pretty_print(0)
                 )
             }
 
