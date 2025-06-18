@@ -44,32 +44,18 @@ end_0:
 not_zero_1:
   14: 6 0 _ 7              // Set [fp + 7] to 0
 end_1:
-  15: 31 6 3 _             // if left != 0, jump to set left_bool = 1
-  16: 6 0 _ 3              // left_bool = 0
-  17: 20 19 _ _            // jump to left_end
-left_true_2:
-  18: 6 1 _ 3              // left_bool = 1
-left_end_2:
-  19: 31 7 3 _             // if right != 0, jump to set right_bool = 1
-  20: 6 0 _ 9              // right_bool = 0
-  21: 20 23 _ _            // jump to right_end
-right_true_2:
-  22: 6 1 _ 9              // right_bool = 1
-right_end_2:
-  23: 0 3 9 10             // sum = left_bool + right_bool
-  24: 6 1 _ 11             // temp = 1
-  25: 2 10 11 11           // temp = sum - 1
-  26: 31 11 3 _            // if sum > 1, jump to clamp
-  27: 4 10 _ 8             // result = sum
-  28: 20 30 _ _            // jump to end
-clamp_2:
-  29: 6 1 _ 8              // result = 1 (clamped)
-end_2:
-  30: 31 8 2 _             // if [fp + 8] != 0 jmp rel complex_condition_1
-  31: 20 34 _ _            // jump abs complex_condition_2
+  15: 6 0 _ 8              // Initialize OR result to 0
+  16: 31 6 3 _             // if left != 0, set result to 1
+  17: 31 7 2 _             // if right != 0, set result to 1
+  18: 20 20 _ _            // Both operands were 0, keep result as 0
+or_true_2:
+  19: 6 1 _ 8              // Set OR result to 1
+or_end_2:
+  20: 31 8 2 _             // if [fp + 8] != 0 jmp rel complex_condition_1
+  21: 20 24 _ _            // jump abs complex_condition_2
 complex_condition_1:
-  32: 6 0 _ -3             // Return value: [fp - 3] = 0
-  33: 15 _ _ _             // return
+  22: 6 0 _ -3             // Return value: [fp - 3] = 0
+  23: 15 _ _ _             // return
 complex_condition_2:
-  34: 6 1 _ -3             // Return value: [fp - 3] = 1
-  35: 15 _ _ _             // return
+  24: 6 1 _ -3             // Return value: [fp - 3] = 1
+  25: 15 _ _ _             // return

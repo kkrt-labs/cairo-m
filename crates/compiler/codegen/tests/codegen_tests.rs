@@ -130,14 +130,15 @@ codegen_test!(function_with_return, "simple");
 // --- Arithmetic ---
 codegen_test!(add_two_numbers, "arithmetic");
 codegen_test!(subtract_numbers, "arithmetic");
-codegen_test!(equality, "arithmetic");
+codegen_test!(not_equals, "arithmetic");
+codegen_test!(and, "arithmetic");
+codegen_test!(or, "arithmetic");
 
 // --- Control Flow ---
 codegen_test!(simple_if, "control_flow");
 codegen_test!(if_else, "control_flow");
 codegen_test!(if_else_with_merge, "control_flow");
 
-codegen_test!(simple_boolean, "control_flow");
 codegen_test!(complex_condition, "control_flow");
 
 // --- Functions ---

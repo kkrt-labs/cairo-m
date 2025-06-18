@@ -704,79 +704,40 @@ impl CasmBuilder {
         left: Value,
         right: Value,
     ) -> CodegenResult<()> {
-        let layout = self.layout.as_mut().unwrap();
-
-        // Step 1: Allocate temporaries for the boolean conversions
-        let left_bool_off = layout.allocate_local(ValueId::from_raw(u32::MAX as usize), 1)?;
-        let right_bool_off =
-            layout.allocate_local(ValueId::from_raw((u32::MAX - 1) as usize), 1)?;
-        let sum_off = layout.allocate_local(ValueId::from_raw((u32::MAX - 2) as usize), 1)?;
-        let one_off = layout.allocate_local(ValueId::from_raw((u32::MAX - 3) as usize), 1)?;
-
-        // Get offsets for operands that are values
-        let left_off = match left {
-            Value::Operand(left_id) => Some(layout.get_offset(left_id)?),
-            _ => None,
-        };
-        let right_off = match right {
-            Value::Operand(right_id) => Some(layout.get_offset(right_id)?),
-            _ => None,
-        };
+        let layout = self.layout.as_ref().unwrap();
 
         // Generate unique labels
         let label_id = self.label_counter;
         self.label_counter += 1;
-        let left_true_label = format!("left_true_{}", label_id);
-        let left_end_label = format!("left_end_{}", label_id);
-        let right_true_label = format!("right_true_{}", label_id);
-        let right_end_label = format!("right_end_{}", label_id);
-        let clamp_label = format!("clamp_{}", label_id);
-        let end_label = format!("end_{}", label_id);
+        let set_true_label = format!("or_true_{}", label_id);
+        let end_label = format!("or_end_{}", label_id);
 
-        // Step 2: Convert left operand to boolean (0 or 1)
+        // Step 1: Initialize result to 0
+        let init_instr = CasmInstruction::new(Opcode::StoreImm.into())
+            .with_off2(dest_off)
+            .with_imm(0)
+            .with_comment("Initialize OR result to 0".to_string());
+        self.instructions.push(init_instr);
+
+        // Step 2: Check left operand - if non-zero, jump to set result to 1
         match left {
-            Value::Operand(_) => {
-                let left_off = left_off.unwrap();
-
-                // Test if left is non-zero
+            Value::Operand(left_id) => {
+                let left_off = layout.get_offset(left_id)?;
                 let jnz_left = CasmInstruction::new(Opcode::JnzFpImm.into())
                     .with_off0(left_off)
-                    .with_operand(Operand::Label(left_true_label.clone()))
-                    .with_comment("if left != 0, jump to set left_bool = 1".to_string());
+                    .with_operand(Operand::Label(set_true_label.clone()))
+                    .with_comment("if left != 0, set result to 1".to_string());
                 self.instructions.push(jnz_left);
-
-                // Left is zero, set left_bool = 0
-                let set_left_false = CasmInstruction::new(Opcode::StoreImm.into())
-                    .with_off2(left_bool_off)
-                    .with_imm(0)
-                    .with_comment("left_bool = 0".to_string());
-                self.instructions.push(set_left_false);
-
-                // Jump to end of left processing
-                let jmp_left_end = CasmInstruction::new(Opcode::JmpAbsImm.into())
-                    .with_operand(Operand::Label(left_end_label.clone()))
-                    .with_comment("jump to left_end".to_string());
-                self.instructions.push(jmp_left_end);
-
-                // left_true label: set left_bool = 1
-                self.add_label(Label::new(left_true_label));
-                let set_left_true = CasmInstruction::new(Opcode::StoreImm.into())
-                    .with_off2(left_bool_off)
-                    .with_imm(1)
-                    .with_comment("left_bool = 1".to_string());
-                self.instructions.push(set_left_true);
-
-                // left_end label
-                self.add_label(Label::new(left_end_label));
             }
             Value::Literal(Literal::Integer(imm)) => {
-                // Left is immediate, convert directly
-                let left_bool = if imm != 0 { 1 } else { 0 };
-                let set_left = CasmInstruction::new(Opcode::StoreImm.into())
-                    .with_off2(left_bool_off)
-                    .with_imm(left_bool)
-                    .with_comment(format!("left_bool = {}", left_bool));
-                self.instructions.push(set_left);
+                // If left is a non-zero immediate, directly jump to set true
+                if imm != 0 {
+                    let jmp_true = CasmInstruction::new(Opcode::JmpAbsImm.into())
+                        .with_operand(Operand::Label(set_true_label.clone()))
+                        .with_comment("left is non-zero immediate, set result to 1".to_string());
+                    self.instructions.push(jmp_true);
+                }
+                // If left is 0, continue to check right
             }
             _ => {
                 return Err(CodegenError::UnsupportedInstruction(
@@ -785,50 +746,25 @@ impl CasmBuilder {
             }
         }
 
-        // Step 3: Convert right operand to boolean (0 or 1)
+        // Step 3: Check right operand - if non-zero, jump to set result to 1
         match right {
-            Value::Operand(_) => {
-                let right_off = right_off.unwrap();
-
-                // Test if right is non-zero
+            Value::Operand(right_id) => {
+                let right_off = layout.get_offset(right_id)?;
                 let jnz_right = CasmInstruction::new(Opcode::JnzFpImm.into())
                     .with_off0(right_off)
-                    .with_operand(Operand::Label(right_true_label.clone()))
-                    .with_comment("if right != 0, jump to set right_bool = 1".to_string());
+                    .with_operand(Operand::Label(set_true_label.clone()))
+                    .with_comment("if right != 0, set result to 1".to_string());
                 self.instructions.push(jnz_right);
-
-                // Right is zero, set right_bool = 0
-                let set_right_false = CasmInstruction::new(Opcode::StoreImm.into())
-                    .with_off2(right_bool_off)
-                    .with_imm(0)
-                    .with_comment("right_bool = 0".to_string());
-                self.instructions.push(set_right_false);
-
-                // Jump to end of right processing
-                let jmp_right_end = CasmInstruction::new(Opcode::JmpAbsImm.into())
-                    .with_operand(Operand::Label(right_end_label.clone()))
-                    .with_comment("jump to right_end".to_string());
-                self.instructions.push(jmp_right_end);
-
-                // right_true label: set right_bool = 1
-                self.add_label(Label::new(right_true_label));
-                let set_right_true = CasmInstruction::new(Opcode::StoreImm.into())
-                    .with_off2(right_bool_off)
-                    .with_imm(1)
-                    .with_comment("right_bool = 1".to_string());
-                self.instructions.push(set_right_true);
-
-                // right_end label
-                self.add_label(Label::new(right_end_label));
             }
             Value::Literal(Literal::Integer(imm)) => {
-                // Right is immediate, convert directly
-                let right_bool = if imm != 0 { 1 } else { 0 };
-                let set_right = CasmInstruction::new(Opcode::StoreImm.into())
-                    .with_off2(right_bool_off)
-                    .with_imm(right_bool)
-                    .with_comment(format!("right_bool = {}", right_bool));
-                self.instructions.push(set_right);
+                // If right is a non-zero immediate, directly jump to set true
+                if imm != 0 {
+                    let jmp_true = CasmInstruction::new(Opcode::JmpAbsImm.into())
+                        .with_operand(Operand::Label(set_true_label.clone()))
+                        .with_comment("right is non-zero immediate, set result to 1".to_string());
+                    self.instructions.push(jmp_true);
+                }
+                // If right is 0, fall through to end (result stays 0)
             }
             _ => {
                 return Err(CodegenError::UnsupportedInstruction(
@@ -837,59 +773,21 @@ impl CasmBuilder {
             }
         }
 
-        // Step 4: Add the boolean values
-        let add_instr = CasmInstruction::new(Opcode::StoreAddFpFp.into())
-            .with_off0(left_bool_off)
-            .with_off1(right_bool_off)
-            .with_off2(sum_off)
-            .with_comment("sum = left_bool + right_bool".to_string());
-        self.instructions.push(add_instr);
-
-        // Step 5: Check if sum > 1, if so clamp to 1
-        // Load immediate 1 for comparison
-        let load_one = CasmInstruction::new(Opcode::StoreImm.into())
-            .with_off2(one_off)
-            .with_imm(1)
-            .with_comment("temp = 1".to_string());
-        self.instructions.push(load_one);
-
-        // Subtract 1 from sum to test if > 1
-        let sub_instr = CasmInstruction::new(Opcode::StoreSubFpFp.into())
-            .with_off0(sum_off)
-            .with_off1(one_off)
-            .with_off2(one_off) // Reuse the temp slot
-            .with_comment("temp = sum - 1".to_string());
-        self.instructions.push(sub_instr);
-
-        // If temp > 0 (i.e., sum > 1), jump to clamp
-        let jnz_clamp = CasmInstruction::new(Opcode::JnzFpImm.into())
-            .with_off0(one_off)
-            .with_operand(Operand::Label(clamp_label.clone()))
-            .with_comment("if sum > 1, jump to clamp".to_string());
-        self.instructions.push(jnz_clamp);
-
-        // Sum <= 1, use sum as result
-        let copy_sum = CasmInstruction::new(Opcode::StoreDerefFp.into())
-            .with_off0(sum_off)
-            .with_off2(dest_off)
-            .with_comment("result = sum".to_string());
-        self.instructions.push(copy_sum);
-
-        // Jump to end
+        // Step 4: Jump to end (both operands were 0, result stays 0)
         let jmp_end = CasmInstruction::new(Opcode::JmpAbsImm.into())
             .with_operand(Operand::Label(end_label.clone()))
-            .with_comment("jump to end".to_string());
+            .with_comment("Both operands were 0, keep result as 0".to_string());
         self.instructions.push(jmp_end);
 
-        // clamp label: set result = 1
-        self.add_label(Label::new(clamp_label));
-        let clamp_result = CasmInstruction::new(Opcode::StoreImm.into())
+        // Step 5: set_true label - set result to 1
+        self.add_label(Label::new(set_true_label));
+        let set_true_instr = CasmInstruction::new(Opcode::StoreImm.into())
             .with_off2(dest_off)
             .with_imm(1)
-            .with_comment("result = 1 (clamped)".to_string());
-        self.instructions.push(clamp_result);
+            .with_comment("Set OR result to 1".to_string());
+        self.instructions.push(set_true_instr);
 
-        // end label
+        // Step 6: end label
         self.add_label(Label::new(end_label));
 
         Ok(())

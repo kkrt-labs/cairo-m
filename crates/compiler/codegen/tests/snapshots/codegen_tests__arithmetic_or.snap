@@ -1,0 +1,35 @@
+---
+source: crates/compiler/codegen/tests/codegen_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/compiler/codegen/tests/codegen_tests.rs
+expression: codegen_output
+---
+Fixture: or.cm
+============================================================
+Source code:
+func simple_or() -> felt {
+    let x = 10;
+    let y = 20;
+    let z = x || y;
+    return z;
+}
+
+============================================================
+Generated CASM:
+simple_or:
+simple_or:
+simple_or_0:
+   0: 6 10 _ 0             // Store immediate: [fp + 0] = 10
+   1: 6 20 _ 1             // Store immediate: [fp + 1] = 20
+   2: 6 0 _ 2              // Initialize OR result to 0
+   3: 31 0 3 _             // if left != 0, set result to 1
+   4: 31 1 2 _             // if right != 0, set result to 1
+   5: 20 7 _ _             // Both operands were 0, keep result as 0
+or_true_0:
+   6: 6 1 _ 2              // Set OR result to 1
+or_end_0:
+   7: 4 2 _ 3              // Store: [fp + 3] = [fp + 2]
+   8: 4 3 _ -3             // Return value: [fp - 3] = [fp + 3]
+   9: 15 _ _ _             // return
