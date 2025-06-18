@@ -37,7 +37,10 @@ pub fn adapt_from_iter<I: IntoIterator<Item = MemoryEntry>, J: IntoIterator<Item
     let mut memory_cache = MemoryCache::default();
 
     let Some(first) = trace.next() else {
-        let memory: Vec<MemoryEntry> = memory.collect();
+        let memory: Vec<(u32, [u32; 4], u32)> = memory
+            .into_iter()
+            .map(|e| (e.address, e.value, 0))
+            .collect();
         return ProverInput {
             memory_boundaries: MemoryBoundaries {
                 initial_memory: memory.clone(),
