@@ -102,6 +102,13 @@ impl CasmBuilder {
         Ok(())
     }
 
+    /// Generate assignment instruction
+    ///
+    /// Handles simple value assignments: dest = source
+    pub fn assign(&mut self, dest: ValueId, source: Value) -> CodegenResult<()> {
+        self.assign_with_target(dest, source, None)
+    }
+
     /// Generate binary operation instruction with optional target offset
     ///
     /// If target_offset is provided, writes directly to that location.
@@ -178,13 +185,6 @@ impl CasmBuilder {
         }
 
         Ok(())
-    }
-
-    /// Generate assignment instruction
-    ///
-    /// Handles simple value assignments: dest = source
-    pub fn assign(&mut self, dest: ValueId, source: Value) -> CodegenResult<()> {
-        self.assign_with_target(dest, source, None)
     }
 
     /// Generate a binary operation instruction
@@ -312,44 +312,6 @@ impl CasmBuilder {
                 "Equality check: [fp + {dest_off}] = {left_str} - {right_str}"
             ));
         }
-
-        Ok(())
-    }
-
-    /// Generate a function call that returns a value directly to the return slot.
-    /// This optimization eliminates the intermediate copy when a call result is immediately returned.
-    pub fn call_with_direct_return(
-        &mut self,
-        dest: ValueId,
-        callee_name: &str,
-        args: &[Value],
-        num_returns: usize,
-    ) -> CodegenResult<()> {
-        // Step 1: Pass arguments by storing them in the communication area.
-        let l = self.pass_arguments(callee_name, args)?;
-        let m = args.len();
-        let k = num_returns;
-
-        // Step 2: Map the destination ValueId directly to the return slot instead of allocating a local
-        let layout = self
-            .layout
-            .as_mut()
-            .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
-
-        // For functions with return values, the return slot is at [fp - 3]
-        if k > 0 {
-            let return_slot_offset = -3;
-            layout.map_value(dest, return_slot_offset);
-        }
-        layout.reserve_stack(k);
-
-        // Step 3: Calculate `off0` and emit the `call` instruction.
-        let off0 = l + m as i32 + k as i32;
-        let instr = CasmInstruction::new(Opcode::CallAbsImm.into())
-            .with_off0(off0)
-            .with_operand(Operand::Label(callee_name.to_string()))
-            .with_comment(format!("call {callee_name} (direct return)"));
-        self.instructions.push(instr);
 
         Ok(())
     }

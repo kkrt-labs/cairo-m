@@ -219,23 +219,11 @@ impl CodeGenerator {
 
                 let callee_name = &callee_function.name;
 
-                // Check if this call result will be immediately returned
-                let will_be_returned = matches!(
-                    terminator,
-                    Terminator::Return { value: Some(Value::Operand(return_dest)) } if return_dest == dest
-                );
-
                 // For now, assume 1 return value for non-void calls
                 // TODO: This should be determined from function signature / callee_function.return_value (when it has support for multiple?)
                 let num_returns = 1;
 
-                if will_be_returned {
-                    // Call with direct return placement
-                    builder.call_with_direct_return(*dest, callee_name, args, num_returns)?;
-                } else {
-                    // Regular call
-                    builder.call(*dest, callee_name, args, num_returns)?;
-                }
+                builder.call(*dest, callee_name, args, num_returns)?;
             }
 
             InstructionKind::VoidCall { callee, args } => {
