@@ -5,7 +5,7 @@ pub mod memory;
 use std::path::Path;
 
 use instructions::Instructions;
-use io::{read_memory_and_trace_from_paths, VmImportError};
+use io::{memory_entry_iter_from_path, trace_iter_from_path, VmImportError};
 use memory::{MemoryBoundaries, MemoryCache, MemoryEntry, TraceEntry};
 use tracing::{span, Level};
 
@@ -20,10 +20,8 @@ pub fn import_from_vm_output(
 ) -> Result<ProverInput, VmImportError> {
     let _span = span!(Level::INFO, "import_from_vm_output").entered();
 
-    let (memory_entries, trace_entries) = read_memory_and_trace_from_paths(trace_path, mem_path)?;
-
-    let memory_entries: Vec<MemoryEntry> = memory_entries.into_iter().map(|e| e.into()).collect();
-    let trace_entries: Vec<TraceEntry> = trace_entries.into_iter().map(|e| e.into()).collect();
+    let memory_entries = memory_entry_iter_from_path(mem_path)?.map(|e| e.into());
+    let trace_entries = trace_iter_from_path(trace_path)?.map(|e| e.into());
 
     Ok(adapt_from_iter(memory_entries, trace_entries))
 }
