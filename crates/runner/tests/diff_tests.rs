@@ -31,7 +31,11 @@ macro_rules! diff_test {
 
 /// Compiles a Cairo-M file to a CompiledProgram
 fn compile_cairo_file(cairo_file: &str) -> Result<CompiledProgram, String> {
-    let source_path = format!("tests/test_data/{}", cairo_file);
+    let source_path = format!(
+        "{}/tests/test_data/{}",
+        env!("CARGO_MANIFEST_DIR"),
+        cairo_file
+    );
 
     // Read the source file
     let source_text = fs::read_to_string(&source_path)
