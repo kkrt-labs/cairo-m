@@ -1,0 +1,58 @@
+name: Benchmarks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "crates/runner/**"
+      - ".github/workflows/benchmarks.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  deployments: write
+  id-token: write
+  pages: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  benchmark:
+    name: Run Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+
+      - name: Run benchmarks
+        run: |
+          cd crates/runner
+          cargo bench --bench vm_benchmark -- --output-format bencher | tee output.txt
+
+      # Store benchmark result - only on main branch
+      - name: Store benchmark result
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Cairo-M VM Benchmarks
+          tool: "cargo"
+          output-file-path: crates/runner/output.txt
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          # GitHub Pages deployment
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: "dev/bench"
+          # Alert configuration
+          alert-threshold: "105%"
+          comment-on-alert: true
+          fail-on-alert: true
+          fail-threshold: "150%"
