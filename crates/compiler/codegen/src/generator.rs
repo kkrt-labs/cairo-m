@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 
 use cairo_m_compiler_mir::{
-    BasicBlockId, Instruction, InstructionKind, MirFunction, MirModule, Terminator,
+    BasicBlockId, Instruction, InstructionKind, MirFunction, MirModule, Terminator, Value, ValueId,
 };
 use stwo_prover::core::fields::m31::M31;
 
@@ -161,7 +161,13 @@ impl CodeGenerator {
             builder.add_label(block_label);
 
             for instruction in &block.instructions {
-                self.generate_instruction(instruction, function, module, builder)?;
+                self.generate_instruction(
+                    instruction,
+                    function,
+                    module,
+                    builder,
+                    &block.terminator,
+                )?;
             }
 
             // Determine the next block in sequence (if any)
@@ -185,10 +191,13 @@ impl CodeGenerator {
         _function: &MirFunction,
         module: &MirModule,
         builder: &mut CasmBuilder,
+        terminator: &Terminator,
     ) -> CodegenResult<()> {
         match &instruction.kind {
             InstructionKind::Assign { dest, source } => {
-                builder.assign(*dest, *source)?;
+                // Check if this assignment result will be immediately returned
+                let target_offset = self.get_target_offset_for_dest(*dest, terminator);
+                builder.assign_with_target(*dest, *source, target_offset)?;
             }
 
             InstructionKind::BinaryOp {
@@ -197,7 +206,9 @@ impl CodeGenerator {
                 left,
                 right,
             } => {
-                builder.binary_op(*op, *dest, *left, *right)?;
+                // Check if this binary operation result will be immediately returned
+                let target_offset = self.get_target_offset_for_dest(*dest, terminator);
+                builder.binary_op_with_target(*op, *dest, *left, *right, target_offset)?;
             }
 
             InstructionKind::Call { dest, callee, args } => {
@@ -258,6 +269,19 @@ impl CodeGenerator {
         }
 
         Ok(())
+    }
+
+    /// Get the target offset for a destination ValueId if it will be immediately returned
+    fn get_target_offset_for_dest(&self, dest: ValueId, terminator: &Terminator) -> Option<i32> {
+        match terminator {
+            Terminator::Return {
+                value: Some(Value::Operand(return_dest)),
+            } if *return_dest == dest => {
+                // This destination will be immediately returned, use the return slot
+                Some(-3) // Return slot is at [fp - 3]
+            }
+            _ => None, // Use normal allocation
+        }
     }
 
     /// Generate code for a terminator with fall-through optimization
@@ -537,11 +561,13 @@ mod tests {
         let compiled = generator.compile();
 
         // Check the store immediate instruction (should be first)
+        // With the direct return optimization, the immediate is stored directly
+        // to the return slot at [fp - 3], which is offset -3
         let store_imm = &compiled.instructions[0];
         assert_eq!(store_imm.opcode, 6); // StoreImm opcode
         assert_eq!(
             store_imm.operands,
-            vec![M31::from(42), M31::from(0), M31::from(0)]
+            vec![M31::from(42), M31::from(0), M31::from(-3)]
         );
     }
 }

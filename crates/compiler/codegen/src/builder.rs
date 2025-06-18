@@ -45,25 +45,95 @@ impl CasmBuilder {
         self.labels.push(label);
     }
 
-    /// Generate a binary operation instruction
+    /// Generate assignment instruction with optional target offset
     ///
-    /// Handles all arithmetic and comparison operations needed for fibonacci:
-    /// - Addition: a + b
-    /// - Subtraction: a - b
-    /// - Equality: a == b
-    pub fn binary_op(
+    /// If target_offset is provided, writes directly to that location.
+    /// Otherwise, allocates a new local variable.
+    pub fn assign_with_target(
         &mut self,
-        op: BinaryOp,
         dest: ValueId,
-        left: Value,
-        right: Value,
+        source: Value,
+        target_offset: Option<i32>,
     ) -> CodegenResult<()> {
         let layout = self
             .layout
             .as_mut()
             .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
 
-        let dest_off = layout.allocate_local(dest, 1)?;
+        let dest_off = if let Some(offset) = target_offset {
+            // Use the provided target offset and map the ValueId to it
+            layout.map_value(dest, offset);
+            offset
+        } else {
+            // Allocate a new local variable
+            layout.allocate_local(dest, 1)?
+        };
+
+        match source {
+            Value::Literal(Literal::Integer(imm)) => {
+                // Store immediate value
+                let instr = CasmInstruction::new(Opcode::StoreImm.into())
+                    .with_off2(dest_off)
+                    .with_imm(imm)
+                    .with_comment(format!("[fp + {dest_off}] = {imm}"));
+
+                self.instructions.push(instr);
+            }
+
+            Value::Operand(src_id) => {
+                // Copy from another value
+                let src_off = layout.get_offset(src_id)?;
+
+                let instr = CasmInstruction::new(Opcode::StoreDerefFp.into())
+                    .with_off0(src_off)
+                    .with_off2(dest_off)
+                    .with_comment(format!("[fp + {dest_off}] = [fp + {src_off}]"));
+
+                self.instructions.push(instr);
+            }
+
+            _ => {
+                return Err(CodegenError::UnsupportedInstruction(
+                    "Unsupported assignment source".to_string(),
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Generate assignment instruction
+    ///
+    /// Handles simple value assignments: dest = source
+    pub fn assign(&mut self, dest: ValueId, source: Value) -> CodegenResult<()> {
+        self.assign_with_target(dest, source, None)
+    }
+
+    /// Generate binary operation instruction with optional target offset
+    ///
+    /// If target_offset is provided, writes directly to that location.
+    /// Otherwise, allocates a new local variable.
+    pub fn binary_op_with_target(
+        &mut self,
+        op: BinaryOp,
+        dest: ValueId,
+        left: Value,
+        right: Value,
+        target_offset: Option<i32>,
+    ) -> CodegenResult<()> {
+        let layout = self
+            .layout
+            .as_mut()
+            .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
+
+        let dest_off = if let Some(offset) = target_offset {
+            // Use the provided target offset and map the ValueId to it
+            layout.map_value(dest, offset);
+            offset
+        } else {
+            // Allocate a new local variable
+            layout.allocate_local(dest, 1)?
+        };
 
         match op {
             BinaryOp::Add => {
@@ -115,6 +185,22 @@ impl CasmBuilder {
         }
 
         Ok(())
+    }
+
+    /// Generate a binary operation instruction
+    ///
+    /// Handles all arithmetic and comparison operations needed for fibonacci:
+    /// - Addition: a + b
+    /// - Subtraction: a - b
+    /// - Equality: a == b
+    pub fn binary_op(
+        &mut self,
+        op: BinaryOp,
+        dest: ValueId,
+        left: Value,
+        right: Value,
+    ) -> CodegenResult<()> {
+        self.binary_op_with_target(op, dest, left, right, None)
     }
 
     /// Generate arithmetic operation (add, sub, mul, div)
@@ -225,51 +311,6 @@ impl CasmBuilder {
             last_instr.comment = Some(format!(
                 "Equality check: [fp + {dest_off}] = {left_str} - {right_str}"
             ));
-        }
-
-        Ok(())
-    }
-
-    /// Generate assignment instruction
-    ///
-    /// Handles simple value assignments: dest = source
-    pub fn assign(&mut self, dest: ValueId, source: Value) -> CodegenResult<()> {
-        let layout = self
-            .layout
-            .as_mut()
-            .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
-
-        //TODO: use proper value size?
-        let dest_off = layout.allocate_local(dest, 1)?;
-
-        match source {
-            Value::Literal(Literal::Integer(imm)) => {
-                // Store immediate value
-                let instr = CasmInstruction::new(Opcode::StoreImm.into())
-                    .with_off2(dest_off)
-                    .with_imm(imm)
-                    .with_comment(format!("[fp + {dest_off}] = {imm}"));
-
-                self.instructions.push(instr);
-            }
-
-            Value::Operand(src_id) => {
-                // Copy from another value
-                let src_off = layout.get_offset(src_id)?;
-
-                let instr = CasmInstruction::new(Opcode::StoreDerefFp.into())
-                    .with_off0(src_off)
-                    .with_off2(dest_off)
-                    .with_comment(format!("[fp + {dest_off}] = [fp + {src_off}]"));
-
-                self.instructions.push(instr);
-            }
-
-            _ => {
-                return Err(CodegenError::UnsupportedInstruction(
-                    "Unsupported assignment source".to_string(),
-                ));
-            }
         }
 
         Ok(())
@@ -391,27 +432,39 @@ impl CasmBuilder {
                 // The first (and only) return value goes to `[fp - K - 2 + 0] = [fp - 3]`.
                 let return_slot_offset = -3;
 
-                let instr = match return_val {
-                    Value::Literal(Literal::Integer(imm)) => {
-                        CasmInstruction::new(Opcode::StoreImm.into())
-                            .with_off2(return_slot_offset)
-                            .with_imm(imm)
-                            .with_comment(format!("Return value: [fp - 3] = {imm}"))
-                    }
+                // Check if the value is already in the return slot (optimization for direct returns)
+                let needs_copy = match return_val {
                     Value::Operand(val_id) => {
-                        let src_off = layout.get_offset(val_id)?;
-                        CasmInstruction::new(Opcode::StoreDerefFp.into())
-                            .with_off0(src_off)
-                            .with_off2(return_slot_offset)
-                            .with_comment(format!("Return value: [fp - 3] = [fp + {src_off}]"))
+                        let current_offset = layout.get_offset(val_id).unwrap_or(0);
+                        current_offset != return_slot_offset
                     }
-                    _ => {
-                        return Err(CodegenError::UnsupportedInstruction(
-                            "Unsupported return value type".to_string(),
-                        ));
-                    }
+                    _ => true, // Literals always need to be stored
                 };
-                self.instructions.push(instr);
+
+                if needs_copy {
+                    let instr = match return_val {
+                        Value::Literal(Literal::Integer(imm)) => {
+                            CasmInstruction::new(Opcode::StoreImm.into())
+                                .with_off2(return_slot_offset)
+                                .with_imm(imm)
+                                .with_comment(format!("Return value: [fp - 3] = {imm}"))
+                        }
+                        Value::Operand(val_id) => {
+                            let src_off = layout.get_offset(val_id)?;
+                            CasmInstruction::new(Opcode::StoreDerefFp.into())
+                                .with_off0(src_off)
+                                .with_off2(return_slot_offset)
+                                .with_comment(format!("Return value: [fp - 3] = [fp + {src_off}]"))
+                        }
+                        _ => {
+                            return Err(CodegenError::UnsupportedInstruction(
+                                "Unsupported return value type".to_string(),
+                            ));
+                        }
+                    };
+                    self.instructions.push(instr);
+                }
+                // If !needs_copy, the value is already in the return slot, so we skip the copy
             }
         }
 
