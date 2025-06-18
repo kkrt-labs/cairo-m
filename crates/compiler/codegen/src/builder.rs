@@ -26,7 +26,7 @@ pub struct CasmBuilder {
 
 impl CasmBuilder {
     /// Create a new CASM builder
-    pub fn new(label_counter: usize) -> Self {
+    pub const fn new(label_counter: usize) -> Self {
         Self {
             instructions: Vec::new(),
             labels: Vec::new(),
@@ -725,7 +725,7 @@ impl CasmBuilder {
     }
 
     /// Get the label counter
-    pub fn label_counter(&self) -> usize {
+    pub const fn label_counter(&self) -> usize {
         self.label_counter
     }
     /// Take ownership of the generated instructions
