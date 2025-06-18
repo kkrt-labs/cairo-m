@@ -36,22 +36,34 @@ main:
    5: 15 _ _ _             // return
 fib:
    6: 3 -4 0 0             // Equality check: [fp + 0] = [fp + -4] - 0
-   7: 31 0 3 _             // if [fp + 0] != 0 jmp rel fib_2
+   7: 31 0 3 _             // if [fp + 0] != 0 jmp rel eq_false_1
+   8: 6 1 _ 0              // [fp + 0] = 1
+   9: 20 11 _ _            // jump abs eq_end_1
+eq_false_1:
+  10: 6 0 _ 0              // [fp + 0] = 0
+eq_end_1:
+  11: 31 0 3 _             // if [fp + 0] != 0 jmp rel fib_2
 fib_1:
-   8: 6 0 _ -3             // Return value: [fp - 3] = 0
-   9: 15 _ _ _             // return
-fib_2:
-  10: 3 -4 1 1             // Equality check: [fp + 1] = [fp + -4] - 1
-  11: 31 1 3 _             // if [fp + 1] != 0 jmp rel fib_4
-fib_3:
-  12: 6 1 _ -3             // Return value: [fp - 3] = 1
+  12: 6 0 _ -3             // Return value: [fp - 3] = 0
   13: 15 _ _ _             // return
-fib_4:
-  14: 3 -4 1 2             // [fp + 2] = [fp + -4] op 1
-  15: 4 2 _ 3              // Arg 0: [fp + 3] = [fp + 2]
-  16: 12 5 6 _             // call fib
-  17: 3 -4 2 6             // [fp + 6] = [fp + -4] op 2
-  18: 4 6 _ 7              // Arg 0: [fp + 7] = [fp + 6]
-  19: 12 9 6 _             // call fib
-  20: 0 4 8 -3             // [fp + -3] = [fp + 4] op [fp + 8]
+fib_2:
+  14: 3 -4 1 1             // Equality check: [fp + 1] = [fp + -4] - 1
+  15: 31 1 3 _             // if [fp + 1] != 0 jmp rel eq_false_3
+  16: 6 1 _ 1              // [fp + 1] = 1
+  17: 20 19 _ _            // jump abs eq_end_3
+eq_false_3:
+  18: 6 0 _ 1              // [fp + 1] = 0
+eq_end_3:
+  19: 31 1 3 _             // if [fp + 1] != 0 jmp rel fib_4
+fib_3:
+  20: 6 1 _ -3             // Return value: [fp - 3] = 1
   21: 15 _ _ _             // return
+fib_4:
+  22: 3 -4 1 2             // [fp + 2] = [fp + -4] op 1
+  23: 4 2 _ 3              // Arg 0: [fp + 3] = [fp + 2]
+  24: 12 5 6 _             // call fib
+  25: 3 -4 2 6             // [fp + 6] = [fp + -4] op 2
+  26: 4 6 _ 7              // Arg 0: [fp + 7] = [fp + 6]
+  27: 12 9 6 _             // call fib
+  28: 0 4 8 -3             // [fp + -3] = [fp + 4] op [fp + 8]
+  29: 15 _ _ _             // return
