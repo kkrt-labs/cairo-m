@@ -99,26 +99,22 @@ pub fn compile_from_source(
     // Validate semantics
     let semantic_diagnostics = cairo_m_compiler_semantic::db::validate_semantics(db, source);
 
-    let semantic_errors: Vec<_> = semantic_diagnostics
-        .iter()
-        .filter(|d| d.severity == DiagnosticSeverity::Error)
-        .cloned()
-        .collect();
+    let (semantic_errors, warnings): (Vec<_>, Vec<_>) = semantic_diagnostics
+        .into_iter()
+        .filter(|d| {
+            matches!(
+                d.severity,
+                DiagnosticSeverity::Error | DiagnosticSeverity::Warning
+            )
+        })
+        .partition(|d| d.severity == DiagnosticSeverity::Error);
 
     if !semantic_errors.is_empty() {
         return Err(CompilerError::SemanticErrors(semantic_errors));
     }
 
-    // Collect warnings
-    let warnings: Vec<_> = semantic_diagnostics
-        .iter()
-        .filter(|d| d.severity == DiagnosticSeverity::Warning)
-        .cloned()
-        .collect();
-
     // Generate MIR
-    let _mir_module = cairo_m_compiler_mir::db::generate_mir(db, source)
-        .ok_or(CompilerError::MirGenerationFailed)?;
+    cairo_m_compiler_mir::db::generate_mir(db, source).ok_or(CompilerError::MirGenerationFailed)?;
 
     // Generate code
     let program = cairo_m_compiler_codegen::db::compile_module(db, source)

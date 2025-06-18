@@ -5,6 +5,7 @@ use cairo_m_compiler::CompiledProgram;
 use stwo_prover::core::fields::m31::M31;
 use vm::instructions::Instruction;
 use vm::{Program, VmError, VM};
+use memory::MemoryError;
 
 /// Result type for runner operations
 pub type Result<T> = std::result::Result<T, RunnerError>;
@@ -19,7 +20,7 @@ pub enum RunnerError {
     VmError(#[from] VmError),
 
     #[error("Failed to read return value: {0}")]
-    ReturnValueError(String),
+    ReturnValueError(#[from] MemoryError),
 }
 
 /// Options for running a Cairo program
@@ -39,12 +40,12 @@ pub struct RunnerOutput {
 
 /// Runs a compiled Cairo-M program
 ///
-/// # Arguments
+/// ## Arguments
 /// * `program` - The compiled program to run
 /// * `entry_point` - Name of the entry point function to execute
 /// * `options` - Runner options
 ///
-/// # Returns
+/// ## Returns
 /// * `Ok(RunnerOutput)` - Program executed successfully with return value
 /// * `Err(RunnerError)` - Execution failed
 pub fn run_cairo_program(
@@ -60,7 +61,7 @@ pub fn run_cairo_program(
     })?;
 
     let instructions: Vec<Instruction> =
-        program.instructions.iter().map(Instruction::from).collect();
+        program.instructions.iter().map(Into::into).collect();
 
     let vm_program = Program { instructions };
     let mut vm = VM::try_from(vm_program)?;
@@ -71,10 +72,7 @@ pub fn run_cairo_program(
 
     // Get the return value from [fp - 3]
     let return_address = vm.state.fp - M31::from(FP_OFFSET);
-    let return_value = vm
-        .memory
-        .get_data(return_address)
-        .map_err(|e| RunnerError::ReturnValueError(e.to_string()))?;
+    let return_value = vm.memory.get_data(return_address)?;
 
     Ok(RunnerOutput {
         return_value: return_value.0,
