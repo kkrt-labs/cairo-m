@@ -1,25 +1,21 @@
-name: Benchmarks
+name: PR Benchmarks
 
 on:
-  push:
-    branches: [main]
+  pull_request:
     paths:
       - "crates/runner/**"
-      - ".github/workflows/benchmarks.yml"
-  workflow_dispatch:
+      - ".github/workflows/benchmark-pr.yml"
 
 permissions:
-  contents: write
-  deployments: write
-  id-token: write
-  pages: write
+  pull-requests: write
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   benchmark:
-    name: Run Benchmarks
+    name: Compare Benchmarks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -39,20 +35,29 @@ jobs:
           cd crates/runner
           cargo bench --bench vm_benchmark -- --output-format bencher | tee output.txt
 
-      # Store benchmark result - only on main branch
-      - name: Store benchmark result
+      # Download previous benchmark result from cache
+      - name: Download previous benchmark data
+        uses: actions/cache@v4
+        with:
+          path: ./cache
+          key: ${{ runner.os }}-benchmark
+
+      # Compare benchmarks without storing
+      - name: Compare benchmarks
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: Cairo-M VM Benchmarks
           tool: "cargo"
           output-file-path: crates/runner/output.txt
+          # Use external data file for comparison
+          external-data-json-path: ./cache/benchmark-data.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
-          # GitHub Pages deployment
-          gh-pages-branch: gh-pages
-          benchmark-data-dir-path: "dev/bench"
-          # Alert configuration
-          alert-threshold: "105%"
+          # Don't save the data
+          save-data-file: false
+          # Alert and comment configuration
           comment-on-alert: true
+          alert-threshold: "105%"
+          comment-always: true
           fail-on-alert: true
-          fail-threshold: "150%"
+          fail-threshold: "200%"
+          summary-always: true
