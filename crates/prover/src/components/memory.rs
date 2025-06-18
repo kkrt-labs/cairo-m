@@ -27,9 +27,8 @@ const N_M31_IN_MEMORY_ENTRY: usize = 6;
 
 #[derive(Clone, Default)]
 pub struct Claim {
+    pub inputs: MemoryBoundaries,
     pub log_size: u32,
-    pub initial_memory: Vec<[PackedM31; N_M31_IN_MEMORY_ENTRY]>,
-    pub final_memory: Vec<[PackedM31; N_M31_IN_MEMORY_ENTRY]>,
 }
 
 #[derive(Copy, Clone)]
@@ -56,40 +55,7 @@ impl Claim {
 
         Self {
             log_size,
-            initial_memory: memory_boundaries
-                .initial_memory
-                .iter()
-                .map(|(address, value, clock)| {
-                    [*address, value[0], value[1], value[2], value[3], *clock]
-                })
-                .chain(std::iter::repeat([0u32; N_M31_IN_MEMORY_ENTRY]))
-                .take(column_length)
-                .array_chunks::<N_LANES>()
-                .map(|chunk| {
-                    std::array::from_fn(|x| unsafe {
-                        PackedM31::from_simd_unchecked(Simd::from_array(std::array::from_fn(|y| {
-                            chunk[y][x]
-                        })))
-                    })
-                })
-                .collect(),
-            final_memory: memory_boundaries
-                .final_memory
-                .iter()
-                .map(|(address, value, clock)| {
-                    [*address, value[0], value[1], value[2], value[3], *clock]
-                })
-                .chain(std::iter::repeat([0u32; N_M31_IN_MEMORY_ENTRY]))
-                .take(column_length)
-                .array_chunks::<N_LANES>()
-                .map(|chunk| {
-                    std::array::from_fn(|x| unsafe {
-                        PackedM31::from_simd_unchecked(Simd::from_array(std::array::from_fn(|y| {
-                            chunk[y][x]
-                        })))
-                    })
-                })
-                .collect(),
+            inputs: memory_boundaries,
         }
     }
 
@@ -112,31 +78,71 @@ impl Claim {
     where
         SimdBackend: BackendForChannel<MC>,
     {
-        let mut initial_memory = Vec::new();
-        let mut final_memory = Vec::new();
+        // Pack memory entries from the prover input
+        let initial_memory: Vec<[PackedM31; N_M31_IN_MEMORY_ENTRY]> = self
+            .inputs
+            .initial_memory
+            .iter()
+            .map(|(address, value, clock)| {
+                [*address, value[0], value[1], value[2], value[3], *clock]
+            })
+            .chain(std::iter::repeat([0u32; N_M31_IN_MEMORY_ENTRY]))
+            .take(1 << self.log_size)
+            .array_chunks::<N_LANES>()
+            .map(|chunk| {
+                std::array::from_fn(|x| unsafe {
+                    PackedM31::from_simd_unchecked(Simd::from_array(std::array::from_fn(|y| {
+                        chunk[y][x]
+                    })))
+                })
+            })
+            .collect();
+        let final_memory: Vec<[PackedM31; N_M31_IN_MEMORY_ENTRY]> = self
+            .inputs
+            .final_memory
+            .iter()
+            .map(|(address, value, clock)| {
+                [*address, value[0], value[1], value[2], value[3], *clock]
+            })
+            .chain(std::iter::repeat([0u32; N_M31_IN_MEMORY_ENTRY]))
+            .take(1 << self.log_size)
+            .array_chunks::<N_LANES>()
+            .map(|chunk| {
+                std::array::from_fn(|x| unsafe {
+                    PackedM31::from_simd_unchecked(Simd::from_array(std::array::from_fn(|y| {
+                        chunk[y][x]
+                    })))
+                })
+            })
+            .collect();
+
+        // Generate lookup data and fill the trace
+        let mut loookup_data_initial_memory = Vec::new();
+        let mut loookup_data_final_memory = Vec::new();
 
         let mut trace_initial_memory =
             std::iter::repeat_with(|| BaseColumn::zeros(1 << self.log_size))
                 .take(N_M31_IN_MEMORY_ENTRY)
                 .collect_vec();
-        for (i, values) in self.initial_memory.iter().enumerate() {
+        for (i, values) in initial_memory.iter().enumerate() {
             for (j, value) in values.iter().enumerate() {
                 trace_initial_memory[j].data[i] = *value;
             }
-            initial_memory.push(*values);
+            loookup_data_initial_memory.push(*values);
         }
 
         let mut trace_final_memory =
             std::iter::repeat_with(|| BaseColumn::zeros(1 << self.log_size))
                 .take(N_M31_IN_MEMORY_ENTRY)
                 .collect_vec();
-        for (i, values) in self.final_memory.iter().enumerate() {
+        for (i, values) in final_memory.iter().enumerate() {
             for (j, value) in values.iter().enumerate() {
                 trace_final_memory[j].data[i] = *value;
             }
-            final_memory.push(*values);
+            loookup_data_final_memory.push(*values);
         }
 
+        // Return the trace and lookup data
         (
             chain!(
                 trace_initial_memory.into_iter().map(|eval| {
@@ -154,8 +160,8 @@ impl Claim {
             )
             .collect_vec(),
             LookupData {
-                initial_memory,
-                final_memory,
+                initial_memory: loookup_data_initial_memory,
+                final_memory: loookup_data_final_memory,
             },
         )
     }
