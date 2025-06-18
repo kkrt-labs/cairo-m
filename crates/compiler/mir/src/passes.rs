@@ -3,7 +3,9 @@
 //! This module implements various optimization passes that can be applied to MIR functions
 //! to improve code quality and remove dead code.
 
-use crate::MirFunction;
+use cairo_m_compiler_parser::parser::BinaryOp;
+
+use crate::{InstructionKind, MirFunction, Terminator, Value};
 
 /// A trait for MIR optimization passes
 pub trait MirPass {
@@ -13,6 +15,94 @@ pub trait MirPass {
 
     /// Get the name of this pass for debugging
     fn name(&self) -> &'static str;
+}
+
+/// Fuse Compare and Branch Pass
+///
+/// This pass identifies a `BinaryOp` performing a comparison (e.g., `Eq`)
+/// whose result is only used in a subsequent `If` terminator, and fuses them
+/// into a single, more efficient `BranchCmp` terminator.
+///
+/// ### Before:
+/// ```mir
+/// block_N:
+///   %1 = binary_op Eq, %a, %b
+///   if %1 then jump then_block else jump else_block
+/// ```
+///
+/// ### After:
+/// ```mir
+/// block_N:
+///   if %a Eq %b then jump then_block else jump else_block
+/// ```
+#[derive(Debug, Default)]
+pub struct FuseCmpBranch;
+
+impl FuseCmpBranch {
+    /// Create a new pass
+    pub const fn new() -> Self {
+        Self
+    }
+
+    /// Returns true if an op is a comparison that can be fused.
+    const fn is_fusible_comparison(op: BinaryOp) -> bool {
+        // For now, only Eq is guaranteed to work. In the future we might have Le / Ge opcodes
+        matches!(op, BinaryOp::Eq)
+    }
+}
+
+impl MirPass for FuseCmpBranch {
+    fn run(&mut self, function: &mut MirFunction) -> bool {
+        let mut modified = false;
+        let use_counts = function.get_value_use_counts();
+
+        for block in function.basic_blocks.iter_mut() {
+            // We are looking for a block that ends in `If`.
+            if let Terminator::If {
+                condition: Value::Operand(cond_val_id),
+                then_target,
+                else_target,
+            } = block.terminator
+            {
+                // The condition's result must be used exactly once (in this `If`).
+                if use_counts.get(&cond_val_id).cloned() != Some(1) {
+                    continue;
+                }
+
+                // The instruction defining the condition must be the last one in the block.
+                if let Some(last_instr) = block.instructions.last() {
+                    if last_instr.destination() == Some(cond_val_id) {
+                        if let InstructionKind::BinaryOp {
+                            op, left, right, ..
+                        } = &last_instr.kind
+                        {
+                            if Self::is_fusible_comparison(*op) {
+                                // We found the pattern! Perform the fusion.
+                                block.terminator = Terminator::branch_cmp(
+                                    *op,
+                                    *left,
+                                    *right,
+                                    then_target,
+                                    else_target,
+                                );
+
+                                // Remove the now-redundant BinaryOp instruction.
+                                block.instructions.pop();
+
+                                modified = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        modified
+    }
+
+    fn name(&self) -> &'static str {
+        "FuseCmpBranch"
+    }
 }
 
 /// Dead Code Elimination Pass
@@ -164,6 +254,7 @@ impl PassManager {
     /// Create a standard optimization pipeline
     pub fn standard_pipeline() -> Self {
         Self::new()
+            .add_pass(FuseCmpBranch::new())
             .add_pass(DeadCodeElimination::new())
             .add_pass(Validation::new())
     }

@@ -256,7 +256,7 @@ impl CasmBuilder {
     }
 
     /// Generate arithmetic operation (add, sub, mul, div)
-    fn generate_arithmetic_op(
+    pub fn generate_arithmetic_op(
         &mut self,
         fp_fp_opcode: u32,
         fp_imm_opcode: u32,
@@ -612,6 +612,11 @@ impl CasmBuilder {
             }
         };
 
+        self.jnz_offset(cond_off, target_label)
+    }
+
+    /// Generates a conditional jump based on a direct fp-relative offset.
+    pub fn jnz_offset(&mut self, cond_off: i32, target_label: &str) -> CodegenResult<()> {
         let instr = CasmInstruction::new(Opcode::JnzFpImm.into())
             .with_off0(cond_off)
             .with_operand(Operand::Label(target_label.to_string()))
@@ -652,6 +657,11 @@ impl CasmBuilder {
     /// Get the labels
     pub fn labels(&self) -> &[Label] {
         &self.labels
+    }
+
+    /// Get a mutable reference to the layout
+    pub const fn layout_mut(&mut self) -> Option<&mut FunctionLayout> {
+        self.layout.as_mut()
     }
 
     /// Take ownership of the generated instructions

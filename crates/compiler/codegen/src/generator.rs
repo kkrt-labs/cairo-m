@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use cairo_m_compiler_mir::{
     BasicBlockId, Instruction, InstructionKind, MirFunction, MirModule, Terminator, Value, ValueId,
 };
+use cairo_m_compiler_parser::parser::BinaryOp;
 use stwo_prover::core::fields::m31::M31;
 
 use crate::compiled_program::{CompiledInstruction, CompiledProgram, ProgramMetadata};
@@ -311,19 +312,59 @@ impl CodeGenerator {
                 else_target,
             } => {
                 // Check if we can optimize the control flow
-                let then_is_next = next_block_id == Some(*then_target);
+                let then_label = format!("{function_name}_{then_target:?}");
+                let else_label = format!("{function_name}_{else_target:?}");
+
+                // Because CASM has only JNZ, we need to jump to the then_label if the condition is true.
+                // We can't optimize a fallthrough.
+                builder.jnz(*condition, &then_label)?;
+                builder.jump(&else_label)?;
+            }
+
+            Terminator::BranchCmp {
+                op,
+                left,
+                right,
+                then_target,
+                else_target,
+            } => {
+                // This is the optimized path. We perform the comparison and branch directly
+                // without materializing a boolean value into a named MIR variable.
+
+                // Reserve a temporary slot on the stack for the comparison result.
+                let layout = builder
+                    .layout_mut()
+                    .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
+                let temp_slot_offset = layout.reserve_stack(1);
 
                 let then_label = format!("{function_name}_{then_target:?}");
                 let else_label = format!("{function_name}_{else_target:?}");
 
-                // The `condition` from an `Eq` operation is `a - b`.
-                // It is non-zero if `a != b`.
-                // Our MIR `if` checks for equality, so it branches to `then` if `a - b` is zero.
-                // CASM's `jnz` jumps if the value is non-zero.
-                // Therefore, if the condition value is non-zero (i.e., `a != b`), we jump to the `else` block.
-                // Always jnz to the else label
-                builder.jnz(*condition, &else_label)?;
+                match op {
+                    BinaryOp::Eq => {
+                        // For `a == b`, we compute `a - b`. The result is zero if they are equal.
+                        builder.generate_arithmetic_op(
+                            Opcode::StoreSubFpFp.into(),
+                            Opcode::StoreSubFpImm.into(),
+                            temp_slot_offset,
+                            *left,
+                            *right,
+                        )?;
 
+                        // `jnz` jumps if the result is non-zero.
+                        // A non-zero result means `a != b`, so we should jump to the `else` block.
+                        // Otherwise we can simply fallthrough.
+                        builder.jnz_offset(temp_slot_offset, &else_label)?;
+                    }
+                    _ => {
+                        return Err(CodegenError::UnsupportedInstruction(format!(
+                            "Unsupported comparison op in BranchCmp: {op:?}"
+                        )));
+                    }
+                }
+
+                // Fallthrough to the `then` block if the `jnz` was not taken.
+                let then_is_next = next_block_id == Some(*then_target);
                 if !then_is_next {
                     builder.jump(&then_label)?;
                 }

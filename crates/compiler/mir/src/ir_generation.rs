@@ -107,6 +107,12 @@ pub fn generate_mir(db: &dyn MirDb, file: File) -> Option<Arc<MirModule>> {
         // If lowering fails, keep the placeholder function (error recovery)
     }
 
+    // Run optimization passes on all functions
+    let mut pass_manager = crate::passes::PassManager::standard_pipeline();
+    for function in mir_module.functions.iter_mut() {
+        pass_manager.run(function);
+    }
+
     Some(Arc::new(mir_module))
 }
 

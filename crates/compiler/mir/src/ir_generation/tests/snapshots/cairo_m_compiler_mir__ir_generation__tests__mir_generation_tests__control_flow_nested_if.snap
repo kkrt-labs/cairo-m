@@ -34,12 +34,10 @@ module {
     0:
       %2 = stackalloc 1
       store %2, 0
-      %3 = %0 Eq 1
-      if %3 then jump 1 else jump 2
+      if %0 Eq 1 then jump 1 else jump 2
 
     1:
-      %4 = %1 Eq 2
-      if %4 then jump 3 else jump 4
+      if %1 Eq 2 then jump 3 else jump 4
 
     2:
       return %2

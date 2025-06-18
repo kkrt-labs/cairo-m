@@ -34,8 +34,7 @@ module {
     entry: 0
 
     0:
-      %1 = %0 Eq 5
-      if %1 then jump 1 else jump 2
+      if %0 Eq 5 then jump 1 else jump 2
 
     1:
       return 10
