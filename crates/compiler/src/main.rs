@@ -27,7 +27,7 @@ fn main() {
     // Read the input file
     let source_text = fs::read_to_string(&args.input).unwrap_or_else(|e| {
         eprintln!("Error reading file '{}': {}", args.input.display(), e);
-        std::process::exit(1);
+        process::exit(1);
     });
 
     let source_name = args.input.display().to_string();
@@ -47,13 +47,10 @@ fn main() {
             }
 
             // Serialize the program to JSON
-            let json = match sonic_rs::to_string_pretty(&*output.program) {
-                Ok(json) => json,
-                Err(e) => {
-                    eprintln!("Failed to serialize program: {}", e);
-                    process::exit(1);
-                }
-            };
+            let json = sonic_rs::to_string_pretty(&*output.program).unwrap_or_else(|e| {
+                eprintln!("Failed to serialize program: {}", e);
+                process::exit(1);
+            });
 
             // Write output or print to stdout
             match args.output {

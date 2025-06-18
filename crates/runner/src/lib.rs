@@ -2,10 +2,10 @@ pub mod memory;
 pub mod vm;
 
 use cairo_m_compiler::CompiledProgram;
+use memory::MemoryError;
 use stwo_prover::core::fields::m31::M31;
 use vm::instructions::Instruction;
 use vm::{Program, VmError, VM};
-use memory::MemoryError;
 
 /// Result type for runner operations
 pub type Result<T> = std::result::Result<T, RunnerError>;
@@ -34,7 +34,7 @@ pub struct RunnerOptions {
 pub struct RunnerOutput {
     /// The return value of the program
     pub return_value: u32,
-    /// The final VM state (for advanced usage)
+    /// The final VM state including memory and registers (for advanced usage)
     pub vm: VM,
 }
 
@@ -53,22 +53,21 @@ pub fn run_cairo_program(
     entry_point: &str,
     _options: RunnerOptions,
 ) -> Result<RunnerOutput> {
-    let pc_entrypoint = program.get_entry_point(entry_point).ok_or_else(|| {
+    let entry_point_pc = program.get_entry_point(entry_point).ok_or_else(|| {
         RunnerError::EntryPointNotFound(
             entry_point.to_string(),
             program.entry_points.keys().cloned().collect(),
         )
     })?;
 
-    let instructions: Vec<Instruction> =
-        program.instructions.iter().map(Into::into).collect();
-
-    let vm_program = Program { instructions };
+    let vm_program = Program {
+        instructions: program.instructions.iter().map(Into::into).collect(),
+    };
     let mut vm = VM::try_from(vm_program)?;
 
     // TODO: Get entrypoint information from the compiled program to know how many args / return data to allocate
     const FP_OFFSET: u32 = 3;
-    vm.run_from_entrypoint(pc_entrypoint as u32, FP_OFFSET)?;
+    vm.run_from_entrypoint(entry_point_pc as u32, FP_OFFSET)?;
 
     // Get the return value from [fp - 3]
     let return_address = vm.state.fp - M31::from(FP_OFFSET);
