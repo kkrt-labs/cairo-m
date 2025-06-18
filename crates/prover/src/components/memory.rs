@@ -1,27 +1,28 @@
-use std::collections::HashMap;
-
-use num_traits::One;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use stwo_air_utils::trace::component_trace::ComponentTrace;
+use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
 use stwo_prover::constraint_framework::logup::LogupTraceGenerator;
 use stwo_prover::constraint_framework::{
     EvalAtRow, FrameworkComponent, FrameworkEval, Relation, RelationEntry,
 };
-use stwo_prover::core::backend::simd::column::BaseColumn;
 use stwo_prover::core::backend::simd::m31::{PackedM31, LOG_N_LANES, N_LANES};
 use stwo_prover::core::backend::simd::qm31::PackedQM31;
 use stwo_prover::core::backend::simd::SimdBackend;
-use stwo_prover::core::backend::BackendForChannel;
+use stwo_prover::core::backend::{BackendForChannel, Column};
 use stwo_prover::core::channel::{Channel, MerkleChannel};
 use stwo_prover::core::fields::m31::{BaseField, M31};
 use stwo_prover::core::fields::qm31::SecureField;
 use stwo_prover::core::fields::secure_column::SECURE_EXTENSION_DEGREE;
 use stwo_prover::core::pcs::TreeVec;
-use stwo_prover::core::poly::circle::{CanonicCoset, CircleEvaluation};
+use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
+use crate::adapter::memory::Memory;
 use crate::relations;
 
-#[derive(Copy, Clone, Default)]
+const N_M31_IN_MEMORY_ENTRY: usize = 7;
+
+#[derive(Clone, Default)]
 pub struct Claim {
     pub log_size: u32,
 }
@@ -31,13 +32,24 @@ pub struct InteractionClaim {
     pub claimed_sum: SecureField,
 }
 
+#[derive(Uninitialized, IterMut, ParIterMut)]
 pub struct LookupData {
-    pub memory: Vec<[PackedM31; 3]>,
+    pub memory: Vec<[PackedM31; N_M31_IN_MEMORY_ENTRY]>,
 }
 
 impl Claim {
+    pub fn new(memory: &Memory) -> Self {
+        let column_length = std::cmp::max(
+            (memory.initial_memory.len() + memory.final_memory.len()).next_power_of_two(),
+            N_LANES,
+        );
+        let log_size = column_length.ilog2();
+
+        Self { log_size }
+    }
+
     pub fn log_sizes(&self) -> TreeVec<Vec<u32>> {
-        let trace_log_sizes = vec![self.log_size; 3];
+        let trace_log_sizes = vec![self.log_size; N_M31_IN_MEMORY_ENTRY];
         let interaction_log_sizes = vec![self.log_size; SECURE_EXTENSION_DEGREE];
         TreeVec::new(vec![vec![], trace_log_sizes, interaction_log_sizes])
     }
@@ -46,74 +58,75 @@ impl Claim {
         channel.mix_u64(self.log_size as u64);
     }
 
-    #[allow(non_snake_case)]
     pub fn write_trace<MC: MerkleChannel>(
         &mut self,
-        lookup_data: &Vec<[PackedM31; 2]>,
-    ) -> (
-        [CircleEvaluation<SimdBackend, M31, BitReversedOrder>; 3],
-        LookupData,
-    )
+        inputs: Memory,
+    ) -> (ComponentTrace<N_M31_IN_MEMORY_ENTRY>, LookupData)
     where
         SimdBackend: BackendForChannel<MC>,
     {
-        let mut counts: HashMap<(u32, u32), u32> = HashMap::new();
-        for entry in lookup_data {
-            let arr0 = entry[0].to_array();
-            let arr1 = entry[1].to_array();
-            for (val0, val1) in arr0.iter().zip(arr1.iter()) {
-                let key = (val0.0, val1.0);
-                *counts.entry(key).or_insert(0) += 1;
-            }
-        }
+        let initial_memory_len = inputs.initial_memory.len();
 
-        let unique_pairs: Vec<_> = counts.into_iter().collect();
-        let mut addresses = Vec::new();
-        let mut values = Vec::new();
-        let mut mults = Vec::new();
-        let mut memory = Vec::new();
+        // Pack memory entries from the prover input
+        let packed_inputs = inputs
+            .initial_memory
+            .par_iter()
+            .chain(inputs.final_memory.par_iter())
+            .enumerate()
+            .map(|(i, (address, (value, clock)))| {
+                let value_array = value.to_m31_array();
+                let mult = if i < initial_memory_len {
+                    M31::from(-1)
+                } else {
+                    M31::from(1)
+                };
+                [
+                    *address,
+                    value_array[0],
+                    value_array[1],
+                    value_array[2],
+                    value_array[3],
+                    *clock,
+                    mult,
+                ]
+            })
+            .chain(std::iter::repeat([M31::from(0); N_M31_IN_MEMORY_ENTRY]))
+            .take(1 << self.log_size)
+            .array_chunks::<N_LANES>()
+            .map(|chunk| {
+                std::array::from_fn(|x| PackedM31::from_array(std::array::from_fn(|y| chunk[y][x])))
+            });
 
-        for chunk in unique_pairs.chunks(N_LANES) {
-            // If chunk is smaller than N_LANES, the remaining slots stay as M31(0)
-            let mut address = [M31(0); N_LANES];
-            let mut value = [M31(0); N_LANES];
-            let mut mult = [M31(0); N_LANES];
-
-            for (i, &((_address, _value), _mult)) in chunk.iter().enumerate() {
-                address[i] = M31(_address);
-                value[i] = M31(_value);
-                mult[i] = M31(_mult);
-            }
-
-            addresses.push(PackedM31::from_array(address));
-            values.push(PackedM31::from_array(value));
-            mults.push(PackedM31::from_array(mult));
-            memory.push([
-                addresses.last().unwrap().to_owned(),
-                values.last().unwrap().to_owned(),
-                mults.last().unwrap().to_owned(),
-            ]);
-        }
-
-        self.log_size = addresses.len().ilog2() + LOG_N_LANES;
-        let domain = CanonicCoset::new(self.log_size).circle_domain();
-
+        // Generate lookup data and fill the trace
+        let (mut trace, mut lookup_data) = unsafe {
+            (
+                ComponentTrace::<N_M31_IN_MEMORY_ENTRY>::uninitialized(self.log_size),
+                LookupData::uninitialized(self.log_size - LOG_N_LANES),
+            )
+        };
         (
-            [
-                CircleEvaluation::<SimdBackend, M31, BitReversedOrder>::new(
-                    domain,
-                    BaseColumn::from_simd(addresses),
-                ),
-                CircleEvaluation::<SimdBackend, M31, BitReversedOrder>::new(
-                    domain,
-                    BaseColumn::from_simd(values),
-                ),
-                CircleEvaluation::<SimdBackend, M31, BitReversedOrder>::new(
-                    domain,
-                    BaseColumn::from_simd(mults),
-                ),
-            ],
-            LookupData { memory },
+            trace.par_iter_mut(),
+            packed_inputs.par_iter(),
+            lookup_data.memory.par_iter_mut(),
+        )
+            .into_par_iter()
+            .for_each(|((mut row, input), lookup_memory)| {
+                *row[0] = input[0];
+                *row[1] = input[1];
+                *row[2] = input[2];
+                *row[3] = input[3];
+                *row[4] = input[4];
+                *row[5] = input[5];
+                *row[6] = input[6];
+                *lookup_memory = input;
+            });
+
+        // Return the trace and lookup data
+        (
+            trace,
+            LookupData {
+                memory: lookup_data.memory,
+            },
         )
     }
 }
@@ -137,8 +150,14 @@ impl InteractionClaim {
         (col.par_iter_mut(), &lookup_data.memory)
             .into_par_iter()
             .for_each(|(writer, value)| {
-                let denom: PackedQM31 = memory.combine(&value[0..2]);
-                writer.write_frac(-PackedQM31::one() * value[2], denom);
+                let denom: PackedQM31 = memory.combine(&value[..6]);
+                let mult: PackedQM31 = PackedQM31::from_packed_m31s([
+                    value[6],
+                    PackedM31::broadcast(M31::from(0)),
+                    PackedM31::broadcast(M31::from(0)),
+                    PackedM31::broadcast(M31::from(0)),
+                ]);
+                writer.write_frac(mult, denom);
             });
         col.finalize_col();
 
@@ -162,14 +181,14 @@ impl FrameworkEval for Eval {
     }
 
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
-        let address = eval.next_trace_mask();
-        let value = eval.next_trace_mask();
-        let mult = eval.next_trace_mask();
+        let memory_entries: [E::F; N_M31_IN_MEMORY_ENTRY - 1] =
+            std::array::from_fn(|_| eval.next_trace_mask());
+        let mult_entries: E::F = eval.next_trace_mask();
 
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
-            -E::EF::from(mult),
-            &[address, value],
+            E::EF::from(mult_entries),
+            &memory_entries,
         ));
 
         eval.finalize_logup();

@@ -37,8 +37,8 @@ pub struct MemoryArg {
 
 #[derive(Debug, Default)]
 pub struct Memory {
-    initial_memory: HashMap<M31, (QM31, M31)>,
-    final_memory: HashMap<M31, (QM31, M31)>,
+    pub initial_memory: HashMap<M31, (QM31, M31)>,
+    pub final_memory: HashMap<M31, (QM31, M31)>,
 }
 
 impl Memory {
