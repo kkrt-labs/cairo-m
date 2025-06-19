@@ -24,6 +24,7 @@
 
 use std::sync::Arc;
 
+use cairo_m_compiler_diagnostics::Diagnostic;
 use cairo_m_compiler_parser::parse_program;
 use cairo_m_compiler_parser::parser::{Expression, FunctionDef, Spanned, Statement, TopLevelItem};
 use cairo_m_compiler_semantic::definition::{Definition, DefinitionKind};
@@ -59,15 +60,19 @@ mod tests {
 /// - Generates partial MIR for functions even if some have semantic errors
 /// - Uses placeholder values for unresolved references
 #[salsa::tracked]
-pub fn generate_mir(db: &dyn MirDb, file: File) -> Option<Arc<MirModule>> {
+pub fn generate_mir(db: &dyn MirDb, file: File) -> Result<Arc<MirModule>, Vec<Diagnostic>> {
     // Parse the module to get access to AST
     let parsed_program = parse_program(db, file);
     if !parsed_program.diagnostics.is_empty() {
-        return None; // Can't generate MIR if parsing failed
+        return Err(parsed_program.diagnostics); // Can't generate MIR if parsing failed
     }
 
     // Get semantic index, return None if semantic analysis failed
-    let semantic_index = semantic_index(db, file).as_ref().ok()?;
+    let maybe_semantic_index = semantic_index(db, file);
+    let semantic_index = match maybe_semantic_index {
+        Ok(semantic_index) => semantic_index,
+        Err(diagnostics) => return Err(diagnostics.clone()),
+    };
 
     let mut mir_module = MirModule::new();
     let mut function_mapping = FxHashMap::default();
@@ -97,7 +102,8 @@ pub fn generate_mir(db: &dyn MirDb, file: File) -> Option<Arc<MirModule>> {
     // Second pass: Lower each function's body
     for (def_id, (def, func_id)) in function_mapping.clone() {
         // Find the corresponding AST function
-        let func_ast = find_function_ast(&parsed_program.module.items, &def.name)?;
+        let func_ast = find_function_ast(&parsed_program.module.items, &def.name)
+            .unwrap_or_else(|| panic!("Function {} not found in AST", def.name));
 
         let builder = MirBuilder::new(db, file, semantic_index, &function_mapping, file_id);
         if let Ok(mir_func) = builder.lower_function(def_id, def, func_ast) {
@@ -113,7 +119,7 @@ pub fn generate_mir(db: &dyn MirDb, file: File) -> Option<Arc<MirModule>> {
         pass_manager.run(function);
     }
 
-    Some(Arc::new(mir_module))
+    Ok(Arc::new(mir_module))
 }
 
 /// Helper function to find a function AST by name
@@ -151,6 +157,9 @@ struct MirBuilder<'a, 'db> {
     definition_to_value: FxHashMap<MirDefinitionId, ValueId>,
     /// Becomes true when a terminator like `return` is encountered.
     is_terminated: bool,
+    /// Stack of loop contexts for break/continue handling
+    /// Each entry contains (loop_header_block, loop_exit_block)
+    loop_stack: Vec<(BasicBlockId, BasicBlockId)>,
 }
 
 impl<'a, 'db> MirBuilder<'a, 'db> {
@@ -175,6 +184,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             definition_to_value: FxHashMap::default(),
             file_id,
             is_terminated: false,
+            loop_stack: Vec::new(),
         }
     }
 
@@ -526,13 +536,129 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 Ok(())
             }
 
-            // TODO: Implement other statement types like loops, etc.
-            _ => {
-                // For unimplemented statements, add a debug instruction
-                self.add_instruction(Instruction::debug(
-                    format!("Unimplemented statement: {:?}", stmt.value()),
-                    vec![],
+            Statement::While { condition, body } => {
+                // While Loop Pattern:
+                // entry:
+                //     jump loop_header
+                // loop_header:
+                //     %cond = evaluate_condition
+                //     if %cond then loop_body else exit
+                // loop_body:
+                //     ... body statements ...
+                //     jump loop_header
+                // exit:
+                //     ... continue after loop ...
+
+                // Create the necessary blocks
+                let loop_header = self.mir_function.add_basic_block();
+                let loop_body = self.mir_function.add_basic_block();
+                let loop_exit = self.mir_function.add_basic_block();
+
+                // Jump to the loop header from the current block
+                self.terminate_current_block(Terminator::jump(loop_header));
+
+                // Push loop context for break/continue
+                self.loop_stack.push((loop_header, loop_exit));
+
+                // Generate the loop header block - evaluate condition and branch
+                self.current_block_id = loop_header;
+                let condition_value = self.lower_expression(condition)?;
+                self.terminate_current_block(Terminator::branch(
+                    condition_value,
+                    loop_body,
+                    loop_exit,
                 ));
+
+                // Generate the loop body
+                self.current_block_id = loop_body;
+                self.lower_statement(body)?;
+
+                // If the body didn't terminate, jump back to the header
+                if !self.current_block().is_terminated() {
+                    self.terminate_current_block(Terminator::jump(loop_header));
+                }
+
+                // Pop loop context
+                self.loop_stack.pop();
+
+                // Continue in the exit block
+                self.current_block_id = loop_exit;
+                Ok(())
+            }
+
+            Statement::Loop { body } => {
+                // Infinite Loop Pattern:
+                // entry:
+                //     jump loop_body
+                // loop_body:
+                //     ... body statements ...
+                //     jump loop_body  // or exit via break
+                // exit:
+                //     ... continue after loop ...
+
+                // Create the necessary blocks
+                let loop_body = self.mir_function.add_basic_block();
+                let loop_exit = self.mir_function.add_basic_block();
+
+                // Jump to the loop body from the current block
+                self.terminate_current_block(Terminator::jump(loop_body));
+
+                // Push loop context for break/continue
+                // For infinite loops, the header is the body itself
+                self.loop_stack.push((loop_body, loop_exit));
+
+                // Generate the loop body
+                self.current_block_id = loop_body;
+                self.lower_statement(body)?;
+
+                // If the body didn't terminate, jump back to itself
+                if !self.current_block().is_terminated() {
+                    self.terminate_current_block(Terminator::jump(loop_body));
+                }
+
+                // Pop loop context
+                self.loop_stack.pop();
+
+                // Continue in the exit block
+                self.current_block_id = loop_exit;
+                Ok(())
+            }
+
+            Statement::For {
+                variable: _,
+                iterable: _,
+                body: _,
+            } => {
+                // TODO: Implement for loop support
+                // For now, panic as requested
+                panic!("For loops are not yet implemented in MIR generation");
+            }
+
+            Statement::Break => {
+                if let Some((_, loop_exit)) = self.loop_stack.last() {
+                    // Jump to the exit block of the current loop
+                    self.terminate_current_block(Terminator::jump(*loop_exit));
+                    self.is_terminated = true;
+                    Ok(())
+                } else {
+                    Err("'break' statement outside of loop".to_string())
+                }
+            }
+
+            Statement::Continue => {
+                if let Some((loop_header, _)) = self.loop_stack.last() {
+                    // Jump to the header block of the current loop
+                    self.terminate_current_block(Terminator::jump(*loop_header));
+                    self.is_terminated = true;
+                    Ok(())
+                } else {
+                    Err("'continue' statement outside of loop".to_string())
+                }
+            }
+
+            Statement::Const(_) => {
+                // Const statements are handled at the semantic level, not in MIR
+                // They don't generate any runtime code
                 Ok(())
             }
         }

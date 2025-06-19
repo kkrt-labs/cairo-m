@@ -1,0 +1,20 @@
+func test_loop_with_breaks() -> felt {
+    let count = 0;
+    let result = 0;
+
+    loop {
+        count = count + 1;
+
+        if (count == 5) {
+            continue;
+        }
+
+        result = result + count;
+
+        if (count == 10) {
+            break;
+        }
+    }
+
+    return result;
+}
