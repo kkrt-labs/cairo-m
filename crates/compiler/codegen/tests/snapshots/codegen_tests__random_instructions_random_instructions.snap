@@ -39,68 +39,68 @@ main:
    0: 6 3 _ 0              // Store immediate: [fp + 0] = 3
    1: 6 13 _ 1             // Store immediate: [fp + 1] = 13
    2: 6 16 _ 2             // Store immediate: [fp + 2] = 16
-   3: 2 0 1 4              // [fp + 4] = [fp + 0] op [fp + 1]
-   4: 31 4 3 _             // if temp != 0, jump to not_zero
+   3: 2 0 1 3              // [fp + 3] = [fp + 0] op [fp + 1]
+   4: 31 3 3 _             // if temp != 0, jump to not_zero
    5: 6 1 _ 3              // Set [fp + 3] to 1
    6: 20 8 _ _             // jump to end
 not_zero_0:
    7: 6 0 _ 3              // Set [fp + 3] to 0
 end_1:
-   8: 4 3 _ 5              // Store: [fp + 5] = [fp + 3]
-   9: 6 1 _ 6              // Store immediate: [fp + 6] = 1
-  10: 31 5 2 _             // if [fp + 5] != 0 jmp rel main_1
+   8: 4 3 _ 4              // Store: [fp + 4] = [fp + 3]
+   9: 6 1 _ 5              // Store immediate: [fp + 5] = 1
+  10: 31 4 2 _             // if [fp + 4] != 0 jmp rel main_1
   11: 20 15 _ _            // jump abs main_2
 main_1:
-  12: 0 6 5 7              // [fp + 7] = [fp + 6] op [fp + 5]
-  13: 1 7 1 8              // [fp + 8] = [fp + 7] op 1
-  14: 4 8 _ 6              // Store: [fp + 6] = [fp + 8]
+  12: 0 5 4 6              // [fp + 6] = [fp + 5] op [fp + 4]
+  13: 1 6 1 7              // [fp + 7] = [fp + 6] op 1
+  14: 4 7 _ 5              // Store: [fp + 5] = [fp + 7]
 main_2:
-  15: 7 6 6 9              // [fp + 9] = [fp + 6] op [fp + 6]
-  16: 4 9 _ 6              // Store: [fp + 6] = [fp + 9]
-  17: 10 2 2 10            // [fp + 10] = [fp + 2] op 2
-  18: 0 6 10 11            // [fp + 11] = [fp + 6] op [fp + 10]
-  19: 4 11 _ 6             // Store: [fp + 6] = [fp + 11]
-  20: 2 0 0 4              // [fp + 4] = [fp + 0] op [fp + 0]
-  21: 31 4 3 _             // if temp != 0, jump to not_zero
-  22: 6 1 _ 12             // Set [fp + 12] to 1
+  15: 7 5 5 8              // [fp + 8] = [fp + 5] op [fp + 5]
+  16: 4 8 _ 5              // Store: [fp + 5] = [fp + 8]
+  17: 10 2 2 9             // [fp + 9] = [fp + 2] op 2
+  18: 0 5 9 10             // [fp + 10] = [fp + 5] op [fp + 9]
+  19: 4 10 _ 5             // Store: [fp + 5] = [fp + 10]
+  20: 2 0 0 11             // [fp + 11] = [fp + 0] op [fp + 0]
+  21: 31 11 3 _            // if temp != 0, jump to not_zero
+  22: 6 1 _ 11             // Set [fp + 11] to 1
   23: 20 25 _ _            // jump to end
 not_zero_2:
-  24: 6 0 _ 12             // Set [fp + 12] to 0
+  24: 6 0 _ 11             // Set [fp + 11] to 0
 end_3:
-  25: 4 12 _ 13            // Store: [fp + 13] = [fp + 12]
-  26: 3 1 3 4              // [fp + 4] = [fp + 1] op 3
-  27: 31 4 3 _             // if temp != 0, jump to not_zero
-  28: 6 1 _ 14             // Set [fp + 14] to 1
+  25: 4 11 _ 12            // Store: [fp + 12] = [fp + 11]
+  26: 3 1 3 13             // [fp + 13] = [fp + 1] op 3
+  27: 31 13 3 _            // if temp != 0, jump to not_zero
+  28: 6 1 _ 13             // Set [fp + 13] to 1
   29: 20 31 _ _            // jump to end
 not_zero_4:
-  30: 6 0 _ 14             // Set [fp + 14] to 0
+  30: 6 0 _ 13             // Set [fp + 13] to 0
 end_5:
-  31: 1 14 2 15            // [fp + 15] = [fp + 14] op 2
-  32: 6 0 _ 16             // Initialize OR result to 0
+  31: 1 13 2 14            // [fp + 14] = [fp + 13] op 2
+  32: 6 0 _ 15             // Initialize OR result to 0
   33: 31 0 3 _             // if left != 0, set result to 1
-  34: 31 15 2 _            // if right != 0, set result to 1
+  34: 31 14 2 _            // if right != 0, set result to 1
   35: 20 37 _ _            // Both operands were 0, keep result as 0
 or_true_6:
-  36: 6 1 _ 16             // Set OR result to 1
+  36: 6 1 _ 15             // Set OR result to 1
 or_end_7:
-  37: 3 5 2 4              // [fp + 4] = [fp + 5] op 2
-  38: 31 4 3 _             // if temp != 0, jump to set result to 1
-  39: 6 0 _ 17             // Set NEQ result to 0
+  37: 3 4 2 16             // [fp + 16] = [fp + 4] op 2
+  38: 31 16 3 _            // if temp != 0, jump to set result to 1
+  39: 6 0 _ 16             // Set NEQ result to 0
   40: 20 42 _ _            // jump to end
 neq_non_zero_8:
-  41: 6 1 _ 17             // Set NEQ result to 1
+  41: 6 1 _ 16             // Set NEQ result to 1
 neq_end_9:
-  42: 8 17 3 4             // [fp + 4] = [fp + 17] op 3
-  43: 31 4 3 _             // if temp != 0, jump to set result to 1
-  44: 6 0 _ 18             // Set AND result to 0
+  42: 8 16 3 17            // [fp + 17] = [fp + 16] op 3
+  43: 31 17 3 _            // if temp != 0, jump to set result to 1
+  44: 6 0 _ 17             // Set AND result to 0
   45: 20 47 _ _            // jump to end
 and_non_zero_10:
-  46: 6 1 _ 18             // Set AND result to 1
+  46: 6 1 _ 17             // Set AND result to 1
 and_end_11:
-  47: 0 6 13 19            // [fp + 19] = [fp + 6] op [fp + 13]
-  48: 12 21 52 _           // call foo
-  49: 0 19 20 22           // [fp + 22] = [fp + 19] op [fp + 20]
-  50: 1 22 32 -3           // [fp + -3] = [fp + 22] op 32
+  47: 0 5 12 18            // [fp + 18] = [fp + 5] op [fp + 12]
+  48: 12 20 52 _           // call foo
+  49: 0 18 19 21           // [fp + 21] = [fp + 18] op [fp + 19]
+  50: 1 21 32 -3           // [fp + -3] = [fp + 21] op 32
   51: 15 _ _ _             // return
 foo:
   52: 6 32 _ -3            // Return value: [fp - 3] = 32

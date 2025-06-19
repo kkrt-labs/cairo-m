@@ -23,13 +23,13 @@ simple_neq:
 simple_neq_0:
    0: 6 10 _ 0             // Store immediate: [fp + 0] = 10
    1: 6 20 _ 1             // Store immediate: [fp + 1] = 20
-   2: 2 0 1 3              // [fp + 3] = [fp + 0] op [fp + 1]
-   3: 31 3 3 _             // if temp != 0, jump to set result to 1
+   2: 2 0 1 2              // [fp + 2] = [fp + 0] op [fp + 1]
+   3: 31 2 3 _             // if temp != 0, jump to set result to 1
    4: 6 0 _ 2              // Set NEQ result to 0
    5: 20 7 _ _             // jump to end
 neq_non_zero_0:
    6: 6 1 _ 2              // Set NEQ result to 1
 neq_end_1:
-   7: 4 2 _ 4              // Store: [fp + 4] = [fp + 2]
-   8: 4 4 _ -3             // Return value: [fp - 3] = [fp + 4]
+   7: 4 2 _ 3              // Store: [fp + 3] = [fp + 2]
+   8: 4 3 _ -3             // Return value: [fp - 3] = [fp + 3]
    9: 15 _ _ _             // return

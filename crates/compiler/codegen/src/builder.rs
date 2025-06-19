@@ -269,32 +269,28 @@ impl CasmBuilder {
         left: Value,
         right: Value,
     ) -> CodegenResult<()> {
-        let layout = self.layout.as_mut().unwrap();
-
-        // Step 1: Allocate a temporary local for the difference
-        let temp_off = layout.allocate_local(ValueId::from_raw(u32::MAX as usize), 1)?;
-
-        // Step 2: Compute left - right into the temporary
-        self.binary_op(
-            BinaryOp::Sub,
-            ValueId::from_raw(u32::MAX as usize),
+        // Step 1: Compute left - right into dest
+        self.generate_arithmetic_op(
+            Opcode::StoreSubFpFp.into(),
+            Opcode::StoreSubFpImm.into(),
+            dest_off,
             left,
             right,
         )?;
 
-        // Step 3: Generate unique labels for this equality check
+        // Step 2: Generate unique labels for this equality check
         let not_zero_label = self.new_label_name("not_zero");
         let end_label = self.new_label_name("end");
 
-        // Step 4: Check if temp == 0 (meaning left == right)
+        // Step 3: Check if temp == 0 (meaning left == right)
         // jnz jumps if non-zero, so if temp != 0, jump to set result to 0 (or 1 if not equal)
         let jnz_instr = CasmInstruction::new(Opcode::JnzFpImm.into())
-            .with_off0(temp_off)
+            .with_off0(dest_off)
             .with_operand(Operand::Label(not_zero_label.clone()))
             .with_comment("if temp != 0, jump to not_zero".to_string());
         self.instructions.push(jnz_instr);
 
-        // Step 5: If we reach here, temp == 0, so left == right, set result to 1
+        // Step 4: If we reach here, temp == 0, so left == right, set result to 1
         let set_false_instr = CasmInstruction::new(Opcode::StoreImm.into())
             .with_off2(dest_off)
             .with_imm(1)
@@ -307,7 +303,7 @@ impl CasmBuilder {
             .with_comment("jump to end".to_string());
         self.instructions.push(jmp_end_instr);
 
-        // Step 6: not_equal label - set result to 0
+        // Step 5: not_equal label - set result to 0
         let not_equal_label_obj = Label::new(not_zero_label);
         self.add_label(not_equal_label_obj);
 
@@ -317,7 +313,7 @@ impl CasmBuilder {
             .with_comment(format!("Set [fp + {dest_off}] to 0"));
         self.instructions.push(set_true_instr);
 
-        // Step 7: end label
+        // Step 6: end label
         let end_label_obj = Label::new(end_label);
         self.add_label(end_label_obj);
 
@@ -330,32 +326,28 @@ impl CasmBuilder {
         left: Value,
         right: Value,
     ) -> CodegenResult<()> {
-        let layout = self.layout.as_mut().unwrap();
-
-        // Step 1: Allocate a temporary local for the result
-        let temp_off = layout.allocate_local(ValueId::from_raw(u32::MAX as usize), 1)?;
-
-        // Step 2: Compute left - right into the temporary
-        self.binary_op(
-            BinaryOp::Sub,
-            ValueId::from_raw(u32::MAX as usize),
+        // Step 1: Compute left - right into dest
+        self.generate_arithmetic_op(
+            Opcode::StoreSubFpFp.into(),
+            Opcode::StoreSubFpImm.into(),
+            dest_off,
             left,
             right,
         )?;
 
-        // Step 3: Generate unique labels for this NOT-EQUAL operation
+        // Step 2: Generate unique labels for this NOT-EQUAL operation
         let non_zero_label = self.new_label_name("neq_non_zero");
         let end_label = self.new_label_name("neq_end");
 
-        // Step 4: Check if temp != 0 (meaning left != right)
+        // Step 3: Check if temp != 0 (meaning left != right)
         // jnz jumps if non-zero, so if temp != 0, jump to set result to 1
         let jnz_instr = CasmInstruction::new(Opcode::JnzFpImm.into())
-            .with_off0(temp_off)
+            .with_off0(dest_off)
             .with_operand(Operand::Label(non_zero_label.clone()))
             .with_comment("if temp != 0, jump to set result to 1".to_string());
         self.instructions.push(jnz_instr);
 
-        // Step 5: If we reach here, temp == 0, so left == right, set result to 0
+        // Step 4: If we reach here, temp == 0, so left == right, set result to 0
         let set_false_instr = CasmInstruction::new(Opcode::StoreImm.into())
             .with_off2(dest_off)
             .with_imm(0)
@@ -368,7 +360,7 @@ impl CasmBuilder {
             .with_comment("jump to end".to_string());
         self.instructions.push(jmp_end_instr);
 
-        // Step 6: non_zero label - set result to 1
+        // Step 5: non_zero label - set result to 1
         let non_zero_label_obj = Label::new(non_zero_label);
         self.add_label(non_zero_label_obj);
 
@@ -378,7 +370,7 @@ impl CasmBuilder {
             .with_comment("Set NEQ result to 1".to_string());
         self.instructions.push(set_true_instr);
 
-        // Step 7: end label
+        // Step 6: end label
         let end_label_obj = Label::new(end_label);
         self.add_label(end_label_obj);
 
@@ -391,32 +383,28 @@ impl CasmBuilder {
         left: Value,
         right: Value,
     ) -> CodegenResult<()> {
-        let layout = self.layout.as_mut().unwrap();
-
-        // Step 1: Allocate a temporary local for the result
-        let temp_off = layout.allocate_local(ValueId::from_raw(u32::MAX as usize), 1)?;
-
-        // Step 2: Compute left * right into the temporary
-        self.binary_op(
-            BinaryOp::Mul,
-            ValueId::from_raw(u32::MAX as usize),
+        // Step 1: Compute left * right into dest
+        self.generate_arithmetic_op(
+            Opcode::StoreMulFpFp.into(),
+            Opcode::StoreMulFpImm.into(),
+            dest_off,
             left,
             right,
         )?;
 
-        // Step 3: Generate unique labels for this AND operation
+        // Step 2: Generate unique labels for this AND operation
         let non_zero_label = self.new_label_name("and_non_zero");
         let end_label = self.new_label_name("and_end");
 
-        // Step 4: Check if temp != 0 (meaning both operands were non-zero)
+        // Step 3: Check if temp != 0 (meaning both operands were non-zero)
         // jnz jumps if non-zero, so if temp != 0, jump to set result to 1
         let jnz_instr = CasmInstruction::new(Opcode::JnzFpImm.into())
-            .with_off0(temp_off)
+            .with_off0(dest_off)
             .with_operand(Operand::Label(non_zero_label.clone()))
             .with_comment("if temp != 0, jump to set result to 1".to_string());
         self.instructions.push(jnz_instr);
 
-        // Step 5: If we reach here, temp == 0, so at least one operand was 0, set result to 0
+        // Step 4: If we reach here, temp == 0, so at least one operand was 0, set result to 0
         let set_false_instr = CasmInstruction::new(Opcode::StoreImm.into())
             .with_off2(dest_off)
             .with_imm(0)
@@ -429,7 +417,7 @@ impl CasmBuilder {
             .with_comment("jump to end".to_string());
         self.instructions.push(jmp_end_instr);
 
-        // Step 6: non_zero label - set result to 1
+        // Step 5: non_zero label - set result to 1
         let non_zero_label_obj = Label::new(non_zero_label);
         self.add_label(non_zero_label_obj);
 
@@ -439,7 +427,7 @@ impl CasmBuilder {
             .with_comment("Set AND result to 1".to_string());
         self.instructions.push(set_true_instr);
 
-        // Step 7: end label
+        // Step 6: end label
         let end_label_obj = Label::new(end_label);
         self.add_label(end_label_obj);
 
