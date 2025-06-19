@@ -265,7 +265,7 @@ impl ControlFlowValidator {
     }
 
     /// Return a static human-readable name for a statement type.
-    const fn statement_type_name(stmt: &Statement) -> &'static str {
+    fn statement_type_name(stmt: &Statement) -> &'static str {
         match stmt {
             Statement::Let { .. } => "variable declaration",
             Statement::Local { .. } => "local variable declaration",
@@ -275,6 +275,7 @@ impl ControlFlowValidator {
             Statement::If { .. } => "if statement",
             Statement::Expression(_) => "expression statement",
             Statement::Block(_) => "block",
+            _ => panic!("Unknown statement type: {:?}", stmt),
         }
     }
 }

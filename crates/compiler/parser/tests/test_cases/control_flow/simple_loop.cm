@@ -1,0 +1,20 @@
+func test_loops() {
+    // Infinite loop
+    loop {
+        let x = 1;
+        if (x == 1) {
+            break;
+        }
+    }
+
+    // While loop
+    let counter = 0;
+    while (counter != 10) {
+        counter = counter + 1;
+    }
+
+    // For loop
+    for i in range {
+        let squared = i * i;
+    }
+}

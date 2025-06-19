@@ -289,3 +289,32 @@ fn mixed_valid_invalid() {
     "#
     );
 }
+
+// ===================
+// Loop Constructs
+// ===================
+
+#[test]
+fn function_with_loops() {
+    assert_parses_ok!(
+        r#"
+        func test_loops() {
+            loop {
+                let x = 1;
+                if (x == 1) {
+                    break;
+                }
+            }
+            
+            let counter = 0;
+            while (counter != 10) {
+                counter = counter + 1;
+            }
+            
+            for i in range {
+                let squared = i * i;
+            }
+        }
+    "#
+    );
+}

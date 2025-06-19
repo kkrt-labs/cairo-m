@@ -143,6 +143,18 @@ pub enum TokenType<'a> {
     Struct,
     #[token("true")]
     True,
+    #[token("while")]
+    While,
+    #[token("loop")]
+    Loop,
+    #[token("for")]
+    For,
+    #[token("in")]
+    In,
+    #[token("break")]
+    Break,
+    #[token("continue")]
+    Continue,
     // Identifiers (must come after keywords)
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*")]
     Identifier(&'a str),
@@ -209,6 +221,12 @@ impl<'a> fmt::Display for TokenType<'a> {
             TokenType::Return => write!(f, "return"),
             TokenType::Struct => write!(f, "struct"),
             TokenType::True => write!(f, "true"),
+            TokenType::While => write!(f, "while"),
+            TokenType::Loop => write!(f, "loop"),
+            TokenType::For => write!(f, "for"),
+            TokenType::In => write!(f, "in"),
+            TokenType::Break => write!(f, "break"),
+            TokenType::Continue => write!(f, "continue"),
             TokenType::AndAnd => write!(f, "&&"),
             TokenType::OrOr => write!(f, "||"),
             TokenType::EqEq => write!(f, "=="),

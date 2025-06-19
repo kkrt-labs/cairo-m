@@ -1,0 +1,36 @@
+func nested_loops() {
+    // Nested while loops
+    let i = 0;
+    while (i != 5) {
+        let j = 0;
+        while (j != 3) {
+            if (i == 2 && j == 1) {
+                break;
+            }
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+
+    // Loop with continue
+    for x in items {
+        if (x == 0) {
+            continue;
+        }
+        let result = process(x);
+    }
+
+    // Infinite loop with nested control
+    loop {
+        let value = get_value();
+        if (value == -1) {
+            break;
+        }
+        while (value != 0) {
+            value = value - 1;
+            if (value == 5) {
+                continue;
+            }
+        }
+    }
+}

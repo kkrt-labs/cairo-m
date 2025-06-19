@@ -3,6 +3,11 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with
 code in this repository.
 
+You are running in an environment where `ast-grep` is installed (`sg`); whenever
+a search requires syntax-aware or structural matching in rust files, default to
+`sg --lang rust - p <pattern>` (or set --lang appropriately) and avoid failling
+back to text-only tools like `rg` or `grep` unless requested explicitly.
+
 ## Building and Running the Compiler
 
 ```bash

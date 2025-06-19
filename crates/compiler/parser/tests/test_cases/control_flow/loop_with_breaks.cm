@@ -1,0 +1,40 @@
+func loop_control_flow() {
+    // Break in different contexts
+    loop {
+        break;
+    }
+
+    while (true) {
+        if (should_exit()) {
+            break;
+        }
+    }
+
+    for item in collection {
+        if (is_invalid(item)) {
+            break;
+        }
+        process(item);
+    }
+
+    // Continue in different contexts
+    let sum = 0;
+    for i in numbers {
+        if (i != 0) {
+            continue;
+        }
+        sum = sum + i;
+    }
+
+    // Multiple breaks and continues
+    loop {
+        let x = read_input();
+        if (x == 0) {
+            break;
+        }
+        if (x != 0) {
+            continue;
+        }
+        process_positive(x);
+    }
+}

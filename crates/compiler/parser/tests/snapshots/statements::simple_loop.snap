@@ -1,0 +1,53 @@
+---
+source: crates/compiler/parser/tests/common.rs
+assertion_line: 96
+expression: snapshot
+---
+--- Code ---
+func test() { loop { let x = 1; } }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
+                ),
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Loop {
+                            body: Spanned(
+                                Block(
+                                    [
+                                        Spanned(
+                                            Let {
+                                                name: Spanned(
+                                                    "x",
+                                                    25..26,
+                                                ),
+                                                statement_type: None,
+                                                value: Spanned(
+                                                    Literal(
+                                                        1,
+                                                    ),
+                                                    29..30,
+                                                ),
+                                            },
+                                            21..31,
+                                        ),
+                                    ],
+                                ),
+                                19..33,
+                            ),
+                        },
+                        14..33,
+                    ),
+                ],
+            },
+            0..35,
+        ),
+    ),
+]
