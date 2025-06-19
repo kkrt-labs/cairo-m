@@ -63,12 +63,14 @@ pub struct TraceEntry {
 ///
 /// - `memory`: Flat address space storing instructions and data
 /// - `state`: Current processor state (PC, FP)
+/// - `program_length`: Length of the program in instructions
 /// - `trace`: Execution trace
 #[derive(Debug, Default)]
 pub struct VM {
     pub final_pc: M31,
     pub memory: Memory,
     pub state: State,
+    pub program_length: M31,
     pub trace: Vec<TraceEntry>,
 }
 
@@ -107,7 +109,8 @@ impl TryFrom<Program> for VM {
             .collect();
 
         // Create memory and load instructions starting at address 0
-        let final_pc = M31(qm31_instructions.len() as u32);
+        let program_length = M31(qm31_instructions.len() as u32);
+        let final_pc = program_length;
         let memory = Memory::from_iter(qm31_instructions);
 
         // Create state with PC at entrypoint and FP just after the bytecode
@@ -120,6 +123,7 @@ impl TryFrom<Program> for VM {
             final_pc,
             memory,
             state,
+            program_length,
             trace: vec![],
         })
     }
@@ -241,12 +245,13 @@ impl VM {
 
     /// Writes the serialized memory trace to a binary file.
     ///
-    /// This function serializes the memory trace using the memory's [`serialize_trace()`](Memory::serialize_trace)
+    /// This function first writes the program length to the file, then serializes
+    /// the memory trace using the memory's [`serialize_trace()`](Memory::serialize_trace)
     /// method and writes the resulting bytes to the specified file path.
     ///
     /// Each memory trace entry consists of an address (`M31`) and a value (`QM31`).
-    /// The serialization format includes the address followed by the 4 components of the `QM31` value,
-    /// all in little-endian byte order.
+    /// The serialization format includes the program length first, followed by the address
+    /// and the 4 components of the `QM31` value for each entry, all in little-endian byte order.
     ///
     /// ## Arguments
     ///
@@ -258,8 +263,9 @@ impl VM {
     /// - The file cannot be created or opened for writing
     /// - Writing to the file fails
     pub fn write_binary_memory_trace<P: AsRef<Path>>(&self, path: P) -> Result<(), VmError> {
-        let serialized_memory_trace = self.memory.serialize_trace();
         let mut file = File::create(path)?;
+        let serialized_memory_trace = self.memory.serialize_trace();
+        file.write_all(&self.program_length.0.to_le_bytes())?;
         file.write_all(&serialized_memory_trace)?;
         Ok(())
     }
@@ -759,7 +765,10 @@ mod tests {
         file.read_to_end(&mut file_contents).unwrap();
 
         // Compare with the expected serialized memory trace.
-        assert_eq!(file_contents, vm.memory.serialize_trace());
+        let mut expected_contents = Vec::new();
+        expected_contents.extend_from_slice(&vm.program_length.0.to_le_bytes());
+        expected_contents.extend_from_slice(&vm.memory.serialize_trace());
+        assert_eq!(file_contents, expected_contents);
 
         // Verify that the memory trace is not empty (we should have memory accesses).
         assert!(!file_contents.is_empty());
@@ -770,7 +779,7 @@ mod tests {
         // 3. Memory loads (2 loads for the addition operation)
         // Each entry is 5 * 4 = 20 bytes (addr + 4 QM31 components)
         let expected_entries = 3 + 3 + 2; // instruction fetches + stores + loads
-        let expected_size = expected_entries * 5 * 4; // 5 u32 values * 4 bytes each
+        let expected_size = expected_entries * 5 * 4 + 4; // 5 u32 values * 4 bytes each + 4 bytes for program length
         assert_eq!(file_contents.len(), expected_size);
     }
 }
