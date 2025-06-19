@@ -5,9 +5,11 @@ pub mod memory;
 use std::path::Path;
 
 use instructions::Instructions;
-use io::{memory_entry_iter_from_path, trace_iter_from_path, VmImportError};
+use io::VmImportError;
 use memory::{MemoryBoundaries, MemoryCache, MemoryEntry, TraceEntry};
 use tracing::{span, Level};
+
+use crate::adapter::io::{MemoryEntryFileIter, TraceFileIter};
 
 pub struct ProverInput {
     pub memory_boundaries: MemoryBoundaries,
@@ -20,16 +22,19 @@ pub fn import_from_vm_output(
 ) -> Result<ProverInput, VmImportError> {
     let _span = span!(Level::INFO, "import_from_vm_output").entered();
 
-    let memory_entries = memory_entry_iter_from_path(mem_path)?.map(|e| e.into());
-    let trace_entries = trace_iter_from_path(trace_path)?.map(|e| e.into());
+    let memory_iter = MemoryEntryFileIter::try_from(mem_path)?;
+    let program_length = memory_iter.program_length();
+    let memory_entries = memory_iter.map(|e| e.into());
+    let trace_entries = TraceFileIter::try_from(trace_path)?.map(|e| e.into());
 
-    Ok(adapt_from_iter(memory_entries, trace_entries))
+    adapt_from_iter(memory_entries, trace_entries, program_length)
 }
 
 pub fn adapt_from_iter<I: IntoIterator<Item = MemoryEntry>, J: IntoIterator<Item = TraceEntry>>(
     mem_iter: I,
     trace_iter: J,
-) -> ProverInput {
+    program_length: u32,
+) -> Result<ProverInput, VmImportError> {
     let mut instructions = Instructions::default();
     let mut memory = mem_iter.into_iter();
     let mut trace = trace_iter.into_iter();
@@ -37,35 +42,34 @@ pub fn adapt_from_iter<I: IntoIterator<Item = MemoryEntry>, J: IntoIterator<Item
     let mut memory_cache = MemoryCache::default();
 
     let Some(first) = trace.next() else {
-        let memory: Vec<(u32, [u32; 4], u32)> = memory
-            .into_iter()
-            .map(|e| (e.address, e.value, 0))
-            .collect();
-        return ProverInput {
-            memory_boundaries: MemoryBoundaries {
-                initial_memory: memory.clone(),
-                final_memory: memory,
-            },
-            instructions,
-        };
+        return Err(VmImportError::EmptyTrace);
     };
 
+    // Push program
+    for _ in 0..program_length {
+        let program_entry = memory.next().ok_or(VmImportError::EmptyTrace)?;
+        memory_cache.push(program_entry, clock);
+        clock += 1;
+    }
+
+    // Push first instruction execution
     instructions.initial_registers = first.into();
     instructions
         .push_instr(&mut memory, first.into(), clock, &mut memory_cache)
-        .expect("Failed to push initial instruction");
+        .map_err(VmImportError::InitialInstructionError)?;
     clock += 1;
 
+    // Push remaining instructions executions
     for entry in trace {
         instructions.final_registers = entry.into();
         instructions
             .push_instr(&mut memory, entry.into(), clock, &mut memory_cache)
-            .expect("Failed to push instruction");
+            .map_err(VmImportError::InstructionError)?;
         clock += 1;
     }
 
-    ProverInput {
+    Ok(ProverInput {
         memory_boundaries: memory_cache.get_memory_boundaries(),
         instructions,
-    }
+    })
 }

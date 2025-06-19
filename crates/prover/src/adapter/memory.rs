@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 
 use crate::adapter::instructions::MemoryArg;
@@ -10,8 +11,8 @@ pub struct MemoryEntry {
     pub value: [u32; 4],
 }
 
-impl From<crate::adapter::io::MemoryEntry> for MemoryEntry {
-    fn from(io_entry: crate::adapter::io::MemoryEntry) -> Self {
+impl From<crate::adapter::io::IoMemoryEntry> for MemoryEntry {
+    fn from(io_entry: crate::adapter::io::IoMemoryEntry) -> Self {
         Self {
             address: io_entry.address,
             value: io_entry.value,
@@ -25,8 +26,8 @@ pub struct TraceEntry {
     pub fp: u32,
 }
 
-impl From<crate::adapter::io::TraceEntry> for TraceEntry {
-    fn from(io_entry: crate::adapter::io::TraceEntry) -> Self {
+impl From<crate::adapter::io::IoTraceEntry> for TraceEntry {
+    fn from(io_entry: crate::adapter::io::IoTraceEntry) -> Self {
         Self {
             pc: io_entry.pc,
             fp: io_entry.fp,
@@ -36,8 +37,8 @@ impl From<crate::adapter::io::TraceEntry> for TraceEntry {
 
 #[derive(Debug, Default, Clone)]
 pub struct MemoryBoundaries {
-    pub initial_memory: Vec<(u32, [u32; 4], u32)>,
-    pub final_memory: Vec<(u32, [u32; 4], u32)>,
+    pub initial_memory: Vec<(M31, QM31, M31)>,
+    pub final_memory: Vec<(M31, QM31, M31)>,
 }
 
 #[derive(Debug, Default)]
@@ -54,18 +55,25 @@ impl MemoryCache {
             .get(&mem_entry.address)
             .copied()
             .unwrap_or_else(|| {
+                // If the memory cell is uninitialized, mark this address as an initial one with dummy value and clock
+                // and return previous clock as zero.
                 self.initial_memory
-                    .insert(mem_entry.address, (mem_entry.value, clock));
+                    .insert(mem_entry.address, Default::default());
                 0
             });
+        // No matter what (initialized cell or not), update the clock cache at the given address with the current clock.
         self.clock_cache.insert(mem_entry.address, clock);
+        // Update the current memory at the given address with the current value and clock.
+        // If the memory cell is uninitialized, the old value is the dummy value.
         let old_value = self
             .current_memory
             .insert(mem_entry.address, (mem_entry.value, clock))
-            .unwrap_or(([0, 0, 0, 0], clock));
+            .unwrap_or_default();
 
+        // Like so, components can systematically consume the previous (addr, val, clock) and produce the new (addr, val, clock).
+        // And the memory component can produce the initial (addr, default_val, default_clock) and consume the final (addr, val, clock).
         MemoryArg {
-            address: mem_entry.address,
+            address: mem_entry.address.into(),
             prev_val: QM31::from_u32_unchecked(
                 old_value.0[0],
                 old_value.0[1],
@@ -78,8 +86,8 @@ impl MemoryCache {
                 mem_entry.value[2],
                 mem_entry.value[3],
             ),
-            prev_clock,
-            clock,
+            prev_clock: prev_clock.into(),
+            clock: clock.into(),
         }
     }
 
@@ -88,12 +96,24 @@ impl MemoryCache {
             initial_memory: self
                 .initial_memory
                 .iter()
-                .map(|(&address, &(value, clock))| (address, value, clock))
+                .map(|(&address, &(value, clock))| {
+                    (
+                        address.into(),
+                        QM31::from_u32_unchecked(value[0], value[1], value[2], value[3]),
+                        clock.into(),
+                    )
+                })
                 .collect(),
             final_memory: self
                 .current_memory
                 .iter()
-                .map(|(&address, &(value, _clock))| (address, value, _clock))
+                .map(|(&address, &(value, _clock))| {
+                    (
+                        address.into(),
+                        QM31::from_u32_unchecked(value[0], value[1], value[2], value[3]),
+                        _clock.into(),
+                    )
+                })
                 .collect(),
         }
     }
@@ -101,6 +121,8 @@ impl MemoryCache {
 
 #[cfg(test)]
 mod tests {
+    use stwo_prover::core::fields::m31::M31;
+
     use super::*;
 
     #[test]
@@ -129,11 +151,11 @@ mod tests {
 
         let memory_arg = cache.push(mem_entry, clock);
 
-        assert_eq!(memory_arg.address, 42);
+        assert_eq!(memory_arg.address, M31::from(42));
         assert_eq!(memory_arg.prev_val, QM31::from_u32_unchecked(0, 0, 0, 0));
         assert_eq!(memory_arg.value, QM31::from_u32_unchecked(1, 2, 3, 4));
-        assert_eq!(memory_arg.prev_clock, 0);
-        assert_eq!(memory_arg.clock, 10);
+        assert_eq!(memory_arg.prev_clock, M31::from(0));
+        assert_eq!(memory_arg.clock, M31::from(10));
 
         // Check internal state
         assert_eq!(cache.clock_cache.get(&42), Some(&10));
@@ -159,11 +181,11 @@ mod tests {
         // Push second entry to same address
         let memory_arg = cache.push(second_entry, 20);
 
-        assert_eq!(memory_arg.address, 42);
+        assert_eq!(memory_arg.address, M31::from(42));
         assert_eq!(memory_arg.prev_val, QM31::from_u32_unchecked(1, 2, 3, 4));
         assert_eq!(memory_arg.value, QM31::from_u32_unchecked(5, 6, 7, 8));
-        assert_eq!(memory_arg.prev_clock, 10);
-        assert_eq!(memory_arg.clock, 20);
+        assert_eq!(memory_arg.prev_clock, M31::from(10));
+        assert_eq!(memory_arg.clock, M31::from(20));
 
         // Check internal state
         assert_eq!(cache.clock_cache.get(&42), Some(&20));
@@ -186,11 +208,11 @@ mod tests {
         cache.push(entry1, 10);
         let memory_arg = cache.push(entry2, 20);
 
-        assert_eq!(memory_arg.address, 100);
+        assert_eq!(memory_arg.address, M31::from(100));
         assert_eq!(memory_arg.prev_val, QM31::from_u32_unchecked(0, 0, 0, 0)); // New address, so old value is zero
         assert_eq!(memory_arg.value, QM31::from_u32_unchecked(5, 6, 7, 8));
-        assert_eq!(memory_arg.prev_clock, 0); // New address, so previous clock is 0
-        assert_eq!(memory_arg.clock, 20);
+        assert_eq!(memory_arg.prev_clock, M31::from(0)); // New address, so previous clock is 0
+        assert_eq!(memory_arg.clock, M31::from(20));
 
         // Check both entries exist
         assert_eq!(cache.clock_cache.len(), 2);
@@ -226,8 +248,8 @@ mod tests {
 
         assert_eq!(memory_arg.prev_val, QM31::from_u32_unchecked(5, 6, 7, 8));
         assert_eq!(memory_arg.value, QM31::from_u32_unchecked(9, 10, 11, 12));
-        assert_eq!(memory_arg.prev_clock, 20);
-        assert_eq!(memory_arg.clock, 30);
+        assert_eq!(memory_arg.prev_clock, M31::from(20));
+        assert_eq!(memory_arg.clock, M31::from(30));
 
         // Initial memory should still be the first value
         assert_eq!(
@@ -254,10 +276,16 @@ mod tests {
 
         assert_eq!(boundaries.initial_memory.len(), 1);
         assert_eq!(boundaries.final_memory.len(), 1);
-        assert_eq!(boundaries.initial_memory[0].0, 42);
-        assert_eq!(boundaries.initial_memory[0].1, [1, 2, 3, 4]);
-        assert_eq!(boundaries.final_memory[0].0, 42);
-        assert_eq!(boundaries.final_memory[0].1, [1, 2, 3, 4]);
+        assert_eq!(boundaries.initial_memory[0].0, M31::from(42));
+        assert_eq!(
+            boundaries.initial_memory[0].1,
+            QM31::from_u32_unchecked(1, 2, 3, 4)
+        );
+        assert_eq!(boundaries.final_memory[0].0, M31::from(42));
+        assert_eq!(
+            boundaries.final_memory[0].1,
+            QM31::from_u32_unchecked(1, 2, 3, 4)
+        );
     }
 
     #[test]
@@ -298,12 +326,12 @@ mod tests {
         initial_sorted.sort_by_key(|entry| entry.0);
         final_sorted.sort_by_key(|entry| entry.0);
 
-        assert_eq!(initial_sorted[0].0, 42);
-        assert_eq!(initial_sorted[0].1, [1, 2, 3, 4]);
-        assert_eq!(initial_sorted[1].0, 100);
-        assert_eq!(initial_sorted[1].1, [5, 6, 7, 8]);
-        assert_eq!(initial_sorted[2].0, 200);
-        assert_eq!(initial_sorted[2].1, [9, 10, 11, 12]);
+        assert_eq!(initial_sorted[0].0, M31::from(42));
+        assert_eq!(initial_sorted[0].1, QM31::from_u32_unchecked(1, 2, 3, 4));
+        assert_eq!(initial_sorted[1].0, M31::from(100));
+        assert_eq!(initial_sorted[1].1, QM31::from_u32_unchecked(5, 6, 7, 8));
+        assert_eq!(initial_sorted[2].0, M31::from(200));
+        assert_eq!(initial_sorted[2].1, QM31::from_u32_unchecked(9, 10, 11, 12));
     }
 
     #[test]
@@ -347,15 +375,15 @@ mod tests {
         final_sorted.sort_by_key(|entry| entry.0);
 
         // Initial memory should contain first values
-        assert_eq!(initial_sorted[0].0, 42);
-        assert_eq!(initial_sorted[0].1, [1, 2, 3, 4]); // Initial value
-        assert_eq!(initial_sorted[1].0, 100);
-        assert_eq!(initial_sorted[1].1, [9, 10, 11, 12]);
+        assert_eq!(initial_sorted[0].0, M31::from(42));
+        assert_eq!(initial_sorted[0].1, QM31::from_u32_unchecked(1, 2, 3, 4)); // Initial value
+        assert_eq!(initial_sorted[1].0, M31::from(100));
+        assert_eq!(initial_sorted[1].1, QM31::from_u32_unchecked(9, 10, 11, 12));
 
         // Final memory should contain current values
-        assert_eq!(final_sorted[0].0, 42);
-        assert_eq!(final_sorted[0].1, [5, 6, 7, 8]); // Updated value
-        assert_eq!(final_sorted[1].0, 100);
-        assert_eq!(final_sorted[1].1, [9, 10, 11, 12]); // Same as initial
+        assert_eq!(final_sorted[0].0, M31::from(42));
+        assert_eq!(final_sorted[0].1, QM31::from_u32_unchecked(5, 6, 7, 8)); // Updated value
+        assert_eq!(final_sorted[1].0, M31::from(100));
+        assert_eq!(final_sorted[1].1, QM31::from_u32_unchecked(9, 10, 11, 12)); // Same as initial
     }
 }
