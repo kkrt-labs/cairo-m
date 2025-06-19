@@ -1,6 +1,5 @@
 ---
 source: crates/compiler/semantic/tests/mod.rs
-assertion_line: 176
 description: "Inline semantic validation error test: expressions::type_errors::test_tuple_in_arithmetic_operation"
 ---
 Fixture: semantic_tests::expressions::type_errors::test_tuple_in_arithmetic_operation

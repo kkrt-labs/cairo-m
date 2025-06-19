@@ -535,6 +535,8 @@ pub(crate) struct SemanticIndexBuilder<'db> {
     /// Stack of scope IDs representing the current nesting level
     /// The top of the stack is the currently active scope
     scope_stack: Vec<FileScopeId>,
+    /// Current loop nesting depth for tracking break/continue validity
+    loop_depth: usize,
 }
 
 impl<'db> SemanticIndexBuilder<'db> {
@@ -545,6 +547,7 @@ impl<'db> SemanticIndexBuilder<'db> {
             module,
             index: SemanticIndex::new(),
             scope_stack: Vec::new(),
+            loop_depth: 0,
         };
 
         // Create the root module scope
@@ -923,7 +926,57 @@ impl<'db> SemanticIndexBuilder<'db> {
                     }
                 });
             }
-            _ => panic!("Unknown statement type: {:?}", stmt),
+            Statement::Loop { body } => {
+                // Create a new scope for the loop body
+                self.with_new_scope(
+                    crate::place::ScopeKind::Loop {
+                        depth: self.loop_depth,
+                    },
+                    |builder| {
+                        // Map the loop's span to its scope for IDE features
+                        let current_scope = builder.current_scope();
+                        builder.index.set_scope_for_span(stmt.span(), current_scope);
+
+                        // Increment loop depth for nested loops
+                        builder.loop_depth += 1;
+                        builder.visit_statement(body);
+                        builder.loop_depth -= 1;
+                    },
+                );
+            }
+            Statement::While { condition, body } => {
+                // Visit the condition expression
+                let _condition_expr_id = self.visit_expression(condition);
+
+                // Create a new scope for the while loop body
+                self.with_new_scope(
+                    crate::place::ScopeKind::Loop {
+                        depth: self.loop_depth,
+                    },
+                    |builder| {
+                        // Map the loop's span to its scope for IDE features
+                        let current_scope = builder.current_scope();
+                        builder.index.set_scope_for_span(stmt.span(), current_scope);
+
+                        // Increment loop depth for nested loops
+                        builder.loop_depth += 1;
+                        builder.visit_statement(body);
+                        builder.loop_depth -= 1;
+                    },
+                );
+            }
+            Statement::For { .. } => {
+                // TODO: For loops are not yet supported - we need iterator/range types first
+                panic!("For loops are not yet supported - need iterator/range types");
+            }
+            Statement::Break | Statement::Continue => {
+                // Map the break/continue statement's span to its scope for IDE features
+                let current_scope = self.current_scope();
+                self.index.set_scope_for_span(stmt.span(), current_scope);
+
+                // Note: Validation of break/continue being inside a loop will be done
+                // in the ControlFlowValidator
+            }
         }
     }
 

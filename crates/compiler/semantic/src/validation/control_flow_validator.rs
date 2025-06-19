@@ -82,6 +82,7 @@ impl ControlFlowValidator {
                 db,
                 file,
                 &function_def.body,
+                0, // Start with loop depth 0
                 diagnostics,
             );
 
@@ -94,6 +95,15 @@ impl ControlFlowValidator {
                     function_def.name.span(),
                 ));
             }
+
+            // Pass 3: Break/continue validation
+            Self::analyze_break_continue_in_sequence(
+                db,
+                file,
+                &function_def.body,
+                0, // Start with loop depth 0
+                diagnostics,
+            );
         }
     }
 
@@ -137,6 +147,7 @@ impl ControlFlowValidator {
         db: &dyn SemanticDb,
         file: File,
         statements: &[Spanned<Statement>],
+        loop_depth: usize,
         diagnostics: &mut Vec<Diagnostic>,
     ) -> bool {
         let mut path_has_terminated = false;
@@ -155,6 +166,7 @@ impl ControlFlowValidator {
                 db,
                 file,
                 stmt_spanned,
+                loop_depth,
                 diagnostics,
             );
 
@@ -170,13 +182,18 @@ impl ControlFlowValidator {
         db: &dyn SemanticDb,
         file: File,
         stmt: &Spanned<Statement>,
+        loop_depth: usize,
         diagnostics: &mut Vec<Diagnostic>,
     ) -> bool {
         match stmt.value() {
             Statement::Return { .. } => true,
-            Statement::Block(body) => {
-                Self::analyze_for_unreachable_code_in_sequence(db, file, body, diagnostics)
-            }
+            Statement::Block(body) => Self::analyze_for_unreachable_code_in_sequence(
+                db,
+                file,
+                body,
+                loop_depth,
+                diagnostics,
+            ),
             Statement::If {
                 then_block,
                 else_block,
@@ -186,12 +203,52 @@ impl ControlFlowValidator {
                     db,
                     file,
                     then_block,
+                    loop_depth,
                     diagnostics,
                 );
                 let else_terminates = else_block.as_ref().is_some_and(|eb| {
-                    Self::analyze_for_unreachable_code_in_statement(db, file, eb, diagnostics)
+                    Self::analyze_for_unreachable_code_in_statement(
+                        db,
+                        file,
+                        eb,
+                        loop_depth,
+                        diagnostics,
+                    )
                 });
                 then_terminates && else_terminates
+            }
+            Statement::Loop { body } => {
+                // Analyze the loop body for unreachable code
+                Self::analyze_for_unreachable_code_in_statement(
+                    db,
+                    file,
+                    body,
+                    loop_depth + 1,
+                    diagnostics,
+                );
+                // An infinite loop only terminates control flow if it has no break statements
+                !Self::contains_break(body)
+            }
+            Statement::While { condition: _, body } => {
+                // Analyze the loop body for unreachable code
+                Self::analyze_for_unreachable_code_in_statement(
+                    db,
+                    file,
+                    body,
+                    loop_depth + 1,
+                    diagnostics,
+                );
+                // While loops might not execute at all, so they don't guarantee termination
+                false
+            }
+            Statement::For { .. } => {
+                // TODO: For loops not yet supported
+                panic!("For loops are not yet supported - need iterator/range types");
+            }
+            Statement::Break | Statement::Continue => {
+                // Break and continue terminate the current control flow only when inside a loop
+                // If they're outside a loop (invalid), they don't affect control flow
+                loop_depth > 0
             }
             // Other statements do not terminate control flow for this analysis.
             _ => false,
@@ -236,7 +293,20 @@ impl ControlFlowValidator {
                     .is_some_and(|eb| Self::statement_provides_return_value(eb));
                 then_returns && else_returns
             }
-            _ => false, // `let`, `const`, `assign`, and `expression` do not provide return values.
+            Statement::Loop { body } => {
+                // Loop statements can provide returns if they contain return statements
+                // TODO: This could be improved to check if all break paths lead to returns
+                Self::statement_provides_return_value(body)
+            }
+            Statement::While { .. } => {
+                // While loops might not execute, so they can't guarantee a return
+                false
+            }
+            Statement::For { .. } => {
+                // For loops might not execute, so they can't guarantee a return
+                false
+            }
+            _ => false, // `let`, `const`, `assign`, `expression`, `break`, and `continue` do not provide return values.
         }
     }
 
@@ -260,12 +330,43 @@ impl ControlFlowValidator {
                     .is_some_and(|eb| Self::statement_guarantees_hard_return(eb));
                 then_returns && else_returns
             }
-            _ => false, // let, const, assign, and expression are not hard returns.
+            Statement::Loop { body } => {
+                // Check if the loop body has a hard return
+                Self::statement_guarantees_hard_return(body)
+            }
+            Statement::While { .. } | Statement::For { .. } => {
+                // While and for loops might not execute, so they don't guarantee hard returns
+                false
+            }
+            _ => false, // let, const, assign, expression, break, and continue are not hard returns.
+        }
+    }
+
+    /// Check if a statement contains any break statements
+    fn contains_break(stmt: &Spanned<Statement>) -> bool {
+        match stmt.value() {
+            Statement::Break => true,
+            Statement::Block(statements) => statements.iter().any(Self::contains_break),
+            Statement::If {
+                then_block,
+                else_block,
+                ..
+            } => {
+                Self::contains_break(then_block)
+                    || else_block
+                        .as_ref()
+                        .is_some_and(|eb| Self::contains_break(eb))
+            }
+            Statement::Loop { body: _ } | Statement::While { body: _, .. } => {
+                // Don't look inside nested loops - their breaks don't affect the outer loop
+                false
+            }
+            _ => false,
         }
     }
 
     /// Return a static human-readable name for a statement type.
-    fn statement_type_name(stmt: &Statement) -> &'static str {
+    const fn statement_type_name(stmt: &Statement) -> &'static str {
         match stmt {
             Statement::Let { .. } => "variable declaration",
             Statement::Local { .. } => "local variable declaration",
@@ -275,7 +376,110 @@ impl ControlFlowValidator {
             Statement::If { .. } => "if statement",
             Statement::Expression(_) => "expression statement",
             Statement::Block(_) => "block",
-            _ => panic!("Unknown statement type: {:?}", stmt),
+            Statement::Loop { .. } => "loop statement",
+            Statement::While { .. } => "while loop",
+            Statement::For { .. } => "for loop",
+            Statement::Break => "break statement",
+            Statement::Continue => "continue statement",
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // Break/continue validation
+    // ---------------------------------------------------------------------
+
+    /// Analyze a sequence of statements for break/continue outside of loops.
+    fn analyze_break_continue_in_sequence(
+        db: &dyn SemanticDb,
+        file: File,
+        statements: &[Spanned<Statement>],
+        loop_depth: usize,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) {
+        for stmt in statements {
+            Self::analyze_break_continue_in_statement(db, file, stmt, loop_depth, diagnostics);
+        }
+    }
+
+    /// Analyze a single statement for break/continue validation.
+    fn analyze_break_continue_in_statement(
+        db: &dyn SemanticDb,
+        file: File,
+        stmt: &Spanned<Statement>,
+        loop_depth: usize,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) {
+        match stmt.value() {
+            Statement::Break => {
+                if loop_depth == 0 {
+                    diagnostics.push(Diagnostic::break_outside_loop(
+                        file.file_path(db).to_string(),
+                        stmt.span(),
+                    ));
+                }
+            }
+            Statement::Continue => {
+                if loop_depth == 0 {
+                    diagnostics.push(Diagnostic::continue_outside_loop(
+                        file.file_path(db).to_string(),
+                        stmt.span(),
+                    ));
+                }
+            }
+            Statement::Loop { body } => {
+                Self::analyze_break_continue_in_statement(
+                    db,
+                    file,
+                    body,
+                    loop_depth + 1,
+                    diagnostics,
+                );
+            }
+            Statement::While { body, .. } => {
+                Self::analyze_break_continue_in_statement(
+                    db,
+                    file,
+                    body,
+                    loop_depth + 1,
+                    diagnostics,
+                );
+            }
+            Statement::For { .. } => {
+                // TODO: For loops not yet supported
+                panic!("For loops are not yet supported - need iterator/range types");
+            }
+            Statement::If {
+                then_block,
+                else_block,
+                ..
+            } => {
+                Self::analyze_break_continue_in_statement(
+                    db,
+                    file,
+                    then_block,
+                    loop_depth,
+                    diagnostics,
+                );
+                if let Some(else_block) = else_block {
+                    Self::analyze_break_continue_in_statement(
+                        db,
+                        file,
+                        else_block,
+                        loop_depth,
+                        diagnostics,
+                    );
+                }
+            }
+            Statement::Block(statements) => {
+                Self::analyze_break_continue_in_sequence(
+                    db,
+                    file,
+                    statements,
+                    loop_depth,
+                    diagnostics,
+                );
+            }
+            _ => {} // Other statements don't contain nested statements
         }
     }
 }

@@ -152,6 +152,11 @@ pub fn definition_semantic_type<'db>(
             // These don't have a "type" in the traditional sense.
             TypeId::new(db, TypeData::Error)
         }
+        DefinitionKind::LoopVariable(_) => {
+            // TODO: For now, loop variables are untyped (future: infer from iterable)
+            // In the future, this should infer the type from the iterable expression
+            TypeId::new(db, TypeData::Felt)
+        }
     }
 }
 

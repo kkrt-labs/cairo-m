@@ -59,6 +59,8 @@ pub enum DefinitionKind {
     Import(ImportDefRef),
     /// Namespace definition
     Namespace(NamespaceDefRef),
+    /// Loop variable definition (from for loops)
+    LoopVariable(LoopVariableDefRef),
 }
 
 impl fmt::Display for DefinitionKind {
@@ -72,6 +74,7 @@ impl fmt::Display for DefinitionKind {
             Self::Parameter(_) => write!(f, "parameter"),
             Self::Import(_) => write!(f, "import"),
             Self::Namespace(_) => write!(f, "namespace"),
+            Self::LoopVariable(_) => write!(f, "loop variable"),
         }
     }
 }
@@ -243,6 +246,12 @@ impl NamespaceDefRef {
             item_count: namespace.value().body.len(),
         }
     }
+}
+
+/// Reference to a loop variable definition
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct LoopVariableDefRef {
+    pub name: String,
 }
 
 /// Collection of definitions within a scope or file

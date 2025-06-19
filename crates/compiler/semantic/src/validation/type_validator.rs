@@ -701,7 +701,51 @@ impl TypeValidator {
             Statement::Const(_) => {
                 // Const statements are handled during definition processing
             }
-            _ => panic!("Unknown statement type: {:?}", stmt),
+            Statement::Loop { body } => {
+                self.check_statement_type(db, file, index, function_def, body, diagnostics);
+            }
+            Statement::While { condition, body } => {
+                // Check condition expression
+                if let Some(condition_expr_id) = index.expression_id_by_span(condition.span()) {
+                    if let Some(condition_info) = index.expression(condition_expr_id) {
+                        self.check_expression_types(
+                            db,
+                            file,
+                            index,
+                            condition_expr_id,
+                            condition_info,
+                            diagnostics,
+                        );
+                    }
+
+                    // TODO: change this to check bool type once implemented
+                    // Check that condition is boolean type (felt)
+                    let condition_type = expression_semantic_type(db, file, condition_expr_id);
+                    let felt_type = TypeId::new(db, TypeData::Felt);
+
+                    if !are_types_compatible(db, condition_type, felt_type) {
+                        diagnostics.push(
+                            Diagnostic::error(
+                                DiagnosticCode::TypeMismatch,
+                                format!(
+                                    "While loop condition must be of type felt, found '{}'",
+                                    condition_type.data(db).display_name(db)
+                                ),
+                            )
+                            .with_location(file.file_path(db).to_string(), condition.span()),
+                        );
+                    }
+                }
+
+                self.check_statement_type(db, file, index, function_def, body, diagnostics);
+            }
+            Statement::For { .. } => {
+                // TODO: For loops not yet supported - we need iterator/range types first
+                panic!("For loops are not yet supported - need iterator/range types");
+            }
+            Statement::Break | Statement::Continue => {
+                // No types to check for break/continue
+            }
         }
     }
 

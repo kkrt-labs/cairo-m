@@ -1,0 +1,36 @@
+---
+source: crates/compiler/semantic/tests/mod.rs
+description: "Inline semantic validation error test: control_flow::loop_unreachable::test_code_after_continue"
+---
+Fixture: semantic_tests::control_flow::loop_unreachable::test_code_after_continue
+============================================================
+Source code:
+
+        func test() {
+            loop {
+                continue;
+                let x = 1;  // Unreachable
+            }
+            return;
+        }
+        
+============================================================
+Found 2 diagnostic(s):
+
+--- Diagnostic 1 ---
+[3001] Warning: Unreachable variable declaration
+   ╭─[ semantic_tests::control_flow::loop_unreachable::test_code_after_continue:5:17 ]
+   │
+ 5 │                 let x = 1;  // Unreachable
+   │                 ─────┬────  
+   │                      ╰────── Unreachable variable declaration
+───╯
+
+--- Diagnostic 2 ---
+[3001] Warning: Unreachable return statement
+   ╭─[ semantic_tests::control_flow::loop_unreachable::test_code_after_continue:7:13 ]
+   │
+ 7 │             return;
+   │             ───┬───  
+   │                ╰───── Unreachable return statement
+───╯

@@ -1,0 +1,33 @@
+---
+source: crates/compiler/semantic/tests/mod.rs
+description: "Inline semantic validation error test: control_flow::loop_scoping::test_nested_loop_scopes"
+---
+Fixture: semantic_tests::control_flow::loop_scoping::test_nested_loop_scopes
+============================================================
+Source code:
+
+        func test() {
+            loop {
+                let outer = 1;
+                loop {
+                    let inner = 2;
+                    let x = outer;  // OK: can access outer scope
+                    break;
+                }
+                let y = inner;  // Error: inner not in scope
+                break;
+            }
+            return;
+        }
+        
+============================================================
+Found 1 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1001] Error: Undeclared variable 'inner'
+    ╭─[ semantic_tests::control_flow::loop_scoping::test_nested_loop_scopes:10:25 ]
+    │
+ 10 │                 let y = inner;  // Error: inner not in scope
+    │                         ──┬──  
+    │                           ╰──── Undeclared variable 'inner'
+────╯
