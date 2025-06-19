@@ -279,7 +279,10 @@ const fn combination() -> u32 {
 
     let eq2 = x == 3;
 
-    mut_val + (eq2 as u32) + random_elements_foo() + 32
+    let compound1 = (x != 0) || (((y == 3) as u32 + 2) != 0);
+    let compound2 = ((eq as u32) != 2) && (3 != 0);
+
+    mut_val + (eq2 as u32) + random_elements_foo() + 32 + (compound1 as u32) + (compound2 as u32)
 }
 
 const fn random_elements_foo() -> u32 {

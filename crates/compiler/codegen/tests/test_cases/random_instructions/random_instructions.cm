@@ -12,6 +12,9 @@ func main(){
 
     let eq2 = (x == x);
 
+    let compound1 = x || (y == 3) + 2;
+    let compound2 = eq != 2 && 3;
+
     return mut_val + eq2 + foo() + 32;
 }
 

@@ -23,6 +23,9 @@ func main(){
 
     let eq2 = (x == x);
 
+    let compound1 = x || (y == 3) + 2;
+    let compound2 = eq != 2 && 3;
+
     return mut_val + eq2 + foo() + 32;
 }
 
@@ -36,13 +39,13 @@ main:
    0: 6 3 _ 0              // Store immediate: [fp + 0] = 3
    1: 6 13 _ 1             // Store immediate: [fp + 1] = 13
    2: 6 16 _ 2             // Store immediate: [fp + 2] = 16
-   3: 2 0 1 3              // Equality check: [fp + 3] = [fp + 0] - [fp + 1]
-   4: 31 3 3 _             // if [fp + 3] != 0 jmp rel eq_false_3
+   3: 2 0 1 3              // [fp + 3] = [fp + 0] op [fp + 1]
+   4: 31 3 3 _             // if [fp + 3] != 0, jump to not_zero_0
    5: 6 1 _ 3              // [fp + 3] = 1
-   6: 20 8 _ _             // jump abs eq_end_3
-eq_false_3:
+   6: 20 8 _ _             // jump to end_1
+not_zero_0:
    7: 6 0 _ 3              // [fp + 3] = 0
-eq_end_3:
+end_1:
    8: 4 3 _ 4              // Store: [fp + 4] = [fp + 3]
    9: 6 1 _ 5              // Store immediate: [fp + 5] = 1
   10: 31 4 2 _             // if [fp + 4] != 0 jmp rel main_1
@@ -57,19 +60,48 @@ main_2:
   17: 10 2 2 9             // [fp + 9] = [fp + 2] op 2
   18: 0 5 9 10             // [fp + 10] = [fp + 5] op [fp + 9]
   19: 4 10 _ 5             // Store: [fp + 5] = [fp + 10]
-  20: 2 0 0 11             // Equality check: [fp + 11] = [fp + 0] - [fp + 0]
-  21: 31 11 3 _            // if [fp + 11] != 0 jmp rel eq_false_11
+  20: 2 0 0 11             // [fp + 11] = [fp + 0] op [fp + 0]
+  21: 31 11 3 _            // if [fp + 11] != 0, jump to not_zero_2
   22: 6 1 _ 11             // [fp + 11] = 1
-  23: 20 25 _ _            // jump abs eq_end_11
-eq_false_11:
+  23: 20 25 _ _            // jump to end_3
+not_zero_2:
   24: 6 0 _ 11             // [fp + 11] = 0
-eq_end_11:
+end_3:
   25: 4 11 _ 12            // Store: [fp + 12] = [fp + 11]
-  26: 0 5 12 13            // [fp + 13] = [fp + 5] op [fp + 12]
-  27: 12 15 31 _           // call foo
-  28: 0 13 14 16           // [fp + 16] = [fp + 13] op [fp + 14]
-  29: 1 16 32 -3           // [fp + -3] = [fp + 16] op 32
-  30: 15 _ _ _             // return
+  26: 3 1 3 13             // [fp + 13] = [fp + 1] op 3
+  27: 31 13 3 _            // if [fp + 13] != 0, jump to not_zero_4
+  28: 6 1 _ 13             // [fp + 13] = 1
+  29: 20 31 _ _            // jump to end_5
+not_zero_4:
+  30: 6 0 _ 13             // [fp + 13] = 0
+end_5:
+  31: 1 13 2 14            // [fp + 14] = [fp + 13] op 2
+  32: 6 0 _ 15             // Initialize OR result to 0
+  33: 31 0 3 _             // if [fp + 0] != 0, jump to or_true_6
+  34: 31 14 2 _            // if [fp + 14] != 0, jump to or_true_6
+  35: 20 37 _ _            // jump to or_end_7
+or_true_6:
+  36: 6 1 _ 15             // [fp + 15] = 1
+or_end_7:
+  37: 3 4 2 16             // [fp + 16] = [fp + 4] op 2
+  38: 31 16 3 _            // if [fp + 16] != 0, jump to neq_non_zero_8
+  39: 6 0 _ 16             // [fp + 16] = 0
+  40: 20 42 _ _            // jump to neq_end_9
+neq_non_zero_8:
+  41: 6 1 _ 16             // [fp + 16] = 1
+neq_end_9:
+  42: 8 16 3 17            // [fp + 17] = [fp + 16] op 3
+  43: 31 17 3 _            // if [fp + 17] != 0, jump to and_non_zero_10
+  44: 6 0 _ 17             // [fp + 17] = 0
+  45: 20 47 _ _            // jump to and_end_11
+and_non_zero_10:
+  46: 6 1 _ 17             // [fp + 17] = 1
+and_end_11:
+  47: 0 5 12 18            // [fp + 18] = [fp + 5] op [fp + 12]
+  48: 12 20 52 _           // call foo
+  49: 0 18 19 21           // [fp + 21] = [fp + 18] op [fp + 19]
+  50: 1 21 32 -3           // [fp + -3] = [fp + 21] op 32
+  51: 15 _ _ _             // return
 foo:
-  31: 6 32 _ -3            // Return value: [fp - 3] = 32
-  32: 15 _ _ _             // return
+  52: 6 32 _ -3            // Return value: [fp - 3] = 32
+  53: 15 _ _ _             // return

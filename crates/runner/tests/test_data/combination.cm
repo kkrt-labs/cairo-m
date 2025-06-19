@@ -10,9 +10,12 @@ func main(){
     mut_val = mut_val * mut_val;
     mut_val = mut_val + (even_number / 2);
 
-    let eq2 = (x == x);
+    let eq2 = (x == 3);
 
-    return mut_val + eq2 + foo() + 32;
+    let compound1 = x || (y == 3) + 2;
+    let compound2 = eq != 2 && 3;
+
+    return mut_val + eq2 + foo() + 32 + compound1 + compound2;
 }
 
 func foo() -> felt {

@@ -20,15 +20,18 @@ pub struct CasmBuilder {
     labels: Vec<Label>,
     /// Current function layout for offset lookups
     layout: Option<FunctionLayout>,
+    /// Counter for generating unique labels
+    label_counter: usize,
 }
 
 impl CasmBuilder {
     /// Create a new CASM builder
-    pub const fn new() -> Self {
+    pub const fn new(label_counter: usize) -> Self {
         Self {
             instructions: Vec::new(),
             labels: Vec::new(),
             layout: None,
+            label_counter,
         }
     }
 
@@ -36,6 +39,12 @@ impl CasmBuilder {
     pub fn with_layout(mut self, layout: FunctionLayout) -> Self {
         self.layout = Some(layout);
         self
+    }
+
+    pub fn new_label_name(&mut self, prefix: &str) -> String {
+        let label_id = self.label_counter;
+        self.label_counter += 1;
+        format!("{}_{}", prefix, label_id)
     }
 
     /// Add a label at the current position
@@ -172,67 +181,13 @@ impl CasmBuilder {
                     right,
                 )?;
             }
-            BinaryOp::Eq => {
-                // Generate unique labels for this equality check
-                let eq_false_label = format!("eq_false_{}", dest.index());
-                let eq_end_label = format!("eq_end_{}", dest.index());
-
-                // First, compute the difference (a - b) and get the offset where it's stored
-                let check_offset = self.generate_equality_check(dest_off, left, right)?;
-
-                // Create a temporary value for the subtraction result if needed
-                let _layout = self
-                    .layout
-                    .as_mut()
-                    .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
-
-                // If check_offset != dest_off (happens for x == 0 optimizations),
-                // we need to use a different value for the jnz
-                let check_value = if check_offset != dest_off {
-                    // For optimized cases like x == 0, check_offset points to x directly
-                    // Find the ValueId that maps to check_offset
-                    // For now, we'll create a synthetic value or use the original
-                    match (&left, &right) {
-                        (Value::Operand(id), Value::Literal(Literal::Integer(0)))
-                        | (Value::Literal(Literal::Integer(0)), Value::Operand(id)) => {
-                            Value::Operand(*id)
-                        }
-                        _ => Value::Operand(dest),
-                    }
-                } else {
-                    Value::Operand(dest)
-                };
-
-                // If the difference is non-zero (a != b), jump to false case
-                self.jnz(check_value, &eq_false_label)?;
-
-                // a == b, so store 1
-                let instr = CasmInstruction::new(Opcode::StoreImm.into())
-                    .with_off2(dest_off)
-                    .with_imm(1)
-                    .with_comment(format!("[fp + {}] = 1", dest_off));
-                self.add_instruction(instr);
-
-                // Jump to end
-                self.jump(&eq_end_label)?;
-
-                // Add label for false case
-                self.add_label(Label::new(eq_false_label));
-
-                // a != b, so store 0
-                let instr = CasmInstruction::new(Opcode::StoreImm.into())
-                    .with_off2(dest_off)
-                    .with_imm(0)
-                    .with_comment(format!("[fp + {}] = 0", dest_off));
-                self.add_instruction(instr);
-
-                // Add end label
-                self.add_label(Label::new(eq_end_label));
+            BinaryOp::Eq => self.generate_equals_op(dest_off, left, right)?,
+            BinaryOp::Neq => self.generate_neq_op(dest_off, left, right)?,
+            BinaryOp::And => {
+                self.generate_and_op(dest_off, left, right)?;
             }
-            _ => {
-                return Err(CodegenError::UnsupportedInstruction(format!(
-                    "Binary operation {op:?} not implemented"
-                )));
+            BinaryOp::Or => {
+                self.generate_or_op(dest_off, left, right)?;
             }
         }
 
@@ -308,18 +263,13 @@ impl CasmBuilder {
         Ok(())
     }
 
-    /// Generate equality check
-    ///
-    /// Equality is implemented as: result = (a - b == 0 ? 1 : 0)
-    /// This is a simplified implementation using subtraction
-    fn generate_equality_check(
+    pub fn generate_equals_op(
         &mut self,
         dest_off: i32,
         left: Value,
         right: Value,
-    ) -> CodegenResult<i32> {
-        // For now, implement equality as a subtraction and let the caller handle the comparison
-        // A more sophisticated implementation would use conditional logic
+    ) -> CodegenResult<()> {
+        // Step 1: Compute left - right into dest
         self.generate_arithmetic_op(
             Opcode::StoreSubFpFp.into(),
             Opcode::StoreSubFpImm.into(),
@@ -327,46 +277,264 @@ impl CasmBuilder {
             left,
             right,
         )?;
-        let check_offset = dest_off;
 
-        // Add a comment to indicate this is an equality check
-        if let Some(last_instr) = self.instructions.last_mut() {
-            let layout = self
-                .layout
-                .as_ref()
-                .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
-            let left_str = match left {
-                Value::Operand(id) => match layout.get_offset(id) {
-                    Ok(off) => format!("[fp + {off}]"),
-                    Err(_) => format!("%{}", id.index()),
-                },
-                Value::Literal(lit) => match lit {
-                    Literal::Integer(val) => val.to_string(),
-                    Literal::Boolean(val) => val.to_string(),
-                    Literal::Unit => "()".to_string(),
-                },
-                Value::Error => "error".to_string(),
-            };
+        // Step 2: Generate unique labels for this equality check
+        let not_zero_label = self.new_label_name("not_zero");
+        let end_label = self.new_label_name("end");
 
-            let right_str = match right {
-                Value::Operand(id) => match layout.get_offset(id) {
-                    Ok(off) => format!("[fp + {off}]"),
-                    Err(_) => format!("%{}", id.index()),
-                },
-                Value::Literal(lit) => match lit {
-                    Literal::Integer(val) => val.to_string(),
-                    Literal::Boolean(val) => val.to_string(),
-                    Literal::Unit => "()".to_string(),
-                },
-                Value::Error => "error".to_string(),
-            };
-
-            last_instr.comment = Some(format!(
-                "Equality check: [fp + {dest_off}] = {left_str} - {right_str}"
+        // Step 3: Check if temp == 0 (meaning left == right)
+        // jnz jumps if non-zero, so if temp != 0, jump to set result to 0 (or 1 if not equal)
+        let jnz_instr = CasmInstruction::new(Opcode::JnzFpImm.into())
+            .with_off0(dest_off)
+            .with_operand(Operand::Label(not_zero_label.clone()))
+            .with_comment(format!(
+                "if [fp + {dest_off}] != 0, jump to {not_zero_label}"
             ));
+        self.instructions.push(jnz_instr);
+
+        // Step 4: If we reach here, temp == 0, so left == right, set result to 1
+        let set_false_instr = CasmInstruction::new(Opcode::StoreImm.into())
+            .with_off2(dest_off)
+            .with_imm(1)
+            .with_comment(format!("[fp + {dest_off}] = 1"));
+        self.instructions.push(set_false_instr);
+
+        // Jump to end
+        let jmp_end_instr = CasmInstruction::new(Opcode::JmpAbsImm.into())
+            .with_operand(Operand::Label(end_label.clone()))
+            .with_comment(format!("jump to {end_label}"));
+        self.instructions.push(jmp_end_instr);
+
+        // Step 5: not_equal label - set result to 0
+        let not_equal_label_obj = Label::new(not_zero_label);
+        self.add_label(not_equal_label_obj);
+
+        let set_true_instr = CasmInstruction::new(Opcode::StoreImm.into())
+            .with_off2(dest_off)
+            .with_imm(0)
+            .with_comment(format!("[fp + {dest_off}] = 0"));
+        self.instructions.push(set_true_instr);
+
+        // Step 6: end label
+        let end_label_obj = Label::new(end_label);
+        self.add_label(end_label_obj);
+
+        Ok(())
+    }
+
+    pub fn generate_neq_op(
+        &mut self,
+        dest_off: i32,
+        left: Value,
+        right: Value,
+    ) -> CodegenResult<()> {
+        // Step 1: Compute left - right into dest
+        self.generate_arithmetic_op(
+            Opcode::StoreSubFpFp.into(),
+            Opcode::StoreSubFpImm.into(),
+            dest_off,
+            left,
+            right,
+        )?;
+
+        // Step 2: Generate unique labels for this NOT-EQUAL operation
+        let non_zero_label = self.new_label_name("neq_non_zero");
+        let end_label = self.new_label_name("neq_end");
+
+        // Step 3: Check if temp != 0 (meaning left != right)
+        // jnz jumps if non-zero, so if temp != 0, jump to set result to 1
+        let jnz_instr = CasmInstruction::new(Opcode::JnzFpImm.into())
+            .with_off0(dest_off)
+            .with_operand(Operand::Label(non_zero_label.clone()))
+            .with_comment(format!(
+                "if [fp + {dest_off}] != 0, jump to {non_zero_label}"
+            ));
+        self.instructions.push(jnz_instr);
+
+        // Step 4: If we reach here, temp == 0, so left == right, set result to 0
+        let set_false_instr = CasmInstruction::new(Opcode::StoreImm.into())
+            .with_off2(dest_off)
+            .with_imm(0)
+            .with_comment(format!("[fp + {dest_off}] = 0"));
+        self.instructions.push(set_false_instr);
+
+        // Jump to end
+        let jmp_end_instr = CasmInstruction::new(Opcode::JmpAbsImm.into())
+            .with_operand(Operand::Label(end_label.clone()))
+            .with_comment(format!("jump to {end_label}"));
+        self.instructions.push(jmp_end_instr);
+
+        // Step 5: non_zero label - set result to 1
+        let non_zero_label_obj = Label::new(non_zero_label);
+        self.add_label(non_zero_label_obj);
+
+        let set_true_instr = CasmInstruction::new(Opcode::StoreImm.into())
+            .with_off2(dest_off)
+            .with_imm(1)
+            .with_comment(format!("[fp + {dest_off}] = 1"));
+        self.instructions.push(set_true_instr);
+
+        // Step 6: end label
+        let end_label_obj = Label::new(end_label);
+        self.add_label(end_label_obj);
+
+        Ok(())
+    }
+
+    pub fn generate_and_op(
+        &mut self,
+        dest_off: i32,
+        left: Value,
+        right: Value,
+    ) -> CodegenResult<()> {
+        // Step 1: Compute left * right into dest
+        self.generate_arithmetic_op(
+            Opcode::StoreMulFpFp.into(),
+            Opcode::StoreMulFpImm.into(),
+            dest_off,
+            left,
+            right,
+        )?;
+
+        // Step 2: Generate unique labels for this AND operation
+        let non_zero_label = self.new_label_name("and_non_zero");
+        let end_label = self.new_label_name("and_end");
+
+        // Step 3: Check if temp != 0 (meaning both operands were non-zero)
+        // jnz jumps if non-zero, so if temp != 0, jump to set result to 1
+        let jnz_instr = CasmInstruction::new(Opcode::JnzFpImm.into())
+            .with_off0(dest_off)
+            .with_operand(Operand::Label(non_zero_label.clone()))
+            .with_comment(format!(
+                "if [fp + {dest_off}] != 0, jump to {non_zero_label}"
+            ));
+        self.instructions.push(jnz_instr);
+
+        // Step 4: If we reach here, temp == 0, so at least one operand was 0, set result to 0
+        let set_false_instr = CasmInstruction::new(Opcode::StoreImm.into())
+            .with_off2(dest_off)
+            .with_imm(0)
+            .with_comment(format!("[fp + {dest_off}] = 0"));
+        self.instructions.push(set_false_instr);
+
+        // Jump to end
+        let jmp_end_instr = CasmInstruction::new(Opcode::JmpAbsImm.into())
+            .with_operand(Operand::Label(end_label.clone()))
+            .with_comment(format!("jump to {end_label}"));
+        self.instructions.push(jmp_end_instr);
+
+        // Step 5: non_zero label - set result to 1
+        let non_zero_label_obj = Label::new(non_zero_label);
+        self.add_label(non_zero_label_obj);
+
+        let set_true_instr = CasmInstruction::new(Opcode::StoreImm.into())
+            .with_off2(dest_off)
+            .with_imm(1)
+            .with_comment(format!("[fp + {dest_off}] = 1"));
+        self.instructions.push(set_true_instr);
+
+        // Step 6: end label
+        let end_label_obj = Label::new(end_label);
+        self.add_label(end_label_obj);
+
+        Ok(())
+    }
+
+    pub fn generate_or_op(
+        &mut self,
+        dest_off: i32,
+        left: Value,
+        right: Value,
+    ) -> CodegenResult<()> {
+        // Generate unique labels
+        let set_true_label = self.new_label_name("or_true");
+        let end_label = self.new_label_name("or_end");
+
+        let layout = self.layout.as_mut().unwrap();
+
+        // Step 1: Initialize result to 0
+        let init_instr = CasmInstruction::new(Opcode::StoreImm.into())
+            .with_off2(dest_off)
+            .with_imm(0)
+            .with_comment("Initialize OR result to 0".to_string());
+        self.instructions.push(init_instr);
+
+        // Step 2: Check left operand - if non-zero, jump to set result to 1
+        match left {
+            Value::Operand(left_id) => {
+                let left_off = layout.get_offset(left_id)?;
+                let jnz_left = CasmInstruction::new(Opcode::JnzFpImm.into())
+                    .with_off0(left_off)
+                    .with_operand(Operand::Label(set_true_label.clone()))
+                    .with_comment(format!(
+                        "if [fp + {left_off}] != 0, jump to {set_true_label}"
+                    ));
+                self.instructions.push(jnz_left);
+            }
+            Value::Literal(Literal::Integer(imm)) => {
+                // If left is a non-zero immediate, directly jump to set true
+                if imm != 0 {
+                    let jmp_true = CasmInstruction::new(Opcode::JmpAbsImm.into())
+                        .with_operand(Operand::Label(set_true_label.clone()))
+                        .with_comment(format!("jump to {set_true_label}"));
+                    self.instructions.push(jmp_true);
+                }
+                // If left is 0, continue to check right
+            }
+            _ => {
+                return Err(CodegenError::UnsupportedInstruction(
+                    "Unsupported left operand in OR".to_string(),
+                ));
+            }
         }
 
-        Ok(check_offset)
+        // Step 3: Check right operand - if non-zero, jump to set result to 1
+        match right {
+            Value::Operand(right_id) => {
+                let right_off = layout.get_offset(right_id)?;
+                let jnz_right = CasmInstruction::new(Opcode::JnzFpImm.into())
+                    .with_off0(right_off)
+                    .with_operand(Operand::Label(set_true_label.clone()))
+                    .with_comment(format!(
+                        "if [fp + {right_off}] != 0, jump to {set_true_label}"
+                    ));
+                self.instructions.push(jnz_right);
+            }
+            Value::Literal(Literal::Integer(imm)) => {
+                // If right is a non-zero immediate, directly jump to set true
+                if imm != 0 {
+                    let jmp_true = CasmInstruction::new(Opcode::JmpAbsImm.into())
+                        .with_operand(Operand::Label(set_true_label.clone()))
+                        .with_comment(format!("jump to {set_true_label}"));
+                    self.instructions.push(jmp_true);
+                }
+                // If right is 0, fall through to end (result stays 0)
+            }
+            _ => {
+                return Err(CodegenError::UnsupportedInstruction(
+                    "Unsupported right operand in OR".to_string(),
+                ));
+            }
+        }
+
+        // Step 4: Jump to end (both operands were 0, result stays 0)
+        let jmp_end = CasmInstruction::new(Opcode::JmpAbsImm.into())
+            .with_operand(Operand::Label(end_label.clone()))
+            .with_comment(format!("jump to {end_label}"));
+        self.instructions.push(jmp_end);
+
+        // Step 5: set_true label - set result to 1
+        self.add_label(Label::new(set_true_label));
+        let set_true_instr = CasmInstruction::new(Opcode::StoreImm.into())
+            .with_off2(dest_off)
+            .with_imm(1)
+            .with_comment(format!("[fp + {dest_off}] = 1"));
+        self.instructions.push(set_true_instr);
+
+        // Step 6: end label
+        self.add_label(Label::new(end_label));
+
+        Ok(())
     }
 
     /// Generate a function call that returns a value.
@@ -664,6 +832,10 @@ impl CasmBuilder {
         self.layout.as_mut()
     }
 
+    /// Get the label counter
+    pub const fn label_counter(&self) -> usize {
+        self.label_counter
+    }
     /// Take ownership of the generated instructions
     pub fn into_instructions(self) -> Vec<CasmInstruction> {
         self.instructions
@@ -729,11 +901,5 @@ impl CasmBuilder {
         }
 
         Ok(())
-    }
-}
-
-impl Default for CasmBuilder {
-    fn default() -> Self {
-        Self::new()
     }
 }
