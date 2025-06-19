@@ -4,7 +4,7 @@ use std::fs;
 use std::path::Path;
 
 use cairo_m_compiler_codegen::{CodeGenerator, CodegenDb};
-use cairo_m_compiler_mir::{generate_mir, MirDb};
+use cairo_m_compiler_mir::{MirDb, generate_mir};
 use cairo_m_compiler_parser::Upcast;
 use cairo_m_compiler_semantic::{File, SemanticDb};
 use insta::assert_snapshot;
@@ -130,9 +130,11 @@ codegen_test!(function_with_return, "simple");
 // --- Arithmetic ---
 codegen_test!(add_two_numbers, "arithmetic");
 codegen_test!(subtract_numbers, "arithmetic");
+codegen_test!(equality, "arithmetic");
 codegen_test!(not_equals, "arithmetic");
 codegen_test!(and, "arithmetic");
 codegen_test!(or, "arithmetic");
+codegen_test!(left_imm, "arithmetic");
 
 // --- Control Flow ---
 codegen_test!(simple_if, "control_flow");

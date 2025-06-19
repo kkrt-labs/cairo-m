@@ -5,6 +5,7 @@
 
 use cairo_m_compiler_mir::{Literal, Value, ValueId};
 use cairo_m_compiler_parser::parser::BinaryOp;
+use stwo_prover::core::fields::m31::M31;
 
 use crate::{CasmInstruction, CodegenError, CodegenResult, FunctionLayout, Label, Opcode, Operand};
 
@@ -145,41 +146,8 @@ impl CasmBuilder {
         };
 
         match op {
-            BinaryOp::Add => {
-                self.generate_arithmetic_op(
-                    Opcode::StoreAddFpFp.into(),
-                    Opcode::StoreAddFpImm.into(),
-                    dest_off,
-                    left,
-                    right,
-                )?;
-            }
-            BinaryOp::Sub => {
-                self.generate_arithmetic_op(
-                    Opcode::StoreSubFpFp.into(),
-                    Opcode::StoreSubFpImm.into(),
-                    dest_off,
-                    left,
-                    right,
-                )?;
-            }
-            BinaryOp::Mul => {
-                self.generate_arithmetic_op(
-                    Opcode::StoreMulFpFp.into(),
-                    Opcode::StoreMulFpImm.into(),
-                    dest_off,
-                    left,
-                    right,
-                )?;
-            }
-            BinaryOp::Div => {
-                self.generate_arithmetic_op(
-                    Opcode::StoreDivFpFp.into(),
-                    Opcode::StoreDivFpImm.into(),
-                    dest_off,
-                    left,
-                    right,
-                )?;
+            BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div => {
+                self.generate_arithmetic_op(op, dest_off, left, right)?;
             }
             BinaryOp::Eq => self.generate_equals_op(dest_off, left, right)?,
             BinaryOp::Neq => self.generate_neq_op(dest_off, left, right)?,
@@ -210,16 +178,39 @@ impl CasmBuilder {
         self.binary_op_with_target(op, dest, left, right, None)
     }
 
+    pub fn fp_fp_opcode_for_binary_op(&mut self, op: BinaryOp) -> CodegenResult<u32> {
+        match op {
+            BinaryOp::Add => Ok(Opcode::StoreAddFpFp.into()),
+            BinaryOp::Sub => Ok(Opcode::StoreSubFpFp.into()),
+            BinaryOp::Mul => Ok(Opcode::StoreMulFpFp.into()),
+            BinaryOp::Div => Ok(Opcode::StoreDivFpFp.into()),
+            _ => Err(CodegenError::UnsupportedInstruction(format!(
+                "Invalid binary operation: {op:?}"
+            ))),
+        }
+    }
+
+    pub fn fp_imm_opcode_for_binary_op(&mut self, op: BinaryOp) -> CodegenResult<u32> {
+        match op {
+            BinaryOp::Add => Ok(Opcode::StoreAddFpImm.into()),
+            BinaryOp::Sub => Ok(Opcode::StoreSubFpImm.into()),
+            BinaryOp::Mul => Ok(Opcode::StoreMulFpImm.into()),
+            BinaryOp::Div => Ok(Opcode::StoreDivFpImm.into()),
+            _ => Err(CodegenError::UnsupportedInstruction(format!(
+                "Invalid binary operation: {op:?}"
+            ))),
+        }
+    }
+
     /// Generate arithmetic operation (add, sub, mul, div)
     pub fn generate_arithmetic_op(
         &mut self,
-        fp_fp_opcode: u32,
-        fp_imm_opcode: u32,
+        op: BinaryOp,
         dest_off: i32,
         left: Value,
         right: Value,
     ) -> CodegenResult<()> {
-        let layout = self.layout.as_ref().unwrap();
+        let layout = self.layout.as_mut().unwrap();
 
         match (&left, &right) {
             // Both operands are values: use fp_fp variant
@@ -227,7 +218,7 @@ impl CasmBuilder {
                 let left_off = layout.get_offset(*left_id)?;
                 let right_off = layout.get_offset(*right_id)?;
 
-                let instr = CasmInstruction::new(fp_fp_opcode)
+                let instr = CasmInstruction::new(self.fp_fp_opcode_for_binary_op(op)?)
                     .with_off0(left_off)
                     .with_off1(right_off)
                     .with_off2(dest_off)
@@ -242,7 +233,7 @@ impl CasmBuilder {
             (Value::Operand(left_id), Value::Literal(Literal::Integer(imm))) => {
                 let left_off = layout.get_offset(*left_id)?;
 
-                let instr = CasmInstruction::new(fp_imm_opcode)
+                let instr = CasmInstruction::new(self.fp_imm_opcode_for_binary_op(op)?)
                     .with_off0(left_off)
                     .with_off2(dest_off)
                     .with_imm(*imm)
@@ -251,11 +242,75 @@ impl CasmBuilder {
                 self.instructions.push(instr);
             }
 
-            // For right operand being a value and left being immediate, we'd need to reverse
-            // the operation or use different opcodes. For now, mark as unsupported.
+            // Left is immediate, right is value: use fp_imm variant
+            (Value::Literal(Literal::Integer(imm)), Value::Operand(right_id)) => {
+                match op {
+                    // For addition and multiplication, we can swap the operands
+                    BinaryOp::Add | BinaryOp::Mul => {
+                        let right_off = layout.get_offset(*right_id)?;
+                        let instr = CasmInstruction::new(self.fp_imm_opcode_for_binary_op(op)?)
+                            .with_off0(right_off)
+                            .with_off2(dest_off)
+                            .with_imm(*imm)
+                            .with_comment(format!(
+                                "[fp + {dest_off}] = {imm} op [fp + {right_off}]"
+                            ));
+                        self.instructions.push(instr);
+                    }
+                    // For subtraction and division, we store the immediate in a temporary variable
+                    // In the future we should add opcodes imm_fp_sub and imm_fp_div
+                    BinaryOp::Sub | BinaryOp::Div => {
+                        let right_off = layout.get_offset(*right_id)?;
+                        let temp_off = layout.allocate_local(*right_id, 1)?;
+
+                        let copy_instr = CasmInstruction::new(Opcode::StoreImm.into())
+                            .with_off2(temp_off)
+                            .with_imm(*imm)
+                            .with_comment(format!("[fp + {temp_off}] = {imm}"));
+                        self.instructions.push(copy_instr);
+
+                        let instr = CasmInstruction::new(self.fp_fp_opcode_for_binary_op(op)?)
+                            .with_off0(temp_off)
+                            .with_off1(right_off)
+                            .with_off2(dest_off)
+                            .with_comment(format!(
+                                "[fp + {dest_off}] = [fp + {temp_off}] op [fp + {right_off}]"
+                            ));
+                        self.instructions.push(instr);
+                    }
+                    _ => {
+                        return Err(CodegenError::UnsupportedInstruction(
+                            "Unsupported operation".to_string(),
+                        ));
+                    }
+                }
+            }
+
+            // Both operands are immediates: fold constants
+            // This is a workaround for the fact that we don't have a constant folding pass yet.
+            (Value::Literal(Literal::Integer(imm)), Value::Literal(Literal::Integer(imm2))) => {
+                let result = match op {
+                    BinaryOp::Add => (M31::from(*imm) + M31::from(*imm2)).0,
+                    BinaryOp::Sub => (M31::from(*imm) - M31::from(*imm2)).0,
+                    BinaryOp::Mul => (M31::from(*imm) * M31::from(*imm2)).0,
+                    BinaryOp::Div => (M31::from(*imm) / M31::from(*imm2)).0,
+                    _ => {
+                        return Err(CodegenError::UnsupportedInstruction(
+                            "Unsupported operation".to_string(),
+                        ));
+                    }
+                };
+
+                let instr = CasmInstruction::new(Opcode::StoreImm.into())
+                    .with_off2(dest_off)
+                    .with_imm(result as i32)
+                    .with_comment(format!("[fp + {dest_off}] = {result}"));
+                self.instructions.push(instr);
+            }
+
             _ => {
                 return Err(CodegenError::UnsupportedInstruction(
-                    "Immediate as left operand not supported".to_string(),
+                    "Unsupported operation".to_string(),
                 ));
             }
         }
@@ -270,13 +325,7 @@ impl CasmBuilder {
         right: Value,
     ) -> CodegenResult<()> {
         // Step 1: Compute left - right into dest
-        self.generate_arithmetic_op(
-            Opcode::StoreSubFpFp.into(),
-            Opcode::StoreSubFpImm.into(),
-            dest_off,
-            left,
-            right,
-        )?;
+        self.generate_arithmetic_op(BinaryOp::Sub, dest_off, left, right)?;
 
         // Step 2: Generate unique labels for this equality check
         let not_zero_label = self.new_label_name("not_zero");
@@ -329,13 +378,7 @@ impl CasmBuilder {
         right: Value,
     ) -> CodegenResult<()> {
         // Step 1: Compute left - right into dest
-        self.generate_arithmetic_op(
-            Opcode::StoreSubFpFp.into(),
-            Opcode::StoreSubFpImm.into(),
-            dest_off,
-            left,
-            right,
-        )?;
+        self.generate_arithmetic_op(BinaryOp::Sub, dest_off, left, right)?;
 
         // Step 2: Generate unique labels for this NOT-EQUAL operation
         let non_zero_label = self.new_label_name("neq_non_zero");
@@ -388,13 +431,7 @@ impl CasmBuilder {
         right: Value,
     ) -> CodegenResult<()> {
         // Step 1: Compute left * right into dest
-        self.generate_arithmetic_op(
-            Opcode::StoreMulFpFp.into(),
-            Opcode::StoreMulFpImm.into(),
-            dest_off,
-            left,
-            right,
-        )?;
+        self.generate_arithmetic_op(BinaryOp::Mul, dest_off, left, right)?;
 
         // Step 2: Generate unique labels for this AND operation
         let non_zero_label = self.new_label_name("and_non_zero");
