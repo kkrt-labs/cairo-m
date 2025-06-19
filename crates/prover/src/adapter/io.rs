@@ -66,7 +66,7 @@ impl TryFrom<&Path> for TraceFileIter {
     fn try_from(path: &Path) -> Result<Self, Self::Error> {
         let file = std::fs::File::open(path)?;
         let reader = BufReader::new(file);
-        Ok(TraceIter(reader))
+        Ok(Self(reader))
     }
 }
 
@@ -90,7 +90,7 @@ impl<R: Read> MemoryEntryIter<R> {
     }
 
     /// Get the program length from the metadata header
-    pub fn program_length(&self) -> u32 {
+    pub const fn program_length(&self) -> u32 {
         self.metadata.program_length
     }
 }
@@ -113,6 +113,6 @@ impl TryFrom<&Path> for MemoryEntryFileIter {
     fn try_from(path: &Path) -> Result<Self, Self::Error> {
         let file = std::fs::File::open(path)?;
         let reader = BufReader::new(file);
-        MemoryEntryIter::new(reader)
+        Self::new(reader)
     }
 }
