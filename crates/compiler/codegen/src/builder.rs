@@ -253,27 +253,28 @@ impl CasmBuilder {
                             .with_off2(dest_off)
                             .with_imm(*imm)
                             .with_comment(format!(
-                                "[fp + {dest_off}] = [fp + {right_off}] op {imm}"
+                                "[fp + {dest_off}] = {imm} op [fp + {right_off}]"
                             ));
                         self.instructions.push(instr);
                     }
                     // For subtraction and division, we store the immediate in a temporary variable
-                    // In the future we should add opcodes imm_fp_sub and imm_fp_div
+                    // TODO: In the future we should add opcodes imm_fp_sub and imm_fp_div
                     BinaryOp::Sub | BinaryOp::Div => {
                         let right_off = layout.get_offset(*right_id)?;
+                        let temp_off = layout.allocate_local(*right_id, 1)?;
 
                         let copy_instr = CasmInstruction::new(Opcode::StoreImm.into())
-                            .with_off2(dest_off)
+                            .with_off2(temp_off)
                             .with_imm(*imm)
-                            .with_comment(format!("[fp + {dest_off}] = {imm}"));
+                            .with_comment(format!("[fp + {temp_off}] = {imm}"));
                         self.instructions.push(copy_instr);
 
                         let instr = CasmInstruction::new(self.fp_fp_opcode_for_binary_op(op)?)
-                            .with_off0(dest_off)
+                            .with_off0(temp_off)
                             .with_off1(right_off)
                             .with_off2(dest_off)
                             .with_comment(format!(
-                                "[fp + {dest_off}] = [fp + {dest_off}] op [fp + {right_off}]"
+                                "[fp + {dest_off}] = [fp + {temp_off}] op [fp + {right_off}]"
                             ));
                         self.instructions.push(instr);
                     }
