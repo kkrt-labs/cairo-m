@@ -93,6 +93,29 @@ diff_test!(
     "Recursive Fibonacci computation for n=10"
 );
 
+// 1. Fibonacci (loop)
+fn rust_fibonacci_loop() -> u32 {
+    fn fib(n: u32) -> u32 {
+        let mut a = 0;
+        let mut b = 1;
+        for _ in 0..n {
+            let temp = a;
+            a = b;
+            b += temp;
+        }
+        a
+    }
+    fib(10)
+}
+
+diff_test!(
+    test_fibonacci_loop,
+    "fibonacci_loop.cm",
+    "main",
+    rust_fibonacci_loop,
+    "Fibonacci loop computation for n=10"
+);
+
 // 2. Factorial (recursive)
 fn rust_factorial() -> u32 {
     fn factorial(n: u32) -> u32 {
