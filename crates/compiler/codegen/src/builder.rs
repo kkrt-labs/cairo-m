@@ -253,7 +253,7 @@ impl CasmBuilder {
                             .with_off2(dest_off)
                             .with_imm(*imm)
                             .with_comment(format!(
-                                "[fp + {dest_off}] = {imm} op [fp + {right_off}]"
+                                "[fp + {dest_off}] = [fp + {right_off}] op {imm}"
                             ));
                         self.instructions.push(instr);
                     }
