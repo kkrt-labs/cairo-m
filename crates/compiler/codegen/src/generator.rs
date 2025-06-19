@@ -349,8 +349,7 @@ impl CodeGenerator {
                     BinaryOp::Eq => {
                         // For `a == b`, we compute `a - b`. The result is zero if they are equal.
                         builder.generate_arithmetic_op(
-                            Opcode::StoreSubFpFp.into(),
-                            Opcode::StoreSubFpImm.into(),
+                            BinaryOp::Sub,
                             temp_slot_offset,
                             *left,
                             *right,
