@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1750325937360,
+  "lastUpdate": 1750336585148,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -161,6 +161,60 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/serialize_memory_trace",
             "value": 88578569,
             "range": "± 879178",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "obatirou@gmail.com",
+            "name": "Oba",
+            "username": "obatirou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ebc59a923eb40f53d55c0a434589b1162785cff1",
+          "message": "feat(vm): lib (#80)",
+          "timestamp": "2025-06-19T14:28:51+02:00",
+          "tree_id": "0999157d9753021923761e10c9679420e3cc8170",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/ebc59a923eb40f53d55c0a434589b1162785cff1"
+        },
+        "date": 1750336584193,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/e2e",
+            "value": 972131594,
+            "range": "± 24081804",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 133766071,
+            "range": "± 703627",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/io_only",
+            "value": 468362532,
+            "range": "± 37997825",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/serialize_vm_trace",
+            "value": 15012805,
+            "range": "± 88103",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/serialize_memory_trace",
+            "value": 92120188,
+            "range": "± 692203",
             "unit": "ns/iter"
           }
         ]
