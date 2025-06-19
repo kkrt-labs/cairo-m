@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1750261409388,
+  "lastUpdate": 1750325937360,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -107,6 +107,60 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/serialize_memory_trace",
             "value": 86754523,
             "range": "± 491187",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "34771985+gael-bigot@users.noreply.github.com",
+            "name": "Gaël Bigot",
+            "username": "gael-bigot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1bedd56a9db33f2395f169cbdc7acec96affda78",
+          "message": "feat(compiler): Implement boolean operators (#76)\n\n* boolean operators\n\n* simpler or\n\n* cleaner label gen\n\n* fix trunk\n\n* changed random.cm test\n\n* integration tests\n\n* fix: removed useless temp allocations\n\n* fixed comments",
+          "timestamp": "2025-06-19T11:31:35+02:00",
+          "tree_id": "7a9605723e91344eab1b7b92a7930dd2f5de7926",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/1bedd56a9db33f2395f169cbdc7acec96affda78"
+        },
+        "date": 1750325936884,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/e2e",
+            "value": 959033452,
+            "range": "± 25411497",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 133841201,
+            "range": "± 704894",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/io_only",
+            "value": 466694702,
+            "range": "± 25557446",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/serialize_vm_trace",
+            "value": 14836019,
+            "range": "± 183500",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/serialize_memory_trace",
+            "value": 88578569,
+            "range": "± 879178",
             "unit": "ns/iter"
           }
         ]
