@@ -49,6 +49,7 @@ pub struct MemoryCache {
 }
 
 impl MemoryCache {
+    #[allow(clippy::cognitive_complexity)]
     pub fn push(&mut self, mem_entry: MemoryEntry, clock: u32) -> MemoryArg {
         let prev_clock = self
             .clock_cache

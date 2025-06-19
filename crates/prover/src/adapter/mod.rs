@@ -84,6 +84,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::cognitive_complexity)]
     fn test_adapt_from_iter_user_original_spec() {
         // program_length = 1
         // mem_iter = [(0,(6,10,0,0)), (0,(6,10,0,0)), (1,(10,0,0,0))]

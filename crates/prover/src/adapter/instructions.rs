@@ -20,7 +20,7 @@ pub struct Opcode {
 
 impl Opcode {
     /// Get the opcode ID as a u32
-    pub fn id(self) -> u32 {
+    pub const fn id(self) -> u32 {
         self.id
     }
 }
@@ -114,6 +114,7 @@ pub struct Instructions {
 }
 
 impl Instructions {
+    #[allow(clippy::cognitive_complexity)]
     pub fn push_instr<I>(
         &mut self,
         mut memory: I,
