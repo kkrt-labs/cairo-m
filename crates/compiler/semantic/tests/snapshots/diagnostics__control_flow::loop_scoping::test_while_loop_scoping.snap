@@ -1,0 +1,29 @@
+---
+source: crates/compiler/semantic/tests/mod.rs
+description: "Inline semantic validation error test: control_flow::loop_scoping::test_while_loop_scoping"
+---
+Fixture: semantic_tests::control_flow::loop_scoping::test_while_loop_scoping
+============================================================
+Source code:
+
+        func test() {
+            let condition = 1;
+            while (condition) {
+                let loop_var = 42;
+                break;
+            }
+            let x = loop_var;  // Error: loop_var not in scope
+            return;
+        }
+        
+============================================================
+Found 1 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1001] Error: Undeclared variable 'loop_var'
+   ╭─[ semantic_tests::control_flow::loop_scoping::test_while_loop_scoping:8:21 ]
+   │
+ 8 │             let x = loop_var;  // Error: loop_var not in scope
+   │                     ────┬───  
+   │                         ╰───── Undeclared variable 'loop_var'
+───╯

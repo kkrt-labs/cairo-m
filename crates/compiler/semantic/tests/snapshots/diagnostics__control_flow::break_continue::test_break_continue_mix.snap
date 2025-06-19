@@ -1,0 +1,58 @@
+---
+source: crates/compiler/semantic/tests/mod.rs
+description: "Inline semantic validation error test: control_flow::break_continue::test_break_continue_mix"
+---
+Fixture: semantic_tests::control_flow::break_continue::test_break_continue_mix
+============================================================
+Source code:
+
+        func test() {
+            break;  // Error
+            
+            loop {
+                break;  // OK
+                continue;  // OK (unreachable but syntactically valid)
+            }
+            
+            continue;  // Error
+            
+            while (1) {
+                if (1) {
+                    break;  // OK
+                } else {
+                    continue;  // OK
+                }
+            }
+            
+            return;
+        }
+        
+============================================================
+Found 3 diagnostic(s):
+
+--- Diagnostic 1 ---
+[3001] Warning: Unreachable continue statement
+   ╭─[ semantic_tests::control_flow::break_continue::test_break_continue_mix:7:17 ]
+   │
+ 7 │                 continue;  // OK (unreachable but syntactically valid)
+   │                 ────┬────  
+   │                     ╰────── Unreachable continue statement
+───╯
+
+--- Diagnostic 2 ---
+[3003] Error: Break statement outside of loop
+   ╭─[ semantic_tests::control_flow::break_continue::test_break_continue_mix:3:13 ]
+   │
+ 3 │             break;  // Error
+   │             ───┬──  
+   │                ╰──── Break statement outside of loop
+───╯
+
+--- Diagnostic 3 ---
+[3004] Error: Continue statement outside of loop
+    ╭─[ semantic_tests::control_flow::break_continue::test_break_continue_mix:10:13 ]
+    │
+ 10 │             continue;  // Error
+    │             ────┬────  
+    │                 ╰────── Continue statement outside of loop
+────╯

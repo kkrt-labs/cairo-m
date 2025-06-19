@@ -100,10 +100,10 @@ pub enum DiagnosticCode {
     // Flow-related errors (3000-3999) - placeholder for future
     UnreachableCode,
     MissingReturn,
+    BreakOutsideLoop,
+    ContinueOutsideLoop,
     // TODO: Add more control flow diagnostic codes:
     // - DeadCode
-    // - InvalidBreak
-    // - InvalidContinue
     // - UnreachablePattern
 
     // TODO: Add more diagnostic categories:
@@ -136,6 +136,8 @@ impl From<DiagnosticCode> for u32 {
             DiagnosticCode::InvalidIndexType => 2009,
             DiagnosticCode::UnreachableCode => 3001,
             DiagnosticCode::MissingReturn => 3002,
+            DiagnosticCode::BreakOutsideLoop => 3003,
+            DiagnosticCode::ContinueOutsideLoop => 3004,
             DiagnosticCode::InvalidAssignmentTarget => 2010,
             DiagnosticCode::MissingReturnValue => 2011,
         }
@@ -253,6 +255,24 @@ impl Diagnostic {
         Self::error(
             DiagnosticCode::MissingReturn,
             format!("Function '{function_name}' doesn't return on all paths"),
+        )
+        .with_location(file_path, span)
+    }
+
+    /// Convenience method for break outside loop error
+    pub fn break_outside_loop(file_path: String, span: SimpleSpan<usize>) -> Self {
+        Self::error(
+            DiagnosticCode::BreakOutsideLoop,
+            "Break statement outside of loop".to_string(),
+        )
+        .with_location(file_path, span)
+    }
+
+    /// Convenience method for continue outside loop error
+    pub fn continue_outside_loop(file_path: String, span: SimpleSpan<usize>) -> Self {
+        Self::error(
+            DiagnosticCode::ContinueOutsideLoop,
+            "Continue statement outside of loop".to_string(),
         )
         .with_location(file_path, span)
     }

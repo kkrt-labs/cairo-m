@@ -1,0 +1,40 @@
+---
+source: crates/compiler/semantic/tests/mod.rs
+description: "Inline semantic validation error test: control_flow::loop_unreachable::test_nested_loop_unreachable"
+---
+Fixture: semantic_tests::control_flow::loop_unreachable::test_nested_loop_unreachable
+============================================================
+Source code:
+
+        func test() {
+            loop {
+                loop {
+                    break;
+                    let x = 1;  // Unreachable
+                }
+                break;
+                let y = 2;  // Unreachable
+            }
+            return;
+        }
+        
+============================================================
+Found 2 diagnostic(s):
+
+--- Diagnostic 1 ---
+[3001] Warning: Unreachable variable declaration
+   ╭─[ semantic_tests::control_flow::loop_unreachable::test_nested_loop_unreachable:6:21 ]
+   │
+ 6 │                     let x = 1;  // Unreachable
+   │                     ─────┬────  
+   │                          ╰────── Unreachable variable declaration
+───╯
+
+--- Diagnostic 2 ---
+[3001] Warning: Unreachable variable declaration
+   ╭─[ semantic_tests::control_flow::loop_unreachable::test_nested_loop_unreachable:9:17 ]
+   │
+ 9 │                 let y = 2;  // Unreachable
+   │                 ─────┬────  
+   │                      ╰────── Unreachable variable declaration
+───╯

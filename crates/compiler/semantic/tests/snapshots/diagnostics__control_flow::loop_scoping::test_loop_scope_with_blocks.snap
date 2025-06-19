@@ -1,0 +1,32 @@
+---
+source: crates/compiler/semantic/tests/mod.rs
+description: "Inline semantic validation error test: control_flow::loop_scoping::test_loop_scope_with_blocks"
+---
+Fixture: semantic_tests::control_flow::loop_scoping::test_loop_scope_with_blocks
+============================================================
+Source code:
+
+        func test() {
+            loop {
+                let loop_var = 1;
+                {
+                    let block_var = 2;
+                    let x = loop_var;  // OK
+                }
+                let y = block_var;  // Error: block_var not in scope
+                break;
+            }
+            return;
+        }
+        
+============================================================
+Found 1 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1001] Error: Undeclared variable 'block_var'
+   ╭─[ semantic_tests::control_flow::loop_scoping::test_loop_scope_with_blocks:9:25 ]
+   │
+ 9 │                 let y = block_var;  // Error: block_var not in scope
+   │                         ────┬────  
+   │                             ╰────── Undeclared variable 'block_var'
+───╯

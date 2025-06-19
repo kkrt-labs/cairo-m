@@ -67,6 +67,8 @@ pub enum ScopeKind {
     Namespace,
     /// Block scope (for future block scoping support)
     Block,
+    /// Loop scope with nesting depth
+    Loop { depth: usize },
 }
 
 impl fmt::Display for ScopeKind {
@@ -76,6 +78,7 @@ impl fmt::Display for ScopeKind {
             Self::Function => write!(f, "function"),
             Self::Namespace => write!(f, "namespace"),
             Self::Block => write!(f, "block"),
+            Self::Loop { depth } => write!(f, "loop (depth: {})", depth),
         }
     }
 }

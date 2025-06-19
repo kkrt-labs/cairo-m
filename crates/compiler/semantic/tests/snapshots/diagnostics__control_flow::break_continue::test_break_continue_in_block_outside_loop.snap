@@ -1,0 +1,26 @@
+---
+source: crates/compiler/semantic/tests/mod.rs
+description: "Inline semantic validation error test: control_flow::break_continue::test_break_continue_in_block_outside_loop"
+---
+Fixture: semantic_tests::control_flow::break_continue::test_break_continue_in_block_outside_loop
+============================================================
+Source code:
+
+        func test() {
+            {
+                break;
+            }
+            return;
+        }
+        
+============================================================
+Found 1 diagnostic(s):
+
+--- Diagnostic 1 ---
+[3003] Error: Break statement outside of loop
+   ╭─[ semantic_tests::control_flow::break_continue::test_break_continue_in_block_outside_loop:4:17 ]
+   │
+ 4 │                 break;
+   │                 ───┬──  
+   │                    ╰──── Break statement outside of loop
+───╯

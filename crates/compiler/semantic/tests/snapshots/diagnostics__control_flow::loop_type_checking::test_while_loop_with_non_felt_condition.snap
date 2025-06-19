@@ -1,0 +1,40 @@
+---
+source: crates/compiler/semantic/tests/mod.rs
+description: "Inline semantic validation error test: control_flow::loop_type_checking::test_while_loop_with_non_felt_condition"
+---
+Fixture: semantic_tests::control_flow::loop_type_checking::test_while_loop_with_non_felt_condition
+============================================================
+Source code:
+
+        struct Point {
+            x: felt,
+            y: felt,
+        }
+
+        func test() {
+            let p: Point = Point { x: 1, y: 2 };
+            while (p) {
+                return;
+            }
+        }
+        
+============================================================
+Found 2 diagnostic(s):
+
+--- Diagnostic 1 ---
+[2001] Error: While loop condition must be of type felt, found 'Point'
+   ╭─[ semantic_tests::control_flow::loop_type_checking::test_while_loop_with_non_felt_condition:9:20 ]
+   │
+ 9 │             while (p) {
+   │                    ┬  
+   │                    ╰── While loop condition must be of type felt, found 'Point'
+───╯
+
+--- Diagnostic 2 ---
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ semantic_tests::control_flow::loop_type_checking::test_while_loop_with_non_felt_condition:7:14 ]
+   │
+ 7 │         func test() {
+   │              ──┬─  
+   │                ╰─── Function 'test' doesn't return on all paths
+───╯

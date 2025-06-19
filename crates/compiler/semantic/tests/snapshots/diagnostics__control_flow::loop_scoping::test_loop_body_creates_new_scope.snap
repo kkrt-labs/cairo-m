@@ -1,0 +1,28 @@
+---
+source: crates/compiler/semantic/tests/mod.rs
+description: "Inline semantic validation error test: control_flow::loop_scoping::test_loop_body_creates_new_scope"
+---
+Fixture: semantic_tests::control_flow::loop_scoping::test_loop_body_creates_new_scope
+============================================================
+Source code:
+
+        func test() {
+            loop {
+                let x = 42;
+                break;
+            }
+            let y = x;  // Error: x not in scope
+            return;
+        }
+        
+============================================================
+Found 1 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1001] Error: Undeclared variable 'x'
+   ╭─[ semantic_tests::control_flow::loop_scoping::test_loop_body_creates_new_scope:7:21 ]
+   │
+ 7 │             let y = x;  // Error: x not in scope
+   │                     ┬  
+   │                     ╰── Undeclared variable 'x'
+───╯
