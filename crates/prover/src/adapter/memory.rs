@@ -49,7 +49,6 @@ pub struct MemoryCache {
 }
 
 impl MemoryCache {
-    #[allow(clippy::cognitive_complexity)]
     pub fn push(&mut self, mem_entry: MemoryEntry, clock: u32) -> MemoryArg {
         let prev_clock = self
             .clock_cache
@@ -141,6 +140,7 @@ mod tests {
         assert!(cache.current_memory.is_empty());
     }
 
+    #[allow(clippy::cognitive_complexity)]
     #[test]
     fn test_memory_cache_push() {
         let mut cache = MemoryCache::default();
