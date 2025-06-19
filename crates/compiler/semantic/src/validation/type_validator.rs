@@ -701,6 +701,7 @@ impl TypeValidator {
             Statement::Const(_) => {
                 // Const statements are handled during definition processing
             }
+            _ => panic!("Unknown statement type: {:?}", stmt),
         }
     }
 

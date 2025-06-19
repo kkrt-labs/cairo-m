@@ -923,6 +923,7 @@ impl<'db> SemanticIndexBuilder<'db> {
                     }
                 });
             }
+            _ => panic!("Unknown statement type: {:?}", stmt),
         }
     }
 

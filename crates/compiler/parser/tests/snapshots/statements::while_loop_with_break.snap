@@ -1,0 +1,69 @@
+---
+source: crates/compiler/parser/tests/common.rs
+assertion_line: 96
+expression: snapshot
+---
+--- Code ---
+func test() { while (true) { if (done) { break; } } }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
+                ),
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        While {
+                            condition: Spanned(
+                                BooleanLiteral(
+                                    true,
+                                ),
+                                21..25,
+                            ),
+                            body: Spanned(
+                                Block(
+                                    [
+                                        Spanned(
+                                            If {
+                                                condition: Spanned(
+                                                    Identifier(
+                                                        Spanned(
+                                                            "done",
+                                                            33..37,
+                                                        ),
+                                                    ),
+                                                    33..37,
+                                                ),
+                                                then_block: Spanned(
+                                                    Block(
+                                                        [
+                                                            Spanned(
+                                                                Break,
+                                                                41..47,
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    39..49,
+                                                ),
+                                                else_block: None,
+                                            },
+                                            29..49,
+                                        ),
+                                    ],
+                                ),
+                                27..51,
+                            ),
+                        },
+                        14..51,
+                    ),
+                ],
+            },
+            0..53,
+        ),
+    ),
+]

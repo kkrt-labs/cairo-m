@@ -1,0 +1,105 @@
+---
+source: crates/compiler/parser/tests/common.rs
+assertion_line: 96
+expression: snapshot
+---
+--- Code ---
+func test() { if (condition) { loop { work(); if (done) { break; } } } }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
+                ),
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        If {
+                            condition: Spanned(
+                                Identifier(
+                                    Spanned(
+                                        "condition",
+                                        18..27,
+                                    ),
+                                ),
+                                18..27,
+                            ),
+                            then_block: Spanned(
+                                Block(
+                                    [
+                                        Spanned(
+                                            Loop {
+                                                body: Spanned(
+                                                    Block(
+                                                        [
+                                                            Spanned(
+                                                                Expression(
+                                                                    Spanned(
+                                                                        FunctionCall {
+                                                                            callee: Spanned(
+                                                                                Identifier(
+                                                                                    Spanned(
+                                                                                        "work",
+                                                                                        38..42,
+                                                                                    ),
+                                                                                ),
+                                                                                38..42,
+                                                                            ),
+                                                                            args: [],
+                                                                        },
+                                                                        38..44,
+                                                                    ),
+                                                                ),
+                                                                38..45,
+                                                            ),
+                                                            Spanned(
+                                                                If {
+                                                                    condition: Spanned(
+                                                                        Identifier(
+                                                                            Spanned(
+                                                                                "done",
+                                                                                50..54,
+                                                                            ),
+                                                                        ),
+                                                                        50..54,
+                                                                    ),
+                                                                    then_block: Spanned(
+                                                                        Block(
+                                                                            [
+                                                                                Spanned(
+                                                                                    Break,
+                                                                                    58..64,
+                                                                                ),
+                                                                            ],
+                                                                        ),
+                                                                        56..66,
+                                                                    ),
+                                                                    else_block: None,
+                                                                },
+                                                                46..66,
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    36..68,
+                                                ),
+                                            },
+                                            31..68,
+                                        ),
+                                    ],
+                                ),
+                                29..70,
+                            ),
+                            else_block: None,
+                        },
+                        14..70,
+                    ),
+                ],
+            },
+            0..72,
+        ),
+    ),
+]

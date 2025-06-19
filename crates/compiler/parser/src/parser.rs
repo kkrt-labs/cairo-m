@@ -173,6 +173,23 @@ pub enum Statement {
     Expression(Spanned<Expression>),
     /// Block of statements (e.g., `{ stmt1; stmt2; stmt3; }`)
     Block(Vec<Spanned<Statement>>),
+    /// Infinite loop (e.g., `loop { ... }`)
+    Loop { body: Box<Spanned<Statement>> },
+    /// While loop (e.g., `while condition { ... }`)
+    While {
+        condition: Spanned<Expression>,
+        body: Box<Spanned<Statement>>,
+    },
+    /// For loop (e.g., `for i in 0..10 { ... }`)
+    For {
+        variable: Spanned<String>,
+        iterable: Spanned<Expression>,
+        body: Box<Spanned<Statement>>,
+    },
+    /// Break statement (e.g., `break;`)
+    Break,
+    /// Continue statement (e.g., `continue;`)
+    Continue,
 }
 
 /// Represents a top-level item in a Cairo-M program.
@@ -805,6 +822,52 @@ where
             .map(|value| Statement::Return { value })
             .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
 
+        // Loop statement: loop { ... }
+        let loop_stmt = just(TokenType::Loop)
+            .ignore_then(statement.clone()) // loop body (typically a block)
+            .map(|body| Statement::Loop {
+                body: Box::new(body),
+            })
+            .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
+
+        // While statement: while (condition) { ... }
+        let while_stmt = just(TokenType::While)
+            .ignore_then(
+                expr.clone()
+                    .delimited_by(just(TokenType::LParen), just(TokenType::RParen)), // condition in parens
+            )
+            .then(statement.clone()) // body
+            .map(|(condition, body)| Statement::While {
+                condition,
+                body: Box::new(body),
+            })
+            .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
+
+        // For statement: for variable in iterable { ... }
+        let for_stmt = just(TokenType::For)
+            .ignore_then(spanned_ident.clone()) // loop variable
+            .then_ignore(just(TokenType::In)) // ignore 'in'
+            .then(expr.clone()) // iterable expression
+            .then(statement.clone()) // body
+            .map(|((variable, iterable), body)| Statement::For {
+                variable,
+                iterable,
+                body: Box::new(body),
+            })
+            .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
+
+        // Break statement: break;
+        let break_stmt = just(TokenType::Break)
+            .then_ignore(just(TokenType::Semicolon))
+            .to(Statement::Break)
+            .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
+
+        // Continue statement: continue;
+        let continue_stmt = just(TokenType::Continue)
+            .then_ignore(just(TokenType::Semicolon))
+            .to(Statement::Continue)
+            .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
+
         // Assignment or expression statement: lhs = rhs; or expr;
         let assignment_or_expr = expr
             .clone()
@@ -819,6 +882,11 @@ where
         // Try statement alternatives in order
         block
             .or(if_stmt)
+            .or(loop_stmt)
+            .or(while_stmt)
+            .or(for_stmt)
+            .or(break_stmt)
+            .or(continue_stmt)
             .or(let_stmt)
             .or(local_stmt)
             .or(const_stmt)

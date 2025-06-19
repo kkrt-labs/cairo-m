@@ -136,3 +136,70 @@ fn expression_statement() {
 fn complex_expression_statement() {
     assert_parses_ok!(&in_function("obj.method().another();"));
 }
+
+// ===================
+// Loop Statements
+// ===================
+
+#[test]
+fn simple_loop() {
+    assert_parses_ok!(&in_function("loop { let x = 1; }"));
+}
+
+#[test]
+fn loop_with_break() {
+    assert_parses_ok!(&in_function("loop { break; }"));
+}
+
+#[test]
+fn loop_with_continue() {
+    assert_parses_ok!(&in_function("loop { continue; }"));
+}
+
+#[test]
+fn while_loop_simple() {
+    assert_parses_ok!(&in_function("while (x != 10) { x = x + 1; }"));
+}
+
+#[test]
+fn while_loop_with_break() {
+    assert_parses_ok!(&in_function("while (true) { if (done) { break; } }"));
+}
+
+#[test]
+fn for_loop_simple() {
+    assert_parses_ok!(&in_function("for i in range { let x = i; }"));
+}
+
+#[test]
+fn for_loop_with_continue() {
+    assert_parses_ok!(&in_function(
+        "for item in items { if (skip) { continue; } process(item); }"
+    ));
+}
+
+#[test]
+fn nested_loops() {
+    assert_parses_ok!(&in_function(
+        "while (outer) { for inner in items { if (found) { break; } } }"
+    ));
+}
+
+#[test]
+fn loop_in_if() {
+    assert_parses_ok!(&in_function(
+        "if (condition) { loop { work(); if (done) { break; } } }"
+    ));
+}
+
+#[test]
+fn break_outside_loop() {
+    // This should parse successfully - semantic analysis will catch the error
+    assert_parses_ok!(&in_function("break;"));
+}
+
+#[test]
+fn continue_outside_loop() {
+    // This should parse successfully - semantic analysis will catch the error
+    assert_parses_ok!(&in_function("continue;"));
+}
