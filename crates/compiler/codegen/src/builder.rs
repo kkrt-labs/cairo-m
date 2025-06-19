@@ -287,20 +287,22 @@ impl CasmBuilder {
         let jnz_instr = CasmInstruction::new(Opcode::JnzFpImm.into())
             .with_off0(dest_off)
             .with_operand(Operand::Label(not_zero_label.clone()))
-            .with_comment("if temp != 0, jump to not_zero".to_string());
+            .with_comment(format!(
+                "if [fp + {dest_off}] != 0, jump to {not_zero_label}"
+            ));
         self.instructions.push(jnz_instr);
 
         // Step 4: If we reach here, temp == 0, so left == right, set result to 1
         let set_false_instr = CasmInstruction::new(Opcode::StoreImm.into())
             .with_off2(dest_off)
             .with_imm(1)
-            .with_comment(format!("Set [fp + {dest_off}] to 1"));
+            .with_comment(format!("[fp + {dest_off}] = 1"));
         self.instructions.push(set_false_instr);
 
         // Jump to end
         let jmp_end_instr = CasmInstruction::new(Opcode::JmpAbsImm.into())
             .with_operand(Operand::Label(end_label.clone()))
-            .with_comment("jump to end".to_string());
+            .with_comment(format!("jump to {end_label}"));
         self.instructions.push(jmp_end_instr);
 
         // Step 5: not_equal label - set result to 0
@@ -310,7 +312,7 @@ impl CasmBuilder {
         let set_true_instr = CasmInstruction::new(Opcode::StoreImm.into())
             .with_off2(dest_off)
             .with_imm(0)
-            .with_comment(format!("Set [fp + {dest_off}] to 0"));
+            .with_comment(format!("[fp + {dest_off}] = 0"));
         self.instructions.push(set_true_instr);
 
         // Step 6: end label
@@ -344,20 +346,22 @@ impl CasmBuilder {
         let jnz_instr = CasmInstruction::new(Opcode::JnzFpImm.into())
             .with_off0(dest_off)
             .with_operand(Operand::Label(non_zero_label.clone()))
-            .with_comment("if temp != 0, jump to set result to 1".to_string());
+            .with_comment(format!(
+                "if [fp + {dest_off}] != 0, jump to {non_zero_label}"
+            ));
         self.instructions.push(jnz_instr);
 
         // Step 4: If we reach here, temp == 0, so left == right, set result to 0
         let set_false_instr = CasmInstruction::new(Opcode::StoreImm.into())
             .with_off2(dest_off)
             .with_imm(0)
-            .with_comment("Set NEQ result to 0".to_string());
+            .with_comment(format!("[fp + {dest_off}] = 0"));
         self.instructions.push(set_false_instr);
 
         // Jump to end
         let jmp_end_instr = CasmInstruction::new(Opcode::JmpAbsImm.into())
             .with_operand(Operand::Label(end_label.clone()))
-            .with_comment("jump to end".to_string());
+            .with_comment(format!("jump to {end_label}"));
         self.instructions.push(jmp_end_instr);
 
         // Step 5: non_zero label - set result to 1
@@ -367,7 +371,7 @@ impl CasmBuilder {
         let set_true_instr = CasmInstruction::new(Opcode::StoreImm.into())
             .with_off2(dest_off)
             .with_imm(1)
-            .with_comment("Set NEQ result to 1".to_string());
+            .with_comment(format!("[fp + {dest_off}] = 1"));
         self.instructions.push(set_true_instr);
 
         // Step 6: end label
@@ -401,20 +405,22 @@ impl CasmBuilder {
         let jnz_instr = CasmInstruction::new(Opcode::JnzFpImm.into())
             .with_off0(dest_off)
             .with_operand(Operand::Label(non_zero_label.clone()))
-            .with_comment("if temp != 0, jump to set result to 1".to_string());
+            .with_comment(format!(
+                "if [fp + {dest_off}] != 0, jump to {non_zero_label}"
+            ));
         self.instructions.push(jnz_instr);
 
         // Step 4: If we reach here, temp == 0, so at least one operand was 0, set result to 0
         let set_false_instr = CasmInstruction::new(Opcode::StoreImm.into())
             .with_off2(dest_off)
             .with_imm(0)
-            .with_comment("Set AND result to 0".to_string());
+            .with_comment(format!("[fp + {dest_off}] = 0"));
         self.instructions.push(set_false_instr);
 
         // Jump to end
         let jmp_end_instr = CasmInstruction::new(Opcode::JmpAbsImm.into())
             .with_operand(Operand::Label(end_label.clone()))
-            .with_comment("jump to end".to_string());
+            .with_comment(format!("jump to {end_label}"));
         self.instructions.push(jmp_end_instr);
 
         // Step 5: non_zero label - set result to 1
@@ -424,7 +430,7 @@ impl CasmBuilder {
         let set_true_instr = CasmInstruction::new(Opcode::StoreImm.into())
             .with_off2(dest_off)
             .with_imm(1)
-            .with_comment("Set AND result to 1".to_string());
+            .with_comment(format!("[fp + {dest_off}] = 1"));
         self.instructions.push(set_true_instr);
 
         // Step 6: end label
@@ -460,7 +466,9 @@ impl CasmBuilder {
                 let jnz_left = CasmInstruction::new(Opcode::JnzFpImm.into())
                     .with_off0(left_off)
                     .with_operand(Operand::Label(set_true_label.clone()))
-                    .with_comment("if left != 0, set result to 1".to_string());
+                    .with_comment(format!(
+                        "if [fp + {left_off}] != 0, jump to {set_true_label}"
+                    ));
                 self.instructions.push(jnz_left);
             }
             Value::Literal(Literal::Integer(imm)) => {
@@ -468,7 +476,7 @@ impl CasmBuilder {
                 if imm != 0 {
                     let jmp_true = CasmInstruction::new(Opcode::JmpAbsImm.into())
                         .with_operand(Operand::Label(set_true_label.clone()))
-                        .with_comment("left is non-zero immediate, set result to 1".to_string());
+                        .with_comment(format!("jump to {set_true_label}"));
                     self.instructions.push(jmp_true);
                 }
                 // If left is 0, continue to check right
@@ -487,7 +495,9 @@ impl CasmBuilder {
                 let jnz_right = CasmInstruction::new(Opcode::JnzFpImm.into())
                     .with_off0(right_off)
                     .with_operand(Operand::Label(set_true_label.clone()))
-                    .with_comment("if right != 0, set result to 1".to_string());
+                    .with_comment(format!(
+                        "if [fp + {right_off}] != 0, jump to {set_true_label}"
+                    ));
                 self.instructions.push(jnz_right);
             }
             Value::Literal(Literal::Integer(imm)) => {
@@ -495,7 +505,7 @@ impl CasmBuilder {
                 if imm != 0 {
                     let jmp_true = CasmInstruction::new(Opcode::JmpAbsImm.into())
                         .with_operand(Operand::Label(set_true_label.clone()))
-                        .with_comment("right is non-zero immediate, set result to 1".to_string());
+                        .with_comment(format!("jump to {set_true_label}"));
                     self.instructions.push(jmp_true);
                 }
                 // If right is 0, fall through to end (result stays 0)
@@ -510,7 +520,7 @@ impl CasmBuilder {
         // Step 4: Jump to end (both operands were 0, result stays 0)
         let jmp_end = CasmInstruction::new(Opcode::JmpAbsImm.into())
             .with_operand(Operand::Label(end_label.clone()))
-            .with_comment("Both operands were 0, keep result as 0".to_string());
+            .with_comment(format!("jump to {end_label}"));
         self.instructions.push(jmp_end);
 
         // Step 5: set_true label - set result to 1
@@ -518,7 +528,7 @@ impl CasmBuilder {
         let set_true_instr = CasmInstruction::new(Opcode::StoreImm.into())
             .with_off2(dest_off)
             .with_imm(1)
-            .with_comment("Set OR result to 1".to_string());
+            .with_comment(format!("[fp + {dest_off}] = 1"));
         self.instructions.push(set_true_instr);
 
         // Step 6: end label
