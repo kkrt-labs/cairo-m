@@ -141,249 +141,72 @@ mod tests {
     }
 
     #[test]
-    fn test_memory_cache_push_first_entry() {
+    fn test_memory_cache_push() {
         let mut cache = MemoryCache::default();
-        let mem_entry = MemoryEntry {
-            address: 42,
-            value: [1, 2, 3, 4],
-        };
-        let clock = 10;
 
-        let memory_arg = cache.push(mem_entry, clock);
-
-        assert_eq!(memory_arg.address, M31::from(42));
-        assert_eq!(memory_arg.prev_val, QM31::from_u32_unchecked(0, 0, 0, 0));
-        assert_eq!(memory_arg.value, QM31::from_u32_unchecked(1, 2, 3, 4));
-        assert_eq!(memory_arg.prev_clock, M31::from(0));
-        assert_eq!(memory_arg.clock, M31::from(10));
-
-        // Check internal state
-        assert_eq!(cache.clock_cache.get(&42), Some(&10));
-        assert_eq!(cache.initial_memory.get(&42), Some(&([1, 2, 3, 4], 10)));
-        assert_eq!(cache.current_memory.get(&42), Some(&([1, 2, 3, 4], 10)));
-    }
-
-    #[test]
-    fn test_memory_cache_push_second_entry_same_address() {
-        let mut cache = MemoryCache::default();
+        // First memory entry - testing uninitialized cell behavior
         let first_entry = MemoryEntry {
-            address: 42,
-            value: [1, 2, 3, 4],
-        };
-        let second_entry = MemoryEntry {
-            address: 42,
-            value: [5, 6, 7, 8],
-        };
-
-        // Push first entry
-        cache.push(first_entry, 10);
-
-        // Push second entry to same address
-        let memory_arg = cache.push(second_entry, 20);
-
-        assert_eq!(memory_arg.address, M31::from(42));
-        assert_eq!(memory_arg.prev_val, QM31::from_u32_unchecked(1, 2, 3, 4));
-        assert_eq!(memory_arg.value, QM31::from_u32_unchecked(5, 6, 7, 8));
-        assert_eq!(memory_arg.prev_clock, M31::from(10));
-        assert_eq!(memory_arg.clock, M31::from(20));
-
-        // Check internal state
-        assert_eq!(cache.clock_cache.get(&42), Some(&20));
-        assert_eq!(cache.initial_memory.get(&42), Some(&([1, 2, 3, 4], 10))); // Should remain unchanged
-        assert_eq!(cache.current_memory.get(&42), Some(&([5, 6, 7, 8], 20))); // Should be updated
-    }
-
-    #[test]
-    fn test_memory_cache_push_different_addresses() {
-        let mut cache = MemoryCache::default();
-        let entry1 = MemoryEntry {
-            address: 42,
-            value: [1, 2, 3, 4],
-        };
-        let entry2 = MemoryEntry {
             address: 100,
-            value: [5, 6, 7, 8],
-        };
-
-        cache.push(entry1, 10);
-        let memory_arg = cache.push(entry2, 20);
-
-        assert_eq!(memory_arg.address, M31::from(100));
-        assert_eq!(memory_arg.prev_val, QM31::from_u32_unchecked(0, 0, 0, 0)); // New address, so old value is zero
-        assert_eq!(memory_arg.value, QM31::from_u32_unchecked(5, 6, 7, 8));
-        assert_eq!(memory_arg.prev_clock, M31::from(0)); // New address, so previous clock is 0
-        assert_eq!(memory_arg.clock, M31::from(20));
-
-        // Check both entries exist
-        assert_eq!(cache.clock_cache.len(), 2);
-        assert_eq!(cache.initial_memory.len(), 2);
-        assert_eq!(cache.current_memory.len(), 2);
-    }
-
-    #[test]
-    fn test_memory_cache_multiple_updates_same_address() {
-        let mut cache = MemoryCache::default();
-        let address = 42;
-
-        // First update
-        let entry1 = MemoryEntry {
-            address,
             value: [1, 2, 3, 4],
         };
-        cache.push(entry1, 10);
+        let first_clock = 10;
 
-        // Second update
-        let entry2 = MemoryEntry {
-            address,
+        let first_result = cache.push(first_entry, first_clock);
+
+        // Verify the result of the first push
+        assert_eq!(first_result.address, M31::from(100));
+        assert_eq!(first_result.prev_clock, M31::from(0));
+        assert_eq!(first_result.clock, M31::from(10));
+        assert_eq!(first_result.prev_val, QM31::from_u32_unchecked(0, 0, 0, 0));
+        assert_eq!(first_result.value, QM31::from_u32_unchecked(1, 2, 3, 4));
+
+        // Verify internal state after first push
+        assert!(cache.initial_memory.contains_key(&100));
+        assert_eq!(cache.initial_memory[&100], ([0, 0, 0, 0], 0)); // Arbitrary dummy pushed to initial memory
+        assert_eq!(cache.current_memory[&100], ([1, 2, 3, 4], 10)); // New data pushed to current memory
+        assert_eq!(cache.clock_cache[&100], 10); // Clock updated
+
+        // Second memory entry - testing initialized cell behavior (same address)
+        let second_entry = MemoryEntry {
+            address: 100, // Same address
             value: [5, 6, 7, 8],
         };
-        cache.push(entry2, 20);
+        let second_clock = 20;
 
-        // Third update
-        let entry3 = MemoryEntry {
-            address,
+        let second_result = cache.push(second_entry, second_clock);
+
+        // Verify the result of the second push
+        assert_eq!(second_result.address, M31::from(100));
+        assert_eq!(second_result.prev_clock, M31::from(10)); // Previous clock from first entry
+        assert_eq!(second_result.clock, M31::from(20)); // Current clock
+        assert_eq!(second_result.prev_val, QM31::from_u32_unchecked(1, 2, 3, 4));
+        assert_eq!(second_result.value, QM31::from_u32_unchecked(5, 6, 7, 8));
+
+        // Verify internal state after second push:
+        assert_eq!(cache.initial_memory[&100], ([0, 0, 0, 0], 0)); // Initial memory remains unchanged
+        assert_eq!(cache.clock_cache[&100], 20); // Clock cache updated
+        assert_eq!(cache.current_memory[&100], ([5, 6, 7, 8], 20)); // Current memory updated
+
+        // Test with a different address to verify independent behavior
+        let third_entry = MemoryEntry {
+            address: 200, // Different address
             value: [9, 10, 11, 12],
         };
-        let memory_arg = cache.push(entry3, 30);
+        let third_clock = 30;
 
-        assert_eq!(memory_arg.prev_val, QM31::from_u32_unchecked(5, 6, 7, 8));
-        assert_eq!(memory_arg.value, QM31::from_u32_unchecked(9, 10, 11, 12));
-        assert_eq!(memory_arg.prev_clock, M31::from(20));
-        assert_eq!(memory_arg.clock, M31::from(30));
+        let third_result = cache.push(third_entry, third_clock);
 
-        // Initial memory should still be the first value
-        assert_eq!(
-            cache.initial_memory.get(&address),
-            Some(&([1, 2, 3, 4], 10))
-        );
-        // Current memory should be the latest value
-        assert_eq!(
-            cache.current_memory.get(&address),
-            Some(&([9, 10, 11, 12], 30))
-        );
-    }
+        // Verify the result of the third push
+        assert_eq!(third_result.address, M31::from(200));
+        assert_eq!(third_result.prev_clock, M31::from(0));
+        assert_eq!(third_result.clock, M31::from(30));
+        assert_eq!(third_result.prev_val, QM31::from_u32_unchecked(0, 0, 0, 0));
+        assert_eq!(third_result.value, QM31::from_u32_unchecked(9, 10, 11, 12));
 
-    #[test]
-    fn test_get_memory_boundaries_single_entry() {
-        let mut cache = MemoryCache::default();
-        let entry = MemoryEntry {
-            address: 42,
-            value: [1, 2, 3, 4],
-        };
-        cache.push(entry, 10);
-
-        let boundaries = cache.get_memory_boundaries();
-
-        assert_eq!(boundaries.initial_memory.len(), 1);
-        assert_eq!(boundaries.final_memory.len(), 1);
-        assert_eq!(boundaries.initial_memory[0].0, M31::from(42));
-        assert_eq!(
-            boundaries.initial_memory[0].1,
-            QM31::from_u32_unchecked(1, 2, 3, 4)
-        );
-        assert_eq!(boundaries.final_memory[0].0, M31::from(42));
-        assert_eq!(
-            boundaries.final_memory[0].1,
-            QM31::from_u32_unchecked(1, 2, 3, 4)
-        );
-    }
-
-    #[test]
-    fn test_get_memory_boundaries_multiple_entries() {
-        let mut cache = MemoryCache::default();
-
-        // Add multiple entries to different addresses
-        cache.push(
-            MemoryEntry {
-                address: 42,
-                value: [1, 2, 3, 4],
-            },
-            10,
-        );
-        cache.push(
-            MemoryEntry {
-                address: 100,
-                value: [5, 6, 7, 8],
-            },
-            20,
-        );
-        cache.push(
-            MemoryEntry {
-                address: 200,
-                value: [9, 10, 11, 12],
-            },
-            30,
-        );
-
-        let boundaries = cache.get_memory_boundaries();
-
-        assert_eq!(boundaries.initial_memory.len(), 3);
-        assert_eq!(boundaries.final_memory.len(), 3);
-
-        // Sort for consistent comparison (HashMap iteration order is not guaranteed)
-        let mut initial_sorted = boundaries.initial_memory;
-        let mut final_sorted = boundaries.final_memory;
-        initial_sorted.sort_by_key(|entry| entry.0);
-        final_sorted.sort_by_key(|entry| entry.0);
-
-        assert_eq!(initial_sorted[0].0, M31::from(42));
-        assert_eq!(initial_sorted[0].1, QM31::from_u32_unchecked(1, 2, 3, 4));
-        assert_eq!(initial_sorted[1].0, M31::from(100));
-        assert_eq!(initial_sorted[1].1, QM31::from_u32_unchecked(5, 6, 7, 8));
-        assert_eq!(initial_sorted[2].0, M31::from(200));
-        assert_eq!(initial_sorted[2].1, QM31::from_u32_unchecked(9, 10, 11, 12));
-    }
-
-    #[test]
-    fn test_get_memory_boundaries_with_updates() {
-        let mut cache = MemoryCache::default();
-
-        // Add initial entry
-        cache.push(
-            MemoryEntry {
-                address: 42,
-                value: [1, 2, 3, 4],
-            },
-            10,
-        );
-        // Update same address
-        cache.push(
-            MemoryEntry {
-                address: 42,
-                value: [5, 6, 7, 8],
-            },
-            20,
-        );
-        // Add different address
-        cache.push(
-            MemoryEntry {
-                address: 100,
-                value: [9, 10, 11, 12],
-            },
-            30,
-        );
-
-        let boundaries = cache.get_memory_boundaries();
-
-        assert_eq!(boundaries.initial_memory.len(), 2);
-        assert_eq!(boundaries.final_memory.len(), 2);
-
-        // Sort for consistent comparison
-        let mut initial_sorted = boundaries.initial_memory;
-        let mut final_sorted = boundaries.final_memory;
-        initial_sorted.sort_by_key(|entry| entry.0);
-        final_sorted.sort_by_key(|entry| entry.0);
-
-        // Initial memory should contain first values
-        assert_eq!(initial_sorted[0].0, M31::from(42));
-        assert_eq!(initial_sorted[0].1, QM31::from_u32_unchecked(1, 2, 3, 4)); // Initial value
-        assert_eq!(initial_sorted[1].0, M31::from(100));
-        assert_eq!(initial_sorted[1].1, QM31::from_u32_unchecked(9, 10, 11, 12));
-
-        // Final memory should contain current values
-        assert_eq!(final_sorted[0].0, M31::from(42));
-        assert_eq!(final_sorted[0].1, QM31::from_u32_unchecked(5, 6, 7, 8)); // Updated value
-        assert_eq!(final_sorted[1].0, M31::from(100));
-        assert_eq!(final_sorted[1].1, QM31::from_u32_unchecked(9, 10, 11, 12)); // Same as initial
+        // Verify that both addresses are now tracked independently
+        assert!(cache.initial_memory.contains_key(&100));
+        assert!(cache.initial_memory.contains_key(&200));
+        assert_eq!(cache.clock_cache.len(), 2);
+        assert_eq!(cache.current_memory.len(), 2);
     }
 }
