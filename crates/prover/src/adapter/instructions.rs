@@ -1,3 +1,4 @@
+use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 use thiserror::Error;
 
@@ -11,28 +12,56 @@ pub enum InstructionError {
     UnknownOpcode(u32),
 }
 
+/// Opcode wrapper that provides type-safe access to opcode IDs
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Opcode {
+    id: u32,
+}
+
+impl Opcode {
+    /// Get the opcode ID as a u32
+    pub fn id(self) -> u32 {
+        self.id
+    }
+}
+
+impl From<[u32; 4]> for Opcode {
+    /// Extract opcode from instruction value array
+    /// The opcode is stored in the first element of the array
+    fn from(value: [u32; 4]) -> Self {
+        Self { id: value[0] }
+    }
+}
+
+impl From<&[u32; 4]> for Opcode {
+    /// Extract opcode from reference to instruction value array
+    fn from(value: &[u32; 4]) -> Self {
+        Self { id: value[0] }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default)]
 pub struct VmRegisters {
-    pub pc: u32,
-    pub fp: u32,
+    pub pc: M31,
+    pub fp: M31,
 }
 
 impl From<TraceEntry> for VmRegisters {
     fn from(entry: TraceEntry) -> Self {
         Self {
-            pc: entry.pc,
-            fp: entry.fp,
+            pc: entry.pc.into(),
+            fp: entry.fp.into(),
         }
     }
 }
 
 #[derive(Debug, Default)]
 pub struct MemoryArg {
-    pub address: u32,
+    pub address: M31,
     pub prev_val: QM31,
     pub value: QM31,
-    pub prev_clock: u32,
-    pub clock: u32,
+    pub prev_clock: M31,
+    pub clock: M31,
 }
 
 #[derive(Debug, Default)]
@@ -103,7 +132,7 @@ impl Instructions {
         let instruction = memory
             .next()
             .ok_or(InstructionError::UnexpectedEndOfMemory)?;
-        let opcode_id = instruction.value[0];
+        let opcode_id = Opcode::from(instruction.value).id();
         state_data.memory_args[0] = memory_cache.push(instruction, clock);
 
         match opcode_id {
@@ -460,7 +489,10 @@ mod tests {
     fn test_push_instr_store_add_fp_fp() {
         let mut instructions = Instructions::default();
         let mut memory_cache = MemoryCache::default();
-        let state = VmRegisters { pc: 10, fp: 20 };
+        let state = VmRegisters {
+            pc: M31::from(10),
+            fp: M31::from(20),
+        };
         let clock = 5;
 
         // Create memory entries for store_add_fp_fp (opcode 0)
@@ -485,21 +517,24 @@ mod tests {
         assert!(instructions.states_by_opcodes.store_add_fp_imm.is_empty());
 
         let state_data = &instructions.states_by_opcodes.store_add_fp_fp[0];
-        assert_eq!(state_data.registers.pc, 10);
-        assert_eq!(state_data.registers.fp, 20);
+        assert_eq!(state_data.registers.pc, M31::from(10));
+        assert_eq!(state_data.registers.fp, M31::from(20));
 
         // Check that memory_args are properly set
-        assert_eq!(state_data.memory_args[0].address, 0); // instruction address
-        assert_eq!(state_data.memory_args[1].address, 1); // first operand address
-        assert_eq!(state_data.memory_args[2].address, 2); // second operand address
-        assert_eq!(state_data.memory_args[3].address, 3); // result address
+        assert_eq!(state_data.memory_args[0].address, M31::from(0)); // instruction address
+        assert_eq!(state_data.memory_args[1].address, M31::from(1)); // first operand address
+        assert_eq!(state_data.memory_args[2].address, M31::from(2)); // second operand address
+        assert_eq!(state_data.memory_args[3].address, M31::from(3)); // result address
     }
 
     #[test]
     fn test_push_instr_store_add_fp_imm() {
         let mut instructions = Instructions::default();
         let mut memory_cache = MemoryCache::default();
-        let state = VmRegisters { pc: 15, fp: 25 };
+        let state = VmRegisters {
+            pc: M31::from(15),
+            fp: M31::from(25),
+        };
         let clock = 7;
 
         // Create memory entries for store_add_fp_imm (opcode 1)
@@ -522,21 +557,24 @@ mod tests {
         assert!(instructions.states_by_opcodes.store_add_fp_fp.is_empty());
 
         let state_data = &instructions.states_by_opcodes.store_add_fp_imm[0];
-        assert_eq!(state_data.registers.pc, 15);
-        assert_eq!(state_data.registers.fp, 25);
+        assert_eq!(state_data.registers.pc, M31::from(15));
+        assert_eq!(state_data.registers.fp, M31::from(25));
 
         // For store_add_fp_imm, only 3 memory entries are used
-        assert_eq!(state_data.memory_args[0].address, 0); // instruction
-        assert_eq!(state_data.memory_args[1].address, 1); // operand
-        assert_eq!(state_data.memory_args[2].address, 2); // result
-        assert_eq!(state_data.memory_args[3].address, 0); // unused, should be default
+        assert_eq!(state_data.memory_args[0].address, M31::from(0)); // instruction
+        assert_eq!(state_data.memory_args[1].address, M31::from(1)); // operand
+        assert_eq!(state_data.memory_args[2].address, M31::from(2)); // result
+        assert_eq!(state_data.memory_args[3].address, M31::from(0)); // unused, should be default
     }
 
     #[test]
     fn test_push_instr_store_imm() {
         let mut instructions = Instructions::default();
         let mut memory_cache = MemoryCache::default();
-        let state = VmRegisters { pc: 5, fp: 10 };
+        let state = VmRegisters {
+            pc: M31::from(5),
+            fp: M31::from(10),
+        };
         let clock = 3;
 
         // Create memory entries for store_imm (opcode 6)
@@ -557,21 +595,24 @@ mod tests {
         assert_eq!(instructions.states_by_opcodes.store_imm.len(), 1);
 
         let state_data = &instructions.states_by_opcodes.store_imm[0];
-        assert_eq!(state_data.registers.pc, 5);
-        assert_eq!(state_data.registers.fp, 10);
+        assert_eq!(state_data.registers.pc, M31::from(5));
+        assert_eq!(state_data.registers.fp, M31::from(10));
 
         // For store_imm, only 2 memory entries are used
-        assert_eq!(state_data.memory_args[0].address, 0); // instruction
-        assert_eq!(state_data.memory_args[1].address, 1); // result
-        assert_eq!(state_data.memory_args[2].address, 0); // unused
-        assert_eq!(state_data.memory_args[3].address, 0); // unused
+        assert_eq!(state_data.memory_args[0].address, M31::from(0)); // instruction
+        assert_eq!(state_data.memory_args[1].address, M31::from(1)); // result
+        assert_eq!(state_data.memory_args[2].address, M31::from(0)); // unused
+        assert_eq!(state_data.memory_args[3].address, M31::from(0)); // unused
     }
 
     #[test]
     fn test_push_instr_call_abs_imm() {
         let mut instructions = Instructions::default();
         let mut memory_cache = MemoryCache::default();
-        let state = VmRegisters { pc: 100, fp: 200 };
+        let state = VmRegisters {
+            pc: M31::from(100),
+            fp: M31::from(200),
+        };
         let clock = 15;
 
         // Create memory entries for call_abs_imm (opcode 12)
@@ -591,21 +632,24 @@ mod tests {
         assert_eq!(instructions.states_by_opcodes.call_abs_imm.len(), 1);
 
         let state_data = &instructions.states_by_opcodes.call_abs_imm[0];
-        assert_eq!(state_data.registers.pc, 100);
-        assert_eq!(state_data.registers.fp, 200);
+        assert_eq!(state_data.registers.pc, M31::from(100));
+        assert_eq!(state_data.registers.fp, M31::from(200));
 
         // For call_abs_imm, only 1 memory entry is used
-        assert_eq!(state_data.memory_args[0].address, 0); // instruction
-        assert_eq!(state_data.memory_args[1].address, 0); // unused
-        assert_eq!(state_data.memory_args[2].address, 0); // unused
-        assert_eq!(state_data.memory_args[3].address, 0); // unused
+        assert_eq!(state_data.memory_args[0].address, M31::from(0)); // instruction
+        assert_eq!(state_data.memory_args[1].address, M31::from(0)); // unused
+        assert_eq!(state_data.memory_args[2].address, M31::from(0)); // unused
+        assert_eq!(state_data.memory_args[3].address, M31::from(0)); // unused
     }
 
     #[test]
     fn test_push_instr_unknown_opcode() {
         let mut instructions = Instructions::default();
         let mut memory_cache = MemoryCache::default();
-        let state = VmRegisters { pc: 0, fp: 0 };
+        let state = VmRegisters {
+            pc: M31::from(0),
+            fp: M31::from(0),
+        };
         let clock = 1;
 
         // Create memory entry with invalid opcode 32
@@ -634,7 +678,10 @@ mod tests {
         let clock = 1;
 
         // Push store_imm instruction
-        let state1 = VmRegisters { pc: 0, fp: 100 };
+        let state1 = VmRegisters {
+            pc: M31::from(0),
+            fp: M31::from(100),
+        };
         let memory_entries1 = vec![
             create_mem_entry(0, [6, 0, 0, 0]),  // store_imm opcode
             create_mem_entry(1, [42, 0, 0, 0]), // result
@@ -649,7 +696,10 @@ mod tests {
             .unwrap();
 
         // Push call_abs_imm instruction
-        let state2 = VmRegisters { pc: 1, fp: 100 };
+        let state2 = VmRegisters {
+            pc: M31::from(1),
+            fp: M31::from(100),
+        };
         let memory_entries2 = vec![
             create_mem_entry(2, [12, 0, 0, 0]), // call_abs_imm opcode
         ];
@@ -663,7 +713,10 @@ mod tests {
             .unwrap();
 
         // Push ret instruction
-        let state3 = VmRegisters { pc: 2, fp: 100 };
+        let state3 = VmRegisters {
+            pc: M31::from(2),
+            fp: M31::from(100),
+        };
         let memory_entries3 = vec![
             create_mem_entry(3, [15, 0, 0, 0]), // ret opcode
         ];
@@ -682,19 +735,28 @@ mod tests {
         assert_eq!(instructions.states_by_opcodes.ret.len(), 1);
 
         // Verify states are correct
-        assert_eq!(instructions.states_by_opcodes.store_imm[0].registers.pc, 0);
+        assert_eq!(
+            instructions.states_by_opcodes.store_imm[0].registers.pc,
+            M31::from(0)
+        );
         assert_eq!(
             instructions.states_by_opcodes.call_abs_imm[0].registers.pc,
-            1
+            M31::from(1)
         );
-        assert_eq!(instructions.states_by_opcodes.ret[0].registers.pc, 2);
+        assert_eq!(
+            instructions.states_by_opcodes.ret[0].registers.pc,
+            M31::from(2)
+        );
     }
 
     #[test]
     fn test_clock_progression() {
         let mut instructions = Instructions::default();
         let mut memory_cache = MemoryCache::default();
-        let state = VmRegisters { pc: 0, fp: 0 };
+        let state = VmRegisters {
+            pc: M31::from(0),
+            fp: M31::from(0),
+        };
 
         // Push multiple instructions with different clocks
         for i in 0..3 {
@@ -716,8 +778,47 @@ mod tests {
 
         // Verify clocks are correct
         for (i, state_data) in instructions.states_by_opcodes.store_imm.iter().enumerate() {
-            assert_eq!(state_data.memory_args[0].clock, (i + 1) as u32); // instruction clock
-            assert_eq!(state_data.memory_args[1].clock, (i + 1) as u32); // result clock
+            assert_eq!(state_data.memory_args[0].clock, M31::from((i + 1) as u32)); // instruction clock
+            assert_eq!(state_data.memory_args[1].clock, M31::from((i + 1) as u32));
+            // result clock
         }
+    }
+
+    #[test]
+    fn test_opcode_from_array() {
+        let instruction_value = [42, 1, 2, 3];
+        let opcode = Opcode::from(instruction_value);
+        assert_eq!(opcode.id(), 42);
+    }
+
+    #[test]
+    fn test_opcode_from_array_ref() {
+        let instruction_value = [17, 4, 5, 6];
+        let opcode = Opcode::from(&instruction_value);
+        assert_eq!(opcode.id(), 17);
+    }
+
+    #[test]
+    fn test_opcode_from_zero() {
+        let instruction_value = [0, 1, 2, 3];
+        let opcode = Opcode::from(instruction_value);
+        assert_eq!(opcode.id(), 0);
+    }
+
+    #[test]
+    fn test_opcode_equality() {
+        let opcode1 = Opcode::from([5, 0, 0, 0]);
+        let opcode2 = Opcode::from([5, 1, 2, 3]);
+        let opcode3 = Opcode::from([6, 0, 0, 0]);
+
+        assert_eq!(opcode1, opcode2); // Same opcode ID, different other values
+        assert_ne!(opcode1, opcode3); // Different opcode ID
+    }
+
+    #[test]
+    fn test_opcode_debug() {
+        let opcode = Opcode::from([12, 0, 0, 0]);
+        let debug_str = format!("{:?}", opcode);
+        assert!(debug_str.contains("12"));
     }
 }

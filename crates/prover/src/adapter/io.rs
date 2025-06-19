@@ -12,6 +12,14 @@ pub enum VmImportError {
     Json(#[from] sonic_rs::Error),
     #[error("No memory segments")]
     NoMemorySegments,
+    #[error("Empty trace: trace file contains no entries")]
+    EmptyTrace,
+    #[error("Failed to read metadata header")]
+    MetadataError,
+    #[error("Failed to push initial instruction: {0}")]
+    InitialInstructionError(crate::adapter::instructions::InstructionError),
+    #[error("Failed to push instruction: {0}")]
+    InstructionError(crate::adapter::instructions::InstructionError),
 }
 
 #[repr(C)]
@@ -21,21 +29,6 @@ pub struct IoTraceEntry {
     pub fp: u32,
 }
 
-#[derive(Copy, Clone, Default, Debug)]
-pub struct TraceEntry {
-    pub pc: u32,
-    pub fp: u32,
-}
-
-impl From<IoTraceEntry> for TraceEntry {
-    fn from(io_entry: IoTraceEntry) -> Self {
-        Self {
-            pc: io_entry.pc,
-            fp: io_entry.fp,
-        }
-    }
-}
-
 #[repr(C)]
 #[derive(Copy, Clone, Default, Pod, Zeroable, Debug)]
 pub struct IoMemoryEntry {
@@ -43,19 +36,11 @@ pub struct IoMemoryEntry {
     pub value: [u32; 4],
 }
 
-#[derive(Copy, Clone, Default, Debug)]
-pub struct MemoryEntry {
-    pub address: u32,
-    pub value: [u32; 4],
-}
-
-impl From<IoMemoryEntry> for MemoryEntry {
-    fn from(io_entry: IoMemoryEntry) -> Self {
-        Self {
-            address: io_entry.address,
-            value: io_entry.value,
-        }
-    }
+/// Metadata header for memory traces containing program length
+#[repr(C)]
+#[derive(Copy, Clone, Default, Pod, Zeroable, Debug)]
+pub struct MemoryTraceMetadata {
+    pub program_length: u32,
 }
 
 pub struct TraceIter<R: Read>(pub R);
@@ -64,54 +49,70 @@ pub struct TraceIter<R: Read>(pub R);
 pub type TraceFileIter = TraceIter<BufReader<std::fs::File>>;
 
 impl<R: Read> Iterator for TraceIter<R> {
-    type Item = TraceEntry;
+    type Item = IoTraceEntry;
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut entry = IoTraceEntry::default();
         self.0
             .read_exact(bytes_of_mut(&mut entry))
             .ok()
-            .map(|_| entry.into())
+            .map(|_| entry)
     }
 }
 
-// Standalone function to create a TraceIter from a file path
-pub fn trace_iter_from_path(path: &Path) -> Result<TraceFileIter, VmImportError> {
-    let file = std::fs::File::open(path)?;
-    let reader = BufReader::new(file);
-    Ok(TraceIter(reader))
+impl TryFrom<&Path> for TraceFileIter {
+    type Error = VmImportError;
+
+    fn try_from(path: &Path) -> Result<Self, Self::Error> {
+        let file = std::fs::File::open(path)?;
+        let reader = BufReader::new(file);
+        Ok(TraceIter(reader))
+    }
 }
 
-pub struct MemoryEntryIter<R: Read>(pub R);
+pub struct MemoryEntryIter<R: Read> {
+    reader: R,
+    metadata: MemoryTraceMetadata,
+}
 
 // Type alias for the concrete iterator from a file path
 pub type MemoryEntryFileIter = MemoryEntryIter<BufReader<std::fs::File>>;
 
-impl<R: Read> Iterator for MemoryEntryIter<R> {
-    type Item = MemoryEntry;
+impl<R: Read> MemoryEntryIter<R> {
+    /// Create a new MemoryEntryIter and read the metadata header
+    pub fn new(mut reader: R) -> Result<Self, VmImportError> {
+        let mut metadata = MemoryTraceMetadata::default();
+        reader
+            .read_exact(bytes_of_mut(&mut metadata))
+            .map_err(|_| VmImportError::MetadataError)?;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut entry = IoMemoryEntry::default();
-        self.0
-            .read_exact(bytes_of_mut(&mut entry))
-            .ok()
-            .map(|_| entry.into())
+        Ok(Self { reader, metadata })
+    }
+
+    /// Get the program length from the metadata header
+    pub fn program_length(&self) -> u32 {
+        self.metadata.program_length
     }
 }
 
-// Standalone function to create a MemoryEntryIter from a file path
-pub fn memory_entry_iter_from_path(path: &Path) -> Result<MemoryEntryFileIter, VmImportError> {
-    let file = std::fs::File::open(path)?;
-    let reader = BufReader::new(file);
-    Ok(MemoryEntryIter(reader))
+impl<R: Read> Iterator for MemoryEntryIter<R> {
+    type Item = IoMemoryEntry;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut entry = IoMemoryEntry::default();
+        self.reader
+            .read_exact(bytes_of_mut(&mut entry))
+            .ok()
+            .map(|_| entry)
+    }
 }
 
-pub fn read_memory_and_trace_from_paths(
-    trace_path: &Path,
-    mem_path: &Path,
-) -> Result<(Vec<MemoryEntry>, Vec<TraceEntry>), VmImportError> {
-    let memory_entries: Vec<MemoryEntry> = memory_entry_iter_from_path(mem_path)?.collect();
-    let trace_entries: Vec<TraceEntry> = trace_iter_from_path(trace_path)?.collect();
+impl TryFrom<&Path> for MemoryEntryFileIter {
+    type Error = VmImportError;
 
-    Ok((memory_entries, trace_entries))
+    fn try_from(path: &Path) -> Result<Self, Self::Error> {
+        let file = std::fs::File::open(path)?;
+        let reader = BufReader::new(file);
+        MemoryEntryIter::new(reader)
+    }
 }
