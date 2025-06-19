@@ -1,7 +1,4 @@
-use std::simd::Simd;
-
 use itertools::{chain, Itertools};
-use num_traits::One;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use stwo_prover::constraint_framework::logup::LogupTraceGenerator;
 use stwo_prover::constraint_framework::{
@@ -23,7 +20,7 @@ use stwo_prover::core::poly::BitReversedOrder;
 use crate::adapter::memory::MemoryBoundaries;
 use crate::relations;
 
-const N_M31_IN_MEMORY_ENTRY: usize = 6;
+const N_M31_IN_MEMORY_ENTRY: usize = 7;
 
 #[derive(Clone, Default)]
 pub struct Claim {
@@ -84,17 +81,22 @@ impl Claim {
             .initial_memory
             .iter()
             .map(|(address, value, clock)| {
-                [*address, value[0], value[1], value[2], value[3], *clock]
+                let value_array = value.to_m31_array();
+                [
+                    *address,
+                    value_array[0],
+                    value_array[1],
+                    value_array[2],
+                    value_array[3],
+                    *clock,
+                    M31::from(-1),
+                ]
             })
-            .chain(std::iter::repeat([0u32; N_M31_IN_MEMORY_ENTRY]))
+            .chain(std::iter::repeat([M31::from(0); N_M31_IN_MEMORY_ENTRY]))
             .take(1 << self.log_size)
             .array_chunks::<N_LANES>()
             .map(|chunk| {
-                std::array::from_fn(|x| unsafe {
-                    PackedM31::from_simd_unchecked(Simd::from_array(std::array::from_fn(|y| {
-                        chunk[y][x]
-                    })))
-                })
+                std::array::from_fn(|x| PackedM31::from_array(std::array::from_fn(|y| chunk[y][x])))
             })
             .collect();
         let final_memory: Vec<[PackedM31; N_M31_IN_MEMORY_ENTRY]> = self
@@ -102,17 +104,22 @@ impl Claim {
             .final_memory
             .iter()
             .map(|(address, value, clock)| {
-                [*address, value[0], value[1], value[2], value[3], *clock]
+                let value_array = value.to_m31_array();
+                [
+                    *address,
+                    value_array[0],
+                    value_array[1],
+                    value_array[2],
+                    value_array[3],
+                    *clock,
+                    M31::from(1),
+                ]
             })
-            .chain(std::iter::repeat([0u32; N_M31_IN_MEMORY_ENTRY]))
+            .chain(std::iter::repeat([M31::from(0); N_M31_IN_MEMORY_ENTRY]))
             .take(1 << self.log_size)
             .array_chunks::<N_LANES>()
             .map(|chunk| {
-                std::array::from_fn(|x| unsafe {
-                    PackedM31::from_simd_unchecked(Simd::from_array(std::array::from_fn(|y| {
-                        chunk[y][x]
-                    })))
-                })
+                std::array::from_fn(|x| PackedM31::from_array(std::array::from_fn(|y| chunk[y][x])))
             })
             .collect();
 
@@ -189,8 +196,14 @@ impl InteractionClaim {
         (col.par_iter_mut(), &lookup_data.initial_memory)
             .into_par_iter()
             .for_each(|(writer, value)| {
-                let denom: PackedQM31 = memory.combine(value);
-                writer.write_frac(-PackedQM31::one(), denom);
+                let denom: PackedQM31 = memory.combine(&value[..6]);
+                let mult: PackedQM31 = PackedQM31::from_packed_m31s([
+                    value[6],
+                    PackedM31::broadcast(M31::from(0)),
+                    PackedM31::broadcast(M31::from(0)),
+                    PackedM31::broadcast(M31::from(0)),
+                ]);
+                writer.write_frac(mult, denom);
             });
         col.finalize_col();
 
@@ -198,8 +211,14 @@ impl InteractionClaim {
         (col.par_iter_mut(), &lookup_data.final_memory)
             .into_par_iter()
             .for_each(|(writer, value)| {
-                let denom: PackedQM31 = memory.combine(value);
-                writer.write_frac(PackedQM31::one(), denom);
+                let denom: PackedQM31 = memory.combine(&value[..6]);
+                let mult: PackedQM31 = PackedQM31::from_packed_m31s([
+                    value[6],
+                    PackedM31::broadcast(M31::from(0)),
+                    PackedM31::broadcast(M31::from(0)),
+                    PackedM31::broadcast(M31::from(0)),
+                ]);
+                writer.write_frac(mult, denom);
             });
         col.finalize_col();
 
@@ -223,20 +242,22 @@ impl FrameworkEval for Eval {
     }
 
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
-        let initial_memory_entries: [E::F; N_M31_IN_MEMORY_ENTRY] =
+        let initial_memory_entries: [E::F; N_M31_IN_MEMORY_ENTRY - 1] =
             std::array::from_fn(|_| eval.next_trace_mask());
-        let final_memory_entries: [E::F; N_M31_IN_MEMORY_ENTRY] =
+        let initial_mult_entries: E::F = eval.next_trace_mask();
+        let final_memory_entries: [E::F; N_M31_IN_MEMORY_ENTRY - 1] =
             std::array::from_fn(|_| eval.next_trace_mask());
+        let final_mult_entries: E::F = eval.next_trace_mask();
 
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
-            -E::EF::one(),
+            E::EF::from(initial_mult_entries),
             &initial_memory_entries,
         ));
 
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
-            E::EF::one(),
+            E::EF::from(final_mult_entries),
             &final_memory_entries,
         ));
 

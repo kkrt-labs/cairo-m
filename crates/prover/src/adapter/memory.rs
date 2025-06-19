@@ -20,18 +20,6 @@ impl From<crate::adapter::io::IoMemoryEntry> for MemoryEntry {
     }
 }
 
-impl MemoryEntry {
-    pub fn to_array(&self) -> [u32; 5] {
-        [
-            self.address,
-            self.value[0],
-            self.value[1],
-            self.value[2],
-            self.value[3],
-        ]
-    }
-}
-
 #[derive(Copy, Clone, Default, Debug)]
 pub struct TraceEntry {
     pub pc: u32,
