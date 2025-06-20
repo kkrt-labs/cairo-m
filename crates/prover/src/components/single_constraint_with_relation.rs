@@ -12,7 +12,7 @@ use stwo_prover::core::backend::simd::qm31::PackedQM31;
 use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::backend::BackendForChannel;
 use stwo_prover::core::channel::{Channel, MerkleChannel};
-use stwo_prover::core::fields::m31::{BaseField, M31};
+use stwo_prover::core::fields::m31::BaseField;
 use stwo_prover::core::fields::qm31::SecureField;
 use stwo_prover::core::fields::secure_column::SECURE_EXTENSION_DEGREE;
 use stwo_prover::core::pcs::TreeVec;

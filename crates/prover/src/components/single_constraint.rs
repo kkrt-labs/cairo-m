@@ -7,7 +7,6 @@ pub use stwo_prover::core::backend::simd::m31::PackedM31;
 use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::backend::BackendForChannel;
 use stwo_prover::core::channel::{Channel, MerkleChannel};
-use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::pcs::TreeVec;
 
 #[derive(Copy, Clone)]
