@@ -75,26 +75,6 @@ fn invalid_binary_op() {
     assert_parses_err!(&in_function("a +;"));
 }
 
-#[test]
-fn invalid_gt_sign() {
-    assert_parses_err!(&in_function("a > b;"));
-}
-
-#[test]
-fn invalid_lt_sign() {
-    assert_parses_err!(&in_function("a < b;"));
-}
-
-#[test]
-fn invald_geq_sign() {
-    assert_parses_err!(&in_function("a >= b;"));
-}
-
-#[test]
-fn invalid_leq_sign() {
-    assert_parses_err!(&in_function("a <= b;"));
-}
-
 // ===================
 // Function Calls
 // ===================

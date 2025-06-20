@@ -16,7 +16,7 @@ Source code:
             }
             return ();
         }
-
+    
 ============================================================
 Found 1 diagnostic(s):
 
@@ -25,8 +25,8 @@ Found 1 diagnostic(s):
    ╭─[ semantic_tests::expressions::type_errors::test_comparison_type_mismatch_with_context:7:17 ]
    │
  7 │             if (p == num) {  // Type mismatch with context
-   │                 ┬
+   │                 ┬  
    │                 ╰── Invalid left operand for comparison operator 'Eq'. Expected 'felt', found 'Point'
-   │                 │
+   │                 │  
    │                 ╰── This struct has numeric fields that could be accessed
 ───╯
