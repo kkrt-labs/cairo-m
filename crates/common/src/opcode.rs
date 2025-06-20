@@ -50,6 +50,20 @@ pub enum Opcode {
     // Conditional jumps
     JnzFpFp = 30,  // jmp rel [fp + off1] if [fp + off0] != 0
     JnzFpImm = 31, // jmp rel imm if [fp + off0] != 0
+
+    // Comparison operations
+    CmpEqFpFp = 32,   // [fp + off2] = ([fp + off0] == [fp + off1]) ? 1 : 0
+    CmpEqFpImm = 33,  // [fp + off2] = ([fp + off0] == imm) ? 1 : 0
+    CmpNeqFpFp = 34,  // [fp + off2] = ([fp + off0] != [fp + off1]) ? 1 : 0
+    CmpNeqFpImm = 35, // [fp + off2] = ([fp + off0] != imm) ? 1 : 0
+    CmpLtFpFp = 36,   // [fp + off2] = ([fp + off0] < [fp + off1]) ? 1 : 0
+    CmpLtFpImm = 37,  // [fp + off2] = ([fp + off0] < imm) ? 1 : 0
+    CmpGtFpFp = 38,   // [fp + off2] = ([fp + off0] > [fp + off1]) ? 1 : 0
+    CmpGtFpImm = 39,  // [fp + off2] = ([fp + off0] > imm) ? 1 : 0
+    CmpLeFpFp = 40,   // [fp + off2] = ([fp + off0] <= [fp + off1]) ? 1 : 0
+    CmpLeFpImm = 41,  // [fp + off2] = ([fp + off0] <= imm) ? 1 : 0
+    CmpGeFpFp = 42,   // [fp + off2] = ([fp + off0] >= [fp + off1]) ? 1 : 0
+    CmpGeFpImm = 43,  // [fp + off2] = ([fp + off0] >= imm) ? 1 : 0
 }
 
 impl From<Opcode> for u32 {
@@ -121,6 +135,18 @@ impl Opcode {
             29 => Some(Self::JmpRelMulFpImm),
             30 => Some(Self::JnzFpFp),
             31 => Some(Self::JnzFpImm),
+            32 => Some(Self::CmpEqFpFp),
+            33 => Some(Self::CmpEqFpImm),
+            34 => Some(Self::CmpNeqFpFp),
+            35 => Some(Self::CmpNeqFpImm),
+            36 => Some(Self::CmpLtFpFp),
+            37 => Some(Self::CmpLtFpImm),
+            38 => Some(Self::CmpGtFpFp),
+            39 => Some(Self::CmpGtFpImm),
+            40 => Some(Self::CmpLeFpFp),
+            41 => Some(Self::CmpLeFpImm),
+            42 => Some(Self::CmpGeFpFp),
+            43 => Some(Self::CmpGeFpImm),
             _ => None,
         }
     }
@@ -129,42 +155,4 @@ impl Opcode {
     pub fn name(&self) -> String {
         format!("{self:?}")
     }
-}
-
-// Re-export as module for backward compatibility
-pub mod opcodes {
-    use super::Opcode;
-
-    pub const STORE_ADD_FP_FP: u32 = Opcode::StoreAddFpFp as u32;
-    pub const STORE_ADD_FP_IMM: u32 = Opcode::StoreAddFpImm as u32;
-    pub const STORE_SUB_FP_FP: u32 = Opcode::StoreSubFpFp as u32;
-    pub const STORE_SUB_FP_IMM: u32 = Opcode::StoreSubFpImm as u32;
-    pub const STORE_DEREF_FP: u32 = Opcode::StoreDerefFp as u32;
-    pub const STORE_DOUBLE_DEREF_FP: u32 = Opcode::StoreDoubleDerefFp as u32;
-    pub const STORE_IMM: u32 = Opcode::StoreImm as u32;
-    pub const STORE_MUL_FP_FP: u32 = Opcode::StoreMulFpFp as u32;
-    pub const STORE_MUL_FP_IMM: u32 = Opcode::StoreMulFpImm as u32;
-    pub const STORE_DIV_FP_FP: u32 = Opcode::StoreDivFpFp as u32;
-    pub const STORE_DIV_FP_IMM: u32 = Opcode::StoreDivFpImm as u32;
-    pub const CALL_ABS_FP: u32 = Opcode::CallAbsFp as u32;
-    pub const CALL_ABS_IMM: u32 = Opcode::CallAbsImm as u32;
-    pub const CALL_REL_FP: u32 = Opcode::CallRelFp as u32;
-    pub const CALL_REL_IMM: u32 = Opcode::CallRelImm as u32;
-    pub const RET: u32 = Opcode::Ret as u32;
-    pub const JMP_ABS_ADD_FP_FP: u32 = Opcode::JmpAbsAddFpFp as u32;
-    pub const JMP_ABS_ADD_FP_IMM: u32 = Opcode::JmpAbsAddFpImm as u32;
-    pub const JMP_ABS_DEREF_FP: u32 = Opcode::JmpAbsDerefFp as u32;
-    pub const JMP_ABS_DOUBLE_DEREF_FP: u32 = Opcode::JmpAbsDoubleDerefFp as u32;
-    pub const JMP_ABS_IMM: u32 = Opcode::JmpAbsImm as u32;
-    pub const JMP_ABS_MUL_FP_FP: u32 = Opcode::JmpAbsMulFpFp as u32;
-    pub const JMP_ABS_MUL_FP_IMM: u32 = Opcode::JmpAbsMulFpImm as u32;
-    pub const JMP_REL_ADD_FP_FP: u32 = Opcode::JmpRelAddFpFp as u32;
-    pub const JMP_REL_ADD_FP_IMM: u32 = Opcode::JmpRelAddFpImm as u32;
-    pub const JMP_REL_DEREF_FP: u32 = Opcode::JmpRelDerefFp as u32;
-    pub const JMP_REL_DOUBLE_DEREF_FP: u32 = Opcode::JmpRelDoubleDerefFp as u32;
-    pub const JMP_REL_IMM: u32 = Opcode::JmpRelImm as u32;
-    pub const JMP_REL_MUL_FP_FP: u32 = Opcode::JmpRelMulFpFp as u32;
-    pub const JMP_REL_MUL_FP_IMM: u32 = Opcode::JmpRelMulFpImm as u32;
-    pub const JNZ_FP_FP: u32 = Opcode::JnzFpFp as u32;
-    pub const JNZ_FP_IMM: u32 = Opcode::JnzFpImm as u32;
 }
