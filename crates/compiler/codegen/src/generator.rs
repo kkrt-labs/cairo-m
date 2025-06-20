@@ -529,6 +529,7 @@ impl Default for CodeGenerator {
 #[cfg(test)]
 mod tests {
     use cairo_m_compiler_mir::{BasicBlock, MirFunction, MirModule, Terminator, Value, ValueId};
+    use num_traits::Zero;
     use stwo_prover::core::fields::m31::M31;
 
     use super::*;
@@ -599,7 +600,7 @@ mod tests {
         assert_eq!(store_imm.opcode, Opcode::StoreImm);
         assert_eq!(
             store_imm.operands,
-            [M31::from(42), M31::from(0), M31::from(-3)]
+            [M31::from(42), Zero::zero(), M31::from(-3)]
         );
     }
 }

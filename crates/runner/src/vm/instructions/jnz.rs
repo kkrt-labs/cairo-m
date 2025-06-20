@@ -52,7 +52,7 @@ pub fn jnz_fp_imm(
 
 #[cfg(test)]
 mod tests {
-    use cairo_m_common::Instruction;
+    use cairo_m_common::{Instruction, Opcode};
     use stwo_prover::core::fields::m31::M31;
 
     use super::*;
@@ -65,7 +65,8 @@ mod tests {
     #[test]
     fn test_jnz_fp_fp_zero() -> Result<(), MemoryError> {
         let mut memory = Memory::from_iter([0, 3].map(Into::into));
-        let instruction = Instruction::try_from([30, 0, 1, 0]).unwrap();
+        let instruction =
+            Instruction::new(Opcode::JnzFpFp, [Zero::zero(), M31::from(1), Zero::zero()]);
 
         let new_state = jnz_fp_fp(&mut memory, JNZ_INITIAL_STATE, &instruction)?;
 
@@ -81,7 +82,8 @@ mod tests {
     #[test]
     fn test_jnz_fp_fp_not_zero() -> Result<(), MemoryError> {
         let mut memory = Memory::from_iter([7, 3].map(Into::into));
-        let instruction = Instruction::try_from([30, 0, 1, 0]).unwrap();
+        let instruction =
+            Instruction::new(Opcode::JnzFpFp, [Zero::zero(), M31::from(1), Zero::zero()]);
 
         let new_state = jnz_fp_fp(&mut memory, JNZ_INITIAL_STATE, &instruction)?;
 
@@ -97,7 +99,8 @@ mod tests {
     #[test]
     fn test_jnz_fp_imm_zero() -> Result<(), MemoryError> {
         let mut memory = Memory::from_iter([0].map(Into::into));
-        let instruction = Instruction::try_from([31, 0, 8, 0]).unwrap();
+        let instruction =
+            Instruction::new(Opcode::JnzFpImm, [Zero::zero(), M31::from(8), Zero::zero()]);
 
         let new_state = jnz_fp_imm(&mut memory, JNZ_INITIAL_STATE, &instruction)?;
 
@@ -113,7 +116,8 @@ mod tests {
     #[test]
     fn test_jnz_fp_imm_not_zero() -> Result<(), MemoryError> {
         let mut memory = Memory::from_iter([7].map(Into::into));
-        let instruction = Instruction::try_from([31, 0, 8, 0]).unwrap();
+        let instruction =
+            Instruction::new(Opcode::JnzFpImm, [Zero::zero(), M31::from(8), Zero::zero()]);
 
         let new_state = jnz_fp_imm(&mut memory, JNZ_INITIAL_STATE, &instruction)?;
 

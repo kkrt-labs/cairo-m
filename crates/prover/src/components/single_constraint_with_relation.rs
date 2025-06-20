@@ -1,4 +1,5 @@
 use num_traits::identities::One;
+use num_traits::Zero;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use stwo_air_utils::trace::component_trace::ComponentTrace;
 use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
@@ -64,7 +65,7 @@ impl Claim {
             )
         };
 
-        let M31_0 = PackedM31::broadcast(M31::from(0));
+        let M31_0 = PackedM31::broadcast(Zero::zero());
         let M31_1 = PackedM31::broadcast(M31::from(1));
 
         (trace.par_iter_mut(), lookup_data.par_iter_mut())

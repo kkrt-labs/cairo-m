@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-num-traits = "0.2"
+num-traits.workspace = true
 serde = { version = "1.0", features = ["derive"] }
 serde_json.workspace = true
 thiserror = "2.0"

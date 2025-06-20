@@ -185,6 +185,7 @@ pub fn store_div_fp_imm(
 
 #[cfg(test)]
 mod tests {
+    use cairo_m_common::Opcode;
     use num_traits::{One, Zero};
     use stwo_prover::core::fields::m31::M31;
 
@@ -194,7 +195,10 @@ mod tests {
     fn test_store_add_fp_fp() -> Result<(), MemoryError> {
         let mut memory = Memory::from_iter([0, 4, 7].map(Into::into));
         let state = State::default();
-        let instruction = Instruction::try_from([0, 1, 2, 3]).unwrap();
+        let instruction = Instruction::new(
+            Opcode::StoreAddFpFp,
+            [M31::from(1), M31::from(2), M31::from(3)],
+        );
 
         let new_state = store_add_fp_fp(&mut memory, state, &instruction)?;
 
@@ -212,7 +216,10 @@ mod tests {
         let mut memory = Memory::from_iter([0, 4, 7].map(Into::into));
         let expected_memory = Memory::from_iter([0, 4, 7, 6].map(Into::into));
         let state = State::default();
-        let instruction = Instruction::try_from([1, 1, 2, 3]).unwrap();
+        let instruction = Instruction::new(
+            Opcode::StoreAddFpImm,
+            [M31::from(1), M31::from(2), M31::from(3)],
+        );
 
         let new_state = store_add_fp_imm(&mut memory, state, &instruction)?;
 
@@ -228,7 +235,10 @@ mod tests {
     fn test_store_sub_fp_fp() -> Result<(), MemoryError> {
         let mut memory = Memory::from_iter([0, 7, 4].map(Into::into));
         let state = State::default();
-        let instruction = Instruction::try_from([2, 1, 2, 3]).unwrap();
+        let instruction = Instruction::new(
+            Opcode::StoreSubFpFp,
+            [M31::from(1), M31::from(2), M31::from(3)],
+        );
 
         let new_state = store_sub_fp_fp(&mut memory, state, &instruction)?;
 
@@ -245,7 +255,10 @@ mod tests {
     fn test_store_sub_fp_imm() -> Result<(), MemoryError> {
         let mut memory = Memory::from_iter([0, 4, 7].map(Into::into));
         let state = State::default();
-        let instruction = Instruction::try_from([3, 1, 2, 3]).unwrap();
+        let instruction = Instruction::new(
+            Opcode::StoreSubFpImm,
+            [M31::from(1), M31::from(2), M31::from(3)],
+        );
 
         let new_state = store_sub_fp_imm(&mut memory, state, &instruction)?;
 
@@ -262,7 +275,10 @@ mod tests {
     fn test_store_deref_fp() -> Result<(), MemoryError> {
         let mut memory = Memory::from_iter([0, 4].map(Into::into));
         let state = State::default();
-        let instruction = Instruction::try_from([4, 1, 0, 2]).unwrap();
+        let instruction = Instruction::new(
+            Opcode::StoreDerefFp,
+            [M31::from(1), Zero::zero(), M31::from(2)],
+        );
 
         let new_state = store_deref_fp(&mut memory, state, &instruction)?;
 
@@ -279,7 +295,10 @@ mod tests {
     fn test_store_double_deref_fp() -> Result<(), MemoryError> {
         let mut memory = Memory::from_iter([0, 1, 7, 9].map(Into::into));
         let state = State::default();
-        let instruction = Instruction::try_from([5, 1, 2, 2]).unwrap();
+        let instruction = Instruction::new(
+            Opcode::StoreDoubleDerefFp,
+            [M31::from(1), M31::from(2), M31::from(2)],
+        );
 
         let new_state = store_double_deref_fp(&mut memory, state, &instruction)?;
 
@@ -296,7 +315,8 @@ mod tests {
     fn test_store_imm() -> Result<(), MemoryError> {
         let mut memory = Memory::from_iter([0, 4].map(Into::into));
         let state = State::default();
-        let instruction = Instruction::try_from([6, 1, 0, 2]).unwrap();
+        let instruction =
+            Instruction::new(Opcode::StoreImm, [M31::from(1), Zero::zero(), M31::from(2)]);
 
         let new_state = store_imm(&mut memory, state, &instruction)?;
 
@@ -313,7 +333,10 @@ mod tests {
     fn test_store_mul_fp_fp() -> Result<(), MemoryError> {
         let mut memory = Memory::from_iter([0, 4, 7].map(Into::into));
         let state = State::default();
-        let instruction = Instruction::try_from([7, 1, 2, 3]).unwrap();
+        let instruction = Instruction::new(
+            Opcode::StoreMulFpFp,
+            [M31::from(1), M31::from(2), M31::from(3)],
+        );
 
         let new_state = store_mul_fp_fp(&mut memory, state, &instruction)?;
 
@@ -330,7 +353,10 @@ mod tests {
     fn test_store_mul_fp_imm() -> Result<(), MemoryError> {
         let mut memory = Memory::from_iter([0, 4].map(Into::into));
         let state = State::default();
-        let instruction = Instruction::try_from([8, 1, 2, 2]).unwrap();
+        let instruction = Instruction::new(
+            Opcode::StoreMulFpImm,
+            [M31::from(1), M31::from(2), M31::from(2)],
+        );
 
         let new_state = store_mul_fp_imm(&mut memory, state, &instruction)?;
 
@@ -347,7 +373,10 @@ mod tests {
     fn test_store_div_fp_fp() -> Result<(), MemoryError> {
         let mut memory = Memory::from_iter([0, 4, 7].map(Into::into));
         let state = State::default();
-        let instruction = Instruction::try_from([9, 1, 2, 3]).unwrap();
+        let instruction = Instruction::new(
+            Opcode::StoreDivFpFp,
+            [M31::from(1), M31::from(2), M31::from(3)],
+        );
 
         let new_state = store_div_fp_fp(&mut memory, state, &instruction)?;
 
@@ -366,7 +395,10 @@ mod tests {
     fn test_store_div_fp_fp_by_zero() {
         let mut memory = Memory::from_iter([0, 4, 0].map(Into::into));
         let state = State::default();
-        let instruction = Instruction::try_from([9, 1, 2, 3]).unwrap();
+        let instruction = Instruction::new(
+            Opcode::StoreDivFpFp,
+            [M31::from(1), M31::from(2), M31::from(3)],
+        );
 
         let _ = store_div_fp_fp(&mut memory, state, &instruction);
     }
@@ -375,7 +407,10 @@ mod tests {
     fn test_store_div_fp_imm() -> Result<(), MemoryError> {
         let mut memory = Memory::from_iter([0, 4].map(Into::into));
         let state = State::default();
-        let instruction = Instruction::try_from([10, 1, 2, 2]).unwrap();
+        let instruction = Instruction::new(
+            Opcode::StoreDivFpImm,
+            [M31::from(1), M31::from(2), M31::from(2)],
+        );
 
         let new_state = store_div_fp_imm(&mut memory, state, &instruction)?;
 
@@ -393,7 +428,10 @@ mod tests {
     fn test_store_div_fp_imm_by_zero() {
         let mut memory = Memory::from_iter([0, 4].map(Into::into));
         let state = State::default();
-        let instruction = Instruction::try_from([10, 1, 0, 2]).unwrap();
+        let instruction = Instruction::new(
+            Opcode::StoreDivFpImm,
+            [M31::from(1), Zero::zero(), M31::from(2)],
+        );
 
         let _ = store_div_fp_imm(&mut memory, state, &instruction);
     }

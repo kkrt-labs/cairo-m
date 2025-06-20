@@ -1,8 +1,10 @@
 use std::time::Duration;
 
-use cairo_m_common::{Instruction, Program};
+use cairo_m_common::{Instruction, Opcode, Program};
 use cairo_m_runner::vm::VM;
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+use num_traits::Zero;
+use stwo_prover::core::fields::m31::M31;
 use tempfile::NamedTempFile;
 
 const FIB_N: u32 = 1_000_000;
@@ -13,21 +15,39 @@ const BENCHMARK_DURATION_SECS: u64 = 30;
 pub fn create_fib_program(n: u32) -> Vec<Instruction> {
     let instructions = vec![
         // Setup
-        Instruction::try_from([6, n, 0, 0]).unwrap(), // store_imm: [fp+0] = counter
-        Instruction::try_from([6, 0, 0, 1]).unwrap(), // store_imm: [fp+1] = a = F_0 = 0
-        Instruction::try_from([6, 1, 0, 2]).unwrap(), // store_imm: [fp+2] = b = F_1 = 1
+        Instruction::new(Opcode::StoreImm, [M31::from(n), Zero::zero(), Zero::zero()]), // store_imm: [fp+0] = counter
+        Instruction::new(Opcode::StoreImm, [Zero::zero(), Zero::zero(), M31::from(1)]), // store_imm: [fp+1] = a = F_0 = 0
+        Instruction::new(Opcode::StoreImm, [M31::from(1), Zero::zero(), M31::from(2)]), // store_imm: [fp+2] = b = F_1 = 1
         // Loop condition check
         // while counter != 0 jump to loop body
-        Instruction::try_from([31, 0, 2, 0]).unwrap(), // jnz_fp_imm: jmp rel 2 if [fp + 0] != 0  (pc=3 here, pc=5 in beginning of loop body)
+        Instruction::new(Opcode::JnzFpImm, [Zero::zero(), M31::from(2), Zero::zero()]), // jnz_fp_imm: jmp rel 2 if [fp + 0] != 0  (pc=3 here, pc=5 in beginning of loop body)
         // Exit jump if counter was 0
-        Instruction::try_from([20, 10, 0, 0]).unwrap(), // jmp_abs_imm: jmp abs 10
+        Instruction::new(
+            Opcode::JmpAbsImm,
+            [M31::from(10), Zero::zero(), Zero::zero()],
+        ), // jmp_abs_imm: jmp abs 10
         // Loop body
-        Instruction::try_from([4, 1, 0, 3]).unwrap(), // store_deref_fp: [fp+3] = [fp+1] (tmp = a)
-        Instruction::try_from([4, 2, 0, 1]).unwrap(), // store_deref_fp: [fp+1] = [fp+2] (a = b)
-        Instruction::try_from([0, 3, 2, 2]).unwrap(), // store_add_fp_fp: [fp+2] = [fp+3] + [fp+2] (b = temp + b)
-        Instruction::try_from([3, 0, 1, 0]).unwrap(), // store_sub_fp_imm: [fp+0] = [fp+0] - 1 (counter--)
+        Instruction::new(
+            Opcode::StoreDerefFp,
+            [M31::from(1), Zero::zero(), M31::from(3)],
+        ), // store_deref_fp: [fp+3] = [fp+1] (tmp = a)
+        Instruction::new(
+            Opcode::StoreDerefFp,
+            [M31::from(2), Zero::zero(), M31::from(1)],
+        ), // store_deref_fp: [fp+1] = [fp+2] (a = b)
+        Instruction::new(
+            Opcode::StoreAddFpFp,
+            [M31::from(3), M31::from(2), M31::from(2)],
+        ), // store_add_fp_fp: [fp+2] = [fp+3] + [fp+2] (b = temp + b)
+        Instruction::new(
+            Opcode::StoreSubFpImm,
+            [Zero::zero(), M31::from(1), Zero::zero()],
+        ), // store_sub_fp_imm: [fp+0] = [fp+0] - 1 (counter--)
         // Jump back to condition check
-        Instruction::try_from([20, 3, 0, 0]).unwrap(), // jmp_abs_imm: jmp abs 3
+        Instruction::new(
+            Opcode::JmpAbsImm,
+            [M31::from(3), Zero::zero(), Zero::zero()],
+        ), // jmp_abs_imm: jmp abs 3
     ];
 
     instructions
