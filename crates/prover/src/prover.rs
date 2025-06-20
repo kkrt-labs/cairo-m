@@ -10,13 +10,16 @@ use stwo_prover::core::proof_of_work::GrindOps;
 use stwo_prover::core::prover::prove;
 use tracing::{info, span, Level};
 
+use crate::adapter::ProverInput;
 use crate::components::{Claim, Components, InteractionClaim, Relations};
 use crate::errors::ProvingError;
 use crate::preprocessed::PreProcessedTrace;
 use crate::{relations, Proof};
 
+pub(crate) const LOG_MAX_ROWS: u32 = 26;
+
 pub fn prove_cairo_m<MC: MerkleChannel, const N: usize>(
-    log_size: u32,
+    input: ProverInput,
 ) -> Result<Proof<N, MC::H>, ProvingError>
 where
     SimdBackend: BackendForChannel<MC>,
@@ -31,7 +34,7 @@ where
 
     info!("twiddles");
     let twiddles = SimdBackend::precompute_twiddles(
-        CanonicCoset::new(log_size + pcs_config.fri_config.log_blowup_factor + 2)
+        CanonicCoset::new(LOG_MAX_ROWS + pcs_config.fri_config.log_blowup_factor + 2)
             .circle_domain()
             .half_coset,
     );
@@ -47,7 +50,7 @@ where
 
     // Execution traces
     info!("execution trace");
-    let mut claim = Claim::new(log_size);
+    let mut claim = Claim::new(input);
     let (trace, lookup_data) = claim.write_trace();
     claim.mix_into(channel);
 
@@ -91,8 +94,8 @@ where
         .map_err(ProvingError::from)?;
 
     let proving_duration = proving_start.elapsed();
-    let proving_mhz = ((1 << log_size) as f64) / proving_duration.as_secs_f64() / 1_000_000.0;
-    info!("Trace size: {:?}", 1 << log_size);
+    let proving_mhz = ((1 << LOG_MAX_ROWS) as f64) / proving_duration.as_secs_f64() / 1_000_000.0;
+    info!("Trace size: {:?}", 1 << LOG_MAX_ROWS);
     info!("Proving time: {:?}", proving_duration);
     info!("Proving speed: {:.2} MHz", proving_mhz);
 

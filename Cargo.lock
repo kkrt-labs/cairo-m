@@ -412,6 +412,7 @@ name = "cairo-m-prover"
 version = "0.1.1"
 dependencies = [
  "bytemuck",
+ "itertools 0.12.1",
  "num-traits",
  "rand",
  "rayon",
