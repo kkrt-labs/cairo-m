@@ -52,8 +52,7 @@ impl<T: Into<M31>> TryFrom<[T; 4]> for Instruction {
 
 impl From<&Instruction> for QM31 {
     fn from(instruction: &Instruction) -> Self {
-        let [op, op0, op1, op2] = instruction.to_array();
-        Self::from_m31_array([op, op0, op1, op2])
+        Self::from_m31_array(instruction.to_array())
     }
 }
 
