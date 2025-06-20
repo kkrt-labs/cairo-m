@@ -15,7 +15,7 @@ pub enum InstructionError {
 /// * off0 - The first element of the array.
 /// * off1 - The second element of the array.
 /// * off2 - The third element of the array.
-pub(crate) type InstructionArgs = [M31; 3];
+pub(crate) type InstructionOperands = [M31; 3];
 
 /// A Cairo M instruction is made of an opcode and 3 arguments.
 /// * opcode - The opcode id of the instruction.
@@ -23,7 +23,7 @@ pub(crate) type InstructionArgs = [M31; 3];
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Instruction {
     pub opcode: Opcode,
-    pub operands: InstructionArgs,
+    pub operands: InstructionOperands,
 }
 
 impl TryFrom<QM31> for Instruction {
