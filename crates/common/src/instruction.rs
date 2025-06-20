@@ -18,8 +18,8 @@ pub enum InstructionError {
 pub(crate) type InstructionArgs = [M31; 3];
 
 /// A Cairo M instruction is made of an opcode and 3 arguments.
-/// * op - The opcode id of the instruction.
-/// * args - The arguments (offsets) of the instruction.
+/// * opcode - The opcode id of the instruction.
+/// * operands - The arguments (offsets) of the instruction.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Instruction {
     pub opcode: Opcode,
