@@ -240,36 +240,6 @@ impl Memory {
     {
         self.data.extend(iter);
     }
-
-    /// Serializes the trace to a byte vector.
-    ///
-    /// Each trace entry consists of an `addr` (`M31`) and a `value` (`QM31`).
-    /// A `QM31` is composed of 4 `M31` values.
-    /// This function serializes the entire trace as a flat sequence of bytes.
-    /// For each entry, it serializes `addr` and then the 4 components of `value`
-    /// into little-endian bytes.
-    ///
-    /// The final output is a single `Vec<u8>` concatenating the bytes for all entries.
-    ///
-    /// ## Returns
-    ///
-    /// A `Vec<u8>` containing the serialized trace data.
-    pub fn serialize_trace(&self) -> Vec<u8> {
-        self.trace
-            .borrow()
-            .iter()
-            .flat_map(|entry| {
-                [
-                    entry.addr.0,
-                    entry.value.0 .0 .0,
-                    entry.value.0 .1 .0,
-                    entry.value.1 .0 .0,
-                    entry.value.1 .1 .0,
-                ]
-            })
-            .flat_map(u32::to_le_bytes)
-            .collect()
-    }
 }
 
 impl FromIterator<QM31> for Memory {
@@ -522,28 +492,5 @@ mod tests {
             memory.get_instruction(M31::one()).unwrap(),
             QM31::from_m31_array([200, 0, 0, 0].map(Into::into))
         );
-    }
-
-    #[test]
-    fn test_serialize_trace() {
-        let mut memory = Memory::default();
-        let addr1 = M31(10);
-        let value1 = QM31::from_m31_array([1, 2, 3, 4].map(Into::into));
-        let addr2 = M31(20);
-        let value2 = QM31::from_m31_array([5, 6, 7, 8].map(Into::into));
-
-        memory.insert(addr1, value1).unwrap();
-        memory.insert(addr2, value2).unwrap();
-
-        let serialized_trace = memory.serialize_trace();
-
-        // Entry 1: addr=10, value=[1, 2, 3, 4]
-        // Entry 2: addr=20, value=[5, 6, 7, 8]
-        let expected_bytes = Vec::from(
-            [10, 1, 2, 3, 4, 20, 5, 6, 7, 8]
-                .map(u32::to_le_bytes)
-                .as_flattened(),
-        );
-        assert_eq!(serialized_trace, expected_bytes);
     }
 }

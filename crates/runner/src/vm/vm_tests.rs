@@ -12,7 +12,7 @@ use tempfile::NamedTempFile;
 use super::test_utils::*;
 use crate::memory::Memory;
 use crate::vm::state::State;
-use crate::vm::{TraceEntry, VmError, VM};
+use crate::vm::{VmError, VM};
 
 #[test]
 fn test_program_from_vec_instructions() {
@@ -230,48 +230,6 @@ fn test_run_from_entrypoint() {
     );
 }
 
-#[test]
-fn test_serialize_trace() {
-    // Create a program with two instructions to generate a trace.
-    let instructions = vec![
-        instr!(Opcode::StoreImm, 10, 0, 0), // [fp + 0] = 10
-        instr!(Opcode::StoreImm, 20, 0, 1), // [fp + 1] = 20
-    ];
-    let program = Program::from(instructions);
-    let mut vm = VM::try_from(&program).unwrap();
-
-    // Execute the program to generate a trace.
-    assert!(vm.execute().is_ok());
-
-    // The trace should have 2 entries, one for each instruction executed.
-    assert_eq!(vm.trace.len(), 2);
-
-    // Verify the trace contents.
-    assert_eq!(
-        vm.trace[0],
-        TraceEntry {
-            pc: M31::zero(),
-            fp: M31(2)
-        }
-    );
-    assert_eq!(
-        vm.trace[1],
-        TraceEntry {
-            pc: M31::one(),
-            fp: M31(2)
-        }
-    );
-
-    // Serialize the trace and verify its contents.
-    let serialized_trace = vm.serialize_trace();
-    // Expected serialized data:
-    // Entry 1: fp=2, pc=0.
-    // Entry 2: fp=2, pc=1.
-    let expected_bytes = Vec::from([2, 0, 2, 1].map(u32::to_le_bytes).as_flattened());
-
-    assert_eq!(serialized_trace, expected_bytes);
-}
-
 /// Reference implementation of Fibonacci sequence for diff testing.
 fn fib(n: u32) -> u32 {
     let mut a = 0;
@@ -456,9 +414,6 @@ fn test_write_binary_trace() {
     let mut file_contents = Vec::new();
     file.read_to_end(&mut file_contents).unwrap();
 
-    // Compare with the expected serialized trace.
-    assert_eq!(file_contents, vm.serialize_trace());
-
     // Expected serialized data:
     // Entry 1: fp=2, pc=0.
     // Entry 2: fp=2, pc=1.
@@ -494,10 +449,27 @@ fn test_write_binary_memory_trace() {
     let mut file_contents = Vec::new();
     file.read_to_end(&mut file_contents).unwrap();
 
+    // Expected trace:
+    // - Program length: 3
+    // - Memory accesses:
+    //   1. Fetch instruction at addr=0 (store_imm (6), 10, 0, 0)
+    //   2. Store value 10 at addr=3 ([fp+0])
+    //   3. Fetch instruction at addr=1 (store_imm (6), 20, 0, 1)
+    //   4. Store value 20 at addr=4 ([fp+1])
+    //   5. Fetch instruction at addr=2 (store_add_fp_fp (2), 0, 1, 2)
+    //   6. Load value from addr=3 ([fp+0])
+    //   7. Load value from addr=4 ([fp+1])
+    //   8. Store result 30 at addr=5 ([fp+2])
+    let expected_contents = vec![
+        3, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 10, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 6, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0,
+        1, 0, 0, 0, 4, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 4, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 30, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    ];
+
     // Compare with the expected serialized memory trace.
-    let mut expected_contents = Vec::new();
-    expected_contents.extend_from_slice(&vm.program_length.0.to_le_bytes());
-    expected_contents.extend_from_slice(&vm.memory.serialize_trace());
     assert_eq!(file_contents, expected_contents);
 
     // Verify that the memory trace is not empty (we should have memory accesses).

@@ -2,7 +2,7 @@ pub mod instructions;
 pub mod state;
 
 use std::fs::File;
-use std::io::{self, Write};
+use std::io::{self, BufWriter, Write};
 use std::path::Path;
 
 use cairo_m_common::instruction::InstructionError;
@@ -172,30 +172,12 @@ impl VM {
         self.execute()
     }
 
-    /// Serializes the trace to a byte vector.
+    /// Writes the trace to a binary file.
     ///
+    /// This function writes the trace to the specified file path.
     /// Each trace entry consists of `fp` and `pc` values, both `u32`.
-    /// This function serializes the entire trace as a flat sequence of bytes.
-    /// For each entry, it first serializes `fp` into little-endian bytes,
+    /// For each entry, it first writes `fp` into little-endian bytes,
     /// followed by the little-endian bytes of `pc`.
-    ///
-    /// The final output is a single `Vec<u8>` concatenating the bytes for all entries.
-    ///
-    /// ## Returns
-    ///
-    /// A `Vec<u8>` containing the serialized trace data.
-    pub fn serialize_trace(&self) -> Vec<u8> {
-        self.trace
-            .iter()
-            .flat_map(|entry| [entry.fp.0, entry.pc.0])
-            .flat_map(u32::to_le_bytes)
-            .collect()
-    }
-
-    /// Writes the serialized trace to a binary file.
-    ///
-    /// This function serializes the trace using [`serialize_trace()`](Self::serialize_trace)
-    /// and writes the resulting bytes to the specified file path.
     ///
     /// ## Arguments
     ///
@@ -207,21 +189,24 @@ impl VM {
     /// - The file cannot be created or opened for writing
     /// - Writing to the file fails
     pub fn write_binary_trace<P: AsRef<Path>>(&self, path: P) -> Result<(), VmError> {
-        let serialized_trace = self.serialize_trace();
-        let mut file = File::create(path)?;
-        file.write_all(&serialized_trace)?;
+        let inner = File::create(path)?;
+        let mut writer = BufWriter::with_capacity(256 * 1024, inner);
+
+        for entry in &self.trace {
+            writer.write_all(&entry.fp.0.to_le_bytes())?;
+            writer.write_all(&entry.pc.0.to_le_bytes())?;
+        }
+
+        writer.flush()?;
         Ok(())
     }
 
-    /// Writes the serialized memory trace to a binary file.
+    /// Writes the memory trace to a binary file.
     ///
-    /// This function first writes the program length to the file, then serializes
-    /// the memory trace using the memory's [`serialize_trace()`](Memory::serialize_trace)
-    /// method and writes the resulting bytes to the specified file path.
-    ///
+    /// This function writes the memory trace to the specified file path.
     /// Each memory trace entry consists of an address (`M31`) and a value (`QM31`).
-    /// The serialization format includes the program length first, followed by the address
-    /// and the 4 components of the `QM31` value for each entry, all in little-endian byte order.
+    /// It first writes the program length, then for each entry, it writes the address
+    /// and the 4 components of the `QM31` value, all in little-endian byte order.
     ///
     /// ## Arguments
     ///
@@ -233,10 +218,23 @@ impl VM {
     /// - The file cannot be created or opened for writing
     /// - Writing to the file fails
     pub fn write_binary_memory_trace<P: AsRef<Path>>(&self, path: P) -> Result<(), VmError> {
-        let mut file = File::create(path)?;
-        let serialized_memory_trace = self.memory.serialize_trace();
-        file.write_all(&self.program_length.0.to_le_bytes())?;
-        file.write_all(&serialized_memory_trace)?;
+        let inner = File::create(path)?;
+        let trace = self.memory.trace.borrow();
+        let mut writer = BufWriter::with_capacity(256 * 1024, inner);
+
+        // Write program length header
+        writer.write_all(&self.program_length.0.to_le_bytes())?;
+
+        // Write each memory trace entry
+        for entry in trace.iter() {
+            writer.write_all(&entry.addr.0.to_le_bytes())?;
+            writer.write_all(&entry.value.0 .0 .0.to_le_bytes())?;
+            writer.write_all(&entry.value.0 .1 .0.to_le_bytes())?;
+            writer.write_all(&entry.value.1 .0 .0.to_le_bytes())?;
+            writer.write_all(&entry.value.1 .1 .0.to_le_bytes())?;
+        }
+
+        writer.flush()?;
         Ok(())
     }
 }

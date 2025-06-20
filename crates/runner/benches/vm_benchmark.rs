@@ -42,7 +42,6 @@ fn fibonacci_1m_benchmark(c: &mut Criterion) {
             vm.write_binary_trace(trace_file.path()).unwrap();
             vm.write_binary_memory_trace(memory_trace_file.path())
                 .unwrap();
-
             black_box(vm)
         })
     });
@@ -71,20 +70,6 @@ fn fibonacci_1m_benchmark(c: &mut Criterion) {
             vm.write_binary_memory_trace(memory_trace_file.path())
                 .unwrap();
             black_box(())
-        })
-    });
-
-    group.bench_function("serialize_vm_trace", |b| {
-        b.iter(|| {
-            let serialized = vm.serialize_trace();
-            black_box(serialized)
-        })
-    });
-
-    group.bench_function("serialize_memory_trace", |b| {
-        b.iter(|| {
-            let serialized = vm.memory.serialize_trace();
-            black_box(serialized)
         })
     });
 
