@@ -1,9 +1,10 @@
-//TODO: sync with VM team to avoid duplication.
-
+use serde::{Deserialize, Serialize};
 use stwo_prover::core::fields::m31::M31;
 
+use crate::instruction::InstructionError;
+
 /// CASM opcodes with type-safe representation
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u32)]
 pub enum Opcode {
     // Arithmetic operations
@@ -57,11 +58,25 @@ impl From<Opcode> for u32 {
     }
 }
 
+impl From<Opcode> for M31 {
+    fn from(opcode: Opcode) -> Self {
+        Self::from(opcode as u32)
+    }
+}
+
+impl TryFrom<u32> for Opcode {
+    type Error = InstructionError;
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        Self::from_u32(value).ok_or_else(|| InstructionError::InvalidOpcode(M31::from(value)))
+    }
+}
+
 impl TryFrom<M31> for Opcode {
-    type Error = String;
+    type Error = InstructionError;
 
     fn try_from(value: M31) -> Result<Self, Self::Error> {
-        Self::from_u32(value.0).ok_or_else(|| format!("Invalid opcode: {value}"))
+        Self::from_u32(value.0).ok_or(InstructionError::InvalidOpcode(value))
     }
 }
 

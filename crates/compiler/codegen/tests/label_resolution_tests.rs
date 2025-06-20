@@ -88,10 +88,11 @@ fn test_operand_creation() {
 
 #[test]
 fn test_instruction_operand_methods() {
-    use cairo_m_compiler_codegen::{opcodes, CasmInstruction};
+    use cairo_m_common::Opcode;
+    use cairo_m_compiler_codegen::InstructionBuilder;
 
     // Test with_operand method
-    let instr1 = CasmInstruction::new(opcodes::JMP_ABS_IMM)
+    let instr1 = InstructionBuilder::new(Opcode::JmpAbsImm.into())
         .with_operand(Operand::Label("target".to_string()));
 
     match &instr1.operand {
@@ -100,7 +101,8 @@ fn test_instruction_operand_methods() {
     }
 
     // Test with_label convenience method
-    let instr2 = CasmInstruction::new(opcodes::JMP_ABS_IMM).with_label("target2".to_string());
+    let instr2 =
+        InstructionBuilder::new(Opcode::JmpAbsImm.into()).with_label("target2".to_string());
 
     match &instr2.operand {
         Some(Operand::Label(name)) => assert_eq!(name, "target2"),
@@ -108,7 +110,7 @@ fn test_instruction_operand_methods() {
     }
 
     // Test with_imm convenience method
-    let instr3 = CasmInstruction::new(opcodes::JMP_ABS_IMM).with_imm(100);
+    let instr3 = InstructionBuilder::new(Opcode::JmpAbsImm.into()).with_imm(100);
 
     match &instr3.operand {
         Some(Operand::Literal(val)) => assert_eq!(*val, 100),

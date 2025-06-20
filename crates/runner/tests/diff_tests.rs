@@ -1,6 +1,7 @@
 use std::fs;
 
-use cairo_m_compiler::{compile_cairo, CompiledProgram, CompilerOptions};
+use cairo_m_common::Program;
+use cairo_m_compiler::{compile_cairo, CompilerOptions};
 use cairo_m_runner::run_cairo_program;
 
 /// Represents a test case for diff-testing
@@ -30,7 +31,7 @@ macro_rules! diff_test {
 }
 
 /// Compiles a Cairo-M file to a CompiledProgram
-fn compile_cairo_file(cairo_file: &str) -> Result<CompiledProgram, String> {
+fn compile_cairo_file(cairo_file: &str) -> Result<Program, String> {
     let source_path = format!(
         "{}/tests/test_data/{}",
         env!("CARGO_MANIFEST_DIR"),

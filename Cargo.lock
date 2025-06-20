@@ -302,11 +302,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d71b6127be86fdcfddb610f7182ac57211d4b18a3e9c82eb2d17662f2227ad6a"
 
 [[package]]
+name = "cairo-m-common"
+version = "0.1.0"
+dependencies = [
+ "num-traits",
+ "serde",
+ "serde_json",
+ "stwo-prover",
+ "thiserror",
+]
+
+[[package]]
 name = "cairo-m-compiler"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "ariadne",
+ "cairo-m-common",
  "cairo-m-compiler-codegen",
  "cairo-m-compiler-diagnostics",
  "cairo-m-compiler-mir",
@@ -325,6 +337,7 @@ dependencies = [
 name = "cairo-m-compiler-codegen"
 version = "0.1.0"
 dependencies = [
+ "cairo-m-common",
  "cairo-m-compiler-diagnostics",
  "cairo-m-compiler-mir",
  "cairo-m-compiler-parser",
@@ -425,6 +438,7 @@ dependencies = [
 name = "cairo-m-runner"
 version = "0.1.1"
 dependencies = [
+ "cairo-m-common",
  "cairo-m-compiler",
  "clap",
  "criterion",

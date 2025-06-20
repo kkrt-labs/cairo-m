@@ -5,8 +5,9 @@ use std::fs::File;
 use std::io::{self, Write};
 use std::path::Path;
 
-use cairo_m_compiler::CompiledProgram;
-use instructions::{opcode_to_instruction_fn, Instruction, InstructionError};
+use cairo_m_common::instruction::InstructionError;
+use cairo_m_common::{Instruction, Program};
+use instructions::opcode_to_instruction_fn;
 use num_traits::Zero;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
@@ -24,30 +25,6 @@ pub enum VmError {
     Instruction(#[from] InstructionError),
     #[error("VM I/O error: {0}")]
     Io(#[from] io::Error),
-}
-
-/// A compiled Cairo M program containing decoded instructions.
-#[derive(Debug, Clone)]
-pub struct Program {
-    pub instructions: Vec<Instruction>,
-}
-
-impl From<Vec<Instruction>> for Program {
-    fn from(instructions: Vec<Instruction>) -> Self {
-        Self { instructions }
-    }
-}
-
-impl From<CompiledProgram> for Program {
-    fn from(program: CompiledProgram) -> Self {
-        Self {
-            instructions: program
-                .instructions
-                .iter()
-                .map(|instruction| instruction.into())
-                .collect(),
-        }
-    }
 }
 
 /// A single entry in the trace.
@@ -74,7 +51,7 @@ pub struct VM {
     pub trace: Vec<TraceEntry>,
 }
 
-impl TryFrom<Program> for VM {
+impl TryFrom<&Program> for VM {
     type Error = VmError;
 
     /// Creates a VM instance from a given [`Program`].
@@ -93,19 +70,12 @@ impl TryFrom<Program> for VM {
     /// ## Errors
     ///
     /// Returns a [`VmError::Memory`] if memory insertion fails.
-    fn try_from(program: Program) -> Result<Self, Self::Error> {
+    fn try_from(program: &Program) -> Result<Self, Self::Error> {
         // Convert all instructions to QM31 values
         let qm31_instructions: Vec<QM31> = program
             .instructions
             .iter()
-            .map(|instruction| {
-                QM31::from_m31_array([
-                    instruction.op,
-                    instruction.args[0],
-                    instruction.args[1],
-                    instruction.args[2],
-                ])
-            })
+            .map(|instruction| instruction.into())
             .collect();
 
         // Create memory and load instructions starting at address 0
@@ -138,13 +108,13 @@ impl VM {
     /// - The opcode is invalid ([`VmError::Instruction`])
     /// - The instruction execution fails due to memory operations ([`VmError::Memory`])
     fn step(&mut self) -> Result<(), VmError> {
-        let instruction = Instruction::from(self.memory.get_instruction(self.state.pc)?);
-        let instruction_fn = opcode_to_instruction_fn(instruction.op)?;
+        let instruction: Instruction = self.memory.get_instruction(self.state.pc)?.try_into()?;
+        let instruction_fn = opcode_to_instruction_fn(M31::from(instruction.opcode))?;
         self.trace.push(TraceEntry {
             pc: self.state.pc,
             fp: self.state.fp,
         });
-        self.state = instruction_fn(&mut self.memory, self.state, instruction)?;
+        self.state = instruction_fn(&mut self.memory, self.state, &instruction)?;
         Ok(())
     }
 
@@ -276,18 +246,28 @@ mod tests {
     use std::fs::File;
     use std::io::Read;
 
+    use cairo_m_common::instruction::InstructionError;
+    use cairo_m_common::{Instruction, Opcode, Program};
     use num_traits::{One, Zero};
     use stwo_prover::core::fields::m31::M31;
+    use stwo_prover::core::fields::qm31::QM31;
     use tempfile::NamedTempFile;
 
-    use crate::vm::instructions::InstructionError;
-    use crate::vm::{Instruction, Program, TraceEntry, VmError, VM};
+    use crate::memory::Memory;
+    use crate::vm::state::State;
+    use crate::vm::{TraceEntry, VmError, VM};
 
     #[test]
     fn test_program_from_vec_instructions() {
         let instructions = vec![
-            Instruction::from([1, 2, 3, 4]),
-            Instruction::from([5, 6, 7, 8]),
+            Instruction::new(
+                Opcode::StoreAddFpImm,
+                [M31::from(2), M31::from(3), M31::from(4)],
+            ),
+            Instruction::new(
+                Opcode::StoreDoubleDerefFp,
+                [M31::from(6), M31::from(7), M31::from(8)],
+            ),
         ];
         let program: Program = Program::from(instructions.clone());
 
@@ -298,12 +278,18 @@ mod tests {
     fn test_vm_try_from() {
         // Create a simple program with two instructions
         let instructions = vec![
-            Instruction::from([1, 2, 3, 4]),
-            Instruction::from([5, 6, 7, 8]),
+            Instruction::new(
+                Opcode::StoreAddFpImm,
+                [M31::from(2), M31::from(3), M31::from(4)],
+            ),
+            Instruction::new(
+                Opcode::StoreDoubleDerefFp,
+                [M31::from(6), M31::from(7), M31::from(8)],
+            ),
         ];
         let program: Program = instructions.clone().into();
 
-        let vm = VM::try_from(program).unwrap();
+        let vm = VM::try_from(&program).unwrap();
 
         // Check that PC is set to 0 (entrypoint)
         assert_eq!(vm.state.pc, M31::zero());
@@ -313,23 +299,26 @@ mod tests {
 
         // Check that the first instruction is in memory at address 0
         let loaded_instruction_qm31 = vm.memory.get_instruction(M31::zero()).unwrap();
-        let loaded_instruction = Instruction::from(loaded_instruction_qm31);
-        assert_eq!(loaded_instruction.op, M31::one());
+        let loaded_instruction: Instruction = loaded_instruction_qm31.try_into().unwrap();
+        assert_eq!(loaded_instruction.opcode, Opcode::StoreAddFpImm);
         assert_eq!(loaded_instruction, instructions[0]);
 
         // Check that the second instruction is in memory at address 1
         let loaded_instruction_qm31_2 = vm.memory.get_instruction(M31::one()).unwrap();
-        let loaded_instruction_2 = Instruction::from(loaded_instruction_qm31_2);
-        assert_eq!(loaded_instruction_2.op, M31(5));
+        let loaded_instruction_2: Instruction = loaded_instruction_qm31_2.try_into().unwrap();
+        assert_eq!(loaded_instruction_2.opcode, Opcode::StoreDoubleDerefFp);
         assert_eq!(loaded_instruction_2, instructions[1]);
     }
 
     #[test]
     fn test_step_single_instruction() {
         // Create a program with a single store_imm instruction: [fp + 0] = 42
-        let instructions = vec![Instruction::from([6, 42, 0, 0])]; // opcode 6 = store_imm
+        let instructions = vec![Instruction::new(
+            Opcode::StoreImm,
+            [M31::from(42), Zero::zero(), Zero::zero()],
+        )]; // opcode 6 = store_imm
         let program = Program::from(instructions);
-        let mut vm = VM::try_from(program).unwrap();
+        let mut vm = VM::try_from(&program).unwrap();
 
         // Initial state should have PC = 0, FP = 1
         assert_eq!(vm.state.pc, M31::zero());
@@ -350,10 +339,16 @@ mod tests {
 
     #[test]
     fn test_step_invalid_instruction() {
-        // Create a program with an invalid opcode
-        let instructions = vec![Instruction::from([2_u32.pow(30), 0, 0, 0])];
-        let program = Program::from(instructions);
-        let mut vm = VM::try_from(program).unwrap();
+        let program = Program::from(vec![]);
+        let mut vm = VM::try_from(&program).unwrap();
+        // Load an invalid opcode in memory
+        let bad_instr = QM31::from_m31_array([
+            M31::from(2_u32.pow(30)),
+            Zero::zero(),
+            Zero::zero(),
+            Zero::zero(),
+        ]);
+        vm.memory.insert(M31::zero(), bad_instr).unwrap();
 
         // Step should return an error for invalid opcode
         let result = vm.step();
@@ -367,7 +362,7 @@ mod tests {
     #[test]
     fn test_execute_empty_program() {
         let program = Program::from(vec![]);
-        let mut vm = VM::try_from(program).unwrap();
+        let mut vm = VM::try_from(&program).unwrap();
         let result = vm.execute();
         assert!(result.is_ok());
         assert_eq!(vm.state.pc, M31::zero());
@@ -378,9 +373,12 @@ mod tests {
     #[test]
     fn test_execute_single_instruction() {
         // Create a program with a single store_imm instruction
-        let instructions = vec![Instruction::from([6, 42, 0, 0])]; // [fp + 0] = 42
+        let instructions = vec![Instruction::new(
+            Opcode::StoreImm,
+            [M31::from(42), Zero::zero(), Zero::zero()],
+        )]; // [fp + 0] = 42
         let program = Program::from(instructions);
-        let mut vm = VM::try_from(program).unwrap();
+        let mut vm = VM::try_from(&program).unwrap();
 
         let result = vm.execute();
         assert!(result.is_ok());
@@ -401,12 +399,18 @@ mod tests {
         // 2. [fp + 1] = 5 (store_imm)
         // 3. [fp + 2] = [fp + 0] + [fp + 1] (store_add_fp_fp)
         let instructions = vec![
-            Instruction::from([6, 10, 0, 0]), // [fp + 0] = 10
-            Instruction::from([6, 5, 0, 1]),  // [fp + 1] = 5
-            Instruction::from([0, 0, 1, 2]),  // [fp + 2] = [fp + 0] + [fp + 1]
+            Instruction::new(
+                Opcode::StoreImm,
+                [M31::from(10), Zero::zero(), Zero::zero()],
+            ), // [fp + 0] = 10
+            Instruction::new(Opcode::StoreImm, [M31::from(5), Zero::zero(), One::one()]), // [fp + 1] = 5
+            Instruction::new(
+                Opcode::StoreAddFpFp,
+                [Zero::zero(), One::one(), M31::from(2)],
+            ), // [fp + 2] = [fp + 0] + [fp + 1]
         ];
         let program = Program::from(instructions);
-        let mut vm = VM::try_from(program).unwrap();
+        let mut vm = VM::try_from(&program).unwrap();
 
         // Initial state
         assert_eq!(vm.state.pc, M31::zero());
@@ -431,14 +435,21 @@ mod tests {
 
     #[test]
     fn test_execute_with_error() {
-        // Create a program with an invalid instruction
-        let instructions = vec![
-            Instruction::from([6, 10, 0, 0]), // Valid: [fp + 0] = 10
-            Instruction::from([99, 0, 0, 0]), // Invalid opcode
+        // Create a program with an invalid instructions
+        let instructions = [
+            QM31::from_m31_array([M31::from(6), M31::from(10), Zero::zero(), Zero::zero()]), // Valid: [fp + 0] = 10
+            QM31::from_m31_array([M31::from(99), Zero::zero(), Zero::zero(), Zero::zero()]), // Invalid: opcode 99
         ];
-        let program = Program::from(instructions);
-        let mut vm = VM::try_from(program).unwrap();
-
+        let mut vm = VM {
+            final_pc: M31::from(instructions.len() as u32),
+            memory: Memory::from_iter(instructions),
+            state: State {
+                pc: M31::zero(),
+                fp: M31::from(instructions.len() as u32),
+            },
+            program_length: M31::from(instructions.len() as u32),
+            trace: vec![],
+        };
         // Execute should fail when it hits the invalid instruction
         let result = vm.execute();
         assert!(result.is_err());
@@ -459,14 +470,26 @@ mod tests {
     fn test_execute_arithmetic_operations() {
         // Test a program that performs various arithmetic operations
         let instructions = vec![
-            Instruction::from([6, 12, 0, 0]), // [fp + 0] = 12
-            Instruction::from([6, 3, 0, 1]),  // [fp + 1] = 3
-            Instruction::from([7, 0, 1, 2]),  // [fp + 2] = [fp + 0] * [fp + 1] = 36
-            Instruction::from([9, 2, 1, 3]),  // [fp + 3] = [fp + 2] / [fp + 1] = 12
-            Instruction::from([2, 3, 0, 4]),  // [fp + 4] = [fp + 3] - [fp + 0] = 0
+            Instruction::new(
+                Opcode::StoreImm,
+                [M31::from(12), Zero::zero(), Zero::zero()],
+            ), // [fp + 0] = 12
+            Instruction::new(Opcode::StoreImm, [M31::from(3), Zero::zero(), One::one()]), // [fp + 1] = 3
+            Instruction::new(
+                Opcode::StoreMulFpFp,
+                [Zero::zero(), One::one(), M31::from(2)],
+            ), // [fp + 2] = [fp + 0] * [fp + 1] = 36
+            Instruction::new(
+                Opcode::StoreDivFpFp,
+                [M31::from(2), One::one(), M31::from(3)],
+            ), // [fp + 3] = [fp + 2] / [fp + 1] = 12
+            Instruction::new(
+                Opcode::StoreSubFpFp,
+                [M31::from(3), Zero::zero(), M31::from(4)],
+            ), // [fp + 4] = [fp + 3] - [fp + 0] = 0
         ];
         let program = Program::from(instructions);
-        let mut vm = VM::try_from(program).unwrap();
+        let mut vm = VM::try_from(&program).unwrap();
 
         let result = vm.execute();
         assert!(result.is_ok());
@@ -482,11 +505,17 @@ mod tests {
     #[test]
     fn test_run_from_entrypoint() {
         let instructions = vec![
-            Instruction::from([6, 10, 0, 0]), // [fp] = 10
-            Instruction::from([1, 0, 5, 1]),  // [fp + 1] = [fp] + 5
+            Instruction::new(
+                Opcode::StoreImm,
+                [M31::from(10), Zero::zero(), Zero::zero()],
+            ), // [fp] = 10
+            Instruction::new(
+                Opcode::StoreAddFpImm,
+                [Zero::zero(), M31::from(5), One::one()],
+            ), // [fp + 1] = [fp] + 5
         ];
         let program = Program::from(instructions);
-        let mut vm = VM::try_from(program).unwrap();
+        let mut vm = VM::try_from(&program).unwrap();
 
         // Initial FP is 2 in the default case, we add an offset of 2.
         // We run the program from PC = 1, so the first instruction should be ignored.
@@ -503,11 +532,14 @@ mod tests {
     fn test_serialize_trace() {
         // Create a program with two instructions to generate a trace.
         let instructions = vec![
-            Instruction::from([6, 10, 0, 0]), // [fp + 0] = 10
-            Instruction::from([6, 20, 0, 1]), // [fp + 1] = 20
+            Instruction::new(
+                Opcode::StoreImm,
+                [M31::from(10), Zero::zero(), Zero::zero()],
+            ), // [fp + 0] = 10
+            Instruction::new(Opcode::StoreImm, [M31::from(20), Zero::zero(), One::one()]), // [fp + 1] = 20
         ];
         let program = Program::from(instructions);
-        let mut vm = VM::try_from(program).unwrap();
+        let mut vm = VM::try_from(&program).unwrap();
 
         // Execute the program to generate a trace.
         assert!(vm.execute().is_ok());
@@ -576,25 +608,43 @@ mod tests {
     fn run_fib_test(n: u32) {
         let instructions = vec![
             // Setup
-            Instruction::from([6, n, 0, 0]), // store_imm: [fp+0] = counter
-            Instruction::from([6, 0, 0, 1]), // store_imm: [fp+1] = a = F_0 = 0
-            Instruction::from([6, 1, 0, 2]), // store_imm: [fp+2] = b = F_1 = 1
+            Instruction::new(Opcode::StoreImm, [M31::from(n), Zero::zero(), Zero::zero()]), // store_imm: [fp+0] = counter
+            Instruction::new(Opcode::StoreImm, [Zero::zero(), Zero::zero(), One::one()]), // store_imm: [fp+1] = a = F_0 = 0
+            Instruction::new(Opcode::StoreImm, [One::one(), Zero::zero(), M31::from(2)]), // store_imm: [fp+2] = b = F_1 = 1
             // Loop condition check
             // while counter != 0 jump to loop body
-            Instruction::from([31, 0, 2, 0]), // jnz_fp_imm: jmp rel 2 if [fp + 0] != 0  (pc=3 here, pc=5 in beginning of loop body)
+            Instruction::new(Opcode::JnzFpImm, [Zero::zero(), M31::from(2), Zero::zero()]), // jnz_fp_imm: jmp rel 2 if [fp + 0] != 0  (pc=3 here, pc=5 in beginning of loop body)
             // Exit jump if counter was 0
-            Instruction::from([20, 10, 0, 0]), // jmp_abs_imm: jmp abs 10
+            Instruction::new(
+                Opcode::JmpAbsImm,
+                [M31::from(10), Zero::zero(), Zero::zero()],
+            ), // jmp_abs_imm: jmp abs 10
             // Loop body
-            Instruction::from([4, 1, 0, 3]), // store_deref_fp: [fp+3] = [fp+1] (tmp = a)
-            Instruction::from([4, 2, 0, 1]), // store_deref_fp: [fp+1] = [fp+2] (a = b)
-            Instruction::from([0, 3, 2, 2]), // store_add_fp_fp: [fp+2] = [fp+3] + [fp+2] (b = temp + b)
-            Instruction::from([3, 0, 1, 0]), // store_sub_fp_imm: [fp+0] = [fp+0] - 1 (counter--)
+            Instruction::new(
+                Opcode::StoreDerefFp,
+                [One::one(), Zero::zero(), M31::from(3)],
+            ), // store_deref_fp: [fp+3] = [fp+1] (tmp = a)
+            Instruction::new(
+                Opcode::StoreDerefFp,
+                [M31::from(2), Zero::zero(), One::one()],
+            ), // store_deref_fp: [fp+1] = [fp+2] (a = b)
+            Instruction::new(
+                Opcode::StoreAddFpFp,
+                [M31::from(3), M31::from(2), M31::from(2)],
+            ), // store_add_fp_fp: [fp+2] = [fp+3] + [fp+2] (b = temp + b)
+            Instruction::new(
+                Opcode::StoreSubFpImm,
+                [Zero::zero(), One::one(), Zero::zero()],
+            ), // store_sub_fp_imm: [fp+0] = [fp+0] - 1 (counter--)
             // Jump back to condition check
-            Instruction::from([20, 3, 0, 0]), // jmp_abs_imm: jmp abs 3
+            Instruction::new(
+                Opcode::JmpAbsImm,
+                [M31::from(3), Zero::zero(), Zero::zero()],
+            ), // jmp_abs_imm: jmp abs 3
         ];
         let instructions_len = instructions.len() as u32;
         let program = Program::from(instructions);
-        let mut vm = VM::try_from(program).unwrap();
+        let mut vm = VM::try_from(&program).unwrap();
 
         assert!(vm.execute().is_ok());
         // Verify that FP is still at the end of the program
@@ -653,38 +703,50 @@ mod tests {
         let minus_3 = -M31(3);
         let instructions = vec![
             // Setup call to fib(n)
-            Instruction::from([6, n, 0, 0]), // 0: store_imm: [fp] = n
-            Instruction::from([12, 2, 4, 0]), // 1: call_abs_imm: call fib(n)
+            Instruction::new(Opcode::StoreImm, [M31::from(n), Zero::zero(), Zero::zero()]), // 0: store_imm: [fp] = n
+            Instruction::new(
+                Opcode::CallAbsImm,
+                [M31::from(2), M31::from(4), Zero::zero()],
+            ), // 1: call_abs_imm: call fib(n)
             // Store the computed fib(n) and return.
-            Instruction::from([4, 1, 0, minus_3.0]), // 2: store_deref_fp: [fp - 3] = [fp + 1]
-            Instruction::from([15, 0, 0, 0]),        // 3: ret
+            Instruction::new(Opcode::StoreDerefFp, [One::one(), Zero::zero(), minus_3]), // 2: store_deref_fp: [fp - 3] = [fp + 1]
+            Instruction::new(Opcode::Ret, [Zero::zero(), Zero::zero(), Zero::zero()]),   // 3: ret
             // fib(n: felt) function
             // Check if argument is 0
-            Instruction::from([31, minus_4.0, 3, 0]), // 4: jnz_fp_imm: jmp rel 3 if [fp - 4] != 0
+            Instruction::new(Opcode::JnzFpImm, [minus_4, M31::from(3), Zero::zero()]), // 4: jnz_fp_imm: jmp rel 3 if [fp - 4] != 0
             // Argument is 0, return 0
-            Instruction::from([6, 0, 0, minus_3.0]), // 5: store_imm: [fp - 3] = 0
-            Instruction::from([15, 0, 0, 0]),        // 6: ret
+            Instruction::new(Opcode::StoreImm, [Zero::zero(), Zero::zero(), minus_3]), // 5: store_imm: [fp - 3] = 0
+            Instruction::new(Opcode::Ret, [Zero::zero(), Zero::zero(), Zero::zero()]), // 6: ret
             // Check if argument is 1
-            Instruction::from([3, minus_4.0, 1, 0]), // 7: store_sub_fp_imm: [fp] = [fp - 4] - 1
-            Instruction::from([31, 0, 3, 0]),        // 8: jnz_fp_imm: jmp rel 3 if [fp] != 0
+            Instruction::new(Opcode::StoreSubFpImm, [minus_4, One::one(), Zero::zero()]), // 7: store_sub_fp_imm: [fp] = [fp - 4] - 1
+            Instruction::new(Opcode::JnzFpImm, [Zero::zero(), M31::from(3), Zero::zero()]), // 8: jnz_fp_imm: jmp rel 3 if [fp] != 0
             // Argument is 1, return 1
-            Instruction::from([6, 1, 0, minus_3.0]), // 9: store_imm: [fp - 3] = 1
-            Instruction::from([15, 0, 0, 0]),        // 10: ret
+            Instruction::new(Opcode::StoreImm, [One::one(), Zero::zero(), minus_3]), // 9: store_imm: [fp - 3] = 1
+            Instruction::new(Opcode::Ret, [Zero::zero(), Zero::zero(), Zero::zero()]), // 10: ret
             // Compute fib(n-1) + fib(n-2)
             // fib(n-1)
             // n - 1 is already stored at [fp], ready to be used as argument.
-            Instruction::from([12, 2, 4, 0]), // 11: call_abs_imm: call fib(n-1)
-            Instruction::from([4, 1, 0, minus_3.0]), // 12: store_deref_fp: [fp - 3] = [fp + 1]
+            Instruction::new(
+                Opcode::CallAbsImm,
+                [M31::from(2), M31::from(4), Zero::zero()],
+            ), // 11: call_abs_imm: call fib(n-1)
+            Instruction::new(Opcode::StoreDerefFp, [One::one(), Zero::zero(), minus_3]), // 12: store_deref_fp: [fp - 3] = [fp + 1]
             // fib(n-2)
-            Instruction::from([3, 0, 1, 0]), // 13: Store n - 2, from previously computed n - 1 [fp] = [fp] - 1
-            Instruction::from([12, 2, 4, 0]), // 14: call_abs_imm: call fib(n-2)
+            Instruction::new(
+                Opcode::StoreSubFpImm,
+                [Zero::zero(), One::one(), Zero::zero()],
+            ), // 13: Store n - 2, from previously computed n - 1 [fp] = [fp] - 1
+            Instruction::new(
+                Opcode::CallAbsImm,
+                [M31::from(2), M31::from(4), Zero::zero()],
+            ), // 14: call_abs_imm: call fib(n-2)
             // Return value of fib(n-1) + fib(n-2)
-            Instruction::from([0, minus_3.0, 1, minus_3.0]), // 15: store_add_fp_fp: [fp - 3] = [fp - 3] + [fp + 1]
-            Instruction::from([15, 0, 0, 0]),                // 16: ret
+            Instruction::new(Opcode::StoreAddFpFp, [minus_3, One::one(), minus_3]), // 15: store_add_fp_fp: [fp - 3] = [fp - 3] + [fp + 1]
+            Instruction::new(Opcode::Ret, [Zero::zero(), Zero::zero(), Zero::zero()]), // 16: ret
         ];
         let instructions_len = instructions.len() as u32;
         let program = Program::from(instructions);
-        let mut vm = VM::try_from(program).unwrap();
+        let mut vm = VM::try_from(&program).unwrap();
 
         let fp_offset = 3;
         vm.run_from_entrypoint(0, fp_offset).unwrap();
@@ -704,11 +766,14 @@ mod tests {
     fn test_write_binary_trace() {
         // Create a program with two instructions to generate a trace.
         let instructions = vec![
-            Instruction::from([6, 10, 0, 0]), // [fp + 0] = 10
-            Instruction::from([6, 20, 0, 1]), // [fp + 1] = 20
+            Instruction::new(
+                Opcode::StoreImm,
+                [M31::from(10), Zero::zero(), Zero::zero()],
+            ), // [fp + 0] = 10
+            Instruction::new(Opcode::StoreImm, [M31::from(20), Zero::zero(), One::one()]), // [fp + 1] = 20
         ];
         let program = Program::from(instructions);
-        let mut vm = VM::try_from(program).unwrap();
+        let mut vm = VM::try_from(&program).unwrap();
 
         // Execute the program to generate a trace.
         assert!(vm.execute().is_ok());
@@ -741,12 +806,18 @@ mod tests {
     fn test_write_binary_memory_trace() {
         // Create a program with instructions that access memory to generate a memory trace.
         let instructions = vec![
-            Instruction::from([6, 10, 0, 0]), // store_imm: [fp + 0] = 10
-            Instruction::from([6, 20, 0, 1]), // store_imm: [fp + 1] = 20
-            Instruction::from([0, 0, 1, 2]),  // store_add_fp_fp: [fp + 2] = [fp + 0] + [fp + 1]
+            Instruction::new(
+                Opcode::StoreImm,
+                [M31::from(10), Zero::zero(), Zero::zero()],
+            ), // store_imm: [fp + 0] = 10
+            Instruction::new(Opcode::StoreImm, [M31::from(20), Zero::zero(), One::one()]), // store_imm: [fp + 1] = 20
+            Instruction::new(
+                Opcode::StoreAddFpFp,
+                [Zero::zero(), One::one(), M31::from(2)],
+            ), // store_add_fp_fp: [fp + 2] = [fp + 0] + [fp + 1]
         ];
         let program = Program::from(instructions);
-        let mut vm = VM::try_from(program).unwrap();
+        let mut vm = VM::try_from(&program).unwrap();
 
         // Execute the program to generate memory accesses.
         assert!(vm.execute().is_ok());

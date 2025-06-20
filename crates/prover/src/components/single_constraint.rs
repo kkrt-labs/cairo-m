@@ -1,3 +1,4 @@
+use num_traits::{One, Zero};
 use rayon::iter::ParallelIterator;
 pub use stwo_air_utils::trace::component_trace::ComponentTrace;
 pub use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
@@ -6,7 +7,6 @@ pub use stwo_prover::core::backend::simd::m31::PackedM31;
 use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::backend::BackendForChannel;
 use stwo_prover::core::channel::{Channel, MerkleChannel};
-use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::pcs::TreeVec;
 
 #[derive(Copy, Clone)]
@@ -34,8 +34,8 @@ impl<const N: usize> Claim<N> {
         SimdBackend: BackendForChannel<MC>,
     {
         let mut trace = unsafe { ComponentTrace::<N>::uninitialized(self.log_size) };
-        let M31_0 = PackedM31::broadcast(M31::from(0));
-        let M31_1 = PackedM31::broadcast(M31::from(1));
+        let M31_0 = PackedM31::broadcast(Zero::zero());
+        let M31_1 = PackedM31::broadcast(One::one());
         trace.par_iter_mut().for_each(|mut row| {
             for i in (0..N).step_by(3) {
                 *row[i] = M31_0;

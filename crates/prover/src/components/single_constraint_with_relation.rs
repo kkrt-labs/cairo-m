@@ -1,4 +1,5 @@
 use num_traits::identities::One;
+use num_traits::Zero;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use stwo_air_utils::trace::component_trace::ComponentTrace;
 use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
@@ -11,7 +12,7 @@ use stwo_prover::core::backend::simd::qm31::PackedQM31;
 use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::backend::BackendForChannel;
 use stwo_prover::core::channel::{Channel, MerkleChannel};
-use stwo_prover::core::fields::m31::{BaseField, M31};
+use stwo_prover::core::fields::m31::BaseField;
 use stwo_prover::core::fields::qm31::SecureField;
 use stwo_prover::core::fields::secure_column::SECURE_EXTENSION_DEGREE;
 use stwo_prover::core::pcs::TreeVec;
@@ -64,8 +65,8 @@ impl Claim {
             )
         };
 
-        let M31_0 = PackedM31::broadcast(M31::from(0));
-        let M31_1 = PackedM31::broadcast(M31::from(1));
+        let M31_0 = PackedM31::broadcast(Zero::zero());
+        let M31_1 = PackedM31::broadcast(One::one());
 
         (trace.par_iter_mut(), lookup_data.par_iter_mut())
             .into_par_iter()

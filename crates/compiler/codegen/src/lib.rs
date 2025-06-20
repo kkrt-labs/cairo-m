@@ -15,27 +15,24 @@
 #![feature(let_chains)]
 #![allow(clippy::option_if_let_else)]
 
+use cairo_m_common::{Instruction, Opcode, Program};
 use cairo_m_compiler_mir::{BasicBlockId, MirModule};
 
 pub mod builder;
-pub mod compiled_program;
 pub mod db;
 pub mod generator;
 pub mod layout;
-pub mod opcode;
 
 // Re-export main components
 pub use builder::CasmBuilder;
-pub use compiled_program::{CompiledInstruction, CompiledProgram, ProgramMetadata};
 pub use db::{codegen_errors, codegen_mir_module, compile_module as db_compile_module, CodegenDb};
 pub use generator::CodeGenerator;
 pub use layout::FunctionLayout;
-pub use opcode::{opcodes, Opcode};
 
 /// Main entry point for code generation
 ///
 /// Converts a MIR module to a JSON representation of the compiled program
-pub fn compile_module(module: &MirModule) -> Result<CompiledProgram, CodegenError> {
+pub fn compile_module(module: &MirModule) -> Result<Program, CodegenError> {
     let mut generator = CodeGenerator::new();
     generator.generate_module(module)?;
     Ok(generator.compile())
@@ -62,9 +59,12 @@ impl Operand {
     }
 }
 
-/// Represents a CASM instruction with all necessary information
+/// Represents an instruction being built during code generation.
+///
+/// This is an intermediate representation that may contain unresolved labels
+/// and other builder state before being converted to the final Instruction type.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CasmInstruction {
+pub struct InstructionBuilder {
     /// The opcode number for this instruction
     pub opcode: u32,
     /// First offset operand (fp-relative)
@@ -79,7 +79,7 @@ pub struct CasmInstruction {
     pub comment: Option<String>,
 }
 
-impl CasmInstruction {
+impl InstructionBuilder {
     /// Create a new CASM instruction
     pub const fn new(opcode: u32) -> Self {
         Self {
@@ -89,6 +89,18 @@ impl CasmInstruction {
             off2: None,
             operand: None,
             comment: None,
+        }
+    }
+
+    pub fn build(&self) -> Instruction {
+        Instruction {
+            opcode: Opcode::from_u32(self.opcode)
+                .unwrap_or_else(|| panic!("Invalid opcode: {}", self.opcode)),
+            operands: [
+                self.op0().unwrap_or(0).into(),
+                self.op1().unwrap_or(0).into(),
+                self.op2().unwrap_or(0).into(),
+            ],
         }
     }
 
@@ -284,7 +296,7 @@ impl std::error::Error for CodegenError {}
 /// Result type for codegen operations
 pub type CodegenResult<T> = Result<T, CodegenError>;
 
-impl std::fmt::Display for CasmInstruction {
+impl std::fmt::Display for InstructionBuilder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.to_asm())
     }

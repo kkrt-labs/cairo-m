@@ -1,3 +1,4 @@
+use num_traits::{One, Zero};
 use rayon::iter::ParallelIterator;
 pub use stwo_air_utils::trace::component_trace::ComponentTrace;
 pub use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
@@ -34,8 +35,8 @@ impl<const N: usize> Claim<N> {
         SimdBackend: BackendForChannel<MC>,
     {
         let mut trace = unsafe { ComponentTrace::<N>::uninitialized(self.log_size) };
-        let M31_0 = PackedM31::broadcast(M31::from(0));
-        let M31_1 = PackedM31::broadcast(M31::from(1));
+        let M31_0 = PackedM31::broadcast(Zero::zero());
+        let M31_1 = PackedM31::broadcast(One::one());
         trace.par_iter_mut().for_each(|mut row| {
             for i in (0..N).step_by(3) {
                 *row[i] = M31_0;
@@ -63,7 +64,7 @@ impl<const N: usize> FrameworkEval for Eval<N> {
     #[allow(non_snake_case)]
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         for _ in (0..N).step_by(3) {
-            let M31_1 = E::F::from(M31::from(1));
+            let M31_1 = E::F::from(One::one());
             let M31_2 = E::F::from(M31::from(2));
 
             let col0 = eval.next_trace_mask();
