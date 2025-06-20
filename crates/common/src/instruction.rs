@@ -108,9 +108,9 @@ impl Serialize for Instruction {
 
         // Serialize as hex strings for JSON compatibility
         seq.serialize_element(&format!("0x{:x}", self.opcode.to_u32()))?;
-        seq.serialize_element(&format!("0x{:x}", self.operands[0].0))?;
-        seq.serialize_element(&format!("0x{:x}", self.operands[1].0))?;
-        seq.serialize_element(&format!("0x{:x}", self.operands[2].0))?;
+        for operand in self.operands {
+            seq.serialize_element(&format!("0x{:x}", operand.0))?;
+        }
         seq.end()
     }
 }
