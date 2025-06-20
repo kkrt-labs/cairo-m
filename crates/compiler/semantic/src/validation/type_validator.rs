@@ -240,33 +240,54 @@ impl TypeValidator {
                     diagnostics.push(diag);
                 }
             }
-            BinaryOp::Eq | BinaryOp::Neq => {
-                // Comparison operations - operands must be same type
-                if !are_types_compatible(db, left_type, right_type) {
+            BinaryOp::Eq
+            | BinaryOp::Neq
+            | BinaryOp::Less
+            | BinaryOp::Greater
+            | BinaryOp::LessEqual
+            | BinaryOp::GreaterEqual => {
+                // Relational comparison operations - both operands must be felt
+                if !are_types_compatible(db, left_type, felt_type) {
+                    let suggestion = self.suggest_type_conversion(db, left_type, felt_type);
                     let mut diag = Diagnostic::error(
                         DiagnosticCode::TypeMismatch,
                         format!(
-                            "Type mismatch in {} comparison. Cannot compare '{}' with '{}'",
-                            if matches!(op, BinaryOp::Eq) {
-                                "equality"
-                            } else {
-                                "inequality"
-                            },
-                            left_type.data(db).display_name(db),
+                            "Invalid left operand for comparison operator '{:?}'. Expected 'felt', found '{}'",
+                            op,
+                            left_type.data(db).display_name(db)
+                        ),
+                    )
+                    .with_location(file.file_path(db).to_string(), left.span());
+
+                    if let Some(suggestion) = suggestion {
+                        diag = diag.with_related_span(
+                            file.file_path(db).to_string(),
+                            left.span(),
+                            suggestion,
+                        );
+                    }
+
+                    diagnostics.push(diag);
+                }
+                if !are_types_compatible(db, right_type, felt_type) {
+                    let suggestion = self.suggest_type_conversion(db, right_type, felt_type);
+                    let mut diag = Diagnostic::error(
+                        DiagnosticCode::TypeMismatch,
+                        format!(
+                            "Invalid right operand for comparison operator '{:?}'. Expected 'felt', found '{}'",
+                            op,
                             right_type.data(db).display_name(db)
                         ),
                     )
                     .with_location(file.file_path(db).to_string(), right.span());
 
-                    // Add helpful context about what types can be compared
-                    diag = diag.with_related_span(
-                        file.file_path(db).to_string(),
-                        left.span(),
-                        format!(
-                            "Left operand has type '{}'",
-                            left_type.data(db).display_name(db)
-                        ),
-                    );
+                    if let Some(suggestion) = suggestion {
+                        diag = diag.with_related_span(
+                            file.file_path(db).to_string(),
+                            right.span(),
+                            suggestion,
+                        );
+                    }
 
                     diagnostics.push(diag);
                 }
@@ -1388,6 +1409,189 @@ mod tests {
             type_mismatch_errors, 3,
             "Should have 3 type mismatch errors"
         );
+    }
+
+    #[test]
+    fn test_comparison_operators_validation() {
+        let db = test_db();
+        let program = r#"
+            struct Point { x: felt, y: felt }
+            func test() {
+                // Valid comparisons - all with felt operands
+                let a = 1 < 2;                // OK: felt < felt
+                let b = 3 > 1;                // OK: felt > felt
+                let c = 5 <= 5;               // OK: felt <= felt
+                let d = 10 >= 8;              // OK: felt >= felt
+                let e = 1 == 1;               // OK: felt == felt
+                let f = 2 != 3;               // OK: felt != felt
+
+                // Invalid comparisons - struct with felt
+                let point = Point { x: 1, y: 2 };
+                let invalid_1 = point < 1;     // Error: struct < felt
+                let invalid_2 = 1 > point;     // Error: felt > struct
+                let invalid_3 = point <= 5;    // Error: struct <= felt
+                let invalid_4 = 10 >= point;   // Error: felt >= struct
+
+                // Invalid comparisons - tuple with felt
+                let tuple = (1, 2);
+                let invalid_5 = tuple < 3;     // Error: tuple < felt
+                let invalid_6 = 4 > tuple;     // Error: felt > tuple
+
+                // Invalid equality/inequality with non-felt types
+                let eq_1 = point == Point { x: 1, y: 2 }; // Error: struct == struct
+                let neq_1 = tuple != (3, 4);   // Error: tuple != tuple
+
+                // Valid equality/inequality with felt types
+                let eq_2 = 5 == 5;             // OK: felt == felt
+                let neq_2 = 3 != 4;            // OK: felt != felt
+            }
+        "#;
+        let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
+
+        let validator = TypeValidator;
+        let diagnostics = validator.validate(&db, file, semantic_index);
+
+        // Count type mismatch errors
+        let type_errors: Vec<_> = diagnostics
+            .iter()
+            .filter(|d| d.code == DiagnosticCode::TypeMismatch)
+            .collect();
+
+        assert_eq!(
+            type_errors.len(),
+            10,
+            "Should have 10 type mismatch errors for invalid comparisons"
+        );
+
+        // Check that errors mention comparison operators
+        let comparison_errors = type_errors
+            .iter()
+            .filter(|e| e.message.contains("comparison operator"))
+            .count();
+
+        assert_eq!(
+            comparison_errors, 10,
+            "All 10 errors should be for comparison operators"
+        );
+    }
+
+    #[test]
+    fn test_comparison_in_conditionals() {
+        let db = test_db();
+        let program = r#"
+            struct Point { x: felt, y: felt }
+            func test() {
+                let a = 5;
+                let b = 10;
+
+                // Valid comparisons in if conditions
+                if (a < b) {                  // OK: felt < felt
+                    let x = 1;
+                }
+
+                if (a > b) {                  // OK: felt > felt
+                    let y = 2;
+                } else if (a <= b) {          // OK: felt <= felt
+                    let z = 3;
+                }
+
+                while (a >= 0) {              // OK: felt >= felt
+                    let w = 4;
+                }
+
+                // Invalid comparisons in conditions
+                let point = Point { x: 1, y: 2 };
+                if (point < 5) {              // Error: struct < felt
+                    let invalid = 1;
+                }
+
+                if (point > 3) {              // Error: struct > felt
+                    let invalid2 = 2;
+                }
+
+                // Complex valid expressions
+                if (a + 1 < b - 1) {          // OK: arithmetic results are felt
+                    let valid = 1;
+                }
+
+                if ((a < b) && (b > 0)) {     // OK: comparison results used in logical ops
+                    let valid2 = 2;
+                }
+            }
+        "#;
+        let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
+
+        let validator = TypeValidator;
+        let diagnostics = validator.validate(&db, file, semantic_index);
+
+        // Count type mismatch errors
+        let type_errors: Vec<_> = diagnostics
+            .iter()
+            .filter(|d| d.code == DiagnosticCode::TypeMismatch)
+            .collect();
+
+        // We expect 2 errors total
+        assert_eq!(type_errors.len(), 2, "Should have 2 type mismatch errors");
+
+        // All errors should be about comparison operators with structs
+        assert!(type_errors.iter().all(|e|
+            e.message.contains("comparison operator") &&
+            e.message.contains("'Point'")
+        ), "All errors should be about comparing structs");
+    }
+
+    #[test]
+    fn test_mixed_operators_with_comparisons() {
+        let db = test_db();
+        let program = r#"
+            func test() {
+                let a = 5;
+                let b = 10;
+                let c = 15;
+
+                // Valid: arithmetic with comparison
+                let result1 = (a + b) < c;           // OK: (felt + felt) < felt
+                let result2 = a < (b * 2);           // OK: felt < (felt * felt)
+                let result3 = (a - 1) <= (b + 1);    // OK: (felt - felt) <= (felt + felt)
+
+                // Valid: comparison results in logical operations
+                let result4 = (a < b) && (b < c);    // OK: comparison results are felt
+                let result5 = (a > 0) || (b >= 20);  // OK: comparison results are felt
+
+                // Valid: nested comparisons and arithmetic
+                let result6 = ((a + b) > c) && ((c - a) < b); // OK
+
+                // Invalid: trying to do arithmetic on comparison results (which return felt but semantically are booleans)
+                // This actually passes type checking since comparisons return felt,
+                // but it's semantically questionable
+                let weird_but_valid = (a < b) + 1;   // OK: felt + felt (though semantically odd)
+
+                // Test equality/inequality mixed with other comparisons
+                let result7 = (a == b) || (a < b);   // OK: both return felt
+                let result8 = (a != b) && (a > 0);   // OK: both return felt
+            }
+        "#;
+        let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
+        let semantic_index = semantic_index(&db, file)
+            .as_ref()
+            .expect("Got unexpected parse errors");
+
+        let validator = TypeValidator;
+        let diagnostics = validator.validate(&db, file, semantic_index);
+
+        // Should have no type errors - all operations are valid
+        let type_errors = diagnostics
+            .iter()
+            .filter(|d| d.code == DiagnosticCode::TypeMismatch)
+            .count();
+
+        assert_eq!(type_errors, 0, "Should have no type mismatch errors");
     }
 
     #[test]

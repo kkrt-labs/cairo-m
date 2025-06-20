@@ -77,6 +77,14 @@ pub enum BinaryOp {
     Eq,
     /// Inequality operator `!=`
     Neq,
+    /// Less than operator `<`
+    Less,
+    /// Greater than operator `>`
+    Greater,
+    /// Less than or equal operator `<=`
+    LessEqual,
+    /// Greater than or equal operator `>=`
+    GreaterEqual,
     /// Logical AND operator `&&`
     And,
     /// Logical OR operator `||`
@@ -654,11 +662,15 @@ where
             },
         );
 
-        // Comparison operators: ==, != (left-associative)
+        // Comparison operators: ==, !=, <, >, <=, >= (left-associative)
         let cmp = add.clone().foldl(
             choice((
                 op(TokenType::EqEq, BinaryOp::Eq),
                 op(TokenType::Neq, BinaryOp::Neq),
+                op(TokenType::Less, BinaryOp::Less),
+                op(TokenType::Greater, BinaryOp::Greater),
+                op(TokenType::LessEqual, BinaryOp::LessEqual),
+                op(TokenType::GreaterEqual, BinaryOp::GreaterEqual),
             ))
             .then(add.clone())
             .repeated(),

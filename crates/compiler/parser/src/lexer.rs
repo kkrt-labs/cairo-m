@@ -167,6 +167,14 @@ pub enum TokenType<'a> {
     EqEq,
     #[token("!=")]
     Neq,
+    #[token("<=")]
+    LessEqual,
+    #[token(">=")]
+    GreaterEqual,
+    #[token("<")]
+    Less,
+    #[token(">")]
+    Greater,
     #[token("+")]
     Plus,
     #[token("-")]
@@ -231,6 +239,10 @@ impl<'a> fmt::Display for TokenType<'a> {
             TokenType::OrOr => write!(f, "||"),
             TokenType::EqEq => write!(f, "=="),
             TokenType::Neq => write!(f, "!="),
+            TokenType::LessEqual => write!(f, "<="),
+            TokenType::GreaterEqual => write!(f, ">="),
+            TokenType::Less => write!(f, "<"),
+            TokenType::Greater => write!(f, ">"),
             TokenType::Plus => write!(f, "+"),
             TokenType::Minus => write!(f, "-"),
             TokenType::Mul => write!(f, "*"),

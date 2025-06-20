@@ -157,6 +157,9 @@ impl CasmBuilder {
             BinaryOp::Or => {
                 self.generate_or_op(dest_off, left, right)?;
             }
+            BinaryOp::Less | BinaryOp::Greater | BinaryOp::LessEqual | BinaryOp::GreaterEqual => {
+                todo!("Comparison opcodes not yet implemented");
+            }
         }
 
         Ok(())
