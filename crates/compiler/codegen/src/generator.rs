@@ -4,23 +4,21 @@
 
 use std::collections::HashMap;
 
+use cairo_m_common::{Opcode, Program, ProgramMetadata};
 use cairo_m_compiler_mir::{
     BasicBlockId, Instruction, InstructionKind, MirFunction, MirModule, Terminator, Value, ValueId,
 };
 use cairo_m_compiler_parser::parser::BinaryOp;
-use stwo_prover::core::fields::m31::M31;
 
-use crate::compiled_program::{CompiledInstruction, CompiledProgram, ProgramMetadata};
 use crate::{
-    CasmBuilder, CasmInstruction, CodegenError, CodegenResult, FunctionLayout, Label, Opcode,
-    Operand,
+    CasmBuilder, CodegenError, CodegenResult, FunctionLayout, InstructionBuilder, Label, Operand,
 };
 
 /// Main code generator that orchestrates MIR to CASM translation
 #[derive(Debug)]
 pub struct CodeGenerator {
     /// Generated instructions for all functions
-    instructions: Vec<CasmInstruction>,
+    instructions: Vec<InstructionBuilder>,
     /// Labels that need resolution
     labels: Vec<Label>,
     /// Function name to starting PC mapping
@@ -58,34 +56,22 @@ impl CodeGenerator {
     }
 
     /// Compile the generated code into a CompiledProgram.
-    pub fn compile(&self) -> CompiledProgram {
-        // Convert CasmInstructions to CompiledInstructions
+    pub fn compile(self) -> Program {
         let instructions = self
             .instructions
             .iter()
-            .map(|instr| {
-                // Convert the instruction to operands array
-                let operands: Vec<M31> = vec![
-                    instr.op0().unwrap_or(0).into(),
-                    instr.op1().unwrap_or(0).into(),
-                    instr.op2().unwrap_or(0).into(),
-                ];
-
-                CompiledInstruction {
-                    opcode: instr.opcode,
-                    operands,
-                }
-            })
+            .map(|instr| instr.build())
             .collect();
 
-        CompiledProgram {
+        Program {
+            // TODO: Link source file / crates once supported
             metadata: ProgramMetadata {
                 compiler_version: Some(env!("CARGO_PKG_VERSION").to_string()),
                 compiled_at: Some(chrono::Utc::now().to_rfc3339()),
                 source_file: None,
                 extra: HashMap::new(),
             },
-            entrypoints: self.function_addresses.clone(),
+            entrypoints: self.function_addresses,
             instructions,
         }
     }
@@ -480,7 +466,7 @@ impl CodeGenerator {
                 // Deduplicate labels properly:
                 // 1. If there's a function label and a corresponding block_0 label, only show the function label
                 // 2. Otherwise, show all unique labels
-                // note: for rendering only. Move to a Display impl for CasmInstruction?
+                // note: for rendering only. Move to a Display impl for InstructionBuilder?
 
                 let mut labels_to_show = Vec::new();
                 let mut function_labels = Vec::new();
@@ -524,7 +510,7 @@ impl CodeGenerator {
     }
 
     /// Get the generated instructions (for testing)
-    pub fn instructions(&self) -> &[CasmInstruction] {
+    pub fn instructions(&self) -> &[InstructionBuilder] {
         &self.instructions
     }
 
@@ -543,6 +529,7 @@ impl Default for CodeGenerator {
 #[cfg(test)]
 mod tests {
     use cairo_m_compiler_mir::{BasicBlock, MirFunction, MirModule, Terminator, Value, ValueId};
+    use stwo_prover::core::fields::m31::M31;
 
     use super::*;
 
@@ -609,10 +596,10 @@ mod tests {
         // With the direct return optimization, the immediate is stored directly
         // to the return slot at [fp - 3], which is offset -3
         let store_imm = &compiled.instructions[0];
-        assert_eq!(store_imm.opcode, 6); // StoreImm opcode
+        assert_eq!(store_imm.opcode, Opcode::StoreImm);
         assert_eq!(
             store_imm.operands,
-            vec![M31::from(42), M31::from(0), M31::from(-3)]
+            [M31::from(42), M31::from(0), M31::from(-3)]
         );
     }
 }

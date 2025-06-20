@@ -3,9 +3,7 @@
 pub mod db;
 use std::sync::Arc;
 
-pub use cairo_m_compiler_codegen::compiled_program::{
-    CompiledInstruction, CompiledProgram, ProgramMetadata,
-};
+use cairo_m_common::Program;
 use cairo_m_compiler_diagnostics::{build_diagnostic_message, Diagnostic, DiagnosticSeverity};
 use cairo_m_compiler_parser::{parse_program, SourceProgram};
 use db::CompilerDatabase;
@@ -42,7 +40,7 @@ pub struct CompilerOptions {
 #[derive(Debug)]
 pub struct CompilerOutput {
     /// The compiled program
-    pub program: Arc<CompiledProgram>,
+    pub program: Arc<Program>,
     /// Any non-error diagnostics generated during compilation
     pub diagnostics: Vec<Diagnostic>,
 }

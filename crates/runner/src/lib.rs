@@ -1,10 +1,10 @@
 pub mod memory;
 pub mod vm;
 
-use cairo_m_compiler::CompiledProgram;
+use cairo_m_common::Program;
 use memory::MemoryError;
 use stwo_prover::core::fields::m31::M31;
-use vm::{Program, VmError, VM};
+use vm::{VmError, VM};
 
 /// Result type for runner operations
 pub type Result<T> = std::result::Result<T, RunnerError>;
@@ -48,7 +48,7 @@ pub struct RunnerOutput {
 /// * `Ok(RunnerOutput)` - Program executed successfully with return value
 /// * `Err(RunnerError)` - Execution failed
 pub fn run_cairo_program(
-    program: &CompiledProgram,
+    program: &Program,
     entrypoint: &str,
     _options: RunnerOptions,
 ) -> Result<RunnerOutput> {
@@ -59,10 +59,7 @@ pub fn run_cairo_program(
         )
     })?;
 
-    let vm_program = Program {
-        instructions: program.instructions.iter().map(Into::into).collect(),
-    };
-    let mut vm = VM::try_from(vm_program)?;
+    let mut vm = VM::try_from(program)?;
 
     // TODO: Get entrypoint information from the compiled program to know how many args / return data to allocate
     const FP_OFFSET: u32 = 3;

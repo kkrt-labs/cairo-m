@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::{fs, process};
 
-use cairo_m_compiler::CompiledProgram;
+use cairo_m_common::Program;
 use cairo_m_runner::run_cairo_program;
 use clap::{Parser, ValueHint};
 
@@ -38,7 +38,7 @@ fn main() {
         process::exit(1);
     });
 
-    let compiled_program: CompiledProgram = sonic_rs::from_str(&file_content).unwrap_or_else(|e| {
+    let compiled_program: Program = sonic_rs::from_str(&file_content).unwrap_or_else(|e| {
         eprintln!("Failed to parse compiled program: {}", e);
         process::exit(1);
     });

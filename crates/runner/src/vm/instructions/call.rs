@@ -32,11 +32,11 @@
 //! - Restore FP from memory, stored at fp - 2.
 //! - Update PC to the return address, stored at fp - 1.
 
+use cairo_m_common::Instruction;
 use num_traits::One;
 use stwo_prover::core::fields::m31::M31;
 
 use crate::memory::{Memory, MemoryError};
-use crate::vm::instructions::Instruction;
 use crate::vm::state::State;
 
 /// Call instruction
@@ -47,9 +47,9 @@ use crate::vm::state::State;
 pub fn call_abs_fp(
     memory: &mut Memory,
     state: State,
-    instruction: Instruction,
+    instruction: &Instruction,
 ) -> Result<State, MemoryError> {
-    let [off0, off1, _] = instruction.args;
+    let [off0, off1, _] = instruction.operands;
     memory.insert(state.fp + off0, state.fp.into())?;
     memory.insert(state.fp + off0 + M31::one(), (state.pc + M31::one()).into())?;
 
@@ -66,9 +66,9 @@ pub fn call_abs_fp(
 pub fn call_abs_imm(
     memory: &mut Memory,
     state: State,
-    instruction: Instruction,
+    instruction: &Instruction,
 ) -> Result<State, MemoryError> {
-    let [off0, imm, _] = instruction.args;
+    let [off0, imm, _] = instruction.operands;
     memory.insert(state.fp + off0, state.fp.into())?;
     memory.insert(state.fp + off0 + M31::one(), (state.pc + M31::one()).into())?;
 
@@ -83,9 +83,9 @@ pub fn call_abs_imm(
 pub fn call_rel_fp(
     memory: &mut Memory,
     state: State,
-    instruction: Instruction,
+    instruction: &Instruction,
 ) -> Result<State, MemoryError> {
-    let [off0, off1, _] = instruction.args;
+    let [off0, off1, _] = instruction.operands;
     memory.insert(state.fp + off0, state.fp.into())?;
     memory.insert(state.fp + off0 + M31::one(), (state.pc + M31::one()).into())?;
 
@@ -102,9 +102,9 @@ pub fn call_rel_fp(
 pub fn call_rel_imm(
     memory: &mut Memory,
     state: State,
-    instruction: Instruction,
+    instruction: &Instruction,
 ) -> Result<State, MemoryError> {
-    let [off0, imm, _] = instruction.args;
+    let [off0, imm, _] = instruction.operands;
     memory.insert(state.fp + off0, state.fp.into())?;
     memory.insert(state.fp + off0 + M31::one(), (state.pc + M31::one()).into())?;
 
@@ -117,7 +117,7 @@ pub fn call_rel_imm(
 ///
 /// CASM equivalent:
 /// `ret`
-pub fn ret(memory: &mut Memory, state: State, _: Instruction) -> Result<State, MemoryError> {
+pub fn ret(memory: &mut Memory, state: State, _: &Instruction) -> Result<State, MemoryError> {
     let pc = memory.get_data(state.fp - M31::one())?;
     let fp = memory.get_data(state.fp - M31(2))?;
 
@@ -126,15 +126,17 @@ pub fn ret(memory: &mut Memory, state: State, _: Instruction) -> Result<State, M
 
 #[cfg(test)]
 mod tests {
+    use cairo_m_common::Instruction;
+
     use super::*;
 
     #[test]
     fn test_call_abs_fp_2_args() {
         let mut memory = Memory::from_iter([10, 11, 12].map(Into::into));
         let state = State::default();
-        let instruction = Instruction::from([11, 3, 0, 0]);
+        let instruction = Instruction::try_from([11, 3, 0, 0]).unwrap();
 
-        let next_state = call_abs_fp(&mut memory, state, instruction).unwrap();
+        let next_state = call_abs_fp(&mut memory, state, &instruction).unwrap();
 
         let expected_memory = Memory::from_iter([10, 11, 12, 0, 1].map(Into::into));
         let expected_state = State {
@@ -150,9 +152,9 @@ mod tests {
     fn test_call_abs_imm_2_args() {
         let mut memory = Memory::from_iter([10, 11, 12].map(Into::into));
         let state = State::default();
-        let instruction = Instruction::from([12, 3, 7, 0]);
+        let instruction = Instruction::try_from([12, 3, 7, 0]).unwrap();
 
-        let next_state = call_abs_imm(&mut memory, state, instruction).unwrap();
+        let next_state = call_abs_imm(&mut memory, state, &instruction).unwrap();
 
         let expected_memory = Memory::from_iter([10, 11, 12, 0, 1].map(Into::into));
         let expected_state = State {
@@ -171,9 +173,9 @@ mod tests {
             pc: M31(4),
             fp: M31(0),
         };
-        let instruction = Instruction::from([13, 3, 0, 0]);
+        let instruction = Instruction::try_from([13, 3, 0, 0]).unwrap();
 
-        let next_state = call_rel_fp(&mut memory, state, instruction).unwrap();
+        let next_state = call_rel_fp(&mut memory, state, &instruction).unwrap();
 
         let expected_memory = Memory::from_iter([10, 11, 12, 0, 5].map(Into::into));
         let expected_state = State {
@@ -192,9 +194,9 @@ mod tests {
             pc: M31(4),
             fp: M31(0),
         };
-        let instruction = Instruction::from([14, 3, 7, 0]);
+        let instruction = Instruction::try_from([14, 3, 7, 0]).unwrap();
 
-        let next_state = call_rel_imm(&mut memory, state, instruction).unwrap();
+        let next_state = call_rel_imm(&mut memory, state, &instruction).unwrap();
 
         let expected_memory = Memory::from_iter([10, 11, 12, 0, 5].map(Into::into));
         let expected_state = State {
@@ -213,9 +215,9 @@ mod tests {
             pc: M31(7),
             fp: M31(3),
         };
-        let instruction = Instruction::from([15, 0, 0, 0]);
+        let instruction = Instruction::try_from([15, 0, 0, 0]).unwrap();
 
-        let next_state = ret(&mut memory, state, instruction).unwrap();
+        let next_state = ret(&mut memory, state, &instruction).unwrap();
 
         let expected_memory = Memory::from_iter([10, 11, 12].map(Into::into));
         let expected_state = State {
@@ -231,11 +233,11 @@ mod tests {
     fn test_ret_call_abs_fp_2_args() {
         let mut memory = Memory::from_iter([10, 11, 12].map(Into::into));
         let initial_state = State::default();
-        let call_instruction = Instruction::from([11, 3, 0, 0]);
-        let ret_instruction = Instruction::from([15, 0, 0, 0]);
+        let call_instruction = Instruction::try_from([11, 3, 0, 0]).unwrap();
+        let ret_instruction = Instruction::try_from([15, 0, 0, 0]).unwrap();
 
-        let call_state = call_abs_fp(&mut memory, initial_state, call_instruction).unwrap();
-        let ret_state = ret(&mut memory, call_state, ret_instruction).unwrap();
+        let call_state = call_abs_fp(&mut memory, initial_state, &call_instruction).unwrap();
+        let ret_state = ret(&mut memory, call_state, &ret_instruction).unwrap();
 
         let expected_memory = Memory::from_iter([10, 11, 12, 0, 1].map(Into::into));
         assert_eq!(memory.data, expected_memory.data);
@@ -246,11 +248,11 @@ mod tests {
     fn test_ret_call_abs_imm_2_args() {
         let mut memory = Memory::from_iter([10, 11, 12].map(Into::into));
         let initial_state = State::default();
-        let call_instruction = Instruction::from([12, 3, 7, 0]);
-        let ret_instruction = Instruction::from([15, 0, 0, 0]);
+        let call_instruction = Instruction::try_from([12, 3, 7, 0]).unwrap();
+        let ret_instruction = Instruction::try_from([15, 0, 0, 0]).unwrap();
 
-        let call_state = call_abs_imm(&mut memory, initial_state, call_instruction).unwrap();
-        let ret_state = ret(&mut memory, call_state, ret_instruction).unwrap();
+        let call_state = call_abs_imm(&mut memory, initial_state, &call_instruction).unwrap();
+        let ret_state = ret(&mut memory, call_state, &ret_instruction).unwrap();
 
         let expected_memory = Memory::from_iter([10, 11, 12, 0, 1].map(Into::into));
 
@@ -265,11 +267,11 @@ mod tests {
             pc: M31(4),
             fp: M31(0),
         };
-        let call_instruction = Instruction::from([13, 3, 0, 0]);
-        let ret_instruction = Instruction::from([15, 0, 0, 0]);
+        let call_instruction = Instruction::try_from([13, 3, 0, 0]).unwrap();
+        let ret_instruction = Instruction::try_from([15, 0, 0, 0]).unwrap();
 
-        let call_state = call_rel_fp(&mut memory, initial_state, call_instruction).unwrap();
-        let ret_state = ret(&mut memory, call_state, ret_instruction).unwrap();
+        let call_state = call_rel_fp(&mut memory, initial_state, &call_instruction).unwrap();
+        let ret_state = ret(&mut memory, call_state, &ret_instruction).unwrap();
 
         let expected_memory = Memory::from_iter([10, 11, 12, 0, 5].map(Into::into));
 
@@ -284,11 +286,11 @@ mod tests {
             pc: M31(4),
             fp: M31(0),
         };
-        let call_instruction = Instruction::from([14, 3, 7, 0]);
-        let ret_instruction = Instruction::from([15, 0, 0, 0]);
+        let call_instruction = Instruction::try_from([14, 3, 7, 0]).unwrap();
+        let ret_instruction = Instruction::try_from([15, 0, 0, 0]).unwrap();
 
-        let call_state = call_rel_imm(&mut memory, initial_state, call_instruction).unwrap();
-        let ret_state = ret(&mut memory, call_state, ret_instruction).unwrap();
+        let call_state = call_rel_imm(&mut memory, initial_state, &call_instruction).unwrap();
+        let ret_state = ret(&mut memory, call_state, &ret_instruction).unwrap();
 
         let expected_memory = Memory::from_iter([10, 11, 12, 0, 5].map(Into::into));
 

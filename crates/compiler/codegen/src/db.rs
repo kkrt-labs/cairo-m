@@ -2,10 +2,11 @@
 
 use std::sync::Arc;
 
+use cairo_m_common::Program;
 use cairo_m_compiler_mir::{MirDb, MirModule};
 use cairo_m_compiler_parser::{SourceProgram, Upcast};
 
-use crate::{CodegenError, CompiledProgram};
+use crate::CodegenError;
 
 /// Database trait for code generation queries.
 ///
@@ -23,7 +24,7 @@ pub trait CodegenDb: MirDb + Upcast<dyn MirDb> {}
 pub fn compile_module(
     db: &dyn CodegenDb,
     file: SourceProgram,
-) -> Result<Arc<CompiledProgram>, CodegenError> {
+) -> Result<Arc<Program>, CodegenError> {
     // Get the MIR module
     let mir_module = cairo_m_compiler_mir::db::generate_mir(db.upcast(), file)
         .ok_or_else(|| CodegenError::InvalidMir("No MIR module generated".to_string()))?;
