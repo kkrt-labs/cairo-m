@@ -466,7 +466,7 @@ impl CodeGenerator {
                 // Deduplicate labels properly:
                 // 1. If there's a function label and a corresponding block_0 label, only show the function label
                 // 2. Otherwise, show all unique labels
-                // note: for rendering only. Move to a Display impl for InstructionBuilder?
+                // note: TODO for rendering only. Move to a Display impl for InstructionBuilder?
 
                 let mut labels_to_show = Vec::new();
                 let mut function_labels = Vec::new();
