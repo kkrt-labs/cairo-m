@@ -1,0 +1,36 @@
+//!ASSERT CONTAINS: Less
+//!ASSERT CONTAINS: Greater
+//!ASSERT CONTAINS: LessEqual
+//!ASSERT CONTAINS: GreaterEqual
+
+// Tests new comparison operations.
+func test_less(a: felt, b: felt) -> felt {
+    let c = a < b;
+    return c;
+}
+
+func test_greater(a: felt, b: felt) -> felt {
+    let c = a > b;
+    return c;
+}
+
+func test_less_equal(a: felt, b: felt) -> felt {
+    let c = a <= b;
+    return c;
+}
+
+func test_greater_equal(a: felt, b: felt) -> felt {
+    let c = a >= b;
+    return c;
+}
+
+// Test comparison operators in conditional context
+func test_comparison_in_if(x: felt, y: felt) -> felt {
+    if (x < y) {
+        return 1;
+    } else if (x > y) {
+        return 2;
+    } else {
+        return 0;
+    }
+}
