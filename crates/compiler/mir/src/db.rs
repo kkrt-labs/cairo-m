@@ -28,7 +28,9 @@ pub fn generate_mir(db: &dyn MirDb, file: SourceProgram) -> Option<MirModule> {
     }
 
     // Delegate to the existing generate_mir function from ir_generation
-    crate::ir_generation::generate_mir(db, file).map(|arc| (*arc).clone())
+    crate::ir_generation::generate_mir(db, file)
+        .ok()
+        .map(|arc| (*arc).clone())
 }
 
 /// Track MIR-specific errors separately for better diagnostics.

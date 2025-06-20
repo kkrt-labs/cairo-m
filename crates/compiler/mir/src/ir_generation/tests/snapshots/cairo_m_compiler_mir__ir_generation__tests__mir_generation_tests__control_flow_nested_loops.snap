@@ -1,0 +1,72 @@
+---
+source: crates/compiler/mir/src/ir_generation/tests/mir_generation_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/compiler/mir/src/ir_generation/tests/mir_generation_tests.rs
+expression: mir_output
+---
+Fixture: nested_loops.cm
+============================================================
+Source code:
+func test_nested_loops() -> felt {
+    let result = 0;
+    let i = 0;
+
+    while (i != 3) {
+        let j = 0;
+        while (j != 4) {
+            result = result + 1;
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+
+    return result;
+}
+
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_nested_loops {
+    entry: 0
+
+    0:
+      %0 = stackalloc 1
+      store %0, 0
+      %1 = stackalloc 1
+      store %1, 0
+      jump 1
+
+    1:
+      %2 = %1 Neq 3
+      if %2 then jump 2 else jump 3
+
+    2:
+      %3 = stackalloc 1
+      store %3, 0
+      jump 4
+
+    3:
+      return %0
+
+    4:
+      %4 = %3 Neq 4
+      if %4 then jump 5 else jump 6
+
+    5:
+      %5 = %0 Add 1
+      store %0, %5
+      %6 = %3 Add 1
+      store %3, %6
+      jump 4
+
+    6:
+      %7 = %1 Add 1
+      store %1, %7
+      jump 1
+
+  }
+
+}

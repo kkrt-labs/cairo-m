@@ -56,6 +56,10 @@ mir_test!(if_both_return, "control_flow");
 mir_test!(if_no_else, "control_flow");
 mir_test!(nested_if, "control_flow");
 mir_test!(unreachable_after_return, "control_flow");
+mir_test!(simple_while, "control_flow");
+mir_test!(infinite_loop, "control_flow");
+mir_test!(nested_loops, "control_flow");
+mir_test!(loop_with_breaks, "control_flow");
 
 // --- Functions ---
 mir_test!(call_as_statement, "functions");

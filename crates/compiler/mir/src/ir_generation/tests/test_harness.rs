@@ -22,7 +22,15 @@ pub struct MirOutput {
 pub fn check_mir(source: &str) -> MirOutput {
     let db = test_db();
     let file = File::new(&db, source.to_string(), "".to_string());
-    let module = generate_mir(&db, file).unwrap();
+    let module = match generate_mir(&db, file) {
+        Ok(module) => module,
+        Err(diagnostics) => {
+            panic!(
+                "MIR generation failed with diagnostics:\n{:#?}",
+                diagnostics
+            );
+        }
+    };
     let mir_string = module.pretty_print(0);
     MirOutput { module, mir_string }
 }

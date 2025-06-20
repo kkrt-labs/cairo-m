@@ -1,0 +1,12 @@
+func test_infinite_loop() -> felt {
+    let counter = 0;
+
+    loop {
+        counter = counter + 1;
+        if (counter == 10) {
+            break;
+        }
+    }
+
+    return counter;
+}

@@ -93,6 +93,29 @@ diff_test!(
     "Recursive Fibonacci computation for n=10"
 );
 
+// 1. Fibonacci (loop)
+fn rust_fibonacci_loop() -> u32 {
+    fn fib(n: u32) -> u32 {
+        let mut a = 0;
+        let mut b = 1;
+        for _ in 0..n {
+            let temp = a;
+            a = b;
+            b += temp;
+        }
+        a
+    }
+    fib(10)
+}
+
+diff_test!(
+    test_fibonacci_loop,
+    "fibonacci_loop.cm",
+    "main",
+    rust_fibonacci_loop,
+    "Fibonacci loop computation for n=10"
+);
+
 // 2. Factorial (recursive)
 fn rust_factorial() -> u32 {
     fn factorial(n: u32) -> u32 {
@@ -295,4 +318,59 @@ diff_test!(
     "main",
     combination,
     "combination of language constructs"
+);
+
+// Loops
+
+const fn loops_with_break_continue() -> u32 {
+    let mut counter = 0;
+    let mut i = 0;
+    loop {
+        counter += 1;
+        if counter == 5 {
+            continue;
+        }
+        let mut counter2 = 0;
+        loop {
+            if counter2 == 10 {
+                break;
+            }
+            counter2 += 1;
+            i += 2;
+        }
+        i += 1;
+        if counter == 10 {
+            break;
+        }
+    }
+    i
+}
+
+diff_test!(
+    test_loops_with_break_continue,
+    "loops_with_break_continue.cm",
+    "loops_with_break_continue",
+    loops_with_break_continue,
+    "Loops with break and continue"
+);
+
+// Nested while loops
+const fn nested_while_loops() -> u32 {
+    let mut i = 0;
+    let mut j = 0;
+    while i != 10 {
+        while j != 10 {
+            j += 1;
+        }
+        i += 1;
+    }
+    i
+}
+
+diff_test!(
+    test_nested_while_loops,
+    "nested_while_loops.cm",
+    "nested_while_loops",
+    nested_while_loops,
+    "Nested while loops"
 );

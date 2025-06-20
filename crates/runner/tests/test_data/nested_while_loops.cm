@@ -1,0 +1,11 @@
+func nested_while_loops() -> felt {
+    let i = 0;
+    let j = 0;
+    while (i != 10) {
+        while (j != 10) {
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    return i;
+}
