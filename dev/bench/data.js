@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1750409147711,
+  "lastUpdate": 1750430484611,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -323,6 +323,60 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/serialize_memory_trace",
             "value": 93768151,
             "range": "± 1398193",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "779853a14082dc3756646e9da21a1a78a5e90774",
+          "message": "refactor(vm-compiler): unify instruction & opcode types (#83)\n\n* refactor: unify instruction & opcode types\n\n* build instructions from opcode enum\n\n* Update crates/common/Cargo.toml\n\nCo-authored-by: Oba <obatirou@gmail.com>\n\n* Update crates/compiler/codegen/src/generator.rs\n\n* Update crates/common/src/instruction.rs\n\nCo-authored-by: Oba <obatirou@gmail.com>\n\n* Update crates/common/src/instruction.rs\n\nCo-authored-by: Oba <obatirou@gmail.com>\n\n* Update crates/common/src/instruction.rs\n\nCo-authored-by: Oba <obatirou@gmail.com>\n\n* Update crates/common/src/instruction.rs\n\nCo-authored-by: Oba <obatirou@gmail.com>\n\n* address review comms\n\n* remove unused import\n\n* rename to InstructionOperands\n\n---------\n\nCo-authored-by: Oba <obatirou@gmail.com>",
+          "timestamp": "2025-06-20T16:34:17+02:00",
+          "tree_id": "92a0ae20c6df1fb22cb7aad04c2cba4a46bab613",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/779853a14082dc3756646e9da21a1a78a5e90774"
+        },
+        "date": 1750430484260,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/e2e",
+            "value": 996367317,
+            "range": "± 10788621",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 165676872,
+            "range": "± 236363",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/io_only",
+            "value": 484618994,
+            "range": "± 27602254",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/serialize_vm_trace",
+            "value": 14422132,
+            "range": "± 23720",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/serialize_memory_trace",
+            "value": 85755903,
+            "range": "± 165288",
             "unit": "ns/iter"
           }
         ]
