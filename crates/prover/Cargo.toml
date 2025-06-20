@@ -12,3 +12,5 @@ num-traits.workspace = true
 rand = "0.8.5"
 thiserror.workspace = true
 tracing.workspace = true
+bytemuck.workspace = true
+sonic-rs.workspace = true
