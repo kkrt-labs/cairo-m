@@ -214,7 +214,7 @@ pub fn jmp_rel_mul_fp_imm(
 #[cfg(test)]
 mod tests {
     use cairo_m_common::Opcode;
-    use num_traits::Zero;
+    use num_traits::{One, Zero};
     use stwo_prover::core::fields::m31::M31;
 
     use super::*;
@@ -230,7 +230,7 @@ mod tests {
         let state = State::default();
         let instruction = Instruction::new(
             Opcode::JmpAbsAddFpFp,
-            [Zero::zero(), M31::from(1), Zero::zero()],
+            [Zero::zero(), One::one(), Zero::zero()],
         );
 
         let new_state = jmp_abs_add_fp_fp(&mut memory, state, &instruction)?;
@@ -290,7 +290,7 @@ mod tests {
         let state = State::default();
         let instruction = Instruction::new(
             Opcode::JmpAbsDoubleDerefFp,
-            [Zero::zero(), M31::from(1), Zero::zero()],
+            [Zero::zero(), One::one(), Zero::zero()],
         );
 
         let new_state = jmp_abs_double_deref_fp(&mut memory, state, &instruction)?;
@@ -330,7 +330,7 @@ mod tests {
         let state = State::default();
         let instruction = Instruction::new(
             Opcode::JmpAbsMulFpFp,
-            [Zero::zero(), M31::from(1), Zero::zero()],
+            [Zero::zero(), One::one(), Zero::zero()],
         );
 
         let new_state = jmp_abs_mul_fp_fp(&mut memory, state, &instruction)?;
@@ -369,7 +369,7 @@ mod tests {
         let mut memory = Memory::from_iter([1, 2].map(Into::into));
         let instruction = Instruction::new(
             Opcode::JmpRelAddFpFp,
-            [Zero::zero(), M31::from(1), Zero::zero()],
+            [Zero::zero(), One::one(), Zero::zero()],
         );
 
         let new_state = jmp_rel_add_fp_fp(&mut memory, JMP_REL_INITIAL_STATE, &instruction)?;
@@ -426,7 +426,7 @@ mod tests {
         let mut memory = Memory::from_iter([0, 3].map(Into::into));
         let instruction = Instruction::new(
             Opcode::JmpRelDoubleDerefFp,
-            [Zero::zero(), M31::from(1), Zero::zero()],
+            [Zero::zero(), One::one(), Zero::zero()],
         );
 
         let new_state = jmp_rel_double_deref_fp(&mut memory, JMP_REL_INITIAL_STATE, &instruction)?;
@@ -464,7 +464,7 @@ mod tests {
         let mut memory = Memory::from_iter([2, 3].map(Into::into));
         let instruction = Instruction::new(
             Opcode::JmpRelMulFpFp,
-            [Zero::zero(), M31::from(1), Zero::zero()],
+            [Zero::zero(), One::one(), Zero::zero()],
         );
 
         let new_state = jmp_rel_mul_fp_fp(&mut memory, JMP_REL_INITIAL_STATE, &instruction)?;

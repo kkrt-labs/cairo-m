@@ -10,7 +10,7 @@ pub enum InstructionError {
     InvalidOpcode(M31),
 }
 
-/// The arguments of a Cairo M instruction.
+/// The operands of a Cairo M instruction.
 /// It is represented as a fixed-size array of 3 M31 values.
 /// * off0 - The first element of the array.
 /// * off1 - The second element of the array.
@@ -106,7 +106,6 @@ impl Serialize for Instruction {
         use serde::ser::SerializeSeq;
         let mut seq = serializer.serialize_seq(Some(4))?;
 
-        // Serialize as hex strings for JSON compatibility
         seq.serialize_element(&format!("0x{:x}", self.opcode.to_u32()))?;
         for operand in self.operands {
             seq.serialize_element(&format!("0x{:x}", operand.0))?;
@@ -121,52 +120,20 @@ impl<'de> Deserialize<'de> for Instruction {
     where
         D: serde::Deserializer<'de>,
     {
-        use serde::de::{self, SeqAccess, Visitor};
-
-        struct InstructionVisitor;
-
-        impl<'de> Visitor<'de> for InstructionVisitor {
-            type Value = Instruction;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("array of 4 hex strings")
-            }
-
-            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-            where
-                A: SeqAccess<'de>,
-            {
-                let parse_hex = |s: &str| -> Result<u32, A::Error> {
-                    u32::from_str_radix(s.trim_start_matches("0x"), 16).map_err(de::Error::custom)
-                };
-
-                let opcode_str: String = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                let op0_str: String = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(1, &self))?;
-                let op1_str: String = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(2, &self))?;
-                let op2_str: String = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(3, &self))?;
-
-                let opcode_u32 = parse_hex(&opcode_str)?;
-                let opcode = Opcode::try_from(opcode_u32).map_err(de::Error::custom)?;
-
-                Ok(Instruction {
-                    opcode,
-                    operands: [
-                        M31::from(parse_hex(&op0_str)?),
-                        M31::from(parse_hex(&op1_str)?),
-                        M31::from(parse_hex(&op2_str)?),
-                    ],
-                })
-            }
-        }
-
-        deserializer.deserialize_seq(InstructionVisitor)
+        use serde::de;
+        let hex_strings: [String; 4] = Deserialize::deserialize(deserializer)?;
+        let parse_hex = |s: &str| -> Result<u32, D::Error> {
+            u32::from_str_radix(s.trim_start_matches("0x"), 16).map_err(de::Error::custom)
+        };
+        let opcode_u32 = parse_hex(&hex_strings[0])?;
+        let opcode = Opcode::try_from(opcode_u32).map_err(de::Error::custom)?;
+        Ok(Self {
+            opcode,
+            operands: [
+                M31::from(parse_hex(&hex_strings[1])?),
+                M31::from(parse_hex(&hex_strings[2])?),
+                M31::from(parse_hex(&hex_strings[3])?),
+            ],
+        })
     }
 }

@@ -45,6 +45,7 @@ cargo test -p cairo-m-compiler-semantic
 cargo test -p cairo-m-compiler-mir
 cargo test -p cairo-m-compiler-codegen
 cargo test -p cairo-m-runner
+cargo test -p cairo-m-prover
 
 # Run specific test categories
 cargo test --test semantic_tests scoping

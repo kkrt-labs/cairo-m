@@ -197,7 +197,7 @@ mod tests {
         let state = State::default();
         let instruction = Instruction::new(
             Opcode::StoreAddFpFp,
-            [M31::from(1), M31::from(2), M31::from(3)],
+            [One::one(), M31::from(2), M31::from(3)],
         );
 
         let new_state = store_add_fp_fp(&mut memory, state, &instruction)?;
@@ -218,7 +218,7 @@ mod tests {
         let state = State::default();
         let instruction = Instruction::new(
             Opcode::StoreAddFpImm,
-            [M31::from(1), M31::from(2), M31::from(3)],
+            [One::one(), M31::from(2), M31::from(3)],
         );
 
         let new_state = store_add_fp_imm(&mut memory, state, &instruction)?;
@@ -237,7 +237,7 @@ mod tests {
         let state = State::default();
         let instruction = Instruction::new(
             Opcode::StoreSubFpFp,
-            [M31::from(1), M31::from(2), M31::from(3)],
+            [One::one(), M31::from(2), M31::from(3)],
         );
 
         let new_state = store_sub_fp_fp(&mut memory, state, &instruction)?;
@@ -257,7 +257,7 @@ mod tests {
         let state = State::default();
         let instruction = Instruction::new(
             Opcode::StoreSubFpImm,
-            [M31::from(1), M31::from(2), M31::from(3)],
+            [One::one(), M31::from(2), M31::from(3)],
         );
 
         let new_state = store_sub_fp_imm(&mut memory, state, &instruction)?;
@@ -277,7 +277,7 @@ mod tests {
         let state = State::default();
         let instruction = Instruction::new(
             Opcode::StoreDerefFp,
-            [M31::from(1), Zero::zero(), M31::from(2)],
+            [One::one(), Zero::zero(), M31::from(2)],
         );
 
         let new_state = store_deref_fp(&mut memory, state, &instruction)?;
@@ -297,7 +297,7 @@ mod tests {
         let state = State::default();
         let instruction = Instruction::new(
             Opcode::StoreDoubleDerefFp,
-            [M31::from(1), M31::from(2), M31::from(2)],
+            [One::one(), M31::from(2), M31::from(2)],
         );
 
         let new_state = store_double_deref_fp(&mut memory, state, &instruction)?;
@@ -316,7 +316,7 @@ mod tests {
         let mut memory = Memory::from_iter([0, 4].map(Into::into));
         let state = State::default();
         let instruction =
-            Instruction::new(Opcode::StoreImm, [M31::from(1), Zero::zero(), M31::from(2)]);
+            Instruction::new(Opcode::StoreImm, [One::one(), Zero::zero(), M31::from(2)]);
 
         let new_state = store_imm(&mut memory, state, &instruction)?;
 
@@ -335,7 +335,7 @@ mod tests {
         let state = State::default();
         let instruction = Instruction::new(
             Opcode::StoreMulFpFp,
-            [M31::from(1), M31::from(2), M31::from(3)],
+            [One::one(), M31::from(2), M31::from(3)],
         );
 
         let new_state = store_mul_fp_fp(&mut memory, state, &instruction)?;
@@ -355,7 +355,7 @@ mod tests {
         let state = State::default();
         let instruction = Instruction::new(
             Opcode::StoreMulFpImm,
-            [M31::from(1), M31::from(2), M31::from(2)],
+            [One::one(), M31::from(2), M31::from(2)],
         );
 
         let new_state = store_mul_fp_imm(&mut memory, state, &instruction)?;
@@ -375,7 +375,7 @@ mod tests {
         let state = State::default();
         let instruction = Instruction::new(
             Opcode::StoreDivFpFp,
-            [M31::from(1), M31::from(2), M31::from(3)],
+            [One::one(), M31::from(2), M31::from(3)],
         );
 
         let new_state = store_div_fp_fp(&mut memory, state, &instruction)?;
@@ -397,7 +397,7 @@ mod tests {
         let state = State::default();
         let instruction = Instruction::new(
             Opcode::StoreDivFpFp,
-            [M31::from(1), M31::from(2), M31::from(3)],
+            [One::one(), M31::from(2), M31::from(3)],
         );
 
         let _ = store_div_fp_fp(&mut memory, state, &instruction);
@@ -409,7 +409,7 @@ mod tests {
         let state = State::default();
         let instruction = Instruction::new(
             Opcode::StoreDivFpImm,
-            [M31::from(1), M31::from(2), M31::from(2)],
+            [One::one(), M31::from(2), M31::from(2)],
         );
 
         let new_state = store_div_fp_imm(&mut memory, state, &instruction)?;
@@ -430,7 +430,7 @@ mod tests {
         let state = State::default();
         let instruction = Instruction::new(
             Opcode::StoreDivFpImm,
-            [M31::from(1), Zero::zero(), M31::from(2)],
+            [One::one(), Zero::zero(), M31::from(2)],
         );
 
         let _ = store_div_fp_imm(&mut memory, state, &instruction);

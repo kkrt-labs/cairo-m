@@ -403,10 +403,10 @@ mod tests {
                 Opcode::StoreImm,
                 [M31::from(10), Zero::zero(), Zero::zero()],
             ), // [fp + 0] = 10
-            Instruction::new(Opcode::StoreImm, [M31::from(5), Zero::zero(), M31::from(1)]), // [fp + 1] = 5
+            Instruction::new(Opcode::StoreImm, [M31::from(5), Zero::zero(), One::one()]), // [fp + 1] = 5
             Instruction::new(
                 Opcode::StoreAddFpFp,
-                [Zero::zero(), M31::from(1), M31::from(2)],
+                [Zero::zero(), One::one(), M31::from(2)],
             ), // [fp + 2] = [fp + 0] + [fp + 1]
         ];
         let program = Program::from(instructions);
@@ -474,14 +474,14 @@ mod tests {
                 Opcode::StoreImm,
                 [M31::from(12), Zero::zero(), Zero::zero()],
             ), // [fp + 0] = 12
-            Instruction::new(Opcode::StoreImm, [M31::from(3), Zero::zero(), M31::from(1)]), // [fp + 1] = 3
+            Instruction::new(Opcode::StoreImm, [M31::from(3), Zero::zero(), One::one()]), // [fp + 1] = 3
             Instruction::new(
                 Opcode::StoreMulFpFp,
-                [Zero::zero(), M31::from(1), M31::from(2)],
+                [Zero::zero(), One::one(), M31::from(2)],
             ), // [fp + 2] = [fp + 0] * [fp + 1] = 36
             Instruction::new(
                 Opcode::StoreDivFpFp,
-                [M31::from(2), M31::from(1), M31::from(3)],
+                [M31::from(2), One::one(), M31::from(3)],
             ), // [fp + 3] = [fp + 2] / [fp + 1] = 12
             Instruction::new(
                 Opcode::StoreSubFpFp,
@@ -511,7 +511,7 @@ mod tests {
             ), // [fp] = 10
             Instruction::new(
                 Opcode::StoreAddFpImm,
-                [Zero::zero(), M31::from(5), M31::from(1)],
+                [Zero::zero(), M31::from(5), One::one()],
             ), // [fp + 1] = [fp] + 5
         ];
         let program = Program::from(instructions);
@@ -536,10 +536,7 @@ mod tests {
                 Opcode::StoreImm,
                 [M31::from(10), Zero::zero(), Zero::zero()],
             ), // [fp + 0] = 10
-            Instruction::new(
-                Opcode::StoreImm,
-                [M31::from(20), Zero::zero(), M31::from(1)],
-            ), // [fp + 1] = 20
+            Instruction::new(Opcode::StoreImm, [M31::from(20), Zero::zero(), One::one()]), // [fp + 1] = 20
         ];
         let program = Program::from(instructions);
         let mut vm = VM::try_from(&program).unwrap();
@@ -612,8 +609,8 @@ mod tests {
         let instructions = vec![
             // Setup
             Instruction::new(Opcode::StoreImm, [M31::from(n), Zero::zero(), Zero::zero()]), // store_imm: [fp+0] = counter
-            Instruction::new(Opcode::StoreImm, [Zero::zero(), Zero::zero(), M31::from(1)]), // store_imm: [fp+1] = a = F_0 = 0
-            Instruction::new(Opcode::StoreImm, [M31::from(1), Zero::zero(), M31::from(2)]), // store_imm: [fp+2] = b = F_1 = 1
+            Instruction::new(Opcode::StoreImm, [Zero::zero(), Zero::zero(), One::one()]), // store_imm: [fp+1] = a = F_0 = 0
+            Instruction::new(Opcode::StoreImm, [One::one(), Zero::zero(), M31::from(2)]), // store_imm: [fp+2] = b = F_1 = 1
             // Loop condition check
             // while counter != 0 jump to loop body
             Instruction::new(Opcode::JnzFpImm, [Zero::zero(), M31::from(2), Zero::zero()]), // jnz_fp_imm: jmp rel 2 if [fp + 0] != 0  (pc=3 here, pc=5 in beginning of loop body)
@@ -625,11 +622,11 @@ mod tests {
             // Loop body
             Instruction::new(
                 Opcode::StoreDerefFp,
-                [M31::from(1), Zero::zero(), M31::from(3)],
+                [One::one(), Zero::zero(), M31::from(3)],
             ), // store_deref_fp: [fp+3] = [fp+1] (tmp = a)
             Instruction::new(
                 Opcode::StoreDerefFp,
-                [M31::from(2), Zero::zero(), M31::from(1)],
+                [M31::from(2), Zero::zero(), One::one()],
             ), // store_deref_fp: [fp+1] = [fp+2] (a = b)
             Instruction::new(
                 Opcode::StoreAddFpFp,
@@ -637,7 +634,7 @@ mod tests {
             ), // store_add_fp_fp: [fp+2] = [fp+3] + [fp+2] (b = temp + b)
             Instruction::new(
                 Opcode::StoreSubFpImm,
-                [Zero::zero(), M31::from(1), Zero::zero()],
+                [Zero::zero(), One::one(), Zero::zero()],
             ), // store_sub_fp_imm: [fp+0] = [fp+0] - 1 (counter--)
             // Jump back to condition check
             Instruction::new(
@@ -712,8 +709,8 @@ mod tests {
                 [M31::from(2), M31::from(4), Zero::zero()],
             ), // 1: call_abs_imm: call fib(n)
             // Store the computed fib(n) and return.
-            Instruction::new(Opcode::StoreDerefFp, [M31::from(1), Zero::zero(), minus_3]), // 2: store_deref_fp: [fp - 3] = [fp + 1]
-            Instruction::new(Opcode::Ret, [Zero::zero(), Zero::zero(), Zero::zero()]),     // 3: ret
+            Instruction::new(Opcode::StoreDerefFp, [One::one(), Zero::zero(), minus_3]), // 2: store_deref_fp: [fp - 3] = [fp + 1]
+            Instruction::new(Opcode::Ret, [Zero::zero(), Zero::zero(), Zero::zero()]),   // 3: ret
             // fib(n: felt) function
             // Check if argument is 0
             Instruction::new(Opcode::JnzFpImm, [minus_4, M31::from(3), Zero::zero()]), // 4: jnz_fp_imm: jmp rel 3 if [fp - 4] != 0
@@ -721,10 +718,10 @@ mod tests {
             Instruction::new(Opcode::StoreImm, [Zero::zero(), Zero::zero(), minus_3]), // 5: store_imm: [fp - 3] = 0
             Instruction::new(Opcode::Ret, [Zero::zero(), Zero::zero(), Zero::zero()]), // 6: ret
             // Check if argument is 1
-            Instruction::new(Opcode::StoreSubFpImm, [minus_4, M31::from(1), Zero::zero()]), // 7: store_sub_fp_imm: [fp] = [fp - 4] - 1
+            Instruction::new(Opcode::StoreSubFpImm, [minus_4, One::one(), Zero::zero()]), // 7: store_sub_fp_imm: [fp] = [fp - 4] - 1
             Instruction::new(Opcode::JnzFpImm, [Zero::zero(), M31::from(3), Zero::zero()]), // 8: jnz_fp_imm: jmp rel 3 if [fp] != 0
             // Argument is 1, return 1
-            Instruction::new(Opcode::StoreImm, [M31::from(1), Zero::zero(), minus_3]), // 9: store_imm: [fp - 3] = 1
+            Instruction::new(Opcode::StoreImm, [One::one(), Zero::zero(), minus_3]), // 9: store_imm: [fp - 3] = 1
             Instruction::new(Opcode::Ret, [Zero::zero(), Zero::zero(), Zero::zero()]), // 10: ret
             // Compute fib(n-1) + fib(n-2)
             // fib(n-1)
@@ -733,18 +730,18 @@ mod tests {
                 Opcode::CallAbsImm,
                 [M31::from(2), M31::from(4), Zero::zero()],
             ), // 11: call_abs_imm: call fib(n-1)
-            Instruction::new(Opcode::StoreDerefFp, [M31::from(1), Zero::zero(), minus_3]), // 12: store_deref_fp: [fp - 3] = [fp + 1]
+            Instruction::new(Opcode::StoreDerefFp, [One::one(), Zero::zero(), minus_3]), // 12: store_deref_fp: [fp - 3] = [fp + 1]
             // fib(n-2)
             Instruction::new(
                 Opcode::StoreSubFpImm,
-                [Zero::zero(), M31::from(1), Zero::zero()],
+                [Zero::zero(), One::one(), Zero::zero()],
             ), // 13: Store n - 2, from previously computed n - 1 [fp] = [fp] - 1
             Instruction::new(
                 Opcode::CallAbsImm,
                 [M31::from(2), M31::from(4), Zero::zero()],
             ), // 14: call_abs_imm: call fib(n-2)
             // Return value of fib(n-1) + fib(n-2)
-            Instruction::new(Opcode::StoreAddFpFp, [minus_3, M31::from(1), minus_3]), // 15: store_add_fp_fp: [fp - 3] = [fp - 3] + [fp + 1]
+            Instruction::new(Opcode::StoreAddFpFp, [minus_3, One::one(), minus_3]), // 15: store_add_fp_fp: [fp - 3] = [fp - 3] + [fp + 1]
             Instruction::new(Opcode::Ret, [Zero::zero(), Zero::zero(), Zero::zero()]), // 16: ret
         ];
         let instructions_len = instructions.len() as u32;
@@ -773,10 +770,7 @@ mod tests {
                 Opcode::StoreImm,
                 [M31::from(10), Zero::zero(), Zero::zero()],
             ), // [fp + 0] = 10
-            Instruction::new(
-                Opcode::StoreImm,
-                [M31::from(20), Zero::zero(), M31::from(1)],
-            ), // [fp + 1] = 20
+            Instruction::new(Opcode::StoreImm, [M31::from(20), Zero::zero(), One::one()]), // [fp + 1] = 20
         ];
         let program = Program::from(instructions);
         let mut vm = VM::try_from(&program).unwrap();
@@ -816,13 +810,10 @@ mod tests {
                 Opcode::StoreImm,
                 [M31::from(10), Zero::zero(), Zero::zero()],
             ), // store_imm: [fp + 0] = 10
-            Instruction::new(
-                Opcode::StoreImm,
-                [M31::from(20), Zero::zero(), M31::from(1)],
-            ), // store_imm: [fp + 1] = 20
+            Instruction::new(Opcode::StoreImm, [M31::from(20), Zero::zero(), One::one()]), // store_imm: [fp + 1] = 20
             Instruction::new(
                 Opcode::StoreAddFpFp,
-                [Zero::zero(), M31::from(1), M31::from(2)],
+                [Zero::zero(), One::one(), M31::from(2)],
             ), // store_add_fp_fp: [fp + 2] = [fp + 0] + [fp + 1]
         ];
         let program = Program::from(instructions);

@@ -3,7 +3,7 @@ use std::time::Duration;
 use cairo_m_common::{Instruction, Opcode, Program};
 use cairo_m_runner::vm::VM;
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
-use num_traits::Zero;
+use num_traits::{One, Zero};
 use stwo_prover::core::fields::m31::M31;
 use tempfile::NamedTempFile;
 
@@ -16,8 +16,8 @@ pub fn create_fib_program(n: u32) -> Vec<Instruction> {
     let instructions = vec![
         // Setup
         Instruction::new(Opcode::StoreImm, [M31::from(n), Zero::zero(), Zero::zero()]), // store_imm: [fp+0] = counter
-        Instruction::new(Opcode::StoreImm, [Zero::zero(), Zero::zero(), M31::from(1)]), // store_imm: [fp+1] = a = F_0 = 0
-        Instruction::new(Opcode::StoreImm, [M31::from(1), Zero::zero(), M31::from(2)]), // store_imm: [fp+2] = b = F_1 = 1
+        Instruction::new(Opcode::StoreImm, [Zero::zero(), Zero::zero(), One::one()]), // store_imm: [fp+1] = a = F_0 = 0
+        Instruction::new(Opcode::StoreImm, [One::one(), Zero::zero(), M31::from(2)]), // store_imm: [fp+2] = b = F_1 = 1
         // Loop condition check
         // while counter != 0 jump to loop body
         Instruction::new(Opcode::JnzFpImm, [Zero::zero(), M31::from(2), Zero::zero()]), // jnz_fp_imm: jmp rel 2 if [fp + 0] != 0  (pc=3 here, pc=5 in beginning of loop body)
@@ -29,11 +29,11 @@ pub fn create_fib_program(n: u32) -> Vec<Instruction> {
         // Loop body
         Instruction::new(
             Opcode::StoreDerefFp,
-            [M31::from(1), Zero::zero(), M31::from(3)],
+            [One::one(), Zero::zero(), M31::from(3)],
         ), // store_deref_fp: [fp+3] = [fp+1] (tmp = a)
         Instruction::new(
             Opcode::StoreDerefFp,
-            [M31::from(2), Zero::zero(), M31::from(1)],
+            [M31::from(2), Zero::zero(), One::one()],
         ), // store_deref_fp: [fp+1] = [fp+2] (a = b)
         Instruction::new(
             Opcode::StoreAddFpFp,
@@ -41,7 +41,7 @@ pub fn create_fib_program(n: u32) -> Vec<Instruction> {
         ), // store_add_fp_fp: [fp+2] = [fp+3] + [fp+2] (b = temp + b)
         Instruction::new(
             Opcode::StoreSubFpImm,
-            [Zero::zero(), M31::from(1), Zero::zero()],
+            [Zero::zero(), One::one(), Zero::zero()],
         ), // store_sub_fp_imm: [fp+0] = [fp+0] - 1 (counter--)
         // Jump back to condition check
         Instruction::new(

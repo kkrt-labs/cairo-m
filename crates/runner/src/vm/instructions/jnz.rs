@@ -53,6 +53,7 @@ pub fn jnz_fp_imm(
 #[cfg(test)]
 mod tests {
     use cairo_m_common::{Instruction, Opcode};
+    use num_traits::One;
     use stwo_prover::core::fields::m31::M31;
 
     use super::*;
@@ -66,7 +67,7 @@ mod tests {
     fn test_jnz_fp_fp_zero() -> Result<(), MemoryError> {
         let mut memory = Memory::from_iter([0, 3].map(Into::into));
         let instruction =
-            Instruction::new(Opcode::JnzFpFp, [Zero::zero(), M31::from(1), Zero::zero()]);
+            Instruction::new(Opcode::JnzFpFp, [Zero::zero(), One::one(), Zero::zero()]);
 
         let new_state = jnz_fp_fp(&mut memory, JNZ_INITIAL_STATE, &instruction)?;
 
@@ -83,7 +84,7 @@ mod tests {
     fn test_jnz_fp_fp_not_zero() -> Result<(), MemoryError> {
         let mut memory = Memory::from_iter([7, 3].map(Into::into));
         let instruction =
-            Instruction::new(Opcode::JnzFpFp, [Zero::zero(), M31::from(1), Zero::zero()]);
+            Instruction::new(Opcode::JnzFpFp, [Zero::zero(), One::one(), Zero::zero()]);
 
         let new_state = jnz_fp_fp(&mut memory, JNZ_INITIAL_STATE, &instruction)?;
 

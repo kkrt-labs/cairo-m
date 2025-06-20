@@ -25,7 +25,7 @@ pub mod jnz;
 pub mod jump;
 pub mod store;
 
-type InstructionFn = fn(&mut Memory, State, &Instruction) -> Result<State, MemoryError>;
+pub type InstructionFn = fn(&mut Memory, State, &Instruction) -> Result<State, MemoryError>;
 
 /// Maps an opcode to its corresponding instruction handler function.
 ///

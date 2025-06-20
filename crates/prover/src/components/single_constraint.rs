@@ -1,4 +1,4 @@
-use num_traits::Zero;
+use num_traits::{One, Zero};
 use rayon::iter::ParallelIterator;
 pub use stwo_air_utils::trace::component_trace::ComponentTrace;
 pub use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
@@ -36,7 +36,7 @@ impl<const N: usize> Claim<N> {
     {
         let mut trace = unsafe { ComponentTrace::<N>::uninitialized(self.log_size) };
         let M31_0 = PackedM31::broadcast(Zero::zero());
-        let M31_1 = PackedM31::broadcast(M31::from(1));
+        let M31_1 = PackedM31::broadcast(One::one());
         trace.par_iter_mut().for_each(|mut row| {
             for i in (0..N).step_by(3) {
                 *row[i] = M31_0;
