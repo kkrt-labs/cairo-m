@@ -30,29 +30,42 @@ impl TryFrom<QM31> for Instruction {
     type Error = InstructionError;
 
     fn try_from(instruction: QM31) -> Result<Self, Self::Error> {
-        let [op, args @ ..] = instruction.to_m31_array();
+        instruction.to_m31_array().try_into()
+    }
+}
+
+impl TryFrom<[M31; 4]> for Instruction {
+    type Error = InstructionError;
+
+    fn try_from(array: [M31; 4]) -> Result<Self, Self::Error> {
+        let [opcode, operands @ ..] = array;
         Ok(Self {
-            opcode: op.try_into()?,
-            operands: args,
+            opcode: Opcode::try_from(opcode)?,
+            operands,
         })
     }
 }
 
-impl<T: Into<M31>> TryFrom<[T; 4]> for Instruction {
-    type Error = InstructionError;
+impl From<Instruction> for [M31; 4] {
+    fn from(instruction: Instruction) -> Self {
+        [
+            instruction.opcode.into(),
+            instruction.operands[0],
+            instruction.operands[1],
+            instruction.operands[2],
+        ]
+    }
+}
 
-    fn try_from(instruction: [T; 4]) -> Result<Self, Self::Error> {
-        let [op, args @ ..] = instruction;
-        Ok(Self {
-            opcode: Opcode::try_from(op.into())?,
-            operands: args.map(Into::into),
-        })
+impl From<&Instruction> for [M31; 4] {
+    fn from(instruction: &Instruction) -> Self {
+        (*instruction).into()
     }
 }
 
 impl From<&Instruction> for QM31 {
     fn from(instruction: &Instruction) -> Self {
-        Self::from_m31_array(instruction.to_array())
+        Self::from_m31_array(instruction.into())
     }
 }
 
@@ -75,25 +88,6 @@ impl Instruction {
     /// Get the third operand
     pub const fn op2(&self) -> M31 {
         self.operands[2]
-    }
-
-    /// Convert to array representation [opcode, op0, op1, op2]
-    pub fn to_array(&self) -> [M31; 4] {
-        [
-            M31::from(self.opcode),
-            self.operands[0],
-            self.operands[1],
-            self.operands[2],
-        ]
-    }
-
-    /// Create from array representation [opcode, op0, op1, op2]
-    pub fn from_array(array: [M31; 4]) -> Result<Self, InstructionError> {
-        let [opcode, operands @ ..] = array;
-        Ok(Self {
-            opcode: Opcode::try_from(opcode)?,
-            operands,
-        })
     }
 }
 

@@ -110,6 +110,10 @@ pub fn jmp_abs_mul_fp_imm(
     Ok(state.jump_abs(offset))
 }
 
+/// CASM equivalent:
+/// ```casm
+/// jmp rel [fp + off0] + [fp + off1]
+/// ```
 pub fn jmp_rel_add_fp_fp(
     memory: &mut Memory,
     state: State,
