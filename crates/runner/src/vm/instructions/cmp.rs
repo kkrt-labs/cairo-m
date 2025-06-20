@@ -7,6 +7,11 @@ use crate::vm::{Memory, MemoryError, State};
 
 /// Compare if two fp-offset values are equal and store result (1 or 0)
 ///
+/// CASM equivalent:
+/// ```casm
+/// [fp + off2] = ([fp + off0] == [fp + off1]) ? 1 : 0
+/// ```
+///
 /// ## Arguments
 ///
 /// * `memory` - The memory instance
@@ -21,19 +26,22 @@ pub fn cmp_eq_fp_fp(
     state: State,
     instruction: &Instruction,
 ) -> Result<State, MemoryError> {
-    let arg0_offset = instruction.op0();
-    let arg1_offset = instruction.op1();
-    let dst_offset = instruction.op2();
+    let [off0, off1, off2] = instruction.operands;
 
-    let arg0 = memory.get_data(state.fp + arg0_offset)?;
-    let arg1 = memory.get_data(state.fp + arg1_offset)?;
+    let arg0 = memory.get_data(state.fp + off0)?;
+    let arg1 = memory.get_data(state.fp + off1)?;
     let result = if arg0 == arg1 { M31(1) } else { M31(0) };
 
-    memory.insert(state.fp + dst_offset, result.into())?;
+    memory.insert(state.fp + off2, result.into())?;
     Ok(state.advance())
 }
 
 /// Compare if fp-offset value equals immediate and store result (1 or 0)
+///
+/// CASM equivalent:
+/// ```casm
+/// [fp + off2] = ([fp + off0] == imm) ? 1 : 0
+/// ```
 ///
 /// ## Arguments
 ///
@@ -49,18 +57,21 @@ pub fn cmp_eq_fp_imm(
     state: State,
     instruction: &Instruction,
 ) -> Result<State, MemoryError> {
-    let arg0_offset = instruction.op0();
-    let imm = instruction.op1();
-    let dst_offset = instruction.op2();
+    let [off0, imm, off2] = instruction.operands;
 
-    let arg0 = memory.get_data(state.fp + arg0_offset)?;
+    let arg0 = memory.get_data(state.fp + off0)?;
     let result = if arg0 == imm { M31(1) } else { M31(0) };
 
-    memory.insert(state.fp + dst_offset, result.into())?;
+    memory.insert(state.fp + off2, result.into())?;
     Ok(state.advance())
 }
 
 /// Compare if two fp-offset values are not equal and store result (1 or 0)
+///
+/// CASM equivalent:
+/// ```casm
+/// [fp + off2] = ([fp + off0] != [fp + off1]) ? 1 : 0
+/// ```
 ///
 /// ## Arguments
 ///
@@ -76,19 +87,22 @@ pub fn cmp_neq_fp_fp(
     state: State,
     instruction: &Instruction,
 ) -> Result<State, MemoryError> {
-    let arg0_offset = instruction.op0();
-    let arg1_offset = instruction.op1();
-    let dst_offset = instruction.op2();
+    let [off0, off1, off2] = instruction.operands;
 
-    let arg0 = memory.get_data(state.fp + arg0_offset)?;
-    let arg1 = memory.get_data(state.fp + arg1_offset)?;
+    let arg0 = memory.get_data(state.fp + off0)?;
+    let arg1 = memory.get_data(state.fp + off1)?;
     let result = if arg0 != arg1 { M31(1) } else { M31(0) };
 
-    memory.insert(state.fp + dst_offset, result.into())?;
+    memory.insert(state.fp + off2, result.into())?;
     Ok(state.advance())
 }
 
 /// Compare if fp-offset value not equals immediate and store result (1 or 0)
+///
+/// CASM equivalent:
+/// ```casm
+/// [fp + off2] = ([fp + off0] != imm) ? 1 : 0
+/// ```
 ///
 /// ## Arguments
 ///
@@ -104,18 +118,21 @@ pub fn cmp_neq_fp_imm(
     state: State,
     instruction: &Instruction,
 ) -> Result<State, MemoryError> {
-    let arg0_offset = instruction.op0();
-    let imm = instruction.op1();
-    let dst_offset = instruction.op2();
+    let [off0, imm, off2] = instruction.operands;
 
-    let arg0 = memory.get_data(state.fp + arg0_offset)?;
+    let arg0 = memory.get_data(state.fp + off0)?;
     let result = if arg0 != imm { M31(1) } else { M31(0) };
 
-    memory.insert(state.fp + dst_offset, result.into())?;
+    memory.insert(state.fp + off2, result.into())?;
     Ok(state.advance())
 }
 
 /// Compare if first fp-offset value is less than second and store result (1 or 0)
+///
+/// CASM equivalent:
+/// ```casm
+/// [fp + off2] = ([fp + off0] < [fp + off1]) ? 1 : 0
+/// ```
 ///
 /// ## Arguments
 ///
@@ -131,19 +148,22 @@ pub fn cmp_lt_fp_fp(
     state: State,
     instruction: &Instruction,
 ) -> Result<State, MemoryError> {
-    let arg0_offset = instruction.op0();
-    let arg1_offset = instruction.op1();
-    let dst_offset = instruction.op2();
+    let [off0, off1, off2] = instruction.operands;
 
-    let arg0 = memory.get_data(state.fp + arg0_offset)?;
-    let arg1 = memory.get_data(state.fp + arg1_offset)?;
+    let arg0 = memory.get_data(state.fp + off0)?;
+    let arg1 = memory.get_data(state.fp + off1)?;
     let result = if arg0.0 < arg1.0 { M31(1) } else { M31(0) };
 
-    memory.insert(state.fp + dst_offset, result.into())?;
+    memory.insert(state.fp + off2, result.into())?;
     Ok(state.advance())
 }
 
 /// Compare if fp-offset value is less than immediate and store result (1 or 0)
+///
+/// CASM equivalent:
+/// ```casm
+/// [fp + off2] = ([fp + off0] < imm) ? 1 : 0
+/// ```
 ///
 /// ## Arguments
 ///
@@ -159,18 +179,21 @@ pub fn cmp_lt_fp_imm(
     state: State,
     instruction: &Instruction,
 ) -> Result<State, MemoryError> {
-    let arg0_offset = instruction.op0();
-    let imm = instruction.op1();
-    let dst_offset = instruction.op2();
+    let [off0, imm, off2] = instruction.operands;
 
-    let arg0 = memory.get_data(state.fp + arg0_offset)?;
+    let arg0 = memory.get_data(state.fp + off0)?;
     let result = if arg0.0 < imm.0 { M31(1) } else { M31(0) };
 
-    memory.insert(state.fp + dst_offset, result.into())?;
+    memory.insert(state.fp + off2, result.into())?;
     Ok(state.advance())
 }
 
 /// Compare if first fp-offset value is greater than second and store result (1 or 0)
+///
+/// CASM equivalent:
+/// ```casm
+/// [fp + off2] = ([fp + off0] > [fp + off1]) ? 1 : 0
+/// ```
 ///
 /// ## Arguments
 ///
@@ -186,19 +209,22 @@ pub fn cmp_gt_fp_fp(
     state: State,
     instruction: &Instruction,
 ) -> Result<State, MemoryError> {
-    let arg0_offset = instruction.op0();
-    let arg1_offset = instruction.op1();
-    let dst_offset = instruction.op2();
+    let [off0, off1, off2] = instruction.operands;
 
-    let arg0 = memory.get_data(state.fp + arg0_offset)?;
-    let arg1 = memory.get_data(state.fp + arg1_offset)?;
+    let arg0 = memory.get_data(state.fp + off0)?;
+    let arg1 = memory.get_data(state.fp + off1)?;
     let result = if arg0.0 > arg1.0 { M31(1) } else { M31(0) };
 
-    memory.insert(state.fp + dst_offset, result.into())?;
+    memory.insert(state.fp + off2, result.into())?;
     Ok(state.advance())
 }
 
 /// Compare if fp-offset value is greater than immediate and store result (1 or 0)
+///
+/// CASM equivalent:
+/// ```casm
+/// [fp + off2] = ([fp + off0] > imm) ? 1 : 0
+/// ```
 ///
 /// ## Arguments
 ///
@@ -214,18 +240,21 @@ pub fn cmp_gt_fp_imm(
     state: State,
     instruction: &Instruction,
 ) -> Result<State, MemoryError> {
-    let arg0_offset = instruction.op0();
-    let imm = instruction.op1();
-    let dst_offset = instruction.op2();
+    let [off0, imm, off2] = instruction.operands;
 
-    let arg0 = memory.get_data(state.fp + arg0_offset)?;
+    let arg0 = memory.get_data(state.fp + off0)?;
     let result = if arg0.0 > imm.0 { M31(1) } else { M31(0) };
 
-    memory.insert(state.fp + dst_offset, result.into())?;
+    memory.insert(state.fp + off2, result.into())?;
     Ok(state.advance())
 }
 
 /// Compare if first fp-offset value is less than or equal to second and store result (1 or 0)
+///
+/// CASM equivalent:
+/// ```casm
+/// [fp + off2] = ([fp + off0] <= [fp + off1]) ? 1 : 0
+/// ```
 ///
 /// ## Arguments
 ///
@@ -241,19 +270,22 @@ pub fn cmp_le_fp_fp(
     state: State,
     instruction: &Instruction,
 ) -> Result<State, MemoryError> {
-    let arg0_offset = instruction.op0();
-    let arg1_offset = instruction.op1();
-    let dst_offset = instruction.op2();
+    let [off0, off1, off2] = instruction.operands;
 
-    let arg0 = memory.get_data(state.fp + arg0_offset)?;
-    let arg1 = memory.get_data(state.fp + arg1_offset)?;
+    let arg0 = memory.get_data(state.fp + off0)?;
+    let arg1 = memory.get_data(state.fp + off1)?;
     let result = if arg0.0 <= arg1.0 { M31(1) } else { M31(0) };
 
-    memory.insert(state.fp + dst_offset, result.into())?;
+    memory.insert(state.fp + off2, result.into())?;
     Ok(state.advance())
 }
 
 /// Compare if fp-offset value is less than or equal to immediate and store result (1 or 0)
+///
+/// CASM equivalent:
+/// ```casm
+/// [fp + off2] = ([fp + off0] <= imm) ? 1 : 0
+/// ```
 ///
 /// ## Arguments
 ///
@@ -269,18 +301,21 @@ pub fn cmp_le_fp_imm(
     state: State,
     instruction: &Instruction,
 ) -> Result<State, MemoryError> {
-    let arg0_offset = instruction.op0();
-    let imm = instruction.op1();
-    let dst_offset = instruction.op2();
+    let [off0, imm, off2] = instruction.operands;
 
-    let arg0 = memory.get_data(state.fp + arg0_offset)?;
+    let arg0 = memory.get_data(state.fp + off0)?;
     let result = if arg0.0 <= imm.0 { M31(1) } else { M31(0) };
 
-    memory.insert(state.fp + dst_offset, result.into())?;
+    memory.insert(state.fp + off2, result.into())?;
     Ok(state.advance())
 }
 
 /// Compare if first fp-offset value is greater than or equal to second and store result (1 or 0)
+///
+/// CASM equivalent:
+/// ```casm
+/// [fp + off2] = ([fp + off0] >= [fp + off1]) ? 1 : 0
+/// ```
 ///
 /// ## Arguments
 ///
@@ -296,19 +331,22 @@ pub fn cmp_ge_fp_fp(
     state: State,
     instruction: &Instruction,
 ) -> Result<State, MemoryError> {
-    let arg0_offset = instruction.op0();
-    let arg1_offset = instruction.op1();
-    let dst_offset = instruction.op2();
+    let [off0, off1, off2] = instruction.operands;
 
-    let arg0 = memory.get_data(state.fp + arg0_offset)?;
-    let arg1 = memory.get_data(state.fp + arg1_offset)?;
+    let arg0 = memory.get_data(state.fp + off0)?;
+    let arg1 = memory.get_data(state.fp + off1)?;
     let result = if arg0.0 >= arg1.0 { M31(1) } else { M31(0) };
 
-    memory.insert(state.fp + dst_offset, result.into())?;
+    memory.insert(state.fp + off2, result.into())?;
     Ok(state.advance())
 }
 
 /// Compare if fp-offset value is greater than or equal to immediate and store result (1 or 0)
+///
+/// CASM equivalent:
+/// ```casm
+/// [fp + off2] = ([fp + off0] >= imm) ? 1 : 0
+/// ```
 ///
 /// ## Arguments
 ///
@@ -324,14 +362,12 @@ pub fn cmp_ge_fp_imm(
     state: State,
     instruction: &Instruction,
 ) -> Result<State, MemoryError> {
-    let arg0_offset = instruction.op0();
-    let imm = instruction.op1();
-    let dst_offset = instruction.op2();
+    let [off0, imm, off2] = instruction.operands;
 
-    let arg0 = memory.get_data(state.fp + arg0_offset)?;
+    let arg0 = memory.get_data(state.fp + off0)?;
     let result = if arg0.0 >= imm.0 { M31(1) } else { M31(0) };
 
-    memory.insert(state.fp + dst_offset, result.into())?;
+    memory.insert(state.fp + off2, result.into())?;
     Ok(state.advance())
 }
 

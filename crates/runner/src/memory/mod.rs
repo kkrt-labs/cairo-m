@@ -46,13 +46,6 @@ pub struct Memory {
 }
 
 impl Memory {
-    pub const fn new() -> Self {
-        Self {
-            data: vec![],
-            trace: RefCell::new(Vec::new()),
-        }
-    }
-
     /// Checks if a given memory address is within the allowed range (`0` to `1 << MAX_MEMORY_SIZE_BITS`).
     ///
     /// # Arguments

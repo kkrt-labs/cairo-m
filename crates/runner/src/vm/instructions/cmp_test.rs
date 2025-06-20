@@ -11,7 +11,7 @@ mod tests {
         ($test_name:ident, $opcode:expr, $func:ident, $val1:expr, $val2:expr, $expected:expr) => {
             #[test]
             fn $test_name() {
-                let mut memory = Memory::new();
+                let mut memory: Memory = Default::default();
                 let state = State {
                     pc: M31::from(0),
                     fp: M31::from(10),
@@ -44,7 +44,7 @@ mod tests {
         ($test_name:ident, $opcode:expr, $func:ident, $val1:expr, $imm:expr, $expected:expr) => {
             #[test]
             fn $test_name() {
-                let mut memory = Memory::new();
+                let mut memory: Memory = Default::default();
                 let state = State {
                     pc: M31::from(0),
                     fp: M31::from(10),
