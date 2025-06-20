@@ -124,21 +124,23 @@ pub fn ret(memory: &mut Memory, state: State, _: &Instruction) -> Result<State, 
     Ok(state.ret(pc, fp))
 }
 
+// #[cfg(test)]
+// #[path = "./call_tests.rs"]
+// mod call_tests;
+
 #[cfg(test)]
 mod tests {
-    use cairo_m_common::{Instruction, Opcode};
-    use num_traits::Zero;
+
+    use cairo_m_common::Opcode;
 
     use super::*;
+    use crate::vm::test_utils::*;
 
     #[test]
     fn test_call_abs_fp_2_args() {
         let mut memory = Memory::from_iter([10, 11, 12].map(Into::into));
         let state = State::default();
-        let instruction = Instruction::new(
-            Opcode::CallAbsFp,
-            [M31::from(3), Zero::zero(), Zero::zero()],
-        );
+        let instruction = instr!(Opcode::CallAbsFp, 3, 0, 0);
 
         let next_state = call_abs_fp(&mut memory, state, &instruction).unwrap();
 
@@ -156,10 +158,7 @@ mod tests {
     fn test_call_abs_imm_2_args() {
         let mut memory = Memory::from_iter([10, 11, 12].map(Into::into));
         let state = State::default();
-        let instruction = Instruction::new(
-            Opcode::CallAbsImm,
-            [M31::from(3), M31::from(7), Zero::zero()],
-        );
+        let instruction = instr!(Opcode::CallAbsImm, 3, 7, 0);
 
         let next_state = call_abs_imm(&mut memory, state, &instruction).unwrap();
 
@@ -180,10 +179,7 @@ mod tests {
             pc: M31(4),
             fp: M31(0),
         };
-        let instruction = Instruction::new(
-            Opcode::CallRelFp,
-            [M31::from(3), Zero::zero(), Zero::zero()],
-        );
+        let instruction = instr!(Opcode::CallRelFp, 3, 0, 0);
 
         let next_state = call_rel_fp(&mut memory, state, &instruction).unwrap();
 
@@ -204,10 +200,7 @@ mod tests {
             pc: M31(4),
             fp: M31(0),
         };
-        let instruction = Instruction::new(
-            Opcode::CallRelImm,
-            [M31::from(3), M31::from(7), Zero::zero()],
-        );
+        let instruction = instr!(Opcode::CallRelImm, 3, 7, 0);
 
         let next_state = call_rel_imm(&mut memory, state, &instruction).unwrap();
 
@@ -228,7 +221,7 @@ mod tests {
             pc: M31(7),
             fp: M31(3),
         };
-        let instruction = Instruction::new(Opcode::Ret, [Zero::zero(), Zero::zero(), Zero::zero()]);
+        let instruction = instr!(Opcode::Ret, 0, 0, 0);
 
         let next_state = ret(&mut memory, state, &instruction).unwrap();
 
@@ -246,12 +239,8 @@ mod tests {
     fn test_ret_call_abs_fp_2_args() {
         let mut memory = Memory::from_iter([10, 11, 12].map(Into::into));
         let initial_state = State::default();
-        let call_instruction = Instruction::new(
-            Opcode::CallAbsFp,
-            [M31::from(3), Zero::zero(), Zero::zero()],
-        );
-        let ret_instruction =
-            Instruction::new(Opcode::Ret, [Zero::zero(), Zero::zero(), Zero::zero()]);
+        let call_instruction = instr!(Opcode::CallAbsFp, 3, 0, 0);
+        let ret_instruction = instr!(Opcode::Ret, 0, 0, 0);
 
         let call_state = call_abs_fp(&mut memory, initial_state, &call_instruction).unwrap();
         let ret_state = ret(&mut memory, call_state, &ret_instruction).unwrap();
@@ -265,12 +254,8 @@ mod tests {
     fn test_ret_call_abs_imm_2_args() {
         let mut memory = Memory::from_iter([10, 11, 12].map(Into::into));
         let initial_state = State::default();
-        let call_instruction = Instruction::new(
-            Opcode::CallAbsImm,
-            [M31::from(3), M31::from(7), Zero::zero()],
-        );
-        let ret_instruction =
-            Instruction::new(Opcode::Ret, [Zero::zero(), Zero::zero(), Zero::zero()]);
+        let call_instruction = instr!(Opcode::CallAbsImm, 3, 7, 0);
+        let ret_instruction = instr!(Opcode::Ret, 0, 0, 0);
 
         let call_state = call_abs_imm(&mut memory, initial_state, &call_instruction).unwrap();
         let ret_state = ret(&mut memory, call_state, &ret_instruction).unwrap();
@@ -288,12 +273,8 @@ mod tests {
             pc: M31(4),
             fp: M31(0),
         };
-        let call_instruction = Instruction::new(
-            Opcode::CallRelFp,
-            [M31::from(3), Zero::zero(), Zero::zero()],
-        );
-        let ret_instruction =
-            Instruction::new(Opcode::Ret, [Zero::zero(), Zero::zero(), Zero::zero()]);
+        let call_instruction = instr!(Opcode::CallRelFp, 3, 0, 0);
+        let ret_instruction = instr!(Opcode::Ret, 0, 0, 0);
 
         let call_state = call_rel_fp(&mut memory, initial_state, &call_instruction).unwrap();
         let ret_state = ret(&mut memory, call_state, &ret_instruction).unwrap();
@@ -311,12 +292,8 @@ mod tests {
             pc: M31(4),
             fp: M31(0),
         };
-        let call_instruction = Instruction::new(
-            Opcode::CallRelImm,
-            [M31::from(3), M31::from(7), Zero::zero()],
-        );
-        let ret_instruction =
-            Instruction::new(Opcode::Ret, [Zero::zero(), Zero::zero(), Zero::zero()]);
+        let call_instruction = instr!(Opcode::CallRelImm, 3, 7, 0);
+        let ret_instruction = instr!(Opcode::Ret, 0, 0, 0);
 
         let call_state = call_rel_imm(&mut memory, initial_state, &call_instruction).unwrap();
         let ret_state = ret(&mut memory, call_state, &ret_instruction).unwrap();

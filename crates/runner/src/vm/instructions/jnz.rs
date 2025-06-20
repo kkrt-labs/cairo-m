@@ -50,13 +50,17 @@ pub fn jnz_fp_imm(
     Ok(new_state)
 }
 
+// #[cfg(test)]
+// #[path = "./jnz_tests.rs"]
+// mod jnz_tests;
+
 #[cfg(test)]
 mod tests {
-    use cairo_m_common::{Instruction, Opcode};
-    use num_traits::One;
+    use cairo_m_common::Opcode;
     use stwo_prover::core::fields::m31::M31;
 
     use super::*;
+    use crate::vm::test_utils::*;
 
     const JNZ_INITIAL_STATE: State = State {
         pc: M31(3),
@@ -66,8 +70,7 @@ mod tests {
     #[test]
     fn test_jnz_fp_fp_zero() -> Result<(), MemoryError> {
         let mut memory = Memory::from_iter([0, 3].map(Into::into));
-        let instruction =
-            Instruction::new(Opcode::JnzFpFp, [Zero::zero(), One::one(), Zero::zero()]);
+        let instruction = instr!(Opcode::JnzFpFp, 0, 1, 0);
 
         let new_state = jnz_fp_fp(&mut memory, JNZ_INITIAL_STATE, &instruction)?;
 
@@ -83,8 +86,7 @@ mod tests {
     #[test]
     fn test_jnz_fp_fp_not_zero() -> Result<(), MemoryError> {
         let mut memory = Memory::from_iter([7, 3].map(Into::into));
-        let instruction =
-            Instruction::new(Opcode::JnzFpFp, [Zero::zero(), One::one(), Zero::zero()]);
+        let instruction = instr!(Opcode::JnzFpFp, 0, 1, 0);
 
         let new_state = jnz_fp_fp(&mut memory, JNZ_INITIAL_STATE, &instruction)?;
 
@@ -100,8 +102,7 @@ mod tests {
     #[test]
     fn test_jnz_fp_imm_zero() -> Result<(), MemoryError> {
         let mut memory = Memory::from_iter([0].map(Into::into));
-        let instruction =
-            Instruction::new(Opcode::JnzFpImm, [Zero::zero(), M31::from(8), Zero::zero()]);
+        let instruction = instr!(Opcode::JnzFpImm, 0, 8, 0);
 
         let new_state = jnz_fp_imm(&mut memory, JNZ_INITIAL_STATE, &instruction)?;
 
@@ -117,8 +118,7 @@ mod tests {
     #[test]
     fn test_jnz_fp_imm_not_zero() -> Result<(), MemoryError> {
         let mut memory = Memory::from_iter([7].map(Into::into));
-        let instruction =
-            Instruction::new(Opcode::JnzFpImm, [Zero::zero(), M31::from(8), Zero::zero()]);
+        let instruction = instr!(Opcode::JnzFpImm, 0, 8, 0);
 
         let new_state = jnz_fp_imm(&mut memory, JNZ_INITIAL_STATE, &instruction)?;
 

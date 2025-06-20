@@ -241,6 +241,10 @@ impl VM {
     }
 }
 
+// #[cfg(test)]
+// #[path = "./vm_tests.rs"]
+// mod vm_tests;
+
 #[cfg(test)]
 mod tests {
     use std::fs::File;
@@ -253,6 +257,8 @@ mod tests {
     use stwo_prover::core::fields::qm31::QM31;
     use tempfile::NamedTempFile;
 
+    // Import test utilities
+    use super::test_utils::*;
     use crate::memory::Memory;
     use crate::vm::state::State;
     use crate::vm::{TraceEntry, VmError, VM};
@@ -260,14 +266,8 @@ mod tests {
     #[test]
     fn test_program_from_vec_instructions() {
         let instructions = vec![
-            Instruction::new(
-                Opcode::StoreAddFpImm,
-                [M31::from(2), M31::from(3), M31::from(4)],
-            ),
-            Instruction::new(
-                Opcode::StoreDoubleDerefFp,
-                [M31::from(6), M31::from(7), M31::from(8)],
-            ),
+            instr!(Opcode::StoreAddFpImm, 2, 3, 4),
+            instr!(Opcode::StoreDoubleDerefFp, 6, 7, 8),
         ];
         let program: Program = Program::from(instructions.clone());
 
@@ -278,24 +278,16 @@ mod tests {
     fn test_vm_try_from() {
         // Create a simple program with two instructions
         let instructions = vec![
-            Instruction::new(
-                Opcode::StoreAddFpImm,
-                [M31::from(2), M31::from(3), M31::from(4)],
-            ),
-            Instruction::new(
-                Opcode::StoreDoubleDerefFp,
-                [M31::from(6), M31::from(7), M31::from(8)],
-            ),
+            instr!(Opcode::StoreAddFpImm, 2, 3, 4),
+            instr!(Opcode::StoreDoubleDerefFp, 6, 7, 8),
         ];
         let program: Program = instructions.clone().into();
 
         let vm = VM::try_from(&program).unwrap();
 
         // Check that PC is set to 0 (entrypoint)
-        assert_eq!(vm.state.pc, M31::zero());
-
         // Check that FP is set right after the bytecode (2 instructions)
-        assert_eq!(vm.state.fp, M31(2));
+        assert_vm_state!(vm.state, 0, 2);
 
         // Check that the first instruction is in memory at address 0
         let loaded_instruction_qm31 = vm.memory.get_instruction(M31::zero()).unwrap();
@@ -313,28 +305,22 @@ mod tests {
     #[test]
     fn test_step_single_instruction() {
         // Create a program with a single store_imm instruction: [fp + 0] = 42
-        let instructions = vec![Instruction::new(
-            Opcode::StoreImm,
-            [M31::from(42), Zero::zero(), Zero::zero()],
-        )]; // opcode 6 = store_imm
+        let instructions = vec![store_imm!(42, 0)];
         let program = Program::from(instructions);
         let mut vm = VM::try_from(&program).unwrap();
 
         // Initial state should have PC = 0, FP = 1
-        assert_eq!(vm.state.pc, M31::zero());
-        assert_eq!(vm.state.fp, M31::one());
+        assert_vm_state!(vm.state, 0, 1);
 
         // Execute one step
         let result = vm.step();
         assert!(result.is_ok());
 
         // PC should have advanced to 1, FP should be the same
-        assert_eq!(vm.state.pc, M31::one());
-        assert_eq!(vm.state.fp, M31::one());
+        assert_vm_state!(vm.state, 1, 1);
 
         // The value 42 should be stored at memory[fp + 0] = memory[1]
-        let stored_value = vm.memory.get_data(M31::one()).unwrap();
-        assert_eq!(stored_value, M31(42));
+        assert_memory_value!(vm, addr = 1, value = 42);
     }
 
     #[test]
@@ -365,18 +351,14 @@ mod tests {
         let mut vm = VM::try_from(&program).unwrap();
         let result = vm.execute();
         assert!(result.is_ok());
-        assert_eq!(vm.state.pc, M31::zero());
-        assert_eq!(vm.state.fp, M31::zero());
+        assert_vm_state!(vm.state, 0, 0);
         assert_eq!(vm.memory.data.len(), 0);
     }
 
     #[test]
     fn test_execute_single_instruction() {
-        // Create a program with a single store_imm instruction
-        let instructions = vec![Instruction::new(
-            Opcode::StoreImm,
-            [M31::from(42), Zero::zero(), Zero::zero()],
-        )]; // [fp + 0] = 42
+        // Create a program with a single store_imm instruction: [fp + 0] = 42
+        let instructions = vec![store_imm!(42, 0)];
         let program = Program::from(instructions);
         let mut vm = VM::try_from(&program).unwrap();
 
@@ -384,12 +366,10 @@ mod tests {
         assert!(result.is_ok());
 
         // PC should be at final position (memory.len() = 1)
-        assert_eq!(vm.state.pc, M31::one());
-        assert_eq!(vm.state.fp, M31::one());
+        assert_vm_state!(vm.state, 1, 1);
 
         // The value should be stored correctly at fp + 0 = 1 + 0 = 1
-        let stored_value = vm.memory.get_data(M31::one()).unwrap();
-        assert_eq!(stored_value, M31(42));
+        assert_memory_value!(vm, addr = 1, value = 42);
     }
 
     #[test]
@@ -399,43 +379,32 @@ mod tests {
         // 2. [fp + 1] = 5 (store_imm)
         // 3. [fp + 2] = [fp + 0] + [fp + 1] (store_add_fp_fp)
         let instructions = vec![
-            Instruction::new(
-                Opcode::StoreImm,
-                [M31::from(10), Zero::zero(), Zero::zero()],
-            ), // [fp + 0] = 10
-            Instruction::new(Opcode::StoreImm, [M31::from(5), Zero::zero(), One::one()]), // [fp + 1] = 5
-            Instruction::new(
-                Opcode::StoreAddFpFp,
-                [Zero::zero(), One::one(), M31::from(2)],
-            ), // [fp + 2] = [fp + 0] + [fp + 1]
+            store_imm!(10, 0),                     // [fp + 0] = 10
+            store_imm!(5, 1),                      // [fp + 1] = 5
+            instr!(Opcode::StoreAddFpFp, 0, 1, 2), // [fp + 2] = [fp + 0] + [fp + 1]
         ];
         let program = Program::from(instructions);
         let mut vm = VM::try_from(&program).unwrap();
 
         // Initial state
-        assert_eq!(vm.state.pc, M31::zero());
-        assert_eq!(vm.state.fp, M31(3)); // FP should be after 3 instructions
+        assert_vm_state!(vm.state, 0, 3); // FP should be after 3 instructions
 
         let result = vm.execute();
         assert!(result.is_ok());
 
         // PC should be at final position (memory.len() = 3)
-        assert_eq!(vm.state.pc, M31(3));
-        assert_eq!(vm.state.fp, M31(3));
+        assert_vm_state!(vm.state, 3, 3);
 
         // Check the computed values
-        let val1 = vm.memory.get_data(M31(3)).unwrap(); // [fp + 0] = 10
-        let val2 = vm.memory.get_data(M31(4)).unwrap(); // [fp + 1] = 5
-        let sum = vm.memory.get_data(M31(5)).unwrap(); // [fp + 2] = 15
-
-        assert_eq!(val1, M31(10));
-        assert_eq!(val2, M31(5));
-        assert_eq!(sum, M31(15));
+        assert_memory_value!(vm, addr = 3, value = 10); // [fp + 0] = 10
+        assert_memory_value!(vm, addr = 4, value = 5); // [fp + 1] = 5
+        assert_memory_value!(vm, addr = 5, value = 15); // [fp + 2] = 15
     }
 
     #[test]
     fn test_execute_with_error() {
         // Create a program with an invalid instructions
+
         let instructions = [
             QM31::from_m31_array([M31::from(6), M31::from(10), Zero::zero(), Zero::zero()]), // Valid: [fp + 0] = 10
             QM31::from_m31_array([M31::from(99), Zero::zero(), Zero::zero(), Zero::zero()]), // Invalid: opcode 99
@@ -459,7 +428,8 @@ mod tests {
         ));
 
         // PC should be at 1 (where it failed)
-        assert_eq!(vm.state.pc, M31::one());
+        // FP should be at 2 (after the valid instruction)
+        assert_vm_state!(vm.state, 1, 2);
 
         // First instruction should have executed successfully
         let stored_value = vm.memory.get_data(M31(2)).unwrap();
@@ -470,23 +440,11 @@ mod tests {
     fn test_execute_arithmetic_operations() {
         // Test a program that performs various arithmetic operations
         let instructions = vec![
-            Instruction::new(
-                Opcode::StoreImm,
-                [M31::from(12), Zero::zero(), Zero::zero()],
-            ), // [fp + 0] = 12
-            Instruction::new(Opcode::StoreImm, [M31::from(3), Zero::zero(), One::one()]), // [fp + 1] = 3
-            Instruction::new(
-                Opcode::StoreMulFpFp,
-                [Zero::zero(), One::one(), M31::from(2)],
-            ), // [fp + 2] = [fp + 0] * [fp + 1] = 36
-            Instruction::new(
-                Opcode::StoreDivFpFp,
-                [M31::from(2), One::one(), M31::from(3)],
-            ), // [fp + 3] = [fp + 2] / [fp + 1] = 12
-            Instruction::new(
-                Opcode::StoreSubFpFp,
-                [M31::from(3), Zero::zero(), M31::from(4)],
-            ), // [fp + 4] = [fp + 3] - [fp + 0] = 0
+            store_imm!(12, 0),                     // [fp + 0] = 12
+            store_imm!(3, 1),                      // [fp + 1] = 3
+            instr!(Opcode::StoreMulFpFp, 0, 1, 2), // [fp + 2] = [fp + 0] * [fp + 1] = 36
+            instr!(Opcode::StoreDivFpFp, 2, 1, 3), // [fp + 3] = [fp + 2] / [fp + 1] = 12
+            instr!(Opcode::StoreSubFpFp, 3, 0, 4), // [fp + 4] = [fp + 3] - [fp + 0] = 0
         ];
         let program = Program::from(instructions);
         let mut vm = VM::try_from(&program).unwrap();
@@ -495,24 +453,18 @@ mod tests {
         assert!(result.is_ok());
 
         // Check all computed values
-        assert_eq!(vm.memory.get_data(M31(5)).unwrap(), M31(12)); // original 12
-        assert_eq!(vm.memory.get_data(M31(6)).unwrap(), M31(3)); // original 3
-        assert_eq!(vm.memory.get_data(M31(7)).unwrap(), M31(36)); // 12 * 3
-        assert_eq!(vm.memory.get_data(M31(8)).unwrap(), M31(12)); // 36 / 3
-        assert_eq!(vm.memory.get_data(M31(9)).unwrap(), M31(0)); // 12 - 12
+        assert_memory_value!(vm, addr = 5, value = 12); // original 12
+        assert_memory_value!(vm, addr = 6, value = 3); // original 3
+        assert_memory_value!(vm, addr = 7, value = 36); // 12 * 3
+        assert_memory_value!(vm, addr = 8, value = 12); // 36 / 3
+        assert_memory_value!(vm, addr = 9, value = 0); // 12 - 12
     }
 
     #[test]
     fn test_run_from_entrypoint() {
         let instructions = vec![
-            Instruction::new(
-                Opcode::StoreImm,
-                [M31::from(10), Zero::zero(), Zero::zero()],
-            ), // [fp] = 10
-            Instruction::new(
-                Opcode::StoreAddFpImm,
-                [Zero::zero(), M31::from(5), One::one()],
-            ), // [fp + 1] = [fp] + 5
+            instr!(Opcode::StoreImm, 10, 0, 0),     // [fp] = 10
+            instr!(Opcode::StoreAddFpImm, 0, 5, 1), // [fp + 1] = [fp] + 5
         ];
         let program = Program::from(instructions);
         let mut vm = VM::try_from(&program).unwrap();
@@ -520,8 +472,7 @@ mod tests {
         // Initial FP is 2 in the default case, we add an offset of 2.
         // We run the program from PC = 1, so the first instruction should be ignored.
         vm.run_from_entrypoint(1, 2).unwrap();
-        assert_eq!(vm.state.pc, M31(2));
-        assert_eq!(vm.state.fp, M31(4));
+        assert_vm_state!(vm.state, 2, 4);
         assert_eq!(
             vm.memory.get_data(vm.state.fp + M31::one()).unwrap(),
             M31(5)
@@ -532,11 +483,8 @@ mod tests {
     fn test_serialize_trace() {
         // Create a program with two instructions to generate a trace.
         let instructions = vec![
-            Instruction::new(
-                Opcode::StoreImm,
-                [M31::from(10), Zero::zero(), Zero::zero()],
-            ), // [fp + 0] = 10
-            Instruction::new(Opcode::StoreImm, [M31::from(20), Zero::zero(), One::one()]), // [fp + 1] = 20
+            instr!(Opcode::StoreImm, 10, 0, 0), // [fp + 0] = 10
+            instr!(Opcode::StoreImm, 20, 0, 1), // [fp + 1] = 20
         ];
         let program = Program::from(instructions);
         let mut vm = VM::try_from(&program).unwrap();
@@ -608,39 +556,21 @@ mod tests {
     fn run_fib_test(n: u32) {
         let instructions = vec![
             // Setup
-            Instruction::new(Opcode::StoreImm, [M31::from(n), Zero::zero(), Zero::zero()]), // store_imm: [fp+0] = counter
-            Instruction::new(Opcode::StoreImm, [Zero::zero(), Zero::zero(), One::one()]), // store_imm: [fp+1] = a = F_0 = 0
-            Instruction::new(Opcode::StoreImm, [One::one(), Zero::zero(), M31::from(2)]), // store_imm: [fp+2] = b = F_1 = 1
+            instr!(Opcode::StoreImm, n, 0, 0), // store_imm: [fp+0] = counter
+            instr!(Opcode::StoreImm, 0, 0, 1), // store_imm: [fp+1] = a = F_0 = 0
+            instr!(Opcode::StoreImm, 1, 0, 2), // store_imm: [fp+2] = b = F_1 = 1
             // Loop condition check
             // while counter != 0 jump to loop body
-            Instruction::new(Opcode::JnzFpImm, [Zero::zero(), M31::from(2), Zero::zero()]), // jnz_fp_imm: jmp rel 2 if [fp + 0] != 0  (pc=3 here, pc=5 in beginning of loop body)
+            instr!(Opcode::JnzFpImm, 0, 2, 0), // jnz_fp_imm: jmp rel 2 if [fp + 0] != 0  (pc=3 here, pc=5 in beginning of loop body)
             // Exit jump if counter was 0
-            Instruction::new(
-                Opcode::JmpAbsImm,
-                [M31::from(10), Zero::zero(), Zero::zero()],
-            ), // jmp_abs_imm: jmp abs 10
+            instr!(Opcode::JmpAbsImm, 10, 0, 0), // jmp_abs_imm: jmp abs 10
             // Loop body
-            Instruction::new(
-                Opcode::StoreDerefFp,
-                [One::one(), Zero::zero(), M31::from(3)],
-            ), // store_deref_fp: [fp+3] = [fp+1] (tmp = a)
-            Instruction::new(
-                Opcode::StoreDerefFp,
-                [M31::from(2), Zero::zero(), One::one()],
-            ), // store_deref_fp: [fp+1] = [fp+2] (a = b)
-            Instruction::new(
-                Opcode::StoreAddFpFp,
-                [M31::from(3), M31::from(2), M31::from(2)],
-            ), // store_add_fp_fp: [fp+2] = [fp+3] + [fp+2] (b = temp + b)
-            Instruction::new(
-                Opcode::StoreSubFpImm,
-                [Zero::zero(), One::one(), Zero::zero()],
-            ), // store_sub_fp_imm: [fp+0] = [fp+0] - 1 (counter--)
+            instr!(Opcode::StoreDerefFp, 1, 0, 3), // store_deref_fp: [fp+3] = [fp+1] (tmp = a)
+            instr!(Opcode::StoreDerefFp, 2, 0, 1), // store_deref_fp: [fp+1] = [fp+2] (a = b)
+            instr!(Opcode::StoreAddFpFp, 3, 2, 2), // store_add_fp_fp: [fp+2] = [fp+3] + [fp+2] (b = temp + b)
+            instr!(Opcode::StoreSubFpImm, 0, 1, 0), // store_sub_fp_imm: [fp+0] = [fp+0] - 1 (counter--)
             // Jump back to condition check
-            Instruction::new(
-                Opcode::JmpAbsImm,
-                [M31::from(3), Zero::zero(), Zero::zero()],
-            ), // jmp_abs_imm: jmp abs 3
+            instr!(Opcode::JmpAbsImm, 3, 0, 0), // jmp_abs_imm: jmp abs 3
         ];
         let instructions_len = instructions.len() as u32;
         let program = Program::from(instructions);
@@ -648,9 +578,8 @@ mod tests {
 
         assert!(vm.execute().is_ok());
         // Verify that FP is still at the end of the program
-        assert_eq!(vm.state.fp, M31(instructions_len));
         // Verify PC reached the end of the program
-        assert_eq!(vm.state.pc, M31(instructions_len));
+        assert_vm_state!(vm.state, instructions_len, instructions_len);
         // Verify counter reached zero
         assert_eq!(vm.memory.get_data(vm.state.fp).unwrap(), M31::zero());
 
@@ -703,46 +632,34 @@ mod tests {
         let minus_3 = -M31(3);
         let instructions = vec![
             // Setup call to fib(n)
-            Instruction::new(Opcode::StoreImm, [M31::from(n), Zero::zero(), Zero::zero()]), // 0: store_imm: [fp] = n
-            Instruction::new(
-                Opcode::CallAbsImm,
-                [M31::from(2), M31::from(4), Zero::zero()],
-            ), // 1: call_abs_imm: call fib(n)
+            instr!(Opcode::StoreImm, n, 0, 0), // 0: store_imm: [fp] = n
+            instr!(Opcode::CallAbsImm, 2, 4, 0), // 1: call_abs_imm: call fib(n)
             // Store the computed fib(n) and return.
-            Instruction::new(Opcode::StoreDerefFp, [One::one(), Zero::zero(), minus_3]), // 2: store_deref_fp: [fp - 3] = [fp + 1]
-            Instruction::new(Opcode::Ret, [Zero::zero(), Zero::zero(), Zero::zero()]),   // 3: ret
+            instr!(Opcode::StoreDerefFp, 1, 0, minus_3), // 2: store_deref_fp: [fp - 3] = [fp + 1]
+            instr!(Opcode::Ret, 0, 0, 0),                // 3: ret
             // fib(n: felt) function
             // Check if argument is 0
-            Instruction::new(Opcode::JnzFpImm, [minus_4, M31::from(3), Zero::zero()]), // 4: jnz_fp_imm: jmp rel 3 if [fp - 4] != 0
+            instr!(Opcode::JnzFpImm, minus_4, 3, 0), // 4: jnz_fp_imm: jmp rel 3 if [fp - 4] != 0
             // Argument is 0, return 0
-            Instruction::new(Opcode::StoreImm, [Zero::zero(), Zero::zero(), minus_3]), // 5: store_imm: [fp - 3] = 0
-            Instruction::new(Opcode::Ret, [Zero::zero(), Zero::zero(), Zero::zero()]), // 6: ret
+            instr!(Opcode::StoreImm, 0, 0, minus_3), // 5: store_imm: [fp - 3] = 0
+            instr!(Opcode::Ret, 0, 0, 0),            // 6: ret
             // Check if argument is 1
-            Instruction::new(Opcode::StoreSubFpImm, [minus_4, One::one(), Zero::zero()]), // 7: store_sub_fp_imm: [fp] = [fp - 4] - 1
-            Instruction::new(Opcode::JnzFpImm, [Zero::zero(), M31::from(3), Zero::zero()]), // 8: jnz_fp_imm: jmp rel 3 if [fp] != 0
+            instr!(Opcode::StoreSubFpImm, minus_4, 1, 0), // 7: store_sub_fp_imm: [fp] = [fp - 4] - 1
+            instr!(Opcode::JnzFpImm, 0, 3, 0),            // 8: jnz_fp_imm: jmp rel 3 if [fp] != 0
             // Argument is 1, return 1
-            Instruction::new(Opcode::StoreImm, [One::one(), Zero::zero(), minus_3]), // 9: store_imm: [fp - 3] = 1
-            Instruction::new(Opcode::Ret, [Zero::zero(), Zero::zero(), Zero::zero()]), // 10: ret
+            instr!(Opcode::StoreImm, 1, 0, minus_3), // 9: store_imm: [fp - 3] = 1
+            instr!(Opcode::Ret, 0, 0, 0),            // 10: ret
             // Compute fib(n-1) + fib(n-2)
             // fib(n-1)
             // n - 1 is already stored at [fp], ready to be used as argument.
-            Instruction::new(
-                Opcode::CallAbsImm,
-                [M31::from(2), M31::from(4), Zero::zero()],
-            ), // 11: call_abs_imm: call fib(n-1)
-            Instruction::new(Opcode::StoreDerefFp, [One::one(), Zero::zero(), minus_3]), // 12: store_deref_fp: [fp - 3] = [fp + 1]
+            instr!(Opcode::CallAbsImm, 2, 4, 0), // 11: call_abs_imm: call fib(n-1)
+            instr!(Opcode::StoreDerefFp, 1, 0, minus_3), // 12: store_deref_fp: [fp - 3] = [fp + 1]
             // fib(n-2)
-            Instruction::new(
-                Opcode::StoreSubFpImm,
-                [Zero::zero(), One::one(), Zero::zero()],
-            ), // 13: Store n - 2, from previously computed n - 1 [fp] = [fp] - 1
-            Instruction::new(
-                Opcode::CallAbsImm,
-                [M31::from(2), M31::from(4), Zero::zero()],
-            ), // 14: call_abs_imm: call fib(n-2)
+            instr!(Opcode::StoreSubFpImm, 0, 1, 0), // 13: Store n - 2, from previously computed n - 1 [fp] = [fp] - 1
+            instr!(Opcode::CallAbsImm, 2, 4, 0),    // 1
             // Return value of fib(n-1) + fib(n-2)
-            Instruction::new(Opcode::StoreAddFpFp, [minus_3, One::one(), minus_3]), // 15: store_add_fp_fp: [fp - 3] = [fp - 3] + [fp + 1]
-            Instruction::new(Opcode::Ret, [Zero::zero(), Zero::zero(), Zero::zero()]), // 16: ret
+            instr!(Opcode::StoreAddFpFp, minus_3, 1, minus_3), // 15: store_add_fp_fp: [fp - 3] = [fp - 3] + [fp + 1]
+            instr!(Opcode::Ret, 0, 0, 0),                      // 16: ret
         ];
         let instructions_len = instructions.len() as u32;
         let program = Program::from(instructions);
@@ -756,10 +673,7 @@ mod tests {
         assert_eq!(vm.state.pc, M31(instructions_len));
 
         // Result is stored at [fp - 3].
-        assert_eq!(
-            vm.memory.get_data(vm.state.fp - M31(3)).unwrap(),
-            M31(fib(n))
-        );
+        assert_memory_value!(vm, addr = vm.state.fp - M31(3), value = fib(n));
     }
 
     #[test]
@@ -806,15 +720,9 @@ mod tests {
     fn test_write_binary_memory_trace() {
         // Create a program with instructions that access memory to generate a memory trace.
         let instructions = vec![
-            Instruction::new(
-                Opcode::StoreImm,
-                [M31::from(10), Zero::zero(), Zero::zero()],
-            ), // store_imm: [fp + 0] = 10
-            Instruction::new(Opcode::StoreImm, [M31::from(20), Zero::zero(), One::one()]), // store_imm: [fp + 1] = 20
-            Instruction::new(
-                Opcode::StoreAddFpFp,
-                [Zero::zero(), One::one(), M31::from(2)],
-            ), // store_add_fp_fp: [fp + 2] = [fp + 0] + [fp + 1]
+            instr!(Opcode::StoreImm, 10, 0, 0),    // store_imm: [fp + 0] = 10
+            instr!(Opcode::StoreImm, 20, 0, 1),    // store_imm: [fp + 1] = 20
+            instr!(Opcode::StoreAddFpFp, 0, 1, 2), // store_add_fp_fp: [fp + 2] = [fp + 0] + [fp + 1]
         ];
         let program = Program::from(instructions);
         let mut vm = VM::try_from(&program).unwrap();
@@ -853,4 +761,48 @@ mod tests {
         let expected_size = expected_entries * 5 * 4 + 4; // 5 u32 values * 4 bytes each + 4 bytes for program length
         assert_eq!(file_contents.len(), expected_size);
     }
+}
+
+#[cfg(test)]
+pub mod test_utils {
+    // Helper macros for common patterns in tests
+    macro_rules! instr {
+        ($opcode:expr, $a:expr, $b:expr, $c:expr) => {
+            cairo_m_common::Instruction::new(
+                $opcode,
+                [
+                    stwo_prover::core::fields::m31::M31::from($a),
+                    stwo_prover::core::fields::m31::M31::from($b),
+                    stwo_prover::core::fields::m31::M31::from($c),
+                ],
+            )
+        };
+    }
+
+    macro_rules! store_imm {
+        ($val:expr, $offset:expr) => {
+            instr!(cairo_m_common::Opcode::StoreImm, $val, 0, $offset)
+        };
+    }
+
+    macro_rules! assert_memory_value {
+        ($vm:expr, addr = $addr:expr, value = $val:expr) => {
+            assert_eq!(
+                $vm.memory
+                    .get_data(stwo_prover::core::fields::m31::M31::from($addr))
+                    .unwrap(),
+                stwo_prover::core::fields::m31::M31::from($val)
+            );
+        };
+    }
+
+    macro_rules! assert_vm_state {
+        ($state:expr, $pc:expr, $fp:expr) => {
+            assert_eq!($state.pc, stwo_prover::core::fields::m31::M31::from($pc));
+            assert_eq!($state.fp, stwo_prover::core::fields::m31::M31::from($fp));
+        };
+    }
+
+    // Export macros
+    pub(crate) use {assert_memory_value, assert_vm_state, instr, store_imm};
 }
