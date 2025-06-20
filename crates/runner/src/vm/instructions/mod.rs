@@ -15,12 +15,14 @@ use cairo_m_common::{Instruction, Opcode};
 use stwo_prover::core::fields::m31::M31;
 
 use crate::vm::instructions::call::*;
+use crate::vm::instructions::cmp::*;
 use crate::vm::instructions::jnz::*;
 use crate::vm::instructions::jump::*;
 use crate::vm::instructions::store::*;
 use crate::vm::{Memory, MemoryError, State};
 
 pub mod call;
+pub mod cmp;
 pub mod jnz;
 pub mod jump;
 pub mod store;
@@ -79,6 +81,18 @@ pub fn opcode_to_instruction_fn(op: M31) -> Result<InstructionFn, InstructionErr
         Opcode::JmpRelMulFpImm => jmp_rel_mul_fp_imm,
         Opcode::JnzFpFp => jnz_fp_fp,
         Opcode::JnzFpImm => jnz_fp_imm,
+        Opcode::CmpEqFpFp => cmp_eq_fp_fp,
+        Opcode::CmpEqFpImm => cmp_eq_fp_imm,
+        Opcode::CmpNeqFpFp => cmp_neq_fp_fp,
+        Opcode::CmpNeqFpImm => cmp_neq_fp_imm,
+        Opcode::CmpLtFpFp => cmp_lt_fp_fp,
+        Opcode::CmpLtFpImm => cmp_lt_fp_imm,
+        Opcode::CmpGtFpFp => cmp_gt_fp_fp,
+        Opcode::CmpGtFpImm => cmp_gt_fp_imm,
+        Opcode::CmpLeFpFp => cmp_le_fp_fp,
+        Opcode::CmpLeFpImm => cmp_le_fp_imm,
+        Opcode::CmpGeFpFp => cmp_ge_fp_fp,
+        Opcode::CmpGeFpImm => cmp_ge_fp_imm,
     };
     Ok(f)
 }
@@ -92,7 +106,7 @@ mod tests {
 
     use super::opcode_to_instruction_fn;
 
-    const LAST_VALID_OPCODE_ID: u32 = 31;
+    const LAST_VALID_OPCODE_ID: u32 = Opcode::CmpGeFpImm as u32;
 
     #[test]
     fn test_instruction_from_qm31() {

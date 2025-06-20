@@ -50,6 +50,20 @@ pub enum Opcode {
     // Conditional jumps
     JnzFpFp = 30,  // jmp rel [fp + off1] if [fp + off0] != 0
     JnzFpImm = 31, // jmp rel imm if [fp + off0] != 0
+
+    // Comparison operations
+    CmpEqFpFp = 32,   // [fp + off2] = ([fp + off0] == [fp + off1]) ? 1 : 0
+    CmpEqFpImm = 33,  // [fp + off2] = ([fp + off0] == imm) ? 1 : 0
+    CmpNeqFpFp = 34,  // [fp + off2] = ([fp + off0] != [fp + off1]) ? 1 : 0
+    CmpNeqFpImm = 35, // [fp + off2] = ([fp + off0] != imm) ? 1 : 0
+    CmpLtFpFp = 36,   // [fp + off2] = ([fp + off0] < [fp + off1]) ? 1 : 0
+    CmpLtFpImm = 37,  // [fp + off2] = ([fp + off0] < imm) ? 1 : 0
+    CmpGtFpFp = 38,   // [fp + off2] = ([fp + off0] > [fp + off1]) ? 1 : 0
+    CmpGtFpImm = 39,  // [fp + off2] = ([fp + off0] > imm) ? 1 : 0
+    CmpLeFpFp = 40,   // [fp + off2] = ([fp + off0] <= [fp + off1]) ? 1 : 0
+    CmpLeFpImm = 41,  // [fp + off2] = ([fp + off0] <= imm) ? 1 : 0
+    CmpGeFpFp = 42,   // [fp + off2] = ([fp + off0] >= [fp + off1]) ? 1 : 0
+    CmpGeFpImm = 43,  // [fp + off2] = ([fp + off0] >= imm) ? 1 : 0
 }
 
 impl From<Opcode> for u32 {
@@ -121,6 +135,18 @@ impl Opcode {
             29 => Some(Self::JmpRelMulFpImm),
             30 => Some(Self::JnzFpFp),
             31 => Some(Self::JnzFpImm),
+            32 => Some(Self::CmpEqFpFp),
+            33 => Some(Self::CmpEqFpImm),
+            34 => Some(Self::CmpNeqFpFp),
+            35 => Some(Self::CmpNeqFpImm),
+            36 => Some(Self::CmpLtFpFp),
+            37 => Some(Self::CmpLtFpImm),
+            38 => Some(Self::CmpGtFpFp),
+            39 => Some(Self::CmpGtFpImm),
+            40 => Some(Self::CmpLeFpFp),
+            41 => Some(Self::CmpLeFpImm),
+            42 => Some(Self::CmpGeFpFp),
+            43 => Some(Self::CmpGeFpImm),
             _ => None,
         }
     }
@@ -167,4 +193,16 @@ pub mod opcodes {
     pub const JMP_REL_MUL_FP_IMM: u32 = Opcode::JmpRelMulFpImm as u32;
     pub const JNZ_FP_FP: u32 = Opcode::JnzFpFp as u32;
     pub const JNZ_FP_IMM: u32 = Opcode::JnzFpImm as u32;
+    pub const CMP_EQ_FP_FP: u32 = Opcode::CmpEqFpFp as u32;
+    pub const CMP_EQ_FP_IMM: u32 = Opcode::CmpEqFpImm as u32;
+    pub const CMP_NEQ_FP_FP: u32 = Opcode::CmpNeqFpFp as u32;
+    pub const CMP_NEQ_FP_IMM: u32 = Opcode::CmpNeqFpImm as u32;
+    pub const CMP_LT_FP_FP: u32 = Opcode::CmpLtFpFp as u32;
+    pub const CMP_LT_FP_IMM: u32 = Opcode::CmpLtFpImm as u32;
+    pub const CMP_GT_FP_FP: u32 = Opcode::CmpGtFpFp as u32;
+    pub const CMP_GT_FP_IMM: u32 = Opcode::CmpGtFpImm as u32;
+    pub const CMP_LE_FP_FP: u32 = Opcode::CmpLeFpFp as u32;
+    pub const CMP_LE_FP_IMM: u32 = Opcode::CmpLeFpImm as u32;
+    pub const CMP_GE_FP_FP: u32 = Opcode::CmpGeFpFp as u32;
+    pub const CMP_GE_FP_IMM: u32 = Opcode::CmpGeFpImm as u32;
 }
