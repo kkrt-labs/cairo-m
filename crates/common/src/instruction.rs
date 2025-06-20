@@ -89,10 +89,10 @@ impl Instruction {
 
     /// Create from array representation [opcode, op0, op1, op2]
     pub fn from_array(array: [M31; 4]) -> Result<Self, InstructionError> {
-        let opcode = Opcode::try_from(array[0])?;
+        let [opcode, operands @ ..] = array;
         Ok(Self {
-            opcode,
-            operands: [array[1], array[2], array[3]],
+            opcode: Opcode::try_from(opcode)?,
+            operands,
         })
     }
 }
