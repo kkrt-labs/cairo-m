@@ -36,8 +36,7 @@ fn test_prove_and_verify_unchanged_memory() {
     let proof = prove_cairo_m::<Blake2sMerkleChannel, 1>(prover_input).unwrap();
 
     let result = verify_cairo_m::<Blake2sMerkleChannel, 1>(proof);
-    result.unwrap();
-    //assert!(result.is_ok());
+    assert!(result.is_ok());
 }
 
 #[test]
