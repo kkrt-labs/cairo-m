@@ -2,6 +2,7 @@ use std::io::{BufReader, Read};
 use std::path::Path;
 
 use bytemuck::{bytes_of_mut, Pod, Zeroable};
+use cairo_m_common::instruction::InstructionError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -10,14 +11,14 @@ pub enum VmImportError {
     Io(#[from] std::io::Error),
     #[error("JSON error: {0}")]
     Json(#[from] sonic_rs::Error),
+    #[error("Instruction error: {0}")]
+    Instruction(#[from] InstructionError),
     #[error("No memory segments")]
     NoMemorySegments,
     #[error("Empty trace: trace file contains no entries")]
     EmptyTrace,
     #[error("Failed to read metadata header")]
     MetadataError,
-    #[error("Instruction error: {0}")]
-    InstructionError(#[from] crate::adapter::instructions::InvalidOpcodeError),
 }
 
 #[repr(C)]

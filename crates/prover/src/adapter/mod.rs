@@ -1,15 +1,14 @@
-pub mod instructions;
 pub mod io;
 pub mod memory;
 
 use std::collections::HashMap;
 use std::path::Path;
 
+use cairo_m_common::opcode::Opcode;
 use io::VmImportError;
 use stwo_prover::core::fields::m31::M31;
 use tracing::{span, Level};
 
-use crate::adapter::instructions::Opcode;
 use crate::adapter::io::{MemoryEntryFileIter, TraceFileIter};
 use crate::adapter::memory::{Memory, MemoryArg, MemoryEntry};
 
@@ -75,7 +74,7 @@ pub fn import_from_vm_output(
         opcode_entry.clock = clock.into();
         memory_args[0] = memory.push(opcode_entry);
 
-        let opcode: Opcode = opcode_entry.value.to_m31_array()[0].0.try_into()?;
+        let opcode: Opcode = Opcode::try_from(opcode_entry.value.to_m31_array()[0].0)?;
 
         memory_iter
             .by_ref()
