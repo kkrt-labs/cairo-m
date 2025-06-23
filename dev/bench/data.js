@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1750671031452,
+  "lastUpdate": 1750675792124,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -485,6 +485,60 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/serialize_memory_trace",
             "value": 85821471,
             "range": "± 1157376",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "obatirou@gmail.com",
+            "name": "Oba",
+            "username": "obatirou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "36667db98d6b45a89f432ec8173e4b7b31468ff1",
+          "message": "bench(vm): use compiled file (#88)\n\n* bench(vm): use compiled file\n\n* Add doc FP_OFFSET",
+          "timestamp": "2025-06-23T12:38:50+02:00",
+          "tree_id": "f094dbf8a719edd070eb6de84cdd6b9a45d80ef4",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/36667db98d6b45a89f432ec8173e4b7b31468ff1"
+        },
+        "date": 1750675791636,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/e2e",
+            "value": 2148411357,
+            "range": "± 14263989",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 323996816,
+            "range": "± 3129657",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/io_only",
+            "value": 1471926857,
+            "range": "± 41705481",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/serialize_vm_trace",
+            "value": 25924939,
+            "range": "± 399473",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/serialize_memory_trace",
+            "value": 162766218,
+            "range": "± 2066917",
             "unit": "ns/iter"
           }
         ]
