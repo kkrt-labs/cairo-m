@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::iter::zip;
 use std::simd::Simd;
 
@@ -30,7 +29,7 @@ const LOG_RANGE: u32 = 20;
 
 const SECURE_EXTENSION_DEGREE: usize = <SecureField as ExtensionOf<BaseField>>::EXTENSION_DEGREE;
 
-pub const SIMD_ENUMERATION_0: Simd<u32, N_LANES> =
+pub const SIMD_RANGE: Simd<u32, N_LANES> =
     Simd::from_array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
 
 pub struct RangeCheck<const N: usize> {
@@ -46,13 +45,15 @@ impl<const N: usize> RangeCheck<N> {
     }
 
     /// Generates the map from 0..2^(sum_bits) to the corresponding value's partition segments.
+    /// Copied from stwo-cairo-m31::prover::components::range_check::generate_partitioned_enumeration
+    /// TODO: investigate if this can be optimized.
     pub fn generate_partitioned_enumeration(&self) -> [Vec<PackedM31>; N] {
         let sum_bits = self.ranges.iter().sum::<u32>();
         debug_assert!(sum_bits < MODULUS_BITS);
 
         let mut res = std::array::from_fn(|_| vec![]);
         for vec_row in 0..1 << (sum_bits - LOG_N_LANES) {
-            let value = SIMD_ENUMERATION_0 + Simd::splat(vec_row * N_LANES as u32);
+            let value = SIMD_RANGE + Simd::splat(vec_row * N_LANES as u32);
             let segments = self.partition_into_bit_segments(value);
             for i in 0..N {
                 res[i].push(unsafe { PackedM31::from_simd_unchecked(segments[i]) });
@@ -66,7 +67,8 @@ impl<const N: usize> RangeCheck<N> {
     /// For example: partition_into_bit_segments(0b110101010, [3, 4, 2]) -> [0b110, 0b1010, 0b10]
     ///
     ///
-    /// # Arguments
+    /// Copied from stwo-cairo-m31::prover::components::range_check::partition_into_bit_segments
+    /// TODO: investigate if this can be optimized.
     pub fn partition_into_bit_segments(
         &self,
         mut value: Simd<u32, N_LANES>,
@@ -140,7 +142,7 @@ impl Claim {
     }
 
     pub fn write_trace<MC: MerkleChannel>(
-        &mut self,
+        &self,
         lookup_data: &Vec<PackedM31>,
     ) -> (
         [CircleEvaluation<SimdBackend, M31, BitReversedOrder>; 1],
@@ -149,40 +151,38 @@ impl Claim {
     where
         SimdBackend: BackendForChannel<MC>,
     {
-        let mut counts: HashMap<u32, u32> = HashMap::new();
+        let mut mults: [u32; (LOG_RANGE - LOG_N_LANES) as usize] =
+            [0; (LOG_RANGE - LOG_N_LANES) as usize];
         for entry in lookup_data {
             for element in entry.to_array() {
-                *counts.entry(element.0).or_insert(0) += 1;
+                mults[element.0 as usize] += 1;
             }
         }
 
-        let unique_values = counts.into_iter().collect::<Vec<_>>();
-        let mut mults = Vec::new();
-        let mut range_check_data = Vec::new();
-        for chunk in unique_values.chunks(N_LANES) {
-            let mut mult_lane = [M31(0); N_LANES];
-            let mut range_check_data_lane = [M31(0); N_LANES];
-            for (i, &(value, mult)) in chunk.iter().enumerate() {
-                mult_lane[i] = M31(mult);
-                range_check_data_lane[i] = M31(value);
-            }
-            mults.push(PackedM31::from_array(mult_lane));
-            range_check_data.push(PackedM31::from_array(range_check_data_lane));
-        }
+        let mults_packed: Vec<[PackedM31; 2]> = mults
+            .iter()
+            .map(|&mult| M31(mult))
+            .collect::<Vec<_>>()
+            .chunks(N_LANES)
+            .enumerate()
+            .map(|(chunk_idx, chunk)| {
+                [
+                    PackedM31::from_array(std::array::from_fn(|i| {
+                        M31((chunk_idx * N_LANES + i) as u32)
+                    })),
+                    PackedM31::from_array(chunk.try_into().unwrap()),
+                ]
+            })
+            .collect();
 
-        self.log_size = mults.len().ilog2() + LOG_N_LANES;
         let domain = CanonicCoset::new(self.log_size).circle_domain();
         (
             [CircleEvaluation::<SimdBackend, M31, BitReversedOrder>::new(
                 domain,
-                BaseColumn::from_simd(mults.clone()),
+                BaseColumn::from_cpu(mults.into_iter().map(M31).collect()),
             )],
             LookupData {
-                range_check_data_20: range_check_data
-                    .into_iter()
-                    .zip(mults)
-                    .map(Into::into)
-                    .collect(),
+                range_check_data_20: mults_packed,
             },
         )
     }

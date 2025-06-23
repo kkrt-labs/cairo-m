@@ -53,7 +53,7 @@ impl<const N: usize> Claim<N> {
             multiple_constraints: multiple_constraints::Claim::new(log_size),
             single_constraint_with_relation: single_constraint_with_relation::Claim::new(log_size),
             memory: memory::Claim::default(),
-            range_check_20: range_check_20::Claim::default(),
+            range_check_20: range_check_20::Claim::new(20),
         }
     }
 
