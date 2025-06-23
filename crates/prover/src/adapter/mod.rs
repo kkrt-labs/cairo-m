@@ -54,7 +54,6 @@ pub fn import_from_vm_output(
 
     let mut trace_iter = TraceFileIter::try_from(trace_path)?.peekable();
     let mut memory_iter = MemoryEntryFileIter::try_from(mem_path)?;
-    let _program_length = memory_iter.program_length();
 
     let mut memory = Memory::default();
     // Initial memory uses clock = 0
