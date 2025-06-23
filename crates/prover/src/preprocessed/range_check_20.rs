@@ -212,7 +212,7 @@ impl InteractionClaim {
             .into_par_iter()
             .for_each(|(writer, value)| {
                 let denom: PackedQM31 = relation.combine(&[value[0]]);
-                writer.write_frac(-PackedQM31::one() * value[1], denom);
+                writer.write_frac(PackedQM31::one() * value[1], denom);
             });
         col.finalize_col();
 
@@ -247,7 +247,7 @@ impl FrameworkEval for Eval {
 
         eval.add_to_relation(RelationEntry::new(
             &self.relation,
-            E::EF::from(-multiplicity),
+            E::EF::from(multiplicity),
             &[value],
         ));
 
