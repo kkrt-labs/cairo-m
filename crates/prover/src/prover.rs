@@ -29,9 +29,12 @@ where
     let pcs_config = PcsConfig::default();
     pcs_config.mix_into(channel);
 
+    // Since the range check is 20 bits, we need to use the max of the log size and 20.
+    let max_log_size = std::cmp::max(log_size, 20);
+
     info!("twiddles");
     let twiddles = SimdBackend::precompute_twiddles(
-        CanonicCoset::new(log_size + pcs_config.fri_config.log_blowup_factor + 2)
+        CanonicCoset::new(max_log_size + pcs_config.fri_config.log_blowup_factor + 2)
             .circle_domain()
             .half_coset,
     );
@@ -41,7 +44,7 @@ where
     // Preprocessed traces
     info!("preprocessed trace");
     let preprocessed_trace = PreProcessedTraceBuilder::default()
-        .with_range_check([20])
+        .with_range_check(20)
         .build();
     let mut tree_builder = commitment_scheme.tree_builder();
     tree_builder.extend_evals(preprocessed_trace.gen_trace());

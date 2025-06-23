@@ -1,6 +1,3 @@
-use std::iter::zip;
-use std::simd::Simd;
-
 use num_traits::One;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use stwo_prover::constraint_framework::logup::LogupTraceGenerator;
@@ -14,7 +11,7 @@ use stwo_prover::core::backend::simd::qm31::PackedQM31;
 use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::backend::BackendForChannel;
 use stwo_prover::core::channel::{Channel, MerkleChannel};
-use stwo_prover::core::fields::m31::{BaseField, M31, MODULUS_BITS};
+use stwo_prover::core::fields::m31::{BaseField, M31};
 use stwo_prover::core::fields::qm31::SecureField;
 use stwo_prover::core::fields::ExtensionOf;
 use stwo_prover::core::pcs::TreeVec;
@@ -24,97 +21,40 @@ use stwo_prover::core::poly::BitReversedOrder;
 use crate::preprocessed::PreProcessedColumn;
 use crate::relations::RangeCheck_20;
 
-const N_TRACE_COLUMNS: usize = 1;
-const LOG_RANGE: u32 = 20;
-
 const SECURE_EXTENSION_DEGREE: usize = <SecureField as ExtensionOf<BaseField>>::EXTENSION_DEGREE;
 
-pub const SIMD_RANGE: Simd<u32, N_LANES> =
-    Simd::from_array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
-
-pub struct RangeCheck<const N: usize> {
-    ranges: [u32; N],
-    column_idx: usize,
+pub struct RangeCheck {
+    range: u32,
 }
 
-impl<const N: usize> RangeCheck<N> {
-    pub fn new(ranges: [u32; N], column_idx: usize) -> Self {
-        debug_assert!(ranges.iter().all(|&r| r > 0));
-        debug_assert!(column_idx < N);
-        Self { ranges, column_idx }
-    }
-
-    /// Generates the map from 0..2^(sum_bits) to the corresponding value's partition segments.
-    /// Copied from stwo-cairo-m31::prover::components::range_check::generate_partitioned_enumeration
-    /// TODO: investigate if this can be optimized.
-    pub fn generate_partitioned_enumeration(&self) -> [Vec<PackedM31>; N] {
-        let sum_bits = self.ranges.iter().sum::<u32>();
-        debug_assert!(sum_bits < MODULUS_BITS);
-
-        let mut res = std::array::from_fn(|_| vec![]);
-        for vec_row in 0..1 << (sum_bits - LOG_N_LANES) {
-            let value = SIMD_RANGE + Simd::splat(vec_row * N_LANES as u32);
-            let segments = self.partition_into_bit_segments(value);
-            for i in 0..N {
-                res[i].push(unsafe { PackedM31::from_simd_unchecked(segments[i]) });
-            }
-        }
-        res
-    }
-
-    /// Partitions a number into 'N' bit segments.
-    ///
-    /// For example: partition_into_bit_segments(0b110101010, [3, 4, 2]) -> [0b110, 0b1010, 0b10]
-    ///
-    ///
-    /// Copied from stwo-cairo-m31::prover::components::range_check::partition_into_bit_segments
-    /// TODO: investigate if this can be optimized.
-    pub fn partition_into_bit_segments(
-        &self,
-        mut value: Simd<u32, N_LANES>,
-    ) -> [Simd<u32, N_LANES>; N] {
-        let mut segments = [Simd::splat(0); N];
-        for (segment, segment_n_bits) in zip(&mut segments, self.ranges).rev() {
-            let mask = Simd::splat((1 << segment_n_bits) - 1);
-            *segment = value & mask;
-            value >>= segment_n_bits;
-        }
-        segments
+impl RangeCheck {
+    pub fn new(range: u32) -> Self {
+        debug_assert!(range > 0);
+        Self { range }
     }
 }
 
-impl<const N: usize> PreProcessedColumn for RangeCheck<N> {
+impl PreProcessedColumn for RangeCheck {
     fn log_size(&self) -> u32 {
-        self.ranges.iter().sum()
+        self.range
     }
 
     fn gen_column_simd(&self) -> CircleEvaluation<SimdBackend, BaseField, BitReversedOrder> {
-        let partitions = self.generate_partitioned_enumeration();
-        let column = partitions
-            .into_iter()
-            .nth(self.column_idx)
-            .expect("column_idx >= N; which violates the invariant that column_idx < N");
         CircleEvaluation::new(
             CanonicCoset::new(self.log_size()).circle_domain(),
-            BaseColumn::from_simd(column),
+            BaseColumn::from_iter((0..1 << self.range).map(M31)),
         )
     }
 
     fn id(&self) -> PreProcessedColumnId {
-        let ranges = self
-            .ranges
-            .iter()
-            .map(|r| r.to_string())
-            .collect::<Vec<_>>()
-            .join("_");
         PreProcessedColumnId {
-            id: format!("range_check_{}_column_{}", ranges, self.column_idx),
+            id: format!("range_check_{}", self.range),
         }
     }
 }
 
 pub struct LookupData {
-    pub range_check_data_20: Vec<[PackedM31; N_TRACE_COLUMNS + 1]>,
+    pub range_check_data_20: Vec<[PackedM31; 2]>,
 }
 
 #[derive(Copy, Clone, Default)]
@@ -132,7 +72,7 @@ impl Claim {
     }
 
     pub fn log_sizes(&self) -> TreeVec<Vec<u32>> {
-        let trace = vec![self.log_size; N_TRACE_COLUMNS];
+        let trace = vec![self.log_size; 1];
         let interaction_trace = vec![self.log_size; SECURE_EXTENSION_DEGREE];
         TreeVec::new(vec![vec![], trace, interaction_trace])
     }
@@ -151,8 +91,7 @@ impl Claim {
     where
         SimdBackend: BackendForChannel<MC>,
     {
-        let mut mults: [u32; (LOG_RANGE - LOG_N_LANES) as usize] =
-            [0; (LOG_RANGE - LOG_N_LANES) as usize];
+        let mut mults = vec![0; 1 << self.log_size as usize];
         for entry in lookup_data {
             for element in entry.to_array() {
                 mults[element.0 as usize] += 1;
@@ -242,7 +181,7 @@ impl FrameworkEval for Eval {
     }
 
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
-        let value = eval.get_preprocessed_column(RangeCheck::new([LOG_RANGE], 0).id());
+        let value = eval.get_preprocessed_column(RangeCheck::new(self.claim.log_size).id());
         let multiplicity = eval.next_trace_mask();
 
         eval.add_to_relation(RelationEntry::new(

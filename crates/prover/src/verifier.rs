@@ -10,7 +10,7 @@ use tracing::{info, span, Level};
 
 use crate::components::{Components, Relations};
 use crate::errors::VerificationError;
-use crate::preprocessed::PreProcessedTrace;
+use crate::preprocessed::PreProcessedTraceBuilder;
 use crate::{relations, Proof};
 
 pub fn verify_cairo_m<MC: MerkleChannel, const N: usize>(
@@ -31,7 +31,9 @@ where
 
     // Preprocessed trace.
     info!("preprocessed trace");
-    let preprocessed_trace = PreProcessedTrace::default();
+    let preprocessed_trace = PreProcessedTraceBuilder::default()
+        .with_range_check(20)
+        .build();
     commitment_scheme_verifier.commit(
         proof.stark_proof.commitments[0],
         &proof.claim.log_sizes()[0],

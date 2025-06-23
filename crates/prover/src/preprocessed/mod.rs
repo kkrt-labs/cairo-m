@@ -50,11 +50,9 @@ pub struct PreProcessedTraceBuilder {
 }
 
 impl PreProcessedTraceBuilder {
-    pub fn with_range_check<const N: usize>(mut self, ranges: [u32; N]) -> Self {
-        for column_idx in 0..N {
-            let range_check = RangeCheck::new(ranges, column_idx);
-            self.columns.push(Box::new(range_check));
-        }
+    pub fn with_range_check(mut self, range: u32) -> Self {
+        let range_check = RangeCheck::new(range);
+        self.columns.push(Box::new(range_check));
         self
     }
 
