@@ -57,6 +57,7 @@ pub fn import_from_vm_output(
     let _program_length = memory_iter.program_length();
 
     let mut memory = Memory::default();
+    // Initial memory uses clock = 0
     let mut clock = 1;
     let mut states_by_opcodes = HashMap::<Opcode, Vec<StateData>>::default();
 
