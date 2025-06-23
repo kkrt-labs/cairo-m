@@ -8,7 +8,7 @@ use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::preprocessed::range_check::RangeCheck;
 
-mod range_check;
+pub mod range_check;
 
 pub trait PreProcessedColumn {
     fn log_size(&self) -> u32;
