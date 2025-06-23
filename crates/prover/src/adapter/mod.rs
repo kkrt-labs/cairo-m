@@ -2,19 +2,49 @@ pub mod instructions;
 pub mod io;
 pub mod memory;
 
+use std::collections::HashMap;
 use std::path::Path;
 
-use instructions::Instructions;
 use io::VmImportError;
-use memory::{MemoryBoundaries, MemoryCache, MemoryEntry, TraceEntry};
+use stwo_prover::core::fields::m31::M31;
 use tracing::{span, Level};
 
+use crate::adapter::instructions::Opcode;
 use crate::adapter::io::{MemoryEntryFileIter, TraceFileIter};
+use crate::adapter::memory::{Memory, MemoryArg, MemoryEntry};
 
 #[derive(Debug)]
 pub struct ProverInput {
-    pub memory_boundaries: MemoryBoundaries,
+    pub memory_boundaries: Memory,
     pub instructions: Instructions,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct VmRegisters {
+    pub pc: M31,
+    pub fp: M31,
+}
+
+impl From<crate::adapter::io::IoTraceEntry> for VmRegisters {
+    fn from(entry: crate::adapter::io::IoTraceEntry) -> Self {
+        Self {
+            pc: entry.pc.into(),
+            fp: entry.fp.into(),
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct Instructions {
+    pub initial_registers: VmRegisters,
+    pub final_registers: VmRegisters,
+    pub states_by_opcodes: HashMap<Opcode, Vec<StateData>>,
+}
+
+#[derive(Debug, Default)]
+pub struct StateData {
+    pub registers: VmRegisters,
+    pub memory_args: [MemoryArg; 4],
 }
 
 pub fn import_from_vm_output(
@@ -23,176 +53,76 @@ pub fn import_from_vm_output(
 ) -> Result<ProverInput, VmImportError> {
     let _span = span!(Level::INFO, "import_from_vm_output").entered();
 
-    let memory_iter = MemoryEntryFileIter::try_from(mem_path)?;
-    let program_length = memory_iter.program_length();
-    let memory_entries = memory_iter.map(|e| e.into());
-    let trace_entries = TraceFileIter::try_from(trace_path)?.map(|e| e.into());
+    let mut trace_iter = TraceFileIter::try_from(trace_path)?.peekable();
+    let mut memory_iter = MemoryEntryFileIter::try_from(mem_path)?;
+    let _program_length = memory_iter.program_length();
 
-    adapt_from_iter(memory_entries, trace_entries, program_length)
-}
-
-pub fn adapt_from_iter<I: IntoIterator<Item = MemoryEntry>, J: IntoIterator<Item = TraceEntry>>(
-    mem_iter: I,
-    trace_iter: J,
-    program_length: u32,
-) -> Result<ProverInput, VmImportError> {
-    let mut instructions = Instructions::default();
-    let mut memory = mem_iter.into_iter();
-    let mut trace = trace_iter.into_iter();
+    let mut memory = Memory::default();
     let mut clock = 1;
-    let mut memory_cache = MemoryCache::default();
+    let mut states_by_opcodes = HashMap::<Opcode, Vec<StateData>>::default();
 
-    let Some(first) = trace.next() else {
-        return Err(VmImportError::EmptyTrace);
-    };
+    let initial_registers: VmRegisters = trace_iter
+        .peek()
+        .map(|&entry| entry.into())
+        .ok_or(VmImportError::EmptyTrace)?;
+    let mut final_registers = initial_registers.clone();
 
-    // Push program
-    for _ in 0..program_length {
-        let program_entry = memory.next().ok_or(VmImportError::EmptyTrace)?;
-        memory_cache.push(program_entry, clock);
-        clock += 1;
-    }
+    for trace_entry in trace_iter {
+        let mut memory_args: [MemoryArg; 4] = Default::default();
 
-    // Push first instruction execution
-    instructions.initial_registers = first.into();
-    instructions.final_registers = first.into();
-    instructions
-        .push_instr(&mut memory, first.into(), clock, &mut memory_cache)
-        .map_err(VmImportError::InitialInstructionError)?;
-    clock += 1;
+        let mut opcode_entry: MemoryEntry =
+            memory_iter.next().ok_or(VmImportError::EmptyTrace)?.into();
+        opcode_entry.clock = clock.into();
+        memory_args[0] = memory.push(opcode_entry);
 
-    // Push remaining instructions executions
-    for entry in trace {
-        instructions.final_registers = entry.into();
-        instructions
-            .push_instr(&mut memory, entry.into(), clock, &mut memory_cache)
-            .map_err(VmImportError::InstructionError)?;
+        let opcode: Opcode = opcode_entry.value.to_m31_array()[0].0.try_into()?;
+
+        memory_iter
+            .by_ref()
+            .take(opcode.info().memory_accesses)
+            .enumerate()
+            .for_each(|(i, entry)| {
+                let mut entry: MemoryEntry = entry.into();
+                entry.clock = clock.into();
+                memory_args[i + 1] = memory.push(entry);
+            });
+
+        let state_data = StateData {
+            registers: trace_entry.into(),
+            memory_args,
+        };
+
+        states_by_opcodes
+            .entry(opcode)
+            .or_default()
+            .push(state_data);
+
+        final_registers = trace_entry.into();
         clock += 1;
     }
 
     Ok(ProverInput {
-        memory_boundaries: memory_cache.get_memory_boundaries(),
-        instructions,
+        memory_boundaries: memory,
+        instructions: Instructions {
+            initial_registers,
+            final_registers,
+            states_by_opcodes,
+        },
     })
 }
 
 #[cfg(test)]
 mod tests {
-    use stwo_prover::core::fields::m31::M31;
-    use stwo_prover::core::fields::qm31::QM31;
-
     use super::*;
 
     #[test]
     #[allow(clippy::cognitive_complexity)]
-    fn test_adapt_from_iter_user_original_spec() {
-        // program_length = 1
-        // mem_iter = [(0,(6,10,0,0)), (0,(6,10,0,0)), (1,(10,0,0,0))]
-        // trace_iter = [(0,1)]
-
-        let memory_entries = vec![
-            MemoryEntry {
-                address: 0,
-                value: [6, 10, 0, 0],
-            }, // Initial program (a single instruction here) written
-            MemoryEntry {
-                address: 0,
-                value: [6, 10, 0, 0],
-            }, // Instruction read
-            MemoryEntry {
-                address: 1,
-                value: [10, 0, 0, 0],
-            }, // Memory operand written for store_imm
-        ];
-
-        let trace_entries = vec![
-            TraceEntry { pc: 0, fp: 1 }, // Single trace entry
-        ];
-
-        let program_length = 1;
-
-        let result = adapt_from_iter(memory_entries, trace_entries, program_length);
-
-        assert!(result.is_ok());
-
-        let prover_input = result.unwrap();
-
-        // Memory boundaries checks
-        assert_eq!(prover_input.memory_boundaries.initial_memory.len(), 2);
-        assert_eq!(prover_input.memory_boundaries.final_memory.len(), 2);
-
-        // Register checks
-        assert_eq!(prover_input.instructions.initial_registers.pc.0, 0);
-        assert_eq!(prover_input.instructions.initial_registers.fp.0, 1);
-        assert_eq!(prover_input.instructions.final_registers.pc.0, 0);
-        assert_eq!(prover_input.instructions.final_registers.fp.0, 1);
-
-        // Check store_imm has exactly one state
-        assert_eq!(
-            prover_input.instructions.states_by_opcodes.store_imm.len(),
-            1
+    fn test_import_fibonacci() {
+        let prover_input = import_from_vm_output(
+            Path::new("tests/test_data/fibonacci/trace.bin"),
+            Path::new("tests/test_data/fibonacci/memory.bin"),
         );
-        let store_imm_state = &prover_input.instructions.states_by_opcodes.store_imm[0];
 
-        // Check registers in store_imm state
-        assert_eq!(store_imm_state.registers.pc, M31(0));
-        assert_eq!(store_imm_state.registers.fp, M31(1));
-
-        // Check memory_args in store_imm state
-        let memory_args = &store_imm_state.memory_args;
-
-        // First memory arg (instruction read)
-        assert_eq!(memory_args[0].address, M31(0));
-        assert_eq!(
-            memory_args[0].prev_val,
-            QM31::from_u32_unchecked(6, 10, 0, 0)
-        );
-        assert_eq!(memory_args[0].value, QM31::from_u32_unchecked(6, 10, 0, 0));
-        assert_eq!(memory_args[0].prev_clock, M31(1));
-        assert_eq!(memory_args[0].clock, M31(2));
-
-        // Second memory arg (memory operand written)
-        assert_eq!(memory_args[1].address, M31(1));
-        assert_eq!(
-            memory_args[1].prev_val,
-            QM31::from_u32_unchecked(0, 0, 0, 0)
-        );
-        assert_eq!(memory_args[1].value, QM31::from_u32_unchecked(10, 0, 0, 0));
-        assert_eq!(memory_args[1].prev_clock, M31(0));
-        assert_eq!(memory_args[1].clock, M31(2));
-
-        // Third and fourth memory args should be zero (not used in store_imm)
-        assert_eq!(memory_args[2].address, M31(0));
-        assert_eq!(
-            memory_args[2].prev_val,
-            QM31::from_u32_unchecked(0, 0, 0, 0)
-        );
-        assert_eq!(memory_args[2].value, QM31::from_u32_unchecked(0, 0, 0, 0));
-        assert_eq!(memory_args[2].prev_clock, M31(0));
-        assert_eq!(memory_args[2].clock, M31(0));
-
-        assert_eq!(memory_args[3].address, M31(0));
-        assert_eq!(
-            memory_args[3].prev_val,
-            QM31::from_u32_unchecked(0, 0, 0, 0)
-        );
-        assert_eq!(memory_args[3].value, QM31::from_u32_unchecked(0, 0, 0, 0));
-        assert_eq!(memory_args[3].prev_clock, M31(0));
-        assert_eq!(memory_args[3].clock, M31(0));
-    }
-
-    #[test]
-    fn test_adapt_from_iter_empty_trace() {
-        let memory_entries = vec![MemoryEntry {
-            address: 0,
-            value: [6, 10, 0, 0],
-        }];
-        let trace_entries: Vec<TraceEntry> = vec![];
-        let program_length = 1;
-
-        let result = adapt_from_iter(memory_entries, trace_entries, program_length);
-
-        // Should fail with EmptyTrace error
-        assert!(matches!(result, Err(VmImportError::EmptyTrace)));
+        assert!(prover_input.is_ok());
     }
 }

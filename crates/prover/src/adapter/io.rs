@@ -16,14 +16,12 @@ pub enum VmImportError {
     EmptyTrace,
     #[error("Failed to read metadata header")]
     MetadataError,
-    #[error("Failed to push initial instruction: {0}")]
-    InitialInstructionError(crate::adapter::instructions::InstructionError),
-    #[error("Failed to push instruction: {0}")]
-    InstructionError(crate::adapter::instructions::InstructionError),
+    #[error("Instruction error: {0}")]
+    InstructionError(#[from] crate::adapter::instructions::InvalidOpcodeError),
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Default, Pod, Zeroable)]
+#[derive(Copy, Clone, Default, Pod, Zeroable, Debug, PartialEq, Eq)]
 pub struct IoTraceEntry {
     pub pc: u32,
     pub fp: u32,
@@ -90,8 +88,8 @@ impl<R: Read> MemoryEntryIter<R> {
     }
 
     /// Get the program length from the metadata header
-    pub const fn program_length(&self) -> u32 {
-        self.metadata.program_length
+    pub const fn program_length(&self) -> usize {
+        self.metadata.program_length as usize
     }
 }
 

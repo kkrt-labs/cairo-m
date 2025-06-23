@@ -1,3 +1,4 @@
+#![feature(iter_advance_by)]
 #![feature(raw_slice_split)]
 
 pub mod adapter;
