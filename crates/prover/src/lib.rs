@@ -1,5 +1,6 @@
 #![feature(iter_advance_by)]
 #![feature(raw_slice_split)]
+#![feature(portable_simd)]
 
 pub mod adapter;
 pub mod components;

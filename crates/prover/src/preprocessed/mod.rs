@@ -6,6 +6,10 @@ use stwo_prover::core::fields::m31::BaseField;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
+use crate::preprocessed::range_check::RangeCheck;
+
+mod range_check;
+
 pub trait PreProcessedColumn {
     fn log_size(&self) -> u32;
     fn id(&self) -> PreProcessedColumnId;
@@ -37,5 +41,28 @@ impl Default for PreProcessedTrace {
     fn default() -> Self {
         let columns = vec![];
         Self::new(columns)
+    }
+}
+
+#[derive(Default)]
+pub struct PreProcessedTraceBuilder {
+    columns: Vec<Box<dyn PreProcessedColumn>>,
+}
+
+impl PreProcessedTraceBuilder {
+    pub fn new() -> Self {
+        Self { columns: vec![] }
+    }
+
+    pub fn with_range_check<const N: usize>(mut self, ranges: [u32; N]) -> Self {
+        for column_idx in 0..N {
+            let range_check = RangeCheck::new(ranges, column_idx);
+            self.columns.push(Box::new(range_check));
+        }
+        self
+    }
+
+    pub fn build(self) -> PreProcessedTrace {
+        PreProcessedTrace::new(self.columns)
     }
 }

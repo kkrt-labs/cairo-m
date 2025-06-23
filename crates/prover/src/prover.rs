@@ -12,7 +12,7 @@ use tracing::{info, span, Level};
 
 use crate::components::{Claim, Components, InteractionClaim, Relations};
 use crate::errors::ProvingError;
-use crate::preprocessed::PreProcessedTrace;
+use crate::preprocessed::{PreProcessedTrace, PreProcessedTraceBuilder};
 use crate::{relations, Proof};
 
 pub fn prove_cairo_m<MC: MerkleChannel, const N: usize>(
@@ -40,7 +40,9 @@ where
 
     // Preprocessed traces
     info!("preprocessed trace");
-    let preprocessed_trace = PreProcessedTrace::default();
+    let preprocessed_trace = PreProcessedTraceBuilder::new()
+        .with_range_check([16])
+        .build();
     let mut tree_builder = commitment_scheme.tree_builder();
     tree_builder.extend_evals(preprocessed_trace.gen_trace());
     tree_builder.commit(channel);
