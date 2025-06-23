@@ -1,6 +1,7 @@
 //!ASSERT CONTAINS: Add
 //!ASSERT CONTAINS: Mul
 //!ASSERT CONTAINS: Eq
+//!ASSERT CONTAINS: Neq
 
 // Tests various binary operations.
 func test_add(a: felt, b: felt) -> felt {
@@ -25,5 +26,10 @@ func test_div(a: felt, b: felt) -> felt {
 
 func test_eq(a: felt, b: felt) -> felt {
     let c = a == b;
+    return c;
+}
+
+func test_neq(a: felt, b: felt) -> felt {
+    let c = a != b;
     return c;
 }

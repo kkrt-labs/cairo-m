@@ -11,6 +11,31 @@ func fibonacci_loop(n: felt) -> felt {
     return a;
 }
 
+// More efficient algorithm for large n using matrix exponentiation
+// This is just skeleton code; the actual matrix exponentiation would be more complex
+func fibonacci_optimized(n: felt) -> felt {
+    if (n == 0) {
+        return 0;
+    }
+    if (n == 1 || n == 2) {
+        return 1;
+    }
+    
+    // For this example, we'll just use the iterative method
+    // A real implementation would use matrix multiplication exponentiation
+    let a = 0;
+    let b = 1;
+    let i = 0;
+    while (i != n) {
+        let temp = a;
+        a = b;
+        b = b + temp;
+        i = i + 1;
+    }
+    
+    return a;
+}
+
 func main() -> felt {
     let n = 1000000;
     let result = fibonacci_loop(n);

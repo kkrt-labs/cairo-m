@@ -5,10 +5,28 @@ func test_comparisons() -> felt {
     
     // Test less than
     if (a < b) {
-        return 1;  // This should execute
+        // Test inequality
+        if (a != b) {
+            return 1;  // This should execute
+        }
     }
     
     return 0;
+}
+
+func test_multiple_comparisons(x: felt, y: felt, z: felt) -> felt {
+    // Test complex boolean logic with comparisons
+    if ((x < y) && (y < z)) {
+        return 1;  // Transitive: x < z
+    } else if ((x == y) || (x == z)) {
+        return 2;  // x equals either y or z
+    } else if ((x > y) && (y > z)) {
+        return 3;  // Transitive: x > z
+    } else if ((x >= y) && (y >= z)) {
+        return 4;  // Transitive: x >= z
+    }
+    
+    return 0;  // No condition matched
 }
 
 func main() -> felt {
