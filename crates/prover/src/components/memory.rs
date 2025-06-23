@@ -41,14 +41,8 @@ pub struct LookupData {
 }
 
 impl Claim {
-    pub fn new(memory: &Memory) -> Self {
-        let column_length = std::cmp::max(
-            (memory.initial_memory.len() + memory.final_memory.len()).next_power_of_two(),
-            N_LANES,
-        );
-        let log_size = column_length.ilog2();
-
-        Self { log_size }
+    pub const fn new() -> Self {
+        Self { log_size: 0 }
     }
 
     pub fn log_sizes(&self) -> TreeVec<Vec<u32>> {
@@ -69,6 +63,11 @@ impl Claim {
         SimdBackend: BackendForChannel<MC>,
     {
         let initial_memory_len = inputs.initial_memory.len();
+        self.log_size = std::cmp::max(
+            (initial_memory_len + inputs.final_memory.len()).next_power_of_two(),
+            N_LANES,
+        )
+        .ilog2();
 
         let mut packed_inputs: Vec<[PackedM31; N_M31_IN_MEMORY_ENTRY]> = Vec::new();
 

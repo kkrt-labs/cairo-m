@@ -22,6 +22,7 @@ use crate::adapter::ProverInput;
 use crate::preprocessed::range_check_20;
 use crate::relations;
 
+#[derive(Default)]
 pub struct Claim<const N: usize> {
     pub memory: memory::Claim,
     pub range_check_20: range_check_20::Claim,
