@@ -115,7 +115,7 @@ pub struct LookupData {
     pub range_check_data: Vec<[PackedM31; N_TRACE_COLUMNS + 1]>,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct Claim {
     pub log_size: u32,
 }
