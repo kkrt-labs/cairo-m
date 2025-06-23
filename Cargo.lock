@@ -435,6 +435,7 @@ dependencies = [
  "stwo-air-utils",
  "stwo-air-utils-derive",
  "stwo-prover",
+ "tempfile",
  "thiserror",
  "tracing",
 ]

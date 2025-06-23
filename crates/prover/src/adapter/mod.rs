@@ -74,7 +74,7 @@ pub fn import_from_vm_output(
         opcode_entry.clock = clock.into();
         memory_args[0] = memory.push(opcode_entry);
 
-        let opcode: Opcode = Opcode::try_from(opcode_entry.value.to_m31_array()[0].0)?;
+        let opcode: Opcode = Opcode::try_from(opcode_entry.value)?;
 
         memory_iter
             .by_ref()
@@ -108,20 +108,4 @@ pub fn import_from_vm_output(
             states_by_opcodes,
         },
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    #[allow(clippy::cognitive_complexity)]
-    fn test_import_fibonacci() {
-        let prover_input = import_from_vm_output(
-            Path::new("tests/test_data/fibonacci/trace.bin"),
-            Path::new("tests/test_data/fibonacci/memory.bin"),
-        );
-
-        assert!(prover_input.is_ok());
-    }
 }

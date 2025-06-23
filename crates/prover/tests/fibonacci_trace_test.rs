@@ -27,24 +27,45 @@ pub fn compile_cairo_file(cairo_file: &str) -> Result<Program, String> {
 
 pub mod fibonacci {
     pub mod trace_memory_generator {
+
+        use cairo_m_prover::adapter::import_from_vm_output;
         use cairo_m_runner::run_cairo_program;
+        use tempfile::TempDir;
 
         #[test]
-        fn dump_trace_memory_fibonacci() {
-            let compiled = crate::compile_cairo_file("fibonacci/fibonacci.cm")
+        #[allow(clippy::cognitive_complexity)]
+        fn test_import_fibonacci() {
+            // Create a temporary directory for test fixtures
+            let temp_dir = TempDir::new().expect("Failed to create temp directory");
+
+            // Compile the fibonacci program
+            let compiled = crate::compile_cairo_file("fibonacci.cm")
                 .expect("Failed to compile Cairo-M program");
 
+            // Run the program to generate trace and memory data
             let cairo_result = run_cairo_program(&compiled, "main", Default::default())
                 .expect("Failed to run Cairo-M program");
 
+            // Create paths for temporary trace and memory files
+            let trace_path = temp_dir.path().join("trace.bin");
+            let memory_path = temp_dir.path().join("memory.bin");
+
+            // Write the trace and memory data to temporary files
             cairo_result
                 .vm
-                .write_binary_memory_trace("tests/test_data/fibonacci/memory.bin")
-                .expect("Failed to write binary memory trace");
-            cairo_result
-                .vm
-                .write_binary_trace("tests/test_data/fibonacci/trace.bin")
+                .write_binary_trace(&trace_path)
                 .expect("Failed to write binary trace");
+            cairo_result
+                .vm
+                .write_binary_memory_trace(&memory_path)
+                .expect("Failed to write binary memory trace");
+
+            // Test importing from the generated files
+            let prover_input = import_from_vm_output(&trace_path, &memory_path);
+
+            assert!(prover_input.is_ok());
+
+            // temp_dir is automatically cleaned up when it goes out of scope
         }
     }
 }

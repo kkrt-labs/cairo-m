@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use stwo_prover::core::fields::m31::M31;
+use stwo_prover::core::fields::qm31::QM31;
 
 use crate::instruction::InstructionError;
 
@@ -83,6 +84,16 @@ impl TryFrom<M31> for Opcode {
 
     fn try_from(value: M31) -> Result<Self, Self::Error> {
         Self::from_u32(value.0).ok_or(InstructionError::InvalidOpcode(value))
+    }
+}
+
+impl TryFrom<QM31> for Opcode {
+    type Error = InstructionError;
+
+    fn try_from(value: QM31) -> Result<Self, Self::Error> {
+        let opcode_u32 = value.to_m31_array()[0].0;
+        Self::from_u32(opcode_u32)
+            .ok_or_else(|| InstructionError::InvalidOpcode(M31::from(opcode_u32)))
     }
 }
 
