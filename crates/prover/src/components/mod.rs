@@ -97,7 +97,7 @@ impl<const N: usize> Claim<N> {
             .write_trace(&single_constraint_with_relation_lookup_data.memory);
 
         // Write range_check components
-        // dummy lookup data
+        // TODO: use memory and other components lookup data to generate multiplicity column
         let dummy_range_check_data = vec![];
         let (range_check_20_trace, range_check_20_lookup_data) =
             self.range_check_20.write_trace(&dummy_range_check_data);
