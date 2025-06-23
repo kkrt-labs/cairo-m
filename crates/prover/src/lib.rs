@@ -1,5 +1,7 @@
+#![feature(iter_advance_by)]
 #![feature(raw_slice_split)]
 
+pub mod adapter;
 pub mod components;
 pub mod errors;
 pub mod preprocessed;

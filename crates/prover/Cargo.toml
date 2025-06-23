@@ -12,3 +12,11 @@ num-traits.workspace = true
 rand = "0.8.5"
 thiserror.workspace = true
 tracing.workspace = true
+bytemuck.workspace = true
+sonic-rs.workspace = true
+cairo-m-runner.workspace = true
+cairo-m-compiler.workspace = true
+cairo-m-common.workspace = true
+
+[dev-dependencies]
+tempfile = "3.0"

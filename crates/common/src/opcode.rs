@@ -1,10 +1,17 @@
 use serde::{Deserialize, Serialize};
 use stwo_prover::core::fields::m31::M31;
+use stwo_prover::core::fields::qm31::QM31;
 
 use crate::instruction::InstructionError;
 
+// Struct to hold constant characteristics of an opcode
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct OpcodeInfo {
+    pub memory_accesses: usize,
+}
+
 /// CASM opcodes with type-safe representation
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[repr(u32)]
 pub enum Opcode {
     // Arithmetic operations
@@ -80,6 +87,16 @@ impl TryFrom<M31> for Opcode {
     }
 }
 
+impl TryFrom<QM31> for Opcode {
+    type Error = InstructionError;
+
+    fn try_from(value: QM31) -> Result<Self, Self::Error> {
+        let opcode_u32 = value.to_m31_array()[0].0;
+        Self::from_u32(opcode_u32)
+            .ok_or_else(|| InstructionError::InvalidOpcode(M31::from(opcode_u32)))
+    }
+}
+
 impl Opcode {
     /// Convert opcode to its numeric value
     pub const fn to_u32(self) -> u32 {
@@ -122,6 +139,48 @@ impl Opcode {
             30 => Some(Self::JnzFpFp),
             31 => Some(Self::JnzFpImm),
             _ => None,
+        }
+    }
+
+    /// Get the constant characteristics for the opcode
+    pub const fn info(self) -> OpcodeInfo {
+        match self {
+            Self::StoreAddFpFp => OpcodeInfo { memory_accesses: 3 },
+            Self::StoreAddFpImm => OpcodeInfo { memory_accesses: 2 },
+            Self::StoreSubFpFp => OpcodeInfo { memory_accesses: 3 },
+            Self::StoreSubFpImm => OpcodeInfo { memory_accesses: 2 },
+            Self::StoreDerefFp => OpcodeInfo { memory_accesses: 2 },
+            Self::StoreDoubleDerefFp => OpcodeInfo { memory_accesses: 3 },
+            Self::StoreImm => OpcodeInfo { memory_accesses: 1 },
+            Self::StoreMulFpFp => OpcodeInfo { memory_accesses: 3 },
+            Self::StoreMulFpImm => OpcodeInfo { memory_accesses: 2 },
+            Self::StoreDivFpFp => OpcodeInfo { memory_accesses: 3 },
+            Self::StoreDivFpImm => OpcodeInfo { memory_accesses: 2 },
+            Self::CallAbsFp => OpcodeInfo {
+                memory_accesses: 3, // read [fp + off0] + write return (pc, fp)
+            },
+            Self::CallAbsImm => OpcodeInfo { memory_accesses: 2 },
+            Self::CallRelFp => OpcodeInfo { memory_accesses: 3 },
+            Self::CallRelImm => OpcodeInfo { memory_accesses: 2 },
+            Self::Ret => OpcodeInfo {
+                memory_accesses: 2, // write return (pc, fp)
+            },
+            Self::JmpAbsAddFpFp => OpcodeInfo { memory_accesses: 2 },
+            Self::JmpAbsAddFpImm => OpcodeInfo { memory_accesses: 1 },
+            Self::JmpAbsDerefFp => OpcodeInfo { memory_accesses: 1 },
+            Self::JmpAbsDoubleDerefFp => OpcodeInfo { memory_accesses: 2 },
+            Self::JmpAbsImm => OpcodeInfo { memory_accesses: 0 },
+            Self::JmpAbsMulFpFp => OpcodeInfo { memory_accesses: 2 },
+            Self::JmpAbsMulFpImm => OpcodeInfo { memory_accesses: 1 },
+            Self::JmpRelAddFpFp => OpcodeInfo { memory_accesses: 2 },
+            Self::JmpRelAddFpImm => OpcodeInfo { memory_accesses: 1 },
+            Self::JmpRelDerefFp => OpcodeInfo { memory_accesses: 1 },
+            Self::JmpRelDoubleDerefFp => OpcodeInfo { memory_accesses: 2 },
+            Self::JmpRelImm => OpcodeInfo { memory_accesses: 0 },
+            Self::JmpRelMulFpFp => OpcodeInfo { memory_accesses: 2 },
+            Self::JmpRelMulFpImm => OpcodeInfo { memory_accesses: 1 },
+            Self::JnzFpFp => OpcodeInfo { memory_accesses: 2 },
+            Self::JnzFpImm => OpcodeInfo { memory_accesses: 1 },
         }
     }
 
