@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1750675792124,
+  "lastUpdate": 1750691491357,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -539,6 +539,58 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/serialize_memory_trace",
             "value": 162766218,
             "range": "± 2066917",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Mathieu",
+            "username": "enitrat",
+            "email": "60658558+enitrat@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "enitrat",
+            "username": "enitrat",
+            "email": "msaug@protonmail.com"
+          },
+          "id": "1f86d21891deb4c497d57fc4b9cffbc2b5eaf879",
+          "message": "feat(compiler): optimize binary operations w/ intermediate vars (#90)\n\n* feat(compiler): optimize binary operations w/ intermediate vars",
+          "timestamp": "2025-06-23T14:44:57Z",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/1f86d21891deb4c497d57fc4b9cffbc2b5eaf879"
+        },
+        "date": 1750691490993,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/e2e",
+            "value": 1650107273,
+            "range": "± 13457492",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 262369468,
+            "range": "± 1082085",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/io_only",
+            "value": 1027438786,
+            "range": "± 29693905",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/serialize_vm_trace",
+            "value": 21056849,
+            "range": "± 72402",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/serialize_memory_trace",
+            "value": 131340937,
+            "range": "± 433787",
             "unit": "ns/iter"
           }
         ]
