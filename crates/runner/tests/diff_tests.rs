@@ -55,10 +55,10 @@ fn compile_cairo_file(cairo_file: &str) -> Result<Program, String> {
 /// Runs a diff test comparing Cairo-M and Rust implementations
 fn run_diff_test(test: DiffTest) {
     // Compile Cairo-M program
-    let compiled = compile_cairo_file(test.cairo_file).expect("Failed to compile Cairo-M program");
+    let program = compile_cairo_file(test.cairo_file).expect("Failed to compile Cairo-M program");
 
     // Run Cairo-M program using the library API
-    let cairo_result = run_cairo_program(&compiled, test.entrypoint, Default::default())
+    let cairo_result = run_cairo_program(&program, test.entrypoint, Default::default())
         .expect("Failed to run Cairo-M program");
 
     // Run Rust implementation

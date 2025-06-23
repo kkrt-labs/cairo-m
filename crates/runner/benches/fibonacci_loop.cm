@@ -1,0 +1,18 @@
+func fibonacci_loop(n: felt) -> felt {
+    let a = 0;
+    let b = 1;
+    let i = 0;
+    while (i != n) {
+        let temp = a;
+        a = b;
+        b = b + temp;
+        i = i + 1;
+    }
+    return a;
+}
+
+func main() -> felt {
+    let n = 1000000;
+    let result = fibonacci_loop(n);
+    return result;
+}
