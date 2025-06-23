@@ -7,6 +7,8 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughpu
 use tempfile::NamedTempFile;
 
 const BENCHMARK_DURATION_SECS: u64 = 30;
+// FP offset to account for the calling convention of the executed main function.
+// For this function, there are 0 args and only 1 return value.
 const FP_OFFSET: u32 = 3;
 
 fn fibonacci_1m_benchmark(c: &mut Criterion) {
