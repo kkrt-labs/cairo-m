@@ -16,3 +16,4 @@ bytemuck.workspace = true
 sonic-rs.workspace = true
 cairo-m-runner.workspace = true
 cairo-m-compiler.workspace = true
+cairo-m-common.workspace = true

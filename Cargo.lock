@@ -425,6 +425,7 @@ name = "cairo-m-prover"
 version = "0.1.1"
 dependencies = [
  "bytemuck",
+ "cairo-m-common",
  "cairo-m-compiler",
  "cairo-m-runner",
  "num-traits",

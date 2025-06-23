@@ -1,9 +1,10 @@
 use std::fs;
 
-use cairo_m_compiler::{compile_cairo, CompiledProgram, CompilerOptions};
+use cairo_m_common::Program;
+use cairo_m_compiler::{compile_cairo, CompilerOptions};
 
-/// Compiles a Cairo-M file to a CompiledProgram
-pub fn compile_cairo_file(cairo_file: &str) -> Result<CompiledProgram, String> {
+/// Compiles a Cairo-M file to a Program
+pub fn compile_cairo_file(cairo_file: &str) -> Result<Program, String> {
     let source_path = format!(
         "{}/tests/test_data/{}",
         env!("CARGO_MANIFEST_DIR"),
@@ -20,7 +21,7 @@ pub fn compile_cairo_file(cairo_file: &str) -> Result<CompiledProgram, String> {
     let output = compile_cairo(source_text, source_path, options)
         .map_err(|e| format!("Compilation failed: {}", e))?;
 
-    // Clone the Arc<CompiledProgram> to get an owned CompiledProgram
+    // Clone the Arc<Program> to get an owned Program
     Ok((*output.program).clone())
 }
 
