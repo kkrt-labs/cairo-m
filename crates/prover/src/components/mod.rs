@@ -18,7 +18,7 @@ use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
-use crate::preprocessed::range_check;
+use crate::preprocessed::range_check_20;
 use crate::relations;
 
 pub struct Claim<const N: usize> {
@@ -26,24 +26,24 @@ pub struct Claim<const N: usize> {
     pub multiple_constraints: multiple_constraints::Claim<N>,
     pub single_constraint_with_relation: single_constraint_with_relation::Claim,
     pub memory: memory::Claim,
-    pub range_check: range_check::Claim,
+    pub range_check_20: range_check_20::Claim,
 }
 
 pub struct Relations {
     pub memory: relations::Memory,
-    pub range_check: relations::RangeCheck_20,
+    pub range_check_20: relations::RangeCheck_20,
 }
 
 pub struct LookupData {
     pub single_constraint_with_relation: single_constraint_with_relation::LookupData,
     pub memory: memory::LookupData,
-    pub range_check: range_check::LookupData,
+    pub range_check_20: range_check_20::LookupData,
 }
 
 pub struct InteractionClaim<const N: usize> {
     pub single_constraint_with_relation: single_constraint_with_relation::InteractionClaim,
     pub memory: memory::InteractionClaim,
-    pub range_check: range_check::InteractionClaim,
+    pub range_check_20: range_check_20::InteractionClaim,
 }
 
 impl<const N: usize> Claim<N> {
@@ -53,7 +53,7 @@ impl<const N: usize> Claim<N> {
             multiple_constraints: multiple_constraints::Claim::new(log_size),
             single_constraint_with_relation: single_constraint_with_relation::Claim::new(log_size),
             memory: memory::Claim::default(),
-            range_check: range_check::Claim::default(),
+            range_check_20: range_check_20::Claim::default(),
         }
     }
 
@@ -63,7 +63,7 @@ impl<const N: usize> Claim<N> {
             self.multiple_constraints.log_sizes(),
             self.single_constraint_with_relation.log_sizes(),
             self.memory.log_sizes(),
-            self.range_check.log_sizes(),
+            self.range_check_20.log_sizes(),
         ];
         TreeVec::concat_cols(trees.into_iter())
     }
@@ -73,7 +73,7 @@ impl<const N: usize> Claim<N> {
         self.multiple_constraints.mix_into(channel);
         self.single_constraint_with_relation.mix_into(channel);
         self.memory.mix_into(channel);
-        self.range_check.mix_into(channel);
+        self.range_check_20.mix_into(channel);
     }
 
     pub fn write_trace<MC: MerkleChannel>(
@@ -99,14 +99,14 @@ impl<const N: usize> Claim<N> {
         // Write range_check components
         // dummy lookup data
         let dummy_range_check_data = vec![];
-        let (range_check_trace, range_check_lookup_data) =
-            self.range_check.write_trace(&dummy_range_check_data);
+        let (range_check_20_trace, range_check_20_lookup_data) =
+            self.range_check_20.write_trace(&dummy_range_check_data);
 
         // Gather all lookup data
         let lookup_data = LookupData {
             single_constraint_with_relation: single_constraint_with_relation_lookup_data,
             memory: memory_lookup_data,
-            range_check: range_check_lookup_data,
+            range_check_20: range_check_20_lookup_data,
         };
 
         // Combine all traces
@@ -116,7 +116,7 @@ impl<const N: usize> Claim<N> {
             .chain(multiple_trace.to_evals())
             .chain(single_constraint_with_relation_trace.to_evals())
             .chain(memory_trace)
-            .chain(range_check_trace);
+            .chain(range_check_20_trace);
 
         (trace, lookup_data)
     }
@@ -144,21 +144,21 @@ impl<const N: usize> InteractionClaim<N> {
                 &lookup_data.memory,
             );
 
-        let (range_check_interaction_trace, range_check_interaction_claim) =
-            range_check::InteractionClaim::write_interaction_trace(
-                &relations.range_check,
-                &lookup_data.range_check,
+        let (range_check_20_interaction_trace, range_check_20_interaction_claim) =
+            range_check_20::InteractionClaim::write_interaction_trace(
+                &relations.range_check_20,
+                &lookup_data.range_check_20,
             );
 
         (
             single_constraint_with_relation_trace
                 .into_iter()
                 .chain(memory_interaction_trace)
-                .chain(range_check_interaction_trace),
+                .chain(range_check_20_interaction_trace),
             Self {
                 single_constraint_with_relation: single_constraint_with_relation_interaction_claim,
                 memory: memory_interaction_claim,
-                range_check: range_check_interaction_claim,
+                range_check_20: range_check_20_interaction_claim,
             },
         )
     }
@@ -167,14 +167,14 @@ impl<const N: usize> InteractionClaim<N> {
         let mut sum = SecureField::zero();
         sum += self.single_constraint_with_relation.claimed_sum;
         sum += self.memory.claimed_sum;
-        sum += self.range_check.claimed_sum;
+        sum += self.range_check_20.claimed_sum;
         sum
     }
 
     pub fn mix_into(&self, channel: &mut impl Channel) {
         self.single_constraint_with_relation.mix_into(channel);
         self.memory.mix_into(channel);
-        self.range_check.mix_into(channel);
+        self.range_check_20.mix_into(channel);
     }
 }
 
@@ -182,7 +182,7 @@ impl Relations {
     pub fn draw(channel: &mut impl Channel) -> Self {
         Self {
             memory: relations::Memory::draw(channel),
-            range_check: relations::RangeCheck_20::draw(channel),
+            range_check_20: relations::RangeCheck_20::draw(channel),
         }
     }
 }
@@ -192,7 +192,7 @@ pub struct Components<const N: usize> {
     pub multiple_constraints: multiple_constraints::Component<N>,
     pub single_constraint_with_relation: single_constraint_with_relation::Component<N>,
     pub memory: memory::Component,
-    pub range_check: range_check::Component,
+    pub range_check_20: range_check_20::Component,
 }
 
 impl<const N: usize> Components<N> {
@@ -235,13 +235,13 @@ impl<const N: usize> Components<N> {
                 },
                 interaction_claim.memory.claimed_sum,
             ),
-            range_check: range_check::Component::new(
+            range_check_20: range_check_20::Component::new(
                 location_allocator,
-                range_check::Eval {
-                    claim: claim.range_check,
-                    relation: relations.range_check.clone(),
+                range_check_20::Eval {
+                    claim: claim.range_check_20,
+                    relation: relations.range_check_20.clone(),
                 },
-                interaction_claim.range_check.claimed_sum,
+                interaction_claim.range_check_20.claimed_sum,
             ),
         }
     }
@@ -252,7 +252,7 @@ impl<const N: usize> Components<N> {
             &self.multiple_constraints,
             &self.single_constraint_with_relation,
             &self.memory,
-            &self.range_check,
+            &self.range_check_20,
         ]
     }
 
@@ -262,7 +262,7 @@ impl<const N: usize> Components<N> {
             &self.multiple_constraints,
             &self.single_constraint_with_relation,
             &self.memory,
-            &self.range_check,
+            &self.range_check_20,
         ]
     }
 }

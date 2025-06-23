@@ -112,7 +112,7 @@ impl<const N: usize> PreProcessedColumn for RangeCheck<N> {
 }
 
 pub struct LookupData {
-    pub range_check_data: Vec<[PackedM31; N_TRACE_COLUMNS + 1]>,
+    pub range_check_data_20: Vec<[PackedM31; N_TRACE_COLUMNS + 1]>,
 }
 
 #[derive(Copy, Clone, Default)]
@@ -178,7 +178,7 @@ impl Claim {
                 BaseColumn::from_simd(mults.clone()),
             )],
             LookupData {
-                range_check_data: range_check_data
+                range_check_data_20: range_check_data
                     .into_iter()
                     .zip(mults)
                     .map(Into::into)
@@ -204,11 +204,11 @@ impl InteractionClaim {
         impl IntoIterator<Item = CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         Self,
     ) {
-        let log_size = lookup_data.range_check_data.len().ilog2() + LOG_N_LANES;
+        let log_size = lookup_data.range_check_data_20.len().ilog2() + LOG_N_LANES;
         let mut interaction_trace = LogupTraceGenerator::new(log_size);
 
         let mut col = interaction_trace.new_col();
-        (col.par_iter_mut(), &lookup_data.range_check_data)
+        (col.par_iter_mut(), &lookup_data.range_check_data_20)
             .into_par_iter()
             .for_each(|(writer, value)| {
                 let denom: PackedQM31 = relation.combine(&[value[0]]);

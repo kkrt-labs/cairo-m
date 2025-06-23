@@ -6,9 +6,9 @@ use stwo_prover::core::fields::m31::BaseField;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
-use crate::preprocessed::range_check::RangeCheck;
+use crate::preprocessed::range_check_20::RangeCheck;
 
-pub mod range_check;
+pub mod range_check_20;
 
 pub trait PreProcessedColumn {
     fn log_size(&self) -> u32;
