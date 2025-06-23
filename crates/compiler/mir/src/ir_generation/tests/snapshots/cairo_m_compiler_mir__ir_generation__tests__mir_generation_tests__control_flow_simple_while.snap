@@ -40,10 +40,8 @@ module {
       if %2 then jump 2 else jump 3
 
     2:
-      %3 = %1 Add %0
-      store %1, %3
-      %4 = %0 Add 1
-      store %0, %4
+      %1 = %1 Add %0
+      %0 = %0 Add 1
       jump 1
 
     3:

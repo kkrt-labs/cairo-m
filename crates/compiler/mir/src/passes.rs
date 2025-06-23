@@ -4,8 +4,9 @@
 //! to improve code quality and remove dead code.
 
 use cairo_m_compiler_parser::parser::BinaryOp;
+use rustc_hash::FxHashMap;
 
-use crate::{InstructionKind, MirFunction, Terminator, Value};
+use crate::{Instruction, InstructionKind, MirFunction, Terminator, Value, ValueId};
 
 /// A trait for MIR optimization passes
 pub trait MirPass {
@@ -214,6 +215,345 @@ impl Validation {
     }
 }
 
+/// In-Place Optimization Pass
+///
+/// This pass identifies patterns where a value is loaded from memory, modified with
+/// a binary operation, and stored back to the same location. It optimizes these
+/// patterns to perform the operation directly on the memory location.
+///
+/// ### Before:
+/// ```mir
+/// %val = load %addr
+/// %tmp = binary_op Add, %val, %other
+/// store %addr, %tmp
+/// ```
+///
+/// ### After:
+/// ```mir
+/// %tmp = binary_op Add, %val, %other [in-place to %addr]
+/// // Load and Store instructions are removed
+/// ```
+#[derive(Debug, Default)]
+pub struct InPlaceOptimizationPass;
+
+impl InPlaceOptimizationPass {
+    /// Create a new in-place optimization pass
+    pub const fn new() -> Self {
+        Self
+    }
+}
+
+impl MirPass for InPlaceOptimizationPass {
+    fn run(&mut self, function: &mut MirFunction) -> bool {
+        let mut modified = false;
+        let use_counts = function.get_value_use_counts();
+
+        for block in function.basic_blocks.iter_mut() {
+            let mut i = 0;
+
+            while i < block.instructions.len() {
+                // Try to optimize the Load-BinaryOp-Store pattern
+                if let Some(skip_count) = self.try_optimize_load_binop_store_pattern(
+                    &mut block.instructions,
+                    i,
+                    &use_counts,
+                ) {
+                    modified = true;
+                    i += skip_count;
+                    continue;
+                }
+
+                // Try to optimize the simpler BinaryOp-Store pattern
+                if let Some(skip_count) =
+                    self.try_optimize_binop_store_pattern(&mut block.instructions, i, &use_counts)
+                {
+                    modified = true;
+                    i += skip_count;
+                    continue;
+                }
+
+                i += 1;
+            }
+        }
+
+        // Clean up all marked instructions after processing all blocks
+        if modified {
+            self.cleanup_removed_instructions(function);
+        }
+
+        modified
+    }
+
+    fn name(&self) -> &'static str {
+        "InPlaceOptimizationPass"
+    }
+}
+
+impl InPlaceOptimizationPass {
+    /// Try to optimize the Load-BinaryOp-Store pattern
+    /// Returns Some(skip_count) if optimization was applied, None otherwise
+    fn try_optimize_load_binop_store_pattern(
+        &self,
+        instructions: &mut [Instruction],
+        i: usize,
+        use_counts: &FxHashMap<ValueId, usize>,
+    ) -> Option<usize> {
+        // Need at least 3 instructions for this pattern
+        if i + 2 >= instructions.len() {
+            return None;
+        }
+
+        let (load_instr, binop_instr, store_instr) =
+            (&instructions[i], &instructions[i + 1], &instructions[i + 2]);
+
+        let (load_data, binop_data, store_data) =
+            self.extract_load_binop_store_data(load_instr, binop_instr, store_instr)?;
+
+        if self.is_valid_load_binop_store_pattern(&load_data, &binop_data, &store_data, use_counts)
+        {
+            self.apply_load_binop_store_optimization(
+                instructions,
+                i,
+                &binop_data,
+                load_data.addr_id,
+            );
+            return Some(3);
+        }
+
+        None
+    }
+
+    /// Try to optimize the BinaryOp-Store pattern
+    /// Returns Some(skip_count) if optimization was applied, None otherwise
+    fn try_optimize_binop_store_pattern(
+        &self,
+        instructions: &mut [Instruction],
+        i: usize,
+        use_counts: &FxHashMap<ValueId, usize>,
+    ) -> Option<usize> {
+        // Need at least 2 instructions for this pattern
+        if i + 1 >= instructions.len() {
+            return None;
+        }
+
+        let (binop_instr, store_instr) = (&instructions[i], &instructions[i + 1]);
+
+        let (binop_data, store_data) = self.extract_binop_store_data(binop_instr, store_instr)?;
+
+        if self.is_valid_binop_store_pattern(&binop_data, &store_data, use_counts) {
+            self.apply_binop_store_optimization(instructions, i, &binop_data, store_data.addr_id?);
+            return Some(2);
+        }
+
+        None
+    }
+
+    /// Extract data from Load-BinaryOp-Store instructions
+    fn extract_load_binop_store_data(
+        &self,
+        load_instr: &Instruction,
+        binop_instr: &Instruction,
+        store_instr: &Instruction,
+    ) -> Option<(LoadData, BinopData, StoreData)> {
+        let load_data = LoadData::from_instruction(load_instr)?;
+        let binop_data = BinopData::from_instruction(binop_instr)?;
+        let store_data = StoreData::from_instruction(store_instr)?;
+
+        Some((load_data, binop_data, store_data))
+    }
+
+    /// Extract data from BinaryOp-Store instructions
+    fn extract_binop_store_data(
+        &self,
+        binop_instr: &Instruction,
+        store_instr: &Instruction,
+    ) -> Option<(BinopData, StoreData)> {
+        let binop_data = BinopData::from_instruction(binop_instr)?;
+        let store_data = StoreData::from_instruction(store_instr)?;
+
+        Some((binop_data, store_data))
+    }
+
+    /// Check if the Load-BinaryOp-Store pattern is valid for optimization
+    fn is_valid_load_binop_store_pattern(
+        &self,
+        load_data: &LoadData,
+        binop_data: &BinopData,
+        store_data: &StoreData,
+        use_counts: &FxHashMap<ValueId, usize>,
+    ) -> bool {
+        let left_is_val = matches!(binop_data.left, Value::Operand(id) if id == load_data.val_id);
+        let right_is_val = matches!(binop_data.right, Value::Operand(id) if id == load_data.val_id);
+        let store_is_tmp =
+            matches!(store_data.value, Value::Operand(id) if id == binop_data.tmp_id);
+
+        load_data.address == store_data.address
+            && (left_is_val || right_is_val)
+            && store_is_tmp
+            && use_counts.get(&load_data.val_id).cloned() == Some(1)
+            && use_counts.get(&binop_data.tmp_id).cloned() == Some(1)
+    }
+
+    /// Check if the BinaryOp-Store pattern is valid for optimization
+    fn is_valid_binop_store_pattern(
+        &self,
+        binop_data: &BinopData,
+        store_data: &StoreData,
+        use_counts: &FxHashMap<ValueId, usize>,
+    ) -> bool {
+        let store_is_tmp =
+            matches!(store_data.value, Value::Operand(id) if id == binop_data.tmp_id);
+
+        if !store_is_tmp || use_counts.get(&binop_data.tmp_id).cloned() != Some(1) {
+            return false;
+        }
+
+        let left_is_store =
+            matches!(binop_data.left, Value::Operand(id) if Some(id) == store_data.addr_id);
+        let right_is_store =
+            matches!(binop_data.right, Value::Operand(id) if Some(id) == store_data.addr_id);
+
+        left_is_store || right_is_store
+    }
+
+    /// Apply the Load-BinaryOp-Store optimization
+    fn apply_load_binop_store_optimization(
+        &self,
+        instructions: &mut [Instruction],
+        i: usize,
+        binop_data: &BinopData,
+        addr_id: crate::ValueId,
+    ) {
+        let new_binop = Instruction {
+            kind: InstructionKind::BinaryOp {
+                op: binop_data.op,
+                dest: binop_data.tmp_id,
+                left: binop_data.left,
+                right: binop_data.right,
+                in_place_target: Some(addr_id),
+            },
+            ..instructions[i + 1].clone()
+        };
+
+        instructions[i + 1] = new_binop;
+        instructions[i] = Instruction::debug("removed: load".to_string(), vec![]);
+        instructions[i + 2] = Instruction::debug("removed: store".to_string(), vec![]);
+    }
+
+    /// Apply the BinaryOp-Store optimization
+    fn apply_binop_store_optimization(
+        &self,
+        instructions: &mut [Instruction],
+        i: usize,
+        binop_data: &BinopData,
+        addr_id: ValueId,
+    ) {
+        let new_binop = Instruction {
+            kind: InstructionKind::BinaryOp {
+                op: binop_data.op,
+                dest: binop_data.tmp_id,
+                left: binop_data.left,
+                right: binop_data.right,
+                in_place_target: Some(addr_id),
+            },
+            ..instructions[i].clone()
+        };
+
+        instructions[i] = new_binop;
+        instructions[i + 1] = Instruction::debug("removed: store".to_string(), vec![]);
+    }
+
+    /// Clean up instructions marked for removal
+    fn cleanup_removed_instructions(&self, function: &mut MirFunction) {
+        for block in function.basic_blocks.iter_mut() {
+            block.instructions.retain(|instr| {
+                !matches!(&instr.kind, InstructionKind::Debug { message, .. } if message.starts_with("removed:"))
+            });
+        }
+    }
+}
+
+/// Helper struct to hold Load instruction data
+struct LoadData {
+    val_id: crate::ValueId,
+    address: Value,
+    addr_id: crate::ValueId,
+}
+
+impl LoadData {
+    fn from_instruction(instr: &Instruction) -> Option<Self> {
+        if let InstructionKind::Load {
+            dest: val_id,
+            address: load_addr,
+        } = &instr.kind
+        {
+            let addr_id = load_addr.as_operand()?;
+            Some(Self {
+                val_id: *val_id,
+                address: *load_addr,
+                addr_id,
+            })
+        } else {
+            None
+        }
+    }
+}
+
+/// Helper struct to hold BinaryOp instruction data
+struct BinopData {
+    op: cairo_m_compiler_parser::parser::BinaryOp,
+    tmp_id: crate::ValueId,
+    left: Value,
+    right: Value,
+}
+
+impl BinopData {
+    const fn from_instruction(instr: &Instruction) -> Option<Self> {
+        if let InstructionKind::BinaryOp {
+            op,
+            dest: tmp_id,
+            left,
+            right,
+            in_place_target: None,
+        } = &instr.kind
+        {
+            Some(Self {
+                op: *op,
+                tmp_id: *tmp_id,
+                left: *left,
+                right: *right,
+            })
+        } else {
+            None
+        }
+    }
+}
+
+/// Helper struct to hold Store instruction data
+struct StoreData {
+    address: Value,
+    value: Value,
+    addr_id: Option<crate::ValueId>,
+}
+
+impl StoreData {
+    const fn from_instruction(instr: &Instruction) -> Option<Self> {
+        if let InstructionKind::Store {
+            address: store_addr,
+            value: store_val,
+        } = &instr.kind
+        {
+            Some(Self {
+                address: *store_addr,
+                value: *store_val,
+                addr_id: store_addr.as_operand(),
+            })
+        } else {
+            None
+        }
+    }
+}
+
 /// A pass manager that can run multiple passes in sequence
 #[derive(Default)]
 pub struct PassManager {
@@ -254,6 +594,7 @@ impl PassManager {
     /// Create a standard optimization pipeline
     pub fn standard_pipeline() -> Self {
         Self::new()
+            .add_pass(InPlaceOptimizationPass::new())
             .add_pass(FuseCmpBranch::new())
             .add_pass(DeadCodeElimination::new())
             .add_pass(Validation::new())

@@ -47,8 +47,7 @@ module {
       jump 4
 
     4:
-      %5 = %2 Add 1
-      store %2, %5
+      %2 = %2 Add 1
       jump 2
 
   }

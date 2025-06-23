@@ -45,22 +45,20 @@ neq_non_zero_0:
    7: 6 1 _ 3              // [fp + 3] = 1
 neq_end_1:
    8: 31 3 2 _             // if [fp + 3] != 0 jmp rel fibonacci_loop_2
-   9: 20 17 _ _            // jump abs fibonacci_loop_3
+   9: 20 15 _ _            // jump abs fibonacci_loop_3
 fibonacci_loop_2:
   10: 4 0 _ 4              // Store: [fp + 4] = [fp + 0]
   11: 4 1 _ 0              // Store: [fp + 0] = [fp + 1]
-  12: 0 1 4 5              // [fp + 5] = [fp + 1] op [fp + 4]
-  13: 4 5 _ 1              // Store: [fp + 1] = [fp + 5]
-  14: 1 2 1 6              // [fp + 6] = [fp + 2] op 1
-  15: 4 6 _ 2              // Store: [fp + 2] = [fp + 6]
-  16: 20 3 _ _             // jump abs fibonacci_loop_1
+  12: 0 1 4 1              // [fp + 1] = [fp + 1] op [fp + 4]
+  13: 1 2 1 2              // [fp + 2] = [fp + 2] op 1
+  14: 20 3 _ _             // jump abs fibonacci_loop_1
 fibonacci_loop_3:
-  17: 4 0 _ -3             // Return value: [fp - 3] = [fp + 0]
-  18: 15 _ _ _             // return
+  15: 4 0 _ -3             // Return value: [fp - 3] = [fp + 0]
+  16: 15 _ _ _             // return
 main:
-  19: 6 10 _ 0             // Store immediate: [fp + 0] = 10
-  20: 4 0 _ 1              // Arg 0: [fp + 1] = [fp + 0]
-  21: 12 3 0 _             // call fibonacci_loop
-  22: 4 2 _ 4              // Store: [fp + 4] = [fp + 2]
-  23: 4 4 _ -3             // Return value: [fp - 3] = [fp + 4]
-  24: 15 _ _ _             // return
+  17: 6 10 _ 0             // Store immediate: [fp + 0] = 10
+  18: 4 0 _ 1              // Arg 0: [fp + 1] = [fp + 0]
+  19: 12 3 0 _             // call fibonacci_loop
+  20: 4 2 _ 4              // Store: [fp + 4] = [fp + 2]
+  21: 4 4 _ -3             // Return value: [fp - 3] = [fp + 4]
+  22: 15 _ _ _             // return

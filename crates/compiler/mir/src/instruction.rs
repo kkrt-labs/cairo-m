@@ -63,6 +63,10 @@ pub enum InstructionKind {
         dest: ValueId,
         left: Value,
         right: Value,
+        /// If Some, indicates this operation should write its result
+        /// directly to the memory location represented by the given ValueId.
+        /// This is an optimization hint for the code generator.
+        in_place_target: Option<ValueId>,
     },
 
     /// Function call: `dest = call callee(args)`
@@ -141,6 +145,7 @@ impl Instruction {
                 dest,
                 left,
                 right,
+                in_place_target: None,
             },
             source_span: None,
             source_expr_id: None,
@@ -409,10 +414,18 @@ impl PrettyPrint for Instruction {
                 dest,
                 left,
                 right,
+                in_place_target,
             } => {
+                // If we have an in-place target, that's where the result actually goes
+                let dest_str = if let Some(target) = in_place_target {
+                    format!("%{}", target.index())
+                } else {
+                    dest.pretty_print(0)
+                };
+
                 result.push_str(&format!(
                     "{} = {} {:?} {}",
-                    dest.pretty_print(0),
+                    dest_str,
                     left.pretty_print(0),
                     op,
                     right.pretty_print(0)

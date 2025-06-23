@@ -1,0 +1,23 @@
+func test_in_place_update() -> felt {
+    let a = 5;
+    a = a + 1;
+    let b = 10;
+    b = b + a;
+    return b;
+}
+
+func test_loop_optimization() -> felt {
+    let i = 0;
+    let sum = 0;
+    while (i != 5) {
+        sum = sum + i;
+        i = i + 1;
+    }
+    return sum;
+}
+
+func main() -> felt {
+    let x = test_in_place_update();
+    let y = test_loop_optimization();
+    return x + y;
+}
