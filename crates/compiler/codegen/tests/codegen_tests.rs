@@ -146,5 +146,9 @@ codegen_test!(complex_condition, "control_flow");
 // --- Functions ---
 codegen_test!(simple_call, "functions");
 codegen_test!(fib, "functions");
+codegen_test!(fib_loop, "functions");
+
+// --- Optimization ---
+codegen_test!(in_place_update, "optimization");
 
 codegen_test!(random_instructions, "random_instructions");

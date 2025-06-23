@@ -45,8 +45,7 @@ module {
       jump 1
 
     1:
-      %2 = %0 Add 1
-      store %0, %2
+      %0 = %0 Add 1
       if %0 Eq 5 then jump 3 else jump 4
 
     2:
@@ -56,8 +55,7 @@ module {
       jump 1
 
     4:
-      %4 = %1 Add %0
-      store %1, %4
+      %1 = %1 Add %0
       if %0 Eq 10 then jump 5 else jump 6
 
     5:

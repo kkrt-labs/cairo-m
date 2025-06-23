@@ -197,9 +197,21 @@ impl CodeGenerator {
                 dest,
                 left,
                 right,
+                in_place_target,
             } => {
-                // Check if this binary operation result will be immediately returned
-                let target_offset = self.get_target_offset_for_dest(*dest, terminator);
+                // Check if this op can be performed in-place
+                let target_offset = if let Some(target_addr_id) = in_place_target {
+                    // The optimization applies. Get the offset for the target address.
+                    builder
+                        .layout_mut()
+                        .unwrap()
+                        .get_offset(*target_addr_id)
+                        .ok()
+                } else {
+                    // Check for the existing return-value optimization
+                    self.get_target_offset_for_dest(*dest, terminator)
+                };
+
                 builder.binary_op_with_target(*op, *dest, *left, *right, target_offset)?;
             }
 

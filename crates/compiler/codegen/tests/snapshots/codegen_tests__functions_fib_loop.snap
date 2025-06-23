@@ -1,0 +1,64 @@
+---
+source: crates/compiler/codegen/tests/codegen_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/compiler/codegen/tests/codegen_tests.rs
+expression: codegen_output
+---
+Fixture: fib_loop.cm
+============================================================
+Source code:
+func fibonacci_loop(n: felt) -> felt {
+    let a = 0;
+    let b = 1;
+    let i = 0;
+    while (i != n) {
+        let temp = a;
+        a = b;
+        b = b + temp;
+        i = i + 1;
+    }
+    return a;
+}
+
+func main() -> felt {
+    let n = 10;
+    let result = fibonacci_loop(n);
+    return result;
+}
+
+============================================================
+Generated CASM:
+fibonacci_loop:
+fibonacci_loop:
+fibonacci_loop_0:
+   0: 6 0 _ 0              // Store immediate: [fp + 0] = 0
+   1: 6 1 _ 1              // Store immediate: [fp + 1] = 1
+   2: 6 0 _ 2              // Store immediate: [fp + 2] = 0
+fibonacci_loop_1:
+   3: 2 2 -4 3             // [fp + 3] = [fp + 2] op [fp + -4]
+   4: 31 3 3 _             // if [fp + 3] != 0, jump to neq_non_zero_0
+   5: 6 0 _ 3              // [fp + 3] = 0
+   6: 20 8 _ _             // jump to neq_end_1
+neq_non_zero_0:
+   7: 6 1 _ 3              // [fp + 3] = 1
+neq_end_1:
+   8: 31 3 2 _             // if [fp + 3] != 0 jmp rel fibonacci_loop_2
+   9: 20 15 _ _            // jump abs fibonacci_loop_3
+fibonacci_loop_2:
+  10: 4 0 _ 4              // Store: [fp + 4] = [fp + 0]
+  11: 4 1 _ 0              // Store: [fp + 0] = [fp + 1]
+  12: 0 1 4 1              // [fp + 1] = [fp + 1] op [fp + 4]
+  13: 1 2 1 2              // [fp + 2] = [fp + 2] op 1
+  14: 20 3 _ _             // jump abs fibonacci_loop_1
+fibonacci_loop_3:
+  15: 4 0 _ -3             // Return value: [fp - 3] = [fp + 0]
+  16: 15 _ _ _             // return
+main:
+  17: 6 10 _ 0             // Store immediate: [fp + 0] = 10
+  18: 4 0 _ 1              // Arg 0: [fp + 1] = [fp + 0]
+  19: 12 3 0 _             // call fibonacci_loop
+  20: 4 2 _ 4              // Store: [fp + 4] = [fp + 2]
+  21: 4 4 _ -3             // Return value: [fp - 3] = [fp + 4]
+  22: 15 _ _ _             // return
