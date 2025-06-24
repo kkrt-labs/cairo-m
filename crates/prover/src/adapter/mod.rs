@@ -5,56 +5,43 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use cairo_m_common::opcode::Opcode;
+use cairo_m_runner::vm::state::State as VmRegisters;
+use cairo_m_runner::RunnerOutput;
 use io::VmImportError;
 use stwo_prover::core::fields::m31::M31;
+use stwo_prover::core::fields::qm31::QM31;
 use tracing::{span, Level};
 
 use crate::adapter::io::{MemoryEntryFileIter, TraceFileIter};
 use crate::adapter::memory::{Memory, MemoryArg, MemoryEntry};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ProverInput {
     pub memory_boundaries: Memory,
     pub instructions: Instructions,
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct VmRegisters {
-    pub pc: M31,
-    pub fp: M31,
-}
-
-impl From<crate::adapter::io::IoTraceEntry> for VmRegisters {
-    fn from(entry: crate::adapter::io::IoTraceEntry) -> Self {
-        Self {
-            pc: entry.pc.into(),
-            fp: entry.fp.into(),
-        }
-    }
-}
-
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub struct Instructions {
     pub initial_registers: VmRegisters,
     pub final_registers: VmRegisters,
     pub states_by_opcodes: HashMap<Opcode, Vec<StateData>>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub struct StateData {
     pub registers: VmRegisters,
     pub memory_args: [MemoryArg; 4],
 }
 
-pub fn import_from_vm_output(
-    trace_path: &Path,
-    mem_path: &Path,
-) -> Result<ProverInput, VmImportError> {
-    let _span = span!(Level::INFO, "import_from_vm_output").entered();
-
-    let mut trace_iter = TraceFileIter::try_from(trace_path)?.peekable();
-    let mut memory_iter = MemoryEntryFileIter::try_from(mem_path)?;
-
+fn import_internal<TraceIter, MemoryIter>(
+    mut trace_iter: std::iter::Peekable<TraceIter>,
+    mut memory_iter: MemoryIter,
+) -> Result<ProverInput, VmImportError>
+where
+    TraceIter: Iterator<Item = (M31, M31)>,
+    MemoryIter: Iterator<Item = (M31, QM31)>,
+{
     let mut memory = Memory::default();
     // Initial memory uses clock = 0
     let mut clock = 1;
@@ -62,16 +49,20 @@ pub fn import_from_vm_output(
 
     let initial_registers: VmRegisters = trace_iter
         .peek()
-        .map(|&entry| entry.into())
+        .map(|&(pc, fp)| VmRegisters { pc, fp })
         .ok_or(VmImportError::EmptyTrace)?;
-    let mut final_registers = initial_registers.clone();
+    let mut final_registers = initial_registers;
 
-    for trace_entry in trace_iter {
+    for (pc, fp) in trace_iter {
         let mut memory_args: [MemoryArg; 4] = Default::default();
 
-        let mut opcode_entry: MemoryEntry =
-            memory_iter.next().ok_or(VmImportError::EmptyTrace)?.into();
-        opcode_entry.clock = clock.into();
+        let (address, value) = memory_iter.next().ok_or(VmImportError::EmptyTrace)?;
+        let opcode_entry = MemoryEntry {
+            address,
+            value,
+            clock: clock.into(),
+        };
+
         memory_args[0] = memory.push(opcode_entry);
 
         let opcode: Opcode = Opcode::try_from(opcode_entry.value)?;
@@ -80,14 +71,17 @@ pub fn import_from_vm_output(
             .by_ref()
             .take(opcode.info().memory_accesses)
             .enumerate()
-            .for_each(|(i, entry)| {
-                let mut entry: MemoryEntry = entry.into();
-                entry.clock = clock.into();
+            .for_each(|(i, (address, value))| {
+                let entry = MemoryEntry {
+                    address,
+                    value,
+                    clock: clock.into(),
+                };
                 memory_args[i + 1] = memory.push(entry);
             });
 
         let state_data = StateData {
-            registers: trace_entry.into(),
+            registers: VmRegisters { pc, fp },
             memory_args,
         };
 
@@ -96,7 +90,7 @@ pub fn import_from_vm_output(
             .or_default()
             .push(state_data);
 
-        final_registers = trace_entry.into();
+        final_registers = VmRegisters { pc, fp };
         clock += 1;
     }
 
@@ -108,4 +102,43 @@ pub fn import_from_vm_output(
             states_by_opcodes,
         },
     })
+}
+
+pub fn import_from_vm_output(
+    trace_path: &Path,
+    mem_path: &Path,
+) -> Result<ProverInput, VmImportError> {
+    let _span = span!(Level::INFO, "import_from_vm_output").entered();
+
+    let trace_iter = TraceFileIter::try_from(trace_path)?
+        .map(|entry| (entry.pc.into(), entry.fp.into()))
+        .peekable();
+
+    let memory_file_iter = MemoryEntryFileIter::try_from(mem_path)?;
+    let memory_iter = memory_file_iter.map(|io_entry| {
+        (
+            io_entry.address.into(),
+            QM31::from_u32_unchecked(
+                io_entry.value[0],
+                io_entry.value[1],
+                io_entry.value[2],
+                io_entry.value[3],
+            ),
+        )
+    });
+
+    import_internal(trace_iter, memory_iter)
+}
+
+pub fn import_from_runner_output(
+    runner_output: &RunnerOutput,
+) -> Result<ProverInput, VmImportError> {
+    let _span = span!(Level::INFO, "import_from_runner_output").entered();
+
+    let vm = &runner_output.vm;
+    let trace_iter = vm.trace.iter().map(|e| (e.pc, e.fp)).peekable();
+    let memory_trace = vm.memory.trace.borrow();
+    let memory_iter = memory_trace.iter().map(|e| (e.addr, e.value));
+
+    import_internal(trace_iter, memory_iter)
 }

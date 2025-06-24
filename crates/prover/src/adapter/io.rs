@@ -24,8 +24,8 @@ pub enum VmImportError {
 #[repr(C)]
 #[derive(Copy, Clone, Default, Pod, Zeroable, Debug, PartialEq, Eq)]
 pub struct IoTraceEntry {
-    pub pc: u32,
     pub fp: u32,
+    pub pc: u32,
 }
 
 #[repr(C)]
