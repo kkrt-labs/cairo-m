@@ -85,8 +85,11 @@ where
     info!("interaction trace");
     let relations = Relations::draw(channel);
 
-    let (interaction_trace, interaction_claim) =
-        InteractionClaim::write_interaction_trace(&relations, &lookup_data);
+    let (interaction_trace, interaction_claim) = InteractionClaim::write_interaction_trace(
+        claim.public_data.clone(),
+        &relations,
+        &lookup_data,
+    );
     interaction_claim.mix_into(channel);
 
     let mut tree_builder = commitment_scheme.tree_builder();

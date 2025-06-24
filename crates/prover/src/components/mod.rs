@@ -7,29 +7,47 @@ use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 pub use stwo_air_utils::trace::component_trace::ComponentTrace;
 pub use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
-use stwo_prover::constraint_framework::TraceLocationAllocator;
+use stwo_prover::constraint_framework::{Relation, TraceLocationAllocator};
 use stwo_prover::core::air::{Component as ComponentVerifier, ComponentProver};
 pub use stwo_prover::core::backend::simd::m31::PackedM31;
 use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::backend::BackendForChannel;
 use stwo_prover::core::channel::{Channel, MerkleChannel};
 use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::SecureField;
+use stwo_prover::core::fields::qm31::{SecureField, QM31};
+use stwo_prover::core::fields::FieldExpOps;
 use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
-use crate::adapter::ProverInput;
+use crate::adapter::{Instructions, ProverInput, VmRegisters};
 use crate::preprocessed::range_check::range_check_20;
 use crate::relations;
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
+pub struct PublicData {
+    pub initial_registers: VmRegisters,
+    pub final_registers: VmRegisters,
+}
+
+impl PublicData {
+    pub fn new(input: &Instructions) -> Self {
+        Self {
+            initial_registers: input.initial_registers.clone(),
+            final_registers: input.final_registers.clone(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct Claim {
+    pub public_data: PublicData,
     pub memory: memory::Claim,
     pub range_check_20: range_check_20::Claim,
 }
 
 pub struct Relations {
+    pub registers: relations::Registers,
     pub memory: relations::Memory,
     pub range_check_20: relations::RangeCheck_20,
 }
@@ -41,6 +59,7 @@ pub struct LookupData {
 
 #[derive(Serialize, Deserialize)]
 pub struct InteractionClaim {
+    pub public_data: PublicData,
     pub memory: memory::InteractionClaim,
     pub range_check_20: range_check_20::InteractionClaim,
 }
@@ -92,6 +111,7 @@ impl Claim {
 
         (
             Self {
+                public_data: PublicData::new(&input.instructions),
                 memory: memory_claim,
                 range_check_20: range_check_20_claim,
             },
@@ -103,6 +123,7 @@ impl Claim {
 
 impl InteractionClaim {
     pub fn write_interaction_trace(
+        public_data: PublicData,
         relations: &Relations,
         lookup_data: &LookupData,
     ) -> (
@@ -126,14 +147,38 @@ impl InteractionClaim {
                 .into_iter()
                 .chain(range_check_20_interaction_trace),
             Self {
+                public_data,
                 memory: memory_interaction_claim,
                 range_check_20: range_check_20_interaction_claim,
             },
         )
     }
 
-    pub fn claimed_sum(&self) -> SecureField {
+    pub fn initial_logup_sum(&self, relations: &Relations) -> SecureField {
+        let values_to_inverse = vec![
+            (-<relations::Registers as Relation<M31, QM31>>::combine(
+                &relations.registers,
+                &[
+                    self.public_data.initial_registers.pc,
+                    self.public_data.initial_registers.fp,
+                ],
+            )),
+            <relations::Registers as Relation<M31, QM31>>::combine(
+                &relations.registers,
+                &[
+                    self.public_data.final_registers.pc,
+                    self.public_data.final_registers.fp,
+                ],
+            ),
+        ];
+
+        let inverted_values = QM31::batch_inverse(&values_to_inverse);
+        inverted_values.iter().sum::<QM31>()
+    }
+
+    pub fn claimed_sum(&self, relations: &Relations) -> SecureField {
         let mut sum = SecureField::zero();
+        sum += self.initial_logup_sum(relations);
         sum += self.memory.claimed_sum;
         sum += self.range_check_20.claimed_sum;
         sum
@@ -148,6 +193,7 @@ impl InteractionClaim {
 impl Relations {
     pub fn draw(channel: &mut impl Channel) -> Self {
         Self {
+            registers: relations::Registers::draw(channel),
             memory: relations::Memory::draw(channel),
             range_check_20: relations::RangeCheck_20::draw(channel),
         }
