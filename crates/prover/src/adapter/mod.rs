@@ -50,7 +50,8 @@ where
 
     let initial_registers: VmRegisters = trace_iter
         .peek()
-        .map(|&v| v.into())
+        .copied()
+        .map(Into::into)
         .ok_or(VmImportError::EmptyTrace)?;
     let mut final_registers = initial_registers;
 
@@ -105,11 +106,11 @@ where
     })
 }
 
-pub fn import_from_runner_json(
+pub fn import_from_runner_artifacts(
     trace_path: &Path,
     mem_path: &Path,
 ) -> Result<ProverInput, VmImportError> {
-    let _span = span!(Level::INFO, "import_from_runner_json").entered();
+    let _span = span!(Level::INFO, "import_from_runner_artifacts").entered();
 
     let trace_iter =
         TraceFileIter::try_from(trace_path)?.map(|entry| (entry.pc.into(), entry.fp.into()));
