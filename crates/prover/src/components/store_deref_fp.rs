@@ -388,17 +388,17 @@ impl FrameworkEval for Eval {
                 off0.clone(),
                 off1.clone(),
                 off2.clone(),
-                instruction_prev_clock.clone(),
+                instruction_prev_clock,
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
             E::EF::from(enabler.clone()),
             &[
-                pc.clone(),
-                opcode_id.clone(),
+                pc,
+                opcode_id,
                 off0.clone(),
-                off1.clone(),
+                off1,
                 off2.clone(),
                 clock.clone(),
             ],
@@ -414,15 +414,15 @@ impl FrameworkEval for Eval {
                 zero.clone(),
                 zero.clone(),
                 zero.clone(),
-                src_prev_clock.clone(),
+                src_prev_clock,
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
             E::EF::from(enabler.clone()),
             &[
-                fp.clone() + off0.clone(),
-                src_value.clone(),
+                fp.clone() + off0,
+                src_value,
                 zero.clone(),
                 zero.clone(),
                 zero.clone(),
@@ -439,19 +439,19 @@ impl FrameworkEval for Eval {
                 zero.clone(),
                 zero.clone(),
                 zero.clone(),
-                dst_prev_clock.clone(),
+                dst_prev_clock,
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
-            E::EF::from(enabler.clone()),
+            E::EF::from(enabler),
             &[
-                fp.clone() + off2.clone(),
-                dst_prev_value.clone(),
+                fp + off2,
+                dst_prev_value,
                 zero.clone(),
                 zero.clone(),
-                zero.clone(),
-                clock.clone(),
+                zero,
+                clock,
             ],
         ));
 
