@@ -1,20 +1,20 @@
+use cairo_m_common::State;
 use num_traits::One;
 use stwo_prover::core::fields::m31::M31;
 
-/// The state of the VM, updated at each step.
-///
-/// * `pc` is the program counter, pointing to the current instruction.
-/// * `fp` is the frame pointer, pointing to the current frame.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct State {
-    pub pc: M31,
-    pub fp: M31,
+pub trait VmState {
+    fn advance(self) -> Self;
+    fn jump_abs(self, offset: M31) -> Self;
+    fn jump_rel(self, offset: M31) -> Self;
+    fn call_abs(self, pc: M31, fp_offset: M31) -> Self;
+    fn call_rel(self, pc_offset: M31, fp_offset: M31) -> Self;
+    fn ret(self, pc: M31, fp: M31) -> Self;
 }
 
-impl State {
+impl VmState for State {
     /// Regular register update.
     /// Advance the program counter by 1.
-    pub fn advance(self) -> Self {
+    fn advance(self) -> Self {
         Self {
             pc: self.pc + M31::one(),
             fp: self.fp,
@@ -23,7 +23,7 @@ impl State {
 
     /// Absolute jump register update.
     /// Set the program counter to the offset.
-    pub const fn jump_abs(self, offset: M31) -> Self {
+    fn jump_abs(self, offset: M31) -> Self {
         Self {
             pc: offset,
             fp: self.fp,
@@ -32,7 +32,7 @@ impl State {
 
     /// Relative jump register update.
     /// Increment the program counter by the offset.
-    pub fn jump_rel(self, offset: M31) -> Self {
+    fn jump_rel(self, offset: M31) -> Self {
         Self {
             pc: self.pc + offset,
             fp: self.fp,
@@ -45,7 +45,7 @@ impl State {
     /// Update the frame pointer to the given value.
     /// * pc - The next PC.
     /// * fp_offset - The offset to the new frame pointer.
-    pub fn call_abs(self, pc: M31, fp_offset: M31) -> Self {
+    fn call_abs(self, pc: M31, fp_offset: M31) -> Self {
         Self {
             pc,
             fp: self.fp + fp_offset,
@@ -58,7 +58,7 @@ impl State {
     /// Update the frame pointer to the given value.
     /// * pc_offset - The offset to the next PC.
     /// * fp_offset - The offset to the new frame pointer.
-    pub fn call_rel(self, pc_offset: M31, fp_offset: M31) -> Self {
+    fn call_rel(self, pc_offset: M31, fp_offset: M31) -> Self {
         Self {
             pc: self.pc + pc_offset,
             fp: self.fp + fp_offset,
@@ -70,17 +70,18 @@ impl State {
     /// Set the frame pointer to the given value.
     /// * pc - The next PC.
     /// * fp - The caller's frame pointer.
-    pub const fn ret(self, pc: M31, fp: M31) -> Self {
+    fn ret(self, pc: M31, fp: M31) -> Self {
         Self { pc, fp }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use cairo_m_common::State;
     use num_traits::{One, Zero};
     use stwo_prover::core::fields::m31::M31;
 
-    use crate::vm::State;
+    use crate::vm::state::VmState;
 
     #[test]
     fn test_state_default() {

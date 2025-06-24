@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use cairo_m_common::opcode::Opcode;
-use cairo_m_runner::vm::state::State as VmRegisters;
+use cairo_m_common::State as VmRegisters;
 use cairo_m_runner::RunnerOutput;
 use io::VmImportError;
 use stwo_prover::core::fields::m31::M31;
@@ -49,7 +49,7 @@ where
 
     let initial_registers: VmRegisters = trace_iter
         .peek()
-        .map(|&(pc, fp)| VmRegisters { pc, fp })
+        .map(|&v| v.into())
         .ok_or(VmImportError::EmptyTrace)?;
     let mut final_registers = initial_registers;
 
@@ -81,7 +81,7 @@ where
             });
 
         let state_data = StateData {
-            registers: VmRegisters { pc, fp },
+            registers: (pc, fp).into(),
             memory_args,
         };
 
@@ -90,7 +90,7 @@ where
             .or_default()
             .push(state_data);
 
-        final_registers = VmRegisters { pc, fp };
+        final_registers = (pc, fp).into();
         clock += 1;
     }
 

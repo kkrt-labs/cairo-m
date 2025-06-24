@@ -1,9 +1,9 @@
 //! JUMP instructions for the Cairo M VM.
 
-use cairo_m_common::Instruction;
+use cairo_m_common::{Instruction, State};
 
 use crate::memory::{Memory, MemoryError};
-use crate::vm::State;
+use crate::vm::state::VmState;
 
 /// CASM equivalent:
 /// ```casm
@@ -70,7 +70,7 @@ pub fn jmp_abs_double_deref_fp(
 /// ```casm
 /// jmp abs imm
 /// ```
-pub const fn jmp_abs_imm(
+pub fn jmp_abs_imm(
     _: &mut Memory,
     state: State,
     instruction: &Instruction,

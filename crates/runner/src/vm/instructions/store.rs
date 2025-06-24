@@ -2,10 +2,10 @@
 //!
 //! STORE instructions are used to store values in the memory.
 
-use cairo_m_common::Instruction;
+use cairo_m_common::{Instruction, State};
 
 use crate::memory::{Memory, MemoryError};
-use crate::vm::State;
+use crate::vm::state::VmState;
 
 /// CASM equivalent:
 /// ```casm

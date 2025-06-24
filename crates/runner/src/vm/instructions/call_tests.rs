@@ -1,6 +1,7 @@
-use cairo_m_common::Opcode;
+use cairo_m_common::{Opcode, State};
 
 use super::*;
+use crate::vm::state::VmState;
 use crate::vm::test_utils::*;
 
 #[test]
