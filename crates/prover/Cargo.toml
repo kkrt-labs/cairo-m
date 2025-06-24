@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+serde.workspace = true
 stwo-prover.workspace = true
 stwo-air-utils.workspace = true
 stwo-air-utils-derive.workspace = true

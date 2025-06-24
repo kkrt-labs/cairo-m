@@ -2,6 +2,7 @@ use num_traits::Zero;
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator,
 };
+use serde::{Deserialize, Serialize};
 use stwo_air_utils::trace::component_trace::ComponentTrace;
 use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
 use stwo_prover::constraint_framework::logup::LogupTraceGenerator;
@@ -25,12 +26,12 @@ use crate::relations;
 
 const N_M31_IN_MEMORY_ENTRY: usize = 7; // Address, value, clock, multiplicity
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Serialize, Deserialize)]
 pub struct Claim {
     pub log_size: u32,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct InteractionClaim {
     pub claimed_sum: SecureField,
 }

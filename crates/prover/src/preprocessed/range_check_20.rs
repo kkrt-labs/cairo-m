@@ -4,6 +4,7 @@ use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
 };
 use rayon::slice::ParallelSlice;
+use serde::{Deserialize, Serialize};
 use stwo_prover::constraint_framework::logup::LogupTraceGenerator;
 use stwo_prover::constraint_framework::preprocessed_columns::PreProcessedColumnId;
 use stwo_prover::constraint_framework::{
@@ -63,7 +64,7 @@ pub struct LookupData {
     pub range_check_20: Vec<[PackedM31; 2]>,
 }
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, Serialize, Deserialize)]
 pub struct Claim {
     pub log_size: u32,
 }
@@ -141,7 +142,7 @@ impl Claim {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct InteractionClaim {
     pub claimed_sum: SecureField,
 }

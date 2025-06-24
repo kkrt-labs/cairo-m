@@ -11,11 +11,13 @@ pub mod prover;
 pub mod relations;
 pub mod verifier;
 
+use serde::{Deserialize, Serialize};
 use stwo_prover::core::prover::StarkProof;
 use stwo_prover::core::vcs::ops::MerkleHasher;
 
 use crate::components::{Claim, InteractionClaim};
 
+#[derive(Serialize, Deserialize)]
 pub struct Proof<H: MerkleHasher> {
     pub claim: Claim,
     pub interaction_claim: InteractionClaim,
