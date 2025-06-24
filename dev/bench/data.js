@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1750777985265,
+  "lastUpdate": 1750782612836,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -699,6 +699,58 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/serialize_memory_trace",
             "value": 130629782,
             "range": "± 974860",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Mathieu",
+            "username": "enitrat",
+            "email": "60658558+enitrat@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "e81f2ed6d0fc1b235ea0dbffb2152284f39bb658",
+          "message": "feat(compiler): optimize calls with args already in order (#102)",
+          "timestamp": "2025-06-24T16:20:13Z",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/e81f2ed6d0fc1b235ea0dbffb2152284f39bb658"
+        },
+        "date": 1750782611847,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/e2e",
+            "value": 1652112771,
+            "range": "± 17003240",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 258196910,
+            "range": "± 2195278",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/io_only",
+            "value": 1033314140,
+            "range": "± 34212353",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/serialize_vm_trace",
+            "value": 23199652,
+            "range": "± 251018",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/serialize_memory_trace",
+            "value": 128645093,
+            "range": "± 1048221",
             "unit": "ns/iter"
           }
         ]
