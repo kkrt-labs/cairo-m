@@ -428,6 +428,7 @@ dependencies = [
  "cairo-m-common",
  "cairo-m-compiler",
  "cairo-m-runner",
+ "criterion",
  "itertools 0.12.1",
  "num-traits",
  "rand",

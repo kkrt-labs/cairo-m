@@ -20,7 +20,7 @@ use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::adapter::ProverInput;
-use crate::preprocessed::range_check_20;
+use crate::preprocessed::range_check::range_check_20;
 use crate::relations;
 
 #[derive(Default, Serialize, Deserialize)]

@@ -6,7 +6,6 @@ use rayon::iter::{
 use rayon::slice::ParallelSlice;
 use serde::{Deserialize, Serialize};
 use stwo_prover::constraint_framework::logup::LogupTraceGenerator;
-use stwo_prover::constraint_framework::preprocessed_columns::PreProcessedColumnId;
 use stwo_prover::constraint_framework::{
     EvalAtRow, FrameworkComponent, FrameworkEval, Relation, RelationEntry,
 };
@@ -18,47 +17,16 @@ use stwo_prover::core::backend::BackendForChannel;
 use stwo_prover::core::channel::{Channel, MerkleChannel};
 use stwo_prover::core::fields::m31::{BaseField, M31};
 use stwo_prover::core::fields::qm31::SecureField;
-use stwo_prover::core::fields::ExtensionOf;
+use stwo_prover::core::fields::secure_column::SECURE_EXTENSION_DEGREE;
 use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::{CanonicCoset, CircleEvaluation};
 use stwo_prover::core::poly::BitReversedOrder;
 
+use crate::preprocessed::range_check::RangeCheck;
 use crate::preprocessed::PreProcessedColumn;
 use crate::relations::RangeCheck_20;
 
 const LOG_SIZE_RC_20: u32 = 20;
-
-const SECURE_EXTENSION_DEGREE: usize = <SecureField as ExtensionOf<BaseField>>::EXTENSION_DEGREE;
-
-pub struct RangeCheck {
-    range: u32,
-}
-
-impl RangeCheck {
-    pub fn new(range: u32) -> Self {
-        debug_assert!(range > 0);
-        Self { range }
-    }
-}
-
-impl PreProcessedColumn for RangeCheck {
-    fn log_size(&self) -> u32 {
-        self.range
-    }
-
-    fn gen_column_simd(&self) -> CircleEvaluation<SimdBackend, BaseField, BitReversedOrder> {
-        CircleEvaluation::new(
-            CanonicCoset::new(self.log_size()).circle_domain(),
-            BaseColumn::from_iter((0..1 << self.range).map(M31)),
-        )
-    }
-
-    fn id(&self) -> PreProcessedColumnId {
-        PreProcessedColumnId {
-            id: format!("range_check_{}", self.range),
-        }
-    }
-}
 
 pub struct LookupData {
     pub range_check_20: Vec<[PackedM31; 2]>,
@@ -70,14 +38,6 @@ pub struct Claim {
 }
 
 impl Claim {
-    pub fn new(log_size: u32) -> Self {
-        debug_assert!(
-            log_size >= LOG_N_LANES,
-            "log_size must be at least LOG_N_LANES"
-        );
-        Self { log_size }
-    }
-
     pub fn log_sizes(&self) -> TreeVec<Vec<u32>> {
         let trace = vec![self.log_size; 1];
         let interaction_trace = vec![self.log_size; SECURE_EXTENSION_DEGREE];

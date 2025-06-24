@@ -22,3 +22,8 @@ cairo-m-common.workspace = true
 [dev-dependencies]
 tempfile = "3.0"
 itertools.workspace = true
+criterion.workspace = true
+
+[[bench]]
+name = "range_check_init"
+harness = false
