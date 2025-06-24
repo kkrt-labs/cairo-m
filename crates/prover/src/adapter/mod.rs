@@ -105,11 +105,11 @@ where
     })
 }
 
-pub fn import_from_vm_output(
+pub fn import_from_runner_json(
     trace_path: &Path,
     mem_path: &Path,
 ) -> Result<ProverInput, VmImportError> {
-    let _span = span!(Level::INFO, "import_from_vm_output").entered();
+    let _span = span!(Level::INFO, "import_from_runner_json").entered();
 
     let trace_iter =
         TraceFileIter::try_from(trace_path)?.map(|entry| (entry.pc.into(), entry.fp.into()));
