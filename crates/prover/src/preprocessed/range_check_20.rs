@@ -59,7 +59,7 @@ impl PreProcessedColumn for RangeCheck {
 }
 
 pub struct LookupData {
-    pub range_check_data_20: Vec<[PackedM31; 2]>,
+    pub range_check_20: Vec<[PackedM31; 2]>,
 }
 
 #[derive(Copy, Clone, Default)]
