@@ -1,5 +1,6 @@
 use num_traits::identities::One;
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use serde::{Deserialize, Serialize};
 use stwo_air_utils::trace::component_trace::ComponentTrace;
 use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
 use stwo_prover::constraint_framework::logup::LogupTraceGenerator;
@@ -28,7 +29,7 @@ const N_REGISTERS_LOOKUPS: usize = 2; // - (pc_prev, fp_prev) & + (pc_next, fp_n
 const N_MEMORY_LOOKUPS: usize = 2 * 2; // - (prev_instruction) & + (next_instruction) & - (prev_write) & + (next_write)
 const N_INTERACTION_COLUMNS: usize = (N_REGISTERS_LOOKUPS + N_MEMORY_LOOKUPS).div_ceil(2);
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Clone, Serialize, Deserialize)]
 pub struct Claim {
     pub log_size: u32,
 }
@@ -41,7 +42,7 @@ pub struct LookupData {
     pub memory: [Vec<[PackedM31; 6]>; N_MEMORY_LOOKUPS],
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct InteractionClaim {
     pub claimed_sum: SecureField,
 }
@@ -75,8 +76,7 @@ impl Claim {
         };
 
         // Pack inputs.
-        let column_length = 1 << log_size;
-        inputs.resize(column_length, StateData::default());
+        inputs.resize(1 << log_size, StateData::default());
         let packed_inputs: Vec<PackedStateData> = inputs
             .chunks(N_LANES)
             .map(|chunk| {
@@ -85,7 +85,8 @@ impl Claim {
             })
             .collect();
 
-        let M31_0 = PackedM31::broadcast(M31::from(0));
+        let zero = PackedM31::broadcast(M31::from(0));
+        let one = PackedM31::broadcast(M31::from(1));
         let enabler_col = Enabler::new(non_padded_length);
 
         trace
@@ -95,11 +96,10 @@ impl Claim {
             .enumerate()
             .for_each(|(row_index, ((mut row, input), lookup_data))| {
                 *row[0] = enabler_col.packed_at(row_index);
-                // Current registers
                 *row[1] = input.pc;
                 *row[2] = input.fp;
                 *lookup_data.registers[0] = [input.pc, input.fp];
-                *lookup_data.registers[1] = [input.pc + M31::one(), input.fp];
+                *lookup_data.registers[1] = [input.pc + one, input.fp];
 
                 // Memory read: instruction
                 let opcode_id = input.mem0_value_0;
@@ -125,12 +125,12 @@ impl Claim {
                 *lookup_data.memory[2] = [
                     input.fp + off0,
                     dst_prev_val,
-                    M31_0,
-                    M31_0,
-                    M31_0,
+                    zero,
+                    zero,
+                    zero,
                     dst_prev_clock,
                 ];
-                *lookup_data.memory[3] = [input.fp + off0, off2, M31_0, M31_0, M31_0, clock];
+                *lookup_data.memory[3] = [input.fp + off0, off2, zero, zero, zero, clock];
             });
         (Self { log_size }, trace, lookup_data, non_padded_length)
     }
@@ -221,22 +221,24 @@ impl FrameworkEval for Eval {
 
     #[allow(non_snake_case)]
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
-        let M31_0 = E::F::from(M31::from(0));
-        let M31_1 = E::F::from(M31::from(1));
-        // Use initial state (pc, fp)
+        let zero = E::F::from(M31::from(0));
+        let one = E::F::from(M31::from(1));
+
+        // 11 columns
         let enabler = eval.next_trace_mask();
         let pc = eval.next_trace_mask();
         let fp = eval.next_trace_mask();
-        let inst_val_0 = eval.next_trace_mask();
-        let inst_val_1 = eval.next_trace_mask();
-        let inst_val_2 = eval.next_trace_mask();
-        let inst_val_3 = eval.next_trace_mask();
+        let opcode_id = eval.next_trace_mask();
+        let imm = eval.next_trace_mask();
+        let off1 = eval.next_trace_mask();
+        let off2 = eval.next_trace_mask();
         let clock = eval.next_trace_mask();
         let inst_prev_clock = eval.next_trace_mask();
         let dst_prev_val = eval.next_trace_mask();
         let dst_prev_clock = eval.next_trace_mask();
 
-        eval.add_constraint(enabler.clone() * (M31_1 - enabler.clone()));
+        // Enabler is 1 or 0
+        eval.add_constraint(enabler.clone() * (one - enabler.clone()));
 
         // Update registers
         eval.add_to_relation(RelationEntry::new(
@@ -250,16 +252,16 @@ impl FrameworkEval for Eval {
             &[pc.clone() + E::F::one(), fp.clone()],
         ));
 
-        // Memory read: instruction at [pc]
+        // Check that the opcode is read from the memory
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
             -E::EF::from(enabler.clone()),
             &[
                 pc.clone(),
-                inst_val_0.clone(),
-                inst_val_1.clone(),
-                inst_val_2.clone(),
-                inst_val_3.clone(),
+                opcode_id.clone(),
+                imm.clone(),
+                off1.clone(),
+                off2.clone(),
                 inst_prev_clock,
             ],
         ));
@@ -268,38 +270,31 @@ impl FrameworkEval for Eval {
             E::EF::from(enabler.clone()),
             &[
                 pc,
-                inst_val_0,
-                inst_val_1.clone(),
-                inst_val_2,
-                inst_val_3.clone(),
+                opcode_id,
+                imm.clone(),
+                off1,
+                off2.clone(),
                 clock.clone(),
             ],
         ));
 
-        // Memory read: [fp + off2]
+        // Check the write at fp + off2
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
             -E::EF::from(enabler.clone()),
             &[
-                fp.clone() + inst_val_1.clone(),
+                fp.clone() + off2.clone(),
                 dst_prev_val,
-                M31_0.clone(),
-                M31_0.clone(),
-                M31_0.clone(),
+                zero.clone(),
+                zero.clone(),
+                zero.clone(),
                 dst_prev_clock,
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
             E::EF::from(enabler),
-            &[
-                fp + inst_val_1,
-                inst_val_3,
-                M31_0.clone(),
-                M31_0.clone(),
-                M31_0,
-                clock,
-            ],
+            &[fp + off2, imm, zero.clone(), zero.clone(), zero, clock],
         ));
 
         eval.finalize_logup_in_pairs();
