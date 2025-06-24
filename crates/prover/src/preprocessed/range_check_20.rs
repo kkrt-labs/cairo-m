@@ -25,6 +25,8 @@ use stwo_prover::core::poly::BitReversedOrder;
 use crate::preprocessed::PreProcessedColumn;
 use crate::relations::RangeCheck_20;
 
+const LOG_SIZE_RC_20: u32 = 20;
+
 const SECURE_EXTENSION_DEGREE: usize = <SecureField as ExtensionOf<BaseField>>::EXTENSION_DEGREE;
 
 pub struct RangeCheck {
@@ -95,9 +97,9 @@ impl Claim {
     where
         SimdBackend: BackendForChannel<MC>,
     {
-        let log_size = lookup_data.len().ilog2() + LOG_N_LANES;
-
-        let mults_atomic: Vec<AtomicU32> = (0..1 << log_size).map(|_| AtomicU32::new(0)).collect();
+        let mults_atomic: Vec<AtomicU32> = (0..1 << LOG_SIZE_RC_20)
+            .map(|_| AtomicU32::new(0))
+            .collect();
 
         lookup_data.par_iter().for_each(|entry| {
             for element in entry.to_array() {
@@ -123,11 +125,14 @@ impl Claim {
             })
             .collect();
 
-        let domain = CanonicCoset::new(self.log_size).circle_domain();
+        let domain = CanonicCoset::new(LOG_SIZE_RC_20).circle_domain();
         (
+            Self {
+                log_size: LOG_SIZE_RC_20,
+            },
             [CircleEvaluation::<SimdBackend, M31, BitReversedOrder>::new(
                 domain,
-                BaseColumn::from_cpu(mults),
+                BaseColumn::from_iter(mults),
             )],
             LookupData {
                 range_check_20: mults_packed,
@@ -190,7 +195,7 @@ impl FrameworkEval for Eval {
     }
 
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
-        let value = eval.get_preprocessed_column(RangeCheck::new(self.claim.log_size).id());
+        let value = eval.get_preprocessed_column(RangeCheck::new(20).id());
         let multiplicity = eval.next_trace_mask();
 
         eval.add_to_relation(RelationEntry::new(

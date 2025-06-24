@@ -44,22 +44,12 @@ pub struct InteractionClaim {
 }
 
 impl Claim {
-    pub fn new() -> Self {
-        Self {
-            memory: memory::Claim::default(),
-            range_check_20: range_check_20::Claim::new(20),
-        }
-    }
-
     pub fn log_sizes(&self) -> TreeVec<Vec<u32>> {
         let trees = vec![self.memory.log_sizes(), self.range_check_20.log_sizes()];
         TreeVec::concat_cols(trees.into_iter())
     }
 
     pub fn mix_into(&self, channel: &mut impl Channel) {
-        // self.single_constraint.mix_into(channel);
-        // self.multiple_constraints.mix_into(channel);
-        // self.single_constraint_with_relation.mix_into(channel);
         self.memory.mix_into(channel);
         self.range_check_20.mix_into(channel);
     }
@@ -95,7 +85,8 @@ impl Claim {
         // Combine all traces
         let trace = memory_trace
             .to_evals()
-            .chain(range_check_20_trace.to_evals());
+            .into_iter()
+            .chain(range_check_20_trace);
 
         (
             Self {
@@ -129,7 +120,9 @@ impl InteractionClaim {
             );
 
         (
-            memory_interaction_trace.chain(range_check_20_interaction_trace),
+            memory_interaction_trace
+                .into_iter()
+                .chain(range_check_20_interaction_trace),
             Self {
                 memory: memory_interaction_claim,
                 range_check_20: range_check_20_interaction_claim,
@@ -139,14 +132,12 @@ impl InteractionClaim {
 
     pub fn claimed_sum(&self) -> SecureField {
         let mut sum = SecureField::zero();
-        // sum += self.single_constraint_with_relation.claimed_sum;
         sum += self.memory.claimed_sum;
         sum += self.range_check_20.claimed_sum;
         sum
     }
 
     pub fn mix_into(&self, channel: &mut impl Channel) {
-        // self.single_constraint_with_relation.mix_into(channel);
         self.memory.mix_into(channel);
         self.range_check_20.mix_into(channel);
     }
