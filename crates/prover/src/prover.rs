@@ -69,7 +69,7 @@ where
 
     // Execution traces
     info!("execution trace");
-    let (claim, trace, lookup_data) = Claim::write_trace(input);
+    let (claim, trace, lookup_data, non_padded_length) = Claim::write_trace(input);
     claim.mix_into(channel);
 
     let mut tree_builder = commitment_scheme.tree_builder();
@@ -89,7 +89,7 @@ where
     let relations = Relations::draw(channel);
 
     let (interaction_trace, interaction_claim) =
-        InteractionClaim::write_interaction_trace(&relations, &lookup_data);
+        InteractionClaim::write_interaction_trace(&relations, &lookup_data, non_padded_length);
     interaction_claim.mix_into(channel);
 
     let mut tree_builder = commitment_scheme.tree_builder();
