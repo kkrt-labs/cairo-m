@@ -14,6 +14,7 @@ use crate::adapter::ProverInput;
 use crate::components::{Claim, Components, InteractionClaim, Relations};
 use crate::errors::ProvingError;
 use crate::preprocessed::PreProcessedTraceBuilder;
+use crate::public_data::PublicData;
 use crate::{relations, Proof};
 
 pub(crate) const PREPROCESSED_TRACE_LOG_SIZE: u32 = 20;
@@ -56,6 +57,8 @@ where
     );
     let mut commitment_scheme =
         CommitmentSchemeProver::<SimdBackend, MC>::new(pcs_config, &twiddles);
+
+    let public_data = PublicData::new(&input.instructions);
 
     // Preprocessed traces
     info!("preprocessed trace");
@@ -117,6 +120,7 @@ where
     Ok(Proof {
         claim,
         interaction_claim,
+        public_data,
         stark_proof,
         interaction_pow,
     })

@@ -8,6 +8,7 @@ pub mod components;
 pub mod errors;
 pub mod preprocessed;
 pub mod prover;
+pub mod public_data;
 pub mod relations;
 pub mod verifier;
 
@@ -16,11 +17,13 @@ use stwo_prover::core::prover::StarkProof;
 use stwo_prover::core::vcs::ops::MerkleHasher;
 
 use crate::components::{Claim, InteractionClaim};
+use crate::public_data::PublicData;
 
 #[derive(Serialize, Deserialize)]
 pub struct Proof<H: MerkleHasher> {
     pub claim: Claim,
     pub interaction_claim: InteractionClaim,
+    pub public_data: PublicData,
     pub stark_proof: StarkProof<H>,
     pub interaction_pow: u64,
 }

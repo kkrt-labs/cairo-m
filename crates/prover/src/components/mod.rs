@@ -21,15 +21,17 @@ use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::adapter::ProverInput;
 use crate::preprocessed::range_check::range_check_20;
+use crate::public_data::PublicData;
 use crate::relations;
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Claim {
     pub memory: memory::Claim,
     pub range_check_20: range_check_20::Claim,
 }
 
 pub struct Relations {
+    pub registers: relations::Registers,
     pub memory: relations::Memory,
     pub range_check_20: relations::RangeCheck_20,
 }
@@ -132,8 +134,9 @@ impl InteractionClaim {
         )
     }
 
-    pub fn claimed_sum(&self) -> SecureField {
+    pub fn claimed_sum(&self, relations: &Relations, public_data: PublicData) -> SecureField {
         let mut sum = SecureField::zero();
+        sum += public_data.initial_logup_sum(relations);
         sum += self.memory.claimed_sum;
         sum += self.range_check_20.claimed_sum;
         sum
@@ -148,6 +151,7 @@ impl InteractionClaim {
 impl Relations {
     pub fn draw(channel: &mut impl Channel) -> Self {
         Self {
+            registers: relations::Registers::draw(channel),
             memory: relations::Memory::draw(channel),
             range_check_20: relations::RangeCheck_20::draw(channel),
         }
