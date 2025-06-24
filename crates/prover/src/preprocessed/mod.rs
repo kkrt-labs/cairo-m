@@ -6,9 +6,9 @@ use stwo_prover::core::fields::m31::BaseField;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
-use crate::preprocessed::range_check_20::RangeCheck;
+use crate::preprocessed::range_check::RangeCheck;
 
-pub mod range_check_20;
+pub mod range_check;
 
 pub trait PreProcessedColumn {
     fn log_size(&self) -> u32;
@@ -16,6 +16,7 @@ pub trait PreProcessedColumn {
     fn gen_column_simd(&self) -> CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>;
 }
 
+#[derive(Default)]
 pub struct PreProcessedTrace {
     columns: Vec<Box<dyn PreProcessedColumn>>,
 }
@@ -34,13 +35,6 @@ impl PreProcessedTrace {
 
     pub fn ids(&self) -> Vec<PreProcessedColumnId> {
         self.columns.iter().map(|c| c.id()).collect()
-    }
-}
-
-impl Default for PreProcessedTrace {
-    fn default() -> Self {
-        let columns = vec![];
-        Self::new(columns)
     }
 }
 
