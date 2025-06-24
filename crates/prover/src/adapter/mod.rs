@@ -35,13 +35,14 @@ pub struct StateData {
 }
 
 fn import_internal<TraceIter, MemoryIter>(
-    mut trace_iter: std::iter::Peekable<TraceIter>,
+    trace_iter: TraceIter,
     mut memory_iter: MemoryIter,
 ) -> Result<ProverInput, VmImportError>
 where
     TraceIter: Iterator<Item = (M31, M31)>,
     MemoryIter: Iterator<Item = (M31, QM31)>,
 {
+    let mut trace_iter = trace_iter.peekable();
     let mut memory = Memory::default();
     // Initial memory uses clock = 0
     let mut clock = 1;
@@ -110,9 +111,8 @@ pub fn import_from_vm_output(
 ) -> Result<ProverInput, VmImportError> {
     let _span = span!(Level::INFO, "import_from_vm_output").entered();
 
-    let trace_iter = TraceFileIter::try_from(trace_path)?
-        .map(|entry| (entry.pc.into(), entry.fp.into()))
-        .peekable();
+    let trace_iter =
+        TraceFileIter::try_from(trace_path)?.map(|entry| (entry.pc.into(), entry.fp.into()));
 
     let memory_file_iter = MemoryEntryFileIter::try_from(mem_path)?;
     let memory_iter = memory_file_iter.map(|io_entry| {
@@ -136,7 +136,7 @@ pub fn import_from_runner_output(
     let _span = span!(Level::INFO, "import_from_runner_output").entered();
 
     let vm = &runner_output.vm;
-    let trace_iter = vm.trace.iter().map(|e| (e.pc, e.fp)).peekable();
+    let trace_iter = vm.trace.iter().map(|e| (e.pc, e.fp));
     let memory_trace = vm.memory.trace.borrow();
     let memory_iter = memory_trace.iter().map(|e| (e.addr, e.value));
 
