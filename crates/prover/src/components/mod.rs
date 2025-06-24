@@ -1,7 +1,4 @@
 pub mod memory;
-pub mod multiple_constraints;
-pub mod single_constraint;
-pub mod single_constraint_with_relation;
 pub mod store_deref_fp;
 
 use cairo_m_common::Opcode;
@@ -37,7 +34,6 @@ pub struct Relations {
     pub registers: relations::Registers,
     pub memory: relations::Memory,
     pub range_check_20: relations::RangeCheck_20,
-    pub registers: relations::Registers,
 }
 
 pub struct LookupData {
@@ -70,9 +66,8 @@ impl Claim {
     }
 
     pub fn write_trace<MC: MerkleChannel>(
-        input: ProverInput,
         &mut self,
-        inputs: &mut ProverInput,
+        input: &mut ProverInput,
     ) -> (
         Self,
         impl IntoIterator<Item = CircleEvaluation<SimdBackend, M31, BitReversedOrder>>,
@@ -94,13 +89,13 @@ impl Claim {
             range_check_20::Claim::write_trace(&dummy_range_check_data);
         let (store_deref_fp_claim, store_deref_fp_trace, store_deref_fp_interaction_claim_data) =
             store_deref_fp::Claim::write_trace(
-                inputs
+                input
                     .instructions
                     .states_by_opcodes
                     .entry(Opcode::StoreDerefFp)
                     .or_default(),
             );
-        self.store_deref_fp = store_deref_fp_claim;
+        self.store_deref_fp = store_deref_fp_claim.clone();
 
         // Gather all lookup data
         let lookup_data = LookupData {
@@ -120,7 +115,7 @@ impl Claim {
             Self {
                 memory: memory_claim,
                 range_check_20: range_check_20_claim,
-                store_deref_fp: store_deref_fp_claim,
+                store_deref_fp: store_deref_fp_claim.clone(),
             },
             trace,
             lookup_data,
@@ -156,7 +151,7 @@ impl InteractionClaim {
             );
 
         (
-            single_constraint_with_relation_trace
+            memory_interaction_trace
                 .into_iter()
                 .chain(range_check_20_interaction_trace)
                 .chain(store_deref_fp_interaction_trace),
@@ -190,7 +185,6 @@ impl Relations {
             registers: relations::Registers::draw(channel),
             memory: relations::Memory::draw(channel),
             range_check_20: relations::RangeCheck_20::draw(channel),
-            registers: relations::Registers::draw(channel),
         }
     }
 }
