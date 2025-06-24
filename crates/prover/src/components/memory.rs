@@ -53,7 +53,7 @@ impl Claim {
 
     pub fn write_trace<MC: MerkleChannel>(
         &mut self,
-        mut inputs: Memory,
+        inputs: Memory,
     ) -> (ComponentTrace<N_M31_IN_MEMORY_ENTRY>, LookupData)
     where
         SimdBackend: BackendForChannel<MC>,
@@ -68,8 +68,8 @@ impl Claim {
         // Pack memory entries from the prover input
         let packed_inputs: Vec<[PackedM31; N_M31_IN_MEMORY_ENTRY]> = inputs
             .initial_memory
-            .drain()
-            .chain(inputs.final_memory.drain())
+            .into_iter()
+            .chain(inputs.final_memory)
             .enumerate()
             .map(|(i, (address, (value, clock)))| {
                 let value_array = value.to_m31_array();
