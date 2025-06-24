@@ -114,8 +114,8 @@ impl Claim {
                 *row[6] = off2;
                 *row[7] = clock;
                 *row[8] = inst_prev_clock;
-                *lookup_data.memory[0] = [input.pc, opcode_id, off0, off1, off2, inst_prev_clock];
-                *lookup_data.memory[1] = [input.pc, opcode_id, off0, off1, off2, clock];
+                *lookup_data.memory[0] = [input.pc, inst_prev_clock, opcode_id, off0, off1, off2];
+                *lookup_data.memory[1] = [input.pc, clock, opcode_id, off0, off1, off2];
 
                 // Memory write: [fp + off2]
                 let dst_prev_val = input.mem1_prev_val_0;
@@ -124,13 +124,13 @@ impl Claim {
                 *row[10] = dst_prev_clock;
                 *lookup_data.memory[2] = [
                     input.fp + off0,
+                    dst_prev_clock,
                     dst_prev_val,
                     zero,
                     zero,
                     zero,
-                    dst_prev_clock,
                 ];
-                *lookup_data.memory[3] = [input.fp + off0, off2, zero, zero, zero, clock];
+                *lookup_data.memory[3] = [input.fp + off0, clock, off2, zero, zero, zero];
             });
         (Self { log_size }, trace, lookup_data, non_padded_length)
     }
@@ -221,7 +221,6 @@ impl FrameworkEval for Eval {
 
     #[allow(non_snake_case)]
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
-        let zero = E::F::from(M31::from(0));
         let one = E::F::from(M31::from(1));
 
         // 11 columns
@@ -258,11 +257,11 @@ impl FrameworkEval for Eval {
             -E::EF::from(enabler.clone()),
             &[
                 pc.clone(),
+                inst_prev_clock,
                 opcode_id.clone(),
                 imm.clone(),
                 off1.clone(),
                 off2.clone(),
-                inst_prev_clock,
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
@@ -270,11 +269,11 @@ impl FrameworkEval for Eval {
             E::EF::from(enabler.clone()),
             &[
                 pc,
+                clock.clone(),
                 opcode_id,
                 imm.clone(),
                 off1,
                 off2.clone(),
-                clock.clone(),
             ],
         ));
 
@@ -282,19 +281,12 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
             -E::EF::from(enabler.clone()),
-            &[
-                fp.clone() + off2.clone(),
-                dst_prev_val,
-                zero.clone(),
-                zero.clone(),
-                zero.clone(),
-                dst_prev_clock,
-            ],
+            &[fp.clone() + off2.clone(), dst_prev_clock, dst_prev_val],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
             E::EF::from(enabler),
-            &[fp + off2, imm, zero.clone(), zero.clone(), zero, clock],
+            &[fp + off2, clock, imm],
         ));
 
         eval.finalize_logup_in_pairs();
