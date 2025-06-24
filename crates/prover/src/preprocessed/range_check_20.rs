@@ -86,17 +86,18 @@ impl Claim {
     }
 
     pub fn write_trace<MC: MerkleChannel>(
-        &self,
         lookup_data: &Vec<PackedM31>,
     ) -> (
+        Self,
         [CircleEvaluation<SimdBackend, M31, BitReversedOrder>; 1],
         LookupData,
     )
     where
         SimdBackend: BackendForChannel<MC>,
     {
-        let mults_atomic: Vec<AtomicU32> =
-            (0..1 << self.log_size).map(|_| AtomicU32::new(0)).collect();
+        let log_size = lookup_data.len().ilog2() + LOG_N_LANES;
+
+        let mults_atomic: Vec<AtomicU32> = (0..1 << log_size).map(|_| AtomicU32::new(0)).collect();
 
         lookup_data.par_iter().for_each(|entry| {
             for element in entry.to_array() {

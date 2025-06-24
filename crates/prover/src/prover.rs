@@ -66,8 +66,7 @@ where
 
     // Execution traces
     info!("execution trace");
-    let mut claim = Claim::new();
-    let (trace, lookup_data) = claim.write_trace(input);
+    let (claim, trace, lookup_data) = Claim::write_trace(input);
     claim.mix_into(channel);
 
     let mut tree_builder = commitment_scheme.tree_builder();

@@ -52,14 +52,13 @@ impl Claim {
     }
 
     pub fn write_trace<MC: MerkleChannel>(
-        &mut self,
         inputs: Memory,
-    ) -> (ComponentTrace<N_M31_IN_MEMORY_ENTRY>, LookupData)
+    ) -> (Self, ComponentTrace<N_M31_IN_MEMORY_ENTRY>, LookupData)
     where
         SimdBackend: BackendForChannel<MC>,
     {
         let initial_memory_len = inputs.initial_memory.len();
-        self.log_size = std::cmp::max(
+        let log_size = std::cmp::max(
             (initial_memory_len + inputs.final_memory.len()).next_power_of_two(),
             N_LANES,
         )
@@ -89,7 +88,7 @@ impl Claim {
                 ]
             })
             .chain(std::iter::repeat([M31::zero(); N_M31_IN_MEMORY_ENTRY]))
-            .take(1 << self.log_size)
+            .take(1 << log_size)
             .array_chunks::<N_LANES>()
             .map(|chunk| {
                 std::array::from_fn(|x| PackedM31::from_array(std::array::from_fn(|y| chunk[y][x])))
@@ -99,8 +98,8 @@ impl Claim {
         // Generate lookup data and fill the trace
         let (mut trace, mut lookup_data) = unsafe {
             (
-                ComponentTrace::<N_M31_IN_MEMORY_ENTRY>::uninitialized(self.log_size),
-                LookupData::uninitialized(self.log_size - LOG_N_LANES),
+                ComponentTrace::<N_M31_IN_MEMORY_ENTRY>::uninitialized(log_size),
+                LookupData::uninitialized(log_size - LOG_N_LANES),
             )
         };
         (
@@ -121,7 +120,7 @@ impl Claim {
             });
 
         // Return the trace and lookup data
-        (trace, lookup_data)
+        (Self { log_size }, trace, lookup_data)
     }
 }
 

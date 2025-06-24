@@ -65,9 +65,9 @@ impl Claim {
     }
 
     pub fn write_trace<MC: MerkleChannel>(
-        &mut self,
         input: ProverInput,
     ) -> (
+        Self,
         impl IntoIterator<Item = CircleEvaluation<SimdBackend, M31, BitReversedOrder>>,
         LookupData,
     )
@@ -77,13 +77,14 @@ impl Claim {
         // TODO: Write opcode components
 
         // Write memory component from the prover input
-        let (memory_trace, memory_lookup_data) = self.memory.write_trace(input.memory_boundaries);
+        let (memory_claim, memory_trace, memory_lookup_data) =
+            memory::Claim::write_trace(input.memory_boundaries);
 
         // Write range_check components
         // TODO: use memory and other components lookup data to generate multiplicity column
         let dummy_range_check_data = vec![];
-        let (range_check_20_trace, range_check_20_lookup_data) =
-            self.range_check_20.write_trace(&dummy_range_check_data);
+        let (range_check_20_claim, range_check_20_trace, range_check_20_lookup_data) =
+            range_check_20::Claim::write_trace(&dummy_range_check_data);
 
         // Gather all lookup data
         let lookup_data = LookupData {
@@ -91,8 +92,17 @@ impl Claim {
             range_check_20: range_check_20_lookup_data,
         };
 
+        // Combine all traces
+        let trace = memory_trace
+            .to_evals()
+            .chain(range_check_20_trace.to_evals());
+
         (
-            memory_trace.to_evals().chain(range_check_20_trace),
+            Self {
+                memory: memory_claim,
+                range_check_20: range_check_20_claim,
+            },
+            trace,
             lookup_data,
         )
     }
