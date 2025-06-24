@@ -12,6 +12,7 @@ name = "cairo-m-runner"
 path = "src/main.rs"
 
 [dependencies]
+anyhow.workspace = true
 cairo-m-common.workspace = true
 cairo-m-compiler.workspace = true
 clap.workspace = true
