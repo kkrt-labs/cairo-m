@@ -27,7 +27,6 @@ use crate::relations;
 
 #[derive(Serialize, Deserialize)]
 pub struct Claim {
-    pub public_data: PublicData,
     pub memory: memory::Claim,
     pub range_check_20: range_check_20::Claim,
 }
@@ -96,7 +95,6 @@ impl Claim {
 
         (
             Self {
-                public_data: PublicData::new(&input.instructions),
                 memory: memory_claim,
                 range_check_20: range_check_20_claim,
             },
