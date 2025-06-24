@@ -4,6 +4,7 @@ pub mod single_constraint;
 pub mod single_constraint_with_relation;
 
 use num_traits::Zero;
+use serde::{Deserialize, Serialize};
 pub use stwo_air_utils::trace::component_trace::ComponentTrace;
 pub use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
 use stwo_prover::constraint_framework::TraceLocationAllocator;
@@ -22,7 +23,7 @@ use crate::adapter::ProverInput;
 use crate::preprocessed::range_check_20;
 use crate::relations;
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct Claim {
     pub memory: memory::Claim,
     pub range_check_20: range_check_20::Claim,
@@ -38,6 +39,7 @@ pub struct LookupData {
     pub range_check_20: range_check_20::LookupData,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct InteractionClaim {
     pub memory: memory::InteractionClaim,
     pub range_check_20: range_check_20::InteractionClaim,
