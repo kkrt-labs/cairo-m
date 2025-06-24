@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 
+use cairo_m_common::state::MemoryEntry;
 use num_traits::identities::Zero;
 use num_traits::One;
 use stwo_prover::core::fields::m31::M31;
@@ -22,12 +23,6 @@ pub enum MemoryError {
     UninitializedMemoryCell { addr: M31 },
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct TraceEntry {
-    pub addr: M31,
-    pub value: QM31,
-}
-
 /// Represents the Cairo M VM's memory, a flat, read-write address space.
 ///
 /// Memory is addressable by `M31` field elements and stores `QM31` values.
@@ -42,7 +37,7 @@ pub struct Memory {
     /// allows methods with immutable `&self` receivers, like `get_data`, to
     /// modify the trace. This design choice separates the logical immutability
     /// of an operation from the implementation detail of tracing.
-    pub trace: RefCell<Vec<TraceEntry>>,
+    pub trace: RefCell<Vec<MemoryEntry>>,
 }
 
 impl Memory {
@@ -83,7 +78,7 @@ impl Memory {
             .get(address)
             .copied()
             .ok_or(MemoryError::UninitializedMemoryCell { addr })?;
-        self.trace.borrow_mut().push(TraceEntry { addr, value });
+        self.trace.borrow_mut().push(MemoryEntry { addr, value });
         Ok(value)
     }
 
@@ -107,7 +102,7 @@ impl Memory {
         if !value.1.is_zero() || !value.0 .1.is_zero() {
             return Err(MemoryError::BaseFieldProjectionFailed { addr, value });
         }
-        self.trace.borrow_mut().push(TraceEntry { addr, value });
+        self.trace.borrow_mut().push(MemoryEntry { addr, value });
         Ok(value.0 .0)
     }
 
@@ -133,7 +128,7 @@ impl Memory {
             self.data.resize(address + 1, QM31::zero());
         }
         self.data[address] = value;
-        self.trace.borrow_mut().push(TraceEntry { addr, value });
+        self.trace.borrow_mut().push(MemoryEntry { addr, value });
         Ok(())
     }
 
@@ -179,7 +174,7 @@ impl Memory {
         self.data[start_address..end_address].copy_from_slice(values);
         self.trace
             .borrow_mut()
-            .extend(values.iter().enumerate().map(|(i, value)| TraceEntry {
+            .extend(values.iter().enumerate().map(|(i, value)| MemoryEntry {
                 addr: start_addr + M31(i as u32),
                 value: *value,
             }));
@@ -310,7 +305,7 @@ mod tests {
 
         assert_eq!(memory.get_instruction(addr).unwrap(), value);
         assert_eq!(memory.trace.borrow().len(), 1);
-        assert_eq!(memory.trace.borrow()[0], TraceEntry { addr, value });
+        assert_eq!(memory.trace.borrow()[0], MemoryEntry { addr, value });
     }
 
     #[test]
@@ -338,7 +333,7 @@ mod tests {
 
         assert_eq!(memory.get_data(addr).unwrap(), M31(123));
         assert_eq!(memory.trace.borrow().len(), 1);
-        assert_eq!(memory.trace.borrow()[0], TraceEntry { addr, value });
+        assert_eq!(memory.trace.borrow()[0], MemoryEntry { addr, value });
     }
 
     #[test]
@@ -349,7 +344,7 @@ mod tests {
         assert_eq!(memory.trace.borrow().len(), 1);
         assert_eq!(
             memory.trace.borrow()[0],
-            TraceEntry {
+            MemoryEntry {
                 addr,
                 value: QM31::zero()
             }
@@ -379,7 +374,7 @@ mod tests {
         assert_eq!(memory.data.len(), 101);
         assert_eq!(memory.data[100], value);
         assert_eq!(memory.trace.borrow().len(), 1);
-        assert_eq!(memory.trace.borrow()[0], TraceEntry { addr, value });
+        assert_eq!(memory.trace.borrow()[0], MemoryEntry { addr, value });
     }
 
     #[test]
@@ -392,8 +387,8 @@ mod tests {
         assert_eq!(memory.get_instruction(addr).unwrap(), value);
         assert_eq!(memory.data.len(), 43);
         assert_eq!(memory.trace.borrow().len(), 2);
-        assert_eq!(memory.trace.borrow()[0], TraceEntry { addr, value });
-        assert_eq!(memory.trace.borrow()[1], TraceEntry { addr, value });
+        assert_eq!(memory.trace.borrow()[0], MemoryEntry { addr, value });
+        assert_eq!(memory.trace.borrow()[1], MemoryEntry { addr, value });
     }
 
     #[test]
@@ -406,8 +401,8 @@ mod tests {
         assert_eq!(memory.get_data(addr).unwrap(), value.0 .0);
         assert_eq!(memory.data.len(), 43);
         assert_eq!(memory.trace.borrow().len(), 2);
-        assert_eq!(memory.trace.borrow()[0], TraceEntry { addr, value });
-        assert_eq!(memory.trace.borrow()[1], TraceEntry { addr, value });
+        assert_eq!(memory.trace.borrow()[0], MemoryEntry { addr, value });
+        assert_eq!(memory.trace.borrow()[1], MemoryEntry { addr, value });
     }
 
     #[test]
@@ -448,7 +443,7 @@ mod tests {
         for (i, value) in values.iter().enumerate() {
             assert_eq!(
                 memory.trace.borrow()[i],
-                TraceEntry {
+                MemoryEntry {
                     addr: start_addr + M31(i as u32),
                     value: *value
                 }
@@ -458,7 +453,7 @@ mod tests {
         for (i, value) in values.iter().enumerate() {
             assert_eq!(
                 memory.trace.borrow()[i + values.len()],
-                TraceEntry {
+                MemoryEntry {
                     addr: start_addr + M31(i as u32),
                     value: *value
                 }

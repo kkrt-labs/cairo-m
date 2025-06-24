@@ -11,7 +11,7 @@ use tempfile::NamedTempFile;
 // Import test utilities
 use super::test_utils::*;
 use crate::memory::Memory;
-use crate::vm::{TraceEntry, VmError, VM};
+use crate::vm::{VmError, VM};
 
 #[test]
 fn test_program_from_vec_instructions() {
@@ -248,14 +248,14 @@ fn test_serialize_trace() {
     // Verify the trace contents.
     assert_eq!(
         vm.trace[0],
-        TraceEntry {
+        State {
             pc: M31::zero(),
             fp: M31(2)
         }
     );
     assert_eq!(
         vm.trace[1],
-        TraceEntry {
+        State {
             pc: M31::one(),
             fp: M31(2)
         }
