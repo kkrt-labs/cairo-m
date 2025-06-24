@@ -65,10 +65,8 @@ impl Claim {
         )
         .ilog2();
 
-        let mut packed_inputs: Vec<[PackedM31; N_M31_IN_MEMORY_ENTRY]> = Vec::new();
-
         // Pack memory entries from the prover input
-        inputs
+        let packed_inputs: Vec<[PackedM31; N_M31_IN_MEMORY_ENTRY]> = inputs
             .initial_memory
             .drain()
             .chain(inputs.final_memory.drain())
@@ -93,11 +91,10 @@ impl Claim {
             .chain(std::iter::repeat([M31::zero(); N_M31_IN_MEMORY_ENTRY]))
             .take(1 << self.log_size)
             .array_chunks::<N_LANES>()
-            .for_each(|chunk| {
-                packed_inputs.push(std::array::from_fn(|x| {
-                    PackedM31::from_array(std::array::from_fn(|y| chunk[y][x]))
-                }));
-            });
+            .map(|chunk| {
+                std::array::from_fn(|x| PackedM31::from_array(std::array::from_fn(|y| chunk[y][x])))
+            })
+            .collect();
 
         // Generate lookup data and fill the trace
         let (mut trace, mut lookup_data) = unsafe {
