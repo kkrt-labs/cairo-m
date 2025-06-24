@@ -7,15 +7,14 @@ use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 pub use stwo_air_utils::trace::component_trace::ComponentTrace;
 pub use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
-use stwo_prover::constraint_framework::{Relation, TraceLocationAllocator};
+use stwo_prover::constraint_framework::TraceLocationAllocator;
 use stwo_prover::core::air::{Component as ComponentVerifier, ComponentProver};
 pub use stwo_prover::core::backend::simd::m31::PackedM31;
 use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::backend::BackendForChannel;
 use stwo_prover::core::channel::{Channel, MerkleChannel};
 use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::{SecureField, QM31};
-use stwo_prover::core::fields::FieldExpOps;
+use stwo_prover::core::fields::qm31::SecureField;
 use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
@@ -135,35 +134,9 @@ impl InteractionClaim {
         )
     }
 
-    pub fn initial_logup_sum(
-        &self,
-        relations: &Relations,
-        public_data: &PublicData,
-    ) -> SecureField {
-        let values_to_inverse = vec![
-            (-<relations::Registers as Relation<M31, QM31>>::combine(
-                &relations.registers,
-                &[
-                    public_data.initial_registers.pc,
-                    public_data.initial_registers.fp,
-                ],
-            )),
-            <relations::Registers as Relation<M31, QM31>>::combine(
-                &relations.registers,
-                &[
-                    public_data.final_registers.pc,
-                    public_data.final_registers.fp,
-                ],
-            ),
-        ];
-
-        let inverted_values = QM31::batch_inverse(&values_to_inverse);
-        inverted_values.iter().sum::<QM31>()
-    }
-
-    pub fn claimed_sum(&self, relations: &Relations, public_data: &PublicData) -> SecureField {
+    pub fn claimed_sum(&self, relations: &Relations, public_data: PublicData) -> SecureField {
         let mut sum = SecureField::zero();
-        sum += self.initial_logup_sum(relations, public_data);
+        sum += public_data.initial_logup_sum(relations);
         sum += self.memory.claimed_sum;
         sum += self.range_check_20.claimed_sum;
         sum

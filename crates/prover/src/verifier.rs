@@ -58,7 +58,7 @@ where
     // Verify lookup argument.
     if proof
         .interaction_claim
-        .claimed_sum(&relations, &proof.public_data)
+        .claimed_sum(&relations, proof.public_data)
         != SecureField::zero()
     {
         return Err(VerificationError::InvalidLogupSum);
