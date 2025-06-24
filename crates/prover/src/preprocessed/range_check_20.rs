@@ -1,6 +1,5 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use num_traits::One;
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
 };
@@ -130,7 +129,7 @@ impl Claim {
                 BaseColumn::from_cpu(mults),
             )],
             LookupData {
-                range_check_data_20: mults_packed,
+                range_check_20: mults_packed,
             },
         )
     }
@@ -152,15 +151,15 @@ impl InteractionClaim {
         impl IntoIterator<Item = CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         Self,
     ) {
-        let log_size = lookup_data.range_check_data_20.len().ilog2() + LOG_N_LANES;
+        let log_size = lookup_data.range_check_20.len().ilog2() + LOG_N_LANES;
         let mut interaction_trace = LogupTraceGenerator::new(log_size);
 
         let mut col = interaction_trace.new_col();
-        (col.par_iter_mut(), &lookup_data.range_check_data_20)
+        (col.par_iter_mut(), &lookup_data.range_check_20)
             .into_par_iter()
             .for_each(|(writer, value)| {
                 let denom: PackedQM31 = relation.combine(&[value[0]]);
-                writer.write_frac(PackedQM31::one() * value[1], denom);
+                writer.write_frac(value[1].into(), denom);
             });
         col.finalize_col();
 

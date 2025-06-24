@@ -32,6 +32,7 @@ where
     // Preprocessed trace.
     info!("preprocessed trace");
     let preprocessed_trace = PreProcessedTraceBuilder::default().build();
+    // TODO: assert proof.stark_proof.commitments[0] == known_root of preprocessed trace commitment
     commitment_scheme_verifier.commit(
         proof.stark_proof.commitments[0],
         &preprocessed_trace.log_sizes(),
