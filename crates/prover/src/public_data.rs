@@ -1,10 +1,11 @@
+use cairo_m_common::State as VmRegisters;
 use serde::{Deserialize, Serialize};
 use stwo_prover::constraint_framework::Relation;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::{SecureField, QM31};
 use stwo_prover::core::fields::FieldExpOps;
 
-use crate::adapter::{Instructions, VmRegisters};
+use crate::adapter::Instructions;
 use crate::components::Relations;
 use crate::relations;
 
@@ -15,10 +16,10 @@ pub struct PublicData {
 }
 
 impl PublicData {
-    pub fn new(input: &Instructions) -> Self {
+    pub const fn new(input: &Instructions) -> Self {
         Self {
-            initial_registers: input.initial_registers.clone(),
-            final_registers: input.final_registers.clone(),
+            initial_registers: input.initial_registers,
+            final_registers: input.final_registers,
         }
     }
 
