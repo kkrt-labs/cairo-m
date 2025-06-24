@@ -4,6 +4,7 @@ pub mod single_constraint;
 pub mod single_constraint_with_relation;
 pub mod store_deref_fp;
 
+use cairo_m_common::Opcode;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 pub use stwo_air_utils::trace::component_trace::ComponentTrace;
@@ -29,38 +30,49 @@ use crate::relations;
 pub struct Claim {
     pub memory: memory::Claim,
     pub range_check_20: range_check_20::Claim,
+    pub store_deref_fp: store_deref_fp::Claim,
 }
 
 pub struct Relations {
     pub registers: relations::Registers,
     pub memory: relations::Memory,
     pub range_check_20: relations::RangeCheck_20,
+    pub registers: relations::Registers,
 }
 
 pub struct LookupData {
     pub memory: memory::LookupData,
     pub range_check_20: range_check_20::LookupData,
+    pub store_deref_fp: store_deref_fp::InteractionClaimData,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct InteractionClaim {
     pub memory: memory::InteractionClaim,
     pub range_check_20: range_check_20::InteractionClaim,
+    pub store_deref_fp: store_deref_fp::InteractionClaim,
 }
 
 impl Claim {
     pub fn log_sizes(&self) -> TreeVec<Vec<u32>> {
-        let trees = vec![self.memory.log_sizes(), self.range_check_20.log_sizes()];
+        let trees = vec![
+            self.memory.log_sizes(),
+            self.range_check_20.log_sizes(),
+            self.store_deref_fp.log_sizes(),
+        ];
         TreeVec::concat_cols(trees.into_iter())
     }
 
     pub fn mix_into(&self, channel: &mut impl Channel) {
         self.memory.mix_into(channel);
         self.range_check_20.mix_into(channel);
+        self.store_deref_fp.mix_into(channel);
     }
 
     pub fn write_trace<MC: MerkleChannel>(
         input: ProverInput,
+        &mut self,
+        inputs: &mut ProverInput,
     ) -> (
         Self,
         impl IntoIterator<Item = CircleEvaluation<SimdBackend, M31, BitReversedOrder>>,
@@ -80,23 +92,35 @@ impl Claim {
         let dummy_range_check_data = vec![];
         let (range_check_20_claim, range_check_20_trace, range_check_20_lookup_data) =
             range_check_20::Claim::write_trace(&dummy_range_check_data);
+        let (store_deref_fp_claim, store_deref_fp_trace, store_deref_fp_interaction_claim_data) =
+            store_deref_fp::Claim::write_trace(
+                inputs
+                    .instructions
+                    .states_by_opcodes
+                    .entry(Opcode::StoreDerefFp)
+                    .or_default(),
+            );
+        self.store_deref_fp = store_deref_fp_claim;
 
         // Gather all lookup data
         let lookup_data = LookupData {
             memory: memory_lookup_data,
             range_check_20: range_check_20_lookup_data,
+            store_deref_fp: store_deref_fp_interaction_claim_data,
         };
 
         // Combine all traces
         let trace = memory_trace
             .to_evals()
             .into_iter()
-            .chain(range_check_20_trace);
+            .chain(range_check_20_trace)
+            .chain(store_deref_fp_trace.to_evals());
 
         (
             Self {
                 memory: memory_claim,
                 range_check_20: range_check_20_claim,
+                store_deref_fp: store_deref_fp_claim,
             },
             trace,
             lookup_data,
@@ -124,13 +148,22 @@ impl InteractionClaim {
                 &lookup_data.range_check_20,
             );
 
+        let (store_deref_fp_interaction_trace, store_deref_fp_interaction_claim) =
+            store_deref_fp::InteractionClaim::write_interaction_trace(
+                &relations.memory,
+                &relations.registers,
+                &lookup_data.store_deref_fp,
+            );
+
         (
-            memory_interaction_trace
+            single_constraint_with_relation_trace
                 .into_iter()
-                .chain(range_check_20_interaction_trace),
+                .chain(range_check_20_interaction_trace)
+                .chain(store_deref_fp_interaction_trace),
             Self {
                 memory: memory_interaction_claim,
                 range_check_20: range_check_20_interaction_claim,
+                store_deref_fp: store_deref_fp_interaction_claim,
             },
         )
     }
@@ -140,12 +173,14 @@ impl InteractionClaim {
         sum += public_data.initial_logup_sum(relations);
         sum += self.memory.claimed_sum;
         sum += self.range_check_20.claimed_sum;
+        sum += self.store_deref_fp.claimed_sum;
         sum
     }
 
     pub fn mix_into(&self, channel: &mut impl Channel) {
         self.memory.mix_into(channel);
         self.range_check_20.mix_into(channel);
+        self.store_deref_fp.mix_into(channel);
     }
 }
 
@@ -155,6 +190,7 @@ impl Relations {
             registers: relations::Registers::draw(channel),
             memory: relations::Memory::draw(channel),
             range_check_20: relations::RangeCheck_20::draw(channel),
+            registers: relations::Registers::draw(channel),
         }
     }
 }
@@ -162,6 +198,7 @@ impl Relations {
 pub struct Components {
     pub memory: memory::Component,
     pub range_check_20: range_check_20::Component,
+    pub store_deref_fp: store_deref_fp::Component,
 }
 
 impl Components {
@@ -187,6 +224,15 @@ impl Components {
                     relation: relations.range_check_20.clone(),
                 },
                 interaction_claim.range_check_20.claimed_sum,
+            ),
+            store_deref_fp: store_deref_fp::Component::new(
+                location_allocator,
+                store_deref_fp::Eval {
+                    claim: claim.store_deref_fp.clone(),
+                    memory: relations.memory.clone(),
+                    registers: relations.registers.clone(),
+                },
+                interaction_claim.store_deref_fp.claimed_sum,
             ),
         }
     }

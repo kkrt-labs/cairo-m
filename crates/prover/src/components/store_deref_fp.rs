@@ -6,7 +6,9 @@ use rayon::iter::{
 use stwo_air_utils::trace::component_trace::ComponentTrace;
 use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
 use stwo_prover::constraint_framework::logup::LogupTraceGenerator;
-use stwo_prover::constraint_framework::{EvalAtRow, FrameworkEval, Relation, RelationEntry};
+use stwo_prover::constraint_framework::{
+    EvalAtRow, FrameworkComponent, FrameworkEval, Relation, RelationEntry,
+};
 use stwo_prover::core::backend::simd::conversion::Pack;
 use stwo_prover::core::backend::simd::m31::{PackedM31, LOG_N_LANES, N_LANES};
 use stwo_prover::core::backend::simd::qm31::PackedQM31;
@@ -24,12 +26,14 @@ use crate::adapter::StateData;
 use crate::relations;
 use crate::utils::PackedStateData;
 
-const N_TRACE_COLUMNS: usize = 3;
+const N_TRACE_COLUMNS: usize = 13;
 // -(pc, [opcode_id, off0, off1, off2], prev_clock) || +(pc, [opcode_id, off0, off1, off2], clock)
 // -(fp+off2, [prev_value, 0, 0, 0], prev_clock) || +(fp+off2, [value, 0, 0, 0], clock)
 // -(fp+off0, [value, 0, 0, 0], prev_clock) || +(fp+off0, [value, 0, 0, 0], clock)
 const N_MEMORY_LOOKUPS: usize = 2 * 3;
 const N_REGISTERS_LOOKUPS: usize = 2; // -(pc, fp) || +(pc+1, fp)
+
+const LOOKUPS_COLUMNS: usize = N_MEMORY_LOOKUPS + N_REGISTERS_LOOKUPS;
 
 pub struct InteractionClaimData {
     pub lookup_data: LookupData,
@@ -87,7 +91,7 @@ impl Claim {
     pub fn log_sizes(&self) -> TreeVec<Vec<u32>> {
         let trace = vec![self.log_size; N_TRACE_COLUMNS];
         // TODO: check the correct width of vector for the interaction trace
-        let interaction_trace = vec![self.log_size; SECURE_EXTENSION_DEGREE * N_TRACE_COLUMNS];
+        let interaction_trace = vec![self.log_size; SECURE_EXTENSION_DEGREE * LOOKUPS_COLUMNS];
         TreeVec::new(vec![vec![], trace, interaction_trace])
     }
 
@@ -459,3 +463,5 @@ impl FrameworkEval for Eval {
         eval
     }
 }
+
+pub type Component = FrameworkComponent<Eval>;
