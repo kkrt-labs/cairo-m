@@ -23,7 +23,7 @@ use crate::preprocessed::range_check_20;
 use crate::relations;
 
 #[derive(Default)]
-pub struct Claim<const N: usize> {
+pub struct Claim {
     pub memory: memory::Claim,
     pub range_check_20: range_check_20::Claim,
 }
@@ -38,12 +38,12 @@ pub struct LookupData {
     pub range_check_20: range_check_20::LookupData,
 }
 
-pub struct InteractionClaim<const N: usize> {
+pub struct InteractionClaim {
     pub memory: memory::InteractionClaim,
     pub range_check_20: range_check_20::InteractionClaim,
 }
 
-impl<const N: usize> Claim<N> {
+impl Claim {
     pub fn new() -> Self {
         Self {
             memory: memory::Claim::default(),
@@ -98,7 +98,7 @@ impl<const N: usize> Claim<N> {
     }
 }
 
-impl<const N: usize> InteractionClaim<N> {
+impl InteractionClaim {
     pub fn write_interaction_trace(
         relations: &Relations,
         lookup_data: &LookupData,
@@ -151,16 +151,16 @@ impl Relations {
     }
 }
 
-pub struct Components<const N: usize> {
+pub struct Components {
     pub memory: memory::Component,
     pub range_check_20: range_check_20::Component,
 }
 
-impl<const N: usize> Components<N> {
+impl Components {
     pub fn new(
         location_allocator: &mut TraceLocationAllocator,
-        claim: &Claim<N>,
-        interaction_claim: &InteractionClaim<N>,
+        claim: &Claim,
+        interaction_claim: &InteractionClaim,
         relations: &Relations,
     ) -> Self {
         Self {

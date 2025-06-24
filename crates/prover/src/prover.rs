@@ -16,11 +16,9 @@ use crate::errors::ProvingError;
 use crate::preprocessed::PreProcessedTraceBuilder;
 use crate::{relations, Proof};
 
-pub(crate) const LOG_MAX_ROWS: u32 = 21;
+pub(crate) const PREPROCESSED_TRACE_LOG_SIZE: u32 = 20;
 
-pub fn prove_cairo_m<MC: MerkleChannel, const N: usize>(
-    input: ProverInput,
-) -> Result<Proof<N, MC::H>, ProvingError>
+pub fn prove_cairo_m<MC: MerkleChannel>(input: ProverInput) -> Result<Proof<MC::H>, ProvingError>
 where
     SimdBackend: BackendForChannel<MC>,
 {
@@ -32,9 +30,27 @@ where
     let pcs_config = PcsConfig::default();
     pcs_config.mix_into(channel);
 
+    let trace_log_size = std::cmp::max(
+        PREPROCESSED_TRACE_LOG_SIZE,
+        std::cmp::max(
+            (input.memory_boundaries.initial_memory.len()
+                + input.memory_boundaries.final_memory.len())
+            .next_power_of_two()
+            .ilog2(),
+            input
+                .instructions
+                .states_by_opcodes
+                .values()
+                .map(|states| states.len().next_power_of_two())
+                .max()
+                .unwrap_or(1)
+                .ilog2(),
+        ),
+    );
+
     info!("twiddles");
     let twiddles = SimdBackend::precompute_twiddles(
-        CanonicCoset::new(LOG_MAX_ROWS + pcs_config.fri_config.log_blowup_factor + 2)
+        CanonicCoset::new(trace_log_size + pcs_config.fri_config.log_blowup_factor + 2)
             .circle_domain()
             .half_coset,
     );
@@ -94,8 +110,8 @@ where
         .map_err(ProvingError::from)?;
 
     let proving_duration = proving_start.elapsed();
-    let proving_mhz = ((1 << LOG_MAX_ROWS) as f64) / proving_duration.as_secs_f64() / 1_000_000.0;
-    info!("Trace size: {:?}", 1 << LOG_MAX_ROWS);
+    let proving_mhz = ((1 << trace_log_size) as f64) / proving_duration.as_secs_f64() / 1_000_000.0;
+    info!("Trace size: {:?}", 1 << trace_log_size);
     info!("Proving time: {:?}", proving_duration);
     info!("Proving speed: {:.2} MHz", proving_mhz);
 

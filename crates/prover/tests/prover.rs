@@ -33,9 +33,9 @@ fn test_prove_and_verify_unchanged_memory() {
         instructions: Instructions::default(),
     };
 
-    let proof = prove_cairo_m::<Blake2sMerkleChannel, 1>(prover_input).unwrap();
+    let proof = prove_cairo_m::<Blake2sMerkleChannel>(prover_input).unwrap();
 
-    let result = verify_cairo_m::<Blake2sMerkleChannel, 1>(proof);
+    let result = verify_cairo_m::<Blake2sMerkleChannel>(proof);
     assert!(result.is_ok());
 }
 
@@ -53,8 +53,8 @@ fn test_prove_and_verify_empty_memory() {
         instructions: Instructions::default(),
     };
 
-    let proof = prove_cairo_m::<Blake2sMerkleChannel, 1>(prover_input).unwrap();
+    let proof = prove_cairo_m::<Blake2sMerkleChannel>(prover_input).unwrap();
 
-    let result = verify_cairo_m::<Blake2sMerkleChannel, 1>(proof);
+    let result = verify_cairo_m::<Blake2sMerkleChannel>(proof);
     result.unwrap();
 }

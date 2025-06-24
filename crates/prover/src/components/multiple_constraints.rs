@@ -11,17 +11,17 @@ use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::pcs::TreeVec;
 
 #[derive(Copy, Clone)]
-pub struct Claim<const N: usize> {
+pub struct Claim {
     pub log_size: u32,
 }
 
-impl<const N: usize> Claim<N> {
+impl Claim {
     pub const fn new(log_size: u32) -> Self {
         Self { log_size }
     }
 
     pub fn log_sizes(&self) -> TreeVec<Vec<u32>> {
-        let trace_log_sizes = vec![self.log_size; N];
+        let trace_log_sizes = vec![self.log_size; 3];
         TreeVec::new(vec![vec![], trace_log_sizes, vec![]])
     }
 
@@ -30,15 +30,15 @@ impl<const N: usize> Claim<N> {
     }
 
     #[allow(non_snake_case)]
-    pub fn write_trace<MC: MerkleChannel>(&self) -> ComponentTrace<N>
+    pub fn write_trace<MC: MerkleChannel>(&self) -> ComponentTrace<3>
     where
         SimdBackend: BackendForChannel<MC>,
     {
-        let mut trace = unsafe { ComponentTrace::<N>::uninitialized(self.log_size) };
+        let mut trace = unsafe { ComponentTrace::<3>::uninitialized(self.log_size) };
         let M31_0 = PackedM31::broadcast(Zero::zero());
         let M31_1 = PackedM31::broadcast(One::one());
         trace.par_iter_mut().for_each(|mut row| {
-            for i in (0..N).step_by(3) {
+            for i in (0..3).step_by(3) {
                 *row[i] = M31_0;
                 *row[i + 1] = M31_1;
                 *row[i + 2] = M31_1;
@@ -48,11 +48,11 @@ impl<const N: usize> Claim<N> {
     }
 }
 
-pub struct Eval<const N: usize> {
-    pub claim: Claim<N>,
+pub struct Eval {
+    pub claim: Claim,
 }
 
-impl<const N: usize> FrameworkEval for Eval<N> {
+impl FrameworkEval for Eval {
     fn log_size(&self) -> u32 {
         self.claim.log_size
     }
@@ -63,7 +63,7 @@ impl<const N: usize> FrameworkEval for Eval<N> {
 
     #[allow(non_snake_case)]
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
-        for _ in (0..N).step_by(3) {
+        for _ in (0..3).step_by(3) {
             let M31_1 = E::F::from(One::one());
             let M31_2 = E::F::from(M31::from(2));
 
@@ -89,4 +89,4 @@ impl<const N: usize> FrameworkEval for Eval<N> {
     }
 }
 
-pub type Component<const N: usize> = FrameworkComponent<Eval<N>>;
+pub type Component = FrameworkComponent<Eval>;

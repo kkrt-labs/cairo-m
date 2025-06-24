@@ -142,4 +142,4 @@ impl FrameworkEval for Eval {
     }
 }
 
-pub type Component<const N: usize> = FrameworkComponent<Eval>;
+pub type Component = FrameworkComponent<Eval>;
