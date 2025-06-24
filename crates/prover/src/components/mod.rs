@@ -20,24 +20,10 @@ use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
-use crate::adapter::{Instructions, ProverInput, VmRegisters};
+use crate::adapter::ProverInput;
 use crate::preprocessed::range_check::range_check_20;
+use crate::public_data::PublicData;
 use crate::relations;
-
-#[derive(Serialize, Deserialize, Clone)]
-pub struct PublicData {
-    pub initial_registers: VmRegisters,
-    pub final_registers: VmRegisters,
-}
-
-impl PublicData {
-    pub fn new(input: &Instructions) -> Self {
-        Self {
-            initial_registers: input.initial_registers.clone(),
-            final_registers: input.final_registers.clone(),
-        }
-    }
-}
 
 #[derive(Serialize, Deserialize)]
 pub struct Claim {
@@ -59,7 +45,6 @@ pub struct LookupData {
 
 #[derive(Serialize, Deserialize)]
 pub struct InteractionClaim {
-    pub public_data: PublicData,
     pub memory: memory::InteractionClaim,
     pub range_check_20: range_check_20::InteractionClaim,
 }
@@ -123,7 +108,6 @@ impl Claim {
 
 impl InteractionClaim {
     pub fn write_interaction_trace(
-        public_data: PublicData,
         relations: &Relations,
         lookup_data: &LookupData,
     ) -> (
@@ -147,27 +131,30 @@ impl InteractionClaim {
                 .into_iter()
                 .chain(range_check_20_interaction_trace),
             Self {
-                public_data,
                 memory: memory_interaction_claim,
                 range_check_20: range_check_20_interaction_claim,
             },
         )
     }
 
-    pub fn initial_logup_sum(&self, relations: &Relations) -> SecureField {
+    pub fn initial_logup_sum(
+        &self,
+        relations: &Relations,
+        public_data: &PublicData,
+    ) -> SecureField {
         let values_to_inverse = vec![
             (-<relations::Registers as Relation<M31, QM31>>::combine(
                 &relations.registers,
                 &[
-                    self.public_data.initial_registers.pc,
-                    self.public_data.initial_registers.fp,
+                    public_data.initial_registers.pc,
+                    public_data.initial_registers.fp,
                 ],
             )),
             <relations::Registers as Relation<M31, QM31>>::combine(
                 &relations.registers,
                 &[
-                    self.public_data.final_registers.pc,
-                    self.public_data.final_registers.fp,
+                    public_data.final_registers.pc,
+                    public_data.final_registers.fp,
                 ],
             ),
         ];
@@ -176,9 +163,9 @@ impl InteractionClaim {
         inverted_values.iter().sum::<QM31>()
     }
 
-    pub fn claimed_sum(&self, relations: &Relations) -> SecureField {
+    pub fn claimed_sum(&self, relations: &Relations, public_data: &PublicData) -> SecureField {
         let mut sum = SecureField::zero();
-        sum += self.initial_logup_sum(relations);
+        sum += self.initial_logup_sum(relations, public_data);
         sum += self.memory.claimed_sum;
         sum += self.range_check_20.claimed_sum;
         sum

@@ -56,7 +56,11 @@ where
     let relations = Relations::draw(channel);
 
     // Verify lookup argument.
-    if proof.interaction_claim.claimed_sum(&relations) != SecureField::zero() {
+    if proof
+        .interaction_claim
+        .claimed_sum(&relations, &proof.claim.public_data)
+        != SecureField::zero()
+    {
         return Err(VerificationError::InvalidLogupSum);
     }
     proof.interaction_claim.mix_into(channel);
