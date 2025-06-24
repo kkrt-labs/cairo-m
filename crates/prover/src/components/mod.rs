@@ -2,6 +2,7 @@ pub mod memory;
 pub mod multiple_constraints;
 pub mod single_constraint;
 pub mod single_constraint_with_relation;
+pub mod store_deref_fp;
 
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
