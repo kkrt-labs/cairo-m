@@ -43,9 +43,7 @@ where
 
     // Preprocessed traces
     info!("preprocessed trace");
-    let preprocessed_trace = PreProcessedTraceBuilder::default()
-        .with_range_check(20)
-        .build();
+    let preprocessed_trace = PreProcessedTraceBuilder::default().build();
     let mut tree_builder = commitment_scheme.tree_builder();
     tree_builder.extend_evals(preprocessed_trace.gen_trace());
     tree_builder.commit(channel);

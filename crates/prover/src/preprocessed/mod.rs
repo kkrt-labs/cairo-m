@@ -44,12 +44,15 @@ impl Default for PreProcessedTrace {
     }
 }
 
-#[derive(Default)]
 pub struct PreProcessedTraceBuilder {
     columns: Vec<Box<dyn PreProcessedColumn>>,
 }
 
 impl PreProcessedTraceBuilder {
+    pub fn new() -> Self {
+        Self { columns: vec![] }
+    }
+
     pub fn with_range_check(mut self, range: u32) -> Self {
         let range_check = RangeCheck::new(range);
         self.columns.push(Box::new(range_check));
@@ -58,5 +61,11 @@ impl PreProcessedTraceBuilder {
 
     pub fn build(self) -> PreProcessedTrace {
         PreProcessedTrace::new(self.columns)
+    }
+}
+
+impl Default for PreProcessedTraceBuilder {
+    fn default() -> Self {
+        Self::new().with_range_check(20)
     }
 }

@@ -31,12 +31,10 @@ where
 
     // Preprocessed trace.
     info!("preprocessed trace");
-    let preprocessed_trace = PreProcessedTraceBuilder::default()
-        .with_range_check(20)
-        .build();
+    let preprocessed_trace = PreProcessedTraceBuilder::default().build();
     commitment_scheme_verifier.commit(
         proof.stark_proof.commitments[0],
-        &proof.claim.log_sizes()[0],
+        &preprocessed_trace.log_sizes(),
         channel,
     );
 
