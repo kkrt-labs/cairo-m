@@ -80,11 +80,11 @@ impl Claim {
                 };
                 [
                     address,
+                    clock,
                     value_array[0],
                     value_array[1],
                     value_array[2],
                     value_array[3],
-                    clock,
                     mult,
                 ]
             })
