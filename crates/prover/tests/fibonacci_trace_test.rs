@@ -28,7 +28,7 @@ pub fn compile_cairo_file(cairo_file: &str) -> Result<Program, String> {
 pub mod fibonacci {
     pub mod trace_memory_generator {
 
-        use cairo_m_prover::adapter::import_from_vm_output;
+        use cairo_m_prover::adapter::{import_from_runner_artifacts, import_from_runner_output};
         use cairo_m_runner::run_cairo_program;
         use tempfile::TempDir;
 
@@ -61,11 +61,13 @@ pub mod fibonacci {
                 .expect("Failed to write binary memory trace");
 
             // Test importing from the generated files
-            let prover_input = import_from_vm_output(&trace_path, &memory_path);
+            let from_files = import_from_runner_artifacts(&trace_path, &memory_path)
+                .expect("Failed to import from vm output");
+            let from_runner_output = import_from_runner_output(&cairo_result)
+                .expect("Failed to import from runner output");
 
-            assert!(prover_input.is_ok());
-
-            // temp_dir is automatically cleaned up when it goes out of scope
+            // Compare the results
+            assert_eq!(from_files, from_runner_output);
         }
     }
 }

@@ -11,14 +11,14 @@
 //! This is why instructions can be represented as a QM31.
 
 use cairo_m_common::instruction::InstructionError;
-use cairo_m_common::{Instruction, Opcode};
+use cairo_m_common::{Instruction, Opcode, State};
 use stwo_prover::core::fields::m31::M31;
 
 use crate::vm::instructions::call::*;
 use crate::vm::instructions::jnz::*;
 use crate::vm::instructions::jump::*;
 use crate::vm::instructions::store::*;
-use crate::vm::{Memory, MemoryError, State};
+use crate::vm::{Memory, MemoryError};
 
 pub mod call;
 pub mod jnz;

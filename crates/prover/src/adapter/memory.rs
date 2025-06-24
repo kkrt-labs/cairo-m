@@ -4,7 +4,7 @@ use num_traits::Zero;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 
-#[derive(Copy, Clone, Default, Debug)]
+#[derive(Copy, Clone, Default, Debug, Eq, PartialEq)]
 pub struct MemoryEntry {
     pub address: M31,
     pub value: QM31,
@@ -26,7 +26,7 @@ impl From<crate::adapter::io::IoMemoryEntry> for MemoryEntry {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Eq, PartialEq)]
 pub struct MemoryArg {
     pub address: M31,
     pub prev_val: QM31,
@@ -35,7 +35,7 @@ pub struct MemoryArg {
     pub clock: M31,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Eq, PartialEq)]
 pub struct Memory {
     pub initial_memory: HashMap<M31, (QM31, M31)>,
     pub final_memory: HashMap<M31, (QM31, M31)>,

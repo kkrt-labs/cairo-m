@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::Read;
 
 use cairo_m_common::instruction::InstructionError;
-use cairo_m_common::{Instruction, Opcode, Program};
+use cairo_m_common::{Instruction, Opcode, Program, State};
 use num_traits::{One, Zero};
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
@@ -11,7 +11,6 @@ use tempfile::NamedTempFile;
 // Import test utilities
 use super::test_utils::*;
 use crate::memory::Memory;
-use crate::vm::state::State;
 use crate::vm::{TraceEntry, VmError, VM};
 
 #[test]

@@ -6,7 +6,7 @@ use std::io::{self, Write};
 use std::path::Path;
 
 use cairo_m_common::instruction::InstructionError;
-use cairo_m_common::{Instruction, Program};
+use cairo_m_common::{Instruction, Program, State};
 use instructions::opcode_to_instruction_fn;
 use num_traits::Zero;
 use stwo_prover::core::fields::m31::M31;
@@ -14,7 +14,6 @@ use stwo_prover::core::fields::qm31::QM31;
 use thiserror::Error;
 
 use crate::memory::{Memory, MemoryError};
-use crate::vm::state::State;
 
 /// Custom error type for VM operations.
 #[derive(Debug, Error)]
