@@ -2,6 +2,7 @@
 use stwo_prover::relation;
 
 relation!(Memory, 2); // addr, value
+relation!(RangeCheck_20, 1); // value
 
 /// Logup security is defined by the `QM31` space:
 /// (~124 bits) + `INTERACTION_POW_BITS` - log2(number of relation terms).
