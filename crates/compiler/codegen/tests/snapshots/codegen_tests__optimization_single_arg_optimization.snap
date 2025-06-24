@@ -1,0 +1,36 @@
+---
+source: crates/compiler/codegen/tests/codegen_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/compiler/codegen/tests/codegen_tests.rs
+expression: codegen_output
+---
+Fixture: single_arg_optimization.cm
+============================================================
+Source code:
+// Test the optimization for a single argument case
+func increment(x: felt) -> felt {
+    return x + 1;
+}
+
+func test_single_arg() -> felt {
+    // n is allocated at [fp + 0], and when we call increment(n),
+    // it's already at the top of the stack, so no copy is needed
+    let n = 10;
+    let result = increment(n);
+    return result;
+}
+============================================================
+Generated CASM:
+increment:
+   0: 1 -4 1 -3            // [fp + -3] = [fp + -4] op 1
+   1: 15 _ _ _             // return
+test_single_arg:
+test_single_arg:
+test_single_arg_0:
+   2: 6 10 _ 0             // Store immediate: [fp + 0] = 10
+   3: 12 2 0 _             // call increment
+   4: 4 1 _ 3              // Store: [fp + 3] = [fp + 1]
+   5: 4 3 _ -3             // Return value: [fp - 3] = [fp + 3]
+   6: 15 _ _ _             // return
