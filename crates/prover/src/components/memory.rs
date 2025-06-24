@@ -41,10 +41,6 @@ pub struct LookupData {
 }
 
 impl Claim {
-    pub const fn new() -> Self {
-        Self { log_size: 0 }
-    }
-
     pub fn log_sizes(&self) -> TreeVec<Vec<u32>> {
         let trace_log_sizes = vec![self.log_size; N_M31_IN_MEMORY_ENTRY];
         let interaction_log_sizes = vec![self.log_size; SECURE_EXTENSION_DEGREE];
