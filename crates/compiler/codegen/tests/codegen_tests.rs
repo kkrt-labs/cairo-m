@@ -150,5 +150,7 @@ codegen_test!(fib_loop, "functions");
 
 // --- Optimization ---
 codegen_test!(in_place_update, "optimization");
+codegen_test!(args_in_order, "optimization");
+codegen_test!(single_arg_optimization, "optimization");
 
 codegen_test!(random_instructions, "random_instructions");

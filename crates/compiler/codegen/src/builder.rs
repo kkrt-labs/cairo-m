@@ -653,6 +653,30 @@ impl CasmBuilder {
 
         let l = layout.current_frame_usage();
 
+        // Optimization: Check if arguments are already positioned sequentially at the stack top.
+        // This occurs when the last N stack values are exactly the arguments in order.
+        // Example: With L=3 and args at [fp + 1], [fp + 2], we can avoid copying since
+        // they're already positioned for the callee's frame layout.
+        if !args.is_empty() {
+            let args_start_offset = l - args.len() as i32;
+            let args_in_place = args.iter().enumerate().all(|(i, arg)| {
+                if let Value::Operand(arg_id) = arg {
+                    layout
+                        .get_offset(*arg_id)
+                        .is_ok_and(|offset| offset == args_start_offset + i as i32)
+                } else {
+                    // Literals require explicit storage, preventing optimization
+                    false
+                }
+            });
+
+            if args_in_place {
+                // Arguments are already correctly positioned - skip copying
+                return Ok(args_start_offset);
+            }
+        }
+
+        // Standard path: copy arguments to their positions
         for (i, arg) in args.iter().enumerate() {
             let arg_offset = l + i as i32; // Place i-th arg at `[fp_c + L + i]`.
             let instr = match arg {
