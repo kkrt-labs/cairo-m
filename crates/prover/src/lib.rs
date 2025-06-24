@@ -1,6 +1,7 @@
 #![feature(iter_advance_by)]
 #![feature(raw_slice_split)]
 #![feature(portable_simd)]
+#![feature(iter_array_chunks)]
 
 pub mod adapter;
 pub mod components;
@@ -15,9 +16,9 @@ use stwo_prover::core::vcs::ops::MerkleHasher;
 
 use crate::components::{Claim, InteractionClaim};
 
-pub struct Proof<const N: usize, H: MerkleHasher> {
-    pub claim: Claim<N>,
-    pub interaction_claim: InteractionClaim<N>,
+pub struct Proof<H: MerkleHasher> {
+    pub claim: Claim,
+    pub interaction_claim: InteractionClaim,
     pub stark_proof: StarkProof<H>,
     pub interaction_pow: u64,
 }

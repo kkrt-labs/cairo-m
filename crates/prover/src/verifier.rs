@@ -13,9 +13,7 @@ use crate::errors::VerificationError;
 use crate::preprocessed::PreProcessedTraceBuilder;
 use crate::{relations, Proof};
 
-pub fn verify_cairo_m<MC: MerkleChannel, const N: usize>(
-    proof: Proof<N, MC::H>,
-) -> Result<(), VerificationError>
+pub fn verify_cairo_m<MC: MerkleChannel>(proof: Proof<MC::H>) -> Result<(), VerificationError>
 where
     SimdBackend: BackendForChannel<MC>,
 {
