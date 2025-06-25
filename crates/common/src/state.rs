@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use stwo_prover::core::fields::m31::M31;
+use stwo_prover::core::fields::qm31::QM31;
 
 /// The state of the VM, updated at each step.
 ///
@@ -15,4 +16,10 @@ impl From<(M31, M31)> for State {
     fn from((pc, fp): (M31, M31)) -> Self {
         Self { pc, fp }
     }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct MemoryEntry {
+    pub addr: M31,
+    pub value: QM31,
 }

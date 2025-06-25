@@ -26,13 +26,6 @@ pub enum VmError {
     Io(#[from] io::Error),
 }
 
-/// A single entry in the trace.
-#[derive(Debug, PartialEq, Eq)]
-pub struct TraceEntry {
-    pub pc: M31,
-    pub fp: M31,
-}
-
 /// The Cairo M Virtual Machine.
 ///
 /// ## Fields
@@ -47,7 +40,7 @@ pub struct VM {
     pub memory: Memory,
     pub state: State,
     pub program_length: M31,
-    pub trace: Vec<TraceEntry>,
+    pub trace: Vec<State>,
 }
 
 impl TryFrom<&Program> for VM {
@@ -109,10 +102,7 @@ impl VM {
     fn step(&mut self) -> Result<(), VmError> {
         let instruction: Instruction = self.memory.get_instruction(self.state.pc)?.try_into()?;
         let instruction_fn = opcode_to_instruction_fn(M31::from(instruction.opcode))?;
-        self.trace.push(TraceEntry {
-            pc: self.state.pc,
-            fp: self.state.fp,
-        });
+        self.trace.push(self.state);
         self.state = instruction_fn(&mut self.memory, self.state, &instruction)?;
         Ok(())
     }
