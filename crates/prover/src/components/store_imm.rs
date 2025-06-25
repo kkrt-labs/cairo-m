@@ -28,7 +28,9 @@ use crate::utils::{Enabler, PackedStateData};
 const N_TRACE_COLUMNS: usize = 11;
 const N_REGISTERS_LOOKUPS: usize = 2; // - (pc_prev, fp_prev) & + (pc_next, fp_next)
 const N_MEMORY_LOOKUPS: usize = 2 * 2; // - (prev_instruction) & + (next_instruction) & - (prev_write) & + (next_write)
-const N_INTERACTION_COLUMNS: usize = (N_REGISTERS_LOOKUPS + N_MEMORY_LOOKUPS).div_ceil(2);
+const N_RANGE_CHECK_20_LOOKUPS: usize = 2;
+const N_INTERACTION_COLUMNS: usize =
+    (N_REGISTERS_LOOKUPS + N_MEMORY_LOOKUPS + N_RANGE_CHECK_20_LOOKUPS).div_ceil(2);
 
 #[derive(Default, Clone, Serialize, Deserialize)]
 pub struct Claim {
@@ -46,6 +48,7 @@ pub struct ClaimData {
 pub struct LookupData {
     pub registers: [Vec<[PackedM31; 2]>; N_REGISTERS_LOOKUPS],
     pub memory: [Vec<[PackedM31; 6]>; N_MEMORY_LOOKUPS],
+    pub range_check_20: [Vec<[PackedM31; 1]>; N_RANGE_CHECK_20_LOOKUPS],
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize)]
@@ -122,6 +125,7 @@ impl Claim {
                 *row[8] = inst_prev_clock;
                 *lookup_data.memory[0] = [input.pc, inst_prev_clock, opcode_id, off0, off1, off2];
                 *lookup_data.memory[1] = [input.pc, clock, opcode_id, off0, off1, off2];
+                *lookup_data.range_check_20[0] = [clock - inst_prev_clock];
 
                 // Memory write: [fp + off2]
                 let dst_prev_val = input.mem1_prev_val_0;
@@ -129,14 +133,15 @@ impl Claim {
                 *row[9] = dst_prev_val;
                 *row[10] = dst_prev_clock;
                 *lookup_data.memory[2] = [
-                    input.fp + off0,
+                    input.fp + off2,
                     dst_prev_clock,
                     dst_prev_val,
                     zero,
                     zero,
                     zero,
                 ];
-                *lookup_data.memory[3] = [input.fp + off0, clock, off2, zero, zero, zero];
+                *lookup_data.memory[3] = [input.fp + off2, clock, off0, zero, zero, zero];
+                *lookup_data.range_check_20[1] = [clock - dst_prev_clock];
             });
         (
             Self { log_size },
@@ -157,6 +162,7 @@ impl InteractionClaim {
     pub fn write_interaction_trace(
         memory_relation: &relations::Memory,
         registers_relation: &relations::Registers,
+        range_check_20_relation: &relations::RangeCheck_20,
         claim_data: &ClaimData,
     ) -> (
         impl IntoIterator<Item = CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
@@ -196,7 +202,7 @@ impl InteractionClaim {
         }
         col1.finalize_col();
 
-        let mut col3 = interaction_trace.new_col();
+        let mut col2 = interaction_trace.new_col();
         for (i, (value0, value1)) in claim_data.lookup_data.memory[2]
             .iter()
             .zip(&claim_data.lookup_data.memory[3])
@@ -207,7 +213,24 @@ impl InteractionClaim {
             let denom_1: PackedQM31 = memory_relation.combine(value1);
             let mult_1: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
 
-            col3.write_frac(i, mult_0 * denom_0 + mult_1 * denom_1, denom_0 * denom_1);
+            col2.write_frac(i, mult_0 * denom_0 + mult_1 * denom_1, denom_0 * denom_1);
+        }
+        col2.finalize_col();
+
+        let mut col3 = interaction_trace.new_col();
+        for (i, (value0, value1)) in claim_data.lookup_data.range_check_20[0]
+            .iter()
+            .zip(&claim_data.lookup_data.range_check_20[1])
+            .enumerate()
+        {
+            let denom_0: PackedQM31 = range_check_20_relation.combine(value0);
+            let denom_1: PackedQM31 = range_check_20_relation.combine(value1);
+
+            col3.write_frac(
+                i,
+                PackedQM31::from(enabler_col.packed_at(i)) * (denom_0 + denom_1),
+                denom_0 * denom_1,
+            );
         }
         col3.finalize_col();
 
@@ -220,6 +243,7 @@ pub struct Eval {
     pub claim: Claim,
     pub memory: relations::Memory,
     pub registers: relations::Registers,
+    pub range_check_20: relations::RangeCheck_20,
 }
 
 impl FrameworkEval for Eval {
@@ -273,7 +297,7 @@ impl FrameworkEval for Eval {
             -E::EF::from(enabler.clone()),
             &[
                 pc.clone(),
-                inst_prev_clock,
+                inst_prev_clock.clone(),
                 opcode_id.clone(),
                 off0.clone(),
                 off1.clone(),
@@ -297,12 +321,28 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
             -E::EF::from(enabler.clone()),
-            &[fp.clone() + off2.clone(), dst_prev_clock, dst_prev_val],
+            &[
+                fp.clone() + off2.clone(),
+                dst_prev_clock.clone(),
+                dst_prev_val,
+            ],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
+            E::EF::from(enabler.clone()),
+            &[fp + off2, clock.clone(), off0],
+        ));
+
+        // Check that the write and the read clocks are valid
+        eval.add_to_relation(RelationEntry::new(
+            &self.range_check_20,
+            E::EF::from(enabler.clone()),
+            &[clock.clone() - inst_prev_clock],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.range_check_20,
             E::EF::from(enabler),
-            &[fp + off2, clock, off0],
+            &[clock - dst_prev_clock],
         ));
 
         eval.finalize_logup_in_pairs();

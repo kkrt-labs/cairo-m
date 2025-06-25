@@ -136,6 +136,7 @@ impl InteractionClaim {
             store_imm::InteractionClaim::write_interaction_trace(
                 &relations.memory,
                 &relations.registers,
+                &relations.range_check_20,
                 &claim_data.store_imm,
             );
 
@@ -210,6 +211,7 @@ impl Components {
                     claim: claim.store_imm.clone(),
                     registers: relations.registers.clone(),
                     memory: relations.memory.clone(),
+                    range_check_20: relations.range_check_20.clone(),
                 },
                 interaction_claim.store_imm.claimed_sum,
             ),
