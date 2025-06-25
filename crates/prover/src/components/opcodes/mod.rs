@@ -124,7 +124,7 @@ pub struct InteractionClaimData {
 }
 
 impl InteractionClaimData {
-    pub fn range_check_20<'a>(&'a self) -> impl ParallelIterator<Item = &'a PackedM31> {
+    pub fn range_check_20(&self) -> impl ParallelIterator<Item = &PackedM31> {
         self.call_abs_fp
             .lookup_data
             .range_check_20
@@ -530,295 +530,105 @@ impl InteractionClaim {
         Self,
         impl IntoIterator<Item = CircleEvaluation<SimdBackend, M31, BitReversedOrder>>,
     ) {
-        let (call_abs_fp_interaction_claim, call_abs_fp_interaction_trace) =
-            call_abs_fp::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.call_abs_fp,
-            );
+        macro_rules! write_interaction_trace {
+            ($opcode:ident) => {
+                $opcode::InteractionClaim::write_interaction_trace(
+                    &relations.registers,
+                    &relations.memory,
+                    &relations.range_check_20,
+                    &interaction_claim_data.$opcode,
+                )
+            };
+        }
 
-        let (call_abs_imm_interaction_claim, call_abs_imm_interaction_trace) =
-            call_abs_imm::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.call_abs_imm,
-            );
-
-        let (call_rel_fp_interaction_claim, call_rel_fp_interaction_trace) =
-            call_rel_fp::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.call_rel_fp,
-            );
-
-        let (call_rel_imm_interaction_claim, call_rel_imm_interaction_trace) =
-            call_rel_imm::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.call_rel_imm,
-            );
-
-        let (jmp_abs_add_fp_fp_interaction_claim, jmp_abs_add_fp_fp_interaction_trace) =
-            jmp_abs_add_fp_fp::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.jmp_abs_add_fp_fp,
-            );
-
-        let (jmp_abs_add_fp_imm_interaction_claim, jmp_abs_add_fp_imm_interaction_trace) =
-            jmp_abs_add_fp_imm::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.jmp_abs_add_fp_imm,
-            );
-
-        let (jmp_abs_deref_fp_interaction_claim, jmp_abs_deref_fp_interaction_trace) =
-            jmp_abs_deref_fp::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.jmp_abs_deref_fp,
-            );
-
-        let (jmp_abs_double_deref_fp_interaction_claim, jmp_abs_double_deref_fp_interaction_trace) =
-            jmp_abs_double_deref_fp::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.jmp_abs_double_deref_fp,
-            );
-
-        let (jmp_abs_imm_interaction_claim, jmp_abs_imm_interaction_trace) =
-            jmp_abs_imm::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.jmp_abs_imm,
-            );
-
-        let (jmp_abs_mul_fp_fp_interaction_claim, jmp_abs_mul_fp_fp_interaction_trace) =
-            jmp_abs_mul_fp_fp::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.jmp_abs_mul_fp_fp,
-            );
-
-        let (jmp_abs_mul_fp_imm_interaction_claim, jmp_abs_mul_fp_imm_interaction_trace) =
-            jmp_abs_mul_fp_imm::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.jmp_abs_mul_fp_imm,
-            );
-
-        let (jmp_rel_add_fp_fp_interaction_claim, jmp_rel_add_fp_fp_interaction_trace) =
-            jmp_rel_add_fp_fp::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.jmp_rel_add_fp_fp,
-            );
-
-        let (jmp_rel_add_fp_imm_interaction_claim, jmp_rel_add_fp_imm_interaction_trace) =
-            jmp_rel_add_fp_imm::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.jmp_rel_add_fp_imm,
-            );
-
-        let (jmp_rel_deref_fp_interaction_claim, jmp_rel_deref_fp_interaction_trace) =
-            jmp_rel_deref_fp::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.jmp_rel_deref_fp,
-            );
-
-        let (jmp_rel_double_deref_fp_interaction_claim, jmp_rel_double_deref_fp_interaction_trace) =
-            jmp_rel_double_deref_fp::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.jmp_rel_double_deref_fp,
-            );
-
-        let (jmp_rel_imm_interaction_claim, jmp_rel_imm_interaction_trace) =
-            jmp_rel_imm::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.jmp_rel_imm,
-            );
-
-        let (jmp_rel_mul_fp_fp_interaction_claim, jmp_rel_mul_fp_fp_interaction_trace) =
-            jmp_rel_mul_fp_fp::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.jmp_rel_mul_fp_fp,
-            );
-
-        let (jmp_rel_mul_fp_imm_interaction_claim, jmp_rel_mul_fp_imm_interaction_trace) =
-            jmp_rel_mul_fp_imm::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.jmp_rel_mul_fp_imm,
-            );
-
-        let (jnz_fp_fp_interaction_claim, jnz_fp_fp_interaction_trace) =
-            jnz_fp_fp::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.jnz_fp_fp,
-            );
-
-        let (jnz_fp_imm_interaction_claim, jnz_fp_imm_interaction_trace) =
-            jnz_fp_imm::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.jnz_fp_imm,
-            );
-
-        let (ret_interaction_claim, ret_interaction_trace) =
-            ret::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.ret,
-            );
-
-        let (store_add_fp_fp_interaction_claim, store_add_fp_fp_interaction_trace) =
-            store_add_fp_fp::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.store_add_fp_fp,
-            );
-
-        let (store_add_fp_imm_interaction_claim, store_add_fp_imm_interaction_trace) =
-            store_add_fp_imm::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.store_add_fp_imm,
-            );
-
-        let (store_deref_fp_interaction_claim, store_deref_fp_interaction_trace) =
-            store_deref_fp::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.store_deref_fp,
-            );
-
-        let (store_div_fp_fp_interaction_claim, store_div_fp_fp_interaction_trace) =
-            store_div_fp_fp::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.store_div_fp_fp,
-            );
-
-        let (store_div_fp_imm_interaction_claim, store_div_fp_imm_interaction_trace) =
-            store_div_fp_imm::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.store_div_fp_imm,
-            );
-
-        let (store_double_deref_fp_interaction_claim, store_double_deref_fp_interaction_trace) =
-            store_double_deref_fp::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.store_double_deref_fp,
-            );
-
-        let (store_imm_interaction_claim, store_imm_interaction_trace) =
-            store_imm::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.store_imm,
-            );
-
-        let (store_mul_fp_fp_interaction_claim, store_mul_fp_fp_interaction_trace) =
-            store_mul_fp_fp::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.store_mul_fp_fp,
-            );
-
-        let (store_mul_fp_imm_interaction_claim, store_mul_fp_imm_interaction_trace) =
-            store_mul_fp_imm::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.store_mul_fp_imm,
-            );
-
-        let (store_sub_fp_fp_interaction_claim, store_sub_fp_fp_interaction_trace) =
-            store_sub_fp_fp::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.store_sub_fp_fp,
-            );
-
-        let (store_sub_fp_imm_interaction_claim, store_sub_fp_imm_interaction_trace) =
-            store_sub_fp_imm::InteractionClaim::write_interaction_trace(
-                &relations.registers,
-                &relations.memory,
-                &relations.range_check_20,
-                &interaction_claim_data.store_sub_fp_imm,
-            );
+        let (call_abs_fp, call_abs_fp_interaction_trace) = write_interaction_trace!(call_abs_fp);
+        let (call_abs_imm, call_abs_imm_interaction_trace) = write_interaction_trace!(call_abs_imm);
+        let (call_rel_fp, call_rel_fp_interaction_trace) = write_interaction_trace!(call_rel_fp);
+        let (call_rel_imm, call_rel_imm_interaction_trace) = write_interaction_trace!(call_rel_imm);
+        let (jmp_abs_add_fp_fp, jmp_abs_add_fp_fp_interaction_trace) =
+            write_interaction_trace!(jmp_abs_add_fp_fp);
+        let (jmp_abs_add_fp_imm, jmp_abs_add_fp_imm_interaction_trace) =
+            write_interaction_trace!(jmp_abs_add_fp_imm);
+        let (jmp_abs_deref_fp, jmp_abs_deref_fp_interaction_trace) =
+            write_interaction_trace!(jmp_abs_deref_fp);
+        let (jmp_abs_double_deref_fp, jmp_abs_double_deref_fp_interaction_trace) =
+            write_interaction_trace!(jmp_abs_double_deref_fp);
+        let (jmp_abs_imm, jmp_abs_imm_interaction_trace) = write_interaction_trace!(jmp_abs_imm);
+        let (jmp_abs_mul_fp_fp, jmp_abs_mul_fp_fp_interaction_trace) =
+            write_interaction_trace!(jmp_abs_mul_fp_fp);
+        let (jmp_abs_mul_fp_imm, jmp_abs_mul_fp_imm_interaction_trace) =
+            write_interaction_trace!(jmp_abs_mul_fp_imm);
+        let (jmp_rel_add_fp_fp, jmp_rel_add_fp_fp_interaction_trace) =
+            write_interaction_trace!(jmp_rel_add_fp_fp);
+        let (jmp_rel_add_fp_imm, jmp_rel_add_fp_imm_interaction_trace) =
+            write_interaction_trace!(jmp_rel_add_fp_imm);
+        let (jmp_rel_deref_fp, jmp_rel_deref_fp_interaction_trace) =
+            write_interaction_trace!(jmp_rel_deref_fp);
+        let (jmp_rel_double_deref_fp, jmp_rel_double_deref_fp_interaction_trace) =
+            write_interaction_trace!(jmp_rel_double_deref_fp);
+        let (jmp_rel_imm, jmp_rel_imm_interaction_trace) = write_interaction_trace!(jmp_rel_imm);
+        let (jmp_rel_mul_fp_fp, jmp_rel_mul_fp_fp_interaction_trace) =
+            write_interaction_trace!(jmp_rel_mul_fp_fp);
+        let (jmp_rel_mul_fp_imm, jmp_rel_mul_fp_imm_interaction_trace) =
+            write_interaction_trace!(jmp_rel_mul_fp_imm);
+        let (jnz_fp_fp, jnz_fp_fp_interaction_trace) = write_interaction_trace!(jnz_fp_fp);
+        let (jnz_fp_imm, jnz_fp_imm_interaction_trace) = write_interaction_trace!(jnz_fp_imm);
+        let (ret, ret_interaction_trace) = write_interaction_trace!(ret);
+        let (store_add_fp_fp, store_add_fp_fp_interaction_trace) =
+            write_interaction_trace!(store_add_fp_fp);
+        let (store_add_fp_imm, store_add_fp_imm_interaction_trace) =
+            write_interaction_trace!(store_add_fp_imm);
+        let (store_deref_fp, store_deref_fp_interaction_trace) =
+            write_interaction_trace!(store_deref_fp);
+        let (store_div_fp_fp, store_div_fp_fp_interaction_trace) =
+            write_interaction_trace!(store_div_fp_fp);
+        let (store_div_fp_imm, store_div_fp_imm_interaction_trace) =
+            write_interaction_trace!(store_div_fp_imm);
+        let (store_double_deref_fp, store_double_deref_fp_interaction_trace) =
+            write_interaction_trace!(store_double_deref_fp);
+        let (store_imm, store_imm_interaction_trace) = write_interaction_trace!(store_imm);
+        let (store_mul_fp_fp, store_mul_fp_fp_interaction_trace) =
+            write_interaction_trace!(store_mul_fp_fp);
+        let (store_mul_fp_imm, store_mul_fp_imm_interaction_trace) =
+            write_interaction_trace!(store_mul_fp_imm);
+        let (store_sub_fp_fp, store_sub_fp_fp_interaction_trace) =
+            write_interaction_trace!(store_sub_fp_fp);
+        let (store_sub_fp_imm, store_sub_fp_imm_interaction_trace) =
+            write_interaction_trace!(store_sub_fp_imm);
 
         let interaction_claim = Self {
-            call_abs_fp: call_abs_fp_interaction_claim,
-            call_abs_imm: call_abs_imm_interaction_claim,
-            call_rel_fp: call_rel_fp_interaction_claim,
-            call_rel_imm: call_rel_imm_interaction_claim,
-            jmp_abs_add_fp_fp: jmp_abs_add_fp_fp_interaction_claim,
-            jmp_abs_add_fp_imm: jmp_abs_add_fp_imm_interaction_claim,
-            jmp_abs_deref_fp: jmp_abs_deref_fp_interaction_claim,
-            jmp_abs_double_deref_fp: jmp_abs_double_deref_fp_interaction_claim,
-            jmp_abs_imm: jmp_abs_imm_interaction_claim,
-            jmp_abs_mul_fp_fp: jmp_abs_mul_fp_fp_interaction_claim,
-            jmp_abs_mul_fp_imm: jmp_abs_mul_fp_imm_interaction_claim,
-            jmp_rel_add_fp_fp: jmp_rel_add_fp_fp_interaction_claim,
-            jmp_rel_add_fp_imm: jmp_rel_add_fp_imm_interaction_claim,
-            jmp_rel_deref_fp: jmp_rel_deref_fp_interaction_claim,
-            jmp_rel_double_deref_fp: jmp_rel_double_deref_fp_interaction_claim,
-            jmp_rel_imm: jmp_rel_imm_interaction_claim,
-            jmp_rel_mul_fp_fp: jmp_rel_mul_fp_fp_interaction_claim,
-            jmp_rel_mul_fp_imm: jmp_rel_mul_fp_imm_interaction_claim,
-            jnz_fp_fp: jnz_fp_fp_interaction_claim,
-            jnz_fp_imm: jnz_fp_imm_interaction_claim,
-            ret: ret_interaction_claim,
-            store_add_fp_fp: store_add_fp_fp_interaction_claim,
-            store_add_fp_imm: store_add_fp_imm_interaction_claim,
-            store_deref_fp: store_deref_fp_interaction_claim,
-            store_div_fp_fp: store_div_fp_fp_interaction_claim,
-            store_div_fp_imm: store_div_fp_imm_interaction_claim,
-            store_double_deref_fp: store_double_deref_fp_interaction_claim,
-            store_imm: store_imm_interaction_claim,
-            store_mul_fp_fp: store_mul_fp_fp_interaction_claim,
-            store_mul_fp_imm: store_mul_fp_imm_interaction_claim,
-            store_sub_fp_fp: store_sub_fp_fp_interaction_claim,
-            store_sub_fp_imm: store_sub_fp_imm_interaction_claim,
+            call_abs_fp,
+            call_abs_imm,
+            call_rel_fp,
+            call_rel_imm,
+            jmp_abs_add_fp_fp,
+            jmp_abs_add_fp_imm,
+            jmp_abs_deref_fp,
+            jmp_abs_double_deref_fp,
+            jmp_abs_imm,
+            jmp_abs_mul_fp_fp,
+            jmp_abs_mul_fp_imm,
+            jmp_rel_add_fp_fp,
+            jmp_rel_add_fp_imm,
+            jmp_rel_deref_fp,
+            jmp_rel_double_deref_fp,
+            jmp_rel_imm,
+            jmp_rel_mul_fp_fp,
+            jmp_rel_mul_fp_imm,
+            jnz_fp_fp,
+            jnz_fp_imm,
+            ret,
+            store_add_fp_fp,
+            store_add_fp_imm,
+            store_deref_fp,
+            store_div_fp_fp,
+            store_div_fp_imm,
+            store_double_deref_fp,
+            store_imm,
+            store_mul_fp_fp,
+            store_mul_fp_imm,
+            store_sub_fp_fp,
+            store_sub_fp_imm,
         };
         let interaction_trace = call_abs_fp_interaction_trace
             .into_iter()
@@ -972,327 +782,87 @@ impl Component {
         interaction_claim: &InteractionClaim,
         relations: &Relations,
     ) -> Self {
+        macro_rules! new_component {
+            ($opcode:ident) => {
+                $opcode::Component::new(
+                    location_allocator,
+                    $opcode::Eval {
+                        claim: claim.$opcode.clone(),
+                        memory: relations.memory.clone(),
+                        registers: relations.registers.clone(),
+                        range_check_20: relations.range_check_20.clone(),
+                    },
+                    interaction_claim.$opcode.claimed_sum,
+                )
+            };
+        }
+
+        let call_abs_fp = new_component!(call_abs_fp);
+        let call_abs_imm = new_component!(call_abs_imm);
+        let call_rel_fp = new_component!(call_rel_fp);
+        let call_rel_imm = new_component!(call_rel_imm);
+        let jmp_abs_add_fp_fp = new_component!(jmp_abs_add_fp_fp);
+        let jmp_abs_add_fp_imm = new_component!(jmp_abs_add_fp_imm);
+        let jmp_abs_deref_fp = new_component!(jmp_abs_deref_fp);
+        let jmp_abs_double_deref_fp = new_component!(jmp_abs_double_deref_fp);
+        let jmp_abs_imm = new_component!(jmp_abs_imm);
+        let jmp_abs_mul_fp_fp = new_component!(jmp_abs_mul_fp_fp);
+        let jmp_abs_mul_fp_imm = new_component!(jmp_abs_mul_fp_imm);
+        let jmp_rel_add_fp_fp = new_component!(jmp_rel_add_fp_fp);
+        let jmp_rel_add_fp_imm = new_component!(jmp_rel_add_fp_imm);
+        let jmp_rel_deref_fp = new_component!(jmp_rel_deref_fp);
+        let jmp_rel_double_deref_fp = new_component!(jmp_rel_double_deref_fp);
+        let jmp_rel_imm = new_component!(jmp_rel_imm);
+        let jmp_rel_mul_fp_fp = new_component!(jmp_rel_mul_fp_fp);
+        let jmp_rel_mul_fp_imm = new_component!(jmp_rel_mul_fp_imm);
+        let jnz_fp_fp = new_component!(jnz_fp_fp);
+        let jnz_fp_imm = new_component!(jnz_fp_imm);
+        let ret = new_component!(ret);
+        let store_add_fp_fp = new_component!(store_add_fp_fp);
+        let store_add_fp_imm = new_component!(store_add_fp_imm);
+        let store_deref_fp = new_component!(store_deref_fp);
+        let store_div_fp_fp = new_component!(store_div_fp_fp);
+        let store_div_fp_imm = new_component!(store_div_fp_imm);
+        let store_double_deref_fp = new_component!(store_double_deref_fp);
+        let store_imm = new_component!(store_imm);
+        let store_mul_fp_fp = new_component!(store_mul_fp_fp);
+        let store_mul_fp_imm = new_component!(store_mul_fp_imm);
+        let store_sub_fp_fp = new_component!(store_sub_fp_fp);
+        let store_sub_fp_imm = new_component!(store_sub_fp_imm);
+
         Self {
-            call_abs_fp: call_abs_fp::Component::new(
-                location_allocator,
-                call_abs_fp::Eval {
-                    claim: claim.call_abs_fp.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.call_abs_fp.claimed_sum,
-            ),
-            call_abs_imm: call_abs_imm::Component::new(
-                location_allocator,
-                call_abs_imm::Eval {
-                    claim: claim.call_abs_imm.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.call_abs_imm.claimed_sum,
-            ),
-            call_rel_fp: call_rel_fp::Component::new(
-                location_allocator,
-                call_rel_fp::Eval {
-                    claim: claim.call_rel_fp.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.call_rel_fp.claimed_sum,
-            ),
-            call_rel_imm: call_rel_imm::Component::new(
-                location_allocator,
-                call_rel_imm::Eval {
-                    claim: claim.call_rel_imm.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.call_rel_imm.claimed_sum,
-            ),
-            jmp_abs_add_fp_fp: jmp_abs_add_fp_fp::Component::new(
-                location_allocator,
-                jmp_abs_add_fp_fp::Eval {
-                    claim: claim.jmp_abs_add_fp_fp.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.jmp_abs_add_fp_fp.claimed_sum,
-            ),
-            jmp_abs_add_fp_imm: jmp_abs_add_fp_imm::Component::new(
-                location_allocator,
-                jmp_abs_add_fp_imm::Eval {
-                    claim: claim.jmp_abs_add_fp_imm.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.jmp_abs_add_fp_imm.claimed_sum,
-            ),
-            jmp_abs_deref_fp: jmp_abs_deref_fp::Component::new(
-                location_allocator,
-                jmp_abs_deref_fp::Eval {
-                    claim: claim.jmp_abs_deref_fp.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.jmp_abs_deref_fp.claimed_sum,
-            ),
-            jmp_abs_double_deref_fp: jmp_abs_double_deref_fp::Component::new(
-                location_allocator,
-                jmp_abs_double_deref_fp::Eval {
-                    claim: claim.jmp_abs_double_deref_fp.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.jmp_abs_double_deref_fp.claimed_sum,
-            ),
-            jmp_abs_imm: jmp_abs_imm::Component::new(
-                location_allocator,
-                jmp_abs_imm::Eval {
-                    claim: claim.jmp_abs_imm.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.jmp_abs_imm.claimed_sum,
-            ),
-            jmp_abs_mul_fp_fp: jmp_abs_mul_fp_fp::Component::new(
-                location_allocator,
-                jmp_abs_mul_fp_fp::Eval {
-                    claim: claim.jmp_abs_mul_fp_fp.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.jmp_abs_mul_fp_fp.claimed_sum,
-            ),
-            jmp_abs_mul_fp_imm: jmp_abs_mul_fp_imm::Component::new(
-                location_allocator,
-                jmp_abs_mul_fp_imm::Eval {
-                    claim: claim.jmp_abs_mul_fp_imm.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.jmp_abs_mul_fp_imm.claimed_sum,
-            ),
-            jmp_rel_add_fp_fp: jmp_rel_add_fp_fp::Component::new(
-                location_allocator,
-                jmp_rel_add_fp_fp::Eval {
-                    claim: claim.jmp_rel_add_fp_fp.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.jmp_rel_add_fp_fp.claimed_sum,
-            ),
-            jmp_rel_add_fp_imm: jmp_rel_add_fp_imm::Component::new(
-                location_allocator,
-                jmp_rel_add_fp_imm::Eval {
-                    claim: claim.jmp_rel_add_fp_imm.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.jmp_rel_add_fp_imm.claimed_sum,
-            ),
-            jmp_rel_deref_fp: jmp_rel_deref_fp::Component::new(
-                location_allocator,
-                jmp_rel_deref_fp::Eval {
-                    claim: claim.jmp_rel_deref_fp.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.jmp_rel_deref_fp.claimed_sum,
-            ),
-            jmp_rel_double_deref_fp: jmp_rel_double_deref_fp::Component::new(
-                location_allocator,
-                jmp_rel_double_deref_fp::Eval {
-                    claim: claim.jmp_rel_double_deref_fp.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.jmp_rel_double_deref_fp.claimed_sum,
-            ),
-            jmp_rel_imm: jmp_rel_imm::Component::new(
-                location_allocator,
-                jmp_rel_imm::Eval {
-                    claim: claim.jmp_rel_imm.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.jmp_rel_imm.claimed_sum,
-            ),
-            jmp_rel_mul_fp_fp: jmp_rel_mul_fp_fp::Component::new(
-                location_allocator,
-                jmp_rel_mul_fp_fp::Eval {
-                    claim: claim.jmp_rel_mul_fp_fp.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.jmp_rel_mul_fp_fp.claimed_sum,
-            ),
-            jmp_rel_mul_fp_imm: jmp_rel_mul_fp_imm::Component::new(
-                location_allocator,
-                jmp_rel_mul_fp_imm::Eval {
-                    claim: claim.jmp_rel_mul_fp_imm.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.jmp_rel_mul_fp_imm.claimed_sum,
-            ),
-            jnz_fp_fp: jnz_fp_fp::Component::new(
-                location_allocator,
-                jnz_fp_fp::Eval {
-                    claim: claim.jnz_fp_fp.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.jnz_fp_fp.claimed_sum,
-            ),
-            jnz_fp_imm: jnz_fp_imm::Component::new(
-                location_allocator,
-                jnz_fp_imm::Eval {
-                    claim: claim.jnz_fp_imm.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.jnz_fp_imm.claimed_sum,
-            ),
-            ret: ret::Component::new(
-                location_allocator,
-                ret::Eval {
-                    claim: claim.ret.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.ret.claimed_sum,
-            ),
-            store_add_fp_fp: store_add_fp_fp::Component::new(
-                location_allocator,
-                store_add_fp_fp::Eval {
-                    claim: claim.store_add_fp_fp.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.store_add_fp_fp.claimed_sum,
-            ),
-            store_add_fp_imm: store_add_fp_imm::Component::new(
-                location_allocator,
-                store_add_fp_imm::Eval {
-                    claim: claim.store_add_fp_imm.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.store_add_fp_imm.claimed_sum,
-            ),
-            store_mul_fp_imm: store_mul_fp_imm::Component::new(
-                location_allocator,
-                store_mul_fp_imm::Eval {
-                    claim: claim.store_mul_fp_imm.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.store_mul_fp_imm.claimed_sum,
-            ),
-            store_deref_fp: store_deref_fp::Component::new(
-                location_allocator,
-                store_deref_fp::Eval {
-                    claim: claim.store_deref_fp.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.store_deref_fp.claimed_sum,
-            ),
-            store_div_fp_fp: store_div_fp_fp::Component::new(
-                location_allocator,
-                store_div_fp_fp::Eval {
-                    claim: claim.store_div_fp_fp.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.store_div_fp_fp.claimed_sum,
-            ),
-            store_div_fp_imm: store_div_fp_imm::Component::new(
-                location_allocator,
-                store_div_fp_imm::Eval {
-                    claim: claim.store_div_fp_imm.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.store_div_fp_imm.claimed_sum,
-            ),
-            store_double_deref_fp: store_double_deref_fp::Component::new(
-                location_allocator,
-                store_double_deref_fp::Eval {
-                    claim: claim.store_double_deref_fp.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.store_double_deref_fp.claimed_sum,
-            ),
-            store_imm: store_imm::Component::new(
-                location_allocator,
-                store_imm::Eval {
-                    claim: claim.store_imm.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.store_imm.claimed_sum,
-            ),
-            store_mul_fp_fp: store_mul_fp_fp::Component::new(
-                location_allocator,
-                store_mul_fp_fp::Eval {
-                    claim: claim.store_mul_fp_fp.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.store_mul_fp_fp.claimed_sum,
-            ),
-            store_sub_fp_fp: store_sub_fp_fp::Component::new(
-                location_allocator,
-                store_sub_fp_fp::Eval {
-                    claim: claim.store_sub_fp_fp.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.store_sub_fp_fp.claimed_sum,
-            ),
-            store_sub_fp_imm: store_sub_fp_imm::Component::new(
-                location_allocator,
-                store_sub_fp_imm::Eval {
-                    claim: claim.store_sub_fp_imm.clone(),
-                    memory: relations.memory.clone(),
-                    registers: relations.registers.clone(),
-                    range_check_20: relations.range_check_20.clone(),
-                },
-                interaction_claim.store_sub_fp_imm.claimed_sum,
-            ),
+            call_abs_fp,
+            call_abs_imm,
+            call_rel_fp,
+            call_rel_imm,
+            jmp_abs_add_fp_fp,
+            jmp_abs_add_fp_imm,
+            jmp_abs_deref_fp,
+            jmp_abs_double_deref_fp,
+            jmp_abs_imm,
+            jmp_abs_mul_fp_fp,
+            jmp_abs_mul_fp_imm,
+            jmp_rel_add_fp_fp,
+            jmp_rel_add_fp_imm,
+            jmp_rel_deref_fp,
+            jmp_rel_double_deref_fp,
+            jmp_rel_imm,
+            jmp_rel_mul_fp_fp,
+            jmp_rel_mul_fp_imm,
+            jnz_fp_fp,
+            jnz_fp_imm,
+            ret,
+            store_add_fp_fp,
+            store_add_fp_imm,
+            store_deref_fp,
+            store_div_fp_fp,
+            store_div_fp_imm,
+            store_double_deref_fp,
+            store_imm,
+            store_mul_fp_fp,
+            store_mul_fp_imm,
+            store_sub_fp_fp,
+            store_sub_fp_imm,
         }
     }
 
