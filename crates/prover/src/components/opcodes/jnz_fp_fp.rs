@@ -415,7 +415,7 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.registers,
             E::EF::from(enabler.clone()),
-            &[pc.clone() + one.clone(), fp.clone()],
+            &[pc.clone() + one, fp.clone()],
         ));
 
         // Read instruction from memory

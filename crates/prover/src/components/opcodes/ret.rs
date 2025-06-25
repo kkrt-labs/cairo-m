@@ -393,7 +393,7 @@ impl FrameworkEval for Eval {
         let fp_min_1_val = eval.next_trace_mask();
 
         // Enabler is 1 or 0
-        eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
+        eval.add_constraint(enabler.clone() * (one - enabler.clone()));
 
         // Opcode id is Ret
         eval.add_constraint(enabler.clone() * (opcode_id.clone() - expected_opcode_id));
