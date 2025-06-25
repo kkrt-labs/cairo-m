@@ -543,11 +543,6 @@ impl CodeGenerator {
     pub fn instructions(&self) -> &[InstructionBuilder] {
         &self.instructions
     }
-
-    /// Get function entrypoints (for testing)
-    pub const fn function_entrypoints(&self) -> &HashMap<String, EntrypointInfo> {
-        &self.function_entrypoints
-    }
 }
 
 impl Default for CodeGenerator {
