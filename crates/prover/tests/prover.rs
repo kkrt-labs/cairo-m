@@ -1,9 +1,12 @@
 use std::collections::HashMap;
+use std::fs;
 
+use cairo_m_compiler::{compile_cairo, CompilerOptions};
 use cairo_m_prover::adapter::memory::Memory;
-use cairo_m_prover::adapter::{Instructions, ProverInput};
+use cairo_m_prover::adapter::{import_from_runner_output, Instructions, ProverInput};
 use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_prover::verifier::verify_cairo_m;
+use cairo_m_runner::run_cairo_program;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
@@ -57,4 +60,33 @@ fn test_prove_and_verify_empty_memory() {
 
     let result = verify_cairo_m::<Blake2sMerkleChannel>(proof);
     result.unwrap();
+}
+
+#[test]
+fn test_prove_and_verify_fibonacci_program() -> Result<(), String> {
+    let source_path = format!(
+        "{}/tests/test_data/{}",
+        env!("CARGO_MANIFEST_DIR"),
+        "fibonacci.cm"
+    );
+    let compiled_fib = compile_cairo(
+        fs::read_to_string(&source_path).unwrap(),
+        source_path,
+        CompilerOptions::default(),
+    )
+    .map_err(|e| format!("Compilation failed: {}", e))?;
+
+    // let result = run_and_generate_proof(file_content).unwrap();
+    let runner_output = run_cairo_program(&compiled_fib.program, "main", Default::default())
+        .map_err(|e| format!("Runner failed: {}", e))?;
+
+    let prover_input =
+        import_from_runner_output(&runner_output).map_err(|e| format!("Adapter failed: {}", e))?;
+    let proof = prove_cairo_m::<Blake2sMerkleChannel>(prover_input)
+        .map_err(|e| format!("Proving failed: {}", e))?;
+
+    verify_cairo_m::<Blake2sMerkleChannel>(proof)
+        .map_err(|e| format!("Verification failed: {}", e))?;
+
+    Ok(())
 }
