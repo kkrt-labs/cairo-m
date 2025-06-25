@@ -492,11 +492,7 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
             E::EF::from(enabler.clone()),
-            &[
-                fp.clone() + off0 + one.clone(),
-                clock.clone(),
-                pc + one.clone(),
-            ],
+            &[fp.clone() + off0 + one.clone(), clock.clone(), pc + one],
         ));
 
         // Read op1
