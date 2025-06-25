@@ -2,9 +2,7 @@ pub mod memory;
 pub mod opcodes;
 pub mod store_deref_fp;
 
-use cairo_m_common::Opcode;
 use num_traits::Zero;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 pub use stwo_air_utils::trace::component_trace::ComponentTrace;
 pub use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
@@ -193,10 +191,9 @@ impl Components {
         Self {
             opcodes: opcodes::Component::new(
                 location_allocator,
-                opcodes::Eval {
-                    claim: claim.opcodes.clone(),
-                    relation: relations.registers.clone(),
-                },
+                &claim.opcodes,
+                &interaction_claim.opcodes,
+                relations,
             ),
             memory: memory::Component::new(
                 location_allocator,
@@ -218,16 +215,16 @@ impl Components {
     }
 
     pub fn provers(&self) -> Vec<&dyn ComponentProver<SimdBackend>> {
-        vec![&self.opcodes.provers(), &self.memory, &self.range_check_20]
-            .into_iter()
-            .flatten()
+        let mut provers = self.opcodes.provers();
+        provers.push(&self.memory);
+        provers.push(&self.range_check_20);
+        provers
     }
 
     pub fn verifiers(&self) -> Vec<&dyn ComponentVerifier> {
-        vec![
-            &self.opcodes.verifiers(),
-            &self.memory,
-            &self.range_check_20,
-        ]
+        let mut verifiers = self.opcodes.verifiers();
+        verifiers.push(&self.memory);
+        verifiers.push(&self.range_check_20);
+        verifiers
     }
 }

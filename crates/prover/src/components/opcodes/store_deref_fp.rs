@@ -413,11 +413,11 @@ impl FrameworkEval for Eval {
             &self.memory,
             E::EF::from(enabler.clone()),
             &[
-                pc.clone(),
+                pc,
                 clock.clone(),
-                opcode_id.clone(),
+                opcode_id,
                 off0.clone(),
-                off1.clone(),
+                off1,
                 off2.clone(),
             ],
         ));
@@ -435,7 +435,7 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
             E::EF::from(enabler.clone()),
-            &[fp.clone() + off0.clone(), clock.clone(), op0_val.clone()],
+            &[fp.clone() + off0, clock.clone(), op0_val],
         ));
 
         // Write dst
@@ -450,29 +450,25 @@ impl FrameworkEval for Eval {
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
-            E::EF::from(enabler.clone()),
-            &[
-                fp.clone() + off2.clone(),
-                clock.clone(),
-                dst_prev_val.clone(),
-            ],
+            E::EF::from(enabler),
+            &[fp + off2, clock.clone(), dst_prev_val],
         ));
 
         // Range check 20
         eval.add_to_relation(RelationEntry::new(
             &self.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - inst_prev_clock.clone() - one.clone()],
+            &[clock.clone() - inst_prev_clock - one.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - op0_prev_clock.clone() - one.clone()],
+            &[clock.clone() - op0_prev_clock - one.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - dst_prev_clock.clone() - one.clone()],
+            &[clock - dst_prev_clock - one],
         ));
 
         eval.finalize_logup_in_pairs();
