@@ -224,6 +224,7 @@ impl Components {
                     claim: claim.store_deref_fp.clone(),
                     memory: relations.memory.clone(),
                     registers: relations.registers.clone(),
+                    range_check_20: relations.range_check_20.clone(),
                 },
                 interaction_claim.store_deref_fp.claimed_sum,
             ),

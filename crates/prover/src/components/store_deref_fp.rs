@@ -369,6 +369,7 @@ pub struct Eval {
     pub claim: Claim,
     pub memory: relations::Memory,
     pub registers: relations::Registers,
+    pub range_check_20: relations::RangeCheck_20,
 }
 
 impl FrameworkEval for Eval {
@@ -382,26 +383,25 @@ impl FrameworkEval for Eval {
 
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         let one = E::F::from(M31::one());
-        let zero = E::F::from(M31::zero());
         let expected_opcode_id = E::F::from(M31::from(Opcode::StoreDerefFp));
 
         // 13 columns
         let enabler = eval.next_trace_mask();
         let pc = eval.next_trace_mask();
         let fp = eval.next_trace_mask();
+        let clock = eval.next_trace_mask();
         let opcode_id = eval.next_trace_mask();
         let off0 = eval.next_trace_mask();
         let off1 = eval.next_trace_mask();
         let off2 = eval.next_trace_mask();
         let instruction_prev_clock = eval.next_trace_mask();
-        let clock = eval.next_trace_mask();
-        let dst_prev_value = eval.next_trace_mask();
-        let dst_prev_clock = eval.next_trace_mask();
-        let src_value = eval.next_trace_mask();
         let src_prev_clock = eval.next_trace_mask();
+        let src_value = eval.next_trace_mask();
+        let dst_prev_clock = eval.next_trace_mask();
+        let dst_prev_value = eval.next_trace_mask();
 
         // Enabler is 1 or 0
-        eval.add_constraint(enabler.clone() * (one - enabler.clone()));
+        eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
 
         // Opcode id is StoreDerefFp
         eval.add_constraint(opcode_id.clone() - expected_opcode_id);
@@ -412,23 +412,23 @@ impl FrameworkEval for Eval {
             -E::EF::from(enabler.clone()),
             &[
                 pc.clone(),
+                instruction_prev_clock.clone(),
                 opcode_id.clone(),
                 off0.clone(),
                 off1.clone(),
                 off2.clone(),
-                instruction_prev_clock,
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
             E::EF::from(enabler.clone()),
             &[
-                pc,
+                pc.clone(),
+                clock.clone(),
                 opcode_id,
                 off0.clone(),
                 off1,
                 off2.clone(),
-                clock.clone(),
             ],
         ));
 
@@ -438,49 +438,61 @@ impl FrameworkEval for Eval {
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + off0.clone(),
+                src_prev_clock.clone(),
                 src_value.clone(),
-                zero.clone(),
-                zero.clone(),
-                zero.clone(),
-                src_prev_clock,
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
             E::EF::from(enabler.clone()),
-            &[
-                fp.clone() + off0,
-                src_value,
-                zero.clone(),
-                zero.clone(),
-                zero.clone(),
-                clock.clone(),
-            ],
+            &[fp.clone() + off0, clock.clone(), src_value.clone()],
         ));
+
         // Check the write at fp + off2
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + off2.clone(),
-                dst_prev_value.clone(),
-                zero.clone(),
-                zero.clone(),
-                zero.clone(),
-                dst_prev_clock,
+                dst_prev_clock.clone(),
+                dst_prev_value,
             ],
         ));
+
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
-            E::EF::from(enabler),
-            &[
-                fp + off2,
-                dst_prev_value,
-                zero.clone(),
-                zero.clone(),
-                zero,
-                clock,
-            ],
+            E::EF::from(enabler.clone()),
+            &[fp.clone() + off2, clock.clone(), src_value],
+        ));
+
+        eval.add_to_relation(RelationEntry::new(
+            &self.registers,
+            -E::EF::from(enabler.clone()),
+            &[pc.clone(), fp.clone()],
+        ));
+
+        eval.add_to_relation(RelationEntry::new(
+            &self.registers,
+            E::EF::from(enabler.clone()),
+            &[pc + one, fp],
+        ));
+
+        eval.add_to_relation(RelationEntry::new(
+            &self.range_check_20,
+            -E::EF::from(enabler.clone()),
+            &[clock.clone() - src_prev_clock],
+        ));
+
+        eval.add_to_relation(RelationEntry::new(
+            &self.range_check_20,
+            -E::EF::from(enabler.clone()),
+            &[clock.clone() - dst_prev_clock],
+        ));
+
+        eval.add_to_relation(RelationEntry::new(
+            &self.range_check_20,
+            -E::EF::from(enabler),
+            &[clock - instruction_prev_clock],
         ));
 
         eval.finalize_logup();
