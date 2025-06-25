@@ -114,7 +114,6 @@ impl Claim {
             })
             .collect();
 
-        let one = PackedM31::from(M31::one());
         let enabler_col = Enabler::new(non_padded_length);
         (
             trace.par_iter_mut(),
@@ -150,7 +149,7 @@ impl Claim {
                 *lookup_data.memory[0] = [input.pc, inst_prev_clock, opcode_id, off0, off1, off2];
                 *lookup_data.memory[1] = [input.pc, clock, opcode_id, off0, off1, off2];
 
-                *lookup_data.range_check_20[0] = clock - inst_prev_clock - one;
+                *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
             });
 
         (
@@ -312,7 +311,7 @@ impl FrameworkEval for Eval {
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
-            E::EF::from(enabler),
+            E::EF::from(enabler.clone()),
             &[pc, clock.clone(), opcode_id, off0, off1, off2],
         ));
 
@@ -320,7 +319,7 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.range_check_20,
             -E::EF::one(),
-            &[clock - inst_prev_clock - one],
+            &[clock - inst_prev_clock - enabler],
         ));
 
         eval.finalize_logup_in_pairs();

@@ -194,9 +194,9 @@ impl Claim {
                 ];
                 *lookup_data.memory[5] = [fp - one, clock, fp_min_1_val, zero, zero, zero];
 
-                *lookup_data.range_check_20[0] = clock - inst_prev_clock - one;
-                *lookup_data.range_check_20[1] = clock - fp_min_2_prev_clock - one;
-                *lookup_data.range_check_20[2] = clock - fp_min_1_prev_clock - one;
+                *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
+                *lookup_data.range_check_20[1] = clock - fp_min_2_prev_clock - enabler;
+                *lookup_data.range_check_20[2] = clock - fp_min_1_prev_clock - enabler;
             });
 
         (
@@ -450,32 +450,32 @@ impl FrameworkEval for Eval {
             &self.memory,
             -E::EF::from(enabler.clone()),
             &[
-                fp.clone() - one.clone(),
+                fp.clone() - enabler.clone(),
                 fp_min_1_prev_clock.clone(),
                 fp_min_1_val.clone(),
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
-            E::EF::from(enabler),
-            &[fp - one.clone(), clock.clone(), fp_min_1_val],
+            E::EF::from(enabler.clone()),
+            &[fp - enabler.clone(), clock.clone(), fp_min_1_val],
         ));
 
         // Range check 20
         eval.add_to_relation(RelationEntry::new(
             &self.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - inst_prev_clock - one.clone()],
+            &[clock.clone() - inst_prev_clock - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - fp_min_2_prev_clock - one.clone()],
+            &[clock.clone() - fp_min_2_prev_clock - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.range_check_20,
             -E::EF::one(),
-            &[clock - fp_min_1_prev_clock - one],
+            &[clock - fp_min_1_prev_clock - enabler],
         ));
 
         eval.finalize_logup_in_pairs();
