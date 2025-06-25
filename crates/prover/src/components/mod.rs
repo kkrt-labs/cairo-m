@@ -1,4 +1,5 @@
 pub mod memory;
+pub mod opcodes;
 pub mod store_deref_fp;
 
 use cairo_m_common::Opcode;
