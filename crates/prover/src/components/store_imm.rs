@@ -49,7 +49,7 @@ pub struct ClaimData {
 pub struct LookupData {
     pub registers: [Vec<[PackedM31; 2]>; N_REGISTERS_LOOKUPS],
     pub memory: [Vec<[PackedM31; 6]>; N_MEMORY_LOOKUPS],
-    pub range_check_20: [Vec<[PackedM31; 1]>; N_RANGE_CHECK_20_LOOKUPS],
+    pub range_check_20: [Vec<PackedM31>; N_RANGE_CHECK_20_LOOKUPS],
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize)]
@@ -126,7 +126,7 @@ impl Claim {
                 *row[8] = inst_prev_clock;
                 *lookup_data.memory[0] = [input.pc, inst_prev_clock, opcode_id, off0, off1, off2];
                 *lookup_data.memory[1] = [input.pc, clock, opcode_id, off0, off1, off2];
-                *lookup_data.range_check_20[0] = [clock - inst_prev_clock];
+                *lookup_data.range_check_20[0] = clock - inst_prev_clock;
 
                 // Memory write: [fp + off2]
                 let dst_prev_val = input.mem1_prev_val_0;
@@ -142,7 +142,7 @@ impl Claim {
                     zero,
                 ];
                 *lookup_data.memory[3] = [input.fp + off2, clock, off0, zero, zero, zero];
-                *lookup_data.range_check_20[1] = [clock - dst_prev_clock];
+                *lookup_data.range_check_20[1] = clock - dst_prev_clock;
             });
         (
             Self { log_size },
@@ -232,8 +232,8 @@ impl InteractionClaim {
         )
             .into_par_iter()
             .for_each(|(writer, value0, value1)| {
-                let denom_0: PackedQM31 = range_check_20_relation.combine(value0);
-                let denom_1: PackedQM31 = range_check_20_relation.combine(value1);
+                let denom_0: PackedQM31 = range_check_20_relation.combine(&[*value0]);
+                let denom_1: PackedQM31 = range_check_20_relation.combine(&[*value1]);
                 writer.write_frac(
                     -PackedQM31::from(PackedM31::broadcast(M31::from(1))) * (denom_0 + denom_1),
                     denom_0 * denom_1,

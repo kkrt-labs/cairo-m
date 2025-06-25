@@ -2,6 +2,7 @@
 #![feature(raw_slice_split)]
 #![feature(portable_simd)]
 #![feature(iter_array_chunks)]
+#![feature(anonymous_lifetime_in_impl_trait)]
 
 pub mod adapter;
 pub mod components;

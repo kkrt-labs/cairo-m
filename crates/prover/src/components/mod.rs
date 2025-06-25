@@ -3,6 +3,7 @@ pub mod store_imm;
 
 use cairo_m_common::Opcode;
 use num_traits::Zero;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 pub use stwo_air_utils::trace::component_trace::ComponentTrace;
 pub use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
@@ -42,12 +43,6 @@ pub struct Relations {
     pub range_check_20: relations::RangeCheck_20,
 }
 
-pub struct LookupData {
-    pub store_imm: store_imm::LookupData,
-    pub memory: memory::LookupData,
-    pub range_check_20: range_check_20::LookupData,
-}
-
 #[derive(Serialize, Deserialize)]
 pub struct InteractionClaim {
     pub store_imm: store_imm::InteractionClaim,
@@ -72,7 +67,7 @@ impl Claim {
     }
 
     pub fn write_trace<MC: MerkleChannel>(
-        mut input: ProverInput,
+        input: &mut ProverInput,
     ) -> (
         Self,
         impl IntoIterator<Item = CircleEvaluation<SimdBackend, M31, BitReversedOrder>>,
@@ -93,18 +88,17 @@ impl Claim {
 
         // Write memory component from the prover input
         let (memory_claim, memory_trace, memory_claim_data) =
-            memory::Claim::write_trace(input.memory_boundaries);
+            memory::Claim::write_trace(input.memory_boundaries.clone());
 
         // Write range_check components
         // TODO: use memory and other components lookup data to generate multiplicity column
-        let range_check_data: Vec<PackedM31> = store_imm_claim_data
+        let range_check_20_lookup_data = store_imm_claim_data
             .lookup_data
             .range_check_20
-            .iter()
-            .flat_map(|vec| vec.iter().map(|arr| arr[0]))
-            .collect();
+            .par_iter()
+            .flatten();
         let (range_check_20_claim, range_check_20_trace, range_check_20_claim_data) =
-            range_check_20::Claim::write_trace(&range_check_data);
+            range_check_20::Claim::write_trace(range_check_20_lookup_data);
 
         // Combine all traces
         let trace = store_imm_trace

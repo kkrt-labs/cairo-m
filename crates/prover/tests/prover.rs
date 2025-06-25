@@ -31,12 +31,12 @@ fn test_prove_and_verify_unchanged_memory() {
         final_memory: initial_memory,
     };
 
-    let prover_input = ProverInput {
+    let mut prover_input = ProverInput {
         memory_boundaries,
         instructions: Instructions::default(),
     };
 
-    let proof = prove_cairo_m::<Blake2sMerkleChannel>(prover_input).unwrap();
+    let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input).unwrap();
 
     let result = verify_cairo_m::<Blake2sMerkleChannel>(proof);
     assert!(result.is_ok());
@@ -51,7 +51,7 @@ fn test_prove_and_verify_empty_memory() {
         final_memory: initial_memory,
     };
 
-    let prover_input = ProverInput {
+    let mut prover_input = ProverInput {
         memory_boundaries,
         instructions: Instructions::default(),
     };

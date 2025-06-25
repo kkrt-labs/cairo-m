@@ -1,8 +1,6 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use rayon::iter::{
-    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
-};
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use rayon::slice::ParallelSlice;
 use serde::{Deserialize, Serialize};
 use stwo_prover::constraint_framework::logup::LogupTraceGenerator;
@@ -53,7 +51,7 @@ impl Claim {
     }
 
     pub fn write_trace<MC: MerkleChannel>(
-        lookup_data: &Vec<PackedM31>,
+        lookup_data: impl ParallelIterator<Item = &PackedM31>,
     ) -> (
         Self,
         [CircleEvaluation<SimdBackend, M31, BitReversedOrder>; 1],
@@ -66,7 +64,7 @@ impl Claim {
             .map(|_| AtomicU32::new(0))
             .collect();
 
-        lookup_data.par_iter().for_each(|entry| {
+        lookup_data.for_each(|entry| {
             for element in entry.to_array() {
                 mults_atomic[element.0 as usize].fetch_add(1, Ordering::Relaxed);
             }
@@ -89,22 +87,6 @@ impl Claim {
                 ]
             })
             .collect();
-
-        // Print lines where the second element (multiplicity) is not all zeros
-        println!("Lines with non-zero multiplicities:");
-        for (line_idx, row) in mults_packed.iter().enumerate() {
-            let multiplicity_values = row[1].to_array();
-            let has_non_zero = multiplicity_values.iter().any(|&val| val.0 != 0);
-            if has_non_zero {
-                let indices = row[0].to_array();
-                println!(
-                    "Line {}: indices={:?}, multiplicities={:?}",
-                    line_idx,
-                    indices.iter().map(|m| m.0).collect::<Vec<_>>(),
-                    multiplicity_values.iter().map(|m| m.0).collect::<Vec<_>>()
-                );
-            }
-        }
 
         let domain = CanonicCoset::new(LOG_SIZE_RC_20).circle_domain();
         (
