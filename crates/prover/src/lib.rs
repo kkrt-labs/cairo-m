@@ -10,6 +10,7 @@ pub mod preprocessed;
 pub mod prover;
 pub mod public_data;
 pub mod relations;
+pub mod utils;
 pub mod verifier;
 
 use serde::{Deserialize, Serialize};
