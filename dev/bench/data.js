@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1750865920317,
+  "lastUpdate": 1750870292566,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -943,6 +943,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 261625424,
             "range": "± 595344",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9e629dbc267067e240433a4b3c0690681339b010",
+          "message": "fix(vm): useless conversion in return value collection (#114)",
+          "timestamp": "2025-06-25T18:48:53+02:00",
+          "tree_id": "adde432da78018a5c85a0ef6ec7cb46a87615f1c",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/9e629dbc267067e240433a4b3c0690681339b010"
+        },
+        "date": 1750870292030,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 261650154,
+            "range": "± 1086210",
             "unit": "ns/iter"
           }
         ]
