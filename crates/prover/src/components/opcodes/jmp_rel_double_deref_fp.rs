@@ -125,7 +125,6 @@ impl Claim {
             .collect();
 
         let zero = PackedM31::from(M31::zero());
-        let one = PackedM31::from(M31::one());
         let enabler_col = Enabler::new(non_padded_length);
         (
             trace.par_iter_mut(),
@@ -182,9 +181,9 @@ impl Claim {
                 ];
                 *lookup_data.memory[5] = [op0_val + off1, clock, op0_deref_val, zero, zero, zero];
 
-                *lookup_data.range_check_20[0] = clock - inst_prev_clock - one;
-                *lookup_data.range_check_20[1] = clock - op0_prev_clock - one;
-                *lookup_data.range_check_20[2] = clock - op0_deref_prev_clock - one;
+                *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
+                *lookup_data.range_check_20[1] = clock - op0_prev_clock - enabler;
+                *lookup_data.range_check_20[2] = clock - op0_deref_prev_clock - enabler;
             });
 
         (
@@ -454,7 +453,7 @@ impl FrameworkEval for Eval {
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
-            E::EF::from(enabler),
+            E::EF::from(enabler.clone()),
             &[op0_val + off1, clock.clone(), op0_deref_val],
         ));
 
@@ -462,17 +461,17 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - inst_prev_clock - one.clone()],
+            &[clock.clone() - inst_prev_clock - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - op0_prev_clock - one.clone()],
+            &[clock.clone() - op0_prev_clock - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.range_check_20,
             -E::EF::one(),
-            &[clock - op0_deref_prev_clock - one],
+            &[clock - op0_deref_prev_clock - enabler],
         ));
 
         eval.finalize_logup_in_pairs();
