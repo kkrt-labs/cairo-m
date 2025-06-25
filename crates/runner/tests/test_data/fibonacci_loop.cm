@@ -10,9 +10,3 @@ func fibonacci_loop(n: felt) -> felt {
     }
     return a;
 }
-
-func main() -> felt {
-    let n = 10;
-    let result = fibonacci_loop(n);
-    return result;
-}

@@ -30,6 +30,7 @@ pub mod fibonacci {
 
         use cairo_m_prover::adapter::{import_from_runner_artifacts, import_from_runner_output};
         use cairo_m_runner::run_cairo_program;
+        use stwo_prover::core::fields::m31::M31;
         use tempfile::TempDir;
 
         #[test]
@@ -43,8 +44,9 @@ pub mod fibonacci {
                 .expect("Failed to compile Cairo-M program");
 
             // Run the program to generate trace and memory data
-            let cairo_result = run_cairo_program(&compiled, "main", Default::default())
-                .expect("Failed to run Cairo-M program");
+            let cairo_result =
+                run_cairo_program(&compiled, "fib", &[M31::from(10)], Default::default())
+                    .expect("Failed to run Cairo-M program");
 
             // Create paths for temporary trace and memory files
             let trace_path = temp_dir.path().join("trace.bin");

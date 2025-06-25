@@ -4,6 +4,17 @@ use serde::{Deserialize, Serialize};
 
 use crate::Instruction;
 
+/// Information about a function entrypoint
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct EntrypointInfo {
+    /// The program counter (instruction index) where the function starts
+    pub pc: usize,
+    /// Names of the function arguments
+    pub args: Vec<String>,
+    /// Number of return values
+    pub num_return_values: usize,
+}
+
 /// Metadata about the compiled program
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ProgramMetadata {
@@ -26,8 +37,8 @@ pub struct ProgramMetadata {
 pub struct Program {
     /// The program instructions
     pub instructions: Vec<Instruction>,
-    /// Entrypoint names mapped to instruction indices
-    pub entrypoints: HashMap<String, usize>,
+    /// Entrypoint names mapped to their information
+    pub entrypoints: HashMap<String, EntrypointInfo>,
     /// Program metadata
     pub metadata: ProgramMetadata,
 }
@@ -46,7 +57,7 @@ impl Program {
     /// Create a new program
     pub const fn new(
         instructions: Vec<Instruction>,
-        entrypoints: HashMap<String, usize>,
+        entrypoints: HashMap<String, EntrypointInfo>,
         metadata: ProgramMetadata,
     ) -> Self {
         Self {
@@ -56,9 +67,9 @@ impl Program {
         }
     }
 
-    /// Get the entry point address for a given function name
-    pub fn get_entrypoint(&self, name: &str) -> Option<usize> {
-        self.entrypoints.get(name).copied()
+    /// Get the full entrypoint information for a given function name
+    pub fn get_entrypoint(&self, name: &str) -> Option<&EntrypointInfo> {
+        self.entrypoints.get(name)
     }
 
     /// Get the total number of instructions

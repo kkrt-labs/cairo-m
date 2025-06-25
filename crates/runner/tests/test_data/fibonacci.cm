@@ -1,9 +1,3 @@
-func main() -> felt {
-    let n = 10;
-    let result = fib(n);
-    return result;
-}
-
 func fib(n: felt) -> felt {
     if (n == 0) {
         return 0;
