@@ -3,6 +3,7 @@ pub mod store_deref_fp;
 
 use cairo_m_common::Opcode;
 use num_traits::Zero;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 pub use stwo_air_utils::trace::component_trace::ComponentTrace;
 pub use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
@@ -81,11 +82,6 @@ impl Claim {
         let (memory_claim, memory_trace, memory_lookup_data) =
             memory::Claim::write_trace(input.memory_boundaries.clone());
 
-        // Write range_check components
-        // TODO: use memory and other components lookup data to generate multiplicity column
-        let dummy_range_check_data = vec![];
-        let (range_check_20_claim, range_check_20_trace, range_check_20_lookup_data) =
-            range_check_20::Claim::write_trace(&dummy_range_check_data);
         let (store_deref_fp_claim, store_deref_fp_trace, store_deref_fp_interaction_claim_data) =
             store_deref_fp::Claim::write_trace(
                 input
@@ -94,6 +90,15 @@ impl Claim {
                     .entry(Opcode::StoreDerefFp)
                     .or_default(),
             );
+
+        // Write range_check components
+        let range_check_20_lookup_data = store_deref_fp_interaction_claim_data
+            .lookup_data
+            .range_check_20
+            .par_iter()
+            .flatten();
+        let (range_check_20_claim, range_check_20_trace, range_check_20_lookup_data) =
+            range_check_20::Claim::write_trace(range_check_20_lookup_data);
 
         // Gather all lookup data
         let lookup_data = LookupData {
