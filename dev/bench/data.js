@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1750857019983,
+  "lastUpdate": 1750860312586,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -805,6 +805,60 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/serialize_memory_trace",
             "value": 130688294,
             "range": "± 772716",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "85035398e35d276d8018ab8aea558a819622ff21",
+          "message": "feat(vm): support calling entrypoints with args (#106)\n\n* feat(vm): support calling entrypoints with args\n\n* address comments",
+          "timestamp": "2025-06-25T15:54:42+02:00",
+          "tree_id": "dd06d407208b2a3d8307374841b8c6c32229d2b9",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/85035398e35d276d8018ab8aea558a819622ff21"
+        },
+        "date": 1750860312010,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/e2e",
+            "value": 1744397326,
+            "range": "± 53459738",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 273654606,
+            "range": "± 9445108",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/io_only",
+            "value": 1114934862,
+            "range": "± 50968201",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/serialize_vm_trace",
+            "value": 25510544,
+            "range": "± 2863571",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fibonacci_1m/serialize_memory_trace",
+            "value": 155922597,
+            "range": "± 14577312",
             "unit": "ns/iter"
           }
         ]
