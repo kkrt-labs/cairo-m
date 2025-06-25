@@ -32,9 +32,9 @@ pub enum Opcode {
     StoreDivFpImm = 10, // [fp + off2] = [fp + off0] / imm
 
     // Call operations
-    CallAbsFp = 11,  // call abs [fp + off0]
+    CallAbsFp = 11,  // call abs [fp + off1]
     CallAbsImm = 12, // call abs imm
-    CallRelFp = 13,  // call rel [fp + off0]
+    CallRelFp = 13,  // call rel [fp + off1]
     CallRelImm = 14, // call rel imm
     Ret = 15,        // ret
 
