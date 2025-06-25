@@ -97,9 +97,14 @@ impl Claim {
 
         // Write range_check components
         // TODO: use memory and other components lookup data to generate multiplicity column
-        let dummy_range_check_data = vec![];
+        let range_check_data: Vec<PackedM31> = store_imm_claim_data
+            .lookup_data
+            .range_check_20
+            .iter()
+            .flat_map(|vec| vec.iter().map(|arr| arr[0]))
+            .collect();
         let (range_check_20_claim, range_check_20_trace, range_check_20_claim_data) =
-            range_check_20::Claim::write_trace(&dummy_range_check_data);
+            range_check_20::Claim::write_trace(&range_check_data);
 
         // Combine all traces
         let trace = store_imm_trace
