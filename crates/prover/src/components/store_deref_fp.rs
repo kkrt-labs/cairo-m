@@ -25,7 +25,7 @@ use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::adapter::StateData;
 use crate::relations;
-use crate::utils::PackedStateData;
+use crate::utils::{Enabler, PackedStateData};
 
 const N_TRACE_COLUMNS: usize = 13;
 // -(pc, [opcode_id, off0, off1, off2], prev_clock) || +(pc, [opcode_id, off0, off1, off2], clock)
@@ -33,8 +33,9 @@ const N_TRACE_COLUMNS: usize = 13;
 // -(fp+off0, [value, 0, 0, 0], prev_clock) || +(fp+off0, [value, 0, 0, 0], clock)
 const N_MEMORY_LOOKUPS: usize = 2 * 3;
 const N_REGISTERS_LOOKUPS: usize = 2; // -(pc, fp) || +(pc+1, fp)
+const N_RANGE_CHECK_20_LOOKUPS: usize = 3; // opcode clock transition, src clock transition, dst clock transition
 
-const LOOKUPS_COLUMNS: usize = N_MEMORY_LOOKUPS + N_REGISTERS_LOOKUPS;
+const LOOKUPS_COLUMNS: usize = N_MEMORY_LOOKUPS + N_REGISTERS_LOOKUPS + N_RANGE_CHECK_20_LOOKUPS;
 
 pub struct InteractionClaimData {
     pub lookup_data: LookupData,
@@ -43,40 +44,11 @@ pub struct InteractionClaimData {
 
 #[derive(Uninitialized, IterMut, ParIterMut)]
 pub struct LookupData {
-    // 6 elements: addr, value_0, value_1, value_2, value_3, clock
+    // 6 elements: addr, clock, value_0, value_1, value_2, value_3
     pub memory: [Vec<[PackedM31; 6]>; N_MEMORY_LOOKUPS],
     // 2 elements: pc, fp
     pub registers: [Vec<[PackedM31; 2]>; N_REGISTERS_LOOKUPS],
-}
-
-/// The enabler column is a column of length `padding_offset.next_power_of_two()` where
-/// 1. The first `padding_offset` elements are set to 1;
-/// 2. The rest are set to 0.
-#[derive(Debug, Clone)]
-pub struct Enabler {
-    pub padding_offset: usize,
-}
-impl Enabler {
-    pub const fn new(padding_offset: usize) -> Self {
-        Self { padding_offset }
-    }
-
-    pub fn packed_at(&self, vec_row: usize) -> PackedM31 {
-        let row_offset = vec_row * N_LANES;
-        if self.padding_offset <= row_offset {
-            return PackedM31::zero();
-        }
-        if self.padding_offset >= row_offset + N_LANES {
-            return PackedM31::one();
-        }
-
-        // The row is partially enabled.
-        let mut res = [M31::zero(); N_LANES];
-        for v in res.iter_mut().take(self.padding_offset - row_offset) {
-            *v = M31::one();
-        }
-        PackedM31::from_array(res)
-    }
+    pub range_check_20: [Vec<PackedM31>; N_RANGE_CHECK_20_LOOKUPS],
 }
 
 #[derive(Clone, Default, Serialize, Deserialize)]
@@ -91,7 +63,6 @@ impl Claim {
 
     pub fn log_sizes(&self) -> TreeVec<Vec<u32>> {
         let trace = vec![self.log_size; N_TRACE_COLUMNS];
-        // TODO: check the correct width of vector for the interaction trace
         let interaction_trace = vec![self.log_size; SECURE_EXTENSION_DEGREE * LOOKUPS_COLUMNS];
         TreeVec::new(vec![vec![], trace, interaction_trace])
     }
@@ -132,6 +103,10 @@ impl Claim {
                 *row[0] = enabler_col.packed_at(row_index);
                 *row[1] = input.pc;
                 *row[2] = input.fp;
+
+                let clock = input.mem0_clock;
+                *row[3] = clock;
+
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [input.pc + one, input.fp];
 
@@ -140,49 +115,51 @@ impl Claim {
                 let off1 = input.mem0_value_2;
                 let off2 = input.mem0_value_3;
                 let instruction_prev_clock = input.mem0_prev_clock;
-                let clock = input.mem0_clock;
 
-                *row[3] = opcode_id;
-                *row[4] = off0;
-                *row[5] = off1;
-                *row[6] = off2;
-                *row[7] = instruction_prev_clock;
-                *row[8] = clock;
+                *lookup_data.range_check_20[0] = clock - instruction_prev_clock;
+
+                *row[4] = opcode_id;
+                *row[5] = off0;
+                *row[6] = off1;
+                *row[7] = off2;
+                *row[8] = instruction_prev_clock;
 
                 *lookup_data.memory[0] = [
                     input.pc,
+                    instruction_prev_clock,
                     opcode_id,
                     off0,
                     off1,
                     off2,
-                    instruction_prev_clock,
                 ];
-                *lookup_data.memory[1] = [input.pc, opcode_id, off0, off1, off2, clock];
+                *lookup_data.memory[1] = [input.pc, clock, opcode_id, off0, off1, off2];
 
-                // We get the new_value from a read, which is written in the memory arguments before writes - hence the mem1_value_0.
-                let dst_prev_value = input.mem2_prev_val_0;
-                let dst_prev_clock = input.mem2_prev_clock;
-                let src_value = input.mem1_value_0;
                 let src_prev_clock = input.mem1_prev_clock;
+                let src_value = input.mem1_value_0;
+                let dst_prev_clock = input.mem2_prev_clock;
+                let dst_prev_value = input.mem2_prev_val_0;
 
-                *row[9] = dst_prev_value;
-                *row[10] = dst_prev_clock;
-                *row[11] = src_value;
-                *row[12] = src_prev_clock;
+                *lookup_data.range_check_20[1] = clock - src_prev_clock;
+                *lookup_data.range_check_20[2] = clock - dst_prev_clock;
+
+                *row[9] = src_prev_clock;
+                *row[10] = src_value;
+                *row[11] = dst_prev_clock;
+                *row[12] = dst_prev_value;
 
                 *lookup_data.memory[2] =
-                    [input.fp + off0, src_value, zero, zero, zero, src_prev_clock];
-                *lookup_data.memory[3] = [input.fp + off0, src_value, zero, zero, zero, clock];
+                    [input.fp + off0, src_prev_clock, src_value, zero, zero, zero];
+                *lookup_data.memory[3] = [input.fp + off0, clock, src_value, zero, zero, zero];
 
                 *lookup_data.memory[4] = [
                     input.fp + off2,
+                    dst_prev_clock,
                     dst_prev_value,
                     zero,
                     zero,
                     zero,
-                    dst_prev_clock,
                 ];
-                *lookup_data.memory[5] = [input.fp + off2, src_value, zero, zero, zero, clock];
+                *lookup_data.memory[5] = [input.fp + off2, clock, src_value, zero, zero, zero];
             });
 
         (
@@ -208,6 +185,7 @@ impl InteractionClaim {
     pub fn write_interaction_trace(
         memory_relation: &relations::Memory,
         registers_relation: &relations::Registers,
+        range_check_20_relation: &relations::RangeCheck_20,
         interaction_claim_data: &InteractionClaimData,
     ) -> (
         impl IntoIterator<Item = CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
@@ -336,6 +314,51 @@ impl InteractionClaim {
                 writer.write_frac(mult, denom);
             });
         write_new_fp_at_offset.finalize_col();
+
+        // Column for range_check_20[0] lookup
+        let mut read_opcode_clock_transition_col = interaction_trace.new_col();
+        (
+            read_opcode_clock_transition_col.par_iter_mut(),
+            &interaction_claim_data.lookup_data.range_check_20[0],
+        )
+            .into_par_iter()
+            .enumerate()
+            .for_each(|(i, (writer, value))| {
+                let denom: PackedQM31 = range_check_20_relation.combine(&[*value]);
+                let mult: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
+                writer.write_frac(mult, denom);
+            });
+        read_opcode_clock_transition_col.finalize_col();
+
+        // Column for range_check_20[1] lookup
+        let mut read_src_clock_transition_col = interaction_trace.new_col();
+        (
+            read_src_clock_transition_col.par_iter_mut(),
+            &interaction_claim_data.lookup_data.range_check_20[1],
+        )
+            .into_par_iter()
+            .enumerate()
+            .for_each(|(i, (writer, value))| {
+                let denom: PackedQM31 = range_check_20_relation.combine(&[*value]);
+                let mult: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
+                writer.write_frac(mult, denom);
+            });
+        read_src_clock_transition_col.finalize_col();
+
+        // Column for range_check_20[2] lookup
+        let mut read_dst_clock_transition_col = interaction_trace.new_col();
+        (
+            read_dst_clock_transition_col.par_iter_mut(),
+            &interaction_claim_data.lookup_data.range_check_20[2],
+        )
+            .into_par_iter()
+            .enumerate()
+            .for_each(|(i, (writer, value))| {
+                let denom: PackedQM31 = range_check_20_relation.combine(&[*value]);
+                let mult: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
+                writer.write_frac(mult, denom);
+            });
+        read_dst_clock_transition_col.finalize_col();
 
         let (trace, claimed_sum) = interaction_trace.finalize_last();
         (trace, Self { claimed_sum })

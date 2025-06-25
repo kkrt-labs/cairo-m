@@ -66,7 +66,6 @@ impl Claim {
     }
 
     pub fn write_trace<MC: MerkleChannel>(
-        &mut self,
         input: &mut ProverInput,
     ) -> (
         Self,
@@ -95,7 +94,6 @@ impl Claim {
                     .entry(Opcode::StoreDerefFp)
                     .or_default(),
             );
-        self.store_deref_fp = store_deref_fp_claim.clone();
 
         // Gather all lookup data
         let lookup_data = LookupData {
@@ -147,6 +145,7 @@ impl InteractionClaim {
             store_deref_fp::InteractionClaim::write_interaction_trace(
                 &relations.memory,
                 &relations.registers,
+                &relations.range_check_20,
                 &lookup_data.store_deref_fp,
             );
 
