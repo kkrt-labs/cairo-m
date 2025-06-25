@@ -45,8 +45,9 @@ impl Claim {
     pub fn mix_into(&self, channel: &mut impl Channel) {
         channel.mix_u64(self.log_size as u64);
     }
-    pub fn write_trace<MC: MerkleChannel>(
-        lookup_data: impl ParallelIterator<Item = &PackedM31>,
+
+    pub fn write_trace<'a, MC: MerkleChannel>(
+        lookup_data: impl ParallelIterator<Item = &'a PackedM31>,
     ) -> (
         Self,
         [CircleEvaluation<SimdBackend, M31, BitReversedOrder>; 1],
