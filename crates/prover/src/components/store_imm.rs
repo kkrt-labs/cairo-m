@@ -1,3 +1,4 @@
+use cairo_m_common::Opcode;
 use num_traits::identities::One;
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
@@ -233,6 +234,7 @@ impl FrameworkEval for Eval {
     #[allow(non_snake_case)]
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         let one = E::F::from(M31::from(1));
+        let expect_opcode_id = E::F::from(M31::from(Opcode::StoreImm as u32));
 
         // 11 columns
         let enabler = eval.next_trace_mask();
@@ -249,6 +251,9 @@ impl FrameworkEval for Eval {
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one - enabler.clone()));
+
+        // Opcode is StoreImm
+        eval.add_constraint(enabler.clone() * (opcode_id.clone() - expect_opcode_id));
 
         // Update registers
         eval.add_to_relation(RelationEntry::new(
