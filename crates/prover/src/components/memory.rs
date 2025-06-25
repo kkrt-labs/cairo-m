@@ -37,7 +37,7 @@ pub struct InteractionClaim {
 }
 
 #[derive(Uninitialized, IterMut, ParIterMut)]
-pub struct LookupData {
+pub struct InteractionClaimData {
     pub memory: Vec<[PackedM31; N_M31_IN_MEMORY_ENTRY]>,
 }
 
@@ -53,8 +53,12 @@ impl Claim {
     }
 
     pub fn write_trace<MC: MerkleChannel>(
-        inputs: Memory,
-    ) -> (Self, ComponentTrace<N_M31_IN_MEMORY_ENTRY>, LookupData)
+        inputs: &Memory,
+    ) -> (
+        Self,
+        ComponentTrace<N_M31_IN_MEMORY_ENTRY>,
+        InteractionClaimData,
+    )
     where
         SimdBackend: BackendForChannel<MC>,
     {
@@ -68,8 +72,8 @@ impl Claim {
         // Pack memory entries from the prover input
         let packed_inputs: Vec<[PackedM31; N_M31_IN_MEMORY_ENTRY]> = inputs
             .initial_memory
-            .into_iter()
-            .chain(inputs.final_memory)
+            .iter()
+            .chain(inputs.final_memory.iter())
             .enumerate()
             .map(|(i, (address, (value, clock)))| {
                 let value_array = value.to_m31_array();
@@ -79,8 +83,8 @@ impl Claim {
                     M31::from(-1)
                 };
                 [
-                    address,
-                    clock,
+                    *address,
+                    *clock,
                     value_array[0],
                     value_array[1],
                     value_array[2],
@@ -100,7 +104,7 @@ impl Claim {
         let (mut trace, mut lookup_data) = unsafe {
             (
                 ComponentTrace::<N_M31_IN_MEMORY_ENTRY>::uninitialized(log_size),
-                LookupData::uninitialized(log_size - LOG_N_LANES),
+                InteractionClaimData::uninitialized(log_size - LOG_N_LANES),
             )
         };
         (
@@ -132,7 +136,7 @@ impl InteractionClaim {
 
     pub fn write_interaction_trace(
         memory: &relations::Memory,
-        lookup_data: &LookupData,
+        lookup_data: &InteractionClaimData,
     ) -> (
         impl IntoIterator<Item = CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         Self,

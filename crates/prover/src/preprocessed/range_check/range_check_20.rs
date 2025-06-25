@@ -1,8 +1,6 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use rayon::iter::{
-    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
-};
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use rayon::slice::ParallelSlice;
 use serde::{Deserialize, Serialize};
 use stwo_prover::constraint_framework::logup::LogupTraceGenerator;
@@ -28,7 +26,7 @@ use crate::relations::RangeCheck_20;
 
 const LOG_SIZE_RC_20: u32 = 20;
 
-pub struct LookupData {
+pub struct InteractionClaimData {
     pub range_check_20: Vec<[PackedM31; 2]>,
 }
 
@@ -48,12 +46,12 @@ impl Claim {
         channel.mix_u64(self.log_size as u64);
     }
 
-    pub fn write_trace<MC: MerkleChannel>(
-        lookup_data: &Vec<PackedM31>,
+    pub fn write_trace<'a, MC: MerkleChannel>(
+        lookup_data: impl ParallelIterator<Item = &'a PackedM31>,
     ) -> (
         Self,
         [CircleEvaluation<SimdBackend, M31, BitReversedOrder>; 1],
-        LookupData,
+        InteractionClaimData,
     )
     where
         SimdBackend: BackendForChannel<MC>,
@@ -62,7 +60,7 @@ impl Claim {
             .map(|_| AtomicU32::new(0))
             .collect();
 
-        lookup_data.par_iter().for_each(|entry| {
+        lookup_data.for_each(|entry| {
             for element in entry.to_array() {
                 mults_atomic[element.0 as usize].fetch_add(1, Ordering::Relaxed);
             }
@@ -95,7 +93,7 @@ impl Claim {
                 domain,
                 BaseColumn::from_iter(mults),
             )],
-            LookupData {
+            InteractionClaimData {
                 range_check_20: mults_packed,
             },
         )
@@ -113,7 +111,7 @@ impl InteractionClaim {
 
     pub fn write_interaction_trace(
         relation: &RangeCheck_20,
-        lookup_data: &LookupData,
+        lookup_data: &InteractionClaimData,
     ) -> (
         impl IntoIterator<Item = CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         Self,
