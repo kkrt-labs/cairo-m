@@ -5,6 +5,7 @@
 
 pub mod adapter;
 pub mod components;
+pub mod debug_tools;
 pub mod errors;
 pub mod preprocessed;
 pub mod prover;
