@@ -80,7 +80,7 @@ impl Claim {
 
         // Write memory component from the prover input
         let (memory_claim, memory_trace, memory_interaction_claim_data) =
-            memory::Claim::write_trace(input.memory_boundaries.clone());
+            memory::Claim::write_trace(&input.memory_boundaries);
 
         let (store_deref_fp_claim, store_deref_fp_trace, store_deref_fp_interaction_claim_data) =
             store_deref_fp::Claim::write_trace(

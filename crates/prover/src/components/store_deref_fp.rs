@@ -101,7 +101,8 @@ impl Claim {
             .zip(lookup_data.par_iter_mut())
             .enumerate()
             .for_each(|(row_index, ((mut row, input), lookup_data))| {
-                *row[0] = enabler_col.packed_at(row_index);
+                let enabler = enabler_col.packed_at(row_index);
+                *row[0] = enabler;
                 *row[1] = input.pc;
                 *row[2] = input.fp;
 
@@ -117,7 +118,7 @@ impl Claim {
                 let off2 = input.mem0_value_3;
                 let instruction_prev_clock = input.mem0_prev_clock;
 
-                *lookup_data.range_check_20[0] = clock - instruction_prev_clock - one;
+                *lookup_data.range_check_20[0] = clock - instruction_prev_clock - enabler;
 
                 *row[4] = instruction_prev_clock;
                 *row[5] = opcode_id;
@@ -140,8 +141,8 @@ impl Claim {
                 let dst_prev_clock = input.mem2_prev_clock;
                 let dst_prev_value = input.mem2_prev_val_0;
 
-                *lookup_data.range_check_20[1] = clock - src_prev_clock - one;
-                *lookup_data.range_check_20[2] = clock - dst_prev_clock - one;
+                *lookup_data.range_check_20[1] = clock - src_prev_clock - enabler;
+                *lookup_data.range_check_20[2] = clock - dst_prev_clock - enabler;
 
                 *row[9] = src_prev_clock;
                 *row[10] = src_value;
@@ -359,7 +360,7 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.registers,
             E::EF::from(enabler.clone()),
-            &[pc.clone() + one.clone(), fp.clone()],
+            &[pc.clone() + one, fp.clone()],
         ));
 
         // Check that the opcode is read from the memory
@@ -417,26 +418,26 @@ impl FrameworkEval for Eval {
 
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
-            E::EF::from(enabler),
+            E::EF::from(enabler.clone()),
             &[fp + off2, clock.clone(), src_value],
         ));
 
         eval.add_to_relation(RelationEntry::new(
             &self.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - instruction_prev_clock - one.clone()],
+            &[clock.clone() - instruction_prev_clock - enabler.clone()],
         ));
 
         eval.add_to_relation(RelationEntry::new(
             &self.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - src_prev_clock - one.clone()],
+            &[clock.clone() - src_prev_clock - enabler.clone()],
         ));
 
         eval.add_to_relation(RelationEntry::new(
             &self.range_check_20,
             -E::EF::one(),
-            &[clock - dst_prev_clock - one],
+            &[clock - dst_prev_clock - enabler],
         ));
 
         eval.finalize_logup_in_pairs();

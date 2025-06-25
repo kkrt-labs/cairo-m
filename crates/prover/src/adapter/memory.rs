@@ -35,7 +35,7 @@ pub struct MemoryArg {
     pub clock: M31,
 }
 
-#[derive(Debug, Default, Eq, PartialEq, Clone)]
+#[derive(Debug, Default, Eq, PartialEq)]
 pub struct Memory {
     pub initial_memory: HashMap<M31, (QM31, M31)>,
     pub final_memory: HashMap<M31, (QM31, M31)>,
