@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1750863138233,
+  "lastUpdate": 1750865920317,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -913,6 +913,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/serialize_memory_trace",
             "value": 132392770,
             "range": "± 1127264",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "obatirou@gmail.com",
+            "name": "Oba",
+            "username": "obatirou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6dc6e72c5b4d363c00f6b0c18e5decc2d6f8c444",
+          "message": "bench: remove io (#110)",
+          "timestamp": "2025-06-25T17:35:46+02:00",
+          "tree_id": "02c91e7b322dc16cebc22408340e2d688c7a66be",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/6dc6e72c5b4d363c00f6b0c18e5decc2d6f8c444"
+        },
+        "date": 1750865919722,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 261625424,
+            "range": "± 595344",
             "unit": "ns/iter"
           }
         ]
