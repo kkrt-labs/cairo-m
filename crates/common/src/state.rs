@@ -18,7 +18,7 @@ impl From<(M31, M31)> for State {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct MemoryEntry {
     pub addr: M31,
     pub value: QM31,
