@@ -52,11 +52,13 @@ fn cairo_relation_entries(
     let Components {
         memory,
         range_check_20,
+        store_deref_fp,
     } = components;
 
     let entries: Vec<RelationTrackerEntry> = chain!(
         add_to_relation_entries(memory, trace),
         add_to_relation_entries(range_check_20, trace),
+        add_to_relation_entries(store_deref_fp, trace),
     )
     .collect();
 
