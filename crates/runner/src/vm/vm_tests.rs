@@ -242,8 +242,9 @@ fn test_serialize_trace() {
     // Execute the program to generate a trace.
     assert!(vm.execute().is_ok());
 
-    // The trace should have 2 entries, one for each instruction executed.
-    assert_eq!(vm.trace.len(), 2);
+    // The trace should have 3 entries, one for each instruction executed.
+    // The last one is the final state of the VM.
+    assert_eq!(vm.trace.len(), 3);
 
     // Verify the trace contents.
     assert_eq!(
@@ -266,7 +267,8 @@ fn test_serialize_trace() {
     // Expected serialized data:
     // Entry 1: fp=2, pc=0.
     // Entry 2: fp=2, pc=1.
-    let expected_bytes = Vec::from([2, 0, 2, 1].map(u32::to_le_bytes).as_flattened());
+    // Entry 3: fp=2, pc=2. (final state)
+    let expected_bytes = Vec::from([2, 0, 2, 1, 2, 2].map(u32::to_le_bytes).as_flattened());
 
     assert_eq!(serialized_trace, expected_bytes);
 }
@@ -461,7 +463,8 @@ fn test_write_binary_trace() {
     // Expected serialized data:
     // Entry 1: fp=2, pc=0.
     // Entry 2: fp=2, pc=1.
-    let expected_bytes = Vec::from([2, 0, 2, 1].map(u32::to_le_bytes).as_flattened());
+    // Entry 3: fp=2, pc=2. (final state)
+    let expected_bytes = Vec::from([2, 0, 2, 1, 2, 2].map(u32::to_le_bytes).as_flattened());
 
     assert_eq!(file_contents, expected_bytes);
 }

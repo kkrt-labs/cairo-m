@@ -50,7 +50,14 @@ where
     let initial_registers: VmRegisters = *trace_iter.peek().ok_or(VmImportError::EmptyTrace)?;
     let mut final_registers = initial_registers;
 
-    for registers in trace_iter {
+    while let Some(registers) = trace_iter.next() {
+        if trace_iter.peek().is_none() {
+            // This is the last state, which is the final state of the VM.
+            // There are no more memory entries to process.
+            final_registers = registers;
+            break;
+        }
+
         let mut memory_args: [MemoryArg; 4] = Default::default();
 
         let memory_trace_entry = memory_iter.next().ok_or(VmImportError::EmptyTrace)?;
@@ -87,7 +94,6 @@ where
             .or_default()
             .push(state_data);
 
-        final_registers = registers;
         clock += 1;
     }
 

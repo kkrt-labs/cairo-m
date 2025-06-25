@@ -30,6 +30,7 @@ pub enum VmError {
 ///
 /// ## Fields
 ///
+/// - `final_pc`: The final program counter (PC) of the executed program.
 /// - `memory`: Flat address space storing instructions and data
 /// - `state`: Current processor state (PC, FP)
 /// - `program_length`: Length of the program in instructions
@@ -126,6 +127,9 @@ impl VM {
         while self.state.pc != self.final_pc {
             self.step()?;
         }
+
+        // Push the final state to the trace
+        self.trace.push(self.state);
 
         Ok(())
     }
