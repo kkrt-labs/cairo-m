@@ -77,7 +77,6 @@ fn test_prove_and_verify_fibonacci_program() {
     )
     .unwrap();
 
-    // let result = run_and_generate_proof(file_content).unwrap();
     let runner_output =
         run_cairo_program(&compiled_fib.program, "main", Default::default()).unwrap();
 
