@@ -62,6 +62,8 @@ fn test_prove_and_verify_empty_memory() {
     result.unwrap();
 }
 
+// Run this test with `cargo test -p cairo-m-prover test_prove_and_verify_fibonacci_program --release --features relation-tracker -- --nocapture`
+// to see the relation tracker output.
 #[test]
 #[should_panic(expected = "called `Result::unwrap()` on an `Err` value: InvalidLogupSum")]
 fn test_prove_and_verify_fibonacci_program() {
