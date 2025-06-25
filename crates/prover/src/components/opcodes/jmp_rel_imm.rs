@@ -294,7 +294,7 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.registers,
             E::EF::from(enabler.clone()),
-            &[pc.clone() + off0.clone(), fp.clone()],
+            &[pc.clone() + off0.clone(), fp],
         ));
 
         // Read instruction from memory
@@ -312,22 +312,15 @@ impl FrameworkEval for Eval {
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
-            E::EF::from(enabler.clone()),
-            &[
-                pc.clone(),
-                clock.clone(),
-                opcode_id.clone(),
-                off0.clone(),
-                off1.clone(),
-                off2.clone(),
-            ],
+            E::EF::from(enabler),
+            &[pc, clock.clone(), opcode_id, off0, off1, off2],
         ));
 
         // Range check 20
         eval.add_to_relation(RelationEntry::new(
             &self.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - inst_prev_clock.clone() - one.clone()],
+            &[clock - inst_prev_clock - one],
         ));
 
         eval.finalize_logup_in_pairs();
