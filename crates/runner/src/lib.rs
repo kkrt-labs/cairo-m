@@ -102,7 +102,7 @@ pub fn run_cairo_program(
     for i in 0..num_return_values {
         let return_address = vm.state.fp - M31::from((num_return_values + 2 - i) as u32);
         let value = vm.memory.get_data(return_address)?;
-        return_values.push(M31::from(value.0));
+        return_values.push(value);
     }
 
     Ok(RunnerOutput { return_values, vm })
