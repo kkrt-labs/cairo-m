@@ -82,19 +82,12 @@ pub fn run_cairo_program(
     // FP points to the first address after the frame
     let fp_offset = args.len() + num_return_values + 2;
 
-    // Write arguments to memory before the frame pointer
-    // The new FP will be at initial_fp + fp_offset
-    // Arguments should be at [new_fp - M - K - 2 + i] for arg i
-    let initial_fp = vm.state.fp;
-    let new_fp = initial_fp + M31::from(fp_offset as u32);
-    for (i, arg) in args.iter().enumerate() {
-        // For M args and K returns: arg_i is at [fp - M - K - 2 + i]
-        let offset = args.len() + num_return_values + 2 - i;
-        let arg_address = new_fp - M31::from(offset as u32);
-        vm.memory.insert(arg_address, (*arg).into())?;
-    }
-
-    vm.run_from_entrypoint(entrypoint_info.pc as u32, fp_offset as u32)?;
+    vm.run_from_entrypoint(
+        entrypoint_info.pc as u32,
+        fp_offset as u32,
+        args,
+        num_return_values,
+    )?;
 
     // Retrieve return values from memory
     // Return values are stored at [fp - num_return_values - 2] to [fp - 3]

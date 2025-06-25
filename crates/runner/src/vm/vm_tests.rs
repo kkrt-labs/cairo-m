@@ -221,7 +221,7 @@ fn test_run_from_entrypoint() {
 
     // Initial FP is 2 in the default case, we add an offset of 2.
     // We run the program from PC = 1, so the first instruction should be ignored.
-    vm.run_from_entrypoint(1, 2).unwrap();
+    vm.run_from_entrypoint(1, 2, &[], 0).unwrap();
     assert_vm_state!(vm.state, 2, 4);
     assert_eq!(
         vm.memory.get_data(vm.state.fp + M31::one()).unwrap(),
@@ -418,7 +418,7 @@ fn run_exponential_recursive_fib_test(n: u32) {
     let mut vm = VM::try_from(&program).unwrap();
 
     let fp_offset = 3;
-    vm.run_from_entrypoint(0, fp_offset).unwrap();
+    vm.run_from_entrypoint(0, fp_offset, &[], 0).unwrap();
     // Verify that FP is still at the end of the program
     assert_eq!(vm.state.fp, M31(instructions_len + fp_offset));
     // Verify PC reached the end of the program
