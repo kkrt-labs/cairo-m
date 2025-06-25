@@ -28,7 +28,7 @@ pub struct Instructions {
     pub states_by_opcodes: HashMap<Opcode, Vec<StateData>>,
 }
 
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq, Eq, Copy, Clone)]
 pub struct StateData {
     pub registers: VmRegisters,
     pub memory_args: [MemoryArg; 4],

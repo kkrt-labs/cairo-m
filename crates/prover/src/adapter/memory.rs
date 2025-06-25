@@ -26,7 +26,7 @@ impl From<crate::adapter::io::IoMemoryEntry> for MemoryEntry {
     }
 }
 
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq, Copy, Clone)]
 pub struct MemoryArg {
     pub address: M31,
     pub prev_val: QM31,
