@@ -11,7 +11,7 @@
 //! This is why instructions can be represented as a QM31.
 
 use cairo_m_common::instruction::InstructionError;
-use cairo_m_common::{Instruction, Opcode, State};
+use cairo_m_common::{Instruction, State};
 use stwo_prover::core::fields::m31::M31;
 
 use crate::vm::instructions::call::*;
@@ -26,6 +26,75 @@ pub mod jump;
 pub mod store;
 
 pub type InstructionFn = fn(&mut Memory, State, &Instruction) -> Result<State, MemoryError>;
+
+/// Static dispatch table mapping opcode indices to their handler functions.
+/// The index of each function in the array must match the u32 value of its corresponding Opcode.
+static INSTRUCTION_TABLE: [InstructionFn; 32] = [
+    // Index 0: Opcode::StoreAddFpFp
+    store_add_fp_fp,
+    // Index 1: Opcode::StoreAddFpImm
+    store_add_fp_imm,
+    // Index 2: Opcode::StoreSubFpFp
+    store_sub_fp_fp,
+    // Index 3: Opcode::StoreSubFpImm
+    store_sub_fp_imm,
+    // Index 4: Opcode::StoreDerefFp
+    store_deref_fp,
+    // Index 5: Opcode::StoreDoubleDerefFp
+    store_double_deref_fp,
+    // Index 6: Opcode::StoreImm
+    store_imm,
+    // Index 7: Opcode::StoreMulFpFp
+    store_mul_fp_fp,
+    // Index 8: Opcode::StoreMulFpImm
+    store_mul_fp_imm,
+    // Index 9: Opcode::StoreDivFpFp
+    store_div_fp_fp,
+    // Index 10: Opcode::StoreDivFpImm
+    store_div_fp_imm,
+    // Index 11: Opcode::CallAbsFp
+    call_abs_fp,
+    // Index 12: Opcode::CallAbsImm
+    call_abs_imm,
+    // Index 13: Opcode::CallRelFp
+    call_rel_fp,
+    // Index 14: Opcode::CallRelImm
+    call_rel_imm,
+    // Index 15: Opcode::Ret
+    ret,
+    // Index 16: Opcode::JmpAbsAddFpFp
+    jmp_abs_add_fp_fp,
+    // Index 17: Opcode::JmpAbsAddFpImm
+    jmp_abs_add_fp_imm,
+    // Index 18: Opcode::JmpAbsDerefFp
+    jmp_abs_deref_fp,
+    // Index 19: Opcode::JmpAbsDoubleDerefFp
+    jmp_abs_double_deref_fp,
+    // Index 20: Opcode::JmpAbsImm
+    jmp_abs_imm,
+    // Index 21: Opcode::JmpAbsMulFpFp
+    jmp_abs_mul_fp_fp,
+    // Index 22: Opcode::JmpAbsMulFpImm
+    jmp_abs_mul_fp_imm,
+    // Index 23: Opcode::JmpRelAddFpFp
+    jmp_rel_add_fp_fp,
+    // Index 24: Opcode::JmpRelAddFpImm
+    jmp_rel_add_fp_imm,
+    // Index 25: Opcode::JmpRelDerefFp
+    jmp_rel_deref_fp,
+    // Index 26: Opcode::JmpRelDoubleDerefFp
+    jmp_rel_double_deref_fp,
+    // Index 27: Opcode::JmpRelImm
+    jmp_rel_imm,
+    // Index 28: Opcode::JmpRelMulFpFp
+    jmp_rel_mul_fp_fp,
+    // Index 29: Opcode::JmpRelMulFpImm
+    jmp_rel_mul_fp_imm,
+    // Index 30: Opcode::JnzFpFp
+    jnz_fp_fp,
+    // Index 31: Opcode::JnzFpImm
+    jnz_fp_imm,
+];
 
 /// Maps an opcode to its corresponding instruction handler function.
 ///
@@ -43,44 +112,10 @@ pub type InstructionFn = fn(&mut Memory, State, &Instruction) -> Result<State, M
 /// Returns [`InstructionError::InvalidOpcode`] if the provided opcode does not
 /// correspond to any implemented instruction.
 pub fn opcode_to_instruction_fn(op: M31) -> Result<InstructionFn, InstructionError> {
-    // Try to convert M31 to Opcode enum
-    let opcode = Opcode::try_from(op)?;
-
-    let f = match opcode {
-        Opcode::StoreAddFpFp => store_add_fp_fp,
-        Opcode::StoreAddFpImm => store_add_fp_imm,
-        Opcode::StoreSubFpFp => store_sub_fp_fp,
-        Opcode::StoreSubFpImm => store_sub_fp_imm,
-        Opcode::StoreDerefFp => store_deref_fp,
-        Opcode::StoreDoubleDerefFp => store_double_deref_fp,
-        Opcode::StoreImm => store_imm,
-        Opcode::StoreMulFpFp => store_mul_fp_fp,
-        Opcode::StoreMulFpImm => store_mul_fp_imm,
-        Opcode::StoreDivFpFp => store_div_fp_fp,
-        Opcode::StoreDivFpImm => store_div_fp_imm,
-        Opcode::CallAbsFp => call_abs_fp,
-        Opcode::CallAbsImm => call_abs_imm,
-        Opcode::CallRelFp => call_rel_fp,
-        Opcode::CallRelImm => call_rel_imm,
-        Opcode::Ret => ret,
-        Opcode::JmpAbsAddFpFp => jmp_abs_add_fp_fp,
-        Opcode::JmpAbsAddFpImm => jmp_abs_add_fp_imm,
-        Opcode::JmpAbsDerefFp => jmp_abs_deref_fp,
-        Opcode::JmpAbsDoubleDerefFp => jmp_abs_double_deref_fp,
-        Opcode::JmpAbsImm => jmp_abs_imm,
-        Opcode::JmpAbsMulFpFp => jmp_abs_mul_fp_fp,
-        Opcode::JmpAbsMulFpImm => jmp_abs_mul_fp_imm,
-        Opcode::JmpRelAddFpFp => jmp_rel_add_fp_fp,
-        Opcode::JmpRelAddFpImm => jmp_rel_add_fp_imm,
-        Opcode::JmpRelDerefFp => jmp_rel_deref_fp,
-        Opcode::JmpRelDoubleDerefFp => jmp_rel_double_deref_fp,
-        Opcode::JmpRelImm => jmp_rel_imm,
-        Opcode::JmpRelMulFpFp => jmp_rel_mul_fp_fp,
-        Opcode::JmpRelMulFpImm => jmp_rel_mul_fp_imm,
-        Opcode::JnzFpFp => jnz_fp_fp,
-        Opcode::JnzFpImm => jnz_fp_imm,
-    };
-    Ok(f)
+    INSTRUCTION_TABLE
+        .get(op.0 as usize)
+        .copied()
+        .ok_or(InstructionError::InvalidOpcode(op))
 }
 
 #[cfg(test)]
