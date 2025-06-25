@@ -113,8 +113,8 @@ impl InteractionClaim {
         relation: &RangeCheck_20,
         lookup_data: &InteractionClaimData,
     ) -> (
-        impl IntoIterator<Item = CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         Self,
+        impl IntoIterator<Item = CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
     ) {
         let log_size = lookup_data.range_check_20.len().ilog2() + LOG_N_LANES;
         let mut interaction_trace = LogupTraceGenerator::new(log_size);
@@ -129,7 +129,8 @@ impl InteractionClaim {
         col.finalize_col();
 
         let (trace, claimed_sum) = interaction_trace.finalize_last();
-        (trace, Self { claimed_sum })
+        let interaction_claim = Self { claimed_sum };
+        (interaction_claim, trace)
     }
 }
 
