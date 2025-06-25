@@ -35,25 +35,18 @@ jobs:
           cd crates/runner
           cargo bench --bench vm_benchmark -- --output-format bencher | tee output.txt
 
-      # Download previous benchmark result from cache
-      - name: Download previous benchmark data
-        uses: actions/cache@v4
-        with:
-          path: ./cache
-          key: ${{ runner.os }}-benchmark
-
-      # Compare benchmarks without storing
+      # Compare benchmarks with data from gh-pages
       - name: Compare benchmarks
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: Cairo-M VM Benchmarks
           tool: "cargo"
           output-file-path: crates/runner/output.txt
-          # Use external data file for comparison
-          external-data-json-path: ./cache/benchmark-data.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          # Don't save the data
-          save-data-file: false
+          # Use the same settings as main branch but without auto-push
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: "dev/bench"
+          auto-push: false
           # Alert and comment configuration
           comment-on-alert: true
           alert-threshold: "105%"
