@@ -33,7 +33,7 @@ pub struct StateData {
     pub memory_args: [MemoryArg; 4],
 }
 
-fn import_internal<TraceIter, MemoryIter>(
+pub fn import_internal<TraceIter, MemoryIter>(
     trace_iter: TraceIter,
     mut memory_iter: MemoryIter,
 ) -> Result<ProverInput, VmImportError>

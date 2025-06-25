@@ -77,8 +77,13 @@ fn test_prove_and_verify_fibonacci_program() {
     )
     .unwrap();
 
-    let runner_output =
-        run_cairo_program(&compiled_fib.program, "main", Default::default()).unwrap();
+    let runner_output = run_cairo_program(
+        &compiled_fib.program,
+        "main",
+        Default::default(),
+        Default::default(),
+    )
+    .unwrap();
 
     let prover_input = import_from_runner_output(&runner_output).unwrap();
     let proof = prove_cairo_m::<Blake2sMerkleChannel>(prover_input).unwrap();

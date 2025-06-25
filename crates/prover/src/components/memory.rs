@@ -31,6 +31,10 @@ pub struct Claim {
     pub log_size: u32,
 }
 
+pub struct ClaimData {
+    pub lookup_data: LookupData,
+}
+
 #[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct InteractionClaim {
     pub claimed_sum: SecureField,
@@ -54,7 +58,7 @@ impl Claim {
 
     pub fn write_trace<MC: MerkleChannel>(
         inputs: Memory,
-    ) -> (Self, ComponentTrace<N_M31_IN_MEMORY_ENTRY>, LookupData)
+    ) -> (Self, ComponentTrace<N_M31_IN_MEMORY_ENTRY>, ClaimData)
     where
         SimdBackend: BackendForChannel<MC>,
     {
@@ -121,7 +125,7 @@ impl Claim {
             });
 
         // Return the trace and lookup data
-        (Self { log_size }, trace, lookup_data)
+        (Self { log_size }, trace, ClaimData { lookup_data })
     }
 }
 
@@ -132,16 +136,16 @@ impl InteractionClaim {
 
     pub fn write_interaction_trace(
         memory: &relations::Memory,
-        lookup_data: &LookupData,
+        claim_data: &ClaimData,
     ) -> (
         impl IntoIterator<Item = CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         Self,
     ) {
-        let log_size = lookup_data.memory.len().ilog2() + LOG_N_LANES;
+        let log_size = claim_data.lookup_data.memory.len().ilog2() + LOG_N_LANES;
         let mut interaction_trace = LogupTraceGenerator::new(log_size);
 
         let mut col = interaction_trace.new_col();
-        (col.par_iter_mut(), &lookup_data.memory)
+        (col.par_iter_mut(), &claim_data.lookup_data.memory)
             .into_par_iter()
             .for_each(|(writer, value)| {
                 let denom: PackedQM31 = memory.combine(&value[..6]);

@@ -30,6 +30,12 @@ pub struct Claim {
     pub range_check_20: range_check_20::Claim,
 }
 
+pub struct ClaimData {
+    pub store_imm: store_imm::ClaimData,
+    pub memory: memory::ClaimData,
+    pub range_check_20: range_check_20::ClaimData,
+}
+
 pub struct Relations {
     pub registers: relations::Registers,
     pub memory: relations::Memory,
@@ -70,14 +76,13 @@ impl Claim {
     ) -> (
         Self,
         impl IntoIterator<Item = CircleEvaluation<SimdBackend, M31, BitReversedOrder>>,
-        LookupData,
-        usize,
+        ClaimData,
     )
     where
         SimdBackend: BackendForChannel<MC>,
     {
         // Write opcode components
-        let (store_imm_claim, store_imm_trace, store_imm_lookup_data, non_padded_length) =
+        let (store_imm_claim, store_imm_trace, store_imm_claim_data) =
             store_imm::Claim::write_trace(
                 input
                     .instructions
@@ -87,21 +92,14 @@ impl Claim {
             );
 
         // Write memory component from the prover input
-        let (memory_claim, memory_trace, memory_lookup_data) =
+        let (memory_claim, memory_trace, memory_claim_data) =
             memory::Claim::write_trace(input.memory_boundaries);
 
         // Write range_check components
         // TODO: use memory and other components lookup data to generate multiplicity column
         let dummy_range_check_data = vec![];
-        let (range_check_20_claim, range_check_20_trace, range_check_20_lookup_data) =
+        let (range_check_20_claim, range_check_20_trace, range_check_20_claim_data) =
             range_check_20::Claim::write_trace(&dummy_range_check_data);
-
-        // Gather all lookup data
-        let lookup_data = LookupData {
-            store_imm: store_imm_lookup_data,
-            memory: memory_lookup_data,
-            range_check_20: range_check_20_lookup_data,
-        };
 
         // Combine all traces
         let trace = store_imm_trace
@@ -117,8 +115,11 @@ impl Claim {
                 range_check_20: range_check_20_claim,
             },
             trace,
-            lookup_data,
-            non_padded_length,
+            ClaimData {
+                store_imm: store_imm_claim_data,
+                memory: memory_claim_data,
+                range_check_20: range_check_20_claim_data,
+            },
         )
     }
 }
@@ -126,8 +127,7 @@ impl Claim {
 impl InteractionClaim {
     pub fn write_interaction_trace(
         relations: &Relations,
-        lookup_data: &LookupData,
-        non_padded_length: usize,
+        claim_data: &ClaimData,
     ) -> (
         impl IntoIterator<Item = CircleEvaluation<SimdBackend, M31, BitReversedOrder>>,
         Self,
@@ -136,20 +136,19 @@ impl InteractionClaim {
             store_imm::InteractionClaim::write_interaction_trace(
                 &relations.memory,
                 &relations.registers,
-                &lookup_data.store_imm,
-                non_padded_length,
+                &claim_data.store_imm,
             );
 
         let (memory_interaction_trace, memory_interaction_claim) =
             memory::InteractionClaim::write_interaction_trace(
                 &relations.memory,
-                &lookup_data.memory,
+                &claim_data.memory,
             );
 
         let (range_check_20_interaction_trace, range_check_20_interaction_claim) =
             range_check_20::InteractionClaim::write_interaction_trace(
                 &relations.range_check_20,
-                &lookup_data.range_check_20,
+                &claim_data.range_check_20,
             );
 
         (

@@ -34,6 +34,11 @@ pub struct Claim {
     pub log_size: u32,
 }
 
+pub struct ClaimData {
+    pub lookup_data: LookupData,
+    pub non_padded_length: usize,
+}
+
 /// A container to hold the looked up data during main trace generation.
 /// It is then used to generate the interaction trace once the challenge has been drawn.
 #[derive(Uninitialized, IterMut, ParIterMut)]
@@ -62,7 +67,7 @@ impl Claim {
     #[allow(non_snake_case)]
     pub fn write_trace<MC: MerkleChannel>(
         inputs: &mut Vec<StateData>,
-    ) -> (Self, ComponentTrace<N_TRACE_COLUMNS>, LookupData, usize)
+    ) -> (Self, ComponentTrace<N_TRACE_COLUMNS>, ClaimData)
     where
         SimdBackend: BackendForChannel<MC>,
     {
@@ -132,7 +137,14 @@ impl Claim {
                 ];
                 *lookup_data.memory[3] = [input.fp + off0, clock, off2, zero, zero, zero];
             });
-        (Self { log_size }, trace, lookup_data, non_padded_length)
+        (
+            Self { log_size },
+            trace,
+            ClaimData {
+                lookup_data,
+                non_padded_length,
+            },
+        )
     }
 }
 
@@ -144,54 +156,53 @@ impl InteractionClaim {
     pub fn write_interaction_trace(
         memory_relation: &relations::Memory,
         registers_relation: &relations::Registers,
-        lookup_data: &LookupData,
-        non_padded_length: usize,
+        claim_data: &ClaimData,
     ) -> (
         impl IntoIterator<Item = CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         Self,
     ) {
-        let log_size = lookup_data.memory[0].len().ilog2() + LOG_N_LANES;
+        let log_size = claim_data.lookup_data.memory[0].len().ilog2() + LOG_N_LANES;
         let mut interaction_trace = LogupTraceGenerator::new(log_size);
-        let enabler_col = Enabler::new(non_padded_length);
+        let enabler_col = Enabler::new(claim_data.non_padded_length);
 
         let mut col0 = interaction_trace.new_col();
-        for (i, (value0, value1)) in lookup_data.registers[0]
+        for (i, (value0, value1)) in claim_data.lookup_data.registers[0]
             .iter()
-            .zip(&lookup_data.memory[0])
+            .zip(&claim_data.lookup_data.registers[1])
             .enumerate()
         {
             let denom_0: PackedQM31 = registers_relation.combine(value0);
             let mult_0: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
-            let denom_1: PackedQM31 = memory_relation.combine(value1);
-            let mult_1: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
+            let denom_1: PackedQM31 = registers_relation.combine(value1);
+            let mult_1: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
 
             col0.write_frac(i, mult_0 * denom_0 + mult_1 * denom_1, denom_0 * denom_1);
         }
         col0.finalize_col();
 
         let mut col1 = interaction_trace.new_col();
-        for (i, (value0, value1)) in lookup_data.memory[1]
+        for (i, (value0, value1)) in claim_data.lookup_data.memory[0]
             .iter()
-            .zip(&lookup_data.memory[2])
+            .zip(&claim_data.lookup_data.memory[1])
             .enumerate()
         {
             let denom_0: PackedQM31 = memory_relation.combine(value0);
-            let mult_0: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
+            let mult_0: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
             let denom_1: PackedQM31 = memory_relation.combine(value1);
-            let mult_1: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
+            let mult_1: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
 
             col1.write_frac(i, mult_0 * denom_0 + mult_1 * denom_1, denom_0 * denom_1);
         }
         col1.finalize_col();
 
         let mut col3 = interaction_trace.new_col();
-        for (i, (value0, value1)) in lookup_data.memory[2]
+        for (i, (value0, value1)) in claim_data.lookup_data.memory[2]
             .iter()
-            .zip(&lookup_data.memory[3])
+            .zip(&claim_data.lookup_data.memory[3])
             .enumerate()
         {
             let denom_0: PackedQM31 = memory_relation.combine(value0);
-            let mult_0: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
+            let mult_0: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
             let denom_1: PackedQM31 = memory_relation.combine(value1);
             let mult_1: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
 
@@ -228,7 +239,7 @@ impl FrameworkEval for Eval {
         let pc = eval.next_trace_mask();
         let fp = eval.next_trace_mask();
         let opcode_id = eval.next_trace_mask();
-        let imm = eval.next_trace_mask();
+        let off0 = eval.next_trace_mask();
         let off1 = eval.next_trace_mask();
         let off2 = eval.next_trace_mask();
         let clock = eval.next_trace_mask();
@@ -259,7 +270,7 @@ impl FrameworkEval for Eval {
                 pc.clone(),
                 inst_prev_clock,
                 opcode_id.clone(),
-                imm.clone(),
+                off0.clone(),
                 off1.clone(),
                 off2.clone(),
             ],
@@ -271,7 +282,7 @@ impl FrameworkEval for Eval {
                 pc,
                 clock.clone(),
                 opcode_id,
-                imm.clone(),
+                off0.clone(),
                 off1,
                 off2.clone(),
             ],
@@ -286,7 +297,7 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
             E::EF::from(enabler),
-            &[fp + off2, clock, imm],
+            &[fp + off2, clock, off0],
         ));
 
         eval.finalize_logup_in_pairs();

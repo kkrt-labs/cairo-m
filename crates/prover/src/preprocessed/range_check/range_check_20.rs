@@ -37,6 +37,10 @@ pub struct Claim {
     pub log_size: u32,
 }
 
+pub struct ClaimData {
+    pub lookup_data: LookupData,
+}
+
 impl Claim {
     pub fn log_sizes(&self) -> TreeVec<Vec<u32>> {
         let trace = vec![self.log_size; 1];
@@ -53,7 +57,7 @@ impl Claim {
     ) -> (
         Self,
         [CircleEvaluation<SimdBackend, M31, BitReversedOrder>; 1],
-        LookupData,
+        ClaimData,
     )
     where
         SimdBackend: BackendForChannel<MC>,
@@ -95,8 +99,10 @@ impl Claim {
                 domain,
                 BaseColumn::from_iter(mults),
             )],
-            LookupData {
-                range_check_20: mults_packed,
+            ClaimData {
+                lookup_data: LookupData {
+                    range_check_20: mults_packed,
+                },
             },
         )
     }
@@ -113,16 +119,16 @@ impl InteractionClaim {
 
     pub fn write_interaction_trace(
         relation: &RangeCheck_20,
-        lookup_data: &LookupData,
+        claim_data: &ClaimData,
     ) -> (
         impl IntoIterator<Item = CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         Self,
     ) {
-        let log_size = lookup_data.range_check_20.len().ilog2() + LOG_N_LANES;
+        let log_size = claim_data.lookup_data.range_check_20.len().ilog2() + LOG_N_LANES;
         let mut interaction_trace = LogupTraceGenerator::new(log_size);
 
         let mut col = interaction_trace.new_col();
-        (col.par_iter_mut(), &lookup_data.range_check_20)
+        (col.par_iter_mut(), &claim_data.lookup_data.range_check_20)
             .into_par_iter()
             .for_each(|(writer, value)| {
                 let denom: PackedQM31 = relation.combine(&[value[0]]);
