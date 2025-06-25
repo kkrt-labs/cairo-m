@@ -199,9 +199,9 @@ impl Claim {
                 *lookup_data.memory[4] = [fp + off1, op1_prev_clock, op1_val, zero, zero, zero];
                 *lookup_data.memory[5] = [fp + off1, clock, op1_val, zero, zero, zero];
 
-                *lookup_data.range_check_20[0] = clock - inst_prev_clock - one;
-                *lookup_data.range_check_20[1] = clock - op0_prev_clock - one;
-                *lookup_data.range_check_20[2] = clock - op1_prev_clock - one;
+                *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
+                *lookup_data.range_check_20[1] = clock - op0_prev_clock - enabler;
+                *lookup_data.range_check_20[2] = clock - op1_prev_clock - enabler;
             });
 
         (
@@ -472,7 +472,7 @@ impl FrameworkEval for Eval {
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
-            E::EF::from(enabler),
+            E::EF::from(enabler.clone()),
             &[fp + off1, clock.clone(), op1_val],
         ));
 
@@ -480,17 +480,17 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - inst_prev_clock - one.clone()],
+            &[clock.clone() - inst_prev_clock - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - op0_prev_clock - one.clone()],
+            &[clock.clone() - op0_prev_clock - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.range_check_20,
             -E::EF::one(),
-            &[clock - op1_prev_clock - one],
+            &[clock - op1_prev_clock - enabler],
         ));
 
         eval.finalize_logup_in_pairs();
