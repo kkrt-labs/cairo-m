@@ -1,6 +1,7 @@
 use cairo_m_common::Opcode;
-use num_traits::identities::One;
-use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{
+    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
+};
 use serde::{Deserialize, Serialize};
 use stwo_air_utils::trace::component_trace::ComponentTrace;
 use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
@@ -172,67 +173,73 @@ impl InteractionClaim {
         let mut interaction_trace = LogupTraceGenerator::new(log_size);
         let enabler_col = Enabler::new(claim_data.non_padded_length);
 
-        let mut col0 = interaction_trace.new_col();
-        for (i, (value0, value1)) in claim_data.lookup_data.registers[0]
-            .iter()
-            .zip(&claim_data.lookup_data.registers[1])
+        let mut col = interaction_trace.new_col();
+        (
+            col.par_iter_mut(),
+            &claim_data.lookup_data.registers[0],
+            &claim_data.lookup_data.registers[1],
+        )
+            .into_par_iter()
             .enumerate()
-        {
-            let denom_0: PackedQM31 = registers_relation.combine(value0);
-            let mult_0: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
-            let denom_1: PackedQM31 = registers_relation.combine(value1);
-            let mult_1: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
+            .for_each(|(i, (writer, value0, value1))| {
+                let denom_0: PackedQM31 = registers_relation.combine(value0);
+                let num_0: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
+                let denom_1: PackedQM31 = registers_relation.combine(value1);
+                let num_1: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
+                writer.write_frac(num_0 * denom_1 + num_1 * denom_0, denom_0 * denom_1);
+            });
+        col.finalize_col();
 
-            col0.write_frac(i, mult_0 * denom_0 + mult_1 * denom_1, denom_0 * denom_1);
-        }
-        col0.finalize_col();
-
-        let mut col1 = interaction_trace.new_col();
-        for (i, (value0, value1)) in claim_data.lookup_data.memory[0]
-            .iter()
-            .zip(&claim_data.lookup_data.memory[1])
+        let mut col = interaction_trace.new_col();
+        (
+            col.par_iter_mut(),
+            &claim_data.lookup_data.memory[0],
+            &claim_data.lookup_data.memory[1],
+        )
+            .into_par_iter()
             .enumerate()
-        {
-            let denom_0: PackedQM31 = memory_relation.combine(value0);
-            let mult_0: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
-            let denom_1: PackedQM31 = memory_relation.combine(value1);
-            let mult_1: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
+            .for_each(|(i, (writer, value0, value1))| {
+                let denom_0: PackedQM31 = memory_relation.combine(value0);
+                let num_0: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
+                let denom_1: PackedQM31 = memory_relation.combine(value1);
+                let num_1: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
+                writer.write_frac(num_0 * denom_1 + num_1 * denom_0, denom_0 * denom_1);
+            });
+        col.finalize_col();
 
-            col1.write_frac(i, mult_0 * denom_0 + mult_1 * denom_1, denom_0 * denom_1);
-        }
-        col1.finalize_col();
-
-        let mut col2 = interaction_trace.new_col();
-        for (i, (value0, value1)) in claim_data.lookup_data.memory[2]
-            .iter()
-            .zip(&claim_data.lookup_data.memory[3])
+        let mut col = interaction_trace.new_col();
+        (
+            col.par_iter_mut(),
+            &claim_data.lookup_data.memory[2],
+            &claim_data.lookup_data.memory[3],
+        )
+            .into_par_iter()
             .enumerate()
-        {
-            let denom_0: PackedQM31 = memory_relation.combine(value0);
-            let mult_0: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
-            let denom_1: PackedQM31 = memory_relation.combine(value1);
-            let mult_1: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
+            .for_each(|(i, (writer, value0, value1))| {
+                let denom_0: PackedQM31 = memory_relation.combine(value0);
+                let num_0: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
+                let denom_1: PackedQM31 = memory_relation.combine(value1);
+                let num_1: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
+                writer.write_frac(num_0 * denom_1 + num_1 * denom_0, denom_0 * denom_1);
+            });
+        col.finalize_col();
 
-            col2.write_frac(i, mult_0 * denom_0 + mult_1 * denom_1, denom_0 * denom_1);
-        }
-        col2.finalize_col();
-
-        let mut col3 = interaction_trace.new_col();
-        for (i, (value0, value1)) in claim_data.lookup_data.range_check_20[0]
-            .iter()
-            .zip(&claim_data.lookup_data.range_check_20[1])
-            .enumerate()
-        {
-            let denom_0: PackedQM31 = range_check_20_relation.combine(value0);
-            let denom_1: PackedQM31 = range_check_20_relation.combine(value1);
-
-            col3.write_frac(
-                i,
-                PackedQM31::from(enabler_col.packed_at(i)) * (denom_0 + denom_1),
-                denom_0 * denom_1,
-            );
-        }
-        col3.finalize_col();
+        let mut col = interaction_trace.new_col();
+        (
+            col.par_iter_mut(),
+            &claim_data.lookup_data.range_check_20[0],
+            &claim_data.lookup_data.range_check_20[1],
+        )
+            .into_par_iter()
+            .for_each(|(writer, value0, value1)| {
+                let denom_0: PackedQM31 = range_check_20_relation.combine(value0);
+                let denom_1: PackedQM31 = range_check_20_relation.combine(value1);
+                writer.write_frac(
+                    -PackedQM31::from(PackedM31::broadcast(M31::from(1))) * (denom_0 + denom_1),
+                    denom_0 * denom_1,
+                );
+            });
+        col.finalize_col();
 
         let (trace, claimed_sum) = interaction_trace.finalize_last();
         (trace, Self { claimed_sum })
@@ -274,7 +281,7 @@ impl FrameworkEval for Eval {
         let dst_prev_clock = eval.next_trace_mask();
 
         // Enabler is 1 or 0
-        eval.add_constraint(enabler.clone() * (one - enabler.clone()));
+        eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
 
         // Opcode is StoreImm
         eval.add_constraint(enabler.clone() * (opcode_id.clone() - expect_opcode_id));
@@ -288,7 +295,7 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.registers,
             E::EF::from(enabler.clone()),
-            &[pc.clone() + E::F::one(), fp.clone()],
+            &[pc.clone() + one.clone(), fp.clone()],
         ));
 
         // Check that the opcode is read from the memory
@@ -329,19 +336,19 @@ impl FrameworkEval for Eval {
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
-            E::EF::from(enabler.clone()),
+            E::EF::from(enabler),
             &[fp + off2, clock.clone(), off0],
         ));
 
         // Check that the write and the read clocks are valid
         eval.add_to_relation(RelationEntry::new(
             &self.range_check_20,
-            E::EF::from(enabler.clone()),
+            -E::EF::from(one.clone()),
             &[clock.clone() - inst_prev_clock],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.range_check_20,
-            E::EF::from(enabler),
+            -E::EF::from(one),
             &[clock - dst_prev_clock],
         ));
 

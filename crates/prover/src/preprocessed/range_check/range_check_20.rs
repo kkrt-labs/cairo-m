@@ -90,6 +90,22 @@ impl Claim {
             })
             .collect();
 
+        // Print lines where the second element (multiplicity) is not all zeros
+        println!("Lines with non-zero multiplicities:");
+        for (line_idx, row) in mults_packed.iter().enumerate() {
+            let multiplicity_values = row[1].to_array();
+            let has_non_zero = multiplicity_values.iter().any(|&val| val.0 != 0);
+            if has_non_zero {
+                let indices = row[0].to_array();
+                println!(
+                    "Line {}: indices={:?}, multiplicities={:?}",
+                    line_idx,
+                    indices.iter().map(|m| m.0).collect::<Vec<_>>(),
+                    multiplicity_values.iter().map(|m| m.0).collect::<Vec<_>>()
+                );
+            }
+        }
+
         let domain = CanonicCoset::new(LOG_SIZE_RC_20).circle_domain();
         (
             Self {
