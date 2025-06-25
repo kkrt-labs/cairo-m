@@ -37,7 +37,7 @@ pub struct InteractionClaim {
 }
 
 #[derive(Uninitialized, IterMut, ParIterMut)]
-pub struct LookupData {
+pub struct InteractionClaimData {
     pub memory: Vec<[PackedM31; N_M31_IN_MEMORY_ENTRY]>,
 }
 
@@ -54,7 +54,11 @@ impl Claim {
 
     pub fn write_trace<MC: MerkleChannel>(
         inputs: Memory,
-    ) -> (Self, ComponentTrace<N_M31_IN_MEMORY_ENTRY>, LookupData)
+    ) -> (
+        Self,
+        ComponentTrace<N_M31_IN_MEMORY_ENTRY>,
+        InteractionClaimData,
+    )
     where
         SimdBackend: BackendForChannel<MC>,
     {
@@ -100,7 +104,7 @@ impl Claim {
         let (mut trace, mut lookup_data) = unsafe {
             (
                 ComponentTrace::<N_M31_IN_MEMORY_ENTRY>::uninitialized(log_size),
-                LookupData::uninitialized(log_size - LOG_N_LANES),
+                InteractionClaimData::uninitialized(log_size - LOG_N_LANES),
             )
         };
         (
@@ -132,7 +136,7 @@ impl InteractionClaim {
 
     pub fn write_interaction_trace(
         memory: &relations::Memory,
-        lookup_data: &LookupData,
+        lookup_data: &InteractionClaimData,
     ) -> (
         impl IntoIterator<Item = CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         Self,

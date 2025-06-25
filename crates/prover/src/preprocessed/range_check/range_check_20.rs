@@ -26,7 +26,7 @@ use crate::relations::RangeCheck_20;
 
 const LOG_SIZE_RC_20: u32 = 20;
 
-pub struct LookupData {
+pub struct InteractionClaimData {
     pub range_check_20: Vec<[PackedM31; 2]>,
 }
 
@@ -50,7 +50,7 @@ impl Claim {
     ) -> (
         Self,
         [CircleEvaluation<SimdBackend, M31, BitReversedOrder>; 1],
-        LookupData,
+        InteractionClaimData,
     )
     where
         SimdBackend: BackendForChannel<MC>,
@@ -92,7 +92,7 @@ impl Claim {
                 domain,
                 BaseColumn::from_iter(mults),
             )],
-            LookupData {
+            InteractionClaimData {
                 range_check_20: mults_packed,
             },
         )
@@ -110,7 +110,7 @@ impl InteractionClaim {
 
     pub fn write_interaction_trace(
         relation: &RangeCheck_20,
-        lookup_data: &LookupData,
+        lookup_data: &InteractionClaimData,
     ) -> (
         impl IntoIterator<Item = CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         Self,
