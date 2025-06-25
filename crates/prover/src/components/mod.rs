@@ -1,6 +1,5 @@
 pub mod memory;
 pub mod opcodes;
-pub mod store_deref_fp;
 
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
