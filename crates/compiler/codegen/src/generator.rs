@@ -4,6 +4,7 @@
 
 use std::collections::HashMap;
 
+use cairo_m_common::program::EntrypointInfo;
 use cairo_m_common::{Opcode, Program, ProgramMetadata};
 use cairo_m_compiler_mir::{
     BasicBlockId, Instruction, InstructionKind, MirFunction, MirModule, Terminator, Value, ValueId,
@@ -21,8 +22,8 @@ pub struct CodeGenerator {
     instructions: Vec<InstructionBuilder>,
     /// Labels that need resolution
     labels: Vec<Label>,
-    /// Function name to starting PC mapping
-    function_addresses: HashMap<String, usize>,
+    /// Function name to entrypoint info mapping
+    function_entrypoints: HashMap<String, EntrypointInfo>,
     /// Function layouts for frame size calculations
     function_layouts: HashMap<String, FunctionLayout>,
 
@@ -35,7 +36,7 @@ impl CodeGenerator {
         Self {
             instructions: Vec::new(),
             labels: Vec::new(),
-            function_addresses: HashMap::new(),
+            function_entrypoints: HashMap::new(),
             function_layouts: HashMap::new(),
             label_counter: 0,
         }
@@ -71,7 +72,7 @@ impl CodeGenerator {
                 source_file: None,
                 extra: HashMap::new(),
             },
-            entrypoints: self.function_addresses,
+            entrypoints: self.function_entrypoints,
             instructions,
         }
     }
@@ -113,8 +114,25 @@ impl CodeGenerator {
 
         // Add function label - but we'll fix the address later
         let func_label = Label::for_function(&function.name);
-        self.function_addresses
-            .insert(function.name.clone(), self.instructions.len());
+
+        // Create entrypoint info for this function
+        // TODO: this is not using the name of the argument, rather a placeholder with arg_{index}.
+        // Fix this with the proper argument names.
+        let entrypoint_info = EntrypointInfo {
+            pc: self.instructions.len(),
+            args: (0..function.parameters.len())
+                .map(|i| format!("arg{}", i))
+                .collect(),
+            // TODO: support multiple return values
+            num_return_values: if function.return_value.is_some() {
+                1
+            } else {
+                0
+            },
+        };
+        self.function_entrypoints
+            .insert(function.name.clone(), entrypoint_info);
+
         builder.add_label(func_label);
 
         // Generate code for all basic blocks
@@ -390,8 +408,8 @@ impl CodeGenerator {
         let mut label_map = HashMap::new();
 
         // Add function addresses
-        for (name, addr) in &self.function_addresses {
-            label_map.insert(name.clone(), *addr);
+        for (name, info) in &self.function_entrypoints {
+            label_map.insert(name.clone(), info.pc);
         }
 
         // Add block labels
@@ -458,9 +476,9 @@ impl CodeGenerator {
         let mut pc_to_labels: std::collections::HashMap<usize, Vec<String>> =
             std::collections::HashMap::new();
 
-        // Add function labels from function_addresses
-        for (name, addr) in &self.function_addresses {
-            pc_to_labels.entry(*addr).or_default().push(name.clone());
+        // Add function labels from function_entrypoints
+        for (name, info) in &self.function_entrypoints {
+            pc_to_labels.entry(info.pc).or_default().push(name.clone());
         }
 
         // Add block labels
@@ -526,9 +544,9 @@ impl CodeGenerator {
         &self.instructions
     }
 
-    /// Get function addresses (for testing)
-    pub const fn function_addresses(&self) -> &HashMap<String, usize> {
-        &self.function_addresses
+    /// Get function entrypoints (for testing)
+    pub const fn function_entrypoints(&self) -> &HashMap<String, EntrypointInfo> {
+        &self.function_entrypoints
     }
 }
 
@@ -574,7 +592,7 @@ mod tests {
         assert!(!generator.instructions.is_empty());
 
         // Should contain a main function
-        assert!(generator.function_addresses.contains_key("main"));
+        assert!(generator.function_entrypoints.contains_key("main"));
     }
 
     #[test]

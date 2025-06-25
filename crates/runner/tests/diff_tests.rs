@@ -3,18 +3,34 @@ use std::fs;
 use cairo_m_common::Program;
 use cairo_m_compiler::{compile_cairo, CompilerOptions};
 use cairo_m_runner::run_cairo_program;
+use stwo_prover::core::fields::m31::M31;
 
 /// Represents a test case for diff-testing
 struct DiffTest {
     name: &'static str,
     cairo_file: &'static str,
     entrypoint: &'static str,
+    args: Vec<M31>,
     rust_fn: fn() -> u32,
     description: &'static str,
 }
 
 /// Macro to create a diff test with minimal boilerplate
 macro_rules! diff_test {
+    ($name:ident, $cairo_file:expr, $entrypoint:expr, $args:expr, $rust_fn:expr, $description:expr) => {
+        #[test]
+        fn $name() {
+            let test = DiffTest {
+                name: stringify!($name),
+                cairo_file: $cairo_file,
+                entrypoint: $entrypoint,
+                args: $args,
+                rust_fn: $rust_fn,
+                description: $description,
+            };
+            run_diff_test(test);
+        }
+    };
     ($name:ident, $cairo_file:expr, $entrypoint:expr, $rust_fn:expr, $description:expr) => {
         #[test]
         fn $name() {
@@ -22,6 +38,7 @@ macro_rules! diff_test {
                 name: stringify!($name),
                 cairo_file: $cairo_file,
                 entrypoint: $entrypoint,
+                args: vec![],
                 rust_fn: $rust_fn,
                 description: $description,
             };
@@ -58,15 +75,25 @@ fn run_diff_test(test: DiffTest) {
     let program = compile_cairo_file(test.cairo_file).expect("Failed to compile Cairo-M program");
 
     // Run Cairo-M program using the library API
-    let cairo_result = run_cairo_program(&program, test.entrypoint, Default::default())
+    println!(
+        "Running Cairo-M program: {} with args: {:?}",
+        test.entrypoint, test.args
+    );
+    let cairo_result = run_cairo_program(&program, test.entrypoint, &test.args, Default::default())
         .expect("Failed to run Cairo-M program");
 
     // Run Rust implementation
     let rust_result = (test.rust_fn)();
+
+    assert!(
+        cairo_result.return_values.len() == 1,
+        "Expected exactly one return value, got {}",
+        cairo_result.return_values.len()
+    );
     assert_eq!(
-        cairo_result.return_value, rust_result,
+        cairo_result.return_values[0].0, rust_result,
         "Results differ! Cairo-M: {}, Rust: {} \n for test: {} \n {}",
-        cairo_result.return_value, rust_result, test.name, test.description
+        cairo_result.return_values[0].0, rust_result, test.name, test.description
     );
 }
 
@@ -89,7 +116,8 @@ fn rust_fib_recursive() -> u32 {
 diff_test!(
     test_fibonacci_recursive,
     "fibonacci.cm",
-    "main",
+    "fib",
+    vec![M31::from(10)],
     rust_fib_recursive,
     "Recursive Fibonacci computation for n=10"
 );
@@ -112,7 +140,8 @@ fn rust_fibonacci_loop() -> u32 {
 diff_test!(
     test_fibonacci_loop,
     "fibonacci_loop.cm",
-    "main",
+    "fibonacci_loop",
+    vec![M31::from(10)],
     rust_fibonacci_loop,
     "Fibonacci loop computation for n=10"
 );
@@ -152,7 +181,8 @@ fn rust_power() -> u32 {
 diff_test!(
     test_power,
     "power.cm",
-    "main",
+    "power",
+    vec![M31::from(3), M31::from(10)],
     rust_power,
     "3^10 computation"
 );

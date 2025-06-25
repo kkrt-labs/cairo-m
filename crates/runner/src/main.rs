@@ -5,6 +5,7 @@ use anyhow::{Context, Error, Result};
 use cairo_m_common::Program;
 use cairo_m_runner::run_cairo_program;
 use clap::{Parser, ValueHint};
+use stwo_prover::core::fields::m31::M31;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -22,6 +23,10 @@ struct Args {
     #[arg(short, long)]
     entrypoint: String,
 
+    /// Arguments to pass to the entrypoint
+    #[arg(short, long)]
+    arguments: Vec<u32>,
+
     /// Enable verbose output
     #[arg(short, long)]
     verbose: bool,
@@ -36,10 +41,16 @@ fn main() -> Result<(), Error> {
     let compiled_program: Program =
         sonic_rs::from_str(&file_content).context("Failed to parse compiled program")?;
 
-    let output = run_cairo_program(&compiled_program, &args.entrypoint, Default::default())
-        .context("Execution failed")?;
+    let fn_args: Vec<M31> = args.arguments.iter().map(|arg| M31::from(*arg)).collect();
+    let output = run_cairo_program(
+        &compiled_program,
+        &args.entrypoint,
+        &fn_args,
+        Default::default(),
+    )
+    .context("Execution failed")?;
 
-    println!("Run succeeded and returned: [{}]", output.return_value);
+    println!("Run succeeded and returned: {:?}", output.return_values);
 
     Ok(())
 }
