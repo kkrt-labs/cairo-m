@@ -118,11 +118,11 @@ impl Claim {
 
                 *lookup_data.range_check_20[0] = clock - instruction_prev_clock;
 
-                *row[4] = opcode_id;
-                *row[5] = off0;
-                *row[6] = off1;
-                *row[7] = off2;
-                *row[8] = instruction_prev_clock;
+                *row[4] = instruction_prev_clock;
+                *row[5] = opcode_id;
+                *row[6] = off0;
+                *row[7] = off1;
+                *row[8] = off2;
 
                 *lookup_data.memory[0] = [
                     input.pc,
@@ -390,11 +390,11 @@ impl FrameworkEval for Eval {
         let pc = eval.next_trace_mask();
         let fp = eval.next_trace_mask();
         let clock = eval.next_trace_mask();
+        let instruction_prev_clock = eval.next_trace_mask();
         let opcode_id = eval.next_trace_mask();
         let off0 = eval.next_trace_mask();
         let off1 = eval.next_trace_mask();
         let off2 = eval.next_trace_mask();
-        let instruction_prev_clock = eval.next_trace_mask();
         let src_prev_clock = eval.next_trace_mask();
         let src_value = eval.next_trace_mask();
         let dst_prev_clock = eval.next_trace_mask();
@@ -403,8 +403,8 @@ impl FrameworkEval for Eval {
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
 
-        // Opcode id is StoreDerefFp
-        eval.add_constraint(opcode_id.clone() - expected_opcode_id);
+        // Opcode id is StoreDerefFp (only check when row is enabled)
+        eval.add_constraint(enabler.clone() * (opcode_id.clone() - expected_opcode_id));
 
         // Check that the opcode is read from the memory
         eval.add_to_relation(RelationEntry::new(
