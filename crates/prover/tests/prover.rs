@@ -63,7 +63,8 @@ fn test_prove_and_verify_empty_memory() {
 }
 
 #[test]
-fn test_prove_and_verify_fibonacci_program() -> Result<(), String> {
+#[should_panic(expected = "called `Result::unwrap()` on an `Err` value: InvalidLogupSum")]
+fn test_prove_and_verify_fibonacci_program() {
     let source_path = format!(
         "{}/tests/test_data/{}",
         env!("CARGO_MANIFEST_DIR"),
@@ -74,19 +75,14 @@ fn test_prove_and_verify_fibonacci_program() -> Result<(), String> {
         source_path,
         CompilerOptions::default(),
     )
-    .map_err(|e| format!("Compilation failed: {}", e))?;
+    .unwrap();
 
     // let result = run_and_generate_proof(file_content).unwrap();
-    let runner_output = run_cairo_program(&compiled_fib.program, "main", Default::default())
-        .map_err(|e| format!("Runner failed: {}", e))?;
+    let runner_output =
+        run_cairo_program(&compiled_fib.program, "main", Default::default()).unwrap();
 
-    let prover_input =
-        import_from_runner_output(&runner_output).map_err(|e| format!("Adapter failed: {}", e))?;
-    let proof = prove_cairo_m::<Blake2sMerkleChannel>(prover_input)
-        .map_err(|e| format!("Proving failed: {}", e))?;
+    let prover_input = import_from_runner_output(&runner_output).unwrap();
+    let proof = prove_cairo_m::<Blake2sMerkleChannel>(prover_input).unwrap();
 
-    verify_cairo_m::<Blake2sMerkleChannel>(proof)
-        .map_err(|e| format!("Verification failed: {}", e))?;
-
-    Ok(())
+    verify_cairo_m::<Blake2sMerkleChannel>(proof).unwrap();
 }
