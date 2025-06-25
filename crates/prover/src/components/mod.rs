@@ -79,7 +79,7 @@ impl Claim {
 
         // Write memory component from the prover input
         let (memory_claim, memory_trace, memory_lookup_data) =
-            memory::Claim::write_trace(input.memory_boundaries);
+            memory::Claim::write_trace(input.memory_boundaries.clone());
 
         // Write range_check components
         // TODO: use memory and other components lookup data to generate multiplicity column
@@ -113,7 +113,7 @@ impl Claim {
             Self {
                 memory: memory_claim,
                 range_check_20: range_check_20_claim,
-                store_deref_fp: store_deref_fp_claim.clone(),
+                store_deref_fp: store_deref_fp_claim,
             },
             trace,
             lookup_data,
@@ -231,10 +231,10 @@ impl Components {
     }
 
     pub fn provers(&self) -> Vec<&dyn ComponentProver<SimdBackend>> {
-        vec![&self.memory, &self.range_check_20]
+        vec![&self.memory, &self.range_check_20, &self.store_deref_fp]
     }
 
     pub fn verifiers(&self) -> Vec<&dyn ComponentVerifier> {
-        vec![&self.memory, &self.range_check_20]
+        vec![&self.memory, &self.range_check_20, &self.store_deref_fp]
     }
 }

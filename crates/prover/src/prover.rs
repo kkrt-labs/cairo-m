@@ -19,7 +19,9 @@ use crate::{relations, Proof};
 
 pub(crate) const PREPROCESSED_TRACE_LOG_SIZE: u32 = 20;
 
-pub fn prove_cairo_m<MC: MerkleChannel>(input: ProverInput) -> Result<Proof<MC::H>, ProvingError>
+pub fn prove_cairo_m<MC: MerkleChannel>(
+    input: &mut ProverInput,
+) -> Result<Proof<MC::H>, ProvingError>
 where
     SimdBackend: BackendForChannel<MC>,
 {
