@@ -19,10 +19,10 @@ impl Enabler {
 
     pub fn packed_at(&self, vec_row: usize) -> PackedM31 {
         let row_offset = vec_row * N_LANES;
-        if row_offset <= self.padding_offset {
+        if row_offset >= self.padding_offset {
             return PackedM31::zero();
         }
-        if row_offset + N_LANES <= self.padding_offset {
+        if row_offset + N_LANES < self.padding_offset {
             return PackedM31::one();
         }
 
