@@ -1,0 +1,61 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+func test() { local (x, y) = (5, 10); }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
+                ),
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Local {
+                            pattern: Tuple(
+                                [
+                                    Spanned(
+                                        "x",
+                                        21..22,
+                                    ),
+                                    Spanned(
+                                        "y",
+                                        24..25,
+                                    ),
+                                ],
+                            ),
+                            ty: None,
+                            value: Spanned(
+                                Tuple(
+                                    [
+                                        Spanned(
+                                            Literal(
+                                                5,
+                                            ),
+                                            30..31,
+                                        ),
+                                        Spanned(
+                                            Literal(
+                                                10,
+                                            ),
+                                            33..35,
+                                        ),
+                                    ],
+                                ),
+                                29..36,
+                            ),
+                        },
+                        14..37,
+                    ),
+                ],
+            },
+            0..39,
+        ),
+    ),
+]

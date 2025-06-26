@@ -18,9 +18,11 @@ func test() { local x = infer_me; }
                 body: [
                     Spanned(
                         Local {
-                            name: Spanned(
-                                "x",
-                                20..21,
+                            pattern: Identifier(
+                                Spanned(
+                                    "x",
+                                    20..21,
+                                ),
                             ),
                             ty: None,
                             value: Spanned(

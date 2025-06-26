@@ -1,6 +1,5 @@
 ---
 source: crates/compiler/parser/tests/common.rs
-assertion_line: 96
 expression: snapshot
 ---
 --- Code ---
@@ -24,9 +23,11 @@ func test() { loop { let x = 1; } }
                                     [
                                         Spanned(
                                             Let {
-                                                name: Spanned(
-                                                    "x",
-                                                    25..26,
+                                                pattern: Identifier(
+                                                    Spanned(
+                                                        "x",
+                                                        25..26,
+                                                    ),
                                                 ),
                                                 statement_type: None,
                                                 value: Spanned(

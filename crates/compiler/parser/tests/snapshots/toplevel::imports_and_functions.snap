@@ -135,9 +135,11 @@ expression: snapshot
                 body: [
                     Spanned(
                         Local {
-                            name: Spanned(
-                                "dx",
-                                226..228,
+                            pattern: Identifier(
+                                Spanned(
+                                    "dx",
+                                    226..228,
+                                ),
                             ),
                             ty: Some(
                                 Named(
@@ -191,9 +193,11 @@ expression: snapshot
                     ),
                     Spanned(
                         Local {
-                            name: Spanned(
-                                "dy",
-                                268..270,
+                            pattern: Identifier(
+                                Spanned(
+                                    "dy",
+                                    268..270,
+                                ),
                             ),
                             ty: Some(
                                 Named(

@@ -21,9 +21,11 @@ func test() { { let x = 1; let y = 2; } }
                             [
                                 Spanned(
                                     Let {
-                                        name: Spanned(
-                                            "x",
-                                            20..21,
+                                        pattern: Identifier(
+                                            Spanned(
+                                                "x",
+                                                20..21,
+                                            ),
                                         ),
                                         statement_type: None,
                                         value: Spanned(
@@ -37,9 +39,11 @@ func test() { { let x = 1; let y = 2; } }
                                 ),
                                 Spanned(
                                     Let {
-                                        name: Spanned(
-                                            "y",
-                                            31..32,
+                                        pattern: Identifier(
+                                            Spanned(
+                                                "y",
+                                                31..32,
+                                            ),
                                         ),
                                         statement_type: None,
                                         value: Spanned(

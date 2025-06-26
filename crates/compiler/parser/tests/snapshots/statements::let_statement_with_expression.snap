@@ -18,9 +18,11 @@ func test() { let result = a + b * c; }
                 body: [
                     Spanned(
                         Let {
-                            name: Spanned(
-                                "result",
-                                18..24,
+                            pattern: Identifier(
+                                Spanned(
+                                    "result",
+                                    18..24,
+                                ),
                             ),
                             statement_type: None,
                             value: Spanned(

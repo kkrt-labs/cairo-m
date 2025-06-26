@@ -73,9 +73,11 @@ func test() { if (true) { if (false) { if (true) { if (true) { if (true) { let x
                                                                                                                     [
                                                                                                                         Spanned(
                                                                                                                             Let {
-                                                                                                                                name: Spanned(
-                                                                                                                                    "x",
-                                                                                                                                    79..80,
+                                                                                                                                pattern: Identifier(
+                                                                                                                                    Spanned(
+                                                                                                                                        "x",
+                                                                                                                                        79..80,
+                                                                                                                                    ),
                                                                                                                                 ),
                                                                                                                                 statement_type: None,
                                                                                                                                 value: Spanned(
