@@ -35,9 +35,8 @@ fn track_relations<MC: MerkleChannel>(
 where
     SimdBackend: BackendForChannel<MC>,
 {
-    let evals = commitment_scheme.trace().polys.map(|interaction_tree| {
-        interaction_tree
-            .iter()
+    let evals = commitment_scheme.trace().polys.map(|tree| {
+        tree.iter()
             .map(|poly| {
                 poly.evaluate(CanonicCoset::new(poly.log_size()).circle_domain())
                     .values
@@ -74,13 +73,48 @@ fn relation_entries(
     let Components {
         memory,
         range_check_20,
-        store_deref_fp,
+        opcodes,
     } = components;
 
     let entries: Vec<RelationTrackerEntry> = chain!(
+        add_to_relation_entries(&opcodes.call_abs_fp, trace),
+        add_to_relation_entries(&opcodes.call_abs_imm, trace),
+        add_to_relation_entries(&opcodes.call_rel_fp, trace),
+        add_to_relation_entries(&opcodes.call_rel_imm, trace),
+        add_to_relation_entries(&opcodes.jmp_abs_add_fp_fp, trace),
+        add_to_relation_entries(&opcodes.jmp_abs_add_fp_imm, trace),
+        add_to_relation_entries(&opcodes.jmp_abs_deref_fp, trace),
+        add_to_relation_entries(&opcodes.jmp_abs_double_deref_fp, trace),
+        add_to_relation_entries(&opcodes.jmp_abs_imm, trace),
+        add_to_relation_entries(&opcodes.jmp_abs_mul_fp_fp, trace),
+        add_to_relation_entries(&opcodes.jmp_abs_mul_fp_imm, trace),
+        add_to_relation_entries(&opcodes.jmp_rel_add_fp_fp, trace),
+        add_to_relation_entries(&opcodes.jmp_rel_add_fp_imm, trace),
+        add_to_relation_entries(&opcodes.jmp_rel_deref_fp, trace),
+        add_to_relation_entries(&opcodes.jmp_rel_double_deref_fp, trace),
+        add_to_relation_entries(&opcodes.jmp_rel_imm, trace),
+        add_to_relation_entries(&opcodes.jmp_rel_mul_fp_fp, trace),
+        add_to_relation_entries(&opcodes.jmp_rel_mul_fp_imm, trace),
+        add_to_relation_entries(&opcodes.jnz_fp_fp, trace),
+        add_to_relation_entries(&opcodes.jnz_fp_fp_taken, trace),
+        add_to_relation_entries(&opcodes.jnz_fp_imm, trace),
+        add_to_relation_entries(&opcodes.jnz_fp_imm_taken, trace),
+        add_to_relation_entries(&opcodes.ret, trace),
+        add_to_relation_entries(&opcodes.store_add_fp_fp, trace),
+        add_to_relation_entries(&opcodes.store_add_fp_fp_inplace, trace),
+        add_to_relation_entries(&opcodes.store_add_fp_imm, trace),
+        add_to_relation_entries(&opcodes.store_add_fp_imm_inplace, trace),
+        add_to_relation_entries(&opcodes.store_deref_fp, trace),
+        add_to_relation_entries(&opcodes.store_div_fp_fp, trace),
+        add_to_relation_entries(&opcodes.store_div_fp_imm, trace),
+        add_to_relation_entries(&opcodes.store_double_deref_fp, trace),
+        add_to_relation_entries(&opcodes.store_imm, trace),
+        add_to_relation_entries(&opcodes.store_mul_fp_fp, trace),
+        add_to_relation_entries(&opcodes.store_mul_fp_imm, trace),
+        add_to_relation_entries(&opcodes.store_sub_fp_fp, trace),
+        add_to_relation_entries(&opcodes.store_sub_fp_imm, trace),
         add_to_relation_entries(memory, trace),
         add_to_relation_entries(range_check_20, trace),
-        add_to_relation_entries(store_deref_fp, trace),
     )
     .collect();
 

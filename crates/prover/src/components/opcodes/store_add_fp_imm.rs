@@ -101,11 +101,16 @@ impl Claim {
     }
 
     pub fn write_trace<MC: MerkleChannel>(
-        inputs: &mut Vec<StateData>,
+        inputs: &mut [StateData],
     ) -> (Self, ComponentTrace<N_TRACE_COLUMNS>, InteractionClaimData)
     where
         SimdBackend: BackendForChannel<MC>,
     {
+        let mut inputs = inputs
+            .iter()
+            .filter(|input| input.memory_args[2].address != input.memory_args[1].address)
+            .cloned()
+            .collect::<Vec<_>>();
         let non_padded_length = inputs.len();
         let log_size = std::cmp::max(LOG_N_LANES, inputs.len().next_power_of_two().ilog2());
 
