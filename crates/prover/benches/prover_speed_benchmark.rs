@@ -11,7 +11,7 @@ use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
 
 const BENCHMARK_DURATION_SECS: u64 = 30;
-const N_ITERATIONS: u32 = 10_000; // Smaller than runner benchmark since proving is slower
+const N_ITERATIONS: u32 = 10_000;
 
 /// Compiles the fibonacci.cm file from the test data directory
 fn compile_fibonacci() -> Program {
@@ -27,10 +27,8 @@ fn compile_fibonacci() -> Program {
 }
 
 fn fibonacci_prove_benchmark(c: &mut Criterion) {
-    // Compile the program once
     let program = compile_fibonacci();
 
-    // Run the program once to get the trace length for throughput metrics
     let runner_output = run_cairo_program(
         &program,
         "fib",
@@ -48,31 +46,25 @@ fn fibonacci_prove_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("prover_fibonacci");
     group.throughput(Throughput::Elements(trace_length as u64));
     group.measurement_time(Duration::from_secs(BENCHMARK_DURATION_SECS));
-    group.sample_size(10); // Reduced sample size since proving is expensive
+
+    let runner_output = run_cairo_program(
+        &program,
+        "fib",
+        &[M31::from(N_ITERATIONS)],
+        Default::default(),
+    )
+    .expect("Failed to run fibonacci program");
 
     group.bench_function("prove", |b| {
-        // Setup: run the program for each iteration
-        b.iter_batched(
-            || {
-                // Setup: run the program to get the runner output
-                let runner_output = run_cairo_program(
-                    &program,
-                    "fib",
-                    &[M31::from(N_ITERATIONS)],
-                    Default::default(),
-                )
-                .expect("Failed to run fibonacci program");
+        b.iter(|| {
+            let mut prover_input =
+                import_from_runner_output(&runner_output).expect("Failed to import runner output");
 
-                import_from_runner_output(&runner_output).expect("Failed to import runner output")
-            },
-            |mut prover_input| {
-                // Benchmark: prove the execution
-                let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input)
-                    .expect("Proving failed");
-                black_box(proof)
-            },
-            criterion::BatchSize::SmallInput,
-        )
+            // Benchmark: prove the execution
+            let proof =
+                prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input).expect("Proving failed");
+            black_box(proof)
+        })
     });
 
     group.finish();
