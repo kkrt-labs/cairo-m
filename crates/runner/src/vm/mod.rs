@@ -138,6 +138,7 @@ impl VM {
     ///
     /// - The PC entrypoint is the first instruction of the function to execute in the program.
     /// - The FP offset accounts for the calling convention of the executed function: arguments, return values, return address.
+    /// - Arguments are written to memory before the frame pointer.
     ///
     /// The call stack of the entrypoint is initialized here.
     ///
@@ -145,6 +146,8 @@ impl VM {
     ///
     /// * `pc_entrypoint` - The program counter (PC) to start execution from.
     /// * `fp_offset` - The frame pointer (FP) offset to start execution from.
+    /// * `args` - The arguments to pass to the function.
+    /// * `num_return_values` - The number of return values to expect from the function.
     ///
     /// ## Errors
     ///
@@ -155,9 +158,23 @@ impl VM {
         &mut self,
         pc_entrypoint: u32,
         fp_offset: u32,
+        args: &[M31],
+        num_return_values: usize,
     ) -> Result<(), VmError> {
+        // Write arguments to memory before the frame pointer
+        // Arguments should be at [new_fp - M - K - 2 + i] for arg i
+        // Writing the arguments does not log an trace entry.
+        let initial_fp = self.state.fp;
+        let new_fp = initial_fp + M31::from(fp_offset);
+        for (i, arg) in args.iter().enumerate() {
+            // For M args and K returns: arg_i is at [fp - M - K - 2 + i]
+            let offset = args.len() + num_return_values + 2 - i;
+            let arg_address = new_fp - M31::from(offset as u32);
+            self.memory.insert_no_trace(arg_address, (*arg).into())?;
+        }
+
         self.state.pc = M31(pc_entrypoint);
-        self.state.fp += M31(fp_offset);
+        self.state.fp = new_fp;
 
         self.memory
             .insert_entrypoint_call(&self.final_pc, &self.state.fp)?;

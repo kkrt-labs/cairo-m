@@ -80,7 +80,7 @@ fn test_prove_and_verify_fibonacci_program() {
     let runner_output = run_cairo_program(
         &compiled_fib.program,
         "fib",
-        &[M31::from(10)],
+        &[M31::from(1000)],
         Default::default(),
     )
     .unwrap();

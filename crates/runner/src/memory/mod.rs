@@ -132,6 +132,26 @@ impl Memory {
         Ok(())
     }
 
+    /// Inserts a `QM31` value at a specified validated memory address without logging a trace entry.
+    ///
+    /// # Arguments
+    ///
+    /// * `addr` - The `M31` memory address to write to.
+    /// * `value` - The `QM31` value to insert.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`MemoryError::AddressOutOfBounds`] if the address exceeds the maximum allowed size.
+    pub(crate) fn insert_no_trace(&mut self, addr: M31, value: QM31) -> Result<(), MemoryError> {
+        Self::validate_address(addr)?;
+        let address = addr.0 as usize;
+        if address >= self.data.len() {
+            self.data.resize(address + 1, QM31::zero());
+        }
+        self.data[address] = value;
+        Ok(())
+    }
+
     /// Inserts a slice of `QM31` values starting from a given address.
     ///
     /// It validates that both the start and end addresses of the slice are
