@@ -18,6 +18,7 @@ sonic-rs.workspace = true
 cairo-m-runner.workspace = true
 cairo-m-compiler.workspace = true
 cairo-m-common.workspace = true
+paste = "1.0"
 
 [dev-dependencies]
 tempfile = "3.0"

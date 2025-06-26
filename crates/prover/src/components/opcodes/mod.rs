@@ -1,3 +1,6 @@
+#[macro_use]
+pub mod macros;
+
 pub mod call_abs_fp;
 pub mod call_abs_imm;
 pub mod call_rel_fp;

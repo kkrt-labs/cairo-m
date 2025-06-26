@@ -431,6 +431,7 @@ dependencies = [
  "criterion",
  "itertools 0.12.1",
  "num-traits",
+ "paste",
  "rand",
  "rayon",
  "serde",
