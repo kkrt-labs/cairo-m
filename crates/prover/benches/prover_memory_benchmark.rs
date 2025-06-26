@@ -30,11 +30,8 @@ fn compile_fibonacci() -> Program {
 
 fn main() {
     eprintln!("Setting up benchmark: Compiling and running fibonacci...");
-
-    // 1. Compile the fibonacci program
     let program = compile_fibonacci();
 
-    // 2. Run the program to get the execution trace
     let runner_output = run_cairo_program(
         &program,
         "fib",
@@ -45,20 +42,14 @@ fn main() {
 
     eprintln!("Running fibonacci with n={}", N_ITERATIONS);
     eprintln!("Trace length: {}", runner_output.vm.trace.len());
-
-    // 3. Import the runner output for proving
-    let mut prover_input =
-        import_from_runner_output(&runner_output).expect("Failed to import runner output");
-
     eprintln!("Setup complete. Starting prover benchmark...");
 
     // Reset peak memory tracking before proving
     PEAK_ALLOC.reset_peak_usage();
 
-    // 4. Prove the execution
+    let mut prover_input =
+        import_from_runner_output(&runner_output).expect("Failed to import runner output");
     let _proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input).expect("Proving failed");
-
-    // 5. Get peak memory usage
     let peak_mem = PEAK_ALLOC.peak_usage();
 
     eprintln!("Benchmark finished. Peak memory usage: {} bytes", peak_mem);
