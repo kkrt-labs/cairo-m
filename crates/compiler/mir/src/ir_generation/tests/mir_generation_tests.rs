@@ -84,3 +84,6 @@ mir_test!(struct_access_read, "aggregates");
 mir_test!(tuple_literal_and_access, "aggregates");
 // TODO this theoritically works but we dont have proper memory allocation mechanisms.
 mir_test!(array_access, "aggregates");
+
+// --- Tuple Destructuring ---
+mir_test!(tuple_destructuring, "expressions");

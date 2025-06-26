@@ -1,8 +1,7 @@
-//!ASSERT CONTAINS: call 0()
-//!ASSERT NOT_CONTAINS: %
+//!ASSERT CONTAINS: %0 = call 0()
 
 // Tests a function call used as a statement, where the return value is ignored.
-// This should generate a `VoidCall` instruction.
+// This generates a call instruction with a destination that is not used.
 func helper() -> felt { return 123; }
 
 func main() -> felt {

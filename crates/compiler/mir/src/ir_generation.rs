@@ -26,12 +26,15 @@ use std::sync::Arc;
 
 use cairo_m_compiler_diagnostics::Diagnostic;
 use cairo_m_compiler_parser::parse_program;
-use cairo_m_compiler_parser::parser::{Expression, FunctionDef, Spanned, Statement, TopLevelItem};
+use cairo_m_compiler_parser::parser::{
+    Expression, FunctionDef, Pattern, Spanned, Statement, TopLevelItem,
+};
 use cairo_m_compiler_semantic::definition::{Definition, DefinitionKind};
 use cairo_m_compiler_semantic::semantic_index::{semantic_index, DefinitionId, SemanticIndex};
 use cairo_m_compiler_semantic::type_resolution::{
     definition_semantic_type, expression_semantic_type,
 };
+use cairo_m_compiler_semantic::types::TypeData;
 use cairo_m_compiler_semantic::{File, SemanticDb};
 use rustc_hash::FxHashMap;
 
@@ -250,9 +253,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     /// Lowers a single statement into MIR instructions
     fn lower_statement(&mut self, stmt: &Spanned<Statement>) -> Result<(), String> {
         match stmt.value() {
-            Statement::Let { name, value, .. } | Statement::Local { name, value, .. } => {
-                let rhs_value = self.lower_expression(value)?;
-
+            Statement::Let { pattern, value, .. } | Statement::Local { pattern, value, .. } => {
                 // Get the scope from the value expression (the let statement is in the same scope as its value)
                 let expr_id = self
                     .semantic_index
@@ -268,78 +269,448 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 })?;
                 let scope_id = expr_info.scope_id;
 
-                if let Some((def_idx, _)) = self
-                    .semantic_index
-                    .resolve_name_to_definition(name.value(), scope_id)
-                {
-                    let def_id = DefinitionId::new(self.db, self.file, def_idx);
-                    let mir_def_id = self.convert_definition_id(def_id);
+                // Check for optimizable tuple destructuring pattern
+                match (pattern, value.value()) {
+                    (Pattern::Tuple(names), Expression::Tuple(elements))
+                        if names.len() == elements.len() =>
+                    {
+                        // Direct tuple destructuring optimization - skip intermediate tuple allocation
+                        for (name, element_expr) in names.iter().zip(elements.iter()) {
+                            if let Some((def_idx, _)) = self
+                                .semantic_index
+                                .resolve_name_to_definition(name.value(), scope_id)
+                            {
+                                let def_id = DefinitionId::new(self.db, self.file, def_idx);
+                                let mir_def_id = self.convert_definition_id(def_id);
 
-                    // Check if the RHS is already a stack-allocated aggregate.
-                    // If so, we can bind the variable name directly to its address.
-                    if let Expression::StructLiteral { .. } | Expression::Tuple(_) = value.value() {
-                        if let Value::Operand(addr) = rhs_value {
-                            // The RHS expression already allocated the object and returned its address.
-                            // We just need to map the variable `name` to this address.
-                            self.definition_to_value.insert(mir_def_id, addr);
-                        } else {
-                            // This case should ideally not happen if aggregates always return addresses.
-                            // Handle as an error or fall back to old behavior.
-                            return Err("Expected an address from aggregate literal".to_string());
-                        }
-                    } else {
-                        // Check if this variable is actually used
-                        let is_used =
-                            if let Some(definition) = self.semantic_index.definition(def_idx) {
-                                // Get the place table for this scope
-                                if let Some(place_table) =
-                                    self.semantic_index.place_table(definition.scope_id)
+                                // Check if this variable is used
+                                let is_used = if let Some(definition) =
+                                    self.semantic_index.definition(def_idx)
                                 {
-                                    // Check if the place is marked as used
-                                    if let Some(place) = place_table.place(definition.place_id) {
-                                        place.is_used()
+                                    if let Some(place_table) =
+                                        self.semantic_index.place_table(definition.scope_id)
+                                    {
+                                        if let Some(place) = place_table.place(definition.place_id)
+                                        {
+                                            place.is_used()
+                                        } else {
+                                            true
+                                        }
                                     } else {
-                                        true // Conservative: assume used if we can't find the place
+                                        true
                                     }
                                 } else {
-                                    true // Conservative: assume used if we can't find the place table
+                                    true
+                                };
+
+                                if is_used {
+                                    // Lower the element expression directly
+                                    let element_value = self.lower_expression(element_expr)?;
+
+                                    // Get the type from semantic analysis
+                                    let semantic_type = definition_semantic_type(self.db, def_id);
+                                    let element_mir_type =
+                                        MirType::from_semantic_type(self.db, semantic_type);
+
+                                    // Allocate space for the variable
+                                    let var_addr = self.mir_function.new_typed_value_id(
+                                        MirType::pointer(element_mir_type.clone()),
+                                    );
+                                    self.add_instruction(Instruction::stack_alloc(
+                                        var_addr,
+                                        element_mir_type.size_units(),
+                                    ));
+
+                                    // Store the element value
+                                    self.add_instruction(Instruction::store(
+                                        Value::operand(var_addr),
+                                        element_value,
+                                    ));
+
+                                    self.definition_to_value.insert(mir_def_id, var_addr);
+                                } else {
+                                    // Unused variable - still evaluate for side effects but don't store
+                                    let _ = self.lower_expression(element_expr)?;
+                                    let dummy_addr = self.mir_function.new_value_id();
+                                    self.definition_to_value.insert(mir_def_id, dummy_addr);
                                 }
                             } else {
-                                true // Conservative: assume used if we can't find the definition
-                            };
+                                return Err(format!(
+                                    "Failed to resolve variable '{}' in scope {:?}",
+                                    name.value(),
+                                    scope_id
+                                ));
+                            }
+                        }
+                        return Ok(());
+                    }
+                    (Pattern::Tuple(names), Expression::FunctionCall { callee, args }) => {
+                        // Check if this function returns a tuple
+                        if let Expression::Identifier(func_name) = callee.value() {
+                            let callee_expr_id = self
+                                .semantic_index
+                                .expression_id_by_span(callee.span())
+                                .ok_or_else(|| {
+                                    format!(
+                                        "MIR: No ExpressionId found for callee span {:?}",
+                                        callee.span()
+                                    )
+                                })?;
+                            let callee_expr_info = self
+                                .semantic_index
+                                .expression(callee_expr_id)
+                                .ok_or_else(|| {
+                                format!("MIR: No ExpressionInfo for callee ID {callee_expr_id:?}")
+                            })?;
 
-                        if is_used {
-                            // Original behavior for used variables
-                            let semantic_type = definition_semantic_type(self.db, def_id);
-                            let var_type = MirType::from_semantic_type(self.db, semantic_type);
-                            let var_addr = self
-                                .mir_function
-                                .new_typed_value_id(MirType::pointer(var_type.clone()));
-                            self.add_instruction(Instruction::stack_alloc(
-                                var_addr,
-                                var_type.size_units(),
-                            ));
-                            self.add_instruction(Instruction::store(
-                                Value::operand(var_addr),
-                                rhs_value,
-                            ));
-                            self.definition_to_value.insert(mir_def_id, var_addr);
-                        } else {
-                            // For unused variables, we still need to evaluate the RHS for side effects,
-                            // but we don't allocate storage. We map the definition to a dummy value.
-                            // Note: In a more sophisticated implementation, we might also eliminate
-                            // the RHS computation if it has no side effects.
-                            // TODO: Implement this.
-                            let dummy_addr = self.mir_function.new_value_id();
-                            self.definition_to_value.insert(mir_def_id, dummy_addr);
+                            if let Some((def_idx, _)) =
+                                self.semantic_index.resolve_name_to_definition(
+                                    func_name.value(),
+                                    callee_expr_info.scope_id,
+                                )
+                            {
+                                let func_def_id = DefinitionId::new(self.db, self.file, def_idx);
+
+                                if let Some((_, func_id)) = self.function_mapping.get(&func_def_id)
+                                {
+                                    // Check the function's return type
+                                    let func_call_semantic_type =
+                                        expression_semantic_type(self.db, self.file, expr_id);
+
+                                    if let cairo_m_compiler_semantic::types::TypeData::Tuple(
+                                        element_types,
+                                    ) = func_call_semantic_type.data(self.db)
+                                    {
+                                        if element_types.len() == names.len() {
+                                            // Direct destructuring of function call returning tuple
+                                            // Lower arguments
+                                            let mut arg_values = Vec::new();
+                                            for arg in args {
+                                                arg_values.push(self.lower_expression(arg)?);
+                                            }
+
+                                            // Create destination values for each tuple element
+                                            let mut dests = Vec::new();
+
+                                            for (i, name) in names.iter().enumerate() {
+                                                if let Some((def_idx, _)) =
+                                                    self.semantic_index.resolve_name_to_definition(
+                                                        name.value(),
+                                                        scope_id,
+                                                    )
+                                                {
+                                                    let def_id = DefinitionId::new(
+                                                        self.db, self.file, def_idx,
+                                                    );
+                                                    let mir_def_id =
+                                                        self.convert_definition_id(def_id);
+
+                                                    // Check if this variable is used
+                                                    let is_used = if let Some(definition) =
+                                                        self.semantic_index.definition(def_idx)
+                                                    {
+                                                        if let Some(place_table) = self
+                                                            .semantic_index
+                                                            .place_table(definition.scope_id)
+                                                        {
+                                                            if let Some(place) = place_table
+                                                                .place(definition.place_id)
+                                                            {
+                                                                place.is_used()
+                                                            } else {
+                                                                true
+                                                            }
+                                                        } else {
+                                                            true
+                                                        }
+                                                    } else {
+                                                        true
+                                                    };
+
+                                                    if is_used {
+                                                        // Create a destination for this return value
+                                                        let elem_type = element_types[i];
+                                                        let elem_mir_type =
+                                                            MirType::from_semantic_type(
+                                                                self.db, elem_type,
+                                                            );
+                                                        let dest =
+                                                            self.mir_function.new_typed_value_id(
+                                                                elem_mir_type.clone(),
+                                                            );
+                                                        dests.push(dest);
+
+                                                        // Map the variable directly to the destination
+                                                        // No need for separate allocation since the return
+                                                        // value will be placed directly where we need it
+                                                        self.definition_to_value
+                                                            .insert(mir_def_id, dest);
+                                                    } else {
+                                                        // Create a dummy destination
+                                                        let elem_type = element_types[i];
+                                                        let elem_mir_type =
+                                                            MirType::from_semantic_type(
+                                                                self.db, elem_type,
+                                                            );
+                                                        let dest = self
+                                                            .mir_function
+                                                            .new_typed_value_id(elem_mir_type);
+                                                        dests.push(dest);
+
+                                                        let dummy_addr =
+                                                            self.mir_function.new_value_id();
+                                                        self.definition_to_value
+                                                            .insert(mir_def_id, dummy_addr);
+                                                    }
+                                                } else {
+                                                    return Err(format!(
+                                                        "Failed to resolve variable '{}' in scope {:?}",
+                                                        name.value(),
+                                                        scope_id
+                                                    ));
+                                                }
+                                            }
+
+                                            // Make the call with multiple destinations
+                                            self.add_instruction(Instruction::call(
+                                                dests.clone(),
+                                                *func_id,
+                                                arg_values,
+                                            ));
+
+                                            // Map the destination values directly to the variable addresses
+                                            // This avoids unnecessary copying since the return values are
+                                            // already where they need to be after the call
+
+                                            return Ok(());
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
-                } else {
-                    return Err(format!(
-                        "Failed to resolve variable '{}' in scope {:?}",
-                        name.value(),
-                        scope_id
-                    ));
+                    _ => {}
+                }
+
+                // Fall back to normal processing for non-optimizable cases
+                let rhs_value = self.lower_expression(value)?;
+
+                match pattern {
+                    Pattern::Identifier(name) => {
+                        // Single identifier pattern - existing logic
+                        if let Some((def_idx, _)) = self
+                            .semantic_index
+                            .resolve_name_to_definition(name.value(), scope_id)
+                        {
+                            let def_id = DefinitionId::new(self.db, self.file, def_idx);
+                            let mir_def_id = self.convert_definition_id(def_id);
+
+                            // Check if the RHS is already a stack-allocated aggregate.
+                            // If so, we can bind the variable name directly to its address.
+                            if let Expression::StructLiteral { .. } | Expression::Tuple(_) =
+                                value.value()
+                            {
+                                if let Value::Operand(addr) = rhs_value {
+                                    // The RHS expression already allocated the object and returned its address.
+                                    // We just need to map the variable `name` to this address.
+                                    self.definition_to_value.insert(mir_def_id, addr);
+                                } else {
+                                    // This case should ideally not happen if aggregates always return addresses.
+                                    // Handle as an error or fall back to old behavior.
+                                    return Err(
+                                        "Expected an address from aggregate literal".to_string()
+                                    );
+                                }
+                            } else {
+                                // Check if this variable is actually used
+                                let is_used = if let Some(definition) =
+                                    self.semantic_index.definition(def_idx)
+                                {
+                                    // Get the place table for this scope
+                                    if let Some(place_table) =
+                                        self.semantic_index.place_table(definition.scope_id)
+                                    {
+                                        // Check if the place is marked as used
+                                        if let Some(place) = place_table.place(definition.place_id)
+                                        {
+                                            place.is_used()
+                                        } else {
+                                            true // Conservative: assume used if we can't find the place
+                                        }
+                                    } else {
+                                        true // Conservative: assume used if we can't find the place table
+                                    }
+                                } else {
+                                    true // Conservative: assume used if we can't find the definition
+                                };
+
+                                if is_used {
+                                    // Original behavior for used variables
+                                    let semantic_type = definition_semantic_type(self.db, def_id);
+                                    let var_type =
+                                        MirType::from_semantic_type(self.db, semantic_type);
+                                    let var_addr = self
+                                        .mir_function
+                                        .new_typed_value_id(MirType::pointer(var_type.clone()));
+                                    self.add_instruction(Instruction::stack_alloc(
+                                        var_addr,
+                                        var_type.size_units(),
+                                    ));
+                                    self.add_instruction(Instruction::store(
+                                        Value::operand(var_addr),
+                                        rhs_value,
+                                    ));
+                                    self.definition_to_value.insert(mir_def_id, var_addr);
+                                } else {
+                                    // For unused variables, we still need to evaluate the RHS for side effects,
+                                    // but we don't allocate storage. We map the definition to a dummy value.
+                                    // Note: In a more sophisticated implementation, we might also eliminate
+                                    // the RHS computation if it has no side effects.
+                                    // TODO: Implement this.
+                                    let dummy_addr = self.mir_function.new_value_id();
+                                    self.definition_to_value.insert(mir_def_id, dummy_addr);
+                                }
+                            }
+                        } else {
+                            return Err(format!(
+                                "Failed to resolve variable '{}' in scope {:?}",
+                                name.value(),
+                                scope_id
+                            ));
+                        }
+                    }
+                    Pattern::Tuple(names) => {
+                        // Tuple destructuring pattern for non-literal tuples
+                        // (literal tuples are handled by the optimization above)
+                        let rhs_semantic_type =
+                            expression_semantic_type(self.db, self.file, expr_id);
+
+                        match rhs_semantic_type.data(self.db) {
+                            TypeData::Tuple(element_types) => {
+                                if element_types.len() != names.len() {
+                                    return Err(format!(
+                                        "Tuple pattern has {} elements but value has {} elements",
+                                        names.len(),
+                                        element_types.len()
+                                    ));
+                                }
+
+                                // For non-literal tuples, we need to extract from the tuple address
+                                // The tuple is already allocated as consecutive values
+                                if let Value::Operand(tuple_addr) = rhs_value {
+                                    // Extract each element from consecutive memory locations
+                                    for (index, name) in names.iter().enumerate() {
+                                        if let Some((def_idx, _)) = self
+                                            .semantic_index
+                                            .resolve_name_to_definition(name.value(), scope_id)
+                                        {
+                                            let def_id =
+                                                DefinitionId::new(self.db, self.file, def_idx);
+                                            let mir_def_id = self.convert_definition_id(def_id);
+
+                                            let is_used = if let Some(definition) =
+                                                self.semantic_index.definition(def_idx)
+                                            {
+                                                if let Some(place_table) = self
+                                                    .semantic_index
+                                                    .place_table(definition.scope_id)
+                                                {
+                                                    if let Some(place) =
+                                                        place_table.place(definition.place_id)
+                                                    {
+                                                        place.is_used()
+                                                    } else {
+                                                        true
+                                                    }
+                                                } else {
+                                                    true
+                                                }
+                                            } else {
+                                                true
+                                            };
+
+                                            if is_used {
+                                                // Get the element type
+                                                let element_type = element_types[index];
+                                                let element_mir_type = MirType::from_semantic_type(
+                                                    self.db,
+                                                    element_type,
+                                                );
+
+                                                // Get pointer to tuple element
+                                                let elem_ptr =
+                                                    self.mir_function.new_typed_value_id(
+                                                        MirType::pointer(element_mir_type.clone()),
+                                                    );
+                                                self.add_instruction(
+                                                    Instruction::get_element_ptr(
+                                                        elem_ptr,
+                                                        Value::operand(tuple_addr),
+                                                        Value::integer(index as i32),
+                                                    )
+                                                    .with_comment(format!(
+                                                        "Get address of tuple element {}",
+                                                        index
+                                                    )),
+                                                );
+
+                                                // Load the element
+                                                let elem_value = self
+                                                    .mir_function
+                                                    .new_typed_value_id(element_mir_type.clone());
+                                                self.add_instruction(
+                                                    Instruction::load(
+                                                        elem_value,
+                                                        Value::operand(elem_ptr),
+                                                    )
+                                                    .with_comment(format!(
+                                                        "Load tuple element {}",
+                                                        index
+                                                    )),
+                                                );
+
+                                                // Allocate space for the variable
+                                                let var_addr =
+                                                    self.mir_function.new_typed_value_id(
+                                                        MirType::pointer(element_mir_type.clone()),
+                                                    );
+                                                self.add_instruction(Instruction::stack_alloc(
+                                                    var_addr,
+                                                    element_mir_type.size_units(),
+                                                ));
+
+                                                // Store the loaded value
+                                                self.add_instruction(Instruction::store(
+                                                    Value::operand(var_addr),
+                                                    Value::operand(elem_value),
+                                                ));
+
+                                                self.definition_to_value
+                                                    .insert(mir_def_id, var_addr);
+                                            } else {
+                                                let dummy_addr = self.mir_function.new_value_id();
+                                                self.definition_to_value
+                                                    .insert(mir_def_id, dummy_addr);
+                                            }
+                                        } else {
+                                            return Err(format!(
+                                                "Failed to resolve variable '{}' in scope {:?}",
+                                                name.value(),
+                                                scope_id
+                                            ));
+                                        }
+                                    }
+                                } else {
+                                    // For other cases, we need to implement proper tuple handling
+                                    return Err("Tuple destructuring from non-operand expressions not yet supported".to_string());
+                                }
+                            }
+                            _ => {
+                                return Err("Cannot destructure non-tuple type in tuple pattern"
+                                    .to_string());
+                            }
+                        }
+                    }
                 }
                 Ok(())
             }
@@ -376,17 +747,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                             let tuple_addr = self.lower_lvalue_expression(expr)?;
                             let mut return_values = Vec::new();
 
-                            // Load each element from the tuple
+                            // Load each element from the tuple (stored consecutively)
                             for (i, elem_type) in element_types.iter().enumerate() {
                                 let mir_type = MirType::from_semantic_type(self.db, *elem_type);
-                                let offset = MirType::tuple(
-                                    element_types
-                                        .iter()
-                                        .map(|t| MirType::from_semantic_type(self.db, *t))
-                                        .collect(),
-                                )
-                                .tuple_element_offset(i)
-                                .unwrap_or(i);
+
+                                // Tuples are stored as consecutive values, so offset is just the index
+                                let offset = i;
 
                                 // Get element pointer
                                 let elem_ptr = self
@@ -474,8 +840,46 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                                     arg_values.push(self.lower_expression(arg)?);
                                 }
 
-                                // Use void call for statement context
-                                self.add_instruction(Instruction::void_call(*func_id, arg_values));
+                                // Check the function's return type
+                                let func_expr_semantic_type =
+                                    expression_semantic_type(self.db, self.file, expr_id);
+
+                                if let cairo_m_compiler_semantic::types::TypeData::Tuple(
+                                    element_types,
+                                ) = func_expr_semantic_type.data(self.db)
+                                {
+                                    // Function returns a tuple - create destinations but don't use them
+                                    let mut dests = Vec::new();
+                                    for elem_type in element_types {
+                                        let mir_type =
+                                            MirType::from_semantic_type(self.db, elem_type);
+                                        dests.push(self.mir_function.new_typed_value_id(mir_type));
+                                    }
+                                    self.add_instruction(Instruction::call(
+                                        dests, *func_id, arg_values,
+                                    ));
+                                } else if let cairo_m_compiler_semantic::types::TypeData::Tuple(
+                                    types,
+                                ) = func_expr_semantic_type.data(self.db)
+                                    && types.is_empty()
+                                {
+                                    // Function returns unit/void
+                                    self.add_instruction(Instruction::void_call(
+                                        *func_id, arg_values,
+                                    ));
+                                } else {
+                                    // Function returns a single value - create a destination but don't use it
+                                    let return_type = MirType::from_semantic_type(
+                                        self.db,
+                                        func_expr_semantic_type,
+                                    );
+                                    let dest = self.mir_function.new_typed_value_id(return_type);
+                                    self.add_instruction(Instruction::call(
+                                        vec![dest],
+                                        *func_id,
+                                        arg_values,
+                                    ));
+                                }
                                 return Ok(());
                             }
                         }
@@ -823,38 +1227,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 // Lower the index expression to get the offset
                 let index_value = self.lower_expression(index)?;
 
-                // For tuples with constant indices, we can calculate proper offsets
+                // For tuples with constant indices, use the index directly since elements are consecutive
                 // For general arrays/pointers, use the index directly (element size scaling would be done in a real system)
-                let offset_value = if let Value::Literal(crate::value::Literal::Integer(
-                    const_index,
-                )) = index_value
-                {
-                    // Check if this is indexing into a tuple
-                    let array_expr_id = self
-                        .semantic_index
-                        .expression_id_by_span(array.span())
-                        .ok_or_else(|| {
-                            format!(
-                                "MIR: No ExpressionId found for array span {:?}",
-                                array.span()
-                            )
-                        })?;
-                    let array_semantic_type =
-                        expression_semantic_type(self.db, self.file, array_expr_id);
-                    let array_mir_type = MirType::from_semantic_type(self.db, array_semantic_type);
-
-                    // If it's a tuple, calculate the proper element offset
-                    if let Some(offset) = array_mir_type.tuple_element_offset(const_index as usize)
-                    {
-                        Value::integer(offset as i32)
-                    } else {
-                        // For non-tuples or out-of-bounds, use the index directly
-                        index_value
-                    }
-                } else {
-                    // For non-constant indices, use the index directly
-                    index_value
-                };
+                let offset_value = index_value;
 
                 // Query semantic type system for array element type from the index access expression
                 let element_semantic_type = expression_semantic_type(self.db, self.file, expr_id);
@@ -970,10 +1345,73 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                             // Query semantic type system for function return type
                             let semantic_type =
                                 expression_semantic_type(self.db, self.file, expr_id);
-                            let return_type = MirType::from_semantic_type(self.db, semantic_type);
-                            let dest = self.mir_function.new_typed_value_id(return_type);
-                            self.add_instruction(Instruction::call(dest, *func_id, arg_values));
-                            return Ok(Value::operand(dest));
+
+                            // Check if the return type is a tuple
+                            if let cairo_m_compiler_semantic::types::TypeData::Tuple(
+                                element_types,
+                            ) = semantic_type.data(self.db)
+                            {
+                                // Function returns a tuple - create multiple destination values
+                                let mut dests = Vec::new();
+                                for elem_type in element_types {
+                                    let mir_type = MirType::from_semantic_type(self.db, elem_type);
+                                    dests.push(self.mir_function.new_typed_value_id(mir_type));
+                                }
+
+                                self.add_instruction(Instruction::call(
+                                    dests.clone(),
+                                    *func_id,
+                                    arg_values,
+                                ));
+
+                                // For expression context, we need to return a single value
+                                // Create a tuple to hold the values
+                                let tuple_type =
+                                    MirType::from_semantic_type(self.db, semantic_type);
+                                let tuple_addr = self
+                                    .mir_function
+                                    .new_typed_value_id(MirType::pointer(tuple_type.clone()));
+                                self.add_instruction(
+                                    Instruction::stack_alloc(tuple_addr, tuple_type.size_units())
+                                        .with_comment(
+                                            "Allocate space for tuple return value".to_string(),
+                                        ),
+                                );
+
+                                // Store each returned value into the tuple
+                                for (i, dest) in dests.iter().enumerate() {
+                                    let elem_ptr = self.mir_function.new_typed_value_id(
+                                        MirType::pointer(MirType::felt()), // Simplified for now
+                                    );
+                                    self.add_instruction(
+                                        Instruction::get_element_ptr(
+                                            elem_ptr,
+                                            Value::operand(tuple_addr),
+                                            Value::integer(i as i32),
+                                        )
+                                        .with_comment(
+                                            format!("Get address of tuple element {}", i),
+                                        ),
+                                    );
+                                    self.add_instruction(Instruction::store(
+                                        Value::operand(elem_ptr),
+                                        Value::operand(*dest),
+                                    ));
+                                }
+
+                                return Ok(Value::operand(tuple_addr));
+                            } else {
+                                // Single return value
+                                let return_type =
+                                    MirType::from_semantic_type(self.db, semantic_type);
+                                let dest = self.mir_function.new_typed_value_id(return_type);
+                                self.add_instruction(Instruction::call(
+                                    vec![dest],
+                                    *func_id,
+                                    arg_values,
+                                ));
+                                return Ok(Value::operand(dest));
+                            }
                         }
                     }
                 }
@@ -1036,38 +1474,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 let array_addr = self.lower_lvalue_expression(array)?;
                 let index_value = self.lower_expression(index)?;
 
-                // For tuples with constant indices, we can calculate proper offsets
+                // For tuples with constant indices, use the index directly since elements are consecutive
                 // For general arrays/pointers, use the index directly (element size scaling would be done in a real system)
-                let offset_value = if let Value::Literal(crate::value::Literal::Integer(
-                    const_index,
-                )) = index_value
-                {
-                    // Check if this is indexing into a tuple
-                    let array_expr_id = self
-                        .semantic_index
-                        .expression_id_by_span(array.span())
-                        .ok_or_else(|| {
-                            format!(
-                                "MIR: No ExpressionId found for array span {:?}",
-                                array.span()
-                            )
-                        })?;
-                    let array_semantic_type =
-                        expression_semantic_type(self.db, self.file, array_expr_id);
-                    let array_mir_type = MirType::from_semantic_type(self.db, array_semantic_type);
-
-                    // If it's a tuple, calculate the proper element offset
-                    if let Some(offset) = array_mir_type.tuple_element_offset(const_index as usize)
-                    {
-                        Value::integer(offset as i32)
-                    } else {
-                        // For non-tuples or out-of-bounds, use the index directly
-                        index_value
-                    }
-                } else {
-                    // For non-constant indices, use the index directly
-                    index_value
-                };
+                let offset_value = index_value;
 
                 // Query semantic type system for the element type
                 let semantic_type = expression_semantic_type(self.db, self.file, expr_id);
@@ -1158,7 +1567,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             }
 
             Expression::Tuple(tuple_elements) => {
-                // Tuple literal - allocate tuple and initialize elements
+                // Tuple literal - for now we still need to allocate and return an address
+                // This will be optimized away in most cases by the destructuring code
                 if tuple_elements.is_empty() {
                     // Empty tuple - just return unit value
                     return Ok(Value::integer(0)); // Unit value representation
@@ -1168,7 +1578,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 let semantic_type = expression_semantic_type(self.db, self.file, expr_id);
                 let tuple_type = MirType::from_semantic_type(self.db, semantic_type);
 
-                // Allocate space for the tuple
+                // Allocate space for the tuple as consecutive values
                 let tuple_addr = self
                     .mir_function
                     .new_typed_value_id(MirType::pointer(tuple_type.clone()));
@@ -1178,18 +1588,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     ),
                 );
 
-                // Initialize each element
+                // Initialize each element consecutively
                 for (element_idx, element_expr) in tuple_elements.iter().enumerate() {
                     let element_val = self.lower_expression(element_expr)?;
 
-                    // Calculate the actual element offset from the tuple type information
-                    let element_offset = tuple_type
-                        .tuple_element_offset(element_idx)
-                        .map(|offset| Value::integer(offset as i32))
-                        .unwrap_or_else(|| {
-                            // Fallback to sequential index for error recovery
-                            Value::integer(element_idx as i32)
-                        });
+                    // Tuples are stored as consecutive values, so offset is just the index
+                    let element_offset = Value::integer(element_idx as i32);
 
                     // Get the element type from semantic analysis
                     let element_expr_id = self

@@ -69,10 +69,10 @@ pub enum InstructionKind {
         in_place_target: Option<ValueId>,
     },
 
-    /// Function call: `dest = call callee(args)`
-    /// For calling functions with a return value
+    /// Function call: `dests = call callee(args)`
+    /// For calling functions that return one or more values
     Call {
-        dest: ValueId,
+        dests: Vec<ValueId>,
         callee: crate::FunctionId,
         args: Vec<Value>,
     },
@@ -153,26 +153,6 @@ impl Instruction {
         }
     }
 
-    /// Creates a new function call instruction
-    pub const fn call(dest: ValueId, callee: crate::FunctionId, args: Vec<Value>) -> Self {
-        Self {
-            kind: InstructionKind::Call { dest, callee, args },
-            source_span: None,
-            source_expr_id: None,
-            comment: None,
-        }
-    }
-
-    /// Creates a new void function call instruction
-    pub const fn void_call(callee: crate::FunctionId, args: Vec<Value>) -> Self {
-        Self {
-            kind: InstructionKind::VoidCall { callee, args },
-            source_span: None,
-            source_expr_id: None,
-            comment: None,
-        }
-    }
-
     /// Creates a new load instruction
     pub const fn load(dest: ValueId, address: Value) -> Self {
         Self {
@@ -207,6 +187,30 @@ impl Instruction {
     pub const fn address_of(dest: ValueId, operand: ValueId) -> Self {
         Self {
             kind: InstructionKind::AddressOf { dest, operand },
+            source_span: None,
+            source_expr_id: None,
+            comment: None,
+        }
+    }
+
+    /// Creates a new call instruction with multiple return values
+    pub const fn call(dests: Vec<ValueId>, callee: crate::FunctionId, args: Vec<Value>) -> Self {
+        Self {
+            kind: InstructionKind::Call {
+                dests,
+                callee,
+                args,
+            },
+            source_span: None,
+            source_expr_id: None,
+            comment: None,
+        }
+    }
+
+    /// Creates a new void call instruction
+    pub const fn void_call(callee: crate::FunctionId, args: Vec<Value>) -> Self {
+        Self {
+            kind: InstructionKind::VoidCall { callee, args },
             source_span: None,
             source_expr_id: None,
             comment: None,
@@ -261,21 +265,32 @@ impl Instruction {
         self
     }
 
-    /// Returns the destination value if this instruction defines one
-    pub const fn destination(&self) -> Option<ValueId> {
+    /// Returns the destination values if this instruction defines any
+    pub fn destinations(&self) -> Vec<ValueId> {
         match &self.kind {
             InstructionKind::Assign { dest, .. }
             | InstructionKind::BinaryOp { dest, .. }
-            | InstructionKind::Call { dest, .. }
             | InstructionKind::Load { dest, .. }
             | InstructionKind::StackAlloc { dest, .. }
             | InstructionKind::AddressOf { dest, .. }
             | InstructionKind::GetElementPtr { dest, .. }
-            | InstructionKind::Cast { dest, .. } => Some(*dest),
+            | InstructionKind::Cast { dest, .. } => vec![*dest],
+
+            InstructionKind::Call { dests, .. } => dests.clone(),
 
             InstructionKind::VoidCall { .. }
             | InstructionKind::Store { .. }
-            | InstructionKind::Debug { .. } => None,
+            | InstructionKind::Debug { .. } => vec![],
+        }
+    }
+
+    /// Returns the destination value if this instruction defines exactly one
+    pub fn destination(&self) -> Option<ValueId> {
+        let dests = self.destinations();
+        if dests.len() == 1 {
+            Some(dests[0])
+        } else {
+            None
         }
     }
 
@@ -432,18 +447,35 @@ impl PrettyPrint for Instruction {
                 ));
             }
 
-            InstructionKind::Call { dest, callee, args } => {
+            InstructionKind::Call {
+                dests,
+                callee,
+                args,
+            } => {
                 let args_str = args
                     .iter()
                     .map(|arg| arg.pretty_print(0))
                     .collect::<Vec<_>>()
                     .join(", ");
-                result.push_str(&format!(
-                    "{} = call {:?}({})",
-                    dest.pretty_print(0),
-                    callee,
-                    args_str
-                ));
+
+                if dests.is_empty() {
+                    // Should not happen, but handle gracefully
+                    result.push_str(&format!("call {:?}({})", callee, args_str));
+                } else if dests.len() == 1 {
+                    result.push_str(&format!(
+                        "{} = call {:?}({})",
+                        dests[0].pretty_print(0),
+                        callee,
+                        args_str
+                    ));
+                } else {
+                    let dests_str = dests
+                        .iter()
+                        .map(|d| d.pretty_print(0))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    result.push_str(&format!("{} = call {:?}({})", dests_str, callee, args_str));
+                }
             }
 
             InstructionKind::VoidCall { callee, args } => {
