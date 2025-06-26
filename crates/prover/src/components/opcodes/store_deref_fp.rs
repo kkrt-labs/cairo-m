@@ -13,6 +13,7 @@
 //! - off1
 //! - off2
 //! - op0_prev_clock
+//! - op0_prev_val
 //! - op0_val
 //! - dst_prev_val
 //! - dst_prev_clock
@@ -69,7 +70,7 @@ use crate::adapter::StateData;
 use crate::relations;
 use crate::utils::{Enabler, PackedStateData};
 
-const N_TRACE_COLUMNS: usize = 13;
+const N_TRACE_COLUMNS: usize = 14;
 const N_MEMORY_LOOKUPS: usize = 6;
 const N_REGISTERS_LOOKUPS: usize = 2;
 const N_RANGE_CHECK_20_LOOKUPS: usize = 3;
@@ -150,6 +151,7 @@ impl Claim {
                 let off1 = input.mem0_value_2;
                 let off2 = input.mem0_value_3;
                 let op0_prev_clock = input.mem1_prev_clock;
+                let op0_prev_val = input.mem1_prev_val_0;
                 let op0_val = input.mem1_value_0;
                 let dst_prev_val = input.mem2_prev_val_0;
                 let dst_prev_clock = input.mem2_prev_clock;
@@ -164,9 +166,10 @@ impl Claim {
                 *row[7] = off2;
                 *row[8] = inst_prev_clock;
                 *row[9] = op0_prev_clock;
-                *row[10] = op0_val;
-                *row[11] = dst_prev_val;
-                *row[12] = dst_prev_clock;
+                *row[10] = op0_prev_val;
+                *row[11] = op0_val;
+                *row[12] = dst_prev_val;
+                *row[13] = dst_prev_clock;
 
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [input.pc + one, input.fp];
@@ -174,12 +177,13 @@ impl Claim {
                 *lookup_data.memory[0] = [input.pc, inst_prev_clock, opcode_id, off0, off1, off2];
                 *lookup_data.memory[1] = [input.pc, clock, opcode_id, off0, off1, off2];
 
-                *lookup_data.memory[2] = [fp + off0, op0_prev_clock, op0_val, zero, zero, zero];
+                *lookup_data.memory[2] =
+                    [fp + off0, op0_prev_clock, op0_prev_val, zero, zero, zero];
                 *lookup_data.memory[3] = [fp + off0, clock, op0_val, zero, zero, zero];
 
                 *lookup_data.memory[4] =
                     [fp + off2, dst_prev_clock, dst_prev_val, zero, zero, zero];
-                *lookup_data.memory[5] = [fp + off2, clock, dst_prev_val, zero, zero, zero];
+                *lookup_data.memory[5] = [fp + off2, clock, op0_prev_val, zero, zero, zero];
 
                 *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
                 *lookup_data.range_check_20[1] = clock - op0_prev_clock - enabler;
@@ -374,6 +378,7 @@ impl FrameworkEval for Eval {
         let off2 = eval.next_trace_mask();
         let inst_prev_clock = eval.next_trace_mask();
         let op0_prev_clock = eval.next_trace_mask();
+        let op0_prev_val = eval.next_trace_mask();
         let op0_val = eval.next_trace_mask();
         let dst_prev_val = eval.next_trace_mask();
         let dst_prev_clock = eval.next_trace_mask();
@@ -388,6 +393,7 @@ impl FrameworkEval for Eval {
         dbg!(&off1);
         dbg!(&off2);
         dbg!(&op0_prev_clock);
+        dbg!(&op0_prev_val);
         dbg!(&op0_val);
         dbg!(&dst_prev_val);
         dbg!(&dst_prev_clock);
@@ -397,6 +403,13 @@ impl FrameworkEval for Eval {
 
         // Opcode id is StoreDerefFp
         eval.add_constraint(enabler.clone() * (opcode_id.clone() - expected_opcode_id));
+
+        // Store inplace or op0 is unchanged
+        eval.add_constraint(
+            enabler.clone()
+                * (op0_prev_val.clone() - op0_val.clone())
+                * (off0.clone() - off2.clone()),
+        );
 
         // Registers update
         eval.add_to_relation(RelationEntry::new(
@@ -443,7 +456,7 @@ impl FrameworkEval for Eval {
             &[
                 fp.clone() + off0.clone(),
                 op0_prev_clock.clone(),
-                op0_val.clone(),
+                op0_prev_val.clone(),
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
@@ -459,13 +472,13 @@ impl FrameworkEval for Eval {
             &[
                 fp.clone() + off2.clone(),
                 dst_prev_clock.clone(),
-                dst_prev_val.clone(),
+                dst_prev_val,
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
             E::EF::from(enabler.clone()),
-            &[fp + off2, clock.clone(), dst_prev_val],
+            &[fp + off2, clock.clone(), op0_prev_val],
         ));
 
         // Range check 20
