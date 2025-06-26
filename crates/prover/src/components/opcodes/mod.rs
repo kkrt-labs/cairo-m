@@ -948,9 +948,10 @@ impl InteractionClaim {
         sum += self.jmp_rel_imm.claimed_sum;
         sum += self.jmp_rel_mul_fp_fp.claimed_sum;
         sum += self.jmp_rel_mul_fp_imm.claimed_sum;
-        sum += self.jnz_fp_fp.claimed_sum;
         sum += self.jnz_fp_fp_taken.claimed_sum;
+        sum += self.jnz_fp_fp.claimed_sum;
         sum += self.jnz_fp_imm.claimed_sum;
+        sum += self.jnz_fp_imm_taken.claimed_sum;
         sum += self.ret.claimed_sum;
         sum += self.store_add_fp_fp.claimed_sum;
         sum += self.store_add_fp_imm.claimed_sum;
@@ -988,6 +989,7 @@ impl InteractionClaim {
         self.jnz_fp_fp.mix_into(channel);
         self.jnz_fp_fp_taken.mix_into(channel);
         self.jnz_fp_imm.mix_into(channel);
+        self.jnz_fp_imm_taken.mix_into(channel);
         self.ret.mix_into(channel);
         self.store_add_fp_fp.mix_into(channel);
         self.store_add_fp_imm.mix_into(channel);
