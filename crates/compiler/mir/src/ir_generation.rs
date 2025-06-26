@@ -345,8 +345,19 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         return Ok(());
                     }
                     (Pattern::Tuple(names), Expression::FunctionCall { callee, args }) => {
-                        // Check if this function returns a tuple
-                        if let Expression::Identifier(func_name) = callee.value() {
+                        // Attempt to apply `let (a,b) = f()` optimization.
+                        // We use a closure to cleanly handle the multiple checks required.
+                        // It returns:
+                        // - `Ok(true)`: Optimization applied successfully.
+                        // - `Ok(false)`: Optimization conditions not met, fall back to generic handling.
+                        // - `Err(..)`: An internal compiler error occurred.
+                        let res = (|| -> Result<bool, String> {
+                            // 1. Check if callee is a simple identifier.
+                            let Expression::Identifier(func_name) = callee.value() else {
+                                return Ok(false);
+                            };
+
+                            // 2. Get semantic info for the callee. Failure here is an ICE.
                             let callee_expr_id = self
                                 .semantic_index
                                 .expression_id_by_span(callee.span())
@@ -363,130 +374,88 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                                 format!("MIR: No ExpressionInfo for callee ID {callee_expr_id:?}")
                             })?;
 
-                            if let Some((def_idx, _)) =
+                            // 3. Resolve function definition and get its MIR ID. Fall back if not found.
+                            let Some((def_idx, _)) =
                                 self.semantic_index.resolve_name_to_definition(
                                     func_name.value(),
                                     callee_expr_info.scope_id,
                                 )
-                            {
-                                let func_def_id = DefinitionId::new(self.db, self.file, def_idx);
+                            else {
+                                return Ok(false);
+                            };
+                            let func_def_id = DefinitionId::new(self.db, self.file, def_idx);
+                            let Some((_, func_id)) = self.function_mapping.get(&func_def_id) else {
+                                return Ok(false);
+                            };
 
-                                if let Some((_, func_id)) = self.function_mapping.get(&func_def_id)
-                                {
-                                    // Check the function's return type
-                                    let func_call_semantic_type =
-                                        expression_semantic_type(self.db, self.file, expr_id);
+                            // 4. Check that the function call returns a tuple of the correct arity.
+                            let func_call_semantic_type =
+                                expression_semantic_type(self.db, self.file, expr_id);
+                            let TypeData::Tuple(element_types) =
+                                func_call_semantic_type.data(self.db)
+                            else {
+                                return Ok(false); // Does not return a tuple.
+                            };
+                            if element_types.len() != names.len() {
+                                // This would be a semantic error. Let semantic analysis handle it. Fall back.
+                                return Ok(false);
+                            }
 
-                                    if let cairo_m_compiler_semantic::types::TypeData::Tuple(
-                                        element_types,
-                                    ) = func_call_semantic_type.data(self.db)
-                                    {
-                                        if element_types.len() == names.len() {
-                                            // Direct destructuring of function call returning tuple
-                                            // Lower arguments
-                                            let mut arg_values = Vec::new();
-                                            for arg in args {
-                                                arg_values.push(self.lower_expression(arg)?);
-                                            }
+                            // --- All checks passed. Apply the optimization. ---
 
-                                            // Create destination values for each tuple element
-                                            let mut dests = Vec::new();
+                            let arg_values = args
+                                .iter()
+                                .map(|arg| self.lower_expression(arg))
+                                .collect::<Result<Vec<_>, _>>()?;
 
-                                            for (i, name) in names.iter().enumerate() {
-                                                if let Some((def_idx, _)) =
-                                                    self.semantic_index.resolve_name_to_definition(
-                                                        name.value(),
-                                                        scope_id,
-                                                    )
-                                                {
-                                                    let def_id = DefinitionId::new(
-                                                        self.db, self.file, def_idx,
-                                                    );
-                                                    let mir_def_id =
-                                                        self.convert_definition_id(def_id);
+                            let mut dests = Vec::new();
+                            for (i, name) in names.iter().enumerate() {
+                                let (def_idx, _) = self
+                                    .semantic_index
+                                    .resolve_name_to_definition(name.value(), scope_id)
+                                    .ok_or_else(|| {
+                                        format!(
+                                            "Failed to resolve variable '{}' in scope {:?}",
+                                            name.value(),
+                                            scope_id
+                                        )
+                                    })?;
 
-                                                    // Check if this variable is used
-                                                    let is_used = if let Some(definition) =
-                                                        self.semantic_index.definition(def_idx)
-                                                    {
-                                                        if let Some(place_table) = self
-                                                            .semantic_index
-                                                            .place_table(definition.scope_id)
-                                                        {
-                                                            if let Some(place) = place_table
-                                                                .place(definition.place_id)
-                                                            {
-                                                                place.is_used()
-                                                            } else {
-                                                                true
-                                                            }
-                                                        } else {
-                                                            true
-                                                        }
-                                                    } else {
-                                                        true
-                                                    };
+                                let def_id = DefinitionId::new(self.db, self.file, def_idx);
+                                let mir_def_id = self.convert_definition_id(def_id);
 
-                                                    if is_used {
-                                                        // Create a destination for this return value
-                                                        let elem_type = element_types[i];
-                                                        let elem_mir_type =
-                                                            MirType::from_semantic_type(
-                                                                self.db, elem_type,
-                                                            );
-                                                        let dest =
-                                                            self.mir_function.new_typed_value_id(
-                                                                elem_mir_type.clone(),
-                                                            );
-                                                        dests.push(dest);
+                                let is_used = self
+                                    .semantic_index
+                                    .definition(def_idx)
+                                    .and_then(|def| {
+                                        self.semantic_index
+                                            .place_table(def.scope_id)
+                                            .and_then(|pt| pt.place(def.place_id))
+                                    })
+                                    .map(|p| p.is_used())
+                                    .unwrap_or(true); // Conservatively assume used
 
-                                                        // Map the variable directly to the destination
-                                                        // No need for separate allocation since the return
-                                                        // value will be placed directly where we need it
-                                                        self.definition_to_value
-                                                            .insert(mir_def_id, dest);
-                                                    } else {
-                                                        // Create a dummy destination
-                                                        let elem_type = element_types[i];
-                                                        let elem_mir_type =
-                                                            MirType::from_semantic_type(
-                                                                self.db, elem_type,
-                                                            );
-                                                        let dest = self
-                                                            .mir_function
-                                                            .new_typed_value_id(elem_mir_type);
-                                                        dests.push(dest);
+                                let elem_type = element_types[i];
+                                let elem_mir_type = MirType::from_semantic_type(self.db, elem_type);
+                                let dest = self.mir_function.new_typed_value_id(elem_mir_type);
+                                dests.push(dest);
 
-                                                        let dummy_addr =
-                                                            self.mir_function.new_value_id();
-                                                        self.definition_to_value
-                                                            .insert(mir_def_id, dummy_addr);
-                                                    }
-                                                } else {
-                                                    return Err(format!(
-                                                        "Failed to resolve variable '{}' in scope {:?}",
-                                                        name.value(),
-                                                        scope_id
-                                                    ));
-                                                }
-                                            }
-
-                                            // Make the call with multiple destinations
-                                            self.add_instruction(Instruction::call(
-                                                dests.clone(),
-                                                *func_id,
-                                                arg_values,
-                                            ));
-
-                                            // Map the destination values directly to the variable addresses
-                                            // This avoids unnecessary copying since the return values are
-                                            // already where they need to be after the call
-
-                                            return Ok(());
-                                        }
-                                    }
+                                if is_used {
+                                    self.definition_to_value.insert(mir_def_id, dest);
+                                } else {
+                                    let dummy_addr = self.mir_function.new_value_id();
+                                    self.definition_to_value.insert(mir_def_id, dummy_addr);
                                 }
                             }
+
+                            self.add_instruction(Instruction::call(dests, *func_id, arg_values));
+                            Ok(true)
+                        })();
+
+                        match res {
+                            Ok(true) => return Ok(()),
+                            Ok(false) => { /* Fallthrough to generic handling */ }
+                            Err(e) => return Err(e),
                         }
                     }
                     _ => {}
