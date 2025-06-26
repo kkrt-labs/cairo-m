@@ -13,7 +13,7 @@
 //! - off1
 //! - off2
 //! - op0_prev_clock
-//! - op0_val
+//! - op0_prev_val
 //!
 //! # Constraints
 //!
@@ -27,7 +27,7 @@
 //! * assert opcode id
 //!   * `opcode_id - 1`
 //! * update op0
-//!   * `- [fp + off0, op0_prev_clk, op0_val] + [fp + off0, clk, op0_val + off1]` in `Memory` relation
+//!   * `- [fp + off0, op0_prev_clk, op0_prev_val] + [fp + off0, clk, op0_prev_val + off1]` in `Memory` relation
 //!   * `- [clk - op0_prev_clk - 1]` in `RangeCheck_20` relation
 
 use cairo_m_common::Opcode;
@@ -145,7 +145,7 @@ impl Claim {
                 let off1 = input.mem0_value_2;
                 let off2 = input.mem0_value_3;
                 let op0_prev_clock = input.mem1_prev_clock;
-                let op0_val = input.mem1_value_0;
+                let op0_prev_val = input.mem1_prev_val_0;
 
                 *row[0] = enabler;
                 *row[1] = pc;
@@ -157,7 +157,7 @@ impl Claim {
                 *row[7] = off1;
                 *row[8] = off2;
                 *row[9] = op0_prev_clock;
-                *row[10] = op0_val;
+                *row[10] = op0_prev_val;
 
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [input.pc + one, input.fp];
@@ -165,8 +165,9 @@ impl Claim {
                 *lookup_data.memory[0] = [input.pc, inst_prev_clock, opcode_id, off0, off1, off2];
                 *lookup_data.memory[1] = [input.pc, clock, opcode_id, off0, off1, off2];
 
-                *lookup_data.memory[2] = [fp + off0, op0_prev_clock, op0_val, zero, zero, zero];
-                *lookup_data.memory[3] = [fp + off0, clock, op0_val + off1, zero, zero, zero];
+                *lookup_data.memory[2] =
+                    [fp + off0, op0_prev_clock, op0_prev_val, zero, zero, zero];
+                *lookup_data.memory[3] = [fp + off0, clock, op0_prev_val + off1, zero, zero, zero];
 
                 *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
                 *lookup_data.range_check_20[1] = clock - op0_prev_clock - enabler;
@@ -324,7 +325,7 @@ impl FrameworkEval for Eval {
         let off1 = eval.next_trace_mask();
         let off2 = eval.next_trace_mask();
         let op0_prev_clock = eval.next_trace_mask();
-        let op0_val = eval.next_trace_mask();
+        let op0_prev_val = eval.next_trace_mask();
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
@@ -377,13 +378,13 @@ impl FrameworkEval for Eval {
             &[
                 fp.clone() + off0.clone(),
                 op0_prev_clock.clone(),
-                op0_val.clone(),
+                op0_prev_val.clone(),
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
             E::EF::from(enabler.clone()),
-            &[fp + off0, clock.clone(), op0_val + off1],
+            &[fp + off0, clock.clone(), op0_prev_val + off1],
         ));
 
         // Range check 20
