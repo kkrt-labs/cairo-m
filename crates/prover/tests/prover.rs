@@ -4,7 +4,7 @@ use std::fs;
 use cairo_m_compiler::{compile_cairo, CompilerOptions};
 use cairo_m_prover::adapter::memory::Memory;
 use cairo_m_prover::adapter::{import_from_runner_output, Instructions, ProverInput};
-use cairo_m_prover::prover::prove_cairo_m;
+use cairo_m_prover::prover::{assert_constraints, prove_cairo_m};
 use cairo_m_prover::verifier::verify_cairo_m;
 use cairo_m_runner::run_cairo_program;
 use stwo_prover::core::fields::m31::M31;
@@ -124,4 +124,34 @@ fn test_prove_and_verify_recursive_fibonacci_program() {
     let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input).unwrap();
 
     verify_cairo_m::<Blake2sMerkleChannel>(proof).unwrap();
+}
+
+#[test]
+fn test_all_constraints() {
+    let source_path = format!(
+        "{}/tests/test_data/{}",
+        env!("CARGO_MANIFEST_DIR"),
+        "recursive_fibonacci.cm"
+    );
+    let compiled_fib = compile_cairo(
+        fs::read_to_string(&source_path).unwrap(),
+        source_path,
+        CompilerOptions::default(),
+    )
+    .unwrap();
+
+    dbg!(&compiled_fib.program);
+
+    let runner_output = run_cairo_program(
+        &compiled_fib.program,
+        "fib",
+        &[M31::from(5)],
+        Default::default(),
+    )
+    .unwrap();
+
+    dbg!(&runner_output);
+
+    let mut prover_input = import_from_runner_output(&runner_output).unwrap();
+    assert_constraints(&mut prover_input);
 }
