@@ -368,15 +368,29 @@ impl FrameworkEval for Eval {
         let pc = eval.next_trace_mask();
         let fp = eval.next_trace_mask();
         let clock = eval.next_trace_mask();
-        let inst_prev_clock = eval.next_trace_mask();
         let opcode_id = eval.next_trace_mask();
         let off0 = eval.next_trace_mask();
         let off1 = eval.next_trace_mask();
         let off2 = eval.next_trace_mask();
+        let inst_prev_clock = eval.next_trace_mask();
         let op0_prev_clock = eval.next_trace_mask();
         let op0_val = eval.next_trace_mask();
         let dst_prev_val = eval.next_trace_mask();
         let dst_prev_clock = eval.next_trace_mask();
+
+        dbg!(&enabler);
+        dbg!(&pc);
+        dbg!(&fp);
+        dbg!(&clock);
+        dbg!(&inst_prev_clock);
+        dbg!(&opcode_id);
+        dbg!(&off0);
+        dbg!(&off1);
+        dbg!(&off2);
+        dbg!(&op0_prev_clock);
+        dbg!(&op0_val);
+        dbg!(&dst_prev_val);
+        dbg!(&dst_prev_clock);
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
