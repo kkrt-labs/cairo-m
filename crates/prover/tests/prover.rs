@@ -62,9 +62,8 @@ fn test_prove_and_verify_empty_memory() {
     result.unwrap();
 }
 
-//TODO fix bug with `packed_at`.
 #[test]
-#[ignore]
+#[should_panic(expected = "called `Result::unwrap()` on an `Err` value: InvalidLogupSum")]
 fn test_prove_and_verify_fibonacci_program() {
     let source_path = format!(
         "{}/tests/test_data/{}",
