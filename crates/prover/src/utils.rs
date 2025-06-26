@@ -3,7 +3,7 @@ use stwo_prover::core::backend::simd::conversion::Pack;
 use stwo_prover::core::backend::simd::m31::{PackedM31, N_LANES};
 use stwo_prover::core::fields::m31::M31;
 
-use crate::adapter::StateData;
+use crate::adapter::ExecutionBundle;
 
 /// The enabler column is a column of length `padding_offset.next_power_of_two()` where
 /// 1. The first `padding_offset` elements are set to 1;
@@ -35,214 +35,112 @@ impl Enabler {
     }
 }
 
-// Flattened PackedStateData that contains all the M31 components as separate PackedM31 vectors
+// Flattened PackedExecutionBundle that contains all the M31 components as separate PackedM31 vectors
 // This structure is optimized for SIMD operations
+// Note: For operands (mem1-3), we only store single M31 values since DataAccess only has M31 fields
 #[derive(Debug, Clone, Copy)]
-pub struct PackedStateData {
+pub struct PackedExecutionBundle {
     // VM registers (2 fields)
     pub pc: PackedM31,
     pub fp: PackedM31,
 
-    // Memory arg 0 (10 fields: address, 4 prev_val M31s, 4 value M31s, prev_clock, clock)
-    pub mem0_address: PackedM31,
-    pub mem0_prev_val_0: PackedM31,
-    pub mem0_prev_val_1: PackedM31,
-    pub mem0_prev_val_2: PackedM31,
-    pub mem0_prev_val_3: PackedM31,
-    pub mem0_value_0: PackedM31,
-    pub mem0_value_1: PackedM31,
-    pub mem0_value_2: PackedM31,
-    pub mem0_value_3: PackedM31,
-    pub mem0_prev_clock: PackedM31,
-    pub mem0_clock: PackedM31,
+    pub clock: PackedM31,
 
-    // Memory arg 1 (10 fields)
-    pub mem1_address: PackedM31,
-    pub mem1_prev_val_0: PackedM31,
-    pub mem1_prev_val_1: PackedM31,
-    pub mem1_prev_val_2: PackedM31,
-    pub mem1_prev_val_3: PackedM31,
-    pub mem1_value_0: PackedM31,
-    pub mem1_value_1: PackedM31,
-    pub mem1_value_2: PackedM31,
-    pub mem1_value_3: PackedM31,
-    pub mem1_prev_clock: PackedM31,
-    pub mem1_clock: PackedM31,
+    // Memory arg 0 - Instruction (8 fields: 4 value M31s, prev_clock)
+    pub instr_prev_clock: PackedM31,
+    pub instr_value_0: PackedM31,
+    pub instr_value_1: PackedM31,
+    pub instr_value_2: PackedM31,
+    pub instr_value_3: PackedM31,
 
-    // Memory arg 2 (10 fields)
-    pub mem2_address: PackedM31,
-    pub mem2_prev_val_0: PackedM31,
-    pub mem2_prev_val_1: PackedM31,
-    pub mem2_prev_val_2: PackedM31,
-    pub mem2_prev_val_3: PackedM31,
-    pub mem2_value_0: PackedM31,
-    pub mem2_value_1: PackedM31,
-    pub mem2_value_2: PackedM31,
-    pub mem2_value_3: PackedM31,
-    pub mem2_prev_clock: PackedM31,
-    pub mem2_clock: PackedM31,
+    // Memory arg 1 - Operand 0 (4 fields: address, value, prev_value, prev_clock)
+    pub op1_address: PackedM31,
+    pub op1_prev_value: PackedM31,
+    pub op1_value: PackedM31,
+    pub op1_prev_clock: PackedM31,
 
-    // Memory arg 3 (10 fields)
-    pub mem3_address: PackedM31,
-    pub mem3_prev_val_0: PackedM31,
-    pub mem3_prev_val_1: PackedM31,
-    pub mem3_prev_val_2: PackedM31,
-    pub mem3_prev_val_3: PackedM31,
-    pub mem3_value_0: PackedM31,
-    pub mem3_value_1: PackedM31,
-    pub mem3_value_2: PackedM31,
-    pub mem3_value_3: PackedM31,
-    pub mem3_prev_clock: PackedM31,
-    pub mem3_clock: PackedM31,
+    // Memory arg 2 - Operand 1 (4 fields)
+    pub op2_address: PackedM31,
+    pub op2_prev_value: PackedM31,
+    pub op2_value: PackedM31,
+    pub op2_prev_clock: PackedM31,
+
+    // Memory arg 3 - Operand 2 (4 fields)
+    pub op3_address: PackedM31,
+    pub op3_prev_value: PackedM31,
+    pub op3_value: PackedM31,
+    pub op3_prev_clock: PackedM31,
 }
 
-impl Pack for StateData {
-    type SimdType = PackedStateData;
+impl Pack for ExecutionBundle {
+    type SimdType = PackedExecutionBundle;
 
     fn pack(inputs: [Self; N_LANES]) -> Self::SimdType {
-        PackedStateData {
+        PackedExecutionBundle {
             // Pack VM registers
             pc: PackedM31::from_array(std::array::from_fn(|i| inputs[i].registers.pc)),
             fp: PackedM31::from_array(std::array::from_fn(|i| inputs[i].registers.fp)),
 
-            // Pack memory arg 0
-            mem0_address: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[0].address
+            // Pack clock
+            clock: PackedM31::from_array(std::array::from_fn(|i| inputs[i].clock)),
+
+            // Pack instruction as memory arg 0
+            instr_prev_clock: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].instruction.prev_clock
             })),
-            mem0_prev_val_0: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[0].prev_val.to_m31_array()[0]
+            instr_value_0: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].instruction.value.0 .0
             })),
-            mem0_prev_val_1: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[0].prev_val.to_m31_array()[1]
+            instr_value_1: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].instruction.value.0 .1
             })),
-            mem0_prev_val_2: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[0].prev_val.to_m31_array()[2]
+            instr_value_2: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].instruction.value.1 .0
             })),
-            mem0_prev_val_3: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[0].prev_val.to_m31_array()[3]
-            })),
-            mem0_value_0: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[0].value.to_m31_array()[0]
-            })),
-            mem0_value_1: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[0].value.to_m31_array()[1]
-            })),
-            mem0_value_2: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[0].value.to_m31_array()[2]
-            })),
-            mem0_value_3: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[0].value.to_m31_array()[3]
-            })),
-            mem0_prev_clock: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[0].prev_clock
-            })),
-            mem0_clock: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[0].clock
+            instr_value_3: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].instruction.value.1 .1
             })),
 
-            // Pack memory arg 1
-            mem1_address: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[1].address
+            // Pack operand 0 as memory arg 1
+            op1_address: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[0].map_or_else(M31::zero, |op| op.address)
             })),
-            mem1_prev_val_0: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[1].prev_val.to_m31_array()[0]
+            op1_prev_value: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[0].map_or_else(M31::zero, |op| op.prev_value)
             })),
-            mem1_prev_val_1: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[1].prev_val.to_m31_array()[1]
+            op1_value: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[0].map_or_else(M31::zero, |op| op.value)
             })),
-            mem1_prev_val_2: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[1].prev_val.to_m31_array()[2]
-            })),
-            mem1_prev_val_3: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[1].prev_val.to_m31_array()[3]
-            })),
-            mem1_value_0: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[1].value.to_m31_array()[0]
-            })),
-            mem1_value_1: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[1].value.to_m31_array()[1]
-            })),
-            mem1_value_2: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[1].value.to_m31_array()[2]
-            })),
-            mem1_value_3: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[1].value.to_m31_array()[3]
-            })),
-            mem1_prev_clock: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[1].prev_clock
-            })),
-            mem1_clock: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[1].clock
+            op1_prev_clock: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[0].map_or_else(M31::zero, |op| op.prev_clock)
             })),
 
-            // Pack memory arg 2
-            mem2_address: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[2].address
+            // Pack operand 1 as memory arg 2
+            op2_address: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[1].map_or_else(M31::zero, |op| op.address)
             })),
-            mem2_prev_val_0: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[2].prev_val.to_m31_array()[0]
+            op2_prev_value: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[1].map_or_else(M31::zero, |op| op.prev_value)
             })),
-            mem2_prev_val_1: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[2].prev_val.to_m31_array()[1]
+            op2_value: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[1].map_or_else(M31::zero, |op| op.value)
             })),
-            mem2_prev_val_2: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[2].prev_val.to_m31_array()[2]
-            })),
-            mem2_prev_val_3: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[2].prev_val.to_m31_array()[3]
-            })),
-            mem2_value_0: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[2].value.to_m31_array()[0]
-            })),
-            mem2_value_1: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[2].value.to_m31_array()[1]
-            })),
-            mem2_value_2: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[2].value.to_m31_array()[2]
-            })),
-            mem2_value_3: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[2].value.to_m31_array()[3]
-            })),
-            mem2_prev_clock: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[2].prev_clock
-            })),
-            mem2_clock: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[2].clock
+            op2_prev_clock: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[1].map_or_else(M31::zero, |op| op.prev_clock)
             })),
 
-            // Pack memory arg 3
-            mem3_address: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[3].address
+            // Pack operand 2 as memory arg 3
+            op3_address: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[2].map_or_else(M31::zero, |op| op.address)
             })),
-            mem3_prev_val_0: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[3].prev_val.to_m31_array()[0]
+            op3_prev_value: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[2].map_or_else(M31::zero, |op| op.prev_value)
             })),
-            mem3_prev_val_1: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[3].prev_val.to_m31_array()[1]
+            op3_value: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[2].map_or_else(M31::zero, |op| op.value)
             })),
-            mem3_prev_val_2: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[3].prev_val.to_m31_array()[2]
-            })),
-            mem3_prev_val_3: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[3].prev_val.to_m31_array()[3]
-            })),
-            mem3_value_0: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[3].value.to_m31_array()[0]
-            })),
-            mem3_value_1: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[3].value.to_m31_array()[1]
-            })),
-            mem3_value_2: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[3].value.to_m31_array()[2]
-            })),
-            mem3_value_3: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[3].value.to_m31_array()[3]
-            })),
-            mem3_prev_clock: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[3].prev_clock
-            })),
-            mem3_clock: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].memory_args[3].clock
+            op3_prev_clock: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[2].map_or_else(M31::zero, |op| op.prev_clock)
             })),
         }
     }
