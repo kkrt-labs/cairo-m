@@ -13,18 +13,18 @@ use stwo_prover::core::poly::circle::CanonicCoset;
 
 use crate::components::Components;
 
-pub fn track_and_summarize_cairo_relations<MC: MerkleChannel>(
+pub fn track_and_summarize_relations<MC: MerkleChannel>(
     commitment_scheme: &CommitmentSchemeProver<'_, SimdBackend, MC>,
     components: &Components,
 ) -> RelationSummary
 where
     SimdBackend: BackendForChannel<MC>,
 {
-    let entries = track_cairo_relations(commitment_scheme, components);
+    let entries = track_relations(commitment_scheme, components);
     RelationSummary::summarize_relations(&entries).cleaned()
 }
 
-pub fn track_cairo_relations<MC: MerkleChannel>(
+fn track_relations<MC: MerkleChannel>(
     commitment_scheme: &CommitmentSchemeProver<'_, SimdBackend, MC>,
     components: &Components,
 ) -> Vec<RelationTrackerEntry>
@@ -44,10 +44,10 @@ where
     let evals = &evals.as_ref();
     let trace = &evals.into();
 
-    cairo_relation_entries(components, trace)
+    relation_entries(components, trace)
 }
 
-fn cairo_relation_entries(
+fn relation_entries(
     components: &Components,
     trace: &TreeVec<Vec<&Vec<M31>>>,
 ) -> Vec<RelationTrackerEntry> {

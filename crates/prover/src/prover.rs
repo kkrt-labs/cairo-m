@@ -111,8 +111,8 @@ where
 
     #[cfg(feature = "relation-tracker")]
     {
-        use crate::debug_tools::track_and_summarize_cairo_relations;
-        let summary = track_and_summarize_cairo_relations(&commitment_scheme, &components);
+        use crate::debug_tools::track_and_summarize_relations;
+        let summary = track_and_summarize_relations(&commitment_scheme, &components);
         println!("Relations summary: {:?}", summary);
     }
 
