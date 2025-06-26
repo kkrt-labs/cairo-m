@@ -26,12 +26,12 @@ use crate::relations;
 
 const N_M31_IN_MEMORY_ENTRY: usize = 7; // Address, clock, value, multiplicity
 
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Default, Serialize, Deserialize, Debug)]
 pub struct Claim {
     pub log_size: u32,
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize)]
+#[derive(Copy, Clone, Serialize, Deserialize, Debug)]
 pub struct InteractionClaim {
     pub claimed_sum: SecureField,
 }

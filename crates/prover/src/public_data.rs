@@ -9,7 +9,7 @@ use crate::adapter::Instructions;
 use crate::components::Relations;
 use crate::relations;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct PublicData {
     pub initial_registers: VmRegisters,
     pub final_registers: VmRegisters,

@@ -30,7 +30,7 @@ pub struct InteractionClaimData {
     pub range_check_20: Vec<[PackedM31; 2]>,
 }
 
-#[derive(Copy, Clone, Default, Serialize, Deserialize)]
+#[derive(Copy, Clone, Default, Serialize, Deserialize, Debug)]
 pub struct Claim {
     pub log_size: u32,
 }
@@ -100,7 +100,7 @@ impl Claim {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct InteractionClaim {
     pub claimed_sum: SecureField,
 }
