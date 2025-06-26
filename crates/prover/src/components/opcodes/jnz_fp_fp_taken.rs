@@ -20,22 +20,6 @@
 //! - op1_prev_clock
 //! - op1_val
 //!
-//! # Constraints jnz_fp_fp (not taken)
-//!
-//! * enabler is a bool
-//!   * `enabler * (1 - enabler)`
-//! * registers update is regular
-//!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
-//!   * `op0_val` (=0)
-//! * read instruction from memory
-//!   * `- [pc, inst_prev_clk, opcode_id, off0, off1, off2] + [pc, clk, opcode_id, off0, off1, off2]` in `Memory` relation
-//!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck_20` relation
-//! * assert opcode id
-//!   * `opcode_id - 30`
-//! * read op0
-//!   * `- [fp + off0, op0_prev_clk, op0_val] + [fp + off0, clk, op0_val]` in `Memory` relation
-//!   * `- [clk - op0_prev_clk - 1]` in `RangeCheck_20` relation
-//!
 //! # Constraints jnz_fp_fp (taken)
 //!
 //! * enabler is a bool
@@ -121,11 +105,16 @@ impl Claim {
     }
 
     pub fn write_trace<MC: MerkleChannel>(
-        inputs: &mut Vec<StateData>,
+        inputs: &mut [StateData],
     ) -> (Self, ComponentTrace<N_TRACE_COLUMNS>, InteractionClaimData)
     where
         SimdBackend: BackendForChannel<MC>,
     {
+        let mut inputs = inputs
+            .iter()
+            .filter(|input| input.memory_args[1].value != SecureField::zero())
+            .cloned()
+            .collect::<Vec<_>>();
         let non_padded_length = inputs.len();
         let log_size = std::cmp::max(LOG_N_LANES, inputs.len().next_power_of_two().ilog2());
 
@@ -145,7 +134,6 @@ impl Claim {
             .collect();
 
         let zero = PackedM31::from(M31::zero());
-        let one = PackedM31::from(M31::one());
         let enabler_col = Enabler::new(non_padded_length);
         (
             trace.par_iter_mut(),
@@ -166,7 +154,13 @@ impl Claim {
                 let off2 = input.mem0_value_3;
                 let op0_prev_clock = input.mem1_prev_clock;
                 let op0_val = input.mem1_value_0;
-                let op0_val_inv = input.mem1_value_1;
+                let op0_val_inv = PackedM31::from(op0_val.to_array().map(|m| {
+                    if m == M31::zero() {
+                        M31::zero()
+                    } else {
+                        m.inverse()
+                    }
+                }));
                 let op1_prev_clock = input.mem2_prev_clock;
                 let op1_val = input.mem2_value_0;
 
@@ -185,10 +179,8 @@ impl Claim {
                 *row[12] = op1_prev_clock;
                 *row[13] = op1_val;
 
-                // TODO: This component requires special handling for taken vs not taken branches
-                // For now, implementing as not taken (op0_val = 0 case)
                 *lookup_data.registers[0] = [input.pc, input.fp];
-                *lookup_data.registers[1] = [input.pc + one, input.fp];
+                *lookup_data.registers[1] = [input.pc + op1_val, input.fp];
 
                 *lookup_data.memory[0] = [input.pc, inst_prev_clock, opcode_id, off0, off1, off2];
                 *lookup_data.memory[1] = [input.pc, clock, opcode_id, off0, off1, off2];
@@ -403,10 +395,10 @@ impl FrameworkEval for Eval {
         // Opcode id is JnzFpFp
         eval.add_constraint(enabler.clone() * (opcode_id.clone() - expected_opcode_id));
 
-        // TODO: Need to implement dual component logic here
-        // For now implementing as basic case (not taken - op0_val = 0)
+        // Op0 is not zero
+        eval.add_constraint(enabler.clone() * (op0_val.clone() * op0_val_inv - one));
 
-        // Registers update - not taken case
+        // Registers update
         eval.add_to_relation(RelationEntry::new(
             &self.registers,
             -E::EF::from(enabler.clone()),
@@ -415,7 +407,7 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.registers,
             E::EF::from(enabler.clone()),
-            &[pc.clone() + one, fp.clone()],
+            &[pc.clone() + op1_val.clone(), fp.clone()],
         ));
 
         // Read instruction from memory
