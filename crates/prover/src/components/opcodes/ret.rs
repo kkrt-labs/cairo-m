@@ -145,10 +145,10 @@ impl Claim {
                 let off0 = input.mem0_value_1;
                 let off1 = input.mem0_value_2;
                 let off2 = input.mem0_value_3;
-                let fp_min_2_prev_clock = input.mem1_prev_clock;
-                let fp_min_2_val = input.mem1_value_0;
-                let fp_min_1_prev_clock = input.mem2_prev_clock;
-                let fp_min_1_val = input.mem2_value_0;
+                let fp_min_1_prev_clock = input.mem1_prev_clock;
+                let fp_min_1_val = input.mem1_value_0;
+                let fp_min_2_prev_clock = input.mem2_prev_clock;
+                let fp_min_2_val = input.mem2_value_0;
 
                 *row[0] = enabler;
                 *row[1] = pc;
