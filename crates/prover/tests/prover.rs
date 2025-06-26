@@ -94,7 +94,6 @@ fn test_prove_and_verify_fibonacci_program() {
 }
 
 #[test]
-#[should_panic(expected = "called `Result::unwrap()` on an `Err` value: InvalidLogupSum")]
 fn test_prove_and_verify_recursive_fibonacci_program() {
     let source_path = format!(
         "{}/tests/test_data/{}",

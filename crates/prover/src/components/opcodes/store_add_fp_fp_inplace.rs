@@ -333,12 +333,9 @@ impl InteractionClaim {
             .enumerate()
             .for_each(|(_i, (writer, range_check_20_2))| {
                 let num = -PackedQM31::one();
-                let denom_2: PackedQM31 = range_check_20_relation.combine(&[*range_check_20_2]);
+                let denom: PackedQM31 = range_check_20_relation.combine(&[*range_check_20_2]);
 
-                let numerator = num * denom_2;
-                let denom = denom_2;
-
-                writer.write_frac(numerator, denom);
+                writer.write_frac(num, denom);
             });
         col.finalize_col();
 
@@ -367,7 +364,7 @@ impl FrameworkEval for Eval {
         let one = E::F::from(M31::one());
         let expected_opcode_id = E::F::from(M31::from(Opcode::StoreAddFpFp));
 
-        // 15 columns
+        // 13 columns
         let enabler = eval.next_trace_mask();
         let pc = eval.next_trace_mask();
         let fp = eval.next_trace_mask();
@@ -381,6 +378,20 @@ impl FrameworkEval for Eval {
         let op0_prev_val = eval.next_trace_mask();
         let op1_prev_clock = eval.next_trace_mask();
         let op1_val = eval.next_trace_mask();
+
+        dbg!(&enabler);
+        dbg!(&pc);
+        dbg!(&fp);
+        dbg!(&clock);
+        dbg!(&inst_prev_clock);
+        dbg!(&opcode_id);
+        dbg!(&off0);
+        dbg!(&off1);
+        dbg!(&off2);
+        dbg!(&op0_prev_clock);
+        dbg!(&op0_prev_val);
+        dbg!(&op1_prev_clock);
+        dbg!(&op1_val);
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
