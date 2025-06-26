@@ -13,7 +13,7 @@
 //! - off1
 //! - off2
 //! - op0_prev_clock
-//! - op0_val
+//! - op0_prev_val
 //! - op0_plus_one_prev_clock
 //! - op0_plus_one_val
 //! - op1_prev_clock
@@ -31,7 +31,7 @@
 //! * assert opcode id
 //!   * `opcode_id - 13`
 //! * write return fp
-//!   * `- [fp + off0, op0_prev_clk, op0_val] + [fp + off0, clk, fp]` in `Memory` relation
+//!   * `- [fp + off0, op0_prev_clk, op0_prev_val] + [fp + off0, clk, fp]` in `Memory` relation
 //!   * `- [clk - op0_prev_clk - 1]` in `RangeCheck_20` relation
 //! * write return pc
 //!   * `- [fp + off0 + 1, op0_plus_one_prev_clk, op0_plus_one_val] + [fp + off0 + 1, clk, pc + 1]` in `Memory` relation
@@ -150,7 +150,7 @@ impl Claim {
                 let off1 = input.mem0_value_2;
                 let off2 = input.mem0_value_3;
                 let op0_prev_clock = input.mem1_prev_clock;
-                let op0_val = input.mem1_value_0;
+                let op0_prev_val = input.mem1_prev_val_0;
                 let op0_plus_one_prev_clock = input.mem2_prev_clock;
                 let op0_plus_one_val = input.mem2_value_0;
                 let op1_prev_clock = input.mem3_prev_clock;
@@ -166,7 +166,7 @@ impl Claim {
                 *row[7] = off1;
                 *row[8] = off2;
                 *row[9] = op0_prev_clock;
-                *row[10] = op0_val;
+                *row[10] = op0_prev_val;
                 *row[11] = op0_plus_one_prev_clock;
                 *row[12] = op0_plus_one_val;
                 *row[13] = op1_prev_clock;
@@ -178,7 +178,8 @@ impl Claim {
                 *lookup_data.memory[0] = [input.pc, inst_prev_clock, opcode_id, off0, off1, off2];
                 *lookup_data.memory[1] = [input.pc, clock, opcode_id, off0, off1, off2];
 
-                *lookup_data.memory[2] = [fp + off0, op0_prev_clock, op0_val, zero, zero, zero];
+                *lookup_data.memory[2] =
+                    [fp + off0, op0_prev_clock, op0_prev_val, zero, zero, zero];
                 *lookup_data.memory[3] = [fp + off0, clock, fp, zero, zero, zero];
 
                 *lookup_data.memory[4] = [
@@ -414,7 +415,7 @@ impl FrameworkEval for Eval {
         let off1 = eval.next_trace_mask();
         let off2 = eval.next_trace_mask();
         let op0_prev_clock = eval.next_trace_mask();
-        let op0_val = eval.next_trace_mask();
+        let op0_prev_val = eval.next_trace_mask();
         let op0_plus_one_prev_clock = eval.next_trace_mask();
         let op0_plus_one_val = eval.next_trace_mask();
         let op1_prev_clock = eval.next_trace_mask();
@@ -471,7 +472,11 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
             -E::EF::from(enabler.clone()),
-            &[fp.clone() + off0.clone(), op0_prev_clock.clone(), op0_val],
+            &[
+                fp.clone() + off0.clone(),
+                op0_prev_clock.clone(),
+                op0_prev_val,
+            ],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.memory,

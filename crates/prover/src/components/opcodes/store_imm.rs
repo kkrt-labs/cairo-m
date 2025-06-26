@@ -322,6 +322,18 @@ impl FrameworkEval for Eval {
         let dst_prev_clock = eval.next_trace_mask();
         let dst_prev_val = eval.next_trace_mask();
 
+        dbg!(&enabler);
+        dbg!(&pc);
+        dbg!(&fp);
+        dbg!(&clock);
+        dbg!(&inst_prev_clock);
+        dbg!(&opcode_id);
+        dbg!(&off0);
+        dbg!(&off1);
+        dbg!(&off2);
+        dbg!(&dst_prev_clock);
+        dbg!(&dst_prev_val);
+
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
 

@@ -392,6 +392,20 @@ impl FrameworkEval for Eval {
         let fp_min_1_prev_clock = eval.next_trace_mask();
         let fp_min_1_val = eval.next_trace_mask();
 
+        dbg!(&enabler);
+        dbg!(&pc);
+        dbg!(&fp);
+        dbg!(&clock);
+        dbg!(&inst_prev_clock);
+        dbg!(&opcode_id);
+        dbg!(&off0);
+        dbg!(&off1);
+        dbg!(&off2);
+        dbg!(&fp_min_2_prev_clock);
+        dbg!(&fp_min_2_val);
+        dbg!(&fp_min_1_prev_clock);
+        dbg!(&fp_min_1_val);
+
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one - enabler.clone()));
 
