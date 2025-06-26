@@ -497,3 +497,56 @@ fn test_mixed_variable_scenarios() {
         other => panic!("Variable 'd' should use explicit Vector annotation, got {other:?}"),
     }
 }
+
+#[test]
+fn test_multiple_return_type_signature() {
+    let db = test_db();
+    let program = r#"
+        struct Point { x: felt, y: felt }
+        func my_func() -> (felt, Point) {
+            return (1, Point { x: 2, y: 3 });
+        }
+    "#;
+    let file = File::new(&db, program.to_string(), "test.cm".to_string());
+    let semantic_index = semantic_index(&db, file)
+        .as_ref()
+        .expect("Got unexpected parse errors");
+    let root_scope = semantic_index.root_scope().unwrap();
+
+    // 1. Get the function definition.
+    let (def_idx, _) = semantic_index
+        .resolve_name_to_definition("my_func", root_scope)
+        .unwrap();
+    let def_id = DefinitionId::new(&db, file, def_idx);
+
+    // 2. Resolve the function's signature.
+    let signature = function_semantic_signature(&db, def_id).unwrap();
+    let return_type = signature.return_type(&db);
+
+    // 3. Assert return type is a tuple.
+    match return_type.data(&db) {
+        TypeData::Tuple(elements) => {
+            assert_eq!(elements.len(), 2, "Tuple should have 2 elements");
+
+            // First element should be felt
+            let felt_type = TypeId::new(&db, TypeData::Felt);
+            assert_eq!(elements[0], felt_type, "First element should be felt");
+
+            // Second element should be Point struct
+            match elements[1].data(&db) {
+                TypeData::Struct(struct_id) => {
+                    assert_eq!(struct_id.name(&db), "Point");
+                }
+                other => panic!("Second element should be Point struct, got {other:?}"),
+            }
+        }
+        other => panic!("Expected return type to be a tuple, got {other:?}"),
+    }
+
+    // 4. Check the full function type from its definition.
+    let func_type = definition_semantic_type(&db, def_id);
+    match func_type.data(&db) {
+        TypeData::Function(sig_id) => assert_eq!(sig_id, signature),
+        other => panic!("Expected function type, got {other:?}"),
+    }
+}

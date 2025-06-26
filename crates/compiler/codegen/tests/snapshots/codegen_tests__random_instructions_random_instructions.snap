@@ -101,5 +101,5 @@ and_end_11:
   48: 1 19 32 -3           // [fp + -3] = [fp + 19] op 32
   49: 15 _ _ _             // return
 foo:
-  50: 6 32 _ -3            // Return value: [fp - 3] = 32
+  50: 6 32 _ -3            // Return value 0: [fp -3] = 32
   51: 15 _ _ _             // return

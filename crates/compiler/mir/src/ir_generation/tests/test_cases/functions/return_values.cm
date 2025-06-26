@@ -1,0 +1,3 @@
+func foo(x: felt) -> (felt, felt){
+    return (x, 1);
+}

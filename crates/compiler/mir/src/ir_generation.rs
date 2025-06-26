@@ -345,15 +345,81 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             }
 
             Statement::Return { value } => {
-                let return_value = if let Some(expr) = value {
-                    Some(self.lower_expression(expr)?)
-                } else {
-                    None
-                };
+                let terminator = if let Some(expr) = value {
+                    // Check if we're returning a tuple literal
+                    if let Expression::Tuple(elements) = expr.value() {
+                        // Lower each element of the tuple
+                        let mut return_values = Vec::new();
+                        for element in elements {
+                            return_values.push(self.lower_expression(element)?);
+                        }
+                        Terminator::return_values(return_values)
+                    } else {
+                        // Check if the expression type is a tuple
+                        let expr_id = self
+                            .semantic_index
+                            .expression_id_by_span(expr.span())
+                            .ok_or_else(|| {
+                                format!(
+                                    "MIR: No ExpressionId found for return expression span {:?}",
+                                    expr.span()
+                                )
+                            })?;
+                        let expr_semantic_type =
+                            expression_semantic_type(self.db, self.file, expr_id);
 
-                let terminator = match return_value {
-                    Some(val) => Terminator::return_value(val),
-                    None => Terminator::return_void(),
+                        // Check if it's a tuple type
+                        if let cairo_m_compiler_semantic::types::TypeData::Tuple(element_types) =
+                            expr_semantic_type.data(self.db)
+                        {
+                            // We're returning a tuple variable - need to extract each element
+                            let tuple_addr = self.lower_lvalue_expression(expr)?;
+                            let mut return_values = Vec::new();
+
+                            // Load each element from the tuple
+                            for (i, elem_type) in element_types.iter().enumerate() {
+                                let mir_type = MirType::from_semantic_type(self.db, *elem_type);
+                                let offset = MirType::tuple(
+                                    element_types
+                                        .iter()
+                                        .map(|t| MirType::from_semantic_type(self.db, *t))
+                                        .collect(),
+                                )
+                                .tuple_element_offset(i)
+                                .unwrap_or(i);
+
+                                // Get element pointer
+                                let elem_ptr = self
+                                    .mir_function
+                                    .new_typed_value_id(MirType::pointer(mir_type.clone()));
+                                self.add_instruction(
+                                    Instruction::get_element_ptr(
+                                        elem_ptr,
+                                        tuple_addr,
+                                        Value::integer(offset as i32),
+                                    )
+                                    .with_comment(format!("Get address of tuple element {}", i)),
+                                );
+
+                                // Load the element
+                                let elem_value = self.mir_function.new_typed_value_id(mir_type);
+                                self.add_instruction(
+                                    Instruction::load(elem_value, Value::operand(elem_ptr))
+                                        .with_comment(format!("Load tuple element {}", i)),
+                                );
+
+                                return_values.push(Value::operand(elem_value));
+                            }
+
+                            Terminator::return_values(return_values)
+                        } else {
+                            // Single value return
+                            let return_value = self.lower_expression(expr)?;
+                            Terminator::return_value(return_value)
+                        }
+                    }
+                } else {
+                    Terminator::return_void()
                 };
 
                 self.terminate_current_block(terminator);
@@ -1188,18 +1254,20 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     /// Sets the terminator for the current basic block
     /// If a return value is set, it will be stored in the function's return_value field
     fn terminate_current_block(&mut self, terminator: Terminator) {
-        if let Terminator::Return { value: Some(val) } = &terminator {
-            // If returning a value, track it in the function
-            // For operands, use the existing value ID; for literals, create a new one
-            let return_value_id = match val {
-                Value::Operand(id) => *id,
-                Value::Literal(_) | Value::Error => {
-                    // For literals and errors, we need to create a value ID
-                    // In a more complete implementation, we might emit an assignment first
-                    self.mir_function.new_value_id()
-                }
-            };
-            self.mir_function.return_value = Some(return_value_id);
+        if let Terminator::Return { values } = &terminator {
+            // If returning values, track them in the function
+            let return_value_ids: Vec<ValueId> = values
+                .iter()
+                .map(|val| match val {
+                    Value::Operand(id) => *id,
+                    Value::Literal(_) | Value::Error => {
+                        // For literals and errors, we need to create a value ID
+                        // In a more complete implementation, we might emit an assignment first
+                        self.mir_function.new_value_id()
+                    }
+                })
+                .collect();
+            self.mir_function.return_values = return_value_ids;
         }
         self.current_block_mut().set_terminator(terminator);
     }
@@ -1229,14 +1297,14 @@ fn test_return_value_field_assignment() {
         .get_basic_block_mut(function.entry_block)
         .unwrap()
         .push_instruction(Instruction::assign(return_value_id, return_val));
-    function.return_value = Some(return_value_id);
+    function.return_values = vec![return_value_id];
 
-    // Verify the return_value field is set
-    assert!(function.return_value.is_some());
-    assert_eq!(function.return_value.unwrap(), return_value_id);
+    // Verify the return_values field is set
+    assert!(!function.return_values.is_empty());
+    assert_eq!(function.return_values[0], return_value_id);
 
     println!(
-        "✓ Return value field correctly set: {:?}",
-        function.return_value
+        "✓ Return values field correctly set: {:?}",
+        function.return_values
     );
 }

@@ -44,9 +44,9 @@ pub enum Terminator {
         else_target: BasicBlockId,
     },
 
-    /// Function return: `return value?`
-    /// Ends function execution and optionally returns a value
-    Return { value: Option<Value> },
+    /// Function return: `return values`
+    /// Ends function execution and returns zero or more values
+    Return { values: Vec<Value> },
 
     /// Unreachable code: indicates this point should never be reached
     /// Used as a placeholder during construction and for optimization
@@ -90,14 +90,21 @@ impl Terminator {
         }
     }
 
-    /// Creates a new return terminator with a value
-    pub const fn return_value(value: Value) -> Self {
-        Self::Return { value: Some(value) }
+    /// Creates a new return terminator with a single value
+    pub fn return_value(value: Value) -> Self {
+        Self::Return {
+            values: vec![value],
+        }
+    }
+
+    /// Creates a new return terminator with multiple values
+    pub const fn return_values(values: Vec<Value>) -> Self {
+        Self::Return { values }
     }
 
     /// Creates a new void return terminator
     pub const fn return_void() -> Self {
-        Self::Return { value: None }
+        Self::Return { values: Vec::new() }
     }
 
     /// Creates an unreachable terminator
@@ -150,9 +157,11 @@ impl Terminator {
                 }
             }
 
-            Self::Return { value } => {
-                if let Some(Value::Operand(id)) = value {
-                    used.insert(*id);
+            Self::Return { values } => {
+                for value in values {
+                    if let Value::Operand(id) = value {
+                        used.insert(*id);
+                    }
                 }
             }
 
@@ -283,11 +292,20 @@ impl PrettyPrint for Terminator {
                 )
             }
 
-            Self::Return { value: Some(value) } => {
-                format!("return {}", value.pretty_print(0))
+            Self::Return { values } => {
+                if values.is_empty() {
+                    "return".to_string()
+                } else if values.len() == 1 {
+                    format!("return {}", values[0].pretty_print(0))
+                } else {
+                    let values_str = values
+                        .iter()
+                        .map(|v| v.pretty_print(0))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    format!("return ({})", values_str)
+                }
             }
-
-            Self::Return { value: None } => "return".to_string(),
 
             Self::Unreachable => "unreachable".to_string(),
         }

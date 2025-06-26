@@ -14,9 +14,7 @@ fn test_structured_label_resolution() {
     // Create two basic blocks
     let block0 = BasicBlock::new();
     let mut block1 = BasicBlock::new();
-    block1.terminator = Terminator::Return {
-        value: Some(Value::Literal(Literal::Integer(42))),
-    };
+    block1.terminator = Terminator::return_value(Value::Literal(Literal::Integer(42)));
 
     function.basic_blocks.push(block0);
     function.basic_blocks.push(block1);

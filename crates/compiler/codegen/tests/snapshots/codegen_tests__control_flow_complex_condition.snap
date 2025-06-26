@@ -66,8 +66,8 @@ or_end_9:
   28: 31 7 2 _             // if [fp + 7] != 0 jmp rel complex_condition_1
   29: 20 32 _ _            // jump abs complex_condition_2
 complex_condition_1:
-  30: 6 0 _ -3             // Return value: [fp - 3] = 0
+  30: 6 0 _ -3             // Return value 0: [fp -3] = 0
   31: 15 _ _ _             // return
 complex_condition_2:
-  32: 6 1 _ -3             // Return value: [fp - 3] = 1
+  32: 6 1 _ -3             // Return value 0: [fp -3] = 1
   33: 15 _ _ _             // return

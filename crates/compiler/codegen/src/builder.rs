@@ -704,54 +704,59 @@ impl CasmBuilder {
         Ok(l)
     }
 
-    /// Generate `return` instruction.
-    pub fn return_value(&mut self, value: Option<Value>) -> CodegenResult<()> {
+    /// Generate `return` instruction with multiple return values.
+    pub fn return_values(&mut self, values: &[Value]) -> CodegenResult<()> {
         let layout = self
             .layout
             .as_ref()
             .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
 
-        if let Some(return_val) = value {
-            let k = layout.num_return_values();
-            if k > 0 {
-                // TODO: Support multiple return values. For now, assume k=1.
-                // The first (and only) return value goes to `[fp - K - 2 + 0] = [fp - 3]`.
-                let return_slot_offset = -3;
+        let k = layout.num_return_values() as i32;
 
-                // Check if the value is already in the return slot (optimization for direct returns)
-                let needs_copy = match return_val {
-                    Value::Operand(val_id) => {
-                        let current_offset = layout.get_offset(val_id).unwrap_or(0);
-                        current_offset != return_slot_offset
-                    }
-                    _ => true, // Literals always need to be stored
-                };
+        // Store each return value in its designated slot
+        for (i, return_val) in values.iter().enumerate() {
+            // Return value i goes to [fp - K - 2 + i]
+            let return_slot_offset = -(k + 2) + i as i32;
 
-                if needs_copy {
-                    let instr = match return_val {
-                        Value::Literal(Literal::Integer(imm)) => {
-                            InstructionBuilder::new(Opcode::StoreImm.into())
-                                .with_off2(return_slot_offset)
-                                .with_imm(imm)
-                                .with_comment(format!("Return value: [fp - 3] = {imm}"))
-                        }
-                        Value::Operand(val_id) => {
-                            let src_off = layout.get_offset(val_id)?;
-                            InstructionBuilder::new(Opcode::StoreDerefFp.into())
-                                .with_off0(src_off)
-                                .with_off2(return_slot_offset)
-                                .with_comment(format!("Return value: [fp - 3] = [fp + {src_off}]"))
-                        }
-                        _ => {
-                            return Err(CodegenError::UnsupportedInstruction(
-                                "Unsupported return value type".to_string(),
-                            ));
-                        }
-                    };
-                    self.instructions.push(instr);
+            // Check if the value is already in the return slot (optimization for direct returns)
+            let needs_copy = match return_val {
+                Value::Operand(val_id) => {
+                    let current_offset = layout.get_offset(*val_id).unwrap_or(0);
+                    current_offset != return_slot_offset
                 }
-                // If !needs_copy, the value is already in the return slot, so we skip the copy
+                _ => true, // Literals always need to be stored
+            };
+
+            if needs_copy {
+                let instr = match return_val {
+                    Value::Literal(Literal::Integer(imm)) => {
+                        InstructionBuilder::new(Opcode::StoreImm.into())
+                            .with_off2(return_slot_offset)
+                            .with_imm(*imm)
+                            .with_comment(format!(
+                                "Return value {}: [fp {}] = {}",
+                                i, return_slot_offset, imm
+                            ))
+                    }
+                    Value::Operand(val_id) => {
+                        let src_off = layout.get_offset(*val_id)?;
+                        InstructionBuilder::new(Opcode::StoreDerefFp.into())
+                            .with_off0(src_off)
+                            .with_off2(return_slot_offset)
+                            .with_comment(format!(
+                                "Return value {}: [fp {}] = [fp + {}]",
+                                i, return_slot_offset, src_off
+                            ))
+                    }
+                    _ => {
+                        return Err(CodegenError::UnsupportedInstruction(
+                            "Unsupported return value type".to_string(),
+                        ));
+                    }
+                };
+                self.instructions.push(instr);
             }
+            // If !needs_copy, the value is already in the return slot, so we skip the copy
         }
 
         self.instructions

@@ -50,9 +50,9 @@ pub struct MirFunction {
     /// The order matches the function signature
     pub parameters: Vec<ValueId>,
 
-    /// The return value, if the function returns something
-    /// TODO: add support for multiple return values
-    pub return_value: Option<ValueId>,
+    /// The return values of the function
+    /// Empty for void functions, contains one or more values for functions with returns
+    pub return_values: Vec<ValueId>,
 
     /// Next available value ID for generating new temporaries
     /// This is maintained to ensure unique value IDs within the function
@@ -75,7 +75,7 @@ impl MirFunction {
             basic_blocks,
             entry_block,
             parameters: Vec::new(),
-            return_value: None,
+            return_values: Vec::new(),
             next_value_id: 0,
             value_types: FxHashMap::default(),
         }
@@ -292,15 +292,15 @@ mod tests {
 
         // Create a return value assignment
         let return_value_id = func.new_value_id();
-        func.return_value = Some(return_value_id);
+        func.return_values = vec![return_value_id];
 
         // Set up the terminator
         func.get_basic_block_mut(func.entry_block)
             .unwrap()
             .set_terminator(Terminator::return_value(Value::integer(42)));
 
-        // Verify the return_value field is set
-        assert_eq!(func.return_value, Some(return_value_id));
+        // Verify the return_values field is set
+        assert_eq!(func.return_values, vec![return_value_id]);
 
         // Verify function validation passes
         assert!(func.validate().is_ok());
@@ -312,15 +312,15 @@ mod tests {
 
         // Create a value to return
         let value_id = func.new_value_id();
-        func.return_value = Some(value_id);
+        func.return_values = vec![value_id];
 
         // Set up the terminator
         func.get_basic_block_mut(func.entry_block)
             .unwrap()
             .set_terminator(Terminator::return_value(Value::operand(value_id)));
 
-        // Verify the return_value field is set
-        assert_eq!(func.return_value, Some(value_id));
+        // Verify the return_values field is set
+        assert_eq!(func.return_values, vec![value_id]);
 
         // Verify function validation passes
         assert!(func.validate().is_ok());

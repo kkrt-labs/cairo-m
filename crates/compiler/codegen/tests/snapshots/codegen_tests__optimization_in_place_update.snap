@@ -41,7 +41,7 @@ test_in_place_update_0:
    1: 1 0 1 0              // [fp + 0] = [fp + 0] op 1
    2: 6 10 _ 1             // Store immediate: [fp + 1] = 10
    3: 0 1 0 1              // [fp + 1] = [fp + 1] op [fp + 0]
-   4: 4 1 _ -3             // Return value: [fp - 3] = [fp + 1]
+   4: 4 1 _ -3             // Return value 0: [fp -3] = [fp + 1]
    5: 15 _ _ _             // return
 test_loop_optimization:
 test_loop_optimization:
@@ -63,7 +63,7 @@ test_loop_optimization_2:
   16: 1 0 1 0              // [fp + 0] = [fp + 0] op 1
   17: 20 8 _ _             // jump abs test_loop_optimization_1
 test_loop_optimization_3:
-  18: 4 1 _ -3             // Return value: [fp - 3] = [fp + 1]
+  18: 4 1 _ -3             // Return value 0: [fp -3] = [fp + 1]
   19: 15 _ _ _             // return
 main:
   20: 12 1 0 _             // call test_in_place_update

@@ -68,6 +68,7 @@ mir_test!(call_with_return, "functions");
 mir_test!(multiple_functions, "functions");
 mir_test!(fib, "functions");
 mir_test!(fib_loop, "functions");
+mir_test!(return_values, "functions");
 
 // --- Variables ---
 mir_test!(assignment, "variables");
