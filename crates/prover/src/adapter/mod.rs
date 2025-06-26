@@ -61,6 +61,9 @@ where
         states_by_opcodes.entry(opcode).or_default().push(bundle);
     }
 
+    // Get the final registers from the last trace entry that wasn't processed
+    final_registers = bundle_iter.get_final_registers().unwrap_or(final_registers);
+
     // Get the memory state from the iterator
     let memory = bundle_iter.into_memory();
 

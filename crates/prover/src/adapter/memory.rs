@@ -80,6 +80,7 @@ where
     memory_iter: Peekable<M>,
     memory: Memory,
     clock: u32,
+    final_registers: Option<VmRegisters>,
 }
 
 impl<T, M> ExecutionBundleIterator<T, M>
@@ -93,6 +94,7 @@ where
             memory_iter: memory_iter.peekable(),
             memory: Memory::default(),
             clock: 1, // Initial memory uses clock = 0
+            final_registers: None,
         }
     }
 
@@ -102,6 +104,10 @@ where
 
     pub fn into_memory(self) -> Memory {
         self.memory
+    }
+
+    pub const fn get_final_registers(&self) -> Option<VmRegisters> {
+        self.final_registers
     }
 }
 
@@ -115,8 +121,12 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         let registers = self.trace_iter.next()?;
 
-        // Skip the last state which has no memory operations
-        self.trace_iter.peek()?;
+        // Check if this is the last entry
+        if self.trace_iter.peek().is_none() {
+            // This is the final state - store it and return None
+            self.final_registers = Some(registers);
+            return None;
+        }
 
         // Process instruction memory access
         let instruction_memory = match self.memory_iter.next() {
