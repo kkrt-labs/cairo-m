@@ -15,7 +15,7 @@
 //! - op0_prev_clock
 //! - op0_prev_val
 //! - op0_plus_one_prev_clock
-//! - op0_plus_one_val
+//! - op0_plus_one_prev_val
 //!
 //! # Constraints
 //!
@@ -32,7 +32,7 @@
 //!   * `- [fp + off0, op0_prev_clk, op0_prev_val] + [fp + off0, clk, fp]` in `Memory` relation
 //!   * `- [clk - op0_prev_clk - 1]` in `RangeCheck_20` relation
 //! * write return pc
-//!   * `- [fp + off0 + 1, op0_plus_one_prev_clk, op0_plus_one_val] + [fp + off0 + 1, clk, pc + 1]` in `Memory` relation
+//!   * `- [fp + off0 + 1, op0_plus_one_prev_clk, op0_plus_one_prev_val] + [fp + off0 + 1, clk, pc + 1]` in `Memory` relation
 //!   * `- [clk - op0_plus_one_prev_clk - 1]` in `RangeCheck_20` relation
 
 use cairo_m_common::Opcode;
@@ -147,7 +147,7 @@ impl Claim {
                 let op0_prev_clock = input.mem1_prev_clock;
                 let op0_prev_val = input.mem1_prev_val_0;
                 let op0_plus_one_prev_clock = input.mem2_prev_clock;
-                let op0_plus_one_val = input.mem2_value_0;
+                let op0_plus_one_prev_val = input.mem2_prev_val_0;
 
                 *row[0] = enabler;
                 *row[1] = pc;
@@ -161,7 +161,7 @@ impl Claim {
                 *row[9] = op0_prev_clock;
                 *row[10] = op0_prev_val;
                 *row[11] = op0_plus_one_prev_clock;
-                *row[12] = op0_plus_one_val;
+                *row[12] = op0_plus_one_prev_val;
 
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [off1, input.fp + off0 + one + one];
@@ -176,7 +176,7 @@ impl Claim {
                 *lookup_data.memory[4] = [
                     fp + off0 + one,
                     op0_plus_one_prev_clock,
-                    op0_plus_one_val,
+                    op0_plus_one_prev_val,
                     zero,
                     zero,
                     zero,
@@ -378,7 +378,7 @@ impl FrameworkEval for Eval {
         let op0_prev_clock = eval.next_trace_mask();
         let op0_prev_val = eval.next_trace_mask();
         let op0_plus_one_prev_clock = eval.next_trace_mask();
-        let op0_plus_one_val = eval.next_trace_mask();
+        let op0_plus_one_prev_val = eval.next_trace_mask();
 
         dbg!(&enabler);
         dbg!(&pc);
@@ -392,7 +392,7 @@ impl FrameworkEval for Eval {
         dbg!(&op0_prev_clock);
         dbg!(&op0_prev_val);
         dbg!(&op0_plus_one_prev_clock);
-        dbg!(&op0_plus_one_val);
+        dbg!(&op0_plus_one_prev_val);
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
@@ -464,7 +464,7 @@ impl FrameworkEval for Eval {
             &[
                 fp.clone() + off0.clone() + one.clone(),
                 op0_plus_one_prev_clock.clone(),
-                op0_plus_one_val,
+                op0_plus_one_prev_val,
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
