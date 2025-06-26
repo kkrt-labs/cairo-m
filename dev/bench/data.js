@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1750870292566,
+  "lastUpdate": 1750928599308,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -973,6 +973,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 261650154,
             "range": "± 1086210",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bc30304c40023f8f54ad06b8d1ae6a43efaad0aa",
+          "message": "fix(vm): dont log initial memory in trace entries (#115)\n\n* fix(vm): dont log initial memory in trace entries\n\n* remove ignore",
+          "timestamp": "2025-06-26T10:59:57+02:00",
+          "tree_id": "5ac8fba9fb5427751ecaad63a55e9a3909a5756c",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/bc30304c40023f8f54ad06b8d1ae6a43efaad0aa"
+        },
+        "date": 1750928598706,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 258038115,
+            "range": "± 1440579",
             "unit": "ns/iter"
           }
         ]
