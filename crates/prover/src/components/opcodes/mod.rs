@@ -17,7 +17,9 @@ pub mod jmp_rel_imm;
 pub mod jmp_rel_mul_fp_fp;
 pub mod jmp_rel_mul_fp_imm;
 pub mod jnz_fp_fp;
+pub mod jnz_fp_fp_taken;
 pub mod jnz_fp_imm;
+pub mod jnz_fp_imm_taken;
 pub mod ret;
 pub mod store_add_fp_fp;
 pub mod store_add_fp_imm;
@@ -73,7 +75,9 @@ pub struct Claim {
     pub jmp_rel_mul_fp_fp: jmp_rel_mul_fp_fp::Claim,
     pub jmp_rel_mul_fp_imm: jmp_rel_mul_fp_imm::Claim,
     pub jnz_fp_fp: jnz_fp_fp::Claim,
+    pub jnz_fp_fp_taken: jnz_fp_fp_taken::Claim,
     pub jnz_fp_imm: jnz_fp_imm::Claim,
+    pub jnz_fp_imm_taken: jnz_fp_imm_taken::Claim,
     pub ret: ret::Claim,
     pub store_add_fp_fp: store_add_fp_fp::Claim,
     pub store_add_fp_imm: store_add_fp_imm::Claim,
@@ -108,7 +112,9 @@ pub struct InteractionClaimData {
     pub jmp_rel_mul_fp_fp: jmp_rel_mul_fp_fp::InteractionClaimData,
     pub jmp_rel_mul_fp_imm: jmp_rel_mul_fp_imm::InteractionClaimData,
     pub jnz_fp_fp: jnz_fp_fp::InteractionClaimData,
+    pub jnz_fp_fp_taken: jnz_fp_fp_taken::InteractionClaimData,
     pub jnz_fp_imm: jnz_fp_imm::InteractionClaimData,
+    pub jnz_fp_imm_taken: jnz_fp_imm_taken::InteractionClaimData,
     pub ret: ret::InteractionClaimData,
     pub store_add_fp_fp: store_add_fp_fp::InteractionClaimData,
     pub store_add_fp_imm: store_add_fp_imm::InteractionClaimData,
@@ -154,7 +160,9 @@ pub struct InteractionClaim {
     pub jmp_rel_mul_fp_fp: jmp_rel_mul_fp_fp::InteractionClaim,
     pub jmp_rel_mul_fp_imm: jmp_rel_mul_fp_imm::InteractionClaim,
     pub jnz_fp_fp: jnz_fp_fp::InteractionClaim,
+    pub jnz_fp_fp_taken: jnz_fp_fp_taken::InteractionClaim,
     pub jnz_fp_imm: jnz_fp_imm::InteractionClaim,
+    pub jnz_fp_imm_taken: jnz_fp_imm_taken::InteractionClaim,
     pub ret: ret::InteractionClaim,
     pub store_add_fp_fp: store_add_fp_fp::InteractionClaim,
     pub store_add_fp_imm: store_add_fp_imm::InteractionClaim,
@@ -191,7 +199,9 @@ impl Claim {
             self.jmp_rel_mul_fp_fp.log_sizes(),
             self.jmp_rel_mul_fp_imm.log_sizes(),
             self.jnz_fp_fp.log_sizes(),
+            self.jnz_fp_fp_taken.log_sizes(),
             self.jnz_fp_imm.log_sizes(),
+            self.jnz_fp_imm_taken.log_sizes(),
             self.ret.log_sizes(),
             self.store_add_fp_fp.log_sizes(),
             self.store_add_fp_imm.log_sizes(),
@@ -228,7 +238,9 @@ impl Claim {
         self.jmp_rel_mul_fp_fp.mix_into(channel);
         self.jmp_rel_mul_fp_imm.mix_into(channel);
         self.jnz_fp_fp.mix_into(channel);
+        self.jnz_fp_fp_taken.mix_into(channel);
         self.jnz_fp_imm.mix_into(channel);
+        self.jnz_fp_imm_taken.mix_into(channel);
         self.ret.mix_into(channel);
         self.store_add_fp_fp.mix_into(channel);
         self.store_add_fp_imm.mix_into(channel);
@@ -358,8 +370,17 @@ impl Claim {
         let (jnz_fp_fp_claim, jnz_fp_fp_trace, jnz_fp_fp_interaction_claim_data) =
             process_opcode!(Opcode::JnzFpFp, jnz_fp_fp);
 
+        let (jnz_fp_fp_taken_claim, jnz_fp_fp_taken_trace, jnz_fp_fp_taken_interaction_claim_data) =
+            process_opcode!(Opcode::JnzFpFp, jnz_fp_fp_taken);
+
         let (jnz_fp_imm_claim, jnz_fp_imm_trace, jnz_fp_imm_interaction_claim_data) =
             process_opcode!(Opcode::JnzFpImm, jnz_fp_imm);
+
+        let (
+            jnz_fp_imm_taken_claim,
+            jnz_fp_imm_taken_trace,
+            jnz_fp_imm_taken_interaction_claim_data,
+        ) = process_opcode!(Opcode::JnzFpImm, jnz_fp_imm_taken);
 
         let (ret_claim, ret_trace, ret_interaction_claim_data) = process_opcode!(Opcode::Ret, ret);
 
@@ -432,7 +453,9 @@ impl Claim {
             jmp_rel_mul_fp_fp: jmp_rel_mul_fp_fp_claim,
             jmp_rel_mul_fp_imm: jmp_rel_mul_fp_imm_claim,
             jnz_fp_fp: jnz_fp_fp_claim,
+            jnz_fp_fp_taken: jnz_fp_fp_taken_claim,
             jnz_fp_imm: jnz_fp_imm_claim,
+            jnz_fp_imm_taken: jnz_fp_imm_taken_claim,
             ret: ret_claim,
             store_add_fp_fp: store_add_fp_fp_claim,
             store_add_fp_imm: store_add_fp_imm_claim,
@@ -468,7 +491,9 @@ impl Claim {
             jmp_rel_mul_fp_fp: jmp_rel_mul_fp_fp_interaction_claim_data,
             jmp_rel_mul_fp_imm: jmp_rel_mul_fp_imm_interaction_claim_data,
             jnz_fp_fp: jnz_fp_fp_interaction_claim_data,
+            jnz_fp_fp_taken: jnz_fp_fp_taken_interaction_claim_data,
             jnz_fp_imm: jnz_fp_imm_interaction_claim_data,
+            jnz_fp_imm_taken: jnz_fp_imm_taken_interaction_claim_data,
             ret: ret_interaction_claim_data,
             store_add_fp_fp: store_add_fp_fp_interaction_claim_data,
             store_add_fp_imm: store_add_fp_imm_interaction_claim_data,
@@ -504,7 +529,9 @@ impl Claim {
             .chain(jmp_rel_mul_fp_fp_trace)
             .chain(jmp_rel_mul_fp_imm_trace)
             .chain(jnz_fp_fp_trace)
+            .chain(jnz_fp_fp_taken_trace)
             .chain(jnz_fp_imm_trace)
+            .chain(jnz_fp_imm_taken_trace)
             .chain(ret_trace)
             .chain(store_add_fp_fp_trace)
             .chain(store_add_fp_imm_trace)
@@ -572,7 +599,12 @@ impl InteractionClaim {
         let (jmp_rel_mul_fp_imm, jmp_rel_mul_fp_imm_interaction_trace) =
             write_interaction_trace!(jmp_rel_mul_fp_imm);
         let (jnz_fp_fp, jnz_fp_fp_interaction_trace) = write_interaction_trace!(jnz_fp_fp);
+        let (jnz_fp_fp_taken, jnz_fp_fp_taken_interaction_trace) =
+            write_interaction_trace!(jnz_fp_fp_taken);
         let (jnz_fp_imm, jnz_fp_imm_interaction_trace) = write_interaction_trace!(jnz_fp_imm);
+        let (jnz_fp_imm_taken, jnz_fp_imm_taken_interaction_trace) =
+            write_interaction_trace!(jnz_fp_imm_taken);
+
         let (ret, ret_interaction_trace) = write_interaction_trace!(ret);
         let (store_add_fp_fp, store_add_fp_fp_interaction_trace) =
             write_interaction_trace!(store_add_fp_fp);
@@ -616,7 +648,9 @@ impl InteractionClaim {
             jmp_rel_mul_fp_fp,
             jmp_rel_mul_fp_imm,
             jnz_fp_fp,
+            jnz_fp_fp_taken,
             jnz_fp_imm,
+            jnz_fp_imm_taken,
             ret,
             store_add_fp_fp,
             store_add_fp_imm,
@@ -650,7 +684,9 @@ impl InteractionClaim {
             .chain(jmp_rel_mul_fp_fp_interaction_trace)
             .chain(jmp_rel_mul_fp_imm_interaction_trace)
             .chain(jnz_fp_fp_interaction_trace)
+            .chain(jnz_fp_fp_taken_interaction_trace)
             .chain(jnz_fp_imm_interaction_trace)
+            .chain(jnz_fp_imm_taken_interaction_trace)
             .chain(ret_interaction_trace)
             .chain(store_add_fp_fp_interaction_trace)
             .chain(store_add_fp_imm_interaction_trace)
@@ -688,6 +724,7 @@ impl InteractionClaim {
         sum += self.jmp_rel_mul_fp_fp.claimed_sum;
         sum += self.jmp_rel_mul_fp_imm.claimed_sum;
         sum += self.jnz_fp_fp.claimed_sum;
+        sum += self.jnz_fp_fp_taken.claimed_sum;
         sum += self.jnz_fp_imm.claimed_sum;
         sum += self.ret.claimed_sum;
         sum += self.store_add_fp_fp.claimed_sum;
@@ -724,6 +761,7 @@ impl InteractionClaim {
         self.jmp_rel_mul_fp_fp.mix_into(channel);
         self.jmp_rel_mul_fp_imm.mix_into(channel);
         self.jnz_fp_fp.mix_into(channel);
+        self.jnz_fp_fp_taken.mix_into(channel);
         self.jnz_fp_imm.mix_into(channel);
         self.ret.mix_into(channel);
         self.store_add_fp_fp.mix_into(channel);
@@ -760,7 +798,9 @@ pub struct Component {
     pub jmp_rel_mul_fp_fp: jmp_rel_mul_fp_fp::Component,
     pub jmp_rel_mul_fp_imm: jmp_rel_mul_fp_imm::Component,
     pub jnz_fp_fp: jnz_fp_fp::Component,
+    pub jnz_fp_fp_taken: jnz_fp_fp_taken::Component,
     pub jnz_fp_imm: jnz_fp_imm::Component,
+    pub jnz_fp_imm_taken: jnz_fp_imm_taken::Component,
     pub ret: ret::Component,
     pub store_add_fp_fp: store_add_fp_fp::Component,
     pub store_add_fp_imm: store_add_fp_imm::Component,
@@ -816,7 +856,9 @@ impl Component {
         let jmp_rel_mul_fp_fp = new_component!(jmp_rel_mul_fp_fp);
         let jmp_rel_mul_fp_imm = new_component!(jmp_rel_mul_fp_imm);
         let jnz_fp_fp = new_component!(jnz_fp_fp);
+        let jnz_fp_fp_taken = new_component!(jnz_fp_fp_taken);
         let jnz_fp_imm = new_component!(jnz_fp_imm);
+        let jnz_fp_imm_taken = new_component!(jnz_fp_imm_taken);
         let ret = new_component!(ret);
         let store_add_fp_fp = new_component!(store_add_fp_fp);
         let store_add_fp_imm = new_component!(store_add_fp_imm);
@@ -850,7 +892,9 @@ impl Component {
             jmp_rel_mul_fp_fp,
             jmp_rel_mul_fp_imm,
             jnz_fp_fp,
+            jnz_fp_fp_taken,
             jnz_fp_imm,
+            jnz_fp_imm_taken,
             ret,
             store_add_fp_fp,
             store_add_fp_imm,
@@ -887,7 +931,9 @@ impl Component {
             &self.jmp_rel_mul_fp_fp,
             &self.jmp_rel_mul_fp_imm,
             &self.jnz_fp_fp,
+            &self.jnz_fp_fp_taken,
             &self.jnz_fp_imm,
+            &self.jnz_fp_imm_taken,
             &self.ret,
             &self.store_add_fp_fp,
             &self.store_add_fp_imm,
@@ -924,7 +970,9 @@ impl Component {
             &self.jmp_rel_mul_fp_fp,
             &self.jmp_rel_mul_fp_imm,
             &self.jnz_fp_fp,
+            &self.jnz_fp_fp_taken,
             &self.jnz_fp_imm,
+            &self.jnz_fp_imm_taken,
             &self.ret,
             &self.store_add_fp_fp,
             &self.store_add_fp_imm,
