@@ -92,3 +92,32 @@ fn test_prove_and_verify_fibonacci_program() {
 
     verify_cairo_m::<Blake2sMerkleChannel>(proof).unwrap();
 }
+
+#[test]
+#[should_panic(expected = "called `Result::unwrap()` on an `Err` value: InvalidLogupSum")]
+fn test_prove_and_verify_recursive_fibonacci_program() {
+    let source_path = format!(
+        "{}/tests/test_data/{}",
+        env!("CARGO_MANIFEST_DIR"),
+        "recursive_fibonacci.cm"
+    );
+    let compiled_fib = compile_cairo(
+        fs::read_to_string(&source_path).unwrap(),
+        source_path,
+        CompilerOptions::default(),
+    )
+    .unwrap();
+
+    let runner_output = run_cairo_program(
+        &compiled_fib.program,
+        "fib",
+        &[M31::from(5)],
+        Default::default(),
+    )
+    .unwrap();
+
+    let mut prover_input = import_from_runner_output(&runner_output).unwrap();
+    let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input).unwrap();
+
+    verify_cairo_m::<Blake2sMerkleChannel>(proof).unwrap();
+}
