@@ -31,19 +31,19 @@ main:
    0: 6 10 _ 0             // Store immediate: [fp + 0] = 10
    1: 12 2 5 _             // call fib
    2: 4 1 _ 3              // Store: [fp + 3] = [fp + 1]
-   3: 4 3 _ -3             // Return value: [fp - 3] = [fp + 3]
+   3: 4 3 _ -3             // Return value 0: [fp -3] = [fp + 3]
    4: 15 _ _ _             // return
 fib:
    5: 3 -4 0 0             // [fp + 0] = [fp + -4] op 0
    6: 31 0 3 _             // if [fp + 0] != 0 jmp rel fib_2
 fib_1:
-   7: 6 0 _ -3             // Return value: [fp - 3] = 0
+   7: 6 0 _ -3             // Return value 0: [fp -3] = 0
    8: 15 _ _ _             // return
 fib_2:
    9: 3 -4 1 1             // [fp + 1] = [fp + -4] op 1
   10: 31 1 3 _             // if [fp + 1] != 0 jmp rel fib_4
 fib_3:
-  11: 6 1 _ -3             // Return value: [fp - 3] = 1
+  11: 6 1 _ -3             // Return value 0: [fp -3] = 1
   12: 15 _ _ _             // return
 fib_4:
   13: 3 -4 1 2             // [fp + 2] = [fp + -4] op 1

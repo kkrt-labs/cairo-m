@@ -53,11 +53,11 @@ fibonacci_loop_2:
   13: 1 2 1 2              // [fp + 2] = [fp + 2] op 1
   14: 20 3 _ _             // jump abs fibonacci_loop_1
 fibonacci_loop_3:
-  15: 4 0 _ -3             // Return value: [fp - 3] = [fp + 0]
+  15: 4 0 _ -3             // Return value 0: [fp -3] = [fp + 0]
   16: 15 _ _ _             // return
 main:
   17: 6 10 _ 0             // Store immediate: [fp + 0] = 10
   18: 12 2 0 _             // call fibonacci_loop
   19: 4 1 _ 3              // Store: [fp + 3] = [fp + 1]
-  20: 4 3 _ -3             // Return value: [fp - 3] = [fp + 3]
+  20: 4 3 _ -3             // Return value 0: [fp -3] = [fp + 3]
   21: 15 _ _ _             // return

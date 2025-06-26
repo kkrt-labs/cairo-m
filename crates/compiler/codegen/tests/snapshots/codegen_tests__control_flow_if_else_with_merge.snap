@@ -32,5 +32,5 @@ test_if_else_1:
 test_if_else_2:
    5: 6 2 _ 0              // Store immediate: [fp + 0] = 2
 test_if_else_3:
-   6: 4 0 _ -3             // Return value: [fp - 3] = [fp + 0]
+   6: 4 0 _ -3             // Return value 0: [fp -3] = [fp + 0]
    7: 15 _ _ _             // return

@@ -32,5 +32,5 @@ test_single_arg_0:
    2: 6 10 _ 0             // Store immediate: [fp + 0] = 10
    3: 12 2 0 _             // call increment
    4: 4 1 _ 3              // Store: [fp + 3] = [fp + 1]
-   5: 4 3 _ -3             // Return value: [fp - 3] = [fp + 3]
+   5: 4 3 _ -3             // Return value 0: [fp -3] = [fp + 3]
    6: 15 _ _ _             // return

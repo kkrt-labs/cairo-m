@@ -123,12 +123,7 @@ impl CodeGenerator {
             args: (0..function.parameters.len())
                 .map(|i| format!("arg{}", i))
                 .collect(),
-            // TODO: support multiple return values
-            num_return_values: if function.return_value.is_some() {
-                1
-            } else {
-                0
-            },
+            num_return_values: function.return_values.len(),
         };
         self.function_entrypoints
             .insert(function.name.clone(), entrypoint_info);
@@ -242,8 +237,7 @@ impl CodeGenerator {
                 let callee_name = &callee_function.name;
 
                 // For now, assume 1 return value for non-void calls
-                // TODO: This should be determined from function signature / callee_function.return_value (when it has support for multiple?)
-                let num_returns = 1;
+                let num_returns = callee_function.return_values.len();
 
                 builder.call(*dest, callee_name, args, num_returns)?;
             }
@@ -293,17 +287,40 @@ impl CodeGenerator {
         Ok(())
     }
 
-    /// Get the target offset for a destination ValueId if it will be immediately returned
-    fn get_target_offset_for_dest(&self, dest: ValueId, terminator: &Terminator) -> Option<i32> {
+    /// Get the target offsets for destination ValueIds if they will be immediately returned
+    /// Supports optimization for multiple return values
+    fn get_target_offsets_for_dests(
+        &self,
+        dests: &[ValueId],
+        terminator: &Terminator,
+    ) -> Vec<Option<i32>> {
         match terminator {
-            Terminator::Return {
-                value: Some(Value::Operand(return_dest)),
-            } if *return_dest == dest => {
-                // This destination will be immediately returned, use the return slot
-                Some(-3) // Return slot is at [fp - 3]
+            Terminator::Return { values } => {
+                let k = values.len() as i32;
+                dests
+                    .iter()
+                    .map(|dest| {
+                        // Check if this dest is one of the values being returned
+                        values
+                            .iter()
+                            .position(|v| matches!(v, Value::Operand(id) if *id == *dest))
+                            .map(|index| {
+                                // Return value i goes to [fp - K - 2 + i]
+                                -(k + 2) + index as i32
+                            })
+                    })
+                    .collect()
             }
-            _ => None, // Use normal allocation
+            _ => vec![None; dests.len()], // No optimization for non-return terminators
         }
+    }
+
+    /// Get the target offset for a single destination ValueId if it will be immediately returned
+    fn get_target_offset_for_dest(&self, dest: ValueId, terminator: &Terminator) -> Option<i32> {
+        self.get_target_offsets_for_dests(&[dest], terminator)
+            .into_iter()
+            .next()
+            .flatten()
     }
 
     /// Generate code for a terminator with fall-through optimization
@@ -390,8 +407,8 @@ impl CodeGenerator {
                 }
             }
 
-            Terminator::Return { value } => {
-                builder.return_value(*value)?;
+            Terminator::Return { values } => {
+                builder.return_values(values)?;
             }
 
             Terminator::Unreachable => {
@@ -563,12 +580,11 @@ mod tests {
         let mut function = MirFunction::new("main".to_string());
         let value_id = function.new_value_id();
         function.parameters.push(value_id);
+        function.return_values.push(value_id);
 
         // Create a simple basic block that returns the parameter
         let mut block = BasicBlock::new();
-        block.terminator = Terminator::Return {
-            value: Some(Value::Operand(ValueId::from_raw(0))),
-        };
+        block.terminator = Terminator::return_value(Value::Operand(ValueId::from_raw(0)));
 
         function.basic_blocks.push(block);
         function
@@ -606,11 +622,10 @@ mod tests {
             .push(Instruction::assign(dest, Value::integer(42)));
 
         // Return the value
-        block.terminator = Terminator::Return {
-            value: Some(Value::Operand(dest)),
-        };
+        block.terminator = Terminator::return_value(Value::Operand(dest));
 
         function.basic_blocks.push(block);
+        function.return_values.push(dest);
         module.functions.push(function);
 
         // Compile the module

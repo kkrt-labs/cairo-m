@@ -54,12 +54,7 @@ impl FunctionLayout {
             value_offsets: FxHashMap::default(),
             current_frame_usage: 0,
             num_parameters: function.parameters.len(),
-            // TODO: Support multiple return values properly from MIR type info.
-            num_return_values: if function.return_value.is_some() {
-                1
-            } else {
-                0
-            },
+            num_return_values: function.return_values.len(),
         };
 
         layout.allocate_parameters(function)?;
