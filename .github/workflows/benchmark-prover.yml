@@ -49,7 +49,7 @@ jobs:
           cd crates/prover
           cargo bench --bench prover_memory_benchmark -- --nocapture > mem_output.json
 
-      - name: Store/Compare Prover Speed Benchmark (main branch)
+      - name: Store prover speed benchmark result (main branch)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: benchmark-action/github-action-benchmark@v1
         with:
@@ -65,7 +65,7 @@ jobs:
           fail-on-alert: true
           fail-threshold: "150%"
 
-      - name: Compare Prover Speed Benchmark (PR)
+      - name: Compare prover speed benchmarks (PR)
         if: github.event_name == 'pull_request'
         uses: benchmark-action/github-action-benchmark@v1
         with:
@@ -83,7 +83,7 @@ jobs:
           fail-threshold: "200%"
           summary-always: true
 
-      - name: Store/Compare Prover Memory Benchmark (main branch)
+      - name: Store prover memory benchmark result (main branch)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: benchmark-action/github-action-benchmark@v1
         with:
@@ -98,8 +98,9 @@ jobs:
           comment-on-alert: true
           fail-on-alert: true
           fail-threshold: "150%"
+          skip-fetch-gh-pages: true
 
-      - name: Compare Prover Memory Benchmark (PR)
+      - name: Compare prover memory benchmarks (PR)
         if: github.event_name == 'pull_request'
         uses: benchmark-action/github-action-benchmark@v1
         with:
@@ -116,3 +117,4 @@ jobs:
           fail-on-alert: true
           fail-threshold: "200%"
           summary-always: true
+          skip-fetch-gh-pages: true
