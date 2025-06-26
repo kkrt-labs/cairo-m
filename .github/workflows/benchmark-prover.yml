@@ -1,0 +1,118 @@
+name: Prover Benchmarks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "crates/prover/**"
+      - ".github/workflows/benchmark-prover.yml"
+  pull_request:
+    paths:
+      - "crates/prover/**"
+      - ".github/workflows/benchmark-prover.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  deployments: write
+  id-token: write
+  pages: write
+  pull-requests: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  benchmark:
+    name: Run and Compare Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+
+      - name: Run prover speed benchmarks
+        run: |
+          cd crates/prover
+          cargo bench --bench prover_speed_benchmark -- --output-format bencher | tee speed_output.txt
+
+      - name: Run prover memory benchmarks
+        run: |
+          cd crates/prover
+          cargo bench --bench prover_memory_benchmark -- --nocapture > mem_output.json
+
+      - name: Store/Compare Prover Speed Benchmark (main branch)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Cairo-M Prover Speed Benchmarks
+          tool: "cargo"
+          output-file-path: crates/prover/speed_output.txt
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: "dev/bench-prover-speed"
+          alert-threshold: "105%"
+          comment-on-alert: true
+          fail-on-alert: true
+          fail-threshold: "150%"
+
+      - name: Compare Prover Speed Benchmark (PR)
+        if: github.event_name == 'pull_request'
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Cairo-M Prover Speed Benchmarks
+          tool: "cargo"
+          output-file-path: crates/prover/speed_output.txt
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: "dev/bench-prover-speed"
+          auto-push: false
+          comment-on-alert: true
+          alert-threshold: "105%"
+          comment-always: true
+          fail-on-alert: true
+          fail-threshold: "200%"
+          summary-always: true
+
+      - name: Store/Compare Prover Memory Benchmark (main branch)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Cairo-M Prover Memory Benchmarks
+          tool: "customBiggerIsBetter"
+          output-file-path: crates/prover/mem_output.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: "dev/bench-prover-mem"
+          alert-threshold: "105%"
+          comment-on-alert: true
+          fail-on-alert: true
+          fail-threshold: "150%"
+
+      - name: Compare Prover Memory Benchmark (PR)
+        if: github.event_name == 'pull_request'
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Cairo-M Prover Memory Benchmarks
+          tool: "customBiggerIsBetter"
+          output-file-path: crates/prover/mem_output.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: "dev/bench-prover-mem"
+          auto-push: false
+          comment-on-alert: true
+          alert-threshold: "105%"
+          comment-always: true
+          fail-on-alert: true
+          fail-threshold: "200%"
+          summary-always: true
