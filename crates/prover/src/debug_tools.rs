@@ -1,6 +1,7 @@
 // Adapted from https://github.com/starkware-libs/stwo-cairo/blob/main/stwo_cairo_prover/crates/prover/src/debug_tools/relation_tracker.rs
 
 use itertools::chain;
+use num_traits::One;
 use stwo_prover::constraint_framework::relation_tracker::{
     add_to_relation_entries, RelationSummary, RelationTrackerEntry,
 };
@@ -12,21 +13,24 @@ use stwo_prover::core::pcs::{CommitmentSchemeProver, TreeVec};
 use stwo_prover::core::poly::circle::CanonicCoset;
 
 use crate::components::Components;
+use crate::public_data::PublicData;
 
 pub fn track_and_summarize_relations<MC: MerkleChannel>(
     commitment_scheme: &CommitmentSchemeProver<'_, SimdBackend, MC>,
     components: &Components,
+    public_data: &PublicData,
 ) -> RelationSummary
 where
     SimdBackend: BackendForChannel<MC>,
 {
-    let entries = track_relations(commitment_scheme, components);
+    let entries = track_relations(commitment_scheme, components, public_data);
     RelationSummary::summarize_relations(&entries).cleaned()
 }
 
 fn track_relations<MC: MerkleChannel>(
     commitment_scheme: &CommitmentSchemeProver<'_, SimdBackend, MC>,
     components: &Components,
+    public_data: &PublicData,
 ) -> Vec<RelationTrackerEntry>
 where
     SimdBackend: BackendForChannel<MC>,
@@ -44,7 +48,23 @@ where
     let evals = &evals.as_ref();
     let trace = &evals.into();
 
-    relation_entries(components, trace)
+    let mut entries = relation_entries(components, trace);
+
+    let initial_registers = public_data.initial_registers;
+    let final_registers = public_data.final_registers;
+
+    entries.push(RelationTrackerEntry {
+        relation: "Registers".to_string(),
+        mult: M31::one(),
+        values: [initial_registers.pc, initial_registers.fp].to_vec(),
+    });
+    entries.push(RelationTrackerEntry {
+        relation: "Registers".to_string(),
+        mult: -M31::one(),
+        values: [final_registers.pc, final_registers.fp].to_vec(),
+    });
+
+    entries
 }
 
 fn relation_entries(
