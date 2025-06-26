@@ -11,7 +11,7 @@ use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
 
 const BENCHMARK_DURATION_SECS: u64 = 30;
-const N_ITERATIONS: u32 = 10_000;
+const N_ITERATIONS: u32 = 100_000;
 
 /// Compiles the fibonacci.cm file from the test data directory
 fn compile_fibonacci() -> Program {

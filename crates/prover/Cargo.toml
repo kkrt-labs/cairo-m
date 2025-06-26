@@ -5,7 +5,6 @@ edition.workspace = true
 
 [features]
 relation-tracker = []
-dhat-heap = ["dep:dhat"]
 
 [dependencies]
 serde.workspace = true
@@ -23,7 +22,6 @@ cairo-m-runner.workspace = true
 cairo-m-compiler.workspace = true
 cairo-m-common.workspace = true
 itertools.workspace = true
-dhat = { version = "0.3.3", optional = true }
 
 [dev-dependencies]
 tempfile = "3.0"

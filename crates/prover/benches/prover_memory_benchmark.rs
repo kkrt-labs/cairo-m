@@ -13,7 +13,7 @@ use cairo_m_runner::run_cairo_program;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
 
-const N_ITERATIONS: u32 = 10_000; // Same as speed benchmark for consistency
+const N_ITERATIONS: u32 = 100_000; // Same as speed benchmark for consistency
 
 /// Compiles the fibonacci.cm file from the test data directory
 fn compile_fibonacci() -> Program {
