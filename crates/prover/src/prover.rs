@@ -3,15 +3,17 @@ use std::time::Instant;
 use stwo_prover::constraint_framework::TraceLocationAllocator;
 use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::backend::BackendForChannel;
-use stwo_prover::core::channel::{Channel, MerkleChannel};
+use stwo_prover::core::channel::{Blake2sChannel, Channel, MerkleChannel};
 use stwo_prover::core::pcs::{CommitmentSchemeProver, PcsConfig};
 use stwo_prover::core::poly::circle::{CanonicCoset, PolyOps};
 use stwo_prover::core::proof_of_work::GrindOps;
 use stwo_prover::core::prover::prove;
+use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
 use tracing::{info, span, Level};
 
 use crate::adapter::ProverInput;
 use crate::components::{Claim, Components, InteractionClaim, Relations};
+use crate::debug_tools::{assert_components, MockCommitmentScheme};
 use crate::errors::ProvingError;
 use crate::preprocessed::PreProcessedTraceBuilder;
 use crate::public_data::PublicData;
@@ -134,4 +136,62 @@ where
         stark_proof,
         interaction_pow,
     })
+}
+
+pub fn assert_constraints(input: &mut ProverInput) {
+    // let pcs_config = PcsConfig::default();
+
+    // let trace_log_size = std::cmp::max(
+    //     PREPROCESSED_TRACE_LOG_SIZE,
+    //     std::cmp::max(
+    //         (input.memory_boundaries.initial_memory.len()
+    //             + input.memory_boundaries.final_memory.len())
+    //         .next_power_of_two()
+    //         .ilog2(),
+    //         input
+    //             .instructions
+    //             .states_by_opcodes
+    //             .values()
+    //             .map(|states| states.len().next_power_of_two())
+    //             .max()
+    //             .unwrap_or(1)
+    //             .ilog2(),
+    //     ),
+    // );
+
+    let mut commitment_scheme = MockCommitmentScheme::default();
+
+    // Preprocessed trace.
+    let preprocessed_trace = PreProcessedTraceBuilder::default().build();
+    let mut tree_builder = commitment_scheme.tree_builder();
+    tree_builder.extend_evals(preprocessed_trace.gen_trace());
+    tree_builder.finalize_interaction();
+
+    // Base trace.
+    let (claim, trace, lookup_data) = Claim::write_trace::<Blake2sMerkleChannel>(input);
+    let mut tree_builder = commitment_scheme.tree_builder();
+    tree_builder.extend_evals(trace);
+    tree_builder.finalize_interaction();
+
+    // Interaction trace.
+
+    let mut dummy_channel = Blake2sChannel::default();
+    let relations = Relations::draw(&mut dummy_channel);
+    let mut tree_builder = commitment_scheme.tree_builder();
+    let (interaction_trace, interaction_claim) =
+        InteractionClaim::write_interaction_trace(&relations, &lookup_data);
+    tree_builder.extend_evals(interaction_trace);
+    tree_builder.finalize_interaction();
+
+    let mut tree_span_provider =
+        TraceLocationAllocator::new_with_preproccessed_columns(&preprocessed_trace.ids());
+
+    let components = Components::new(
+        &mut tree_span_provider,
+        &claim,
+        &interaction_claim,
+        &relations,
+    );
+
+    assert_components(commitment_scheme.trace_domain_evaluations(), &components);
 }
