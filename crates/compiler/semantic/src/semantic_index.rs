@@ -47,8 +47,8 @@
 
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCollection};
 use cairo_m_compiler_parser::parser::{
-    ConstDef, Expression, FunctionDef, ImportStmt, Namespace, Spanned, Statement, StructDef,
-    TopLevelItem,
+    ConstDef, Expression, FunctionDef, ImportStmt, Namespace, Pattern, Spanned, Statement,
+    StructDef, TopLevelItem,
 };
 use cairo_m_compiler_parser::{parse_program, ParsedModule};
 use chumsky::span::SimpleSpan;
@@ -826,44 +826,90 @@ impl<'db> SemanticIndexBuilder<'db> {
 
         match stmt.value() {
             Statement::Let {
-                name,
+                pattern,
                 value,
                 statement_type,
             } => {
                 use crate::definition::{DefinitionKind, LetDefRef};
                 // Visit the value expression and capture the ID
                 let value_expr_id = self.visit_expression(value);
-                // Define the let variable with the captured expression ID
-                let def_kind = DefinitionKind::Let(LetDefRef::from_let_statement(
-                    name.value(),
-                    statement_type.clone(),
-                    Some(value_expr_id),
-                ));
-                self.add_place_with_definition(
-                    name.value(),
-                    PlaceFlags::DEFINED,
-                    def_kind,
-                    name.span(),
-                    stmt.span(),
-                );
+
+                match pattern {
+                    Pattern::Identifier(name) => {
+                        // Simple identifier pattern
+                        let def_kind = DefinitionKind::Let(LetDefRef::from_let_statement(
+                            name.value(),
+                            statement_type.clone(),
+                            Some(value_expr_id),
+                        ));
+                        self.add_place_with_definition(
+                            name.value(),
+                            PlaceFlags::DEFINED,
+                            def_kind,
+                            name.span(),
+                            stmt.span(),
+                        );
+                    }
+                    Pattern::Tuple(names) => {
+                        // Tuple destructuring pattern
+                        for (index, name) in names.iter().enumerate() {
+                            let def_kind = DefinitionKind::Let(LetDefRef::from_destructuring(
+                                name.value(),
+                                statement_type.clone(),
+                                value_expr_id,
+                                index,
+                            ));
+                            self.add_place_with_definition(
+                                name.value(),
+                                PlaceFlags::DEFINED,
+                                def_kind,
+                                name.span(),
+                                stmt.span(),
+                            );
+                        }
+                    }
+                }
             }
-            Statement::Local { name, value, ty } => {
+            Statement::Local { pattern, value, ty } => {
                 use crate::definition::{DefinitionKind, LocalDefRef};
                 // Visit the value expression and capture the ID
                 let value_expr_id = self.visit_expression(value);
-                // Define the local variable with the captured expression ID
-                let def_kind = DefinitionKind::Local(LocalDefRef::from_local_statement(
-                    name.value(),
-                    ty.clone(),
-                    Some(value_expr_id),
-                ));
-                self.add_place_with_definition(
-                    name.value(),
-                    PlaceFlags::DEFINED,
-                    def_kind,
-                    name.span(),
-                    stmt.span(),
-                );
+
+                match pattern {
+                    Pattern::Identifier(name) => {
+                        // Simple identifier pattern
+                        let def_kind = DefinitionKind::Local(LocalDefRef::from_local_statement(
+                            name.value(),
+                            ty.clone(),
+                            Some(value_expr_id),
+                        ));
+                        self.add_place_with_definition(
+                            name.value(),
+                            PlaceFlags::DEFINED,
+                            def_kind,
+                            name.span(),
+                            stmt.span(),
+                        );
+                    }
+                    Pattern::Tuple(names) => {
+                        // Tuple destructuring pattern
+                        for (index, name) in names.iter().enumerate() {
+                            let def_kind = DefinitionKind::Local(LocalDefRef::from_destructuring(
+                                name.value(),
+                                ty.clone(),
+                                value_expr_id,
+                                index,
+                            ));
+                            self.add_place_with_definition(
+                                name.value(),
+                                PlaceFlags::DEFINED,
+                                def_kind,
+                                name.span(),
+                                stmt.span(),
+                            );
+                        }
+                    }
+                }
                 // TODO: Analyze type annotation when type system is implemented
             }
             Statement::Const(const_def) => {

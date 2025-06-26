@@ -9,3 +9,4 @@
 pub mod function_calls;
 pub mod parameter_validation;
 pub mod return_types;
+pub mod tuple_destructuring;
