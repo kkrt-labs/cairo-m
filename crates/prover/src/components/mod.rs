@@ -1,7 +1,6 @@
 pub mod memory;
 pub mod opcodes;
 use num_traits::Zero;
-use rayon::iter::ParallelIterator;
 use serde::{Deserialize, Serialize};
 pub use stwo_air_utils::trace::component_trace::ComponentTrace;
 pub use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
@@ -83,8 +82,6 @@ impl Claim {
             memory::Claim::write_trace(&input.memory_boundaries);
 
         // Write range_check components
-        let range_check_data = opcodes_interaction_claim_data.range_check_20();
-        dbg!(&range_check_data.collect::<Vec<_>>());
         let range_check_data = opcodes_interaction_claim_data.range_check_20();
         let (range_check_20_claim, range_check_20_trace, range_check_20_interaction_claim_data) =
             range_check_20::Claim::write_trace(range_check_data);
