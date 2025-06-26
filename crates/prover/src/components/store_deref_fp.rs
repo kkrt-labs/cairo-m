@@ -23,9 +23,9 @@ use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
-use crate::adapter::StateData;
+use crate::adapter::ExecutionBundle;
 use crate::relations;
-use crate::utils::{Enabler, PackedStateData};
+use crate::utils::{Enabler, PackedExecutionBundle};
 
 const N_TRACE_COLUMNS: usize = 13;
 // -(pc, [opcode_id, off0, off1, off2], prev_clock) || +(pc, [opcode_id, off0, off1, off2], clock)
@@ -69,7 +69,7 @@ impl Claim {
     }
 
     pub fn write_trace<MC: MerkleChannel>(
-        inputs: &mut Vec<StateData>,
+        inputs: &mut Vec<ExecutionBundle>,
     ) -> (Self, ComponentTrace<N_TRACE_COLUMNS>, InteractionClaimData)
     where
         SimdBackend: BackendForChannel<MC>,
@@ -83,11 +83,13 @@ impl Claim {
                 LookupData::uninitialized(log_size - LOG_N_LANES),
             )
         };
-        inputs.resize(1 << log_size, StateData::default());
-        let packed_inputs: Vec<PackedStateData> = inputs
+        inputs.resize(1 << log_size, ExecutionBundle::default());
+        let packed_inputs: Vec<PackedExecutionBundle> = inputs
             .chunks(N_LANES)
             .map(|chunk| {
-                let array: [StateData; N_LANES] = chunk.try_into().unwrap();
+                let array: [ExecutionBundle; N_LANES] = chunk.try_into().expect(
+                    "inputs were resized to max(N_LANES, inputs.len().next_power_of_two()) which is always a multiple of N_LANES",
+                );
                 Pack::pack(array)
             })
             .collect();
@@ -106,17 +108,17 @@ impl Claim {
                 *row[1] = input.pc;
                 *row[2] = input.fp;
 
-                let clock = input.mem0_clock;
+                let clock = input.clock;
                 *row[3] = clock;
 
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [input.pc + one, input.fp];
 
-                let opcode_id = input.mem0_value_0;
-                let off0 = input.mem0_value_1;
-                let off1 = input.mem0_value_2;
-                let off2 = input.mem0_value_3;
-                let instruction_prev_clock = input.mem0_prev_clock;
+                let opcode_id = input.instr_value_0;
+                let off0 = input.instr_value_1;
+                let off1 = input.instr_value_2;
+                let off2 = input.instr_value_3;
+                let instruction_prev_clock = input.instr_prev_clock;
 
                 *lookup_data.range_check_20[0] = clock - instruction_prev_clock - enabler;
 
@@ -136,10 +138,10 @@ impl Claim {
                 ];
                 *lookup_data.memory[1] = [input.pc, clock, opcode_id, off0, off1, off2];
 
-                let src_prev_clock = input.mem1_prev_clock;
-                let src_value = input.mem1_value_0;
-                let dst_prev_clock = input.mem2_prev_clock;
-                let dst_prev_value = input.mem2_prev_val_0;
+                let src_prev_clock = input.op1_prev_clock;
+                let src_value = input.op1_value;
+                let dst_prev_clock = input.op2_prev_clock;
+                let dst_prev_value = input.op2_prev_value;
 
                 *lookup_data.range_check_20[1] = clock - src_prev_clock - enabler;
                 *lookup_data.range_check_20[2] = clock - dst_prev_clock - enabler;
@@ -163,6 +165,10 @@ impl Claim {
                 ];
                 *lookup_data.memory[5] = [input.fp + off2, clock, src_value, zero, zero, zero];
             });
+
+        // Clear the inputs to minimize memory footprint
+        // Since once the trace is written, the opcode specific inputs are not needed anymore
+        inputs.clear();
 
         (
             Self { log_size },
