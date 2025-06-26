@@ -54,7 +54,7 @@ use stwo_prover::core::poly::BitReversedOrder;
 use crate::adapter::Instructions;
 use crate::components::Relations;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Claim {
     pub call_abs_fp: call_abs_fp::Claim,
     pub call_abs_imm: call_abs_imm::Claim,
@@ -139,7 +139,7 @@ impl InteractionClaimData {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct InteractionClaim {
     pub call_abs_fp: call_abs_fp::InteractionClaim,
     pub call_abs_imm: call_abs_imm::InteractionClaim,

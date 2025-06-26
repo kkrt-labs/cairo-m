@@ -61,6 +61,7 @@ where
         CommitmentSchemeProver::<SimdBackend, MC>::new(pcs_config, &twiddles);
 
     let public_data = PublicData::new(&input.instructions);
+    dbg!(&public_data);
 
     // Preprocessed traces
     info!("preprocessed trace");
@@ -71,7 +72,9 @@ where
 
     // Execution traces
     info!("execution trace");
+    dbg!(&input.instructions);
     let (claim, trace, lookup_data) = Claim::write_trace(input);
+    dbg!(&claim);
     claim.mix_into(channel);
 
     let mut tree_builder = commitment_scheme.tree_builder();

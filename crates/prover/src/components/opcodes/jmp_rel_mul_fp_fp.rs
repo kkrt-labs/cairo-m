@@ -84,7 +84,7 @@ pub struct LookupData {
     pub range_check_20: [Vec<PackedM31>; N_RANGE_CHECK_20_LOOKUPS],
 }
 
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Default, Serialize, Deserialize, Debug)]
 pub struct Claim {
     pub log_size: u32,
 }
@@ -190,7 +190,7 @@ impl Claim {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct InteractionClaim {
     pub claimed_sum: SecureField,
 }
