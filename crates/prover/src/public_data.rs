@@ -23,7 +23,7 @@ impl PublicData {
         }
     }
 
-    pub fn initial_logup_sum(self, relations: &Relations) -> SecureField {
+    pub fn initial_logup_sum(&self, relations: &Relations) -> SecureField {
         let values_to_inverse = vec![
             (-<relations::Registers as Relation<M31, QM31>>::combine(
                 &relations.registers,
