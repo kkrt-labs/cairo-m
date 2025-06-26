@@ -344,8 +344,8 @@ impl InteractionClaim {
         )
             .into_par_iter()
             .enumerate()
-            .for_each(|(i, (writer, range_check_20_0, range_check_20_1))| {
-                let num = -PackedQM31::from(enabler_col.packed_at(i));
+            .for_each(|(_i, (writer, range_check_20_0, range_check_20_1))| {
+                let num = -PackedQM31::one();
                 let denom_0: PackedQM31 = range_check_20_relation.combine(&[*range_check_20_0]);
                 let denom_1: PackedQM31 = range_check_20_relation.combine(&[*range_check_20_1]);
 
@@ -364,8 +364,8 @@ impl InteractionClaim {
         )
             .into_par_iter()
             .enumerate()
-            .for_each(|(i, (writer, range_check_20_2, range_check_20_3))| {
-                let num = -PackedQM31::from(enabler_col.packed_at(i));
+            .for_each(|(_i, (writer, range_check_20_2, range_check_20_3))| {
+                let num = -PackedQM31::one();
                 let denom_2: PackedQM31 = range_check_20_relation.combine(&[*range_check_20_2]);
                 let denom_3: PackedQM31 = range_check_20_relation.combine(&[*range_check_20_3]);
 
