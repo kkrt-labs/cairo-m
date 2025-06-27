@@ -4,7 +4,8 @@ use std::fs;
 use cairo_m_compiler::{compile_cairo, CompilerOptions};
 use cairo_m_prover::adapter::memory::Memory;
 use cairo_m_prover::adapter::{import_from_runner_output, Instructions, ProverInput};
-use cairo_m_prover::prover::{assert_constraints, prove_cairo_m};
+use cairo_m_prover::debug_tools::assert_constraints::assert_constraints;
+use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_prover::verifier::verify_cairo_m;
 use cairo_m_runner::run_cairo_program;
 use stwo_prover::core::fields::m31::M31;
@@ -133,7 +134,7 @@ fn test_all_constraints() {
     let source_path = format!(
         "{}/tests/test_data/{}",
         env!("CARGO_MANIFEST_DIR"),
-        "recursive_fibonacci.cm"
+        "fibonacci.cm"
     );
     let compiled_fib = compile_cairo(
         fs::read_to_string(&source_path).unwrap(),
