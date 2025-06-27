@@ -107,7 +107,6 @@ impl Claim {
     ///
     /// # Important
     /// This function consumes the contents of `inputs` by clearing it after processing.
-    /// The vector's capacity is preserved but its length is set to 0.
     /// This is done to free memory during proof generation as the inputs are no longer needed
     /// after being packed into SIMD-friendly format.
     pub fn write_trace<MC: MerkleChannel>(
