@@ -57,7 +57,7 @@ fn fibonacci_prove_benchmark(c: &mut Criterion) {
 
     group.bench_function("prove", |b| {
         b.iter(|| {
-            let mut prover_input = import_from_runner_output(runner_output.clone())
+            let mut prover_input = import_from_runner_output_ref(&runner_output)
                 .expect("Failed to import runner output");
 
             // Benchmark: prove the execution

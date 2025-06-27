@@ -101,3 +101,18 @@ pub fn import_from_runner_output(
 
     import_internal(trace_iter, memory_iter)
 }
+
+/// Import the prover input from a runner output reference.
+/// For performance, use `import_from_runner_output` instead.
+pub fn import_from_runner_output_ref(
+    runner_output: &RunnerOutput,
+) -> Result<ProverInput, VmImportError> {
+    let _span = span!(Level::INFO, "import_from_runner_output_randomized").entered();
+
+    let vm = &runner_output.vm;
+    let trace_iter = vm.trace.iter().copied();
+    let memory_trace = vm.memory.trace.borrow();
+    let memory_iter = memory_trace.iter().copied();
+
+    import_internal(trace_iter, memory_iter)
+}
