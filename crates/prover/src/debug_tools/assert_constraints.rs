@@ -1,5 +1,5 @@
 // Adapted from https://github.com/starkware-libs/stwo-cairo/blob/main/stwo_cairo_prover/crates/prover/src/debug_tools/assert_constraints.rs
-#![allow(dead_code)]
+#![allow(unused)]
 
 use std::ops::Deref;
 
