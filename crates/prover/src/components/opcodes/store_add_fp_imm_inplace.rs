@@ -55,9 +55,9 @@ use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
-use crate::adapter::StateData;
+use crate::adapter::ExecutionBundle;
 use crate::relations;
-use crate::utils::{Enabler, PackedStateData};
+use crate::utils::{Enabler, PackedExecutionBundle};
 
 const N_TRACE_COLUMNS: usize = 11;
 const N_MEMORY_LOOKUPS: usize = 4;
@@ -96,14 +96,18 @@ impl Claim {
     }
 
     pub fn write_trace<MC: MerkleChannel>(
-        inputs: &mut [StateData],
+        inputs: &mut [ExecutionBundle],
     ) -> (Self, ComponentTrace<N_TRACE_COLUMNS>, InteractionClaimData)
     where
         SimdBackend: BackendForChannel<MC>,
     {
+        // Filter out non-inplace instructions (off0 != off2)
         let mut inputs = inputs
             .iter()
-            .filter(|input| input.memory_args[2].address == input.memory_args[1].address)
+            .filter(|input| {
+                input.instruction.value.to_m31_array()[3]
+                    == input.instruction.value.to_m31_array()[1]
+            })
             .cloned()
             .collect::<Vec<_>>();
         let non_padded_length = inputs.len();
@@ -115,11 +119,11 @@ impl Claim {
                 LookupData::uninitialized(log_size - LOG_N_LANES),
             )
         };
-        inputs.resize(1 << log_size, StateData::default());
-        let packed_inputs: Vec<PackedStateData> = inputs
+        inputs.resize(1 << log_size, ExecutionBundle::default());
+        let packed_inputs: Vec<PackedExecutionBundle> = inputs
             .chunks(N_LANES)
             .map(|chunk| {
-                let array: [StateData; N_LANES] = chunk.try_into().unwrap();
+                let array: [ExecutionBundle; N_LANES] = chunk.try_into().unwrap();
                 Pack::pack(array)
             })
             .collect();
@@ -138,14 +142,14 @@ impl Claim {
                 let enabler = enabler_col.packed_at(row_index);
                 let pc = input.pc;
                 let fp = input.fp;
-                let clock = input.mem0_clock;
-                let inst_prev_clock = input.mem0_prev_clock;
-                let opcode_id = input.mem0_value_0;
-                let off0 = input.mem0_value_1;
-                let off1 = input.mem0_value_2;
-                let off2 = input.mem0_value_3;
+                let clock = input.clock;
+                let inst_prev_clock = input.inst_prev_clock;
+                let opcode_id = input.inst_value_0;
+                let off0 = input.inst_value_1;
+                let off1 = input.inst_value_2;
+                let off2 = input.inst_value_3;
                 let op0_prev_clock = input.mem1_prev_clock;
-                let op0_prev_val = input.mem1_prev_val_0;
+                let op0_prev_val = input.mem1_prev_value;
 
                 *row[0] = enabler;
                 *row[1] = pc;
