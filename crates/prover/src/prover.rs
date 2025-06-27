@@ -57,6 +57,7 @@ where
             .circle_domain()
             .half_coset,
     );
+
     let mut commitment_scheme =
         CommitmentSchemeProver::<SimdBackend, MC>::new(pcs_config, &twiddles);
 

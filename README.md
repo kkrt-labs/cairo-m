@@ -60,3 +60,26 @@ RUSTFLAGS="-C target-cpu=native" cargo bench --bench vm_benchmark -- --verbose
 
 The command will run all benchmark functions from the VM and display the
 throughput results in your terminal.
+
+## Profile Prover
+
+Samply can be used
+
+```bash
+cargo install --locked samply
+```
+
+Compile the program you want to run and launch:
+
+```bash
+samply record target/release/cairo-m-prover --entrypoint fib --arguments 100000 crates/prover/tests/test_data/fibonacci.json
+```
+
+For memory, it leverages [DHAT](https://docs.rs/dhat/latest/dhat/).
+
+```bash
+CARGO_PROFILE_RELEASE_DEBUG=true cargo test --release --package cairo-m-prover --test prover --features dhat-heap -- test_memory_profile_fibonacci_prover --nocapture
+```
+
+You can visualize with
+[dh_view](https://nnethercote.github.io/dh_view/dh_view.html)

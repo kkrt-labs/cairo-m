@@ -5,6 +5,11 @@ edition.workspace = true
 
 [features]
 relation-tracker = []
+dhat-heap = []
+
+[[bin]]
+name = "cairo-m-prover"
+path = "src/main.rs"
 
 [dependencies]
 serde.workspace = true
@@ -22,12 +27,15 @@ cairo-m-runner.workspace = true
 cairo-m-compiler.workspace = true
 cairo-m-common.workspace = true
 itertools.workspace = true
+anyhow.workspace = true
+clap.workspace = true
 
 [dev-dependencies]
 tempfile = "3.0"
 itertools.workspace = true
 criterion.workspace = true
 peak_alloc = "0.2.0"
+dhat.workspace = true
 
 [[bench]]
 name = "prover_speed_benchmark"
