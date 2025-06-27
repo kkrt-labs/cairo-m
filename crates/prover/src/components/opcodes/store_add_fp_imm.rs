@@ -40,6 +40,7 @@ use num_traits::{One, Zero};
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
 };
+use rayon::slice::ParallelSlice;
 use serde::{Deserialize, Serialize};
 use stwo_air_utils::trace::component_trace::ComponentTrace;
 use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
@@ -100,20 +101,25 @@ impl Claim {
         TreeVec::new(vec![vec![], trace, interaction_trace])
     }
 
+    /// Writes the trace for the StoreAddFpImm opcode.
+    ///
+    /// # Important
+    /// This function filters the inputs and creates a local vector which is cleared after processing.
+    /// The local vector's capacity is preserved but its length is set to 0.
+    /// This is done to free memory during proof generation as the filtered inputs are no longer needed
+    /// after being packed into SIMD-friendly format.
     pub fn write_trace<MC: MerkleChannel>(
-        inputs: &mut [ExecutionBundle],
+        inputs: &mut Vec<ExecutionBundle>,
     ) -> (Self, ComponentTrace<N_TRACE_COLUMNS>, InteractionClaimData)
     where
         SimdBackend: BackendForChannel<MC>,
     {
         // Filter out inplace instructions (off0 == off2)
         let mut inputs = inputs
-            .iter()
-            .filter(|input| {
+            .extract_if(.., |input| {
                 input.instruction.value.to_m31_array()[3]
                     != input.instruction.value.to_m31_array()[1]
             })
-            .cloned()
             .collect::<Vec<_>>();
         let non_padded_length = inputs.len();
         let log_size = std::cmp::max(LOG_N_LANES, inputs.len().next_power_of_two().ilog2());
@@ -126,12 +132,16 @@ impl Claim {
         };
         inputs.resize(1 << log_size, ExecutionBundle::default());
         let packed_inputs: Vec<PackedExecutionBundle> = inputs
-            .chunks(N_LANES)
+            .par_chunks_exact(N_LANES)
             .map(|chunk| {
                 let array: [ExecutionBundle; N_LANES] = chunk.try_into().unwrap();
                 Pack::pack(array)
             })
             .collect();
+        // Clear the inputs to free memory early. The data has been packed into SIMD format
+        // and the original inputs are no longer needed. This reduces memory pressure during
+        // proof generation. Note: this preserves the vector's capacity for potential reuse.
+        inputs.clear();
 
         let zero = PackedM31::from(M31::zero());
         let one = PackedM31::from(M31::one());
