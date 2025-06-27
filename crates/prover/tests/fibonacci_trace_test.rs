@@ -65,7 +65,7 @@ pub mod fibonacci {
             // Test importing from the generated files
             let from_files = import_from_runner_artifacts(&trace_path, &memory_path)
                 .expect("Failed to import from vm output");
-            let from_runner_output = import_from_runner_output(&cairo_result)
+            let from_runner_output = import_from_runner_output(cairo_result)
                 .expect("Failed to import from runner output");
 
             // Compare the results

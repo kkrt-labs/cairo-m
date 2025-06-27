@@ -54,15 +54,14 @@ fn fibonacci_prove_benchmark(c: &mut Criterion) {
         Default::default(),
     )
     .expect("Failed to run fibonacci program");
+    let prover_input =
+        import_from_runner_output(runner_output).expect("Failed to import runner output");
 
     group.bench_function("prove", |b| {
         b.iter(|| {
-            let mut prover_input =
-                import_from_runner_output(&runner_output).expect("Failed to import runner output");
-
             // Benchmark: prove the execution
-            let proof =
-                prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input).expect("Proving failed");
+            let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input.clone())
+                .expect("Proving failed");
             black_box(proof)
         })
     });

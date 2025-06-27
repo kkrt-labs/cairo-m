@@ -65,7 +65,7 @@ struct MemoryArg {
 }
 
 // TODO: Memory Value can take a value enum(M31, QM31) instead of QM31 to save space
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq, Clone)]
 pub struct Memory {
     pub initial_memory: HashMap<M31, (QM31, M31)>,
     pub final_memory: HashMap<M31, (QM31, M31)>,

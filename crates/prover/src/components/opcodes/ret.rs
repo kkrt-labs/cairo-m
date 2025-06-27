@@ -40,6 +40,7 @@ use num_traits::{One, Zero};
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
 };
+use rayon::slice::ParallelSlice;
 use serde::{Deserialize, Serialize};
 use stwo_air_utils::trace::component_trace::ComponentTrace;
 use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
@@ -99,6 +100,12 @@ impl Claim {
         TreeVec::new(vec![vec![], trace, interaction_trace])
     }
 
+    /// Writes the trace for the Ret opcode.
+    ///
+    /// # Important
+    /// This function consumes the contents of `inputs` by clearing it after processing.
+    /// This is done to free memory during proof generation as the inputs are no longer needed
+    /// after being packed into SIMD-friendly format.
     pub fn write_trace<MC: MerkleChannel>(
         inputs: &mut Vec<ExecutionBundle>,
     ) -> (Self, ComponentTrace<N_TRACE_COLUMNS>, InteractionClaimData)
@@ -116,12 +123,17 @@ impl Claim {
         };
         inputs.resize(1 << log_size, ExecutionBundle::default());
         let packed_inputs: Vec<PackedExecutionBundle> = inputs
-            .chunks(N_LANES)
+            .par_chunks_exact(N_LANES)
             .map(|chunk| {
                 let array: [ExecutionBundle; N_LANES] = chunk.try_into().unwrap();
                 Pack::pack(array)
             })
             .collect();
+        // Clear the inputs to free memory early. The data has been packed into SIMD format
+        // and the original inputs are no longer needed. This reduces memory pressure during
+        // proof generation. Note: this preserves the vector's capacity for potential reuse.
+        inputs.clear();
+        inputs.shrink_to_fit();
 
         let zero = PackedM31::from(M31::zero());
         let one = PackedM31::from(M31::one());

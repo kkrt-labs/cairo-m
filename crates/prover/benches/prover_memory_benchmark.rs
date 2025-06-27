@@ -48,7 +48,8 @@ fn main() {
     PEAK_ALLOC.reset_peak_usage();
 
     let mut prover_input =
-        import_from_runner_output(&runner_output).expect("Failed to import runner output");
+        import_from_runner_output(runner_output).expect("Failed to import runner output");
+
     let _proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input).expect("Proving failed");
     let peak_mem = PEAK_ALLOC.peak_usage();
 

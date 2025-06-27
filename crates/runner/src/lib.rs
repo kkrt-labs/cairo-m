@@ -32,7 +32,7 @@ pub struct RunnerOptions {
 }
 
 /// Result of running a Cairo program
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RunnerOutput {
     /// The return values of the program
     pub return_values: Vec<M31>,

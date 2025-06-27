@@ -90,7 +90,7 @@ fn test_prove_and_verify_fibonacci_program() {
     )
     .unwrap();
 
-    let mut prover_input = import_from_runner_output(&runner_output).unwrap();
+    let mut prover_input = import_from_runner_output(runner_output).unwrap();
     let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input).unwrap();
 
     verify_cairo_m::<Blake2sMerkleChannel>(proof).unwrap();
@@ -117,7 +117,8 @@ fn test_prove_and_verify_recursive_fibonacci_program() {
         Default::default(),
     )
     .unwrap();
-    let mut prover_input = import_from_runner_output(&runner_output).unwrap();
+
+    let mut prover_input = import_from_runner_output(runner_output).unwrap();
     let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input).unwrap();
 
     verify_cairo_m::<Blake2sMerkleChannel>(proof).unwrap();
@@ -145,7 +146,7 @@ fn test_all_constraints() {
     )
     .unwrap();
 
-    let mut prover_input = import_from_runner_output(&runner_output).unwrap();
+    let mut prover_input = import_from_runner_output(runner_output).unwrap();
     assert_constraints(&mut prover_input);
 }
 
@@ -174,7 +175,7 @@ fn test_memory_profile_fibonacci_prover() {
 
     let _profiler = dhat::Profiler::new_heap();
 
-    let mut prover_input = import_from_runner_output(&runner_output).unwrap();
+    let mut prover_input = import_from_runner_output(runner_output).unwrap();
     let _proof: cairo_m_prover::Proof<stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleHasher> =
         prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input).unwrap();
 }

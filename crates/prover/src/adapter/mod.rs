@@ -15,13 +15,13 @@ use tracing::{span, Level};
 use crate::adapter::io::{MemoryEntryFileIter, TraceFileIter};
 use crate::adapter::memory::{ExecutionBundleIterator, Memory};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ProverInput {
     pub memory_boundaries: Memory,
     pub instructions: Instructions,
 }
 
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq, Eq, Clone)]
 pub struct Instructions {
     pub initial_registers: VmRegisters,
     pub final_registers: VmRegisters,
@@ -92,14 +92,12 @@ pub fn import_from_runner_artifacts(
 }
 
 pub fn import_from_runner_output(
-    runner_output: &RunnerOutput,
+    runner_output: RunnerOutput,
 ) -> Result<ProverInput, VmImportError> {
     let _span = span!(Level::INFO, "import_from_runner_output").entered();
 
-    let vm = &runner_output.vm;
-    let trace_iter = vm.trace.iter().copied();
-    let memory_trace = vm.memory.trace.borrow();
-    let memory_iter = memory_trace.iter().copied();
+    let trace_iter = runner_output.vm.trace.into_iter();
+    let memory_iter = runner_output.vm.memory.trace.into_inner().into_iter();
 
     import_internal(trace_iter, memory_iter)
 }
