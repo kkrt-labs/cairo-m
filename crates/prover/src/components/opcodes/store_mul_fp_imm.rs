@@ -70,7 +70,7 @@ const N_REGISTERS_LOOKUPS: usize = 2;
 const N_RANGE_CHECK_20_LOOKUPS: usize = 3;
 
 const N_LOOKUPS_COLUMNS: usize = SECURE_EXTENSION_DEGREE
-    * (N_MEMORY_LOOKUPS + N_REGISTERS_LOOKUPS + N_RANGE_CHECK_20_LOOKUPS).div_ceil(2);
+    * ((N_MEMORY_LOOKUPS + N_REGISTERS_LOOKUPS + N_RANGE_CHECK_20_LOOKUPS).div_ceil(2) + 1);
 
 pub struct InteractionClaimData {
     pub lookup_data: LookupData,
@@ -281,18 +281,27 @@ impl InteractionClaim {
         (
             col.par_iter_mut(),
             &interaction_claim_data.lookup_data.memory[4],
+        )
+            .into_par_iter()
+            .enumerate()
+            .for_each(|(i, (writer, memory_prev))| {
+                let numerator = -PackedQM31::from(enabler_col.packed_at(i));
+                let denom: PackedQM31 = memory_relation.combine(memory_prev);
+
+                writer.write_frac(numerator, denom);
+            });
+        col.finalize_col();
+
+        let mut col = interaction_trace.new_col();
+        (
+            col.par_iter_mut(),
             &interaction_claim_data.lookup_data.memory[5],
         )
             .into_par_iter()
             .enumerate()
-            .for_each(|(i, (writer, memory_prev, memory_new))| {
-                let num_prev = -PackedQM31::from(enabler_col.packed_at(i));
-                let num_new = PackedQM31::from(enabler_col.packed_at(i));
-                let denom_prev: PackedQM31 = memory_relation.combine(memory_prev);
-                let denom_new: PackedQM31 = memory_relation.combine(memory_new);
-
-                let numerator = num_prev * denom_new + num_new * denom_prev;
-                let denom = denom_prev * denom_new;
+            .for_each(|(i, (writer, memory_new))| {
+                let numerator = PackedQM31::from(enabler_col.packed_at(i));
+                let denom: PackedQM31 = memory_relation.combine(memory_new);
 
                 writer.write_frac(numerator, denom);
             });
@@ -466,7 +475,14 @@ impl FrameworkEval for Eval {
             &[clock - dst_prev_clock - enabler],
         ));
 
-        eval.finalize_logup_in_pairs();
+        eval.finalize_logup_batched(&vec![
+            0, 0, // Registers
+            1, 1, // Instruction
+            2, 2, // Op0
+            3, 4, // Dst
+            5, 5, // Range check 20
+            6, // Range check 20
+        ]);
         eval
     }
 }
