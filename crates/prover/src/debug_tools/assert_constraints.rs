@@ -60,12 +60,12 @@ pub fn assert_constraints(input: &mut ProverInput) {
 }
 
 #[derive(Default)]
-struct MockCommitmentScheme {
+pub struct MockCommitmentScheme {
     trees: TreeVec<ColumnVec<Vec<M31>>>,
 }
 
 impl MockCommitmentScheme {
-    fn tree_builder(&mut self) -> MockTreeBuilder<'_> {
+    pub fn tree_builder(&mut self) -> MockTreeBuilder<'_> {
         MockTreeBuilder {
             tree_index: self.trees.len(),
             commitment_scheme: self,
@@ -73,7 +73,7 @@ impl MockCommitmentScheme {
         }
     }
 
-    fn next_interaction(&mut self, evals: ColumnVec<Vec<M31>>) {
+    pub fn next_interaction(&mut self, evals: ColumnVec<Vec<M31>>) {
         self.trees.push(evals);
     }
 
@@ -86,7 +86,7 @@ impl MockCommitmentScheme {
 
 /// A [`TreeBuilder`] used by [`MockCommitmentScheme`] to aggregate trace values.
 /// This implementation avoids low degree extension and Merkle commitments.
-struct MockTreeBuilder<'a> {
+pub struct MockTreeBuilder<'a> {
     tree_index: usize,
     evals: ColumnVec<Vec<M31>>,
     commitment_scheme: &'a mut MockCommitmentScheme,
