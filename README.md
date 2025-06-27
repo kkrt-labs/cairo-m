@@ -69,9 +69,11 @@ Samply can be used
 cargo install --locked samply
 ```
 
-Compile the program you want to run and launch:
+Compile the program you want to run and launch samply:
 
 ```bash
+cargo build -r
+target/release/cairo-m-compiler --input crates/prover/tests/test_data/fibonacci.cm --output crates/prover/tests/test_data/fibonacci.json
 samply record target/release/cairo-m-prover --entrypoint fib --arguments 100000 crates/prover/tests/test_data/fibonacci.json
 ```
 
