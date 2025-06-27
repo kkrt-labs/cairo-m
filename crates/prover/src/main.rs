@@ -14,7 +14,7 @@ use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
 #[command(
     author,
     version,
-    about = "Cairo-M Runner - Execute compiled Cairo-M programs",
+    about = "Cairo-M Prover - Run and prove compiled Cairo-M programs",
     long_about = None
 )]
 struct Args {
@@ -53,9 +53,10 @@ fn main() -> Result<(), Error> {
     )
     .context("Execution failed")?;
 
-    let mut prover_input = import_from_runner_output(&output).unwrap();
+    let mut prover_input =
+        import_from_runner_output(&output).context("Failed to import from runner output")?;
     let _proof: cairo_m_prover::Proof<stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleHasher> =
-        prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input).unwrap();
+        prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input).context("Failed to prove")?;
 
     Ok(())
 }
