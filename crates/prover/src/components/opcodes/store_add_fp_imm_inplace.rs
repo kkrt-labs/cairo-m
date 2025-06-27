@@ -137,6 +137,7 @@ impl Claim {
         // and the original inputs are no longer needed. This reduces memory pressure during
         // proof generation. Note: this preserves the vector's capacity for potential reuse.
         inputs.clear();
+        inputs.shrink_to_fit();
 
         let zero = PackedM31::from(M31::zero());
         let one = PackedM31::from(M31::one());
