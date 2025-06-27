@@ -2,7 +2,7 @@
 
 use itertools::chain;
 use num_traits::One;
-use stwo_prover::constraint_framework::relation_tracker::{
+use stwo_constraint_framework::relation_tracker::{
     add_to_relation_entries, RelationSummary, RelationTrackerEntry,
 };
 use stwo_prover::core::backend::simd::SimdBackend;

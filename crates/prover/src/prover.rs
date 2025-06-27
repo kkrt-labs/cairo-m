@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use stwo_prover::constraint_framework::TraceLocationAllocator;
+use stwo_constraint_framework::TraceLocationAllocator;
 use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::backend::BackendForChannel;
 use stwo_prover::core::channel::{Channel, MerkleChannel};

@@ -1,6 +1,6 @@
 use cairo_m_common::State as VmRegisters;
 use serde::{Deserialize, Serialize};
-use stwo_prover::constraint_framework::Relation;
+use stwo_constraint_framework::Relation;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::{SecureField, QM31};
 use stwo_prover::core::fields::FieldExpOps;
