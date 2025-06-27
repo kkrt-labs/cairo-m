@@ -35,7 +35,7 @@ pub enum VmError {
 /// - `state`: Current processor state (PC, FP)
 /// - `program_length`: Length of the program in instructions
 /// - `trace`: Execution trace
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct VM {
     pub final_pc: M31,
     pub memory: Memory,
