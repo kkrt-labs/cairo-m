@@ -1,5 +1,5 @@
 #![allow(non_camel_case_types)]
-use stwo_prover::relation;
+use stwo_constraint_framework::relation;
 
 relation!(RangeCheck_20, 1); // value
 relation!(Memory, 6); // addr, clock, value0, value1, value2, value3

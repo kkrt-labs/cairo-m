@@ -3,8 +3,8 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use rayon::slice::ParallelSlice;
 use serde::{Deserialize, Serialize};
-use stwo_prover::constraint_framework::logup::LogupTraceGenerator;
-use stwo_prover::constraint_framework::{
+use stwo_constraint_framework::logup::LogupTraceGenerator;
+use stwo_constraint_framework::{
     EvalAtRow, FrameworkComponent, FrameworkEval, Relation, RelationEntry,
 };
 use stwo_prover::core::backend::simd::column::BaseColumn;
@@ -14,8 +14,7 @@ use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::backend::BackendForChannel;
 use stwo_prover::core::channel::{Channel, MerkleChannel};
 use stwo_prover::core::fields::m31::{BaseField, M31};
-use stwo_prover::core::fields::qm31::SecureField;
-use stwo_prover::core::fields::secure_column::SECURE_EXTENSION_DEGREE;
+use stwo_prover::core::fields::qm31::{SecureField, SECURE_EXTENSION_DEGREE};
 use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::{CanonicCoset, CircleEvaluation};
 use stwo_prover::core::poly::BitReversedOrder;

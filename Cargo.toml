@@ -31,9 +31,12 @@ cairo-m-prover = { path = "crates/prover" }
 # Starkware dependencies
 stwo-prover = { git = "https://github.com/starkware-libs/stwo", features = [
   "parallel",
-], rev = "8b5436d" }
-stwo-air-utils-derive = { git = "https://github.com/starkware-libs/stwo", rev = "8b5436d" }
-stwo-air-utils = { git = "https://github.com/starkware-libs/stwo", rev = "8b5436d" }
+], rev = "ab57a1c" }
+stwo-air-utils-derive = { git = "https://github.com/starkware-libs/stwo", rev = "ab57a1c" }
+stwo-air-utils = { git = "https://github.com/starkware-libs/stwo", rev = "ab57a1c" }
+stwo-constraint-framework = { git = "https://github.com/starkware-libs/stwo", features = [
+  "parallel",
+], rev = "ab57a1c" }
 
 # General dependencies (including stwo dependencies)
 anyhow = "1.0.96"
@@ -54,9 +57,12 @@ criterion = { version = "0.5", features = ["html_reports"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.140"
 dhat = "0.3.3"
+rand = { version = "0.8.5", default-features = false, features = ["small_rng"] }
+rayon = { version = "1.10.0", optional = false }
 
 # Patching stwo to use local version
 [patch."https://github.com/starkware-libs/stwo"]
 stwo-prover = { path = "external/stwo/crates/prover" }
 stwo-air-utils = { path = "external/stwo/crates/air_utils" }
 stwo-air-utils-derive = { path = "external/stwo/crates/air_utils_derive" }
+stwo-constraint-framework = { path = "external/stwo/crates/constraint_framework" }

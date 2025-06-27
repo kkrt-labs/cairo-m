@@ -4,7 +4,7 @@ use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 pub use stwo_air_utils::trace::component_trace::ComponentTrace;
 pub use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
-use stwo_prover::constraint_framework::TraceLocationAllocator;
+use stwo_constraint_framework::TraceLocationAllocator;
 use stwo_prover::core::air::{Component as ComponentVerifier, ComponentProver};
 pub use stwo_prover::core::backend::simd::m31::PackedM31;
 use stwo_prover::core::backend::simd::SimdBackend;
