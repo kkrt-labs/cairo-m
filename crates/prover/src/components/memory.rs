@@ -24,14 +24,14 @@ use stwo_prover::core::poly::BitReversedOrder;
 use crate::adapter::memory::Memory;
 use crate::relations;
 
-const N_M31_IN_MEMORY_ENTRY: usize = 7; // Address, value, clock, multiplicity
+const N_M31_IN_MEMORY_ENTRY: usize = 7; // Address, clock, value, multiplicity
 
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Default, Serialize, Deserialize, Debug)]
 pub struct Claim {
     pub log_size: u32,
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize)]
+#[derive(Copy, Clone, Serialize, Deserialize, Debug)]
 pub struct InteractionClaim {
     pub claimed_sum: SecureField,
 }
@@ -138,13 +138,14 @@ impl InteractionClaim {
         memory: &relations::Memory,
         lookup_data: &InteractionClaimData,
     ) -> (
-        impl IntoIterator<Item = CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         Self,
+        impl IntoIterator<Item = CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
     ) {
         let log_size = lookup_data.memory.len().ilog2() + LOG_N_LANES;
         let mut interaction_trace = LogupTraceGenerator::new(log_size);
 
         let mut col = interaction_trace.new_col();
+
         (col.par_iter_mut(), &lookup_data.memory)
             .into_par_iter()
             .for_each(|(writer, value)| {
@@ -155,7 +156,8 @@ impl InteractionClaim {
         col.finalize_col();
 
         let (trace, claimed_sum) = interaction_trace.finalize_last();
-        (trace, Self { claimed_sum })
+        let interaction_claim = Self { claimed_sum };
+        (interaction_claim, trace)
     }
 }
 

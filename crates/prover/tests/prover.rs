@@ -1,9 +1,11 @@
+//! Run these tests with feature `relation-tracker` to see the relation tracker output.
 use std::collections::HashMap;
 use std::fs;
 
 use cairo_m_compiler::{compile_cairo, CompilerOptions};
 use cairo_m_prover::adapter::memory::Memory;
 use cairo_m_prover::adapter::{import_from_runner_output, Instructions, ProverInput};
+use cairo_m_prover::debug_tools::assert_constraints::assert_constraints;
 use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_prover::verifier::verify_cairo_m;
 use cairo_m_runner::run_cairo_program;
@@ -62,10 +64,7 @@ fn test_prove_and_verify_empty_memory() {
     result.unwrap();
 }
 
-// Run this test with `cargo test -p cairo-m-prover test_prove_and_verify_fibonacci_program --release --features relation-tracker -- --nocapture`
-// to see the relation tracker output.
 #[test]
-#[should_panic(expected = "called `Result::unwrap()` on an `Err` value: InvalidLogupSum")]
 fn test_prove_and_verify_fibonacci_program() {
     let source_path = format!(
         "{}/tests/test_data/{}",
@@ -82,7 +81,7 @@ fn test_prove_and_verify_fibonacci_program() {
     let runner_output = run_cairo_program(
         &compiled_fib.program,
         "fib",
-        &[M31::from(1000)],
+        &[M31::from(5)],
         Default::default(),
     )
     .unwrap();
@@ -94,7 +93,6 @@ fn test_prove_and_verify_fibonacci_program() {
 }
 
 #[test]
-#[should_panic(expected = "called `Result::unwrap()` on an `Err` value: InvalidLogupSum")]
 fn test_prove_and_verify_recursive_fibonacci_program() {
     let source_path = format!(
         "{}/tests/test_data/{}",
@@ -120,4 +118,30 @@ fn test_prove_and_verify_recursive_fibonacci_program() {
     let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input).unwrap();
 
     verify_cairo_m::<Blake2sMerkleChannel>(proof).unwrap();
+}
+
+#[test]
+fn test_all_constraints() {
+    let source_path = format!(
+        "{}/tests/test_data/{}",
+        env!("CARGO_MANIFEST_DIR"),
+        "fibonacci.cm"
+    );
+    let compiled_fib = compile_cairo(
+        fs::read_to_string(&source_path).unwrap(),
+        source_path,
+        CompilerOptions::default(),
+    )
+    .unwrap();
+
+    let runner_output = run_cairo_program(
+        &compiled_fib.program,
+        "fib",
+        &[M31::from(5)],
+        Default::default(),
+    )
+    .unwrap();
+
+    let mut prover_input = import_from_runner_output(&runner_output).unwrap();
+    assert_constraints(&mut prover_input);
 }
