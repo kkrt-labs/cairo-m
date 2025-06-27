@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use cairo_m_common::Program;
 use cairo_m_compiler::{compile_cairo, CompilerOptions};
-use cairo_m_prover::adapter::import_from_runner_output;
+use cairo_m_prover::adapter::import_from_runner_output_ref;
 use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_runner::run_cairo_program;
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
