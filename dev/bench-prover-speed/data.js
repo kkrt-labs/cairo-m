@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1751018409792,
+  "lastUpdate": 1751018736436,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -29,6 +29,36 @@ window.BENCHMARK_DATA = {
             "name": "prover_fibonacci/prove",
             "value": 3949291432,
             "range": "± 25565258",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "clement0walter@gmail.com",
+            "name": "Clément Walter",
+            "username": "ClementWalter"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ca49f5961620aead146de363645301287a601382",
+          "message": "Implement all opcodes (#113)\n\n* Boilerplate opcode components\n\n* Implement all components\n\n* Fix rebase\n\n* Fix num interaction col\n\n* Use enabler in lookup instead of one\n\n* Remove previous store_deref_fp\n\n* Fix trunk\n\n* Add jnz_*_taken opcodes, to be implemented\n\n* Implement jnz opcodes\n\n* Derive Debug in (Interaction)Claim\n\n* Fix opcodes::range_check_20 only uses first opcode\n\n* Use one for range_check mult\n\n* Remove dbg\n\n* Fix missing opcodes in claimed_sum gathering\n\n* Add store_inplace\n\n* Fix ret lookup order\n\n* Fix call writes to op0\n\n* Fix call writes to op0 + 1\n\n* Fix inplace use op0 instead of op0_prev\n\n* feat(prover): add constraint checker (#122)\n\n* add constraint checker\n\n* rebase\n\n* add component trackign\n\n* Fix inplace num and initial logup sum\n\n* Fix column order in store_deref_fp\n\n* Fix dst value in store_deref_fp\n\n* Remove dbg\n\n* Fix StateData became ExecutionBundle\n\n* Update debug tools\n\n---------\n\nCo-authored-by: Antoine Fondeur <antoine.fondeur@gmail.com>",
+          "timestamp": "2025-06-27T11:53:00+02:00",
+          "tree_id": "a18f29f2cf667b8160520fc39f2cb72f528b97fa",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/ca49f5961620aead146de363645301287a601382"
+        },
+        "date": 1751018735868,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 5535972874,
+            "range": "± 38684996",
             "unit": "ns/iter"
           }
         ]
