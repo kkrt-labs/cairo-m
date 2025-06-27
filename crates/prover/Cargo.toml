@@ -27,7 +27,12 @@ itertools.workspace = true
 tempfile = "3.0"
 itertools.workspace = true
 criterion.workspace = true
+peak_alloc = "0.2.0"
 
 [[bench]]
-name = "range_check_init"
+name = "prover_speed_benchmark"
+harness = false
+
+[[bench]]
+name = "prover_memory_benchmark"
 harness = false

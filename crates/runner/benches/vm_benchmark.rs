@@ -20,7 +20,6 @@ fn fibonacci_1m_benchmark(c: &mut Criterion) {
     let output = compile_cairo(source_text, source_path, options).unwrap();
     let program = (*output.program).clone();
 
-    // Run once to get metrics for throughput calculation
     let output = run_cairo_program(
         &program,
         "fibonacci_loop",
