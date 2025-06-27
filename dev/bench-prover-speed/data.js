@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1751043245130,
+  "lastUpdate": 1751051149486,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -119,6 +119,36 @@ window.BENCHMARK_DATA = {
             "name": "prover_fibonacci/prove",
             "value": 5692926134,
             "range": "± 40811804",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "66871571+Eikix@users.noreply.github.com",
+            "name": "Elias Tazartes",
+            "username": "Eikix"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a84161c9dc221e0f1f0b76dbef4cfafd44e27830",
+          "message": "feat(prover): clear and extract inputs as traces are written (#126)\n\n* clear and extract inputs as traces are written\n\n* remove capacity\n\n* improve runner import memory\n\n* fix comment\n\n* fix\n\n* fix bench\n\n* fix bench\n\n* fix bench\n\n* fix rebase\n\n* fix (again)\n\n* fix",
+          "timestamp": "2025-06-27T20:52:59+02:00",
+          "tree_id": "610cc75cb3577e34eeeea93281252f7dada3ff25",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/a84161c9dc221e0f1f0b76dbef4cfafd44e27830"
+        },
+        "date": 1751051149153,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 5622495421,
+            "range": "± 30895028",
             "unit": "ns/iter"
           }
         ]
