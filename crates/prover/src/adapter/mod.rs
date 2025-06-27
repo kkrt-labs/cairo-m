@@ -92,14 +92,12 @@ pub fn import_from_runner_artifacts(
 }
 
 pub fn import_from_runner_output(
-    runner_output: &RunnerOutput,
+    runner_output: RunnerOutput,
 ) -> Result<ProverInput, VmImportError> {
     let _span = span!(Level::INFO, "import_from_runner_output").entered();
 
-    let vm = &runner_output.vm;
-    let trace_iter = vm.trace.iter().copied();
-    let memory_trace = vm.memory.trace.borrow();
-    let memory_iter = memory_trace.iter().copied();
+    let trace_iter = runner_output.vm.trace.into_iter();
+    let memory_iter = runner_output.vm.memory.trace.into_inner().into_iter();
 
     import_internal(trace_iter, memory_iter)
 }
