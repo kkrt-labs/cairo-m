@@ -149,13 +149,17 @@ impl Backend {
     async fn run_diagnostics(&self, uri: Url, version: Option<i32>) {
         if let Some(source) = self.source_files.get(&uri).map(|s| *s.value()) {
             let diagnostics = {
-                let db = self.db.lock().unwrap();
-                let content = source.text(&*db);
-                let semantic_diagnostics = validate_semantics(&*db, source);
+                let content;
+                let semantic_diagnostics;
+                {
+                    let db = self.db.lock().unwrap();
+                    content = source.text(&*db).to_owned();
+                    semantic_diagnostics = validate_semantics(&*db, source);
+                }
 
                 semantic_diagnostics
                     .iter()
-                    .map(|d| self.convert_diagnostic(content, d))
+                    .map(|d| self.convert_diagnostic(&content, d))
                     .collect()
             };
 
@@ -205,11 +209,11 @@ impl LanguageServer for Backend {
 
         // Create a new SourceProgram for the opened file. This requires a mutable
         // database lock because it allocates a new entity.
-        {
-            let mut db = self.db.lock().unwrap();
-            let source = SourceProgram::new(&mut *db, content, path.display().to_string());
-            self.source_files.insert(uri.clone(), source);
-        }
+        let source = {
+            let db = self.db.lock().unwrap();
+            SourceProgram::new(&*db, content, path.display().to_string())
+        };
+        self.source_files.insert(uri.clone(), source);
 
         self.run_diagnostics(uri, Some(version)).await;
     }
@@ -229,6 +233,7 @@ impl LanguageServer for Backend {
         }
     }
 
+    #[allow(clippy::significant_drop_tightening)]
     async fn goto_definition(
         &self,
         params: GotoDefinitionParams,
@@ -286,6 +291,7 @@ impl LanguageServer for Backend {
         Ok(definition_location.map(GotoDefinitionResponse::Scalar))
     }
 
+    #[allow(clippy::significant_drop_tightening)]
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
         let uri = params.text_document_position_params.text_document.uri;
         let position = params.text_document_position_params.position;
@@ -341,6 +347,7 @@ impl LanguageServer for Backend {
         Ok(hover_info)
     }
 
+    #[allow(clippy::significant_drop_tightening)]
     async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
         let uri = params.text_document_position.text_document.uri;
         let position = params.text_document_position.position;
@@ -395,9 +402,12 @@ impl LanguageServer for Backend {
                             if let Some((def_idx, def)) =
                                 index.resolve_name_to_definition(&name, scope_id)
                             {
-                                let def_id = DefinitionId::new(&*db, source, def_idx);
-                                let type_id = definition_semantic_type((*db).upcast(), def_id);
-                                let type_str = Self::format_type((*db).upcast(), type_id);
+                                let type_str = {
+                                    let db = self.db.lock().unwrap();
+                                    let def_id = DefinitionId::new(&*db, source, def_idx);
+                                    let type_id = definition_semantic_type((*db).upcast(), def_id);
+                                    Self::format_type((*db).upcast(), type_id)
+                                };
 
                                 let kind = match def.kind {
                                     DefinitionKind::Function(_) => CompletionItemKind::FUNCTION,
