@@ -49,7 +49,7 @@ fn test_diagnostic_with_related_spans() {
 
 #[test]
 fn test_diagnostic_collection_basic() {
-    let mut collection = DiagnosticCollection::new();
+    let mut collection: DiagnosticCollection = Default::default();
     assert!(collection.is_empty());
     assert_eq!(collection.len(), 0);
 
@@ -73,7 +73,7 @@ fn test_diagnostic_collection_basic() {
 
 #[test]
 fn test_diagnostic_collection_filtering() {
-    let mut collection = DiagnosticCollection::new();
+    let mut collection: DiagnosticCollection = Default::default();
 
     collection.add(Diagnostic::error(
         DiagnosticCode::UndeclaredVariable,

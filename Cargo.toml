@@ -9,6 +9,7 @@ members = [
   "crates/compiler",
   "crates/runner",
   "crates/prover",
+  "crates/cairo-m-ls",
 ]
 resolver = "2"
 

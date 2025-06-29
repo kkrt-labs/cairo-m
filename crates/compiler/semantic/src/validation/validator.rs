@@ -109,7 +109,7 @@ impl ValidatorRegistry {
         file: File,
         index: &SemanticIndex,
     ) -> DiagnosticCollection {
-        let mut collection = DiagnosticCollection::new();
+        let mut collection: DiagnosticCollection = Default::default();
 
         for validator in &self.validators {
             let diagnostics = validator.validate(db, file, index);
