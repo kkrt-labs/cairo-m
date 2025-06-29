@@ -66,6 +66,11 @@ pub fn validate_semantics(
     // Parse the program first
     let parsed = parser::parse_program(db.upcast(), file);
 
+    // If there are parse errors, return them without running semantic validation
+    if !parsed.diagnostics.is_empty() {
+        return DiagnosticCollection::new(parsed.diagnostics);
+    }
+
     // Get the semantic index (this is already a tracked query)
     let index = crate::semantic_index::semantic_index_from_module(db, &parsed.module, file);
 
