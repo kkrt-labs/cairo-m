@@ -336,11 +336,16 @@ const fn combination() -> u32 {
     let compound1 = (x != 0) || (((y == 3) as u32 + 2) != 0);
     let compound2 = ((eq as u32) != 2) && (3 != 0);
 
-    mut_val + (eq2 as u32) + random_elements_foo() + 32 + (compound1 as u32) + (compound2 as u32)
+    let (a, b) = random_elements_foo();
+    mut_val + (eq2 as u32) + a + random_elements_bar() + b + (compound1 as u32) + (compound2 as u32)
 }
 
-const fn random_elements_foo() -> u32 {
-    32
+const fn random_elements_foo() -> (u32, u32) {
+    (32, 62)
+}
+
+const fn random_elements_bar() -> u32 {
+    123
 }
 
 diff_test!(

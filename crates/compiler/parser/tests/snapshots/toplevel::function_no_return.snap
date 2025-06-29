@@ -18,9 +18,11 @@ func print_hello() { let msg = hello; }
                 body: [
                     Spanned(
                         Let {
-                            name: Spanned(
-                                "msg",
-                                25..28,
+                            pattern: Identifier(
+                                Spanned(
+                                    "msg",
+                                    25..28,
+                                ),
                             ),
                             statement_type: None,
                             value: Spanned(

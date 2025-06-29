@@ -1,0 +1,97 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+func test() { let (sum, diff) = (a + b, a - b); }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    5..9,
+                ),
+                params: [],
+                return_type: None,
+                body: [
+                    Spanned(
+                        Let {
+                            pattern: Tuple(
+                                [
+                                    Spanned(
+                                        "sum",
+                                        19..22,
+                                    ),
+                                    Spanned(
+                                        "diff",
+                                        24..28,
+                                    ),
+                                ],
+                            ),
+                            statement_type: None,
+                            value: Spanned(
+                                Tuple(
+                                    [
+                                        Spanned(
+                                            BinaryOp {
+                                                op: Add,
+                                                left: Spanned(
+                                                    Identifier(
+                                                        Spanned(
+                                                            "a",
+                                                            33..34,
+                                                        ),
+                                                    ),
+                                                    33..34,
+                                                ),
+                                                right: Spanned(
+                                                    Identifier(
+                                                        Spanned(
+                                                            "b",
+                                                            37..38,
+                                                        ),
+                                                    ),
+                                                    37..38,
+                                                ),
+                                            },
+                                            33..38,
+                                        ),
+                                        Spanned(
+                                            BinaryOp {
+                                                op: Sub,
+                                                left: Spanned(
+                                                    Identifier(
+                                                        Spanned(
+                                                            "a",
+                                                            40..41,
+                                                        ),
+                                                    ),
+                                                    40..41,
+                                                ),
+                                                right: Spanned(
+                                                    Identifier(
+                                                        Spanned(
+                                                            "b",
+                                                            44..45,
+                                                        ),
+                                                    ),
+                                                    44..45,
+                                                ),
+                                            },
+                                            40..45,
+                                        ),
+                                    ],
+                                ),
+                                32..46,
+                            ),
+                        },
+                        14..47,
+                    ),
+                ],
+            },
+            0..49,
+        ),
+    ),
+]

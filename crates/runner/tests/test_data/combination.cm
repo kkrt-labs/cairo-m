@@ -15,9 +15,14 @@ func main(){
     let compound1 = x || (y == 3) + 2;
     let compound2 = eq != 2 && 3;
 
-    return mut_val + eq2 + foo() + 32 + compound1 + compound2;
+    let (a, b) = foo();
+    return mut_val + eq2 + a + bar() + b + compound1 + compound2;
 }
 
-func foo() -> felt {
-    return 32;
+func foo() -> (felt, felt) {
+    return (32, 62);
+}
+
+func bar() -> felt {
+    return 123;
 }

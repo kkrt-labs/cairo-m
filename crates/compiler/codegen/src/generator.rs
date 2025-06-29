@@ -228,18 +228,26 @@ impl CodeGenerator {
                 builder.binary_op_with_target(*op, *dest, *left, *right, target_offset)?;
             }
 
-            InstructionKind::Call { dest, callee, args } => {
+            InstructionKind::Call {
+                dests,
+                callee,
+                args,
+            } => {
                 // Look up the callee's actual function name from the module
                 let callee_function = module.functions.get(*callee).ok_or_else(|| {
                     CodegenError::MissingTarget(format!("No function found for callee {callee:?}"))
                 })?;
 
                 let callee_name = &callee_function.name;
-
-                // For now, assume 1 return value for non-void calls
                 let num_returns = callee_function.return_values.len();
 
-                builder.call(*dest, callee_name, args, num_returns)?;
+                if dests.len() == 1 {
+                    // Single return value
+                    builder.call(dests[0], callee_name, args, num_returns)?;
+                } else {
+                    // Multiple return values
+                    builder.call_multiple(dests, callee_name, args)?;
+                }
             }
 
             InstructionKind::VoidCall { callee, args } => {

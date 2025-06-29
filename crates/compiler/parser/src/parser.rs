@@ -144,21 +144,32 @@ pub struct Parameter {
     pub type_expr: TypeExpr,
 }
 
+/// Represents a pattern in let/local bindings.
+///
+/// Patterns allow destructuring values during variable binding.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Pattern {
+    /// Single identifier pattern (e.g., `x`)
+    Identifier(Spanned<String>),
+    /// Tuple pattern for destructuring (e.g., `(x, y, z)`)
+    Tuple(Vec<Spanned<String>>),
+}
+
 /// Represents a statement in the Cairo-M language.
 ///
 /// Statements are constructs that perform actions but don't necessarily
 /// evaluate to a value. They form the body of functions and control flow.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Statement {
-    /// Global variable declaration (e.g., `let x = 5;`)
+    /// Global variable declaration (e.g., `let x = 5;` or `let (x, y) = (1, 2);`)
     Let {
-        name: Spanned<String>,
+        pattern: Pattern,
         statement_type: Option<TypeExpr>,
         value: Spanned<Expression>,
     },
-    /// Local variable declaration with optional type annotation (e.g., `local x: felt = 5;`)
+    /// Local variable declaration with optional type annotation (e.g., `local x: felt = 5;` or `local (x, y) = (1, 2);`)
     Local {
-        name: Spanned<String>,
+        pattern: Pattern,
         ty: Option<TypeExpr>,
         value: Spanned<Expression>,
     },
@@ -757,6 +768,24 @@ where
     let expr = expression_parser();
     let type_expr = type_expr_parser();
 
+    // Pattern parser for destructuring
+    let pattern = {
+        // Tuple pattern: (x, y, z)
+        let tuple_pattern = spanned_ident
+            .clone()
+            .separated_by(just(TokenType::Comma))
+            .at_least(2)
+            .collect::<Vec<_>>()
+            .delimited_by(just(TokenType::LParen), just(TokenType::RParen))
+            .map(Pattern::Tuple);
+
+        // Single identifier pattern
+        let ident_pattern = spanned_ident.clone().map(Pattern::Identifier);
+
+        // Try tuple pattern first, then fall back to identifier
+        tuple_pattern.or(ident_pattern)
+    };
+
     recursive(|statement| {
         // Block statement: { stmt1; stmt2; stmt3; }
         let block = statement
@@ -767,9 +796,9 @@ where
             .map(Statement::Block)
             .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
 
-        // Let statement: let variable (: type)? = expression;
+        // Let statement: let pattern (: type)? = expression;
         let let_stmt = just(TokenType::Let)
-            .ignore_then(spanned_ident.clone()) // variable name
+            .ignore_then(pattern.clone()) // pattern (identifier or tuple)
             .then(
                 just(TokenType::Colon)
                     .ignore_then(type_expr.clone()) // optional type annotation
@@ -778,16 +807,16 @@ where
             .then_ignore(just(TokenType::Eq)) // ignore '='
             .then(expr.clone()) // value expression
             .then_ignore(just(TokenType::Semicolon)) // ignore ';'
-            .map(|((name, statement_type), value)| Statement::Let {
-                name,
+            .map(|((pattern, statement_type), value)| Statement::Let {
+                pattern,
                 statement_type,
                 value,
             })
             .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
 
-        // Local statement: local variable: type = expression;
+        // Local statement: local pattern (: type)? = expression;
         let local_stmt = just(TokenType::Local)
-            .ignore_then(spanned_ident.clone()) // variable name
+            .ignore_then(pattern.clone()) // pattern (identifier or tuple)
             .then(
                 just(TokenType::Colon)
                     .ignore_then(type_expr.clone()) // optional type annotation
@@ -796,7 +825,7 @@ where
             .then_ignore(just(TokenType::Eq)) // ignore '='
             .then(expr.clone()) // value expression
             .then_ignore(just(TokenType::Semicolon)) // ignore ';'
-            .map(|((name, ty), value)| Statement::Local { name, ty, value })
+            .map(|((pattern, ty), value)| Statement::Local { pattern, ty, value })
             .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
 
         // Const statement: const NAME = expression;

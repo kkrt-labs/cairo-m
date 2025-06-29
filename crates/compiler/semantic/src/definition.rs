@@ -151,6 +151,8 @@ pub struct LetDefRef {
     pub value_expr_id: Option<ExpressionId>,
     /// Explicit type annotation, if provided
     pub explicit_type_ast: Option<TypeExpr>,
+    /// Destructuring information: (RHS expression ID, index in tuple pattern)
+    pub destructuring_info: Option<(ExpressionId, usize)>,
 }
 
 impl LetDefRef {
@@ -163,6 +165,21 @@ impl LetDefRef {
             name: name.to_string(),
             value_expr_id,
             explicit_type_ast,
+            destructuring_info: None,
+        }
+    }
+
+    pub fn from_destructuring(
+        name: &str,
+        explicit_type_ast: Option<TypeExpr>,
+        value_expr_id: ExpressionId,
+        index: usize,
+    ) -> Self {
+        Self {
+            name: name.to_string(),
+            value_expr_id: Some(value_expr_id),
+            explicit_type_ast,
+            destructuring_info: Some((value_expr_id, index)),
         }
     }
 }
@@ -175,6 +192,8 @@ pub struct LocalDefRef {
     pub value_expr_id: Option<ExpressionId>,
     /// Explicit type annotation, if provided
     pub explicit_type_ast: Option<TypeExpr>,
+    /// Destructuring information: (RHS expression ID, index in tuple pattern)
+    pub destructuring_info: Option<(ExpressionId, usize)>,
 }
 
 impl LocalDefRef {
@@ -187,6 +206,21 @@ impl LocalDefRef {
             name: name.to_string(),
             value_expr_id,
             explicit_type_ast: type_ast,
+            destructuring_info: None,
+        }
+    }
+
+    pub fn from_destructuring(
+        name: &str,
+        explicit_type_ast: Option<TypeExpr>,
+        value_expr_id: ExpressionId,
+        index: usize,
+    ) -> Self {
+        Self {
+            name: name.to_string(),
+            value_expr_id: Some(value_expr_id),
+            explicit_type_ast,
+            destructuring_info: Some((value_expr_id, index)),
         }
     }
 }

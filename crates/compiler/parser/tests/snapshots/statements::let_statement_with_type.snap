@@ -18,9 +18,11 @@ func test() { let x: felt = 5; }
                 body: [
                     Spanned(
                         Let {
-                            name: Spanned(
-                                "x",
-                                18..19,
+                            pattern: Identifier(
+                                Spanned(
+                                    "x",
+                                    18..19,
+                                ),
                             ),
                             statement_type: Some(
                                 Named(

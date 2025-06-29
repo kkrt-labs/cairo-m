@@ -21,16 +21,21 @@ func main(){
     mut_val = mut_val * mut_val;
     mut_val = mut_val + (even_number / 2);
 
-    let eq2 = (x == x);
+    let eq2 = (x == 3);
 
     let compound1 = x || (y == 3) + 2;
     let compound2 = eq != 2 && 3;
 
-    return mut_val + eq2 + foo() + 32;
+    let (a, b) = foo();
+    return mut_val + eq2 + a + bar() + b + compound1 + compound2;
 }
 
-func foo() -> felt {
-    return 32;
+func foo() -> (felt, felt) {
+    return (32, 62);
+}
+
+func bar() -> felt {
+    return 123;
 }
 
 ============================================================
@@ -58,7 +63,7 @@ main_2:
   15: 7 5 5 5              // [fp + 5] = [fp + 5] op [fp + 5]
   16: 10 2 2 8             // [fp + 8] = [fp + 2] op 2
   17: 0 5 8 5              // [fp + 5] = [fp + 5] op [fp + 8]
-  18: 2 0 0 9              // [fp + 9] = [fp + 0] op [fp + 0]
+  18: 3 0 3 9              // [fp + 9] = [fp + 0] op 3
   19: 31 9 3 _             // if [fp + 9] != 0, jump to not_zero_2
   20: 6 1 _ 9              // [fp + 9] = 1
   21: 20 23 _ _            // jump to end_3
@@ -81,25 +86,35 @@ end_5:
 or_true_6:
   34: 6 1 _ 13             // [fp + 13] = 1
 or_end_7:
-  35: 3 4 2 14             // [fp + 14] = [fp + 4] op 2
-  36: 31 14 3 _            // if [fp + 14] != 0, jump to neq_non_zero_8
-  37: 6 0 _ 14             // [fp + 14] = 0
-  38: 20 40 _ _            // jump to neq_end_9
+  35: 4 13 _ 14            // Store: [fp + 14] = [fp + 13]
+  36: 3 4 2 15             // [fp + 15] = [fp + 4] op 2
+  37: 31 15 3 _            // if [fp + 15] != 0, jump to neq_non_zero_8
+  38: 6 0 _ 15             // [fp + 15] = 0
+  39: 20 41 _ _            // jump to neq_end_9
 neq_non_zero_8:
-  39: 6 1 _ 14             // [fp + 14] = 1
+  40: 6 1 _ 15             // [fp + 15] = 1
 neq_end_9:
-  40: 8 14 3 15            // [fp + 15] = [fp + 14] op 3
-  41: 31 15 3 _            // if [fp + 15] != 0, jump to and_non_zero_10
-  42: 6 0 _ 15             // [fp + 15] = 0
-  43: 20 45 _ _            // jump to and_end_11
+  41: 8 15 3 16            // [fp + 16] = [fp + 15] op 3
+  42: 31 16 3 _            // if [fp + 16] != 0, jump to and_non_zero_10
+  43: 6 0 _ 16             // [fp + 16] = 0
+  44: 20 46 _ _            // jump to and_end_11
 and_non_zero_10:
-  44: 6 1 _ 15             // [fp + 15] = 1
+  45: 6 1 _ 16             // [fp + 16] = 1
 and_end_11:
-  45: 0 5 10 16            // [fp + 16] = [fp + 5] op [fp + 10]
-  46: 12 18 50 _           // call foo
-  47: 0 16 17 19           // [fp + 19] = [fp + 16] op [fp + 17]
-  48: 1 19 32 -3           // [fp + -3] = [fp + 19] op 32
-  49: 15 _ _ _             // return
+  46: 4 16 _ 17            // Store: [fp + 17] = [fp + 16]
+  47: 12 20 56 _           // call foo
+  48: 0 5 10 22            // [fp + 22] = [fp + 5] op [fp + 10]
+  49: 0 22 18 23           // [fp + 23] = [fp + 22] op [fp + 18]
+  50: 12 25 59 _           // call bar
+  51: 0 23 24 26           // [fp + 26] = [fp + 23] op [fp + 24]
+  52: 0 26 19 27           // [fp + 27] = [fp + 26] op [fp + 19]
+  53: 0 27 14 28           // [fp + 28] = [fp + 27] op [fp + 14]
+  54: 0 28 17 -3           // [fp + -3] = [fp + 28] op [fp + 17]
+  55: 15 _ _ _             // return
 foo:
-  50: 6 32 _ -3            // Return value 0: [fp -3] = 32
-  51: 15 _ _ _             // return
+  56: 6 32 _ -4            // Return value 0: [fp -4] = 32
+  57: 6 62 _ -3            // Return value 1: [fp -3] = 62
+  58: 15 _ _ _             // return
+bar:
+  59: 6 123 _ -3           // Return value 0: [fp -3] = 123
+  60: 15 _ _ _             // return

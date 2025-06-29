@@ -13,7 +13,8 @@ use std::collections::HashSet;
 
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode};
 use cairo_m_compiler_parser::parser::{
-    parse_program, BinaryOp, Expression, FunctionDef, Spanned, Statement, TopLevelItem, TypeExpr,
+    parse_program, BinaryOp, Expression, FunctionDef, Pattern, Spanned, Statement, TopLevelItem,
+    TypeExpr,
 };
 use chumsky::span::SimpleSpan;
 
@@ -662,7 +663,7 @@ impl TypeValidator {
     ) {
         match stmt.value() {
             Statement::Let {
-                name,
+                pattern,
                 value,
                 statement_type,
             } => {
@@ -670,14 +671,14 @@ impl TypeValidator {
                     db,
                     file,
                     index,
-                    name,
+                    pattern,
                     value,
                     statement_type,
                     diagnostics,
                 );
             }
-            Statement::Local { name, value, ty } => {
-                self.check_local_statement_types(db, file, index, name, value, ty, diagnostics);
+            Statement::Local { pattern, value, ty } => {
+                self.check_local_statement_types(db, file, index, pattern, value, ty, diagnostics);
             }
             Statement::Assignment { lhs, rhs } => {
                 self.check_assignment_types(db, file, index, lhs, rhs, diagnostics);
@@ -777,7 +778,7 @@ impl TypeValidator {
         db: &dyn SemanticDb,
         file: File,
         index: &SemanticIndex,
-        name: &Spanned<String>,
+        pattern: &Pattern,
         value: &Spanned<Expression>,
         statement_type: &Option<TypeExpr>,
         diagnostics: &mut Vec<Diagnostic>,
@@ -787,25 +788,84 @@ impl TypeValidator {
         };
         let value_type = expression_semantic_type(db, file, value_expr_id);
 
-        if let Some(ty) = statement_type {
-            let scope_id = index
-                .expression(value_expr_id)
-                .expect("No expression info found")
-                .scope_id;
-            let expected_type = resolve_ast_type(db, file, ty.clone(), scope_id);
-            if !are_types_compatible(db, value_type, expected_type) {
-                diagnostics.push(
-                    Diagnostic::error(
-                        DiagnosticCode::TypeMismatch,
-                        format!(
-                            "Type mismatch for let statement '{}'. Expected '{}', found '{}'",
-                            name.value(),
-                            expected_type.data(db).display_name(db),
-                            value_type.data(db).display_name(db)
-                        ),
-                    )
-                    .with_location(file.file_path(db).to_string(), value.span()),
-                );
+        match pattern {
+            Pattern::Identifier(name) => {
+                // Simple identifier - check type if specified
+                if let Some(ty) = statement_type {
+                    let scope_id = index
+                        .expression(value_expr_id)
+                        .expect("No expression info found")
+                        .scope_id;
+                    let expected_type = resolve_ast_type(db, file, ty.clone(), scope_id);
+                    if !are_types_compatible(db, value_type, expected_type) {
+                        diagnostics.push(
+                            Diagnostic::error(
+                                DiagnosticCode::TypeMismatch,
+                                format!(
+                                    "Type mismatch for let statement '{}'. Expected '{}', found '{}'",
+                                    name.value(),
+                                    expected_type.data(db).display_name(db),
+                                    value_type.data(db).display_name(db)
+                                ),
+                            )
+                            .with_location(file.file_path(db).to_string(), value.span()),
+                        );
+                    }
+                }
+            }
+            Pattern::Tuple(names) => {
+                // Tuple pattern - check that RHS is a tuple with matching arity
+                match value_type.data(db) {
+                    TypeData::Tuple(element_types) => {
+                        if element_types.len() != names.len() {
+                            diagnostics.push(
+                                Diagnostic::error(
+                                    DiagnosticCode::TypeMismatch,
+                                    format!(
+                                        "Tuple pattern has {} elements but value has {} elements",
+                                        names.len(),
+                                        element_types.len()
+                                    ),
+                                )
+                                .with_location(file.file_path(db).to_string(), value.span()),
+                            );
+                        }
+
+                        // If a type annotation is provided, it should be a tuple type
+                        if let Some(ty) = statement_type {
+                            let scope_id = index
+                                .expression(value_expr_id)
+                                .expect("No expression info found")
+                                .scope_id;
+                            let expected_type = resolve_ast_type(db, file, ty.clone(), scope_id);
+                            if !are_types_compatible(db, value_type, expected_type) {
+                                diagnostics.push(
+                                    Diagnostic::error(
+                                        DiagnosticCode::TypeMismatch,
+                                        format!(
+                                            "Type mismatch for tuple destructuring. Expected '{}', found '{}'",
+                                            expected_type.data(db).display_name(db),
+                                            value_type.data(db).display_name(db)
+                                        ),
+                                    )
+                                    .with_location(file.file_path(db).to_string(), value.span()),
+                                );
+                            }
+                        }
+                    }
+                    _ => {
+                        diagnostics.push(
+                            Diagnostic::error(
+                                DiagnosticCode::TypeMismatch,
+                                format!(
+                                    "Cannot destructure non-tuple type '{}' in tuple pattern",
+                                    value_type.data(db).display_name(db)
+                                ),
+                            )
+                            .with_location(file.file_path(db).to_string(), value.span()),
+                        );
+                    }
+                }
             }
         }
     }
@@ -817,7 +877,7 @@ impl TypeValidator {
         db: &dyn SemanticDb,
         file: File,
         index: &SemanticIndex,
-        name: &Spanned<String>,
+        pattern: &Pattern,
         value: &Spanned<Expression>,
         ty: &Option<TypeExpr>,
         diagnostics: &mut Vec<Diagnostic>,
@@ -827,25 +887,86 @@ impl TypeValidator {
         };
         let value_type = expression_semantic_type(db, file, value_expr_id);
 
-        if let Some(expected_type_expr) = ty {
-            let scope_id = index
-                .expression(value_expr_id)
-                .expect("No expression info found")
-                .scope_id;
-            let expected_type = resolve_ast_type(db, file, expected_type_expr.clone(), scope_id);
-            if !are_types_compatible(db, value_type, expected_type) {
-                diagnostics.push(
-                    Diagnostic::error(
-                        DiagnosticCode::TypeMismatch,
-                        format!(
-                            "Type mismatch for local statement '{}'. Expected '{}', found '{}'",
-                            name.value(),
-                            expected_type.data(db).display_name(db),
-                            value_type.data(db).display_name(db)
-                        ),
-                    )
-                    .with_location(file.file_path(db).to_string(), value.span()),
-                );
+        match pattern {
+            Pattern::Identifier(name) => {
+                // Simple identifier - check type if specified
+                if let Some(expected_type_expr) = ty {
+                    let scope_id = index
+                        .expression(value_expr_id)
+                        .expect("No expression info found")
+                        .scope_id;
+                    let expected_type =
+                        resolve_ast_type(db, file, expected_type_expr.clone(), scope_id);
+                    if !are_types_compatible(db, value_type, expected_type) {
+                        diagnostics.push(
+                            Diagnostic::error(
+                                DiagnosticCode::TypeMismatch,
+                                format!(
+                                    "Type mismatch for local statement '{}'. Expected '{}', found '{}'",
+                                    name.value(),
+                                    expected_type.data(db).display_name(db),
+                                    value_type.data(db).display_name(db)
+                                ),
+                            )
+                            .with_location(file.file_path(db).to_string(), value.span()),
+                        );
+                    }
+                }
+            }
+            Pattern::Tuple(names) => {
+                // Tuple pattern - check that RHS is a tuple with matching arity
+                match value_type.data(db) {
+                    TypeData::Tuple(element_types) => {
+                        if element_types.len() != names.len() {
+                            diagnostics.push(
+                                Diagnostic::error(
+                                    DiagnosticCode::TypeMismatch,
+                                    format!(
+                                        "Tuple pattern has {} elements but value has {} elements",
+                                        names.len(),
+                                        element_types.len()
+                                    ),
+                                )
+                                .with_location(file.file_path(db).to_string(), value.span()),
+                            );
+                        }
+
+                        // If a type annotation is provided, it should be a tuple type
+                        if let Some(expected_type_expr) = ty {
+                            let scope_id = index
+                                .expression(value_expr_id)
+                                .expect("No expression info found")
+                                .scope_id;
+                            let expected_type =
+                                resolve_ast_type(db, file, expected_type_expr.clone(), scope_id);
+                            if !are_types_compatible(db, value_type, expected_type) {
+                                diagnostics.push(
+                                    Diagnostic::error(
+                                        DiagnosticCode::TypeMismatch,
+                                        format!(
+                                            "Type mismatch for tuple destructuring. Expected '{}', found '{}'",
+                                            expected_type.data(db).display_name(db),
+                                            value_type.data(db).display_name(db)
+                                        ),
+                                    )
+                                    .with_location(file.file_path(db).to_string(), value.span()),
+                                );
+                            }
+                        }
+                    }
+                    _ => {
+                        diagnostics.push(
+                            Diagnostic::error(
+                                DiagnosticCode::TypeMismatch,
+                                format!(
+                                    "Cannot destructure non-tuple type '{}' in tuple pattern",
+                                    value_type.data(db).display_name(db)
+                                ),
+                            )
+                            .with_location(file.file_path(db).to_string(), value.span()),
+                        );
+                    }
+                }
             }
         }
     }
