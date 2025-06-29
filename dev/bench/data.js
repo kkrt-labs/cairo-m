@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1751050557622,
+  "lastUpdate": 1751213915563,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -1063,6 +1063,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 263026690,
             "range": "± 1638995",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "02ffdf4397c3eab0c3e6b3577bc301aff223f8d8",
+          "message": "feat(compiler): support tuple destructuration (#123)\n\n* parser\n\n* semantic\n\n* mir\n\n* fix bad code\n\n* split lowering function in smaller sub-fn",
+          "timestamp": "2025-06-29T18:15:55+02:00",
+          "tree_id": "734f76794e3b4c96eed591286f46f8f9b1ae5aff",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/02ffdf4397c3eab0c3e6b3577bc301aff223f8d8"
+        },
+        "date": 1751213915202,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 261242639,
+            "range": "± 753168",
             "unit": "ns/iter"
           }
         ]
