@@ -1,0 +1,80 @@
+{
+  "name": "cairo-m",
+  "displayName": "Cairo-M Language Support",
+  "description": "Language support for Cairo-M (.cm files)",
+  "version": "0.1.0",
+  "publisher": "cairo-m",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kkrt-labs/cairo-m"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "languages": [
+      {
+        "id": "cairo-m",
+        "aliases": [
+          "Cairo-M",
+          "cairo-m"
+        ],
+        "extensions": [
+          ".cm"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "cairo-m",
+        "scopeName": "source.cairo-m",
+        "path": "./syntaxes/cairo-m.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "Cairo-M",
+      "properties": {
+        "cairo-m.languageServer.path": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the Cairo-M language server executable. If not set, will use the bundled version."
+        },
+        "cairo-m.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Traces the communication between VS Code and the Cairo-M language server."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "pnpm run compile",
+    "compile": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap",
+    "watch": "tsc -watch -p ./",
+    "package": "npx vsce package -o cairo-m.vsix",
+    "build-ls": "cd .. && cargo build --release -p cairo-m-ls"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@tsconfig/node18": "^18.2.4",
+    "@tsconfig/strictest": "^2.0.5",
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.75.0",
+    "@vscode/vsce": "^2.24.0",
+    "esbuild": "0.25.5",
+    "typescript": "^5.3.0"
+  }
+}

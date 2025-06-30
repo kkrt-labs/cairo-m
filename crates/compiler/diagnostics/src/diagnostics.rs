@@ -320,8 +320,8 @@ pub struct DiagnosticCollection {
 }
 
 impl DiagnosticCollection {
-    pub fn new() -> Self {
-        Self::default()
+    pub const fn new(diagnostics: Vec<Diagnostic>) -> Self {
+        Self { diagnostics }
     }
 
     /// Add a diagnostic to the collection
@@ -434,7 +434,7 @@ mod tests {
 
     #[test]
     fn test_diagnostic_collection() {
-        let mut collection = DiagnosticCollection::new();
+        let mut collection: DiagnosticCollection = Default::default();
 
         let span1 = SimpleSpan::from(0..5);
         let span2 = SimpleSpan::from(10..15);

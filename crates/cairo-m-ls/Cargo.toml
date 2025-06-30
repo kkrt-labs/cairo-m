@@ -1,0 +1,21 @@
+[package]
+name = "cairo-m-ls"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tower-lsp = "0.20"
+tokio = { version = "1.35", features = ["full"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+dashmap = "5.5"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+salsa = "0.22"
+
+# Cairo-M compiler dependencies
+cairo-m-compiler = { path = "../compiler" }
+cairo-m-compiler-diagnostics = { path = "../compiler/diagnostics" }
+cairo-m-compiler-parser = { path = "../compiler/parser" }
+cairo-m-compiler-semantic = { path = "../compiler/semantic" }
