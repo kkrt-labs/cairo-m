@@ -362,7 +362,7 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
             -E::EF::from(enabler.clone()),
-            &[fp.clone() + off0, op0_prev_clock.clone(), op0_val],
+            &[fp + off0, op0_prev_clock.clone(), op0_val],
         ));
 
         // Range check 20
