@@ -1,3 +1,0 @@
-//! Component tests.
-
-mod opcodes;
