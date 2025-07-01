@@ -15,7 +15,7 @@
 //! - op0_prev_clock
 //! - op0_val
 //! - dst_prev_clock
-//! - dst_prev_val
+//! - dst_mult (memory write multiplicity)
 //! - dst_val
 //!
 //! # Constraints
@@ -25,16 +25,16 @@
 //! * registers update is regular
 //!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
 //! * read instruction from memory
-//!   * `- [pc, inst_prev_clk, opcode_id, off0, off1, off2] + [pc, clk, opcode_id, off0, off1, off2]` in `Memory` relation
+//!   * `[pc, clk, opcode_id, off0, off1, off2]` in `Memory` relation with multiplicity enabler
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck_20` relation
 //! * assert opcode id
 //!   * `opcode_id - 10`
 //! * read op0
-//!   * `- [fp + off0, op0_prev_clk, op0_val] + [fp + off0, clk, op0_val]` in `Memory` relation
+//!   * `[fp + off0, clk, op0_val]` in `Memory` relation with multiplicity enabler
 //!   * `- [clk - op0_prev_clk - 1]` in `RangeCheck_20` relation
 //! * write dst in [fp + off2]
 //!   * `dst_val * off1 - op0_val`
-//!   * `- [fp + off2, dst_prev_clk, dst_prev_val] + [fp + off2, clk, dst_val]` in `Memory` relation
+//!   * `[fp + off2, clk, dst_val]` in `Memory` relation with multiplicity enabler*mult
 //!   * `- [clk - dst_prev_clk - 1]` in `RangeCheck_20` relation
 
 use cairo_m_common::Opcode;
@@ -67,7 +67,7 @@ use crate::relations;
 use crate::utils::{Enabler, PackedExecutionBundle};
 
 const N_TRACE_COLUMNS: usize = 14;
-const N_MEMORY_LOOKUPS: usize = 6;
+const N_MEMORY_LOOKUPS: usize = 3;
 const N_REGISTERS_LOOKUPS: usize = 2;
 const N_RANGE_CHECK_20_LOOKUPS: usize = 3;
 
@@ -81,7 +81,7 @@ pub struct InteractionClaimData {
 
 #[derive(Uninitialized, IterMut, ParIterMut)]
 pub struct LookupData {
-    pub memory: [Vec<[PackedM31; 6]>; N_MEMORY_LOOKUPS],
+    pub memory: [Vec<[PackedM31; 7]>; N_MEMORY_LOOKUPS],
     pub registers: [Vec<[PackedM31; 2]>; N_REGISTERS_LOOKUPS],
     pub range_check_20: [Vec<PackedM31>; N_RANGE_CHECK_20_LOOKUPS],
 }
@@ -159,7 +159,7 @@ impl Claim {
                 let off2 = input.inst_value_3;
                 let op0_prev_clock = input.mem1_prev_clock;
                 let op0_val = input.mem1_value;
-                let dst_prev_val = input.mem2_prev_value;
+                let dst_mult = input.mem2_multiplicity;
                 let dst_prev_clock = input.mem2_prev_clock;
                 let dst_val = input.mem2_value;
 
@@ -175,21 +175,22 @@ impl Claim {
                 *row[9] = op0_prev_clock;
                 *row[10] = op0_val;
                 *row[11] = dst_prev_clock;
-                *row[12] = dst_prev_val;
+                *row[12] = dst_mult;
                 *row[13] = dst_val;
 
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [input.pc + one, input.fp];
 
-                *lookup_data.memory[0] = [input.pc, inst_prev_clock, opcode_id, off0, off1, off2];
-                *lookup_data.memory[1] = [input.pc, clock, opcode_id, off0, off1, off2];
+                // Read instruction - single lookup with multiplicity 1
+                *lookup_data.memory[0] =
+                    [input.pc, inst_prev_clock, opcode_id, off0, off1, off2, one];
 
-                *lookup_data.memory[2] = [fp + off0, op0_prev_clock, op0_val, zero, zero, zero];
-                *lookup_data.memory[3] = [fp + off0, clock, op0_val, zero, zero, zero];
+                // Read op0 - single lookup with multiplicity 1
+                *lookup_data.memory[1] =
+                    [fp + off0, op0_prev_clock, op0_val, zero, zero, zero, one];
 
-                *lookup_data.memory[4] =
-                    [fp + off2, dst_prev_clock, dst_prev_val, zero, zero, zero];
-                *lookup_data.memory[5] = [fp + off2, clock, dst_val, zero, zero, zero];
+                // Write dst - single lookup with write multiplicity
+                *lookup_data.memory[2] = [fp + off2, clock, dst_val, zero, zero, zero, dst_mult];
 
                 *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
                 *lookup_data.range_check_20[1] = clock - op0_prev_clock - enabler;
@@ -258,14 +259,15 @@ impl InteractionClaim {
         )
             .into_par_iter()
             .enumerate()
-            .for_each(|(i, (writer, memory_prev, memory_new))| {
-                let num_prev = -PackedQM31::from(enabler_col.packed_at(i));
-                let num_new = PackedQM31::from(enabler_col.packed_at(i));
-                let denom_prev: PackedQM31 = memory_relation.combine(memory_prev);
-                let denom_new: PackedQM31 = memory_relation.combine(memory_new);
+            .for_each(|(i, (writer, memory0, memory1))| {
+                // memory0 is instruction read, memory1 is op0 read
+                let num0 = -PackedQM31::from(enabler_col.packed_at(i));
+                let denom0: PackedQM31 = memory_relation.combine(&memory0[..6]);
+                let num1 = -PackedQM31::from(enabler_col.packed_at(i));
+                let denom1: PackedQM31 = memory_relation.combine(&memory1[..6]);
 
-                let numerator = num_prev * denom_new + num_new * denom_prev;
-                let denom = denom_prev * denom_new;
+                let numerator = num0 * denom1 + num1 * denom0;
+                let denom = denom0 * denom1;
 
                 writer.write_frac(numerator, denom);
             });
@@ -275,59 +277,19 @@ impl InteractionClaim {
         (
             col.par_iter_mut(),
             &interaction_claim_data.lookup_data.memory[2],
-            &interaction_claim_data.lookup_data.memory[3],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(i, (writer, memory_prev, memory_new))| {
-                let num_prev = -PackedQM31::from(enabler_col.packed_at(i));
-                let num_new = PackedQM31::from(enabler_col.packed_at(i));
-                let denom_prev: PackedQM31 = memory_relation.combine(memory_prev);
-                let denom_new: PackedQM31 = memory_relation.combine(memory_new);
-
-                let numerator = num_prev * denom_new + num_new * denom_prev;
-                let denom = denom_prev * denom_new;
-
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
-
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.memory[4],
-            &interaction_claim_data.lookup_data.memory[5],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(i, (writer, memory_prev, memory_new))| {
-                let num_prev = -PackedQM31::from(enabler_col.packed_at(i));
-                let num_new = PackedQM31::from(enabler_col.packed_at(i));
-                let denom_prev: PackedQM31 = memory_relation.combine(memory_prev);
-                let denom_new: PackedQM31 = memory_relation.combine(memory_new);
-
-                let numerator = num_prev * denom_new + num_new * denom_prev;
-                let denom = denom_prev * denom_new;
-
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
-
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
             &interaction_claim_data.lookup_data.range_check_20[0],
-            &interaction_claim_data.lookup_data.range_check_20[1],
         )
             .into_par_iter()
             .enumerate()
-            .for_each(|(_i, (writer, range_check_20_0, range_check_20_1))| {
-                let num = -PackedQM31::one();
-                let denom_0: PackedQM31 = range_check_20_relation.combine(&[*range_check_20_0]);
-                let denom_1: PackedQM31 = range_check_20_relation.combine(&[*range_check_20_1]);
+            .for_each(|(i, (writer, memory2, range_check))| {
+                // memory2 is dst write
+                let num_mem = PackedQM31::from(enabler_col.packed_at(i) * memory2[6]);
+                let denom_mem: PackedQM31 = memory_relation.combine(&memory2[..6]);
+                let num_range = -PackedQM31::one();
+                let denom_range: PackedQM31 = range_check_20_relation.combine(&[*range_check]);
 
-                let numerator = num * denom_1 + num * denom_0;
-                let denom = denom_0 * denom_1;
+                let numerator = num_mem * denom_range + num_range * denom_mem;
+                let denom = denom_mem * denom_range;
 
                 writer.write_frac(numerator, denom);
             });
@@ -336,15 +298,20 @@ impl InteractionClaim {
         let mut col = interaction_trace.new_col();
         (
             col.par_iter_mut(),
+            &interaction_claim_data.lookup_data.range_check_20[1],
             &interaction_claim_data.lookup_data.range_check_20[2],
         )
             .into_par_iter()
             .enumerate()
-            .for_each(|(_i, (writer, range_check_20_2))| {
+            .for_each(|(_i, (writer, range_check_20_1, range_check_20_2))| {
                 let num = -PackedQM31::one();
-                let denom: PackedQM31 = range_check_20_relation.combine(&[*range_check_20_2]);
+                let denom_1: PackedQM31 = range_check_20_relation.combine(&[*range_check_20_1]);
+                let denom_2: PackedQM31 = range_check_20_relation.combine(&[*range_check_20_2]);
 
-                writer.write_frac(num, denom);
+                let numerator = num * denom_2 + num * denom_1;
+                let denom = denom_1 * denom_2;
+
+                writer.write_frac(numerator, denom);
             });
         col.finalize_col();
 
@@ -386,7 +353,7 @@ impl FrameworkEval for Eval {
         let op0_prev_clock = eval.next_trace_mask();
         let op0_val = eval.next_trace_mask();
         let dst_prev_clock = eval.next_trace_mask();
-        let dst_prev_val = eval.next_trace_mask();
+        let dst_mult = eval.next_trace_mask();
         let dst_val = eval.next_trace_mask();
 
         // Enabler is 1 or 0
@@ -410,25 +377,13 @@ impl FrameworkEval for Eval {
             &[pc.clone() + one, fp.clone()],
         ));
 
-        // Read instruction from memory
+        // Read instruction from memory - single lookup
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
             -E::EF::from(enabler.clone()),
             &[
-                pc.clone(),
-                inst_prev_clock.clone(),
-                opcode_id.clone(),
-                off0.clone(),
-                off1.clone(),
-                off2.clone(),
-            ],
-        ));
-        eval.add_to_relation(RelationEntry::new(
-            &self.memory,
-            E::EF::from(enabler.clone()),
-            &[
                 pc,
-                clock.clone(),
+                inst_prev_clock.clone(),
                 opcode_id,
                 off0.clone(),
                 off1,
@@ -436,35 +391,17 @@ impl FrameworkEval for Eval {
             ],
         ));
 
-        // Read op0
+        // Read op0 - single lookup
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
             -E::EF::from(enabler.clone()),
-            &[
-                fp.clone() + off0.clone(),
-                op0_prev_clock.clone(),
-                op0_val.clone(),
-            ],
-        ));
-        eval.add_to_relation(RelationEntry::new(
-            &self.memory,
-            E::EF::from(enabler.clone()),
-            &[fp.clone() + off0, clock.clone(), op0_val],
+            &[fp.clone() + off0, op0_prev_clock.clone(), op0_val],
         ));
 
-        // Write dst
+        // Write dst - single lookup with multiplicity
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
-            -E::EF::from(enabler.clone()),
-            &[
-                fp.clone() + off2.clone(),
-                dst_prev_clock.clone(),
-                dst_prev_val,
-            ],
-        ));
-        eval.add_to_relation(RelationEntry::new(
-            &self.memory,
-            E::EF::from(enabler.clone()),
+            E::EF::from(enabler.clone() * dst_mult),
             &[fp + off2, clock.clone(), dst_val],
         ));
 

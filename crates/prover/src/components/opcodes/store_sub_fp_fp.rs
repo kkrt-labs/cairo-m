@@ -127,7 +127,6 @@ impl Claim {
                 LookupData::uninitialized(log_size - LOG_N_LANES),
             )
         };
-        dbg!(&inputs);
         inputs.resize(1 << log_size, ExecutionBundle::default());
         let packed_inputs: Vec<PackedExecutionBundle> = inputs
             .par_chunks_exact(N_LANES)
