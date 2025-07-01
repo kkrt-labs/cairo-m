@@ -13,11 +13,11 @@ pub use memory::ExecutionBundle;
 use tracing::{span, Level};
 
 use crate::adapter::io::{MemoryEntryFileIter, TraceFileIter};
-use crate::adapter::memory::{ExecutionBundleIterator, Memory};
+use crate::adapter::memory::{ExecutionBundleIterator, InitialMemoryCell};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ProverInput {
-    pub memory_boundaries: Memory,
+    pub initial_memory: Vec<InitialMemoryCell>,
     pub instructions: Instructions,
 }
 
@@ -37,7 +37,6 @@ where
     MemoryIter: Iterator<Item = RunnerMemoryEntry>,
 {
     let mut bundle_iter = ExecutionBundleIterator::new(trace_iter, memory_iter);
-    let mut states_by_opcodes = HashMap::<Opcode, Vec<ExecutionBundle>>::default();
 
     // Get initial registers by peeking at the trace
     let initial_registers = bundle_iter
@@ -46,29 +45,22 @@ where
         .ok_or(VmImportError::EmptyTrace)?;
     let mut final_registers = initial_registers;
 
-    // Process all execution bundles
+    // Process all execution bundles - they're stored in the iterator
     #[allow(clippy::while_let_on_iterator)]
     while let Some(bundle_result) = bundle_iter.next() {
         let bundle = bundle_result?;
-
         // Track final registers
         final_registers = bundle.registers;
-
-        // Extract opcode from instruction
-        let opcode = Opcode::try_from(bundle.instruction.value)?;
-
-        // Store bundle by opcode
-        states_by_opcodes.entry(opcode).or_default().push(bundle);
     }
 
     // Get the final registers from the last trace entry that wasn't processed
     final_registers = bundle_iter.get_final_registers().unwrap_or(final_registers);
 
-    // Get the memory state from the iterator
-    let memory = bundle_iter.into_memory();
+    // Get the states and memory from the iterator
+    let (states_by_opcodes, initial_memory) = bundle_iter.into_parts();
 
     Ok(ProverInput {
-        memory_boundaries: memory,
+        initial_memory,
         instructions: Instructions {
             initial_registers,
             final_registers,
