@@ -20,10 +20,10 @@ use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
-use crate::adapter::memory::Memory;
+use crate::adapter::memory::InitialMemoryCell;
 use crate::relations;
 
-const N_M31_IN_MEMORY_ENTRY: usize = 7; // Address, clock, value, multiplicity
+const N_M31_IN_MEMORY_ENTRY: usize = 7; // Address, clock, value (4 M31s), multiplicity
 
 #[derive(Clone, Default, Serialize, Deserialize, Debug)]
 pub struct Claim {
@@ -52,7 +52,7 @@ impl Claim {
     }
 
     pub fn write_trace<MC: MerkleChannel>(
-        inputs: &Memory,
+        inputs: &[InitialMemoryCell],
     ) -> (
         Self,
         ComponentTrace<N_M31_IN_MEMORY_ENTRY>,
@@ -61,34 +61,21 @@ impl Claim {
     where
         SimdBackend: BackendForChannel<MC>,
     {
-        let initial_memory_len = inputs.initial_memory.len();
-        let log_size = std::cmp::max(
-            (initial_memory_len + inputs.final_memory.len()).next_power_of_two(),
-            N_LANES,
-        )
-        .ilog2();
-
+        let log_size = std::cmp::max(inputs.len().next_power_of_two(), N_LANES).ilog2();
+        dbg!(inputs);
         // Pack memory entries from the prover input
         let packed_inputs: Vec<[PackedM31; N_M31_IN_MEMORY_ENTRY]> = inputs
-            .initial_memory
             .iter()
-            .chain(inputs.final_memory.iter())
-            .enumerate()
-            .map(|(i, (address, (value, clock)))| {
-                let value_array = value.to_m31_array();
-                let mult = if i < initial_memory_len {
-                    M31::from(1)
-                } else {
-                    M31::from(-1)
-                };
+            .map(|cell| {
+                let value_array = cell.value.to_m31_array();
                 [
-                    *address,
-                    *clock,
+                    cell.address,
+                    M31::zero(), // the memory component is reserved to preloaded values like instructions
                     value_array[0],
                     value_array[1],
                     value_array[2],
                     value_array[3],
-                    mult,
+                    cell.multiplicity,
                 ]
             })
             .chain(std::iter::repeat([M31::zero(); N_M31_IN_MEMORY_ENTRY]))
