@@ -205,7 +205,7 @@ impl Opcode {
             // Call operations: read target, write return values
             Self::CallAbsFp => OpcodeInfo {
                 memory_accesses: 3,
-                memory_access_pattern: [Read, Write, Write],
+                memory_access_pattern: [Write, Write, Read],
             },
             Self::CallAbsImm => OpcodeInfo {
                 memory_accesses: 2,
@@ -213,7 +213,7 @@ impl Opcode {
             },
             Self::CallRelFp => OpcodeInfo {
                 memory_accesses: 3,
-                memory_access_pattern: [Read, Write, Write],
+                memory_access_pattern: [Write, Write, Read],
             },
             Self::CallRelImm => OpcodeInfo {
                 memory_accesses: 2,
@@ -285,6 +285,8 @@ impl Opcode {
             },
 
             // Conditional jumps: read condition and target
+            // TODO: memory access pattern is correct if condition is zero if not, it's wrong
+            // Simple fix: modify the VM so that target is always
             Self::JnzFpFp => OpcodeInfo {
                 memory_accesses: 2,
                 memory_access_pattern: [Read, Read, Unused],

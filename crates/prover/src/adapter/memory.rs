@@ -226,7 +226,7 @@ where
                     let current_ref =
                         MemoryCellRef::ExecutionBundle(opcode, bundle_idx, operand_idx);
                     self.memory
-                        .write(operand_memory, current_ref, &mut self.states_by_opcodes)
+                        .write(operand_memory, current_ref, &self.states_by_opcodes)
                         .into()
                 }
                 MemoryAccessType::Unused => continue,
@@ -255,7 +255,7 @@ where
 }
 
 impl Memory {
-    /// Read from memory, updating multiplicity
+    /// Read from memory, WITHOUT updating multiplicity (that's done in a second pass)
     fn read(
         &mut self,
         memory_entry: RunnerMemoryEntry,
@@ -284,8 +284,8 @@ impl Memory {
                     // In that case, find the Bundle that wrote to the cell and increment the multiplicity
                     // of the associated write
                     let opcode_bundles = states_by_opcodes.get_mut(&opcode).unwrap();
-                    let bundle = opcode_bundles[bundle_idx];
-                    let write_data = &mut bundle.operands[operand_idx].unwrap();
+                    let bundle = &mut opcode_bundles[bundle_idx];
+                    let write_data = bundle.operands[operand_idx].as_mut().unwrap();
                     write_data.multiplicity += M31::one();
                     MemoryArg {
                         address: memory_entry.addr,
@@ -320,7 +320,7 @@ impl Memory {
         &mut self,
         memory_entry: RunnerMemoryEntry,
         current_ref: MemoryCellRef,
-        states_by_opcodes: &mut HashMap<Opcode, Vec<ExecutionBundle>>,
+        states_by_opcodes: &HashMap<Opcode, Vec<ExecutionBundle>>,
     ) -> MemoryArg {
         let key = (memory_entry.addr, memory_entry.value);
 
@@ -334,7 +334,7 @@ impl Memory {
                     assert_eq!(
                         cell.value.0 .1 * cell.value.1 .0 * cell.value.1 .1,
                         M31::zero(),
-                        "Instruction should not be overwritten"
+                        "Instructions should not be overwritten"
                     );
 
                     (cell.value.0 .0, M31::zero()) // preloaded values are by definition written at clock 0 (before the program started)
@@ -342,8 +342,8 @@ impl Memory {
                 MemoryCellRef::ExecutionBundle(opcode, bundle_idx, operand_idx) => {
                     // This is corresponds to a write to a memory cell that was already written to by the program
                     // e.g by a store opcode
-                    let opcode_bundles = states_by_opcodes.get_mut(&opcode).unwrap();
-                    let bundle = opcode_bundles[bundle_idx];
+                    let opcode_bundles = states_by_opcodes.get(&opcode).unwrap();
+                    let bundle = &opcode_bundles[bundle_idx];
                     let data_access = bundle.operands[operand_idx].unwrap();
                     (data_access.value, bundle.clock) // previously written value and previous clock of the write
                 }
