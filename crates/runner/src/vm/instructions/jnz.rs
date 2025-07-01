@@ -21,8 +21,10 @@ pub fn jnz_fp_fp(
 ) -> Result<State, MemoryError> {
     let [off0, off1, _] = instruction.operands;
     let condition = memory.get_data(state.fp + off0)?;
+    // Target is out of if statement to have a constant number of memory accesses for each opcode(easier for prover)
+    let target = memory.get_data(state.fp + off1)?;
     let new_state = if !condition.is_zero() {
-        state.jump_rel(memory.get_data(state.fp + off1)?)
+        state.jump_rel(target)
     } else {
         state.advance()
     };

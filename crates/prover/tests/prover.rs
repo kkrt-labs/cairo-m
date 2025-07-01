@@ -35,8 +35,10 @@ fn test_prove_and_verify_fibonacci_program() {
         Default::default(),
     )
     .unwrap();
-
+    dbg!(&compiled_fib.program.instructions);
+    dbg!(&runner_output.vm.memory.data);
     let mut prover_input = import_from_runner_output(runner_output).unwrap();
+    dbg!(&prover_input);
     let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input).unwrap();
 
     verify_cairo_m::<Blake2sMerkleChannel>(proof).unwrap();
