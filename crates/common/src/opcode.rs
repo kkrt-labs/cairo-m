@@ -15,7 +15,6 @@ pub enum MemoryAccessType {
 // Struct to hold constant characteristics of an opcode
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct OpcodeInfo {
-    pub memory_accesses: usize,
     pub memory_access_pattern: [MemoryAccessType; 3],
 }
 
@@ -158,141 +157,107 @@ impl Opcode {
         match self {
             // Store operations: read operands, write to destination
             Self::StoreAddFpFp => OpcodeInfo {
-                memory_accesses: 3,
                 memory_access_pattern: [Read, Read, Write],
             },
             Self::StoreAddFpImm => OpcodeInfo {
-                memory_accesses: 2,
                 memory_access_pattern: [Read, Unused, Write],
             },
             Self::StoreSubFpFp => OpcodeInfo {
-                memory_accesses: 3,
                 memory_access_pattern: [Read, Read, Write],
             },
             Self::StoreSubFpImm => OpcodeInfo {
-                memory_accesses: 2,
                 memory_access_pattern: [Read, Unused, Write],
             },
             Self::StoreDerefFp => OpcodeInfo {
-                memory_accesses: 2,
                 memory_access_pattern: [Read, Unused, Write],
             },
             Self::StoreDoubleDerefFp => OpcodeInfo {
-                memory_accesses: 3,
                 memory_access_pattern: [Read, Read, Write],
             },
             Self::StoreImm => OpcodeInfo {
-                memory_accesses: 1,
                 memory_access_pattern: [Unused, Unused, Write],
             },
             Self::StoreMulFpFp => OpcodeInfo {
-                memory_accesses: 3,
                 memory_access_pattern: [Read, Read, Write],
             },
             Self::StoreMulFpImm => OpcodeInfo {
-                memory_accesses: 2,
                 memory_access_pattern: [Read, Unused, Write],
             },
             Self::StoreDivFpFp => OpcodeInfo {
-                memory_accesses: 3,
                 memory_access_pattern: [Read, Read, Write],
             },
             Self::StoreDivFpImm => OpcodeInfo {
-                memory_accesses: 2,
                 memory_access_pattern: [Read, Unused, Write],
             },
 
             // Call operations: read target, write return values
             Self::CallAbsFp => OpcodeInfo {
-                memory_accesses: 3,
                 memory_access_pattern: [Write, Write, Read],
             },
             Self::CallAbsImm => OpcodeInfo {
-                memory_accesses: 2,
                 memory_access_pattern: [Write, Write, Unused],
             },
             Self::CallRelFp => OpcodeInfo {
-                memory_accesses: 3,
                 memory_access_pattern: [Write, Write, Read],
             },
             Self::CallRelImm => OpcodeInfo {
-                memory_accesses: 2,
                 memory_access_pattern: [Write, Write, Unused],
             },
 
             // Ret: read return values
             Self::Ret => OpcodeInfo {
-                memory_accesses: 2,
                 memory_access_pattern: [Read, Read, Unused],
             },
 
             // Jump operations: read operands only
             Self::JmpAbsAddFpFp => OpcodeInfo {
-                memory_accesses: 2,
                 memory_access_pattern: [Read, Read, Unused],
             },
             Self::JmpAbsAddFpImm => OpcodeInfo {
-                memory_accesses: 1,
                 memory_access_pattern: [Read, Unused, Unused],
             },
             Self::JmpAbsDerefFp => OpcodeInfo {
-                memory_accesses: 1,
                 memory_access_pattern: [Read, Unused, Unused],
             },
             Self::JmpAbsDoubleDerefFp => OpcodeInfo {
-                memory_accesses: 2,
                 memory_access_pattern: [Read, Read, Unused],
             },
             Self::JmpAbsImm => OpcodeInfo {
-                memory_accesses: 0,
                 memory_access_pattern: [Unused, Unused, Unused],
             },
             Self::JmpAbsMulFpFp => OpcodeInfo {
-                memory_accesses: 2,
                 memory_access_pattern: [Read, Read, Unused],
             },
             Self::JmpAbsMulFpImm => OpcodeInfo {
-                memory_accesses: 1,
                 memory_access_pattern: [Read, Unused, Unused],
             },
             Self::JmpRelAddFpFp => OpcodeInfo {
-                memory_accesses: 2,
                 memory_access_pattern: [Read, Read, Unused],
             },
             Self::JmpRelAddFpImm => OpcodeInfo {
-                memory_accesses: 1,
                 memory_access_pattern: [Read, Unused, Unused],
             },
             Self::JmpRelDerefFp => OpcodeInfo {
-                memory_accesses: 1,
                 memory_access_pattern: [Read, Unused, Unused],
             },
             Self::JmpRelDoubleDerefFp => OpcodeInfo {
-                memory_accesses: 2,
                 memory_access_pattern: [Read, Read, Unused],
             },
             Self::JmpRelImm => OpcodeInfo {
-                memory_accesses: 0,
                 memory_access_pattern: [Unused, Unused, Unused],
             },
             Self::JmpRelMulFpFp => OpcodeInfo {
-                memory_accesses: 2,
                 memory_access_pattern: [Read, Read, Unused],
             },
             Self::JmpRelMulFpImm => OpcodeInfo {
-                memory_accesses: 1,
                 memory_access_pattern: [Read, Unused, Unused],
             },
 
             // Conditional jumps: read condition and target
-            // TODO: memory access pattern is correct if condition is zero if not, it's wrong
-            // Simple fix: modify the VM so that target is always
             Self::JnzFpFp => OpcodeInfo {
-                memory_accesses: 2,
                 memory_access_pattern: [Read, Read, Unused],
             },
             Self::JnzFpImm => OpcodeInfo {
-                memory_accesses: 1,
                 memory_access_pattern: [Read, Unused, Unused],
             },
         }
