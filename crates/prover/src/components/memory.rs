@@ -62,7 +62,6 @@ impl Claim {
         SimdBackend: BackendForChannel<MC>,
     {
         let log_size = std::cmp::max(inputs.len().next_power_of_two(), N_LANES).ilog2();
-        dbg!(inputs);
         // Pack memory entries from the prover input
         let packed_inputs: Vec<[PackedM31; N_M31_IN_MEMORY_ENTRY]> = inputs
             .iter()

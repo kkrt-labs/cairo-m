@@ -67,6 +67,7 @@ fn test_prove_and_verify_recursive_fibonacci_program() {
     .unwrap();
 
     let mut prover_input = import_from_runner_output(runner_output).unwrap();
+    dbg!(&prover_input);
     let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input).unwrap();
 
     verify_cairo_m::<Blake2sMerkleChannel>(proof).unwrap();
