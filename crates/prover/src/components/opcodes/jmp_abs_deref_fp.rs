@@ -1,5 +1,5 @@
 //! This component is used to prove the JmpAbsDerefFp opcode.
-//! jmp abs [[fp + off0]]
+//! jmp abs [fp + off0]
 //!
 //! # Columns
 //!
