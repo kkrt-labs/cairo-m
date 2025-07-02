@@ -65,6 +65,38 @@ fn test_store_add_fp_imm_constraints() {
                 None,
             ],
         },
+        // Test case 3: a = a + 3 (in-place addition with immediate)
+        ExecutionBundle {
+            registers: cairo_m_common::State {
+                pc: M31::from(2),
+                fp: M31::from(200),
+            },
+            clock: M31::from(3),
+            instruction: InstructionAccess {
+                prev_clock: M31::from(2),
+                value: QM31::from_u32_unchecked(
+                    Opcode::StoreAddFpImm as u32,
+                    0, // off0 (a)
+                    3, // off1 (immediate value)
+                    0, // off2 (a)
+                ),
+            },
+            operands: [
+                Some(DataAccess {
+                    address: M31::from(200), // fp + 0 (a read)
+                    prev_clock: M31::from(0),
+                    prev_value: M31::from(10),
+                    value: M31::from(10),
+                }),
+                Some(DataAccess {
+                    address: M31::from(200),  // fp + 0 (a write)
+                    prev_clock: M31::from(3), // clock from read
+                    prev_value: M31::from(10),
+                    value: M31::from(13), // 10 + 3
+                }),
+                None,
+            ],
+        },
     ];
     test_opcode_constraints!(
         execution_bundles,

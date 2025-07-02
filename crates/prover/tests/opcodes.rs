@@ -104,13 +104,9 @@ mod components {
         // Store operations
         include!("components/opcodes/store_imm.rs");
         include!("components/opcodes/store_deref_fp.rs");
-        include!("components/opcodes/store_double_deref_fp.rs");
 
-        // Arithmetic operations
         include!("components/opcodes/store_add_fp_fp.rs");
-        include!("components/opcodes/store_add_fp_fp_inplace.rs");
         include!("components/opcodes/store_add_fp_imm.rs");
-        include!("components/opcodes/store_add_fp_imm_inplace.rs");
         include!("components/opcodes/store_sub_fp_fp.rs");
         include!("components/opcodes/store_sub_fp_imm.rs");
         include!("components/opcodes/store_mul_fp_fp.rs");
@@ -118,35 +114,15 @@ mod components {
         include!("components/opcodes/store_div_fp_fp.rs");
         include!("components/opcodes/store_div_fp_imm.rs");
 
-        // Absolute jump operations
+        // Absolute jump operation
         include!("components/opcodes/jmp_abs_imm.rs");
-        include!("components/opcodes/jmp_abs_deref_fp.rs");
-        include!("components/opcodes/jmp_abs_double_deref_fp.rs");
-        include!("components/opcodes/jmp_abs_add_fp_fp.rs");
-        include!("components/opcodes/jmp_abs_add_fp_imm.rs");
-        include!("components/opcodes/jmp_abs_mul_fp_fp.rs");
-        include!("components/opcodes/jmp_abs_mul_fp_imm.rs");
-
-        // Relative jump operations
-        include!("components/opcodes/jmp_rel_imm.rs");
-        include!("components/opcodes/jmp_rel_deref_fp.rs");
-        include!("components/opcodes/jmp_rel_double_deref_fp.rs");
-        include!("components/opcodes/jmp_rel_add_fp_fp.rs");
-        include!("components/opcodes/jmp_rel_add_fp_imm.rs");
-        include!("components/opcodes/jmp_rel_mul_fp_fp.rs");
-        include!("components/opcodes/jmp_rel_mul_fp_imm.rs");
 
         // Conditional jump operations
-        include!("components/opcodes/jnz_fp_fp.rs");
-        include!("components/opcodes/jnz_fp_fp_taken.rs");
         include!("components/opcodes/jnz_fp_imm.rs");
         include!("components/opcodes/jnz_fp_imm_taken.rs");
 
-        // Call operations
+        // Call operation
         include!("components/opcodes/call_abs_imm.rs");
-        include!("components/opcodes/call_abs_fp.rs");
-        include!("components/opcodes/call_rel_imm.rs");
-        include!("components/opcodes/call_rel_fp.rs");
 
         // Return operation
         include!("components/opcodes/ret.rs");
