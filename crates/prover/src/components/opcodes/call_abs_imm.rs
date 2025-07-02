@@ -50,7 +50,6 @@ use stwo_constraint_framework::logup::LogupTraceGenerator;
 use stwo_constraint_framework::{
     EvalAtRow, FrameworkComponent, FrameworkEval, Relation, RelationEntry,
 };
-use stwo_prover::core::backend::simd::conversion::Pack;
 use stwo_prover::core::backend::simd::m31::{PackedM31, LOG_N_LANES, N_LANES};
 use stwo_prover::core::backend::simd::qm31::PackedQM31;
 use stwo_prover::core::backend::simd::SimdBackend;
@@ -64,8 +63,8 @@ use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::adapter::ExecutionBundle;
 use crate::relations;
-use crate::utils::{Enabler, PackedExecutionBundle};
-
+use crate::utils::enabler::Enabler;
+use crate::utils::opcodes::call_abs_imm::PackedExecutionBundle;
 const N_TRACE_COLUMNS: usize = 13;
 const N_MEMORY_LOOKUPS: usize = 3;
 const N_REGISTERS_LOOKUPS: usize = 2;
@@ -128,7 +127,7 @@ impl Claim {
             .par_chunks_exact(N_LANES)
             .map(|chunk| {
                 let array: [ExecutionBundle; N_LANES] = chunk.try_into().unwrap();
-                Pack::pack(array)
+                PackedExecutionBundle::pack_from(array)
             })
             .collect();
         // Clear the inputs to free memory early. The data has been packed into SIMD format
@@ -153,14 +152,14 @@ impl Claim {
                 let fp = input.fp;
                 let clock = input.clock;
                 let inst_prev_clock = input.inst_prev_clock;
-                let opcode_id = input.inst_value_0;
-                let off0 = input.inst_value_1;
-                let off1 = input.inst_value_2;
-                let off2 = input.inst_value_3;
-                let op0_prev_clock = input.mem1_prev_clock;
-                let op0_mult = input.mem1_multiplicity;
-                let op0_plus_one_prev_clock = input.mem2_prev_clock;
-                let op0_plus_one_mult = input.mem2_multiplicity;
+                let opcode_id = input.opcode_id;
+                let off0 = input.off0;
+                let off1 = input.off1;
+                let off2 = input.off2;
+                let op0_prev_clock = input.op0_prev_clock;
+                let op0_mult = input.op0_mult;
+                let op0_plus_one_prev_clock = input.op0_plus_one_prev_clock;
+                let op0_plus_one_mult = input.op0_plus_one_mult;
 
                 *row[0] = enabler;
                 *row[1] = pc;
