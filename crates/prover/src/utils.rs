@@ -53,20 +53,23 @@ pub struct PackedExecutionBundle {
     pub inst_value_2: PackedM31,
     pub inst_value_3: PackedM31,
 
-    // Memory arg 1 - Operand 0 (4 fields: address, value, prev_value, prev_clock)
+    // Memory arg 1 - Operand 0 (4 fields: value, prev_value, prev_clock, multiplicity)
     pub mem1_prev_value: PackedM31,
     pub mem1_value: PackedM31,
     pub mem1_prev_clock: PackedM31,
+    pub mem1_multiplicity: PackedM31,
 
     // Memory arg 2 - Operand 1 (4 fields)
     pub mem2_prev_value: PackedM31,
     pub mem2_value: PackedM31,
     pub mem2_prev_clock: PackedM31,
+    pub mem2_multiplicity: PackedM31,
 
     // Memory arg 3 - Operand 2 (4 fields)
     pub mem3_prev_value: PackedM31,
     pub mem3_value: PackedM31,
     pub mem3_prev_clock: PackedM31,
+    pub mem3_multiplicity: PackedM31,
 }
 
 impl Pack for ExecutionBundle {
@@ -108,6 +111,9 @@ impl Pack for ExecutionBundle {
             mem1_prev_clock: PackedM31::from_array(std::array::from_fn(|i| {
                 inputs[i].operands[0].map_or_else(M31::zero, |op| op.prev_clock)
             })),
+            mem1_multiplicity: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[0].map_or_else(M31::zero, |op| op.multiplicity)
+            })),
 
             // Memory arg 2
             mem2_prev_value: PackedM31::from_array(std::array::from_fn(|i| {
@@ -119,6 +125,9 @@ impl Pack for ExecutionBundle {
             mem2_prev_clock: PackedM31::from_array(std::array::from_fn(|i| {
                 inputs[i].operands[1].map_or_else(M31::zero, |op| op.prev_clock)
             })),
+            mem2_multiplicity: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[1].map_or_else(M31::zero, |op| op.multiplicity)
+            })),
 
             // Memory arg 3
             mem3_prev_value: PackedM31::from_array(std::array::from_fn(|i| {
@@ -129,6 +138,9 @@ impl Pack for ExecutionBundle {
             })),
             mem3_prev_clock: PackedM31::from_array(std::array::from_fn(|i| {
                 inputs[i].operands[2].map_or_else(M31::zero, |op| op.prev_clock)
+            })),
+            mem3_multiplicity: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[2].map_or_else(M31::zero, |op| op.multiplicity)
             })),
         }
     }

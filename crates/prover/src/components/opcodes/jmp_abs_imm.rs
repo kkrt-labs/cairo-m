@@ -20,7 +20,7 @@
 //! * registers update is regular
 //!   * `- [pc, fp] + [off0, fp]` in `Registers` relation
 //! * read instruction from memory
-//!   * `- [pc, inst_prev_clk, opcode_id, off0, off1, off2] + [pc, clk, opcode_id, off0, off1, off2]` in `Memory` relation
+//!   * `- [pc, clk, opcode_id, off0, off1, off2]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck_20` relation
 //! * assert opcode id
 //!   * `opcode_id - 20`
@@ -55,7 +55,7 @@ use crate::relations;
 use crate::utils::{Enabler, PackedExecutionBundle};
 
 const N_TRACE_COLUMNS: usize = 9;
-const N_MEMORY_LOOKUPS: usize = 2;
+const N_MEMORY_LOOKUPS: usize = 1;
 const N_REGISTERS_LOOKUPS: usize = 2;
 const N_RANGE_CHECK_20_LOOKUPS: usize = 1;
 
@@ -69,7 +69,7 @@ pub struct InteractionClaimData {
 
 #[derive(Uninitialized, IterMut, ParIterMut)]
 pub struct LookupData {
-    pub memory: [Vec<[PackedM31; 6]>; N_MEMORY_LOOKUPS],
+    pub memory: [Vec<[PackedM31; 7]>; N_MEMORY_LOOKUPS],
     pub registers: [Vec<[PackedM31; 2]>; N_REGISTERS_LOOKUPS],
     pub range_check_20: [Vec<PackedM31>; N_RANGE_CHECK_20_LOOKUPS],
 }
@@ -125,6 +125,7 @@ impl Claim {
         inputs.clear();
         inputs.shrink_to_fit();
 
+        let one = PackedM31::from(M31::one());
         let enabler_col = Enabler::new(non_padded_length);
         (
             trace.par_iter_mut(),
@@ -157,8 +158,9 @@ impl Claim {
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [off0, input.fp];
 
-                *lookup_data.memory[0] = [input.pc, inst_prev_clock, opcode_id, off0, off1, off2];
-                *lookup_data.memory[1] = [input.pc, clock, opcode_id, off0, off1, off2];
+                // Read instruction - current state only with multiplicity
+                *lookup_data.memory[0] =
+                    [input.pc, inst_prev_clock, opcode_id, off0, off1, off2, one];
 
                 *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
             });
@@ -217,39 +219,26 @@ impl InteractionClaim {
             });
         col.finalize_col();
 
+        // Batch memory lookup with range check
         let mut col = interaction_trace.new_col();
         (
             col.par_iter_mut(),
             &interaction_claim_data.lookup_data.memory[0],
-            &interaction_claim_data.lookup_data.memory[1],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(i, (writer, memory_prev, memory_new))| {
-                let num_prev = -PackedQM31::from(enabler_col.packed_at(i));
-                let num_new = PackedQM31::from(enabler_col.packed_at(i));
-                let denom_prev: PackedQM31 = memory_relation.combine(memory_prev);
-                let denom_new: PackedQM31 = memory_relation.combine(memory_new);
-
-                let numerator = num_prev * denom_new + num_new * denom_prev;
-                let denom = denom_prev * denom_new;
-
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
-
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
             &interaction_claim_data.lookup_data.range_check_20[0],
         )
             .into_par_iter()
             .enumerate()
-            .for_each(|(_i, (writer, range_check_20_0))| {
-                let num = -PackedQM31::one();
-                let denom_0: PackedQM31 = range_check_20_relation.combine(&[*range_check_20_0]);
+            .for_each(|(i, (writer, memory0, range_check_20_0))| {
+                // memory0 is instruction read
+                let num_mem = -PackedQM31::from(enabler_col.packed_at(i));
+                let denom_mem: PackedQM31 = memory_relation.combine(&memory0[..6]);
+                let num_rc = -PackedQM31::one();
+                let denom_rc: PackedQM31 = range_check_20_relation.combine(&[*range_check_20_0]);
 
-                writer.write_frac(num, denom_0);
+                let numerator = num_mem * denom_rc + num_rc * denom_mem;
+                let denom = denom_mem * denom_rc;
+
+                writer.write_frac(numerator, denom);
             });
         col.finalize_col();
 
@@ -307,23 +296,11 @@ impl FrameworkEval for Eval {
             &[off0.clone(), fp],
         ));
 
-        // Read instruction from memory
+        // Read instruction from memory - current state only
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
             -E::EF::from(enabler.clone()),
-            &[
-                pc.clone(),
-                inst_prev_clock.clone(),
-                opcode_id.clone(),
-                off0.clone(),
-                off1.clone(),
-                off2.clone(),
-            ],
-        ));
-        eval.add_to_relation(RelationEntry::new(
-            &self.memory,
-            E::EF::from(enabler.clone()),
-            &[pc, clock.clone(), opcode_id, off0, off1, off2],
+            &[pc, inst_prev_clock.clone(), opcode_id, off0, off1, off2],
         ));
 
         // Range check 20
