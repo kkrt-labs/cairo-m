@@ -142,7 +142,7 @@ fn test_prove_and_verify_all_opcodes() {
     let runner_output =
         run_cairo_program(&compiled_fib.program, "main", &[], Default::default()).unwrap();
 
-    let mut prover_input = import_from_runner_output(&runner_output).unwrap();
+    let mut prover_input = import_from_runner_output(runner_output).unwrap();
     let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input).unwrap();
 
     verify_cairo_m::<Blake2sMerkleChannel>(proof).unwrap();
@@ -166,7 +166,7 @@ fn test_all_opcodes_constraints() {
     let runner_output =
         run_cairo_program(&compiled_fib.program, "main", &[], Default::default()).unwrap();
 
-    let mut prover_input = import_from_runner_output(&runner_output).unwrap();
+    let mut prover_input = import_from_runner_output(runner_output).unwrap();
     assert_constraints(&mut prover_input);
 }
 

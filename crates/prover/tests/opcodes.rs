@@ -7,7 +7,7 @@ use cairo_m_prover::adapter::memory::{DataAccess, ExecutionBundle, InstructionAc
 use cairo_m_prover::components::Relations;
 use cairo_m_prover::debug_tools::assert_constraints::MockCommitmentScheme;
 use cairo_m_prover::preprocessed::PreProcessedTraceBuilder;
-use stwo_prover::constraint_framework::{
+use stwo_constraint_framework::{
     assert_constraints_on_trace, FrameworkComponent, FrameworkEval, TraceLocationAllocator,
     PREPROCESSED_TRACE_IDX,
 };
