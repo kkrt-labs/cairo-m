@@ -7,7 +7,7 @@ Fixture: semantic_tests::expressions::type_errors::test_unary_op_type_error
 Source code:
 
         struct Point { x: felt, y: felt }
-        
+
         func test() -> felt {
             let p = Point { x: 1, y: 2 };
             let x = -p;  // Should show type error for negation on struct
