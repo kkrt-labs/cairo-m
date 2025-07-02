@@ -277,3 +277,80 @@ fn test_complex_expression_type_inference() {
     }
     assert!(found_complex_expression, "Complex expression not found");
 }
+
+#[test]
+fn test_unary_expression_types() {
+    let db = test_db();
+    let program = r#"
+        func test() {
+            let a = 10;
+            let neg_a = -a;       // Should be felt
+            let not_a = !a;       // Should be felt
+            let neg_lit = -42;    // Should be felt
+            let not_lit = !0;     // Should be felt
+        }
+    "#;
+    let file = File::new(&db, program.to_string(), "test.cm".to_string());
+    let semantic_index = semantic_index(&db, file)
+        .as_ref()
+        .expect("Got unexpected parse errors");
+
+    // Look for unary expressions
+    for (span, expr_id) in &semantic_index.span_to_expression_id {
+        let source_text = &program[span.start..span.end];
+        let expr_info = semantic_index.expression(*expr_id).unwrap();
+
+        // Check for unary operations
+        if matches!(
+            expr_info.ast_node,
+            cairo_m_compiler_parser::parser::Expression::UnaryOp { .. }
+        ) {
+            let expr_type = expression_semantic_type(&db, file, *expr_id);
+            // Unary operations on felt should result in felt
+            assert!(
+                matches!(expr_type.data(&db), TypeData::Felt),
+                "Unary expression '{source_text}' should have felt type"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_unary_operation_type_errors() {
+    let db = test_db();
+    let program = r#"
+        struct Point { x: felt, y: felt }
+        func test() {
+            let p = Point { x: 1, y: 2 };
+            let invalid_neg = -p;     // Error: negation on struct
+            let invalid_not = !p;     // Error: logical not on struct
+
+            let tuple = (1, 2);
+            let invalid_neg2 = -tuple; // Error: negation on tuple
+            let invalid_not2 = !tuple; // Error: logical not on tuple
+        }
+    "#;
+    let file = File::new(&db, program.to_string(), "test.cm".to_string());
+    let semantic_index = semantic_index(&db, file)
+        .as_ref()
+        .expect("Got unexpected parse errors");
+
+    // Run type validation
+    use cairo_m_compiler_semantic::validation::type_validator::TypeValidator;
+    use cairo_m_compiler_semantic::validation::Validator;
+
+    let validator = TypeValidator;
+    let diagnostics = validator.validate(&db, file, semantic_index);
+
+    // Should have type mismatch errors for invalid unary operations
+    let type_errors = diagnostics
+        .iter()
+        .filter(|d| d.code == cairo_m_compiler_diagnostics::DiagnosticCode::TypeMismatch)
+        .count();
+
+    assert!(
+        type_errors >= 4,
+        "Should have at least 4 type mismatch errors for invalid unary operations, got {}",
+        type_errors
+    );
+}

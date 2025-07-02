@@ -135,6 +135,7 @@ codegen_test!(not_equals, "arithmetic");
 codegen_test!(and, "arithmetic");
 codegen_test!(or, "arithmetic");
 codegen_test!(left_imm, "arithmetic");
+codegen_test!(unary, "arithmetic");
 
 // --- Control Flow ---
 codegen_test!(simple_if, "control_flow");

@@ -59,6 +59,16 @@ pub enum TypeExpr {
     Tuple(Vec<TypeExpr>),
 }
 
+/// Unary operators supported in expressions.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
+pub enum UnaryOp {
+    /// Logical NOT operator `!`
+    ///
+    Not,
+    /// Arithmetic negation operator `-`
+    Neg,
+}
+
 /// Binary operators supported in expressions.
 ///
 /// These operators have different precedence levels that are handled
@@ -103,6 +113,11 @@ pub enum Expression {
     BooleanLiteral(bool),
     /// Variable identifier (e.g., `x`, `my_var`, `result`)
     Identifier(Spanned<String>),
+    /// Unary operation (e.g., `!x`, `-y`)
+    UnaryOp {
+        op: UnaryOp,
+        expr: Box<Spanned<Expression>>,
+    },
     /// Binary operation (e.g., `a + b`, `x == y`, `p && q`)
     BinaryOp {
         op: BinaryOp,
@@ -626,14 +641,37 @@ where
 
         // Helper to create binary operator parsers
         let op = |token, op| just(token).to(op);
+        let unary_op = |token, op| just(token).to(op);
+
+        // Unary operators: !, - (right-associative, high precedence)
+        let unary = choice((
+            unary_op(TokenType::Not, UnaryOp::Not).map_with(|op, extra| (op, extra.span())),
+            unary_op(TokenType::Minus, UnaryOp::Neg).map_with(|op, extra| (op, extra.span())),
+        ))
+        .repeated()
+        .foldr(
+            call.clone(),
+            |(op, op_span): (UnaryOp, SimpleSpan), expr| {
+                let expr_span = expr.span();
+                // Span should be from start of operator to end of expression
+                let full_span = SimpleSpan::from(op_span.start..expr_span.end);
+                Spanned::new(
+                    Expression::UnaryOp {
+                        op,
+                        expr: Box::new(expr),
+                    },
+                    full_span,
+                )
+            },
+        );
 
         // Multiplicative operators: *, / (left-associative)
-        let mul = call.clone().foldl(
+        let mul = unary.clone().foldl(
             choice((
                 op(TokenType::Mul, BinaryOp::Mul),
                 op(TokenType::Div, BinaryOp::Div),
             ))
-            .then(call.clone())
+            .then(unary.clone())
             .repeated(),
             |lhs, (op, rhs)| {
                 let span_lhs = lhs.span();

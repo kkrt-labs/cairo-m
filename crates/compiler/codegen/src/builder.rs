@@ -5,7 +5,7 @@
 
 use cairo_m_common::Opcode;
 use cairo_m_compiler_mir::{Literal, Value, ValueId};
-use cairo_m_compiler_parser::parser::BinaryOp;
+use cairo_m_compiler_parser::parser::{BinaryOp, UnaryOp};
 use stwo_prover::core::fields::m31::M31;
 
 use crate::{CodegenError, CodegenResult, FunctionLayout, InstructionBuilder, Label, Operand};
@@ -118,6 +118,47 @@ impl CasmBuilder {
     /// Handles simple value assignments: dest = source
     pub fn assign(&mut self, dest: ValueId, source: Value) -> CodegenResult<()> {
         self.assign_with_target(dest, source, None)
+    }
+
+    pub fn unary_op(&mut self, op: UnaryOp, dest: ValueId, source: Value) -> CodegenResult<()> {
+        self.unary_op_with_target(op, dest, source, None)
+    }
+
+    pub fn unary_op_with_target(
+        &mut self,
+        op: UnaryOp,
+        dest: ValueId,
+        source: Value,
+        target_offset: Option<i32>,
+    ) -> CodegenResult<()> {
+        let layout = self
+            .layout
+            .as_mut()
+            .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
+
+        let dest_off = if let Some(offset) = target_offset {
+            // Use the provided target offset and map the ValueId to it
+            layout.map_value(dest, offset);
+            offset
+        } else {
+            // Allocate a new local variable
+            layout.allocate_local(dest, 1)?
+        };
+
+        match op {
+            UnaryOp::Neg => {
+                self.generate_arithmetic_op(
+                    BinaryOp::Sub,
+                    dest_off,
+                    Value::Literal(Literal::Integer(0)),
+                    source,
+                )?;
+            }
+            UnaryOp::Not => {
+                self.generate_not_op(dest_off, source)?;
+            }
+        }
+        Ok(())
     }
 
     /// Generate binary operation instruction with optional target offset
@@ -265,7 +306,8 @@ impl CasmBuilder {
                     // TODO: In the future we should add opcodes imm_fp_sub and imm_fp_div
                     BinaryOp::Sub | BinaryOp::Div => {
                         let right_off = layout.get_offset(*right_id)?;
-                        let temp_off = layout.allocate_local(*right_id, 1)?;
+                        // Allocate a new temporary slot for the immediate
+                        let temp_off = layout.reserve_stack(1);
 
                         let copy_instr = InstructionBuilder::new(Opcode::StoreImm.into())
                             .with_off2(temp_off)
@@ -573,6 +615,66 @@ impl CasmBuilder {
         self.instructions.push(set_true_instr);
 
         // Step 6: end label
+        self.add_label(Label::new(end_label));
+
+        Ok(())
+    }
+
+    pub fn generate_not_op(&mut self, dest_off: i32, source: Value) -> CodegenResult<()> {
+        let set_zero_label = self.new_label_name("not_zero");
+        let end_label = self.new_label_name("not_end");
+
+        match source {
+            Value::Operand(src_id) => {
+                let src_off = self.layout.as_ref().unwrap().get_offset(src_id)?;
+                // If source is non-zero, jump to set result to 0
+                let jnz_instr = InstructionBuilder::new(Opcode::JnzFpImm.into())
+                    .with_off0(src_off)
+                    .with_operand(Operand::Label(set_zero_label.clone()))
+                    .with_comment(format!(
+                        "if [fp + {src_off}] != 0, jump to {set_zero_label}"
+                    ));
+                self.instructions.push(jnz_instr);
+            }
+            Value::Literal(Literal::Integer(imm)) => {
+                // For immediate values, we can directly compute the NOT result
+                let result = if imm == 0 { 1 } else { 0 };
+                let instr = InstructionBuilder::new(Opcode::StoreImm.into())
+                    .with_off2(dest_off)
+                    .with_imm(result)
+                    .with_comment(format!("[fp + {dest_off}] = {result}"));
+                self.instructions.push(instr);
+                return Ok(());
+            }
+            _ => {
+                return Err(CodegenError::UnsupportedInstruction(
+                    "Unsupported source operand in NOT".to_string(),
+                ));
+            }
+        }
+
+        // If we reach here, source was 0, so set result to 1
+        let set_one_instr = InstructionBuilder::new(Opcode::StoreImm.into())
+            .with_off2(dest_off)
+            .with_imm(1)
+            .with_comment(format!("[fp + {dest_off}] = 1"));
+        self.instructions.push(set_one_instr);
+
+        // Jump to end
+        let jmp_end_instr = InstructionBuilder::new(Opcode::JmpAbsImm.into())
+            .with_operand(Operand::Label(end_label.clone()))
+            .with_comment(format!("jump to {end_label}"));
+        self.instructions.push(jmp_end_instr);
+
+        // set_zero label - set result to 0
+        self.add_label(Label::new(set_zero_label));
+        let set_zero_instr = InstructionBuilder::new(Opcode::StoreImm.into())
+            .with_off2(dest_off)
+            .with_imm(0)
+            .with_comment(format!("[fp + {dest_off}] = 0"));
+        self.instructions.push(set_zero_instr);
+
+        // end label
         self.add_label(Label::new(end_label));
 
         Ok(())

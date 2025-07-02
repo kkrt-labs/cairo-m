@@ -1,0 +1,29 @@
+---
+source: crates/compiler/semantic/tests/mod.rs
+description: "Inline semantic validation error test: expressions::type_errors::test_unary_op_type_error"
+---
+Fixture: semantic_tests::expressions::type_errors::test_unary_op_type_error
+============================================================
+Source code:
+
+        struct Point { x: felt, y: felt }
+        
+        func test() -> felt {
+            let p = Point { x: 1, y: 2 };
+            let x = -p;  // Should show type error for negation on struct
+            return x;
+        }
+    
+============================================================
+Found 1 diagnostic(s):
+
+--- Diagnostic 1 ---
+[2001] Error: Invalid operand for negation operator '-'. Expected 'felt', found 'Point'
+   ╭─[ semantic_tests::expressions::type_errors::test_unary_op_type_error:6:22 ]
+   │
+ 6 │             let x = -p;  // Should show type error for negation on struct
+   │                      ┬  
+   │                      ╰── Invalid operand for negation operator '-'. Expected 'felt', found 'Point'
+   │                      │  
+   │                      ╰── This struct has numeric fields that could be accessed
+───╯
