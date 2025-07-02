@@ -159,9 +159,9 @@ impl Claim {
                 let off2 = input.inst_value_3;
                 let op0_prev_clock = input.mem1_prev_clock;
                 let op0_val = input.mem1_value;
-                let dst_mult = input.mem2_multiplicity;
-                let dst_prev_clock = input.mem2_prev_clock;
-                let dst_val = input.mem2_value;
+                let dst_mult = input.mem3_multiplicity;
+                let dst_prev_clock = input.mem3_prev_clock;
+                let dst_val = input.mem3_value;
 
                 *row[0] = enabler;
                 *row[1] = pc;

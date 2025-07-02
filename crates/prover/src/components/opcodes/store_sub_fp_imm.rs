@@ -16,7 +16,6 @@
 //! - op0_val
 //! - dst_prev_clock
 //! - dst_mult (memory write multiplicity)
-//! - dst_val
 //!
 //! # Constraints
 //!
@@ -33,7 +32,6 @@
 //!   * `[fp + off0, clk, op0_val]` in `Memory` relation with multiplicity enabler
 //!   * `- [clk - op0_prev_clk - 1]` in `RangeCheck_20` relation
 //! * write dst in [fp + off2]
-//!   * `dst_val = op0_val - off1`
 //!   * `[fp + off2, clk, dst_val]` in `Memory` relation with multiplicity enabler*mult
 //!   * `- [clk - dst_prev_clk - 1]` in `RangeCheck_20` relation
 
@@ -66,7 +64,7 @@ use crate::adapter::ExecutionBundle;
 use crate::relations;
 use crate::utils::{Enabler, PackedExecutionBundle};
 
-const N_TRACE_COLUMNS: usize = 14;
+const N_TRACE_COLUMNS: usize = 13;
 const N_MEMORY_LOOKUPS: usize = 3;
 const N_REGISTERS_LOOKUPS: usize = 2;
 const N_RANGE_CHECK_20_LOOKUPS: usize = 3;
@@ -161,7 +159,6 @@ impl Claim {
                 let op0_val = input.mem1_value;
                 let dst_mult = input.mem3_multiplicity;
                 let dst_prev_clock = input.mem3_prev_clock;
-                let dst_val = input.mem3_value;
 
                 *row[0] = enabler;
                 *row[1] = pc;
@@ -176,7 +173,6 @@ impl Claim {
                 *row[10] = op0_val;
                 *row[11] = dst_prev_clock;
                 *row[12] = dst_mult;
-                *row[13] = dst_val;
 
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [input.pc + one, input.fp];
@@ -190,7 +186,8 @@ impl Claim {
                     [fp + off0, op0_prev_clock, op0_val, zero, zero, zero, one];
 
                 // Write dst - single lookup with write multiplicity
-                *lookup_data.memory[2] = [fp + off2, clock, dst_val, zero, zero, zero, dst_mult];
+                *lookup_data.memory[2] =
+                    [fp + off2, clock, op0_val - off1, zero, zero, zero, dst_mult];
 
                 *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
                 *lookup_data.range_check_20[1] = clock - op0_prev_clock - enabler;
@@ -340,7 +337,7 @@ impl FrameworkEval for Eval {
         let one = E::F::from(M31::one());
         let expected_opcode_id = E::F::from(M31::from(Opcode::StoreSubFpImm));
 
-        // 14 columns
+        // 13 columns
         let enabler = eval.next_trace_mask();
         let pc = eval.next_trace_mask();
         let fp = eval.next_trace_mask();
@@ -354,7 +351,6 @@ impl FrameworkEval for Eval {
         let op0_val = eval.next_trace_mask();
         let dst_prev_clock = eval.next_trace_mask();
         let dst_mult = eval.next_trace_mask();
-        let dst_val = eval.next_trace_mask();
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
@@ -383,7 +379,7 @@ impl FrameworkEval for Eval {
                 inst_prev_clock.clone(),
                 opcode_id,
                 off0.clone(),
-                off1,
+                off1.clone(),
                 off2.clone(),
             ],
         ));
@@ -392,14 +388,14 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
             -E::EF::from(enabler.clone()),
-            &[fp.clone() + off0, op0_prev_clock.clone(), op0_val],
+            &[fp.clone() + off0, op0_prev_clock.clone(), op0_val.clone()],
         ));
 
         // Write dst - single lookup with multiplicity
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
             E::EF::from(enabler.clone() * dst_mult),
-            &[fp + off2, clock.clone(), dst_val],
+            &[fp + off2, clock.clone(), op0_val - off1],
         ));
 
         // Range check 20
