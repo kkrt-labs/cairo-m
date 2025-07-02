@@ -15,10 +15,15 @@ The main design choices are
 
 - keep registers count at their minimum, using only `pc` (program counter) and
   `fp` (frame pointer)
+  - this minimalist register architecture significantly reduces AIR complexity
+  - simplifies proof generation and verification
+  - improves proving performance on resource-constrained devices
+  - enables more efficient memory layout and access patterns
+  - reduces the overall computational overhead during proving
 - each frame is of constant deterministic size
 - read-write memory
 - variable-size instruction encoding (x86 style)
-- support of native types (u8, u32, etc.) thanks to an heavy use of Stwo's
+- support of native types (u8, u32, etc.) thanks to a heavy use of Stwo's
   component system
 
 ## Crates
