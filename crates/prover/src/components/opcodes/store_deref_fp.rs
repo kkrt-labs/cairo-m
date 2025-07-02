@@ -55,7 +55,6 @@ use stwo_constraint_framework::logup::LogupTraceGenerator;
 use stwo_constraint_framework::{
     EvalAtRow, FrameworkComponent, FrameworkEval, Relation, RelationEntry,
 };
-use stwo_prover::core::backend::simd::conversion::Pack;
 use stwo_prover::core::backend::simd::m31::{PackedM31, LOG_N_LANES, N_LANES};
 use stwo_prover::core::backend::simd::qm31::PackedQM31;
 use stwo_prover::core::backend::simd::SimdBackend;
@@ -69,9 +68,9 @@ use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::adapter::ExecutionBundle;
 use crate::relations;
-use crate::utils::{Enabler, PackedExecutionBundle};
-
-const N_TRACE_COLUMNS: usize = 15;
+use crate::utils::enabler::Enabler;
+use crate::utils::opcodes::store_deref_fp::PackedExecutionBundle;
+const N_TRACE_COLUMNS: usize = 14;
 const N_MEMORY_LOOKUPS: usize = 3;
 const N_REGISTERS_LOOKUPS: usize = 2;
 const N_RANGE_CHECK_20_LOOKUPS: usize = 3;
@@ -133,7 +132,7 @@ impl Claim {
             .par_chunks_exact(N_LANES)
             .map(|chunk| {
                 let array: [ExecutionBundle; N_LANES] = chunk.try_into().unwrap();
-                Pack::pack(array)
+                PackedExecutionBundle::pack_from(array)
             })
             .collect();
 
@@ -159,16 +158,15 @@ impl Claim {
                 let fp = input.fp;
                 let clock = input.clock;
                 let inst_prev_clock = input.inst_prev_clock;
-                let opcode_id = input.inst_value_0;
-                let off0 = input.inst_value_1;
-                let off1 = input.inst_value_2;
-                let off2 = input.inst_value_3;
-                let op0_prev_clock = input.mem1_prev_clock;
-                let op0_prev_val = input.mem1_prev_value;
-                let op0_val = input.mem1_value;
-                let dst_prev_val = input.mem3_prev_value;
-                let dst_prev_clock = input.mem3_prev_clock;
-                let mult = input.mem3_multiplicity;
+                let opcode_id = input.opcode_id;
+                let off0 = input.off0;
+                let off1 = input.off1;
+                let off2 = input.off2;
+                let op0_prev_clock = input.op0_prev_clock;
+                let op0_prev_val = input.op0_prev_val;
+                let op0_val = input.op0_val;
+                let dst_prev_clock = input.dst_prev_clock;
+                let mult = input.dst_mult;
 
                 *row[0] = enabler;
                 *row[1] = pc;
@@ -182,9 +180,8 @@ impl Claim {
                 *row[9] = op0_prev_clock;
                 *row[10] = op0_prev_val;
                 *row[11] = op0_val;
-                *row[12] = dst_prev_val;
-                *row[13] = dst_prev_clock;
-                *row[14] = mult;
+                *row[12] = dst_prev_clock;
+                *row[13] = mult;
 
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [input.pc + one, input.fp];
@@ -359,7 +356,6 @@ impl FrameworkEval for Eval {
         let op0_prev_clock = eval.next_trace_mask();
         let op0_prev_val = eval.next_trace_mask();
         let op0_val = eval.next_trace_mask();
-        let _dst_prev_val = eval.next_trace_mask();
         let dst_prev_clock = eval.next_trace_mask();
         let mult = eval.next_trace_mask();
 
