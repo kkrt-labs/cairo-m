@@ -13,8 +13,8 @@ use std::collections::HashSet;
 
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode};
 use cairo_m_compiler_parser::parser::{
-    BinaryOp, Expression, FunctionDef, Pattern, Spanned, Statement, TopLevelItem, TypeExpr,
-    UnaryOp, parse_program,
+    parse_program, BinaryOp, Expression, FunctionDef, Pattern, Spanned, Statement, TopLevelItem,
+    TypeExpr, UnaryOp,
 };
 use chumsky::span::SimpleSpan;
 
