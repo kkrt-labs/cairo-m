@@ -33,6 +33,7 @@
 //!   * `[fp + off0, clk, op0_val]` in `Memory` relation with multiplicity enabler
 //!   * `- [clk - op0_prev_clk - 1]` in `RangeCheck_20` relation
 //! * write dst in [fp + off2]
+//!   * `dst_val = op0_val * off1`
 //!   * `[fp + off2, clk, dst_val]` in `Memory` relation with multiplicity enabler*dst_mult
 //!   * `- [clk - dst_prev_clk - 1]` in `RangeCheck_20` relation
 
@@ -158,9 +159,9 @@ impl Claim {
                 let off2 = input.inst_value_3;
                 let op0_prev_clock = input.mem1_prev_clock;
                 let op0_val = input.mem1_value;
-                let dst_mult = input.mem2_multiplicity;
-                let dst_prev_clock = input.mem2_prev_clock;
-                let dst_val = input.mem2_value;
+                let dst_mult = input.mem3_multiplicity;
+                let dst_prev_clock = input.mem3_prev_clock;
+                let dst_val = input.mem3_value;
 
                 *row[0] = enabler;
                 *row[1] = pc;
