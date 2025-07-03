@@ -1,0 +1,10 @@
+func zero_conditions(x: felt) -> felt {
+    if (0 == x){
+        return 1;
+    }
+    if (x != 0){
+        return 2;
+    } else {
+        return 3;
+    }
+}

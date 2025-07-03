@@ -36,8 +36,7 @@ module {
       jump 1
 
     1:
-      %2 = %0 Neq 10
-      if %2 then jump 2 else jump 3
+      if %0 Neq 10 then jump 2 else jump 3
 
     2:
       %1 = %1 Add %0
