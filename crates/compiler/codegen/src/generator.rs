@@ -365,11 +365,11 @@ impl CodeGenerator {
         match terminator {
             Terminator::Jump { target } => {
                 // Check if this jump is to the immediately following block
-                if let Some(next_id) = next_block_id
-                    && *target == next_id
-                {
-                    // Skip generating the jump - fall through to next block
-                    return Ok(());
+                if let Some(next_id) = next_block_id {
+                    if *target == next_id {
+                        // Skip generating the jump - fall through to next block
+                        return Ok(());
+                    }
                 }
                 let target_label = format!("{function_name}_{target:?}");
                 builder.jump(&target_label)?;
