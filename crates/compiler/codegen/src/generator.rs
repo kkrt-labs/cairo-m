@@ -409,20 +409,21 @@ impl CodeGenerator {
                 let then_label = format!("{function_name}_{then_target:?}");
                 let else_label = format!("{function_name}_{else_target:?}");
 
+                // For comparison, we compute `a - b`. The result is non-zero if they are not equal.
+                builder.generate_arithmetic_op(BinaryOp::Sub, temp_slot_offset, *left, *right)?;
+
                 match op {
                     BinaryOp::Eq => {
-                        // For `a == b`, we compute `a - b`. The result is zero if they are equal.
-                        builder.generate_arithmetic_op(
-                            BinaryOp::Sub,
-                            temp_slot_offset,
-                            *left,
-                            *right,
-                        )?;
-
                         // `jnz` jumps if the result is non-zero.
                         // A non-zero result means `a != b`, so we should jump to the `else` block.
                         // Otherwise we can simply fallthrough.
                         builder.jnz_offset(temp_slot_offset, &else_label)?;
+                    }
+                    BinaryOp::Neq => {
+                        // `jnz` jumps if the result is non-zero.
+                        // A non-zero result means `a != b`, so we should jump to the `then` block.
+                        // Otherwise we can simply fallthrough.
+                        builder.jnz_offset(temp_slot_offset, &then_label)?;
                     }
                     _ => {
                         return Err(CodegenError::UnsupportedInstruction(format!(

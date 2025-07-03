@@ -2,7 +2,7 @@
 
 use insta::assert_snapshot;
 
-use crate::ir_generation::tests::test_harness::{MirTest, check_mir};
+use crate::ir_generation::tests::test_harness::{check_mir, MirTest};
 
 /// A macro to define a MIR test case. It loads a source file,
 /// runs MIR generation, checks embedded assertions, and snapshots the output.
@@ -78,6 +78,7 @@ mir_test!(reassignment_from_var, "variables");
 // --- Optimizations ---
 mir_test!(unused_variable_elimination, "optimizations");
 mir_test!(assign_to_binop, "optimizations");
+mir_test!(zero_conditions, "optimizations");
 
 // --- Aggregates (Structs/Tuples) ---
 mir_test!(struct_literal, "aggregates");

@@ -6,7 +6,7 @@
 use cairo_m_compiler_parser::parser::BinaryOp;
 use rustc_hash::FxHashMap;
 
-use crate::{Instruction, InstructionKind, MirFunction, Terminator, Value, ValueId};
+use crate::{Instruction, InstructionKind, Literal, MirFunction, Terminator, Value, ValueId};
 
 /// A trait for MIR optimization passes
 pub trait MirPass {
@@ -48,7 +48,7 @@ impl FuseCmpBranch {
     /// Returns true if an op is a comparison that can be fused.
     const fn is_fusible_comparison(op: BinaryOp) -> bool {
         // For now, only Eq is guaranteed to work. In the future we might have Le / Ge opcodes
-        matches!(op, BinaryOp::Eq)
+        matches!(op, BinaryOp::Eq | BinaryOp::Neq)
     }
 }
 
@@ -79,13 +79,32 @@ impl MirPass for FuseCmpBranch {
                         {
                             if Self::is_fusible_comparison(*op) {
                                 // We found the pattern! Perform the fusion.
-                                block.terminator = Terminator::branch_cmp(
-                                    *op,
-                                    *left,
-                                    *right,
-                                    then_target,
-                                    else_target,
-                                );
+
+                                // We first check for comparisons with 0 which can be optimized
+                                match (*op, *left, *right) {
+                                    (BinaryOp::Eq, Value::Literal(Literal::Integer(0)), cond)
+                                    | (BinaryOp::Eq, cond, Value::Literal(Literal::Integer(0))) => {
+                                        // Checking x == 0 is equivalent to !x, so we switch the targets
+                                        block.terminator =
+                                            Terminator::branch(cond, else_target, then_target);
+                                    }
+                                    (BinaryOp::Neq, Value::Literal(Literal::Integer(0)), cond)
+                                    | (BinaryOp::Neq, cond, Value::Literal(Literal::Integer(0))) => {
+                                        // Checking x != 0 is equivalent to x, so we use x as the condition
+                                        block.terminator =
+                                            Terminator::branch(cond, then_target, else_target);
+                                    }
+                                    _ => {
+                                        // For all other cases, we can fuse the comparison and branch
+                                        block.terminator = Terminator::branch_cmp(
+                                            *op,
+                                            *left,
+                                            *right,
+                                            then_target,
+                                            else_target,
+                                        );
+                                    }
+                                }
 
                                 // Remove the now-redundant BinaryOp instruction.
                                 block.instructions.pop();

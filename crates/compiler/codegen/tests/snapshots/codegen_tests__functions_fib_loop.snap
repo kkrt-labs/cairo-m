@@ -38,27 +38,20 @@ fibonacci_loop_0:
    2: 6 0 _ 2              // Store immediate: [fp + 2] = 0
 fibonacci_loop_1:
    3: 2 2 -4 3             // [fp + 3] = [fp + 2] op [fp + -4]
-   4: 15 3 3 _             // if [fp + 3] != 0, jump to neq_non_zero_0
-   5: 6 0 _ 3              // [fp + 3] = 0
-   6: 13 8 _ _             // jump to neq_end_1
-neq_non_zero_0:
-   7: 6 1 _ 3              // [fp + 3] = 1
-neq_end_1:
-   8: 15 3 2 _             // if [fp + 3] != 0 jmp rel fibonacci_loop_2
-   9: 13 16 _ _            // jump abs fibonacci_loop_3
+   4: 15 3 1 _             // if [fp + 3] != 0 jmp rel fibonacci_loop_2
 fibonacci_loop_2:
-  10: 0 0 1 4              // [fp + 4] = [fp + 0] op [fp + 1]
-  11: 4 1 _ 0              // Store: [fp + 0] = [fp + 1]
-  12: 4 4 _ 1              // Store: [fp + 1] = [fp + 4]
-  13: 4 2 _ 5              // [fp + 5] = [fp + 2]
-  14: 1 5 1 2              // [fp + 2] = [fp + 5] op 1
-  15: 13 3 _ _             // jump abs fibonacci_loop_1
+   5: 0 0 1 4              // [fp + 4] = [fp + 0] op [fp + 1]
+   6: 4 1 _ 0              // Store: [fp + 0] = [fp + 1]
+   7: 4 4 _ 1              // Store: [fp + 1] = [fp + 4]
+   8: 4 2 _ 5              // [fp + 5] = [fp + 2]
+   9: 1 5 1 2              // [fp + 2] = [fp + 5] op 1
+  10: 13 3 _ _             // jump abs fibonacci_loop_1
 fibonacci_loop_3:
-  16: 4 0 _ -3             // Return value 0: [fp -3] = [fp + 0]
-  17: 12 _ _ _             // return
+  11: 4 0 _ -3             // Return value 0: [fp -3] = [fp + 0]
+  12: 12 _ _ _             // return
 main:
-  18: 6 10 _ 0             // Store immediate: [fp + 0] = 10
-  19: 11 2 0 _             // call fibonacci_loop
-  20: 4 1 _ 3              // Store: [fp + 3] = [fp + 1]
-  21: 4 3 _ -3             // Return value 0: [fp -3] = [fp + 3]
-  22: 12 _ _ _             // return
+  13: 6 10 _ 0             // Store immediate: [fp + 0] = 10
+  14: 11 2 0 _             // call fibonacci_loop
+  15: 4 1 _ 3              // Store: [fp + 3] = [fp + 1]
+  16: 4 3 _ -3             // Return value 0: [fp -3] = [fp + 3]
+  17: 12 _ _ _             // return
