@@ -1,0 +1,30 @@
+// Tests various unary operations.
+func test_neg(a: felt) -> felt {
+    let c = -a;
+    return c;
+}
+
+func test_not(a: felt) -> felt {
+    let c = !a;
+    return c;
+}
+
+func test_neg_literal() -> felt {
+    let c = -42;
+    return c;
+}
+
+func test_not_literal_nonzero() -> felt {
+    let c = !5;
+    return c;
+}
+
+func test_double_neg(a: felt) -> felt {
+    let c = --a;
+    return c;
+}
+
+func test_not_not(a: felt) -> felt {
+    let c = !!a;
+    return c;
+}

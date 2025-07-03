@@ -5,7 +5,7 @@
 
 use std::collections::HashSet;
 
-use cairo_m_compiler_parser::parser::BinaryOp;
+use cairo_m_compiler_parser::parser::{BinaryOp, UnaryOp};
 use chumsky::span::SimpleSpan;
 
 use crate::{PrettyPrint, Value, ValueId};
@@ -55,6 +55,18 @@ pub enum InstructionKind {
     /// Simple assignment: `dest = source`
     /// Used for variable assignments and copies
     Assign { dest: ValueId, source: Value },
+
+    /// Unary operation: `dest = op source`
+    /// Used for unary operations like negation and logical not
+    UnaryOp {
+        op: UnaryOp,
+        dest: ValueId,
+        source: Value,
+        /// If Some, indicates this operation should write its result
+        /// directly to the memory location represented by the given ValueId.
+        /// This is an optimization hint for the code generator.
+        in_place_target: Option<ValueId>,
+    },
 
     /// Binary operation: `dest = left op right`
     /// Covers arithmetic, comparison, and logical operations
@@ -131,6 +143,21 @@ impl Instruction {
     pub const fn assign(dest: ValueId, source: Value) -> Self {
         Self {
             kind: InstructionKind::Assign { dest, source },
+            source_span: None,
+            source_expr_id: None,
+            comment: None,
+        }
+    }
+
+    /// Creates a new unary operation instruction
+    pub const fn unary_op(op: UnaryOp, dest: ValueId, source: Value) -> Self {
+        Self {
+            kind: InstructionKind::UnaryOp {
+                op,
+                dest,
+                source,
+                in_place_target: None,
+            },
             source_span: None,
             source_expr_id: None,
             comment: None,
@@ -269,6 +296,7 @@ impl Instruction {
     pub fn destinations(&self) -> Vec<ValueId> {
         match &self.kind {
             InstructionKind::Assign { dest, .. }
+            | InstructionKind::UnaryOp { dest, .. }
             | InstructionKind::BinaryOp { dest, .. }
             | InstructionKind::Load { dest, .. }
             | InstructionKind::StackAlloc { dest, .. }
@@ -300,6 +328,12 @@ impl Instruction {
 
         match &self.kind {
             InstructionKind::Assign { source, .. } => {
+                if let Value::Operand(id) = source {
+                    used.insert(*id);
+                }
+            }
+
+            InstructionKind::UnaryOp { source, .. } => {
                 if let Value::Operand(id) = source {
                     used.insert(*id);
                 }
@@ -376,6 +410,7 @@ impl Instruction {
     pub const fn validate(&self) -> Result<(), String> {
         match &self.kind {
             InstructionKind::Assign { .. } => Ok(()),
+            InstructionKind::UnaryOp { .. } => Ok(()),
             InstructionKind::BinaryOp { .. } => Ok(()),
             InstructionKind::Call { .. } => Ok(()),
             InstructionKind::VoidCall { .. } => Ok(()),
@@ -420,6 +455,27 @@ impl PrettyPrint for Instruction {
                 result.push_str(&format!(
                     "{} = {}",
                     dest.pretty_print(0),
+                    source.pretty_print(0)
+                ));
+            }
+
+            InstructionKind::UnaryOp {
+                op,
+                dest,
+                source,
+                in_place_target,
+            } => {
+                // If we have an in-place target, that's where the result actually goes
+                let dest_str = if let Some(target) = in_place_target {
+                    format!("%{}", target.index())
+                } else {
+                    dest.pretty_print(0)
+                };
+
+                result.push_str(&format!(
+                    "{} = {:?} {}",
+                    dest_str,
+                    op,
                     source.pretty_print(0)
                 ));
             }

@@ -14,7 +14,7 @@ use std::collections::HashSet;
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode};
 use cairo_m_compiler_parser::parser::{
     parse_program, BinaryOp, Expression, FunctionDef, Pattern, Spanned, Statement, TopLevelItem,
-    TypeExpr,
+    TypeExpr, UnaryOp,
 };
 use chumsky::span::SimpleSpan;
 
@@ -136,6 +136,9 @@ impl TypeValidator {
         diagnostics: &mut Vec<Diagnostic>,
     ) {
         match &expr_info.ast_node {
+            Expression::UnaryOp { expr, op } => {
+                self.check_unary_op_types(db, file, index, expr, op, diagnostics);
+            }
             Expression::BinaryOp { left, op, right } => {
                 self.check_binary_op_types(db, file, index, left, op, right, diagnostics);
             }
@@ -319,6 +322,67 @@ impl TypeValidator {
                             ),
                         )
                         .with_location(file.file_path(db).to_string(), right.span()),
+                    );
+                }
+            }
+        }
+    }
+
+    /// Validate unary operation type compatibility
+    fn check_unary_op_types(
+        &self,
+        db: &dyn SemanticDb,
+        file: File,
+        index: &SemanticIndex,
+        expr: &Spanned<Expression>,
+        op: &UnaryOp,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) {
+        let Some(expr_id) = index.expression_id_by_span(expr.span()) else {
+            return;
+        };
+
+        let expr_type = expression_semantic_type(db, file, expr_id);
+        let felt_type = TypeId::new(db, TypeData::Felt);
+
+        // For now, all unary operations require felt operands
+        match op {
+            UnaryOp::Neg => {
+                // Arithmetic negation
+                if !are_types_compatible(db, expr_type, felt_type) {
+                    let suggestion = self.suggest_type_conversion(db, expr_type, felt_type);
+                    let mut diag = Diagnostic::error(
+                        DiagnosticCode::TypeMismatch,
+                        format!(
+                            "Invalid operand for negation operator '-'. Expected 'felt', found '{}'",
+                            expr_type.data(db).display_name(db)
+                        ),
+                    )
+                    .with_location(file.file_path(db).to_string(), expr.span());
+
+                    if let Some(suggestion) = suggestion {
+                        diag = diag.with_related_span(
+                            file.file_path(db).to_string(),
+                            expr.span(),
+                            suggestion,
+                        );
+                    }
+
+                    diagnostics.push(diag);
+                }
+            }
+            UnaryOp::Not => {
+                // Logical not - operand must be felt (acting as boolean)
+                if !are_types_compatible(db, expr_type, felt_type) {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::TypeMismatch,
+                            format!(
+                                "Logical not operator '!' cannot be applied to type '{}'",
+                                expr_type.data(db).display_name(db)
+                            ),
+                        )
+                        .with_location(file.file_path(db).to_string(), expr.span()),
                     );
                 }
             }

@@ -1220,6 +1220,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             Expression::Literal(_)
             | Expression::BooleanLiteral(_)
             | Expression::FunctionCall { .. }
+            | Expression::UnaryOp { .. }
             | Expression::BinaryOp { .. }
             | Expression::StructLiteral { .. }
             | Expression::Tuple(_) => Err(format!(
@@ -1267,6 +1268,18 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                 // If we can't resolve the identifier, return an error value for recovery
                 Ok(Value::error())
+            }
+
+            Expression::UnaryOp { op, expr } => {
+                // Important: Recursive calls must still use the original Spanned<Expression>
+                let expr_value = self.lower_expression(expr)?;
+
+                // Query semantic type system for result type based on this expression
+                let semantic_type = expression_semantic_type(self.db, self.file, expr_id);
+                let result_type = MirType::from_semantic_type(self.db, semantic_type);
+                let dest = self.mir_function.new_typed_value_id(result_type);
+                self.add_instruction(Instruction::unary_op(*op, dest, expr_value));
+                Ok(Value::operand(dest))
             }
 
             Expression::BinaryOp { op, left, right } => {

@@ -42,6 +42,20 @@ fn long_identifier() {
 }
 
 // ===================
+// Unary Operations
+// ===================
+
+#[test]
+fn unary_neg() {
+    assert_parses_ok!(&in_function("-a;"));
+}
+
+#[test]
+fn unary_not() {
+    assert_parses_ok!(&in_function("!a;"));
+}
+
+// ===================
 // Binary Operations
 // ===================
 

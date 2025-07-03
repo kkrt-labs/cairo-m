@@ -205,6 +205,25 @@ impl CodeGenerator {
                 builder.assign_with_target(*dest, *source, target_offset)?;
             }
 
+            InstructionKind::UnaryOp {
+                op,
+                dest,
+                source,
+                in_place_target,
+            } => {
+                let target_offset = if let Some(target_addr_id) = in_place_target {
+                    builder
+                        .layout_mut()
+                        .unwrap()
+                        .get_offset(*target_addr_id)
+                        .ok()
+                } else {
+                    self.get_target_offset_for_dest(*dest, terminator)
+                };
+
+                builder.unary_op_with_target(*op, *dest, *source, target_offset)?;
+            }
+
             InstructionKind::BinaryOp {
                 op,
                 dest,
