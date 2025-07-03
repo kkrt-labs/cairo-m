@@ -418,24 +418,30 @@ impl CodeGenerator {
                         // A non-zero result means `a != b`, so we should jump to the `else` block.
                         // Otherwise we can simply fallthrough.
                         builder.jnz_offset(temp_slot_offset, &else_label)?;
+
+                        // Fallthrough to the `then` block if the `jnz` was not taken.
+                        let then_is_next = next_block_id == Some(*then_target);
+                        if !then_is_next {
+                            builder.jump(&then_label)?;
+                        }
                     }
                     BinaryOp::Neq => {
                         // `jnz` jumps if the result is non-zero.
                         // A non-zero result means `a != b`, so we should jump to the `then` block.
                         // Otherwise we can simply fallthrough.
                         builder.jnz_offset(temp_slot_offset, &then_label)?;
+
+                        // Fallthrough to the `else` block if the `jnz` was not taken.
+                        let else_is_next = next_block_id == Some(*else_target);
+                        if !else_is_next {
+                            builder.jump(&else_label)?;
+                        }
                     }
                     _ => {
                         return Err(CodegenError::UnsupportedInstruction(format!(
                             "Unsupported comparison op in BranchCmp: {op:?}"
                         )));
                     }
-                }
-
-                // Fallthrough to the `then` block if the `jnz` was not taken.
-                let then_is_next = next_block_id == Some(*then_target);
-                if !then_is_next {
-                    builder.jump(&then_label)?;
                 }
             }
 

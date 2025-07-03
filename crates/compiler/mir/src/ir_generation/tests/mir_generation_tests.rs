@@ -50,6 +50,7 @@ mir_test!(binary_ops, "expressions");
 mir_test!(comparison_ops, "expressions");
 mir_test!(compound_expr, "expressions");
 mir_test!(operator_precedence, "expressions");
+mir_test!(combinaison, "expressions");
 
 // --- Control Flow ---
 mir_test!(if_else, "control_flow");
