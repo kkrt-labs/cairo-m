@@ -1,0 +1,114 @@
+---
+source: crates/compiler/mir/src/ir_generation/tests/mir_generation_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/compiler/mir/src/ir_generation/tests/mir_generation_tests.rs
+expression: mir_output
+---
+Fixture: combination.cm
+============================================================
+Source code:
+func main(){
+    let x = 3;
+    let y = 13;
+    let even_number = 16;
+    let eq = x == y;
+    let mut_val = 1;
+    if (eq) {
+        mut_val = mut_val + eq + 1;
+    }
+    mut_val = mut_val * mut_val;
+    mut_val = mut_val + (even_number / 2);
+
+    let eq2 = (x == 3);
+
+    let compound1 = x || (y == 3) + 2;
+    let compound2 = eq != 2 && 3;
+
+    let (a, b) = foo();
+    return mut_val + eq2 + a + bar() + b + compound1 + compound2;
+}
+
+func foo() -> (felt, felt) {
+    return (32, 62);
+}
+
+func bar() -> felt {
+    return 123;
+}
+
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn main {
+    entry: 0
+
+    0:
+      %0 = stackalloc 1
+      store %0, 3
+      %1 = stackalloc 1
+      store %1, 13
+      %2 = stackalloc 1
+      store %2, 16
+      %3 = %0 Eq %1
+      %4 = stackalloc 1
+      store %4, %3
+      %5 = stackalloc 1
+      store %5, 1
+      if %4 then jump 1 else jump 2
+
+    1:
+      %6 = %5 Add %4
+      %7 = %6 Add 1
+      store %5, %7
+      jump 2
+
+    2:
+      %5 = %5 Mul %5
+      %9 = %2 Div 2
+      %5 = %5 Add %9
+      %11 = %0 Eq 3
+      %12 = stackalloc 1
+      store %12, %11
+      %13 = %1 Eq 3
+      %14 = %13 Add 2
+      %15 = %0 Or %14
+      %16 = stackalloc 1
+      store %16, %15
+      %17 = %4 Neq 2
+      %18 = %17 And 3
+      %19 = stackalloc 1
+      store %19, %18
+      %20, %21 = call 1()
+      %22 = %5 Add %12
+      %23 = %22 Add %20
+      %24 = call 2()
+      %25 = %23 Add %24
+      %26 = %25 Add %21
+      %27 = %26 Add %16
+      %28 = %27 Add %19
+      return %28
+
+  }
+
+  // Function 1
+  fn foo {
+    entry: 0
+
+    0:
+      return (32, 62)
+
+  }
+
+  // Function 2
+  fn bar {
+    entry: 0
+
+    0:
+      return 123
+
+  }
+
+}
