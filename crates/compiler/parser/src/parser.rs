@@ -63,7 +63,6 @@ pub enum TypeExpr {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
 pub enum UnaryOp {
     /// Logical NOT operator `!`
-    ///
     Not,
     /// Arithmetic negation operator `-`
     Neg,
