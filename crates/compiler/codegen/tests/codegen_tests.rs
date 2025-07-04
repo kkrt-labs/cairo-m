@@ -158,3 +158,9 @@ codegen_test!(random_instructions, "random_instructions");
 
 // --- expressions ---
 codegen_test!(tuple_destructuring, "expressions");
+
+// --- aggregates ---
+codegen_test!(struct_access_mut, "aggregates");
+codegen_test!(struct_access_read, "aggregates");
+codegen_test!(struct_literal, "aggregates");
+codegen_test!(tuple_literal_and_access, "aggregates");

@@ -63,7 +63,9 @@ impl CasmBuilder {
     pub fn assign_with_target(
         &mut self,
         dest: ValueId,
+        dest_offset: i32,
         source: Value,
+        source_offset: i32,
         target_offset: Option<i32>,
     ) -> CodegenResult<()> {
         let layout = self
@@ -80,6 +82,8 @@ impl CasmBuilder {
             layout.allocate_local(dest, 1)?
         };
 
+        let dest_off = dest_off + dest_offset;
+
         match source {
             Value::Literal(Literal::Integer(imm)) => {
                 // Store immediate value
@@ -93,7 +97,7 @@ impl CasmBuilder {
 
             Value::Operand(src_id) => {
                 // Copy from another value
-                let src_off = layout.get_offset(src_id)?;
+                let src_off = layout.get_offset(src_id)? + source_offset;
 
                 let instr = InstructionBuilder::new(Opcode::StoreDerefFp.into())
                     .with_off0(src_off)
@@ -116,8 +120,14 @@ impl CasmBuilder {
     /// Generate assignment instruction
     ///
     /// Handles simple value assignments: dest = source
-    pub fn assign(&mut self, dest: ValueId, source: Value) -> CodegenResult<()> {
-        self.assign_with_target(dest, source, None)
+    pub fn assign(
+        &mut self,
+        dest: ValueId,
+        dest_offset: i32,
+        source: Value,
+        source_offset: i32,
+    ) -> CodegenResult<()> {
+        self.assign_with_target(dest, dest_offset, source, source_offset, None)
     }
 
     /// Generate binary operation instruction with optional target offset

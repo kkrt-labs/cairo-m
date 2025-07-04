@@ -7,7 +7,8 @@ use std::collections::HashMap;
 use cairo_m_common::program::EntrypointInfo;
 use cairo_m_common::{Opcode, Program, ProgramMetadata};
 use cairo_m_compiler_mir::{
-    BasicBlockId, Instruction, InstructionKind, MirFunction, MirModule, Terminator, Value, ValueId,
+    BasicBlockId, Instruction, InstructionKind, Literal, MirFunction, MirModule, Terminator, Value,
+    ValueId,
 };
 use cairo_m_compiler_parser::parser::BinaryOp;
 
@@ -165,14 +166,65 @@ impl CodeGenerator {
             let block_label = Label::for_block(&function.name, block_id);
             builder.add_label(block_label);
 
-            for instruction in &block.instructions {
-                self.generate_instruction(
-                    instruction,
-                    function,
-                    module,
-                    builder,
-                    &block.terminator,
-                )?;
+            let mut skip_next_instruction = false;
+
+            for (instruction_index, instruction) in block.instructions.iter().enumerate() {
+                if let InstructionKind::GetElementPtr {
+                    dest: _dest,
+                    base,
+                    offset,
+                } = &instruction.kind
+                {
+                    if let Value::Literal(Literal::Integer(field_offset)) = *offset {
+                        let next_instruction =
+                            block.instructions.get(instruction_index + 1).unwrap();
+                        if let InstructionKind::Load {
+                            dest: dest2,
+                            address: _address,
+                        } = &next_instruction.kind
+                        {
+                            skip_next_instruction = true;
+                            // because we are only working with the stack for now, we can apply the following peephole optimisation :
+                            // replace GEP + Load with single store_deref_fp instruction
+                            // TODO check if dest1 is the same as adress
+                            builder.assign(*dest2, 0, *base, field_offset)?;
+                        }
+                        if let InstructionKind::Store {
+                            address: _address,
+                            value,
+                        } = &next_instruction.kind
+                        {
+                            skip_next_instruction = true;
+                            // because we are only working with the stack for now, we can apply the following peephole optimisation :
+                            // replace GEP + Store with single store_deref_fp instruction
+                            // TODO check if dest1 is the same as value
+                            if let Value::Operand(base_id) = base {
+                                builder.assign(*base_id, field_offset, *value, 0)?;
+                            } else {
+                                return Err(CodegenError::InvalidMir(format!(
+                                    "Expected operand base, got: {:?}",
+                                    base
+                                )));
+                            }
+                        }
+                    } else {
+                        return Err(CodegenError::InvalidMir(format!(
+                            "Expected immediate offset, got: {:?}",
+                            offset
+                        )));
+                    }
+                } else {
+                    if !skip_next_instruction {
+                        self.generate_instruction(
+                            instruction,
+                            function,
+                            module,
+                            builder,
+                            &block.terminator,
+                        )?;
+                    }
+                    skip_next_instruction = false;
+                }
             }
 
             // Determine the next block in sequence (if any)
@@ -202,7 +254,7 @@ impl CodeGenerator {
             InstructionKind::Assign { dest, source } => {
                 // Check if this assignment result will be immediately returned
                 let target_offset = self.get_target_offset_for_dest(*dest, terminator);
-                builder.assign_with_target(*dest, *source, target_offset)?;
+                builder.assign_with_target(*dest, 0, *source, 0, target_offset)?;
             }
 
             InstructionKind::BinaryOp {
