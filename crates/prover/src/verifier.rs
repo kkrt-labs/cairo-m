@@ -11,9 +11,13 @@ use tracing::{info, span, Level};
 use crate::components::{Components, Relations};
 use crate::errors::VerificationError;
 use crate::preprocessed::PreProcessedTraceBuilder;
+use crate::prover_config::REGULAR_96_BITS;
 use crate::{relations, Proof};
 
-pub fn verify_cairo_m<MC: MerkleChannel>(proof: Proof<MC::H>) -> Result<(), VerificationError>
+pub fn verify_cairo_m<MC: MerkleChannel>(
+    proof: Proof<MC::H>,
+    pcs_config: Option<PcsConfig>,
+) -> Result<(), VerificationError>
 where
     SimdBackend: BackendForChannel<MC>,
 {
@@ -22,7 +26,7 @@ where
     // Setup protocol.
     let channel = &mut MC::C::default();
 
-    let pcs_config = PcsConfig::default();
+    let pcs_config = pcs_config.unwrap_or(REGULAR_96_BITS);
     pcs_config.mix_into(channel);
 
     let commitment_scheme_verifier = &mut CommitmentSchemeVerifier::<MC>::new(pcs_config);

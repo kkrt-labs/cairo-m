@@ -60,7 +60,7 @@ fn fibonacci_prove_benchmark(c: &mut Criterion) {
     group.bench_function("prove", |b| {
         b.iter(|| {
             // Benchmark: prove the execution
-            let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input.clone())
+            let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input.clone(), None)
                 .expect("Proving failed");
             black_box(proof)
         })

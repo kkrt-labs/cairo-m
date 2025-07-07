@@ -14,6 +14,7 @@ use crate::adapter::ProverInput;
 use crate::components::{Claim, Components, InteractionClaim, Relations};
 use crate::errors::ProvingError;
 use crate::preprocessed::PreProcessedTraceBuilder;
+use crate::prover_config::REGULAR_96_BITS;
 use crate::public_data::PublicData;
 use crate::{relations, Proof};
 
@@ -21,6 +22,7 @@ pub(crate) const PREPROCESSED_TRACE_LOG_SIZE: u32 = 20;
 
 pub fn prove_cairo_m<MC: MerkleChannel>(
     input: &mut ProverInput,
+    pcs_config: Option<PcsConfig>,
 ) -> Result<Proof<MC::H>, ProvingError>
 where
     SimdBackend: BackendForChannel<MC>,
@@ -30,7 +32,7 @@ where
     // Setup protocol.
     let channel = &mut MC::C::default();
 
-    let pcs_config = PcsConfig::default();
+    let pcs_config = pcs_config.unwrap_or(REGULAR_96_BITS);
     pcs_config.mix_into(channel);
 
     let trace_log_size = std::cmp::max(

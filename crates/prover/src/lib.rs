@@ -9,6 +9,7 @@ pub mod debug_tools;
 pub mod errors;
 pub mod preprocessed;
 pub mod prover;
+pub mod prover_config;
 pub mod public_data;
 pub mod relations;
 pub mod utils;
