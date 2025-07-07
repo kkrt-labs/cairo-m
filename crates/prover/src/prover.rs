@@ -4,7 +4,7 @@ use stwo_constraint_framework::TraceLocationAllocator;
 use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::backend::BackendForChannel;
 use stwo_prover::core::channel::{Channel, MerkleChannel};
-use stwo_prover::core::pcs::CommitmentSchemeProver;
+use stwo_prover::core::pcs::{CommitmentSchemeProver, PcsConfig};
 use stwo_prover::core::poly::circle::{CanonicCoset, PolyOps};
 use stwo_prover::core::proof_of_work::GrindOps;
 use stwo_prover::core::prover::prove;
@@ -22,6 +22,7 @@ pub(crate) const PREPROCESSED_TRACE_LOG_SIZE: u32 = 20;
 
 pub fn prove_cairo_m<MC: MerkleChannel>(
     input: &mut ProverInput,
+    pcs_config: Option<PcsConfig>,
 ) -> Result<Proof<MC::H>, ProvingError>
 where
     SimdBackend: BackendForChannel<MC>,
@@ -31,7 +32,7 @@ where
     // Setup protocol.
     let channel = &mut MC::C::default();
 
-    let pcs_config = REGULAR_96_BITS;
+    let pcs_config = pcs_config.unwrap_or(REGULAR_96_BITS);
     pcs_config.mix_into(channel);
 
     let trace_log_size = std::cmp::max(

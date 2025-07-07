@@ -56,7 +56,7 @@ fn main() -> Result<(), Error> {
     let mut prover_input =
         import_from_runner_output(output).context("Failed to import from runner output")?;
     let _proof: cairo_m_prover::Proof<stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleHasher> =
-        prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input).context("Failed to prove")?;
+        prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).context("Failed to prove")?;
 
     Ok(())
 }

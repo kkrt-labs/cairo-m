@@ -4,7 +4,7 @@ use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::backend::BackendForChannel;
 use stwo_prover::core::channel::{Channel, MerkleChannel};
 use stwo_prover::core::fields::qm31::SecureField;
-use stwo_prover::core::pcs::CommitmentSchemeVerifier;
+use stwo_prover::core::pcs::{CommitmentSchemeVerifier, PcsConfig};
 use stwo_prover::core::prover::{verify, VerificationError as StwoVerificationError};
 use tracing::{info, span, Level};
 
@@ -14,7 +14,10 @@ use crate::preprocessed::PreProcessedTraceBuilder;
 use crate::prover_config::REGULAR_96_BITS;
 use crate::{relations, Proof};
 
-pub fn verify_cairo_m<MC: MerkleChannel>(proof: Proof<MC::H>) -> Result<(), VerificationError>
+pub fn verify_cairo_m<MC: MerkleChannel>(
+    proof: Proof<MC::H>,
+    pcs_config: Option<PcsConfig>,
+) -> Result<(), VerificationError>
 where
     SimdBackend: BackendForChannel<MC>,
 {
@@ -23,7 +26,7 @@ where
     // Setup protocol.
     let channel = &mut MC::C::default();
 
-    let pcs_config = REGULAR_96_BITS;
+    let pcs_config = pcs_config.unwrap_or(REGULAR_96_BITS);
     pcs_config.mix_into(channel);
 
     let commitment_scheme_verifier = &mut CommitmentSchemeVerifier::<MC>::new(pcs_config);

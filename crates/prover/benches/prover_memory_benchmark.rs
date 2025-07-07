@@ -50,7 +50,8 @@ fn main() {
     let mut prover_input =
         import_from_runner_output(runner_output).expect("Failed to import runner output");
 
-    let _proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input).expect("Proving failed");
+    let _proof =
+        prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).expect("Proving failed");
     let peak_mem = PEAK_ALLOC.peak_usage();
 
     eprintln!("Benchmark finished. Peak memory usage: {} bytes", peak_mem);
