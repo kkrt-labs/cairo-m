@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1751899799566,
+  "lastUpdate": 1751902054518,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -173,6 +173,35 @@ window.BENCHMARK_DATA = {
           {
             "name": "fibonacci_prove_peak_mem",
             "value": 2276138860,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antoine.fondeur@gmail.com",
+            "name": "Antoine Fondeur",
+            "username": "AntoineFONDEUR"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e74fdc5d105588cc1be094fcb8427884524f4ca1",
+          "message": "feat(prover): unit constraint checks (#127)\n\n* unitary constraint checks\n\n* refacto\n\n* remove common.rs file\n\n* remove mod.rs files\n\n* rebase\n\n* fix compatibilty with rebase stwo\n\n* removed individual tests for each opcode",
+          "timestamp": "2025-07-07T17:14:31+02:00",
+          "tree_id": "d61415427ffdada4518a788d3663ade7d7f78099",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/e74fdc5d105588cc1be094fcb8427884524f4ca1"
+        },
+        "date": 1751902054477,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2276138348,
             "unit": "bytes"
           }
         ]
