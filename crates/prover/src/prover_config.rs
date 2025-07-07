@@ -11,10 +11,10 @@ use stwo_prover::core::pcs::PcsConfig;
 /// - The number of queries influences the proof size.
 /// - The PoW bits influence the proving time, depending on the hardware and the number of bits to grind.
 pub const REGULAR_96_BITS: PcsConfig = PcsConfig {
-    pow_bits: 20,
+    pow_bits: 16,
     fri_config: FriConfig {
         log_last_layer_degree_bound: 0,
         log_blowup_factor: 1,
-        n_queries: 76,
+        n_queries: 80,
     },
 };
