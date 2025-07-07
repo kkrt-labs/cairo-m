@@ -125,11 +125,12 @@ fn test_prove_and_verify_recursive_fibonacci_program() {
 }
 
 #[test]
-fn test_all_constraints() {
+#[should_panic]
+fn test_prove_and_verify_all_opcodes() {
     let source_path = format!(
         "{}/tests/test_data/{}",
         env!("CARGO_MANIFEST_DIR"),
-        "fibonacci.cm"
+        "all_opcodes.cm"
     );
     let compiled_fib = compile_cairo(
         fs::read_to_string(&source_path).unwrap(),
@@ -138,13 +139,32 @@ fn test_all_constraints() {
     )
     .unwrap();
 
-    let runner_output = run_cairo_program(
-        &compiled_fib.program,
-        "fib",
-        &[M31::from(5)],
-        Default::default(),
+    let runner_output =
+        run_cairo_program(&compiled_fib.program, "main", &[], Default::default()).unwrap();
+
+    let mut prover_input = import_from_runner_output(runner_output).unwrap();
+    let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input).unwrap();
+
+    verify_cairo_m::<Blake2sMerkleChannel>(proof).unwrap();
+}
+
+#[test]
+#[should_panic]
+fn test_all_opcodes_constraints() {
+    let source_path = format!(
+        "{}/tests/test_data/{}",
+        env!("CARGO_MANIFEST_DIR"),
+        "all_opcodes.cm"
+    );
+    let compiled_fib = compile_cairo(
+        fs::read_to_string(&source_path).unwrap(),
+        source_path,
+        CompilerOptions::default(),
     )
     .unwrap();
+
+    let runner_output =
+        run_cairo_program(&compiled_fib.program, "main", &[], Default::default()).unwrap();
 
     let mut prover_input = import_from_runner_output(runner_output).unwrap();
     assert_constraints(&mut prover_input);
