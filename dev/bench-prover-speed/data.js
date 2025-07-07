@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1751051149486,
+  "lastUpdate": 1751899798667,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -149,6 +149,36 @@ window.BENCHMARK_DATA = {
             "name": "prover_fibonacci/prove",
             "value": 5622495421,
             "range": "± 30895028",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "71888134+zmalatrax@users.noreply.github.com",
+            "name": "malatrax",
+            "username": "zmalatrax"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bb1b35a8e4c80cfe72016d0d67ba6401b23d7723",
+          "message": "feat(prover): add PCS config (#137)\n\n* feat: add PCS config\n\n* feat: add hardcoded 96 bit stark security level\n\n* refactor: add pcs config to prove and verify function signatures\n\n* feat: update pcs config to 16 pow bits",
+          "timestamp": "2025-07-07T16:37:08+02:00",
+          "tree_id": "9529e4155aa1888d2f070b8d670fe4fde8607671",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/bb1b35a8e4c80cfe72016d0d67ba6401b23d7723"
+        },
+        "date": 1751899798157,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 5649715750,
+            "range": "± 44323671",
             "unit": "ns/iter"
           }
         ]
