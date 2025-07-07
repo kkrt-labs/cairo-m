@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1751902054518,
+  "lastUpdate": 1751902062134,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -202,6 +202,35 @@ window.BENCHMARK_DATA = {
           {
             "name": "fibonacci_prove_peak_mem",
             "value": 2276138348,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "clement0walter@gmail.com",
+            "name": "Clément Walter",
+            "username": "ClementWalter"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e3bd6a375d386b2817e9591e156cc87f75b2b8b8",
+          "message": "soundness(prover): Split relation column using mul (#128)\n\n* Split rel column using op0 * op1\n\n* Split rel column using op0 * imm\n\n* Split rel column using op0 * imm in jmp_abs_mul_fp_fp\n\n* Split rel column using op0 * imm in jmp_rel_mul_fp_fp\n\n* Split rel column using op0 * imm in jmp_abs_mul_fp_imm\n\n* Split rel column using op0 * imm in jmp_rel_mul_fp_imm",
+          "timestamp": "2025-07-07T17:14:48+02:00",
+          "tree_id": "6d1bc4d35b134f5fa8e228e269c7131d7bd8a4f9",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/e3bd6a375d386b2817e9591e156cc87f75b2b8b8"
+        },
+        "date": 1751902062092,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2276156780,
             "unit": "bytes"
           }
         ]
