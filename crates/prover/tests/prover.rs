@@ -2,18 +2,70 @@
 use std::fs;
 
 use cairo_m_compiler::{compile_cairo, CompilerOptions};
-use cairo_m_prover::adapter::import_from_runner_output;
+use cairo_m_prover::adapter::memory::InitialMemoryCell;
+use cairo_m_prover::adapter::{import_from_runner_output, Instructions, ProverInput};
 use cairo_m_prover::debug_tools::assert_constraints::assert_constraints;
 use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_prover::verifier::verify_cairo_m;
 use cairo_m_runner::run_cairo_program;
 use stwo_prover::core::fields::m31::M31;
+use stwo_prover::core::fields::qm31::QM31;
 use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
 
 #[cfg(feature = "dhat-heap")]
 #[global_allocator]
 static ALLOC: dhat::Alloc = dhat::Alloc;
 
+#[test]
+fn test_prove_and_verify_unchanged_memory() {
+    let initial_memory = vec![
+        InitialMemoryCell {
+            address: M31(0),
+            value: QM31::from_u32_unchecked(1, 2, 3, 4),
+            multiplicity: M31(0),
+        },
+        InitialMemoryCell {
+            address: M31(1),
+            value: QM31::from_u32_unchecked(5, 6, 7, 8),
+            multiplicity: M31(0),
+        },
+        InitialMemoryCell {
+            address: M31(2),
+            value: QM31::from_u32_unchecked(9, 10, 11, 12),
+            multiplicity: M31(0),
+        },
+        InitialMemoryCell {
+            address: M31(3),
+            value: QM31::from_u32_unchecked(13, 14, 15, 16),
+            multiplicity: M31(0),
+        },
+    ];
+
+    let mut prover_input = ProverInput {
+        initial_memory,
+        instructions: Instructions::default(),
+    };
+
+    let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
+
+    let result = verify_cairo_m::<Blake2sMerkleChannel>(proof, None);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_prove_and_verify_empty_memory() {
+    let initial_memory = vec![];
+
+    let mut prover_input = ProverInput {
+        initial_memory,
+        instructions: Instructions::default(),
+    };
+
+    let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
+
+    let result = verify_cairo_m::<Blake2sMerkleChannel>(proof, None);
+    result.unwrap();
+}
 #[test]
 fn test_prove_and_verify_fibonacci_program() {
     let source_path = format!(
@@ -35,8 +87,6 @@ fn test_prove_and_verify_fibonacci_program() {
         Default::default(),
     )
     .unwrap();
-    dbg!(&compiled_fib.program.instructions);
-    dbg!(&runner_output.vm.memory.data);
     let mut prover_input = import_from_runner_output(runner_output).unwrap();
     let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
 
