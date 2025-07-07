@@ -288,7 +288,7 @@ where
 }
 
 impl Memory {
-    /// Read from memory, WITHOUT updating multiplicity (that's done in a second pass)
+    /// Read from memory, updating multiplicity needed
     fn read(
         &mut self,
         memory_entry: RunnerMemoryEntry,
