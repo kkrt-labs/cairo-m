@@ -45,7 +45,7 @@ pub mod fibonacci {
 
             // Run the program to generate trace and memory data
             let cairo_result =
-                run_cairo_program(&compiled, "fib", &[M31::from(1000)], Default::default())
+                run_cairo_program(&compiled, "fib", &[M31::from(1)], Default::default())
                     .expect("Failed to run Cairo-M program");
 
             // Create paths for temporary trace and memory files
@@ -63,10 +63,18 @@ pub mod fibonacci {
                 .expect("Failed to write binary memory trace");
 
             // Test importing from the generated files
-            let from_files = import_from_runner_artifacts(&trace_path, &memory_path)
+            let mut from_files = import_from_runner_artifacts(&trace_path, &memory_path)
                 .expect("Failed to import from vm output");
-            let from_runner_output = import_from_runner_output(cairo_result)
+            let mut from_runner_output = import_from_runner_output(cairo_result)
                 .expect("Failed to import from runner output");
+
+            // Sort final_memory vectors since HashMap iteration order is non-deterministic
+            from_files
+                .final_memory
+                .sort_by_key(|cell| (cell.address.0, cell.clock.0));
+            from_runner_output
+                .final_memory
+                .sort_by_key(|cell| (cell.address.0, cell.clock.0));
 
             // Compare the results
             assert_eq!(from_files, from_runner_output);

@@ -2,7 +2,7 @@
 use std::fs;
 
 use cairo_m_compiler::{compile_cairo, CompilerOptions};
-use cairo_m_prover::adapter::memory::InitialMemoryCell;
+use cairo_m_prover::adapter::memory::MemoryCell;
 use cairo_m_prover::adapter::{import_from_runner_output, Instructions, ProverInput};
 use cairo_m_prover::debug_tools::assert_constraints::assert_constraints;
 use cairo_m_prover::prover::prove_cairo_m;
@@ -19,30 +19,35 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 #[test]
 fn test_prove_and_verify_unchanged_memory() {
     let initial_memory = vec![
-        InitialMemoryCell {
+        MemoryCell {
             address: M31(0),
+            clock: M31(0),
             value: QM31::from_u32_unchecked(1, 2, 3, 4),
             multiplicity: M31(0),
         },
-        InitialMemoryCell {
+        MemoryCell {
             address: M31(1),
+            clock: M31(0),
             value: QM31::from_u32_unchecked(5, 6, 7, 8),
             multiplicity: M31(0),
         },
-        InitialMemoryCell {
+        MemoryCell {
             address: M31(2),
+            clock: M31(0),
             value: QM31::from_u32_unchecked(9, 10, 11, 12),
             multiplicity: M31(0),
         },
-        InitialMemoryCell {
+        MemoryCell {
             address: M31(3),
+            clock: M31(0),
             value: QM31::from_u32_unchecked(13, 14, 15, 16),
             multiplicity: M31(0),
         },
     ];
 
     let mut prover_input = ProverInput {
-        initial_memory,
+        initial_memory: initial_memory.clone(),
+        final_memory: initial_memory,
         instructions: Instructions::default(),
     };
 
@@ -57,7 +62,8 @@ fn test_prove_and_verify_empty_memory() {
     let initial_memory = vec![];
 
     let mut prover_input = ProverInput {
-        initial_memory,
+        initial_memory: initial_memory.clone(),
+        final_memory: initial_memory,
         instructions: Instructions::default(),
     };
 

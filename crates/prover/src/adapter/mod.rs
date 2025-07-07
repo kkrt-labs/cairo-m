@@ -13,11 +13,12 @@ pub use memory::ExecutionBundle;
 use tracing::{span, Level};
 
 use crate::adapter::io::{MemoryEntryFileIter, TraceFileIter};
-use crate::adapter::memory::{ExecutionBundleIterator, InitialMemoryCell};
+use crate::adapter::memory::{ExecutionBundleIterator, MemoryCell};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ProverInput {
-    pub initial_memory: Vec<InitialMemoryCell>,
+    pub initial_memory: Vec<MemoryCell>,
+    pub final_memory: Vec<MemoryCell>,
     pub instructions: Instructions,
 }
 
@@ -57,10 +58,11 @@ where
     final_registers = bundle_iter.get_final_registers().unwrap_or(final_registers);
 
     // Get the states and memory from the iterator
-    let (states_by_opcodes, initial_memory) = bundle_iter.into_parts();
+    let (states_by_opcodes, initial_memory, final_memory) = bundle_iter.into_parts();
 
     Ok(ProverInput {
         initial_memory,
+        final_memory,
         instructions: Instructions {
             initial_registers,
             final_registers,

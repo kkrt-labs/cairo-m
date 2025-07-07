@@ -20,10 +20,10 @@ use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
-use crate::adapter::memory::InitialMemoryCell;
+use crate::adapter::memory::MemoryCell;
 use crate::relations;
 
-const N_M31_IN_MEMORY_ENTRY: usize = 7; // Address, clock, value (4 M31s), multiplicity
+const N_M31_IN_MEMORY_ENTRY: usize = 7; // Address, clock, value, multiplicity
 
 #[derive(Clone, Default, Serialize, Deserialize, Debug)]
 pub struct Claim {
@@ -52,7 +52,8 @@ impl Claim {
     }
 
     pub fn write_trace<MC: MerkleChannel>(
-        inputs: &[InitialMemoryCell],
+        initial_memory: &[MemoryCell],
+        final_memory: &[MemoryCell],
     ) -> (
         Self,
         ComponentTrace<N_M31_IN_MEMORY_ENTRY>,
@@ -61,15 +62,21 @@ impl Claim {
     where
         SimdBackend: BackendForChannel<MC>,
     {
-        let log_size = std::cmp::max(inputs.len().next_power_of_two(), N_LANES).ilog2();
+        let log_size = std::cmp::max(
+            (initial_memory.len() + final_memory.len()).next_power_of_two(),
+            N_LANES,
+        )
+        .ilog2();
+
         // Pack memory entries from the prover input
-        let packed_inputs: Vec<[PackedM31; N_M31_IN_MEMORY_ENTRY]> = inputs
+        let packed_inputs: Vec<[PackedM31; N_M31_IN_MEMORY_ENTRY]> = initial_memory
             .iter()
+            .chain(final_memory.iter())
             .map(|cell| {
                 let value_array = cell.value.to_m31_array();
                 [
                     cell.address,
-                    M31::zero(), // the memory component is reserved to preloaded values like instructions
+                    cell.clock,
                     value_array[0],
                     value_array[1],
                     value_array[2],

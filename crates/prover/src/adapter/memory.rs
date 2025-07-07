@@ -96,8 +96,9 @@ pub enum MemoryCellRef {
 
 /// Memory cell data stored in initial_memory
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct InitialMemoryCell {
+pub struct MemoryCell {
     pub address: M31,
+    pub clock: M31,
     pub value: QM31,
     pub multiplicity: M31,
 }
@@ -109,7 +110,8 @@ pub struct Memory {
     pub memory_pointers: HashMap<(M31, QM31), MemoryCellRef>,
     /// Initial memory cells (those that are read without being written to, like instructions from the program)
     /// The initial_memory is used in the memory component to emit entries that no opcode emits
-    pub initial_memory: Vec<InitialMemoryCell>,
+    pub initial_memory: Vec<MemoryCell>,
+    pub final_memory: HashMap<M31, (MemoryCellRef, QM31, M31)>,
 }
 
 pub struct ExecutionBundleIterator<T, M>
@@ -154,12 +156,39 @@ where
     }
 
     pub fn into_parts(
-        self,
+        mut self,
     ) -> (
         HashMap<Opcode, Vec<ExecutionBundle>>,
-        Vec<InitialMemoryCell>,
+        Vec<MemoryCell>,
+        Vec<MemoryCell>,
     ) {
-        (self.states_by_opcodes, self.memory.initial_memory)
+        // Final pass to increase all final multiplicities equal to zero by one
+        let mut final_memory = vec![];
+        for (address, (cell_ref, value, clock)) in self.memory.final_memory.iter() {
+            match cell_ref {
+                MemoryCellRef::ExecutionBundle(opcode, bundle_idx, operand_idx) => {
+                    let opcode_bundles = self.states_by_opcodes.get_mut(opcode).unwrap();
+                    let bundle = &mut opcode_bundles[*bundle_idx];
+                    let write_data = bundle.operands[*operand_idx].as_mut().unwrap();
+                    write_data.multiplicity += M31::one();
+                }
+                MemoryCellRef::InitialMemory(idx) => {
+                    let cell = &mut self.memory.initial_memory[*idx];
+                    cell.multiplicity += M31::one();
+                }
+            }
+            final_memory.push(MemoryCell {
+                address: *address,
+                clock: *clock,
+                value: *value,
+                multiplicity: -M31::one(),
+            });
+        }
+        (
+            self.states_by_opcodes,
+            self.memory.initial_memory,
+            final_memory,
+        )
     }
 }
 
@@ -225,6 +254,10 @@ where
                     };
                     let current_ref =
                         MemoryCellRef::ExecutionBundle(opcode, bundle_idx, operand_idx);
+                    self.memory.final_memory.insert(
+                        operand_memory.addr,
+                        (current_ref, operand_memory.value, self.clock.into()),
+                    );
                     self.memory
                         .write(operand_memory, current_ref, &self.states_by_opcodes)
                         .into()
@@ -298,14 +331,18 @@ impl Memory {
         } else {
             // If the cell was never read from, add it to the initial_memory (again, this could be a first read of an instruction)
             let idx = self.initial_memory.len();
-            self.initial_memory.push(InitialMemoryCell {
+            self.initial_memory.push(MemoryCell {
                 address: memory_entry.addr,
                 value: memory_entry.value,
                 multiplicity: M31::from(1), // accounts for the current read
+                clock: M31::zero(),
             });
-            self.memory_pointers
-                .insert(key, MemoryCellRef::InitialMemory(idx));
-
+            let current_ref = MemoryCellRef::InitialMemory(idx);
+            self.memory_pointers.insert(key, current_ref);
+            self.final_memory.insert(
+                memory_entry.addr,
+                (current_ref, memory_entry.value, M31::zero()),
+            );
             MemoryArg {
                 address: memory_entry.addr,
                 prev_val: memory_entry.value,
