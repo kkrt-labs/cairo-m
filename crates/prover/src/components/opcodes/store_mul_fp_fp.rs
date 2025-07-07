@@ -77,7 +77,7 @@ const N_REGISTERS_LOOKUPS: usize = 2;
 const N_RANGE_CHECK_20_LOOKUPS: usize = 4;
 
 const N_LOOKUPS_COLUMNS: usize = SECURE_EXTENSION_DEGREE
-    * ((N_MEMORY_LOOKUPS + N_REGISTERS_LOOKUPS + N_RANGE_CHECK_20_LOOKUPS).div_ceil(2) + 1);
+    * (N_MEMORY_LOOKUPS + N_REGISTERS_LOOKUPS + N_RANGE_CHECK_20_LOOKUPS).div_ceil(2);
 
 pub struct InteractionClaimData {
     pub lookup_data: LookupData,
