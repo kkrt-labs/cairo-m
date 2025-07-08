@@ -664,30 +664,33 @@ impl CasmBuilder {
 
         let l = layout.current_frame_usage();
 
-        /*
         // Optimization: Check if arguments are already positioned sequentially at the stack top.
         // This occurs when the last N stack values are exactly the arguments in order.
         // Example: With L=3 and args at [fp + 1], [fp + 2], we can avoid copying since
         // they're already positioned for the callee's frame layout.
+        let total_args_size = args
+            .iter()
+            .map(|arg| layout.get_value_size(*arg))
+            .sum::<usize>() as i32;
         if !args.is_empty() {
-            let args_start_offset = l - args.len() as i32;
-            let args_in_place = args.iter().enumerate().all(|(i, arg)| {
+            let mut args_offset = l - total_args_size;
+            let mut args_in_place = true;
+            for (i, arg) in args.iter().enumerate() {
                 if let Value::Operand(arg_id) = arg {
-                    layout
-                        .get_offset(*arg_id)
-                        .is_ok_and(|offset| offset == args_start_offset + i as i32)
-                } else {
-                    // Literals require explicit storage, preventing optimization
-                    false
+                    let offset = layout.get_offset(*arg_id)?;
+                    if offset != args_offset as i32 {
+                        args_in_place = false;
+                        break;
+                    }
                 }
-            });
+                args_offset += layout.get_value_size(*arg) as i32;
+            }
 
             if args_in_place {
                 // Arguments are already correctly positioned - skip copying
-                return Ok(args_start_offset);
+                return Ok(());
             }
         }
-        */
 
         let mut arg_offset = l;
 

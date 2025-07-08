@@ -1551,9 +1551,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 let tuple_type = MirType::from_semantic_type(self.db, semantic_type);
 
                 // Allocate space for the tuple as consecutive values
-                let tuple_addr = self
-                    .mir_function
-                    .new_typed_value_id(MirType::pointer(tuple_type.clone()));
+                let tuple_addr = self.mir_function.new_typed_value_id(tuple_type.clone());
                 self.add_instruction(
                     Instruction::stack_alloc(tuple_addr, tuple_type.size_units()).with_comment(
                         format!("Allocate tuple with {} elements", tuple_elements.len()),
