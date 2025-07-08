@@ -50,7 +50,7 @@ module {
     entry: 0
 
     0:
-      if %0 Eq 0 then jump 1 else jump 2
+      if %0 then jump 2 else jump 1
 
     1:
       return 0
