@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1751902061218,
+  "lastUpdate": 1751977992979,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -239,6 +239,36 @@ window.BENCHMARK_DATA = {
             "name": "prover_fibonacci/prove",
             "value": 5659134728,
             "range": "± 26870140",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "clement0walter@gmail.com",
+            "name": "Clément Walter",
+            "username": "ClementWalter"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ead6a8ce88586c791e165cf0ee9d96633fb478ce",
+          "message": "fix(prover): Add None for pcs config (#138)",
+          "timestamp": "2025-07-08T14:20:06+02:00",
+          "tree_id": "edbf30ad348c53d3f351594aa51ed6c82fd5b5fb",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/ead6a8ce88586c791e165cf0ee9d96633fb478ce"
+        },
+        "date": 1751977992479,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 5659452459,
+            "range": "± 31675470",
             "unit": "ns/iter"
           }
         ]
