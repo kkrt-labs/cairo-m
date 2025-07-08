@@ -510,6 +510,7 @@ dependencies = [
  "dhat",
  "itertools 0.12.1",
  "num-traits",
+ "paste",
  "peak_alloc",
  "rand",
  "rayon",
