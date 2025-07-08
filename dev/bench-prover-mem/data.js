@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1751977993850,
+  "lastUpdate": 1751991304757,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -260,6 +260,35 @@ window.BENCHMARK_DATA = {
           {
             "name": "fibonacci_prove_peak_mem",
             "value": 2276156780,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "clement0walter@gmail.com",
+            "name": "Clément Walter",
+            "username": "ClementWalter"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "be06b174546ac20900ab1ca4fdf3ab152de150a1",
+          "message": "feat(prover): Use macro to define opcodes (#141)\n\n* Add None for pcs config\n\n* Add a macro to add opcodes",
+          "timestamp": "2025-07-08T18:02:03+02:00",
+          "tree_id": "e521f073f1cfad4ce4854731469ddcada035214e",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/be06b174546ac20900ab1ca4fdf3ab152de150a1"
+        },
+        "date": 1751991304717,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2276156268,
             "unit": "bytes"
           }
         ]
