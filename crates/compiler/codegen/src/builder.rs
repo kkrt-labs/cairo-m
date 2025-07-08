@@ -635,13 +635,10 @@ impl CasmBuilder {
             .as_mut()
             .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
 
-        let return_value_offset = layout.current_frame_usage() as i32;
-
-        for (i, dest) in dests.iter().enumerate() {
+        for dest in dests {
             let size = layout.get_value_size_by_id(*dest);
+            layout.map_value(*dest, layout.current_frame_usage() as i32);
             layout.reserve_stack(size);
-            layout.map_value(*dest, return_value_offset);
-            let return_value_offset = layout.current_frame_usage() as i32 + size as i32;
         }
 
         // Step 3: Calculate `off0` and emit the `call` instruction.
