@@ -358,7 +358,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         } else {
                             // Unused variable - still evaluate for side effects but don't store
                             let _ = self.lower_expression(element_expr)?;
-                            let dummy_addr = self.mir_function.new_value_id();
+                            let dummy_addr = self.mir_function.new_typed_value_id(MirType::unit());
                             self.definition_to_value.insert(mir_def_id, dummy_addr);
                         }
                     } else {
@@ -467,7 +467,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         if is_used {
                             self.definition_to_value.insert(mir_def_id, dest);
                         } else {
-                            let dummy_addr = self.mir_function.new_value_id();
+                            let dummy_addr = self.mir_function.new_typed_value_id(MirType::unit());
                             self.definition_to_value.insert(mir_def_id, dummy_addr);
                         }
                     }
@@ -553,7 +553,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                             // Note: In a more sophisticated implementation, we might also eliminate
                             // the RHS computation if it has no side effects.
                             // TODO: Implement this.
-                            let dummy_addr = self.mir_function.new_value_id();
+                            let dummy_addr = self.mir_function.new_typed_value_id(MirType::unit());
                             self.definition_to_value.insert(mir_def_id, dummy_addr);
                         }
                     }
@@ -663,7 +663,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                                         self.definition_to_value.insert(mir_def_id, var_addr);
                                     } else {
-                                        let dummy_addr = self.mir_function.new_value_id();
+                                        let dummy_addr =
+                                            self.mir_function.new_typed_value_id(MirType::unit());
                                         self.definition_to_value.insert(mir_def_id, dummy_addr);
                                     }
                                 } else {
@@ -1482,9 +1483,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 let struct_type = MirType::from_semantic_type(self.db, semantic_type);
 
                 // Allocate space for the struct
-                let struct_addr = self
-                    .mir_function
-                    .new_typed_value_id(MirType::pointer(struct_type.clone()));
+                let struct_addr = self.mir_function.new_typed_value_id(struct_type.clone());
                 self.add_instruction(
                     Instruction::stack_alloc(struct_addr, struct_type.size_units())
                         .with_comment("Allocate struct".to_string()),
@@ -1640,7 +1639,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     Value::Literal(_) | Value::Error => {
                         // For literals and errors, we need to create a value ID
                         // In a more complete implementation, we might emit an assignment first
-                        self.mir_function.new_value_id()
+                        let value_id = self.mir_function.new_typed_value_id(MirType::felt());
+                        self.mir_function.set_value_type(value_id, MirType::felt());
+                        value_id
                     }
                 })
                 .collect();

@@ -144,10 +144,8 @@ impl MirType {
                     // Fallback for structs without field information
                     1
                 } else {
-                    // Calculate size as the offset of the last field plus its size
-                    fields.iter().fold(0, |max_end, field| {
-                        (field.offset + field.field_type.size_units()).max(max_end)
-                    })
+                    // Calculate size as the sum of the sizes of the fields
+                    fields.iter().map(|f| f.field_type.size_units()).sum()
                 }
             }
             Self::Function { .. } => 1, // Function pointers
@@ -300,5 +298,41 @@ impl std::fmt::Display for MirType {
             Self::Error => write!(f, "<e>"),
             Self::Unknown => write!(f, "<unknown>"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_size_units() {
+        let type_a = MirType::struct_type("a".to_string(), vec![]);
+        let type_b = MirType::struct_type(
+            "b".to_string(),
+            vec![StructField {
+                name: "x".to_string(),
+                field_type: MirType::felt(),
+                offset: 0,
+            }],
+        );
+        let type_c = MirType::struct_type(
+            "c".to_string(),
+            vec![
+                StructField {
+                    name: "x".to_string(),
+                    field_type: type_b.clone(),
+                    offset: 0,
+                },
+                StructField {
+                    name: "y".to_string(),
+                    field_type: type_a.clone(),
+                    offset: 1,
+                },
+            ],
+        );
+        assert_eq!(type_a.size_units(), 1);
+        assert_eq!(type_b.size_units(), 1);
+        assert_eq!(type_c.size_units(), 2);
     }
 }

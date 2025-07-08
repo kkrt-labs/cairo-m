@@ -7,8 +7,8 @@ use std::collections::HashMap;
 use cairo_m_common::program::EntrypointInfo;
 use cairo_m_common::{Opcode, Program, ProgramMetadata};
 use cairo_m_compiler_mir::{
-    BasicBlockId, Instruction, InstructionKind, Literal, MirFunction, MirModule, Terminator, Value,
-    ValueId,
+    BasicBlockId, Instruction, InstructionKind, Literal, MirFunction, MirModule, MirType,
+    Terminator, Value, ValueId,
 };
 use cairo_m_compiler_parser::parser::BinaryOp;
 
@@ -641,6 +641,7 @@ mod tests {
         let value_id = function.new_value_id();
         function.parameters.push(value_id);
         function.return_values.push(value_id);
+        function.set_value_type(value_id, MirType::felt());
 
         // Create a simple basic block that returns the parameter
         let mut block = BasicBlock::new();
@@ -677,6 +678,7 @@ mod tests {
 
         // Store immediate 42 to local variable
         let dest = function.new_value_id();
+        function.set_value_type(dest, MirType::felt());
         block
             .instructions
             .push(Instruction::assign(dest, Value::integer(42)));

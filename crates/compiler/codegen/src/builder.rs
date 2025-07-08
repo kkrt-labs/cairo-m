@@ -758,13 +758,12 @@ impl CasmBuilder {
             .as_ref()
             .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
 
-        let k = layout.num_return_values() as i32;
+        let k = layout.return_value_sizes().iter().sum::<usize>() as i32;
+
+        let mut return_slot_offset = -(k + 2);
 
         // Store each return value in its designated slot
         for (i, return_val) in values.iter().enumerate() {
-            // Return value i goes to [fp - K - 2 + i]
-            let return_slot_offset = -(k + 2) + i as i32;
-
             // Check if the value is already in the return slot (optimization for direct returns)
             let needs_copy = match return_val {
                 Value::Operand(val_id) => {
@@ -777,23 +776,31 @@ impl CasmBuilder {
             if needs_copy {
                 let instr = match return_val {
                     Value::Literal(Literal::Integer(imm)) => {
-                        InstructionBuilder::new(Opcode::StoreImm.into())
+                        let instr = InstructionBuilder::new(Opcode::StoreImm.into())
                             .with_off2(return_slot_offset)
                             .with_imm(*imm)
                             .with_comment(format!(
                                 "Return value {}: [fp {}] = {}",
                                 i, return_slot_offset, imm
-                            ))
+                            ));
+                        self.instructions.push(instr);
                     }
                     Value::Operand(val_id) => {
                         let src_off = layout.get_offset(*val_id)?;
-                        InstructionBuilder::new(Opcode::StoreDerefFp.into())
-                            .with_off0(src_off)
-                            .with_off2(return_slot_offset)
-                            .with_comment(format!(
-                                "Return value {}: [fp {}] = [fp + {}]",
-                                i, return_slot_offset, src_off
-                            ))
+                        let size = layout.get_value_size(*val_id)?;
+
+                        for j in 0..size {
+                            let instr = InstructionBuilder::new(Opcode::StoreDerefFp.into())
+                                .with_off0(src_off + j as i32)
+                                .with_off2(return_slot_offset + j as i32)
+                                .with_comment(format!(
+                                    "Return value {}: [fp {}] = [fp + {}]",
+                                    i,
+                                    return_slot_offset + j as i32,
+                                    src_off + j as i32
+                                ));
+                            self.instructions.push(instr);
+                        }
                     }
                     _ => {
                         return Err(CodegenError::UnsupportedInstruction(
@@ -801,7 +808,9 @@ impl CasmBuilder {
                         ));
                     }
                 };
-                self.instructions.push(instr);
+
+                // Increase return slot offset by the size of the return value
+                return_slot_offset += layout.return_value_sizes()[i] as i32;
             }
             // If !needs_copy, the value is already in the return slot, so we skip the copy
         }
@@ -992,14 +1001,18 @@ impl CasmBuilder {
                     Value::Operand(val_id) => {
                         let val_offset = layout.get_offset(val_id)?;
 
-                        let instr = InstructionBuilder::new(Opcode::StoreDerefFp.into())
-                            .with_off0(val_offset)
-                            .with_off2(dest_offset)
-                            .with_comment(format!(
-                                "Store: [fp + {dest_offset}] = [fp + {val_offset}]"
-                            ));
+                        let size = layout.get_value_size(val_id)?;
 
-                        self.instructions.push(instr);
+                        for i in 0..size {
+                            let instr = InstructionBuilder::new(Opcode::StoreDerefFp.into())
+                                .with_off0(val_offset + i as i32)
+                                .with_off2(dest_offset + i as i32)
+                                .with_comment(format!(
+                                    "Store: [fp + {dest_offset}] = [fp + {val_offset}]"
+                                ));
+
+                            self.instructions.push(instr);
+                        }
                     }
 
                     _ => {

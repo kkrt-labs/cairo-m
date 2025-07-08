@@ -4,12 +4,17 @@
 //! works correctly and provides proper error handling.
 
 use cairo_m_compiler_codegen::{CodeGenerator, CodegenError, Operand};
-use cairo_m_compiler_mir::{BasicBlock, Literal, MirFunction, MirModule, Terminator, Value};
+use cairo_m_compiler_mir::{
+    BasicBlock, Literal, MirFunction, MirModule, MirType, Terminator, Value,
+};
 
 #[test]
 fn test_structured_label_resolution() {
     // Create a simple function with a jump
     let mut function = MirFunction::new("test_func".to_string());
+    let return_value_id = function.new_value_id();
+    function.return_values.push(return_value_id);
+    function.set_value_type(return_value_id, MirType::felt());
 
     // Create two basic blocks
     let block0 = BasicBlock::new();

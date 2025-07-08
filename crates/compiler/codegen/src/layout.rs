@@ -39,12 +39,14 @@ use crate::{CodegenError, CodegenResult};
 pub struct FunctionLayout {
     /// Maps ValueId to fp-relative offset.
     value_offsets: FxHashMap<ValueId, i32>,
+    /// ValueId to the type of the value.
+    value_sizes: FxHashMap<ValueId, usize>,
     /// The current size of the local variable area on the stack (grows as locals are allocated).
     current_frame_usage: i32,
     /// Number of parameters this function takes.
-    num_parameters: usize,
+    parameter_sizes: Vec<usize>,
     /// Number of values this function returns.
-    num_return_values: usize,
+    return_value_sizes: Vec<usize>,
 }
 
 impl FunctionLayout {
@@ -52,9 +54,18 @@ impl FunctionLayout {
     pub fn new(function: &MirFunction) -> CodegenResult<Self> {
         let mut layout = Self {
             value_offsets: FxHashMap::default(),
+            value_sizes: FxHashMap::default(),
             current_frame_usage: 0,
-            num_parameters: function.parameters.len(),
-            num_return_values: function.return_values.len(),
+            parameter_sizes: function
+                .parameters
+                .iter()
+                .map(|&p| function.get_value_type(p).unwrap().size_units())
+                .collect(),
+            return_value_sizes: function
+                .return_values
+                .iter()
+                .map(|&p| function.get_value_type(p).unwrap().size_units())
+                .collect(),
         };
 
         layout.allocate_parameters(function)?;
@@ -65,13 +76,27 @@ impl FunctionLayout {
     /// Allocates memory slots for function parameters at negative offsets according to the
     /// calling convention.
     fn allocate_parameters(&mut self, function: &MirFunction) -> CodegenResult<()> {
-        let m = self.num_parameters as i32;
-        let k = self.num_return_values as i32;
+        let arg_sizes = function
+            .parameters
+            .iter()
+            .map(|&p| function.get_value_type(p).unwrap().size_units())
+            .collect::<Vec<_>>();
+
+        let m = arg_sizes.iter().sum::<usize>() as i32;
+
+        let k = function
+            .return_values
+            .iter()
+            .map(|&p| function.get_value_type(p).unwrap().size_units())
+            .sum::<usize>() as i32;
+
+        let mut offset = -(m + k + 2);
 
         for (i, &param_value_id) in function.parameters.iter().enumerate() {
             // According to the convention, arg `i` is at `[fp - M - K - 2 + i]`.
-            let offset = (i as i32) - m - k - 2;
             self.value_offsets.insert(param_value_id, offset);
+            self.value_sizes.insert(param_value_id, arg_sizes[i]);
+            offset += arg_sizes[i] as i32;
         }
 
         Ok(())
@@ -86,6 +111,7 @@ impl FunctionLayout {
 
         let offset = self.current_frame_usage;
         self.value_offsets.insert(value_id, offset);
+        self.value_sizes.insert(value_id, size);
         self.current_frame_usage += size as i32;
 
         Ok(offset)
@@ -121,9 +147,16 @@ impl FunctionLayout {
         self.current_frame_usage
     }
 
-    /// Gets the number of return values for the function.
-    pub const fn num_return_values(&self) -> usize {
-        self.num_return_values
+    /// Gets the size of a value from id
+    pub fn get_value_size(&self, value_id: ValueId) -> CodegenResult<usize> {
+        self.value_sizes.get(&value_id).copied().ok_or_else(|| {
+            CodegenError::LayoutError(format!("No size found for value {value_id:?}"))
+        })
+    }
+
+    /// Gets the return value sizes
+    pub fn return_value_sizes(&self) -> &[usize] {
+        &self.return_value_sizes
     }
 
     /// Gets all allocated value offsets (for debugging).
