@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1751902062134,
+  "lastUpdate": 1751977993850,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -226,6 +226,35 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/kkrt-labs/cairo-m/commit/e3bd6a375d386b2817e9591e156cc87f75b2b8b8"
         },
         "date": 1751902062092,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2276156780,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "clement0walter@gmail.com",
+            "name": "Clément Walter",
+            "username": "ClementWalter"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ead6a8ce88586c791e165cf0ee9d96633fb478ce",
+          "message": "fix(prover): Add None for pcs config (#138)",
+          "timestamp": "2025-07-08T14:20:06+02:00",
+          "tree_id": "edbf30ad348c53d3f351594aa51ed6c82fd5b5fb",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/ead6a8ce88586c791e165cf0ee9d96633fb478ce"
+        },
+        "date": 1751977993805,
         "tool": "customBiggerIsBetter",
         "benches": [
           {
