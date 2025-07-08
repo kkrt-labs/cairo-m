@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use std::fs;
 
 use cairo_m_compiler::{compile_cairo, CompilerOptions};
-use cairo_m_prover::adapter::memory::Memory;
-use cairo_m_prover::adapter::{import_from_runner_output, Instructions, ProverInput};
+use cairo_m_prover::adapter::memory::MemoryBoundaries;
+use cairo_m_prover::adapter::{import_from_runner_output, Instructions, MerkleTrees, ProverInput};
 use cairo_m_prover::debug_tools::assert_constraints::assert_constraints;
 use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_prover::verifier::verify_cairo_m;
@@ -27,18 +27,19 @@ fn test_prove_and_verify_unchanged_memory() {
     ];
 
     // Create HashMap using first element (address) as key
-    let initial_memory: HashMap<M31, (QM31, M31)> = initial_memory_data
+    let initial_used_memory: HashMap<M31, (QM31, M31)> = initial_memory_data
         .iter()
         .map(|(address, value, clock)| (*address, (*value, *clock)))
         .collect();
 
-    let memory_boundaries = Memory {
-        initial_memory: initial_memory.clone(),
-        final_memory: initial_memory,
+    let used_memory_boundaries = MemoryBoundaries {
+        initial_memory: initial_used_memory.clone(),
+        final_memory: initial_used_memory,
     };
 
     let mut prover_input = ProverInput {
-        memory_boundaries,
+        merkle_tree: MerkleTrees::default(),
+        used_memory_boundaries,
         instructions: Instructions::default(),
     };
 
@@ -50,15 +51,16 @@ fn test_prove_and_verify_unchanged_memory() {
 
 #[test]
 fn test_prove_and_verify_empty_memory() {
-    let initial_memory: HashMap<M31, (QM31, M31)> = HashMap::new();
+    let initial_used_memory: HashMap<M31, (QM31, M31)> = HashMap::new();
 
-    let memory_boundaries = Memory {
-        initial_memory: initial_memory.clone(),
-        final_memory: initial_memory,
+    let used_memory_boundaries = MemoryBoundaries {
+        initial_memory: initial_used_memory.clone(),
+        final_memory: initial_used_memory,
     };
 
     let mut prover_input = ProverInput {
-        memory_boundaries,
+        merkle_tree: MerkleTrees::default(),
+        used_memory_boundaries,
         instructions: Instructions::default(),
     };
 

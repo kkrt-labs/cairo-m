@@ -159,9 +159,11 @@ fn test_execute_with_error() {
         QM31::from_m31_array([M31::from(6), M31::from(10), Zero::zero(), Zero::zero()]), // Valid: [fp + 0] = 10
         QM31::from_m31_array([M31::from(99), Zero::zero(), Zero::zero(), Zero::zero()]), // Invalid: opcode 99
     ];
+    let initial_memory = Memory::from_iter(instructions);
     let mut vm = VM {
         final_pc: M31::from(instructions.len() as u32),
-        memory: Memory::from_iter(instructions),
+        initial_memory: initial_memory.clone(),
+        memory: initial_memory,
         state: State {
             pc: M31::zero(),
             fp: M31::from(instructions.len() as u32),

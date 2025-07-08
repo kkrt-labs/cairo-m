@@ -1,5 +1,6 @@
 pub mod io;
 pub mod memory;
+pub mod partial_merkle;
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -10,15 +11,24 @@ use cairo_m_common::State as VmRegisters;
 use cairo_m_runner::RunnerOutput;
 use io::VmImportError;
 pub use memory::ExecutionBundle;
+use stwo_prover::core::fields::qm31::QM31;
 use tracing::{span, Level};
 
 use crate::adapter::io::{MemoryEntryFileIter, TraceFileIter};
-use crate::adapter::memory::{ExecutionBundleIterator, Memory};
+use crate::adapter::memory::{ExecutionBundleIterator, MemoryBoundaries};
+use crate::adapter::partial_merkle::{build_partial_merkle_tree, NodeData};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ProverInput {
-    pub memory_boundaries: Memory,
+    pub merkle_tree: MerkleTrees,
+    pub used_memory_boundaries: MemoryBoundaries,
     pub instructions: Instructions,
+}
+
+#[derive(Debug, Default, PartialEq, Eq, Clone)]
+pub struct MerkleTrees {
+    pub initial_merkle_tree: Vec<NodeData>,
+    pub final_merkle_tree: Vec<NodeData>,
 }
 
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
@@ -31,12 +41,13 @@ pub struct Instructions {
 fn import_internal<TraceIter, MemoryIter>(
     trace_iter: TraceIter,
     memory_iter: MemoryIter,
+    initial_memory: Vec<QM31>,
 ) -> Result<ProverInput, VmImportError>
 where
     TraceIter: Iterator<Item = VmRegisters>,
     MemoryIter: Iterator<Item = RunnerMemoryEntry>,
 {
-    let mut bundle_iter = ExecutionBundleIterator::new(trace_iter, memory_iter);
+    let mut bundle_iter = ExecutionBundleIterator::new(trace_iter, memory_iter, initial_memory);
     let mut states_by_opcodes = HashMap::<Opcode, Vec<ExecutionBundle>>::default();
 
     // Get initial registers by peeking at the trace
@@ -65,10 +76,18 @@ where
     final_registers = bundle_iter.get_final_registers().unwrap_or(final_registers);
 
     // Get the memory state from the iterator
-    let memory = bundle_iter.into_memory();
+    let (used_memory_boundaries, initial_memory, final_memory) = bundle_iter.into_memory();
+
+    // Build the partial merkle trees
+    let initial_merkle_tree = build_partial_merkle_tree(initial_memory);
+    let final_merkle_tree = build_partial_merkle_tree(final_memory);
 
     Ok(ProverInput {
-        memory_boundaries: memory,
+        merkle_tree: MerkleTrees {
+            initial_merkle_tree,
+            final_merkle_tree,
+        },
+        used_memory_boundaries,
         instructions: Instructions {
             initial_registers,
             final_registers,
@@ -88,7 +107,8 @@ pub fn import_from_runner_artifacts(
     let memory_file_iter = MemoryEntryFileIter::try_from(mem_path)?;
     let memory_iter = memory_file_iter.map(Into::into);
 
-    import_internal(trace_iter, memory_iter)
+    // Todo: serialize the initial memory
+    import_internal(trace_iter, memory_iter, vec![])
 }
 
 pub fn import_from_runner_output(
@@ -99,5 +119,9 @@ pub fn import_from_runner_output(
     let trace_iter = runner_output.vm.trace.into_iter();
     let memory_iter = runner_output.vm.memory.trace.into_inner().into_iter();
 
-    import_internal(trace_iter, memory_iter)
+    import_internal(
+        trace_iter,
+        memory_iter,
+        runner_output.vm.initial_memory.data,
+    )
 }

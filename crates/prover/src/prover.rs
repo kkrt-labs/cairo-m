@@ -38,8 +38,8 @@ where
     let trace_log_size = std::cmp::max(
         PREPROCESSED_TRACE_LOG_SIZE,
         std::cmp::max(
-            (input.memory_boundaries.initial_memory.len()
-                + input.memory_boundaries.final_memory.len())
+            (input.used_memory_boundaries.initial_memory.len()
+                + input.used_memory_boundaries.final_memory.len())
             .next_power_of_two()
             .ilog2(),
             input

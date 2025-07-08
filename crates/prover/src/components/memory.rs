@@ -20,7 +20,7 @@ use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
-use crate::adapter::memory::Memory;
+use crate::adapter::memory::MemoryBoundaries;
 use crate::relations;
 
 const N_M31_IN_MEMORY_ENTRY: usize = 7; // Address, clock, value, multiplicity
@@ -52,7 +52,7 @@ impl Claim {
     }
 
     pub fn write_trace<MC: MerkleChannel>(
-        inputs: &Memory,
+        inputs: &MemoryBoundaries,
     ) -> (
         Self,
         ComponentTrace<N_M31_IN_MEMORY_ENTRY>,

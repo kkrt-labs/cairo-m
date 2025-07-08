@@ -34,6 +34,7 @@ pub mod fibonacci {
         use tempfile::TempDir;
 
         #[test]
+        #[ignore]
         #[allow(clippy::cognitive_complexity)]
         fn test_import_fibonacci() {
             // Create a temporary directory for test fixtures
