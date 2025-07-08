@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1751977992979,
+  "lastUpdate": 1751991303702,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -269,6 +269,36 @@ window.BENCHMARK_DATA = {
             "name": "prover_fibonacci/prove",
             "value": 5659452459,
             "range": "± 31675470",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "clement0walter@gmail.com",
+            "name": "Clément Walter",
+            "username": "ClementWalter"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "be06b174546ac20900ab1ca4fdf3ab152de150a1",
+          "message": "feat(prover): Use macro to define opcodes (#141)\n\n* Add None for pcs config\n\n* Add a macro to add opcodes",
+          "timestamp": "2025-07-08T18:02:03+02:00",
+          "tree_id": "e521f073f1cfad4ce4854731469ddcada035214e",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/be06b174546ac20900ab1ca4fdf3ab152de150a1"
+        },
+        "date": 1751991302609,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 5640828290,
+            "range": "± 42162187",
             "unit": "ns/iter"
           }
         ]
