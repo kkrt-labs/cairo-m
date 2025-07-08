@@ -1,0 +1,9 @@
+struct Point{
+    x: felt,
+    y: felt,
+}
+
+func return_struct() -> Point {
+    let p = Point{x: 2, y: 3};
+    return p;
+}

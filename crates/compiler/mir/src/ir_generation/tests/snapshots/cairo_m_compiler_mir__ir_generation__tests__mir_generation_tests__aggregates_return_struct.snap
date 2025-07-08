@@ -1,0 +1,42 @@
+---
+source: crates/compiler/mir/src/ir_generation/tests/mir_generation_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/compiler/mir/src/ir_generation/tests/mir_generation_tests.rs
+expression: mir_output
+---
+Fixture: return_struct.cm
+============================================================
+Source code:
+struct Point{
+    x: felt,
+    y: felt,
+}
+
+func return_struct() -> Point {
+    let p = Point{x: 2, y: 3};
+    return p;
+}
+
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn return_struct {
+    entry: 0
+
+    0:
+      // Allocate struct
+%0 = stackalloc 2
+      // Get address of field 'x'
+%1 = getelementptr %0, 0
+      store %1, 2
+      // Get address of field 'y'
+%2 = getelementptr %0, 1
+      store %2, 3
+      return %0
+
+  }
+
+}
