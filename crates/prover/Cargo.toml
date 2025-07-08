@@ -30,6 +30,7 @@ cairo-m-common.workspace = true
 itertools.workspace = true
 anyhow.workspace = true
 clap.workspace = true
+paste = "1.0"
 
 [dev-dependencies]
 tempfile = "3.0"
