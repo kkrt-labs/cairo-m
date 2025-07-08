@@ -57,7 +57,8 @@ fibonacci_loop_3:
   16: 15 _ _ _             // return
 main:
   17: 6 10 _ 0             // Store immediate: [fp + 0] = 10
-  18: 12 2 0 _             // call fibonacci_loop
-  19: 4 1 _ 3              // Store: [fp + 3] = [fp + 1]
-  20: 4 3 _ -3             // Return value 0: [fp -3] = [fp + 3]
-  21: 15 _ _ _             // return
+  18: 4 0 _ 1              // Arg 0: [fp + 1] = [fp + 0]
+  19: 12 3 0 _             // call fibonacci_loop
+  20: 4 2 _ 3              // Store: [fp + 3] = [fp + 2]
+  21: 4 3 _ -3             // Return value 0: [fp -3] = [fp + 3]
+  22: 15 _ _ _             // return

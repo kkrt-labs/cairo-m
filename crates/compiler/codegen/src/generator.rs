@@ -291,15 +291,8 @@ impl CodeGenerator {
                 })?;
 
                 let callee_name = &callee_function.name;
-                let num_returns = callee_function.return_values.len();
 
-                if dests.len() == 1 {
-                    // Single return value
-                    builder.call(dests[0], callee_name, args, num_returns)?;
-                } else {
-                    // Multiple return values
-                    builder.call_multiple(dests, callee_name, args)?;
-                }
+                builder.call_multiple(dests, callee_name, args)?;
             }
 
             InstructionKind::VoidCall { callee, args } => {
@@ -309,9 +302,7 @@ impl CodeGenerator {
                 })?;
                 let callee_name = &callee_function.name;
 
-                // Void calls have 0 return values
-                let num_returns = 0;
-                builder.void_call(callee_name, args, num_returns)?;
+                builder.call_multiple(&[], callee_name, args)?;
             }
 
             InstructionKind::Load { dest, address } => {
