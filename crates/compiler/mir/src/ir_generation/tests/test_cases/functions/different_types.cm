@@ -1,0 +1,11 @@
+struct Point{
+    x: felt,
+    y: felt,
+}
+
+
+func different_types(p: Point, x: felt) -> (felt, Point){
+    let p2 = p;
+    p.x = x;
+    return (x, p2);
+}

@@ -63,7 +63,9 @@ impl CasmBuilder {
     pub fn assign_with_target(
         &mut self,
         dest: ValueId,
+        dest_offset: i32,
         source: Value,
+        source_offset: i32,
         target_offset: Option<i32>,
     ) -> CodegenResult<()> {
         let layout = self
@@ -80,6 +82,8 @@ impl CasmBuilder {
             layout.allocate_local(dest, 1)?
         };
 
+        let dest_off = dest_off + dest_offset;
+
         match source {
             Value::Literal(Literal::Integer(imm)) => {
                 // Store immediate value
@@ -93,7 +97,7 @@ impl CasmBuilder {
 
             Value::Operand(src_id) => {
                 // Copy from another value
-                let src_off = layout.get_offset(src_id)?;
+                let src_off = layout.get_offset(src_id)? + source_offset;
 
                 let instr = InstructionBuilder::new(Opcode::StoreDerefFp.into())
                     .with_off0(src_off)
@@ -116,8 +120,14 @@ impl CasmBuilder {
     /// Generate assignment instruction
     ///
     /// Handles simple value assignments: dest = source
-    pub fn assign(&mut self, dest: ValueId, source: Value) -> CodegenResult<()> {
-        self.assign_with_target(dest, source, None)
+    pub fn assign(
+        &mut self,
+        dest: ValueId,
+        dest_offset: i32,
+        source: Value,
+        source_offset: i32,
+    ) -> CodegenResult<()> {
+        self.assign_with_target(dest, dest_offset, source, source_offset, None)
     }
 
     /// Generate binary operation instruction with optional target offset
@@ -578,45 +588,6 @@ impl CasmBuilder {
         Ok(())
     }
 
-    /// Generate a function call that returns a value.
-    pub fn call(
-        &mut self,
-        dest: ValueId,
-        callee_name: &str,
-        args: &[Value],
-        num_returns: usize,
-    ) -> CodegenResult<()> {
-        // Step 1: Pass arguments by storing them in the communication area.
-        let l = self.pass_arguments(callee_name, args)?;
-        let m = args.len();
-        let k = num_returns;
-
-        // Step 2: Reserve space for return values and map the destination `ValueId`.
-        let layout = self
-            .layout
-            .as_mut()
-            .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
-
-        // The first return value will be placed at `[fp_c + L + M]`.
-        // TODO: Handle multiple return values by mapping each to its slot.
-        let return_value_offset = l + m as i32;
-        layout.map_value(dest, return_value_offset);
-        layout.reserve_stack(k);
-
-        // Step 3: Calculate `off0` and emit the `call` instruction.
-        let off0 = l + m as i32 + k as i32;
-        let instr = InstructionBuilder::new(Opcode::CallAbsImm.into())
-            .with_off0(off0)
-            .with_operand(Operand::Label(callee_name.to_string()))
-            .with_comment(format!("call {callee_name}"));
-        self.instructions.push(instr);
-
-        // Step 4: No copy is needed after the call. The `dest` ValueId is already mapped
-        // to the correct stack slot where the callee will place the return value.
-
-        Ok(())
-    }
-
     /// Generate a function call that returns multiple values.
     pub fn call_multiple(
         &mut self,
@@ -625,64 +596,30 @@ impl CasmBuilder {
         args: &[Value],
     ) -> CodegenResult<()> {
         // Step 1: Pass arguments by storing them in the communication area.
-        let l = self.pass_arguments(callee_name, args)?;
-        let m = args.len();
-        let k = dests.len();
+        self.pass_arguments(callee_name, args)?;
 
-        // Step 2: Reserve space for return values and map each destination ValueId.
         let layout = self
             .layout
             .as_mut()
             .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
 
-        // Map each destination to its return value slot
-        // Return value i is placed at [fp_c + L + M + i]
-        for (i, dest) in dests.iter().enumerate() {
-            let return_value_offset = l + m as i32 + i as i32;
-            layout.map_value(*dest, return_value_offset);
+        for dest in dests {
+            layout.map_value(*dest, layout.current_frame_usage());
         }
-        layout.reserve_stack(k);
 
         // Step 3: Calculate `off0` and emit the `call` instruction.
-        let off0 = l + m as i32 + k as i32;
+        let off0 = layout.current_frame_usage();
         let instr = InstructionBuilder::new(Opcode::CallAbsImm.into())
             .with_off0(off0)
             .with_operand(Operand::Label(callee_name.to_string()))
             .with_comment(format!("call {callee_name}"));
         self.instructions.push(instr);
 
-        Ok(())
-    }
-
-    /// Generate a function call that does not return a value.
-    pub fn void_call(
-        &mut self,
-        callee_name: &str,
-        args: &[Value],
-        num_returns: usize,
-    ) -> CodegenResult<()> {
-        let l = self.pass_arguments(callee_name, args)?;
-        let m = args.len();
-        let k = num_returns;
-
-        let layout = self
-            .layout
-            .as_mut()
-            .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
-        layout.reserve_stack(k);
-
-        let off0 = l + m as i32 + k as i32;
-        let instr = InstructionBuilder::new(Opcode::CallAbsImm.into())
-            .with_off0(off0)
-            .with_operand(Operand::Label(callee_name.to_string()))
-            .with_comment(format!("call {callee_name}"));
-        self.instructions.push(instr);
         Ok(())
     }
 
     /// Helper to pass arguments for a function call.
-    /// Returns the caller's frame usage (`L`) before placing arguments.
-    fn pass_arguments(&mut self, _callee_name: &str, args: &[Value]) -> CodegenResult<i32> {
+    fn pass_arguments(&mut self, _callee_name: &str, args: &[Value]) -> CodegenResult<()> {
         let layout = self
             .layout
             .as_mut()
@@ -694,41 +631,57 @@ impl CasmBuilder {
         // This occurs when the last N stack values are exactly the arguments in order.
         // Example: With L=3 and args at [fp + 1], [fp + 2], we can avoid copying since
         // they're already positioned for the callee's frame layout.
+        let total_args_size = args
+            .iter()
+            .map(|arg| layout.get_value_size(*arg))
+            .sum::<usize>() as i32;
         if !args.is_empty() {
-            let args_start_offset = l - args.len() as i32;
-            let args_in_place = args.iter().enumerate().all(|(i, arg)| {
+            let mut args_offset = l - total_args_size;
+            let mut args_in_place = true;
+            for arg in args {
                 if let Value::Operand(arg_id) = arg {
-                    layout
-                        .get_offset(*arg_id)
-                        .is_ok_and(|offset| offset == args_start_offset + i as i32)
-                } else {
-                    // Literals require explicit storage, preventing optimization
-                    false
+                    let offset = layout.get_offset(*arg_id)?;
+                    if offset != args_offset {
+                        args_in_place = false;
+                        break;
+                    }
                 }
-            });
+                args_offset += layout.get_value_size(*arg) as i32;
+            }
 
             if args_in_place {
                 // Arguments are already correctly positioned - skip copying
-                return Ok(args_start_offset);
+                return Ok(());
             }
         }
 
+        let mut arg_offset = l;
+
         // Standard path: copy arguments to their positions
         for (i, arg) in args.iter().enumerate() {
-            let arg_offset = l + i as i32; // Place i-th arg at `[fp_c + L + i]`.
-            let instr = match arg {
+            let size = layout.get_value_size(*arg);
+
+            // Place i-th arg at `[fp_c + L + i]`
+            match arg {
                 Value::Literal(Literal::Integer(imm)) => {
-                    InstructionBuilder::new(Opcode::StoreImm.into())
+                    let instr = InstructionBuilder::new(Opcode::StoreImm.into())
                         .with_off2(arg_offset)
                         .with_imm(*imm)
-                        .with_comment(format!("Arg {i}: [fp + {arg_offset}] = {imm}"))
+                        .with_comment(format!("Arg {i}: [fp + {arg_offset}] = {imm}"));
+                    self.instructions.push(instr);
                 }
                 Value::Operand(arg_id) => {
                     let src_off = layout.get_offset(*arg_id)?;
-                    InstructionBuilder::new(Opcode::StoreDerefFp.into())
-                        .with_off0(src_off)
-                        .with_off2(arg_offset)
-                        .with_comment(format!("Arg {i}: [fp + {arg_offset}] = [fp + {src_off}]"))
+
+                    for j in 0..size {
+                        let instr = InstructionBuilder::new(Opcode::StoreDerefFp.into())
+                            .with_off0(src_off + j as i32)
+                            .with_off2(arg_offset + j as i32)
+                            .with_comment(format!(
+                                "Arg {i}: [fp + {arg_offset}] = [fp + {src_off}]"
+                            ));
+                        self.instructions.push(instr);
+                    }
                 }
                 _ => {
                     return Err(CodegenError::UnsupportedInstruction(
@@ -736,9 +689,10 @@ impl CasmBuilder {
                     ));
                 }
             };
-            self.instructions.push(instr);
+            layout.reserve_stack(size);
+            arg_offset += size as i32;
         }
-        Ok(l)
+        Ok(())
     }
 
     /// Generate `return` instruction with multiple return values.
@@ -748,13 +702,15 @@ impl CasmBuilder {
             .as_ref()
             .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
 
-        let k = layout.num_return_values() as i32;
+        let k = values
+            .iter()
+            .map(|v| layout.get_value_size(*v))
+            .sum::<usize>() as i32;
+
+        let mut return_slot_offset = -(k + 2);
 
         // Store each return value in its designated slot
         for (i, return_val) in values.iter().enumerate() {
-            // Return value i goes to [fp - K - 2 + i]
-            let return_slot_offset = -(k + 2) + i as i32;
-
             // Check if the value is already in the return slot (optimization for direct returns)
             let needs_copy = match return_val {
                 Value::Operand(val_id) => {
@@ -767,23 +723,31 @@ impl CasmBuilder {
             if needs_copy {
                 let instr = match return_val {
                     Value::Literal(Literal::Integer(imm)) => {
-                        InstructionBuilder::new(Opcode::StoreImm.into())
+                        let instr = InstructionBuilder::new(Opcode::StoreImm.into())
                             .with_off2(return_slot_offset)
                             .with_imm(*imm)
                             .with_comment(format!(
                                 "Return value {}: [fp {}] = {}",
                                 i, return_slot_offset, imm
-                            ))
+                            ));
+                        self.instructions.push(instr);
                     }
                     Value::Operand(val_id) => {
                         let src_off = layout.get_offset(*val_id)?;
-                        InstructionBuilder::new(Opcode::StoreDerefFp.into())
-                            .with_off0(src_off)
-                            .with_off2(return_slot_offset)
-                            .with_comment(format!(
-                                "Return value {}: [fp {}] = [fp + {}]",
-                                i, return_slot_offset, src_off
-                            ))
+                        let size = layout.get_value_size_by_id(*val_id);
+
+                        for j in 0..size {
+                            let instr = InstructionBuilder::new(Opcode::StoreDerefFp.into())
+                                .with_off0(src_off + j as i32)
+                                .with_off2(return_slot_offset + j as i32)
+                                .with_comment(format!(
+                                    "Return value {}: [fp {}] = [fp + {}]",
+                                    i,
+                                    return_slot_offset + j as i32,
+                                    src_off + j as i32
+                                ));
+                            self.instructions.push(instr);
+                        }
                     }
                     _ => {
                         return Err(CodegenError::UnsupportedInstruction(
@@ -791,8 +755,9 @@ impl CasmBuilder {
                         ));
                     }
                 };
-                self.instructions.push(instr);
             }
+            // Increase return slot offset by the size of the return value
+            return_slot_offset += layout.get_value_size(*return_val) as i32;
             // If !needs_copy, the value is already in the return slot, so we skip the copy
         }
 
@@ -982,14 +947,18 @@ impl CasmBuilder {
                     Value::Operand(val_id) => {
                         let val_offset = layout.get_offset(val_id)?;
 
-                        let instr = InstructionBuilder::new(Opcode::StoreDerefFp.into())
-                            .with_off0(val_offset)
-                            .with_off2(dest_offset)
-                            .with_comment(format!(
-                                "Store: [fp + {dest_offset}] = [fp + {val_offset}]"
-                            ));
+                        let size = layout.get_value_size_by_id(val_id);
 
-                        self.instructions.push(instr);
+                        for i in 0..size {
+                            let off0 = val_offset + i as i32;
+                            let off2 = dest_offset + i as i32;
+                            let instr = InstructionBuilder::new(Opcode::StoreDerefFp.into())
+                                .with_off0(off0)
+                                .with_off2(off2)
+                                .with_comment(format!("Store: [fp + {off2}] = [fp + {off0}]"));
+
+                            self.instructions.push(instr);
+                        }
                     }
 
                     _ => {

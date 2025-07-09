@@ -1,0 +1,13 @@
+//!ASSERT CONTAINS: Get address of field 'x'
+//!ASSERT CONTAINS: Get address of field 'y'
+
+// Tests the creation of a struct literal.
+struct Point {
+    x: felt,
+    y: felt,
+}
+
+func test() -> felt {
+    let p = Point { x: 10, y: 20 };
+    return 0;
+}

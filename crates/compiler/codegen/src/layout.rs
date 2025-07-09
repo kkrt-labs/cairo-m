@@ -29,7 +29,7 @@
 //! | ...                        | ...                    |                             |
 //! ```
 
-use cairo_m_compiler_mir::{MirFunction, ValueId};
+use cairo_m_compiler_mir::{MirFunction, MirType, Value, ValueId};
 use rustc_hash::FxHashMap;
 
 use crate::{CodegenError, CodegenResult};
@@ -37,24 +37,21 @@ use crate::{CodegenError, CodegenResult};
 /// Maps every ValueId in a function to its fp-relative memory offset.
 #[derive(Debug, Clone)]
 pub struct FunctionLayout {
+    /// Mir function
+    function: MirFunction,
     /// Maps ValueId to fp-relative offset.
     value_offsets: FxHashMap<ValueId, i32>,
     /// The current size of the local variable area on the stack (grows as locals are allocated).
     current_frame_usage: i32,
-    /// Number of parameters this function takes.
-    num_parameters: usize,
-    /// Number of values this function returns.
-    num_return_values: usize,
 }
 
 impl FunctionLayout {
     /// Creates a new layout for a function, allocating slots for its parameters.
     pub fn new(function: &MirFunction) -> CodegenResult<Self> {
         let mut layout = Self {
+            function: function.clone(),
             value_offsets: FxHashMap::default(),
             current_frame_usage: 0,
-            num_parameters: function.parameters.len(),
-            num_return_values: function.return_values.len(),
         };
 
         layout.allocate_parameters(function)?;
@@ -65,13 +62,26 @@ impl FunctionLayout {
     /// Allocates memory slots for function parameters at negative offsets according to the
     /// calling convention.
     fn allocate_parameters(&mut self, function: &MirFunction) -> CodegenResult<()> {
-        let m = self.num_parameters as i32;
-        let k = self.num_return_values as i32;
+        let m = self
+            .function
+            .parameters
+            .iter()
+            .map(|&p| self.function.get_value_type(p).unwrap().size_units())
+            .sum::<usize>() as i32;
+
+        let k = self
+            .function
+            .return_values
+            .iter()
+            .map(|&p| self.function.get_value_type(p).unwrap().size_units())
+            .sum::<usize>() as i32;
+
+        let mut offset = -(m + k + 2);
 
         for (i, &param_value_id) in function.parameters.iter().enumerate() {
             // According to the convention, arg `i` is at `[fp - M - K - 2 + i]`.
-            let offset = (i as i32) - m - k - 2;
             self.value_offsets.insert(param_value_id, offset);
+            offset += self.get_value_size_by_id(param_value_id) as i32;
         }
 
         Ok(())
@@ -97,7 +107,7 @@ impl FunctionLayout {
         self.value_offsets.insert(value_id, offset);
         // Update current_frame_usage if this offset extends beyond it
         if offset >= self.current_frame_usage {
-            self.current_frame_usage = offset + 1;
+            self.current_frame_usage = offset + self.get_value_size_by_id(value_id) as i32;
         }
     }
 
@@ -121,9 +131,24 @@ impl FunctionLayout {
         self.current_frame_usage
     }
 
-    /// Gets the number of return values for the function.
-    pub const fn num_return_values(&self) -> usize {
-        self.num_return_values
+    pub fn get_value_type(&self, value: Value) -> MirType {
+        match value {
+            Value::Operand(value_id) => self.function.get_value_type(value_id).unwrap().clone(),
+            _ => MirType::Felt,
+        }
+    }
+
+    /// Gets the size of a value from id
+    pub fn get_value_size_by_id(&self, value_id: ValueId) -> usize {
+        let ty = self.function.get_value_type(value_id).unwrap();
+        ty.size_units()
+    }
+
+    pub fn get_value_size(&self, value: Value) -> usize {
+        match value {
+            Value::Operand(value_id) => self.get_value_size_by_id(value_id),
+            _ => 1,
+        }
     }
 
     /// Gets all allocated value offsets (for debugging).

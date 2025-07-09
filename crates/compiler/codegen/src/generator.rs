@@ -7,7 +7,8 @@ use std::collections::HashMap;
 use cairo_m_common::program::EntrypointInfo;
 use cairo_m_common::{Opcode, Program, ProgramMetadata};
 use cairo_m_compiler_mir::{
-    BasicBlockId, Instruction, InstructionKind, MirFunction, MirModule, Terminator, Value, ValueId,
+    BasicBlockId, Instruction, InstructionKind, Literal, MirFunction, MirModule, Terminator, Value,
+    ValueId,
 };
 use cairo_m_compiler_parser::parser::BinaryOp;
 
@@ -165,14 +166,65 @@ impl CodeGenerator {
             let block_label = Label::for_block(&function.name, block_id);
             builder.add_label(block_label);
 
-            for instruction in &block.instructions {
-                self.generate_instruction(
-                    instruction,
-                    function,
-                    module,
-                    builder,
-                    &block.terminator,
-                )?;
+            let mut skip_next_instruction = false;
+
+            for (instruction_index, instruction) in block.instructions.iter().enumerate() {
+                if let InstructionKind::GetElementPtr {
+                    dest: _dest,
+                    base,
+                    offset,
+                } = &instruction.kind
+                {
+                    if let Value::Literal(Literal::Integer(field_offset)) = *offset {
+                        let next_instruction =
+                            block.instructions.get(instruction_index + 1).unwrap();
+                        if let InstructionKind::Load {
+                            dest: dest2,
+                            address: _address,
+                        } = &next_instruction.kind
+                        {
+                            skip_next_instruction = true;
+                            // because we are only working with the stack for now, we can apply the following peephole optimisation :
+                            // replace GEP + Load with single store_deref_fp instruction
+                            // TODO check if dest1 is the same as adress
+                            builder.assign(*dest2, 0, *base, field_offset)?;
+                        }
+                        if let InstructionKind::Store {
+                            address: _address,
+                            value,
+                        } = &next_instruction.kind
+                        {
+                            skip_next_instruction = true;
+                            // because we are only working with the stack for now, we can apply the following peephole optimisation :
+                            // replace GEP + Store with single store_deref_fp instruction
+                            // TODO check if dest1 is the same as value
+                            if let Value::Operand(base_id) = base {
+                                builder.assign(*base_id, field_offset, *value, 0)?;
+                            } else {
+                                return Err(CodegenError::InvalidMir(format!(
+                                    "Expected operand base, got: {:?}",
+                                    base
+                                )));
+                            }
+                        }
+                    } else {
+                        return Err(CodegenError::InvalidMir(format!(
+                            "Expected immediate offset, got: {:?}",
+                            offset
+                        )));
+                    }
+                } else {
+                    if !skip_next_instruction {
+                        self.generate_instruction(
+                            instruction,
+                            function,
+                            module,
+                            builder,
+                            &block.terminator,
+                        )?;
+                    }
+                    skip_next_instruction = false;
+                }
             }
 
             // Determine the next block in sequence (if any)
@@ -202,7 +254,7 @@ impl CodeGenerator {
             InstructionKind::Assign { dest, source } => {
                 // Check if this assignment result will be immediately returned
                 let target_offset = self.get_target_offset_for_dest(*dest, terminator);
-                builder.assign_with_target(*dest, *source, target_offset)?;
+                builder.assign_with_target(*dest, 0, *source, 0, target_offset)?;
             }
 
             InstructionKind::BinaryOp {
@@ -239,15 +291,8 @@ impl CodeGenerator {
                 })?;
 
                 let callee_name = &callee_function.name;
-                let num_returns = callee_function.return_values.len();
 
-                if dests.len() == 1 {
-                    // Single return value
-                    builder.call(dests[0], callee_name, args, num_returns)?;
-                } else {
-                    // Multiple return values
-                    builder.call_multiple(dests, callee_name, args)?;
-                }
+                builder.call_multiple(dests, callee_name, args)?;
             }
 
             InstructionKind::VoidCall { callee, args } => {
@@ -257,9 +302,7 @@ impl CodeGenerator {
                 })?;
                 let callee_name = &callee_function.name;
 
-                // Void calls have 0 return values
-                let num_returns = 0;
-                builder.void_call(callee_name, args, num_returns)?;
+                builder.call_multiple(&[], callee_name, args)?;
             }
 
             InstructionKind::Load { dest, address } => {
@@ -578,7 +621,9 @@ impl Default for CodeGenerator {
 
 #[cfg(test)]
 mod tests {
-    use cairo_m_compiler_mir::{BasicBlock, MirFunction, MirModule, Terminator, Value, ValueId};
+    use cairo_m_compiler_mir::{
+        BasicBlock, MirFunction, MirModule, MirType, Terminator, Value, ValueId,
+    };
     use num_traits::Zero;
     use stwo_prover::core::fields::m31::M31;
 
@@ -589,6 +634,7 @@ mod tests {
         let value_id = function.new_value_id();
         function.parameters.push(value_id);
         function.return_values.push(value_id);
+        function.set_value_type(value_id, MirType::felt());
 
         // Create a simple basic block that returns the parameter
         let mut block = BasicBlock::new();
@@ -625,6 +671,7 @@ mod tests {
 
         // Store immediate 42 to local variable
         let dest = function.new_value_id();
+        function.set_value_type(dest, MirType::felt());
         block
             .instructions
             .push(Instruction::assign(dest, Value::integer(42)));

@@ -1,0 +1,30 @@
+---
+source: crates/compiler/codegen/tests/codegen_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/compiler/codegen/tests/codegen_tests.rs
+expression: codegen_output
+---
+Fixture: tuple_literal_and_access.cm
+============================================================
+Source code:
+// Tests tuple creation, indexed write, and indexed read.
+func test_tuple() -> felt {
+    let t = (100, 200, 300);
+    t[1] = 250;
+    return t[1];
+}
+
+============================================================
+Generated CASM:
+test_tuple:
+test_tuple:
+test_tuple_0:
+   0: 6 100 _ 0            // [fp + 0] = 100
+   1: 6 200 _ 1            // [fp + 1] = 200
+   2: 6 300 _ 2            // [fp + 2] = 300
+   3: 6 250 _ 1            // [fp + 1] = 250
+   4: 4 1 _ 3              // [fp + 3] = [fp + 1]
+   5: 4 3 _ -3             // Return value 0: [fp -3] = [fp + 3]
+   6: 15 _ _ _             // return

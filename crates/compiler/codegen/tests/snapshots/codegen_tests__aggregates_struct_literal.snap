@@ -1,0 +1,32 @@
+---
+source: crates/compiler/codegen/tests/codegen_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/compiler/codegen/tests/codegen_tests.rs
+expression: codegen_output
+---
+Fixture: struct_literal.cm
+============================================================
+Source code:
+//!ASSERT CONTAINS: Get address of field 'x'
+//!ASSERT CONTAINS: Get address of field 'y'
+
+// Tests the creation of a struct literal.
+struct Point {
+    x: felt,
+    y: felt,
+}
+
+func test() -> felt {
+    let p = Point { x: 10, y: 20 };
+    return 0;
+}
+
+============================================================
+Generated CASM:
+test:
+   0: 6 10 _ 0             // [fp + 0] = 10
+   1: 6 20 _ 1             // [fp + 1] = 20
+   2: 6 0 _ -3             // Return value 0: [fp -3] = 0
+   3: 15 _ _ _             // return

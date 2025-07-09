@@ -1,0 +1,42 @@
+---
+source: crates/compiler/mir/src/ir_generation/tests/mir_generation_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/compiler/mir/src/ir_generation/tests/mir_generation_tests.rs
+expression: mir_output
+---
+Fixture: different_types.cm
+============================================================
+Source code:
+struct Point{
+    x: felt,
+    y: felt,
+}
+
+
+func different_types(p: Point, x: felt) -> (felt, Point){
+    let p2 = p;
+    p.x = x;
+    return (x, p2);
+}
+
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn different_types {
+    parameters: [0, 1]
+    entry: 0
+
+    0:
+      %2 = stackalloc 2
+      store %2, %0
+      // Get address of field 'x'
+%3 = getelementptr %0, 0
+      store %3, %1
+      return (%1, %2)
+
+  }
+
+}

@@ -1,0 +1,13 @@
+//!ASSERT CONTAINS: getelementptr
+//!ASSERT CONTAINS: load
+
+// Tests reading a value from a struct field.
+struct Point {
+    x: felt,
+    y: felt,
+}
+
+func test() -> felt {
+    let p = Point { x: 10, y: 20 };
+    return p.x; // Should generate getelementptr followed by a load.
+}

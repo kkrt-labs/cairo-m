@@ -69,6 +69,7 @@ mir_test!(multiple_functions, "functions");
 mir_test!(fib, "functions");
 mir_test!(fib_loop, "functions");
 mir_test!(return_values, "functions");
+mir_test!(different_types, "functions");
 
 // --- Variables ---
 mir_test!(assignment, "variables");
@@ -82,6 +83,7 @@ mir_test!(struct_literal, "aggregates");
 mir_test!(struct_access_mut, "aggregates");
 mir_test!(struct_access_read, "aggregates");
 mir_test!(tuple_literal_and_access, "aggregates");
+mir_test!(return_struct, "aggregates");
 // TODO this theoritically works but we dont have proper memory allocation mechanisms.
 mir_test!(array_access, "aggregates");
 

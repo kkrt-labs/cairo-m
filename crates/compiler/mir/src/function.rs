@@ -96,7 +96,7 @@ impl MirFunction {
         self.basic_blocks.get_mut(id)
     }
 
-    /// Generates a new unique value ID within this function
+    /// Generates a new unique value ID
     pub fn new_value_id(&mut self) -> ValueId {
         let id = ValueId::new(self.next_value_id as usize);
         self.next_value_id += 1;

@@ -1,0 +1,33 @@
+---
+source: crates/compiler/codegen/tests/codegen_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/compiler/codegen/tests/codegen_tests.rs
+expression: codegen_output
+---
+Fixture: struct_access_read.cm
+============================================================
+Source code:
+//!ASSERT CONTAINS: getelementptr
+//!ASSERT CONTAINS: load
+
+// Tests reading a value from a struct field.
+struct Point {
+    x: felt,
+    y: felt,
+}
+
+func test() -> felt {
+    let p = Point { x: 10, y: 20 };
+    return p.x; // Should generate getelementptr followed by a load.
+}
+
+============================================================
+Generated CASM:
+test:
+   0: 6 10 _ 0             // [fp + 0] = 10
+   1: 6 20 _ 1             // [fp + 1] = 20
+   2: 4 0 _ 2              // [fp + 2] = [fp + 0]
+   3: 4 2 _ -3             // Return value 0: [fp -3] = [fp + 2]
+   4: 15 _ _ _             // return

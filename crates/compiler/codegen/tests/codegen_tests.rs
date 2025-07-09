@@ -148,6 +148,7 @@ codegen_test!(simple_call, "functions");
 codegen_test!(fib, "functions");
 codegen_test!(fib_loop, "functions");
 codegen_test!(return_values, "functions");
+codegen_test!(different_types, "functions");
 
 // --- Optimization ---
 codegen_test!(in_place_update, "optimization");
@@ -158,3 +159,10 @@ codegen_test!(random_instructions, "random_instructions");
 
 // --- expressions ---
 codegen_test!(tuple_destructuring, "expressions");
+
+// --- aggregates ---
+codegen_test!(struct_access_mut, "aggregates");
+codegen_test!(struct_access_read, "aggregates");
+codegen_test!(struct_literal, "aggregates");
+codegen_test!(tuple_literal_and_access, "aggregates");
+codegen_test!(return_struct, "aggregates");

@@ -1,0 +1,14 @@
+//!ASSERT CONTAINS: getelementptr
+//!ASSERT CONTAINS: store
+
+// Tests writing a value to a struct field.
+struct Point {
+    x: felt,
+    y: felt,
+}
+
+func test() -> felt {
+    let p = Point { x: 10, y: 20 };
+    p.y = 30; // Should generate getelementptr followed by a store.
+    return p.y;
+}
