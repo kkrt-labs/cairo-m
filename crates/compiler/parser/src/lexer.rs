@@ -159,6 +159,8 @@ pub enum TokenType<'a> {
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*")]
     Identifier(&'a str),
     // Operators (order matters for longest match)
+    #[token("!")]
+    Not,
     #[token("&&")]
     AndAnd,
     #[token("||")]
@@ -235,6 +237,7 @@ impl<'a> fmt::Display for TokenType<'a> {
             TokenType::In => write!(f, "in"),
             TokenType::Break => write!(f, "break"),
             TokenType::Continue => write!(f, "continue"),
+            TokenType::Not => write!(f, "!"),
             TokenType::AndAnd => write!(f, "&&"),
             TokenType::OrOr => write!(f, "||"),
             TokenType::EqEq => write!(f, "=="),

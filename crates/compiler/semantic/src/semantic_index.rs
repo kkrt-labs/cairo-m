@@ -1066,6 +1066,9 @@ impl<'db> SemanticIndexBuilder<'db> {
                 // Note: Unresolved symbols will be detected in the validation pass
                 // using the identifier_usages tracking
             }
+            Expression::UnaryOp { expr, .. } => {
+                self.visit_expression(expr);
+            }
             Expression::BinaryOp { left, right, .. } => {
                 self.visit_expression(left);
                 self.visit_expression(right);

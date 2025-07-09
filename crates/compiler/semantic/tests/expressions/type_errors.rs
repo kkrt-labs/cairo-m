@@ -166,3 +166,19 @@ fn test_multiple_type_errors_with_suggestions() {
     "#
     );
 }
+
+#[test]
+fn test_unary_op_type_error() {
+    // Test unary op type error
+    assert_semantic_err!(
+        r#"
+        struct Point { x: felt, y: felt }
+
+        func test() -> felt {
+            let p = Point { x: 1, y: 2 };
+            let x = -p;  // Should show type error for negation on struct
+            return x;
+        }
+    "#
+    );
+}

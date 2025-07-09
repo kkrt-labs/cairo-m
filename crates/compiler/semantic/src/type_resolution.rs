@@ -229,6 +229,16 @@ pub fn expression_semantic_type<'db>(
                 TypeId::new(db, TypeData::Error)
             }
         }
+        Expression::UnaryOp { expr, op: _ } => {
+            let expr_id = semantic_index.expression_id_by_span(expr.span()).unwrap();
+            let expr_type = expression_semantic_type(db, file, expr_id);
+            // TODO : proper type checking
+            if are_types_compatible(db, expr_type, TypeId::new(db, TypeData::Felt)) {
+                TypeId::new(db, TypeData::Felt)
+            } else {
+                TypeId::new(db, TypeData::Error)
+            }
+        }
         Expression::BinaryOp { left, op: _, right } => {
             // TODO For now, assume all binary ops are on felts and return felt.
             // A real implementation would check left/right types.
@@ -669,6 +679,7 @@ mod tests {
                 Expression::Literal(_) => "Literal",
                 Expression::BooleanLiteral(_) => "BooleanLiteral",
                 Expression::Identifier(_) => "Identifier",
+                Expression::UnaryOp { .. } => "UnaryOp",
                 Expression::BinaryOp { .. } => "BinaryOp",
                 Expression::FunctionCall { .. } => "FunctionCall",
                 Expression::MemberAccess { .. } => "MemberAccess",

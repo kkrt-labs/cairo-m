@@ -5,10 +5,10 @@ expression: snapshot
 --- Code ---
 func test() { a +; }
 --- Diagnostics ---
-[02] Error: found ';' expected something else, identifier, or '('
+[02] Error: found ';' expected '!', '-', something else, identifier, or '('
    ╭─[ test.cairo:1:18 ]
    │
  1 │ func test() { a +; }
    │                  ┬  
-   │                  ╰── found ';' expected something else, identifier, or '('
+   │                  ╰── found ';' expected '!', '-', something else, identifier, or '('
 ───╯

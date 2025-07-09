@@ -45,6 +45,7 @@ mir_test!(function_with_let, "simple");
 mir_test!(function_with_params, "simple");
 
 // --- Expressions ---
+mir_test!(unary_ops, "expressions");
 mir_test!(binary_ops, "expressions");
 mir_test!(comparison_ops, "expressions");
 mir_test!(compound_expr, "expressions");
