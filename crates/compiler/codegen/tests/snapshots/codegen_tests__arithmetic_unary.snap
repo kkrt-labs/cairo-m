@@ -49,33 +49,33 @@ test_neg_0:
    1: 2 1 -4 0             // [fp + 0] = [fp + 1] op [fp + -4]
    2: 4 0 _ 2              // Store: [fp + 2] = [fp + 0]
    3: 4 2 _ -3             // Return value 0: [fp -3] = [fp + 2]
-   4: 15 _ _ _             // return
+   4: 12 _ _ _             // return
 test_not:
 test_not:
 test_not_0:
-   5: 31 -4 3 _            // if [fp + -4] != 0, jump to not_zero_0
+   5: 15 -4 3 _            // if [fp + -4] != 0, jump to not_zero_0
    6: 6 1 _ 0              // [fp + 0] = 1
-   7: 20 9 _ _             // jump to not_end_1
+   7: 13 9 _ _             // jump to not_end_1
 not_zero_0:
    8: 6 0 _ 0              // [fp + 0] = 0
 not_end_1:
    9: 4 0 _ 1              // Store: [fp + 1] = [fp + 0]
   10: 4 1 _ -3             // Return value 0: [fp -3] = [fp + 1]
-  11: 15 _ _ _             // return
+  11: 12 _ _ _             // return
 test_neg_literal:
 test_neg_literal:
 test_neg_literal_0:
   12: 6 2147483605 _ 0     // [fp + 0] = 2147483605
   13: 4 0 _ 1              // Store: [fp + 1] = [fp + 0]
   14: 4 1 _ -3             // Return value 0: [fp -3] = [fp + 1]
-  15: 15 _ _ _             // return
+  15: 12 _ _ _             // return
 test_not_literal_nonzero:
 test_not_literal_nonzero:
 test_not_literal_nonzero_0:
   16: 6 0 _ 0              // [fp + 0] = 0
   17: 4 0 _ 1              // Store: [fp + 1] = [fp + 0]
   18: 4 1 _ -3             // Return value 0: [fp -3] = [fp + 1]
-  19: 15 _ _ _             // return
+  19: 12 _ _ _             // return
 test_double_neg:
 test_double_neg:
 test_double_neg_0:
@@ -85,22 +85,22 @@ test_double_neg_0:
   23: 2 3 0 2              // [fp + 2] = [fp + 3] op [fp + 0]
   24: 4 2 _ 4              // Store: [fp + 4] = [fp + 2]
   25: 4 4 _ -3             // Return value 0: [fp -3] = [fp + 4]
-  26: 15 _ _ _             // return
+  26: 12 _ _ _             // return
 test_not_not:
 test_not_not:
 test_not_not_0:
-  27: 31 -4 3 _            // if [fp + -4] != 0, jump to not_zero_20
+  27: 15 -4 3 _            // if [fp + -4] != 0, jump to not_zero_20
   28: 6 1 _ 0              // [fp + 0] = 1
-  29: 20 31 _ _            // jump to not_end_21
+  29: 13 31 _ _            // jump to not_end_21
 not_zero_20:
   30: 6 0 _ 0              // [fp + 0] = 0
 not_end_21:
-  31: 31 0 3 _             // if [fp + 0] != 0, jump to not_zero_22
+  31: 15 0 3 _             // if [fp + 0] != 0, jump to not_zero_22
   32: 6 1 _ 1              // [fp + 1] = 1
-  33: 20 35 _ _            // jump to not_end_23
+  33: 13 35 _ _            // jump to not_end_23
 not_zero_22:
   34: 6 0 _ 1              // [fp + 1] = 0
 not_end_23:
   35: 4 1 _ 2              // Store: [fp + 2] = [fp + 1]
   36: 4 2 _ -3             // Return value 0: [fp -3] = [fp + 2]
-  37: 15 _ _ _             // return
+  37: 12 _ _ _             // return
