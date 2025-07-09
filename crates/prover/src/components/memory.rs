@@ -1,7 +1,5 @@
-use num_traits::Zero;
-use rayon::iter::{
-    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator,
-};
+use num_traits::{One, Zero};
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 use stwo_air_utils::trace::component_trace::ComponentTrace;
 use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
@@ -20,10 +18,18 @@ use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::BitReversedOrder;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 
+use crate::adapter::MerkleTrees;
 use crate::adapter::memory::Memory;
+use crate::adapter::merkle::TREE_HEIGHT;
 use crate::relations;
+use crate::utils::Enabler;
 
-const N_M31_IN_MEMORY_ENTRY: usize = 7; // Address, clock, value, multiplicity
+const N_TRACE_COLUMNS: usize = 12; // enabler, address, first_index, clock, value0, value1, value2, value3, multiplicity, depth, root, intermediate_node_flag
+const N_INPUT_COLUMNS: usize = 10; // address, clock, value0, value1, value2, value3, mulitplicity, depth, root, intermediate_node_flag
+const N_MEMORY_LOOKUPS: usize = 1;
+const N_MERKLE_LOOKUPS: usize = 4;
+const N_INTERACTION_COLUMNS: usize =
+    SECURE_EXTENSION_DEGREE * (N_MEMORY_LOOKUPS + N_MERKLE_LOOKUPS).div_ceil(2);
 
 #[derive(Clone, Default, Serialize, Deserialize, Debug)]
 pub struct Claim {
@@ -35,15 +41,21 @@ pub struct InteractionClaim {
     pub claimed_sum: SecureField,
 }
 
-#[derive(Uninitialized, IterMut, ParIterMut)]
 pub struct InteractionClaimData {
-    pub memory: Vec<[PackedM31; N_M31_IN_MEMORY_ENTRY]>,
+    pub lookup_data: LookupData,
+    pub non_padded_length: usize,
+}
+
+#[derive(Uninitialized, IterMut, ParIterMut)]
+pub struct LookupData {
+    pub memory: [Vec<[PackedM31; 7]>; N_MEMORY_LOOKUPS],
+    pub merkle: [Vec<[PackedM31; 5]>; N_MERKLE_LOOKUPS],
 }
 
 impl Claim {
     pub fn log_sizes(&self) -> TreeVec<Vec<u32>> {
-        let trace_log_sizes = vec![self.log_size; N_M31_IN_MEMORY_ENTRY];
-        let interaction_log_sizes = vec![self.log_size; SECURE_EXTENSION_DEGREE];
+        let trace_log_sizes = vec![self.log_size; N_TRACE_COLUMNS];
+        let interaction_log_sizes = vec![self.log_size; N_INTERACTION_COLUMNS];
         TreeVec::new(vec![vec![], trace_log_sizes, interaction_log_sizes])
     }
 
@@ -53,26 +65,27 @@ impl Claim {
 
     pub fn write_trace<MC: MerkleChannel>(
         inputs: &Memory,
-    ) -> (
-        Self,
-        ComponentTrace<N_M31_IN_MEMORY_ENTRY>,
-        InteractionClaimData,
-    )
+        merkle_trees: &MerkleTrees,
+    ) -> (Self, ComponentTrace<N_TRACE_COLUMNS>, InteractionClaimData)
     where
         SimdBackend: BackendForChannel<MC>,
     {
-        let log_size = std::cmp::max(
-            (inputs.initial_memory.len() + inputs.final_memory.len()).next_power_of_two(),
-            N_LANES,
-        )
-        .ilog2();
+        let initial_memory_len = inputs.initial_memory.len();
+        let non_padded_length = initial_memory_len + inputs.final_memory.len();
+        let log_size = std::cmp::max(non_padded_length.next_power_of_two(), N_LANES).ilog2();
 
         // Pack memory entries from the prover input
-        let packed_inputs: Vec<[PackedM31; N_M31_IN_MEMORY_ENTRY]> = inputs
+        let packed_inputs: Vec<[PackedM31; N_INPUT_COLUMNS]> = inputs
             .initial_memory
             .iter()
             .chain(inputs.final_memory.iter())
-            .map(|(address, (value, clock, multiplicity))| {
+            .enumerate()
+            .map(|(i, ((address, depth), (value, clock, multiplicity)))| {
+                let root = if i < initial_memory_len {
+                    merkle_trees.initial_root.unwrap()
+                } else {
+                    merkle_trees.final_root.unwrap()
+                };
                 let value_array = value.to_m31_array();
                 [
                     *address,
@@ -82,9 +95,16 @@ impl Claim {
                     value_array[2],
                     value_array[3],
                     *multiplicity,
+                    *depth,
+                    root,
+                    if depth.0 == TREE_HEIGHT {
+                        M31::from(0)
+                    } else {
+                        M31::from(1)
+                    },
                 ]
             })
-            .chain(std::iter::repeat([M31::zero(); N_M31_IN_MEMORY_ENTRY]))
+            .chain(std::iter::repeat([M31::zero(); N_INPUT_COLUMNS]))
             .take(1 << log_size)
             .array_chunks::<N_LANES>()
             .map(|chunk| {
@@ -92,32 +112,89 @@ impl Claim {
             })
             .collect();
 
+        let one = PackedM31::from(M31::one());
+        let m31_2 = PackedM31::from(M31::from(2));
+        let m31_3 = PackedM31::from(M31::from(3));
+        let m31_4 = PackedM31::from(M31::from(4));
+        let enabler_col = Enabler::new(non_padded_length);
+
         // Generate lookup data and fill the trace
         let (mut trace, mut lookup_data) = unsafe {
             (
-                ComponentTrace::<N_M31_IN_MEMORY_ENTRY>::uninitialized(log_size),
-                InteractionClaimData::uninitialized(log_size - LOG_N_LANES),
+                ComponentTrace::<N_TRACE_COLUMNS>::uninitialized(log_size),
+                LookupData::uninitialized(log_size - LOG_N_LANES),
             )
         };
         (
             trace.par_iter_mut(),
             packed_inputs.into_par_iter(),
-            lookup_data.memory.par_iter_mut(),
+            lookup_data.par_iter_mut(),
         )
             .into_par_iter()
-            .for_each(|(mut row, input, lookup_memory)| {
-                *row[0] = input[0];
-                *row[1] = input[1];
-                *row[2] = input[2];
-                *row[3] = input[3];
-                *row[4] = input[4];
-                *row[5] = input[5];
-                *row[6] = input[6];
-                *lookup_memory = input;
+            .enumerate()
+            .for_each(|(row_index, (mut row, input, lookup_data))| {
+                let enabler = enabler_col.packed_at(row_index);
+                let address = input[0];
+                let clock = input[1];
+                let value0 = input[2];
+                let value1 = input[3];
+                let value2 = input[4];
+                let value3 = input[5];
+                let multiplicity = input[6];
+                let depth = input[7];
+                let root = input[8];
+                let intermediate_node_flag = input[9];
+                let first_index = (one - intermediate_node_flag) * address * m31_4
+                    + intermediate_node_flag * address;
+
+                *row[0] = enabler;
+                *row[1] = address;
+                *row[2] = first_index;
+                *row[3] = clock;
+                *row[4] = value0;
+                *row[5] = value1;
+                *row[6] = value2;
+                *row[7] = value3;
+                *row[8] = multiplicity;
+                *row[9] = depth;
+                *row[10] = root;
+                *row[11] = intermediate_node_flag;
+
+                *lookup_data.memory[0] =
+                    [address, clock, value0, value1, value2, value3, multiplicity];
+                *lookup_data.merkle[0] = [first_index, depth, value0, root, intermediate_node_flag];
+                *lookup_data.merkle[1] = [
+                    address * m31_4 + one,
+                    depth,
+                    value1,
+                    root,
+                    intermediate_node_flag,
+                ];
+                *lookup_data.merkle[2] = [
+                    address * m31_4 + m31_2,
+                    depth,
+                    value2,
+                    root,
+                    intermediate_node_flag,
+                ];
+                *lookup_data.merkle[3] = [
+                    address * m31_4 + m31_3,
+                    depth,
+                    value3,
+                    root,
+                    intermediate_node_flag,
+                ];
             });
 
         // Return the trace and lookup data
-        (Self { log_size }, trace, lookup_data)
+        (
+            Self { log_size },
+            trace,
+            InteractionClaimData {
+                lookup_data,
+                non_padded_length,
+            },
+        )
     }
 }
 
@@ -128,22 +205,78 @@ impl InteractionClaim {
 
     pub fn write_interaction_trace(
         memory: &relations::Memory,
-        lookup_data: &InteractionClaimData,
+        merkle: &relations::Merkle,
+        interaction_claim_data: &InteractionClaimData,
     ) -> (
         Self,
         impl IntoIterator<Item = CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
     ) {
-        let log_size = lookup_data.memory.len().ilog2() + LOG_N_LANES;
+        let log_size = interaction_claim_data.lookup_data.memory[0].len().ilog2() + LOG_N_LANES;
         let mut interaction_trace = LogupTraceGenerator::new(log_size);
+        let enabler_col = Enabler::new(interaction_claim_data.non_padded_length);
+        let one = PackedQM31::one();
+        let mut col = interaction_trace.new_col();
+        (
+            col.par_iter_mut(),
+            &interaction_claim_data.lookup_data.memory[0],
+            &interaction_claim_data.lookup_data.merkle[0],
+        )
+            .into_par_iter()
+            .enumerate()
+            .for_each(|(i, (writer, value0, value1))| {
+                let num0: PackedQM31 = PackedQM31::from(value0[6]);
+                let denom0: PackedQM31 = memory.combine(&value0[..6]);
+
+                let num1: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
+                let denom1: PackedQM31 = merkle.combine(&value1[..4]);
+
+                let numerator = num0 * denom1 + num1 * denom0;
+                let denom = denom0 * denom1;
+
+                writer.write_frac(numerator, denom);
+            });
+        col.finalize_col();
 
         let mut col = interaction_trace.new_col();
-
-        (col.par_iter_mut(), &lookup_data.memory)
+        (
+            col.par_iter_mut(),
+            &interaction_claim_data.lookup_data.merkle[1],
+            &interaction_claim_data.lookup_data.merkle[2],
+        )
             .into_par_iter()
-            .for_each(|(writer, value)| {
-                let denom: PackedQM31 = memory.combine(&value[..6]);
-                let mult: PackedQM31 = PackedQM31::from(value[6]);
-                writer.write_frac(mult, denom);
+            .enumerate()
+            .for_each(|(i, (writer, value0, value1))| {
+                let intermediate_node_flag0 = PackedQM31::from(value0[4]);
+                let num0: PackedQM31 =
+                    (one - intermediate_node_flag0) * PackedQM31::from(enabler_col.packed_at(i));
+                let denom0: PackedQM31 = merkle.combine(&value0[..4]);
+
+                let intermediate_node_flag1 = PackedQM31::from(value1[4]);
+                let num1: PackedQM31 =
+                    (one - intermediate_node_flag1) * PackedQM31::from(enabler_col.packed_at(i));
+                let denom1: PackedQM31 = merkle.combine(&value1[..4]);
+
+                let numerator = num0 * denom1 + num1 * denom0;
+                let denom = denom0 * denom1;
+
+                writer.write_frac(numerator, denom);
+            });
+        col.finalize_col();
+
+        let mut col = interaction_trace.new_col();
+        (
+            col.par_iter_mut(),
+            &interaction_claim_data.lookup_data.merkle[3],
+        )
+            .into_par_iter()
+            .enumerate()
+            .for_each(|(i, (writer, value))| {
+                let intermediate_node_flag = PackedQM31::from(value[4]);
+                let numerator: PackedQM31 =
+                    (one - intermediate_node_flag) * PackedQM31::from(enabler_col.packed_at(i));
+                let denom: PackedQM31 = merkle.combine(&value[..4]);
+
+                writer.write_frac(numerator, denom);
             });
         col.finalize_col();
 
@@ -156,6 +289,7 @@ impl InteractionClaim {
 pub struct Eval {
     pub claim: Claim,
     pub memory: relations::Memory,
+    pub merkle: relations::Merkle,
 }
 
 impl FrameworkEval for Eval {
@@ -168,17 +302,84 @@ impl FrameworkEval for Eval {
     }
 
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
-        let memory_entries: [E::F; N_M31_IN_MEMORY_ENTRY - 1] =
-            std::array::from_fn(|_| eval.next_trace_mask());
-        let multiplicities: E::F = eval.next_trace_mask();
+        let one = E::F::one();
+        let m31_2 = E::F::from(M31::from(2));
+        let m31_3 = E::F::from(M31::from(3));
+        let m31_4 = E::F::from(M31::from(4));
+        let enabler = eval.next_trace_mask();
+        let address = eval.next_trace_mask();
+        let first_index = eval.next_trace_mask();
+        let clock = eval.next_trace_mask();
+        let value0 = eval.next_trace_mask();
+        let value1 = eval.next_trace_mask();
+        let value2 = eval.next_trace_mask();
+        let value3 = eval.next_trace_mask();
+        let multiplicity = eval.next_trace_mask();
+        let depth = eval.next_trace_mask();
+        let root = eval.next_trace_mask();
+        let intermediate_node_flag = eval.next_trace_mask();
 
+        // Enabler is 1 or 0
+        eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
+
+        // Intermediate node flag is 1 or 0
+        eval.add_constraint(
+            intermediate_node_flag.clone() * (one.clone() - intermediate_node_flag.clone()),
+        );
+
+        // first_index is correctly computed
+        eval.add_constraint(
+            (one.clone() - intermediate_node_flag.clone()) * address.clone() * m31_4.clone()
+                + intermediate_node_flag.clone() * address.clone()
+                - first_index.clone(),
+        );
+
+        // Emit initial values and use final ones
         eval.add_to_relation(RelationEntry::new(
             &self.memory,
-            E::EF::from(multiplicities),
-            &memory_entries,
+            E::EF::from(multiplicity),
+            &[
+                address.clone(),
+                clock,
+                value0.clone(),
+                value1.clone(),
+                value2.clone(),
+                value3.clone(),
+            ],
         ));
 
-        eval.finalize_logup();
+        // Emit leaves and intermediate nodes
+        eval.add_to_relation(RelationEntry::new(
+            &self.merkle,
+            E::EF::from(enabler.clone()),
+            &[first_index, depth.clone(), value0, root.clone()],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.merkle,
+            E::EF::from((one.clone() - intermediate_node_flag.clone()) * enabler.clone()),
+            &[
+                address.clone() * m31_4.clone() + one.clone(),
+                depth.clone(),
+                value1,
+                root.clone(),
+            ],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.merkle,
+            E::EF::from((one.clone() - intermediate_node_flag.clone()) * enabler.clone()),
+            &[
+                address.clone() * m31_4.clone() + m31_2,
+                depth.clone(),
+                value2,
+                root.clone(),
+            ],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.merkle,
+            E::EF::from((one - intermediate_node_flag) * enabler),
+            &[address * m31_4 + m31_3, depth, value3, root],
+        ));
+        eval.finalize_logup_in_pairs();
 
         eval
     }

@@ -4,7 +4,7 @@ use std::fs;
 
 use cairo_m_compiler::{CompilerOptions, compile_cairo};
 use cairo_m_prover::adapter::memory::Memory;
-use cairo_m_prover::adapter::partial_merkle::{MockHasher, build_partial_merkle_tree};
+use cairo_m_prover::adapter::merkle::{MockHasher, TREE_HEIGHT, build_partial_merkle_tree};
 use cairo_m_prover::adapter::{Instructions, MerkleTrees, ProverInput, import_from_runner_output};
 use cairo_m_prover::debug_tools::assert_constraints::assert_constraints;
 use cairo_m_prover::prover::prove_cairo_m;
@@ -37,20 +37,26 @@ fn test_prove_and_verify_unchanged_memory() {
         ),
     ];
 
-    // Create HashMap using first element (address) as key
-    let initial_memory: HashMap<M31, (QM31, M31, M31)> = initial_memory_data
+    // Create HashMap using address and depth as key
+    let initial_memory: HashMap<(M31, M31), (QM31, M31, M31)> = initial_memory_data
         .iter()
-        .map(|(address, value, clock, multiplicity)| (*address, (*value, *clock, *multiplicity)))
+        .map(|(address, value, clock, multiplicity)| {
+            (
+                (*address, M31::from(TREE_HEIGHT)),
+                (*value, *clock, *multiplicity),
+            )
+        })
         .collect();
 
-    let memory = Memory {
+    let mut memory = Memory {
         initial_memory: initial_memory.clone(),
         final_memory: initial_memory,
     };
 
     let (initial_tree, initial_root) =
-        build_partial_merkle_tree::<MockHasher>(&memory.initial_memory);
-    let (final_tree, final_root) = build_partial_merkle_tree::<MockHasher>(&memory.final_memory);
+        build_partial_merkle_tree::<MockHasher>(&mut memory.initial_memory);
+    let (final_tree, final_root) =
+        build_partial_merkle_tree::<MockHasher>(&mut memory.final_memory);
 
     let mut prover_input = ProverInput {
         merkle_trees: MerkleTrees {
@@ -63,9 +69,12 @@ fn test_prove_and_verify_unchanged_memory() {
         instructions: Instructions::default(),
     };
 
-    let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
+    let proof = prove_cairo_m::<Blake2sMerkleChannel, MockHasher>(&mut prover_input, None).unwrap();
 
-    let result = verify_cairo_m::<Blake2sMerkleChannel>(proof, None);
+    let result = verify_cairo_m::<Blake2sMerkleChannel, MockHasher>(proof, None);
+    if let Err(e) = &result {
+        eprintln!("Verification failed: {:?}", e);
+    }
     assert!(result.is_ok());
 }
 
@@ -92,9 +101,9 @@ fn test_prove_and_verify_fibonacci_program() {
     .unwrap();
 
     let mut prover_input = import_from_runner_output(runner_output).unwrap();
-    let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
+    let proof = prove_cairo_m::<Blake2sMerkleChannel, MockHasher>(&mut prover_input, None).unwrap();
 
-    verify_cairo_m::<Blake2sMerkleChannel>(proof, None).unwrap();
+    verify_cairo_m::<Blake2sMerkleChannel, MockHasher>(proof, None).unwrap();
 }
 
 #[test]
@@ -120,9 +129,9 @@ fn test_prove_and_verify_recursive_fibonacci_program() {
     .unwrap();
 
     let mut prover_input = import_from_runner_output(runner_output).unwrap();
-    let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
+    let proof = prove_cairo_m::<Blake2sMerkleChannel, MockHasher>(&mut prover_input, None).unwrap();
 
-    verify_cairo_m::<Blake2sMerkleChannel>(proof, None).unwrap();
+    verify_cairo_m::<Blake2sMerkleChannel, MockHasher>(proof, None).unwrap();
 }
 
 #[test]
@@ -143,9 +152,9 @@ fn test_prove_and_verify_all_opcodes() {
         run_cairo_program(&compiled_fib.program, "main", &[], Default::default()).unwrap();
 
     let mut prover_input = import_from_runner_output(runner_output).unwrap();
-    let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
+    let proof = prove_cairo_m::<Blake2sMerkleChannel, MockHasher>(&mut prover_input, None).unwrap();
 
-    verify_cairo_m::<Blake2sMerkleChannel>(proof, None).unwrap();
+    verify_cairo_m::<Blake2sMerkleChannel, MockHasher>(proof, None).unwrap();
 }
 
 #[test]
@@ -196,5 +205,5 @@ fn test_memory_profile_fibonacci_prover() {
 
     let mut prover_input = import_from_runner_output(runner_output).unwrap();
     let _proof: cairo_m_prover::Proof<stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleHasher> =
-        prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
+        prove_cairo_m::<Blake2sMerkleChannel, MockHasher>(&mut prover_input, None).unwrap();
 }

@@ -7,7 +7,7 @@ use std::fs;
 
 use cairo_m_common::Program;
 use cairo_m_compiler::{CompilerOptions, compile_cairo};
-use cairo_m_prover::adapter::import_from_runner_output;
+use cairo_m_prover::adapter::{MockHasher, import_from_runner_output};
 use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_runner::run_cairo_program;
 use stwo_prover::core::fields::m31::M31;
@@ -50,8 +50,8 @@ fn main() {
     let mut prover_input =
         import_from_runner_output(runner_output).expect("Failed to import runner output");
 
-    let _proof =
-        prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).expect("Proving failed");
+    let _proof = prove_cairo_m::<Blake2sMerkleChannel, MockHasher>(&mut prover_input, None)
+        .expect("Proving failed");
     let peak_mem = PEAK_ALLOC.peak_usage();
 
     eprintln!("Benchmark finished. Peak memory usage: {} bytes", peak_mem);

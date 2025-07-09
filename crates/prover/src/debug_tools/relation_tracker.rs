@@ -1,7 +1,7 @@
 // Adapted from https://github.com/starkware-libs/stwo-cairo/blob/main/stwo_cairo_prover/crates/prover/src/debug_tools/relation_tracker.rs
 
 use itertools::chain;
-use num_traits::One;
+use num_traits::{One, Zero};
 use stwo_constraint_framework::relation_tracker::{
     RelationSummary, RelationTrackerEntry, add_to_relation_entries,
 };
@@ -62,6 +62,28 @@ where
         mult: -M31::one(),
         values: [final_registers.pc, final_registers.fp].to_vec(),
     });
+    entries.push(RelationTrackerEntry {
+        relation: "Merkle".to_string(),
+        mult: -M31::one(),
+        values: [
+            M31::zero(),
+            M31::zero(),
+            public_data.initial_root,
+            public_data.initial_root,
+        ]
+        .to_vec(),
+    });
+    entries.push(RelationTrackerEntry {
+        relation: "Merkle".to_string(),
+        mult: -M31::one(),
+        values: [
+            M31::zero(),
+            M31::zero(),
+            public_data.final_root,
+            public_data.final_root,
+        ]
+        .to_vec(),
+    });
 
     entries
 }
@@ -72,6 +94,7 @@ fn relation_entries(
 ) -> Vec<RelationTrackerEntry> {
     let Components {
         memory,
+        merkle,
         range_check_20,
         opcodes,
     } = components;
@@ -97,6 +120,7 @@ fn relation_entries(
         add_to_relation_entries(&opcodes.store_sub_fp_fp, trace),
         add_to_relation_entries(&opcodes.store_sub_fp_imm, trace),
         add_to_relation_entries(memory, trace),
+        add_to_relation_entries(merkle, trace),
         add_to_relation_entries(range_check_20, trace),
     )
     .collect();
