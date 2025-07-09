@@ -15,32 +15,32 @@ pub struct OpcodeInfo {
 #[repr(u32)]
 pub enum Opcode {
     // Arithmetic operations
-    StoreAddFpFp = 0,  // [fp + off2] = [fp + off0] + [fp + off1]
-    StoreAddFpImm = 1, // [fp + off2] = [fp + off0] + imm
-    StoreSubFpFp = 2,  // [fp + off2] = [fp + off0] - [fp + off1]
-    StoreSubFpImm = 3, // [fp + off2] = [fp + off0] - imm
+    StoreAddFpFp,  // [fp + off2] = [fp + off0] + [fp + off1]
+    StoreAddFpImm, // [fp + off2] = [fp + off0] + imm
+    StoreSubFpFp,  // [fp + off2] = [fp + off0] - [fp + off1]
+    StoreSubFpImm, // [fp + off2] = [fp + off0] - imm
 
     // Memory operations
-    StoreDerefFp = 4,       // [fp + off2] = [fp + off0]
-    StoreDoubleDerefFp = 5, // [fp + off2] = [[fp + off0] + off1]
-    StoreImm = 6,           // [fp + off2] = imm
+    StoreDerefFp,       // [fp + off2] = [fp + off0]
+    StoreDoubleDerefFp, // [fp + off2] = [[fp + off0] + off1]
+    StoreImm,           // [fp + off2] = imm
 
     // Multiplication/Division
-    StoreMulFpFp = 7,   // [fp + off2] = [fp + off0] * [fp + off1]
-    StoreMulFpImm = 8,  // [fp + off2] = [fp + off0] * imm
-    StoreDivFpFp = 9,   // [fp + off2] = [fp + off0] / [fp + off1]
-    StoreDivFpImm = 10, // [fp + off2] = [fp + off0] / imm
+    StoreMulFpFp,  // [fp + off2] = [fp + off0] * [fp + off1]
+    StoreMulFpImm, // [fp + off2] = [fp + off0] * imm
+    StoreDivFpFp,  // [fp + off2] = [fp + off0] / [fp + off1]
+    StoreDivFpImm, // [fp + off2] = [fp + off0] / imm
 
     // Call operations
-    CallAbsImm = 11, // call abs imm
-    Ret = 12,        // ret
+    CallAbsImm, // call abs imm
+    Ret,        // ret
 
     // Jump operations
-    JmpAbsImm = 13, // jmp abs imm
-    JmpRelImm = 14, // jmp rel imm
+    JmpAbsImm, // jmp abs imm
+    JmpRelImm, // jmp rel imm
 
     // Conditional jumps
-    JnzFpImm = 15, // jmp rel imm if [fp + off0] != 0
+    JnzFpImm, // jmp rel imm if [fp + off0] != 0
 }
 
 impl From<Opcode> for u32 {
