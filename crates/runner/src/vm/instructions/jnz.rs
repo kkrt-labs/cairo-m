@@ -12,26 +12,6 @@ use crate::vm::state::VmState;
 
 /// CASM equivalent:
 /// ```casm
-/// jmp rel [fp + off1] if [fp + off0] != 0
-/// ```
-pub fn jnz_fp_fp(
-    memory: &mut Memory,
-    state: State,
-    instruction: &Instruction,
-) -> Result<State, MemoryError> {
-    let [off0, off1, _] = instruction.operands;
-    let condition = memory.get_data(state.fp + off0)?;
-    let new_state = if !condition.is_zero() {
-        state.jump_rel(memory.get_data(state.fp + off1)?)
-    } else {
-        state.advance()
-    };
-
-    Ok(new_state)
-}
-
-/// CASM equivalent:
-/// ```casm
 /// jmp rel imm if [fp + off0] != 0
 /// ```
 pub fn jnz_fp_imm(

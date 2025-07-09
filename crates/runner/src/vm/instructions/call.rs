@@ -40,25 +40,6 @@ use crate::memory::{Memory, MemoryError};
 use crate::vm::state::VmState;
 
 /// Call instruction
-/// PC update: `next_pc = [fp + off1]`
-///
-/// CASM equivalent:
-/// `call abs [fp + off1]`
-pub fn call_abs_fp(
-    memory: &mut Memory,
-    state: State,
-    instruction: &Instruction,
-) -> Result<State, MemoryError> {
-    let [off0, off1, _] = instruction.operands;
-    memory.insert(state.fp + off0, state.fp.into())?;
-    memory.insert(state.fp + off0 + M31::one(), (state.pc + M31::one()).into())?;
-
-    let next_pc = memory.get_data(state.fp + off1)?;
-
-    Ok(state.call_abs(next_pc, off0 + M31(2)))
-}
-
-/// Call instruction
 /// PC update: `next_pc = imm`
 ///
 /// CASM equivalent:
@@ -73,42 +54,6 @@ pub fn call_abs_imm(
     memory.insert(state.fp + off0 + M31::one(), (state.pc + M31::one()).into())?;
 
     Ok(state.call_abs(imm, off0 + M31(2)))
-}
-
-/// Call instruction
-/// PC update: `next_pc = pc + [fp + off1]`
-///
-/// CASM equivalent:
-/// `call rel [fp + off1]`
-pub fn call_rel_fp(
-    memory: &mut Memory,
-    state: State,
-    instruction: &Instruction,
-) -> Result<State, MemoryError> {
-    let [off0, off1, _] = instruction.operands;
-    memory.insert(state.fp + off0, state.fp.into())?;
-    memory.insert(state.fp + off0 + M31::one(), (state.pc + M31::one()).into())?;
-
-    let pc_offset = memory.get_data(state.fp + off1)?;
-
-    Ok(state.call_rel(pc_offset, off0 + M31(2)))
-}
-
-/// Call instruction
-/// PC update: `next_pc = pc + imm`
-///
-/// CASM equivalent:
-/// `call rel imm`
-pub fn call_rel_imm(
-    memory: &mut Memory,
-    state: State,
-    instruction: &Instruction,
-) -> Result<State, MemoryError> {
-    let [off0, imm, _] = instruction.operands;
-    memory.insert(state.fp + off0, state.fp.into())?;
-    memory.insert(state.fp + off0 + M31::one(), (state.pc + M31::one()).into())?;
-
-    Ok(state.call_rel(imm, off0 + M31(2)))
 }
 
 /// Return instruction

@@ -24,12 +24,12 @@ simple_or_0:
    0: 6 10 _ 0             // Store immediate: [fp + 0] = 10
    1: 6 20 _ 1             // Store immediate: [fp + 1] = 20
    2: 6 0 _ 2              // Initialize OR result to 0
-   3: 31 0 3 _             // if [fp + 0] != 0, jump to or_true_0
-   4: 31 1 2 _             // if [fp + 1] != 0, jump to or_true_0
-   5: 20 7 _ _             // jump to or_end_1
+   3: 15 0 3 _             // if [fp + 0] != 0, jump to or_true_0
+   4: 15 1 2 _             // if [fp + 1] != 0, jump to or_true_0
+   5: 13 7 _ _             // jump to or_end_1
 or_true_0:
    6: 6 1 _ 2              // [fp + 2] = 1
 or_end_1:
    7: 4 2 _ 3              // Store: [fp + 3] = [fp + 2]
    8: 4 3 _ -3             // Return value 0: [fp -3] = [fp + 3]
-   9: 15 _ _ _             // return
+   9: 12 _ _ _             // return

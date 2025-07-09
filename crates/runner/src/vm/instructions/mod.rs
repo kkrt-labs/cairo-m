@@ -58,26 +58,10 @@ pub fn opcode_to_instruction_fn(op: M31) -> Result<InstructionFn, InstructionErr
         Opcode::StoreMulFpImm => store_mul_fp_imm,
         Opcode::StoreDivFpFp => store_div_fp_fp,
         Opcode::StoreDivFpImm => store_div_fp_imm,
-        Opcode::CallAbsFp => call_abs_fp,
         Opcode::CallAbsImm => call_abs_imm,
-        Opcode::CallRelFp => call_rel_fp,
-        Opcode::CallRelImm => call_rel_imm,
         Opcode::Ret => ret,
-        Opcode::JmpAbsAddFpFp => jmp_abs_add_fp_fp,
-        Opcode::JmpAbsAddFpImm => jmp_abs_add_fp_imm,
-        Opcode::JmpAbsDerefFp => jmp_abs_deref_fp,
-        Opcode::JmpAbsDoubleDerefFp => jmp_abs_double_deref_fp,
         Opcode::JmpAbsImm => jmp_abs_imm,
-        Opcode::JmpAbsMulFpFp => jmp_abs_mul_fp_fp,
-        Opcode::JmpAbsMulFpImm => jmp_abs_mul_fp_imm,
-        Opcode::JmpRelAddFpFp => jmp_rel_add_fp_fp,
-        Opcode::JmpRelAddFpImm => jmp_rel_add_fp_imm,
-        Opcode::JmpRelDerefFp => jmp_rel_deref_fp,
-        Opcode::JmpRelDoubleDerefFp => jmp_rel_double_deref_fp,
         Opcode::JmpRelImm => jmp_rel_imm,
-        Opcode::JmpRelMulFpFp => jmp_rel_mul_fp_fp,
-        Opcode::JmpRelMulFpImm => jmp_rel_mul_fp_imm,
-        Opcode::JnzFpFp => jnz_fp_fp,
         Opcode::JnzFpImm => jnz_fp_imm,
     };
     Ok(f)
@@ -92,7 +76,7 @@ mod tests {
 
     use super::opcode_to_instruction_fn;
 
-    const LAST_VALID_OPCODE_ID: u32 = 31;
+    const LAST_VALID_OPCODE_ID: u32 = 15;
 
     #[test]
     fn test_instruction_from_qm31() {

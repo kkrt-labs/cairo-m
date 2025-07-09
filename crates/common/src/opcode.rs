@@ -15,48 +15,32 @@ pub struct OpcodeInfo {
 #[repr(u32)]
 pub enum Opcode {
     // Arithmetic operations
-    StoreAddFpFp = 0,  // [fp + off2] = [fp + off0] + [fp + off1]
-    StoreAddFpImm = 1, // [fp + off2] = [fp + off0] + imm
-    StoreSubFpFp = 2,  // [fp + off2] = [fp + off0] - [fp + off1]
-    StoreSubFpImm = 3, // [fp + off2] = [fp + off0] - imm
+    StoreAddFpFp,  // [fp + off2] = [fp + off0] + [fp + off1]
+    StoreAddFpImm, // [fp + off2] = [fp + off0] + imm
+    StoreSubFpFp,  // [fp + off2] = [fp + off0] - [fp + off1]
+    StoreSubFpImm, // [fp + off2] = [fp + off0] - imm
 
     // Memory operations
-    StoreDerefFp = 4,       // [fp + off2] = [fp + off0]
-    StoreDoubleDerefFp = 5, // [fp + off2] = [[fp + off0] + off1]
-    StoreImm = 6,           // [fp + off2] = imm
+    StoreDerefFp,       // [fp + off2] = [fp + off0]
+    StoreDoubleDerefFp, // [fp + off2] = [[fp + off0] + off1]
+    StoreImm,           // [fp + off2] = imm
 
     // Multiplication/Division
-    StoreMulFpFp = 7,   // [fp + off2] = [fp + off0] * [fp + off1]
-    StoreMulFpImm = 8,  // [fp + off2] = [fp + off0] * imm
-    StoreDivFpFp = 9,   // [fp + off2] = [fp + off0] / [fp + off1]
-    StoreDivFpImm = 10, // [fp + off2] = [fp + off0] / imm
+    StoreMulFpFp,  // [fp + off2] = [fp + off0] * [fp + off1]
+    StoreMulFpImm, // [fp + off2] = [fp + off0] * imm
+    StoreDivFpFp,  // [fp + off2] = [fp + off0] / [fp + off1]
+    StoreDivFpImm, // [fp + off2] = [fp + off0] / imm
 
     // Call operations
-    CallAbsFp = 11,  // call abs [fp + off1]
-    CallAbsImm = 12, // call abs imm
-    CallRelFp = 13,  // call rel [fp + off1]
-    CallRelImm = 14, // call rel imm
-    Ret = 15,        // ret
+    CallAbsImm, // call abs imm
+    Ret,        // ret
 
     // Jump operations
-    JmpAbsAddFpFp = 16,       // jmp abs [fp + off0] + [fp + off1]
-    JmpAbsAddFpImm = 17,      // jmp abs [fp + off0] + imm
-    JmpAbsDerefFp = 18,       // jmp abs [fp + off0]
-    JmpAbsDoubleDerefFp = 19, // jmp abs [[fp + off0] + off1]
-    JmpAbsImm = 20,           // jmp abs imm
-    JmpAbsMulFpFp = 21,       // jmp abs [fp + off0] * [fp + off1]
-    JmpAbsMulFpImm = 22,      // jmp abs [fp + off0] * imm
-    JmpRelAddFpFp = 23,       // jmp rel [fp + off0] + [fp + off1]
-    JmpRelAddFpImm = 24,      // jmp rel [fp + off0] + imm
-    JmpRelDerefFp = 25,       // jmp rel [fp + off0]
-    JmpRelDoubleDerefFp = 26, // jmp rel [[fp + off0] + off1]
-    JmpRelImm = 27,           // jmp rel imm
-    JmpRelMulFpFp = 28,       // jmp rel [fp + off0] * [fp + off1]
-    JmpRelMulFpImm = 29,      // jmp rel [fp + off0] * imm
+    JmpAbsImm, // jmp abs imm
+    JmpRelImm, // jmp rel imm
 
     // Conditional jumps
-    JnzFpFp = 30,  // jmp rel [fp + off1] if [fp + off0] != 0
-    JnzFpImm = 31, // jmp rel imm if [fp + off0] != 0
+    JnzFpImm, // jmp rel imm if [fp + off0] != 0
 }
 
 impl From<Opcode> for u32 {
@@ -117,27 +101,11 @@ impl Opcode {
             8 => Some(Self::StoreMulFpImm),
             9 => Some(Self::StoreDivFpFp),
             10 => Some(Self::StoreDivFpImm),
-            11 => Some(Self::CallAbsFp),
-            12 => Some(Self::CallAbsImm),
-            13 => Some(Self::CallRelFp),
-            14 => Some(Self::CallRelImm),
-            15 => Some(Self::Ret),
-            16 => Some(Self::JmpAbsAddFpFp),
-            17 => Some(Self::JmpAbsAddFpImm),
-            18 => Some(Self::JmpAbsDerefFp),
-            19 => Some(Self::JmpAbsDoubleDerefFp),
-            20 => Some(Self::JmpAbsImm),
-            21 => Some(Self::JmpAbsMulFpFp),
-            22 => Some(Self::JmpAbsMulFpImm),
-            23 => Some(Self::JmpRelAddFpFp),
-            24 => Some(Self::JmpRelAddFpImm),
-            25 => Some(Self::JmpRelDerefFp),
-            26 => Some(Self::JmpRelDoubleDerefFp),
-            27 => Some(Self::JmpRelImm),
-            28 => Some(Self::JmpRelMulFpFp),
-            29 => Some(Self::JmpRelMulFpImm),
-            30 => Some(Self::JnzFpFp),
-            31 => Some(Self::JnzFpImm),
+            11 => Some(Self::CallAbsImm),
+            12 => Some(Self::Ret),
+            13 => Some(Self::JmpAbsImm),
+            14 => Some(Self::JmpRelImm),
+            15 => Some(Self::JnzFpImm),
             _ => None,
         }
     }
@@ -156,30 +124,10 @@ impl Opcode {
             Self::StoreMulFpImm => OpcodeInfo { memory_accesses: 2 },
             Self::StoreDivFpFp => OpcodeInfo { memory_accesses: 3 },
             Self::StoreDivFpImm => OpcodeInfo { memory_accesses: 2 },
-            Self::CallAbsFp => OpcodeInfo {
-                memory_accesses: 3, // read [fp + off0] + write return (pc, fp)
-            },
             Self::CallAbsImm => OpcodeInfo { memory_accesses: 2 },
-            Self::CallRelFp => OpcodeInfo { memory_accesses: 3 },
-            Self::CallRelImm => OpcodeInfo { memory_accesses: 2 },
-            Self::Ret => OpcodeInfo {
-                memory_accesses: 2, // write return (pc, fp)
-            },
-            Self::JmpAbsAddFpFp => OpcodeInfo { memory_accesses: 2 },
-            Self::JmpAbsAddFpImm => OpcodeInfo { memory_accesses: 1 },
-            Self::JmpAbsDerefFp => OpcodeInfo { memory_accesses: 1 },
-            Self::JmpAbsDoubleDerefFp => OpcodeInfo { memory_accesses: 2 },
+            Self::Ret => OpcodeInfo { memory_accesses: 2 },
             Self::JmpAbsImm => OpcodeInfo { memory_accesses: 0 },
-            Self::JmpAbsMulFpFp => OpcodeInfo { memory_accesses: 2 },
-            Self::JmpAbsMulFpImm => OpcodeInfo { memory_accesses: 1 },
-            Self::JmpRelAddFpFp => OpcodeInfo { memory_accesses: 2 },
-            Self::JmpRelAddFpImm => OpcodeInfo { memory_accesses: 1 },
-            Self::JmpRelDerefFp => OpcodeInfo { memory_accesses: 1 },
-            Self::JmpRelDoubleDerefFp => OpcodeInfo { memory_accesses: 2 },
             Self::JmpRelImm => OpcodeInfo { memory_accesses: 0 },
-            Self::JmpRelMulFpFp => OpcodeInfo { memory_accesses: 2 },
-            Self::JmpRelMulFpImm => OpcodeInfo { memory_accesses: 1 },
-            Self::JnzFpFp => OpcodeInfo { memory_accesses: 2 },
             Self::JnzFpImm => OpcodeInfo { memory_accesses: 1 },
         }
     }
@@ -205,25 +153,9 @@ pub mod opcodes {
     pub const STORE_MUL_FP_IMM: u32 = Opcode::StoreMulFpImm as u32;
     pub const STORE_DIV_FP_FP: u32 = Opcode::StoreDivFpFp as u32;
     pub const STORE_DIV_FP_IMM: u32 = Opcode::StoreDivFpImm as u32;
-    pub const CALL_ABS_FP: u32 = Opcode::CallAbsFp as u32;
     pub const CALL_ABS_IMM: u32 = Opcode::CallAbsImm as u32;
-    pub const CALL_REL_FP: u32 = Opcode::CallRelFp as u32;
-    pub const CALL_REL_IMM: u32 = Opcode::CallRelImm as u32;
     pub const RET: u32 = Opcode::Ret as u32;
-    pub const JMP_ABS_ADD_FP_FP: u32 = Opcode::JmpAbsAddFpFp as u32;
-    pub const JMP_ABS_ADD_FP_IMM: u32 = Opcode::JmpAbsAddFpImm as u32;
-    pub const JMP_ABS_DEREF_FP: u32 = Opcode::JmpAbsDerefFp as u32;
-    pub const JMP_ABS_DOUBLE_DEREF_FP: u32 = Opcode::JmpAbsDoubleDerefFp as u32;
     pub const JMP_ABS_IMM: u32 = Opcode::JmpAbsImm as u32;
-    pub const JMP_ABS_MUL_FP_FP: u32 = Opcode::JmpAbsMulFpFp as u32;
-    pub const JMP_ABS_MUL_FP_IMM: u32 = Opcode::JmpAbsMulFpImm as u32;
-    pub const JMP_REL_ADD_FP_FP: u32 = Opcode::JmpRelAddFpFp as u32;
-    pub const JMP_REL_ADD_FP_IMM: u32 = Opcode::JmpRelAddFpImm as u32;
-    pub const JMP_REL_DEREF_FP: u32 = Opcode::JmpRelDerefFp as u32;
-    pub const JMP_REL_DOUBLE_DEREF_FP: u32 = Opcode::JmpRelDoubleDerefFp as u32;
     pub const JMP_REL_IMM: u32 = Opcode::JmpRelImm as u32;
-    pub const JMP_REL_MUL_FP_FP: u32 = Opcode::JmpRelMulFpFp as u32;
-    pub const JMP_REL_MUL_FP_IMM: u32 = Opcode::JmpRelMulFpImm as u32;
-    pub const JNZ_FP_FP: u32 = Opcode::JnzFpFp as u32;
     pub const JNZ_FP_IMM: u32 = Opcode::JnzFpImm as u32;
 }
