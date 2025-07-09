@@ -7,8 +7,8 @@ use std::collections::HashMap;
 use cairo_m_common::program::EntrypointInfo;
 use cairo_m_common::{Opcode, Program, ProgramMetadata};
 use cairo_m_compiler_mir::{
-    BasicBlockId, Instruction, InstructionKind, Literal, MirFunction, MirModule, MirType,
-    Terminator, Value, ValueId,
+    BasicBlockId, Instruction, InstructionKind, Literal, MirFunction, MirModule, Terminator, Value,
+    ValueId,
 };
 use cairo_m_compiler_parser::parser::BinaryOp;
 
@@ -621,7 +621,9 @@ impl Default for CodeGenerator {
 
 #[cfg(test)]
 mod tests {
-    use cairo_m_compiler_mir::{BasicBlock, MirFunction, MirModule, Terminator, Value, ValueId};
+    use cairo_m_compiler_mir::{
+        BasicBlock, MirFunction, MirModule, MirType, Terminator, Value, ValueId,
+    };
     use num_traits::Zero;
     use stwo_prover::core::fields::m31::M31;
 

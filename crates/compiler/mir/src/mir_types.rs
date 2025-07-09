@@ -137,7 +137,8 @@ impl MirType {
     pub fn size_units(&self) -> usize {
         match self {
             Self::Felt | Self::Bool => 1,
-            Self::Pointer(_) => 1, // Assuming pointer size = 1 unit
+            // TODO fix mir so that we properly handle structs on the stack
+            Self::Pointer(ty) => ty.size_units(),
             Self::Tuple(types) => types.iter().map(|t| t.size_units()).sum(),
             Self::Struct { fields, .. } => {
                 if fields.is_empty() {

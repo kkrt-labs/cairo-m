@@ -602,12 +602,12 @@ impl CasmBuilder {
 
         // The first return value will be placed at `[fp_c + L + M]`.
         // TODO: Handle multiple return values by mapping each to its slot.
-        let return_value_offset = layout.current_frame_usage() as i32;
+        let return_value_offset = layout.current_frame_usage();
         layout.map_value(dest, return_value_offset);
         layout.reserve_stack(layout.get_value_size_by_id(dest));
 
         // Step 3: Calculate `off0` and emit the `call` instruction.
-        let off0 = layout.current_frame_usage() as i32;
+        let off0 = layout.current_frame_usage();
         let instr = InstructionBuilder::new(Opcode::CallAbsImm.into())
             .with_off0(off0)
             .with_operand(Operand::Label(callee_name.to_string()))
@@ -636,13 +636,11 @@ impl CasmBuilder {
             .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
 
         for dest in dests {
-            let size = layout.get_value_size_by_id(*dest);
-            layout.map_value(*dest, layout.current_frame_usage() as i32);
-            layout.reserve_stack(size);
+            layout.map_value(*dest, layout.current_frame_usage());
         }
 
         // Step 3: Calculate `off0` and emit the `call` instruction.
-        let off0 = layout.current_frame_usage() as i32;
+        let off0 = layout.current_frame_usage();
         let instr = InstructionBuilder::new(Opcode::CallAbsImm.into())
             .with_off0(off0)
             .with_operand(Operand::Label(callee_name.to_string()))
@@ -672,10 +670,10 @@ impl CasmBuilder {
         if !args.is_empty() {
             let mut args_offset = l - total_args_size;
             let mut args_in_place = true;
-            for (i, arg) in args.iter().enumerate() {
+            for arg in args {
                 if let Value::Operand(arg_id) = arg {
                     let offset = layout.get_offset(*arg_id)?;
-                    if offset != args_offset as i32 {
+                    if offset != args_offset {
                         args_in_place = false;
                         break;
                     }
@@ -789,10 +787,9 @@ impl CasmBuilder {
                         ));
                     }
                 };
-
-                // Increase return slot offset by the size of the return value
-                return_slot_offset += layout.get_value_size(*return_val) as i32;
             }
+            // Increase return slot offset by the size of the return value
+            return_slot_offset += layout.get_value_size(*return_val) as i32;
             // If !needs_copy, the value is already in the return slot, so we skip the copy
         }
 
@@ -985,12 +982,12 @@ impl CasmBuilder {
                         let size = layout.get_value_size_by_id(val_id);
 
                         for i in 0..size {
+                            let off0 = val_offset + i as i32;
+                            let off2 = dest_offset + i as i32;
                             let instr = InstructionBuilder::new(Opcode::StoreDerefFp.into())
-                                .with_off0(val_offset + i as i32)
-                                .with_off2(dest_offset + i as i32)
-                                .with_comment(format!(
-                                    "Store: [fp + {dest_offset}] = [fp + {val_offset}]"
-                                ));
+                                .with_off0(off0)
+                                .with_off2(off2)
+                                .with_comment(format!("Store: [fp + {off2}] = [fp + {off0}]"));
 
                             self.instructions.push(instr);
                         }

@@ -29,7 +29,7 @@
 //! | ...                        | ...                    |                             |
 //! ```
 
-use cairo_m_compiler_mir::{MirFunction, Value, ValueId};
+use cairo_m_compiler_mir::{MirFunction, MirType, Value, ValueId};
 use rustc_hash::FxHashMap;
 
 use crate::{CodegenError, CodegenResult};
@@ -107,7 +107,7 @@ impl FunctionLayout {
         self.value_offsets.insert(value_id, offset);
         // Update current_frame_usage if this offset extends beyond it
         if offset >= self.current_frame_usage {
-            self.current_frame_usage = offset + 1;
+            self.current_frame_usage = offset + self.get_value_size_by_id(value_id) as i32;
         }
     }
 
@@ -131,9 +131,17 @@ impl FunctionLayout {
         self.current_frame_usage
     }
 
+    pub fn get_value_type(&self, value: Value) -> MirType {
+        match value {
+            Value::Operand(value_id) => self.function.get_value_type(value_id).unwrap().clone(),
+            _ => MirType::Felt,
+        }
+    }
+
     /// Gets the size of a value from id
     pub fn get_value_size_by_id(&self, value_id: ValueId) -> usize {
-        self.function.get_value_type(value_id).unwrap().size_units()
+        let ty = self.function.get_value_type(value_id).unwrap();
+        ty.size_units()
     }
 
     pub fn get_value_size(&self, value: Value) -> usize {

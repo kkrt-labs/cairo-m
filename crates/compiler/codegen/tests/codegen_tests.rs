@@ -148,6 +148,7 @@ codegen_test!(simple_call, "functions");
 codegen_test!(fib, "functions");
 codegen_test!(fib_loop, "functions");
 codegen_test!(return_values, "functions");
+codegen_test!(different_types, "functions");
 
 // --- Optimization ---
 codegen_test!(in_place_update, "optimization");

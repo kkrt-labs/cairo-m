@@ -1483,7 +1483,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 let struct_type = MirType::from_semantic_type(self.db, semantic_type);
 
                 // Allocate space for the struct
-                let struct_addr = self.mir_function.new_typed_value_id(struct_type.clone());
+                let struct_addr = self
+                    .mir_function
+                    .new_typed_value_id(MirType::pointer(struct_type.clone()));
                 self.add_instruction(
                     Instruction::stack_alloc(struct_addr, struct_type.size_units())
                         .with_comment("Allocate struct".to_string()),
