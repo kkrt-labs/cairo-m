@@ -162,11 +162,6 @@ fn invalid_toplevel_let() {
 }
 
 #[test]
-fn invalid_toplevel_local() {
-    assert_parses_err!("local x: felt = 42;");
-}
-
-#[test]
 fn invalid_toplevel_assignment() {
     assert_parses_err!("x = 10;");
 }
@@ -238,8 +233,8 @@ fn imports_and_functions() {
         }
 
         fn distance(p1: Point, p2: Point) -> felt {
-            local dx: felt = p1.x - p2.x;
-            local dy: felt = p1.y - p2.y;
+            let dx: felt = p1.x - p2.x;
+            let dy: felt = p1.y - p2.y;
             return sqrt(dx * dx + dy * dy);
         }
     "#

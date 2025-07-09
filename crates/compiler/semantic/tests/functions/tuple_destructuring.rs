@@ -48,11 +48,11 @@ fn test_tuple_destructuring_wrong_type_annotation() {
 }
 
 #[test]
-fn test_local_tuple_destructuring() {
+fn test_let_tuple_destructuring_with_type() {
     assert_semantic_ok!(
         r#"
         fn test() -> felt {
-            local (a, b): (felt, felt) = (100, 200);
+            let (a, b): (felt, felt) = (100, 200);
             let sum = a + b;
             return sum;
         }

@@ -5,10 +5,10 @@ expression: snapshot
 --- Code ---
 fn test() { = 5; }
 --- Diagnostics ---
-[02] Error: found '=' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'local', 'const', 'return', '!', '-', something else, identifier, '(', or '}'
+[02] Error: found '=' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, identifier, '(', or '}'
    ╭─[ test.cairo:1:13 ]
    │
  1 │ fn test() { = 5; }
    │             ┬  
-   │             ╰── found '=' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'local', 'const', 'return', '!', '-', something else, identifier, '(', or '}'
+   │             ╰── found '=' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, identifier, '(', or '}'
 ───╯

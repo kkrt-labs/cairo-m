@@ -151,7 +151,7 @@ pub struct Parameter {
     pub type_expr: TypeExpr,
 }
 
-/// Represents a pattern in let/local bindings.
+/// Represents a pattern in let bindings.
 ///
 /// Patterns allow destructuring values during variable binding.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -172,12 +172,6 @@ pub enum Statement {
     Let {
         pattern: Pattern,
         statement_type: Option<TypeExpr>,
-        value: Spanned<Expression>,
-    },
-    /// Local variable declaration with optional type annotation (e.g., `local x: felt = 5;` or `local (x, y) = (1, 2);`)
-    Local {
-        pattern: Pattern,
-        ty: Option<TypeExpr>,
         value: Spanned<Expression>,
     },
     /// Constant declaration (e.g., `const PI = 314;`)
@@ -849,20 +843,6 @@ where
             })
             .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
 
-        // Local statement: local pattern (: type)? = expression;
-        let local_stmt = just(TokenType::Local)
-            .ignore_then(pattern.clone()) // pattern (identifier or tuple)
-            .then(
-                just(TokenType::Colon)
-                    .ignore_then(type_expr.clone()) // optional type annotation
-                    .or_not(),
-            )
-            .then_ignore(just(TokenType::Eq)) // ignore '='
-            .then(expr.clone()) // value expression
-            .then_ignore(just(TokenType::Semicolon)) // ignore ';'
-            .map(|((pattern, ty), value)| Statement::Local { pattern, ty, value })
-            .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
-
         // Const statement: const NAME = expression;
         let const_stmt = just(TokenType::Const)
             .ignore_then(spanned_ident.clone()) // constant name
@@ -964,7 +944,6 @@ where
             .or(break_stmt)
             .or(continue_stmt)
             .or(let_stmt)
-            .or(local_stmt)
             .or(const_stmt)
             .or(return_stmt)
             .or(assignment_or_expr)
