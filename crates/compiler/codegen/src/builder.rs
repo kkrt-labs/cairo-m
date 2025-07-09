@@ -588,38 +588,6 @@ impl CasmBuilder {
         Ok(())
     }
 
-    /// Generate a function call that returns a value.
-    pub fn call(&mut self, dest: ValueId, callee_name: &str, args: &[Value]) -> CodegenResult<()> {
-        // Step 1: Pass arguments by storing them in the communication area.
-        self.pass_arguments(callee_name, args)?;
-
-        let layout = self
-            .layout
-            .as_mut()
-            .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
-
-        // Step 2: Reserve space for return values and map the destination `ValueId`.
-
-        // The first return value will be placed at `[fp_c + L + M]`.
-        // TODO: Handle multiple return values by mapping each to its slot.
-        let return_value_offset = layout.current_frame_usage();
-        layout.map_value(dest, return_value_offset);
-        layout.reserve_stack(layout.get_value_size_by_id(dest));
-
-        // Step 3: Calculate `off0` and emit the `call` instruction.
-        let off0 = layout.current_frame_usage();
-        let instr = InstructionBuilder::new(Opcode::CallAbsImm.into())
-            .with_off0(off0)
-            .with_operand(Operand::Label(callee_name.to_string()))
-            .with_comment(format!("call {callee_name}"));
-        self.instructions.push(instr);
-
-        // Step 4: No copy is needed after the call. The `dest` ValueId is already mapped
-        // to the correct stack slot where the callee will place the return value.
-
-        Ok(())
-    }
-
     /// Generate a function call that returns multiple values.
     pub fn call_multiple(
         &mut self,
