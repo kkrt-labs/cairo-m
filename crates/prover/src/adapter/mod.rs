@@ -11,6 +11,7 @@ use cairo_m_common::State as VmRegisters;
 use cairo_m_runner::RunnerOutput;
 use io::VmImportError;
 pub use memory::ExecutionBundle;
+use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 use tracing::{span, Level};
 
@@ -27,8 +28,10 @@ pub struct ProverInput {
 
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
 pub struct MerkleTrees {
-    pub initial_merkle_tree: Vec<NodeData>,
-    pub final_merkle_tree: Vec<NodeData>,
+    pub initial_tree: Vec<NodeData>,
+    pub initial_root: Option<M31>,
+    pub final_tree: Vec<NodeData>,
+    pub final_root: Option<M31>,
 }
 
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
@@ -86,13 +89,16 @@ where
     );
 
     // Build the partial merkle trees
-    let initial_merkle_tree = build_partial_merkle_tree::<MockHasher>(&memory.initial_memory);
-    let final_merkle_tree = build_partial_merkle_tree::<MockHasher>(&memory.final_memory);
+    let (initial_tree, initial_root) =
+        build_partial_merkle_tree::<MockHasher>(&memory.initial_memory);
+    let (final_tree, final_root) = build_partial_merkle_tree::<MockHasher>(&memory.final_memory);
 
     Ok(ProverInput {
         merkle_trees: MerkleTrees {
-            initial_merkle_tree,
-            final_merkle_tree,
+            initial_tree,
+            final_tree,
+            initial_root,
+            final_root,
         },
         memory,
         instructions: Instructions {

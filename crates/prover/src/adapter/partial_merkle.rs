@@ -56,16 +56,6 @@ impl MerkleHasher for MockHasher {
     }
 }
 
-/// Get the root value from a partial merkle tree
-/// Returns M31::zero() if the tree is empty
-pub fn get_merkle_root(nodes: &[NodeData]) -> M31 {
-    nodes
-        .iter()
-        .find(|node| node.depth == 0)
-        .map(|node| node.value_left)
-        .unwrap_or_else(M31::zero)
-}
-
 /// Build a partial Merkle tree from a memory state
 /// Each QM31 value is split into 4 M31 leaves
 /// The tree has depth 0 to 30:
@@ -73,9 +63,9 @@ pub fn get_merkle_root(nodes: &[NodeData]) -> M31 {
 /// - Depth 30: Leaves with up to 2^30 M31 values (from 2^28 QM31 memory cells)
 pub fn build_partial_merkle_tree<H: MerkleHasher>(
     memory: &HashMap<M31, (QM31, M31, M31)>,
-) -> Vec<NodeData> {
+) -> (Vec<NodeData>, Option<M31>) {
     if memory.is_empty() {
-        return vec![];
+        return (vec![], None);
     }
 
     // Assert memory size is within bounds
@@ -99,20 +89,8 @@ pub fn build_partial_merkle_tree<H: MerkleHasher>(
         }
     }
 
-    // Build tree from leaves (depth 30) up to root (depth 0)
-    for depth in (0..=TREE_HEIGHT).rev() {
-        if depth == 0 {
-            // Root node
-            let root_value = current_depth_nodes[&0];
-            nodes.push(NodeData {
-                index: 0,
-                depth: 0,
-                value_left: root_value,
-                value_right: root_value,
-            });
-            break;
-        }
-
+    // Build tree from leaves (depth 30) up to root excluded (depth 1)
+    for depth in (1..=TREE_HEIGHT).rev() {
         let mut parent_depth_nodes: HashMap<u32, M31> = HashMap::new();
 
         // Process all nodes at this depth
@@ -165,7 +143,11 @@ pub fn build_partial_merkle_tree<H: MerkleHasher>(
 
         current_depth_nodes = parent_depth_nodes;
     }
-    nodes
+
+    assert_eq!(current_depth_nodes.len(), 1);
+    let root_value = current_depth_nodes[&0];
+
+    (nodes, Some(root_value))
 }
 
 #[cfg(test)]
@@ -175,8 +157,9 @@ mod tests {
     #[test]
     fn test_empty_tree() {
         let memory = HashMap::new();
-        let tree = build_partial_merkle_tree::<MockHasher>(&memory);
+        let (tree, root) = build_partial_merkle_tree::<MockHasher>(&memory);
         assert!(tree.is_empty());
+        assert!(root.is_none());
     }
 
     #[test]
@@ -184,9 +167,10 @@ mod tests {
         let mut memory = HashMap::new();
         memory.insert(M31::from(5), (QM31::from(42), M31::zero(), M31::zero()));
 
-        let tree = build_partial_merkle_tree::<MockHasher>(&memory);
+        let (tree, root) = build_partial_merkle_tree::<MockHasher>(&memory);
         // Should have nodes up to the root
         assert!(!tree.is_empty());
+        assert!(root.is_some());
     }
 
     #[test]
@@ -210,33 +194,34 @@ mod tests {
             ),
         );
 
-        let tree = build_partial_merkle_tree::<MockHasher>(&memory);
+        let (tree, root) = build_partial_merkle_tree::<MockHasher>(&memory);
 
         // Verify the tree exists
         assert!(!tree.is_empty());
+        assert!(root.is_some());
 
         // Helper function to find a node
-        let find_node = |index: u32, depth: u32| -> Option<&NodeData> {
+        fn find_node(tree: &[NodeData], index: u32, depth: u32) -> Option<&NodeData> {
             tree.iter()
                 .find(|node| node.index == index && node.depth == depth)
-        };
+        }
 
         // Check depth 30 nodes (leaves) - each QM31 value creates 4 consecutive leaves
         // Address 0 -> leaves 0,1,2,3
         // Address 1 -> leaves 4,5,6,7
 
         // First pair of M31 values from address 0
-        let node = find_node(0, 30).expect("Should find node at index 0, depth 30");
+        let node = find_node(&tree, 0, 30).expect("Should find node at index 0, depth 30");
         assert_eq!(node.value_left, M31::from(10));
         assert_eq!(node.value_right, M31::from(11));
 
         // Second pair of M31 values from address 0
-        let node = find_node(2, 30).expect("Should find node at index 2, depth 30");
+        let node = find_node(&tree, 2, 30).expect("Should find node at index 2, depth 30");
         assert_eq!(node.value_left, M31::from(12));
         assert_eq!(node.value_right, M31::from(13));
 
         // First pair of M31 values from address 1
-        let node = find_node(4, 30).expect("Should find node at index 4, depth 30");
+        let node = find_node(&tree, 4, 30).expect("Should find node at index 4, depth 30");
         assert_eq!(node.value_left, M31::from(20));
         assert_eq!(node.value_right, M31::from(21));
     }
@@ -252,12 +237,16 @@ mod tests {
             (QM31::from(2), M31::zero(), M31::zero()),
         );
 
-        let tree = build_partial_merkle_tree::<MockHasher>(&memory);
+        let (tree, root) = build_partial_merkle_tree::<MockHasher>(&memory);
+        assert!(root.is_some());
 
-        let min_depth = tree.iter().map(|node| node.depth).min().unwrap_or(0);
+        let min_depth = tree.iter().map(|node| node.depth).min().unwrap_or(1);
 
-        // We should build down to depth 0 (root)
-        assert_eq!(min_depth, 0, "Tree should build down to depth 0 (root)");
+        // We should build down to depth 1 (not 0, since root is excluded from nodes)
+        assert_eq!(
+            min_depth, 1,
+            "Tree should build down to depth 1 (parent of root)"
+        );
 
         // Also check we have leaves at depth 30
         let max_depth = tree.iter().map(|node| node.depth).max().unwrap_or(0);
