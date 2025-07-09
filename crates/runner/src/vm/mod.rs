@@ -38,6 +38,7 @@ pub enum VmError {
 #[derive(Debug, Default, Clone)]
 pub struct VM {
     pub final_pc: M31,
+    pub initial_memory: Memory,
     pub memory: Memory,
     pub state: State,
     pub program_length: M31,
@@ -84,6 +85,7 @@ impl TryFrom<&Program> for VM {
 
         Ok(Self {
             final_pc,
+            initial_memory: memory.clone(),
             memory,
             state,
             program_length,

@@ -4,7 +4,7 @@ use std::fs;
 
 use cairo_m_compiler::{compile_cairo, CompilerOptions};
 use cairo_m_prover::adapter::memory::Memory;
-use cairo_m_prover::adapter::{import_from_runner_output, Instructions, ProverInput};
+use cairo_m_prover::adapter::{import_from_runner_output, Instructions, MerkleTrees, ProverInput};
 use cairo_m_prover::debug_tools::assert_constraints::assert_constraints;
 use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_prover::verifier::verify_cairo_m;
@@ -20,25 +20,36 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 #[test]
 fn test_prove_and_verify_unchanged_memory() {
     let initial_memory_data = [
-        (M31(0), QM31::from_u32_unchecked(1, 2, 3, 4), M31(0)),
-        (M31(1), QM31::from_u32_unchecked(5, 6, 7, 8), M31(0)),
-        (M31(2), QM31::from_u32_unchecked(9, 10, 11, 12), M31(0)),
-        (M31(3), QM31::from_u32_unchecked(13, 14, 15, 16), M31(0)),
+        (M31(0), QM31::from_u32_unchecked(1, 2, 3, 4), M31(0), M31(0)),
+        (M31(1), QM31::from_u32_unchecked(5, 6, 7, 8), M31(0), M31(0)),
+        (
+            M31(2),
+            QM31::from_u32_unchecked(9, 10, 11, 12),
+            M31(0),
+            M31(0),
+        ),
+        (
+            M31(3),
+            QM31::from_u32_unchecked(13, 14, 15, 16),
+            M31(0),
+            M31(0),
+        ),
     ];
 
     // Create HashMap using first element (address) as key
-    let initial_memory: HashMap<M31, (QM31, M31)> = initial_memory_data
+    let initial_memory: HashMap<M31, (QM31, M31, M31)> = initial_memory_data
         .iter()
-        .map(|(address, value, clock)| (*address, (*value, *clock)))
+        .map(|(address, value, clock, multiplicity)| (*address, (*value, *clock, *multiplicity)))
         .collect();
 
-    let memory_boundaries = Memory {
+    let memory = Memory {
         initial_memory: initial_memory.clone(),
         final_memory: initial_memory,
     };
 
     let mut prover_input = ProverInput {
-        memory_boundaries,
+        merkle_trees: MerkleTrees::default(),
+        memory,
         instructions: Instructions::default(),
     };
 
@@ -50,15 +61,16 @@ fn test_prove_and_verify_unchanged_memory() {
 
 #[test]
 fn test_prove_and_verify_empty_memory() {
-    let initial_memory: HashMap<M31, (QM31, M31)> = HashMap::new();
+    let initial_memory: HashMap<M31, (QM31, M31, M31)> = HashMap::new();
 
-    let memory_boundaries = Memory {
+    let memory = Memory {
         initial_memory: initial_memory.clone(),
         final_memory: initial_memory,
     };
 
     let mut prover_input = ProverInput {
-        memory_boundaries,
+        merkle_trees: MerkleTrees::default(),
+        memory,
         instructions: Instructions::default(),
     };
 

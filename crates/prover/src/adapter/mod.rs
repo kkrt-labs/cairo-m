@@ -1,5 +1,6 @@
 pub mod io;
 pub mod memory;
+pub mod partial_merkle;
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -10,15 +11,27 @@ use cairo_m_common::State as VmRegisters;
 use cairo_m_runner::RunnerOutput;
 use io::VmImportError;
 pub use memory::ExecutionBundle;
+use stwo_prover::core::fields::m31::M31;
+use stwo_prover::core::fields::qm31::QM31;
 use tracing::{span, Level};
 
 use crate::adapter::io::{MemoryEntryFileIter, TraceFileIter};
 use crate::adapter::memory::{ExecutionBundleIterator, Memory};
+use crate::adapter::partial_merkle::{build_partial_merkle_tree, MockHasher, NodeData};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ProverInput {
-    pub memory_boundaries: Memory,
+    pub merkle_trees: MerkleTrees,
+    pub memory: Memory,
     pub instructions: Instructions,
+}
+
+#[derive(Debug, Default, PartialEq, Eq, Clone)]
+pub struct MerkleTrees {
+    pub initial_tree: Vec<NodeData>,
+    pub initial_root: Option<M31>,
+    pub final_tree: Vec<NodeData>,
+    pub final_root: Option<M31>,
 }
 
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
@@ -31,12 +44,13 @@ pub struct Instructions {
 fn import_internal<TraceIter, MemoryIter>(
     trace_iter: TraceIter,
     memory_iter: MemoryIter,
+    initial_memory: Vec<QM31>,
 ) -> Result<ProverInput, VmImportError>
 where
     TraceIter: Iterator<Item = VmRegisters>,
     MemoryIter: Iterator<Item = RunnerMemoryEntry>,
 {
-    let mut bundle_iter = ExecutionBundleIterator::new(trace_iter, memory_iter);
+    let mut bundle_iter = ExecutionBundleIterator::new(trace_iter, memory_iter, initial_memory);
     let mut states_by_opcodes = HashMap::<Opcode, Vec<ExecutionBundle>>::default();
 
     // Get initial registers by peeking at the trace
@@ -66,9 +80,27 @@ where
 
     // Get the memory state from the iterator
     let memory = bundle_iter.into_memory();
+    // Assert that the keys are the same for both initial_memory and final_memory
+    let initial_keys: std::collections::HashSet<_> = memory.initial_memory.keys().collect();
+    let final_keys: std::collections::HashSet<_> = memory.final_memory.keys().collect();
+    assert_eq!(
+        initial_keys, final_keys,
+        "Initial and final memory keys do not match"
+    );
+
+    // Build the partial merkle trees
+    let (initial_tree, initial_root) =
+        build_partial_merkle_tree::<MockHasher>(&memory.initial_memory);
+    let (final_tree, final_root) = build_partial_merkle_tree::<MockHasher>(&memory.final_memory);
 
     Ok(ProverInput {
-        memory_boundaries: memory,
+        merkle_trees: MerkleTrees {
+            initial_tree,
+            final_tree,
+            initial_root,
+            final_root,
+        },
+        memory,
         instructions: Instructions {
             initial_registers,
             final_registers,
@@ -77,6 +109,8 @@ where
     })
 }
 
+#[allow(unreachable_code)]
+#[allow(unused_variables)]
 pub fn import_from_runner_artifacts(
     trace_path: &Path,
     mem_path: &Path,
@@ -88,7 +122,8 @@ pub fn import_from_runner_artifacts(
     let memory_file_iter = MemoryEntryFileIter::try_from(mem_path)?;
     let memory_iter = memory_file_iter.map(Into::into);
 
-    import_internal(trace_iter, memory_iter)
+    unimplemented!("serialize the initial memory");
+    import_internal(trace_iter, memory_iter, vec![])
 }
 
 pub fn import_from_runner_output(
@@ -99,5 +134,9 @@ pub fn import_from_runner_output(
     let trace_iter = runner_output.vm.trace.into_iter();
     let memory_iter = runner_output.vm.memory.trace.into_inner().into_iter();
 
-    import_internal(trace_iter, memory_iter)
+    import_internal(
+        trace_iter,
+        memory_iter,
+        runner_output.vm.initial_memory.data,
+    )
 }

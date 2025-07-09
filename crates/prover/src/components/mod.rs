@@ -79,7 +79,7 @@ impl Claim {
 
         // Write memory component from the prover input
         let (memory_claim, memory_trace, memory_interaction_claim_data) =
-            memory::Claim::write_trace(&input.memory_boundaries);
+            memory::Claim::write_trace(&input.memory);
 
         // Write range_check components
         let range_check_data = opcodes_interaction_claim_data.range_check_20();
