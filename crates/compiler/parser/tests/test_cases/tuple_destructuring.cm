@@ -17,9 +17,9 @@ func test_function_return_destructuring() -> (felt, felt) {
     return (a, b);
 }
 
-func test_local_destructuring() {
-    // Local tuple destructuring
-    local (x, y) = (5, 15);
+func test_let_destructuring() {
+    // Let tuple destructuring
+    let (x, y) = (5, 15);
     let sum = x + y;
     
     // Nested expressions
@@ -35,5 +35,5 @@ func test_three_element_tuple() -> felt {
 func test_with_type_annotation() {
     // With type annotation
     let (x, y): (felt, felt) = (42, 84);
-    local (a, b): (felt, felt) = (1, 2);
+    let (a, b): (felt, felt) = (1, 2);
 }

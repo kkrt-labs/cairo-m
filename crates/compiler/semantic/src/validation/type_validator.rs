@@ -13,8 +13,8 @@ use std::collections::HashSet;
 
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode};
 use cairo_m_compiler_parser::parser::{
-    parse_program, BinaryOp, Expression, FunctionDef, Pattern, Spanned, Statement, TopLevelItem,
-    TypeExpr, UnaryOp,
+    BinaryOp, Expression, FunctionDef, Pattern, Spanned, Statement, TopLevelItem, TypeExpr,
+    UnaryOp, parse_program,
 };
 use chumsky::span::SimpleSpan;
 
@@ -741,9 +741,6 @@ impl TypeValidator {
                     diagnostics,
                 );
             }
-            Statement::Local { pattern, value, ty } => {
-                self.check_local_statement_types(db, file, index, pattern, value, ty, diagnostics);
-            }
             Statement::Assignment { lhs, rhs } => {
                 self.check_assignment_types(db, file, index, lhs, rhs, diagnostics);
             }
@@ -902,107 +899,6 @@ impl TypeValidator {
                                 .expect("No expression info found")
                                 .scope_id;
                             let expected_type = resolve_ast_type(db, file, ty.clone(), scope_id);
-                            if !are_types_compatible(db, value_type, expected_type) {
-                                diagnostics.push(
-                                    Diagnostic::error(
-                                        DiagnosticCode::TypeMismatch,
-                                        format!(
-                                            "Type mismatch for tuple destructuring. Expected '{}', found '{}'",
-                                            expected_type.data(db).display_name(db),
-                                            value_type.data(db).display_name(db)
-                                        ),
-                                    )
-                                    .with_location(file.file_path(db).to_string(), value.span()),
-                                );
-                            }
-                        }
-                    }
-                    _ => {
-                        diagnostics.push(
-                            Diagnostic::error(
-                                DiagnosticCode::TypeMismatch,
-                                format!(
-                                    "Cannot destructure non-tuple type '{}' in tuple pattern",
-                                    value_type.data(db).display_name(db)
-                                ),
-                            )
-                            .with_location(file.file_path(db).to_string(), value.span()),
-                        );
-                    }
-                }
-            }
-        }
-    }
-
-    /// Check types for local statements
-    #[allow(clippy::too_many_arguments)]
-    fn check_local_statement_types(
-        &self,
-        db: &dyn SemanticDb,
-        file: File,
-        index: &SemanticIndex,
-        pattern: &Pattern,
-        value: &Spanned<Expression>,
-        ty: &Option<TypeExpr>,
-        diagnostics: &mut Vec<Diagnostic>,
-    ) {
-        let Some(value_expr_id) = index.expression_id_by_span(value.span()) else {
-            return;
-        };
-        let value_type = expression_semantic_type(db, file, value_expr_id);
-
-        match pattern {
-            Pattern::Identifier(name) => {
-                // Simple identifier - check type if specified
-                if let Some(expected_type_expr) = ty {
-                    let scope_id = index
-                        .expression(value_expr_id)
-                        .expect("No expression info found")
-                        .scope_id;
-                    let expected_type =
-                        resolve_ast_type(db, file, expected_type_expr.clone(), scope_id);
-                    if !are_types_compatible(db, value_type, expected_type) {
-                        diagnostics.push(
-                            Diagnostic::error(
-                                DiagnosticCode::TypeMismatch,
-                                format!(
-                                    "Type mismatch for local statement '{}'. Expected '{}', found '{}'",
-                                    name.value(),
-                                    expected_type.data(db).display_name(db),
-                                    value_type.data(db).display_name(db)
-                                ),
-                            )
-                            .with_location(file.file_path(db).to_string(), value.span()),
-                        );
-                    }
-                }
-            }
-            Pattern::Tuple(names) => {
-                // Tuple pattern - check that RHS is a tuple with matching arity
-                match value_type.data(db) {
-                    TypeData::Tuple(element_types) => {
-                        if element_types.len() != names.len() {
-                            diagnostics.push(
-                                Diagnostic::error(
-                                    DiagnosticCode::TypeMismatch,
-                                    format!(
-                                        "Tuple pattern has {} elements but value has {} elements",
-                                        names.len(),
-                                        element_types.len()
-                                    ),
-                                )
-                                .with_location(file.file_path(db).to_string(), value.span()),
-                            );
-                        }
-
-                        // If a type annotation is provided, it should be a tuple type
-                        if let Some(expected_type_expr) = ty {
-                            let scope_id = index
-                                .expression(value_expr_id)
-                                .expect("No expression info found")
-                                .scope_id;
-                            let expected_type =
-                                resolve_ast_type(db, file, expected_type_expr.clone(), scope_id);
                             if !are_types_compatible(db, value_type, expected_type) {
                                 diagnostics.push(
                                     Diagnostic::error(
@@ -1531,49 +1427,6 @@ mod tests {
                         let g = 42;
                     }
                 }
-            }
-        "#;
-        let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
-        let semantic_index = semantic_index(&db, file)
-            .as_ref()
-            .expect("Got unexpected parse errors");
-
-        let validator = TypeValidator;
-        let diagnostics = validator.validate(&db, file, semantic_index);
-
-        // Count type mismatch errors
-        let type_mismatch_errors = diagnostics
-            .iter()
-            .filter(|d| d.code == DiagnosticCode::TypeMismatch)
-            .count();
-
-        assert_eq!(
-            type_mismatch_errors, 3,
-            "Should have 3 type mismatch errors"
-        );
-    }
-
-    #[test]
-    fn test_local_statement_validation() {
-        let db = test_db();
-        let program = r#"
-            struct Point { x: felt, y: felt }
-            func test() {
-                // Valid local statements
-                local a: felt = 1;            // OK: correct type
-                local b: Point = Point { x: 1, y: 2 }; // OK: correct type
-                local c = 42;                 // OK: type inference
-                local d = Point { x: 1, y: 2 }; // OK: type inference
-
-                // Invalid local statements
-                local e: felt = Point { x: 1, y: 2 }; // Error: type mismatch
-                local f: Point = 42;          // Error: type mismatch
-                local h: Point = (1, 2);      // Error: type mismatch
-
-                // Local statements with expressions
-                local i: felt = 1 + 2;        // OK: arithmetic result
-                local j: felt = 1 && 2;       // OK: logical result
-                local k: Point = Point { x: 1 + 2, y: 3 + 4 }; // OK: complex initialization
             }
         "#;
         let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());

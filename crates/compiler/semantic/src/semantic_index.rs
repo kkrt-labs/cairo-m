@@ -50,7 +50,7 @@ use cairo_m_compiler_parser::parser::{
     ConstDef, Expression, FunctionDef, ImportStmt, Namespace, Pattern, Spanned, Statement,
     StructDef, TopLevelItem,
 };
-use cairo_m_compiler_parser::{parse_program, ParsedModule};
+use cairo_m_compiler_parser::{ParsedModule, parse_program};
 use chumsky::span::SimpleSpan;
 use index_vec::IndexVec;
 use rustc_hash::FxHashMap;
@@ -870,48 +870,6 @@ impl<'db> SemanticIndexBuilder<'db> {
                     }
                 }
             }
-            Statement::Local { pattern, value, ty } => {
-                use crate::definition::{DefinitionKind, LocalDefRef};
-                // Visit the value expression and capture the ID
-                let value_expr_id = self.visit_expression(value);
-
-                match pattern {
-                    Pattern::Identifier(name) => {
-                        // Simple identifier pattern
-                        let def_kind = DefinitionKind::Local(LocalDefRef::from_local_statement(
-                            name.value(),
-                            ty.clone(),
-                            Some(value_expr_id),
-                        ));
-                        self.add_place_with_definition(
-                            name.value(),
-                            PlaceFlags::DEFINED,
-                            def_kind,
-                            name.span(),
-                            stmt.span(),
-                        );
-                    }
-                    Pattern::Tuple(names) => {
-                        // Tuple destructuring pattern
-                        for (index, name) in names.iter().enumerate() {
-                            let def_kind = DefinitionKind::Local(LocalDefRef::from_destructuring(
-                                name.value(),
-                                ty.clone(),
-                                value_expr_id,
-                                index,
-                            ));
-                            self.add_place_with_definition(
-                                name.value(),
-                                PlaceFlags::DEFINED,
-                                def_kind,
-                                name.span(),
-                                stmt.span(),
-                            );
-                        }
-                    }
-                }
-                // TODO: Analyze type annotation when type system is implemented
-            }
             Statement::Const(const_def) => {
                 // Statement-level const is wrapped in a spanned context
                 let spanned_const = Spanned::new(const_def.clone(), stmt.span());
@@ -1139,7 +1097,7 @@ mod tests {
     use cairo_m_compiler_parser::SourceProgram;
 
     use super::*;
-    use crate::db::tests::{test_db, TestDb};
+    use crate::db::tests::{TestDb, test_db};
 
     struct TestCase {
         db: TestDb,
@@ -1177,9 +1135,11 @@ mod tests {
             .place_id_by_name("test")
             .expect("function should be defined");
         let func_place = root_table.place(func_place_id).unwrap();
-        assert!(func_place
-            .flags
-            .contains(crate::place::PlaceFlags::FUNCTION));
+        assert!(
+            func_place
+                .flags
+                .contains(crate::place::PlaceFlags::FUNCTION)
+        );
 
         // Should have one child scope (the function)
         let child_scopes: Vec<_> = index.child_scopes(root).collect();
@@ -1249,7 +1209,7 @@ mod tests {
 
             func distance(p1: Point, p2: Point) -> felt {
                 let dx = p1.x - p2.x;
-                local dy: felt = p1.y - p2.y;
+                let dy: felt = p1.y - p2.y;
                 return dx * dx + dy * dy;
             }
 
@@ -1403,7 +1363,7 @@ mod tests {
 
             func test() -> felt {
                 let x = 42;
-                local y: felt = 100;
+                let y: felt = 100;
                 return x + y;
             }
             "#,
@@ -1415,15 +1375,6 @@ mod tests {
             .all_definitions()
             .filter_map(|(_, def)| match &def.kind {
                 DefinitionKind::Let(let_ref) => Some(let_ref),
-                _ => None,
-            })
-            .collect();
-
-        // Find the local definition
-        let local_definitions: Vec<_> = index
-            .all_definitions()
-            .filter_map(|(_, def)| match &def.kind {
-                DefinitionKind::Local(local_ref) => Some(local_ref),
                 _ => None,
             })
             .collect();
@@ -1440,13 +1391,8 @@ mod tests {
         // Check that we found the expected definitions
         assert_eq!(
             let_definitions.len(),
-            1,
-            "Should find exactly 1 let definition"
-        );
-        assert_eq!(
-            local_definitions.len(),
-            1,
-            "Should find exactly 1 local definition"
+            2, // Now we have 2 let definitions (x and y)
+            "Should find exactly 2 let definitions"
         );
         assert_eq!(
             const_definitions.len(),
@@ -1461,10 +1407,10 @@ mod tests {
             "Let definition should have a value expression ID"
         );
 
-        assert_eq!(local_definitions[0].name, "y");
+        assert_eq!(let_definitions[1].name, "y");
         assert!(
-            local_definitions[0].value_expr_id.is_some(),
-            "Local definition should have a value expression ID"
+            let_definitions[1].value_expr_id.is_some(),
+            "Let definition should have a value expression ID"
         );
 
         assert_eq!(const_definitions[0].name, "Z");
@@ -1476,14 +1422,6 @@ mod tests {
         // Verify that the expression IDs actually correspond to real expressions in the index
         for let_def in &let_definitions {
             if let Some(expr_id) = let_def.value_expr_id {
-                assert!(
-                    index.expression(expr_id).is_some(),
-                    "Expression ID should be valid"
-                );
-            }
-        }
-        for local_def in &local_definitions {
-            if let Some(expr_id) = local_def.value_expr_id {
                 assert!(
                     index.expression(expr_id).is_some(),
                     "Expression ID should be valid"
