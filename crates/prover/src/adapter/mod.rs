@@ -15,13 +15,13 @@ use stwo_prover::core::fields::qm31::QM31;
 use tracing::{span, Level};
 
 use crate::adapter::io::{MemoryEntryFileIter, TraceFileIter};
-use crate::adapter::memory::{ExecutionBundleIterator, MemoryBoundaries};
-use crate::adapter::partial_merkle::{build_partial_merkle_tree, NodeData};
+use crate::adapter::memory::{ExecutionBundleIterator, Memory};
+use crate::adapter::partial_merkle::{build_partial_merkle_tree, MockHasher, NodeData};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ProverInput {
-    pub merkle_tree: MerkleTrees,
-    pub used_memory_boundaries: MemoryBoundaries,
+    pub merkle_trees: MerkleTrees,
+    pub memory: Memory,
     pub instructions: Instructions,
 }
 
@@ -76,18 +76,25 @@ where
     final_registers = bundle_iter.get_final_registers().unwrap_or(final_registers);
 
     // Get the memory state from the iterator
-    let (used_memory_boundaries, initial_memory, final_memory) = bundle_iter.into_memory();
+    let memory = bundle_iter.into_memory();
+    // Assert that the keys are the same for both initial_memory and final_memory
+    let initial_keys: std::collections::HashSet<_> = memory.initial_memory.keys().collect();
+    let final_keys: std::collections::HashSet<_> = memory.final_memory.keys().collect();
+    assert_eq!(
+        initial_keys, final_keys,
+        "Initial and final memory keys do not match"
+    );
 
     // Build the partial merkle trees
-    let initial_merkle_tree = build_partial_merkle_tree(initial_memory);
-    let final_merkle_tree = build_partial_merkle_tree(final_memory);
+    let initial_merkle_tree = build_partial_merkle_tree::<MockHasher>(&memory.initial_memory);
+    let final_merkle_tree = build_partial_merkle_tree::<MockHasher>(&memory.final_memory);
 
     Ok(ProverInput {
-        merkle_tree: MerkleTrees {
+        merkle_trees: MerkleTrees {
             initial_merkle_tree,
             final_merkle_tree,
         },
-        used_memory_boundaries,
+        memory,
         instructions: Instructions {
             initial_registers,
             final_registers,
@@ -96,6 +103,8 @@ where
     })
 }
 
+#[allow(unreachable_code)]
+#[allow(unused_variables)]
 pub fn import_from_runner_artifacts(
     trace_path: &Path,
     mem_path: &Path,
@@ -107,7 +116,7 @@ pub fn import_from_runner_artifacts(
     let memory_file_iter = MemoryEntryFileIter::try_from(mem_path)?;
     let memory_iter = memory_file_iter.map(Into::into);
 
-    // Todo: serialize the initial memory
+    unimplemented!("serialize the initial memory");
     import_internal(trace_iter, memory_iter, vec![])
 }
 

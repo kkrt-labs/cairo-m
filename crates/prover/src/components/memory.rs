@@ -20,7 +20,7 @@ use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
-use crate::adapter::memory::MemoryBoundaries;
+use crate::adapter::memory::Memory;
 use crate::relations;
 
 const N_M31_IN_MEMORY_ENTRY: usize = 7; // Address, clock, value, multiplicity
@@ -52,7 +52,7 @@ impl Claim {
     }
 
     pub fn write_trace<MC: MerkleChannel>(
-        inputs: &MemoryBoundaries,
+        inputs: &Memory,
     ) -> (
         Self,
         ComponentTrace<N_M31_IN_MEMORY_ENTRY>,
@@ -61,9 +61,8 @@ impl Claim {
     where
         SimdBackend: BackendForChannel<MC>,
     {
-        let initial_memory_len = inputs.initial_memory.len();
         let log_size = std::cmp::max(
-            (initial_memory_len + inputs.final_memory.len()).next_power_of_two(),
+            (inputs.initial_memory.len() + inputs.final_memory.len()).next_power_of_two(),
             N_LANES,
         )
         .ilog2();
@@ -73,14 +72,8 @@ impl Claim {
             .initial_memory
             .iter()
             .chain(inputs.final_memory.iter())
-            .enumerate()
-            .map(|(i, (address, (value, clock)))| {
+            .map(|(address, (value, clock, multiplicity))| {
                 let value_array = value.to_m31_array();
-                let mult = if i < initial_memory_len {
-                    M31::from(1)
-                } else {
-                    M31::from(-1)
-                };
                 [
                     *address,
                     *clock,
@@ -88,7 +81,7 @@ impl Claim {
                     value_array[1],
                     value_array[2],
                     value_array[3],
-                    mult,
+                    *multiplicity,
                 ]
             })
             .chain(std::iter::repeat([M31::zero(); N_M31_IN_MEMORY_ENTRY]))

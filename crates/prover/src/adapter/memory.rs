@@ -4,7 +4,7 @@ use std::iter::Peekable;
 use cairo_m_common::opcode::Opcode;
 use cairo_m_common::state::MemoryEntry as RunnerMemoryEntry;
 use cairo_m_common::State as VmRegisters;
-use num_traits::Zero;
+use num_traits::{One, Zero};
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 
@@ -67,15 +67,9 @@ struct MemoryArg {
 // TODO: Memory Value can take a value enum(M31, QM31) instead of QM31 to save space
 #[derive(Debug, Default, Eq, PartialEq, Clone)]
 pub struct Memory {
-    pub used_memory_boundaries: MemoryBoundaries,
-    pub initial_memory: HashMap<M31, QM31>,
-    pub final_memory: HashMap<M31, QM31>,
-}
-
-#[derive(Debug, Default, Eq, PartialEq, Clone)]
-pub struct MemoryBoundaries {
-    pub initial_memory: HashMap<M31, (QM31, M31)>,
-    pub final_memory: HashMap<M31, (QM31, M31)>,
+    // (value, clock, multiplicity which is -1, 0 or 1)
+    pub initial_memory: HashMap<M31, (QM31, M31, M31)>,
+    pub final_memory: HashMap<M31, (QM31, M31, M31)>,
 }
 
 pub struct ExecutionBundleIterator<T, M>
@@ -109,12 +103,8 @@ where
         self.trace_iter.peek()
     }
 
-    pub fn into_memory(self) -> (MemoryBoundaries, HashMap<M31, QM31>, HashMap<M31, QM31>) {
-        (
-            self.memory.used_memory_boundaries,
-            self.memory.initial_memory,
-            self.memory.final_memory,
-        )
+    pub fn into_memory(self) -> Memory {
+        self.memory
     }
 
     pub const fn get_final_registers(&self) -> Option<VmRegisters> {
@@ -208,37 +198,40 @@ where
 
 impl Memory {
     pub fn new(initial_memory: Vec<QM31>) -> Self {
-        let initial_memory_hashmap: HashMap<M31, QM31> = initial_memory
+        let initial_memory_hashmap: HashMap<M31, (QM31, M31, M31)> = initial_memory
             .iter()
             .enumerate()
-            .map(|(i, value)| (M31::from(i as u32), *value))
+            .map(|(i, value)| (M31::from(i as u32), (*value, M31::zero(), M31::zero())))
             .collect();
         Self {
-            used_memory_boundaries: MemoryBoundaries {
-                initial_memory: HashMap::new(),
-                final_memory: HashMap::new(),
-            },
             initial_memory: initial_memory_hashmap.clone(),
             final_memory: initial_memory_hashmap,
         }
     }
     fn push(&mut self, memory_entry: MemoryEntry) -> MemoryArg {
         let prev_memory_entry = self
-            .used_memory_boundaries
             .final_memory
             .insert(
                 memory_entry.address,
-                (memory_entry.value, memory_entry.clock),
+                (memory_entry.value, memory_entry.clock, -M31::one()),
             )
-            .unwrap_or_else(|| {
-                // If the address is not in the final memory, it's the first time we see it.
-                // We initialize it in the initial memory with clock 0.
-                let initial_value = (memory_entry.value, M31::zero());
-                self.used_memory_boundaries
-                    .initial_memory
-                    .insert(memory_entry.address, initial_value);
-                initial_value
-            });
+            .unwrap_or_else(|| (memory_entry.value, M31::zero(), -M31::one()));
+
+        // If it's the first time we use a memory cell,
+        // We insert it in the initial memory with multiplicity 1.
+        // Thus we extend the initial memory (initial from the VM point of view) with first accesses.
+        if prev_memory_entry.1 == M31::zero() {
+            // Sanity check: first access to a cell present in the initial memory should match the initial value.
+            if let Some(initial_memory_cell) = self.initial_memory.get_mut(&memory_entry.address) {
+                assert_eq!(
+                    *initial_memory_cell,
+                    (memory_entry.value, M31::zero(), M31::zero())
+                );
+            }
+            let initial_memory_entry = (memory_entry.value, M31::zero(), M31::one());
+            self.initial_memory
+                .insert(memory_entry.address, initial_memory_entry);
+        };
 
         MemoryArg {
             address: memory_entry.address,
@@ -274,25 +267,28 @@ mod tests {
         assert_eq!(result.address, M31::from(100));
         assert_eq!(result.prev_clock, M31::from(0)); // Should be 0 for first access
         assert_eq!(result.clock, M31::from(10));
+        // For a new address, the previous value should be the same as the current value
         assert_eq!(result.prev_val, QM31::from_u32_unchecked(1, 2, 3, 4));
         assert_eq!(result.value, QM31::from_u32_unchecked(1, 2, 3, 4));
 
-        // Verify internal state after first push
-        assert!(memory
-            .used_memory_boundaries
-            .initial_memory
-            .contains_key(&M31::from(100)));
+        // Verify final_memory was updated
         assert_eq!(
-            memory.used_memory_boundaries.initial_memory[&M31::from(100)],
-            (QM31::from_u32_unchecked(1, 2, 3, 4), M31::from(0))
+            memory.final_memory[&M31::from(100)],
+            (
+                QM31::from_u32_unchecked(1, 2, 3, 4),
+                M31::from(10),
+                -M31::one()
+            )
         );
+        // initial_memory should now contain the first access with multiplicity 1
         assert_eq!(
-            memory.used_memory_boundaries.final_memory[&M31::from(100)],
-            (QM31::from_u32_unchecked(1, 2, 3, 4), M31::from(10))
+            memory.initial_memory[&M31::from(100)],
+            (
+                QM31::from_u32_unchecked(1, 2, 3, 4),
+                M31::zero(),
+                M31::one()
+            )
         );
-        // initial_memory and final_memory only contain preloaded memory, not dynamically tracked
-        assert!(!memory.initial_memory.contains_key(&M31::from(100)));
-        assert!(!memory.final_memory.contains_key(&M31::from(100)));
     }
 
     #[test]
@@ -323,18 +319,24 @@ mod tests {
         assert_eq!(result.prev_val, QM31::from_u32_unchecked(1, 2, 3, 4)); // Previous value
         assert_eq!(result.value, QM31::from_u32_unchecked(5, 6, 7, 8)); // New value
 
-        // Verify final memory is updated
+        // Verify final_memory was updated
         assert_eq!(
-            memory.used_memory_boundaries.final_memory[&M31::from(100)],
-            (QM31::from_u32_unchecked(5, 6, 7, 8), M31::from(20))
+            memory.final_memory[&M31::from(100)],
+            (
+                QM31::from_u32_unchecked(5, 6, 7, 8),
+                M31::from(20),
+                -M31::one()
+            )
         );
-        // Initial memory should remain unchanged
+        // initial_memory should still contain the first access
         assert_eq!(
-            memory.used_memory_boundaries.initial_memory[&M31::from(100)],
-            (QM31::from_u32_unchecked(1, 2, 3, 4), M31::from(0))
+            memory.initial_memory[&M31::from(100)],
+            (
+                QM31::from_u32_unchecked(1, 2, 3, 4),
+                M31::zero(),
+                M31::one()
+            )
         );
-        // final_memory is not updated by push
-        assert!(!memory.final_memory.contains_key(&M31::from(100)));
     }
 
     #[test]
@@ -362,30 +364,133 @@ mod tests {
         assert_eq!(result.address, M31::from(200));
         assert_eq!(result.prev_clock, M31::from(0)); // Should be 0 for first access
         assert_eq!(result.clock, M31::from(30));
-        assert_eq!(result.prev_val, QM31::from_u32_unchecked(9, 10, 11, 12)); // Should be 0 for first access
+        assert_eq!(result.prev_val, QM31::from_u32_unchecked(9, 10, 11, 12)); // Should be same value for first access
         assert_eq!(result.value, QM31::from_u32_unchecked(9, 10, 11, 12));
 
-        // Verify both addresses are tracked independently in used_memory_boundaries
-        assert!(memory
-            .used_memory_boundaries
-            .initial_memory
-            .contains_key(&M31::from(100)));
-        assert!(memory
-            .used_memory_boundaries
-            .initial_memory
-            .contains_key(&M31::from(200)));
-        assert!(memory
-            .used_memory_boundaries
-            .final_memory
-            .contains_key(&M31::from(100)));
-        assert!(memory
-            .used_memory_boundaries
-            .final_memory
-            .contains_key(&M31::from(200)));
-        assert_eq!(memory.used_memory_boundaries.initial_memory.len(), 2);
-        assert_eq!(memory.used_memory_boundaries.final_memory.len(), 2);
-        // initial_memory and final_memory are empty (no preloaded memory and push doesn't update them)
-        assert_eq!(memory.initial_memory.len(), 0);
-        assert_eq!(memory.final_memory.len(), 0);
+        // Verify final_memory contains both addresses
+        assert_eq!(memory.final_memory.len(), 2);
+        assert_eq!(
+            memory.final_memory[&M31::from(100)],
+            (
+                QM31::from_u32_unchecked(1, 2, 3, 4),
+                M31::from(10),
+                -M31::one()
+            )
+        );
+        assert_eq!(
+            memory.final_memory[&M31::from(200)],
+            (
+                QM31::from_u32_unchecked(9, 10, 11, 12),
+                M31::from(30),
+                -M31::one()
+            )
+        );
+        // initial_memory should contain both addresses
+        assert_eq!(memory.initial_memory.len(), 2);
+        assert_eq!(
+            memory.initial_memory[&M31::from(100)],
+            (
+                QM31::from_u32_unchecked(1, 2, 3, 4),
+                M31::zero(),
+                M31::one()
+            )
+        );
+        assert_eq!(
+            memory.initial_memory[&M31::from(200)],
+            (
+                QM31::from_u32_unchecked(9, 10, 11, 12),
+                M31::zero(),
+                M31::one()
+            )
+        );
+    }
+
+    #[test]
+    fn test_memory_push_with_preloaded_memory() {
+        // Test with some preloaded memory
+        let initial_memory = vec![
+            QM31::from_u32_unchecked(10, 20, 30, 40),
+            QM31::from_u32_unchecked(50, 60, 70, 80),
+        ];
+        let mut memory = Memory::new(initial_memory);
+
+        // Verify initial state
+        assert_eq!(memory.initial_memory.len(), 2);
+        assert_eq!(memory.final_memory.len(), 2);
+        assert_eq!(
+            memory.initial_memory[&M31::from(0)],
+            (
+                QM31::from_u32_unchecked(10, 20, 30, 40),
+                M31::zero(),
+                M31::zero()
+            )
+        );
+        assert_eq!(
+            memory.initial_memory[&M31::from(1)],
+            (
+                QM31::from_u32_unchecked(50, 60, 70, 80),
+                M31::zero(),
+                M31::zero()
+            )
+        );
+
+        // First push to address 0 must match the preloaded value
+        let entry = MemoryEntry {
+            address: M31::from(0),
+            value: QM31::from_u32_unchecked(10, 20, 30, 40), // Must match preloaded value
+            clock: M31::from(5),
+        };
+        let result = memory.push(entry);
+
+        // Verify the push result
+        assert_eq!(result.address, M31::from(0));
+        assert_eq!(result.prev_clock, M31::from(0));
+        assert_eq!(result.clock, M31::from(5));
+        assert_eq!(result.prev_val, QM31::from_u32_unchecked(10, 20, 30, 40));
+        assert_eq!(result.value, QM31::from_u32_unchecked(10, 20, 30, 40));
+
+        // Initial memory multiplicity is updated to 1 on first access
+        assert_eq!(
+            memory.initial_memory[&M31::from(0)],
+            (
+                QM31::from_u32_unchecked(10, 20, 30, 40),
+                M31::zero(),
+                M31::one()
+            )
+        );
+        // Verify final_memory was updated
+        assert_eq!(
+            memory.final_memory[&M31::from(0)],
+            (
+                QM31::from_u32_unchecked(10, 20, 30, 40),
+                M31::from(5),
+                -M31::one()
+            )
+        );
+
+        // Now push a different value to the same address
+        let second_entry = MemoryEntry {
+            address: M31::from(0),
+            value: QM31::from_u32_unchecked(100, 200, 300, 400),
+            clock: M31::from(10),
+        };
+        let result = memory.push(second_entry);
+
+        // Verify the second push result
+        assert_eq!(result.address, M31::from(0));
+        assert_eq!(result.prev_clock, M31::from(5));
+        assert_eq!(result.clock, M31::from(10));
+        assert_eq!(result.prev_val, QM31::from_u32_unchecked(10, 20, 30, 40));
+        assert_eq!(result.value, QM31::from_u32_unchecked(100, 200, 300, 400));
+
+        // Verify final_memory was updated again
+        assert_eq!(
+            memory.final_memory[&M31::from(0)],
+            (
+                QM31::from_u32_unchecked(100, 200, 300, 400),
+                M31::from(10),
+                -M31::one()
+            )
+        );
     }
 }

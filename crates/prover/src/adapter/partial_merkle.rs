@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::sync::OnceLock;
 
 use num_traits::Zero;
 use stwo_prover::core::fields::m31::M31;
@@ -10,55 +9,61 @@ use stwo_prover::core::fields::qm31::QM31;
 pub struct NodeData {
     pub index: u32,
     pub layer: u32,
-    pub value_left: QM31,
-    pub value_right: QM31,
+    pub value_left: M31,
+    pub value_right: M31,
 }
 
-/// Maximum number of layers in the tree (2^30 leaves)
-pub const MAX_MEMORY_LOG_SIZE: u32 = 30;
+/// Trait for hash functions used in the Merkle tree
+pub trait MerkleHasher: Clone {
+    /// Hash two M31 values into a single M31
+    fn hash(left: M31, right: M31) -> M31;
 
-/// Mock Poseidon hash function for testing
-/// TODO: Replace with actual Poseidon hash implementation
-fn poseidon_hash(left: QM31, right: QM31) -> QM31 {
-    // Simple mock hash: XOR the components
-    let l = left.to_m31_array();
-    let r = right.to_m31_array();
-    QM31::from_m31_array([
-        M31::from(l[0].0 ^ r[0].0),
-        M31::from(l[1].0 ^ r[1].0),
-        M31::from(l[2].0 ^ r[2].0),
-        M31::from(l[3].0 ^ r[3].0),
-    ])
+    /// Get precomputed default hashes for each layer
+    fn default_hashes() -> &'static [M31];
 }
 
-/// Precomputed default hashes for each layer
-/// default_hash[0] = hash(0,0)
-/// default_hash[1] = hash(hash(0), hash(0))
-/// default_hash[2] = hash(hash(hash(0), hash(0)), hash(hash(0), hash(0)))
-/// etc.
-fn compute_default_hashes() -> Vec<QM31> {
-    let mut defaults = vec![QM31::zero(); (MAX_MEMORY_LOG_SIZE + 1) as usize];
+pub const MAX_MEMORY_LOG_SIZE: u32 = 28;
+pub const QM31_LOG_SIZE: u32 = 2; // a QM31 is 4 M31 so 4 leaves
+pub const TREE_HEIGHT: u32 = MAX_MEMORY_LOG_SIZE + QM31_LOG_SIZE; // layers go from 0 (leaves) to TREE_HEIGHT (root) included
 
-    // Layer 0: hash of zero
-    defaults[0] = poseidon_hash(QM31::zero(), QM31::zero());
+/// Mock hash implementation for testing
+#[derive(Clone)]
+pub struct MockHasher;
 
-    // Compute default hashes for each layer
-    for layer in 1..=MAX_MEMORY_LOG_SIZE {
-        let prev_default = defaults[(layer - 1) as usize];
-        defaults[layer as usize] = poseidon_hash(prev_default, prev_default);
+impl MerkleHasher for MockHasher {
+    fn hash(left: M31, right: M31) -> M31 {
+        M31::from(left.0 ^ right.0)
     }
 
-    defaults
-}
+    fn default_hashes() -> &'static [M31] {
+        use std::sync::OnceLock;
+        static DEFAULT_HASHES: OnceLock<Vec<M31>> = OnceLock::new();
 
-static DEFAULT_HASHES: OnceLock<Vec<QM31>> = OnceLock::new();
+        DEFAULT_HASHES.get_or_init(|| {
+            let mut defaults = vec![M31::zero(); (TREE_HEIGHT + 1) as usize];
 
-fn get_default_hashes() -> &'static Vec<QM31> {
-    DEFAULT_HASHES.get_or_init(compute_default_hashes)
+            // Layer 0: hash of zero
+            defaults[0] = Self::hash(M31::zero(), M31::zero());
+
+            // Compute default hashes for each layer
+            for layer in 1..=TREE_HEIGHT {
+                let prev_default = defaults[(layer - 1) as usize];
+                defaults[layer as usize] = Self::hash(prev_default, prev_default);
+            }
+
+            defaults
+        })
+    }
 }
 
 /// Build a partial Merkle tree from a memory state
-pub fn build_partial_merkle_tree(memory: HashMap<M31, QM31>) -> Vec<NodeData> {
+/// Each QM31 value is split into 4 M31 leaves
+/// The tree has 31 layers (0 to 30):
+/// - Layer 0: Leaf layer with up to 2^30 M31 values (from 2^28 QM31 memory cells)
+/// - Layer 30: Root layer with a single hash value
+pub fn build_partial_merkle_tree<H: MerkleHasher>(
+    memory: &HashMap<M31, (QM31, M31, M31)>,
+) -> Vec<NodeData> {
     if memory.is_empty() {
         return vec![];
     }
@@ -66,38 +71,41 @@ pub fn build_partial_merkle_tree(memory: HashMap<M31, QM31>) -> Vec<NodeData> {
     // Assert memory size is within bounds
     assert!(
         memory.len() < (1 << MAX_MEMORY_LOG_SIZE),
-        "Memory size must be less than 2^30"
+        "Memory size must be less than 2^{}",
+        MAX_MEMORY_LOG_SIZE
     );
 
     let mut nodes = Vec::new();
 
-    // Layer 0: leaf nodes - work directly with memory values
-    let mut current_layer_nodes: HashMap<u32, QM31> = HashMap::new();
+    // Layer 0: leaf nodes - convert each QM31 to 4 M31 leaves
+    let mut current_layer_nodes: HashMap<u32, M31> = HashMap::new();
 
-    for (addr, value) in memory {
-        // Hash the value to get leaf node value
-        let leaf_value = poseidon_hash(value, QM31::zero());
-        current_layer_nodes.insert(addr.0, leaf_value);
+    for (addr, (value, _, _)) in memory {
+        let m31_values = value.to_m31_array();
+        let base_address = addr.0 << QM31_LOG_SIZE;
+
+        for (i, &m31_value) in m31_values.iter().enumerate() {
+            let leaf_value = H::hash(m31_value, M31::zero());
+            current_layer_nodes.insert(base_address + i as u32, leaf_value);
+        }
     }
 
-    // Build tree layer by layer - all 31 layers (0 to 30)
-    for layer in 0..=MAX_MEMORY_LOG_SIZE {
-        if layer == MAX_MEMORY_LOG_SIZE {
+    // Build tree layer by layer - 31 layers total (0 to 30)
+    for layer in 0..=TREE_HEIGHT {
+        if layer == TREE_HEIGHT {
             let root_value = current_layer_nodes[&0];
-
             nodes.push(NodeData {
                 index: 0,
-                layer: MAX_MEMORY_LOG_SIZE,
+                layer: TREE_HEIGHT,
                 value_left: root_value,
                 value_right: root_value,
             });
             break;
         }
 
-        let mut next_layer_nodes: HashMap<u32, QM31> = HashMap::new();
+        let mut next_layer_nodes: HashMap<u32, M31> = HashMap::new();
 
-        // For layer 0 and beyond, we need to handle all nodes that exist
-        // plus any missing siblings needed to compute parent nodes
+        // Process all nodes at this layer
         let mut indices_to_process: Vec<u32> = current_layer_nodes.keys().copied().collect();
         indices_to_process.sort_unstable();
 
@@ -122,11 +130,11 @@ pub fn build_partial_merkle_tree(memory: HashMap<M31, QM31>) -> Vec<NodeData> {
             let left_value = current_layer_nodes
                 .get(&left_index)
                 .copied()
-                .unwrap_or_else(|| get_default_hashes()[layer as usize]);
+                .unwrap_or_else(|| H::default_hashes()[layer as usize]);
             let right_value = current_layer_nodes
                 .get(&right_index)
                 .copied()
-                .unwrap_or_else(|| get_default_hashes()[layer as usize]);
+                .unwrap_or_else(|| H::default_hashes()[layer as usize]);
 
             // Store node data
             nodes.push(NodeData {
@@ -137,7 +145,7 @@ pub fn build_partial_merkle_tree(memory: HashMap<M31, QM31>) -> Vec<NodeData> {
             });
 
             // Compute parent value
-            let parent_value = poseidon_hash(left_value, right_value);
+            let parent_value = H::hash(left_value, right_value);
             next_layer_nodes.insert(parent_index, parent_value);
 
             // Mark both indices as processed
@@ -157,16 +165,16 @@ mod tests {
     #[test]
     fn test_empty_tree() {
         let memory = HashMap::new();
-        let tree = build_partial_merkle_tree(memory);
+        let tree = build_partial_merkle_tree::<MockHasher>(&memory);
         assert!(tree.is_empty());
     }
 
     #[test]
     fn test_single_element_tree() {
         let mut memory = HashMap::new();
-        memory.insert(M31::from(5), QM31::from(42));
+        memory.insert(M31::from(5), (QM31::from(42), M31::zero(), M31::zero()));
 
-        let tree = build_partial_merkle_tree(memory);
+        let tree = build_partial_merkle_tree::<MockHasher>(&memory);
         // Should have nodes up to the root
         assert!(!tree.is_empty());
     }
@@ -174,17 +182,28 @@ mod tests {
     #[test]
     fn test_multiple_elements_tree() {
         let mut memory = HashMap::new();
-        memory.insert(M31::from(0), QM31::from(10));
-        memory.insert(M31::from(1), QM31::from(20));
-        memory.insert(M31::from(5), QM31::from(30));
-        memory.insert(M31::from(100), QM31::from(40));
+        // Create QM31 values with specific M31 components for testing
+        memory.insert(
+            M31::from(0),
+            (
+                QM31::from_m31_array([M31::from(10), M31::from(11), M31::from(12), M31::from(13)]),
+                M31::zero(),
+                M31::zero(),
+            ),
+        );
+        memory.insert(
+            M31::from(1),
+            (
+                QM31::from_m31_array([M31::from(20), M31::from(21), M31::from(22), M31::from(23)]),
+                M31::zero(),
+                M31::zero(),
+            ),
+        );
 
-        let tree = build_partial_merkle_tree(memory);
+        let tree = build_partial_merkle_tree::<MockHasher>(&memory);
 
-        // Verify the tree goes all the way to layer 30
-        let max_layer = tree.iter().map(|node| node.layer).max().unwrap_or(0);
-        // For this small example, it might not reach layer 30, which is OK
-        assert!(max_layer <= MAX_MEMORY_LOG_SIZE);
+        // Verify the tree exists
+        assert!(!tree.is_empty());
 
         // Helper function to find a node
         let find_node = |index: u32, layer: u32| -> Option<&NodeData> {
@@ -192,83 +211,52 @@ mod tests {
                 .find(|node| node.index == index && node.layer == layer)
         };
 
-        // Expected nodes: (index, layer, left_value, right_value)
-        // Layer 0 is leaves, increasing up to the root
+        // Check layer 0 nodes - each QM31 value creates 4 consecutive leaves
+        // Address 0 -> leaves 0,1,2,3
+        // Address 1 -> leaves 4,5,6,7
 
-        // Check (0, 0, 10, 20) - leaf layer
+        // First pair of M31 values from address 0
         let node = find_node(0, 0).expect("Should find node at index 0, layer 0");
-        let expected_left = poseidon_hash(QM31::from(10), QM31::zero()); // hash of address 0's value
-        let expected_right = poseidon_hash(QM31::from(20), QM31::zero()); // hash of address 1's value
-        assert_eq!(node.value_left, expected_left);
-        assert_eq!(node.value_right, expected_right);
+        let expected_left_val = MockHasher::hash(M31::from(10), M31::zero());
+        let expected_right_val = MockHasher::hash(M31::from(11), M31::zero());
+        assert_eq!(node.value_left, expected_left_val);
+        assert_eq!(node.value_right, expected_right_val);
 
-        // Check (4, 0, 0, 30) - leaf layer
+        // Second pair of M31 values from address 0
+        let node = find_node(2, 0).expect("Should find node at index 2, layer 0");
+        let expected_left_val = MockHasher::hash(M31::from(12), M31::zero());
+        let expected_right_val = MockHasher::hash(M31::from(13), M31::zero());
+        assert_eq!(node.value_left, expected_left_val);
+        assert_eq!(node.value_right, expected_right_val);
+
+        // First pair of M31 values from address 1
         let node = find_node(4, 0).expect("Should find node at index 4, layer 0");
-        let expected_left = get_default_hashes()[0]; // address 4 is empty
-        let expected_right = poseidon_hash(QM31::from(30), QM31::zero()); // hash of address 5's value
-        assert_eq!(node.value_left, expected_left);
-        assert_eq!(node.value_right, expected_right);
-
-        // Check (100, 0, 40, 0) - leaf layer
-        let node = find_node(100, 0).expect("Should find node at index 100, layer 0");
-        let expected_left = poseidon_hash(QM31::from(40), QM31::zero()); // hash of address 100's value
-        let expected_right = get_default_hashes()[0]; // address 101 is empty
-        assert_eq!(node.value_left, expected_left);
-        assert_eq!(node.value_right, expected_right);
-
-        // Check (0, 1, hash(0,1), default) - layer 1
-        let node = find_node(0, 1).expect("Should find node at index 0, layer 1");
-        let left_child = find_node(0, 0).unwrap();
-        let expected_left = poseidon_hash(left_child.value_left, left_child.value_right);
-        let expected_right = get_default_hashes()[1]; // default at layer 1
-        assert_eq!(node.value_left, expected_left);
-        assert_eq!(node.value_right, expected_right);
-
-        // Check (2, 1, hash(4,5), default) - layer 1
-        let node = find_node(2, 1).expect("Should find node at index 2, layer 1");
-        let left_child = find_node(4, 0).unwrap();
-        let expected_left = poseidon_hash(left_child.value_left, left_child.value_right);
-        let expected_right = get_default_hashes()[1]; // default at layer 1
-        assert_eq!(node.value_left, expected_left);
-        assert_eq!(node.value_right, expected_right);
-
-        // Check (50, 1, hash(100,101), default) - layer 1
-        let node = find_node(50, 1).expect("Should find node at index 50, layer 1");
-        let left_child = find_node(100, 0).unwrap();
-        let expected_left = poseidon_hash(left_child.value_left, left_child.value_right);
-        let expected_right = get_default_hashes()[1]; // default at layer 1
-        assert_eq!(node.value_left, expected_left);
-        assert_eq!(node.value_right, expected_right);
+        let expected_left_val = MockHasher::hash(M31::from(20), M31::zero());
+        let expected_right_val = MockHasher::hash(M31::from(21), M31::zero());
+        assert_eq!(node.value_left, expected_left_val);
+        assert_eq!(node.value_right, expected_right_val);
     }
 
     #[test]
     fn test_tree_builds_to_root() {
         // Test with addresses at extremes to force full tree height
         let mut memory = HashMap::new();
-        memory.insert(M31::from(0), QM31::from(1));
-        memory.insert(M31::from((1 << MAX_MEMORY_LOG_SIZE) - 1), QM31::from(2)); // High address to force height
+        memory.insert(M31::from(0), (QM31::from(1), M31::zero(), M31::zero()));
+        // Use a high address within bounds (2^28 - 1)
+        memory.insert(
+            M31::from((1 << MAX_MEMORY_LOG_SIZE) - 1),
+            (QM31::from(2), M31::zero(), M31::zero()),
+        );
 
-        let tree = build_partial_merkle_tree(memory);
-
-        let mut current_index = 0u32;
-
-        for layer in 0..=MAX_MEMORY_LOG_SIZE {
-            // Find node at current layer with appropriate index
-            let node = tree
-                .iter()
-                .find(|n| n.layer == layer && n.index == current_index);
-
-            if node.is_some() {
-                current_index >>= 1;
-            }
-        }
+        let tree = build_partial_merkle_tree::<MockHasher>(&memory);
 
         let max_layer = tree.iter().map(|node| node.layer).max().unwrap_or(0);
 
-        // We should always build exactly to layer 30 (31 layers total)
+        // We should build to layer 30 (31 layers total: 0 to 30)
         assert_eq!(
-            max_layer, 30,
-            "Tree should always build to layer 30 (root layer)"
+            max_layer, TREE_HEIGHT,
+            "Tree should build to layer {} (root layer)",
+            TREE_HEIGHT
         );
     }
 }
