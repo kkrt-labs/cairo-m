@@ -72,6 +72,7 @@ fn relation_entries(
 ) -> Vec<RelationTrackerEntry> {
     let Components {
         memory,
+        merkle,
         range_check_20,
         opcodes,
     } = components;
@@ -97,6 +98,7 @@ fn relation_entries(
         add_to_relation_entries(&opcodes.store_sub_fp_fp, trace),
         add_to_relation_entries(&opcodes.store_sub_fp_imm, trace),
         add_to_relation_entries(memory, trace),
+        add_to_relation_entries(merkle, trace),
         add_to_relation_entries(range_check_20, trace),
     )
     .collect();

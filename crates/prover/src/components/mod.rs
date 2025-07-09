@@ -1,4 +1,6 @@
+pub mod chips;
 pub mod memory;
+pub mod merkle;
 pub mod opcodes;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
@@ -16,6 +18,7 @@ use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
+use crate::adapter::partial_merkle::MerkleHasher;
 use crate::adapter::ProverInput;
 use crate::preprocessed::range_check::range_check_20;
 use crate::public_data::PublicData;
@@ -25,19 +28,21 @@ use crate::relations;
 pub struct Claim {
     pub opcodes: opcodes::Claim,
     pub memory: memory::Claim,
+    pub merkle: merkle::Claim,
     pub range_check_20: range_check_20::Claim,
 }
 
 pub struct Relations {
     pub registers: relations::Registers,
     pub memory: relations::Memory,
-    pub range_check_20: relations::RangeCheck_20,
     pub merkle: relations::Merkle,
+    pub range_check_20: relations::RangeCheck_20,
 }
 
 pub struct InteractionClaimData {
     pub opcodes: opcodes::InteractionClaimData,
     pub memory: memory::InteractionClaimData,
+    pub merkle: merkle::InteractionClaimData,
     pub range_check_20: range_check_20::InteractionClaimData,
 }
 
@@ -45,6 +50,7 @@ pub struct InteractionClaimData {
 pub struct InteractionClaim {
     pub opcodes: opcodes::InteractionClaim,
     pub memory: memory::InteractionClaim,
+    pub merkle: merkle::InteractionClaim,
     pub range_check_20: range_check_20::InteractionClaim,
 }
 
@@ -53,6 +59,7 @@ impl Claim {
         let trees = vec![
             self.opcodes.log_sizes(),
             self.memory.log_sizes(),
+            self.merkle.log_sizes(),
             self.range_check_20.log_sizes(),
         ];
         TreeVec::concat_cols(trees.into_iter())
@@ -61,10 +68,11 @@ impl Claim {
     pub fn mix_into(&self, channel: &mut impl Channel) {
         self.opcodes.mix_into(channel);
         self.memory.mix_into(channel);
+        self.merkle.mix_into(channel);
         self.range_check_20.mix_into(channel);
     }
 
-    pub fn write_trace<MC: MerkleChannel>(
+    pub fn write_trace<MC: MerkleChannel, H: MerkleHasher>(
         input: &mut ProverInput,
     ) -> (
         Self,
@@ -78,9 +86,13 @@ impl Claim {
         let (opcodes_claim, opcodes_trace, opcodes_interaction_claim_data) =
             opcodes::Claim::write_trace(&mut input.instructions);
 
-        // Write memory component from the prover input
+        // Write memory trace
         let (memory_claim, memory_trace, memory_interaction_claim_data) =
-            memory::Claim::write_trace(&input.memory);
+            memory::Claim::write_trace(&input.memory, &input.merkle_trees);
+
+        // Write merkle trace
+        let (merkle_claim, merkle_trace, merkle_interaction_claim_data) =
+            merkle::Claim::write_trace::<MC, H>(&input.merkle_trees);
 
         // Write range_check components
         let range_check_data = opcodes_interaction_claim_data.range_check_20();
@@ -91,6 +103,7 @@ impl Claim {
         let interaction_claim_data = InteractionClaimData {
             opcodes: opcodes_interaction_claim_data,
             memory: memory_interaction_claim_data,
+            merkle: merkle_interaction_claim_data,
             range_check_20: range_check_20_interaction_claim_data,
         };
 
@@ -98,12 +111,14 @@ impl Claim {
         let trace = opcodes_trace
             .into_iter()
             .chain(memory_trace.to_evals())
+            .chain(merkle_trace.to_evals())
             .chain(range_check_20_trace);
 
         (
             Self {
                 opcodes: opcodes_claim,
                 memory: memory_claim,
+                merkle: merkle_claim,
                 range_check_20: range_check_20_claim,
             },
             trace,
@@ -115,34 +130,46 @@ impl Claim {
 impl InteractionClaim {
     pub fn write_interaction_trace(
         relations: &Relations,
-        lookup_data: &InteractionClaimData,
+        interaction_claim_data: &InteractionClaimData,
     ) -> (
         impl IntoIterator<Item = CircleEvaluation<SimdBackend, M31, BitReversedOrder>>,
         Self,
     ) {
         let (opcodes_interaction_claim, opcodes_interaction_trace) =
-            opcodes::InteractionClaim::write_interaction_trace(relations, &lookup_data.opcodes);
+            opcodes::InteractionClaim::write_interaction_trace(
+                relations,
+                &interaction_claim_data.opcodes,
+            );
 
         let (memory_interaction_claim, memory_interaction_trace) =
             memory::InteractionClaim::write_interaction_trace(
                 &relations.memory,
-                &lookup_data.memory,
+                &relations.merkle,
+                &interaction_claim_data.memory,
+            );
+
+        let (merkle_interaction_claim, merkle_interaction_trace) =
+            merkle::InteractionClaim::write_interaction_trace(
+                &relations.merkle,
+                &interaction_claim_data.merkle,
             );
 
         let (range_check_20_interaction_claim, range_check_20_interaction_trace) =
             range_check_20::InteractionClaim::write_interaction_trace(
                 &relations.range_check_20,
-                &lookup_data.range_check_20,
+                &interaction_claim_data.range_check_20,
             );
 
         (
             opcodes_interaction_trace
                 .into_iter()
                 .chain(memory_interaction_trace)
+                .chain(merkle_interaction_trace)
                 .chain(range_check_20_interaction_trace),
             Self {
                 opcodes: opcodes_interaction_claim,
                 memory: memory_interaction_claim,
+                merkle: merkle_interaction_claim,
                 range_check_20: range_check_20_interaction_claim,
             },
         )
@@ -153,6 +180,7 @@ impl InteractionClaim {
         sum += public_data.initial_logup_sum(relations);
         sum += self.opcodes.claimed_sum();
         sum += self.memory.claimed_sum;
+        sum += self.merkle.claimed_sum;
         sum += self.range_check_20.claimed_sum;
         sum
     }
@@ -160,6 +188,7 @@ impl InteractionClaim {
     pub fn mix_into(&self, channel: &mut impl Channel) {
         self.opcodes.mix_into(channel);
         self.memory.mix_into(channel);
+        self.merkle.mix_into(channel);
         self.range_check_20.mix_into(channel);
     }
 }
@@ -169,8 +198,8 @@ impl Relations {
         Self {
             registers: relations::Registers::draw(channel),
             memory: relations::Memory::draw(channel),
-            range_check_20: relations::RangeCheck_20::draw(channel),
             merkle: relations::Merkle::draw(channel),
+            range_check_20: relations::RangeCheck_20::draw(channel),
         }
     }
 }
@@ -178,6 +207,7 @@ impl Relations {
 pub struct Components {
     pub opcodes: opcodes::Component,
     pub memory: memory::Component,
+    pub merkle: merkle::Component,
     pub range_check_20: range_check_20::Component,
 }
 
@@ -200,8 +230,17 @@ impl Components {
                 memory::Eval {
                     claim: claim.memory.clone(),
                     memory: relations.memory.clone(),
+                    merkle: relations.merkle.clone(),
                 },
                 interaction_claim.memory.claimed_sum,
+            ),
+            merkle: merkle::Component::new(
+                location_allocator,
+                merkle::Eval {
+                    claim: claim.merkle.clone(),
+                    merkle: relations.merkle.clone(),
+                },
+                interaction_claim.merkle.claimed_sum,
             ),
             range_check_20: range_check_20::Component::new(
                 location_allocator,
@@ -217,6 +256,7 @@ impl Components {
     pub fn provers(&self) -> Vec<&dyn ComponentProver<SimdBackend>> {
         let mut provers = self.opcodes.provers();
         provers.push(&self.memory);
+        provers.push(&self.merkle);
         provers.push(&self.range_check_20);
         provers
     }
@@ -224,6 +264,7 @@ impl Components {
     pub fn verifiers(&self) -> Vec<&dyn ComponentVerifier> {
         let mut verifiers = self.opcodes.verifiers();
         verifiers.push(&self.memory);
+        verifiers.push(&self.merkle);
         verifiers.push(&self.range_check_20);
         verifiers
     }

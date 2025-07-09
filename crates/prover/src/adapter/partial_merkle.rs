@@ -32,7 +32,7 @@ pub struct MockHasher;
 
 impl MerkleHasher for MockHasher {
     fn hash(left: M31, right: M31) -> M31 {
-        M31::from(left.0 ^ right.0)
+        left + right
     }
 
     fn default_hashes() -> &'static [M31] {

@@ -63,9 +63,9 @@ fn test_prove_and_verify_unchanged_memory() {
         instructions: Instructions::default(),
     };
 
-    let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
+    let proof = prove_cairo_m::<Blake2sMerkleChannel, MockHasher>(&mut prover_input, None).unwrap();
 
-    let result = verify_cairo_m::<Blake2sMerkleChannel>(proof, None);
+    let result = verify_cairo_m::<Blake2sMerkleChannel, MockHasher>(proof, None);
     assert!(result.is_ok());
 }
 
@@ -92,9 +92,9 @@ fn test_prove_and_verify_fibonacci_program() {
     .unwrap();
 
     let mut prover_input = import_from_runner_output(runner_output).unwrap();
-    let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
+    let proof = prove_cairo_m::<Blake2sMerkleChannel, MockHasher>(&mut prover_input, None).unwrap();
 
-    verify_cairo_m::<Blake2sMerkleChannel>(proof, None).unwrap();
+    verify_cairo_m::<Blake2sMerkleChannel, MockHasher>(proof, None).unwrap();
 }
 
 #[test]
@@ -120,9 +120,9 @@ fn test_prove_and_verify_recursive_fibonacci_program() {
     .unwrap();
 
     let mut prover_input = import_from_runner_output(runner_output).unwrap();
-    let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
+    let proof = prove_cairo_m::<Blake2sMerkleChannel, MockHasher>(&mut prover_input, None).unwrap();
 
-    verify_cairo_m::<Blake2sMerkleChannel>(proof, None).unwrap();
+    verify_cairo_m::<Blake2sMerkleChannel, MockHasher>(proof, None).unwrap();
 }
 
 #[test]
@@ -144,9 +144,9 @@ fn test_prove_and_verify_all_opcodes() {
         run_cairo_program(&compiled_fib.program, "main", &[], Default::default()).unwrap();
 
     let mut prover_input = import_from_runner_output(runner_output).unwrap();
-    let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
+    let proof = prove_cairo_m::<Blake2sMerkleChannel, MockHasher>(&mut prover_input, None).unwrap();
 
-    verify_cairo_m::<Blake2sMerkleChannel>(proof, None).unwrap();
+    verify_cairo_m::<Blake2sMerkleChannel, MockHasher>(proof, None).unwrap();
 }
 
 #[test]
@@ -198,5 +198,5 @@ fn test_memory_profile_fibonacci_prover() {
 
     let mut prover_input = import_from_runner_output(runner_output).unwrap();
     let _proof: cairo_m_prover::Proof<stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleHasher> =
-        prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
+        prove_cairo_m::<Blake2sMerkleChannel, MockHasher>(&mut prover_input, None).unwrap();
 }
