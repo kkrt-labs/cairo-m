@@ -26,16 +26,6 @@ fn let_statement_missing_semicolon() {
 }
 
 #[test]
-fn local_statement_with_type() {
-    assert_parses_ok!(&in_function("local x: felt = 42;"));
-}
-
-#[test]
-fn local_statement_without_type() {
-    assert_parses_ok!(&in_function("local x = infer_me;"));
-}
-
-#[test]
 fn const_statement() {
     assert_parses_ok!(&in_function("const PI = 314;"));
 }
@@ -52,16 +42,6 @@ fn let_tuple_destructuring_two_elements() {
 #[test]
 fn let_tuple_destructuring_with_type() {
     assert_parses_ok!(&in_function("let (x, y): (felt, felt) = (1, 2);"));
-}
-
-#[test]
-fn local_tuple_destructuring() {
-    assert_parses_ok!(&in_function("local (x, y) = (5, 10);"));
-}
-
-#[test]
-fn local_tuple_destructuring_with_type() {
-    assert_parses_ok!(&in_function("local (a, b): (felt, felt) = (100, 200);"));
 }
 
 #[test]

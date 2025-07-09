@@ -26,7 +26,9 @@ fn function_multiple_params() {
 
 #[test]
 fn many_parameters() {
-    assert_parses_ok!("func complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStruct*) -> (felt, felt) { return (a, b); }");
+    assert_parses_ok!(
+        "func complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStruct*) -> (felt, felt) { return (a, b); }"
+    );
 }
 
 #[test]
@@ -241,8 +243,8 @@ fn imports_and_functions() {
         }
 
         func distance(p1: Point, p2: Point) -> felt {
-            local dx: felt = p1.x - p2.x;
-            local dy: felt = p1.y - p2.y;
+            let dx: felt = p1.x - p2.x;
+            let dy: felt = p1.y - p2.y;
             return sqrt(dx * dx + dy * dy);
         }
     "#

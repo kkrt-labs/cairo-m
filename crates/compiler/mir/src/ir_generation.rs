@@ -30,7 +30,7 @@ use cairo_m_compiler_parser::parser::{
     Expression, FunctionDef, Pattern, Spanned, Statement, TopLevelItem,
 };
 use cairo_m_compiler_semantic::definition::{Definition, DefinitionKind};
-use cairo_m_compiler_semantic::semantic_index::{semantic_index, DefinitionId, SemanticIndex};
+use cairo_m_compiler_semantic::semantic_index::{DefinitionId, SemanticIndex, semantic_index};
 use cairo_m_compiler_semantic::type_resolution::{
     definition_semantic_type, expression_semantic_type,
 };
@@ -254,9 +254,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     /// type.
     fn lower_statement(&mut self, stmt: &Spanned<Statement>) -> Result<(), String> {
         match stmt.value() {
-            Statement::Let { pattern, value, .. } | Statement::Local { pattern, value, .. } => {
-                self.lower_let_statement(pattern, value)
-            }
+            Statement::Let { pattern, value, .. } => self.lower_let_statement(pattern, value),
             Statement::Return { value } => self.lower_return_statement(value),
             Statement::Assignment { lhs, rhs } => self.lower_assignment_statement(lhs, rhs),
             Statement::Expression(expr) => self.lower_expression_statement(expr),

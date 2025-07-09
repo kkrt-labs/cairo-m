@@ -13,8 +13,8 @@ expression: snapshot
         }
 
         func distance(p1: Point, p2: Point) -> felt {
-            local dx: felt = p1.x - p2.x;
-            local dy: felt = p1.y - p2.y;
+            let dx: felt = p1.x - p2.x;
+            let dy: felt = p1.y - p2.y;
             return sqrt(dx * dx + dy * dy);
         }
     
@@ -134,14 +134,14 @@ expression: snapshot
                 ),
                 body: [
                     Spanned(
-                        Local {
+                        Let {
                             pattern: Identifier(
                                 Spanned(
                                     "dx",
-                                    226..228,
+                                    224..226,
                                 ),
                             ),
-                            ty: Some(
+                            statement_type: Some(
                                 Named(
                                     "felt",
                                 ),
@@ -155,17 +155,17 @@ expression: snapshot
                                                 Identifier(
                                                     Spanned(
                                                         "p1",
-                                                        237..239,
+                                                        235..237,
                                                     ),
                                                 ),
-                                                237..239,
+                                                235..237,
                                             ),
                                             field: Spanned(
                                                 "x",
-                                                240..241,
+                                                238..239,
                                             ),
                                         },
-                                        237..241,
+                                        235..239,
                                     ),
                                     right: Spanned(
                                         MemberAccess {
@@ -173,33 +173,33 @@ expression: snapshot
                                                 Identifier(
                                                     Spanned(
                                                         "p2",
-                                                        244..246,
+                                                        242..244,
                                                     ),
                                                 ),
-                                                244..246,
+                                                242..244,
                                             ),
                                             field: Spanned(
                                                 "x",
-                                                247..248,
+                                                245..246,
                                             ),
                                         },
-                                        244..248,
+                                        242..246,
                                     ),
                                 },
-                                237..248,
+                                235..246,
                             ),
                         },
-                        220..249,
+                        220..247,
                     ),
                     Spanned(
-                        Local {
+                        Let {
                             pattern: Identifier(
                                 Spanned(
                                     "dy",
-                                    268..270,
+                                    264..266,
                                 ),
                             ),
-                            ty: Some(
+                            statement_type: Some(
                                 Named(
                                     "felt",
                                 ),
@@ -213,17 +213,17 @@ expression: snapshot
                                                 Identifier(
                                                     Spanned(
                                                         "p1",
-                                                        279..281,
+                                                        275..277,
                                                     ),
                                                 ),
-                                                279..281,
+                                                275..277,
                                             ),
                                             field: Spanned(
                                                 "y",
-                                                282..283,
+                                                278..279,
                                             ),
                                         },
-                                        279..283,
+                                        275..279,
                                     ),
                                     right: Spanned(
                                         MemberAccess {
@@ -231,23 +231,23 @@ expression: snapshot
                                                 Identifier(
                                                     Spanned(
                                                         "p2",
-                                                        286..288,
+                                                        282..284,
                                                     ),
                                                 ),
-                                                286..288,
+                                                282..284,
                                             ),
                                             field: Spanned(
                                                 "y",
-                                                289..290,
+                                                285..286,
                                             ),
                                         },
-                                        286..290,
+                                        282..286,
                                     ),
                                 },
-                                279..290,
+                                275..286,
                             ),
                         },
-                        262..291,
+                        260..287,
                     ),
                     Spanned(
                         Return {
@@ -258,10 +258,10 @@ expression: snapshot
                                             Identifier(
                                                 Spanned(
                                                     "sqrt",
-                                                    311..315,
+                                                    307..311,
                                                 ),
                                             ),
-                                            311..315,
+                                            307..311,
                                         ),
                                         args: [
                                             Spanned(
@@ -274,22 +274,22 @@ expression: snapshot
                                                                 Identifier(
                                                                     Spanned(
                                                                         "dx",
-                                                                        316..318,
+                                                                        312..314,
                                                                     ),
                                                                 ),
-                                                                316..318,
+                                                                312..314,
                                                             ),
                                                             right: Spanned(
                                                                 Identifier(
                                                                     Spanned(
                                                                         "dx",
-                                                                        321..323,
+                                                                        317..319,
                                                                     ),
                                                                 ),
-                                                                321..323,
+                                                                317..319,
                                                             ),
                                                         },
-                                                        316..323,
+                                                        312..319,
                                                     ),
                                                     right: Spanned(
                                                         BinaryOp {
@@ -298,37 +298,37 @@ expression: snapshot
                                                                 Identifier(
                                                                     Spanned(
                                                                         "dy",
-                                                                        326..328,
+                                                                        322..324,
                                                                     ),
                                                                 ),
-                                                                326..328,
+                                                                322..324,
                                                             ),
                                                             right: Spanned(
                                                                 Identifier(
                                                                     Spanned(
                                                                         "dy",
-                                                                        331..333,
+                                                                        327..329,
                                                                     ),
                                                                 ),
-                                                                331..333,
+                                                                327..329,
                                                             ),
                                                         },
-                                                        326..333,
+                                                        322..329,
                                                     ),
                                                 },
-                                                316..333,
+                                                312..329,
                                             ),
                                         ],
                                     },
-                                    311..333,
+                                    307..329,
                                 ),
                             ),
                         },
-                        304..335,
+                        300..331,
                     ),
                 ],
             },
-            162..345,
+            162..341,
         ),
     ),
 ]

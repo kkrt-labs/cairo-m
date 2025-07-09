@@ -14,12 +14,12 @@
 
 use cairo_m_compiler_parser::parser::{Expression, TypeExpr as AstTypeExpr};
 
+use crate::File;
 use crate::db::SemanticDb;
 use crate::definition::{DefinitionKind, FunctionDefRef, ParameterDefRef, StructDefRef};
 use crate::place::FileScopeId;
-use crate::semantic_index::{semantic_index, DefinitionId, ExpressionId};
+use crate::semantic_index::{DefinitionId, ExpressionId, semantic_index};
 use crate::types::{FunctionSignatureId, StructTypeId, TypeData, TypeId};
-use crate::File;
 
 /// Resolves an AST type expression to a `TypeId`
 #[salsa::tracked]
@@ -70,7 +70,7 @@ pub fn resolve_ast_type<'db>(
     }
 }
 
-/// Helper function to resolve variable types (for Local and Let definitions)
+/// Helper function to resolve variable types (for Let definitions)
 fn resolve_variable_type<'db>(
     db: &'db dyn SemanticDb,
     file: File,
@@ -125,33 +125,6 @@ pub fn definition_semantic_type<'db>(
             name: _name,
             type_ast,
         }) => resolve_ast_type(db, file, type_ast.clone(), definition.scope_id),
-        DefinitionKind::Local(local_ref) => {
-            // Check if this is from tuple destructuring
-            if let Some((value_expr_id, index)) = local_ref.destructuring_info {
-                // Get the type of the RHS tuple expression
-                let tuple_type = expression_semantic_type(db, file, value_expr_id);
-                // Extract the type of the element at the given index
-                match tuple_type.data(db) {
-                    TypeData::Tuple(element_types) => {
-                        if index < element_types.len() {
-                            element_types[index]
-                        } else {
-                            TypeId::new(db, TypeData::Error)
-                        }
-                    }
-                    _ => TypeId::new(db, TypeData::Error),
-                }
-            } else {
-                // Regular local variable
-                resolve_variable_type(
-                    db,
-                    file,
-                    &local_ref.explicit_type_ast,
-                    local_ref.value_expr_id,
-                    definition.scope_id,
-                )
-            }
-        }
         DefinitionKind::Let(let_ref) => {
             // Check if this is from tuple destructuring
             if let Some((value_expr_id, index)) = let_ref.destructuring_info {

@@ -9,7 +9,7 @@ use cairo_m_compiler_diagnostics::{
 };
 use cairo_m_compiler_parser::{SourceProgram, Upcast};
 use cairo_m_compiler_semantic::db::validate_semantics;
-use cairo_m_compiler_semantic::semantic_index::{semantic_index, DefinitionId};
+use cairo_m_compiler_semantic::semantic_index::{DefinitionId, semantic_index};
 use cairo_m_compiler_semantic::type_resolution::definition_semantic_type;
 use cairo_m_compiler_semantic::types::{TypeData, TypeId};
 use cairo_m_compiler_semantic::{DefinitionKind, SemanticDb};
@@ -412,7 +412,6 @@ impl LanguageServer for Backend {
                                 let kind = match def.kind {
                                     DefinitionKind::Function(_) => CompletionItemKind::FUNCTION,
                                     DefinitionKind::Parameter(_) => CompletionItemKind::VARIABLE,
-                                    DefinitionKind::Local(_) => CompletionItemKind::VARIABLE,
                                     DefinitionKind::Let(_) => CompletionItemKind::VARIABLE,
                                     DefinitionKind::Const(_) => CompletionItemKind::CONSTANT,
                                     DefinitionKind::Struct(_) => CompletionItemKind::STRUCT,

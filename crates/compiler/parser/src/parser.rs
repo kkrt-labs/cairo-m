@@ -181,12 +181,6 @@ pub enum Statement {
         statement_type: Option<TypeExpr>,
         value: Spanned<Expression>,
     },
-    /// Local variable declaration with optional type annotation (e.g., `local x: felt = 5;` or `local (x, y) = (1, 2);`)
-    Local {
-        pattern: Pattern,
-        ty: Option<TypeExpr>,
-        value: Spanned<Expression>,
-    },
     /// Constant declaration (e.g., `const PI = 314;`)
     Const(ConstDef),
     /// Assignment to an existing variable (e.g., `x = new_value;`)
@@ -442,8 +436,8 @@ enum PostfixOp {
 // ===================
 
 /// Creates an identifier parser that extracts string content from Identifier tokens
-fn ident_parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, String, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+fn ident_parser<'tokens, 'src: 'tokens, I>()
+-> impl Parser<'tokens, I, String, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
@@ -451,8 +445,8 @@ where
 }
 
 /// Creates a spanned identifier parser that captures both the identifier and its span
-fn spanned_ident_parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, Spanned<String>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+fn spanned_ident_parser<'tokens, 'src: 'tokens, I>()
+-> impl Parser<'tokens, I, Spanned<String>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
@@ -462,8 +456,8 @@ where
 }
 
 /// Creates a parser for type expressions (named types, pointers, tuples)
-fn type_expr_parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, TypeExpr, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+fn type_expr_parser<'tokens, 'src: 'tokens, I>()
+-> impl Parser<'tokens, I, TypeExpr, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
@@ -499,8 +493,8 @@ where
 }
 
 /// Creates a parser for expressions with proper operator precedence
-fn expression_parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, Spanned<Expression>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+fn expression_parser<'tokens, 'src: 'tokens, I>()
+-> impl Parser<'tokens, I, Spanned<Expression>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
@@ -780,8 +774,8 @@ where
 }
 
 /// Creates a parser for function parameters
-fn parameter_parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, Parameter, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+fn parameter_parser<'tokens, 'src: 'tokens, I>()
+-> impl Parser<'tokens, I, Parameter, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
@@ -796,8 +790,8 @@ where
 }
 
 /// Creates a parser for statements
-fn statement_parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, Spanned<Statement>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+fn statement_parser<'tokens, 'src: 'tokens, I>()
+-> impl Parser<'tokens, I, Spanned<Statement>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
@@ -849,20 +843,6 @@ where
                 statement_type,
                 value,
             })
-            .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
-
-        // Local statement: local pattern (: type)? = expression;
-        let local_stmt = just(TokenType::Local)
-            .ignore_then(pattern.clone()) // pattern (identifier or tuple)
-            .then(
-                just(TokenType::Colon)
-                    .ignore_then(type_expr.clone()) // optional type annotation
-                    .or_not(),
-            )
-            .then_ignore(just(TokenType::Eq)) // ignore '='
-            .then(expr.clone()) // value expression
-            .then_ignore(just(TokenType::Semicolon)) // ignore ';'
-            .map(|((pattern, ty), value)| Statement::Local { pattern, ty, value })
             .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
 
         // Const statement: const NAME = expression;
@@ -966,7 +946,6 @@ where
             .or(break_stmt)
             .or(continue_stmt)
             .or(let_stmt)
-            .or(local_stmt)
             .or(const_stmt)
             .or(return_stmt)
             .or(assignment_or_expr)
@@ -974,8 +953,8 @@ where
 }
 
 /// Creates a parser for function definitions
-fn function_def_parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, Spanned<FunctionDef>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+fn function_def_parser<'tokens, 'src: 'tokens, I>()
+-> impl Parser<'tokens, I, Spanned<FunctionDef>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
@@ -1019,8 +998,8 @@ where
 }
 
 /// Creates a parser for struct definitions
-fn struct_def_parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, Spanned<StructDef>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+fn struct_def_parser<'tokens, 'src: 'tokens, I>()
+-> impl Parser<'tokens, I, Spanned<StructDef>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
@@ -1047,8 +1026,8 @@ where
 }
 
 /// Creates a parser for import statements
-fn import_stmt_parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, Spanned<ImportStmt>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+fn import_stmt_parser<'tokens, 'src: 'tokens, I>()
+-> impl Parser<'tokens, I, Spanned<ImportStmt>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
@@ -1072,8 +1051,8 @@ where
 }
 
 /// Creates a parser for constant definitions
-fn const_def_parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, Spanned<ConstDef>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+fn const_def_parser<'tokens, 'src: 'tokens, I>()
+-> impl Parser<'tokens, I, Spanned<ConstDef>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
@@ -1092,7 +1071,7 @@ where
 /// Creates a parser for namespace definitions
 fn namespace_parser<'tokens, 'src: 'tokens, I>(
     top_level_item: impl Parser<'tokens, I, TopLevelItem, extra::Err<Rich<'tokens, TokenType<'src>>>>
-        + Clone,
+    + Clone,
 ) -> impl Parser<'tokens, I, Spanned<Namespace>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
@@ -1112,8 +1091,8 @@ where
 }
 
 /// Creates a parser for top-level items
-fn top_level_item_parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, TopLevelItem, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+fn top_level_item_parser<'tokens, 'src: 'tokens, I>()
+-> impl Parser<'tokens, I, TopLevelItem, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
@@ -1166,8 +1145,8 @@ where
 ///
 /// A parser that produces a `Vec<TopLevelItem>` representing the complete program,
 /// or parsing errors if the input is malformed.
-pub fn parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, Vec<TopLevelItem>, extra::Err<Rich<'tokens, TokenType<'src>>>>
+pub fn parser<'tokens, 'src: 'tokens, I>()
+-> impl Parser<'tokens, I, Vec<TopLevelItem>, extra::Err<Rich<'tokens, TokenType<'src>>>>
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {

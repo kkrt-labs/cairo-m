@@ -1,4 +1,4 @@
-// Test tuple destructuring in let and local statements
+// Test tuple destructuring in let statements
 
 func test_basic_tuple_destructuring() -> felt {
     let (x, y) = (10, 20);
@@ -7,7 +7,7 @@ func test_basic_tuple_destructuring() -> felt {
 
 func test_tuple_destructuring_with_type() {
     let (a, b): (felt, felt) = (1, 2);
-    local (c, d): (felt, felt) = (3, 4);
+    let (c, d): (felt, felt) = (3, 4);
 }
 
 func returns_tuple() -> (felt, felt) {

@@ -19,7 +19,7 @@
 //!
 use cairo_m_compiler_diagnostics::Diagnostic;
 use cairo_m_compiler_parser::parser::{
-    parse_program, FunctionDef, Spanned, Statement, TopLevelItem,
+    FunctionDef, Spanned, Statement, TopLevelItem, parse_program,
 };
 
 use crate::db::SemanticDb;
@@ -369,7 +369,6 @@ impl ControlFlowValidator {
     const fn statement_type_name(stmt: &Statement) -> &'static str {
         match stmt {
             Statement::Let { .. } => "variable declaration",
-            Statement::Local { .. } => "local variable declaration",
             Statement::Const(_) => "constant declaration",
             Statement::Assignment { .. } => "assignment",
             Statement::Return { .. } => "return statement",

@@ -133,8 +133,6 @@ pub enum TokenType<'a> {
     Import,
     #[token("let")]
     Let,
-    #[token("local")]
-    Local,
     #[token("namespace")]
     Namespace,
     #[token("return")]
@@ -226,7 +224,6 @@ impl<'a> fmt::Display for TokenType<'a> {
             TokenType::If => write!(f, "if"),
             TokenType::Import => write!(f, "import"),
             TokenType::Let => write!(f, "let"),
-            TokenType::Local => write!(f, "local"),
             TokenType::Namespace => write!(f, "namespace"),
             TokenType::Return => write!(f, "return"),
             TokenType::Struct => write!(f, "struct"),
