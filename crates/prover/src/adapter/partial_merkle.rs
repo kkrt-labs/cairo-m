@@ -56,6 +56,16 @@ impl MerkleHasher for MockHasher {
     }
 }
 
+/// Get the root value from a partial merkle tree
+/// Returns M31::zero() if the tree is empty
+pub fn get_merkle_root(nodes: &[NodeData]) -> M31 {
+    nodes
+        .iter()
+        .find(|node| node.layer == TREE_HEIGHT)
+        .map(|node| node.value_left)
+        .unwrap_or_else(M31::zero)
+}
+
 /// Build a partial Merkle tree from a memory state
 /// Each QM31 value is split into 4 M31 leaves
 /// The tree has depth 0 to 30:

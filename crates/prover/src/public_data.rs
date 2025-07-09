@@ -5,7 +5,7 @@ use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::{SecureField, QM31};
 use stwo_prover::core::fields::FieldExpOps;
 
-use crate::adapter::Instructions;
+use crate::adapter::{partial_merkle, ProverInput};
 use crate::components::Relations;
 use crate::relations;
 
@@ -13,13 +13,21 @@ use crate::relations;
 pub struct PublicData {
     pub initial_registers: VmRegisters,
     pub final_registers: VmRegisters,
+    pub initial_memory_root: M31,
+    pub final_memory_root: M31,
 }
 
 impl PublicData {
-    pub const fn new(input: &Instructions) -> Self {
+    pub fn new(input: &ProverInput) -> Self {
         Self {
-            initial_registers: input.initial_registers,
-            final_registers: input.final_registers,
+            initial_registers: input.instructions.initial_registers,
+            final_registers: input.instructions.final_registers,
+            initial_memory_root: partial_merkle::get_merkle_root(
+                &input.merkle_trees.initial_merkle_tree,
+            ),
+            final_memory_root: partial_merkle::get_merkle_root(
+                &input.merkle_trees.final_merkle_tree,
+            ),
         }
     }
 
