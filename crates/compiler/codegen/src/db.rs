@@ -4,7 +4,8 @@ use std::sync::Arc;
 
 use cairo_m_common::Program;
 use cairo_m_compiler_mir::{MirDb, MirModule};
-use cairo_m_compiler_parser::{SourceFile, Upcast};
+use cairo_m_compiler_parser::Upcast;
+use cairo_m_compiler_semantic::db::Project;
 
 use crate::CodegenError;
 
@@ -16,44 +17,38 @@ use crate::CodegenError;
 #[salsa::db]
 pub trait CodegenDb: MirDb + Upcast<dyn MirDb> {}
 
-/// Compile a MIR module to a compiled program.
+/// Compile a project to a compiled program.
 ///
-/// This is the main entry point for code generation. It takes a MIR module
+/// This is the main entry point for code generation. It takes a project
 /// and produces the compiled program with full incremental caching support.
 #[salsa::tracked]
-pub fn compile_module(db: &dyn CodegenDb, file: SourceFile) -> Result<Arc<Program>, CodegenError> {
+pub fn compile_project(db: &dyn CodegenDb, project: Project) -> Result<Arc<Program>, CodegenError> {
     // Get the MIR module
-    let mir_module = cairo_m_compiler_mir::db::generate_mir(db.upcast(), file)
+    let mir_module = cairo_m_compiler_mir::db::generate_mir(db.upcast(), project)
         .ok_or_else(|| CodegenError::InvalidMir("No MIR module generated".to_string()))?;
 
-    // Get the source file path for metadata
-    let source_file = file.file_path(db);
-
     // Use the existing compile_module logic
-    let mut compiled = crate::compile_module(&mir_module)?;
-
-    // Add source file metadata
-    compiled.metadata.source_file = Some(source_file.clone());
+    let compiled = crate::compile_module(&mir_module)?;
 
     Ok(Arc::new(compiled))
 }
 
-/// Get the MIR module for a file (convenience re-export).
+/// Get the MIR module for a project (convenience re-export).
 ///
 /// This allows code generation to access MIR without directly depending
 /// on the MIR crate's internals.
 #[salsa::tracked]
-pub fn codegen_mir_module(db: &dyn CodegenDb, file: SourceFile) -> Option<Arc<MirModule>> {
-    cairo_m_compiler_mir::db::generate_mir(db.upcast(), file).map(Arc::new)
+pub fn codegen_mir_module(db: &dyn CodegenDb, project: Project) -> Option<Arc<MirModule>> {
+    cairo_m_compiler_mir::db::generate_mir(db.upcast(), project).map(Arc::new)
 }
 
 /// Track code generation errors separately for better diagnostics.
 ///
 /// This allows us to report codegen errors without blocking other phases.
 #[salsa::tracked]
-pub fn codegen_errors(db: &dyn CodegenDb, file: SourceFile) -> Vec<CodegenError> {
+pub fn codegen_errors(db: &dyn CodegenDb, project: Project) -> Vec<CodegenError> {
     // Collect errors from code generation
-    match compile_module(db, file) {
+    match compile_project(db, project) {
         Ok(_) => vec![],
         Err(e) => vec![e],
     }
@@ -61,8 +56,10 @@ pub fn codegen_errors(db: &dyn CodegenDb, file: SourceFile) -> Vec<CodegenError>
 
 #[cfg(test)]
 pub(crate) mod tests {
+    use std::collections::HashMap;
+
     use cairo_m_compiler_mir::MirDb;
-    use cairo_m_compiler_semantic::SemanticDb;
+    use cairo_m_compiler_semantic::{File, SemanticDb};
 
     use super::*;
 
@@ -118,9 +115,12 @@ pub(crate) mod tests {
     #[test]
     fn test_codegen_db_trait() {
         let db = TestDatabase::default();
-        let source = SourceFile::new(&db, "fn main() {}".to_string(), "test.cm".to_string());
+        let file = File::new(&db, "fn main() {}".to_string(), "test.cm".to_string());
+        let mut modules = HashMap::new();
+        modules.insert("main".to_string(), file);
+        let project = Project::new(&db, modules, "main".to_string());
 
         // This should trigger code generation through Salsa
-        let _result = compile_module(&db, source);
+        let _result = compile_project(&db, project);
     }
 }

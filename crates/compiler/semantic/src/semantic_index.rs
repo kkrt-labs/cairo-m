@@ -124,6 +124,9 @@ pub struct ExpressionInfo {
 ///
 /// This structure is designed for efficient lookup operations during
 /// validation and IDE features like go-to-definition.
+///
+/// Note: Currently stores SemanticIndex directly. For better performance with large projects,
+/// this could be changed to store Arc<SemanticIndex> to avoid cloning when sharing between threads.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ProjectSemanticIndex {
     pub modules: HashMap<String, SemanticIndex>,
@@ -370,6 +373,58 @@ impl SemanticIndex {
         } else {
             None
         }
+    }
+
+    /// Resolve a name with cross-module support
+    ///
+    /// This is the single source of truth for name resolution. It attempts to resolve names in this order:
+    /// 1. Current scope and its parents (local resolution)
+    /// 2. If not found, check imported items visible from the current scope (cross-module resolution)
+    // TODO: Assess whether it's not dangerous to be doing this here: could we end up resolving something we dont want to?
+    pub fn resolve_name_with_imports(
+        &self,
+        db: &dyn crate::SemanticDb,
+        project: crate::db::Project,
+        file: crate::File,
+        name: &str,
+        starting_scope: FileScopeId,
+    ) -> Option<(DefinitionIndex, crate::Definition, crate::File)> {
+        // First try local resolution
+        if let Some((def_idx, def)) = self.resolve_name_to_definition(name, starting_scope) {
+            return Some((def_idx, def.clone(), file));
+        }
+
+        // If not found locally, check imports
+        let imports = self.get_imports_in_scope(starting_scope);
+        for use_def_ref in imports {
+            if use_def_ref.item == name {
+                // Get the project semantic index to resolve in imported modules
+                if let Ok(project_index) = crate::db::project_semantic_index(db, project) {
+                    let modules = project_index.modules();
+
+                    // Resolve in the imported module
+                    if let Some(imported_module_index) = modules.get(&use_def_ref.imported_module) {
+                        if let Some(imported_root) = imported_module_index.root_scope() {
+                            if let Some((imported_def_idx, imported_def)) = imported_module_index
+                                .resolve_name_to_definition(name, imported_root)
+                            {
+                                if let Some(imported_file) =
+                                    project.modules(db).get(&use_def_ref.imported_module)
+                                {
+                                    return Some((
+                                        imported_def_idx,
+                                        imported_def.clone(),
+                                        *imported_file,
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        None
     }
 
     /// Get imports visible from a specific scope

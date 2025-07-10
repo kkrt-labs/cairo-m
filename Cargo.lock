@@ -494,6 +494,7 @@ dependencies = [
  "tower-lsp",
  "tracing",
  "tracing-subscriber",
+ "walkdir",
 ]
 
 [[package]]

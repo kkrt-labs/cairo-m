@@ -4,7 +4,7 @@ use std::fs;
 use std::path::Path;
 
 use cairo_m_compiler_codegen::{CodeGenerator, CodegenDb};
-use cairo_m_compiler_mir::{generate_mir, MirDb};
+use cairo_m_compiler_mir::{MirDb, generate_mir};
 use cairo_m_compiler_parser::Upcast;
 use cairo_m_compiler_semantic::{File, SemanticDb};
 use insta::assert_snapshot;
@@ -69,11 +69,20 @@ pub struct CodegenOutput {
 
 /// Runs the full compilation pipeline from source to CASM.
 pub fn check_codegen(source: &str, path: &str) -> CodegenOutput {
+    use std::collections::HashMap;
+
+    use cairo_m_compiler_semantic::db::Project;
+
     let db = test_db();
     let file = File::new(&db, source.to_string(), path.to_string());
 
+    // Create a single-file project for MIR generation
+    let mut modules = HashMap::new();
+    modules.insert("main".to_string(), file);
+    let project = Project::new(&db, modules, "main".to_string());
+
     // Generate MIR from source
-    let mir_module = generate_mir(&db, file).expect("MIR generation failed");
+    let mir_module = generate_mir(&db, project).expect("MIR generation failed");
 
     let mut generator = CodeGenerator::new();
     generator

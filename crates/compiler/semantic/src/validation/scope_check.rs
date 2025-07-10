@@ -232,15 +232,10 @@ impl ScopeValidator {
         // Check each identifier usage to see if it was resolved to a definition
         for (usage_index, usage) in index.identifier_usages().iter().enumerate() {
             if !index.is_usage_resolved(usage_index) {
-                // If not resolved locally, try to resolve with imports.
-                if crate::db::resolve_name_with_imports(
-                    db,
-                    project,
-                    file,
-                    &usage.name,
-                    usage.scope_id,
-                )
-                .is_none()
+                // If not resolved locally, try to resolve with imports using the centralized method
+                if index
+                    .resolve_name_with_imports(db, project, file, &usage.name, usage.scope_id)
+                    .is_none()
                 {
                     // Only report each undeclared variable once
                     if seen_undeclared.insert(usage.name.clone()) {
