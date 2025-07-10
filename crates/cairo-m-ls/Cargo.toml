@@ -11,7 +11,7 @@ serde_json = { workspace = true }
 dashmap = "5.5"
 walkdir = "2.5"
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "registry"] }
 
 salsa = "0.22"
 

@@ -32,8 +32,18 @@ pub fn resolve_ast_type<'db>(
     ast_type_expr: AstTypeExpr,
     context_scope_id: FileScopeId,
 ) -> TypeId<'db> {
-    let module_name = module_name_for_file(db, project, file)
-        .expect("File must belong to a module in the project");
+    let module_name = match module_name_for_file(db, project, file) {
+        Some(name) => name,
+        None => {
+            // File not found in project - this can happen during rapid edits
+            // Return error type instead of panicking
+            eprintln!(
+                "Warning: Could not find module name for file: {:?}",
+                file.file_path(db)
+            );
+            return TypeId::new(db, TypeData::Error);
+        }
+    };
     let project_index = match project_semantic_index(db, project) {
         Ok(index) => index,
         Err(_) => return TypeId::new(db, TypeData::Error),
@@ -112,8 +122,18 @@ pub fn definition_semantic_type<'db>(
     let file = definition_id.file(db);
     let def_index = definition_id.id_in_file(db);
 
-    let module_name = module_name_for_file(db, project, file)
-        .expect("File must belong to a module in the project");
+    let module_name = match module_name_for_file(db, project, file) {
+        Some(name) => name,
+        None => {
+            // File not found in project - this can happen during rapid edits
+            // Return error type instead of panicking
+            eprintln!(
+                "Warning: Could not find module name for file: {:?}",
+                file.file_path(db)
+            );
+            return TypeId::new(db, TypeData::Error);
+        }
+    };
     let project_index = match project_semantic_index(db, project) {
         Ok(index) => index,
         Err(_) => return TypeId::new(db, TypeData::Error),
@@ -256,8 +276,18 @@ pub fn expression_semantic_type<'db>(
     file: File,
     expression_id: ExpressionId,
 ) -> TypeId<'db> {
-    let module_name = module_name_for_file(db, project, file)
-        .expect("File must belong to a module in the project");
+    let module_name = match module_name_for_file(db, project, file) {
+        Some(name) => name,
+        None => {
+            // File not found in project - this can happen during rapid edits
+            // Return error type instead of panicking
+            eprintln!(
+                "Warning: Could not find module name for file: {:?}",
+                file.file_path(db)
+            );
+            return TypeId::new(db, TypeData::Error);
+        }
+    };
     let project_index = match project_semantic_index(db, project) {
         Ok(index) => index,
         Err(_) => return TypeId::new(db, TypeData::Error),

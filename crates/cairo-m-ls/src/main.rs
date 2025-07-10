@@ -1,6 +1,8 @@
 #![feature(let_chains)]
 #![allow(clippy::option_if_let_else)]
 
+mod lsp_tracing;
+
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -159,8 +161,17 @@ impl Backend {
 
         // Check if we already have a project for this root
         if let Some(project) = self.projects.get(&project_root) {
+            tracing::debug!(
+                "[PROJECT] Using cached project for {}",
+                project_root.display()
+            );
             return Some(*project.value());
         }
+
+        tracing::info!(
+            "[PROJECT] Creating new project for {}",
+            project_root.display()
+        );
 
         // Discover project files using cached recursive search
         let project_cache = self.discover_project_files(&project_root)?;
@@ -340,6 +351,14 @@ impl Backend {
     ///
     /// Uses project-aware analysis to provide accurate cross-file diagnostics.
     async fn run_diagnostics(&self, uri: Url, version: Option<i32>) {
+        // Log start of diagnostics run
+        self.client
+            .log_message(
+                MessageType::INFO,
+                format!("[DIAGNOSTICS] Starting validation for {}", uri.path()),
+            )
+            .await;
+
         let project = match self.get_or_create_project(&uri) {
             Some(project) => project,
             None => return, // Silently fail if project can't be created
@@ -352,13 +371,35 @@ impl Backend {
 
         let diagnostics = match self.safe_db_access(|db| {
             let content = source.text(db).to_owned();
+            let file_path = source.file_path(db).to_string();
+
+            // Log which file is being validated
+            let module_name =
+                cairo_m_compiler_semantic::db::module_name_for_file(db.upcast(), project, source)
+                    .unwrap_or_else(|| "unknown".to_string());
+
             let semantic_diagnostics = project_validate_semantics(db, project);
-            (content, semantic_diagnostics)
+            (content, semantic_diagnostics, file_path, module_name)
         }) {
-            Some((content, semantic_diagnostics)) => semantic_diagnostics
-                .iter()
-                .map(|d| self.convert_diagnostic(&content, d))
-                .collect(),
+            Some((content, semantic_diagnostics, file_path, module_name)) => {
+                // Log validation results
+                self.client
+                    .log_message(
+                        MessageType::INFO,
+                        format!(
+                            "[DIAGNOSTICS] Validated module '{}' ({}): {} diagnostics",
+                            module_name,
+                            file_path,
+                            semantic_diagnostics.len()
+                        ),
+                    )
+                    .await;
+
+                semantic_diagnostics
+                    .iter()
+                    .map(|d| self.convert_diagnostic(&content, d))
+                    .collect()
+            }
             None => {
                 // Log error to client if database access fails
                 self.client
@@ -497,22 +538,60 @@ impl LanguageServer for Backend {
             // Run semantic analysis query. Salsa will compute it incrementally.
             let index = module_semantic_index(db.upcast(), project, module_name);
 
-            // Find the identifier at the cursor position.
+            // First, check if we're clicking on an identifier usage
             let identifier_usage = index
                 .identifier_usages()
                 .iter()
                 .enumerate()
                 .find(|(_, usage)| usage.span.start <= offset && offset <= usage.span.end);
 
-            if let Some((usage_idx, _)) = identifier_usage {
-                // Get the definition for this usage.
-                if let Some(definition) = index.get_use_definition(usage_idx) {
-                    // Convert definition span to LSP location.
+            if let Some((usage_idx, usage)) = identifier_usage {
+                // Try to resolve with imports for cross-module support
+                if let Some((_def_idx, def, def_file)) = index.resolve_name_with_imports(
+                    db.upcast(),
+                    project,
+                    source,
+                    &usage.name,
+                    usage.scope_id,
+                ) {
+                    // If the definition is in a different file, create a location for that file
+                    if def_file != source {
+                        // Get the URI for the definition file
+                        let def_path = def_file.file_path(db);
+                        if let Ok(def_uri) = Url::from_file_path(def_path) {
+                            let def_content = def_file.text(db);
+                            let start_pos =
+                                self.offset_to_position(def_content, def.name_span.start);
+                            let end_pos = self.offset_to_position(def_content, def.name_span.end);
+
+                            return Some(Location {
+                                uri: def_uri,
+                                range: Range {
+                                    start: start_pos,
+                                    end: end_pos,
+                                },
+                            });
+                        }
+                    }
+
+                    // Same file definition
+                    let start_pos = self.offset_to_position(content, def.name_span.start);
+                    let end_pos = self.offset_to_position(content, def.name_span.end);
+
+                    Some(Location {
+                        uri: uri.clone(),
+                        range: Range {
+                            start: start_pos,
+                            end: end_pos,
+                        },
+                    })
+                } else if let Some(definition) = index.get_use_definition(usage_idx) {
+                    // Fallback to local resolution (for backward compatibility)
                     let start_pos = self.offset_to_position(content, definition.name_span.start);
                     let end_pos = self.offset_to_position(content, definition.name_span.end);
 
                     Some(Location {
-                        uri,
+                        uri: uri.clone(),
                         range: Range {
                             start: start_pos,
                             end: end_pos,
@@ -522,6 +601,42 @@ impl LanguageServer for Backend {
                     None
                 }
             } else {
+                // Check if we're clicking on a module name in a use statement
+                // This requires parsing the source to find use statements
+
+                // For now, we'll check all definitions to see if any are use statements at this position
+                for (_def_idx, def) in index.all_definitions() {
+                    if def.full_span.start <= offset && offset <= def.full_span.end {
+                        if let crate::DefinitionKind::Use(use_ref) = &def.kind {
+                            // Try to find the module file
+                            let _module_path = format!("{}.cm", use_ref.imported_module);
+
+                            // Search for the module file in the project
+                            for (mod_name, mod_file) in project.modules(db).iter() {
+                                if mod_name == &use_ref.imported_module {
+                                    let mod_path = mod_file.file_path(db);
+                                    if let Ok(mod_uri) = Url::from_file_path(mod_path) {
+                                        // Navigate to the beginning of the module file
+                                        return Some(Location {
+                                            uri: mod_uri,
+                                            range: Range {
+                                                start: Position {
+                                                    line: 0,
+                                                    character: 0,
+                                                },
+                                                end: Position {
+                                                    line: 0,
+                                                    character: 0,
+                                                },
+                                            },
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 None
             }
         });
@@ -570,14 +685,32 @@ impl LanguageServer for Backend {
                 .find(|(_, usage)| usage.span.start <= offset && offset <= usage.span.end);
 
             if let Some((_usage_idx, usage)) = identifier_usage {
-                if let Some((def_idx, _)) =
-                    index.resolve_name_to_definition(&usage.name, usage.scope_id)
-                {
-                    let def_id = DefinitionId::new(db, source, def_idx);
+                // Try to resolve with imports for cross-module support
+                if let Some((def_idx, _def, def_file)) = index.resolve_name_with_imports(
+                    db.upcast(),
+                    project,
+                    source,
+                    &usage.name,
+                    usage.scope_id,
+                ) {
+                    let def_id = DefinitionId::new(db, def_file, def_idx);
                     let type_id = definition_semantic_type(db.upcast(), project, def_id);
                     let type_str = Self::format_type(db.upcast(), type_id);
 
-                    let hover_text = format!("```cairo-m\n{}: {}\n```", usage.name, type_str);
+                    let mut hover_text = format!("```cairo-m\n{}: {}\n```", usage.name, type_str);
+
+                    // Add module information if it's from a different file
+                    if def_file != source {
+                        if let Some(module_name) =
+                            cairo_m_compiler_semantic::db::module_name_for_file(
+                                db.upcast(),
+                                project,
+                                def_file,
+                            )
+                        {
+                            hover_text.push_str(&format!("\n\n*From module: {}*", module_name));
+                        }
+                    }
 
                     Some(Hover {
                         contents: HoverContents::Markup(MarkupContent {
@@ -735,11 +868,28 @@ impl LanguageServer for Backend {
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt::init();
+    use tracing_subscriber::layer::SubscriberExt;
+    use tracing_subscriber::util::SubscriberInitExt;
 
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
 
-    let (service, socket) = LspService::new(Backend::new);
+    let (service, socket) = LspService::build(|client| {
+        let backend = Backend::new(client.clone());
+
+        // Set up tracing to send logs to LSP client
+        let lsp_layer = lsp_tracing::LspTracingLayer::new(Arc::new(client));
+
+        tracing_subscriber::registry()
+            .with(lsp_layer)
+            .with(tracing_subscriber::EnvFilter::new(
+                std::env::var("RUST_LOG").unwrap_or_else(|_| "cairo_m=info".to_string()),
+            ))
+            .init();
+
+        backend
+    })
+    .finish();
+
     Server::new(stdin, stdout, socket).serve(service).await;
 }

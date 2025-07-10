@@ -1,0 +1,39 @@
+use math::{add, sub, bar};
+
+func baz() -> felt {
+    return 1;
+}
+
+func wrong() {
+    return();
+}
+
+func wrong2(a: felt) -> felt {
+    return();
+}
+
+func doob(){
+    return 1;
+}
+
+func adabad() -> felt {
+    return 1;
+}
+
+
+func main() ->felt{
+    let a: felt = 1;
+    let b: felt = 2;
+    let c: felt = add(a, b);
+    let d: felt = sub(a, b);
+    wrong();
+    wrong2(1);
+    wrong2();
+    adabad();
+    let x = a + b + c + sub(a,b) + add(adabad(), adabad());
+    return c + d;
+}
+
+func foo(){return();}
+
+func boo(){return();}

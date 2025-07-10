@@ -62,8 +62,13 @@ impl Upcast<dyn ParserDb> for SemanticDatabaseImpl {
 
 #[salsa::tracked]
 pub fn project_validate_semantics(db: &dyn SemanticDb, project: Project) -> DiagnosticCollection {
+    tracing::info!("[SEMANTIC] Starting project validation");
     let parse_diag = project_parse_diagnostics(db, project);
     if !parse_diag.is_empty() {
+        tracing::warn!(
+            "[SEMANTIC] Found {} parse errors, skipping semantic validation",
+            parse_diag.len()
+        );
         return parse_diag;
     }
 
@@ -73,15 +78,29 @@ pub fn project_validate_semantics(db: &dyn SemanticDb, project: Project) -> Diag
             let mut coll = DiagnosticCollection::default();
             let registry = create_default_registry();
             for (module_name, index) in sem.modules().iter() {
+                tracing::info!("[SEMANTIC] Validating module: {}", module_name);
                 let module_file = *project
                     .modules(db)
                     .get(module_name)
                     .unwrap_or_else(|| panic!("Module file should exist: {}", module_name));
-                coll.extend(registry.validate_all(db, project, module_file, index));
+                let module_diagnostics = registry.validate_all(db, project, module_file, index);
+                tracing::info!(
+                    "[SEMANTIC] Module '{}' validation complete: {} diagnostics",
+                    module_name,
+                    module_diagnostics.len()
+                );
+                coll.extend(module_diagnostics);
             }
+            tracing::info!(
+                "[SEMANTIC] Project validation complete: {} total diagnostics",
+                coll.len()
+            );
             coll
         }
-        Err(err_diag) => err_diag,
+        Err(err_diag) => {
+            tracing::error!("[SEMANTIC] Project validation failed with errors");
+            err_diag
+        }
     }
 }
 
@@ -94,8 +113,9 @@ pub struct Project {
 
 /// Find the module name for a given file in the project
 pub fn module_name_for_file(db: &dyn SemanticDb, project: Project, file: File) -> Option<String> {
+    let file_path = file.file_path(db);
     for (module_name, module_file) in project.modules(db).iter() {
-        if *module_file == file {
+        if module_file.file_path(db) == file_path {
             return Some(module_name.clone());
         }
     }
@@ -241,6 +261,12 @@ pub fn project_semantic_index(
     db: &dyn SemanticDb,
     project: Project,
 ) -> Result<std::sync::Arc<ProjectSemanticIndex>, DiagnosticCollection> {
+    let num_modules = project.modules(db).len();
+    tracing::info!(
+        "[SEMANTIC] Building project semantic index for {} modules",
+        num_modules
+    );
+
     let graph = project_import_graph(db, project);
 
     if let Some(cycle) = detect_import_cycle(&graph) {
@@ -263,6 +289,7 @@ pub fn project_semantic_index(
         }
     }
 
+    tracing::info!("[SEMANTIC] Project semantic index complete");
     Ok(std::sync::Arc::new(ProjectSemanticIndex::new(
         module_indices,
     )))
@@ -274,6 +301,10 @@ pub fn module_semantic_index(
     project: Project,
     module_name: String,
 ) -> SemanticIndex {
+    tracing::info!(
+        "[SEMANTIC] Building semantic index for module: {}",
+        module_name
+    );
     let parsed_modules = project_parsed_modules(db, project);
     let parsed_module = parsed_modules
         .get(&module_name)
@@ -283,11 +314,20 @@ pub fn module_semantic_index(
         .modules(db)
         .get(&module_name)
         .expect("File should exist");
-    semantic_index_from_module(db, &parsed_module, file, project, module_name)
+    let index = semantic_index_from_module(db, &parsed_module, file, project, module_name.clone());
+    tracing::info!(
+        "[SEMANTIC] Semantic index built for module '{}': {} definitions, {} identifier usages",
+        module_name,
+        index.all_definitions().count(),
+        index.identifier_usages().len()
+    );
+    index
 }
 
 #[cfg(test)]
 pub(crate) mod tests {
+    use salsa::Setter;
+
     use super::*;
 
     #[salsa::db]
@@ -327,5 +367,43 @@ pub(crate) mod tests {
     pub fn project_from_program(db: &dyn SemanticDb, program: &str) -> Project {
         let file = File::new(db, program.to_string(), "test.cm".to_string());
         single_file_project(db, file)
+    }
+
+    #[test]
+    fn test_module_name_for_file_with_updated_content() {
+        let mut db = test_db();
+
+        // Create a file
+        let file1 = File::new(&db, "original content".to_string(), "test.cm".to_string());
+
+        // Create a project with this file
+        let mut modules = HashMap::new();
+        modules.insert("test".to_string(), file1);
+        let project = Project::new(&db, modules, "test".to_string());
+
+        // Update the file content (simulating user typing)
+        file1.set_text(&mut db).to("updated content".to_string());
+
+        // module_name_for_file should still find the module by file path
+        let module_name = module_name_for_file(&db, project, file1);
+        assert_eq!(module_name, Some("test".to_string()));
+    }
+
+    #[test]
+    fn test_module_name_for_file_with_different_file_entity() {
+        let db = test_db();
+
+        // Create two file entities with the same path
+        let file1 = File::new(&db, "content 1".to_string(), "test.cm".to_string());
+        let file2 = File::new(&db, "content 2".to_string(), "test.cm".to_string());
+
+        // Create a project with file1
+        let mut modules = HashMap::new();
+        modules.insert("test".to_string(), file1);
+        let project = Project::new(&db, modules, "test".to_string());
+
+        // Should find the module even when querying with file2 (same path)
+        let module_name = module_name_for_file(&db, project, file2);
+        assert_eq!(module_name, Some("test".to_string()));
     }
 }
