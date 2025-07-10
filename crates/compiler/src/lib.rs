@@ -101,7 +101,7 @@ pub fn compile_from_file(
         return Err(CompilerError::SemanticErrors(semantic_errors));
     }
 
-    let program = cairo_m_compiler_codegen::db::compile_module(db, source)
+    let program = cairo_m_compiler_codegen::db::compile_project(db, project)
         .map_err(|e| CompilerError::CodeGenerationFailed(e.to_string()))?;
 
     Ok(CompilerOutput {
@@ -112,29 +112,63 @@ pub fn compile_from_file(
 
 /// Compiles a Cairo-M project
 ///
-/// This compiles the entry file for now, to be extended for multi-file later.
+/// This compiles all files in the project and handles multi-file dependencies.
 pub fn compile_from_crate(
     db: &CompilerDatabase,
-    project: Crate,
-    options: CompilerOptions,
+    crate_data: Crate,
+    _options: CompilerOptions,
 ) -> Result<CompilerOutput> {
-    let parsed_crate = parse_crate(db, project);
+    let parsed_crate = parse_crate(db, crate_data);
 
     if !parsed_crate.diagnostics.is_empty() {
         return Err(CompilerError::ParseErrors(parsed_crate.diagnostics));
     }
 
-    let entry_path = project.entry_file(db);
-    let entry_source = project
-        .files(db)
-        .into_iter()
-        .find(|f| f.file_path(db) == entry_path)
-        .ok_or(CompilerError::MirGenerationFailed)?; // Temporary error, replace later
+    // Build modules map for project creation
+    let entry_path = crate_data.entry_file(db);
+    let mut modules = HashMap::new();
 
-    compile_from_file(db, entry_source, options)
+    for source_file in crate_data.files(db) {
+        let file_path = source_file.file_path(db);
+        let module_name = std::path::Path::new(&file_path)
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .unwrap_or("unknown")
+            .to_string();
+        modules.insert(module_name, source_file);
+    }
+
+    // Determine entry point module name
+    let entry_module_name = std::path::Path::new(&entry_path)
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or("main")
+        .to_string();
+
+    // Create semantic project
+    let project = Project::new(db, modules, entry_module_name);
+
+    // Validate semantics using project-based API
+    let semantic_diagnostics = project_validate_semantics(db, project);
+
+    let (semantic_errors, diagnostics): (Vec<_>, Vec<_>) = semantic_diagnostics
+        .into_iter()
+        .partition(|d| d.severity == DiagnosticSeverity::Error);
+
+    if !semantic_errors.is_empty() {
+        return Err(CompilerError::SemanticErrors(semantic_errors));
+    }
+
+    let program = cairo_m_compiler_codegen::db::compile_project(db, project)
+        .map_err(|e| CompilerError::CodeGenerationFailed(e.to_string()))?;
+
+    Ok(CompilerOutput {
+        program,
+        diagnostics,
+    })
 }
 
-/// Formats diagnostics for display
+/// Formats diagnostics for display (single file)
 ///
 /// # Arguments
 /// * `source_text` - The source code text
@@ -151,6 +185,34 @@ pub fn format_diagnostics(
     diagnostics
         .iter()
         .map(|d| build_diagnostic_message(source_text, d, use_color))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Formats diagnostics for display (multi-file)
+///
+/// # Arguments
+/// * `source_map` - Map from file path to source code text
+/// * `diagnostics` - The diagnostics to format
+/// * `use_color` - Whether to use color in the output
+///
+/// # Returns
+/// A formatted string containing all diagnostics
+pub fn format_diagnostics_multi_file(
+    source_map: &HashMap<String, String>,
+    diagnostics: &[Diagnostic],
+    use_color: bool,
+) -> String {
+    diagnostics
+        .iter()
+        .map(|d| {
+            // Get the source text for this diagnostic's file
+            let source_text = source_map
+                .get(&d.file_path)
+                .map(|s| s.as_str())
+                .unwrap_or(""); // Use empty string if file not found
+            build_diagnostic_message(source_text, d, use_color)
+        })
         .collect::<Vec<_>>()
         .join("\n")
 }

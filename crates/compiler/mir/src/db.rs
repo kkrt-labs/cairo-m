@@ -1,7 +1,8 @@
 //! Database traits and implementations for MIR generation with Salsa integration.
 
-use cairo_m_compiler_parser::{SourceFile, Upcast, parse_file};
+use cairo_m_compiler_parser::Upcast;
 use cairo_m_compiler_semantic::SemanticDb;
+use cairo_m_compiler_semantic::db::Project;
 
 use crate::{MirError, MirModule};
 
@@ -13,22 +14,14 @@ use crate::{MirError, MirModule};
 #[salsa::db]
 pub trait MirDb: SemanticDb + Upcast<dyn SemanticDb> {}
 
-/// Generate MIR for a source file.
+/// Generate MIR for a project.
 ///
 /// This is the main entry point for MIR generation. It uses the semantic index
 /// to build the MIR module, with full incremental caching support.
 #[salsa::tracked]
-pub fn generate_mir(db: &dyn MirDb, file: SourceFile) -> Option<MirModule> {
-    // Get the parsed module
-    let parsed = parse_file(db.upcast(), file);
-
-    if !parsed.diagnostics.is_empty() {
-        // Don't generate MIR if there are parse errors
-        return None;
-    }
-
+pub fn generate_mir(db: &dyn MirDb, project: Project) -> Option<MirModule> {
     // Delegate to the existing generate_mir function from ir_generation
-    crate::ir_generation::generate_mir(db, file)
+    crate::ir_generation::generate_mir(db, project)
         .ok()
         .map(|arc| (*arc).clone())
 }
@@ -38,7 +31,7 @@ pub fn generate_mir(db: &dyn MirDb, file: SourceFile) -> Option<MirModule> {
 /// This allows us to report MIR generation errors without blocking
 /// other compilation phases.
 #[salsa::tracked]
-pub fn mir_errors(_db: &dyn MirDb, _file: SourceFile) -> Vec<MirError> {
+pub fn mir_errors(_db: &dyn MirDb, _project: Project) -> Vec<MirError> {
     // TODO
     // For now, we'll return an empty vector
     // In the future, this should collect errors from MIR generation
@@ -92,10 +85,17 @@ pub(crate) mod tests {
 
     #[test]
     fn test_mir_db_trait() {
+        use std::collections::HashMap;
+
+        use cairo_m_compiler_semantic::File;
+
         let db = TestDatabase::default();
-        let source = SourceFile::new(&db, "fn main() {}".to_string(), "test.cm".to_string());
+        let file = File::new(&db, "fn main() {}".to_string(), "test.cm".to_string());
+        let mut modules = HashMap::new();
+        modules.insert("main".to_string(), file);
+        let project = Project::new(&db, modules, "main".to_string());
 
         // This should trigger MIR generation through Salsa
-        let _mir = generate_mir(&db, source);
+        let _mir = generate_mir(&db, project);
     }
 }

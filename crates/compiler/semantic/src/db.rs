@@ -102,48 +102,6 @@ pub fn module_name_for_file(db: &dyn SemanticDb, project: Project, file: File) -
     None
 }
 
-/// Resolve a name with cross-module support
-pub fn resolve_name_with_imports(
-    db: &dyn SemanticDb,
-    project: Project,
-    file: File,
-    name: &str,
-    scope_id: crate::place::FileScopeId,
-) -> Option<(
-    crate::semantic_index::DefinitionIndex,
-    crate::Definition,
-    File,
-)> {
-    let module_name = module_name_for_file(db, project, file)?;
-    let project_index = project_semantic_index(db, project).ok()?;
-    let modules = project_index.modules();
-    let semantic_index = modules.get(&module_name)?;
-
-    // First try local resolution
-    if let Some((def_idx, def)) = semantic_index.resolve_name_to_definition(name, scope_id) {
-        return Some((def_idx, def.clone(), file));
-    }
-
-    // If not found locally, check imports
-    let imports = semantic_index.get_imports_in_scope(scope_id);
-    for use_def_ref in imports {
-        if use_def_ref.item == name {
-            // Resolve in the imported module
-            let imported_module_index = modules.get(&use_def_ref.imported_module)?;
-            let imported_root = imported_module_index.root_scope()?;
-
-            if let Some((imported_def_idx, imported_def)) =
-                imported_module_index.resolve_name_to_definition(name, imported_root)
-            {
-                let imported_file = *project.modules(db).get(&use_def_ref.imported_module)?;
-                return Some((imported_def_idx, imported_def.clone(), imported_file));
-            }
-        }
-    }
-
-    None
-}
-
 #[salsa::tracked]
 pub fn project_parse_diagnostics(db: &dyn SemanticDb, project: Project) -> DiagnosticCollection {
     let mut coll = DiagnosticCollection::default();

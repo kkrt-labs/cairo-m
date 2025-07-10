@@ -2,33 +2,54 @@
 #![allow(clippy::option_if_let_else)]
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use std::time::SystemTime;
 
 use cairo_m_compiler::db::CompilerDatabase;
 use cairo_m_compiler_diagnostics::{
     Diagnostic as CairoDiagnostic, DiagnosticSeverity as CairoSeverity,
 };
 use cairo_m_compiler_parser::{SourceFile, Upcast};
-use cairo_m_compiler_semantic::db::project_validate_semantics;
+use cairo_m_compiler_semantic::db::{module_semantic_index, project_validate_semantics};
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
 use cairo_m_compiler_semantic::type_resolution::definition_semantic_type;
 use cairo_m_compiler_semantic::types::{TypeData, TypeId};
-use cairo_m_compiler_semantic::{DefinitionKind, Project, SemanticDb, module_semantic_index};
+use cairo_m_compiler_semantic::{DefinitionKind, Project, SemanticDb};
 use dashmap::DashMap;
 use salsa::Setter;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
+use walkdir::WalkDir;
+
+/// Cached project discovery information
+#[derive(Debug, Clone)]
+struct ProjectCache {
+    /// List of .cm files found in the project
+    files: Vec<PathBuf>,
+    /// Entry point file (main.cm if found, otherwise first file)
+    entry_point: PathBuf,
+    /// When this cache was last updated
+    last_updated: SystemTime,
+}
 
 /// LSP Backend for Cairo-M
 ///
 /// Uses Mutex for the database to ensure thread-safe access in async context.
 /// The `source_files` map stores the Salsa input for each file, enabling
 /// incremental compilation on file changes.
+///
+/// Project-aware: Maintains a mapping from project roots to shared project instances,
+/// allowing proper cross-file analysis.
 struct Backend {
     client: Client,
     db: Arc<Mutex<CompilerDatabase>>,
     source_files: Arc<DashMap<Url, SourceFile>>,
+    /// Map from project root path to shared project instances
+    projects: Arc<DashMap<PathBuf, Project>>,
+    /// Cache for project file discovery to avoid re-scanning
+    project_caches: Arc<DashMap<PathBuf, ProjectCache>>,
 }
 
 impl Backend {
@@ -37,7 +58,176 @@ impl Backend {
             client,
             db: Arc::new(Mutex::new(CompilerDatabase::default())),
             source_files: Arc::new(DashMap::new()),
+            projects: Arc::new(DashMap::new()),
+            project_caches: Arc::new(DashMap::new()),
         }
+    }
+
+    /// Find the project root for a given file URI.
+    ///
+    /// Traverses parent directories looking for a project marker like .git or cairom.toml.
+    /// Returns the project root if found, otherwise the file's parent directory.
+    fn find_project_root(&self, file_uri: &Url) -> Option<PathBuf> {
+        let file_path = file_uri.to_file_path().ok()?;
+        let mut current_dir = file_path.parent()?;
+
+        loop {
+            // Check for .git directory
+            if current_dir.join(".git").exists() {
+                return Some(current_dir.to_path_buf());
+            }
+
+            // Check for cairom.toml (future project config file)
+            if current_dir.join("cairom.toml").exists() {
+                return Some(current_dir.to_path_buf());
+            }
+
+            // Move to parent directory
+            match current_dir.parent() {
+                Some(parent) => current_dir = parent,
+                None => break,
+            }
+        }
+
+        // If no project markers found, use the file's parent directory
+        file_path.parent().map(|p| p.to_path_buf())
+    }
+
+    /// Discover all .cm files in a project directory recursively
+    ///
+    /// Returns a cached result if available and recent, otherwise performs a fresh scan.
+    fn discover_project_files(&self, project_root: &PathBuf) -> Option<ProjectCache> {
+        // Check if we have a recent cache
+        if let Some(cache) = self.project_caches.get(project_root) {
+            // Cache is valid for 30 seconds to avoid excessive re-scanning
+            if let Ok(elapsed) = cache.last_updated.elapsed() {
+                if elapsed.as_secs() < 30 {
+                    return Some(cache.clone());
+                }
+            }
+        }
+
+        // Perform fresh discovery
+        let mut cm_files = Vec::new();
+        let mut main_file = None;
+
+        // Walk the directory recursively looking for .cm files
+        for entry in WalkDir::new(project_root)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
+            let path = entry.path();
+            if path.extension().and_then(|ext| ext.to_str()) == Some("cm") {
+                cm_files.push(path.to_path_buf());
+
+                // Check if this is main.cm
+                if path.file_name().and_then(|name| name.to_str()) == Some("main.cm") {
+                    main_file = Some(path.to_path_buf());
+                }
+            }
+        }
+
+        if cm_files.is_empty() {
+            return None;
+        }
+
+        // Sort files for deterministic ordering
+        cm_files.sort();
+
+        // Determine entry point: prefer main.cm, fallback to first file
+        let entry_point = main_file.unwrap_or_else(|| cm_files[0].clone());
+
+        let cache = ProjectCache {
+            files: cm_files,
+            entry_point,
+            last_updated: SystemTime::now(),
+        };
+
+        // Store in cache
+        self.project_caches
+            .insert(project_root.clone(), cache.clone());
+
+        Some(cache)
+    }
+
+    /// Get or create a project for the given file URI.
+    ///
+    /// This implements project discovery and shared project state with caching.
+    /// Files within the same project root will share the same Project instance.
+    fn get_or_create_project(&self, file_uri: &Url) -> Option<Project> {
+        let project_root = self.find_project_root(file_uri)?;
+
+        // Check if we already have a project for this root
+        if let Some(project) = self.projects.get(&project_root) {
+            return Some(*project.value());
+        }
+
+        // Discover project files using cached recursive search
+        let project_cache = self.discover_project_files(&project_root)?;
+        let mut modules = HashMap::new();
+
+        // Process all discovered .cm files
+        for file_path in &project_cache.files {
+            if let Ok(content) = std::fs::read_to_string(file_path) {
+                let source_file = self.safe_db_access(|db| {
+                    SourceFile::new(db, content, file_path.display().to_string())
+                })?;
+
+                // Use filename without extension as module name
+                let module_name = file_path
+                    .file_stem()
+                    .and_then(|stem| stem.to_str())
+                    .unwrap_or("unknown")
+                    .to_string();
+
+                modules.insert(module_name, source_file);
+
+                // Also store in source_files map for LSP operations
+                if let Ok(file_uri) = Url::from_file_path(file_path) {
+                    self.source_files.insert(file_uri, source_file);
+                }
+            }
+        }
+
+        if modules.is_empty() {
+            return None;
+        }
+
+        // Determine entry point based on discovered files
+        let entry_point_name = project_cache
+            .entry_point
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .unwrap_or("main")
+            .to_string();
+
+        // Ensure the entry point exists in modules, fallback to first module if not
+        #[allow(clippy::map_entry)]
+        let main_module = if modules.contains_key(&entry_point_name) {
+            entry_point_name
+        } else {
+            modules.keys().next()?.clone()
+        };
+
+        let project = self.safe_db_access(|db| Project::new(db, modules, main_module))?;
+        self.projects.insert(project_root, project);
+        Some(project)
+    }
+
+    /// Safely access the database, returning None if mutex is poisoned
+    fn safe_db_access<F, R>(&self, f: F) -> Option<R>
+    where
+        F: FnOnce(&cairo_m_compiler::db::CompilerDatabase) -> R,
+    {
+        self.db.lock().ok().map(|db| f(&db))
+    }
+
+    /// Safely access the mutable database, returning None if mutex is poisoned
+    fn safe_db_access_mut<F, R>(&self, f: F) -> Option<R>
+    where
+        F: FnOnce(&mut cairo_m_compiler::db::CompilerDatabase) -> R,
+    {
+        self.db.lock().ok().map(|mut db| f(&mut db))
     }
 
     /// Convert Cairo diagnostic to LSP diagnostic
@@ -147,31 +337,43 @@ impl Backend {
     }
 
     /// Run semantic validation and publish diagnostics.
+    ///
+    /// Uses project-aware analysis to provide accurate cross-file diagnostics.
     async fn run_diagnostics(&self, uri: Url, version: Option<i32>) {
-        if let Some(source) = self.source_files.get(&uri).map(|s| *s.value()) {
-            let diagnostics = {
-                let content;
-                let semantic_diagnostics;
-                {
-                    let db = self.db.lock().unwrap();
-                    content = source.text(&*db).to_owned();
-                    // Create a single-file project for semantic validation
-                    let mut modules = HashMap::new();
-                    modules.insert("main".to_string(), source);
-                    let project = Project::new(&*db, modules, "main".to_string());
-                    semantic_diagnostics = project_validate_semantics(&*db, project);
-                }
+        let project = match self.get_or_create_project(&uri) {
+            Some(project) => project,
+            None => return, // Silently fail if project can't be created
+        };
 
-                semantic_diagnostics
-                    .iter()
-                    .map(|d| self.convert_diagnostic(&content, d))
-                    .collect()
-            };
+        let source = match self.source_files.get(&uri).map(|s| *s.value()) {
+            Some(source) => source,
+            None => return, // Silently fail if source file not found
+        };
 
-            self.client
-                .publish_diagnostics(uri, diagnostics, version)
-                .await;
-        }
+        let diagnostics = match self.safe_db_access(|db| {
+            let content = source.text(db).to_owned();
+            let semantic_diagnostics = project_validate_semantics(db, project);
+            (content, semantic_diagnostics)
+        }) {
+            Some((content, semantic_diagnostics)) => semantic_diagnostics
+                .iter()
+                .map(|d| self.convert_diagnostic(&content, d))
+                .collect(),
+            None => {
+                // Log error to client if database access fails
+                self.client
+                    .log_message(
+                        MessageType::ERROR,
+                        "Database access failed during diagnostics",
+                    )
+                    .await;
+                return;
+            }
+        };
+
+        self.client
+            .publish_diagnostics(uri, diagnostics, version)
+            .await;
     }
 }
 
@@ -214,12 +416,22 @@ impl LanguageServer for Backend {
 
         // Create a new SourceFile for the opened file. This requires a mutable
         // database lock because it allocates a new entity.
-        let source = {
-            let db = self.db.lock().unwrap();
-            SourceFile::new(&*db, content, path.display().to_string())
+        let source = match self
+            .safe_db_access(|db| SourceFile::new(db, content, path.display().to_string()))
+        {
+            Some(source) => source,
+            None => {
+                self.client
+                    .log_message(
+                        MessageType::ERROR,
+                        "Failed to create source file due to database error",
+                    )
+                    .await;
+                return;
+            }
         };
-        self.source_files.insert(uri.clone(), source);
 
+        self.source_files.insert(uri.clone(), source);
         self.run_diagnostics(uri, Some(version)).await;
     }
 
@@ -231,10 +443,22 @@ impl LanguageServer for Backend {
             // Update the SourceFile with new content. This is the key to
             // incremental compilation.
             if let Some(source) = self.source_files.get(&uri).map(|s| *s.value()) {
-                let mut db = self.db.lock().unwrap();
-                source.set_text(&mut *db).to(change.text);
+                match self.safe_db_access_mut(|db| {
+                    source.set_text(db).to(change.text);
+                }) {
+                    Some(_) => {
+                        self.run_diagnostics(uri, Some(version)).await;
+                    }
+                    None => {
+                        self.client
+                            .log_message(
+                                MessageType::ERROR,
+                                "Failed to update file content due to database error",
+                            )
+                            .await;
+                    }
+                }
             }
-            self.run_diagnostics(uri, Some(version)).await;
         }
     }
 
@@ -246,25 +470,32 @@ impl LanguageServer for Backend {
         let uri = params.text_document_position_params.text_document.uri;
         let position = params.text_document_position_params.position;
 
+        // Get project for cross-file analysis
+        let project = match self.get_or_create_project(&uri) {
+            Some(project) => project,
+            None => return Ok(None),
+        };
+
         // Retrieve the SourceFile from our map, do not create a new one.
         let source = match self.source_files.get(&uri) {
             Some(entry) => *entry.value(),
             None => return Ok(None),
         };
 
-        let definition_location = {
-            // Lock the DB immutably for querying.
-            let db = self.db.lock().unwrap();
-            let content = source.text(&*db);
+        let definition_location = self.safe_db_access(|db| {
+            let content = source.text(db);
             let offset = self.position_to_offset(content, position);
 
-            // Create a single-file project for semantic analysis
-            let mut modules = HashMap::new();
-            modules.insert("main".to_string(), source);
-            let project = Project::new(&*db, modules, "main".to_string());
+            // Determine which module this file belongs to in the project
+            let file_path = uri.to_file_path().ok();
+            let module_name = file_path
+                .as_ref()
+                .and_then(|p| p.file_stem())
+                .and_then(|stem| stem.to_str())
+                .map(|s| s.to_string())?;
 
             // Run semantic analysis query. Salsa will compute it incrementally.
-            let index = module_semantic_index((*db).upcast(), project, "main".to_string());
+            let index = module_semantic_index(db.upcast(), project, module_name);
 
             // Find the identifier at the cursor position.
             let identifier_usage = index
@@ -293,9 +524,11 @@ impl LanguageServer for Backend {
             } else {
                 None
             }
-        };
+        });
 
-        Ok(definition_location.map(GotoDefinitionResponse::Scalar))
+        Ok(definition_location
+            .flatten()
+            .map(GotoDefinitionResponse::Scalar))
     }
 
     #[allow(clippy::significant_drop_tightening)]
@@ -303,24 +536,32 @@ impl LanguageServer for Backend {
         let uri = params.text_document_position_params.text_document.uri;
         let position = params.text_document_position_params.position;
 
+        // Get project for cross-file analysis
+        let project = match self.get_or_create_project(&uri) {
+            Some(project) => project,
+            None => return Ok(None),
+        };
+
         // Retrieve the SourceFile from our map.
         let source = match self.source_files.get(&uri) {
             Some(entry) => *entry.value(),
             None => return Ok(None),
         };
 
-        let hover_info = {
-            let db = self.db.lock().unwrap();
-            let content = source.text(&*db);
+        let hover_info = self.safe_db_access(|db| {
+            let content = source.text(db);
             let offset = self.position_to_offset(content, position);
 
-            // Create a single-file project for semantic analysis
-            let mut modules = HashMap::new();
-            modules.insert("main".to_string(), source);
-            let project = Project::new(&*db, modules, "main".to_string());
+            // Determine which module this file belongs to in the project
+            let file_path = uri.to_file_path().ok();
+            let module_name = file_path
+                .as_ref()
+                .and_then(|p| p.file_stem())
+                .and_then(|stem| stem.to_str())
+                .map(|s| s.to_string())?;
 
             // Run semantic analysis query incrementally.
-            let index = module_semantic_index((*db).upcast(), project, "main".to_string());
+            let index = module_semantic_index(db.upcast(), project, module_name);
 
             let identifier_usage = index
                 .identifier_usages()
@@ -332,9 +573,9 @@ impl LanguageServer for Backend {
                 if let Some((def_idx, _)) =
                     index.resolve_name_to_definition(&usage.name, usage.scope_id)
                 {
-                    let def_id = DefinitionId::new(&*db, source, def_idx);
-                    let type_id = definition_semantic_type((*db).upcast(), project, def_id);
-                    let type_str = Self::format_type((*db).upcast(), type_id);
+                    let def_id = DefinitionId::new(db, source, def_idx);
+                    let type_id = definition_semantic_type(db.upcast(), project, def_id);
+                    let type_str = Self::format_type(db.upcast(), type_id);
 
                     let hover_text = format!("```cairo-m\n{}: {}\n```", usage.name, type_str);
 
@@ -351,9 +592,9 @@ impl LanguageServer for Backend {
             } else {
                 None
             }
-        };
+        });
 
-        Ok(hover_info)
+        Ok(hover_info.flatten())
     }
 
     #[allow(clippy::significant_drop_tightening)]
@@ -361,21 +602,31 @@ impl LanguageServer for Backend {
         let uri = params.text_document_position.text_document.uri;
         let position = params.text_document_position.position;
 
+        // Get project for cross-file analysis
+        let project = match self.get_or_create_project(&uri) {
+            Some(project) => project,
+            None => return Ok(None),
+        };
+
         // Retrieve the SourceFile from our map.
         let source = match self.source_files.get(&uri) {
             Some(entry) => *entry.value(),
             None => return Ok(None),
         };
 
-        let completion_items = {
-            let db = self.db.lock().unwrap();
-            let content = source.text(&*db);
+        let completion_items = match self.safe_db_access(|db| {
+            let content = source.text(db);
             let offset = self.position_to_offset(content, position);
 
-            let index = match semantic_index((*db).upcast(), source) {
-                Ok(idx) => idx,
-                Err(_) => return Ok(None),
-            };
+            // Determine which module this file belongs to in the project
+            let file_path = uri.to_file_path().ok();
+            let module_name = file_path
+                .as_ref()
+                .and_then(|p| p.file_stem())
+                .and_then(|stem| stem.to_str())
+                .map(|s| s.to_string())?;
+
+            let index = module_semantic_index(db.upcast(), project, module_name);
 
             // Find the scope at the cursor position.
             // TODO: This is inefficient. A better approach would be to have a query
@@ -396,7 +647,7 @@ impl LanguageServer for Backend {
                     }
                 }
 
-                best_scope.unwrap_or_else(|| index.root_scope().unwrap())
+                best_scope.or_else(|| index.root_scope())?
             };
 
             let mut items = Vec::new();
@@ -412,10 +663,10 @@ impl LanguageServer for Backend {
                                 index.resolve_name_to_definition(&name, scope_id)
                             {
                                 let type_str = {
-                                    let db = self.db.lock().unwrap();
-                                    let def_id = DefinitionId::new(&*db, source, def_idx);
-                                    let type_id = definition_semantic_type((*db).upcast(), def_id);
-                                    Self::format_type((*db).upcast(), type_id)
+                                    let def_id = DefinitionId::new(db, source, def_idx);
+                                    let type_id =
+                                        definition_semantic_type(db.upcast(), project, def_id);
+                                    Self::format_type(db.upcast(), type_id)
                                 };
 
                                 let kind = match def.kind {
@@ -472,7 +723,10 @@ impl LanguageServer for Backend {
                 });
             }
 
-            items
+            Some(items)
+        }) {
+            Some(Some(items)) => items,
+            _ => Vec::new(), // Return empty completion list if database access fails
         };
 
         Ok(Some(CompletionResponse::Array(completion_items)))

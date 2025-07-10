@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::{fs, process};
 
 use cairo_m_compiler::{CompilerError, CompilerOptions, compile_from_crate, format_diagnostics};
-use cairo_m_compiler_parser::{Crate, Project, SourceFile};
+use cairo_m_compiler_parser::{Crate, SourceFile};
 use clap::Parser;
 
 /// Cairo-M compiler
@@ -70,7 +70,7 @@ fn main() {
             process::exit(1);
         }
 
-        Project::new(&db, root_dir, "main.cm".to_string(), files)
+        Crate::new(&db, root_dir, "main.cm".to_string(), files)
     } else {
         eprintln!(
             "Input must be a file or directory: '{}'",

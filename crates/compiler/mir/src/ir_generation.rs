@@ -30,7 +30,7 @@ use cairo_m_compiler_parser::parse_file;
 use cairo_m_compiler_parser::parser::{
     Expression, FunctionDef, Pattern, Spanned, Statement, TopLevelItem,
 };
-use cairo_m_compiler_semantic::db::{Project, module_semantic_index};
+use cairo_m_compiler_semantic::db::{Project, project_semantic_index};
 use cairo_m_compiler_semantic::definition::{Definition, DefinitionKind};
 use cairo_m_compiler_semantic::semantic_index::{DefinitionId, SemanticIndex};
 use cairo_m_compiler_semantic::type_resolution::{
@@ -54,64 +54,102 @@ mod tests {
 
 /// The main entry point for MIR generation.
 ///
-/// This Salsa query takes a source file and produces the complete MIR for the entire module.
-/// It works by first identifying all functions, then lowering each one into a `MirFunction`.
-/// TODO considering that this takes as
+/// This Salsa query takes a project and produces the complete MIR for all modules.
+/// It works by processing all modules in dependency order, identifying all functions,
+/// then lowering each one into a `MirFunction` with cross-module call resolution.
 ///
 /// # Error Handling
 ///
 /// This function performs graceful error recovery:
-/// - Returns `None` if there are parse errors that prevent semantic analysis
+/// - Returns `Err` if there are parse errors that prevent semantic analysis
 /// - Generates partial MIR for functions even if some have semantic errors
 /// - Uses placeholder values for unresolved references
 #[salsa::tracked]
-pub fn generate_mir(db: &dyn MirDb, file: File) -> Result<Arc<MirModule>, Vec<Diagnostic>> {
-    // Parse the module to get access to AST
-    let parsed_program = parse_file(db, file);
-    if !parsed_program.diagnostics.is_empty() {
-        return Err(parsed_program.diagnostics); // Can't generate MIR if parsing failed
-    }
-
-    // Get semantic index, return None if semantic analysis failed
-    // Create a single-file project for the MIR generation
-    // TODO This is a workaround, we should take a project as input!!
-    let mut modules = HashMap::new();
-    modules.insert("main".to_string(), file);
-    let project = Project::new(db, modules, "main".to_string());
-    let semantic_index = module_semantic_index(db, project, "main".to_string());
+pub fn generate_mir(db: &dyn MirDb, project: Project) -> Result<Arc<MirModule>, Vec<Diagnostic>> {
+    // Get semantic index for the entire project
+    let project_semantic_index =
+        match cairo_m_compiler_semantic::db::project_semantic_index(db, project) {
+            Ok(index) => index,
+            Err(semantic_errors) => {
+                // Return semantic analysis errors
+                return Err(semantic_errors.all().to_vec());
+            }
+        };
 
     let mut mir_module = MirModule::new();
     let mut function_mapping = FxHashMap::default();
+    let mut parsed_modules = HashMap::new();
 
-    // Compute file_id once for this file to avoid repeated hashing
-    // For now a simple hash of the file content is used
-    // TODO add a proper system.
-    let file_id = {
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
-        let mut hasher = DefaultHasher::new();
-        file.text(db).hash(&mut hasher);
-        hasher.finish()
-    };
+    // First, collect all parsed modules to avoid re-parsing
+    for (module_name, file) in project.modules(db) {
+        let parsed_program = parse_file(db, file);
+        if !parsed_program.diagnostics.is_empty() {
+            return Err(parsed_program.diagnostics); // Can't generate MIR if parsing failed
+        }
+        parsed_modules.insert(module_name.clone(), (file, parsed_program.module));
+    }
 
-    // First pass: Collect all function definitions and assign them MIR function IDs
-    // This allows resolving forward-declared function calls correctly
-    for (def_idx, def) in semantic_index.all_definitions() {
-        if let DefinitionKind::Function(_) = &def.kind {
-            let def_id = DefinitionId::new(db, file, def_idx);
-            let mir_func = MirFunction::new(def.name.clone());
-            let func_id = mir_module.add_function(mir_func);
-            function_mapping.insert(def_id, (def, func_id));
+    // First pass: Collect all function definitions from all modules and assign them MIR function IDs
+    // This allows resolving cross-module function calls correctly
+    let modules_map = project.modules(db);
+    for (module_name, semantic_index) in project_semantic_index.modules() {
+        let file = *modules_map
+            .get(module_name)
+            .expect("Module file should exist");
+
+        for (def_idx, def) in semantic_index.all_definitions() {
+            if let DefinitionKind::Function(_) = &def.kind {
+                let def_id = DefinitionId::new(db, file, def_idx);
+                let mir_func = MirFunction::new(def.name.clone());
+                let func_id = mir_module.add_function(mir_func);
+                function_mapping.insert(def_id, (def, func_id));
+            }
         }
     }
 
-    // Second pass: Lower each function's body
+    // Second pass: Lower each function's body from all modules
     for (def_id, (def, func_id)) in function_mapping.clone() {
+        let file = def_id.file(db);
+
+        // Find which module this function belongs to
+        let module_name = project
+            .modules(db)
+            .iter()
+            .find(|(_, &module_file)| module_file == file)
+            .map(|(name, _)| name.clone())
+            .expect("File should belong to a module");
+
+        let semantic_index = project_semantic_index
+            .modules()
+            .get(&module_name)
+            .expect("Module semantic index should exist");
+
+        let (_, parsed_module) = parsed_modules
+            .get(&module_name)
+            .expect("Parsed module should exist");
+
         // Find the corresponding AST function
-        let func_ast = find_function_ast(&parsed_program.module.items, &def.name)
+        let func_ast = find_function_ast(&parsed_module.items, &def.name)
             .unwrap_or_else(|| panic!("Function {} not found in AST", def.name));
 
-        let builder = MirBuilder::new(db, file, semantic_index, &function_mapping, file_id);
+        // Generate unique file_id using the file path instead of content
+        // This ensures files with identical content but different paths have different IDs
+        let file_id = {
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::{Hash, Hasher};
+            let mut hasher = DefaultHasher::new();
+            file.file_path(db).hash(&mut hasher);
+            hasher.finish()
+        };
+
+        let builder = MirBuilder::new(
+            db,
+            file,
+            semantic_index,
+            &function_mapping,
+            file_id,
+            project,
+        );
         if let Ok(mir_func) = builder.lower_function(def_id, def, func_ast) {
             // Replace the placeholder function with the lowered one
             *mir_module.get_function_mut(func_id).unwrap() = mir_func;
@@ -150,6 +188,7 @@ fn find_function_ast<'a>(
 struct MirBuilder<'a, 'db> {
     db: &'db dyn SemanticDb,
     file: File,
+    project: Project,
     semantic_index: &'a SemanticIndex,
     /// Global map from function DefinitionId to MIR FunctionId for call resolution
     function_mapping: &'a FxHashMap<DefinitionId<'db>, (&'a Definition, FunctionId)>,
@@ -175,6 +214,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         semantic_index: &'a SemanticIndex,
         function_mapping: &'a FxHashMap<DefinitionId<'db>, (&'a Definition, FunctionId)>,
         file_id: u64,
+        project: Project,
     ) -> Self {
         // Create a placeholder function - will be filled in during lowering
         let mir_function = MirFunction::new(String::new());
@@ -183,6 +223,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         Self {
             db,
             file,
+            project,
             semantic_index,
             function_mapping,
             mir_function,
@@ -192,6 +233,44 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             is_terminated: false,
             loop_stack: Vec::new(),
         }
+    }
+
+    /// Resolves an imported function to its FunctionId in the project
+    ///
+    /// Follows the import chain: module_name.function_name -> FunctionId
+    fn resolve_imported_function(
+        &self,
+        imported_module_name: &str,
+        function_name: &str,
+    ) -> Option<FunctionId> {
+        // Get the project's semantic index
+        let project_index = project_semantic_index(self.db, self.project).ok()?;
+
+        // Get imported module's semantic index
+        let imported_index = project_index.modules().get(imported_module_name)?;
+
+        // Get imported module's root scope
+        let imported_root = imported_index.root_scope()?;
+
+        // Resolve the actual function definition in the imported module
+        let (imported_def_idx, imported_def) =
+            imported_index.resolve_name_to_definition(function_name, imported_root)?;
+
+        // Verify it's actually a function
+        if !matches!(imported_def.kind, DefinitionKind::Function(_)) {
+            return None;
+        }
+
+        // Get the imported file
+        let imported_file = *self.project.modules(self.db).get(imported_module_name)?;
+
+        // Create the correct DefinitionId for the imported function
+        let func_def_id = DefinitionId::new(self.db, imported_file, imported_def_idx);
+
+        // Lookup in function_mapping to get the FunctionId
+        self.function_mapping
+            .get(&func_def_id)
+            .map(|(_, func_id)| *func_id)
     }
 
     /// Lowers a single function from the AST into a `MirFunction`
@@ -221,7 +300,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 let mir_def_id = self.convert_definition_id(def_id);
 
                 // 1. Query semantic type system for actual parameter type
-                let semantic_type = definition_semantic_type(self.db, def_id);
+                let semantic_type = definition_semantic_type(self.db, self.project, def_id);
                 let param_type = MirType::from_semantic_type(self.db, semantic_type);
 
                 let incoming_param_val = self.mir_function.new_typed_value_id(param_type.clone());
@@ -338,7 +417,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                             let element_value = self.lower_expression(element_expr)?;
 
                             // Get the type from semantic analysis
-                            let semantic_type = definition_semantic_type(self.db, def_id);
+                            let semantic_type =
+                                definition_semantic_type(self.db, self.project, def_id);
                             let element_mir_type =
                                 MirType::from_semantic_type(self.db, semantic_type);
 
@@ -405,20 +485,47 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         })?;
 
                     // 3. Resolve function definition and get its MIR ID. Fall back if not found.
-                    let Some((def_idx, _)) = self
+                    let Some((local_def_idx, local_def)) = self
                         .semantic_index
                         .resolve_name_to_definition(func_name.value(), callee_expr_info.scope_id)
                     else {
                         return Ok(false);
                     };
-                    let func_def_id = DefinitionId::new(self.db, self.file, def_idx);
-                    let Some((_, func_id)) = self.function_mapping.get(&func_def_id) else {
-                        return Ok(false);
+
+                    // Handle function resolution: local functions vs imported functions
+                    let func_id = match &local_def.kind {
+                        DefinitionKind::Function(_) => {
+                            // Local function - use current file
+                            let func_def_id = DefinitionId::new(self.db, self.file, local_def_idx);
+                            if let Some((_, func_id)) = self.function_mapping.get(&func_def_id) {
+                                *func_id
+                            } else {
+                                // Local function not found in mapping, fallback
+                                return Ok(false);
+                            }
+                        }
+                        DefinitionKind::Use(use_ref) => {
+                            // Imported function - follow the import chain
+                            match self.resolve_imported_function(
+                                &use_ref.imported_module,
+                                func_name.value(),
+                            ) {
+                                Some(func_id) => func_id,
+                                None => {
+                                    // Import resolution failed, fallback
+                                    return Ok(false);
+                                }
+                            }
+                        }
+                        _ => {
+                            // Neither function nor import, fallback
+                            return Ok(false);
+                        }
                     };
 
                     // 4. Check that the function call returns a tuple of the correct arity.
                     let func_call_semantic_type =
-                        expression_semantic_type(self.db, self.file, expr_id);
+                        expression_semantic_type(self.db, self.project, self.file, expr_id);
                     let TypeData::Tuple(element_types) = func_call_semantic_type.data(self.db)
                     else {
                         return Ok(false); // Does not return a tuple.
@@ -475,7 +582,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         }
                     }
 
-                    self.add_instruction(Instruction::call(dests, *func_id, arg_values));
+                    self.add_instruction(Instruction::call(dests, func_id, arg_values));
                     Ok(true)
                 })();
 
@@ -536,7 +643,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                         if is_used {
                             // Original behavior for used variables
-                            let semantic_type = definition_semantic_type(self.db, def_id);
+                            let semantic_type =
+                                definition_semantic_type(self.db, self.project, def_id);
                             let var_type = MirType::from_semantic_type(self.db, semantic_type);
                             let var_addr = self
                                 .mir_function
@@ -571,7 +679,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             Pattern::Tuple(names) => {
                 // Tuple destructuring pattern for non-literal tuples
                 // (literal tuples are handled by the optimization above)
-                let rhs_semantic_type = expression_semantic_type(self.db, self.file, expr_id);
+                let rhs_semantic_type =
+                    expression_semantic_type(self.db, self.project, self.file, expr_id);
 
                 match rhs_semantic_type.data(self.db) {
                     TypeData::Tuple(element_types) => {
@@ -718,7 +827,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                             expr.span()
                         )
                     })?;
-                let expr_semantic_type = expression_semantic_type(self.db, self.file, expr_id);
+                let expr_semantic_type =
+                    expression_semantic_type(self.db, self.project, self.file, expr_id);
 
                 // Check if it's a tuple type
                 if let cairo_m_compiler_semantic::types::TypeData::Tuple(element_types) =
@@ -811,13 +921,42 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     format!("MIR: No ExpressionInfo for statement expression ID {expr_id:?}")
                 })?;
 
-                if let Some((def_idx, _)) = self
+                if let Some((local_def_idx, local_def)) = self
                     .semantic_index
                     .resolve_name_to_definition(func_name.value(), expr_info.scope_id)
                 {
-                    let func_def_id = DefinitionId::new(self.db, self.file, def_idx);
+                    // Handle function resolution: local functions vs imported functions
+                    let func_id = match &local_def.kind {
+                        DefinitionKind::Function(_) => {
+                            // Local function - use current file
+                            let func_def_id = DefinitionId::new(self.db, self.file, local_def_idx);
+                            if let Some((_, func_id)) = self.function_mapping.get(&func_def_id) {
+                                *func_id
+                            } else {
+                                // Local function not found in mapping, return error
+                                return Ok(());
+                            }
+                        }
+                        DefinitionKind::Use(use_ref) => {
+                            // Imported function - follow the import chain
+                            match self.resolve_imported_function(
+                                &use_ref.imported_module,
+                                func_name.value(),
+                            ) {
+                                Some(func_id) => func_id,
+                                None => {
+                                    // Import resolution failed, return error
+                                    return Ok(());
+                                }
+                            }
+                        }
+                        _ => {
+                            // Neither function nor import, return error
+                            return Ok(());
+                        }
+                    };
 
-                    if let Some((_, func_id)) = self.function_mapping.get(&func_def_id) {
+                    {
                         // Lower arguments
                         let mut arg_values = Vec::new();
                         for arg in args {
@@ -826,7 +965,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                         // Check the function's return type
                         let func_expr_semantic_type =
-                            expression_semantic_type(self.db, self.file, expr_id);
+                            expression_semantic_type(self.db, self.project, self.file, expr_id);
 
                         if let cairo_m_compiler_semantic::types::TypeData::Tuple(element_types) =
                             func_expr_semantic_type.data(self.db)
@@ -837,13 +976,13 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                                 let mir_type = MirType::from_semantic_type(self.db, elem_type);
                                 dests.push(self.mir_function.new_typed_value_id(mir_type));
                             }
-                            self.add_instruction(Instruction::call(dests, *func_id, arg_values));
+                            self.add_instruction(Instruction::call(dests, func_id, arg_values));
                         } else if let cairo_m_compiler_semantic::types::TypeData::Tuple(types) =
                             func_expr_semantic_type.data(self.db)
                             && types.is_empty()
                         {
                             // Function returns unit/void
-                            self.add_instruction(Instruction::void_call(*func_id, arg_values));
+                            self.add_instruction(Instruction::void_call(func_id, arg_values));
                         } else {
                             // Function returns a single value - create a destination but don't use it
                             let return_type =
@@ -851,7 +990,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                             let dest = self.mir_function.new_typed_value_id(return_type);
                             self.add_instruction(Instruction::call(
                                 vec![dest],
-                                *func_id,
+                                func_id,
                                 arg_values,
                             ));
                         }
@@ -1169,7 +1308,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         )
                     })?;
                 let object_semantic_type =
-                    expression_semantic_type(self.db, self.file, object_expr_id);
+                    expression_semantic_type(self.db, self.project, self.file, object_expr_id);
                 let object_mir_type = MirType::from_semantic_type(self.db, object_semantic_type);
 
                 // Calculate the actual field offset from the type information
@@ -1184,7 +1323,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 let field_offset = Value::integer(field_offset_val as i32);
 
                 // Query semantic type system for field type from the member access expression
-                let field_semantic_type = expression_semantic_type(self.db, self.file, expr_id);
+                let field_semantic_type =
+                    expression_semantic_type(self.db, self.project, self.file, expr_id);
                 let field_type = MirType::from_semantic_type(self.db, field_semantic_type);
                 let dest = self
                     .mir_function
@@ -1208,7 +1348,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 let offset_value = index_value;
 
                 // Query semantic type system for array element type from the index access expression
-                let element_semantic_type = expression_semantic_type(self.db, self.file, expr_id);
+                let element_semantic_type =
+                    expression_semantic_type(self.db, self.project, self.file, expr_id);
                 let element_type = MirType::from_semantic_type(self.db, element_semantic_type);
                 let dest = self
                     .mir_function
@@ -1278,7 +1419,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 let expr_value = self.lower_expression(expr)?;
 
                 // Query semantic type system for result type based on this expression
-                let semantic_type = expression_semantic_type(self.db, self.file, expr_id);
+                let semantic_type =
+                    expression_semantic_type(self.db, self.project, self.file, expr_id);
                 let result_type = MirType::from_semantic_type(self.db, semantic_type);
                 let dest = self.mir_function.new_typed_value_id(result_type);
                 self.add_instruction(Instruction::unary_op(*op, dest, expr_value));
@@ -1291,7 +1433,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 let rhs_value = self.lower_expression(right)?;
 
                 // Query semantic type system for result type based on this expression
-                let semantic_type = expression_semantic_type(self.db, self.file, expr_id);
+                let semantic_type =
+                    expression_semantic_type(self.db, self.project, self.file, expr_id);
                 let result_type = MirType::from_semantic_type(self.db, semantic_type);
                 let dest = self.mir_function.new_typed_value_id(result_type);
                 self.add_instruction(Instruction::binary_op(*op, dest, lhs_value, rhs_value));
@@ -1318,13 +1461,44 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                             format!("MIR: No ExpressionInfo for callee ID {callee_expr_id:?}")
                         })?;
 
-                    if let Some((def_idx, _)) = self
+                    if let Some((local_def_idx, local_def)) = self
                         .semantic_index
                         .resolve_name_to_definition(func_name.value(), callee_expr_info.scope_id)
                     {
-                        let func_def_id = DefinitionId::new(self.db, self.file, def_idx);
+                        // Handle function resolution: local functions vs imported functions
+                        let func_id = match &local_def.kind {
+                            DefinitionKind::Function(_) => {
+                                // Local function - use current file
+                                let func_def_id =
+                                    DefinitionId::new(self.db, self.file, local_def_idx);
+                                if let Some((_, func_id)) = self.function_mapping.get(&func_def_id)
+                                {
+                                    *func_id
+                                } else {
+                                    // Local function not found in mapping, return error
+                                    return Ok(Value::error());
+                                }
+                            }
+                            DefinitionKind::Use(use_ref) => {
+                                // Imported function - follow the import chain
+                                match self.resolve_imported_function(
+                                    &use_ref.imported_module,
+                                    func_name.value(),
+                                ) {
+                                    Some(func_id) => func_id,
+                                    None => {
+                                        // Import resolution failed, return error
+                                        return Ok(Value::error());
+                                    }
+                                }
+                            }
+                            _ => {
+                                // Neither function nor import, return error
+                                return Ok(Value::error());
+                            }
+                        };
 
-                        if let Some((_, func_id)) = self.function_mapping.get(&func_def_id) {
+                        {
                             // Lower arguments
                             let mut arg_values = Vec::new();
                             for arg in args {
@@ -1333,7 +1507,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                             // Query semantic type system for function return type
                             let semantic_type =
-                                expression_semantic_type(self.db, self.file, expr_id);
+                                expression_semantic_type(self.db, self.project, self.file, expr_id);
 
                             // Check if the return type is a tuple
                             if let cairo_m_compiler_semantic::types::TypeData::Tuple(
@@ -1349,7 +1523,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                                 self.add_instruction(Instruction::call(
                                     dests.clone(),
-                                    *func_id,
+                                    func_id,
                                     arg_values,
                                 ));
 
@@ -1396,7 +1570,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                                 let dest = self.mir_function.new_typed_value_id(return_type);
                                 self.add_instruction(Instruction::call(
                                     vec![dest],
-                                    *func_id,
+                                    func_id,
                                     arg_values,
                                 ));
                                 return Ok(Value::operand(dest));
@@ -1424,7 +1598,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         )
                     })?;
                 let object_semantic_type =
-                    expression_semantic_type(self.db, self.file, object_expr_id);
+                    expression_semantic_type(self.db, self.project, self.file, object_expr_id);
                 let object_mir_type = MirType::from_semantic_type(self.db, object_semantic_type);
 
                 // Calculate the actual field offset from the type information
@@ -1439,7 +1613,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 let field_offset = Value::integer(field_offset_val as i32);
 
                 // Query semantic type system for the field type
-                let semantic_type = expression_semantic_type(self.db, self.file, expr_id);
+                let semantic_type =
+                    expression_semantic_type(self.db, self.project, self.file, expr_id);
                 let field_type = MirType::from_semantic_type(self.db, semantic_type);
 
                 // Calculate the address of the field
@@ -1468,7 +1643,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 let offset_value = index_value;
 
                 // Query semantic type system for the element type
-                let semantic_type = expression_semantic_type(self.db, self.file, expr_id);
+                let semantic_type =
+                    expression_semantic_type(self.db, self.project, self.file, expr_id);
                 let element_type = MirType::from_semantic_type(self.db, semantic_type);
 
                 // Calculate the address of the array element
@@ -1494,7 +1670,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 // Struct literal - allocate struct and initialize fields
 
                 // Query semantic type system for the struct type
-                let semantic_type = expression_semantic_type(self.db, self.file, expr_id);
+                let semantic_type =
+                    expression_semantic_type(self.db, self.project, self.file, expr_id);
                 let struct_type = MirType::from_semantic_type(self.db, semantic_type);
 
                 // Allocate space for the struct
@@ -1531,8 +1708,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                                 field_value.span()
                             )
                         })?;
-                    let field_semantic_type =
-                        expression_semantic_type(self.db, self.file, field_val_expr_id);
+                    let field_semantic_type = expression_semantic_type(
+                        self.db,
+                        self.project,
+                        self.file,
+                        field_val_expr_id,
+                    );
                     let field_type = MirType::from_semantic_type(self.db, field_semantic_type);
 
                     let field_addr = self
@@ -1564,7 +1745,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 }
 
                 // Query semantic type system for the tuple type
-                let semantic_type = expression_semantic_type(self.db, self.file, expr_id);
+                let semantic_type =
+                    expression_semantic_type(self.db, self.project, self.file, expr_id);
                 let tuple_type = MirType::from_semantic_type(self.db, semantic_type);
 
                 // Allocate space for the tuple as consecutive values
@@ -1595,7 +1777,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                             )
                         })?;
                     let element_semantic_type =
-                        expression_semantic_type(self.db, self.file, element_expr_id);
+                        expression_semantic_type(self.db, self.project, self.file, element_expr_id);
                     let element_type = MirType::from_semantic_type(self.db, element_semantic_type);
 
                     let element_addr = self
