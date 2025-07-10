@@ -1,0 +1,331 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+
+        use std::math::sqrt;
+        use std::io::print;
+
+        struct Point {
+            x: felt,
+            y: felt
+        }
+
+        func distance(p1: Point, p2: Point) -> felt {
+            local dx: felt = p1.x - p2.x;
+            local dy: felt = p1.y - p2.y;
+            return sqrt(dx * dx + dy * dy);
+        }
+    
+--- AST ---
+[
+    Use(
+        Spanned(
+            UseStmt {
+                path: [
+                    Spanned(
+                        "std",
+                        13..16,
+                    ),
+                    Spanned(
+                        "math",
+                        18..22,
+                    ),
+                ],
+                items: Single(
+                    Spanned(
+                        "sqrt",
+                        24..28,
+                    ),
+                ),
+            },
+            9..29,
+        ),
+    ),
+    Use(
+        Spanned(
+            UseStmt {
+                path: [
+                    Spanned(
+                        "std",
+                        42..45,
+                    ),
+                    Spanned(
+                        "io",
+                        47..49,
+                    ),
+                ],
+                items: Single(
+                    Spanned(
+                        "print",
+                        51..56,
+                    ),
+                ),
+            },
+            38..57,
+        ),
+    ),
+    Struct(
+        Spanned(
+            StructDef {
+                name: Spanned(
+                    "Point",
+                    74..79,
+                ),
+                fields: [
+                    (
+                        Spanned(
+                            "x",
+                            94..95,
+                        ),
+                        Named(
+                            "felt",
+                        ),
+                    ),
+                    (
+                        Spanned(
+                            "y",
+                            115..116,
+                        ),
+                        Named(
+                            "felt",
+                        ),
+                    ),
+                ],
+            },
+            67..132,
+        ),
+    ),
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "distance",
+                    147..155,
+                ),
+                params: [
+                    Parameter {
+                        name: Spanned(
+                            "p1",
+                            156..158,
+                        ),
+                        type_expr: Named(
+                            "Point",
+                        ),
+                    },
+                    Parameter {
+                        name: Spanned(
+                            "p2",
+                            167..169,
+                        ),
+                        type_expr: Named(
+                            "Point",
+                        ),
+                    },
+                ],
+                return_type: Some(
+                    Named(
+                        "felt",
+                    ),
+                ),
+                body: [
+                    Spanned(
+                        Local {
+                            pattern: Identifier(
+                                Spanned(
+                                    "dx",
+                                    206..208,
+                                ),
+                            ),
+                            ty: Some(
+                                Named(
+                                    "felt",
+                                ),
+                            ),
+                            value: Spanned(
+                                BinaryOp {
+                                    op: Sub,
+                                    left: Spanned(
+                                        MemberAccess {
+                                            object: Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "p1",
+                                                        217..219,
+                                                    ),
+                                                ),
+                                                217..219,
+                                            ),
+                                            field: Spanned(
+                                                "x",
+                                                220..221,
+                                            ),
+                                        },
+                                        217..221,
+                                    ),
+                                    right: Spanned(
+                                        MemberAccess {
+                                            object: Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "p2",
+                                                        224..226,
+                                                    ),
+                                                ),
+                                                224..226,
+                                            ),
+                                            field: Spanned(
+                                                "x",
+                                                227..228,
+                                            ),
+                                        },
+                                        224..228,
+                                    ),
+                                },
+                                217..228,
+                            ),
+                        },
+                        200..229,
+                    ),
+                    Spanned(
+                        Local {
+                            pattern: Identifier(
+                                Spanned(
+                                    "dy",
+                                    248..250,
+                                ),
+                            ),
+                            ty: Some(
+                                Named(
+                                    "felt",
+                                ),
+                            ),
+                            value: Spanned(
+                                BinaryOp {
+                                    op: Sub,
+                                    left: Spanned(
+                                        MemberAccess {
+                                            object: Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "p1",
+                                                        259..261,
+                                                    ),
+                                                ),
+                                                259..261,
+                                            ),
+                                            field: Spanned(
+                                                "y",
+                                                262..263,
+                                            ),
+                                        },
+                                        259..263,
+                                    ),
+                                    right: Spanned(
+                                        MemberAccess {
+                                            object: Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "p2",
+                                                        266..268,
+                                                    ),
+                                                ),
+                                                266..268,
+                                            ),
+                                            field: Spanned(
+                                                "y",
+                                                269..270,
+                                            ),
+                                        },
+                                        266..270,
+                                    ),
+                                },
+                                259..270,
+                            ),
+                        },
+                        242..271,
+                    ),
+                    Spanned(
+                        Return {
+                            value: Some(
+                                Spanned(
+                                    FunctionCall {
+                                        callee: Spanned(
+                                            Identifier(
+                                                Spanned(
+                                                    "sqrt",
+                                                    291..295,
+                                                ),
+                                            ),
+                                            291..295,
+                                        ),
+                                        args: [
+                                            Spanned(
+                                                BinaryOp {
+                                                    op: Add,
+                                                    left: Spanned(
+                                                        BinaryOp {
+                                                            op: Mul,
+                                                            left: Spanned(
+                                                                Identifier(
+                                                                    Spanned(
+                                                                        "dx",
+                                                                        296..298,
+                                                                    ),
+                                                                ),
+                                                                296..298,
+                                                            ),
+                                                            right: Spanned(
+                                                                Identifier(
+                                                                    Spanned(
+                                                                        "dx",
+                                                                        301..303,
+                                                                    ),
+                                                                ),
+                                                                301..303,
+                                                            ),
+                                                        },
+                                                        296..303,
+                                                    ),
+                                                    right: Spanned(
+                                                        BinaryOp {
+                                                            op: Mul,
+                                                            left: Spanned(
+                                                                Identifier(
+                                                                    Spanned(
+                                                                        "dy",
+                                                                        306..308,
+                                                                    ),
+                                                                ),
+                                                                306..308,
+                                                            ),
+                                                            right: Spanned(
+                                                                Identifier(
+                                                                    Spanned(
+                                                                        "dy",
+                                                                        311..313,
+                                                                    ),
+                                                                ),
+                                                                311..313,
+                                                            ),
+                                                        },
+                                                        306..313,
+                                                    ),
+                                                },
+                                                296..313,
+                                            ),
+                                        ],
+                                    },
+                                    291..313,
+                                ),
+                            ),
+                        },
+                        284..315,
+                    ),
+                ],
+            },
+            142..325,
+        ),
+    ),
+]

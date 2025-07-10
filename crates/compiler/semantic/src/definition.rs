@@ -10,9 +10,9 @@ use cairo_m_compiler_parser::parser::{
 };
 use chumsky::span::SimpleSpan;
 
+use crate::File;
 use crate::place::{FileScopeId, ScopedPlaceId};
 use crate::semantic_index::ExpressionId;
-use crate::File;
 
 /// A definition that links a semantic place to its AST node
 ///
@@ -245,17 +245,8 @@ impl ParameterDefRef {
 /// Reference to an import definition
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct UseDefRef {
-    pub imported_name: String,
-    pub module_path: Vec<String>,
-}
-
-impl UseDefRef {
-    pub const fn new(imported_name: String, module_path: Vec<String>) -> Self {
-        Self {
-            imported_name,
-            module_path,
-        }
-    }
+    pub imported_module: String,
+    pub item: String,
 }
 
 /// Reference to a namespace definition

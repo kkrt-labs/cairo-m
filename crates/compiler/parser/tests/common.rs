@@ -1,5 +1,5 @@
 use cairo_m_compiler_diagnostics::build_diagnostic_message;
-use cairo_m_compiler_parser::{parse_file, Db as ParserDb, ParsedModule, SourceFile, Upcast};
+use cairo_m_compiler_parser::{Db as ParserDb, ParsedModule, SourceFile, Upcast, parse_file};
 use insta::assert_snapshot;
 
 #[salsa::db]

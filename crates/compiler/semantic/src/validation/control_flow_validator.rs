@@ -18,11 +18,9 @@
 //!     all paths are covered, a `MissingReturn` diagnostic is emitted.
 //!
 use cairo_m_compiler_diagnostics::Diagnostic;
-use cairo_m_compiler_parser::parser::{
-    parse_file, FunctionDef, Spanned, Statement, TopLevelItem,
-};
+use cairo_m_compiler_parser::parser::{FunctionDef, Spanned, Statement, TopLevelItem, parse_file};
 
-use crate::db::SemanticDb;
+use crate::db::{Project, SemanticDb, project_semantic_index};
 use crate::definition::DefinitionKind;
 use crate::validation::Validator;
 use crate::{File, SemanticIndex};
@@ -34,29 +32,41 @@ use crate::{File, SemanticIndex};
 pub struct ControlFlowValidator;
 
 impl Validator for ControlFlowValidator {
-    fn validate(&self, db: &dyn SemanticDb, file: File, index: &SemanticIndex) -> Vec<Diagnostic> {
+    fn validate(
+        &self,
+        db: &dyn SemanticDb,
+        project: Project,
+        _file: File,
+        _index: &SemanticIndex,
+    ) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
+        let sem_result = project_semantic_index(db, project);
+        if let Ok(sem) = sem_result {
+            for (module_name, index) in sem.modules().iter() {
+                let file = *project
+                    .modules(db)
+                    .get(module_name)
+                    .expect("Module file should exist");
+                let parsed_program = parse_file(db, file);
+                if !parsed_program.diagnostics.is_empty() {
+                    panic!("Got unexpected parse errors");
+                }
+                let parsed_module = parsed_program.module;
 
-        // Get the parsed module to access the AST.
-        let parsed_program = parse_file(db, file);
-        if !parsed_program.diagnostics.is_empty() {
-            panic!("Got unexpected parse errors");
-        }
-        let parsed_module = parsed_program.module;
-
-        // Analyse each function's control-flow.
-        for (_def_idx, definition) in index.all_definitions() {
-            if let DefinitionKind::Function(_) = &definition.kind {
-                self.analyze_function_control_flow(
-                    db,
-                    file,
-                    &parsed_module,
-                    &definition.name,
-                    &mut diagnostics,
-                );
+                // Analyse each function's control-flow per module.
+                for (_def_idx, definition) in index.all_definitions() {
+                    if let DefinitionKind::Function(_) = &definition.kind {
+                        self.analyze_function_control_flow(
+                            db,
+                            file,
+                            &parsed_module,
+                            &definition.name,
+                            &mut diagnostics,
+                        );
+                    }
+                }
             }
         }
-
         diagnostics
     }
 

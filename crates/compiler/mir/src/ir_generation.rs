@@ -22,6 +22,7 @@
 //! - **Type Integration**: Leverage semantic type information for accurate lowering
 //! - **Incremental Compilation**: Salsa integration for efficient re-compilation
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use cairo_m_compiler_diagnostics::Diagnostic;
@@ -29,8 +30,9 @@ use cairo_m_compiler_parser::parse_file;
 use cairo_m_compiler_parser::parser::{
     Expression, FunctionDef, Pattern, Spanned, Statement, TopLevelItem,
 };
+use cairo_m_compiler_semantic::db::{Project, module_semantic_index};
 use cairo_m_compiler_semantic::definition::{Definition, DefinitionKind};
-use cairo_m_compiler_semantic::semantic_index::{semantic_index, DefinitionId, SemanticIndex};
+use cairo_m_compiler_semantic::semantic_index::{DefinitionId, SemanticIndex};
 use cairo_m_compiler_semantic::type_resolution::{
     definition_semantic_type, expression_semantic_type,
 };
@@ -71,11 +73,12 @@ pub fn generate_mir(db: &dyn MirDb, file: File) -> Result<Arc<MirModule>, Vec<Di
     }
 
     // Get semantic index, return None if semantic analysis failed
-    let maybe_semantic_index = semantic_index(db, file);
-    let semantic_index = match maybe_semantic_index {
-        Ok(semantic_index) => semantic_index,
-        Err(diagnostics) => return Err(diagnostics.clone()),
-    };
+    // Create a single-file project for the MIR generation
+    // TODO This is a workaround, we should take a project as input!!
+    let mut modules = HashMap::new();
+    modules.insert("main".to_string(), file);
+    let project = Project::new(db, modules, "main".to_string());
+    let semantic_index = module_semantic_index(db, project, "main".to_string());
 
     let mut mir_module = MirModule::new();
     let mut function_mapping = FxHashMap::default();

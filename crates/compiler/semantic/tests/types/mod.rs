@@ -53,10 +53,9 @@ pub fn test_db() -> TestDb {
     TestDb::default()
 }
 
-pub use cairo_m_compiler_semantic::semantic_index::semantic_index;
+pub use cairo_m_compiler_semantic::File;
 pub use cairo_m_compiler_semantic::type_resolution::{
     definition_semantic_type, expression_semantic_type, function_semantic_signature,
     resolve_ast_type, struct_semantic_data,
 };
 pub use cairo_m_compiler_semantic::types::{TypeData, TypeId};
-pub use cairo_m_compiler_semantic::File;
