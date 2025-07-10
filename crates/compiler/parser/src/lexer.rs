@@ -123,14 +123,10 @@ pub enum TokenType<'a> {
     Else,
     #[token("false")]
     False,
-    #[token("from")]
-    From,
     #[token("func")]
     Function,
     #[token("if")]
     If,
-    #[token("import")]
-    Import,
     #[token("let")]
     Let,
     #[token("local")]
@@ -155,6 +151,8 @@ pub enum TokenType<'a> {
     Break,
     #[token("continue")]
     Continue,
+    #[token("use")]
+    Use,
     // Identifiers (must come after keywords)
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*")]
     Identifier(&'a str),
@@ -208,6 +206,8 @@ pub enum TokenType<'a> {
     Semicolon,
     #[token(":")]
     Colon,
+    #[token("::")]
+    ColonColon,
     #[token(".")]
     Dot,
 }
@@ -221,10 +221,8 @@ impl<'a> fmt::Display for TokenType<'a> {
             TokenType::Const => write!(f, "const"),
             TokenType::Else => write!(f, "else"),
             TokenType::False => write!(f, "false"),
-            TokenType::From => write!(f, "from"),
             TokenType::Function => write!(f, "func"),
             TokenType::If => write!(f, "if"),
-            TokenType::Import => write!(f, "import"),
             TokenType::Let => write!(f, "let"),
             TokenType::Local => write!(f, "local"),
             TokenType::Namespace => write!(f, "namespace"),
@@ -261,7 +259,9 @@ impl<'a> fmt::Display for TokenType<'a> {
             TokenType::Comma => write!(f, ","),
             TokenType::Semicolon => write!(f, ";"),
             TokenType::Colon => write!(f, ":"),
+            TokenType::ColonColon => write!(f, "::"),
             TokenType::Dot => write!(f, "."),
+            TokenType::Use => write!(f, "use"),
         }
     }
 }
@@ -273,6 +273,8 @@ mod tests {
     #[test]
     fn test_basic_lexer() {
         let input = r#"
+            use std::math::add;
+
             func add(x: felt, y: felt) -> felt {
                 let result = x + y;
                 if result == 0 {
@@ -305,6 +307,13 @@ mod tests {
         }
 
         let expected = vec![
+            TokenType::Use,
+            TokenType::Identifier("std"),
+            TokenType::ColonColon,
+            TokenType::Identifier("math"),
+            TokenType::ColonColon,
+            TokenType::Identifier("add"),
+            TokenType::Semicolon,
             TokenType::Function,
             TokenType::Identifier("add"),
             TokenType::LParen,

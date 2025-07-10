@@ -11,12 +11,12 @@ expression: snapshot
                     break;
                 }
             }
-            
+
             let counter = 0;
             while (counter != 10) {
                 counter = counter + 1;
             }
-            
+
             for i in range {
                 let squared = i * i;
             }
@@ -109,7 +109,7 @@ expression: snapshot
                             pattern: Identifier(
                                 Spanned(
                                     "counter",
-                                    193..200,
+                                    181..188,
                                 ),
                             ),
                             statement_type: None,
@@ -117,10 +117,10 @@ expression: snapshot
                                 Literal(
                                     0,
                                 ),
-                                203..204,
+                                191..192,
                             ),
                         },
-                        189..205,
+                        177..193,
                     ),
                     Spanned(
                         While {
@@ -131,19 +131,19 @@ expression: snapshot
                                         Identifier(
                                             Spanned(
                                                 "counter",
-                                                225..232,
+                                                213..220,
                                             ),
                                         ),
-                                        225..232,
+                                        213..220,
                                     ),
                                     right: Spanned(
                                         Literal(
                                             10,
                                         ),
-                                        236..238,
+                                        224..226,
                                     ),
                                 },
-                                225..238,
+                                213..226,
                             ),
                             body: Spanned(
                                 Block(
@@ -154,10 +154,10 @@ expression: snapshot
                                                     Identifier(
                                                         Spanned(
                                                             "counter",
-                                                            258..265,
+                                                            246..253,
                                                         ),
                                                     ),
-                                                    258..265,
+                                                    246..253,
                                                 ),
                                                 rhs: Spanned(
                                                     BinaryOp {
@@ -166,44 +166,44 @@ expression: snapshot
                                                             Identifier(
                                                                 Spanned(
                                                                     "counter",
-                                                                    268..275,
+                                                                    256..263,
                                                                 ),
                                                             ),
-                                                            268..275,
+                                                            256..263,
                                                         ),
                                                         right: Spanned(
                                                             Literal(
                                                                 1,
                                                             ),
-                                                            278..279,
+                                                            266..267,
                                                         ),
                                                     },
-                                                    268..279,
+                                                    256..267,
                                                 ),
                                             },
-                                            258..280,
+                                            246..268,
                                         ),
                                     ],
                                 ),
-                                240..294,
+                                228..282,
                             ),
                         },
-                        218..294,
+                        206..282,
                     ),
                     Spanned(
                         For {
                             variable: Spanned(
                                 "i",
-                                324..325,
+                                300..301,
                             ),
                             iterable: Spanned(
                                 Identifier(
                                     Spanned(
                                         "range",
-                                        329..334,
+                                        305..310,
                                     ),
                                 ),
-                                329..334,
+                                305..310,
                             ),
                             body: Spanned(
                                 Block(
@@ -213,7 +213,7 @@ expression: snapshot
                                                 pattern: Identifier(
                                                     Spanned(
                                                         "squared",
-                                                        357..364,
+                                                        333..340,
                                                     ),
                                                 ),
                                                 statement_type: None,
@@ -224,36 +224,36 @@ expression: snapshot
                                                             Identifier(
                                                                 Spanned(
                                                                     "i",
-                                                                    367..368,
+                                                                    343..344,
                                                                 ),
                                                             ),
-                                                            367..368,
+                                                            343..344,
                                                         ),
                                                         right: Spanned(
                                                             Identifier(
                                                                 Spanned(
                                                                     "i",
-                                                                    371..372,
+                                                                    347..348,
                                                                 ),
                                                             ),
-                                                            371..372,
+                                                            347..348,
                                                         ),
                                                     },
-                                                    367..372,
+                                                    343..348,
                                                 ),
                                             },
-                                            353..373,
+                                            329..349,
                                         ),
                                     ],
                                 ),
-                                335..387,
+                                311..363,
                             ),
                         },
-                        320..387,
+                        296..363,
                     ),
                 ],
             },
-            9..397,
+            9..373,
         ),
     ),
 ]
