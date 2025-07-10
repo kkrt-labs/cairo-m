@@ -22,7 +22,7 @@
 
 use cairo_m_compiler_parser as parser;
 // Import file types from parser
-pub use parser::{parse_program, ParsedModule, SourceProgram};
+pub use parser::{parse_file, ParsedModule, SourceFile};
 
 pub mod definition;
 pub mod place;
@@ -45,4 +45,4 @@ pub use types::{FunctionSignatureId, StructTypeId, TypeData, TypeId};
 
 /// A file in the semantic analysis system
 /// For now, we reuse the parser's file concept
-pub type File = SourceProgram;
+pub type File = SourceFile;

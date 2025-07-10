@@ -47,10 +47,10 @@
 
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCollection};
 use cairo_m_compiler_parser::parser::{
-    ConstDef, Expression, FunctionDef, ImportStmt, Namespace, Pattern, Spanned, Statement,
+    ConstDef, Expression, FunctionDef, UseStmt, Namespace, Pattern, Spanned, Statement,
     StructDef, TopLevelItem,
 };
-use cairo_m_compiler_parser::{parse_program, ParsedModule};
+use cairo_m_compiler_parser::{parse_file, ParsedModule};
 use chumsky::span::SimpleSpan;
 use index_vec::IndexVec;
 use rustc_hash::FxHashMap;
@@ -457,13 +457,13 @@ impl Default for SemanticIndex {
 ///
 /// ```rust,ignore
 /// let db = SemanticDatabaseImpl::default();
-/// let file = SourceProgram::new(&db, source_code);
+/// let file = SourceFile::new(&db, source_code);
 /// let index = semantic_index(&db, file).as_ref().expect("Got unexpected parse errors");
 /// ```
 #[salsa::tracked(returns(ref))]
 pub fn semantic_index(db: &dyn SemanticDb, file: File) -> Result<SemanticIndex, Vec<Diagnostic>> {
     // Parse the file and analyze its semantics
-    let parsed_module = parse_program(db, file);
+    let parsed_module = parse_file(db, file);
     if parsed_module.diagnostics.is_empty() {
         Ok(semantic_index_from_module(db, &parsed_module.module, file))
     } else {
@@ -650,7 +650,7 @@ impl<'db> SemanticIndexBuilder<'db> {
             TopLevelItem::Function(func) => self.declare_function(func),
             TopLevelItem::Struct(struct_def) => self.visit_struct(struct_def), // Structs don't have bodies
             TopLevelItem::Namespace(namespace) => self.declare_namespace(namespace),
-            TopLevelItem::Import(import) => self.visit_import(import), // Imports are just declarations
+            TopLevelItem::Use(use_stmt) => self.visit_use(use_stmt), // Imports are just declarations
             TopLevelItem::Const(const_def) => self.visit_const(const_def), // Constants need full processing
         }
     }
@@ -662,7 +662,7 @@ impl<'db> SemanticIndexBuilder<'db> {
             TopLevelItem::Function(func) => self.process_function_body(func),
             TopLevelItem::Struct(_) => {} // Structs don't have bodies to process
             TopLevelItem::Namespace(namespace) => self.process_namespace_body(namespace),
-            TopLevelItem::Import(_) => {} // Imports already fully processed
+            TopLevelItem::Use(_) => {} // Imports already fully processed
             TopLevelItem::Const(_) => {}  // Constants already fully processed
         }
     }
@@ -688,21 +688,18 @@ impl<'db> SemanticIndexBuilder<'db> {
         // so we don't create a new scope here. The fields are part of the type system.
     }
 
-    fn visit_import(&mut self, import: &Spanned<ImportStmt>) {
-        use crate::definition::{DefinitionKind, ImportDefRef};
+    fn visit_use(&mut self, use_stmt: &Spanned<UseStmt>) {
+        use crate::definition::{DefinitionKind, UseDefRef};
         use crate::place::PlaceFlags;
 
-        let import_inner = import.value();
-        let import_span = import.span();
+        let use_inner = use_stmt.value();
+        let use_span = use_stmt.span();
 
-        // The imported name (or alias) is defined in the current scope
-        let (name, name_span) = import_inner.alias.as_ref().map_or_else(
-            || (import_inner.item.value(), import_inner.item.span()),
-            |alias| (alias.value(), alias.span()),
-        );
-
-        let def_kind = DefinitionKind::Import(ImportDefRef::from_ast(import));
-        self.add_place_with_definition(name, PlaceFlags::DEFINED, def_kind, name_span, import_span);
+        for item in use_inner.path.iter() {
+            let (name, name_span) = item.clone().into_parts();
+            let def_kind = DefinitionKind::Use(UseDefRef::new(name.as_str().to_string(), use_inner.path.iter().map(|p| p.value().clone()).collect()));
+            self.add_place_with_definition(name.as_str(), PlaceFlags::DEFINED, def_kind, name_span, use_span);
+        }
     }
 
     fn visit_const(&mut self, const_def: &Spanned<ConstDef>) {
@@ -1136,19 +1133,19 @@ impl<'db> SemanticIndexBuilder<'db> {
 
 #[cfg(test)]
 mod tests {
-    use cairo_m_compiler_parser::SourceProgram;
+    use cairo_m_compiler_parser::SourceFile;
 
     use super::*;
     use crate::db::tests::{test_db, TestDb};
 
     struct TestCase {
         db: TestDb,
-        source: SourceProgram,
+        source: SourceFile,
     }
 
     fn test_case(content: &str) -> TestCase {
         let db = test_db();
-        let source = SourceProgram::new(&db, content.to_string(), "test.cm".to_string());
+        let source = SourceFile::new(&db, content.to_string(), "test.cm".to_string());
         TestCase { db, source }
     }
 

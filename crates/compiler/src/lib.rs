@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use cairo_m_common::Program;
 use cairo_m_compiler_diagnostics::{build_diagnostic_message, Diagnostic, DiagnosticSeverity};
-use cairo_m_compiler_parser::{parse_program, SourceProgram};
+use cairo_m_compiler_parser::{parse_file, parse_project, Project, SourceFile};
 use db::CompilerDatabase;
 use thiserror::Error;
 
@@ -61,22 +61,22 @@ pub fn compile_cairo(
     options: CompilerOptions,
 ) -> Result<CompilerOutput> {
     let db = CompilerDatabase::new();
-    let source = SourceProgram::new(&db, source_text, source_name);
+    let source = SourceFile::new(&db, source_text, source_name);
 
-    compile_from_source(&db, source, options)
+    compile_from_file(&db, source, options)
 }
 
-/// Compiles a Cairo-M program from a SourceProgram
+/// Compiles a Cairo-M program from a SourceFile
 ///
 /// This is a lower-level API that allows reusing a database instance
 /// for incremental compilation scenarios.
-pub fn compile_from_source(
+pub fn compile_from_file(
     db: &CompilerDatabase,
-    source: SourceProgram,
+    source: SourceFile,
     _options: CompilerOptions,
 ) -> Result<CompilerOutput> {
     // Parse the program
-    let parsed_program = parse_program(db, source);
+    let parsed_program = parse_file(db, source);
 
     if !parsed_program.diagnostics.is_empty() {
         return Err(CompilerError::ParseErrors(parsed_program.diagnostics));
@@ -100,6 +100,30 @@ pub fn compile_from_source(
         program,
         diagnostics,
     })
+}
+
+/// Compiles a Cairo-M project
+///
+/// This compiles the entry file for now, to be extended for multi-file later.
+pub fn compile_from_project(
+    db: &CompilerDatabase,
+    project: Project,
+    options: CompilerOptions,
+) -> Result<CompilerOutput> {
+    let parsed_project = parse_project(db, project);
+
+    if !parsed_project.diagnostics.is_empty() {
+        return Err(CompilerError::ParseErrors(parsed_project.diagnostics));
+    }
+
+    let entry_path = project.entry_file(db);
+    let entry_source = project
+        .files(db)
+        .into_iter()
+        .find(|f| f.file_path(db) == entry_path)
+        .ok_or(CompilerError::MirGenerationFailed)?; // Temporary error, replace later
+
+    compile_from_file(db, entry_source, options)
 }
 
 /// Formats diagnostics for display

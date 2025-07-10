@@ -25,7 +25,7 @@
 use std::sync::Arc;
 
 use cairo_m_compiler_diagnostics::Diagnostic;
-use cairo_m_compiler_parser::parse_program;
+use cairo_m_compiler_parser::parse_file;
 use cairo_m_compiler_parser::parser::{
     Expression, FunctionDef, Pattern, Spanned, Statement, TopLevelItem,
 };
@@ -65,7 +65,7 @@ mod tests {
 #[salsa::tracked]
 pub fn generate_mir(db: &dyn MirDb, file: File) -> Result<Arc<MirModule>, Vec<Diagnostic>> {
     // Parse the module to get access to AST
-    let parsed_program = parse_program(db, file);
+    let parsed_program = parse_file(db, file);
     if !parsed_program.diagnostics.is_empty() {
         return Err(parsed_program.diagnostics); // Can't generate MIR if parsing failed
     }

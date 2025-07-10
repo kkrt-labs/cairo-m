@@ -1,5 +1,5 @@
 use cairo_m_compiler_diagnostics::build_diagnostic_message;
-use cairo_m_compiler_parser::{parse_program, Db as ParserDb, ParsedModule, SourceProgram, Upcast};
+use cairo_m_compiler_parser::{parse_file, Db as ParserDb, ParsedModule, SourceFile, Upcast};
 use insta::assert_snapshot;
 
 #[salsa::db]
@@ -68,8 +68,8 @@ impl std::fmt::Display for ParseError<'_> {
 #[track_caller]
 pub fn assert_parses_ok_impl(code: &str, test_name: &str) {
     let db = test_db();
-    let source = SourceProgram::new(&db, code.to_string(), "test.cairo".to_string());
-    let result = parse_program(&db, source);
+    let source = SourceFile::new(&db, code.to_string(), "test.cairo".to_string());
+    let result = parse_file(&db, source);
 
     if !result.diagnostics.is_empty() {
         let diagnostics = result
@@ -117,8 +117,8 @@ macro_rules! assert_parses_ok {
 #[track_caller]
 pub fn assert_parses_err_impl(code: &str, test_name: &str) {
     let db = test_db();
-    let source = SourceProgram::new(&db, code.to_string(), "test.cairo".to_string());
-    let result = parse_program(&db, source);
+    let source = SourceFile::new(&db, code.to_string(), "test.cairo".to_string());
+    let result = parse_file(&db, source);
 
     if result.diagnostics.is_empty() {
         panic!("Expected parsing to fail, but it succeeded without diagnostics.");
