@@ -1,3 +1,2 @@
-edition = "2021"
 imports_granularity = "Module"
 group_imports = "StdExternalCrate" # nightly only
