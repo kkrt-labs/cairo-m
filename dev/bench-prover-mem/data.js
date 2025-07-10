@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1752067303761,
+  "lastUpdate": 1752138580550,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -342,6 +342,35 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/kkrt-labs/cairo-m/commit/053338b3824c34d78db60933c9dee397f6a0c0bf"
         },
         "date": 1752067303719,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2275624168,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antoine.fondeur@gmail.com",
+            "name": "Antoine Fondeur",
+            "username": "AntoineFONDEUR"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d89b7cdf617e26e82a86ce5a82c5b26c8388e9d1",
+          "message": "feat(prover): add a Merkle relation and update the PublicData (#143)\n\n* added roots to public data\n\n* rebase\n\n* add the merkle relation",
+          "timestamp": "2025-07-10T10:57:03+02:00",
+          "tree_id": "3bdbf5d4a0eb53fa7da0dcfb42cf0c027dfda53a",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/d89b7cdf617e26e82a86ce5a82c5b26c8388e9d1"
+        },
+        "date": 1752138580509,
         "tool": "customBiggerIsBetter",
         "benches": [
           {
