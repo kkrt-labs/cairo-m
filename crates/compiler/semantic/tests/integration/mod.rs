@@ -5,6 +5,9 @@
 
 use crate::*;
 
+// Multi-file tests
+pub mod multi_file_test;
+
 #[test]
 fn test_complete_program_with_multiple_functions() {
     assert_semantic_ok!(

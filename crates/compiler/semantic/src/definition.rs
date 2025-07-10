@@ -245,17 +245,8 @@ impl ParameterDefRef {
 /// Reference to an import definition
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct UseDefRef {
-    pub imported_name: String,
-    pub module_path: Vec<String>,
-}
-
-impl UseDefRef {
-    pub const fn new(imported_name: String, module_path: Vec<String>) -> Self {
-        Self {
-            imported_name,
-            module_path,
-        }
-    }
+    pub imported_module: String,
+    pub item: String,
 }
 
 /// Reference to a namespace definition

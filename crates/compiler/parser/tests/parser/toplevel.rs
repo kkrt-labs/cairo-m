@@ -26,7 +26,9 @@ fn function_multiple_params() {
 
 #[test]
 fn many_parameters() {
-    assert_parses_ok!("func complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStruct*) -> (felt, felt) { return (a, b); }");
+    assert_parses_ok!(
+        "func complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStruct*) -> (felt, felt) { return (a, b); }"
+    );
 }
 
 #[test]
@@ -222,8 +224,8 @@ fn complete_program() {
 fn imports_and_functions() {
     assert_parses_ok!(
         r#"
-        from std.math import sqrt
-        from std.io import print as output
+        use std::math::sqrt;
+        use std::io::print;
 
         struct Point {
             x: felt,

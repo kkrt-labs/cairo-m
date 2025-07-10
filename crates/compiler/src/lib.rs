@@ -1,11 +1,14 @@
 //! Cairo-M compiler library
 
 pub mod db;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use cairo_m_common::Program;
-use cairo_m_compiler_diagnostics::{build_diagnostic_message, Diagnostic, DiagnosticSeverity};
-use cairo_m_compiler_parser::{parse_file, parse_project, Project, SourceFile};
+use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticSeverity, build_diagnostic_message};
+use cairo_m_compiler_parser::{Crate, SourceFile, parse_crate, parse_file};
+use cairo_m_compiler_semantic::Project;
+use cairo_m_compiler_semantic::db::project_validate_semantics;
 use db::CompilerDatabase;
 use thiserror::Error;
 
@@ -82,8 +85,13 @@ pub fn compile_from_file(
         return Err(CompilerError::ParseErrors(parsed_program.diagnostics));
     }
 
-    // Validate semantics
-    let semantic_diagnostics = cairo_m_compiler_semantic::db::validate_semantics(db, source);
+    // Create a single-file project for semantic validation
+    let mut modules = HashMap::new();
+    modules.insert("main".to_string(), source);
+    let project = Project::new(db, modules, "main".to_string());
+
+    // Validate semantics using project-based API
+    let semantic_diagnostics = project_validate_semantics(db, project);
 
     let (semantic_errors, diagnostics): (Vec<_>, Vec<_>) = semantic_diagnostics
         .into_iter()
@@ -105,15 +113,15 @@ pub fn compile_from_file(
 /// Compiles a Cairo-M project
 ///
 /// This compiles the entry file for now, to be extended for multi-file later.
-pub fn compile_from_project(
+pub fn compile_from_crate(
     db: &CompilerDatabase,
-    project: Project,
+    project: Crate,
     options: CompilerOptions,
 ) -> Result<CompilerOutput> {
-    let parsed_project = parse_project(db, project);
+    let parsed_crate = parse_crate(db, project);
 
-    if !parsed_project.diagnostics.is_empty() {
-        return Err(CompilerError::ParseErrors(parsed_project.diagnostics));
+    if !parsed_crate.diagnostics.is_empty() {
+        return Err(CompilerError::ParseErrors(parsed_crate.diagnostics));
     }
 
     let entry_path = project.entry_file(db);

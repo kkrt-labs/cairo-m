@@ -34,7 +34,7 @@ pub struct SourceFile {
 }
 
 #[salsa::input(debug)]
-pub struct Project {
+pub struct Crate {
     #[returns(ref)]
     pub root_dir: String,
     #[returns(ref)]
@@ -43,23 +43,23 @@ pub struct Project {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ParsedProject {
+pub struct ParsedCrate {
     pub modules: std::collections::HashMap<String, ParsedModule>,
     pub diagnostics: Vec<Diagnostic>,
 }
 
 #[salsa::tracked]
-pub fn parse_project(db: &dyn Db, project: Project) -> ParsedProject {
+pub fn parse_crate(db: &dyn Db, cairo_m_crate: Crate) -> ParsedCrate {
     let mut modules = std::collections::HashMap::new();
     let mut diagnostics = Vec::new();
 
-    for file in project.files(db) {
+    for file in cairo_m_crate.files(db) {
         let parsed = super::parser::parse_file(db, file);
         diagnostics.extend(parsed.diagnostics);
         modules.insert(file.file_path(db).to_string(), parsed.module);
     }
 
-    ParsedProject {
+    ParsedCrate {
         modules,
         diagnostics,
     }

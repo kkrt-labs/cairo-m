@@ -1,6 +1,7 @@
 #![feature(let_chains)]
 #![allow(clippy::option_if_let_else)]
 
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use cairo_m_compiler::db::CompilerDatabase;
@@ -8,11 +9,11 @@ use cairo_m_compiler_diagnostics::{
     Diagnostic as CairoDiagnostic, DiagnosticSeverity as CairoSeverity,
 };
 use cairo_m_compiler_parser::{SourceFile, Upcast};
-use cairo_m_compiler_semantic::db::validate_semantics;
-use cairo_m_compiler_semantic::semantic_index::{semantic_index, DefinitionId};
+use cairo_m_compiler_semantic::db::project_validate_semantics;
+use cairo_m_compiler_semantic::semantic_index::DefinitionId;
 use cairo_m_compiler_semantic::type_resolution::definition_semantic_type;
 use cairo_m_compiler_semantic::types::{TypeData, TypeId};
-use cairo_m_compiler_semantic::{DefinitionKind, SemanticDb};
+use cairo_m_compiler_semantic::{DefinitionKind, Project, SemanticDb, module_semantic_index};
 use dashmap::DashMap;
 use salsa::Setter;
 use tower_lsp::jsonrpc::Result;
@@ -154,7 +155,11 @@ impl Backend {
                 {
                     let db = self.db.lock().unwrap();
                     content = source.text(&*db).to_owned();
-                    semantic_diagnostics = validate_semantics(&*db, source);
+                    // Create a single-file project for semantic validation
+                    let mut modules = HashMap::new();
+                    modules.insert("main".to_string(), source);
+                    let project = Project::new(&*db, modules, "main".to_string());
+                    semantic_diagnostics = project_validate_semantics(&*db, project);
                 }
 
                 semantic_diagnostics
@@ -253,11 +258,13 @@ impl LanguageServer for Backend {
             let content = source.text(&*db);
             let offset = self.position_to_offset(content, position);
 
+            // Create a single-file project for semantic analysis
+            let mut modules = HashMap::new();
+            modules.insert("main".to_string(), source);
+            let project = Project::new(&*db, modules, "main".to_string());
+
             // Run semantic analysis query. Salsa will compute it incrementally.
-            let index = match semantic_index((*db).upcast(), source) {
-                Ok(idx) => idx,
-                Err(_) => return Ok(None),
-            };
+            let index = module_semantic_index((*db).upcast(), project, "main".to_string());
 
             // Find the identifier at the cursor position.
             let identifier_usage = index
@@ -307,11 +314,13 @@ impl LanguageServer for Backend {
             let content = source.text(&*db);
             let offset = self.position_to_offset(content, position);
 
+            // Create a single-file project for semantic analysis
+            let mut modules = HashMap::new();
+            modules.insert("main".to_string(), source);
+            let project = Project::new(&*db, modules, "main".to_string());
+
             // Run semantic analysis query incrementally.
-            let index = match semantic_index((*db).upcast(), source) {
-                Ok(idx) => idx,
-                Err(_) => return Ok(None),
-            };
+            let index = module_semantic_index((*db).upcast(), project, "main".to_string());
 
             let identifier_usage = index
                 .identifier_usages()
@@ -324,7 +333,7 @@ impl LanguageServer for Backend {
                     index.resolve_name_to_definition(&usage.name, usage.scope_id)
                 {
                     let def_id = DefinitionId::new(&*db, source, def_idx);
-                    let type_id = definition_semantic_type((*db).upcast(), def_id);
+                    let type_id = definition_semantic_type((*db).upcast(), project, def_id);
                     let type_str = Self::format_type((*db).upcast(), type_id);
 
                     let hover_text = format!("```cairo-m\n{}: {}\n```", usage.name, type_str);

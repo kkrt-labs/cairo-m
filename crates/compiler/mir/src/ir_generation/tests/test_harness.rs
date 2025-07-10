@@ -10,7 +10,7 @@ use std::sync::Arc;
 use cairo_m_compiler_semantic::File;
 
 use crate::db::tests::test_db;
-use crate::{generate_mir, MirModule, PrettyPrint};
+use crate::{MirModule, PrettyPrint, generate_mir};
 
 /// The result of running MIR generation on a test source.
 pub struct MirOutput {

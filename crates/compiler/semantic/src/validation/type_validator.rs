@@ -12,13 +12,14 @@
 use std::collections::HashSet;
 
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode};
+use cairo_m_compiler_parser::ParsedModule;
 use cairo_m_compiler_parser::parser::{
-    parse_file, BinaryOp, Expression, FunctionDef, Pattern, Spanned, Statement, TopLevelItem,
-    TypeExpr, UnaryOp,
+    BinaryOp, Expression, FunctionDef, Pattern, Spanned, Statement, TopLevelItem, TypeExpr,
+    UnaryOp, parse_file,
 };
 use chumsky::span::SimpleSpan;
 
-use crate::db::SemanticDb;
+use crate::db::{Project, SemanticDb, project_semantic_index};
 use crate::semantic_index::ExpressionInfo;
 use crate::type_resolution::{are_types_compatible, expression_semantic_type, resolve_ast_type};
 use crate::types::{TypeData, TypeId};
@@ -41,34 +42,55 @@ use crate::{DefinitionKind, ExpressionId, File, SemanticIndex};
 pub struct TypeValidator;
 
 impl Validator for TypeValidator {
-    fn validate(&self, db: &dyn SemanticDb, file: File, index: &SemanticIndex) -> Vec<Diagnostic> {
+    fn validate(
+        &self,
+        db: &dyn SemanticDb,
+        project: Project,
+        _file: File,
+        _index: &SemanticIndex,
+    ) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
+        let sem_result = project_semantic_index(db, project);
+        if let Ok(sem) = sem_result {
+            for (module_name, index) in sem.modules().iter() {
+                let file = *project
+                    .modules(db)
+                    .get(module_name)
+                    .expect("Module file should exist");
+                let parsed_program = parse_file(db, file);
+                if !parsed_program.diagnostics.is_empty() {
+                    panic!("Got unexpected parse errors");
+                }
+                let parsed_module = parsed_program.module;
 
-        // Get the parsed module to access the AST.
-        let parsed_program = parse_file(db, file);
-        if !parsed_program.diagnostics.is_empty() {
-            panic!("Got unexpected parse errors");
-        }
-        let parsed_module = parsed_program.module;
+                // Single pass through all expressions for type checking per module
+                for (expr_id, expr_info) in index.all_expressions() {
+                    self.check_expression_types(
+                        db,
+                        project,
+                        file,
+                        index,
+                        expr_id,
+                        expr_info,
+                        &mut diagnostics,
+                    );
+                }
 
-        // Single pass through all expressions for type checking
-        for (expr_id, expr_info) in index.all_expressions() {
-            self.check_expression_types(db, file, index, expr_id, expr_info, &mut diagnostics);
-        }
-
-        for (_def_idx, definition) in index.all_definitions() {
-            if let DefinitionKind::Function(_) = &definition.kind {
-                self.analyze_function_statement_types(
-                    db,
-                    file,
-                    index,
-                    &parsed_module,
-                    &definition.name,
-                    &mut diagnostics,
-                )
+                for (_def_idx, definition) in index.all_definitions() {
+                    if let DefinitionKind::Function(_) = &definition.kind {
+                        self.analyze_function_statement_types(
+                            db,
+                            project,
+                            file,
+                            index,
+                            &parsed_module,
+                            &definition.name,
+                            &mut diagnostics,
+                        )
+                    }
+                }
             }
         }
-
         diagnostics
     }
 
@@ -129,6 +151,7 @@ impl TypeValidator {
     fn check_expression_types(
         &self,
         db: &dyn SemanticDb,
+        project: Project,
         file: File,
         index: &SemanticIndex,
         _expr_id: ExpressionId,
@@ -137,26 +160,43 @@ impl TypeValidator {
     ) {
         match &expr_info.ast_node {
             Expression::UnaryOp { expr, op } => {
-                self.check_unary_op_types(db, file, index, expr, op, diagnostics);
+                self.check_unary_op_types(db, project, file, index, expr, op, diagnostics);
             }
             Expression::BinaryOp { left, op, right } => {
-                self.check_binary_op_types(db, file, index, left, op, right, diagnostics);
+                self.check_binary_op_types(db, project, file, index, left, op, right, diagnostics);
             }
             Expression::FunctionCall { callee, args } => {
-                self.check_function_call_types(db, file, index, callee, args, diagnostics);
+                self.check_function_call_types(db, project, file, index, callee, args, diagnostics);
             }
             Expression::MemberAccess { object, field } => {
-                self.check_member_access_types(db, file, index, object, field, diagnostics);
+                self.check_member_access_types(
+                    db,
+                    project,
+                    file,
+                    index,
+                    object,
+                    field,
+                    diagnostics,
+                );
             }
             Expression::IndexAccess {
                 array,
                 index: index_expr,
             } => {
-                self.check_index_access_types(db, file, index, array, index_expr, diagnostics);
+                self.check_index_access_types(
+                    db,
+                    project,
+                    file,
+                    index,
+                    array,
+                    index_expr,
+                    diagnostics,
+                );
             }
             Expression::StructLiteral { name, fields } => {
                 self.check_struct_literal_types(
                     db,
+                    project,
                     file,
                     index,
                     expr_info.scope_id,
@@ -176,6 +216,7 @@ impl TypeValidator {
     fn check_binary_op_types(
         &self,
         db: &dyn SemanticDb,
+        project: Project,
         file: File,
         index: &SemanticIndex,
         left: &Spanned<Expression>,
@@ -190,8 +231,8 @@ impl TypeValidator {
             return;
         };
 
-        let left_type = expression_semantic_type(db, file, left_id);
-        let right_type = expression_semantic_type(db, file, right_id);
+        let left_type = expression_semantic_type(db, project, file, left_id);
+        let right_type = expression_semantic_type(db, project, file, right_id);
         let felt_type = TypeId::new(db, TypeData::Felt);
 
         // For now, all binary operations require felt operands
@@ -332,6 +373,7 @@ impl TypeValidator {
     fn check_unary_op_types(
         &self,
         db: &dyn SemanticDb,
+        project: Project,
         file: File,
         index: &SemanticIndex,
         expr: &Spanned<Expression>,
@@ -342,7 +384,7 @@ impl TypeValidator {
             return;
         };
 
-        let expr_type = expression_semantic_type(db, file, expr_id);
+        let expr_type = expression_semantic_type(db, project, file, expr_id);
         let felt_type = TypeId::new(db, TypeData::Felt);
 
         // For now, all unary operations require felt operands
@@ -393,6 +435,7 @@ impl TypeValidator {
     fn check_function_call_types(
         &self,
         db: &dyn SemanticDb,
+        project: Project,
         file: File,
         index: &SemanticIndex,
         callee: &Spanned<Expression>,
@@ -402,7 +445,7 @@ impl TypeValidator {
         let Some(callee_expr_id) = index.expression_id_by_span(callee.span()) else {
             return;
         };
-        let callee_type = expression_semantic_type(db, file, callee_expr_id);
+        let callee_type = expression_semantic_type(db, project, file, callee_expr_id);
 
         match callee_type.data(db) {
             TypeData::Function(signature_id) => {
@@ -427,7 +470,7 @@ impl TypeValidator {
                 // Check argument types
                 for (arg, (_param_name, param_type)) in args.iter().zip(params.iter()) {
                     if let Some(arg_expr_id) = index.expression_id_by_span(arg.span()) {
-                        let arg_type = expression_semantic_type(db, file, arg_expr_id);
+                        let arg_type = expression_semantic_type(db, project, file, arg_expr_id);
 
                         if !are_types_compatible(db, arg_type, *param_type) {
                             let suggestion =
@@ -493,6 +536,7 @@ impl TypeValidator {
     fn check_member_access_types(
         &self,
         db: &dyn SemanticDb,
+        project: Project,
         file: File,
         index: &SemanticIndex,
         object: &Spanned<Expression>,
@@ -502,7 +546,7 @@ impl TypeValidator {
         let Some(object_id) = index.expression_id_by_span(object.span()) else {
             return;
         };
-        let object_type_id = expression_semantic_type(db, file, object_id);
+        let object_type_id = expression_semantic_type(db, project, file, object_id);
         let object_type = object_type_id.data(db);
 
         match object_type {
@@ -544,6 +588,7 @@ impl TypeValidator {
     fn check_index_access_types(
         &self,
         db: &dyn SemanticDb,
+        project: Project,
         file: File,
         index: &SemanticIndex,
         array: &Spanned<Expression>,
@@ -553,7 +598,7 @@ impl TypeValidator {
         let Some(array_id) = index.expression_id_by_span(array.span()) else {
             return;
         };
-        let array_type_id = expression_semantic_type(db, file, array_id);
+        let array_type_id = expression_semantic_type(db, project, file, array_id);
         let array_type = array_type_id.data(db);
 
         // Check if the array expression is indexable
@@ -563,7 +608,7 @@ impl TypeValidator {
                 let Some(index_id) = index.expression_id_by_span(index_expr.span()) else {
                     return;
                 };
-                let index_type_id = expression_semantic_type(db, file, index_id);
+                let index_type_id = expression_semantic_type(db, project, file, index_id);
                 let index_type = index_type_id.data(db);
 
                 if !matches!(index_type, TypeData::Felt) {
@@ -602,6 +647,7 @@ impl TypeValidator {
     fn check_struct_literal_types(
         &self,
         db: &dyn SemanticDb,
+        project: Project,
         file: File,
         index: &SemanticIndex,
         scope_id: crate::place::FileScopeId,
@@ -619,7 +665,7 @@ impl TypeValidator {
         use crate::type_resolution::definition_semantic_type;
 
         let def_id = DefinitionId::new(db, file, def_idx);
-        let def_type = definition_semantic_type(db, def_id);
+        let def_type = definition_semantic_type(db, project, def_id);
 
         let TypeData::Struct(struct_type) = def_type.data(db) else {
             diagnostics.push(
@@ -663,7 +709,7 @@ impl TypeValidator {
             {
                 // Check field value type compatibility
                 if let Some(value_expr_id) = index.expression_id_by_span(field_value.span()) {
-                    let actual_type = expression_semantic_type(db, file, value_expr_id);
+                    let actual_type = expression_semantic_type(db, project, file, value_expr_id);
 
                     if !are_types_compatible(db, actual_type, *expected_type) {
                         diagnostics.push(
@@ -700,9 +746,10 @@ impl TypeValidator {
     fn analyze_function_statement_types(
         &self,
         db: &dyn SemanticDb,
+        project: Project,
         file: File,
         index: &SemanticIndex,
-        parsed_module: &cairo_m_compiler_parser::parser::ParsedModule,
+        parsed_module: &ParsedModule,
         function_name: &str,
         diagnostics: &mut Vec<Diagnostic>,
     ) {
@@ -710,7 +757,15 @@ impl TypeValidator {
         if let Some(function_def) = self.find_function_in_module(parsed_module, function_name) {
             // Analyze each statement in the function body
             for stmt in &function_def.body {
-                self.check_statement_type(db, file, index, function_def, stmt, diagnostics);
+                self.check_statement_type(
+                    db,
+                    project,
+                    file,
+                    index,
+                    function_def,
+                    stmt,
+                    diagnostics,
+                );
             }
         }
     }
@@ -719,6 +774,7 @@ impl TypeValidator {
     fn check_statement_type(
         &self,
         db: &dyn SemanticDb,
+        project: Project,
         file: File,
         index: &SemanticIndex,
         function_def: &FunctionDef,
@@ -733,6 +789,7 @@ impl TypeValidator {
             } => {
                 self.check_let_statement_types(
                     db,
+                    project,
                     file,
                     index,
                     pattern,
@@ -742,14 +799,24 @@ impl TypeValidator {
                 );
             }
             Statement::Local { pattern, value, ty } => {
-                self.check_local_statement_types(db, file, index, pattern, value, ty, diagnostics);
+                self.check_local_statement_types(
+                    db,
+                    project,
+                    file,
+                    index,
+                    pattern,
+                    value,
+                    ty,
+                    diagnostics,
+                );
             }
             Statement::Assignment { lhs, rhs } => {
-                self.check_assignment_types(db, file, index, lhs, rhs, diagnostics);
+                self.check_assignment_types(db, project, file, index, lhs, rhs, diagnostics);
             }
             Statement::Return { value } => {
                 self.check_return_types(
                     db,
+                    project,
                     file,
                     index,
                     function_def,
@@ -765,6 +832,7 @@ impl TypeValidator {
             } => {
                 self.check_if_statement_types(
                     db,
+                    project,
                     file,
                     index,
                     function_def,
@@ -777,7 +845,15 @@ impl TypeValidator {
             Statement::Block(statements) => {
                 // Recursively check statements in the block
                 for stmt in statements {
-                    self.check_statement_type(db, file, index, function_def, stmt, diagnostics);
+                    self.check_statement_type(
+                        db,
+                        project,
+                        file,
+                        index,
+                        function_def,
+                        stmt,
+                        diagnostics,
+                    );
                 }
             }
             Statement::Expression(expr) => {
@@ -788,7 +864,15 @@ impl TypeValidator {
                 // Const statements are handled during definition processing
             }
             Statement::Loop { body } => {
-                self.check_statement_type(db, file, index, function_def, body, diagnostics);
+                self.check_statement_type(
+                    db,
+                    project,
+                    file,
+                    index,
+                    function_def,
+                    body,
+                    diagnostics,
+                );
             }
             Statement::While { condition, body } => {
                 // Check condition expression
@@ -796,6 +880,7 @@ impl TypeValidator {
                     if let Some(condition_info) = index.expression(condition_expr_id) {
                         self.check_expression_types(
                             db,
+                            project,
                             file,
                             index,
                             condition_expr_id,
@@ -806,7 +891,8 @@ impl TypeValidator {
 
                     // TODO: change this to check bool type once implemented
                     // Check that condition is boolean type (felt)
-                    let condition_type = expression_semantic_type(db, file, condition_expr_id);
+                    let condition_type =
+                        expression_semantic_type(db, project, file, condition_expr_id);
                     let felt_type = TypeId::new(db, TypeData::Felt);
 
                     if !are_types_compatible(db, condition_type, felt_type) {
@@ -823,7 +909,15 @@ impl TypeValidator {
                     }
                 }
 
-                self.check_statement_type(db, file, index, function_def, body, diagnostics);
+                self.check_statement_type(
+                    db,
+                    project,
+                    file,
+                    index,
+                    function_def,
+                    body,
+                    diagnostics,
+                );
             }
             Statement::For { .. } => {
                 // TODO: For loops not yet supported - we need iterator/range types first
@@ -840,6 +934,7 @@ impl TypeValidator {
     fn check_let_statement_types(
         &self,
         db: &dyn SemanticDb,
+        project: Project,
         file: File,
         index: &SemanticIndex,
         pattern: &Pattern,
@@ -850,7 +945,7 @@ impl TypeValidator {
         let Some(value_expr_id) = index.expression_id_by_span(value.span()) else {
             return;
         };
-        let value_type = expression_semantic_type(db, file, value_expr_id);
+        let value_type = expression_semantic_type(db, project, file, value_expr_id);
 
         match pattern {
             Pattern::Identifier(name) => {
@@ -860,7 +955,7 @@ impl TypeValidator {
                         .expression(value_expr_id)
                         .expect("No expression info found")
                         .scope_id;
-                    let expected_type = resolve_ast_type(db, file, ty.clone(), scope_id);
+                    let expected_type = resolve_ast_type(db, project, file, ty.clone(), scope_id);
                     if !are_types_compatible(db, value_type, expected_type) {
                         diagnostics.push(
                             Diagnostic::error(
@@ -901,7 +996,8 @@ impl TypeValidator {
                                 .expression(value_expr_id)
                                 .expect("No expression info found")
                                 .scope_id;
-                            let expected_type = resolve_ast_type(db, file, ty.clone(), scope_id);
+                            let expected_type =
+                                resolve_ast_type(db, project, file, ty.clone(), scope_id);
                             if !are_types_compatible(db, value_type, expected_type) {
                                 diagnostics.push(
                                     Diagnostic::error(
@@ -939,6 +1035,7 @@ impl TypeValidator {
     fn check_local_statement_types(
         &self,
         db: &dyn SemanticDb,
+        project: Project,
         file: File,
         index: &SemanticIndex,
         pattern: &Pattern,
@@ -949,7 +1046,7 @@ impl TypeValidator {
         let Some(value_expr_id) = index.expression_id_by_span(value.span()) else {
             return;
         };
-        let value_type = expression_semantic_type(db, file, value_expr_id);
+        let value_type = expression_semantic_type(db, project, file, value_expr_id);
 
         match pattern {
             Pattern::Identifier(name) => {
@@ -960,7 +1057,7 @@ impl TypeValidator {
                         .expect("No expression info found")
                         .scope_id;
                     let expected_type =
-                        resolve_ast_type(db, file, expected_type_expr.clone(), scope_id);
+                        resolve_ast_type(db, project, file, expected_type_expr.clone(), scope_id);
                     if !are_types_compatible(db, value_type, expected_type) {
                         diagnostics.push(
                             Diagnostic::error(
@@ -1001,8 +1098,13 @@ impl TypeValidator {
                                 .expression(value_expr_id)
                                 .expect("No expression info found")
                                 .scope_id;
-                            let expected_type =
-                                resolve_ast_type(db, file, expected_type_expr.clone(), scope_id);
+                            let expected_type = resolve_ast_type(
+                                db,
+                                project,
+                                file,
+                                expected_type_expr.clone(),
+                                scope_id,
+                            );
                             if !are_types_compatible(db, value_type, expected_type) {
                                 diagnostics.push(
                                     Diagnostic::error(
@@ -1039,6 +1141,7 @@ impl TypeValidator {
     fn check_assignment_types(
         &self,
         db: &dyn SemanticDb,
+        project: Project,
         file: File,
         index: &SemanticIndex,
         lhs: &Spanned<Expression>,
@@ -1052,8 +1155,8 @@ impl TypeValidator {
             return;
         };
 
-        let lhs_type = expression_semantic_type(db, file, lhs_expr_id);
-        let rhs_type = expression_semantic_type(db, file, rhs_expr_id);
+        let lhs_type = expression_semantic_type(db, project, file, lhs_expr_id);
+        let rhs_type = expression_semantic_type(db, project, file, rhs_expr_id);
 
         // Check if LHS is assignable
         match lhs.value() {
@@ -1127,6 +1230,7 @@ impl TypeValidator {
     fn check_return_types(
         &self,
         db: &dyn SemanticDb,
+        project: Project,
         file: File,
         index: &SemanticIndex,
         function_def: &FunctionDef,
@@ -1226,6 +1330,7 @@ impl TypeValidator {
     fn check_if_statement_types(
         &self,
         db: &dyn SemanticDb,
+        project: Project,
         file: File,
         index: &SemanticIndex,
         function_def: &FunctionDef,
@@ -1238,7 +1343,7 @@ impl TypeValidator {
         let Some(condition_expr_id) = index.expression_id_by_span(condition.span()) else {
             return;
         };
-        let condition_type = expression_semantic_type(db, file, condition_expr_id);
+        let condition_type = expression_semantic_type(db, project, file, condition_expr_id);
         let felt_type = TypeId::new(db, TypeData::Felt);
 
         if !are_types_compatible(db, condition_type, felt_type) {
@@ -1255,16 +1360,32 @@ impl TypeValidator {
         }
 
         // Check then and else block types
-        self.check_statement_type(db, file, index, function_def, then_block, diagnostics);
+        self.check_statement_type(
+            db,
+            project,
+            file,
+            index,
+            function_def,
+            then_block,
+            diagnostics,
+        );
         if let Some(else_stmt) = else_block {
-            self.check_statement_type(db, file, index, function_def, else_stmt, diagnostics);
+            self.check_statement_type(
+                db,
+                project,
+                file,
+                index,
+                function_def,
+                else_stmt,
+                diagnostics,
+            );
         }
     }
 
     /// Locate a function definition by name in the parsed module.
     fn find_function_in_module<'a>(
         &self,
-        parsed_module: &'a cairo_m_compiler_parser::parser::ParsedModule,
+        parsed_module: &'a ParsedModule,
         function_name: &str,
     ) -> Option<&'a FunctionDef> {
         for item in parsed_module.items() {
@@ -1294,9 +1415,21 @@ impl TypeValidator {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::*;
     use crate::db::tests::test_db;
-    use crate::semantic_index::semantic_index;
+
+    fn single_file_project(db: &dyn SemanticDb, file: File) -> Project {
+        let mut modules = HashMap::new();
+        modules.insert("main".to_string(), file);
+        Project::new(db, modules, "main".to_string())
+    }
+
+    fn get_main_semantic_index(db: &dyn SemanticDb, project: Project) -> SemanticIndex {
+        let semantic_index = project_semantic_index(db, project).unwrap();
+        semantic_index.modules().get("main").unwrap().clone()
+    }
 
     #[test]
     fn test_binary_op_type_validation() {
@@ -1312,12 +1445,11 @@ mod tests {
             }
         "#;
         let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
-        let semantic_index = semantic_index(&db, file)
-            .as_ref()
-            .expect("Got unexpected parse errors");
+        let project = single_file_project(&db, file);
+        let semantic_index = get_main_semantic_index(&db, project);
 
         let validator = TypeValidator;
-        let diagnostics = validator.validate(&db, file, semantic_index);
+        let diagnostics = validator.validate(&db, project, file, &semantic_index);
 
         // Should have one error for the invalid binary operation
         let type_errors: Vec<_> = diagnostics
@@ -1344,12 +1476,11 @@ mod tests {
             }
         "#;
         let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
-        let semantic_index = semantic_index(&db, file)
-            .as_ref()
-            .expect("Got unexpected parse errors");
+        let project = single_file_project(&db, file);
+        let semantic_index = get_main_semantic_index(&db, project);
 
         let validator = TypeValidator;
-        let diagnostics = validator.validate(&db, file, semantic_index);
+        let diagnostics = validator.validate(&db, project, file, &semantic_index);
 
         // Should have one error for the invalid argument type
         let type_errors = diagnostics
@@ -1381,12 +1512,11 @@ mod tests {
             }
         "#;
         let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
-        let semantic_index = semantic_index(&db, file)
-            .as_ref()
-            .expect("Got unexpected parse errors");
+        let project = single_file_project(&db, file);
+        let semantic_index = get_main_semantic_index(&db, project);
 
         let validator = TypeValidator;
-        let diagnostics = validator.validate(&db, file, semantic_index);
+        let diagnostics = validator.validate(&db, project, file, &semantic_index);
 
         // Should catch multiple type errors
         assert!(
@@ -1430,12 +1560,11 @@ mod tests {
             }
         "#;
         let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
-        let semantic_index = semantic_index(&db, file)
-            .as_ref()
-            .expect("Got unexpected parse errors");
+        let project = single_file_project(&db, file);
+        let semantic_index = get_main_semantic_index(&db, project);
 
         let validator = TypeValidator;
-        let diagnostics = validator.validate(&db, file, semantic_index);
+        let diagnostics = validator.validate(&db, project, file, &semantic_index);
 
         // Count type mismatch errors
         let type_mismatch_errors = diagnostics
@@ -1490,12 +1619,11 @@ mod tests {
             }
         "#;
         let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
-        let semantic_index = semantic_index(&db, file)
-            .as_ref()
-            .expect("Got unexpected parse errors");
+        let project = single_file_project(&db, file);
+        let semantic_index = get_main_semantic_index(&db, project);
 
         let validator = TypeValidator;
-        let diagnostics = validator.validate(&db, file, semantic_index);
+        let diagnostics = validator.validate(&db, project, file, &semantic_index);
 
         // Count type mismatch errors
         let type_mismatch_errors = diagnostics
@@ -1554,12 +1682,11 @@ mod tests {
             }
         "#;
         let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
-        let semantic_index = semantic_index(&db, file)
-            .as_ref()
-            .expect("Got unexpected parse errors");
+        let project = single_file_project(&db, file);
+        let semantic_index = get_main_semantic_index(&db, project);
 
         let validator = TypeValidator;
-        let diagnostics = validator.validate(&db, file, semantic_index);
+        let diagnostics = validator.validate(&db, project, file, &semantic_index);
 
         // Count type mismatch errors
         let type_mismatch_errors = diagnostics
@@ -1597,12 +1724,11 @@ mod tests {
             }
         "#;
         let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
-        let semantic_index = semantic_index(&db, file)
-            .as_ref()
-            .expect("Got unexpected parse errors");
+        let project = single_file_project(&db, file);
+        let semantic_index = get_main_semantic_index(&db, project);
 
         let validator = TypeValidator;
-        let diagnostics = validator.validate(&db, file, semantic_index);
+        let diagnostics = validator.validate(&db, project, file, &semantic_index);
 
         // Count type mismatch errors
         let type_mismatch_errors = diagnostics
@@ -1652,12 +1778,11 @@ mod tests {
             }
         "#;
         let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
-        let semantic_index = semantic_index(&db, file)
-            .as_ref()
-            .expect("Got unexpected parse errors");
+        let project = single_file_project(&db, file);
+        let semantic_index = get_main_semantic_index(&db, project);
 
         let validator = TypeValidator;
-        let diagnostics = validator.validate(&db, file, semantic_index);
+        let diagnostics = validator.validate(&db, project, file, &semantic_index);
 
         // Count type mismatch errors
         let type_errors: Vec<_> = diagnostics
@@ -1728,12 +1853,11 @@ mod tests {
             }
         "#;
         let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
-        let semantic_index = semantic_index(&db, file)
-            .as_ref()
-            .expect("Got unexpected parse errors");
+        let project = single_file_project(&db, file);
+        let semantic_index = get_main_semantic_index(&db, project);
 
         let validator = TypeValidator;
-        let diagnostics = validator.validate(&db, file, semantic_index);
+        let diagnostics = validator.validate(&db, project, file, &semantic_index);
 
         // Count type mismatch errors
         let type_errors: Vec<_> = diagnostics
@@ -1783,12 +1907,11 @@ mod tests {
             }
         "#;
         let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
-        let semantic_index = semantic_index(&db, file)
-            .as_ref()
-            .expect("Got unexpected parse errors");
+        let project = single_file_project(&db, file);
+        let semantic_index = get_main_semantic_index(&db, project);
 
         let validator = TypeValidator;
-        let diagnostics = validator.validate(&db, file, semantic_index);
+        let diagnostics = validator.validate(&db, project, file, &semantic_index);
 
         // Should have no type errors - all operations are valid
         let type_errors = diagnostics
@@ -1832,12 +1955,11 @@ mod tests {
             }
         "#;
         let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
-        let semantic_index = semantic_index(&db, file)
-            .as_ref()
-            .expect("Got unexpected parse errors");
+        let project = single_file_project(&db, file);
+        let semantic_index = get_main_semantic_index(&db, project);
 
         let validator = TypeValidator;
-        let diagnostics = validator.validate(&db, file, semantic_index);
+        let diagnostics = validator.validate(&db, project, file, &semantic_index);
 
         // Count different types of errors
         let type_mismatch_errors = diagnostics

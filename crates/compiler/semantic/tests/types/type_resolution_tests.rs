@@ -7,18 +7,19 @@ use cairo_m_compiler_parser::parser::TypeExpr as AstTypeExpr;
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
 
 use super::*;
+use crate::{get_main_semantic_index, project_from_program};
 
 #[test]
 fn test_resolve_primitive_types() {
     let db = test_db();
-    let file = File::new(&db, "".to_string(), "test.cm".to_string());
-    let semantic_index = semantic_index(&db, file)
-        .as_ref()
-        .expect("Got unexpected parse errors");
+    let project = project_from_program(&db, "");
+    let file = *project.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, project);
     let root_scope = semantic_index.root_scope().unwrap();
 
     let felt_type = resolve_ast_type(
         &db,
+        project,
         file,
         AstTypeExpr::Named("felt".to_string()),
         root_scope,
@@ -27,6 +28,7 @@ fn test_resolve_primitive_types() {
 
     let pointer_felt_type = resolve_ast_type(
         &db,
+        project,
         file,
         AstTypeExpr::Pointer(Box::new(AstTypeExpr::Named("felt".to_string()))),
         root_scope,
@@ -39,15 +41,15 @@ fn test_resolve_primitive_types() {
 #[test]
 fn test_resolve_nested_pointer_types() {
     let db = test_db();
-    let file = File::new(&db, "".to_string(), "test.cm".to_string());
-    let semantic_index = semantic_index(&db, file)
-        .as_ref()
-        .expect("Got unexpected parse errors");
+    let project = project_from_program(&db, "");
+    let file = *project.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, project);
     let root_scope = semantic_index.root_scope().unwrap();
 
     // Test felt** (pointer to pointer to felt)
     let double_pointer_felt = resolve_ast_type(
         &db,
+        project,
         file,
         AstTypeExpr::Pointer(Box::new(AstTypeExpr::Pointer(Box::new(
             AstTypeExpr::Named("felt".to_string()),
@@ -75,15 +77,15 @@ fn test_struct_type_resolution() {
             y: felt,
         }
     "#;
-    let file = File::new(&db, program.to_string(), "test.cm".to_string());
-    let semantic_index = semantic_index(&db, file)
-        .as_ref()
-        .expect("Got unexpected parse errors");
+    let project = project_from_program(&db, program);
+    let file = *project.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, project);
     let root_scope = semantic_index.root_scope().unwrap();
 
     // 1. Resolve `Point` as a type name.
     let point_type_id = resolve_ast_type(
         &db,
+        project,
         file,
         AstTypeExpr::Named("Point".to_string()),
         root_scope,
@@ -104,7 +106,7 @@ fn test_struct_type_resolution() {
         .resolve_name_to_definition("Point", root_scope)
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
-    let semantic_data = struct_semantic_data(&db, def_id).unwrap();
+    let semantic_data = struct_semantic_data(&db, project, def_id).unwrap();
 
     assert_eq!(struct_id, semantic_data);
     assert_eq!(semantic_data.name(&db), "Point");
@@ -128,17 +130,16 @@ fn test_struct_with_pointer_fields() {
             next: Node*,
         }
     "#;
-    let file = File::new(&db, program.to_string(), "test.cm".to_string());
-    let semantic_index = semantic_index(&db, file)
-        .as_ref()
-        .expect("Got unexpected parse errors");
+    let project = project_from_program(&db, program);
+    let file = *project.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, project);
     let root_scope = semantic_index.root_scope().unwrap();
 
     let (def_idx, _) = semantic_index
         .resolve_name_to_definition("Node", root_scope)
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
-    let semantic_data = struct_semantic_data(&db, def_id).unwrap();
+    let semantic_data = struct_semantic_data(&db, project, def_id).unwrap();
 
     let fields = semantic_data.fields(&db);
     assert_eq!(fields.len(), 2);
@@ -165,14 +166,14 @@ fn test_struct_with_pointer_fields() {
 #[test]
 fn test_resolve_unknown_type_name() {
     let db = test_db();
-    let file = File::new(&db, "".to_string(), "test.cm".to_string());
-    let semantic_index = semantic_index(&db, file)
-        .as_ref()
-        .expect("Got unexpected parse errors");
+    let project = project_from_program(&db, "");
+    let file = *project.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, project);
     let root_scope = semantic_index.root_scope().unwrap();
 
     let unknown_type = resolve_ast_type(
         &db,
+        project,
         file,
         AstTypeExpr::Named("UnknownType".to_string()),
         root_scope,
@@ -209,10 +210,9 @@ fn test_resolve_types_in_nested_scopes() {
             }
         }
     "#;
-    let file = File::new(&db, program.to_string(), "test.cm".to_string());
-    let semantic_index = semantic_index(&db, file)
-        .as_ref()
-        .expect("Got unexpected parse errors");
+    let project = project_from_program(&db, program);
+    let file = *project.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, project);
     let root_scope = semantic_index.root_scope().unwrap();
 
     // Find the namespace scope
@@ -227,6 +227,7 @@ fn test_resolve_types_in_nested_scopes() {
     // GlobalStruct should be resolvable from namespace scope (via scope chain)
     let global_type = resolve_ast_type(
         &db,
+        project,
         file,
         AstTypeExpr::Named("GlobalStruct".to_string()),
         namespace_scope,
@@ -236,6 +237,7 @@ fn test_resolve_types_in_nested_scopes() {
     // LocalStruct should be resolvable from namespace scope
     let local_type = resolve_ast_type(
         &db,
+        project,
         file,
         AstTypeExpr::Named("LocalStruct".to_string()),
         namespace_scope,
@@ -245,6 +247,7 @@ fn test_resolve_types_in_nested_scopes() {
     // LocalStruct should NOT be resolvable from root scope
     let local_from_root = resolve_ast_type(
         &db,
+        project,
         file,
         AstTypeExpr::Named("LocalStruct".to_string()),
         root_scope,

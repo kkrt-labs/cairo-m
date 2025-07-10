@@ -88,7 +88,7 @@ impl fmt::Display for ScopeKind {
 /// This tracks all the places (symbols) within a scope and provides
 /// efficient name-to-place lookup. Supports variable shadowing by
 /// storing multiple places with the same name.
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq, Eq, Clone)]
 pub struct PlaceTable {
     /// All places in this scope, indexed by ScopedPlaceId
     places: IndexVec<ScopedPlaceId, Place>,
