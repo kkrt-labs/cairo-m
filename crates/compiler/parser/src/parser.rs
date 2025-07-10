@@ -237,10 +237,10 @@ pub enum TopLevelItem {
     Struct(Spanned<StructDef>),
     /// Namespace definition
     Namespace(Spanned<Namespace>),
-    /// Import statement
-    Import(Spanned<ImportStmt>),
     /// Constant definition
     Const(Spanned<ConstDef>),
+    /// Use statement
+    Use(Spanned<UseStmt>),
 }
 
 /// Represents a constant definition.
@@ -314,18 +314,22 @@ pub struct Namespace {
     pub body: Vec<TopLevelItem>,
 }
 
-/// Represents an import statement.
-///
-/// Import statements allow code to reference items from other modules
-/// or namespaces, with optional aliasing for name resolution.
+/// Represents items in a use statement.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ImportStmt {
-    /// The path to the module (e.g., `["std", "math"]` for `std.math`)
+pub enum UseItems {
+    /// A single item import.
+    Single(Spanned<String>),
+    /// A list of items in braces.
+    List(Vec<Spanned<String>>),
+}
+
+/// Represents a use statement for Rust-like imports.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct UseStmt {
+    /// The module path (e.g., ["std", "math"] for std::math).
     pub path: Vec<Spanned<String>>,
-    /// The specific item being imported
-    pub item: Spanned<String>,
-    /// Optional alias for the imported item
-    pub alias: Option<Spanned<String>>,
+    /// The imported items.
+    pub items: UseItems,
 }
 
 /// Wrapper for the parsed AST result.
@@ -1046,29 +1050,51 @@ where
         .map_with(|(name, fields), extra| Spanned(StructDef { name, fields }, extra.span()))
 }
 
-/// Creates a parser for import statements
-fn import_stmt_parser<'tokens, 'src: 'tokens, I>(
-) -> impl Parser<'tokens, I, Spanned<ImportStmt>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+/// Creates a parser for use statements (Rust-like imports).
+fn use_stmt_parser<'tokens, 'src: 'tokens, I>(
+) -> impl Parser<'tokens, I, Spanned<UseStmt>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
     let spanned_ident = spanned_ident_parser();
 
-    // Import statement: from path.to.module import item as alias
-    just(TokenType::From)
-        .ignore_then(
+    let module_path = spanned_ident
+        .clone()
+        .separated_by(just(TokenType::ColonColon))
+        .collect::<Vec<_>>();
+
+    // Single item: use path::to::module::item;
+    let single = module_path
+        .clone()
+        .map(|mut path| {
+            let item = path.pop().expect("Path must have at least one segment");
+            UseStmt {
+                path,
+                items: UseItems::Single(item),
+            }
+        })
+        .then_ignore(just(TokenType::Semicolon));
+
+    // List: use path::to::module::{item1, item2};
+    let list = module_path
+        .then_ignore(just(TokenType::ColonColon))
+        .then(
             spanned_ident
                 .clone()
-                .separated_by(just(TokenType::Dot)) // module path separated by dots
-                .at_least(1)
-                .collect::<Vec<_>>(),
+                .separated_by(just(TokenType::Comma))
+                .allow_trailing()
+                .collect::<Vec<_>>()
+                .delimited_by(just(TokenType::LBrace), just(TokenType::RBrace)),
         )
-        .then_ignore(just(TokenType::Import)) // ignore 'import' keyword
-        .then(spanned_ident.clone()) // imported item name
-        .then(just(TokenType::As).ignore_then(spanned_ident).or_not()) // optional alias
-        .map_with(|((path, item), alias), extra| {
-            Spanned(ImportStmt { path, item, alias }, extra.span())
+        .map(|(path, items)| UseStmt {
+            path,
+            items: UseItems::List(items),
         })
+        .then_ignore(just(TokenType::Semicolon));
+
+    just(TokenType::Use)
+        .ignore_then(single.or(list))
+        .map_with(|stmt, extra| Spanned::new(stmt, extra.span()))
 }
 
 /// Creates a parser for constant definitions
@@ -1120,16 +1146,16 @@ where
     recursive(|top_level_item| {
         let func_def = function_def_parser().map(TopLevelItem::Function);
         let struct_def = struct_def_parser().map(TopLevelItem::Struct);
-        let import_stmt = import_stmt_parser().map(TopLevelItem::Import);
         let const_def = const_def_parser().map(TopLevelItem::Const);
         let namespace_def = namespace_parser(top_level_item).map(TopLevelItem::Namespace);
+        let use_stmt = use_stmt_parser().map(TopLevelItem::Use);
 
         // Try top-level item alternatives in order
         func_def
             .or(struct_def)
-            .or(import_stmt)
             .or(const_def)
             .or(namespace_def)
+            .or(use_stmt)
     })
 }
 

@@ -1,0 +1,14 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+use std::math::add
+--- Diagnostics ---
+[02] Error: found end of input expected '::', or ';'
+   ╭─[ test.cairo:1:19 ]
+   │
+ 1 │ use std::math::add
+   │                   │ 
+   │                   ╰─ found end of input expected '::', or ';'
+───╯
