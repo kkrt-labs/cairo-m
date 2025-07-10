@@ -368,6 +368,8 @@ impl ParseOutput {
 #[salsa::tracked]
 pub fn parse_file(db: &dyn crate::Db, source: SourceFile) -> ParseOutput {
     use logos::Logos;
+    let file_path = source.file_path(db);
+    tracing::info!("[PARSER] Parsing file: {}", file_path);
     let input = source.text(db);
 
     // Collect tokens and handle lexer errors
@@ -404,7 +406,14 @@ pub fn parse_file(db: &dyn crate::Db, source: SourceFile) -> ParseOutput {
         .parse(token_stream)
         .into_result()
     {
-        Ok(items) => ParseOutput::new(ParsedModule::new(items), diagnostics),
+        Ok(items) => {
+            tracing::info!(
+                "[PARSER] Parse complete for {}: {} items",
+                file_path,
+                items.len()
+            );
+            ParseOutput::new(ParsedModule::new(items), diagnostics)
+        }
         Err(parse_errors) => {
             // Convert parser errors to diagnostics with better messages
             for error in parse_errors {
@@ -415,6 +424,11 @@ pub fn parse_file(db: &dyn crate::Db, source: SourceFile) -> ParseOutput {
                 );
                 diagnostics.push(diagnostic);
             }
+            tracing::info!(
+                "[PARSER] Parse complete for {}: {} errors",
+                file_path,
+                diagnostics.len()
+            );
             ParseOutput::new(ParsedModule::new(vec![]), diagnostics)
         }
     }
