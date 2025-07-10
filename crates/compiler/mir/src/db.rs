@@ -1,6 +1,6 @@
 //! Database traits and implementations for MIR generation with Salsa integration.
 
-use cairo_m_compiler_parser::{SourceProgram, Upcast};
+use cairo_m_compiler_parser::{parse_file, SourceFile, Upcast};
 use cairo_m_compiler_semantic::SemanticDb;
 
 use crate::{MirError, MirModule};
@@ -18,9 +18,9 @@ pub trait MirDb: SemanticDb + Upcast<dyn SemanticDb> {}
 /// This is the main entry point for MIR generation. It uses the semantic index
 /// to build the MIR module, with full incremental caching support.
 #[salsa::tracked]
-pub fn generate_mir(db: &dyn MirDb, file: SourceProgram) -> Option<MirModule> {
+pub fn generate_mir(db: &dyn MirDb, file: SourceFile) -> Option<MirModule> {
     // Get the parsed module
-    let parsed = cairo_m_compiler_parser::parse_program(db.upcast(), file);
+    let parsed = parse_file(db.upcast(), file);
 
     if !parsed.diagnostics.is_empty() {
         // Don't generate MIR if there are parse errors
@@ -38,7 +38,7 @@ pub fn generate_mir(db: &dyn MirDb, file: SourceProgram) -> Option<MirModule> {
 /// This allows us to report MIR generation errors without blocking
 /// other compilation phases.
 #[salsa::tracked]
-pub fn mir_errors(_db: &dyn MirDb, _file: SourceProgram) -> Vec<MirError> {
+pub fn mir_errors(_db: &dyn MirDb, _file: SourceFile) -> Vec<MirError> {
     // TODO
     // For now, we'll return an empty vector
     // In the future, this should collect errors from MIR generation
@@ -93,7 +93,7 @@ pub(crate) mod tests {
     #[test]
     fn test_mir_db_trait() {
         let db = TestDatabase::default();
-        let source = SourceProgram::new(&db, "fn main() {}".to_string(), "test.cm".to_string());
+        let source = SourceFile::new(&db, "fn main() {}".to_string(), "test.cm".to_string());
 
         // This should trigger MIR generation through Salsa
         let _mir = generate_mir(&db, source);

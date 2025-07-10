@@ -25,7 +25,7 @@
 use cairo_m_compiler_diagnostics::{
     build_diagnostic_message, DiagnosticCode, DiagnosticCollection,
 };
-use cairo_m_compiler_parser::{Db as ParserDb, SourceProgram, Upcast};
+use cairo_m_compiler_parser::{Db as ParserDb, SourceFile, Upcast};
 use cairo_m_compiler_semantic::semantic_index::semantic_index;
 use cairo_m_compiler_semantic::validation::validator::create_default_registry;
 use cairo_m_compiler_semantic::SemanticDb;
@@ -60,7 +60,7 @@ fn test_db() -> TestDb {
 /// Run semantic validation on source code
 fn run_validation(source: &str, file_name: &str) -> DiagnosticCollection {
     let db = test_db();
-    let source_program = SourceProgram::new(&db, source.to_string(), file_name.to_string());
+    let source_program = SourceFile::new(&db, source.to_string(), file_name.to_string());
 
     // Build semantic index
     let index = semantic_index(&db, source_program)

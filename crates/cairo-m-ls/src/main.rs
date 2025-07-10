@@ -7,7 +7,7 @@ use cairo_m_compiler::db::CompilerDatabase;
 use cairo_m_compiler_diagnostics::{
     Diagnostic as CairoDiagnostic, DiagnosticSeverity as CairoSeverity,
 };
-use cairo_m_compiler_parser::{SourceProgram, Upcast};
+use cairo_m_compiler_parser::{SourceFile, Upcast};
 use cairo_m_compiler_semantic::db::validate_semantics;
 use cairo_m_compiler_semantic::semantic_index::{semantic_index, DefinitionId};
 use cairo_m_compiler_semantic::type_resolution::definition_semantic_type;
@@ -27,7 +27,7 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 struct Backend {
     client: Client,
     db: Arc<Mutex<CompilerDatabase>>,
-    source_files: Arc<DashMap<Url, SourceProgram>>,
+    source_files: Arc<DashMap<Url, SourceFile>>,
 }
 
 impl Backend {
@@ -207,11 +207,11 @@ impl LanguageServer for Backend {
             Err(_) => return,
         };
 
-        // Create a new SourceProgram for the opened file. This requires a mutable
+        // Create a new SourceFile for the opened file. This requires a mutable
         // database lock because it allocates a new entity.
         let source = {
             let db = self.db.lock().unwrap();
-            SourceProgram::new(&*db, content, path.display().to_string())
+            SourceFile::new(&*db, content, path.display().to_string())
         };
         self.source_files.insert(uri.clone(), source);
 
@@ -223,7 +223,7 @@ impl LanguageServer for Backend {
         let version = params.text_document.version;
 
         if let Some(change) = params.content_changes.into_iter().next() {
-            // Update the SourceProgram with new content. This is the key to
+            // Update the SourceFile with new content. This is the key to
             // incremental compilation.
             if let Some(source) = self.source_files.get(&uri).map(|s| *s.value()) {
                 let mut db = self.db.lock().unwrap();
@@ -241,7 +241,7 @@ impl LanguageServer for Backend {
         let uri = params.text_document_position_params.text_document.uri;
         let position = params.text_document_position_params.position;
 
-        // Retrieve the SourceProgram from our map, do not create a new one.
+        // Retrieve the SourceFile from our map, do not create a new one.
         let source = match self.source_files.get(&uri) {
             Some(entry) => *entry.value(),
             None => return Ok(None),
@@ -296,7 +296,7 @@ impl LanguageServer for Backend {
         let uri = params.text_document_position_params.text_document.uri;
         let position = params.text_document_position_params.position;
 
-        // Retrieve the SourceProgram from our map.
+        // Retrieve the SourceFile from our map.
         let source = match self.source_files.get(&uri) {
             Some(entry) => *entry.value(),
             None => return Ok(None),
@@ -352,7 +352,7 @@ impl LanguageServer for Backend {
         let uri = params.text_document_position.text_document.uri;
         let position = params.text_document_position.position;
 
-        // Retrieve the SourceProgram from our map.
+        // Retrieve the SourceFile from our map.
         let source = match self.source_files.get(&uri) {
             Some(entry) => *entry.value(),
             None => return Ok(None),
@@ -416,7 +416,7 @@ impl LanguageServer for Backend {
                                     DefinitionKind::Let(_) => CompletionItemKind::VARIABLE,
                                     DefinitionKind::Const(_) => CompletionItemKind::CONSTANT,
                                     DefinitionKind::Struct(_) => CompletionItemKind::STRUCT,
-                                    DefinitionKind::Import(_) => CompletionItemKind::MODULE,
+                                    DefinitionKind::Use(_) => CompletionItemKind::MODULE,
                                     DefinitionKind::Namespace(_) => CompletionItemKind::MODULE,
                                     DefinitionKind::LoopVariable(_) => CompletionItemKind::VARIABLE,
                                 };

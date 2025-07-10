@@ -188,7 +188,7 @@ pub fn definition_semantic_type<'db>(
                 TypeId::new(db, TypeData::Error)
             }
         }
-        DefinitionKind::Import(_) | DefinitionKind::Namespace(_) => {
+        DefinitionKind::Use(_) | DefinitionKind::Namespace(_) => {
             // These don't have a "type" in the traditional sense.
             TypeId::new(db, TypeData::Error)
         }
@@ -733,7 +733,7 @@ mod tests {
         let program = r#"
             struct Point { x: felt, y: felt }
             struct Nested { point: Point, value: felt }
-            
+
             func test(p: Point, ptr: felt*, nested: Nested) -> felt {
                 let x1 = p.x;           // Direct struct field access
                 let n1 = nested.value;  // Nested struct field
@@ -781,7 +781,7 @@ mod tests {
         let db = test_db();
         let program = r#"
             struct Point { x: felt, y: felt }
-            
+
             func test(ptr: Point*) -> felt {
                 let x = ptr.x;  // Should automatically dereference
                 return x;

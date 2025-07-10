@@ -13,8 +13,8 @@ use std::collections::HashSet;
 
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode};
 use cairo_m_compiler_parser::parser::{
-    BinaryOp, Expression, FunctionDef, Pattern, Spanned, Statement, TopLevelItem, TypeExpr,
-    UnaryOp, parse_program,
+    parse_file, BinaryOp, Expression, FunctionDef, Pattern, Spanned, Statement, TopLevelItem,
+    TypeExpr, UnaryOp,
 };
 use chumsky::span::SimpleSpan;
 
@@ -45,7 +45,7 @@ impl Validator for TypeValidator {
         let mut diagnostics = Vec::new();
 
         // Get the parsed module to access the AST.
-        let parsed_program = parse_program(db, file);
+        let parsed_program = parse_file(db, file);
         if !parsed_program.diagnostics.is_empty() {
             panic!("Got unexpected parse errors");
         }

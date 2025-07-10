@@ -19,7 +19,7 @@
 //!
 use cairo_m_compiler_diagnostics::Diagnostic;
 use cairo_m_compiler_parser::parser::{
-    parse_program, FunctionDef, Spanned, Statement, TopLevelItem,
+    parse_file, FunctionDef, Spanned, Statement, TopLevelItem,
 };
 
 use crate::db::SemanticDb;
@@ -38,7 +38,7 @@ impl Validator for ControlFlowValidator {
         let mut diagnostics = Vec::new();
 
         // Get the parsed module to access the AST.
-        let parsed_program = parse_program(db, file);
+        let parsed_program = parse_file(db, file);
         if !parsed_program.diagnostics.is_empty() {
             panic!("Got unexpected parse errors");
         }

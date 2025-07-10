@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use cairo_m_common::Program;
 use cairo_m_compiler_mir::{MirDb, MirModule};
-use cairo_m_compiler_parser::{SourceProgram, Upcast};
+use cairo_m_compiler_parser::{SourceFile, Upcast};
 
 use crate::CodegenError;
 
@@ -21,10 +21,7 @@ pub trait CodegenDb: MirDb + Upcast<dyn MirDb> {}
 /// This is the main entry point for code generation. It takes a MIR module
 /// and produces the compiled program with full incremental caching support.
 #[salsa::tracked]
-pub fn compile_module(
-    db: &dyn CodegenDb,
-    file: SourceProgram,
-) -> Result<Arc<Program>, CodegenError> {
+pub fn compile_module(db: &dyn CodegenDb, file: SourceFile) -> Result<Arc<Program>, CodegenError> {
     // Get the MIR module
     let mir_module = cairo_m_compiler_mir::db::generate_mir(db.upcast(), file)
         .ok_or_else(|| CodegenError::InvalidMir("No MIR module generated".to_string()))?;
@@ -46,7 +43,7 @@ pub fn compile_module(
 /// This allows code generation to access MIR without directly depending
 /// on the MIR crate's internals.
 #[salsa::tracked]
-pub fn codegen_mir_module(db: &dyn CodegenDb, file: SourceProgram) -> Option<Arc<MirModule>> {
+pub fn codegen_mir_module(db: &dyn CodegenDb, file: SourceFile) -> Option<Arc<MirModule>> {
     cairo_m_compiler_mir::db::generate_mir(db.upcast(), file).map(Arc::new)
 }
 
@@ -54,7 +51,7 @@ pub fn codegen_mir_module(db: &dyn CodegenDb, file: SourceProgram) -> Option<Arc
 ///
 /// This allows us to report codegen errors without blocking other phases.
 #[salsa::tracked]
-pub fn codegen_errors(db: &dyn CodegenDb, file: SourceProgram) -> Vec<CodegenError> {
+pub fn codegen_errors(db: &dyn CodegenDb, file: SourceFile) -> Vec<CodegenError> {
     // Collect errors from code generation
     match compile_module(db, file) {
         Ok(_) => vec![],
@@ -121,7 +118,7 @@ pub(crate) mod tests {
     #[test]
     fn test_codegen_db_trait() {
         let db = TestDatabase::default();
-        let source = SourceProgram::new(&db, "fn main() {}".to_string(), "test.cm".to_string());
+        let source = SourceFile::new(&db, "fn main() {}".to_string(), "test.cm".to_string());
 
         // This should trigger code generation through Salsa
         let _result = compile_module(&db, source);

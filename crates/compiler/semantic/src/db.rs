@@ -59,12 +59,9 @@ impl Upcast<dyn ParserDb> for SemanticDatabaseImpl {
 /// This is a tracked query that performs comprehensive semantic validation
 /// including scope checking, type checking, and control flow analysis.
 #[salsa::tracked]
-pub fn validate_semantics(
-    db: &dyn SemanticDb,
-    file: parser::SourceProgram,
-) -> DiagnosticCollection {
+pub fn validate_semantics(db: &dyn SemanticDb, file: parser::SourceFile) -> DiagnosticCollection {
     // Parse the program first
-    let parsed = parser::parse_program(db.upcast(), file);
+    let parsed = parser::parse_file(db.upcast(), file);
 
     // If there are parse errors, return them without running semantic validation
     if !parsed.diagnostics.is_empty() {

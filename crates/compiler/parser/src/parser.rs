@@ -21,8 +21,8 @@
 //! incremental compilation and caching of parse results. The integration follows best practices:
 //!
 //! ### Current Implementation
-//! - **Input types**: `SourceProgram` marked with `#[salsa::input]` represents source code
-//! - **Cached parsing**: Only the `parse_program` operation is tracked, not individual AST nodes
+//! - **Input types**: `SourceFile` marked with `#[salsa::input]` represents source code
+//! - **Cached parsing**: Only the `parse_file` operation is tracked, not individual AST nodes
 //! - **Plain AST types**: All AST nodes are regular Rust types for maximum performance
 //! - **Database integration**: Parser functions take a `&dyn Db` parameter for the parsing operation
 //!
@@ -36,14 +36,7 @@ use chumsky::input::ValueInput;
 use chumsky::prelude::*;
 
 use crate::lexer::TokenType;
-
-#[salsa::input(debug)]
-pub struct SourceProgram {
-    #[returns(ref)]
-    pub text: String,
-    #[returns(ref)]
-    pub file_path: String,
-}
+use crate::SourceFile;
 
 /// Represents a type expression in the Cairo-M language.
 ///
@@ -373,7 +366,7 @@ impl ParseOutput {
 /// This is the main Salsa-tracked parsing function. It caches the entire
 /// parse result, following best practices from the Ruff codebase.
 #[salsa::tracked]
-pub fn parse_program(db: &dyn crate::Db, source: SourceProgram) -> ParseOutput {
+pub fn parse_file(db: &dyn crate::Db, source: SourceFile) -> ParseOutput {
     use logos::Logos;
     let input = source.text(db);
 
