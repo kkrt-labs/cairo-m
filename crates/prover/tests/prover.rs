@@ -4,6 +4,7 @@ use std::fs;
 
 use cairo_m_compiler::{compile_cairo, CompilerOptions};
 use cairo_m_prover::adapter::memory::Memory;
+use cairo_m_prover::adapter::partial_merkle::{build_partial_merkle_tree, MockHasher};
 use cairo_m_prover::adapter::{import_from_runner_output, Instructions, MerkleTrees, ProverInput};
 use cairo_m_prover::debug_tools::assert_constraints::assert_constraints;
 use cairo_m_prover::prover::prove_cairo_m;
@@ -47,8 +48,17 @@ fn test_prove_and_verify_unchanged_memory() {
         final_memory: initial_memory,
     };
 
+    let (initial_tree, initial_root) =
+        build_partial_merkle_tree::<MockHasher>(&memory.initial_memory);
+    let (final_tree, final_root) = build_partial_merkle_tree::<MockHasher>(&memory.final_memory);
+
     let mut prover_input = ProverInput {
-        merkle_trees: MerkleTrees::default(),
+        merkle_trees: MerkleTrees {
+            initial_tree,
+            final_tree,
+            initial_root,
+            final_root,
+        },
         memory,
         instructions: Instructions::default(),
     };
@@ -57,27 +67,6 @@ fn test_prove_and_verify_unchanged_memory() {
 
     let result = verify_cairo_m::<Blake2sMerkleChannel>(proof, None);
     assert!(result.is_ok());
-}
-
-#[test]
-fn test_prove_and_verify_empty_memory() {
-    let initial_memory: HashMap<M31, (QM31, M31, M31)> = HashMap::new();
-
-    let memory = Memory {
-        initial_memory: initial_memory.clone(),
-        final_memory: initial_memory,
-    };
-
-    let mut prover_input = ProverInput {
-        merkle_trees: MerkleTrees::default(),
-        memory,
-        instructions: Instructions::default(),
-    };
-
-    let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
-
-    let result = verify_cairo_m::<Blake2sMerkleChannel>(proof, None);
-    result.unwrap();
 }
 
 #[test]

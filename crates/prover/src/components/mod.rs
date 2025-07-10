@@ -32,6 +32,7 @@ pub struct Relations {
     pub registers: relations::Registers,
     pub memory: relations::Memory,
     pub range_check_20: relations::RangeCheck_20,
+    pub merkle: relations::Merkle,
 }
 
 pub struct InteractionClaimData {
@@ -169,6 +170,7 @@ impl Relations {
             registers: relations::Registers::draw(channel),
             memory: relations::Memory::draw(channel),
             range_check_20: relations::RangeCheck_20::draw(channel),
+            merkle: relations::Merkle::draw(channel),
         }
     }
 }

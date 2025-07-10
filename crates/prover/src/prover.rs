@@ -62,7 +62,7 @@ where
     let mut commitment_scheme =
         CommitmentSchemeProver::<SimdBackend, MC>::new(pcs_config, &twiddles);
 
-    let public_data = PublicData::new(&input.instructions);
+    let public_data = PublicData::new(input);
 
     // Preprocessed traces
     info!("preprocessed trace");
