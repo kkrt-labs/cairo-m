@@ -28,18 +28,18 @@
 //!
 //! * read instruction from memory:
 //!   - [pc, inst_prev_clock, opcode_id, off0, off1, off2] + [pc, clock, opcode_id, off0, off1, off2] in Memory relation
-//!   - [clock - inst_prev_clock - 1] in RangeCheck_20 relation
+//!   - [clock - inst_prev_clock - 1] in RangeCheck20 relation
 //!
 //! * assert opcode id
 //!   opcode_id - 3
 //!
 //! * read op0
 //!   - [fp + off0, op0_prev_clock, op0_val] + [fp + off0, clock, op0_val] in Memory relation
-//!   - [clock - op0_prev_clock - 1] in RangeCheck_20 relation
+//!   - [clock - op0_prev_clock - 1] in RangeCheck20 relation
 //!
 //! * write dst in [fp + off2]
 //!   - [fp + off2, dst_prev_clock, dst_prev_val] + [fp + off2, clock, op0_val] in Memory Relation
-//!   - [clock - dst_prev_clock - 1] in RangeCheck_20 relation
+//!   - [clock - dst_prev_clock - 1] in RangeCheck20 relation
 
 use cairo_m_common::Opcode;
 use num_traits::{One, Zero};
@@ -225,7 +225,7 @@ impl InteractionClaim {
     pub fn write_interaction_trace(
         registers_relation: &relations::Registers,
         memory_relation: &relations::Memory,
-        range_check_20_relation: &relations::RangeCheck_20,
+        range_check_20_relation: &relations::RangeCheck20,
         interaction_claim_data: &InteractionClaimData,
     ) -> (
         Self,
@@ -363,7 +363,7 @@ pub struct Eval {
     pub claim: Claim,
     pub memory: relations::Memory,
     pub registers: relations::Registers,
-    pub range_check_20: relations::RangeCheck_20,
+    pub range_check_20: relations::RangeCheck20,
 }
 
 impl FrameworkEval for Eval {

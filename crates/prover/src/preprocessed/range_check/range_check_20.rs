@@ -21,7 +21,7 @@ use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::preprocessed::range_check::RangeCheck;
 use crate::preprocessed::PreProcessedColumn;
-use crate::relations::RangeCheck_20;
+use crate::relations::RangeCheck20;
 
 const LOG_SIZE_RC_20: u32 = 20;
 
@@ -109,7 +109,7 @@ impl InteractionClaim {
     }
 
     pub fn write_interaction_trace(
-        relation: &RangeCheck_20,
+        relation: &RangeCheck20,
         lookup_data: &InteractionClaimData,
     ) -> (
         Self,
@@ -136,10 +136,10 @@ impl InteractionClaim {
 #[derive(Clone)]
 pub struct Eval {
     pub claim: Claim,
-    pub relation: RangeCheck_20,
+    pub relation: RangeCheck20,
 }
 impl Eval {
-    pub const fn new(claim: Claim, relation: RangeCheck_20) -> Self {
+    pub const fn new(claim: Claim, relation: RangeCheck20) -> Self {
         Self { claim, relation }
     }
 }

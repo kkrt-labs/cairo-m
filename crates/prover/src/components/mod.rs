@@ -31,7 +31,7 @@ pub struct Claim {
 pub struct Relations {
     pub registers: relations::Registers,
     pub memory: relations::Memory,
-    pub range_check_20: relations::RangeCheck_20,
+    pub range_check_20: relations::RangeCheck20,
     pub merkle: relations::Merkle,
 }
 
@@ -169,7 +169,7 @@ impl Relations {
         Self {
             registers: relations::Registers::draw(channel),
             memory: relations::Memory::draw(channel),
-            range_check_20: relations::RangeCheck_20::draw(channel),
+            range_check_20: relations::RangeCheck20::draw(channel),
             merkle: relations::Merkle::draw(channel),
         }
     }
