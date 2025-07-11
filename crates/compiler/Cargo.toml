@@ -23,3 +23,7 @@ salsa = "0.22"
 sonic-rs = "0.3"
 num-traits.workspace = true
 thiserror.workspace = true
+walkdir = "2.4"
+
+[dev-dependencies]
+tempfile.workspace = true

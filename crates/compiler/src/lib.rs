@@ -1,6 +1,8 @@
 //! Cairo-M compiler library
+#![allow(clippy::option_if_let_else)]
 
 pub mod db;
+pub mod project_discovery;
 use std::collections::HashMap;
 use std::sync::Arc;
 
