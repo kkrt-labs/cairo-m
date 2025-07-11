@@ -46,16 +46,11 @@ impl PublicData {
             ),
             -<relations::Merkle as Relation<M31, QM31>>::combine(
                 &relations.merkle,
-                &[
-                    M31::zero(),
-                    M31::zero(),
-                    self.initial_root,
-                    self.initial_root,
-                ],
+                &[M31::zero(), M31::zero(), self.initial_root],
             ),
             -<relations::Merkle as Relation<M31, QM31>>::combine(
                 &relations.merkle,
-                &[M31::zero(), M31::zero(), self.final_root, self.final_root],
+                &[M31::zero(), M31::zero(), self.final_root],
             ),
         ];
 

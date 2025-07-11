@@ -8,7 +8,7 @@ use stwo_prover::core::pcs::{CommitmentSchemeVerifier, PcsConfig};
 use stwo_prover::core::prover::{verify, VerificationError as StwoVerificationError};
 use tracing::{info, span, Level};
 
-use crate::adapter::partial_merkle::MerkleHasher;
+use crate::adapter::merkle::MerkleHasher;
 use crate::components::{Components, Relations};
 use crate::errors::VerificationError;
 use crate::preprocessed::PreProcessedTraceBuilder;

@@ -18,7 +18,7 @@ use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
-use crate::adapter::partial_merkle::MerkleHasher;
+use crate::adapter::merkle::MerkleHasher;
 use crate::adapter::ProverInput;
 use crate::preprocessed::range_check::range_check_20;
 use crate::public_data::PublicData;
@@ -88,7 +88,7 @@ impl Claim {
 
         // Write memory trace
         let (memory_claim, memory_trace, memory_interaction_claim_data) =
-            memory::Claim::write_trace(&input.memory, &input.merkle_trees);
+            memory::Claim::write_trace(&input.memory);
 
         // Write merkle trace
         let (merkle_claim, merkle_trace, merkle_interaction_claim_data) =

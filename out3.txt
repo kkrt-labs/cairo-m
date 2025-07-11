@@ -1,1441 +1,441 @@
-   Compiling stwo-prover v0.1.1 (/Users/antoine/Documents/cairo-m/external/stwo/crates/prover)
-   Compiling cairo-m-common v0.1.0 (/Users/antoine/Documents/cairo-m/crates/common)
-   Compiling stwo-air-utils v0.1.1 (/Users/antoine/Documents/cairo-m/external/stwo/crates/air_utils)
-   Compiling stwo-constraint-framework v0.1.1 (/Users/antoine/Documents/cairo-m/external/stwo/crates/constraint_framework)
-   Compiling cairo-m-compiler-codegen v0.1.0 (/Users/antoine/Documents/cairo-m/crates/compiler/codegen)
-   Compiling cairo-m-compiler v0.1.0 (/Users/antoine/Documents/cairo-m/crates/compiler)
-   Compiling cairo-m-runner v0.1.1 (/Users/antoine/Documents/cairo-m/crates/runner)
-   Compiling cairo-m-prover v0.1.1 (/Users/antoine/Documents/cairo-m/crates/prover)
-    Finished `release` profile [optimized] target(s) in 14.59s
-     Running unittests src/lib.rs (target/release/deps/cairo_m_prover-915b1e8432b4c080)
-     Running unittests src/main.rs (target/release/deps/cairo_m_prover-3abd0563be314b99)
-     Running tests/fibonacci_trace_test.rs (target/release/deps/fibonacci_trace_test-0bec4a2457db3b6b)
-     Running tests/prover.rs (target/release/deps/prover-ccbc525cf652fee6)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+
+running 1 test
+test test_prove_and_verify_fibonacci_program ... FAILED
+
+failures:
+
+---- test_prove_and_verify_fibonacci_program stdout ----
 Pass 'InPlaceOptimizationPass' modified function 'fib'
 Warning: Block 1 uses value 3 that is not defined in the block or as a parameter
 Warning: Block 2 uses value 3 that is not defined in the block or as a parameter
 Warning: Block 2 uses value 1 that is not defined in the block or as a parameter
 Warning: Block 2 uses value 2 that is not defined in the block or as a parameter
 Warning: Block 3 uses value 1 that is not defined in the block or as a parameter
-[crates/prover/src/components/memory.rs:75:9] log_size = 6
-[crates/prover/src/components/memory.rs:246:9] &trace = [
-    CircleEvaluation {
-        domain: CircleDomain {
-            half_coset: Coset {
-                initial_index: CirclePointIndex(
-                    16777216,
-                ),
-                initial: CirclePoint {
-                    x: M31(
-                        838195206,
-                    ),
-                    y: M31(
-                        1774253895,
-                    ),
-                },
-                step_size: CirclePointIndex(
-                    67108864,
-                ),
-                step: CirclePoint {
-                    x: M31(
-                        1179735656,
-                    ),
-                    y: M31(
-                        1241207368,
-                    ),
-                },
-                log_size: 5,
-            },
-        },
-        values: BaseColumn {
-            data: [
-                PackedM31(
-                    [
-                        1999732988,
-                        933443443,
-                        29384140,
-                        1216947075,
-                        1480011317,
-                        661647643,
-                        1727719504,
-                        1123673597,
-                        2080075595,
-                        1470606525,
-                        1962089919,
-                        2142073275,
-                        145972070,
-                        1495682418,
-                        1966916495,
-                        1404002618,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        280837026,
-                        752250077,
-                        1548018121,
-                        1047787535,
-                        1484977498,
-                        648387719,
-                        276110892,
-                        39351314,
-                        743021589,
-                        1716030763,
-                        857764161,
-                        1705505468,
-                        539866966,
-                        869345435,
-                        1446647910,
-                        145362681,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        1940373054,
-                        1337144232,
-                        4835183,
-                        1339117336,
-                        1361802240,
-                        683680241,
-                        1159513023,
-                        1580203475,
-                        1018249114,
-                        765026624,
-                        1417403459,
-                        4893457,
-                        797411629,
-                        2041680502,
-                        1632292140,
-                        71957393,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        1087630040,
-                        359603598,
-                        938083302,
-                        1936462859,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                    ],
-                ),
-            ],
-            length: 64,
-        },
-        _eval_order: PhantomData<stwo_prover::core::poly::BitReversedOrder>,
-    },
-    CircleEvaluation {
-        domain: CircleDomain {
-            half_coset: Coset {
-                initial_index: CirclePointIndex(
-                    16777216,
-                ),
-                initial: CirclePoint {
-                    x: M31(
-                        838195206,
-                    ),
-                    y: M31(
-                        1774253895,
-                    ),
-                },
-                step_size: CirclePointIndex(
-                    67108864,
-                ),
-                step: CirclePoint {
-                    x: M31(
-                        1179735656,
-                    ),
-                    y: M31(
-                        1241207368,
-                    ),
-                },
-                log_size: 5,
-            },
-        },
-        values: BaseColumn {
-            data: [
-                PackedM31(
-                    [
-                        1706205545,
-                        795094366,
-                        1262325292,
-                        906900622,
-                        1947942281,
-                        1567862467,
-                        2139016913,
-                        400387742,
-                        1492274174,
-                        550649914,
-                        1375158740,
-                        1497043325,
-                        1947979875,
-                        1634584023,
-                        541751886,
-                        1172198338,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        571783269,
-                        1462539071,
-                        1008734789,
-                        219713269,
-                        705187092,
-                        950454697,
-                        1175498932,
-                        1537292740,
-                        704808955,
-                        1874272055,
-                        1324932337,
-                        1723054719,
-                        1952884070,
-                        296176919,
-                        1074244551,
-                        439488498,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        40836710,
-                        352915173,
-                        947249798,
-                        355329283,
-                        1098746397,
-                        994326395,
-                        1409601027,
-                        1991106373,
-                        375385228,
-                        1977258142,
-                        2095815713,
-                        2119007008,
-                        1500099001,
-                        307631140,
-                        88734815,
-                        1472995269,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        408855131,
-                        274288732,
-                        165737495,
-                        339417359,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                    ],
-                ),
-            ],
-            length: 64,
-        },
-        _eval_order: PhantomData<stwo_prover::core::poly::BitReversedOrder>,
-    },
-    CircleEvaluation {
-        domain: CircleDomain {
-            half_coset: Coset {
-                initial_index: CirclePointIndex(
-                    16777216,
-                ),
-                initial: CirclePoint {
-                    x: M31(
-                        838195206,
-                    ),
-                    y: M31(
-                        1774253895,
-                    ),
-                },
-                step_size: CirclePointIndex(
-                    67108864,
-                ),
-                step: CirclePoint {
-                    x: M31(
-                        1179735656,
-                    ),
-                    y: M31(
-                        1241207368,
-                    ),
-                },
-                log_size: 5,
-            },
-        },
-        values: BaseColumn {
-            data: [
-                PackedM31(
-                    [
-                        223631049,
-                        799397872,
-                        1361431659,
-                        680506290,
-                        1133565693,
-                        2062468169,
-                        206024570,
-                        1480946654,
-                        920246513,
-                        240546404,
-                        477324071,
-                        793273603,
-                        1865927849,
-                        357855051,
-                        1446521209,
-                        1107954925,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        1191743398,
-                        325689236,
-                        884603404,
-                        120581127,
-                        315424650,
-                        816775224,
-                        1655665904,
-                        1444815495,
-                        1656271473,
-                        1389944503,
-                        1747041062,
-                        276046787,
-                        621733113,
-                        1503263240,
-                        891753591,
-                        1689214715,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        319667946,
-                        907242104,
-                        1834495084,
-                        1011132482,
-                        1565201111,
-                        1398511641,
-                        530318378,
-                        1272925270,
-                        136759000,
-                        393195547,
-                        217240190,
-                        486053895,
-                        1729958385,
-                        270900500,
-                        1354225327,
-                        1804715282,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        1152672049,
-                        108109282,
-                        1079994342,
-                        2057435213,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                    ],
-                ),
-            ],
-            length: 64,
-        },
-        _eval_order: PhantomData<stwo_prover::core::poly::BitReversedOrder>,
-    },
-    CircleEvaluation {
-        domain: CircleDomain {
-            half_coset: Coset {
-                initial_index: CirclePointIndex(
-                    16777216,
-                ),
-                initial: CirclePoint {
-                    x: M31(
-                        838195206,
-                    ),
-                    y: M31(
-                        1774253895,
-                    ),
-                },
-                step_size: CirclePointIndex(
-                    67108864,
-                ),
-                step: CirclePoint {
-                    x: M31(
-                        1179735656,
-                    ),
-                    y: M31(
-                        1241207368,
-                    ),
-                },
-                log_size: 5,
-            },
-        },
-        values: BaseColumn {
-            data: [
-                PackedM31(
-                    [
-                        873683970,
-                        520601235,
-                        1818838693,
-                        1606358669,
-                        693270552,
-                        1080533504,
-                        1770011787,
-                        1062276638,
-                        1705092561,
-                        1912064101,
-                        266183304,
-                        2041117046,
-                        475063836,
-                        515642128,
-                        1685923531,
-                        118863907,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        1048870287,
-                        557864792,
-                        1877913495,
-                        1596349199,
-                        1743941156,
-                        104972354,
-                        1461447836,
-                        519815239,
-                        2116192578,
-                        1554657137,
-                        379186988,
-                        1925828659,
-                        1499686234,
-                        803518185,
-                        1603402298,
-                        1506657040,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        2025239366,
-                        1694792295,
-                        1989112262,
-                        254297931,
-                        1085126179,
-                        862276838,
-                        165221673,
-                        737456362,
-                        1359687524,
-                        1767101513,
-                        2118578428,
-                        354016049,
-                        1420630794,
-                        331749870,
-                        592620838,
-                        2043115426,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        1832461212,
-                        1649015902,
-                        259048855,
-                        1748604360,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                    ],
-                ),
-            ],
-            length: 64,
-        },
-        _eval_order: PhantomData<stwo_prover::core::poly::BitReversedOrder>,
-    },
-    CircleEvaluation {
-        domain: CircleDomain {
-            half_coset: Coset {
-                initial_index: CirclePointIndex(
-                    16777216,
-                ),
-                initial: CirclePoint {
-                    x: M31(
-                        838195206,
-                    ),
-                    y: M31(
-                        1774253895,
-                    ),
-                },
-                step_size: CirclePointIndex(
-                    67108864,
-                ),
-                step: CirclePoint {
-                    x: M31(
-                        1179735656,
-                    ),
-                    y: M31(
-                        1241207368,
-                    ),
-                },
-                log_size: 5,
-            },
-        },
-        values: BaseColumn {
-            data: [
-                PackedM31(
-                    [
-                        384077366,
-                        2119248241,
-                        116110411,
-                        172698182,
-                        277234379,
-                        611681071,
-                        658602913,
-                        47311170,
-                        281150009,
-                        1133807166,
-                        224352611,
-                        1429480846,
-                        1018635007,
-                        930151533,
-                        260906676,
-                        421587156,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        1047013664,
-                        532592580,
-                        573836775,
-                        1707612024,
-                        1521469239,
-                        1740219142,
-                        1259108316,
-                        520948275,
-                        772258985,
-                        1466779558,
-                        1202832250,
-                        490088574,
-                        1522113635,
-                        1497641103,
-                        1253493439,
-                        428412309,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        744218595,
-                        120013373,
-                        1298879260,
-                        881317940,
-                        1983642141,
-                        672759233,
-                        342402647,
-                        1038853486,
-                        312203115,
-                        2103956656,
-                        1223867931,
-                        808602711,
-                        1939229456,
-                        1495976855,
-                        1533628711,
-                        288167200,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        430758837,
-                        2013085542,
-                        1322754877,
-                        60131618,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                    ],
-                ),
-            ],
-            length: 64,
-        },
-        _eval_order: PhantomData<stwo_prover::core::poly::BitReversedOrder>,
-    },
-    CircleEvaluation {
-        domain: CircleDomain {
-            half_coset: Coset {
-                initial_index: CirclePointIndex(
-                    16777216,
-                ),
-                initial: CirclePoint {
-                    x: M31(
-                        838195206,
-                    ),
-                    y: M31(
-                        1774253895,
-                    ),
-                },
-                step_size: CirclePointIndex(
-                    67108864,
-                ),
-                step: CirclePoint {
-                    x: M31(
-                        1179735656,
-                    ),
-                    y: M31(
-                        1241207368,
-                    ),
-                },
-                log_size: 5,
-            },
-        },
-        values: BaseColumn {
-            data: [
-                PackedM31(
-                    [
-                        1045916506,
-                        1952915713,
-                        488779205,
-                        336635097,
-                        641256909,
-                        830704684,
-                        1603923022,
-                        786605126,
-                        1266190297,
-                        1308738142,
-                        353914068,
-                        229878973,
-                        1006282351,
-                        1619118625,
-                        2110006438,
-                        1167276426,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        2114738542,
-                        394098210,
-                        147787935,
-                        816776218,
-                        347856496,
-                        1378960952,
-                        1996872411,
-                        1609054066,
-                        945471609,
-                        430922345,
-                        1934148573,
-                        1610003999,
-                        932604085,
-                        380479184,
-                        1902555861,
-                        305574231,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        832070351,
-                        1125346267,
-                        736022280,
-                        1777442357,
-                        497944634,
-                        1709926314,
-                        1415548823,
-                        640568872,
-                        620254783,
-                        2094859033,
-                        1967908043,
-                        1529416038,
-                        1801136225,
-                        245422378,
-                        1633487900,
-                        1610908616,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        1668485102,
-                        1871413856,
-                        1274175914,
-                        1626835918,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                    ],
-                ),
-            ],
-            length: 64,
-        },
-        _eval_order: PhantomData<stwo_prover::core::poly::BitReversedOrder>,
-    },
-    CircleEvaluation {
-        domain: CircleDomain {
-            half_coset: Coset {
-                initial_index: CirclePointIndex(
-                    16777216,
-                ),
-                initial: CirclePoint {
-                    x: M31(
-                        838195206,
-                    ),
-                    y: M31(
-                        1774253895,
-                    ),
-                },
-                step_size: CirclePointIndex(
-                    67108864,
-                ),
-                step: CirclePoint {
-                    x: M31(
-                        1179735656,
-                    ),
-                    y: M31(
-                        1241207368,
-                    ),
-                },
-                log_size: 5,
-            },
-        },
-        values: BaseColumn {
-            data: [
-                PackedM31(
-                    [
-                        349580509,
-                        2029560055,
-                        2132318040,
-                        1280275623,
-                        2126911170,
-                        1470638499,
-                        861315373,
-                        300706070,
-                        1083161110,
-                        882604345,
-                        372308996,
-                        2074314800,
-                        879538634,
-                        1638165798,
-                        899270758,
-                        1149184098,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        1161156697,
-                        999211761,
-                        1624280592,
-                        694949243,
-                        1221646688,
-                        2037053158,
-                        2025892354,
-                        258118626,
-                        424141481,
-                        938342734,
-                        1489827785,
-                        828029726,
-                        1008336752,
-                        2043227083,
-                        14228879,
-                        71437782,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        1492115461,
-                        1709272747,
-                        1990462632,
-                        1388700403,
-                        804296623,
-                        1148544044,
-                        1497626127,
-                        1641265771,
-                        748574174,
-                        1829302430,
-                        1302685095,
-                        1004895326,
-                        540553033,
-                        1309294440,
-                        1448312509,
-                        1984677654,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        1669313274,
-                        1767354051,
-                        1078515287,
-                        1532157651,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                    ],
-                ),
-            ],
-            length: 64,
-        },
-        _eval_order: PhantomData<stwo_prover::core::poly::BitReversedOrder>,
-    },
-    CircleEvaluation {
-        domain: CircleDomain {
-            half_coset: Coset {
-                initial_index: CirclePointIndex(
-                    16777216,
-                ),
-                initial: CirclePoint {
-                    x: M31(
-                        838195206,
-                    ),
-                    y: M31(
-                        1774253895,
-                    ),
-                },
-                step_size: CirclePointIndex(
-                    67108864,
-                ),
-                step: CirclePoint {
-                    x: M31(
-                        1179735656,
-                    ),
-                    y: M31(
-                        1241207368,
-                    ),
-                },
-                log_size: 5,
-            },
-        },
-        values: BaseColumn {
-            data: [
-                PackedM31(
-                    [
-                        459703603,
-                        1160262413,
-                        1993657301,
-                        1291523323,
-                        700425291,
-                        1852754569,
-                        767257905,
-                        1670001057,
-                        341356056,
-                        97560554,
-                        1595875792,
-                        278895506,
-                        1040920188,
-                        220173754,
-                        1544457751,
-                        1236123105,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        1963791538,
-                        1050091263,
-                        1896602436,
-                        40584216,
-                        687614150,
-                        1616328615,
-                        1489394736,
-                        392513731,
-                        845338022,
-                        249119092,
-                        235584757,
-                        874420813,
-                        1673160236,
-                        1375163563,
-                        239395156,
-                        517240286,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        1622214996,
-                        687501675,
-                        645983145,
-                        1620290702,
-                        486850314,
-                        853363509,
-                        818124117,
-                        569857715,
-                        561206155,
-                        1909927104,
-                        26910903,
-                        995521039,
-                        1482976791,
-                        1340068463,
-                        1614003824,
-                        1619840454,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        1443588769,
-                        1284348774,
-                        643642969,
-                        540966215,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                    ],
-                ),
-            ],
-            length: 64,
-        },
-        _eval_order: PhantomData<stwo_prover::core::poly::BitReversedOrder>,
-    },
-    CircleEvaluation {
-        domain: CircleDomain {
-            half_coset: Coset {
-                initial_index: CirclePointIndex(
-                    16777216,
-                ),
-                initial: CirclePoint {
-                    x: M31(
-                        838195206,
-                    ),
-                    y: M31(
-                        1774253895,
-                    ),
-                },
-                step_size: CirclePointIndex(
-                    67108864,
-                ),
-                step: CirclePoint {
-                    x: M31(
-                        1179735656,
-                    ),
-                    y: M31(
-                        1241207368,
-                    ),
-                },
-                log_size: 5,
-            },
-        },
-        values: BaseColumn {
-            data: [
-                PackedM31(
-                    [
-                        2081596471,
-                        0,
-                        1856405699,
-                        1782673675,
-                        57636038,
-                        132855485,
-                        1164490102,
-                        2114047221,
-                        1131604164,
-                        1535076749,
-                        2049185221,
-                        856804991,
-                        369094145,
-                        1522094169,
-                        1056832444,
-                        1072420287,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        2039944276,
-                        911107421,
-                        1590564161,
-                        186186938,
-                        913931522,
-                        419296823,
-                        384556928,
-                        709687743,
-                        1959535255,
-                        1896138632,
-                        1129540340,
-                        880697434,
-                        768632563,
-                        745876763,
-                        1986983196,
-                        1416006153,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        1578819682,
-                        518038277,
-                        481445609,
-                        1592780387,
-                        519226173,
-                        372195729,
-                        327198638,
-                        1114218991,
-                        1083809230,
-                        381802486,
-                        1919731066,
-                        664815217,
-                        788825198,
-                        1644724900,
-                        774429558,
-                        414369345,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        561814362,
-                        825183880,
-                        1371216750,
-                        1620183570,
-                        1976942622,
-                        1213828979,
-                        1693929891,
-                        296247922,
-                        278862749,
-                        329133860,
-                        1684323134,
-                        1369763443,
-                        757424145,
-                        1021049457,
-                        1830165682,
-                        1246240229,
-                    ],
-                ),
-            ],
-            length: 64,
-        },
-        _eval_order: PhantomData<stwo_prover::core::poly::BitReversedOrder>,
-    },
-    CircleEvaluation {
-        domain: CircleDomain {
-            half_coset: Coset {
-                initial_index: CirclePointIndex(
-                    16777216,
-                ),
-                initial: CirclePoint {
-                    x: M31(
-                        838195206,
-                    ),
-                    y: M31(
-                        1774253895,
-                    ),
-                },
-                step_size: CirclePointIndex(
-                    67108864,
-                ),
-                step: CirclePoint {
-                    x: M31(
-                        1179735656,
-                    ),
-                    y: M31(
-                        1241207368,
-                    ),
-                },
-                log_size: 5,
-            },
-        },
-        values: BaseColumn {
-            data: [
-                PackedM31(
-                    [
-                        115332266,
-                        0,
-                        1608699023,
-                        1226915822,
-                        1860753984,
-                        1567649762,
-                        1448863135,
-                        395538500,
-                        2124697225,
-                        1240694019,
-                        1151043211,
-                        2016422469,
-                        1039083870,
-                        334084113,
-                        733838179,
-                        288041239,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        10464004,
-                        476761170,
-                        824958554,
-                        951418067,
-                        349438411,
-                        1183727706,
-                        736647929,
-                        1618736,
-                        30008137,
-                        1946491632,
-                        131417166,
-                        1380794302,
-                        347694361,
-                        1152716030,
-                        59370602,
-                        1190149399,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        613739206,
-                        710088084,
-                        1207513715,
-                        1682418819,
-                        2027751456,
-                        1792288733,
-                        1335029075,
-                        282697833,
-                        1899724479,
-                        272809672,
-                        1225222181,
-                        462132795,
-                        1311322848,
-                        1689596696,
-                        1335132010,
-                        511293086,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        730480099,
-                        1713904530,
-                        1982818187,
-                        1857819536,
-                        800012520,
-                        1488922936,
-                        610689397,
-                        315093303,
-                        620577558,
-                        1786742860,
-                        2130168458,
-                        51150062,
-                        2020298544,
-                        1946578748,
-                        1047967809,
-                        453211991,
-                    ],
-                ),
-            ],
-            length: 64,
-        },
-        _eval_order: PhantomData<stwo_prover::core::poly::BitReversedOrder>,
-    },
-    CircleEvaluation {
-        domain: CircleDomain {
-            half_coset: Coset {
-                initial_index: CirclePointIndex(
-                    16777216,
-                ),
-                initial: CirclePoint {
-                    x: M31(
-                        838195206,
-                    ),
-                    y: M31(
-                        1774253895,
-                    ),
-                },
-                step_size: CirclePointIndex(
-                    67108864,
-                ),
-                step: CirclePoint {
-                    x: M31(
-                        1179735656,
-                    ),
-                    y: M31(
-                        1241207368,
-                    ),
-                },
-                log_size: 5,
-            },
-        },
-        values: BaseColumn {
-            data: [
-                PackedM31(
-                    [
-                        278978032,
-                        0,
-                        1176641966,
-                        1527686528,
-                        1667567008,
-                        1065701991,
-                        783229234,
-                        1508517334,
-                        1906021640,
-                        1115827434,
-                        2124139227,
-                        1214576070,
-                        1318146703,
-                        1428481312,
-                        1452551879,
-                        1617629383,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        2030613001,
-                        1975888141,
-                        2075098525,
-                        1130623574,
-                        1533151895,
-                        327722982,
-                        1010836774,
-                        18035622,
-                        633405608,
-                        338833781,
-                        1707920138,
-                        499232361,
-                        938314904,
-                        1367040188,
-                        900060785,
-                        721110225,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        883237374,
-                        1630674452,
-                        70860720,
-                        176874402,
-                        81190403,
-                        1950484994,
-                        2010185655,
-                        1402181614,
-                        2032567860,
-                        279347906,
-                        1710857867,
-                        669914943,
-                        1710900877,
-                        1614247115,
-                        676831627,
-                        1494631731,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        209463782,
-                        1545117714,
-                        1860899056,
-                        1417283831,
-                        2020430806,
-                        1327171443,
-                        1629863769,
-                        1109053856,
-                        605213830,
-                        2133745097,
-                        1153517210,
-                        870599224,
-                        1527390265,
-                        379674182,
-                        833706668,
-                        1629493895,
-                    ],
-                ),
-            ],
-            length: 64,
-        },
-        _eval_order: PhantomData<stwo_prover::core::poly::BitReversedOrder>,
-    },
-    CircleEvaluation {
-        domain: CircleDomain {
-            half_coset: Coset {
-                initial_index: CirclePointIndex(
-                    16777216,
-                ),
-                initial: CirclePoint {
-                    x: M31(
-                        838195206,
-                    ),
-                    y: M31(
-                        1774253895,
-                    ),
-                },
-                step_size: CirclePointIndex(
-                    67108864,
-                ),
-                step: CirclePoint {
-                    x: M31(
-                        1179735656,
-                    ),
-                    y: M31(
-                        1241207368,
-                    ),
-                },
-                log_size: 5,
-            },
-        },
-        values: BaseColumn {
-            data: [
-                PackedM31(
-                    [
-                        1869382505,
-                        0,
-                        1355841040,
-                        1316528874,
-                        682276380,
-                        54466424,
-                        339738924,
-                        540804624,
-                        1871073080,
-                        2028102062,
-                        1684501385,
-                        213548650,
-                        290461579,
-                        729813389,
-                        1427778518,
-                        1947354556,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        1565269429,
-                        1982462217,
-                        1040479384,
-                        191610062,
-                        1046591430,
-                        115229299,
-                        1642234107,
-                        1629268138,
-                        1421257657,
-                        1139819507,
-                        1824365656,
-                        1062169462,
-                        191477313,
-                        1184310522,
-                        904195151,
-                        1485489943,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        279761582,
-                        1572643917,
-                        459270111,
-                        1031777421,
-                        236244204,
-                        1892781904,
-                        1830502164,
-                        1258765165,
-                        756101003,
-                        1188652374,
-                        1647441500,
-                        724677642,
-                        1932142482,
-                        546496310,
-                        1561933255,
-                        202714868,
-                    ],
-                ),
-                PackedM31(
-                    [
-                        1010854520,
-                        1276761712,
-                        521101555,
-                        1205512314,
-                        1494519023,
-                        306859119,
-                        1958493755,
-                        493430814,
-                        2028606546,
-                        1109580305,
-                        515139638,
-                        1452117761,
-                        1801618802,
-                        2125682421,
-                        195001651,
-                        491740239,
-                    ],
-                ),
-            ],
-            length: 64,
-        },
-        _eval_order: PhantomData<stwo_prover::core::poly::BitReversedOrder>,
-    },
-]
-[external/stwo/crates/prover/src/core/air/components.rs:127:72] c.n_constraints() = 8
-[external/stwo/crates/prover/src/core/air/components.rs:127:72] c.n_constraints() = 5
-[external/stwo/crates/prover/src/core/air/components.rs:127:72] c.n_constraints() = 5
-[external/stwo/crates/prover/src/core/air/components.rs:127:72] c.n_constraints() = 7
-[external/stwo/crates/prover/src/core/air/components.rs:127:72] c.n_constraints() = 7
-[external/stwo/crates/prover/src/core/air/components.rs:127:72] c.n_constraints() = 8
-[external/stwo/crates/prover/src/core/air/components.rs:127:72] c.n_constraints() = 9
-[external/stwo/crates/prover/src/core/air/components.rs:127:72] c.n_constraints() = 8
-[external/stwo/crates/prover/src/core/air/components.rs:127:72] c.n_constraints() = 8
-[external/stwo/crates/prover/src/core/air/components.rs:127:72] c.n_constraints() = 6
-[external/stwo/crates/prover/src/core/air/components.rs:127:72] c.n_constraints() = 9
-[external/stwo/crates/prover/src/core/air/components.rs:127:72] c.n_constraints() = 10
-[external/stwo/crates/prover/src/core/air/components.rs:127:72] c.n_constraints() = 9
-[external/stwo/crates/prover/src/core/air/components.rs:127:72] c.n_constraints() = 9
-[external/stwo/crates/prover/src/core/air/components.rs:127:72] c.n_constraints() = 6
-[external/stwo/crates/prover/src/core/air/components.rs:127:72] c.n_constraints() = 10
-[external/stwo/crates/prover/src/core/air/components.rs:127:72] c.n_constraints() = 9
-[external/stwo/crates/prover/src/core/air/components.rs:127:72] c.n_constraints() = 9
-[external/stwo/crates/prover/src/core/air/components.rs:127:72] c.n_constraints() = 8
-[external/stwo/crates/prover/src/core/air/components.rs:127:72] c.n_constraints() = 6
-[external/stwo/crates/prover/src/core/air/components.rs:127:72] c.n_constraints() = 4
-[external/stwo/crates/prover/src/core/air/components.rs:127:72] c.n_constraints() = 1
-[external/stwo/crates/prover/src/core/air/components.rs:128:9] &total_constraints = 161
-[external/stwo/crates/prover/src/core/air/components.rs:129:9] self.components().composition_log_degree_bound() = 21
+[crates/prover/src/adapter/memory.rs:245:17] &initial_memory_cell = (
+    (6 + 0i) + (0 + 0i)u,
+    M31(
+        0,
+    ),
+    M31(
+        0,
+    ),
+    M31(
+        30,
+    ),
+)
+[crates/prover/src/adapter/memory.rs:245:17] &initial_memory_cell = (
+    (6 + 1i) + (0 + 1i)u,
+    M31(
+        0,
+    ),
+    M31(
+        0,
+    ),
+    M31(
+        30,
+    ),
+)
+[crates/prover/src/adapter/memory.rs:245:17] &initial_memory_cell = (
+    (6 + 0i) + (0 + 2i)u,
+    M31(
+        0,
+    ),
+    M31(
+        0,
+    ),
+    M31(
+        30,
+    ),
+)
+[crates/prover/src/adapter/memory.rs:245:17] &initial_memory_cell = (
+    (2 + 2i) + (2147483643 + 3i)u,
+    M31(
+        0,
+    ),
+    M31(
+        0,
+    ),
+    M31(
+        30,
+    ),
+)
+[crates/prover/src/adapter/memory.rs:245:17] &initial_memory_cell = (
+    (15 + 3i) + (3 + 0i)u,
+    M31(
+        0,
+    ),
+    M31(
+        0,
+    ),
+    M31(
+        30,
+    ),
+)
+[crates/prover/src/adapter/memory.rs:245:17] &initial_memory_cell = (
+    (6 + 1i) + (0 + 3i)u,
+    M31(
+        0,
+    ),
+    M31(
+        0,
+    ),
+    M31(
+        30,
+    ),
+)
+[crates/prover/src/adapter/memory.rs:245:17] &initial_memory_cell = (
+    (15 + 3i) + (2 + 0i)u,
+    M31(
+        0,
+    ),
+    M31(
+        0,
+    ),
+    M31(
+        30,
+    ),
+)
+[crates/prover/src/adapter/memory.rs:245:17] &initial_memory_cell = (
+    (4 + 0i) + (0 + 4i)u,
+    M31(
+        0,
+    ),
+    M31(
+        0,
+    ),
+    M31(
+        30,
+    ),
+)
+[crates/prover/src/adapter/memory.rs:245:17] &initial_memory_cell = (
+    (4 + 1i) + (0 + 0i)u,
+    M31(
+        0,
+    ),
+    M31(
+        0,
+    ),
+    M31(
+        30,
+    ),
+)
+[crates/prover/src/adapter/memory.rs:245:17] &initial_memory_cell = (
+    (0 + 1i) + (4 + 1i)u,
+    M31(
+        0,
+    ),
+    M31(
+        0,
+    ),
+    M31(
+        30,
+    ),
+)
+[crates/prover/src/adapter/memory.rs:245:17] &initial_memory_cell = (
+    (1 + 2i) + (1 + 2i)u,
+    M31(
+        0,
+    ),
+    M31(
+        0,
+    ),
+    M31(
+        30,
+    ),
+)
+[crates/prover/src/adapter/memory.rs:245:17] &initial_memory_cell = (
+    (13 + 3i) + (0 + 0i)u,
+    M31(
+        0,
+    ),
+    M31(
+        0,
+    ),
+    M31(
+        30,
+    ),
+)
+[crates/prover/src/adapter/memory.rs:245:17] &initial_memory_cell = (
+    (6 + 0i) + (0 + 3i)u,
+    M31(
+        0,
+    ),
+    M31(
+        0,
+    ),
+    M31(
+        30,
+    ),
+)
+[crates/prover/src/adapter/memory.rs:245:17] &initial_memory_cell = (
+    (13 + 8i) + (0 + 0i)u,
+    M31(
+        0,
+    ),
+    M31(
+        0,
+    ),
+    M31(
+        30,
+    ),
+)
+[crates/prover/src/adapter/memory.rs:245:17] &initial_memory_cell = (
+    (13 + 15i) + (0 + 0i)u,
+    M31(
+        0,
+    ),
+    M31(
+        0,
+    ),
+    M31(
+        30,
+    ),
+)
+[crates/prover/src/adapter/memory.rs:245:17] &initial_memory_cell = (
+    (4 + 0i) + (0 + 2147483644i)u,
+    M31(
+        0,
+    ),
+    M31(
+        0,
+    ),
+    M31(
+        30,
+    ),
+)
+[crates/prover/src/adapter/memory.rs:245:17] &initial_memory_cell = (
+    (12 + 0i) + (0 + 0i)u,
+    M31(
+        0,
+    ),
+    M31(
+        0,
+    ),
+    M31(
+        30,
+    ),
+)
+Relations summary: Merkle:
+  [12, 30, 2] -> 2147483645
+  [22, 30] -> 4
+  [49, 30, 1] -> 2147483645
+  [24, 30] -> 7
+  [9, 30, 13] -> 2
+  [103, 30] -> 2147483645
+  [0, 0, 232] -> 1
+  [6, 30, 13] -> 2
+  [30, 30] -> 2147483645
+  [94, 30] -> 2147483645
+  [14, 30, 2147483643] -> 2147483645
+  [100, 30, 3] -> 2147483646
+  [55, 30, 2] -> 2147483645
+  [18, 30, 5] -> 2
+  [10, 30, 4] -> 2
+  [28, 30, 6] -> 2147483645
+  [8, 30, 3] -> 2
+  [22, 30, 8] -> 1
+  [1, 4] -> 2147483645
+  [26, 30] -> 4
+  [21, 30] -> 5
+  [3, 30] -> 2
+  [14, 27] -> 2
+  [16, 30, 15] -> 2147483645
+  [7, 30] -> 4
+  [1, 13] -> 2147483645
+  [47, 30] -> 2147483645
+  [20, 30] -> 6
+  [92, 30, 5] -> 2147483646
+  [15, 30, 4] -> 2
+  [51, 30, 1] -> 2147483645
+  [5, 30, 3] -> 2
+  [16, 30] -> 4
+  [32, 30, 15] -> 2147483645
+  [37, 30, 15] -> 2147483645
+  [48, 30] -> 2147483645
+  [1, 23] -> 2147483645
+  [1, 7] -> 2147483645
+  [91, 30] -> 2147483645
+  [12, 30] -> 6
+  [4, 30] -> 2
+  [98, 30] -> 2147483645
+  [17, 30] -> 6
+  [16, 30, 12] -> 2
+  [16, 27] -> 2
+  [52, 30, 1] -> 2147483645
+  [84, 30] -> 2147483646
+  [1, 8] -> 2147483645
+  [87, 30] -> 2147483645
+  [24, 30, 2147483642] -> 1
+  [86, 30] -> 2147483645
+  [96, 30, 2147483642] -> 2147483646
+  [95, 30] -> 2147483645
+  [15, 27] -> 2
+  [35, 30] -> 2147483645
+  [4, 30, 6] -> 2147483645
+  [56, 30, 13] -> 2147483645
+  [18, 30, 2147483644] -> 2
+  [29, 30, 1] -> 2147483645
+  [5, 30, 1] -> 2147483645
+  [6, 30, 3] -> 4
+  [50, 30, 4] -> 2147483645
+  [1, 22] -> 2147483645
+  [85, 30] -> 2147483645
+  [69, 30] -> 2147483645
+  [62, 30] -> 2147483645
+  [8, 30, 6] -> 2147483645
+  [8, 30] -> 2
+  [22, 30, 1] -> 1
+  [13, 30, 2] -> 2147483645
+  [42, 30] -> 2147483645
+  [102, 30] -> 2147483645
+  [10, 30] -> 2147483645
+  [68, 30, 5] -> 2147483645
+  [33, 30, 3] -> 2147483645
+  [8, 26] -> 2
+  [81, 30] -> 2147483645
+  [11, 30, 4] -> 2
+  [1, 15] -> 2147483645
+  [10, 30, 15] -> 2
+  [7, 30, 1] -> 2147483645
+  [88, 30, 8] -> 2147483646
+  [53, 30, 2] -> 2147483645
+  [1, 19] -> 2147483645
+  [2, 1] -> 2
+  [101, 30] -> 2147483645
+  [5, 30, 2] -> 2
+  [20, 30, 6] -> 2147483645
+  [64, 30, 12] -> 2147483645
+  [1, 5] -> 2147483645
+  [7, 30, 8] -> 2
+  [2, 30, 6] -> 2
+  [58, 30] -> 2147483645
+  [1, 9] -> 2147483645
+  [99, 30] -> 2147483645
+  [14, 30, 4] -> 2
+  [25, 30, 8] -> 2147483645
+  [61, 30] -> 2147483645
+  [72, 30, 5] -> 2147483645
+  [1, 21] -> 2147483645
+  [9, 30, 3] -> 2
+  [1, 16] -> 2147483645
+  [13, 30, 1] -> 2
+  [3, 30, 2] -> 2
+  [11, 30] -> 6
+  [36, 30, 13] -> 2147483645
+  [23, 30, 3] -> 2147483645
+  [46, 30] -> 2147483645
+  [63, 30, 2147483644] -> 2147483645
+  [5, 30, 2147483643] -> 2
+  [11, 30, 2] -> 2147483645
+  [67, 30] -> 2147483645
+  [13, 30, 4] -> 2
+  [43, 30, 4] -> 2147483645
+  [14, 30, 13] -> 2
+  [17, 30, 3] -> 2147483645
+  [44, 30, 4] -> 2147483645
+  [65, 30] -> 2147483645
+  [5, 30, 6] -> 2
+  [1, 20] -> 2147483645
+  [20, 30, 17] -> 2
+  [10, 30, 2] -> 2
+  [100, 30] -> 2147483646
+  [59, 30] -> 2147483645
+  [24, 30, 13] -> 2147483645
+  [89, 30] -> 2147483645
+  [71, 30] -> 2147483645
+  [1, 10] -> 2147483645
+  [25, 30] -> 7
+  [1, 17] -> 2147483645
+  [60, 30, 4] -> 2147483645
+  [45, 30, 1] -> 2147483645
+  [19, 30] -> 4
+  [17, 30, 5] -> 2
+  [88, 30, 1] -> 2147483646
+  [74, 30] -> 2147483645
+  [31, 30, 3] -> 2147483645
+  [25, 30, 3] -> 1
+  [34, 30, 2] -> 2147483645
+  [10, 26] -> 2
+  [12, 30, 1] -> 2
+  [1, 18] -> 2147483645
+  [18, 30] -> 4
+  [15, 30, 1] -> 2
+  [4, 1] -> 2
+  [96, 30] -> 2147483646
+  [28, 30] -> 2
+  [0, 0, 257] -> 1
+  [23, 30] -> 7
+  [1, 6] -> 2147483645
+  [66, 30] -> 2147483645
+  [79, 30] -> 2147483645
+  [57, 30, 3] -> 2147483645
+  [14, 30] -> 2
+  [23, 30, 5] -> 1
+  [1, 11] -> 2147483645
+  [77, 30] -> 2147483645
+  [75, 30] -> 2147483645
+  [92, 30] -> 2147483646
+  [1, 12] -> 2147483645
+  [83, 30] -> 2147483645
+  [1, 3] -> 2147483645
+  [82, 30] -> 2147483645
+  [18, 30, 3] -> 2147483645
+  [41, 30] -> 2147483645
+  [76, 30, 21] -> 2147483645
+  [90, 30] -> 2147483645
+  [4, 30, 15] -> 2
+  [54, 30, 1] -> 2147483645
+  [19, 30, 21] -> 2
+  [80, 30, 17] -> 2147483645
+  [84, 30, 5] -> 2147483646
+  [13, 30] -> 2
+  [70, 30] -> 2147483645
+  [9, 26] -> 2
+  [3, 1] -> 2
+  [21, 30, 5] -> 1
+  [1, 2] -> 2147483645
+  [8, 30, 15] -> 2
+  [39, 30] -> 2147483645
+  [40, 30, 4] -> 2147483645
+  [97, 30] -> 2147483645
+  [73, 30] -> 2147483645
+  [1, 14] -> 2147483645
+  [78, 30] -> 2147483645
+  [4, 30, 2] -> 2
+  [93, 30] -> 2147483645
+  [38, 30] -> 2147483645
+  [27, 30] -> 2
+Memory:
+  [13, 47, 1, 2, 1, 2] -> 1
+  [13, 0, 1, 2, 1, 2] -> 2147483646
+  [1, 0, 6, 1, 0, 1] -> 2147483646
+  [7, 0, 6, 1, 0, 3] -> 2147483646
+  [1, 2, 6, 1, 0, 1] -> 1
+  [7, 42, 6, 1, 0, 3] -> 1
 
-thread 'test_prove_and_verify_fibonacci_program' panicked at external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9:
-Can only evaluate on larger domains
-stack backtrace:
-   0: __rustc::rust_begin_unwind
-   1: core::panicking::panic_fmt
-   2: stwo_prover::core::backend::simd::circle::<impl stwo_prover::core::poly::circle::ops::PolyOps for stwo_prover::core::backend::simd::SimdBackend>::evaluate
-   3: alloc::vec::in_place_collect::<impl alloc::vec::spec_from_iter::SpecFromIter<T,I> for alloc::vec::Vec<T>>::from_iter
-   4: alloc::vec::in_place_collect::from_iter_in_place
-   5: <stwo_constraint_framework::component::FrameworkComponent<E> as stwo_prover::core::air::ComponentProver<stwo_prover::core::backend::simd::SimdBackend>>::evaluate_constraint_quotients_on_domain
-   6: stwo_prover::core::air::components::ComponentProvers<B>::compute_composition_polynomial
-   7: cairo_m_prover::prover::prove_cairo_m
-   8: core::ops::function::FnOnce::call_once
-note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
-error: test failed, to rerun pass `-p cairo-m-prover --test prover`
+
+thread 'test_prove_and_verify_fibonacci_program' panicked at crates/prover/tests/prover.rs:101:69:
+called `Result::unwrap()` on an `Err` value: InvalidLogupSum
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    test_prove_and_verify_fibonacci_program
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.78s
+

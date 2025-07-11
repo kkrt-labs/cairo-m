@@ -1,9 +1,6 @@
 use serde::{Deserialize, Serialize};
 pub use stwo_constraint_framework::EvalAtRow;
 
-pub use crate::preprocessed::*;
-pub use crate::relations;
-
 #[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct Hash {}
 

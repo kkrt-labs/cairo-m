@@ -1,6 +1,6 @@
 pub mod io;
 pub mod memory;
-pub mod partial_merkle;
+pub mod merkle;
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -11,14 +11,14 @@ use cairo_m_common::State as VmRegisters;
 use cairo_m_runner::RunnerOutput;
 use io::VmImportError;
 pub use memory::ExecutionBundle;
-pub use partial_merkle::MockHasher;
+pub use merkle::MockHasher;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 use tracing::{span, Level};
 
 use crate::adapter::io::{MemoryEntryFileIter, TraceFileIter};
 use crate::adapter::memory::{ExecutionBundleIterator, Memory};
-use crate::adapter::partial_merkle::{build_partial_merkle_tree, NodeData};
+use crate::adapter::merkle::{build_partial_merkle_tree, NodeData};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ProverInput {
@@ -80,19 +80,20 @@ where
     final_registers = bundle_iter.get_final_registers().unwrap_or(final_registers);
 
     // Get the memory state from the iterator
-    let memory = bundle_iter.into_memory();
+    let mut memory = bundle_iter.into_memory();
     // Assert that the keys are the same for both initial_memory and final_memory
     let initial_keys: std::collections::HashSet<_> = memory.initial_memory.keys().collect();
     let final_keys: std::collections::HashSet<_> = memory.final_memory.keys().collect();
-    assert_eq!(
+    debug_assert_eq!(
         initial_keys, final_keys,
         "Initial and final memory keys do not match"
     );
 
-    // Build the partial merkle trees
+    // Build the partial merkle trees and add to the memory the intermediate nodes
     let (initial_tree, initial_root) =
-        build_partial_merkle_tree::<MockHasher>(&memory.initial_memory);
-    let (final_tree, final_root) = build_partial_merkle_tree::<MockHasher>(&memory.final_memory);
+        build_partial_merkle_tree::<MockHasher>(&mut memory.initial_memory);
+    let (final_tree, final_root) =
+        build_partial_merkle_tree::<MockHasher>(&mut memory.final_memory);
 
     Ok(ProverInput {
         merkle_trees: MerkleTrees {

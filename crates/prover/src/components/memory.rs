@@ -19,12 +19,10 @@ use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::adapter::memory::Memory;
-use crate::adapter::partial_merkle::TREE_HEIGHT;
-use crate::adapter::MerkleTrees;
 use crate::relations;
 use crate::utils::Enabler;
 
-const N_TRACE_COLUMNS: usize = 9; // enabler, address, clock, value0, value1, value2, value3, multiplicity, root
+const N_TRACE_COLUMNS: usize = 9; // enabler, address, clock, value0, value1, value2, value3, multiplicity, depth
 const N_MEMORY_LOOKUPS: usize = 1;
 const N_MERKLE_LOOKUPS: usize = 4;
 const N_INTERACTION_COLUMNS: usize =
@@ -48,7 +46,7 @@ pub struct InteractionClaimData {
 #[derive(Uninitialized, IterMut, ParIterMut)]
 pub struct LookupData {
     pub memory: [Vec<[PackedM31; 7]>; N_MEMORY_LOOKUPS],
-    pub merkle: [Vec<[PackedM31; 4]>; N_MERKLE_LOOKUPS],
+    pub merkle: [Vec<[PackedM31; 3]>; N_MERKLE_LOOKUPS],
 }
 
 impl Claim {
@@ -64,7 +62,6 @@ impl Claim {
 
     pub fn write_trace<MC: MerkleChannel>(
         inputs: &Memory,
-        merkle_trees: &MerkleTrees,
     ) -> (Self, ComponentTrace<N_TRACE_COLUMNS>, InteractionClaimData)
     where
         SimdBackend: BackendForChannel<MC>,
@@ -72,20 +69,13 @@ impl Claim {
         let initial_memory_len = inputs.initial_memory.len();
         let non_padded_length = initial_memory_len + inputs.final_memory.len();
         let log_size = std::cmp::max(non_padded_length.next_power_of_two(), N_LANES).ilog2();
-        dbg!(log_size);
 
         // Pack memory entries from the prover input
         let packed_inputs: Vec<[PackedM31; N_TRACE_COLUMNS - 1]> = inputs
             .initial_memory
             .iter()
             .chain(inputs.final_memory.iter())
-            .enumerate()
-            .map(|(i, (address, (value, clock, multiplicity)))| {
-                let root = if i < initial_memory_len {
-                    merkle_trees.initial_root
-                } else {
-                    merkle_trees.final_root
-                };
+            .map(|(address, (value, clock, multiplicity, depth))| {
                 let value_array = value.to_m31_array();
                 [
                     *address,
@@ -95,7 +85,7 @@ impl Claim {
                     value_array[2],
                     value_array[3],
                     *multiplicity,
-                    root.unwrap(),
+                    *depth,
                 ]
             })
             .chain(std::iter::repeat([M31::zero(); N_TRACE_COLUMNS - 1]))
@@ -109,7 +99,6 @@ impl Claim {
         let one = PackedM31::from(M31::one());
         let m31_2 = PackedM31::from(M31::from(2));
         let m31_3 = PackedM31::from(M31::from(3));
-        let tree_height = PackedM31::from(M31::from(TREE_HEIGHT));
         let enabler_col = Enabler::new(non_padded_length);
 
         // Generate lookup data and fill the trace
@@ -135,7 +124,7 @@ impl Claim {
                 let value2 = input[4];
                 let value3 = input[5];
                 let multiplicity = input[6];
-                let root = input[7];
+                let depth = input[7];
 
                 *row[0] = enabler;
                 *row[1] = address;
@@ -145,14 +134,14 @@ impl Claim {
                 *row[5] = value2;
                 *row[6] = value3;
                 *row[7] = multiplicity;
-                *row[8] = root;
+                *row[8] = depth;
 
                 *lookup_data.memory[0] =
                     [address, clock, value0, value1, value2, value3, multiplicity];
-                *lookup_data.merkle[0] = [address, tree_height, value0, root];
-                *lookup_data.merkle[1] = [address + one, tree_height, value1, root];
-                *lookup_data.merkle[2] = [address + m31_2, tree_height, value2, root];
-                *lookup_data.merkle[3] = [address + m31_3, tree_height, value3, root];
+                *lookup_data.merkle[0] = [address, depth, value0];
+                *lookup_data.merkle[1] = [address + one, depth, value1];
+                *lookup_data.merkle[2] = [address + m31_2, depth, value2];
+                *lookup_data.merkle[3] = [address + m31_3, depth, value3];
             });
 
         // Return the trace and lookup data
@@ -195,7 +184,7 @@ impl InteractionClaim {
             .for_each(|(i, (writer, value0, value1))| {
                 let num0: PackedQM31 = PackedQM31::from(value0[6]);
                 let denom0: PackedQM31 = memory.combine(&value0[..6]);
-                let num1: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
+                let num1: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
                 let denom1: PackedQM31 = merkle.combine(value1);
 
                 let numerator = num0 * denom1 + num1 * denom0;
@@ -214,9 +203,9 @@ impl InteractionClaim {
             .into_par_iter()
             .enumerate()
             .for_each(|(i, (writer, value0, value1))| {
-                let num0: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
+                let num0: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
                 let denom0: PackedQM31 = merkle.combine(value0);
-                let num1: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
+                let num1: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
                 let denom1: PackedQM31 = merkle.combine(value1);
 
                 let numerator = num0 * denom1 + num1 * denom0;
@@ -234,7 +223,7 @@ impl InteractionClaim {
             .into_par_iter()
             .enumerate()
             .for_each(|(i, (writer, value))| {
-                let numerator: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
+                let numerator: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
                 let denom: PackedQM31 = merkle.combine(value);
 
                 writer.write_frac(numerator, denom);
@@ -243,7 +232,6 @@ impl InteractionClaim {
 
         let (trace, claimed_sum) = interaction_trace.finalize_last();
         let interaction_claim = Self { claimed_sum };
-        dbg!(&trace);
         (interaction_claim, trace)
     }
 }
@@ -275,7 +263,7 @@ impl FrameworkEval for Eval {
         let value2 = eval.next_trace_mask();
         let value3 = eval.next_trace_mask();
         let multiplicity = eval.next_trace_mask();
-        let root = eval.next_trace_mask();
+        let depth = eval.next_trace_mask();
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
@@ -294,48 +282,28 @@ impl FrameworkEval for Eval {
             ],
         ));
 
-        // Emit leaves
+        // Emit leaves and intermediate nodes
         eval.add_to_relation(RelationEntry::new(
             &self.merkle,
             E::EF::from(enabler.clone()),
-            &[
-                address.clone(),
-                E::F::from(M31::from(TREE_HEIGHT)),
-                value0,
-                root.clone(),
-            ],
+            &[address.clone(), depth.clone(), value0],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.merkle,
             E::EF::from(enabler.clone()),
-            &[
-                address.clone() + one,
-                E::F::from(M31::from(TREE_HEIGHT)),
-                value1,
-                root.clone(),
-            ],
+            &[address.clone() + one, depth.clone(), value1],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.merkle,
             E::EF::from(enabler.clone()),
-            &[
-                address.clone() + m31_2,
-                E::F::from(M31::from(TREE_HEIGHT)),
-                value2,
-                root.clone(),
-            ],
+            &[address.clone() + m31_2, depth.clone(), value2],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.merkle,
             E::EF::from(enabler),
-            &[
-                address + m31_3,
-                E::F::from(M31::from(TREE_HEIGHT)),
-                value3,
-                root,
-            ],
+            &[address + m31_3, depth, value3],
         ));
-        eval.finalize_logup();
+        eval.finalize_logup_in_pairs();
 
         eval
     }

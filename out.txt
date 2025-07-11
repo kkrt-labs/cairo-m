@@ -22,1546 +22,217 @@ failures:
 ---- test_prove_and_verify_fibonacci_program stdout ----
 Pass 'InPlaceOptimizationPass' modified function 'fib'
 Warning: Block 1 uses value 3 that is not defined in the block or as a parameter
+Warning: Block 2 uses value 1 that is not defined in the block or as a parameter
 Warning: Block 2 uses value 2 that is not defined in the block or as a parameter
 Warning: Block 2 uses value 3 that is not defined in the block or as a parameter
-Warning: Block 2 uses value 1 that is not defined in the block or as a parameter
 Warning: Block 3 uses value 1 that is not defined in the block or as a parameter
-
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 20
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 21
-
-[crates/prover/src/components/memory.rs:75:9] log_size = 6
-
-// 490 lines => 245 columns of opcodes
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-
-// fft_log_size = 6 for memory, 9 columns (18 lines)
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-
-// fft_log_size = 6 for merkle, 6 columns (12 lines)
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 8
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 9
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 8
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 9
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 8
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 9
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 8
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 9
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 8
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 9
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 8
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 9
-
-// 1 column for multiplicity of range checks
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 20
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 21
+merkle trace_log_size: 8
+memory trace_log_size: 6
+Relations summary: Memory:
+  [1, 0, 6, 1, 0, 1] -> 2147483646
+  [1, 2, 6, 1, 0, 1] -> 1
+  [13, 0, 1, 2, 1, 2] -> 2147483646
+  [13, 47, 1, 2, 1, 2] -> 1
+  [7, 0, 6, 1, 0, 3] -> 2147483646
+  [7, 42, 6, 1, 0, 3] -> 1
+Merkle:
+  [0, 0, 232] -> 1
+  [0, 0, 257] -> 1
+  [1, 10] -> 2147483645
+  [1, 11] -> 2147483645
+  [1, 12] -> 2147483645
+  [1, 13] -> 2147483645
+  [1, 14] -> 2147483645
+  [1, 15] -> 2147483645
+  [1, 16] -> 2147483645
+  [1, 17] -> 2147483645
+  [1, 18] -> 2147483645
+  [1, 19] -> 2147483645
+  [1, 2] -> 2147483645
+  [1, 20] -> 2147483645
+  [1, 21] -> 2147483645
+  [1, 22] -> 2147483645
+  [1, 23] -> 2147483645
+  [1, 3] -> 2147483645
+  [1, 4] -> 2147483645
+  [1, 5] -> 2147483645
+  [1, 6] -> 2147483645
+  [1, 7] -> 2147483645
+  [1, 8] -> 2147483645
+  [1, 9] -> 2147483645
+  [10, 26] -> 2
+  [10, 30, 15] -> 2
+  [10, 30, 2] -> 2
+  [10, 30, 4] -> 2
+  [10, 30] -> 2147483645
+  [100, 30, 3] -> 2147483646
+  [100, 30] -> 2147483646
+  [101, 30] -> 2147483645
+  [102, 30] -> 2147483645
+  [103, 30] -> 2147483645
+  [11, 30, 2] -> 2147483645
+  [11, 30, 4] -> 2
+  [11, 30] -> 6
+  [12, 30, 1] -> 2
+  [12, 30, 2] -> 2147483645
+  [12, 30] -> 6
+  [13, 30, 1] -> 2
+  [13, 30, 2] -> 2147483645
+  [13, 30, 4] -> 2
+  [13, 30] -> 2
+  [14, 27] -> 2
+  [14, 30, 13] -> 2
+  [14, 30, 2147483643] -> 2147483645
+  [14, 30, 4] -> 2
+  [14, 30] -> 2
+  [15, 27] -> 2
+  [15, 30, 1] -> 2
+  [15, 30, 4] -> 2
+  [16, 27] -> 2
+  [16, 30, 12] -> 2
+  [16, 30, 15] -> 2147483645
+  [16, 30] -> 4
+  [17, 30, 3] -> 2147483645
+  [17, 30, 5] -> 2
+  [17, 30] -> 6
+  [18, 30, 2147483644] -> 2
+  [18, 30, 3] -> 2147483645
+  [18, 30, 5] -> 2
+  [18, 30] -> 4
+  [19, 30, 21] -> 2
+  [19, 30] -> 4
+  [2, 1] -> 2
+  [2, 30, 6] -> 2
+  [20, 30, 17] -> 2
+  [20, 30, 6] -> 2147483645
+  [20, 30] -> 6
+  [21, 30, 5] -> 1
+  [21, 30] -> 5
+  [22, 30, 1] -> 1
+  [22, 30, 8] -> 1
+  [22, 30] -> 4
+  [23, 30, 3] -> 2147483645
+  [23, 30, 5] -> 1
+  [23, 30] -> 7
+  [24, 30, 13] -> 2147483645
+  [24, 30, 2147483642] -> 1
+  [24, 30] -> 7
+  [25, 30, 3] -> 1
+  [25, 30, 8] -> 2147483645
+  [25, 30] -> 7
+  [26, 30] -> 4
+  [27, 30] -> 2
+  [28, 30, 6] -> 2147483645
+  [28, 30] -> 2
+  [29, 30, 1] -> 2147483645
+  [3, 1] -> 2
+  [3, 30, 2] -> 2
+  [3, 30] -> 2
+  [30, 30] -> 2147483645
+  [31, 30, 3] -> 2147483645
+  [32, 30, 15] -> 2147483645
+  [33, 30, 3] -> 2147483645
+  [34, 30, 2] -> 2147483645
+  [35, 30] -> 2147483645
+  [36, 30, 13] -> 2147483645
+  [37, 30, 15] -> 2147483645
+  [38, 30] -> 2147483645
+  [39, 30] -> 2147483645
+  [4, 1] -> 2
+  [4, 30, 15] -> 2
+  [4, 30, 2] -> 2
+  [4, 30, 6] -> 2147483645
+  [4, 30] -> 2
+  [40, 30, 4] -> 2147483645
+  [41, 30] -> 2147483645
+  [42, 30] -> 2147483645
+  [43, 30, 4] -> 2147483645
+  [44, 30, 4] -> 2147483645
+  [45, 30, 1] -> 2147483645
+  [46, 30] -> 2147483645
+  [47, 30] -> 2147483645
+  [48, 30] -> 2147483645
+  [49, 30, 1] -> 2147483645
+  [5, 30, 1] -> 2147483645
+  [5, 30, 2] -> 2
+  [5, 30, 2147483643] -> 2
+  [5, 30, 3] -> 2
+  [5, 30, 6] -> 2
+  [50, 30, 4] -> 2147483645
+  [51, 30, 1] -> 2147483645
+  [52, 30, 1] -> 2147483645
+  [53, 30, 2] -> 2147483645
+  [54, 30, 1] -> 2147483645
+  [55, 30, 2] -> 2147483645
+  [56, 30, 13] -> 2147483645
+  [57, 30, 3] -> 2147483645
+  [58, 30] -> 2147483645
+  [59, 30] -> 2147483645
+  [6, 30, 13] -> 2
+  [6, 30, 3] -> 4
+  [60, 30, 4] -> 2147483645
+  [61, 30] -> 2147483645
+  [62, 30] -> 2147483645
+  [63, 30, 2147483644] -> 2147483645
+  [64, 30, 12] -> 2147483645
+  [65, 30] -> 2147483645
+  [66, 30] -> 2147483645
+  [67, 30] -> 2147483645
+  [68, 30, 5] -> 2147483645
+  [69, 30] -> 2147483645
+  [7, 30, 1] -> 2147483645
+  [7, 30, 8] -> 2
+  [7, 30] -> 4
+  [70, 30] -> 2147483645
+  [71, 30] -> 2147483645
+  [72, 30, 5] -> 2147483645
+  [73, 30] -> 2147483645
+  [74, 30] -> 2147483645
+  [75, 30] -> 2147483645
+  [76, 30, 21] -> 2147483645
+  [77, 30] -> 2147483645
+  [78, 30] -> 2147483645
+  [79, 30] -> 2147483645
+  [8, 26] -> 2
+  [8, 30, 15] -> 2
+  [8, 30, 3] -> 2
+  [8, 30, 6] -> 2147483645
+  [8, 30] -> 2
+  [80, 30, 17] -> 2147483645
+  [81, 30] -> 2147483645
+  [82, 30] -> 2147483645
+  [83, 30] -> 2147483645
+  [84, 30, 5] -> 2147483646
+  [84, 30] -> 2147483646
+  [85, 30] -> 2147483645
+  [86, 30] -> 2147483645
+  [87, 30] -> 2147483645
+  [88, 30, 1] -> 2147483646
+  [88, 30, 8] -> 2147483646
+  [89, 30] -> 2147483645
+  [9, 26] -> 2
+  [9, 30, 13] -> 2
+  [9, 30, 3] -> 2
+  [90, 30] -> 2147483645
+  [91, 30] -> 2147483645
+  [92, 30, 5] -> 2147483646
+  [92, 30] -> 2147483646
+  [93, 30] -> 2147483645
+  [94, 30] -> 2147483645
+  [95, 30] -> 2147483645
+  [96, 30, 2147483642] -> 2147483646
+  [96, 30] -> 2147483646
+  [97, 30] -> 2147483645
+  [98, 30] -> 2147483645
+  [99, 30] -> 2147483645
 
 
-// 428 columns
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 4
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 5
-
-
-// 12 columns for memory, ok
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-
-// 8 columns for merkle, ok
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 8
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 9
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 8
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 9
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 8
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 9
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 8
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 9
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 8
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 9
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 8
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 9
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 8
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 9
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 8
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 9
-
-// 4 columns for range_check, ok
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 20
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 21
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 20
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 21
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 20
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 21
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 20
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 21
-
-[external/stwo/crates/prover/src/core/air/components.rs:134:13] i = 0
-[external/stwo/crates/prover/src/core/air/components.rs:134:13] i = 1
-[external/stwo/crates/prover/src/core/air/components.rs:134:13] i = 2
-[external/stwo/crates/prover/src/core/air/components.rs:134:13] i = 3
-[external/stwo/crates/prover/src/core/air/components.rs:134:13] i = 4
-[external/stwo/crates/prover/src/core/air/components.rs:134:13] i = 5
-[external/stwo/crates/prover/src/core/air/components.rs:134:13] i = 6
-[external/stwo/crates/prover/src/core/air/components.rs:134:13] i = 7
-[external/stwo/crates/prover/src/core/air/components.rs:134:13] i = 8
-[external/stwo/crates/prover/src/core/air/components.rs:134:13] i = 9
-[external/stwo/crates/prover/src/core/air/components.rs:134:13] i = 10
-[external/stwo/crates/prover/src/core/air/components.rs:134:13] i = 11
-[external/stwo/crates/prover/src/core/air/components.rs:134:13] i = 12
-[external/stwo/crates/prover/src/core/air/components.rs:134:13] i = 13
-[external/stwo/crates/prover/src/core/air/components.rs:134:13] i = 14
-[external/stwo/crates/prover/src/core/air/components.rs:134:13] i = 15
-[external/stwo/crates/prover/src/core/air/components.rs:134:13] i = 16
-[external/stwo/crates/prover/src/core/air/components.rs:134:13] i = 17
-[external/stwo/crates/prover/src/core/air/components.rs:134:13] i = 18
-[external/stwo/crates/prover/src/core/air/components.rs:134:13] i = 19
-
-// WTF is happening here ???
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 6
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-
-
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:240:9] fft_log_size = 8
-[external/stwo/crates/prover/src/core/backend/simd/circle.rs:241:9] log_size = 7
-
-thread 'test_prove_and_verify_fibonacci_program' panicked at external/stwo/crates/prover/src/core/backend/simd/circle.rs:242:9:
-Can only evaluate on larger domains
-stack backtrace:
-   0: __rustc::rust_begin_unwind
-   1: core::panicking::panic_fmt
-   2: stwo_prover::core::backend::simd::circle::<impl stwo_prover::core::poly::circle::ops::PolyOps for stwo_prover::core::backend::simd::SimdBackend>::evaluate
-   3: alloc::vec::in_place_collect::<impl alloc::vec::spec_from_iter::SpecFromIter<T,I> for alloc::vec::Vec<T>>::from_iter
-   4: <alloc::vec::into_iter::IntoIter<T,A> as core::iter::traits::iterator::Iterator>::try_fold
-   5: <stwo_constraint_framework::component::FrameworkComponent<E> as stwo_prover::core::air::ComponentProver<stwo_prover::core::backend::simd::SimdBackend>>::evaluate_constraint_quotients_on_domain
-   6: stwo_prover::core::air::components::ComponentProvers<B>::compute_composition_polynomial
-   7: stwo_prover::core::prover::prove
-   8: cairo_m_prover::prover::prove_cairo_m
-   9: core::ops::function::FnOnce::call_once
-note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+thread 'test_prove_and_verify_fibonacci_program' panicked at crates/prover/tests/prover.rs:101:69:
+called `Result::unwrap()` on an `Err` value: InvalidLogupSum
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 
 
 failures:
     test_prove_and_verify_fibonacci_program
 
-test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.16s
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.79s

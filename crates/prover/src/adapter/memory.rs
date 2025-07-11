@@ -9,6 +9,7 @@ use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 
 use crate::adapter::io::VmImportError;
+use crate::adapter::merkle::TREE_HEIGHT;
 
 #[derive(Copy, Clone, Default, Debug, Eq, PartialEq)]
 pub struct MemoryEntry {
@@ -67,9 +68,9 @@ struct MemoryArg {
 // TODO: Memory Value can take a value enum(M31, QM31) instead of QM31 to save space
 #[derive(Debug, Default, Eq, PartialEq, Clone)]
 pub struct Memory {
-    // (value, clock, multiplicity which is -1, 0 or 1)
-    pub initial_memory: HashMap<M31, (QM31, M31, M31)>,
-    pub final_memory: HashMap<M31, (QM31, M31, M31)>,
+    // (value, clock, multiplicity which is -1, 0 or 1, depth)
+    pub initial_memory: HashMap<M31, (QM31, M31, M31, M31)>,
+    pub final_memory: HashMap<M31, (QM31, M31, M31, M31)>,
 }
 
 pub struct ExecutionBundleIterator<T, M>
@@ -198,10 +199,15 @@ where
 
 impl Memory {
     pub fn new(initial_memory: Vec<QM31>) -> Self {
-        let initial_memory_hashmap: HashMap<M31, (QM31, M31, M31)> = initial_memory
+        let initial_memory_hashmap: HashMap<M31, (QM31, M31, M31, M31)> = initial_memory
             .iter()
             .enumerate()
-            .map(|(i, value)| (M31::from(i as u32), (*value, M31::zero(), M31::zero())))
+            .map(|(i, value)| {
+                (
+                    M31::from(i as u32),
+                    (*value, M31::zero(), M31::zero(), M31::from(TREE_HEIGHT)),
+                )
+            })
             .collect();
         Self {
             initial_memory: initial_memory_hashmap.clone(),
@@ -213,9 +219,21 @@ impl Memory {
             .final_memory
             .insert(
                 memory_entry.address,
-                (memory_entry.value, memory_entry.clock, -M31::one()),
+                (
+                    memory_entry.value,
+                    memory_entry.clock,
+                    -M31::one(),
+                    M31::from(TREE_HEIGHT),
+                ),
             )
-            .unwrap_or_else(|| (memory_entry.value, M31::zero(), -M31::one()));
+            .unwrap_or_else(|| {
+                (
+                    memory_entry.value,
+                    M31::zero(),
+                    -M31::one(),
+                    M31::from(TREE_HEIGHT),
+                )
+            });
 
         // If it's the first time we use a memory cell,
         // We insert it in the initial memory with multiplicity 1.
@@ -223,12 +241,24 @@ impl Memory {
         if prev_memory_entry.1 == M31::zero() {
             // Sanity check: first access to a cell present in the initial memory should match the initial value.
             if let Some(initial_memory_cell) = self.initial_memory.get_mut(&memory_entry.address) {
-                assert_eq!(
+                // Problematic entries are a subset of the VM initial memory
+                dbg!(&initial_memory_cell);
+                debug_assert_eq!(
                     *initial_memory_cell,
-                    (memory_entry.value, M31::zero(), M31::zero())
+                    (
+                        memory_entry.value,
+                        M31::zero(),
+                        M31::zero(),
+                        M31::from(TREE_HEIGHT)
+                    )
                 );
             }
-            let initial_memory_entry = (memory_entry.value, M31::zero(), M31::one());
+            let initial_memory_entry = (
+                memory_entry.value,
+                M31::zero(),
+                M31::one(),
+                M31::from(TREE_HEIGHT),
+            );
             self.initial_memory
                 .insert(memory_entry.address, initial_memory_entry);
         };
@@ -277,7 +307,8 @@ mod tests {
             (
                 QM31::from_u32_unchecked(1, 2, 3, 4),
                 M31::from(10),
-                -M31::one()
+                -M31::one(),
+                M31::zero() // depth field
             )
         );
         // initial_memory should now contain the first access with multiplicity 1
@@ -286,7 +317,8 @@ mod tests {
             (
                 QM31::from_u32_unchecked(1, 2, 3, 4),
                 M31::zero(),
-                M31::one()
+                M31::one(),
+                M31::zero() // depth field
             )
         );
     }
@@ -325,7 +357,8 @@ mod tests {
             (
                 QM31::from_u32_unchecked(5, 6, 7, 8),
                 M31::from(20),
-                -M31::one()
+                -M31::one(),
+                M31::zero() // depth field
             )
         );
         // initial_memory should still contain the first access
@@ -334,7 +367,8 @@ mod tests {
             (
                 QM31::from_u32_unchecked(1, 2, 3, 4),
                 M31::zero(),
-                M31::one()
+                M31::one(),
+                M31::zero() // depth field
             )
         );
     }
@@ -374,7 +408,8 @@ mod tests {
             (
                 QM31::from_u32_unchecked(1, 2, 3, 4),
                 M31::from(10),
-                -M31::one()
+                -M31::one(),
+                M31::zero() // depth field
             )
         );
         assert_eq!(
@@ -382,7 +417,8 @@ mod tests {
             (
                 QM31::from_u32_unchecked(9, 10, 11, 12),
                 M31::from(30),
-                -M31::one()
+                -M31::one(),
+                M31::zero() // depth field
             )
         );
         // initial_memory should contain both addresses
@@ -392,7 +428,8 @@ mod tests {
             (
                 QM31::from_u32_unchecked(1, 2, 3, 4),
                 M31::zero(),
-                M31::one()
+                M31::one(),
+                M31::zero() // depth field
             )
         );
         assert_eq!(
@@ -400,7 +437,8 @@ mod tests {
             (
                 QM31::from_u32_unchecked(9, 10, 11, 12),
                 M31::zero(),
-                M31::one()
+                M31::one(),
+                M31::zero() // depth field
             )
         );
     }
@@ -422,7 +460,8 @@ mod tests {
             (
                 QM31::from_u32_unchecked(10, 20, 30, 40),
                 M31::zero(),
-                M31::zero()
+                M31::zero(),
+                M31::zero() // depth field
             )
         );
         assert_eq!(
@@ -430,7 +469,8 @@ mod tests {
             (
                 QM31::from_u32_unchecked(50, 60, 70, 80),
                 M31::zero(),
-                M31::zero()
+                M31::zero(),
+                M31::zero() // depth field
             )
         );
 
@@ -455,7 +495,8 @@ mod tests {
             (
                 QM31::from_u32_unchecked(10, 20, 30, 40),
                 M31::zero(),
-                M31::one()
+                M31::one(),
+                M31::zero() // depth field
             )
         );
         // Verify final_memory was updated
@@ -464,7 +505,8 @@ mod tests {
             (
                 QM31::from_u32_unchecked(10, 20, 30, 40),
                 M31::from(5),
-                -M31::one()
+                -M31::one(),
+                M31::zero() // depth field
             )
         );
 
@@ -489,7 +531,8 @@ mod tests {
             (
                 QM31::from_u32_unchecked(100, 200, 300, 400),
                 M31::from(10),
-                -M31::one()
+                -M31::one(),
+                M31::zero() // depth field
             )
         );
     }

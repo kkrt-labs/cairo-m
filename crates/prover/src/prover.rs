@@ -10,7 +10,7 @@ use stwo_prover::core::proof_of_work::GrindOps;
 use stwo_prover::core::prover::prove;
 use tracing::{info, span, Level};
 
-use crate::adapter::partial_merkle::MerkleHasher;
+use crate::adapter::merkle::MerkleHasher;
 use crate::adapter::ProverInput;
 use crate::components::{Claim, Components, InteractionClaim, Relations};
 use crate::errors::ProvingError;
@@ -51,19 +51,6 @@ where
                 .unwrap_or(1)
                 .ilog2(),
         ),
-    );
-
-    println!(
-        "merkle trace_log_size: {}",
-        (input.merkle_trees.initial_tree.len() + input.merkle_trees.final_tree.len())
-            .next_power_of_two()
-            .ilog2()
-    );
-    println!(
-        "memory trace_log_size: {}",
-        (input.memory.initial_memory.len() + input.memory.final_memory.len())
-            .next_power_of_two()
-            .ilog2()
     );
 
     info!("twiddles");
