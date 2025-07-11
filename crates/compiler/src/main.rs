@@ -1,8 +1,12 @@
 use std::path::PathBuf;
 use std::{fs, process};
 
-use cairo_m_compiler::{CompilerError, CompilerOptions, compile_from_crate, format_diagnostics};
-use cairo_m_compiler_parser::{Crate, SourceFile};
+use cairo_m_compiler::project_discovery::{
+    ProjectDiscoveryConfig, create_crate_from_discovery, discover_project_files, find_project_root,
+};
+use cairo_m_compiler::{
+    CompilerError, CompilerOptions, compile_from_crate, format_diagnostics_multi_file,
+};
 use clap::Parser;
 
 /// Cairo-M compiler
@@ -27,50 +31,15 @@ fn main() {
 
     let db = cairo_m_compiler::create_compiler_database();
 
-    let cm_crate = if args.input.is_file() {
-        let source_text = fs::read_to_string(&args.input).unwrap_or_else(|e| {
-            eprintln!("Error reading file '{}': {}", args.input.display(), e);
-            process::exit(1);
-        });
-
-        let file_path = args
-            .input
-            .file_name()
-            .unwrap()
-            .to_string_lossy()
-            .to_string();
-        let root_dir = args.input.parent().unwrap().display().to_string();
-        let source_file = SourceFile::new(&db, source_text, file_path.clone());
-
-        Crate::new(&db, root_dir, file_path, vec![source_file])
+    // Use project discovery to find the project root and all source files
+    let project_root = if args.input.is_file() {
+        // For single file, find the project root starting from the file
+        find_project_root(&args.input).unwrap_or_else(|| {
+            // If no project root found, use the file's parent directory
+            args.input.parent().unwrap().to_path_buf()
+        })
     } else if args.input.is_dir() {
-        let root_dir = args.input.display().to_string();
-        let mut files = vec![];
-        let mut has_main = false;
-
-        for entry in fs::read_dir(&args.input).unwrap() {
-            let entry = entry.unwrap();
-            let path = entry.path();
-            if path.is_file() && path.extension().is_some_and(|ext| ext == "cm") {
-                let source_text = fs::read_to_string(&path).unwrap_or_else(|e| {
-                    eprintln!("Error reading file '{}': {}", path.display(), e);
-                    process::exit(1);
-                });
-                let file_path = path.file_name().unwrap().to_string_lossy().to_string();
-                let source_file = SourceFile::new(&db, source_text, file_path.clone());
-                files.push(source_file);
-                if file_path == "main.cm" {
-                    has_main = true;
-                }
-            }
-        }
-
-        if !has_main {
-            eprintln!("No main.cm found in directory '{}'", args.input.display());
-            process::exit(1);
-        }
-
-        Crate::new(&db, root_dir, "main.cm".to_string(), files)
+        args.input.clone()
     } else {
         eprintln!(
             "Input must be a file or directory: '{}'",
@@ -79,24 +48,36 @@ fn main() {
         process::exit(1);
     };
 
+    // Discover all project files
+    let config = ProjectDiscoveryConfig::default();
+    let discovered = discover_project_files(&project_root, &config).unwrap_or_else(|e| {
+        eprintln!("Failed to discover project files: {}", e);
+        process::exit(1);
+    });
+
+    // Create the crate from discovered files
+    let cm_crate = create_crate_from_discovery(&db, &discovered).unwrap_or_else(|e| {
+        eprintln!("Failed to read project files: {}", e);
+        process::exit(1);
+    });
+
     let options = CompilerOptions {
         verbose: args.verbose,
     };
 
-    // For diagnostics, we use the entry file's content (temporary, will update for multi-file)
-    let entry_path = cm_crate.entry_file(&db);
-    let entry_text = cm_crate
-        .files(&db)
-        .iter()
-        .find(|f| f.file_path(&db) == entry_path)
-        .map(|f| f.text(&db).clone())
-        .unwrap_or_default();
+    // Build a map of file paths to source text for multi-file diagnostics
+    let mut source_map = std::collections::HashMap::new();
+    for source_file in cm_crate.files(&db) {
+        let file_path = source_file.file_path(&db).to_string();
+        let source_text = source_file.text(&db).to_string();
+        source_map.insert(file_path, source_text);
+    }
 
     let output = compile_from_crate(&db, cm_crate, options).unwrap_or_else(|e| {
         match &e {
             CompilerError::ParseErrors(diagnostics)
             | CompilerError::SemanticErrors(diagnostics) => {
-                let error_msg = format_diagnostics(&entry_text, diagnostics, true);
+                let error_msg = format_diagnostics_multi_file(&source_map, diagnostics, true);
                 eprintln!("{}", error_msg);
             }
             CompilerError::MirGenerationFailed => {
@@ -111,7 +92,8 @@ fn main() {
 
     // Print any warnings
     if !output.diagnostics.is_empty() {
-        let diagnostic_messages = format_diagnostics(&entry_text, &output.diagnostics, true);
+        let diagnostic_messages =
+            format_diagnostics_multi_file(&source_map, &output.diagnostics, true);
         println!("{}", diagnostic_messages);
     }
 

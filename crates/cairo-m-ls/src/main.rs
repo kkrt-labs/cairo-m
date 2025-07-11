@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
 use cairo_m_compiler::db::CompilerDatabase;
+use cairo_m_compiler::project_discovery::discover_project_files;
 use cairo_m_compiler_diagnostics::{
     Diagnostic as CairoDiagnostic, DiagnosticSeverity as CairoSeverity,
 };
@@ -23,7 +24,6 @@ use salsa::Setter;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
-use walkdir::WalkDir;
 
 /// Cached project discovery information
 #[derive(Debug, Clone)]
@@ -67,32 +67,10 @@ impl Backend {
 
     /// Find the project root for a given file URI.
     ///
-    /// Traverses parent directories looking for a project marker like .git or cairom.toml.
-    /// Returns the project root if found, otherwise the file's parent directory.
+    /// Uses the shared project discovery logic.
     fn find_project_root(&self, file_uri: &Url) -> Option<PathBuf> {
         let file_path = file_uri.to_file_path().ok()?;
-        let mut current_dir = file_path.parent()?;
-
-        loop {
-            // Check for .git directory
-            if current_dir.join(".git").exists() {
-                return Some(current_dir.to_path_buf());
-            }
-
-            // Check for cairom.toml (future project config file)
-            if current_dir.join("cairom.toml").exists() {
-                return Some(current_dir.to_path_buf());
-            }
-
-            // Move to parent directory
-            match current_dir.parent() {
-                Some(parent) => current_dir = parent,
-                None => break,
-            }
-        }
-
-        // If no project markers found, use the file's parent directory
-        file_path.parent().map(|p| p.to_path_buf())
+        cairo_m_compiler::project_discovery::find_project_root(&file_path)
     }
 
     /// Discover all .cm files in a project directory recursively
@@ -109,39 +87,13 @@ impl Backend {
             }
         }
 
-        // Perform fresh discovery
-        let mut cm_files = Vec::new();
-        let mut main_file = None;
-
-        // Walk the directory recursively looking for .cm files
-        for entry in WalkDir::new(project_root)
-            .into_iter()
-            .filter_map(|e| e.ok())
-        {
-            let path = entry.path();
-            if path.extension().and_then(|ext| ext.to_str()) == Some("cm") {
-                cm_files.push(path.to_path_buf());
-
-                // Check if this is main.cm
-                if path.file_name().and_then(|name| name.to_str()) == Some("main.cm") {
-                    main_file = Some(path.to_path_buf());
-                }
-            }
-        }
-
-        if cm_files.is_empty() {
-            return None;
-        }
-
-        // Sort files for deterministic ordering
-        cm_files.sort();
-
-        // Determine entry point: prefer main.cm, fallback to first file
-        let entry_point = main_file.unwrap_or_else(|| cm_files[0].clone());
+        // Use shared project discovery logic
+        let config = cairo_m_compiler::project_discovery::ProjectDiscoveryConfig::default();
+        let discovered = discover_project_files(project_root, &config).ok()?;
 
         let cache = ProjectCache {
-            files: cm_files,
-            entry_point,
+            files: discovered.files,
+            entry_point: discovered.entry_point,
             last_updated: SystemTime::now(),
         };
 
@@ -208,8 +160,7 @@ impl Backend {
         let entry_point_name = project_cache
             .entry_point
             .file_stem()
-            .and_then(|stem| stem.to_str())
-            .unwrap_or("main")
+            .and_then(|stem| stem.to_str())?
             .to_string();
 
         // Ensure the entry point exists in modules, fallback to first module if not
@@ -350,6 +301,7 @@ impl Backend {
     /// Run semantic validation and publish diagnostics.
     ///
     /// Uses project-aware analysis to provide accurate cross-file diagnostics.
+    /// Diagnostics are properly grouped by file and published to their respective URIs.
     async fn run_diagnostics(&self, uri: Url, version: Option<i32>) {
         // Log start of diagnostics run
         self.client
@@ -364,44 +316,23 @@ impl Backend {
             None => return, // Silently fail if project can't be created
         };
 
-        let source = match self.source_files.get(&uri).map(|s| *s.value()) {
-            Some(source) => source,
-            None => return, // Silently fail if source file not found
-        };
+        // Get all diagnostics grouped by file
+        let diagnostics_by_file = match self.safe_db_access(|db| {
+            let all_diagnostics = project_validate_semantics(db, project);
 
-        let diagnostics = match self.safe_db_access(|db| {
-            let content = source.text(db).to_owned();
-            let file_path = source.file_path(db).to_string();
-
-            // Log which file is being validated
-            let module_name =
-                cairo_m_compiler_semantic::db::module_name_for_file(db.upcast(), project, source)
-                    .unwrap_or_else(|| "unknown".to_string());
-
-            let semantic_diagnostics = project_validate_semantics(db, project);
-            (content, semantic_diagnostics, file_path, module_name)
-        }) {
-            Some((content, semantic_diagnostics, file_path, module_name)) => {
-                // Log validation results
-                self.client
-                    .log_message(
-                        MessageType::INFO,
-                        format!(
-                            "[DIAGNOSTICS] Validated module '{}' ({}): {} diagnostics",
-                            module_name,
-                            file_path,
-                            semantic_diagnostics.len()
-                        ),
-                    )
-                    .await;
-
-                semantic_diagnostics
-                    .iter()
-                    .map(|d| self.convert_diagnostic(&content, d))
-                    .collect()
+            // Group diagnostics by file path
+            let mut grouped: HashMap<String, Vec<CairoDiagnostic>> = HashMap::new();
+            for diag in all_diagnostics.all() {
+                grouped
+                    .entry(diag.file_path.clone())
+                    .or_default()
+                    .push(diag.clone());
             }
+
+            grouped
+        }) {
+            Some(grouped) => grouped,
             None => {
-                // Log error to client if database access fails
                 self.client
                     .log_message(
                         MessageType::ERROR,
@@ -412,9 +343,67 @@ impl Backend {
             }
         };
 
-        self.client
-            .publish_diagnostics(uri, diagnostics, version)
-            .await;
+        // Process diagnostics for each file
+        for (file_path, file_diagnostics) in &diagnostics_by_file {
+            // Find the source file for this path
+            let file_source = self
+                .source_files
+                .iter()
+                .find(|entry| {
+                    self.safe_db_access(|db| entry.value().file_path(db) == file_path)
+                        .unwrap_or(false)
+                })
+                .map(|entry| (entry.key().clone(), *entry.value()));
+
+            if let Some((file_uri, source)) = file_source {
+                // Get the content for this specific file
+                let content = match self.safe_db_access(|db| source.text(db).to_string()) {
+                    Some(content) => content,
+                    None => continue,
+                };
+
+                // Convert diagnostics using the correct file's content
+                let converted_diagnostics: Vec<Diagnostic> = file_diagnostics
+                    .iter()
+                    .map(|d| self.convert_diagnostic(&content, d))
+                    .collect();
+
+                // Log diagnostics for this file
+                self.client
+                    .log_message(
+                        MessageType::INFO,
+                        format!(
+                            "[DIAGNOSTICS] Publishing {} diagnostics for {}",
+                            converted_diagnostics.len(),
+                            file_path
+                        ),
+                    )
+                    .await;
+
+                // Publish diagnostics to the correct file URI
+                // Use None for version when publishing to other files
+                let publish_version = if file_uri == uri { version } else { None };
+                self.client
+                    .publish_diagnostics(file_uri, converted_diagnostics, publish_version)
+                    .await;
+            }
+        }
+
+        // Clear diagnostics for files that no longer have any
+        // This handles the case where a file had errors but they were all fixed
+        for entry in self.source_files.iter() {
+            let file_path = match self.safe_db_access(|db| entry.value().file_path(db).to_string())
+            {
+                Some(path) => path,
+                None => continue,
+            };
+
+            if !diagnostics_by_file.contains_key(&file_path) {
+                self.client
+                    .publish_diagnostics(entry.key().clone(), vec![], None)
+                    .await;
+            }
+        }
     }
 }
 

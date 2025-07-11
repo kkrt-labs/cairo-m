@@ -47,7 +47,6 @@
 
 use std::collections::HashMap;
 
-use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCollection};
 use cairo_m_compiler_parser::ParsedModule;
 use cairo_m_compiler_parser::parser::{
     ConstDef, Expression, FunctionDef, Namespace, Pattern, Spanned, Statement, StructDef,

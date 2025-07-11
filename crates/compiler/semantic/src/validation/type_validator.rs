@@ -19,7 +19,7 @@ use cairo_m_compiler_parser::parser::{
 };
 use chumsky::span::SimpleSpan;
 
-use crate::db::{Project, SemanticDb, project_semantic_index};
+use crate::db::{Project, SemanticDb};
 use crate::semantic_index::ExpressionInfo;
 use crate::type_resolution::{are_types_compatible, expression_semantic_type, resolve_ast_type};
 use crate::types::{TypeData, TypeId};
@@ -46,51 +46,44 @@ impl Validator for TypeValidator {
         &self,
         db: &dyn SemanticDb,
         project: Project,
-        _file: File,
-        _index: &SemanticIndex,
+        file: File,
+        index: &SemanticIndex,
     ) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
-        let sem_result = project_semantic_index(db, project);
-        if let Ok(sem) = sem_result {
-            for (module_name, index) in sem.modules().iter() {
-                let file = *project
-                    .modules(db)
-                    .get(module_name)
-                    .expect("Module file should exist");
-                let parsed_program = parse_file(db, file);
-                if !parsed_program.diagnostics.is_empty() {
-                    panic!("Got unexpected parse errors");
-                }
-                let parsed_module = parsed_program.module;
 
-                // Single pass through all expressions for type checking per module
-                for (expr_id, expr_info) in index.all_expressions() {
-                    self.check_expression_types(
-                        db,
-                        project,
-                        file,
-                        index,
-                        expr_id,
-                        expr_info,
-                        &mut diagnostics,
-                    );
-                }
+        let parsed_program = parse_file(db, file);
+        if !parsed_program.diagnostics.is_empty() {
+            panic!("Got unexpected parse errors");
+        }
+        let parsed_module = parsed_program.module;
 
-                for (_def_idx, definition) in index.all_definitions() {
-                    if let DefinitionKind::Function(_) = &definition.kind {
-                        self.analyze_function_statement_types(
-                            db,
-                            project,
-                            file,
-                            index,
-                            &parsed_module,
-                            &definition.name,
-                            &mut diagnostics,
-                        )
-                    }
-                }
+        // Single pass through all expressions for type checking in this module only
+        for (expr_id, expr_info) in index.all_expressions() {
+            self.check_expression_types(
+                db,
+                project,
+                file,
+                index,
+                expr_id,
+                expr_info,
+                &mut diagnostics,
+            );
+        }
+
+        for (_def_idx, definition) in index.all_definitions() {
+            if let DefinitionKind::Function(_) = &definition.kind {
+                self.analyze_function_statement_types(
+                    db,
+                    project,
+                    file,
+                    index,
+                    &parsed_module,
+                    &definition.name,
+                    &mut diagnostics,
+                )
             }
         }
+
         diagnostics
     }
 
@@ -1427,7 +1420,7 @@ mod tests {
     }
 
     fn get_main_semantic_index(db: &dyn SemanticDb, project: Project) -> SemanticIndex {
-        let semantic_index = project_semantic_index(db, project).unwrap();
+        let semantic_index = crate::db::project_semantic_index(db, project).unwrap();
         semantic_index.modules().get("main").unwrap().clone()
     }
 
