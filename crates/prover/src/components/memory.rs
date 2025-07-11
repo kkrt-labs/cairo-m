@@ -19,10 +19,11 @@ use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::adapter::memory::Memory;
+use crate::adapter::MerkleTrees;
 use crate::relations;
 use crate::utils::Enabler;
 
-const N_TRACE_COLUMNS: usize = 9; // enabler, address, clock, value0, value1, value2, value3, multiplicity, depth
+const N_TRACE_COLUMNS: usize = 10; // enabler, address, clock, value0, value1, value2, value3, multiplicity, depth, root
 const N_MEMORY_LOOKUPS: usize = 1;
 const N_MERKLE_LOOKUPS: usize = 4;
 const N_INTERACTION_COLUMNS: usize =
@@ -46,7 +47,7 @@ pub struct InteractionClaimData {
 #[derive(Uninitialized, IterMut, ParIterMut)]
 pub struct LookupData {
     pub memory: [Vec<[PackedM31; 7]>; N_MEMORY_LOOKUPS],
-    pub merkle: [Vec<[PackedM31; 3]>; N_MERKLE_LOOKUPS],
+    pub merkle: [Vec<[PackedM31; 4]>; N_MERKLE_LOOKUPS],
 }
 
 impl Claim {
@@ -62,6 +63,7 @@ impl Claim {
 
     pub fn write_trace<MC: MerkleChannel>(
         inputs: &Memory,
+        merkle_trees: &MerkleTrees,
     ) -> (Self, ComponentTrace<N_TRACE_COLUMNS>, InteractionClaimData)
     where
         SimdBackend: BackendForChannel<MC>,
@@ -75,7 +77,13 @@ impl Claim {
             .initial_memory
             .iter()
             .chain(inputs.final_memory.iter())
-            .map(|(address, (value, clock, multiplicity, depth))| {
+            .enumerate()
+            .map(|(i, ((address, depth), (value, clock, multiplicity)))| {
+                let root = if i < initial_memory_len {
+                    merkle_trees.initial_root.unwrap()
+                } else {
+                    merkle_trees.final_root.unwrap()
+                };
                 let value_array = value.to_m31_array();
                 [
                     *address,
@@ -86,6 +94,7 @@ impl Claim {
                     value_array[3],
                     *multiplicity,
                     *depth,
+                    root,
                 ]
             })
             .chain(std::iter::repeat([M31::zero(); N_TRACE_COLUMNS - 1]))
@@ -125,6 +134,7 @@ impl Claim {
                 let value3 = input[5];
                 let multiplicity = input[6];
                 let depth = input[7];
+                let root = input[8];
 
                 *row[0] = enabler;
                 *row[1] = address;
@@ -135,13 +145,14 @@ impl Claim {
                 *row[6] = value3;
                 *row[7] = multiplicity;
                 *row[8] = depth;
+                *row[9] = root;
 
                 *lookup_data.memory[0] =
                     [address, clock, value0, value1, value2, value3, multiplicity];
-                *lookup_data.merkle[0] = [address, depth, value0];
-                *lookup_data.merkle[1] = [address + one, depth, value1];
-                *lookup_data.merkle[2] = [address + m31_2, depth, value2];
-                *lookup_data.merkle[3] = [address + m31_3, depth, value3];
+                *lookup_data.merkle[0] = [address, depth, value0, root];
+                *lookup_data.merkle[1] = [address + one, depth, value1, root];
+                *lookup_data.merkle[2] = [address + m31_2, depth, value2, root];
+                *lookup_data.merkle[3] = [address + m31_3, depth, value3, root];
             });
 
         // Return the trace and lookup data
@@ -264,6 +275,18 @@ impl FrameworkEval for Eval {
         let value3 = eval.next_trace_mask();
         let multiplicity = eval.next_trace_mask();
         let depth = eval.next_trace_mask();
+        let root = eval.next_trace_mask();
+        dbg!(
+            &address,
+            &clock,
+            &value0,
+            &value1,
+            &value2,
+            &value3,
+            &multiplicity,
+            &depth,
+            &root
+        );
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
@@ -285,23 +308,23 @@ impl FrameworkEval for Eval {
         // Emit leaves and intermediate nodes
         eval.add_to_relation(RelationEntry::new(
             &self.merkle,
-            E::EF::from(enabler.clone()),
-            &[address.clone(), depth.clone(), value0],
+            E::EF::zero(), //E::EF::from(enabler.clone()),
+            &[address.clone(), depth.clone(), value0, root.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.merkle,
-            E::EF::from(enabler.clone()),
-            &[address.clone() + one, depth.clone(), value1],
+            E::EF::zero(), //E::EF::from(enabler.clone()),
+            &[address.clone() + one, depth.clone(), value1, root.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.merkle,
-            E::EF::from(enabler.clone()),
-            &[address.clone() + m31_2, depth.clone(), value2],
+            E::EF::zero(), //E::EF::from(enabler.clone()),
+            &[address.clone() + m31_2, depth.clone(), value2, root.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.merkle,
-            E::EF::from(enabler),
-            &[address + m31_3, depth, value3],
+            E::EF::zero(), //E::EF::from(enabler),
+            &[address + m31_3, depth, value3, root],
         ));
         eval.finalize_logup_in_pairs();
 

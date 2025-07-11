@@ -4,13 +4,12 @@ use std::fs;
 
 use cairo_m_compiler::{compile_cairo, CompilerOptions};
 use cairo_m_prover::adapter::memory::Memory;
-use cairo_m_prover::adapter::merkle::{build_partial_merkle_tree, MockHasher};
+use cairo_m_prover::adapter::merkle::{build_partial_merkle_tree, MockHasher, TREE_HEIGHT};
 use cairo_m_prover::adapter::{import_from_runner_output, Instructions, MerkleTrees, ProverInput};
 use cairo_m_prover::debug_tools::assert_constraints::assert_constraints;
 use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_prover::verifier::verify_cairo_m;
 use cairo_m_runner::run_cairo_program;
-use num_traits::Zero;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
@@ -38,11 +37,14 @@ fn test_prove_and_verify_unchanged_memory() {
         ),
     ];
 
-    // Create HashMap using first element (address) as key
-    let initial_memory: HashMap<M31, (QM31, M31, M31, M31)> = initial_memory_data
+    // Create HashMap using address and depth as key
+    let initial_memory: HashMap<(M31, M31), (QM31, M31, M31)> = initial_memory_data
         .iter()
         .map(|(address, value, clock, multiplicity)| {
-            (*address, (*value, *clock, *multiplicity, M31::zero()))
+            (
+                (*address, M31::from(TREE_HEIGHT)),
+                (*value, *clock, *multiplicity),
+            )
         })
         .collect();
 
@@ -70,6 +72,9 @@ fn test_prove_and_verify_unchanged_memory() {
     let proof = prove_cairo_m::<Blake2sMerkleChannel, MockHasher>(&mut prover_input, None).unwrap();
 
     let result = verify_cairo_m::<Blake2sMerkleChannel, MockHasher>(proof, None);
+    if let Err(e) = &result {
+        eprintln!("Verification failed: {:?}", e);
+    }
     assert!(result.is_ok());
 }
 

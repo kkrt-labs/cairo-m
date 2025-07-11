@@ -95,6 +95,9 @@ where
     let (final_tree, final_root) =
         build_partial_merkle_tree::<MockHasher>(&mut memory.final_memory);
 
+    dbg!(&initial_tree);
+    dbg!(&final_tree);
+
     Ok(ProverInput {
         merkle_trees: MerkleTrees {
             initial_tree,

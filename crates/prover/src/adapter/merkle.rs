@@ -73,7 +73,7 @@ impl MerkleHasher for MockHasher {
 /// - Depth 0: Root with a single hash value
 /// - Depth 30: Leaves with up to 2^30 M31 values (from 2^28 QM31 memory cells)
 pub fn build_partial_merkle_tree<H: MerkleHasher>(
-    memory: &mut HashMap<M31, (QM31, M31, M31, M31)>,
+    memory: &mut HashMap<(M31, M31), (QM31, M31, M31)>,
 ) -> (Vec<NodeData>, Option<M31>) {
     if memory.is_empty() {
         return (vec![], None);
@@ -91,7 +91,8 @@ pub fn build_partial_merkle_tree<H: MerkleHasher>(
     // Depth 30 (leaves): convert each QM31 to 4 M31 leaves
     let mut current_depth_nodes: HashMap<u32, M31> = HashMap::new();
 
-    for (addr, (value, _, _, _)) in memory.iter() {
+    for ((addr, _), (value, _, _)) in memory.iter() {
+        // no intermediate nodes yet so depth is leaf depth
         let m31_values = value.to_m31_array();
         let base_address = addr.0 << QM31_LOG_SIZE;
 
@@ -99,6 +100,7 @@ pub fn build_partial_merkle_tree<H: MerkleHasher>(
             current_depth_nodes.insert(base_address + i as u32, m31_value);
         }
     }
+    dbg!(&current_depth_nodes);
 
     // Build tree from leaves (depth 30) up to root excluded (depth 1)
     for depth in (1..=TREE_HEIGHT).rev() {
@@ -129,12 +131,11 @@ pub fn build_partial_merkle_tree<H: MerkleHasher>(
             let mut add_intermediate_node = |node_index: u32| {
                 let default_hash = H::default_hashes()[depth as usize];
                 memory.insert(
-                    M31::from(node_index),
+                    (M31::from(node_index), M31::from(depth)),
                     (
                         QM31::from(default_hash),
-                        M31::zero(), // clock is irrelevant
+                        M31::from(10101010), // clock is irrelevant
                         M31::zero(), // intermediate nodes shouldn't be emitted for the memory relation
-                        M31::from(depth),
                     ),
                 );
                 default_hash
@@ -165,7 +166,7 @@ pub fn build_partial_merkle_tree<H: MerkleHasher>(
             processed_indices.insert(left_index);
             processed_indices.insert(right_index);
         }
-
+        dbg!(&nodes.len());
         current_depth_nodes = parent_depth_nodes;
     }
 
@@ -191,13 +192,8 @@ mod tests {
     fn test_single_element_tree() {
         let mut memory = HashMap::new();
         memory.insert(
-            M31::from(5),
-            (
-                QM31::from(42),
-                M31::zero(),
-                M31::zero(),
-                M31::from(TREE_HEIGHT),
-            ),
+            (M31::from(5), M31::from(TREE_HEIGHT)),
+            (QM31::from(42), M31::zero(), M31::zero()),
         );
 
         let (tree, root) = build_partial_merkle_tree::<MockHasher>(&mut memory);
@@ -211,21 +207,19 @@ mod tests {
         let mut memory = HashMap::new();
         // Create QM31 values with specific M31 components for testing
         memory.insert(
-            M31::from(0),
+            (M31::from(0), M31::from(TREE_HEIGHT)),
             (
                 QM31::from_m31_array([M31::from(10), M31::from(11), M31::from(12), M31::from(13)]),
                 M31::zero(),
                 M31::zero(),
-                M31::from(TREE_HEIGHT),
             ),
         );
         memory.insert(
-            M31::from(1),
+            (M31::from(1), M31::from(TREE_HEIGHT)),
             (
                 QM31::from_m31_array([M31::from(20), M31::from(21), M31::from(22), M31::from(23)]),
                 M31::zero(),
                 M31::zero(),
-                M31::from(TREE_HEIGHT),
             ),
         );
 
@@ -266,23 +260,16 @@ mod tests {
         // Test with addresses at extremes to force full tree height
         let mut memory = HashMap::new();
         memory.insert(
-            M31::from(0),
-            (
-                QM31::from(1),
-                M31::zero(),
-                M31::zero(),
-                M31::from(TREE_HEIGHT),
-            ),
+            (M31::from(0), M31::from(TREE_HEIGHT)),
+            (QM31::from(1), M31::zero(), M31::zero()),
         );
         // Use a high address within bounds (2^28 - 1)
         memory.insert(
-            M31::from((1 << MAX_MEMORY_LOG_SIZE) - 1),
             (
-                QM31::from(2),
-                M31::zero(),
-                M31::zero(),
+                M31::from((1 << MAX_MEMORY_LOG_SIZE) - 1),
                 M31::from(TREE_HEIGHT),
             ),
+            (QM31::from(2), M31::zero(), M31::zero()),
         );
 
         let (tree, root) = build_partial_merkle_tree::<MockHasher>(&mut memory);

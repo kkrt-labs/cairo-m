@@ -24,7 +24,7 @@ use crate::components::chips::hash::Hash;
 use crate::relations;
 use crate::utils::Enabler;
 
-const N_TRACE_COLUMNS: usize = 5; // enabler, index, depth, value_left, value_right
+const N_TRACE_COLUMNS: usize = 6; // enabler, index, depth, value_left, value_right, root
 const N_MERKLE_LOOKUPS: usize = 3;
 const N_INTERACTION_COLUMNS: usize = SECURE_EXTENSION_DEGREE * N_MERKLE_LOOKUPS.div_ceil(2);
 
@@ -45,7 +45,7 @@ pub struct InteractionClaimData {
 
 #[derive(Uninitialized, IterMut, ParIterMut)]
 pub struct LookupData {
-    pub merkle: [Vec<[PackedM31; 3]>; N_MERKLE_LOOKUPS],
+    pub merkle: [Vec<[PackedM31; 4]>; N_MERKLE_LOOKUPS],
 }
 
 impl Claim {
@@ -74,7 +74,22 @@ impl Claim {
             .initial_tree
             .iter()
             .chain(merkle_trees.final_tree.iter())
-            .map(|node_data| node_data.to_m31_array())
+            .enumerate()
+            .map(|(i, node_data)| {
+                let root = if i < initial_tree_len {
+                    merkle_trees.initial_root.unwrap()
+                } else {
+                    merkle_trees.final_root.unwrap()
+                };
+                let node_data_array = node_data.to_m31_array();
+                [
+                    node_data_array[0],
+                    node_data_array[1],
+                    node_data_array[2],
+                    node_data_array[3],
+                    root,
+                ]
+            })
             .chain(std::iter::repeat([M31::zero(); N_TRACE_COLUMNS - 1]))
             .take(1 << log_size)
             .array_chunks::<N_LANES>()
@@ -107,15 +122,17 @@ impl Claim {
                 let depth = input[1];
                 let left_value = input[2];
                 let right_value = input[3];
+                let root = input[4];
 
                 *row[0] = enabler;
                 *row[1] = index;
                 *row[2] = depth;
                 *row[3] = left_value;
                 *row[4] = right_value;
+                *row[5] = root;
 
-                *lookup_data.merkle[0] = [index, depth, left_value];
-                *lookup_data.merkle[1] = [index + one, depth, right_value];
+                *lookup_data.merkle[0] = [index, depth, left_value, root];
+                *lookup_data.merkle[1] = [index + one, depth, right_value, root];
                 // Extract M31 values from PackedM31 for hashing
                 let hash_values: Vec<M31> = (0..N_LANES)
                     .map(|i| {
@@ -126,7 +143,7 @@ impl Claim {
                     .collect();
                 let hashed = PackedM31::from_array(hash_values.try_into().unwrap());
 
-                *lookup_data.merkle[2] = [index * m31_2_inv, depth - one, hashed];
+                *lookup_data.merkle[2] = [index * m31_2_inv, depth - one, hashed, root];
             });
 
         // Return the trace and lookup data
@@ -223,6 +240,7 @@ impl FrameworkEval for Eval {
         let depth = eval.next_trace_mask();
         let left_value = eval.next_trace_mask();
         let right_value = eval.next_trace_mask();
+        let root = eval.next_trace_mask();
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
@@ -231,7 +249,12 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.merkle,
             -E::EF::from(enabler.clone()),
-            &[index.clone(), depth.clone(), left_value.clone()],
+            &[
+                index.clone(),
+                depth.clone(),
+                left_value.clone(),
+                root.clone(),
+            ],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.merkle,
@@ -240,6 +263,7 @@ impl FrameworkEval for Eval {
                 index.clone() + one.clone(),
                 depth.clone(),
                 right_value.clone(),
+                root.clone(),
             ],
         ));
 
@@ -250,7 +274,7 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.merkle,
             E::EF::from(enabler),
-            &[index * m31_2_inv, depth - one, parent_hash],
+            &[index * m31_2_inv, depth - one, parent_hash, root],
         ));
         eval.finalize_logup_in_pairs();
 
