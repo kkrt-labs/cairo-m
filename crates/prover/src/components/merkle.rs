@@ -18,16 +18,15 @@ use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
-use crate::adapter::memory::Memory;
+use crate::adapter::merkle::MerkleHasher;
 use crate::adapter::MerkleTrees;
+use crate::components::chips::hash::Hash;
 use crate::relations;
 use crate::utils::Enabler;
 
-const N_TRACE_COLUMNS: usize = 10; // enabler, address, clock, value0, value1, value2, value3, multiplicity, depth, root
-const N_MEMORY_LOOKUPS: usize = 1;
-const N_MERKLE_LOOKUPS: usize = 4;
-const N_INTERACTION_COLUMNS: usize =
-    SECURE_EXTENSION_DEGREE * (N_MEMORY_LOOKUPS + N_MERKLE_LOOKUPS).div_ceil(2);
+const N_TRACE_COLUMNS: usize = 6; // enabler, index, depth, value_left, value_right, root
+const N_MERKLE_LOOKUPS: usize = 3;
+const N_INTERACTION_COLUMNS: usize = SECURE_EXTENSION_DEGREE * N_MERKLE_LOOKUPS.div_ceil(2);
 
 #[derive(Clone, Default, Serialize, Deserialize, Debug)]
 pub struct Claim {
@@ -46,7 +45,6 @@ pub struct InteractionClaimData {
 
 #[derive(Uninitialized, IterMut, ParIterMut)]
 pub struct LookupData {
-    pub memory: [Vec<[PackedM31; 7]>; N_MEMORY_LOOKUPS],
     pub merkle: [Vec<[PackedM31; 4]>; N_MERKLE_LOOKUPS],
 }
 
@@ -61,39 +59,34 @@ impl Claim {
         channel.mix_u64(self.log_size as u64);
     }
 
-    pub fn write_trace<MC: MerkleChannel>(
-        inputs: &Memory,
+    pub fn write_trace<MC: MerkleChannel, H: MerkleHasher>(
         merkle_trees: &MerkleTrees,
     ) -> (Self, ComponentTrace<N_TRACE_COLUMNS>, InteractionClaimData)
     where
         SimdBackend: BackendForChannel<MC>,
     {
-        let initial_memory_len = inputs.initial_memory.len();
-        let non_padded_length = initial_memory_len + inputs.final_memory.len();
+        let initial_tree_len = merkle_trees.initial_tree.len();
+        let non_padded_length = initial_tree_len + merkle_trees.final_tree.len();
         let log_size = std::cmp::max(non_padded_length.next_power_of_two(), N_LANES).ilog2();
 
-        // Pack memory entries from the prover input
-        let packed_inputs: Vec<[PackedM31; N_TRACE_COLUMNS - 1]> = inputs
-            .initial_memory
+        // Pack merkle entries from the prover input
+        let packed_inputs: Vec<[PackedM31; N_TRACE_COLUMNS - 1]> = merkle_trees
+            .initial_tree
             .iter()
-            .chain(inputs.final_memory.iter())
+            .chain(merkle_trees.final_tree.iter())
             .enumerate()
-            .map(|(i, ((address, depth), (value, clock, multiplicity)))| {
-                let root = if i < initial_memory_len {
+            .map(|(i, node_data)| {
+                let root = if i < initial_tree_len {
                     merkle_trees.initial_root.unwrap()
                 } else {
                     merkle_trees.final_root.unwrap()
                 };
-                let value_array = value.to_m31_array();
+                let node_data_array = node_data.to_m31_array();
                 [
-                    *address,
-                    *clock,
-                    value_array[0],
-                    value_array[1],
-                    value_array[2],
-                    value_array[3],
-                    *multiplicity,
-                    *depth,
+                    node_data_array[0],
+                    node_data_array[1],
+                    node_data_array[2],
+                    node_data_array[3],
                     root,
                 ]
             })
@@ -106,10 +99,9 @@ impl Claim {
             .collect();
 
         let one = PackedM31::from(M31::one());
-        let m31_2 = PackedM31::from(M31::from(2));
-        let m31_3 = PackedM31::from(M31::from(3));
+        let m31_2 = M31::from(2);
+        let m31_2_inv = PackedM31::from(M31::inverse(&m31_2));
         let enabler_col = Enabler::new(non_padded_length);
-
         // Generate lookup data and fill the trace
         let (mut trace, mut lookup_data) = unsafe {
             (
@@ -126,33 +118,32 @@ impl Claim {
             .enumerate()
             .for_each(|(row_index, (mut row, input, lookup_data))| {
                 let enabler = enabler_col.packed_at(row_index);
-                let address = input[0];
-                let clock = input[1];
-                let value0 = input[2];
-                let value1 = input[3];
-                let value2 = input[4];
-                let value3 = input[5];
-                let multiplicity = input[6];
-                let depth = input[7];
-                let root = input[8];
+                let index = input[0];
+                let depth = input[1];
+                let left_value = input[2];
+                let right_value = input[3];
+                let root = input[4];
 
                 *row[0] = enabler;
-                *row[1] = address;
-                *row[2] = clock;
-                *row[3] = value0;
-                *row[4] = value1;
-                *row[5] = value2;
-                *row[6] = value3;
-                *row[7] = multiplicity;
-                *row[8] = depth;
-                *row[9] = root;
+                *row[1] = index;
+                *row[2] = depth;
+                *row[3] = left_value;
+                *row[4] = right_value;
+                *row[5] = root;
 
-                *lookup_data.memory[0] =
-                    [address, clock, value0, value1, value2, value3, multiplicity];
-                *lookup_data.merkle[0] = [address, depth, value0, root];
-                *lookup_data.merkle[1] = [address + one, depth, value1, root];
-                *lookup_data.merkle[2] = [address + m31_2, depth, value2, root];
-                *lookup_data.merkle[3] = [address + m31_3, depth, value3, root];
+                *lookup_data.merkle[0] = [index, depth, left_value, root];
+                *lookup_data.merkle[1] = [index + one, depth, right_value, root];
+                // Extract M31 values from PackedM31 for hashing
+                let hash_values: Vec<M31> = (0..N_LANES)
+                    .map(|i| {
+                        let left = left_value.to_array()[i];
+                        let right = right_value.to_array()[i];
+                        H::hash(left, right)
+                    })
+                    .collect();
+                let hashed = PackedM31::from_array(hash_values.try_into().unwrap());
+
+                *lookup_data.merkle[2] = [index * m31_2_inv, depth - one, hashed, root];
             });
 
         // Return the trace and lookup data
@@ -173,50 +164,28 @@ impl InteractionClaim {
     }
 
     pub fn write_interaction_trace(
-        memory: &relations::Memory,
         merkle: &relations::Merkle,
         interaction_claim_data: &InteractionClaimData,
     ) -> (
         Self,
         impl IntoIterator<Item = CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
     ) {
-        let log_size = interaction_claim_data.lookup_data.memory[0].len().ilog2() + LOG_N_LANES;
+        let log_size = interaction_claim_data.lookup_data.merkle[0].len().ilog2() + LOG_N_LANES;
         let mut interaction_trace = LogupTraceGenerator::new(log_size);
         let enabler_col = Enabler::new(interaction_claim_data.non_padded_length);
 
         let mut col = interaction_trace.new_col();
         (
             col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.memory[0],
             &interaction_claim_data.lookup_data.merkle[0],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(i, (writer, value0, value1))| {
-                let num0: PackedQM31 = PackedQM31::from(value0[6]);
-                let denom0: PackedQM31 = memory.combine(&value0[..6]);
-                let num1: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
-                let denom1: PackedQM31 = merkle.combine(value1);
-
-                let numerator = num0 * denom1 + num1 * denom0;
-                let denom = denom0 * denom1;
-
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
-
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
             &interaction_claim_data.lookup_data.merkle[1],
-            &interaction_claim_data.lookup_data.merkle[2],
         )
             .into_par_iter()
             .enumerate()
             .for_each(|(i, (writer, value0, value1))| {
-                let num0: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
+                let num0: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
                 let denom0: PackedQM31 = merkle.combine(value0);
-                let num1: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
+                let num1: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
                 let denom1: PackedQM31 = merkle.combine(value1);
 
                 let numerator = num0 * denom1 + num1 * denom0;
@@ -229,7 +198,7 @@ impl InteractionClaim {
         let mut col = interaction_trace.new_col();
         (
             col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.merkle[3],
+            &interaction_claim_data.lookup_data.merkle[2],
         )
             .into_par_iter()
             .enumerate()
@@ -249,7 +218,6 @@ impl InteractionClaim {
 
 pub struct Eval {
     pub claim: Claim,
-    pub memory: relations::Memory,
     pub merkle: relations::Merkle,
 }
 
@@ -264,67 +232,49 @@ impl FrameworkEval for Eval {
 
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         let one = E::F::one();
-        let m31_2 = E::F::from(M31::from(2));
-        let m31_3 = E::F::from(M31::from(3));
+        let m31_2 = M31::from(2);
+        let m31_2_inv = E::F::from(M31::inverse(&m31_2));
+
         let enabler = eval.next_trace_mask();
-        let address = eval.next_trace_mask();
-        let clock = eval.next_trace_mask();
-        let value0 = eval.next_trace_mask();
-        let value1 = eval.next_trace_mask();
-        let value2 = eval.next_trace_mask();
-        let value3 = eval.next_trace_mask();
-        let multiplicity = eval.next_trace_mask();
+        let index = eval.next_trace_mask();
         let depth = eval.next_trace_mask();
+        let left_value = eval.next_trace_mask();
+        let right_value = eval.next_trace_mask();
         let root = eval.next_trace_mask();
-        dbg!(
-            &address,
-            &clock,
-            &value0,
-            &value1,
-            &value2,
-            &value3,
-            &multiplicity,
-            &depth,
-            &root
-        );
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
 
-        // Emit initial values and use final ones
+        // Use current depth node
         eval.add_to_relation(RelationEntry::new(
-            &self.memory,
-            E::EF::from(multiplicity),
+            &self.merkle,
+            -E::EF::from(enabler.clone()),
             &[
-                address.clone(),
-                clock,
-                value0.clone(),
-                value1.clone(),
-                value2.clone(),
-                value3.clone(),
+                index.clone(),
+                depth.clone(),
+                left_value.clone(),
+                root.clone(),
+            ],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.merkle,
+            -E::EF::from(enabler.clone()),
+            &[
+                index.clone() + one.clone(),
+                depth.clone(),
+                right_value.clone(),
+                root.clone(),
             ],
         ));
 
-        // Emit leaves and intermediate nodes
+        // Compute hash
+        let parent_hash = Hash::evaluate([left_value, right_value], &mut eval);
+
+        // Emit next layer
         eval.add_to_relation(RelationEntry::new(
             &self.merkle,
-            E::EF::zero(), //E::EF::from(enabler.clone()),
-            &[address.clone(), depth.clone(), value0, root.clone()],
-        ));
-        eval.add_to_relation(RelationEntry::new(
-            &self.merkle,
-            E::EF::zero(), //E::EF::from(enabler.clone()),
-            &[address.clone() + one, depth.clone(), value1, root.clone()],
-        ));
-        eval.add_to_relation(RelationEntry::new(
-            &self.merkle,
-            E::EF::zero(), //E::EF::from(enabler.clone()),
-            &[address.clone() + m31_2, depth.clone(), value2, root.clone()],
-        ));
-        eval.add_to_relation(RelationEntry::new(
-            &self.merkle,
-            E::EF::zero(), //E::EF::from(enabler),
-            &[address + m31_3, depth, value3, root],
+            E::EF::from(enabler),
+            &[index * m31_2_inv, depth - one, parent_hash, root],
         ));
         eval.finalize_logup_in_pairs();
 
