@@ -9,6 +9,8 @@
 //! - Return type matching
 //! - Conditional expression types
 
+#![allow(clippy::too_many_arguments)]
+
 use std::collections::HashSet;
 
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode};

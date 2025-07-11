@@ -4,7 +4,6 @@
 //! These tests verify that the type system correctly handles type compatibility
 //! checks, error propagation, and edge cases.
 
-use super::*;
 use crate::{get_maybe_main_semantic_index, project_from_program, test_db};
 
 #[test]
