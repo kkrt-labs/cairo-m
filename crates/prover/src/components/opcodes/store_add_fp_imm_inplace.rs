@@ -56,7 +56,7 @@ use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::adapter::ExecutionBundle;
-use crate::relations;
+use crate::components::Relations;
 use crate::utils::{Enabler, PackedExecutionBundle};
 
 const N_TRACE_COLUMNS: usize = 11;
@@ -208,9 +208,7 @@ impl InteractionClaim {
     }
 
     pub fn write_interaction_trace(
-        registers_relation: &relations::Registers,
-        memory_relation: &relations::Memory,
-        range_check_20_relation: &relations::RangeCheck20,
+        relations: &Relations,
         interaction_claim_data: &InteractionClaimData,
     ) -> (
         Self,
@@ -231,8 +229,8 @@ impl InteractionClaim {
             .for_each(|(i, (writer, registers_prev, registers_new))| {
                 let num_prev = -PackedQM31::from(enabler_col.packed_at(i));
                 let num_new = PackedQM31::from(enabler_col.packed_at(i));
-                let denom_prev: PackedQM31 = registers_relation.combine(registers_prev);
-                let denom_new: PackedQM31 = registers_relation.combine(registers_new);
+                let denom_prev: PackedQM31 = relations.registers.combine(registers_prev);
+                let denom_new: PackedQM31 = relations.registers.combine(registers_new);
 
                 let numerator = num_prev * denom_new + num_new * denom_prev;
                 let denom = denom_prev * denom_new;
@@ -252,8 +250,8 @@ impl InteractionClaim {
             .for_each(|(i, (writer, memory_prev, memory_new))| {
                 let num_prev = -PackedQM31::from(enabler_col.packed_at(i));
                 let num_new = PackedQM31::from(enabler_col.packed_at(i));
-                let denom_prev: PackedQM31 = memory_relation.combine(memory_prev);
-                let denom_new: PackedQM31 = memory_relation.combine(memory_new);
+                let denom_prev: PackedQM31 = relations.memory.combine(memory_prev);
+                let denom_new: PackedQM31 = relations.memory.combine(memory_new);
 
                 let numerator = num_prev * denom_new + num_new * denom_prev;
                 let denom = denom_prev * denom_new;
@@ -273,8 +271,8 @@ impl InteractionClaim {
             .for_each(|(i, (writer, memory_prev, memory_new))| {
                 let num_prev = -PackedQM31::from(enabler_col.packed_at(i));
                 let num_new = PackedQM31::from(enabler_col.packed_at(i));
-                let denom_prev: PackedQM31 = memory_relation.combine(memory_prev);
-                let denom_new: PackedQM31 = memory_relation.combine(memory_new);
+                let denom_prev: PackedQM31 = relations.memory.combine(memory_prev);
+                let denom_new: PackedQM31 = relations.memory.combine(memory_new);
 
                 let numerator = num_prev * denom_new + num_new * denom_prev;
                 let denom = denom_prev * denom_new;
@@ -293,8 +291,8 @@ impl InteractionClaim {
             .enumerate()
             .for_each(|(_i, (writer, range_check_20_0, range_check_20_1))| {
                 let num = -PackedQM31::one();
-                let denom_0: PackedQM31 = range_check_20_relation.combine(&[*range_check_20_0]);
-                let denom_1: PackedQM31 = range_check_20_relation.combine(&[*range_check_20_1]);
+                let denom_0: PackedQM31 = relations.range_check_20.combine(&[*range_check_20_0]);
+                let denom_1: PackedQM31 = relations.range_check_20.combine(&[*range_check_20_1]);
 
                 let numerator = num * denom_1 + num * denom_0;
                 let denom = denom_0 * denom_1;
@@ -310,9 +308,7 @@ impl InteractionClaim {
 
 pub struct Eval {
     pub claim: Claim,
-    pub memory: relations::Memory,
-    pub registers: relations::Registers,
-    pub range_check_20: relations::RangeCheck20,
+    pub relations: Relations,
 }
 
 impl FrameworkEval for Eval {
@@ -349,19 +345,19 @@ impl FrameworkEval for Eval {
 
         // Registers update
         eval.add_to_relation(RelationEntry::new(
-            &self.registers,
+            &self.relations.registers,
             -E::EF::from(enabler.clone()),
             &[pc.clone(), fp.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
-            &self.registers,
+            &self.relations.registers,
             E::EF::from(enabler.clone()),
             &[pc.clone() + one, fp.clone()],
         ));
 
         // Read instruction from memory
         eval.add_to_relation(RelationEntry::new(
-            &self.memory,
+            &self.relations.memory,
             -E::EF::from(enabler.clone()),
             &[
                 pc.clone(),
@@ -373,7 +369,7 @@ impl FrameworkEval for Eval {
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
-            &self.memory,
+            &self.relations.memory,
             E::EF::from(enabler.clone()),
             &[
                 pc,
@@ -387,7 +383,7 @@ impl FrameworkEval for Eval {
 
         // Update op0
         eval.add_to_relation(RelationEntry::new(
-            &self.memory,
+            &self.relations.memory,
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + off0.clone(),
@@ -396,19 +392,19 @@ impl FrameworkEval for Eval {
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
-            &self.memory,
+            &self.relations.memory,
             E::EF::from(enabler.clone()),
             &[fp + off0, clock.clone(), op0_prev_val + off1],
         ));
 
         // Range check 20
         eval.add_to_relation(RelationEntry::new(
-            &self.range_check_20,
+            &self.relations.range_check_20,
             -E::EF::one(),
             &[clock.clone() - inst_prev_clock - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
-            &self.range_check_20,
+            &self.relations.range_check_20,
             -E::EF::one(),
             &[clock - op0_prev_clock - enabler],
         ));
