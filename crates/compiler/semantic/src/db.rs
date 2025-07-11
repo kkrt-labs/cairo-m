@@ -281,11 +281,22 @@ pub fn project_semantic_index(
     let topo = topological_sort(&graph);
     let mut module_indices = HashMap::new();
 
+    // Pre-fetch parsed modules to avoid repeated queries
+    let parsed_modules = project_parsed_modules(db, project);
+
     for module_name in topo {
-        // Only process modules that actually exist in the project
-        if project.modules(db).contains_key(&module_name) {
+        // Only process modules that actually exist in both the project and parsed modules
+        // This prevents panics in module_semantic_index which expects both to exist
+        if project.modules(db).contains_key(&module_name)
+            && parsed_modules.contains_key(&module_name)
+        {
             let module_index = module_semantic_index(db, project, module_name.clone());
             module_indices.insert(module_name, module_index);
+        } else {
+            tracing::warn!(
+                "[SEMANTIC] Skipping module '{}' - not found in project or parse results",
+                module_name
+            );
         }
     }
 
@@ -309,11 +320,20 @@ pub fn module_semantic_index(
     let parsed_module = parsed_modules
         .get(&module_name)
         .cloned()
-        .expect("Module should exist");
-    let file = *project
-        .modules(db)
-        .get(&module_name)
-        .expect("File should exist");
+        .unwrap_or_else(|| {
+            panic!(
+                "Module '{}' should exist in parsed modules. Available modules: {:?}",
+                module_name,
+                parsed_modules.keys().collect::<Vec<_>>()
+            )
+        });
+    let file = *project.modules(db).get(&module_name).unwrap_or_else(|| {
+        panic!(
+            "File for module '{}' should exist in project. Available modules: {:?}",
+            module_name,
+            project.modules(db).keys().collect::<Vec<_>>()
+        )
+    });
     let index = semantic_index_from_module(db, &parsed_module, file, project, module_name.clone());
     tracing::info!(
         "[SEMANTIC] Semantic index built for module '{}': {} definitions, {} identifier usages",
