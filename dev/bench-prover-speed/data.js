@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1752245765026,
+  "lastUpdate": 1752248740678,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -419,6 +419,36 @@ window.BENCHMARK_DATA = {
             "name": "prover_fibonacci/prove",
             "value": 5549771604,
             "range": "± 23198464",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "clement0walter@gmail.com",
+            "name": "Clément Walter",
+            "username": "ClementWalter"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "50e16a1673d96f2b1c1865e39a9e32ff2ab675f7",
+          "message": "Get relations as input and not list of relations (#153)",
+          "timestamp": "2025-07-11T17:33:26+02:00",
+          "tree_id": "6b9030302730685984191db943496200b1195326",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/50e16a1673d96f2b1c1865e39a9e32ff2ab675f7"
+        },
+        "date": 1752248740144,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 5599405211,
+            "range": "± 32288193",
             "unit": "ns/iter"
           }
         ]
