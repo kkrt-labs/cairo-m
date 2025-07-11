@@ -186,7 +186,11 @@ mod tests {
         fs::write(project_dir.join("cairom.toml"), "").unwrap();
 
         let root = find_project_root(src_dir.join("main.cm").as_path()).unwrap();
-        assert_eq!(root, project_dir);
+        // Compare canonicalized paths to handle symlink differences on macOS
+        assert_eq!(
+            root.canonicalize().unwrap(),
+            project_dir.canonicalize().unwrap()
+        );
     }
 
     #[test]
@@ -204,5 +208,33 @@ mod tests {
 
         assert_eq!(discovered.files.len(), 2);
         assert!(discovered.entry_point.ends_with("main.cm"));
+    }
+
+    #[test]
+    fn test_project_discovery_with_invalid_root() {
+        let config = ProjectDiscoveryConfig::default();
+        let result = discover_project_files(Path::new("/definitely/does/not/exist"), &config);
+
+        // Should return Ok with empty files since the directory doesn't exist
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("No source files found"));
+    }
+
+    #[test]
+    fn test_find_project_root_with_cairom_toml() {
+        let temp_dir = TempDir::new().unwrap();
+        let project_dir = temp_dir.path().join("project");
+        let src_dir = project_dir.join("src");
+        fs::create_dir_all(&src_dir).unwrap();
+        fs::write(project_dir.join("cairom.toml"), "").unwrap();
+        fs::write(src_dir.join("main.cm"), "").unwrap();
+
+        // Test with file path
+        let root = find_project_root(&src_dir.join("main.cm")).unwrap();
+        assert!(root.ends_with("project"));
+
+        // Test with directory path
+        let root2 = find_project_root(&src_dir).unwrap();
+        assert!(root2.ends_with("project"));
     }
 }

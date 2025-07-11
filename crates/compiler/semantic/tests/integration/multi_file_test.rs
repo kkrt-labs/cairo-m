@@ -547,3 +547,93 @@ func test() -> felt {
         errors
     );
 }
+
+#[test]
+fn test_self_import_detected() {
+    let db = test_db();
+
+    // Create a module that attempts to import from itself
+    let main_source = r#"
+use main::foo;
+
+func foo() -> felt {
+    return 42;
+}
+
+func test() -> felt {
+    return foo();
+}
+"#;
+
+    let main_file = SourceFile::new(&db, main_source.to_string(), "main.cm".to_string());
+
+    let mut modules = HashMap::new();
+    modules.insert("main".to_string(), main_file);
+
+    let project = Project::new(&db, modules, "main".to_string());
+    let diagnostics = project_validate_semantics(&db, project);
+
+    // Should have one error for self-import
+    let errors: Vec<_> = diagnostics.errors();
+    assert_eq!(
+        errors.len(),
+        1,
+        "Expected one error for self-import, but got: {:?}",
+        errors
+    );
+
+    // Check the error message - self-imports are detected as cyclic imports
+    let error = &errors[0];
+    assert!(
+        error.message.contains("Cyclic import: main -> main"),
+        "Expected cyclic import error message for self-import, but got: {}",
+        error.message
+    );
+}
+
+#[test]
+fn test_self_import_with_braced_syntax() {
+    let db = test_db();
+
+    // Test self-import with braced syntax
+    let utils_source = r#"
+use utils::{add, multiply};
+
+func add(a: felt, b: felt) -> felt {
+    return a + b;
+}
+
+func multiply(a: felt, b: felt) -> felt {
+    return a * b;
+}
+
+func test() -> felt {
+    return add(1, 2);
+}
+"#;
+
+    let utils_file = SourceFile::new(&db, utils_source.to_string(), "utils.cm".to_string());
+
+    let mut modules = HashMap::new();
+    modules.insert("utils".to_string(), utils_file);
+
+    let project = Project::new(&db, modules, "utils".to_string());
+    let diagnostics = project_validate_semantics(&db, project);
+
+    // Should have one error - cyclic import detection catches self-imports
+    let errors: Vec<_> = diagnostics.errors();
+    assert_eq!(
+        errors.len(),
+        1,
+        "Expected one error for self-import cycle, but got: {:?}",
+        errors
+    );
+
+    // The error should mention cyclic import
+    let error = &errors[0];
+    assert!(
+        error.message.contains("Cyclic import: utils -> utils"),
+        "Expected cyclic import error message for self-import, but got: {}",
+        error.message
+    );
+}

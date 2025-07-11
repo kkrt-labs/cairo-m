@@ -37,8 +37,8 @@ pub fn resolve_ast_type<'db>(
         None => {
             // File not found in project - this can happen during rapid edits
             // Return error type instead of panicking
-            eprintln!(
-                "Warning: Could not find module name for file: {:?}",
+            tracing::debug!(
+                "Could not find module name for file: {:?}",
                 file.file_path(db)
             );
             return TypeId::new(db, TypeData::Error);
@@ -127,8 +127,8 @@ pub fn definition_semantic_type<'db>(
         None => {
             // File not found in project - this can happen during rapid edits
             // Return error type instead of panicking
-            eprintln!(
-                "Warning: Could not find module name for file: {:?}",
+            tracing::debug!(
+                "Could not find module name for file: {:?}",
                 file.file_path(db)
             );
             return TypeId::new(db, TypeData::Error);
@@ -281,8 +281,8 @@ pub fn expression_semantic_type<'db>(
         None => {
             // File not found in project - this can happen during rapid edits
             // Return error type instead of panicking
-            eprintln!(
-                "Warning: Could not find module name for file: {:?}",
+            tracing::debug!(
+                "Could not find module name for file: {:?}",
                 file.file_path(db)
             );
             return TypeId::new(db, TypeData::Error);

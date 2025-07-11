@@ -73,10 +73,43 @@ impl Backend {
         cairo_m_compiler::project_discovery::find_project_root(&file_path)
     }
 
+    /// Clean up stale project caches that haven't been accessed in over 5 minutes
+    fn cleanup_stale_caches(&self) {
+        const STALE_TIMEOUT_SECS: u64 = 300; // 5 minutes
+
+        let mut stale_keys = Vec::new();
+
+        // Find stale entries
+        for entry in self.project_caches.iter() {
+            if let Ok(elapsed) = entry.value().last_updated.elapsed() {
+                if elapsed.as_secs() > STALE_TIMEOUT_SECS {
+                    stale_keys.push(entry.key().clone());
+                }
+            }
+        }
+
+        // Remove stale entries
+        for key in stale_keys {
+            self.project_caches.remove(&key);
+            // Also remove the associated project if it exists
+            self.projects.remove(&key);
+            tracing::debug!(
+                "[CACHE] Cleaned up stale project cache for {}",
+                key.display()
+            );
+        }
+    }
+
     /// Discover all .cm files in a project directory recursively
     ///
     /// Returns a cached result if available and recent, otherwise performs a fresh scan.
     fn discover_project_files(&self, project_root: &PathBuf) -> Option<ProjectCache> {
+        // Periodically clean up stale caches (every 10th call approximately)
+        static CLEANUP_COUNTER: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+        if CLEANUP_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % 10 == 0 {
+            self.cleanup_stale_caches();
+        }
+
         // Check if we have a recent cache
         if let Some(cache) = self.project_caches.get(project_root) {
             // Cache is valid for 30 seconds to avoid excessive re-scanning
