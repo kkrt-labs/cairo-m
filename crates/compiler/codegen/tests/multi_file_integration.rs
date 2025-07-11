@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use cairo_m_compiler_codegen::{CodegenDb, compile_module};
 use cairo_m_compiler_mir::{MirDb, generate_mir};
 use cairo_m_compiler_parser::Upcast;
-use cairo_m_compiler_semantic::db::Project;
+use cairo_m_compiler_semantic::db::Crate;
 use cairo_m_compiler_semantic::{File, SemanticDb};
 
 /// Test database that implements all required traits for code generation
@@ -89,14 +89,14 @@ func multiply(a: felt, b: felt) -> felt {
     let main_file = File::new(&db, main_source.to_string(), "main.cm".to_string());
     let math_file = File::new(&db, math_source.to_string(), "math.cm".to_string());
 
-    // Create project with both modules
+    // Create crate with both modules
     let mut modules = HashMap::new();
     modules.insert("main".to_string(), main_file);
     modules.insert("math".to_string(), math_file);
-    let project = Project::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(&db, modules, "main".to_string());
 
-    // Generate MIR for the entire project
-    let mir_result = generate_mir(&db, project);
+    // Generate MIR for the entire crate
+    let mir_result = generate_mir(&db, crate_id);
     assert!(mir_result.is_ok(), "MIR generation should succeed");
 
     let mir_module = mir_result.unwrap();
@@ -176,15 +176,15 @@ func main() -> felt {
         "utilities.cm".to_string(),
     );
 
-    // Create project
+    // Create crate
     let mut modules = HashMap::new();
     modules.insert("main".to_string(), main_file);
     modules.insert("calculator".to_string(), calc_file);
     modules.insert("utilities".to_string(), utils_file);
-    let project = Project::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(&db, modules, "main".to_string());
 
     // Generate MIR
-    let mir_result = generate_mir(&db, project);
+    let mir_result = generate_mir(&db, crate_id);
     assert!(mir_result.is_ok(), "MIR generation should succeed");
 
     let mir_module = mir_result.unwrap();
@@ -208,7 +208,7 @@ func main() -> felt {
 }
 
 /// Test that unused functions in imported modules are still compiled
-/// (since we compile at the project level)
+/// (since we compile at the crate level)
 #[test]
 fn test_unused_function_compilation() {
     let db = TestDatabase::default();
@@ -239,19 +239,19 @@ func another_unused() -> felt {
     let main_file = File::new(&db, main_source.to_string(), "main.cm".to_string());
     let lib_file = File::new(&db, library_source.to_string(), "library.cm".to_string());
 
-    // Create project
+    // Create crate
     let mut modules = HashMap::new();
     modules.insert("main".to_string(), main_file);
     modules.insert("library".to_string(), lib_file);
-    let project = Project::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(&db, modules, "main".to_string());
 
     // Generate MIR
-    let mir_result = generate_mir(&db, project);
+    let mir_result = generate_mir(&db, crate_id);
     assert!(mir_result.is_ok(), "MIR generation should succeed");
 
     let mir_module = mir_result.unwrap();
 
-    // All functions should be present (project-level compilation)
+    // All functions should be present (crate-level compilation)
     assert!(mir_module.lookup_function("main").is_some());
     assert!(mir_module.lookup_function("used_function").is_some());
     assert!(mir_module.lookup_function("unused_function").is_some());
@@ -282,14 +282,14 @@ func main() -> felt {
 }
 "#;
 
-    // Create project with only main module (missing the imported module)
+    // Create crate with only main module (missing the imported module)
     let main_file = File::new(&db, main_source.to_string(), "main.cm".to_string());
     let mut modules = HashMap::new();
     modules.insert("main".to_string(), main_file);
-    let project = Project::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(&db, modules, "main".to_string());
 
     // Generate MIR - should succeed with error recovery (generates error values)
-    let mir_result = generate_mir(&db, project);
+    let mir_result = generate_mir(&db, crate_id);
     assert!(
         mir_result.is_ok(),
         "MIR generation should succeed with error recovery"
@@ -350,10 +350,10 @@ func main() -> felt {
             modules.insert("main".to_string(), main_file);
         }
 
-        let project = Project::new(&db, modules, "main".to_string());
+        let crate_id = Crate::new(&db, modules, "main".to_string());
 
         // Generate MIR
-        let mir_result = generate_mir(&db, project);
+        let mir_result = generate_mir(&db, crate_id);
         assert!(
             mir_result.is_ok(),
             "MIR generation should succeed regardless of order"

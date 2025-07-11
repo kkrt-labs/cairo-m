@@ -18,7 +18,7 @@ use cairo_m_compiler_semantic::db::{module_semantic_index, project_validate_sema
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
 use cairo_m_compiler_semantic::type_resolution::definition_semantic_type;
 use cairo_m_compiler_semantic::types::{TypeData, TypeId};
-use cairo_m_compiler_semantic::{DefinitionKind, Project, SemanticDb};
+use cairo_m_compiler_semantic::{Crate, DefinitionKind, SemanticDb};
 use dashmap::DashMap;
 use salsa::Setter;
 use tower_lsp::jsonrpc::Result;
@@ -49,8 +49,6 @@ struct Backend {
     client: Client,
     db: Arc<Mutex<CompilerDatabase>>,
     source_files: Arc<DashMap<Url, SourceFile>>,
-    /// Map from project root path to shared project instances
-    projects: Arc<DashMap<PathBuf, Project>>,
     /// Cache for project file discovery to avoid re-scanning
     project_caches: Arc<DashMap<PathBuf, ProjectCache>>,
 }
@@ -61,7 +59,6 @@ impl Backend {
             client,
             db: Arc::new(Mutex::new(CompilerDatabase::default())),
             source_files: Arc::new(DashMap::new()),
-            projects: Arc::new(DashMap::new()),
             project_caches: Arc::new(DashMap::new()),
         }
     }
@@ -92,8 +89,6 @@ impl Backend {
         // Remove stale entries
         for key in stale_keys {
             self.project_caches.remove(&key);
-            // Also remove the associated project if it exists
-            self.projects.remove(&key);
             tracing::debug!(
                 "[CACHE] Cleaned up stale project cache for {}",
                 key.display()
@@ -138,24 +133,19 @@ impl Backend {
         Some(cache)
     }
 
-    /// Get or create a project for the given file URI.
+    /// Get or create a crate for the given file URI.
     ///
-    /// This implements project discovery and shared project state with caching.
-    /// Files within the same project root will share the same Project instance.
-    fn get_or_create_project(&self, file_uri: &Url) -> Option<Project> {
+    /// ALWAYS rebuilds the crate input to ensure Salsa gets fresh project structure.
+    /// This is critical for proper incremental compilation - Salsa will cache the
+    /// expensive operations (parsing, semantic analysis) while we provide fresh inputs.
+    fn get_or_create_crate(&self, file_uri: &Url) -> Option<Crate> {
         let project_root = self.find_project_root(file_uri)?;
 
-        // Check if we already have a project for this root
-        if let Some(project) = self.projects.get(&project_root) {
-            tracing::debug!(
-                "[PROJECT] Using cached project for {}",
-                project_root.display()
-            );
-            return Some(*project.value());
-        }
-
+        // ALWAYS REBUILD THE CRATE. DO NOT CHECK ANY CACHE HERE.
+        // This ensures Salsa always gets the latest project structure.
+        // Salsa will cache the underlying expensive operations.
         tracing::info!(
-            "[PROJECT] Creating new project for {}",
+            "[PROJECT] Rebuilding crate for root: {}",
             project_root.display()
         );
 
@@ -217,12 +207,12 @@ impl Backend {
                 modules.keys().next()?.clone()
             };
 
-            let project = self.safe_db_access(|db| Project::new(db, modules, main_module))?;
-            self.projects.insert(project_root.clone(), project);
-            Some(project)
+            // Create and return a new Crate input.
+            // Do NOT insert it into any cache.
+            self.safe_db_access(|db| Crate::new(db, modules, main_module))
         } else {
-            // Single-file project: only include the file that was opened
-            tracing::info!("[PROJECT] Creating single-file project for standalone file");
+            // Single-file crate: only include the file that was opened
+            tracing::info!("[PROJECT] Creating single-file crate for standalone file");
 
             // Get the file path from the URI
             let file_path = file_uri.to_file_path().ok()?;
@@ -250,10 +240,9 @@ impl Backend {
                 }
             }
 
-            // Create a single-file project
-            let project = self.safe_db_access(|db| Project::new(db, modules, module_name))?;
-            self.projects.insert(project_root, project);
-            Some(project)
+            // Create and return a new Crate input.
+            // Do NOT insert it into any cache.
+            self.safe_db_access(|db| Crate::new(db, modules, module_name))
         }
     }
 
@@ -398,26 +387,26 @@ impl Backend {
             None => return, // Can't determine project root
         };
 
-        let project = match self.get_or_create_project(&uri) {
-            Some(project) => {
-                // Log project modules for debugging
+        let crate_id = match self.get_or_create_crate(&uri) {
+            Some(crate_id) => {
+                // Log crate modules for debugging
                 self.safe_db_access(|db| {
                     tracing::info!(
-                        "[LSP] Project modules: {:?}",
-                        project.modules(db).keys().collect::<Vec<_>>()
+                        "[LSP] Crate modules: {:?}",
+                        crate_id.modules(db).keys().collect::<Vec<_>>()
                     );
                 });
-                project
+                crate_id
             }
-            None => return, // Silently fail if project can't be created
+            None => return, // Silently fail if crate can't be created
         };
 
-        // Collect all file URIs that belong to this project
+        // Collect all file URIs that belong to this crate
         let project_file_uris = match self.safe_db_access(|db| {
             let mut uris = std::collections::HashSet::new();
 
-            // Get all files in the project
-            for (_module_name, file) in project.modules(db).iter() {
+            // Get all files in the crate
+            for (_module_name, file) in crate_id.modules(db).iter() {
                 let file_path = file.file_path(db);
                 if let Ok(file_uri) = Url::from_file_path(file_path) {
                     uris.insert(file_uri);
@@ -434,7 +423,7 @@ impl Backend {
 
         // Get all diagnostics grouped by file
         let diagnostics_by_file = match self.safe_db_access(|db| {
-            let all_diagnostics = project_validate_semantics(db, project);
+            let all_diagnostics = project_validate_semantics(db, crate_id);
 
             // Group diagnostics by file path
             let mut grouped: HashMap<String, Vec<CairoDiagnostic>> = HashMap::new();
@@ -655,9 +644,9 @@ impl LanguageServer for Backend {
         let uri = params.text_document_position_params.text_document.uri;
         let position = params.text_document_position_params.position;
 
-        // Get project for cross-file analysis
-        let project = match self.get_or_create_project(&uri) {
-            Some(project) => project,
+        // Get crate for cross-file analysis
+        let crate_id = match self.get_or_create_crate(&uri) {
+            Some(crate_id) => crate_id,
             None => return Ok(None),
         };
 
@@ -680,7 +669,7 @@ impl LanguageServer for Backend {
                 .map(|s| s.to_string())?;
 
             // Run semantic analysis query. Salsa will compute it incrementally.
-            let index = module_semantic_index(db.upcast(), project, module_name);
+            let index = module_semantic_index(db.upcast(), crate_id, module_name);
 
             // First, check if we're clicking on an identifier usage
             let identifier_usage = index
@@ -693,7 +682,7 @@ impl LanguageServer for Backend {
                 // Try to resolve with imports for cross-module support
                 if let Some((_def_idx, def, def_file)) = index.resolve_name_with_imports(
                     db.upcast(),
-                    project,
+                    crate_id,
                     source,
                     &usage.name,
                     usage.scope_id,
@@ -755,8 +744,8 @@ impl LanguageServer for Backend {
                             // Try to find the module file
                             let _module_path = format!("{}.cm", use_ref.imported_module);
 
-                            // Search for the module file in the project
-                            for (mod_name, mod_file) in project.modules(db).iter() {
+                            // Search for the module file in the crate
+                            for (mod_name, mod_file) in crate_id.modules(db).iter() {
                                 if mod_name == &use_ref.imported_module {
                                     let mod_path = mod_file.file_path(db);
                                     if let Ok(mod_uri) = Url::from_file_path(mod_path) {
@@ -795,9 +784,9 @@ impl LanguageServer for Backend {
         let uri = params.text_document_position_params.text_document.uri;
         let position = params.text_document_position_params.position;
 
-        // Get project for cross-file analysis
-        let project = match self.get_or_create_project(&uri) {
-            Some(project) => project,
+        // Get crate for cross-file analysis
+        let crate_id = match self.get_or_create_crate(&uri) {
+            Some(crate_id) => crate_id,
             None => return Ok(None),
         };
 
@@ -820,7 +809,7 @@ impl LanguageServer for Backend {
                 .map(|s| s.to_string())?;
 
             // Run semantic analysis query incrementally.
-            let index = module_semantic_index(db.upcast(), project, module_name);
+            let index = module_semantic_index(db.upcast(), crate_id, module_name);
 
             let identifier_usage = index
                 .identifier_usages()
@@ -832,13 +821,13 @@ impl LanguageServer for Backend {
                 // Try to resolve with imports for cross-module support
                 if let Some((def_idx, _def, def_file)) = index.resolve_name_with_imports(
                     db.upcast(),
-                    project,
+                    crate_id,
                     source,
                     &usage.name,
                     usage.scope_id,
                 ) {
                     let def_id = DefinitionId::new(db, def_file, def_idx);
-                    let type_id = definition_semantic_type(db.upcast(), project, def_id);
+                    let type_id = definition_semantic_type(db.upcast(), crate_id, def_id);
                     let type_str = Self::format_type(db.upcast(), type_id);
 
                     let mut hover_text = format!("```cairo-m\n{}: {}\n```", usage.name, type_str);
@@ -848,7 +837,7 @@ impl LanguageServer for Backend {
                         if let Some(module_name) =
                             cairo_m_compiler_semantic::db::module_name_for_file(
                                 db.upcast(),
-                                project,
+                                crate_id,
                                 def_file,
                             )
                         {
@@ -879,9 +868,9 @@ impl LanguageServer for Backend {
         let uri = params.text_document_position.text_document.uri;
         let position = params.text_document_position.position;
 
-        // Get project for cross-file analysis
-        let project = match self.get_or_create_project(&uri) {
-            Some(project) => project,
+        // Get crate for cross-file analysis
+        let crate_id = match self.get_or_create_crate(&uri) {
+            Some(crate_id) => crate_id,
             None => return Ok(None),
         };
 
@@ -903,7 +892,7 @@ impl LanguageServer for Backend {
                 .and_then(|stem| stem.to_str())
                 .map(|s| s.to_string())?;
 
-            let index = module_semantic_index(db.upcast(), project, module_name);
+            let index = module_semantic_index(db.upcast(), crate_id, module_name);
 
             // Find the scope at the cursor position.
             // TODO: This is inefficient. A better approach would be to have a query
@@ -942,7 +931,7 @@ impl LanguageServer for Backend {
                                 let type_str = {
                                     let def_id = DefinitionId::new(db, source, def_idx);
                                     let type_id =
-                                        definition_semantic_type(db.upcast(), project, def_id);
+                                        definition_semantic_type(db.upcast(), crate_id, def_id);
                                     Self::format_type(db.upcast(), type_id)
                                 };
 

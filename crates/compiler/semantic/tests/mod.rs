@@ -28,7 +28,7 @@ use cairo_m_compiler_diagnostics::{
     DiagnosticCode, DiagnosticCollection, build_diagnostic_message,
 };
 use cairo_m_compiler_parser::{Db as ParserDb, SourceFile, Upcast};
-use cairo_m_compiler_semantic::db::{Project, project_validate_semantics};
+use cairo_m_compiler_semantic::db::{Crate, project_validate_semantics};
 use cairo_m_compiler_semantic::{File, SemanticDb, SemanticIndex, project_semantic_index};
 use insta::assert_snapshot;
 
@@ -58,27 +58,27 @@ fn test_db() -> TestDb {
     TestDb::default()
 }
 
-fn single_file_project(db: &dyn SemanticDb, file: File) -> Project {
+fn single_file_crate(db: &dyn SemanticDb, file: File) -> Crate {
     let mut modules = HashMap::new();
     modules.insert("main".to_string(), file);
-    Project::new(db, modules, "main".to_string())
+    Crate::new(db, modules, "main".to_string())
 }
 
-fn project_from_program(db: &dyn SemanticDb, program: &str) -> Project {
+fn crate_from_program(db: &dyn SemanticDb, program: &str) -> Crate {
     let file = File::new(db, program.to_string(), "test.cm".to_string());
-    single_file_project(db, file)
+    single_file_crate(db, file)
 }
 
-fn get_main_semantic_index(db: &dyn SemanticDb, project: Project) -> SemanticIndex {
-    let semantic_index = project_semantic_index(db, project).unwrap();
+fn get_main_semantic_index(db: &dyn SemanticDb, crate_id: Crate) -> SemanticIndex {
+    let semantic_index = project_semantic_index(db, crate_id).unwrap();
     semantic_index.modules().values().next().unwrap().clone()
 }
 
 fn get_maybe_main_semantic_index(
     db: &dyn SemanticDb,
-    project: Project,
+    crate_id: Crate,
 ) -> Result<SemanticIndex, DiagnosticCollection> {
-    let semantic_index = project_semantic_index(db, project)?;
+    let semantic_index = project_semantic_index(db, crate_id)?;
     Ok(semantic_index.modules().values().next().unwrap().clone())
 }
 
@@ -86,8 +86,8 @@ fn get_maybe_main_semantic_index(
 fn run_validation(source: &str, file_name: &str) -> DiagnosticCollection {
     let db = test_db();
     let source_program = SourceFile::new(&db, source.to_string(), file_name.to_string());
-    let project = single_file_project(&db, source_program);
-    project_validate_semantics(&db, project)
+    let crate_id = single_file_crate(&db, source_program);
+    project_validate_semantics(&db, crate_id)
 }
 
 // Format diagnostics for snapshot testing using ariadne for beautiful error reports

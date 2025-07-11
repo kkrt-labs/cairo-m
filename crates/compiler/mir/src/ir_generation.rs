@@ -30,7 +30,7 @@ use cairo_m_compiler_parser::parse_file;
 use cairo_m_compiler_parser::parser::{
     Expression, FunctionDef, Pattern, Spanned, Statement, TopLevelItem,
 };
-use cairo_m_compiler_semantic::db::{Project, project_semantic_index};
+use cairo_m_compiler_semantic::db::{Crate, project_semantic_index};
 use cairo_m_compiler_semantic::definition::{Definition, DefinitionKind};
 use cairo_m_compiler_semantic::semantic_index::{DefinitionId, SemanticIndex};
 use cairo_m_compiler_semantic::type_resolution::{
@@ -54,7 +54,7 @@ mod tests {
 
 /// The main entry point for MIR generation.
 ///
-/// This Salsa query takes a project and produces the complete MIR for all modules.
+/// This Salsa query takes a crate and produces the complete MIR for all modules.
 /// It works by processing all modules in dependency order, identifying all functions,
 /// then lowering each one into a `MirFunction` with cross-module call resolution.
 ///
@@ -65,10 +65,10 @@ mod tests {
 /// - Generates partial MIR for functions even if some have semantic errors
 /// - Uses placeholder values for unresolved references
 #[salsa::tracked]
-pub fn generate_mir(db: &dyn MirDb, project: Project) -> Result<Arc<MirModule>, Vec<Diagnostic>> {
-    // Get semantic index for the entire project
-    let project_semantic_index =
-        match cairo_m_compiler_semantic::db::project_semantic_index(db, project) {
+pub fn generate_mir(db: &dyn MirDb, crate_id: Crate) -> Result<Arc<MirModule>, Vec<Diagnostic>> {
+    // Get semantic index for the entire crate
+    let crate_semantic_index =
+        match cairo_m_compiler_semantic::db::project_semantic_index(db, crate_id) {
             Ok(index) => index,
             Err(semantic_errors) => {
                 // Return semantic analysis errors
@@ -81,7 +81,7 @@ pub fn generate_mir(db: &dyn MirDb, project: Project) -> Result<Arc<MirModule>, 
     let mut parsed_modules = HashMap::new();
 
     // First, collect all parsed modules to avoid re-parsing
-    for (module_name, file) in project.modules(db) {
+    for (module_name, file) in crate_id.modules(db) {
         let parsed_program = parse_file(db, file);
         if !parsed_program.diagnostics.is_empty() {
             return Err(parsed_program.diagnostics); // Can't generate MIR if parsing failed
@@ -91,8 +91,8 @@ pub fn generate_mir(db: &dyn MirDb, project: Project) -> Result<Arc<MirModule>, 
 
     // First pass: Collect all function definitions from all modules and assign them MIR function IDs
     // This allows resolving cross-module function calls correctly
-    let modules_map = project.modules(db);
-    for (module_name, semantic_index) in project_semantic_index.modules() {
+    let modules_map = crate_id.modules(db);
+    for (module_name, semantic_index) in crate_semantic_index.modules() {
         let file = *modules_map
             .get(module_name)
             .expect("Module file should exist");
@@ -112,14 +112,14 @@ pub fn generate_mir(db: &dyn MirDb, project: Project) -> Result<Arc<MirModule>, 
         let file = def_id.file(db);
 
         // Find which module this function belongs to
-        let module_name = project
+        let module_name = crate_id
             .modules(db)
             .iter()
             .find(|(_, &module_file)| module_file == file)
             .map(|(name, _)| name.clone())
             .expect("File should belong to a module");
 
-        let semantic_index = project_semantic_index
+        let semantic_index = crate_semantic_index
             .modules()
             .get(&module_name)
             .expect("Module semantic index should exist");
@@ -148,7 +148,7 @@ pub fn generate_mir(db: &dyn MirDb, project: Project) -> Result<Arc<MirModule>, 
             semantic_index,
             &function_mapping,
             file_id,
-            project,
+            crate_id,
         );
         if let Ok(mir_func) = builder.lower_function(def_id, def, func_ast) {
             // Replace the placeholder function with the lowered one
@@ -188,7 +188,7 @@ fn find_function_ast<'a>(
 struct MirBuilder<'a, 'db> {
     db: &'db dyn SemanticDb,
     file: File,
-    project: Project,
+    crate_id: Crate,
     semantic_index: &'a SemanticIndex,
     /// Global map from function DefinitionId to MIR FunctionId for call resolution
     function_mapping: &'a FxHashMap<DefinitionId<'db>, (&'a Definition, FunctionId)>,
@@ -214,7 +214,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         semantic_index: &'a SemanticIndex,
         function_mapping: &'a FxHashMap<DefinitionId<'db>, (&'a Definition, FunctionId)>,
         file_id: u64,
-        project: Project,
+        crate_id: Crate,
     ) -> Self {
         // Create a placeholder function - will be filled in during lowering
         let mir_function = MirFunction::new(String::new());
@@ -223,7 +223,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         Self {
             db,
             file,
-            project,
+            crate_id,
             semantic_index,
             function_mapping,
             mir_function,
@@ -235,7 +235,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         }
     }
 
-    /// Resolves an imported function to its FunctionId in the project
+    /// Resolves an imported function to its FunctionId in the crate
     ///
     /// Follows the import chain: module_name.function_name -> FunctionId
     fn resolve_imported_function(
@@ -243,11 +243,11 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         imported_module_name: &str,
         function_name: &str,
     ) -> Option<FunctionId> {
-        // Get the project's semantic index
-        let project_index = project_semantic_index(self.db, self.project).ok()?;
+        // Get the crate's semantic index
+        let crate_index = project_semantic_index(self.db, self.crate_id).ok()?;
 
         // Get imported module's semantic index
-        let imported_index = project_index.modules().get(imported_module_name)?;
+        let imported_index = crate_index.modules().get(imported_module_name)?;
 
         // Get imported module's root scope
         let imported_root = imported_index.root_scope()?;
@@ -262,7 +262,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         }
 
         // Get the imported file
-        let imported_file = *self.project.modules(self.db).get(imported_module_name)?;
+        let imported_file = *self.crate_id.modules(self.db).get(imported_module_name)?;
 
         // Create the correct DefinitionId for the imported function
         let func_def_id = DefinitionId::new(self.db, imported_file, imported_def_idx);
@@ -300,7 +300,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 let mir_def_id = self.convert_definition_id(def_id);
 
                 // 1. Query semantic type system for actual parameter type
-                let semantic_type = definition_semantic_type(self.db, self.project, def_id);
+                let semantic_type = definition_semantic_type(self.db, self.crate_id, def_id);
                 let param_type = MirType::from_semantic_type(self.db, semantic_type);
 
                 let incoming_param_val = self.mir_function.new_typed_value_id(param_type.clone());
@@ -418,7 +418,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                             // Get the type from semantic analysis
                             let semantic_type =
-                                definition_semantic_type(self.db, self.project, def_id);
+                                definition_semantic_type(self.db, self.crate_id, def_id);
                             let element_mir_type =
                                 MirType::from_semantic_type(self.db, semantic_type);
 
@@ -525,7 +525,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                     // 4. Check that the function call returns a tuple of the correct arity.
                     let func_call_semantic_type =
-                        expression_semantic_type(self.db, self.project, self.file, expr_id);
+                        expression_semantic_type(self.db, self.crate_id, self.file, expr_id);
                     let TypeData::Tuple(element_types) = func_call_semantic_type.data(self.db)
                     else {
                         return Ok(false); // Does not return a tuple.
@@ -644,7 +644,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         if is_used {
                             // Original behavior for used variables
                             let semantic_type =
-                                definition_semantic_type(self.db, self.project, def_id);
+                                definition_semantic_type(self.db, self.crate_id, def_id);
                             let var_type = MirType::from_semantic_type(self.db, semantic_type);
                             let var_addr = self
                                 .mir_function
@@ -680,7 +680,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 // Tuple destructuring pattern for non-literal tuples
                 // (literal tuples are handled by the optimization above)
                 let rhs_semantic_type =
-                    expression_semantic_type(self.db, self.project, self.file, expr_id);
+                    expression_semantic_type(self.db, self.crate_id, self.file, expr_id);
 
                 match rhs_semantic_type.data(self.db) {
                     TypeData::Tuple(element_types) => {
@@ -828,7 +828,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         )
                     })?;
                 let expr_semantic_type =
-                    expression_semantic_type(self.db, self.project, self.file, expr_id);
+                    expression_semantic_type(self.db, self.crate_id, self.file, expr_id);
 
                 // Check if it's a tuple type
                 if let cairo_m_compiler_semantic::types::TypeData::Tuple(element_types) =
@@ -965,7 +965,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                         // Check the function's return type
                         let func_expr_semantic_type =
-                            expression_semantic_type(self.db, self.project, self.file, expr_id);
+                            expression_semantic_type(self.db, self.crate_id, self.file, expr_id);
 
                         if let cairo_m_compiler_semantic::types::TypeData::Tuple(element_types) =
                             func_expr_semantic_type.data(self.db)
@@ -1308,7 +1308,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         )
                     })?;
                 let object_semantic_type =
-                    expression_semantic_type(self.db, self.project, self.file, object_expr_id);
+                    expression_semantic_type(self.db, self.crate_id, self.file, object_expr_id);
                 let object_mir_type = MirType::from_semantic_type(self.db, object_semantic_type);
 
                 // Calculate the actual field offset from the type information
@@ -1324,7 +1324,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                 // Query semantic type system for field type from the member access expression
                 let field_semantic_type =
-                    expression_semantic_type(self.db, self.project, self.file, expr_id);
+                    expression_semantic_type(self.db, self.crate_id, self.file, expr_id);
                 let field_type = MirType::from_semantic_type(self.db, field_semantic_type);
                 let dest = self
                     .mir_function
@@ -1349,7 +1349,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                 // Query semantic type system for array element type from the index access expression
                 let element_semantic_type =
-                    expression_semantic_type(self.db, self.project, self.file, expr_id);
+                    expression_semantic_type(self.db, self.crate_id, self.file, expr_id);
                 let element_type = MirType::from_semantic_type(self.db, element_semantic_type);
                 let dest = self
                     .mir_function
@@ -1420,7 +1420,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                 // Query semantic type system for result type based on this expression
                 let semantic_type =
-                    expression_semantic_type(self.db, self.project, self.file, expr_id);
+                    expression_semantic_type(self.db, self.crate_id, self.file, expr_id);
                 let result_type = MirType::from_semantic_type(self.db, semantic_type);
                 let dest = self.mir_function.new_typed_value_id(result_type);
                 self.add_instruction(Instruction::unary_op(*op, dest, expr_value));
@@ -1434,7 +1434,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                 // Query semantic type system for result type based on this expression
                 let semantic_type =
-                    expression_semantic_type(self.db, self.project, self.file, expr_id);
+                    expression_semantic_type(self.db, self.crate_id, self.file, expr_id);
                 let result_type = MirType::from_semantic_type(self.db, semantic_type);
                 let dest = self.mir_function.new_typed_value_id(result_type);
                 self.add_instruction(Instruction::binary_op(*op, dest, lhs_value, rhs_value));
@@ -1506,8 +1506,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                             }
 
                             // Query semantic type system for function return type
-                            let semantic_type =
-                                expression_semantic_type(self.db, self.project, self.file, expr_id);
+                            let semantic_type = expression_semantic_type(
+                                self.db,
+                                self.crate_id,
+                                self.file,
+                                expr_id,
+                            );
 
                             // Check if the return type is a tuple
                             if let cairo_m_compiler_semantic::types::TypeData::Tuple(
@@ -1598,7 +1602,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         )
                     })?;
                 let object_semantic_type =
-                    expression_semantic_type(self.db, self.project, self.file, object_expr_id);
+                    expression_semantic_type(self.db, self.crate_id, self.file, object_expr_id);
                 let object_mir_type = MirType::from_semantic_type(self.db, object_semantic_type);
 
                 // Calculate the actual field offset from the type information
@@ -1614,7 +1618,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                 // Query semantic type system for the field type
                 let semantic_type =
-                    expression_semantic_type(self.db, self.project, self.file, expr_id);
+                    expression_semantic_type(self.db, self.crate_id, self.file, expr_id);
                 let field_type = MirType::from_semantic_type(self.db, semantic_type);
 
                 // Calculate the address of the field
@@ -1644,7 +1648,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                 // Query semantic type system for the element type
                 let semantic_type =
-                    expression_semantic_type(self.db, self.project, self.file, expr_id);
+                    expression_semantic_type(self.db, self.crate_id, self.file, expr_id);
                 let element_type = MirType::from_semantic_type(self.db, semantic_type);
 
                 // Calculate the address of the array element
@@ -1671,7 +1675,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                 // Query semantic type system for the struct type
                 let semantic_type =
-                    expression_semantic_type(self.db, self.project, self.file, expr_id);
+                    expression_semantic_type(self.db, self.crate_id, self.file, expr_id);
                 let struct_type = MirType::from_semantic_type(self.db, semantic_type);
 
                 // Allocate space for the struct
@@ -1710,7 +1714,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         })?;
                     let field_semantic_type = expression_semantic_type(
                         self.db,
-                        self.project,
+                        self.crate_id,
                         self.file,
                         field_val_expr_id,
                     );
@@ -1746,7 +1750,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                 // Query semantic type system for the tuple type
                 let semantic_type =
-                    expression_semantic_type(self.db, self.project, self.file, expr_id);
+                    expression_semantic_type(self.db, self.crate_id, self.file, expr_id);
                 let tuple_type = MirType::from_semantic_type(self.db, semantic_type);
 
                 // Allocate space for the tuple as consecutive values
@@ -1776,8 +1780,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                                 element_expr.span()
                             )
                         })?;
-                    let element_semantic_type =
-                        expression_semantic_type(self.db, self.project, self.file, element_expr_id);
+                    let element_semantic_type = expression_semantic_type(
+                        self.db,
+                        self.crate_id,
+                        self.file,
+                        element_expr_id,
+                    );
                     let element_type = MirType::from_semantic_type(self.db, element_semantic_type);
 
                     let element_addr = self

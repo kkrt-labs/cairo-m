@@ -6,7 +6,7 @@
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
 
 use super::*;
-use crate::{get_main_semantic_index, project_from_program};
+use crate::{crate_from_program, get_main_semantic_index};
 
 #[test]
 fn test_simple_function_signature() {
@@ -16,9 +16,9 @@ fn test_simple_function_signature() {
             return a + b;
         }
     "#;
-    let project = project_from_program(&db, program);
-    let file = *project.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, project);
+    let crate_id = crate_from_program(&db, program);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
     let (def_idx, _) = semantic_index
@@ -26,7 +26,7 @@ fn test_simple_function_signature() {
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
 
-    let signature = function_semantic_signature(&db, project, def_id).unwrap();
+    let signature = function_semantic_signature(&db, crate_id, def_id).unwrap();
     let params = signature.params(&db);
     let return_type = signature.return_type(&db);
 
@@ -53,9 +53,9 @@ fn test_function_with_struct_parameters() {
             };
         }
     "#;
-    let project = project_from_program(&db, program);
-    let file = *project.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, project);
+    let crate_id = crate_from_program(&db, program);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
     let (def_idx, _) = semantic_index
@@ -63,7 +63,7 @@ fn test_function_with_struct_parameters() {
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
 
-    let signature = function_semantic_signature(&db, project, def_id).unwrap();
+    let signature = function_semantic_signature(&db, crate_id, def_id).unwrap();
     let params = signature.params(&db);
     let return_type = signature.return_type(&db);
 
@@ -105,9 +105,9 @@ fn test_function_with_pointer_parameters() {
             // Function body would modify the value
         }
     "#;
-    let project = project_from_program(&db, program);
-    let file = *project.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, project);
+    let crate_id = crate_from_program(&db, program);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
     let (def_idx, _) = semantic_index
@@ -115,7 +115,7 @@ fn test_function_with_pointer_parameters() {
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
 
-    let signature = function_semantic_signature(&db, project, def_id).unwrap();
+    let signature = function_semantic_signature(&db, crate_id, def_id).unwrap();
     let params = signature.params(&db);
     let return_type = signature.return_type(&db);
 
@@ -156,9 +156,9 @@ fn test_function_with_no_parameters() {
             return 42;
         }
     "#;
-    let project = project_from_program(&db, program);
-    let file = *project.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, project);
+    let crate_id = crate_from_program(&db, program);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
     let (def_idx, _) = semantic_index
@@ -166,7 +166,7 @@ fn test_function_with_no_parameters() {
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
 
-    let signature = function_semantic_signature(&db, project, def_id).unwrap();
+    let signature = function_semantic_signature(&db, crate_id, def_id).unwrap();
     let params = signature.params(&db);
     let return_type = signature.return_type(&db);
 
@@ -186,9 +186,9 @@ fn test_function_signature_consistency() {
             return Point { x: x, y: y };
         }
     "#;
-    let project = project_from_program(&db, program);
-    let file = *project.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, project);
+    let crate_id = crate_from_program(&db, program);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
     let (def_idx, _) = semantic_index
@@ -197,10 +197,10 @@ fn test_function_signature_consistency() {
     let def_id = DefinitionId::new(&db, file, def_idx);
 
     // Get signature via function_semantic_signature
-    let signature = function_semantic_signature(&db, project, def_id).unwrap();
+    let signature = function_semantic_signature(&db, crate_id, def_id).unwrap();
 
     // Get function type via definition_semantic_type
-    let func_type = definition_semantic_type(&db, project, def_id);
+    let func_type = definition_semantic_type(&db, crate_id, def_id);
 
     // They should be consistent
     match func_type.data(&db) {
@@ -228,9 +228,9 @@ fn test_nested_function_signatures() {
             }
         }
     "#;
-    let project = project_from_program(&db, program);
-    let file = *project.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, project);
+    let crate_id = crate_from_program(&db, program);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
     // Find namespace scope
@@ -247,7 +247,7 @@ fn test_nested_function_signatures() {
         .resolve_name_to_definition("square", namespace_scope)
         .unwrap();
     let square_def_id = DefinitionId::new(&db, file, square_def_idx);
-    let square_signature = function_semantic_signature(&db, project, square_def_id).unwrap();
+    let square_signature = function_semantic_signature(&db, crate_id, square_def_id).unwrap();
 
     let square_params = square_signature.params(&db);
     let square_return = square_signature.return_type(&db);
@@ -262,7 +262,7 @@ fn test_nested_function_signatures() {
         .resolve_name_to_definition("cube", namespace_scope)
         .unwrap();
     let cube_def_id = DefinitionId::new(&db, file, cube_def_idx);
-    let cube_signature = function_semantic_signature(&db, project, cube_def_id).unwrap();
+    let cube_signature = function_semantic_signature(&db, crate_id, cube_def_id).unwrap();
 
     let cube_params = cube_signature.params(&db);
     let cube_return = cube_signature.return_type(&db);

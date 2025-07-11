@@ -146,7 +146,7 @@ pub fn create_crate_from_discovery(
 pub fn create_project_from_crate(
     db: &dyn cairo_m_compiler_semantic::SemanticDb,
     crate_data: Crate,
-) -> cairo_m_compiler_semantic::db::Project {
+) -> cairo_m_compiler_semantic::Crate {
     let mut modules = HashMap::new();
 
     for source_file in crate_data.files(db) {
@@ -166,7 +166,7 @@ pub fn create_project_from_crate(
         .unwrap_or("main")
         .to_string();
 
-    cairo_m_compiler_semantic::db::Project::new(db, modules, entry_module_name)
+    cairo_m_compiler_semantic::Crate::new(db, modules, entry_module_name)
 }
 
 #[cfg(test)]

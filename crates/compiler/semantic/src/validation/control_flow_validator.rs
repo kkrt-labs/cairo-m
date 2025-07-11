@@ -20,7 +20,7 @@
 use cairo_m_compiler_diagnostics::Diagnostic;
 use cairo_m_compiler_parser::parser::{FunctionDef, Spanned, Statement, TopLevelItem, parse_file};
 
-use crate::db::{Project, SemanticDb};
+use crate::db::{Crate, SemanticDb};
 use crate::definition::DefinitionKind;
 use crate::validation::Validator;
 use crate::{File, SemanticIndex};
@@ -35,7 +35,7 @@ impl Validator for ControlFlowValidator {
     fn validate(
         &self,
         db: &dyn SemanticDb,
-        _project: Project,
+        _crate_id: Crate,
         file: File,
         index: &SemanticIndex,
     ) -> Vec<Diagnostic> {

@@ -4,7 +4,7 @@
 //! These tests verify that the type system correctly handles type compatibility
 //! checks, error propagation, and edge cases.
 
-use crate::{get_maybe_main_semantic_index, project_from_program, test_db};
+use crate::{crate_from_program, get_maybe_main_semantic_index, test_db};
 
 #[test]
 fn test_basic_type_compatibility() {
@@ -16,10 +16,10 @@ fn test_basic_type_compatibility() {
     "#;
 
     let db = test_db();
-    let project = project_from_program(&db, source);
+    let crate_id = crate_from_program(&db, source);
 
     // For now, just test that the semantic analysis completes without errors
-    let semantic_index_result = get_maybe_main_semantic_index(&db, project);
+    let semantic_index_result = get_maybe_main_semantic_index(&db, crate_id);
     assert!(
         semantic_index_result.is_ok(),
         "Should handle basic type compatibility"
@@ -46,10 +46,10 @@ fn test_struct_type_compatibility() {
     "#;
 
     let db = test_db();
-    let project = project_from_program(&db, source);
+    let crate_id = crate_from_program(&db, source);
 
     // Test that different struct types are handled correctly
-    let semantic_index_result = get_maybe_main_semantic_index(&db, project);
+    let semantic_index_result = get_maybe_main_semantic_index(&db, crate_id);
     assert!(
         semantic_index_result.is_ok(),
         "Should handle different struct types"
@@ -78,10 +78,10 @@ fn test_error_type_handling() {
     "#;
 
     let db = test_db();
-    let project = project_from_program(&db, source);
+    let crate_id = crate_from_program(&db, source);
 
     // The semantic analysis should handle undefined types gracefully
-    let semantic_index_result = get_maybe_main_semantic_index(&db, project);
+    let semantic_index_result = get_maybe_main_semantic_index(&db, crate_id);
 
     // Even with errors, we should get a semantic index
     assert!(
@@ -124,9 +124,9 @@ fn test_function_type_handling() {
     "#;
 
     let db = test_db();
-    let project = project_from_program(&db, source);
+    let crate_id = crate_from_program(&db, source);
 
-    let semantic_index_result = get_maybe_main_semantic_index(&db, project);
+    let semantic_index_result = get_maybe_main_semantic_index(&db, crate_id);
     assert!(
         semantic_index_result.is_ok(),
         "Should handle function types"
@@ -170,9 +170,9 @@ fn test_nested_type_handling() {
     "#;
 
     let db = test_db();
-    let project = project_from_program(&db, source);
+    let crate_id = crate_from_program(&db, source);
 
-    let semantic_index_result = get_maybe_main_semantic_index(&db, project);
+    let semantic_index_result = get_maybe_main_semantic_index(&db, crate_id);
     assert!(
         semantic_index_result.is_ok(),
         "Should handle nested struct types"
@@ -212,10 +212,10 @@ fn test_type_error_recovery() {
     "#;
 
     let db = test_db();
-    let project = project_from_program(&db, source);
+    let crate_id = crate_from_program(&db, source);
 
     // Should handle the error chain gracefully
-    let semantic_index_result = get_maybe_main_semantic_index(&db, project);
+    let semantic_index_result = get_maybe_main_semantic_index(&db, crate_id);
 
     // Even with multiple errors, should not crash
     assert!(
@@ -245,9 +245,9 @@ fn test_mixed_valid_and_error_types() {
     "#;
 
     let db = test_db();
-    let project = project_from_program(&db, source);
+    let crate_id = crate_from_program(&db, source);
 
-    let semantic_index_result = get_maybe_main_semantic_index(&db, project);
+    let semantic_index_result = get_maybe_main_semantic_index(&db, crate_id);
     assert!(
         semantic_index_result.is_ok(),
         "Should handle mixed error/valid types"
@@ -273,10 +273,10 @@ fn test_type_compatibility_reflexivity() {
     "#;
 
     let db = test_db();
-    let project = project_from_program(&db, source);
+    let crate_id = crate_from_program(&db, source);
 
     // Test reflexivity - a type should be compatible with itself
-    let semantic_index_result = get_maybe_main_semantic_index(&db, project);
+    let semantic_index_result = get_maybe_main_semantic_index(&db, crate_id);
     assert!(
         semantic_index_result.is_ok(),
         "Type compatibility should be reflexive"
@@ -305,9 +305,9 @@ fn test_complex_type_scenario() {
     "#;
 
     let db = test_db();
-    let project = project_from_program(&db, source);
+    let crate_id = crate_from_program(&db, source);
 
-    let semantic_index_result = get_maybe_main_semantic_index(&db, project);
+    let semantic_index_result = get_maybe_main_semantic_index(&db, crate_id);
     assert!(
         semantic_index_result.is_ok(),
         "Should handle complex type scenarios"

@@ -15,7 +15,7 @@
 use std::collections::HashMap;
 
 use cairo_m_compiler_parser::{Db as ParserDb, Upcast};
-use cairo_m_compiler_semantic::db::{Project, module_semantic_index};
+use cairo_m_compiler_semantic::db::{Crate, module_semantic_index};
 use cairo_m_compiler_semantic::definition::DefinitionKind;
 use cairo_m_compiler_semantic::place::{PlaceFlags, ScopeKind};
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
@@ -48,15 +48,15 @@ pub fn test_db() -> TestDb {
 }
 
 // TODO For tests only - ideally not present there
-fn single_file_project(db: &dyn SemanticDb, file: File) -> Project {
+fn single_file_crate(db: &dyn SemanticDb, file: File) -> Crate {
     let mut modules = HashMap::new();
     modules.insert("main".to_string(), file);
-    Project::new(db, modules, "main".to_string())
+    Crate::new(db, modules, "main".to_string())
 }
 
-pub fn project_from_program(db: &dyn SemanticDb, program: &str) -> Project {
+pub fn crate_from_program(db: &dyn SemanticDb, program: &str) -> Crate {
     let file = File::new(db, program.to_string(), "test.cm".to_string());
-    single_file_project(db, file)
+    single_file_crate(db, file)
 }
 
 /// Helper to run a test with a semantic index
@@ -65,9 +65,9 @@ where
     F: FnOnce(&TestDb, File, &cairo_m_compiler_semantic::semantic_index::SemanticIndex),
 {
     let db = test_db();
-    let project = project_from_program(&db, source);
-    let file = *project.modules(&db).values().next().unwrap();
-    let index = module_semantic_index(&db, project, "main".to_string());
+    let crate_id = crate_from_program(&db, source);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let index = module_semantic_index(&db, crate_id, "main".to_string());
     test_fn(&db, file, &index);
 }
 
