@@ -27,18 +27,18 @@
 //!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
 //! * read instruction from memory
 //!   * `- [pc, inst_prev_clk, opcode_id, off0, off1, off2] + [pc, clk, opcode_id, off0, off1, off2]` in `Memory` relation
-//!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck_20` relation
+//!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
 //! * assert opcode id
 //!   * `opcode_id - 7`
 //! * read op0
 //!   * `- [fp + off0, op0_prev_clk, op0_val] + [fp + off0, clk, op0_val]` in `Memory` relation
-//!   * `- [clk - op0_prev_clk - 1]` in `RangeCheck_20` relation
+//!   * `- [clk - op0_prev_clk - 1]` in `RangeCheck20` relation
 //! * read op1
 //!   * `- [fp + off1, op1_prev_clk, op1_val] + [fp + off1, clk, op1_val]` in `Memory` relation
-//!   * `- [clk - op1_prev_clk - 1]` in `RangeCheck_20` relation
+//!   * `- [clk - op1_prev_clk - 1]` in `RangeCheck20` relation
 //! * write dst in [fp + off2]
 //!   * `- [fp + off2, dst_prev_clk, dst_prev_val] + [fp + off2, clk, op0_val * op1_val]` in `Memory` relation
-//!   * `- [clk - dst_prev_clk - 1]` in `RangeCheck_20` relation
+//!   * `- [clk - dst_prev_clk - 1]` in `RangeCheck20` relation
 
 use cairo_m_common::Opcode;
 use num_traits::{One, Zero};
@@ -228,7 +228,7 @@ impl InteractionClaim {
     pub fn write_interaction_trace(
         registers_relation: &relations::Registers,
         memory_relation: &relations::Memory,
-        range_check_20_relation: &relations::RangeCheck_20,
+        range_check_20_relation: &relations::RangeCheck20,
         interaction_claim_data: &InteractionClaimData,
     ) -> (
         Self,
@@ -401,7 +401,7 @@ pub struct Eval {
     pub claim: Claim,
     pub memory: relations::Memory,
     pub registers: relations::Registers,
-    pub range_check_20: relations::RangeCheck_20,
+    pub range_check_20: relations::RangeCheck20,
 }
 
 impl FrameworkEval for Eval {

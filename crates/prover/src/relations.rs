@@ -1,7 +1,7 @@
 #![allow(non_camel_case_types)]
 use stwo_constraint_framework::relation;
 
-relation!(RangeCheck_20, 1); // value
+relation!(RangeCheck20, 1); // value
 relation!(Memory, 6); // addr, clock, value0, value1, value2, value3
 relation!(Registers, 2); // pc, fp
 relation!(Merkle, 4); // index, layer, value, root
