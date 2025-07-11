@@ -334,7 +334,7 @@ pub fn module_semantic_index(
             project.modules(db).keys().collect::<Vec<_>>()
         )
     });
-    let index = semantic_index_from_module(db, &parsed_module, file, project, module_name.clone());
+    let index = semantic_index_from_module(&parsed_module, file);
     tracing::info!(
         "[SEMANTIC] Semantic index built for module '{}': {} definitions, {} identifier usages",
         module_name,

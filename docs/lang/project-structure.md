@@ -18,9 +18,9 @@ Each `.cm` file inside the `src` directory is treated as a separate **module**.
 While it's possible to compile single files outside of a crate, a crate **must**
 have a root module: either `main.cm` or `lib.cm`.
 
-#### Example Structure:
+## Example Structure
 
-```
+```text
 my_project/
 ├── cairom.toml       (Project manifest)
 └── src/
@@ -39,7 +39,7 @@ name is derived directly from the filename without the `.cm` extension.
 You can import items (like functions and structs) from other modules using the
 `use` statement.
 
-#### Import Syntax
+### Import Syntax
 
 To import the `add` function from the `math` module:
 

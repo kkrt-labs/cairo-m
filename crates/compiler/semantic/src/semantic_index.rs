@@ -56,10 +56,9 @@ use chumsky::span::SimpleSpan;
 use index_vec::IndexVec;
 use rustc_hash::FxHashMap;
 
-use crate::db::Project;
 use crate::definition::{DefinitionKind, UseDefRef};
 use crate::place::{FileScopeId, PlaceTable, Scope};
-use crate::{Definition, File, SemanticDb};
+use crate::{Definition, File, Project, SemanticDb, project_semantic_index};
 
 // Define DefinitionIndex as an index type for definitions within a single file.
 index_vec::define_index_type! {
@@ -382,12 +381,12 @@ impl SemanticIndex {
     // TODO: Assess whether it's not dangerous to be doing this here: could we end up resolving something we dont want to?
     pub fn resolve_name_with_imports(
         &self,
-        db: &dyn crate::SemanticDb,
-        project: crate::db::Project,
-        file: crate::File,
+        db: &dyn SemanticDb,
+        project: Project,
+        file: File,
         name: &str,
         starting_scope: FileScopeId,
-    ) -> Option<(DefinitionIndex, crate::Definition, crate::File)> {
+    ) -> Option<(DefinitionIndex, crate::Definition, File)> {
         // First try local resolution
         if let Some((def_idx, def)) = self.resolve_name_to_definition(name, starting_scope) {
             return Some((def_idx, def.clone(), file));
@@ -398,7 +397,7 @@ impl SemanticIndex {
         for use_def_ref in imports {
             if use_def_ref.item == name {
                 // Get the project semantic index to resolve in imported modules
-                if let Ok(project_index) = crate::db::project_semantic_index(db, project) {
+                if let Ok(project_index) = project_semantic_index(db, project) {
                     let modules = project_index.modules();
 
                     // Resolve in the imported module
@@ -552,14 +551,8 @@ impl Default for SemanticIndex {
 ///
 /// This function performs the actual semantic analysis work by building
 /// scope trees, symbol tables, and use-def chains.
-pub fn semantic_index_from_module<'a>(
-    db: &'a dyn SemanticDb,
-    module: &'a ParsedModule,
-    file: File,
-    project: Project,
-    module_name: String,
-) -> SemanticIndex {
-    let builder = SemanticIndexBuilder::new(db, file, module, project, module_name);
+pub fn semantic_index_from_module(module: &ParsedModule, file: File) -> SemanticIndex {
+    let builder = SemanticIndexBuilder::new(file, module);
     builder.build()
 }
 
@@ -575,11 +568,8 @@ pub fn semantic_index_from_module<'a>(
 /// The builder uses a stack-based approach to track nested scopes,
 /// which simplifies the implementation of scope-aware analysis.
 pub(crate) struct SemanticIndexBuilder<'db> {
-    db: &'db dyn SemanticDb,
     file: File,
     module: &'db ParsedModule,
-    project: Project,
-    module_name: String,
 
     // Current building state
     index: SemanticIndex,
@@ -591,19 +581,10 @@ pub(crate) struct SemanticIndexBuilder<'db> {
 }
 
 impl<'db> SemanticIndexBuilder<'db> {
-    pub fn new(
-        db: &'db dyn SemanticDb,
-        file: File,
-        module: &'db ParsedModule,
-        project: Project,
-        module_name: String,
-    ) -> Self {
+    pub fn new(file: File, module: &'db ParsedModule) -> Self {
         let mut builder = Self {
-            db,
             file,
             module,
-            project,
-            module_name,
             index: SemanticIndex::new(),
             scope_stack: Vec::new(),
             loop_depth: 0,
@@ -1263,7 +1244,7 @@ mod tests {
 
     use super::*;
     use crate::db::tests::{TestDb, test_db};
-    use crate::module_semantic_index;
+    use crate::{SemanticDb, module_semantic_index};
 
     struct TestCase {
         db: TestDb,
