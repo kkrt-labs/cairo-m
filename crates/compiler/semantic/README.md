@@ -136,7 +136,7 @@ use cairo_m_compiler_semantic::{SemanticDb, semantic_index, validate_semantics};
 let db = SemanticDatabaseImpl::default();
 
 // Create a source file
-let file = SourceProgram::new(&db, source_code, "main.cm");
+let file = SourceFile::new(&db, source_code, "main.cm");
 
 // Get semantic index (cached by Salsa)
 let index = semantic_index(&db, file)?;

@@ -18,11 +18,9 @@
 //!     all paths are covered, a `MissingReturn` diagnostic is emitted.
 //!
 use cairo_m_compiler_diagnostics::Diagnostic;
-use cairo_m_compiler_parser::parser::{
-    parse_program, FunctionDef, Spanned, Statement, TopLevelItem,
-};
+use cairo_m_compiler_parser::parser::{FunctionDef, Spanned, Statement, TopLevelItem, parse_file};
 
-use crate::db::SemanticDb;
+use crate::db::{Crate, SemanticDb};
 use crate::definition::DefinitionKind;
 use crate::validation::Validator;
 use crate::{File, SemanticIndex};
@@ -34,17 +32,22 @@ use crate::{File, SemanticIndex};
 pub struct ControlFlowValidator;
 
 impl Validator for ControlFlowValidator {
-    fn validate(&self, db: &dyn SemanticDb, file: File, index: &SemanticIndex) -> Vec<Diagnostic> {
+    fn validate(
+        &self,
+        db: &dyn SemanticDb,
+        _crate_id: Crate,
+        file: File,
+        index: &SemanticIndex,
+    ) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
 
-        // Get the parsed module to access the AST.
-        let parsed_program = parse_program(db, file);
+        let parsed_program = parse_file(db, file);
         if !parsed_program.diagnostics.is_empty() {
             panic!("Got unexpected parse errors");
         }
         let parsed_module = parsed_program.module;
 
-        // Analyse each function's control-flow.
+        // Analyse each function's control-flow in this module only.
         for (_def_idx, definition) in index.all_definitions() {
             if let DefinitionKind::Function(_) = &definition.kind {
                 self.analyze_function_control_flow(

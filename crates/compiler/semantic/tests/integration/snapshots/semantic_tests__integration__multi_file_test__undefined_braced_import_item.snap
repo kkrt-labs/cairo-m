@@ -1,0 +1,11 @@
+---
+source: crates/compiler/semantic/tests/integration/multi_file_test.rs
+expression: diagnostic_text
+---
+[1001] Error: Undeclared variable 'nonexistent_b'
+   ╭─[ main.cm:2:14 ]
+   │
+ 2 │ use lib::{a, nonexistent_b};
+   │              ──────┬──────  
+   │                    ╰──────── Undeclared variable 'nonexistent_b'
+───╯

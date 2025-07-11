@@ -3,34 +3,30 @@ source: crates/compiler/parser/tests/common.rs
 expression: snapshot
 ---
 --- Code ---
-from std.math import add as plus
+use std::math::add;
 --- AST ---
 [
-    Import(
+    Use(
         Spanned(
-            ImportStmt {
+            UseStmt {
                 path: [
                     Spanned(
                         "std",
-                        5..8,
+                        4..7,
                     ),
                     Spanned(
                         "math",
                         9..13,
                     ),
                 ],
-                item: Spanned(
-                    "add",
-                    21..24,
-                ),
-                alias: Some(
+                items: Single(
                     Spanned(
-                        "plus",
-                        28..32,
+                        "add",
+                        15..18,
                     ),
                 ),
             },
-            0..32,
+            0..19,
         ),
     ),
 ]

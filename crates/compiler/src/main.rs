@@ -1,7 +1,12 @@
 use std::path::PathBuf;
 use std::{fs, process};
 
-use cairo_m_compiler::{compile_cairo, format_diagnostics, CompilerError, CompilerOptions};
+use cairo_m_compiler::project_discovery::{
+    ProjectDiscoveryConfig, create_crate_from_discovery, discover_project_files, find_project_root,
+};
+use cairo_m_compiler::{
+    CompilerError, CompilerOptions, compile_from_crate, format_diagnostics_multi_file,
+};
 use clap::Parser;
 
 /// Cairo-M compiler
@@ -24,21 +29,55 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    let source_text = fs::read_to_string(&args.input).unwrap_or_else(|e| {
-        eprintln!("Error reading file '{}': {}", args.input.display(), e);
+    let db = cairo_m_compiler::create_compiler_database();
+
+    // Use project discovery to find the project root and all source files
+    let project_root = if args.input.is_file() {
+        // For single file, find the project root starting from the file
+        find_project_root(&args.input).unwrap_or_else(|| {
+            // If no project root found, use the file's parent directory
+            args.input.parent().unwrap().to_path_buf()
+        })
+    } else if args.input.is_dir() {
+        args.input.clone()
+    } else {
+        eprintln!(
+            "Input must be a file or directory: '{}'",
+            args.input.display()
+        );
+        process::exit(1);
+    };
+
+    // Discover all project files
+    let config = ProjectDiscoveryConfig::default();
+    let discovered = discover_project_files(&project_root, &config).unwrap_or_else(|e| {
+        eprintln!("Failed to discover project files: {}", e);
         process::exit(1);
     });
 
-    let source_name = args.input.display().to_string();
+    // Create the crate from discovered files
+    let cm_crate = create_crate_from_discovery(&db, &discovered).unwrap_or_else(|e| {
+        eprintln!("Failed to read project files: {}", e);
+        process::exit(1);
+    });
+
     let options = CompilerOptions {
         verbose: args.verbose,
     };
 
-    let output = compile_cairo(source_text.clone(), source_name, options).unwrap_or_else(|e| {
+    // Build a map of file paths to source text for multi-file diagnostics
+    let mut source_map = std::collections::HashMap::new();
+    for source_file in cm_crate.files(&db) {
+        let file_path = source_file.file_path(&db).to_string();
+        let source_text = source_file.text(&db).to_string();
+        source_map.insert(file_path, source_text);
+    }
+
+    let output = compile_from_crate(&db, cm_crate, options).unwrap_or_else(|e| {
         match &e {
             CompilerError::ParseErrors(diagnostics)
             | CompilerError::SemanticErrors(diagnostics) => {
-                let error_msg = format_diagnostics(&source_text, diagnostics, true);
+                let error_msg = format_diagnostics_multi_file(&source_map, diagnostics, true);
                 eprintln!("{}", error_msg);
             }
             CompilerError::MirGenerationFailed => {
@@ -53,7 +92,8 @@ fn main() {
 
     // Print any warnings
     if !output.diagnostics.is_empty() {
-        let diagnostic_messages = format_diagnostics(&source_text, &output.diagnostics, true);
+        let diagnostic_messages =
+            format_diagnostics_multi_file(&source_map, &output.diagnostics, true);
         println!("{}", diagnostic_messages);
     }
 

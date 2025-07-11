@@ -388,7 +388,9 @@ dependencies = [
  "num-traits",
  "salsa",
  "sonic-rs 0.3.17",
+ "tempfile",
  "thiserror",
+ "walkdir",
 ]
 
 [[package]]
@@ -453,6 +455,7 @@ dependencies = [
  "salsa-macros",
  "smol_str",
  "stdext",
+ "tracing",
 ]
 
 [[package]]
@@ -476,6 +479,7 @@ dependencies = [
  "salsa-macros",
  "smol_str",
  "stdext",
+ "tracing",
 ]
 
 [[package]]
@@ -494,6 +498,7 @@ dependencies = [
  "tower-lsp",
  "tracing",
  "tracing-subscriber",
+ "walkdir",
 ]
 
 [[package]]

@@ -21,6 +21,7 @@ indexmap = "2.6.0"
 cairo-m-compiler-parser.workspace = true
 cairo-m-compiler-diagnostics.workspace = true
 index_vec = "0.1.4"
+tracing = "0.1"
 
 [dev-dependencies]
 stdext = "0.3"
