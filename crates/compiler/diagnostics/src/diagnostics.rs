@@ -77,6 +77,7 @@ pub enum DiagnosticCode {
     UnusedVariable,
     DuplicateDefinition,
     UseBeforeDefinition,
+    UnresolvedImport,
 
     // Type-related errors (2000-2999)
     TypeMismatch,
@@ -104,6 +105,9 @@ pub enum DiagnosticCode {
     ContinueOutsideLoop,
     // TODO: Add more control flow diagnostic codes:
     // - DeadCode
+
+    // Internal errors (9000-9999)
+    InternalError,
     // - UnreachablePattern
 
     // TODO: Add more diagnostic categories:
@@ -125,6 +129,7 @@ impl From<DiagnosticCode> for u32 {
             DiagnosticCode::UnusedVariable => 1002,
             DiagnosticCode::DuplicateDefinition => 1003,
             DiagnosticCode::UseBeforeDefinition => 1004,
+            DiagnosticCode::UnresolvedImport => 1005,
             DiagnosticCode::TypeMismatch => 2001,
             DiagnosticCode::InvalidFieldAccess => 2002,
             DiagnosticCode::InvalidIndexAccess => 2003,
@@ -140,6 +145,7 @@ impl From<DiagnosticCode> for u32 {
             DiagnosticCode::ContinueOutsideLoop => 3004,
             DiagnosticCode::InvalidAssignmentTarget => 2010,
             DiagnosticCode::MissingReturnValue => 2011,
+            DiagnosticCode::InternalError => 9001,
         }
     }
 }

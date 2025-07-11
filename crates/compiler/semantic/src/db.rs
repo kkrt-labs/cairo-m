@@ -284,19 +284,21 @@ pub fn project_semantic_index(
     // Pre-fetch parsed modules to avoid repeated queries
     let parsed_modules = project_parsed_modules(db, project);
 
-    for module_name in topo {
-        // Only process modules that actually exist in both the project and parsed modules
-        // This prevents panics in module_semantic_index which expects both to exist
-        if project.modules(db).contains_key(&module_name)
-            && parsed_modules.contains_key(&module_name)
+    // First process modules in topological order (for proper dependency resolution)
+    for module_name in &topo {
+        if project.modules(db).contains_key(module_name) && parsed_modules.contains_key(module_name)
         {
             let module_index = module_semantic_index(db, project, module_name.clone());
-            module_indices.insert(module_name, module_index);
-        } else {
-            tracing::warn!(
-                "[SEMANTIC] Skipping module '{}' - not found in project or parse results",
-                module_name
-            );
+            module_indices.insert(module_name.clone(), module_index);
+        }
+    }
+
+    // Then process any remaining modules that weren't in the topological sort
+    // (e.g., modules with no imports and that aren't imported by anything)
+    for (module_name, _) in project.modules(db).iter() {
+        if !module_indices.contains_key(module_name) && parsed_modules.contains_key(module_name) {
+            let module_index = module_semantic_index(db, project, module_name.clone());
+            module_indices.insert(module_name.clone(), module_index);
         }
     }
 

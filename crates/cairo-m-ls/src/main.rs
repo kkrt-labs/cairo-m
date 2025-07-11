@@ -28,7 +28,8 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 /// Cached project discovery information
 #[derive(Debug, Clone)]
 struct ProjectCache {
-    /// List of .cm files found in the project
+    /// List of .cm files found in the project (kept for compatibility)
+    #[allow(dead_code)]
     files: Vec<PathBuf>,
     /// Entry point file (main.cm if found, otherwise first file)
     entry_point: PathBuf,
@@ -158,17 +159,17 @@ impl Backend {
             project_root.display()
         );
 
-        // Discover project files using cached recursive search
-        let project_cache = self.discover_project_files(&project_root)?;
+        // Check if this is a real project (has cairom.toml) or a standalone file
+        let is_real_project = project_root.join("cairom.toml").exists();
         let mut modules = HashMap::new();
 
-        // Process all discovered .cm files
-        for file_path in &project_cache.files {
-            if let Ok(content) = std::fs::read_to_string(file_path) {
-                let source_file = self.safe_db_access(|db| {
-                    SourceFile::new(db, content, file_path.display().to_string())
-                })?;
+        if is_real_project {
+            // Real project: discover all files
+            // Discover project files using cached recursive search
+            let project_cache = self.discover_project_files(&project_root)?;
 
+            // Process all discovered .cm files
+            for file_path in &project_cache.files {
                 // Use filename without extension as module name
                 let module_name = file_path
                     .file_stem()
@@ -176,37 +177,84 @@ impl Backend {
                     .unwrap_or("unknown")
                     .to_string();
 
-                modules.insert(module_name, source_file);
-
-                // Also store in source_files map for LSP operations
                 if let Ok(file_uri) = Url::from_file_path(file_path) {
-                    self.source_files.insert(file_uri, source_file);
+                    // Check if file is already open in the editor
+                    if let Some(existing_source) = self.source_files.get(&file_uri) {
+                        // Reuse the existing source file (which has the current editor content)
+                        modules.insert(module_name, *existing_source.value());
+                    } else {
+                        // File not open in editor, read from disk
+                        if let Ok(content) = std::fs::read_to_string(file_path) {
+                            let source_file = self.safe_db_access(|db| {
+                                SourceFile::new(db, content, file_path.display().to_string())
+                            })?;
+
+                            modules.insert(module_name, source_file);
+
+                            // Store in source_files map for LSP operations
+                            self.source_files.insert(file_uri, source_file);
+                        }
+                    }
                 }
             }
-        }
 
-        if modules.is_empty() {
-            return None;
-        }
+            if modules.is_empty() {
+                return None;
+            }
 
-        // Determine entry point based on discovered files
-        let entry_point_name = project_cache
-            .entry_point
-            .file_stem()
-            .and_then(|stem| stem.to_str())?
-            .to_string();
+            // Determine entry point based on discovered files
+            let entry_point_name = project_cache
+                .entry_point
+                .file_stem()
+                .and_then(|stem| stem.to_str())?
+                .to_string();
 
-        // Ensure the entry point exists in modules, fallback to first module if not
-        #[allow(clippy::map_entry)]
-        let main_module = if modules.contains_key(&entry_point_name) {
-            entry_point_name
+            // Ensure the entry point exists in modules, fallback to first module if not
+            #[allow(clippy::map_entry)]
+            let main_module = if modules.contains_key(&entry_point_name) {
+                entry_point_name
+            } else {
+                modules.keys().next()?.clone()
+            };
+
+            let project = self.safe_db_access(|db| Project::new(db, modules, main_module))?;
+            self.projects.insert(project_root.clone(), project);
+            Some(project)
         } else {
-            modules.keys().next()?.clone()
-        };
+            // Single-file project: only include the file that was opened
+            tracing::info!("[PROJECT] Creating single-file project for standalone file");
 
-        let project = self.safe_db_access(|db| Project::new(db, modules, main_module))?;
-        self.projects.insert(project_root, project);
-        Some(project)
+            // Get the file path from the URI
+            let file_path = file_uri.to_file_path().ok()?;
+            let module_name = file_path
+                .file_stem()
+                .and_then(|stem| stem.to_str())
+                .unwrap_or("main")
+                .to_string();
+
+            // Check if file is already open in the editor
+            if let Some(existing_source) = self.source_files.get(file_uri) {
+                // Reuse the existing source file
+                modules.insert(module_name.clone(), *existing_source.value());
+            } else {
+                // Read the file from disk
+                if let Ok(content) = std::fs::read_to_string(&file_path) {
+                    let source_file = self.safe_db_access(|db| {
+                        SourceFile::new(db, content, file_path.display().to_string())
+                    })?;
+
+                    modules.insert(module_name.clone(), source_file);
+                    self.source_files.insert(file_uri.clone(), source_file);
+                } else {
+                    return None;
+                }
+            }
+
+            // Create a single-file project
+            let project = self.safe_db_access(|db| Project::new(db, modules, module_name))?;
+            self.projects.insert(project_root, project);
+            Some(project)
+        }
     }
 
     /// Safely access the database, returning None if mutex is poisoned
@@ -335,6 +383,7 @@ impl Backend {
     ///
     /// Uses project-aware analysis to provide accurate cross-file diagnostics.
     /// Diagnostics are properly grouped by file and published to their respective URIs.
+    /// Only updates diagnostics for files within the current project.
     async fn run_diagnostics(&self, uri: Url, version: Option<i32>) {
         // Log start of diagnostics run
         self.client
@@ -344,9 +393,43 @@ impl Backend {
             )
             .await;
 
+        let _project_root = match self.find_project_root(&uri) {
+            Some(root) => root,
+            None => return, // Can't determine project root
+        };
+
         let project = match self.get_or_create_project(&uri) {
-            Some(project) => project,
+            Some(project) => {
+                // Log project modules for debugging
+                self.safe_db_access(|db| {
+                    tracing::info!(
+                        "[LSP] Project modules: {:?}",
+                        project.modules(db).keys().collect::<Vec<_>>()
+                    );
+                });
+                project
+            }
             None => return, // Silently fail if project can't be created
+        };
+
+        // Collect all file URIs that belong to this project
+        let project_file_uris = match self.safe_db_access(|db| {
+            let mut uris = std::collections::HashSet::new();
+
+            // Get all files in the project
+            for (_module_name, file) in project.modules(db).iter() {
+                let file_path = file.file_path(db);
+                if let Ok(file_uri) = Url::from_file_path(file_path) {
+                    uris.insert(file_uri);
+                }
+            }
+
+            tracing::info!("[LSP] Project contains {} files", uris.len());
+
+            uris
+        }) {
+            Some(uris) => uris,
+            None => return, // Database access failed
         };
 
         // Get all diagnostics grouped by file
@@ -361,6 +444,12 @@ impl Backend {
                     .or_default()
                     .push(diag.clone());
             }
+
+            // Log which files have diagnostics
+            tracing::info!(
+                "[LSP] Diagnostics collected for files: {:?}",
+                grouped.keys().collect::<Vec<_>>()
+            );
 
             grouped
         }) {
@@ -389,6 +478,15 @@ impl Backend {
                 .map(|entry| (entry.key().clone(), *entry.value()));
 
             if let Some((file_uri, source)) = file_source {
+                // Only publish diagnostics if this file belongs to the current project
+                if !project_file_uris.contains(&file_uri) {
+                    tracing::debug!(
+                        "[LSP] Skipping diagnostics for file outside project: {}",
+                        file_uri.path()
+                    );
+                    continue;
+                }
+
                 // Get the content for this specific file
                 let content = match self.safe_db_access(|db| source.text(db).to_string()) {
                     Some(content) => content,
@@ -412,28 +510,52 @@ impl Backend {
                         ),
                     )
                     .await;
-
                 // Publish diagnostics to the correct file URI
                 // Use None for version when publishing to other files
                 let publish_version = if file_uri == uri { version } else { None };
                 self.client
                     .publish_diagnostics(file_uri, converted_diagnostics, publish_version)
                     .await;
+            } else {
+                // Log when we can't find a file URI for diagnostics
+                self.client
+                    .log_message(
+                        MessageType::WARNING,
+                        format!(
+                            "[DIAGNOSTICS] Cannot find URI for file with diagnostics: {}",
+                            file_path
+                        ),
+                    )
+                    .await;
             }
         }
 
-        // Clear diagnostics for files that no longer have any
-        // This handles the case where a file had errors but they were all fixed
-        for entry in self.source_files.iter() {
-            let file_path = match self.safe_db_access(|db| entry.value().file_path(db).to_string())
-            {
-                Some(path) => path,
-                None => continue,
+        // Clear diagnostics for project files that no longer have any
+        // Only clear diagnostics for files that belong to this specific project
+        // IMPORTANT: Don't clear diagnostics for the file that triggered this run (uri parameter)
+        // as its diagnostics should only be managed by its own diagnostic runs
+        for file_uri in &project_file_uris {
+            // Skip the file that triggered this diagnostic run
+            if file_uri == &uri {
+                continue;
+            }
+
+            // Get the file path for this URI
+            let file_path = match file_uri.to_file_path() {
+                Ok(path) => path.display().to_string(),
+                Err(_) => continue,
             };
 
+            // If this file has no diagnostics, clear them
             if !diagnostics_by_file.contains_key(&file_path) {
                 self.client
-                    .publish_diagnostics(entry.key().clone(), vec![], None)
+                    .log_message(
+                        MessageType::INFO,
+                        format!("[DIAGNOSTICS] Clearing diagnostics for {}", file_path),
+                    )
+                    .await;
+                self.client
+                    .publish_diagnostics(file_uri.clone(), vec![], None)
                     .await;
             }
         }
