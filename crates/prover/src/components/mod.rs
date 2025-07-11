@@ -28,6 +28,7 @@ pub struct Claim {
     pub range_check_20: range_check_20::Claim,
 }
 
+#[derive(Debug, Clone)]
 pub struct Relations {
     pub registers: relations::Registers,
     pub memory: relations::Memory,

@@ -95,9 +95,7 @@ macro_rules! define_opcodes {
                 $(
                     let ($opcode, paste::paste! { [<$opcode _interaction_trace>] }) =
                         $opcode::InteractionClaim::write_interaction_trace(
-                            &relations.registers,
-                            &relations.memory,
-                            &relations.range_check_20,
+                            &relations,
                             &interaction_claim_data.$opcode,
                         );
                 )*
@@ -126,9 +124,7 @@ macro_rules! define_opcodes {
                         location_allocator,
                         $opcode::Eval {
                             claim: claim.$opcode.clone(),
-                            memory: relations.memory.clone(),
-                            registers: relations.registers.clone(),
-                            range_check_20: relations.range_check_20.clone(),
+                            relations: relations.clone(),
                         },
                         interaction_claim.$opcode.claimed_sum,
                     ),)*
