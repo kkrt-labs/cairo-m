@@ -28,9 +28,7 @@ impl Enabler {
 
         // The row is partially enabled.
         let mut res = [M31::zero(); N_LANES];
-        for v in res.iter_mut().take(self.padding_offset - row_offset) {
-            *v = M31::one();
-        }
+        res[..self.padding_offset - row_offset].fill(M31::one());
         PackedM31::from_array(res)
     }
 }
