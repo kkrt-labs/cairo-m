@@ -64,6 +64,15 @@ func main() -> felt {
 }
 ```
 
+**Module Resolution:** The compiler maps module paths to file paths:
+
+- `use math::add` → looks for `math.cm` in the project root
+- `use utils::helpers::format` → looks for `utils/helpers/format.cm`
+- `use core::ops::add` → looks for `core/ops/add.cm`
+
+If the file doesn't exist at the expected path, you'll get an "unresolved
+import" error.
+
 ## 3. How to Start a New Project
 
 Follow these steps to create a new project.
@@ -112,22 +121,29 @@ Follow these steps to create a new project.
 
 ## 4. How to Compile a Project
 
-The CairoM compiler automatically discovers all `.cm` files within a project and
-compiles them together. The entry point is typically `main.cm`.
+The CairoM compiler automatically discovers and compiles all `.cm` files within
+a project. The entry point is typically `main.cm` or `lib.cm`.
 
-To compile, run the compiler and point it to your project's root directory.
+To compile, run the compiler and point it to your project's root directory:
 
 ```bash
 cairo-m-compiler --input /path/to/my_project
 ```
 
 Alternatively, you can point to any file within the project, and the compiler
-will find the project root by looking for `cairom.toml` in parent directories.
+will find the project root by looking for `cairom.toml` in parent directories:
 
 ```bash
 cairo-m-compiler --input /path/to/my_project/src/main.cm
 ```
 
-The compiler will produce a single JSON output file containing the compiled
-program, including all code from every module in the project. Any compilation
-errors or warnings from any file will be reported.
+The compiler will:
+
+1. Discover all `.cm` files in the project
+2. Identify the entry point (`main.cm` or `lib.cm`)
+3. Parse and analyze all modules
+4. Report errors for any issues found (including unused modules)
+5. Produce a single JSON output file containing the compiled program
+
+All modules in the project are validated and included in the compilation,
+ensuring comprehensive error checking across your entire codebase.
