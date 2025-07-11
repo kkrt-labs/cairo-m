@@ -23,7 +23,7 @@ use std::collections::HashSet;
 
 use cairo_m_compiler_diagnostics::Diagnostic;
 
-use crate::db::{Project, SemanticDb};
+use crate::db::{Crate, SemanticDb};
 use crate::validation::Validator;
 use crate::{File, PlaceFlags, SemanticIndex};
 
@@ -37,7 +37,7 @@ impl Validator for ScopeValidator {
     fn validate(
         &self,
         db: &dyn SemanticDb,
-        project: Project,
+        crate_id: Crate,
         file: File,
         index: &SemanticIndex,
     ) -> Vec<Diagnostic> {
@@ -45,10 +45,10 @@ impl Validator for ScopeValidator {
 
         // Only validate the specific module/file we were asked to validate
         // Check for undeclared variables globally for this module
-        diagnostics.extend(self.check_undeclared_variables_global(index, file, db, project));
+        diagnostics.extend(self.check_undeclared_variables_global(index, file, db, crate_id));
 
         // Check import validity - ensure imported items actually exist in target modules
-        diagnostics.extend(self.check_import_validity(index, file, db, project));
+        diagnostics.extend(self.check_import_validity(index, file, db, crate_id));
 
         // Check each scope in this module
         for (scope_id, scope) in index.scopes() {
@@ -224,7 +224,7 @@ impl ScopeValidator {
         index: &SemanticIndex,
         file: File,
         db: &dyn SemanticDb,
-        project: Project,
+        crate_id: Crate,
     ) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
         let mut seen_undeclared = HashSet::new();
@@ -234,7 +234,7 @@ impl ScopeValidator {
             if !index.is_usage_resolved(usage_index) {
                 // If not resolved locally, try to resolve with imports using the centralized method
                 if index
-                    .resolve_name_with_imports(db, project, file, &usage.name, usage.scope_id)
+                    .resolve_name_with_imports(db, crate_id, file, &usage.name, usage.scope_id)
                     .is_none()
                 {
                     // Only report each undeclared variable once
@@ -261,12 +261,12 @@ impl ScopeValidator {
         index: &SemanticIndex,
         file: File,
         db: &dyn SemanticDb,
-        project: Project,
+        crate_id: Crate,
     ) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
 
         // Get the project's semantic index to access all modules
-        let project_index = match crate::db::project_semantic_index(db, project) {
+        let project_index = match crate::db::project_semantic_index(db, crate_id) {
             Ok(project_index) => project_index,
             Err(_) => return diagnostics, // If project index fails, skip validation
         };

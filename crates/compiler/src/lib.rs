@@ -9,7 +9,7 @@ use std::sync::Arc;
 use cairo_m_common::Program;
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticSeverity, build_diagnostic_message};
 use cairo_m_compiler_parser::{Crate, SourceFile, parse_crate, parse_file};
-use cairo_m_compiler_semantic::Project;
+use cairo_m_compiler_semantic::Crate as SemanticCrate;
 use cairo_m_compiler_semantic::db::project_validate_semantics;
 use db::CompilerDatabase;
 use thiserror::Error;
@@ -87,13 +87,13 @@ pub fn compile_from_file(
         return Err(CompilerError::ParseErrors(parsed_program.diagnostics));
     }
 
-    // Create a single-file project for semantic validation
+    // Create a single-file crate for semantic validation
     let mut modules = HashMap::new();
     modules.insert("main".to_string(), source);
-    let project = Project::new(db, modules, "main".to_string());
+    let crate_id = SemanticCrate::new(db, modules, "main".to_string());
 
-    // Validate semantics using project-based API
-    let semantic_diagnostics = project_validate_semantics(db, project);
+    // Validate semantics using crate-based API
+    let semantic_diagnostics = project_validate_semantics(db, crate_id);
 
     let (semantic_errors, diagnostics): (Vec<_>, Vec<_>) = semantic_diagnostics
         .into_iter()
@@ -103,7 +103,7 @@ pub fn compile_from_file(
         return Err(CompilerError::SemanticErrors(semantic_errors));
     }
 
-    let program = cairo_m_compiler_codegen::db::compile_project(db, project)
+    let program = cairo_m_compiler_codegen::db::compile_project(db, crate_id)
         .map_err(|e| CompilerError::CodeGenerationFailed(e.to_string()))?;
 
     Ok(CompilerOutput {
@@ -147,11 +147,11 @@ pub fn compile_from_crate(
         .unwrap_or("main")
         .to_string();
 
-    // Create semantic project
-    let project = Project::new(db, modules, entry_module_name);
+    // Create semantic crate
+    let crate_id = SemanticCrate::new(db, modules, entry_module_name);
 
-    // Validate semantics using project-based API
-    let semantic_diagnostics = project_validate_semantics(db, project);
+    // Validate semantics using crate-based API
+    let semantic_diagnostics = project_validate_semantics(db, crate_id);
 
     let (semantic_errors, diagnostics): (Vec<_>, Vec<_>) = semantic_diagnostics
         .into_iter()
@@ -161,7 +161,7 @@ pub fn compile_from_crate(
         return Err(CompilerError::SemanticErrors(semantic_errors));
     }
 
-    let program = cairo_m_compiler_codegen::db::compile_project(db, project)
+    let program = cairo_m_compiler_codegen::db::compile_project(db, crate_id)
         .map_err(|e| CompilerError::CodeGenerationFailed(e.to_string()))?;
 
     Ok(CompilerOutput {

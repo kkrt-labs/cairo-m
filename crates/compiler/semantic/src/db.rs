@@ -61,9 +61,9 @@ impl Upcast<dyn ParserDb> for SemanticDatabaseImpl {
 }
 
 #[salsa::tracked]
-pub fn project_validate_semantics(db: &dyn SemanticDb, project: Project) -> DiagnosticCollection {
+pub fn project_validate_semantics(db: &dyn SemanticDb, crate_id: Crate) -> DiagnosticCollection {
     tracing::info!("[SEMANTIC] Starting project validation");
-    let parse_diag = project_parse_diagnostics(db, project);
+    let parse_diag = project_parse_diagnostics(db, crate_id);
     if !parse_diag.is_empty() {
         tracing::warn!(
             "[SEMANTIC] Found {} parse errors, skipping semantic validation",
@@ -72,18 +72,18 @@ pub fn project_validate_semantics(db: &dyn SemanticDb, project: Project) -> Diag
         return parse_diag;
     }
 
-    let sem_result = project_semantic_index(db, project);
+    let sem_result = project_semantic_index(db, crate_id);
     match sem_result {
         Ok(sem) => {
             let mut coll = DiagnosticCollection::default();
             let registry = create_default_registry();
             for (module_name, index) in sem.modules().iter() {
                 tracing::info!("[SEMANTIC] Validating module: {}", module_name);
-                let module_file = *project
+                let module_file = *crate_id
                     .modules(db)
                     .get(module_name)
                     .unwrap_or_else(|| panic!("Module file should exist: {}", module_name));
-                let module_diagnostics = registry.validate_all(db, project, module_file, index);
+                let module_diagnostics = registry.validate_all(db, crate_id, module_file, index);
                 tracing::info!(
                     "[SEMANTIC] Module '{}' validation complete: {} diagnostics",
                     module_name,
@@ -105,16 +105,16 @@ pub fn project_validate_semantics(db: &dyn SemanticDb, project: Project) -> Diag
 }
 
 #[salsa::input(debug)]
-pub struct Project {
+pub struct Crate {
     #[return_ref]
     pub modules: HashMap<String, File>,
     pub entry_point: String,
 }
 
-/// Find the module name for a given file in the project
-pub fn module_name_for_file(db: &dyn SemanticDb, project: Project, file: File) -> Option<String> {
+/// Find the module name for a given file in the crate
+pub fn module_name_for_file(db: &dyn SemanticDb, crate_id: Crate, file: File) -> Option<String> {
     let file_path = file.file_path(db);
-    for (module_name, module_file) in project.modules(db).iter() {
+    for (module_name, module_file) in crate_id.modules(db).iter() {
         if module_file.file_path(db) == file_path {
             return Some(module_name.clone());
         }
@@ -123,9 +123,9 @@ pub fn module_name_for_file(db: &dyn SemanticDb, project: Project, file: File) -
 }
 
 #[salsa::tracked]
-pub fn project_parse_diagnostics(db: &dyn SemanticDb, project: Project) -> DiagnosticCollection {
+pub fn project_parse_diagnostics(db: &dyn SemanticDb, crate_id: Crate) -> DiagnosticCollection {
     let mut coll = DiagnosticCollection::default();
-    for file in project.modules(db).values() {
+    for file in crate_id.modules(db).values() {
         let parsed = parse_file(db.upcast(), *file);
         coll.extend(parsed.diagnostics);
     }
@@ -135,10 +135,10 @@ pub fn project_parse_diagnostics(db: &dyn SemanticDb, project: Project) -> Diagn
 #[salsa::tracked]
 pub fn project_parsed_modules(
     db: &dyn SemanticDb,
-    project: Project,
+    crate_id: Crate,
 ) -> HashMap<String, ParsedModule> {
     let mut parsed = HashMap::new();
-    for (name, file) in project.modules(db) {
+    for (name, file) in crate_id.modules(db) {
         let parsed_module = parse_file(db.upcast(), file);
         parsed.insert(name.clone(), parsed_module.module);
     }
@@ -146,8 +146,8 @@ pub fn project_parsed_modules(
 }
 
 #[salsa::tracked]
-pub fn project_import_graph(db: &dyn SemanticDb, project: Project) -> HashMap<String, Vec<String>> {
-    let parsed = project_parsed_modules(db, project);
+pub fn project_import_graph(db: &dyn SemanticDb, crate_id: Crate) -> HashMap<String, Vec<String>> {
+    let parsed = project_parsed_modules(db, crate_id);
     let mut graph = HashMap::new();
     for (module_name, parsed_module) in parsed.iter() {
         let mut imports = Vec::new();
@@ -259,15 +259,15 @@ fn topological_sort(graph: &HashMap<String, Vec<String>>) -> Vec<String> {
 #[salsa::tracked]
 pub fn project_semantic_index(
     db: &dyn SemanticDb,
-    project: Project,
+    crate_id: Crate,
 ) -> Result<std::sync::Arc<ProjectSemanticIndex>, DiagnosticCollection> {
-    let num_modules = project.modules(db).len();
+    let num_modules = crate_id.modules(db).len();
     tracing::info!(
         "[SEMANTIC] Building project semantic index for {} modules",
         num_modules
     );
 
-    let graph = project_import_graph(db, project);
+    let graph = project_import_graph(db, crate_id);
 
     if let Some(cycle) = detect_import_cycle(&graph) {
         let mut coll = DiagnosticCollection::default();
@@ -282,22 +282,23 @@ pub fn project_semantic_index(
     let mut module_indices = HashMap::new();
 
     // Pre-fetch parsed modules to avoid repeated queries
-    let parsed_modules = project_parsed_modules(db, project);
+    let parsed_modules = project_parsed_modules(db, crate_id);
 
     // First process modules in topological order (for proper dependency resolution)
     for module_name in &topo {
-        if project.modules(db).contains_key(module_name) && parsed_modules.contains_key(module_name)
+        if crate_id.modules(db).contains_key(module_name)
+            && parsed_modules.contains_key(module_name)
         {
-            let module_index = module_semantic_index(db, project, module_name.clone());
+            let module_index = module_semantic_index(db, crate_id, module_name.clone());
             module_indices.insert(module_name.clone(), module_index);
         }
     }
 
     // Then process any remaining modules that weren't in the topological sort
     // (e.g., modules with no imports and that aren't imported by anything)
-    for (module_name, _) in project.modules(db).iter() {
+    for (module_name, _) in crate_id.modules(db).iter() {
         if !module_indices.contains_key(module_name) && parsed_modules.contains_key(module_name) {
-            let module_index = module_semantic_index(db, project, module_name.clone());
+            let module_index = module_semantic_index(db, crate_id, module_name.clone());
             module_indices.insert(module_name.clone(), module_index);
         }
     }
@@ -311,14 +312,14 @@ pub fn project_semantic_index(
 #[salsa::tracked]
 pub fn module_semantic_index(
     db: &dyn SemanticDb,
-    project: Project,
+    crate_id: Crate,
     module_name: String,
 ) -> SemanticIndex {
     tracing::info!(
         "[SEMANTIC] Building semantic index for module: {}",
         module_name
     );
-    let parsed_modules = project_parsed_modules(db, project);
+    let parsed_modules = project_parsed_modules(db, crate_id);
     let parsed_module = parsed_modules
         .get(&module_name)
         .cloned()
@@ -329,11 +330,11 @@ pub fn module_semantic_index(
                 parsed_modules.keys().collect::<Vec<_>>()
             )
         });
-    let file = *project.modules(db).get(&module_name).unwrap_or_else(|| {
+    let file = *crate_id.modules(db).get(&module_name).unwrap_or_else(|| {
         panic!(
-            "File for module '{}' should exist in project. Available modules: {:?}",
+            "File for module '{}' should exist in crate. Available modules: {:?}",
             module_name,
-            project.modules(db).keys().collect::<Vec<_>>()
+            crate_id.modules(db).keys().collect::<Vec<_>>()
         )
     });
     let index = semantic_index_from_module(&parsed_module, file);
@@ -380,15 +381,15 @@ pub(crate) mod tests {
     }
 
     // For tests only - ideally not present there
-    fn single_file_project(db: &dyn SemanticDb, file: File) -> Project {
+    fn single_file_crate(db: &dyn SemanticDb, file: File) -> Crate {
         let mut modules = HashMap::new();
         modules.insert("main".to_string(), file);
-        Project::new(db, modules, "main".to_string())
+        Crate::new(db, modules, "main".to_string())
     }
 
-    pub fn project_from_program(db: &dyn SemanticDb, program: &str) -> Project {
+    pub fn crate_from_program(db: &dyn SemanticDb, program: &str) -> Crate {
         let file = File::new(db, program.to_string(), "test.cm".to_string());
-        single_file_project(db, file)
+        single_file_crate(db, file)
     }
 
     #[test]
@@ -398,16 +399,16 @@ pub(crate) mod tests {
         // Create a file
         let file1 = File::new(&db, "original content".to_string(), "test.cm".to_string());
 
-        // Create a project with this file
+        // Create a crate with this file
         let mut modules = HashMap::new();
         modules.insert("test".to_string(), file1);
-        let project = Project::new(&db, modules, "test".to_string());
+        let crate_id = Crate::new(&db, modules, "test".to_string());
 
         // Update the file content (simulating user typing)
         file1.set_text(&mut db).to("updated content".to_string());
 
         // module_name_for_file should still find the module by file path
-        let module_name = module_name_for_file(&db, project, file1);
+        let module_name = module_name_for_file(&db, crate_id, file1);
         assert_eq!(module_name, Some("test".to_string()));
     }
 
@@ -419,13 +420,13 @@ pub(crate) mod tests {
         let file1 = File::new(&db, "content 1".to_string(), "test.cm".to_string());
         let file2 = File::new(&db, "content 2".to_string(), "test.cm".to_string());
 
-        // Create a project with file1
+        // Create a crate with file1
         let mut modules = HashMap::new();
         modules.insert("test".to_string(), file1);
-        let project = Project::new(&db, modules, "test".to_string());
+        let crate_id = Crate::new(&db, modules, "test".to_string());
 
         // Should find the module even when querying with file2 (same path)
-        let module_name = module_name_for_file(&db, project, file2);
+        let module_name = module_name_for_file(&db, crate_id, file2);
         assert_eq!(module_name, Some("test".to_string()));
     }
 }

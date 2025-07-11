@@ -71,18 +71,18 @@ pub struct CodegenOutput {
 pub fn check_codegen(source: &str, path: &str) -> CodegenOutput {
     use std::collections::HashMap;
 
-    use cairo_m_compiler_semantic::db::Project;
+    use cairo_m_compiler_semantic::db::Crate;
 
     let db = test_db();
     let file = File::new(&db, source.to_string(), path.to_string());
 
-    // Create a single-file project for MIR generation
+    // Create a single-file crate for MIR generation
     let mut modules = HashMap::new();
     modules.insert("main".to_string(), file);
-    let project = Project::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(&db, modules, "main".to_string());
 
     // Generate MIR from source
-    let mir_module = generate_mir(&db, project).expect("MIR generation failed");
+    let mir_module = generate_mir(&db, crate_id).expect("MIR generation failed");
 
     let mut generator = CodeGenerator::new();
     generator

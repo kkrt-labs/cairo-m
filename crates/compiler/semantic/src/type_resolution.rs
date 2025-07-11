@@ -16,7 +16,7 @@ use cairo_m_compiler_parser::parser::{Expression, TypeExpr as AstTypeExpr};
 
 use crate::File;
 use crate::db::{
-    Project, SemanticDb, module_name_for_file, module_semantic_index, project_semantic_index,
+    Crate, SemanticDb, module_name_for_file, module_semantic_index, project_semantic_index,
 };
 use crate::definition::{DefinitionKind, FunctionDefRef, ParameterDefRef, StructDefRef};
 use crate::place::FileScopeId;
@@ -27,12 +27,12 @@ use crate::types::{FunctionSignatureId, StructTypeId, TypeData, TypeId};
 #[salsa::tracked]
 pub fn resolve_ast_type<'db>(
     db: &'db dyn SemanticDb,
-    project: Project,
+    crate_id: Crate,
     file: File,
     ast_type_expr: AstTypeExpr,
     context_scope_id: FileScopeId,
 ) -> TypeId<'db> {
-    let module_name = match module_name_for_file(db, project, file) {
+    let module_name = match module_name_for_file(db, crate_id, file) {
         Some(name) => name,
         None => {
             // File not found in project - this can happen during rapid edits
@@ -44,7 +44,7 @@ pub fn resolve_ast_type<'db>(
             return TypeId::new(db, TypeData::Error);
         }
     };
-    let project_index = match project_semantic_index(db, project) {
+    let project_index = match project_semantic_index(db, crate_id) {
         Ok(index) => index,
         Err(_) => return TypeId::new(db, TypeData::Error),
     };
@@ -64,7 +64,7 @@ pub fn resolve_ast_type<'db>(
                 semantic_index.resolve_name_to_definition(&name_str, context_scope_id)
             {
                 let def_id = DefinitionId::new(db, file, def_idx);
-                let def_type = definition_semantic_type(db, project, def_id);
+                let def_type = definition_semantic_type(db, crate_id, def_id);
 
                 // Ensure it's a struct type, not just any definition
                 if let TypeData::Struct(_) = def_type.data(db) {
@@ -78,13 +78,13 @@ pub fn resolve_ast_type<'db>(
         }
         AstTypeExpr::Pointer(inner_ast_expr) => {
             let inner_type_id =
-                resolve_ast_type(db, project, file, *inner_ast_expr, context_scope_id);
+                resolve_ast_type(db, crate_id, file, *inner_ast_expr, context_scope_id);
             TypeId::new(db, TypeData::Pointer(inner_type_id))
         }
         AstTypeExpr::Tuple(inner_ast_exprs) => {
             let collected_type_ids: Vec<TypeId> = inner_ast_exprs
                 .into_iter()
-                .map(|expr| resolve_ast_type(db, project, file, expr, context_scope_id))
+                .map(|expr| resolve_ast_type(db, crate_id, file, expr, context_scope_id))
                 .collect();
             TypeId::new(db, TypeData::Tuple(collected_type_ids))
         }
@@ -94,7 +94,7 @@ pub fn resolve_ast_type<'db>(
 /// Helper function to resolve variable types (for Local and Let definitions)
 fn resolve_variable_type<'db>(
     db: &'db dyn SemanticDb,
-    project: Project,
+    crate_id: Crate,
     file: File,
     explicit_type_ast: &Option<AstTypeExpr>,
     value_expr_id: Option<ExpressionId>,
@@ -102,10 +102,10 @@ fn resolve_variable_type<'db>(
 ) -> TypeId<'db> {
     // Prioritize explicit type annotation if available
     if let Some(type_ast) = explicit_type_ast {
-        resolve_ast_type(db, project, file, type_ast.clone(), scope_id)
+        resolve_ast_type(db, crate_id, file, type_ast.clone(), scope_id)
     } else if let Some(value_expr_id) = value_expr_id {
         // Infer from the stored value expression ID
-        expression_semantic_type(db, project, file, value_expr_id)
+        expression_semantic_type(db, crate_id, file, value_expr_id)
     } else {
         // No type annotation and no value to infer from
         TypeId::new(db, TypeData::Unknown)
@@ -116,13 +116,13 @@ fn resolve_variable_type<'db>(
 #[salsa::tracked]
 pub fn definition_semantic_type<'db>(
     db: &'db dyn SemanticDb,
-    project: Project,
+    crate_id: Crate,
     definition_id: DefinitionId<'db>,
 ) -> TypeId<'db> {
     let file = definition_id.file(db);
     let def_index = definition_id.id_in_file(db);
 
-    let module_name = match module_name_for_file(db, project, file) {
+    let module_name = match module_name_for_file(db, crate_id, file) {
         Some(name) => name,
         None => {
             // File not found in project - this can happen during rapid edits
@@ -134,7 +134,7 @@ pub fn definition_semantic_type<'db>(
             return TypeId::new(db, TypeData::Error);
         }
     };
-    let project_index = match project_semantic_index(db, project) {
+    let project_index = match project_semantic_index(db, crate_id) {
         Ok(index) => index,
         Err(_) => return TypeId::new(db, TypeData::Error),
     };
@@ -149,14 +149,14 @@ pub fn definition_semantic_type<'db>(
 
     match &definition.kind {
         DefinitionKind::Struct(_) => {
-            if let Some(struct_type_id) = struct_semantic_data(db, project, definition_id) {
+            if let Some(struct_type_id) = struct_semantic_data(db, crate_id, definition_id) {
                 TypeId::new(db, TypeData::Struct(struct_type_id))
             } else {
                 TypeId::new(db, TypeData::Error)
             }
         }
         DefinitionKind::Function(_) => {
-            if let Some(signature_id) = function_semantic_signature(db, project, definition_id) {
+            if let Some(signature_id) = function_semantic_signature(db, crate_id, definition_id) {
                 TypeId::new(db, TypeData::Function(signature_id))
             } else {
                 TypeId::new(db, TypeData::Error)
@@ -165,12 +165,12 @@ pub fn definition_semantic_type<'db>(
         DefinitionKind::Parameter(ParameterDefRef {
             name: _name,
             type_ast,
-        }) => resolve_ast_type(db, project, file, type_ast.clone(), definition.scope_id),
+        }) => resolve_ast_type(db, crate_id, file, type_ast.clone(), definition.scope_id),
         DefinitionKind::Local(local_ref) => {
             // Check if this is from tuple destructuring
             if let Some((value_expr_id, index)) = local_ref.destructuring_info {
                 // Get the type of the RHS tuple expression
-                let tuple_type = expression_semantic_type(db, project, file, value_expr_id);
+                let tuple_type = expression_semantic_type(db, crate_id, file, value_expr_id);
                 // Extract the type of the element at the given index
                 match tuple_type.data(db) {
                     TypeData::Tuple(element_types) => {
@@ -186,7 +186,7 @@ pub fn definition_semantic_type<'db>(
                 // Regular local variable
                 resolve_variable_type(
                     db,
-                    project,
+                    crate_id,
                     file,
                     &local_ref.explicit_type_ast,
                     local_ref.value_expr_id,
@@ -198,7 +198,7 @@ pub fn definition_semantic_type<'db>(
             // Check if this is from tuple destructuring
             if let Some((value_expr_id, index)) = let_ref.destructuring_info {
                 // Get the type of the RHS tuple expression
-                let tuple_type = expression_semantic_type(db, project, file, value_expr_id);
+                let tuple_type = expression_semantic_type(db, crate_id, file, value_expr_id);
                 // Extract the type of the element at the given index
                 match tuple_type.data(db) {
                     TypeData::Tuple(element_types) => {
@@ -214,7 +214,7 @@ pub fn definition_semantic_type<'db>(
                 // Regular let variable
                 resolve_variable_type(
                     db,
-                    project,
+                    crate_id,
                     file,
                     &let_ref.explicit_type_ast,
                     let_ref.value_expr_id,
@@ -225,7 +225,7 @@ pub fn definition_semantic_type<'db>(
         DefinitionKind::Const(const_ref) => {
             // Constants must be initialized, so we infer from the value expression
             if let Some(value_expr_id) = const_ref.value_expr_id {
-                expression_semantic_type(db, project, file, value_expr_id)
+                expression_semantic_type(db, crate_id, file, value_expr_id)
             } else {
                 // Constants without initialization is an error in the language
                 TypeId::new(db, TypeData::Error)
@@ -233,12 +233,12 @@ pub fn definition_semantic_type<'db>(
         }
         DefinitionKind::Use(use_ref) => {
             // Check if the imported module exists in the project
-            if !project.modules(db).contains_key(&use_ref.imported_module) {
+            if !crate_id.modules(db).contains_key(&use_ref.imported_module) {
                 return TypeId::new(db, TypeData::Error);
             }
 
             let imported_module = use_ref.imported_module.clone();
-            let imported_index = module_semantic_index(db, project, imported_module);
+            let imported_index = module_semantic_index(db, crate_id, imported_module);
             let imported_root = imported_index
                 .root_scope()
                 .expect("Imported module should have root scope");
@@ -246,12 +246,12 @@ pub fn definition_semantic_type<'db>(
             if let Some((imported_def_idx, _)) =
                 imported_index.resolve_name_to_definition(&use_ref.item, imported_root)
             {
-                let imported_file = *project
+                let imported_file = *crate_id
                     .modules(db)
                     .get(&use_ref.imported_module)
                     .expect("Imported file should exist");
                 let imported_def_id = DefinitionId::new(db, imported_file, imported_def_idx);
-                definition_semantic_type(db, project, imported_def_id)
+                definition_semantic_type(db, crate_id, imported_def_id)
             } else {
                 TypeId::new(db, TypeData::Error)
             }
@@ -272,11 +272,11 @@ pub fn definition_semantic_type<'db>(
 #[salsa::tracked]
 pub fn expression_semantic_type<'db>(
     db: &'db dyn SemanticDb,
-    project: Project,
+    crate_id: Crate,
     file: File,
     expression_id: ExpressionId,
 ) -> TypeId<'db> {
-    let module_name = match module_name_for_file(db, project, file) {
+    let module_name = match module_name_for_file(db, crate_id, file) {
         Some(name) => name,
         None => {
             // File not found in project - this can happen during rapid edits
@@ -288,7 +288,7 @@ pub fn expression_semantic_type<'db>(
             return TypeId::new(db, TypeData::Error);
         }
     };
-    let project_index = match project_semantic_index(db, project) {
+    let project_index = match project_semantic_index(db, crate_id) {
         Ok(index) => index,
         Err(_) => return TypeId::new(db, TypeData::Error),
     };
@@ -310,14 +310,14 @@ pub fn expression_semantic_type<'db>(
                 semantic_index.resolve_name_to_definition(name.value(), expr_info.scope_id)
             {
                 let def_id = DefinitionId::new(db, file, def_idx);
-                definition_semantic_type(db, project, def_id)
+                definition_semantic_type(db, crate_id, def_id)
             } else {
                 TypeId::new(db, TypeData::Error)
             }
         }
         Expression::UnaryOp { expr, op: _ } => {
             let expr_id = semantic_index.expression_id_by_span(expr.span()).unwrap();
-            let expr_type = expression_semantic_type(db, project, file, expr_id);
+            let expr_type = expression_semantic_type(db, crate_id, file, expr_id);
             // TODO : proper type checking
             if are_types_compatible(db, expr_type, TypeId::new(db, TypeData::Felt)) {
                 TypeId::new(db, TypeData::Felt)
@@ -331,8 +331,8 @@ pub fn expression_semantic_type<'db>(
             let left_id = semantic_index.expression_id_by_span(left.span()).unwrap();
             let right_id = semantic_index.expression_id_by_span(right.span()).unwrap();
 
-            let left_type = expression_semantic_type(db, project, file, left_id);
-            let right_type = expression_semantic_type(db, project, file, right_id);
+            let left_type = expression_semantic_type(db, crate_id, file, left_id);
+            let right_type = expression_semantic_type(db, crate_id, file, right_id);
 
             // Basic type check - both should be felt, or fail.
             // TODO: add test for this.
@@ -351,7 +351,7 @@ pub fn expression_semantic_type<'db>(
                 None => return TypeId::new(db, TypeData::Error),
             };
 
-            let object_type = expression_semantic_type(db, project, file, object_id);
+            let object_type = expression_semantic_type(db, crate_id, file, object_id);
 
             match object_type.data(db) {
                 TypeData::Struct(struct_id) => {
@@ -381,7 +381,7 @@ pub fn expression_semantic_type<'db>(
             // Get ExpressionId for the callee
             if let Some(callee_expr_id) = semantic_index.expression_id_by_span(callee.span()) {
                 // Infer callee's type recursively
-                let callee_type = expression_semantic_type(db, project, file, callee_expr_id);
+                let callee_type = expression_semantic_type(db, crate_id, file, callee_expr_id);
                 // If it's a function type, return the return type
                 match callee_type.data(db) {
                     TypeData::Function(signature_id) => signature_id.return_type(db),
@@ -397,7 +397,7 @@ pub fn expression_semantic_type<'db>(
                 semantic_index.resolve_name_to_definition(name.value(), expr_info.scope_id)
             {
                 let def_id = DefinitionId::new(db, file, def_idx);
-                let def_type = definition_semantic_type(db, project, def_id);
+                let def_type = definition_semantic_type(db, crate_id, def_id);
 
                 // Ensure it's a struct type
                 if let TypeData::Struct(_) = def_type.data(db) {
@@ -412,7 +412,7 @@ pub fn expression_semantic_type<'db>(
         Expression::IndexAccess { array, index: _ } => {
             // Infer the array/pointer type
             if let Some(array_expr_id) = semantic_index.expression_id_by_span(array.span()) {
-                let array_type = expression_semantic_type(db, project, file, array_expr_id);
+                let array_type = expression_semantic_type(db, crate_id, file, array_expr_id);
 
                 match array_type.data(db) {
                     // For pointer types, return the dereferenced type
@@ -430,7 +430,7 @@ pub fn expression_semantic_type<'db>(
             let element_types: Vec<TypeId> = elements
                 .iter()
                 .filter_map(|element| semantic_index.expression_id_by_span(element.span()))
-                .map(|element_id| expression_semantic_type(db, project, file, element_id))
+                .map(|element_id| expression_semantic_type(db, crate_id, file, element_id))
                 .collect();
 
             // If we successfully resolved all element types, create a tuple type
@@ -448,14 +448,14 @@ pub fn expression_semantic_type<'db>(
 #[salsa::tracked]
 pub fn struct_semantic_data<'db>(
     db: &'db dyn SemanticDb,
-    project: Project,
+    crate_id: Crate,
     struct_definition_id: DefinitionId<'db>,
 ) -> Option<StructTypeId<'db>> {
     let file = struct_definition_id.file(db);
     let def_index = struct_definition_id.id_in_file(db);
 
-    let module_name = module_name_for_file(db, project, file)?;
-    let project_index = project_semantic_index(db, project).ok()?;
+    let module_name = module_name_for_file(db, crate_id, file)?;
+    let project_index = project_semantic_index(db, crate_id).ok()?;
     let modules = project_index.modules();
     let semantic_index = modules.get(&module_name)?;
 
@@ -465,7 +465,7 @@ pub fn struct_semantic_data<'db>(
         let mut fields = Vec::new();
         for field_def in fields_ast {
             let field_type =
-                resolve_ast_type(db, project, file, field_def.1.clone(), definition.scope_id);
+                resolve_ast_type(db, crate_id, file, field_def.1.clone(), definition.scope_id);
             fields.push((field_def.0.clone(), field_type));
         }
 
@@ -485,14 +485,14 @@ pub fn struct_semantic_data<'db>(
 #[salsa::tracked]
 pub fn function_semantic_signature<'db>(
     db: &'db dyn SemanticDb,
-    project: Project,
+    crate_id: Crate,
     func_definition_id: DefinitionId<'db>,
 ) -> Option<FunctionSignatureId<'db>> {
     let file = func_definition_id.file(db);
     let def_index = func_definition_id.id_in_file(db);
 
-    let module_name = module_name_for_file(db, project, file)?;
-    let project_index = project_semantic_index(db, project).ok()?;
+    let module_name = module_name_for_file(db, crate_id, file)?;
+    let project_index = project_semantic_index(db, crate_id).ok()?;
     let modules = project_index.modules();
     let semantic_index = modules.get(&module_name)?;
 
@@ -508,7 +508,7 @@ pub fn function_semantic_signature<'db>(
         for (param_name, param_type_ast) in params_ast {
             let param_type = resolve_ast_type(
                 db,
-                project,
+                crate_id,
                 file,
                 param_type_ast.clone(),
                 definition.scope_id,
@@ -516,7 +516,13 @@ pub fn function_semantic_signature<'db>(
             params.push((param_name.clone(), param_type));
         }
 
-        let return_type = resolve_ast_type(db, file, return_type_ast.clone(), definition.scope_id);
+        let return_type = resolve_ast_type(
+            db,
+            crate_id,
+            file,
+            return_type_ast.clone(),
+            definition.scope_id,
+        );
 
         Some(FunctionSignatureId::new(
             db,
@@ -571,7 +577,7 @@ pub fn are_types_compatible<'db>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::tests::{project_from_program, test_db};
+    use crate::db::tests::{crate_from_program, test_db};
     use crate::module_semantic_index;
     use crate::place::FileScopeId;
     use crate::semantic_index::DefinitionIndex;
@@ -579,13 +585,13 @@ mod tests {
     #[test]
     fn test_resolve_felt_type() {
         let db = test_db();
-        let project = project_from_program(&db, "");
-        let file = *project.modules(&db).values().next().unwrap();
+        let crate_id = crate_from_program(&db, "");
+        let file = *crate_id.modules(&db).values().next().unwrap();
         let scope_id = FileScopeId::new(0);
 
         let felt_type = resolve_ast_type(
             &db,
-            project,
+            crate_id,
             file,
             AstTypeExpr::Named("felt".to_string()),
             scope_id,
@@ -598,13 +604,13 @@ mod tests {
     #[test]
     fn test_resolve_pointer_type() {
         let db = test_db();
-        let project = project_from_program(&db, "");
-        let file = *project.modules(&db).values().next().unwrap();
+        let crate_id = crate_from_program(&db, "");
+        let file = *crate_id.modules(&db).values().next().unwrap();
         let scope_id = FileScopeId::new(0);
 
         let pointer_type = resolve_ast_type(
             &db,
-            project,
+            crate_id,
             file,
             AstTypeExpr::Pointer(Box::new(AstTypeExpr::Named("felt".to_string()))),
             scope_id,
@@ -623,13 +629,13 @@ mod tests {
     #[test]
     fn test_resolve_tuple_type() {
         let db = test_db();
-        let project = project_from_program(&db, "");
-        let file = *project.modules(&db).values().next().unwrap();
+        let crate_id = crate_from_program(&db, "");
+        let file = *crate_id.modules(&db).values().next().unwrap();
         let scope_id = FileScopeId::new(0);
 
         let tuple_type = resolve_ast_type(
             &db,
-            project,
+            crate_id,
             file,
             AstTypeExpr::Tuple(vec![
                 AstTypeExpr::Named("felt".to_string()),
@@ -654,8 +660,8 @@ mod tests {
     #[test]
     fn test_type_compatibility() {
         let db = test_db();
-        let project = project_from_program(&db, "");
-        let file = *project.modules(&db).values().next().unwrap();
+        let crate_id = crate_from_program(&db, "");
+        let file = *crate_id.modules(&db).values().next().unwrap();
 
         let felt1 = TypeId::new(&db, TypeData::Felt);
         let felt2 = TypeId::new(&db, TypeData::Felt);
@@ -707,9 +713,9 @@ mod tests {
     #[test]
     fn test_direct_ast_node_access() {
         let db = test_db();
-        let project = project_from_program(&db, "func test() { let x = 42; }");
-        let file = *project.modules(&db).values().next().unwrap();
-        let semantic_index = module_semantic_index(&db, project, "main".to_string());
+        let crate_id = crate_from_program(&db, "func test() { let x = 42; }");
+        let file = *crate_id.modules(&db).values().next().unwrap();
+        let semantic_index = module_semantic_index(&db, crate_id, "main".to_string());
 
         // Find any expression in the index
         let all_expressions: Vec<_> = semantic_index.all_expressions().collect();
@@ -726,7 +732,7 @@ mod tests {
                     assert_eq!(*value, 42);
 
                     // Verify the expression type can be resolved efficiently
-                    let expr_type = expression_semantic_type(&db, project, file, expr_id);
+                    let expr_type = expression_semantic_type(&db, crate_id, file, expr_id);
                     assert!(matches!(expr_type.data(&db), TypeData::Felt));
                 }
                 Expression::Identifier(name) => {
@@ -757,9 +763,9 @@ mod tests {
                 return;
             }
         "#;
-        let project = project_from_program(&db, program);
-        let file = *project.modules(&db).values().next().unwrap();
-        let semantic_index = module_semantic_index(&db, project, "main".to_string());
+        let crate_id = crate_from_program(&db, program);
+        let file = *crate_id.modules(&db).values().next().unwrap();
+        let semantic_index = module_semantic_index(&db, crate_id, "main".to_string());
 
         // Count how many different expression types we find
         let mut expression_types_found = std::collections::HashSet::new();
@@ -772,7 +778,7 @@ mod tests {
         );
 
         for (expr_id, expr_info) in semantic_index.all_expressions() {
-            let expr_type = expression_semantic_type(&db, project, file, expr_id);
+            let expr_type = expression_semantic_type(&db, crate_id, file, expr_id);
 
             // Record the expression variant we found
             let variant_name = match &expr_info.ast_node {
@@ -845,16 +851,16 @@ mod tests {
                 return x1;
             }
         "#;
-        let project = project_from_program(&db, program);
-        let file = *project.modules(&db).values().next().unwrap();
-        let semantic_index = module_semantic_index(&db, project, "main".to_string());
+        let crate_id = crate_from_program(&db, program);
+        let file = *crate_id.modules(&db).values().next().unwrap();
+        let semantic_index = module_semantic_index(&db, crate_id, "main".to_string());
 
         // Find member access expressions and verify their types
         for expr_id in semantic_index.span_to_expression_id.values() {
             let expr_info = semantic_index.expression(*expr_id).unwrap();
 
             if let Expression::MemberAccess { object: _, field } = &expr_info.ast_node {
-                let expr_type = expression_semantic_type(&db, project, file, *expr_id);
+                let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id);
 
                 match field.value().as_str() {
                     "x" | "value" => {
@@ -890,9 +896,9 @@ mod tests {
                 return x;
             }
         "#;
-        let project = project_from_program(&db, program);
-        let file = *project.modules(&db).values().next().unwrap();
-        let semantic_index = module_semantic_index(&db, project, "main".to_string());
+        let crate_id = crate_from_program(&db, program);
+        let file = *crate_id.modules(&db).values().next().unwrap();
+        let semantic_index = module_semantic_index(&db, crate_id, "main".to_string());
 
         // Find the ptr.x expression
         let mut found_ptr_access = false;
@@ -904,7 +910,7 @@ mod tests {
                 && ident.value() == "ptr"
                 && field.value() == "x"
             {
-                let expr_type = expression_semantic_type(&db, project, file, *expr_id);
+                let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id);
                 assert!(
                     matches!(expr_type.data(&db), TypeData::Felt),
                     "ptr.x should have felt type through automatic dereference"

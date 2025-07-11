@@ -6,7 +6,7 @@
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
 
 use super::*;
-use crate::{get_main_semantic_index, project_from_program};
+use crate::{crate_from_program, get_main_semantic_index};
 
 #[test]
 fn test_simple_struct_data() {
@@ -17,16 +17,16 @@ fn test_simple_struct_data() {
             y: felt,
         }
     "#;
-    let project = project_from_program(&db, program);
-    let file = *project.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, project);
+    let crate_id = crate_from_program(&db, program);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
     let (def_idx, _) = semantic_index
         .resolve_name_to_definition("Point", root_scope)
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
-    let struct_data = struct_semantic_data(&db, project, def_id).unwrap();
+    let struct_data = struct_semantic_data(&db, crate_id, def_id).unwrap();
 
     // Check struct name
     assert_eq!(struct_data.name(&db), "Point");
@@ -49,16 +49,16 @@ fn test_struct_with_mixed_field_types() {
             is_active: felt,  // Assuming no boolean type yet
         }
     "#;
-    let project = project_from_program(&db, program);
-    let file = *project.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, project);
+    let crate_id = crate_from_program(&db, program);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
     let (def_idx, _) = semantic_index
         .resolve_name_to_definition("Person", root_scope)
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
-    let struct_data = struct_semantic_data(&db, project, def_id).unwrap();
+    let struct_data = struct_semantic_data(&db, crate_id, def_id).unwrap();
 
     assert_eq!(struct_data.name(&db), "Person");
 
@@ -90,16 +90,16 @@ fn test_struct_with_pointer_fields() {
             next: Node*,
         }
     "#;
-    let project = project_from_program(&db, program);
-    let file = *project.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, project);
+    let crate_id = crate_from_program(&db, program);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
     let (def_idx, _) = semantic_index
         .resolve_name_to_definition("Node", root_scope)
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
-    let struct_data = struct_semantic_data(&db, project, def_id).unwrap();
+    let struct_data = struct_semantic_data(&db, crate_id, def_id).unwrap();
 
     assert_eq!(struct_data.name(&db), "Node");
 
@@ -139,16 +139,16 @@ fn test_struct_with_struct_fields() {
             bottom_right: Point,
         }
     "#;
-    let project = project_from_program(&db, program);
-    let file = *project.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, project);
+    let crate_id = crate_from_program(&db, program);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
     let (rect_def_idx, _) = semantic_index
         .resolve_name_to_definition("Rectangle", root_scope)
         .unwrap();
     let rect_def_id = DefinitionId::new(&db, file, rect_def_idx);
-    let rect_struct_data = struct_semantic_data(&db, project, rect_def_id).unwrap();
+    let rect_struct_data = struct_semantic_data(&db, crate_id, rect_def_id).unwrap();
 
     assert_eq!(rect_struct_data.name(&db), "Rectangle");
 
@@ -176,16 +176,16 @@ fn test_empty_struct() {
         struct Empty {
         }
     "#;
-    let project = project_from_program(&db, program);
-    let file = *project.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, project);
+    let crate_id = crate_from_program(&db, program);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
     let (def_idx, _) = semantic_index
         .resolve_name_to_definition("Empty", root_scope)
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
-    let struct_data = struct_semantic_data(&db, project, def_id).unwrap();
+    let struct_data = struct_semantic_data(&db, crate_id, def_id).unwrap();
 
     assert_eq!(struct_data.name(&db), "Empty");
 
@@ -209,9 +209,9 @@ fn test_struct_in_namespace() {
             }
         }
     "#;
-    let project = project_from_program(&db, program);
-    let file = *project.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, project);
+    let crate_id = crate_from_program(&db, program);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
     // Find namespace scope
@@ -228,7 +228,7 @@ fn test_struct_in_namespace() {
         .resolve_name_to_definition("Point", namespace_scope)
         .unwrap();
     let point_def_id = DefinitionId::new(&db, file, point_def_idx);
-    let point_struct_data = struct_semantic_data(&db, project, point_def_id).unwrap();
+    let point_struct_data = struct_semantic_data(&db, crate_id, point_def_id).unwrap();
 
     assert_eq!(point_struct_data.name(&db), "Point");
     let point_fields = point_struct_data.fields(&db);
@@ -239,7 +239,7 @@ fn test_struct_in_namespace() {
         .resolve_name_to_definition("Circle", namespace_scope)
         .unwrap();
     let circle_def_id = DefinitionId::new(&db, file, circle_def_idx);
-    let circle_struct_data = struct_semantic_data(&db, project, circle_def_id).unwrap();
+    let circle_struct_data = struct_semantic_data(&db, crate_id, circle_def_id).unwrap();
 
     assert_eq!(circle_struct_data.name(&db), "Circle");
     let circle_fields = circle_struct_data.fields(&db);
@@ -270,9 +270,9 @@ fn test_struct_data_consistency() {
             y: felt,
         }
     "#;
-    let project = project_from_program(&db, program);
-    let file = *project.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, project);
+    let crate_id = crate_from_program(&db, program);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
     let (def_idx, _) = semantic_index
@@ -281,10 +281,10 @@ fn test_struct_data_consistency() {
     let def_id = DefinitionId::new(&db, file, def_idx);
 
     // Get struct data via struct_semantic_data
-    let struct_data = struct_semantic_data(&db, project, def_id).unwrap();
+    let struct_data = struct_semantic_data(&db, crate_id, def_id).unwrap();
 
     // Get struct type via definition_semantic_type
-    let def_type = definition_semantic_type(&db, project, def_id);
+    let def_type = definition_semantic_type(&db, crate_id, def_id);
 
     // They should be consistent
     match def_type.data(&db) {

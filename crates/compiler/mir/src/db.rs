@@ -2,7 +2,7 @@
 
 use cairo_m_compiler_parser::Upcast;
 use cairo_m_compiler_semantic::SemanticDb;
-use cairo_m_compiler_semantic::db::Project;
+use cairo_m_compiler_semantic::db::Crate;
 
 use crate::{MirError, MirModule};
 
@@ -14,14 +14,14 @@ use crate::{MirError, MirModule};
 #[salsa::db]
 pub trait MirDb: SemanticDb + Upcast<dyn SemanticDb> {}
 
-/// Generate MIR for a project.
+/// Generate MIR for a crate.
 ///
 /// This is the main entry point for MIR generation. It uses the semantic index
 /// to build the MIR module, with full incremental caching support.
 #[salsa::tracked]
-pub fn generate_mir(db: &dyn MirDb, project: Project) -> Option<MirModule> {
+pub fn generate_mir(db: &dyn MirDb, crate_id: Crate) -> Option<MirModule> {
     // Delegate to the existing generate_mir function from ir_generation
-    crate::ir_generation::generate_mir(db, project)
+    crate::ir_generation::generate_mir(db, crate_id)
         .ok()
         .map(|arc| (*arc).clone())
 }
@@ -31,7 +31,7 @@ pub fn generate_mir(db: &dyn MirDb, project: Project) -> Option<MirModule> {
 /// This allows us to report MIR generation errors without blocking
 /// other compilation phases.
 #[salsa::tracked]
-pub fn mir_errors(_db: &dyn MirDb, _project: Project) -> Vec<MirError> {
+pub fn mir_errors(_db: &dyn MirDb, _crate_id: Crate) -> Vec<MirError> {
     // TODO
     // For now, we'll return an empty vector
     // In the future, this should collect errors from MIR generation
@@ -93,9 +93,9 @@ pub(crate) mod tests {
         let file = File::new(&db, "fn main() {}".to_string(), "test.cm".to_string());
         let mut modules = HashMap::new();
         modules.insert("main".to_string(), file);
-        let project = Project::new(&db, modules, "main".to_string());
+        let crate_id = Crate::new(&db, modules, "main".to_string());
 
         // This should trigger MIR generation through Salsa
-        let _mir = generate_mir(&db, project);
+        let _mir = generate_mir(&db, crate_id);
     }
 }

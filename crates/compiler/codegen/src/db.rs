@@ -5,7 +5,7 @@ use std::sync::Arc;
 use cairo_m_common::Program;
 use cairo_m_compiler_mir::{MirDb, MirModule};
 use cairo_m_compiler_parser::Upcast;
-use cairo_m_compiler_semantic::db::Project;
+use cairo_m_compiler_semantic::db::Crate;
 
 use crate::CodegenError;
 
@@ -17,14 +17,14 @@ use crate::CodegenError;
 #[salsa::db]
 pub trait CodegenDb: MirDb + Upcast<dyn MirDb> {}
 
-/// Compile a project to a compiled program.
+/// Compile a crate to a compiled program.
 ///
-/// This is the main entry point for code generation. It takes a project
+/// This is the main entry point for code generation. It takes a crate
 /// and produces the compiled program with full incremental caching support.
 #[salsa::tracked]
-pub fn compile_project(db: &dyn CodegenDb, project: Project) -> Result<Arc<Program>, CodegenError> {
+pub fn compile_project(db: &dyn CodegenDb, crate_id: Crate) -> Result<Arc<Program>, CodegenError> {
     // Get the MIR module
-    let mir_module = cairo_m_compiler_mir::db::generate_mir(db.upcast(), project)
+    let mir_module = cairo_m_compiler_mir::db::generate_mir(db.upcast(), crate_id)
         .ok_or_else(|| CodegenError::InvalidMir("No MIR module generated".to_string()))?;
 
     // Use the existing compile_module logic
@@ -33,22 +33,22 @@ pub fn compile_project(db: &dyn CodegenDb, project: Project) -> Result<Arc<Progr
     Ok(Arc::new(compiled))
 }
 
-/// Get the MIR module for a project (convenience re-export).
+/// Get the MIR module for a crate (convenience re-export).
 ///
 /// This allows code generation to access MIR without directly depending
 /// on the MIR crate's internals.
 #[salsa::tracked]
-pub fn codegen_mir_module(db: &dyn CodegenDb, project: Project) -> Option<Arc<MirModule>> {
-    cairo_m_compiler_mir::db::generate_mir(db.upcast(), project).map(Arc::new)
+pub fn codegen_mir_module(db: &dyn CodegenDb, crate_id: Crate) -> Option<Arc<MirModule>> {
+    cairo_m_compiler_mir::db::generate_mir(db.upcast(), crate_id).map(Arc::new)
 }
 
 /// Track code generation errors separately for better diagnostics.
 ///
 /// This allows us to report codegen errors without blocking other phases.
 #[salsa::tracked]
-pub fn codegen_errors(db: &dyn CodegenDb, project: Project) -> Vec<CodegenError> {
+pub fn codegen_errors(db: &dyn CodegenDb, crate_id: Crate) -> Vec<CodegenError> {
     // Collect errors from code generation
-    match compile_project(db, project) {
+    match compile_project(db, crate_id) {
         Ok(_) => vec![],
         Err(e) => vec![e],
     }
@@ -118,9 +118,9 @@ pub(crate) mod tests {
         let file = File::new(&db, "fn main() {}".to_string(), "test.cm".to_string());
         let mut modules = HashMap::new();
         modules.insert("main".to_string(), file);
-        let project = Project::new(&db, modules, "main".to_string());
+        let crate_id = Crate::new(&db, modules, "main".to_string());
 
         // This should trigger code generation through Salsa
-        let _result = compile_project(&db, project);
+        let _result = compile_project(&db, crate_id);
     }
 }

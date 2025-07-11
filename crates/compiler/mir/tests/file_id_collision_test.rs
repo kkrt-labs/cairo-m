@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 use cairo_m_compiler_mir::{MirDb, generate_mir};
 use cairo_m_compiler_parser::Upcast;
-use cairo_m_compiler_semantic::db::Project;
+use cairo_m_compiler_semantic::db::Crate;
 use cairo_m_compiler_semantic::{File, SemanticDb};
 
 /// Test database that implements all required traits
@@ -87,26 +87,26 @@ func main() -> felt {
         "Files should have different paths"
     );
 
-    // Create two separate single-file projects
+    // Create two separate single-file crates
     let mut modules1 = HashMap::new();
     modules1.insert("math".to_string(), file1);
-    let project1 = Project::new(&db, modules1, "math".to_string());
+    let crate1 = Crate::new(&db, modules1, "math".to_string());
 
     let mut modules2 = HashMap::new();
     modules2.insert("math".to_string(), file2);
-    let project2 = Project::new(&db, modules2, "math".to_string());
+    let crate2 = Crate::new(&db, modules2, "math".to_string());
 
-    // Generate MIR for both projects
-    let mir_result1 = generate_mir(&db, project1);
-    let mir_result2 = generate_mir(&db, project2);
+    // Generate MIR for both crates
+    let mir_result1 = generate_mir(&db, crate1);
+    let mir_result2 = generate_mir(&db, crate2);
 
     assert!(
         mir_result1.is_ok(),
-        "MIR generation should succeed for project1"
+        "MIR generation should succeed for crate1"
     );
     assert!(
         mir_result2.is_ok(),
-        "MIR generation should succeed for project2"
+        "MIR generation should succeed for crate2"
     );
 
     let mir_module1 = mir_result1.unwrap();
@@ -174,13 +174,13 @@ func test() -> felt {
 
     let file = File::new(&db, source.to_string(), "test.cm".to_string());
 
-    // Create project and generate MIR multiple times
+    // Create crate and generate MIR multiple times
     let mut modules = HashMap::new();
     modules.insert("test".to_string(), file);
-    let project = Project::new(&db, modules, "test".to_string());
+    let crate_obj = Crate::new(&db, modules, "test".to_string());
 
-    let mir_result1 = generate_mir(&db, project);
-    let mir_result2 = generate_mir(&db, project);
+    let mir_result1 = generate_mir(&db, crate_obj);
+    let mir_result2 = generate_mir(&db, crate_obj);
 
     assert!(mir_result1.is_ok() && mir_result2.is_ok());
 

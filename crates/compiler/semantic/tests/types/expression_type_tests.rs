@@ -6,7 +6,7 @@
 use cairo_m_compiler_parser::parser::Expression;
 
 use super::*;
-use crate::{get_main_semantic_index, project_from_program};
+use crate::{crate_from_program, get_main_semantic_index};
 
 #[test]
 fn test_literal_expression_types() {
@@ -17,9 +17,9 @@ fn test_literal_expression_types() {
             let b = 0;
         }
     "#;
-    let project = project_from_program(&db, program);
-    let file = *project.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, project);
+    let crate_id = crate_from_program(&db, program);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, crate_id);
 
     // Helper to find an expression by matching against tracked expressions
     let find_expr_id = |target_text: &str| {
@@ -34,13 +34,13 @@ fn test_literal_expression_types() {
 
     // Test literal 42
     if let Some(expr_id) = find_expr_id("42") {
-        let expr_type = expression_semantic_type(&db, project, file, expr_id);
+        let expr_type = expression_semantic_type(&db, crate_id, file, expr_id);
         assert!(matches!(expr_type.data(&db), TypeData::Felt));
     }
 
     // Test literal 0
     if let Some(expr_id) = find_expr_id("0") {
-        let expr_type = expression_semantic_type(&db, project, file, expr_id);
+        let expr_type = expression_semantic_type(&db, crate_id, file, expr_id);
         assert!(matches!(expr_type.data(&db), TypeData::Felt));
     }
 }
@@ -57,9 +57,9 @@ fn test_identifier_expression_types() {
             return c.x;
         }
     "#;
-    let project = project_from_program(&db, program);
-    let file = *project.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, project);
+    let crate_id = crate_from_program(&db, program);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, crate_id);
 
     // Find identifier usage 'a' in 'let b = a;'
     // This is tricky because there might be multiple 'a' spans
@@ -70,7 +70,7 @@ fn test_identifier_expression_types() {
             let expr_info = semantic_index.expression(*expr_id).unwrap();
             // Check if this is an identifier expression (not a definition)
             if matches!(expr_info.ast_node, Expression::Identifier(_)) {
-                let expr_type = expression_semantic_type(&db, project, file, *expr_id);
+                let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id);
                 assert!(matches!(expr_type.data(&db), TypeData::Felt));
                 break;
             }
@@ -90,9 +90,9 @@ fn test_binary_expression_types() {
             let prod = a * b;     // Should be felt
         }
     "#;
-    let project = project_from_program(&db, program);
-    let file = *project.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, project);
+    let crate_id = crate_from_program(&db, program);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, crate_id);
 
     // Look for binary expressions
     for (span, expr_id) in &semantic_index.span_to_expression_id {
@@ -104,7 +104,7 @@ fn test_binary_expression_types() {
             expr_info.ast_node,
             cairo_m_compiler_parser::parser::Expression::BinaryOp { .. }
         ) {
-            let expr_type = expression_semantic_type(&db, project, file, *expr_id);
+            let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id);
             // Binary operations on felt should result in felt
             assert!(
                 matches!(expr_type.data(&db), TypeData::Felt),
@@ -125,9 +125,9 @@ fn test_member_access_expression_types() {
             return x_val;
         }
     "#;
-    let project = project_from_program(&db, program);
-    let file = *project.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, project);
+    let crate_id = crate_from_program(&db, program);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, crate_id);
 
     // Look for member access expressions
     for (span, expr_id) in &semantic_index.span_to_expression_id {
@@ -139,7 +139,7 @@ fn test_member_access_expression_types() {
             expr_info.ast_node,
             cairo_m_compiler_parser::parser::Expression::MemberAccess { .. }
         ) {
-            let expr_type = expression_semantic_type(&db, project, file, *expr_id);
+            let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id);
             // Member access to felt fields should result in felt
             assert!(
                 matches!(expr_type.data(&db), TypeData::Felt),
@@ -164,9 +164,9 @@ fn test_function_call_expression_types() {
             return p;
         }
     "#;
-    let project = project_from_program(&db, program);
-    let file = *project.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, project);
+    let crate_id = crate_from_program(&db, program);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, crate_id);
 
     // Look for function call expressions
     let mut found_make_point = false;
@@ -180,7 +180,7 @@ fn test_function_call_expression_types() {
             cairo_m_compiler_parser::parser::Expression::FunctionCall { .. }
         ) && source_text.contains("make_point")
         {
-            let expr_type = expression_semantic_type(&db, project, file, *expr_id);
+            let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id);
             // Function call should return Point
             assert!(
                 matches!(expr_type.data(&db), TypeData::Struct(_)),
@@ -202,9 +202,9 @@ fn test_struct_literal_expression_types() {
             return p;
         }
     "#;
-    let project = project_from_program(&db, program);
-    let file = *project.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, project);
+    let crate_id = crate_from_program(&db, program);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, crate_id);
 
     // Look for struct literal expressions
     // Check for struct literals
@@ -217,7 +217,7 @@ fn test_struct_literal_expression_types() {
             expr_info.ast_node,
             cairo_m_compiler_parser::parser::Expression::StructLiteral { .. }
         ) {
-            let expr_type = expression_semantic_type(&db, project, file, *expr_id);
+            let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id);
             // Struct literal should have the struct type
             match expr_type.data(&db) {
                 TypeData::Struct(struct_id) => {
@@ -246,9 +246,9 @@ fn test_complex_expression_type_inference() {
             return result;
         }
     "#;
-    let project = project_from_program(&db, program);
-    let file = *project.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, project);
+    let crate_id = crate_from_program(&db, program);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, crate_id);
 
     // Look for the complex expression 'dx * dx + dy * dy'
     let mut found_complex_expression = false;
@@ -260,7 +260,7 @@ fn test_complex_expression_type_inference() {
         if matches!(expr_info.ast_node, Expression::BinaryOp { .. })
             && source_text.contains("dx * dx + dy * dy")
         {
-            let expr_type = expression_semantic_type(&db, project, file, *expr_id);
+            let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id);
             // Complex arithmetic expression should result in felt
             assert!(
                 matches!(expr_type.data(&db), TypeData::Felt),
@@ -284,9 +284,9 @@ fn test_unary_expression_types() {
             let not_lit = !0;     // Should be felt
         }
     "#;
-    let project = project_from_program(&db, program);
-    let file = *project.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, project);
+    let crate_id = crate_from_program(&db, program);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, crate_id);
 
     // Look for unary expressions
     for (span, expr_id) in &semantic_index.span_to_expression_id {
@@ -298,7 +298,7 @@ fn test_unary_expression_types() {
             expr_info.ast_node,
             cairo_m_compiler_parser::parser::Expression::UnaryOp { .. }
         ) {
-            let expr_type = expression_semantic_type(&db, project, file, *expr_id);
+            let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id);
             // Unary operations on felt should result in felt
             assert!(
                 matches!(expr_type.data(&db), TypeData::Felt),
@@ -323,16 +323,16 @@ fn test_unary_operation_type_errors() {
             let invalid_not2 = !tuple; // Error: logical not on tuple
         }
     "#;
-    let project = project_from_program(&db, program);
-    let file = *project.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, project);
+    let crate_id = crate_from_program(&db, program);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, crate_id);
 
     // Run type validation
     use cairo_m_compiler_semantic::validation::Validator;
     use cairo_m_compiler_semantic::validation::type_validator::TypeValidator;
 
     let validator = TypeValidator;
-    let diagnostics = validator.validate(&db, project, file, &semantic_index);
+    let diagnostics = validator.validate(&db, crate_id, file, &semantic_index);
 
     // Should have type mismatch errors for invalid unary operations
     let type_errors = diagnostics

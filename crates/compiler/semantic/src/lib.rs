@@ -32,7 +32,7 @@ pub mod types;
 
 pub mod db;
 pub use db::{
-    Project, SemanticDatabaseImpl, SemanticDb, module_semantic_index, project_semantic_index,
+    Crate, SemanticDatabaseImpl, SemanticDb, module_semantic_index, project_semantic_index,
 };
 pub mod validation;
 

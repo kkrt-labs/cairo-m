@@ -8,7 +8,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use cairo_m_compiler_semantic::File;
-use cairo_m_compiler_semantic::db::Project;
+use cairo_m_compiler_semantic::db::Crate;
 
 use crate::db::tests::test_db;
 use crate::{MirModule, PrettyPrint, generate_mir};
@@ -25,9 +25,9 @@ pub fn check_mir(source: &str) -> MirOutput {
     let file = File::new(&db, source.to_string(), "test.cm".to_string());
     let mut modules = HashMap::new();
     modules.insert("main".to_string(), file);
-    let project = Project::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(&db, modules, "main".to_string());
 
-    let module = match generate_mir(&db, project) {
+    let module = match generate_mir(&db, crate_id) {
         Ok(module) => module,
         Err(diagnostics) => {
             panic!(

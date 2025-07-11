@@ -9,7 +9,7 @@ use cairo_m_compiler_semantic::project_semantic_index;
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
 
 use super::*;
-use crate::{get_main_semantic_index, project_from_program};
+use crate::{crate_from_program, get_main_semantic_index};
 
 #[test]
 #[ignore] // TODO: Enable when pointer types are supported
@@ -22,16 +22,16 @@ fn test_recursive_struct_with_pointers() {
             next: Node*,
         }
     "#;
-    let project = project_from_program(&db, program);
-    let file = *project.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, project);
+    let crate_id = crate_from_program(&db, program);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
     let (def_idx, _) = semantic_index
         .resolve_name_to_definition("Node", root_scope)
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
-    let struct_data = struct_semantic_data(&db, project, def_id).unwrap();
+    let struct_data = struct_semantic_data(&db, crate_id, def_id).unwrap();
 
     assert_eq!(struct_data.name(&db), "Node");
 
@@ -68,11 +68,11 @@ fn test_error_type_propagation() {
     "#;
 
     let db = test_db();
-    let project = project_from_program(&db, source);
+    let crate_id = crate_from_program(&db, source);
 
     // The semantic analysis should handle undefined types gracefully
     // and not crash or produce cascading errors
-    let p_semantic_index = project_semantic_index(&db, project);
+    let p_semantic_index = project_semantic_index(&db, crate_id);
 
     // Even with errors, we should get a semantic index
     assert!(
@@ -115,10 +115,10 @@ fn test_circular_struct_dependency() {
     "#;
 
     let db = test_db();
-    let project = project_from_program(&db, source);
+    let crate_id = crate_from_program(&db, source);
 
     // This should either work (if pointers are supported) or fail gracefully
-    let p_semantic_index = project_semantic_index(&db, project);
+    let p_semantic_index = project_semantic_index(&db, crate_id);
 
     // The important thing is that it doesn't crash or infinite loop
     match p_semantic_index {
@@ -158,10 +158,10 @@ fn test_deeply_nested_error_recovery() {
     "#;
 
     let db = test_db();
-    let project = project_from_program(&db, source);
+    let crate_id = crate_from_program(&db, source);
 
     // Should handle the error chain gracefully
-    let p_semantic_index = project_semantic_index(&db, project);
+    let p_semantic_index = project_semantic_index(&db, crate_id);
 
     // Even with multiple errors, should not crash
     assert!(
@@ -192,9 +192,9 @@ fn test_type_error_in_expression_context() {
     "#;
 
     let db = test_db();
-    let project = project_from_program(&db, source);
+    let crate_id = crate_from_program(&db, source);
 
-    let p_semantic_index = project_semantic_index(&db, project);
+    let p_semantic_index = project_semantic_index(&db, crate_id);
     assert!(
         p_semantic_index.is_ok(),
         "Should handle mixed error/valid types"
@@ -225,10 +225,10 @@ fn test_recursive_type_alias() {
     "#;
 
     let db = test_db();
-    let project = project_from_program(&db, source);
+    let crate_id = crate_from_program(&db, source);
 
     // Should handle type aliases in recursive contexts
-    let p_semantic_index = project_semantic_index(&db, project);
+    let p_semantic_index = project_semantic_index(&db, crate_id);
 
     match p_semantic_index {
         Ok(p_index) => {
@@ -262,10 +262,10 @@ fn test_error_type_compatibility() {
     "#;
 
     let db = test_db();
-    let project = project_from_program(&db, source);
+    let crate_id = crate_from_program(&db, source);
 
     // Should handle operations between error types
-    let p_semantic_index = project_semantic_index(&db, project);
+    let p_semantic_index = project_semantic_index(&db, crate_id);
     assert!(
         p_semantic_index.is_ok(),
         "Should handle operations between error types"
@@ -286,12 +286,12 @@ fn test_self_referential_struct_without_pointers() {
     "#;
 
     let db = test_db();
-    let project = project_from_program(&db, source);
+    let crate_id = crate_from_program(&db, source);
 
     // This should either:
     // 1. Produce a semantic error about infinite size
     // 2. Handle it gracefully without crashing
-    let p_semantic_index = project_semantic_index(&db, project);
+    let p_semantic_index = project_semantic_index(&db, crate_id);
 
     // The important thing is that it doesn't infinite loop or crash
     match p_semantic_index {
@@ -327,10 +327,10 @@ fn test_complex_recursive_scenario() {
     "#;
 
     let db = test_db();
-    let project = project_from_program(&db, source);
+    let crate_id = crate_from_program(&db, source);
 
     // Should handle complex recursive structures
-    let p_semantic_index = project_semantic_index(&db, project);
+    let p_semantic_index = project_semantic_index(&db, crate_id);
 
     match p_semantic_index {
         Ok(p_index) => {

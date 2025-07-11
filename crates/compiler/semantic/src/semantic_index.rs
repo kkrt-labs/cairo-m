@@ -58,7 +58,7 @@ use rustc_hash::FxHashMap;
 
 use crate::definition::{DefinitionKind, UseDefRef};
 use crate::place::{FileScopeId, PlaceTable, Scope};
-use crate::{Definition, File, Project, SemanticDb, project_semantic_index};
+use crate::{Crate, Definition, File, SemanticDb, project_semantic_index};
 
 // Define DefinitionIndex as an index type for definitions within a single file.
 index_vec::define_index_type! {
@@ -382,7 +382,7 @@ impl SemanticIndex {
     pub fn resolve_name_with_imports(
         &self,
         db: &dyn SemanticDb,
-        project: Project,
+        crate_id: Crate,
         file: File,
         name: &str,
         starting_scope: FileScopeId,
@@ -397,7 +397,7 @@ impl SemanticIndex {
         for use_def_ref in imports {
             if use_def_ref.item == name {
                 // Get the project semantic index to resolve in imported modules
-                if let Ok(project_index) = project_semantic_index(db, project) {
+                if let Ok(project_index) = project_semantic_index(db, crate_id) {
                     let modules = project_index.modules();
 
                     // Resolve in the imported module
@@ -407,7 +407,7 @@ impl SemanticIndex {
                                 .resolve_name_to_definition(name, imported_root)
                             {
                                 if let Some(imported_file) =
-                                    project.modules(db).get(&use_def_ref.imported_module)
+                                    crate_id.modules(db).get(&use_def_ref.imported_module)
                                 {
                                     return Some((
                                         imported_def_idx,
@@ -1257,17 +1257,17 @@ mod tests {
         TestCase { db, source }
     }
 
-    fn single_file_project(db: &dyn SemanticDb, file: File) -> Project {
+    fn single_file_crate(db: &dyn SemanticDb, file: File) -> Crate {
         let mut modules = HashMap::new();
         modules.insert("main".to_string(), file);
-        Project::new(db, modules, "main".to_string())
+        Crate::new(db, modules, "main".to_string())
     }
 
     #[test]
     fn test_empty_program() {
         let TestCase { db, source } = test_case("");
-        let project = single_file_project(&db, source);
-        let index = module_semantic_index(&db, project, "main".to_string());
+        let crate_id = single_file_crate(&db, source);
+        let index = module_semantic_index(&db, crate_id, "main".to_string());
 
         let root = index.root_scope().expect("should have root scope");
         let scope = index.scope(root).unwrap();
@@ -1278,8 +1278,8 @@ mod tests {
     #[test]
     fn test_simple_function() {
         let TestCase { db, source } = test_case("func test() { }");
-        let project = single_file_project(&db, source);
-        let index = module_semantic_index(&db, project, "main".to_string());
+        let crate_id = single_file_crate(&db, source);
+        let index = module_semantic_index(&db, crate_id, "main".to_string());
 
         // Should have root scope and function scope
         let root = index.root_scope().unwrap();
@@ -1308,8 +1308,8 @@ mod tests {
     #[test]
     fn test_function_with_parameters() {
         let TestCase { db, source } = test_case("func add(a: felt, b: felt) { }");
-        let project = single_file_project(&db, source);
-        let index = module_semantic_index(&db, project, "main".to_string());
+        let crate_id = single_file_crate(&db, source);
+        let index = module_semantic_index(&db, crate_id, "main".to_string());
 
         let root = index.root_scope().unwrap();
         let child_scopes: Vec<_> = index.child_scopes(root).collect();
@@ -1334,8 +1334,8 @@ mod tests {
     fn test_variable_resolution() {
         let TestCase { db, source } =
             test_case("func test(param: felt) { let local_var = param; }");
-        let project = single_file_project(&db, source);
-        let index = module_semantic_index(&db, project, "main".to_string());
+        let crate_id = single_file_crate(&db, source);
+        let index = module_semantic_index(&db, crate_id, "main".to_string());
 
         let root = index.root_scope().unwrap();
         let child_scopes: Vec<_> = index.child_scopes(root).collect();
@@ -1378,8 +1378,8 @@ mod tests {
         "#,
         );
 
-        let project = single_file_project(&db, source);
-        let index = module_semantic_index(&db, project, "main".to_string());
+        let crate_id = single_file_crate(&db, source);
+        let index = module_semantic_index(&db, crate_id, "main".to_string());
 
         // Should have root scope plus function scope and namespace scope
         let root = index.root_scope().unwrap();
@@ -1466,8 +1466,8 @@ mod tests {
     #[test]
     fn test_real_spans_are_used() {
         let TestCase { db, source } = test_case("func test(x: felt) { let y = x; }");
-        let project = single_file_project(&db, source);
-        let index = module_semantic_index(&db, project, "main".to_string());
+        let crate_id = single_file_crate(&db, source);
+        let index = module_semantic_index(&db, crate_id, "main".to_string());
 
         // Get all identifier usages
         let usages = index.identifier_usages();
@@ -1527,8 +1527,8 @@ mod tests {
             }
             "#,
         );
-        let project = single_file_project(&db, source);
-        let index = module_semantic_index(&db, project, "main".to_string());
+        let crate_id = single_file_crate(&db, source);
+        let index = module_semantic_index(&db, crate_id, "main".to_string());
 
         // Find the let definition
         let let_definitions: Vec<_> = index
