@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1752245765877,
+  "lastUpdate": 1752248741445,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -400,6 +400,35 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/kkrt-labs/cairo-m/commit/e507a29d15e349b2676b8469054efe58067aaf02"
         },
         "date": 1752245765838,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2275624148,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "clement0walter@gmail.com",
+            "name": "Clément Walter",
+            "username": "ClementWalter"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "50e16a1673d96f2b1c1865e39a9e32ff2ab675f7",
+          "message": "Get relations as input and not list of relations (#153)",
+          "timestamp": "2025-07-11T17:33:26+02:00",
+          "tree_id": "6b9030302730685984191db943496200b1195326",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/50e16a1673d96f2b1c1865e39a9e32ff2ab675f7"
+        },
+        "date": 1752248741406,
         "tool": "customBiggerIsBetter",
         "benches": [
           {
