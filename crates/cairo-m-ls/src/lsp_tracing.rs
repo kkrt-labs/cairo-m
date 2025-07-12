@@ -48,10 +48,13 @@ where
             Level::DEBUG | Level::TRACE => tower_lsp::lsp_types::MessageType::LOG,
         };
 
-        // Send asynchronously
-        tokio::spawn(async move {
-            client.log_message(level, message).await;
-        });
+        // Send asynchronously, but only if we're in a Tokio context
+        // Background threads without Tokio runtime will skip logging to LSP
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            handle.spawn(async move {
+                client.log_message(level, message).await;
+            });
+        }
     }
 }
 

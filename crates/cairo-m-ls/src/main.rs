@@ -1,14 +1,16 @@
 #![feature(let_chains)]
 #![allow(clippy::option_if_let_else)]
 
+mod db;
+mod diagnostics;
 mod lsp_tracing;
+mod project;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
-use cairo_m_compiler::db::CompilerDatabase;
 use cairo_m_compiler::project_discovery::discover_project_files;
 use cairo_m_compiler_diagnostics::{
     Diagnostic as CairoDiagnostic, DiagnosticSeverity as CairoSeverity,
@@ -19,11 +21,16 @@ use cairo_m_compiler_semantic::semantic_index::DefinitionId;
 use cairo_m_compiler_semantic::type_resolution::definition_semantic_type;
 use cairo_m_compiler_semantic::types::{TypeData, TypeId};
 use cairo_m_compiler_semantic::{Crate, DefinitionKind, SemanticDb};
+use crossbeam_channel::Receiver;
 use dashmap::DashMap;
 use salsa::Setter;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
+
+use crate::db::{AnalysisDatabase, AnalysisDatabaseSwapper};
+use crate::diagnostics::{DiagnosticsController, DiagnosticsRequest, ProjectDiagnostics};
+use crate::project::{ProjectController, ProjectModel, ProjectUpdate, ProjectUpdateRequest};
 
 /// Cached project discovery information
 #[derive(Debug, Clone)]
@@ -47,19 +54,73 @@ struct ProjectCache {
 /// allowing proper cross-file analysis.
 struct Backend {
     client: Client,
-    db: Arc<Mutex<CompilerDatabase>>,
+    db: Arc<Mutex<AnalysisDatabase>>,
     source_files: Arc<DashMap<Url, SourceFile>>,
     /// Cache for project file discovery to avoid re-scanning
     project_caches: Arc<DashMap<PathBuf, ProjectCache>>,
+    /// Project controller for background project management
+    project_controller: Option<ProjectController>,
+    /// Central project model
+    project_model: Arc<ProjectModel>,
+    /// Receiver for project updates
+    project_update_receiver: Option<Receiver<ProjectUpdate>>,
+    /// Diagnostics controller for background diagnostic computation
+    diagnostics_controller: Option<DiagnosticsController>,
+    /// Central diagnostics state
+    diagnostics_state: Arc<ProjectDiagnostics>,
+    /// Receiver for diagnostics responses
+    diagnostics_receiver: Option<Receiver<crate::diagnostics::controller::DiagnosticsResponse>>,
+    /// Database swapper for memory management
+    db_swapper: Option<AnalysisDatabaseSwapper>,
 }
 
 impl Backend {
     fn new(client: Client) -> Self {
+        // Create channel for project updates
+        let (project_tx, project_rx) = crossbeam_channel::unbounded();
+
+        // Create project controller
+        let project_controller = ProjectController::new(project_tx);
+
+        // Create diagnostics state
+        let diagnostics_state = Arc::new(ProjectDiagnostics::new());
+
+        // Create channel for diagnostics responses
+        let (diag_tx, diag_rx) = crossbeam_channel::unbounded();
+
+        // Create shared database
+        let db = Arc::new(Mutex::new(AnalysisDatabase::default()));
+
+        // Create project model
+        let project_model = Arc::new(ProjectModel::new());
+
+        // Create diagnostics controller
+        let diagnostics_controller = DiagnosticsController::new(
+            Arc::clone(&db),
+            Arc::clone(&diagnostics_state),
+            Arc::clone(&project_model),
+            diag_tx,
+        );
+
+        // Create database swapper (5 minute interval)
+        let db_swapper = AnalysisDatabaseSwapper::new(
+            Arc::clone(&db),
+            Arc::clone(&project_model),
+            std::time::Duration::from_secs(300),
+        );
+
         Self {
             client,
-            db: Arc::new(Mutex::new(CompilerDatabase::default())),
+            db,
             source_files: Arc::new(DashMap::new()),
             project_caches: Arc::new(DashMap::new()),
+            project_controller: Some(project_controller),
+            project_model,
+            project_update_receiver: Some(project_rx),
+            diagnostics_controller: Some(diagnostics_controller),
+            diagnostics_state,
+            diagnostics_receiver: Some(diag_rx),
+            db_swapper: Some(db_swapper),
         }
     }
 
@@ -138,6 +199,7 @@ impl Backend {
     /// ALWAYS rebuilds the crate input to ensure Salsa gets fresh project structure.
     /// This is critical for proper incremental compilation - Salsa will cache the
     /// expensive operations (parsing, semantic analysis) while we provide fresh inputs.
+    #[allow(dead_code)]
     fn get_or_create_crate(&self, file_uri: &Url) -> Option<Crate> {
         let project_root = self.find_project_root(file_uri)?;
 
@@ -249,7 +311,7 @@ impl Backend {
     /// Safely access the database, returning None if mutex is poisoned
     fn safe_db_access<F, R>(&self, f: F) -> Option<R>
     where
-        F: FnOnce(&cairo_m_compiler::db::CompilerDatabase) -> R,
+        F: FnOnce(&AnalysisDatabase) -> R,
     {
         self.db.lock().ok().map(|db| f(&db))
     }
@@ -257,7 +319,7 @@ impl Backend {
     /// Safely access the mutable database, returning None if mutex is poisoned
     fn safe_db_access_mut<F, R>(&self, f: F) -> Option<R>
     where
-        F: FnOnce(&mut cairo_m_compiler::db::CompilerDatabase) -> R,
+        F: FnOnce(&mut AnalysisDatabase) -> R,
     {
         self.db.lock().ok().map(|mut db| f(&mut db))
     }
@@ -368,12 +430,100 @@ impl Backend {
         }
     }
 
+    /// Get the semantic crate for a file URL
+    fn get_semantic_crate_for_file(&self, uri: &Url) -> Option<cairo_m_compiler_semantic::Crate> {
+        // Get the ProjectCrate from the model
+        let project_crate = self.project_model.get_project_crate_for_file(uri)?;
+
+        // Convert to semantic crate
+        self.safe_db_access(|db| {
+            use crate::db::ProjectCrateExt;
+            project_crate.to_semantic_crate(db)
+        })
+    }
+
+    /// Process diagnostics responses from the controller
+    async fn process_diagnostics_responses(&self) {
+        if let Some(receiver) = &self.diagnostics_receiver {
+            // Process all pending responses
+            while let Ok(response) = receiver.try_recv() {
+                // Publish diagnostics to the client
+                self.client
+                    .publish_diagnostics(response.uri, response.diagnostics, response.version)
+                    .await;
+            }
+        }
+    }
+
+    /// Process project updates from the controller
+    fn process_project_updates(&self) {
+        if let Some(receiver) = &self.project_update_receiver {
+            // Process all pending updates
+            while let Ok(update) = receiver.try_recv() {
+                match update {
+                    ProjectUpdate::Project(crate_info) => {
+                        tracing::info!("Received project update: {}", crate_info.name);
+
+                        // Load the project into the model
+                        if let Some(db) = self.db.lock().ok() {
+                            let mut db_mut = db;
+                            if let Err(e) = self
+                                .project_model
+                                .load_crate(crate_info.clone(), &mut db_mut)
+                            {
+                                tracing::error!("Failed to load project: {}", e);
+                            } else {
+                                // Trigger diagnostics for the loaded project
+                                if let Some(project_crate) = self
+                                    .project_model
+                                    .get_project_crate_for_root(&crate_info.root)
+                                {
+                                    if let Some(controller) = &self.diagnostics_controller {
+                                        let _ = controller.request(
+                                            DiagnosticsRequest::ProjectChanged { project_crate },
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    ProjectUpdate::Standalone(file_path) => {
+                        tracing::info!("Received standalone file update: {}", file_path.display());
+
+                        // Load the standalone file
+                        if let Some(db) = self.db.lock().ok() {
+                            let mut db_mut = db;
+                            if let Err(e) =
+                                self.project_model.load_standalone(file_path, &mut db_mut)
+                            {
+                                tracing::error!("Failed to load standalone file: {}", e);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     /// Run semantic validation and publish diagnostics.
     ///
-    /// Uses project-aware analysis to provide accurate cross-file diagnostics.
-    /// Diagnostics are properly grouped by file and published to their respective URIs.
-    /// Only updates diagnostics for files within the current project.
+    /// This now delegates to the DiagnosticsController for background computation.
     async fn run_diagnostics(&self, uri: Url, version: Option<i32>) {
+        // Request diagnostics from the controller
+        if let Some(controller) = &self.diagnostics_controller {
+            let _ = controller.request(DiagnosticsRequest::FileChanged {
+                uri: uri.clone(),
+                version,
+            });
+        }
+
+        // Process any pending diagnostics responses
+        self.process_diagnostics_responses().await;
+    }
+
+    /// Legacy run_diagnostics implementation - kept for reference
+    #[allow(dead_code)]
+    async fn _old_run_diagnostics(&self, uri: Url, version: Option<i32>) {
         // Log start of diagnostics run
         self.client
             .log_message(
@@ -606,7 +756,19 @@ impl LanguageServer for Backend {
         };
 
         self.source_files.insert(uri.clone(), source);
+
+        // Request project update from the controller
+        if let Some(controller) = &self.project_controller {
+            let _ = controller.update(ProjectUpdateRequest::UpdateForFile { file_path: path });
+        }
+
+        // Process any pending project updates
+        self.process_project_updates();
+
         self.run_diagnostics(uri, Some(version)).await;
+
+        // Process diagnostics responses
+        self.process_diagnostics_responses().await;
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
@@ -622,6 +784,7 @@ impl LanguageServer for Backend {
                 }) {
                     Some(_) => {
                         self.run_diagnostics(uri, Some(version)).await;
+                        self.process_diagnostics_responses().await;
                     }
                     None => {
                         self.client
@@ -645,7 +808,7 @@ impl LanguageServer for Backend {
         let position = params.text_document_position_params.position;
 
         // Get crate for cross-file analysis
-        let crate_id = match self.get_or_create_crate(&uri) {
+        let crate_id = match self.get_semantic_crate_for_file(&uri) {
             Some(crate_id) => crate_id,
             None => return Ok(None),
         };
@@ -785,7 +948,7 @@ impl LanguageServer for Backend {
         let position = params.text_document_position_params.position;
 
         // Get crate for cross-file analysis
-        let crate_id = match self.get_or_create_crate(&uri) {
+        let crate_id = match self.get_semantic_crate_for_file(&uri) {
             Some(crate_id) => crate_id,
             None => return Ok(None),
         };
@@ -869,7 +1032,7 @@ impl LanguageServer for Backend {
         let position = params.text_document_position.position;
 
         // Get crate for cross-file analysis
-        let crate_id = match self.get_or_create_crate(&uri) {
+        let crate_id = match self.get_semantic_crate_for_file(&uri) {
             Some(crate_id) => crate_id,
             None => return Ok(None),
         };
