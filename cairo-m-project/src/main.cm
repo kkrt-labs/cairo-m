@@ -1,4 +1,4 @@
-use math::{add, sub};
+use math::{add, sub, fooba};
 
 func main(){
     let a = 1;
@@ -11,6 +11,6 @@ func main(){
 
 func fiba(){
     let x = 3;
-    let y;
+    let y = 3;
     return ();
 }

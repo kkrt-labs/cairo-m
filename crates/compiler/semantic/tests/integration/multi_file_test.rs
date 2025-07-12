@@ -637,3 +637,388 @@ func test() -> felt {
         error.message
     );
 }
+
+#[test]
+fn test_cross_module_type_checking_wrong_argument_types() {
+    let db = test_db();
+
+    // Create math module with add function
+    let math_source = r#"
+func add(a: felt, b: felt) -> felt {
+    return a + b;
+}
+"#;
+
+    // Create types module with Point struct
+    let types_source = r#"
+struct Point {
+    x: felt,
+    y: felt
+}
+"#;
+
+    // Create main module that calls add with wrong argument type
+    let main_source = r#"
+use math::add;
+use types::Point;
+
+func test() {
+    let p = Point { x: 1, y: 1 };
+    add(1, p); // ERROR: second argument should be 'felt', not 'Point'
+}
+"#;
+
+    let math_file = SourceFile::new(&db, math_source.to_string(), "math.cm".to_string());
+    let types_file = SourceFile::new(&db, types_source.to_string(), "types.cm".to_string());
+    let main_file = SourceFile::new(&db, main_source.to_string(), "main.cm".to_string());
+
+    let mut modules = HashMap::new();
+    modules.insert("math".to_string(), math_file);
+    modules.insert("types".to_string(), types_file);
+    modules.insert("main".to_string(), main_file);
+
+    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let diagnostics = project_validate_semantics(&db, crate_id);
+
+    // Should have a TypeMismatch error for the second argument
+    let type_errors: Vec<_> = diagnostics
+        .errors()
+        .into_iter()
+        .filter(|d| {
+            matches!(
+                d.code,
+                cairo_m_compiler_diagnostics::DiagnosticCode::TypeMismatch
+            )
+        })
+        .collect();
+
+    assert!(
+        !type_errors.is_empty(),
+        "Expected TypeMismatch error for wrong argument type"
+    );
+
+    // The error should mention the type mismatch
+    let has_type_mismatch = type_errors
+        .iter()
+        .any(|d| d.message.contains("felt") && d.message.contains("Point"));
+    assert!(
+        has_type_mismatch,
+        "Expected error message to mention type mismatch between 'felt' and 'Point'"
+    );
+}
+
+#[test]
+fn test_cross_module_type_checking_wrong_argument_count() {
+    let db = test_db();
+
+    // Create math module with add function that takes 2 parameters
+    let math_source = r#"
+func add(a: felt, b: felt) -> felt {
+    return a + b;
+}
+"#;
+
+    // Create main module that calls add with wrong number of arguments
+    let main_source = r#"
+use math::add;
+
+func test() {
+    add(1); // ERROR: Expected 2 arguments, got 1
+}
+"#;
+
+    let math_file = SourceFile::new(&db, math_source.to_string(), "math.cm".to_string());
+    let main_file = SourceFile::new(&db, main_source.to_string(), "main.cm".to_string());
+
+    let mut modules = HashMap::new();
+    modules.insert("math".to_string(), math_file);
+    modules.insert("main".to_string(), main_file);
+
+    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let diagnostics = project_validate_semantics(&db, crate_id);
+
+    // Should have an InvalidFunctionCall error
+    let function_errors: Vec<_> = diagnostics
+        .errors()
+        .into_iter()
+        .filter(|d| {
+            matches!(
+                d.code,
+                cairo_m_compiler_diagnostics::DiagnosticCode::InvalidFunctionCall
+            )
+        })
+        .collect();
+
+    assert!(
+        !function_errors.is_empty(),
+        "Expected InvalidFunctionCall error for wrong argument count"
+    );
+
+    // The error should mention arity mismatch
+    let has_arity_error = function_errors
+        .iter()
+        .any(|d| d.message.contains("expects 2 argument") && d.message.contains("1 were provided"));
+    assert!(
+        has_arity_error,
+        "Expected error message to mention arity mismatch. Actual errors: {:?}",
+        function_errors
+            .iter()
+            .map(|d| &d.message)
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_cross_module_invalid_struct_instantiation() {
+    let db = test_db();
+
+    // Create types module with Point struct
+    let types_source = r#"
+struct Point {
+    x: felt,
+    y: felt
+}
+"#;
+
+    // Create main module that instantiates struct incorrectly
+    let main_source = r#"
+use types::Point;
+
+func test() {
+    // ERROR: wrong field name 'z' and missing field 'y'
+    let p = Point { x: 1, z: 2 };
+}
+"#;
+
+    let types_file = SourceFile::new(&db, types_source.to_string(), "types.cm".to_string());
+    let main_file = SourceFile::new(&db, main_source.to_string(), "main.cm".to_string());
+
+    let mut modules = HashMap::new();
+    modules.insert("types".to_string(), types_file);
+    modules.insert("main".to_string(), main_file);
+
+    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let diagnostics = project_validate_semantics(&db, crate_id);
+
+    // Should have errors for invalid struct literal
+    let struct_errors: Vec<_> = diagnostics
+        .errors()
+        .into_iter()
+        .filter(|d| {
+            matches!(
+                d.code,
+                cairo_m_compiler_diagnostics::DiagnosticCode::InvalidStructLiteral
+                    | cairo_m_compiler_diagnostics::DiagnosticCode::InvalidFieldAccess
+            )
+        })
+        .collect();
+
+    assert!(
+        !struct_errors.is_empty(),
+        "Expected InvalidStructLiteral or InvalidFieldAccess errors"
+    );
+
+    // Should have errors mentioning missing field 'y' and unknown field 'z'
+    let all_errors = diagnostics.errors();
+    let has_missing_field_error = all_errors.iter().any(|d| d.message.contains("'y'"));
+    let has_unknown_field_error = all_errors.iter().any(|d| d.message.contains("'z'"));
+
+    assert!(
+        has_missing_field_error,
+        "Expected error message to mention missing field 'y'"
+    );
+    assert!(
+        has_unknown_field_error,
+        "Expected error message to mention unknown field 'z'"
+    );
+}
+
+#[test]
+fn test_duplicate_import_same_item() {
+    let db = test_db();
+
+    // Create math module with add function
+    let math_source = r#"
+func add(a: felt, b: felt) -> felt {
+    return a + b;
+}
+"#;
+
+    // Create main module that imports add twice
+    let main_source = r#"
+use math::add;
+use math::add; // ERROR: 'add' is already imported
+
+func test() {
+    add(1, 2);
+}
+"#;
+
+    let math_file = SourceFile::new(&db, math_source.to_string(), "math.cm".to_string());
+    let main_file = SourceFile::new(&db, main_source.to_string(), "main.cm".to_string());
+
+    let mut modules = HashMap::new();
+    modules.insert("math".to_string(), math_file);
+    modules.insert("main".to_string(), main_file);
+
+    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let diagnostics = project_validate_semantics(&db, crate_id);
+
+    // Should have a DuplicateDefinition error
+    let duplicate_errors: Vec<_> = diagnostics
+        .errors()
+        .into_iter()
+        .filter(|d| {
+            matches!(
+                d.code,
+                cairo_m_compiler_diagnostics::DiagnosticCode::DuplicateDefinition
+            )
+        })
+        .collect();
+
+    assert!(
+        !duplicate_errors.is_empty(),
+        "Expected DuplicateDefinition error for duplicate import"
+    );
+
+    // The error should mention 'add' being duplicated
+    let has_duplicate_add = duplicate_errors
+        .iter()
+        .any(|d| d.message.contains("Duplicate definition of 'add'"));
+    assert!(
+        has_duplicate_add,
+        "Expected error message to mention duplicate definition of 'add'"
+    );
+}
+
+#[test]
+#[ignore = "Known issue: conflicts between imports and local definitions are not yet detected"]
+fn test_import_conflict_with_top_level_definition() {
+    let db = test_db();
+
+    // Create lib module with my_func
+    let lib_source = r#"
+func my_func() -> felt {
+    return 1;
+}
+"#;
+
+    // Create main module that imports my_func AND defines its own my_func
+    let main_source = r#"
+use lib::my_func;
+
+// ERROR: 'my_func' is defined multiple times
+func my_func() -> felt {
+    return 2;
+}
+
+func test() -> felt {
+    return my_func();
+}
+"#;
+
+    let lib_file = SourceFile::new(&db, lib_source.to_string(), "lib.cm".to_string());
+    let main_file = SourceFile::new(&db, main_source.to_string(), "main.cm".to_string());
+
+    let mut modules = HashMap::new();
+    modules.insert("lib".to_string(), lib_file);
+    modules.insert("main".to_string(), main_file);
+
+    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let diagnostics = project_validate_semantics(&db, crate_id);
+
+    // Should have a DuplicateDefinition error
+    let duplicate_errors: Vec<_> = diagnostics
+        .errors()
+        .into_iter()
+        .filter(|d| {
+            matches!(
+                d.code,
+                cairo_m_compiler_diagnostics::DiagnosticCode::DuplicateDefinition
+            )
+        })
+        .collect();
+
+    assert!(
+        !duplicate_errors.is_empty(),
+        "Expected DuplicateDefinition error for conflicting import and definition"
+    );
+
+    // The error should mention 'my_func' being duplicated
+    let has_duplicate_my_func = duplicate_errors
+        .iter()
+        .any(|d| d.message.contains("Duplicate definition of 'my_func'"));
+    assert!(
+        has_duplicate_my_func,
+        "Expected error message to mention duplicate definition of 'my_func'"
+    );
+}
+
+#[test]
+fn test_unused_imports() {
+    let db = test_db();
+
+    // Create lib module with functions and struct
+    let lib_source = r#"
+func my_func() {}
+
+struct Point {
+    x: felt
+}
+"#;
+
+    // Create main module that imports but never uses them
+    let main_source = r#"
+use lib::{my_func, Point}; // Both 'my_func' and 'Point' are unused
+
+func test() -> felt {
+    return 0;
+}
+"#;
+
+    let lib_file = SourceFile::new(&db, lib_source.to_string(), "lib.cm".to_string());
+    let main_file = SourceFile::new(&db, main_source.to_string(), "main.cm".to_string());
+
+    let mut modules = HashMap::new();
+    modules.insert("lib".to_string(), lib_file);
+    modules.insert("main".to_string(), main_file);
+
+    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let diagnostics = project_validate_semantics(&db, crate_id);
+
+    // Should have warnings for unused imports
+    let warnings: Vec<_> = diagnostics.warnings();
+    assert!(!warnings.is_empty(), "Expected warnings for unused imports");
+
+    // Should have UnusedVariable warnings
+    let unused_warnings: Vec<_> = warnings
+        .into_iter()
+        .filter(|d| {
+            matches!(
+                d.code,
+                cairo_m_compiler_diagnostics::DiagnosticCode::UnusedVariable
+            )
+        })
+        .collect();
+
+    assert!(
+        unused_warnings.len() >= 2,
+        "Expected at least 2 UnusedVariable warnings, got: {}",
+        unused_warnings.len()
+    );
+
+    // Check that the warnings mention both my_func and Point
+    let has_my_func_warning = unused_warnings
+        .iter()
+        .any(|d| d.message.contains("my_func"));
+    let has_point_warning = unused_warnings.iter().any(|d| d.message.contains("Point"));
+
+    assert!(
+        has_my_func_warning,
+        "Expected warning for unused import 'my_func'"
+    );
+    assert!(
+        has_point_warning,
+        "Expected warning for unused import 'Point'"
+    );
+}
