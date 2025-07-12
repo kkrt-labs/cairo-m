@@ -323,30 +323,25 @@ compatibility with the existing compiler infrastructure.
 
 ## Known Issues and Workarounds
 
-### Salsa Panic on Startup
+### Salsa Panic on Startup (FIXED)
 
-Occasionally, you may encounter a panic when starting the language server:
+Previously, there was a panic when starting the language server:
 
 ```
 thread '<unnamed>' panicked at salsa-0.22.0/src/table.rs:358:9:
 out of bounds access `SlotIndex(1)` (maximum slot `1`)
 ```
 
-**Root Cause**: This happens when background threads try to create Salsa
-entities (like SourceFile) concurrently with the main thread. The original
-implementation in `ProjectModel::discover_crate_files` was creating SourceFile
-entities with a temporary database, which cannot be used with the main database.
+**Root Cause**: The original implementation in
+`ProjectModel::discover_crate_files` was creating SourceFile entities with a
+temporary database, then using them with the main database. Salsa entities are
+irrevocably tied to the database instance that created them.
 
-**Workaround**:
+**Fix Applied**:
 
-1. Restart the language server
-2. Close and reopen your Cairo-M files
-3. The issue is transient and typically only occurs during initialization
-
-**Technical Details**: Salsa entities are tied to the database instance that
-created them. Using entities from one database instance with another causes this
-panic. The fix involves ensuring all SourceFile creation happens with the same
-database instance.
+- Modified `discover_crate_files` to accept the main database as a parameter
+- Ensured all SourceFile creation uses the same database instance
+- This prevents the Salsa panic from occurring
 
 ### Files Not Analyzed on Startup
 
@@ -356,3 +351,100 @@ experience.
 
 **Best Practice**: After starting the language server, trigger a file change
 (e.g., add and remove a space) to ensure diagnostics are activated.
+
+## Recent Improvements (Expert Code Review)
+
+Based on expert feedback, the following critical improvements have been
+implemented:
+
+### 1. Fixed Salsa Database Instance Bug
+
+**Issue**: Creating SourceFile entities with a temporary database caused panics
+when used with the main database. **Fix**: Modified
+`ProjectModel::discover_crate_files` to accept the main database as a parameter,
+ensuring all entities are created with the same database instance.
+
+### 2. Lock Minimization Pattern
+
+**Issue**: Background threads were holding database locks during expensive
+computations, blocking the main thread. **Fix**: Implemented a pattern to
+extract necessary data quickly and release locks before processing:
+
+- `DiagnosticsController` now extracts data with minimal lock time
+- `AnalysisDatabaseSwapper` builds new database without holding locks
+- This prevents UI freezes during background operations
+
+### 3. Manifest Caching
+
+**Issue**: Project discovery was re-loading manifests for every file opened
+within a project. **Fix**: Added a manifest cache to `ProjectController` with:
+
+- 5-minute cache expiration for loaded manifests
+- Cache hit logging for debugging
+- Automatic cleanup of expired entries
+
+### 4. Database Swapper Refinement
+
+**Issue**: The swapper held the database lock while building the new database.
+**Fix**: Restructured to:
+
+1. Extract essential state with minimal lock time
+2. Build new database without any locks
+3. Perform atomic swap with minimal lock time
+
+These improvements address the critical architectural issues identified in the
+code review, resulting in a more robust and performant language server.
+
+## Data Flow Bug Fix (Empty Semantic Index)
+
+### Issue
+
+The semantic index was completely empty (0 definitions, 0 identifier usages)
+despite files containing code. This was caused by having two separate SourceFile
+entities:
+
+1. One created from LSP client content in `did_open`
+2. Another created from disk content in `ProjectModel::discover_crate_files`
+
+The semantic analysis was running on the disk-based SourceFiles (potentially
+stale or empty), not the live client content.
+
+### Root Cause
+
+The architecture had dual sources of truth for file content:
+
+- `Backend` stored SourceFiles from the LSP client
+- `ProjectModel` created its own SourceFiles by reading from disk
+- These were completely separate entities in the Salsa database
+- Diagnostics/analysis used the disk-based files, ignoring client edits
+
+### Fix Applied
+
+Established `Backend` as the single source of truth for file content:
+
+1. **Centralized File Management**:
+
+   - `Backend` now owns all SourceFile creation via `get_or_create_source_file`
+   - Uses URI as the canonical identifier (not file path)
+   - Maintains a single `source_files` map for all open files
+
+2. **Refactored Project Discovery**:
+
+   - `ProjectController` now discovers file _paths_ only, not content
+   - Returns `ProjectUpdate::Project { crate_info, files: Vec<PathBuf> }`
+   - No longer reads files from disk
+
+3. **Updated ProjectModel**:
+
+   - `load_crate` now accepts a closure to get SourceFiles
+   - Uses Backend's existing SourceFiles instead of creating new ones
+   - Ensures all analysis uses the same file entities
+
+4. **Data Flow**:
+   ```
+   Client → did_open → Backend creates SourceFile → ProjectController discovers paths
+   → ProjectModel uses Backend's SourceFiles → Semantic analysis uses correct content
+   ```
+
+This ensures semantic analysis always runs on the exact content the user sees in
+their editor.

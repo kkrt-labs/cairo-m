@@ -455,22 +455,46 @@ impl Backend {
         }
     }
 
+    /// Gets the canonical `SourceFile` for a URI, creating it from disk if not open.
+    fn get_or_create_source_file(
+        &self,
+        db: &mut AnalysisDatabase,
+        uri: &Url,
+    ) -> Option<SourceFile> {
+        if let Some(sf) = self.source_files.get(uri) {
+            return Some(*sf);
+        }
+
+        let path = uri.to_file_path().ok()?;
+        let content = std::fs::read_to_string(&path).ok()?;
+        let source_file = cairo_m_compiler_parser::SourceFile::new(db, content, uri.to_string());
+        self.source_files.insert(uri.clone(), source_file);
+        Some(source_file)
+    }
+
     /// Process project updates from the controller
-    fn process_project_updates(&self) {
+    async fn process_project_updates(&self) {
         if let Some(receiver) = &self.project_update_receiver {
             // Process all pending updates
             while let Ok(update) = receiver.try_recv() {
                 match update {
-                    ProjectUpdate::Project(crate_info) => {
+                    ProjectUpdate::Project { crate_info, files } => {
                         tracing::info!("Received project update: {}", crate_info.name);
 
                         // Load the project into the model
-                        if let Some(db) = self.db.lock().ok() {
-                            let mut db_mut = db;
-                            if let Err(e) = self
-                                .project_model
-                                .load_crate(crate_info.clone(), &mut db_mut)
-                            {
+                        if let Ok(mut db) = self.db.lock() {
+                            // Create a closure that captures self
+                            let backend = self;
+                            let get_source_file = |db: &mut AnalysisDatabase, uri: &Url| {
+                                backend.get_or_create_source_file(db, uri)
+                            };
+
+                            if let Err(e) = self.project_model.load_crate(
+                                crate_info.clone(),
+                                files,
+                                &mut db,
+                                get_source_file,
+                            ) {
                                 tracing::error!("Failed to load project: {}", e);
                             } else {
                                 // Trigger diagnostics for the loaded project
@@ -491,11 +515,18 @@ impl Backend {
                         tracing::info!("Received standalone file update: {}", file_path.display());
 
                         // Load the standalone file
-                        if let Some(db) = self.db.lock().ok() {
-                            let mut db_mut = db;
-                            if let Err(e) =
-                                self.project_model.load_standalone(file_path, &mut db_mut)
-                            {
+                        if let Ok(mut db) = self.db.lock() {
+                            // Create a closure that captures self
+                            let backend = self;
+                            let get_source_file = |db: &mut AnalysisDatabase, uri: &Url| {
+                                backend.get_or_create_source_file(db, uri)
+                            };
+
+                            if let Err(e) = self.project_model.load_standalone(
+                                file_path,
+                                &mut db,
+                                get_source_file,
+                            ) {
                                 tracing::error!("Failed to load standalone file: {}", e);
                             }
                         }
@@ -730,6 +761,7 @@ impl LanguageServer for Backend {
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
         let uri = params.text_document.uri;
+        tracing::info!("Did open: {}", uri);
         let content = params.text_document.text;
         let version = params.text_document.version;
 
@@ -740,20 +772,19 @@ impl LanguageServer for Backend {
 
         // Create a new SourceFile for the opened file. This requires a mutable
         // database lock because it allocates a new entity.
-        let source = match self
-            .safe_db_access(|db| SourceFile::new(db, content, path.display().to_string()))
-        {
-            Some(source) => source,
-            None => {
-                self.client
-                    .log_message(
-                        MessageType::ERROR,
-                        "Failed to create source file due to database error",
-                    )
-                    .await;
-                return;
-            }
-        };
+        let source =
+            match self.safe_db_access_mut(|db| SourceFile::new(db, content, uri.to_string())) {
+                Some(source) => source,
+                None => {
+                    self.client
+                        .log_message(
+                            MessageType::ERROR,
+                            "Failed to create source file due to database error",
+                        )
+                        .await;
+                    return;
+                }
+            };
 
         self.source_files.insert(uri.clone(), source);
 
@@ -763,7 +794,7 @@ impl LanguageServer for Backend {
         }
 
         // Process any pending project updates
-        self.process_project_updates();
+        self.process_project_updates().await;
 
         self.run_diagnostics(uri, Some(version)).await;
 
@@ -772,6 +803,7 @@ impl LanguageServer for Backend {
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
+        tracing::info!("Did change: {:?}", params);
         let uri = params.text_document.uri;
         let version = params.text_document.version;
 

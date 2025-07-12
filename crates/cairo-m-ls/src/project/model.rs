@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
-use cairo_m_compiler::project_discovery::{ProjectDiscoveryConfig, discover_project_files};
 use cairo_m_compiler_parser::SourceFile;
 use tower_lsp::lsp_types::Url;
 use tracing::{debug, info};
@@ -48,16 +47,25 @@ impl ProjectModel {
     pub fn load_crate(
         &self,
         crate_info: CrateInfo,
+        file_paths: Vec<PathBuf>,
         db: &mut AnalysisDatabase,
+        get_source_file: impl Fn(&mut AnalysisDatabase, &Url) -> Option<SourceFile>,
     ) -> Result<(), String> {
         info!(
-            "Loading crate: {} at {}",
+            "Loading crate: {} with {} files",
             crate_info.name,
-            crate_info.root.display()
+            file_paths.len()
         );
 
-        // Discover project files
-        let files = self.discover_crate_files(&crate_info)?;
+        // Use the provided closure to get or create SourceFile entities
+        let mut files = HashMap::new();
+        for path in file_paths {
+            if let Ok(uri) = Url::from_file_path(&path) {
+                if let Some(source_file) = get_source_file(db, &uri) {
+                    files.insert(path, source_file);
+                }
+            }
+        }
 
         // Find main file
         let main_file = self.find_main_file(&crate_info, &files);
@@ -95,13 +103,15 @@ impl ProjectModel {
         &self,
         file_path: PathBuf,
         db: &mut AnalysisDatabase,
+        get_source_file: impl Fn(&mut AnalysisDatabase, &Url) -> Option<SourceFile>,
     ) -> Result<(), String> {
         info!("Loading standalone file: {}", file_path.display());
 
-        let content = std::fs::read_to_string(&file_path)
-            .map_err(|e| format!("Failed to read file: {}", e))?;
+        let uri = Url::from_file_path(&file_path)
+            .map_err(|_| format!("Invalid file path: {}", file_path.display()))?;
 
-        let source_file = SourceFile::new(db, file_path.to_string_lossy().to_string(), content);
+        let source_file = get_source_file(db, &uri)
+            .ok_or_else(|| format!("Failed to get source file for: {}", file_path.display()))?;
 
         // For standalone files, create a minimal crate
         let crate_info = CrateInfo {
@@ -173,33 +183,6 @@ impl ProjectModel {
         crates.clear();
         file_to_project.clear();
         project_crate_ids.clear();
-    }
-
-    fn discover_crate_files(
-        &self,
-        crate_info: &CrateInfo,
-    ) -> Result<HashMap<PathBuf, SourceFile>, String> {
-        debug!("Discovering files for crate: {}", crate_info.name);
-
-        // For now, use the existing discovery logic
-        // This will be improved to use compiler-driven discovery
-        let config = ProjectDiscoveryConfig::default();
-        let discovered = discover_project_files(&crate_info.root, &config)
-            .map_err(|e| format!("Failed to discover project files: {}", e))?;
-
-        // Create a temporary database to create SourceFile instances
-        let temp_db = AnalysisDatabase::new();
-
-        let mut files = HashMap::new();
-        for path in discovered.files {
-            if let Ok(content) = std::fs::read_to_string(&path) {
-                let source_file =
-                    SourceFile::new(&temp_db, path.to_string_lossy().to_string(), content);
-                files.insert(path, source_file);
-            }
-        }
-
-        Ok(files)
     }
 
     fn find_main_file(

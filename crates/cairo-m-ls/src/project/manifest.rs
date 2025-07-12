@@ -51,4 +51,11 @@ impl ProjectManifestPath {
             ProjectManifestPath::CairoM(path) => path.parent(),
         }
     }
+
+    /// Get the manifest file path
+    pub fn path(&self) -> &Path {
+        match self {
+            ProjectManifestPath::CairoM(path) => path,
+        }
+    }
 }

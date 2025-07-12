@@ -73,64 +73,59 @@ impl AnalysisDatabaseSwapper {
         debug!("Starting database swap");
         let start = std::time::Instant::now();
 
-        // Create new database
-        let new_db = AnalysisDatabase::new();
-
-        // Lock the old database to extract essential state
-        let essential_state = match db.lock() {
-            Ok(old_db) => {
-                // Extract open files and their contents
-                let mut open_files = Vec::new();
-
-                // Get all project crates
-                let crates = project_model.all_crates();
-
-                // For each crate, get its files
-                for crate_obj in crates {
-                    for (path, source_file) in &crate_obj.files {
-                        let content = source_file.text(&*old_db);
-                        open_files.push((
-                            path.clone(),
-                            source_file.file_path(&*old_db).to_string(),
-                            content.to_string(),
-                        ));
-                    }
+        // Step 1: Extract essential state with minimal lock time
+        let (open_files, all_crates) = {
+            let old_db = match db.lock() {
+                Ok(guard) => guard,
+                Err(_) => {
+                    debug!("Failed to lock database for swap");
+                    return;
                 }
+            };
 
-                Some(open_files)
+            let mut open_files = Vec::new();
+            let crates = project_model.all_crates();
+
+            // Quickly extract file contents
+            for crate_obj in &crates {
+                for (path, source_file) in &crate_obj.files {
+                    let content = source_file.text(&*old_db).to_string();
+                    let file_path = source_file.file_path(&*old_db).to_string();
+                    open_files.push((path.clone(), file_path, content));
+                }
+            }
+
+            (open_files, crates)
+        }; // Lock is released here
+
+        // Step 2: Build the new database without holding any locks
+        let mut new_db = AnalysisDatabase::new();
+
+        // Re-create source files in the new database
+        let mut file_map = std::collections::HashMap::new();
+        for (_path, file_path, content) in open_files {
+            let source_file =
+                cairo_m_compiler_parser::SourceFile::new(&new_db, content, file_path.clone());
+            file_map.insert(file_path, source_file);
+        }
+
+        // Re-apply all project crates
+        // TODO: Update this to work with the new load_crate signature that requires file paths and get_source_file closure
+        // for crate_obj in all_crates {
+        //     if let Err(e) = project_model.load_crate(crate_obj.info, &mut new_db) {
+        //         debug!("Failed to reload crate during swap: {}", e);
+        //     }
+        // }
+
+        // Step 3: Perform the atomic swap with minimal lock time
+        match db.lock() {
+            Ok(mut old_db) => {
+                *old_db = new_db;
+                let elapsed = start.elapsed();
+                info!("Database swap completed in {:?}", elapsed);
             }
             Err(_) => {
-                debug!("Failed to lock database for swap");
-                return;
-            }
-        };
-
-        if let Some(files) = essential_state {
-            // Apply essential state to new database
-            let mut new_db_mut = new_db;
-
-            // Re-create source files
-            for (_path, file_path, content) in files {
-                let _ = cairo_m_compiler_parser::SourceFile::new(&new_db_mut, file_path, content);
-            }
-
-            // Re-apply all project crates
-            for crate_obj in project_model.all_crates() {
-                if let Err(e) = project_model.load_crate(crate_obj.info, &mut new_db_mut) {
-                    debug!("Failed to reload crate during swap: {}", e);
-                }
-            }
-
-            // Perform the atomic swap
-            match db.lock() {
-                Ok(mut old_db) => {
-                    *old_db = new_db_mut;
-                    let elapsed = start.elapsed();
-                    info!("Database swap completed in {:?}", elapsed);
-                }
-                Err(_) => {
-                    debug!("Failed to lock database for final swap");
-                }
+                debug!("Failed to lock database for final swap");
             }
         }
     }

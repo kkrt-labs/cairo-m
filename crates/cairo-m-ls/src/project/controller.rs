@@ -1,8 +1,11 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::{Duration, Instant};
 
 use crossbeam_channel::{Receiver, Sender};
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 use super::manifest::ProjectManifestPath;
 use super::model::CrateInfo;
@@ -16,9 +19,21 @@ pub enum ProjectUpdateRequest {
 #[derive(Debug)]
 pub enum ProjectUpdate {
     /// A project with manifest was found
-    Project(CrateInfo),
+    Project {
+        crate_info: CrateInfo,
+        files: Vec<PathBuf>,
+    },
     /// No project manifest found, treat as standalone file
     Standalone(PathBuf),
+}
+
+/// Cache entry for a loaded manifest
+#[derive(Debug, Clone)]
+struct ManifestCacheEntry {
+    /// The loaded crate info
+    crate_info: CrateInfo,
+    /// When this entry was last accessed
+    last_accessed: Instant,
 }
 
 pub struct ProjectController {
@@ -30,8 +45,11 @@ impl ProjectController {
     pub fn new(response_sender: Sender<ProjectUpdate>) -> Self {
         let (sender, receiver) = crossbeam_channel::unbounded();
 
+        // Create shared manifest cache
+        let manifest_cache = Arc::new(Mutex::new(HashMap::new()));
+
         let handle = thread::spawn(move || {
-            Self::worker_thread(receiver, response_sender);
+            Self::worker_thread(receiver, response_sender, manifest_cache);
         });
 
         ProjectController {
@@ -50,8 +68,12 @@ impl ProjectController {
     fn worker_thread(
         receiver: Receiver<ProjectUpdateRequest>,
         response_sender: Sender<ProjectUpdate>,
+        manifest_cache: Arc<Mutex<HashMap<PathBuf, ManifestCacheEntry>>>,
     ) {
         info!("ProjectController worker thread started");
+
+        // Cache expiration time (5 minutes)
+        const CACHE_EXPIRY: Duration = Duration::from_secs(300);
 
         for request in receiver {
             match request {
@@ -65,10 +87,59 @@ impl ProjectController {
                         Some(manifest) => {
                             info!("Found project manifest: {:?}", manifest);
 
-                            match Self::load_project(manifest) {
-                                Ok(crate_info) => {
-                                    if let Err(e) =
-                                        response_sender.send(ProjectUpdate::Project(crate_info))
+                            // Check cache first
+                            let manifest_path = manifest.path().to_path_buf();
+                            let cache_hit = {
+                                let cache = manifest_cache.lock().unwrap();
+                                cache.get(&manifest_path).and_then(|entry| {
+                                    if entry.last_accessed.elapsed() < CACHE_EXPIRY {
+                                        debug!("Cache hit for manifest: {:?}", manifest_path);
+                                        Some(entry.crate_info.clone())
+                                    } else {
+                                        debug!("Cache expired for manifest: {:?}", manifest_path);
+                                        None
+                                    }
+                                })
+                            };
+
+                            let result = match cache_hit {
+                                Some(info) => {
+                                    // Update last accessed time
+                                    let mut cache = manifest_cache.lock().unwrap();
+                                    if let Some(entry) = cache.get_mut(&manifest_path) {
+                                        entry.last_accessed = Instant::now();
+                                    }
+                                    // Need to discover files even for cached entries
+                                    let config = cairo_m_compiler::project_discovery::ProjectDiscoveryConfig::default();
+                                    match cairo_m_compiler::project_discovery::discover_project_files(&info.root, &config) {
+                                        Ok(discovered) => Ok((info, discovered.files)),
+                                        Err(e) => Err(format!("Failed to discover files: {}", e))
+                                    }
+                                }
+                                None => {
+                                    // Load project and update cache
+                                    match Self::load_project(manifest) {
+                                        Ok((crate_info, files)) => {
+                                            let mut cache = manifest_cache.lock().unwrap();
+                                            cache.insert(
+                                                manifest_path.clone(),
+                                                ManifestCacheEntry {
+                                                    crate_info: crate_info.clone(),
+                                                    last_accessed: Instant::now(),
+                                                },
+                                            );
+                                            debug!("Cached manifest: {:?}", manifest_path);
+                                            Ok((crate_info, files))
+                                        }
+                                        Err(e) => Err(e),
+                                    }
+                                }
+                            };
+
+                            match result {
+                                Ok((crate_info, files)) => {
+                                    if let Err(e) = response_sender
+                                        .send(ProjectUpdate::Project { crate_info, files })
                                     {
                                         error!("Failed to send project update: {}", e);
                                     }
@@ -97,29 +168,46 @@ impl ProjectController {
             }
         }
 
+        // Clean up expired cache entries on shutdown
+        if let Ok(mut cache) = manifest_cache.lock() {
+            cache.retain(|_, entry| entry.last_accessed.elapsed() < CACHE_EXPIRY);
+            debug!(
+                "Cleaned up manifest cache, {} entries remaining",
+                cache.len()
+            );
+        }
+
         info!("ProjectController worker thread shutting down");
     }
 
-    fn load_project(manifest: ProjectManifestPath) -> Result<CrateInfo, String> {
+    fn load_project(manifest: ProjectManifestPath) -> Result<(CrateInfo, Vec<PathBuf>), String> {
         match manifest {
             ProjectManifestPath::CairoM(manifest_path) => {
                 let project_root = manifest_path
                     .parent()
                     .ok_or_else(|| "Invalid manifest path".to_string())?;
 
-                // For now, we'll create a simple CrateInfo
-                // This will be expanded to actually parse cairom.toml
                 let name = project_root
                     .file_name()
                     .and_then(|n| n.to_str())
                     .unwrap_or("unnamed")
                     .to_string();
 
-                Ok(CrateInfo {
+                let crate_info = CrateInfo {
                     name,
                     root: project_root.to_path_buf(),
-                    manifest_path,
-                })
+                    manifest_path: manifest_path.clone(),
+                };
+
+                // Discover project files
+                let config = cairo_m_compiler::project_discovery::ProjectDiscoveryConfig::default();
+                let discovered = cairo_m_compiler::project_discovery::discover_project_files(
+                    project_root,
+                    &config,
+                )
+                .map_err(|e| format!("Failed to discover project files: {}", e))?;
+
+                Ok((crate_info, discovered.files))
             }
         }
     }

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -164,28 +165,39 @@ impl DiagnosticsController {
         project_crate: ProjectCrate,
         response_sender: &Sender<DiagnosticsResponse>,
     ) {
-        // Lock the database
-        let db_guard = match db.lock() {
-            Ok(guard) => guard,
-            Err(_) => {
-                debug!("Failed to lock database for diagnostics");
-                return;
+        // Extract necessary data with minimal lock time
+        let (_semantic_crate, files_with_content, diagnostic_collection) = {
+            let db_guard = match db.lock() {
+                Ok(guard) => guard,
+                Err(_) => {
+                    debug!("Failed to lock database for diagnostics");
+                    return;
+                }
+            };
+
+            // Convert to semantic crate for validation
+            let semantic_crate = project_crate.to_semantic_crate(&*db_guard);
+
+            // Run semantic validation
+            let diagnostic_collection = project_validate_semantics(&*db_guard, semantic_crate);
+
+            // Clone file contents while we have the lock
+            let files = project_crate.files(&*db_guard);
+            let mut files_with_content = HashMap::new();
+            for (path, source_file) in files {
+                let content = source_file.text(&*db_guard).to_string();
+                files_with_content.insert(path.clone(), content);
             }
-        };
 
-        // Convert to semantic crate for validation
-        let semantic_crate = project_crate.to_semantic_crate(&*db_guard);
+            (semantic_crate, files_with_content, diagnostic_collection)
+        }; // Lock is released here
 
-        // Run semantic validation
-        let diagnostic_collection = project_validate_semantics(&*db_guard, semantic_crate);
-
-        // Group diagnostics by file
+        // Now process diagnostics without holding the lock
         let mut diagnostics_by_file: std::collections::HashMap<Url, Vec<Diagnostic>> =
             std::collections::HashMap::new();
 
-        // Get all files in the project to ensure we clear diagnostics for files with no errors
-        let files = project_crate.files(&*db_guard);
-        for file_path in files.keys() {
+        // Initialize with empty diagnostics for all files
+        for file_path in files_with_content.keys() {
             if let Ok(uri) = Url::from_file_path(file_path) {
                 diagnostics_by_file.insert(uri, vec![]);
             }
@@ -195,8 +207,8 @@ impl DiagnosticsController {
         for cairo_diag in diagnostic_collection.all() {
             if let Ok(uri) = Url::from_file_path(&cairo_diag.file_path) {
                 // Find the source file content
-                if let Some(source_file) = files.get(&PathBuf::from(&cairo_diag.file_path)) {
-                    let content = source_file.text(&*db_guard);
+                if let Some(content) = files_with_content.get(&PathBuf::from(&cairo_diag.file_path))
+                {
                     let lsp_diag = convert_cairo_diagnostic(content, cairo_diag);
 
                     diagnostics_by_file.entry(uri).or_default().push(lsp_diag);
