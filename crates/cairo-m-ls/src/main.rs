@@ -59,7 +59,7 @@ struct Backend {
 impl Backend {
     fn new(client: Client) -> Self {
         // Create channel for project updates
-        let (project_tx, project_rx) = crossbeam_channel::unbounded();
+        let (project_tx, mut project_rx) = tokio::sync::mpsc::unbounded_channel();
 
         // Create project controller
         let project_controller = ProjectController::new(project_tx);
@@ -132,24 +132,32 @@ impl Backend {
         tokio::spawn(async move {
             tracing::info!("Starting dedicated project update monitor task");
 
-            while let Ok(update) = project_rx.recv() {
+            while let Some(update) = project_rx.recv().await {
                 tracing::debug!("Project update monitor received update: {:?}", update);
 
                 match update {
                     ProjectUpdate::Project { crate_info, files } => {
                         tracing::info!("Processing project update: {}", crate_info.name);
 
-                        // Load the project into the model
-                        let load_result = {
-                            match db_clone.lock() {
+                        // Clone crate_info so we can use it later
+                        let crate_info_for_later = crate_info.clone();
+
+                        // Load the project into the model using spawn_blocking to avoid holding locks across await
+                        let project_model_clone_for_task = Arc::clone(&project_model_clone);
+                        let db_clone_for_task = Arc::clone(&db_clone);
+                        let source_files_clone_for_task = Arc::clone(&source_files_clone);
+                        let load_result = tokio::task::spawn_blocking(move || {
+                            match db_clone_for_task.lock() {
                                 Ok(mut db) => {
-                                    project_model_clone.load_crate(
-                                        crate_info.clone(),
+                                    // This is now a sync call inside spawn_blocking
+                                    let rt = tokio::runtime::Handle::current();
+                                    rt.block_on(project_model_clone_for_task.load_crate(
+                                        crate_info,
                                         files,
                                         &mut db,
                                         |db, uri| {
                                             // Try to get existing source file or create new one
-                                            if let Some(sf) = source_files_clone.get(uri) {
+                                            if let Some(sf) = source_files_clone_for_task.get(uri) {
                                                 Some(*sf)
                                             } else {
                                                 let path = uri.to_file_path().ok()?;
@@ -161,18 +169,24 @@ impl Backend {
                                                         content,
                                                         uri.to_string(),
                                                     );
-                                                source_files_clone.insert(uri.clone(), source_file);
+                                                source_files_clone_for_task
+                                                    .insert(uri.clone(), source_file);
                                                 Some(source_file)
                                             }
                                         },
-                                    )
+                                    ))
                                 }
                                 Err(e) => {
                                     tracing::error!("Failed to acquire database lock: {:?}", e);
                                     Err("Failed to acquire database lock".to_string())
                                 }
                             }
-                        };
+                        })
+                        .await
+                        .unwrap_or_else(|e| {
+                            tracing::error!("spawn_blocking task failed: {:?}", e);
+                            Err("spawn_blocking task failed".to_string())
+                        });
 
                         // Process result after releasing the lock
                         match load_result {
@@ -187,8 +201,9 @@ impl Backend {
                                 }
 
                                 // Trigger diagnostics for the loaded project
-                                if let Some(project_crate) =
-                                    project_model_clone.get_project_crate_for_root(&crate_info.root)
+                                if let Some(project_crate) = project_model_clone
+                                    .get_project_crate_for_root(&crate_info_for_later.root)
+                                    .await
                                 {
                                     let _ = diagnostics_sender_clone
                                         .send(DiagnosticsRequest::ProjectChanged { project_crate });
@@ -211,16 +226,21 @@ impl Backend {
                             file_path.display()
                         );
 
-                        // Load the standalone file
-                        let load_result = {
-                            match db_clone.lock() {
+                        // Load the standalone file using spawn_blocking to avoid holding locks across await
+                        let project_model_clone_for_task = Arc::clone(&project_model_clone);
+                        let db_clone_for_task = Arc::clone(&db_clone);
+                        let source_files_clone_for_task = Arc::clone(&source_files_clone);
+                        let load_result = tokio::task::spawn_blocking(move || {
+                            match db_clone_for_task.lock() {
                                 Ok(mut db) => {
-                                    project_model_clone.load_standalone(
+                                    // This is now a sync call inside spawn_blocking
+                                    let rt = tokio::runtime::Handle::current();
+                                    rt.block_on(project_model_clone_for_task.load_standalone(
                                         file_path,
                                         &mut db,
                                         |db, uri| {
                                             // Try to get existing source file or create new one
-                                            if let Some(sf) = source_files_clone.get(uri) {
+                                            if let Some(sf) = source_files_clone_for_task.get(uri) {
                                                 Some(*sf)
                                             } else {
                                                 let path = uri.to_file_path().ok()?;
@@ -232,18 +252,24 @@ impl Backend {
                                                         content,
                                                         uri.to_string(),
                                                     );
-                                                source_files_clone.insert(uri.clone(), source_file);
+                                                source_files_clone_for_task
+                                                    .insert(uri.clone(), source_file);
                                                 Some(source_file)
                                             }
                                         },
-                                    )
+                                    ))
                                 }
                                 Err(e) => {
                                     tracing::error!("Failed to acquire database lock: {:?}", e);
                                     Err("Failed to acquire database lock".to_string())
                                 }
                             }
-                        };
+                        })
+                        .await
+                        .unwrap_or_else(|e| {
+                            tracing::error!("spawn_blocking task failed: {:?}", e);
+                            Err("spawn_blocking task failed".to_string())
+                        });
 
                         // Process result after releasing the lock
                         match load_result {
@@ -413,9 +439,12 @@ impl Backend {
     }
 
     /// Get the semantic crate for a file URL
-    fn get_semantic_crate_for_file(&self, uri: &Url) -> Option<cairo_m_compiler_semantic::Crate> {
+    async fn get_semantic_crate_for_file(
+        &self,
+        uri: &Url,
+    ) -> Option<cairo_m_compiler_semantic::Crate> {
         // Get the ProjectCrate from the model
-        let project_crate = self.project_model.get_project_crate_for_file(uri)?;
+        let project_crate = self.project_model.get_project_crate_for_file(uri).await?;
 
         // Convert to semantic crate
         self.safe_db_access_sync(|db| {
@@ -576,7 +605,7 @@ impl LanguageServer for Backend {
         let position = params.text_document_position_params.position;
 
         // Get crate for cross-file analysis
-        let crate_id = match self.get_semantic_crate_for_file(&uri) {
+        let crate_id = match self.get_semantic_crate_for_file(&uri).await {
             Some(crate_id) => crate_id,
             None => return Ok(None),
         };
@@ -716,7 +745,7 @@ impl LanguageServer for Backend {
         let position = params.text_document_position_params.position;
 
         // Get crate for cross-file analysis
-        let crate_id = match self.get_semantic_crate_for_file(&uri) {
+        let crate_id = match self.get_semantic_crate_for_file(&uri).await {
             Some(crate_id) => crate_id,
             None => return Ok(None),
         };
@@ -800,7 +829,7 @@ impl LanguageServer for Backend {
         let position = params.text_document_position.position;
 
         // Get crate for cross-file analysis
-        let crate_id = match self.get_semantic_crate_for_file(&uri) {
+        let crate_id = match self.get_semantic_crate_for_file(&uri).await {
             Some(crate_id) => crate_id,
             None => return Ok(None),
         };

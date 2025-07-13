@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use std::thread;
 use std::time::Instant;
 
 use cairo_m_compiler_semantic::db::{project_parse_diagnostics, project_validate_semantics};
-use crossbeam_channel::{Receiver, Sender};
 use tokio::sync::mpsc::UnboundedSender;
+use tokio::task::JoinHandle;
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity, Position, Range, Url};
 use tracing::{debug, error, info};
 
@@ -35,10 +34,10 @@ pub struct DiagnosticsResponse {
     pub diagnostics: Vec<Diagnostic>,
 }
 
-/// Controller for computing diagnostics in a background thread
+/// Controller for computing diagnostics in a background task
 pub struct DiagnosticsController {
-    pub sender: Sender<DiagnosticsRequest>,
-    handle: Option<thread::JoinHandle<()>>,
+    pub sender: UnboundedSender<DiagnosticsRequest>,
+    handle: Option<JoinHandle<()>>,
 }
 
 impl DiagnosticsController {
@@ -49,40 +48,52 @@ impl DiagnosticsController {
         project_model: Arc<ProjectModel>,
         response_sender: UnboundedSender<DiagnosticsResponse>,
     ) -> Self {
-        let (sender, receiver) = crossbeam_channel::unbounded();
+        let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel();
 
-        let error_response_sender = response_sender.clone();
-        let handle = thread::Builder::new()
-            .name("diagnostics-controller".to_string())
-            .spawn(move || {
-                // Catch panics to log them and notify the client
-                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    Self::worker_thread(
-                        db,
-                        diagnostics_state,
-                        project_model,
-                        receiver,
-                        response_sender,
-                    );
-                }));
+        let _error_response_sender = response_sender.clone();
+        let handle = tokio::spawn(async move {
+            info!("DiagnosticsController worker task started");
 
-                if let Err(e) = result {
-                    error!("DiagnosticsController worker thread panicked: {:?}", e);
+            // Process requests until channel is closed
+            while let Some(request) = receiver.recv().await {
+                info!("Received request: {:?}", request);
+                match request {
+                    DiagnosticsRequest::FileChanged { uri, version } => {
+                        info!("FileChanged: Processing diagnostics for file: {}", uri);
+                        Self::compute_file_diagnostics(
+                            &db,
+                            &diagnostics_state,
+                            &project_model,
+                            uri,
+                            version,
+                            &response_sender,
+                        )
+                        .await;
+                    }
 
-                    // Send an error response to notify the main thread
-                    // Use a special URI to indicate thread failure
-                    let error_uri =
-                        tower_lsp::lsp_types::Url::parse("file:///thread-error/diagnostics")
-                            .expect("Valid error URI");
+                    DiagnosticsRequest::ProjectChanged { project_crate } => {
+                        debug!("Processing diagnostics for entire project");
+                        let start = Instant::now();
+                        Self::compute_project_diagnostics(
+                            &db,
+                            &diagnostics_state,
+                            project_crate,
+                            &response_sender,
+                            None,
+                        )
+                        .await;
+                        debug!("Project diagnostics completed in {:?}", start.elapsed());
+                    }
 
-                    let _ = error_response_sender.send(DiagnosticsResponse {
-                        uri: error_uri,
-                        version: None,
-                        diagnostics: vec![], // Empty diagnostics indicate error
-                    });
+                    DiagnosticsRequest::Shutdown => {
+                        info!("DiagnosticsController shutting down");
+                        break;
+                    }
                 }
-            })
-            .expect("Failed to spawn DiagnosticsController thread");
+            }
+
+            info!("DiagnosticsController worker task stopped");
+        });
 
         Self {
             sender,
@@ -94,71 +105,23 @@ impl DiagnosticsController {
     pub fn request(
         &self,
         request: DiagnosticsRequest,
-    ) -> Result<(), crossbeam_channel::SendError<DiagnosticsRequest>> {
+    ) -> Result<(), tokio::sync::mpsc::error::SendError<DiagnosticsRequest>> {
         self.sender.send(request)
     }
 
-    /// Worker thread that processes diagnostic requests
-    fn worker_thread(
-        db: Arc<Mutex<AnalysisDatabase>>,
-        diagnostics_state: Arc<ProjectDiagnostics>,
-        project_model: Arc<ProjectModel>,
-        receiver: Receiver<DiagnosticsRequest>,
-        response_sender: UnboundedSender<DiagnosticsResponse>,
-    ) {
-        info!("DiagnosticsController worker thread started");
-
-        for request in receiver {
-            info!("Received request: {:?}", request);
-            match request {
-                DiagnosticsRequest::FileChanged { uri, version } => {
-                    info!("FileChainged: Processing diagnostics for file: {}", uri);
-                    Self::compute_file_diagnostics(
-                        &db,
-                        &diagnostics_state,
-                        &project_model,
-                        uri,
-                        version,
-                        &response_sender,
-                    );
-                }
-
-                DiagnosticsRequest::ProjectChanged { project_crate } => {
-                    debug!("Processing diagnostics for entire project");
-                    let start = Instant::now();
-                    Self::compute_project_diagnostics(
-                        &db,
-                        &diagnostics_state,
-                        project_crate,
-                        &response_sender,
-                        None,
-                    );
-                    debug!("Project diagnostics completed in {:?}", start.elapsed());
-                }
-
-                DiagnosticsRequest::Shutdown => {
-                    info!("DiagnosticsController shutting down");
-                    break;
-                }
-            }
-        }
-
-        info!("DiagnosticsController worker thread stopped");
-    }
-
     /// Compute diagnostics for a single file
-    fn compute_file_diagnostics(
+    async fn compute_file_diagnostics(
         db: &Arc<Mutex<AnalysisDatabase>>,
-        diagnostics_state: &ProjectDiagnostics,
-        project_model: &ProjectModel,
+        diagnostics_state: &Arc<ProjectDiagnostics>,
+        project_model: &Arc<ProjectModel>,
         uri: Url,
         version: Option<i32>,
         response_sender: &UnboundedSender<DiagnosticsResponse>,
     ) {
         debug!("Computing diagnostics for file: {}", uri);
 
-        // Try to get the ProjectCrate for this file
-        if let Some(project_crate) = project_model.get_project_crate_for_file(&uri) {
+        // First try to get the ProjectCrate for this file (async call)
+        if let Some(project_crate) = project_model.get_project_crate_for_file(&uri).await {
             info!("Found project crate for file, running project diagnostics");
             // We have a project, run full project diagnostics
             Self::compute_project_diagnostics(
@@ -167,7 +130,8 @@ impl DiagnosticsController {
                 project_crate,
                 response_sender,
                 version,
-            );
+            )
+            .await;
         } else {
             info!(
                 "No project crate found for file: {}, clearing diagnostics",
@@ -184,10 +148,40 @@ impl DiagnosticsController {
         }
     }
 
-    /// Compute diagnostics for an entire project
-    fn compute_project_diagnostics(
+    /// Compute diagnostics for an entire project (async wrapper)
+    async fn compute_project_diagnostics(
         db: &Arc<Mutex<AnalysisDatabase>>,
-        diagnostics_state: &ProjectDiagnostics,
+        diagnostics_state: &Arc<ProjectDiagnostics>,
+        project_crate: ProjectCrate,
+        response_sender: &UnboundedSender<DiagnosticsResponse>,
+        version: Option<i32>,
+    ) {
+        let db_clone = Arc::clone(db);
+        let diagnostics_state_clone = Arc::clone(diagnostics_state);
+        let response_sender_clone = response_sender.clone();
+
+        tokio::task::spawn_blocking(move || {
+            Self::compute_project_diagnostics_sync(
+                &db_clone,
+                &diagnostics_state_clone,
+                project_crate,
+                &response_sender_clone,
+                version,
+            );
+        })
+        .await
+        .unwrap_or_else(|e| {
+            error!(
+                "Failed to spawn blocking task for project diagnostics: {:?}",
+                e
+            );
+        });
+    }
+
+    /// Compute diagnostics for an entire project (synchronous version)
+    fn compute_project_diagnostics_sync(
+        db: &Arc<Mutex<AnalysisDatabase>>,
+        diagnostics_state: &Arc<ProjectDiagnostics>,
         project_crate: ProjectCrate,
         response_sender: &UnboundedSender<DiagnosticsResponse>,
         version: Option<i32>,
@@ -432,9 +426,9 @@ impl Drop for DiagnosticsController {
         // Send shutdown signal
         let _ = self.sender.send(DiagnosticsRequest::Shutdown);
 
-        // Wait for thread to finish
+        // Abort the task since we can't await in Drop
         if let Some(handle) = self.handle.take() {
-            let _ = handle.join();
+            handle.abort();
         }
     }
 }

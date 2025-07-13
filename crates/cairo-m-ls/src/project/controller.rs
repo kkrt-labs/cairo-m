@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use std::thread;
 use std::time::{Duration, Instant};
 
-use crossbeam_channel::{Receiver, Sender};
+use tokio::sync::mpsc::UnboundedSender;
+use tokio::task::JoinHandle;
 use tracing::{debug, error, info};
 
 use super::manifest::ProjectManifestPath;
@@ -41,35 +41,72 @@ struct ManifestCacheEntry {
 }
 
 pub struct ProjectController {
-    sender: Sender<ProjectUpdateRequest>,
-    handle: Option<thread::JoinHandle<()>>,
+    sender: UnboundedSender<ProjectUpdateRequest>,
+    handle: Option<JoinHandle<()>>,
 }
 
 impl ProjectController {
-    pub fn new(response_sender: Sender<ProjectUpdate>) -> Self {
-        let (sender, receiver) = crossbeam_channel::unbounded();
+    pub fn new(response_sender: UnboundedSender<ProjectUpdate>) -> Self {
+        let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel();
 
         // Create shared manifest cache
-        let manifest_cache = Arc::new(Mutex::new(HashMap::new()));
+        let manifest_cache: Arc<Mutex<HashMap<PathBuf, ManifestCacheEntry>>> =
+            Arc::new(Mutex::new(HashMap::new()));
 
-        let error_response_sender = response_sender.clone();
-        let handle = thread::Builder::new()
-            .name("project-controller".to_string())
-            .spawn(move || {
-                // Catch panics to log them and notify the client
-                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    Self::worker_thread(receiver, response_sender, manifest_cache);
-                }));
+        let handle = tokio::spawn(async move {
+            info!("ProjectController worker task started");
 
-                if let Err(e) = result {
-                    error!("ProjectController worker thread panicked: {:?}", e);
+            // Cache expiration time (5 minutes)
+            const CACHE_EXPIRY: Duration = Duration::from_secs(300);
 
-                    // Send an error response to notify the main thread
-                    let error_msg = format!("ProjectController thread panicked: {:?}", e);
-                    let _ = error_response_sender.send(ProjectUpdate::ThreadError(error_msg));
+            // Counter for periodic cleanup
+            let mut request_count = 0u32;
+
+            while let Some(request) = receiver.recv().await {
+                request_count += 1;
+
+                // Periodic cache cleanup every 10 requests
+                if request_count % 10 == 0 {
+                    let mut cache = manifest_cache.lock().unwrap();
+                    let before_size = cache.len();
+                    cache.retain(|_, entry| entry.last_accessed.elapsed() < CACHE_EXPIRY);
+                    let after_size = cache.len();
+                    if before_size > after_size {
+                        debug!(
+                            "Periodic cache cleanup: removed {} stale entries",
+                            before_size - after_size
+                        );
+                    }
                 }
-            })
-            .expect("Failed to spawn ProjectController thread");
+
+                // Process the request on the blocking thread pool since it involves file I/O
+                let response_sender_clone = response_sender.clone();
+                let manifest_cache_clone = Arc::clone(&manifest_cache);
+                tokio::task::spawn_blocking(move || {
+                    Self::process_request(request, response_sender_clone, manifest_cache_clone);
+                })
+                .await
+                .unwrap_or_else(|e| {
+                    error!(
+                        "Failed to spawn blocking task for project controller: {:?}",
+                        e
+                    );
+                    let error_msg = format!("ProjectController task failed: {:?}", e);
+                    let _ = response_sender.send(ProjectUpdate::ThreadError(error_msg));
+                });
+            }
+
+            // Clean up expired cache entries on shutdown
+            if let Ok(mut cache) = manifest_cache.lock() {
+                cache.retain(|_, entry| entry.last_accessed.elapsed() < CACHE_EXPIRY);
+                debug!(
+                    "Cleaned up manifest cache, {} entries remaining",
+                    cache.len()
+                );
+            }
+
+            info!("ProjectController worker task shutting down");
+        });
 
         Self {
             sender,
@@ -80,138 +117,101 @@ impl ProjectController {
     pub fn update(
         &self,
         request: ProjectUpdateRequest,
-    ) -> Result<(), crossbeam_channel::SendError<ProjectUpdateRequest>> {
+    ) -> Result<(), tokio::sync::mpsc::error::SendError<ProjectUpdateRequest>> {
         self.sender.send(request)
     }
 
-    fn worker_thread(
-        receiver: Receiver<ProjectUpdateRequest>,
-        response_sender: Sender<ProjectUpdate>,
+    fn process_request(
+        request: ProjectUpdateRequest,
+        response_sender: UnboundedSender<ProjectUpdate>,
         manifest_cache: Arc<Mutex<HashMap<PathBuf, ManifestCacheEntry>>>,
     ) {
-        info!("ProjectController worker thread started");
+        match request {
+            ProjectUpdateRequest::UpdateForFile { file_path } => {
+                info!(
+                    "Processing project update request for: {}",
+                    file_path.display()
+                );
 
-        // Cache expiration time (5 minutes)
-        const CACHE_EXPIRY: Duration = Duration::from_secs(300);
+                match ProjectManifestPath::discover(&file_path) {
+                    Some(manifest) => {
+                        info!("Found project manifest: {:?}", manifest);
 
-        // Counter for periodic cleanup
-        let mut request_count = 0u32;
-
-        for request in receiver {
-            request_count += 1;
-
-            // Periodic cache cleanup every 10 requests
-            if request_count % 10 == 0 {
-                let mut cache = manifest_cache.lock().unwrap();
-                let before_size = cache.len();
-                cache.retain(|_, entry| entry.last_accessed.elapsed() < CACHE_EXPIRY);
-                let after_size = cache.len();
-                if before_size > after_size {
-                    debug!(
-                        "Periodic cache cleanup: removed {} stale entries",
-                        before_size - after_size
-                    );
-                }
-            }
-            match request {
-                ProjectUpdateRequest::UpdateForFile { file_path } => {
-                    info!(
-                        "Processing project update request for: {}",
-                        file_path.display()
-                    );
-
-                    match ProjectManifestPath::discover(&file_path) {
-                        Some(manifest) => {
-                            info!("Found project manifest: {:?}", manifest);
-
-                            // Check cache first
-                            let manifest_path = manifest.path().to_path_buf();
-                            let cache_hit = {
-                                let cache = manifest_cache.lock().unwrap();
-                                cache.get(&manifest_path).and_then(|entry| {
-                                    if entry.last_accessed.elapsed() < CACHE_EXPIRY {
-                                        debug!("Cache hit for manifest: {:?}", manifest_path);
-                                        Some(entry.clone())
-                                    } else {
-                                        debug!("Cache expired for manifest: {:?}", manifest_path);
-                                        None
-                                    }
-                                })
-                            };
-
-                            let result = match cache_hit {
-                                Some(entry) => {
-                                    // Update last accessed time
-                                    let mut cache = manifest_cache.lock().unwrap();
-                                    if let Some(cached_entry) = cache.get_mut(&manifest_path) {
-                                        cached_entry.last_accessed = Instant::now();
-                                    }
-                                    // Use cached file list
-                                    Ok((entry.crate_info, entry.files))
+                        // Check cache first
+                        let manifest_path = manifest.path().to_path_buf();
+                        const CACHE_EXPIRY: Duration = Duration::from_secs(300);
+                        let cache_hit = {
+                            let cache = manifest_cache.lock().unwrap();
+                            cache.get(&manifest_path).and_then(|entry| {
+                                if entry.last_accessed.elapsed() < CACHE_EXPIRY {
+                                    debug!("Cache hit for manifest: {:?}", manifest_path);
+                                    Some(entry.clone())
+                                } else {
+                                    debug!("Cache expired for manifest: {:?}", manifest_path);
+                                    None
                                 }
-                                None => {
-                                    // Load project and update cache
-                                    match Self::load_project(manifest) {
-                                        Ok((crate_info, files)) => {
-                                            let mut cache = manifest_cache.lock().unwrap();
-                                            cache.insert(
-                                                manifest_path.clone(),
-                                                ManifestCacheEntry {
-                                                    crate_info: crate_info.clone(),
-                                                    files: files.clone(),
-                                                    last_accessed: Instant::now(),
-                                                },
-                                            );
-                                            debug!("Cached manifest: {:?}", manifest_path);
-                                            Ok((crate_info, files))
-                                        }
-                                        Err(e) => Err(e),
-                                    }
-                                }
-                            };
+                            })
+                        };
 
-                            match result {
-                                Ok((crate_info, files)) => {
-                                    if let Err(e) = response_sender
-                                        .send(ProjectUpdate::Project { crate_info, files })
-                                    {
-                                        error!("Failed to send project update: {}", e);
-                                    }
+                        let result = match cache_hit {
+                            Some(entry) => {
+                                // Update last accessed time
+                                let mut cache = manifest_cache.lock().unwrap();
+                                if let Some(cached_entry) = cache.get_mut(&manifest_path) {
+                                    cached_entry.last_accessed = Instant::now();
                                 }
-                                Err(e) => {
-                                    error!("Failed to load project: {}", e);
-                                    // Treat as standalone on error
-                                    if let Err(e) =
-                                        response_sender.send(ProjectUpdate::Standalone(file_path))
-                                    {
-                                        error!("Failed to send standalone update: {}", e);
+                                // Use cached file list
+                                Ok((entry.crate_info, entry.files))
+                            }
+                            None => {
+                                // Load project and update cache
+                                match Self::load_project(manifest) {
+                                    Ok((crate_info, files)) => {
+                                        let mut cache = manifest_cache.lock().unwrap();
+                                        cache.insert(
+                                            manifest_path.clone(),
+                                            ManifestCacheEntry {
+                                                crate_info: crate_info.clone(),
+                                                files: files.clone(),
+                                                last_accessed: Instant::now(),
+                                            },
+                                        );
+                                        debug!("Cached manifest: {:?}", manifest_path);
+                                        Ok((crate_info, files))
                                     }
+                                    Err(e) => Err(e),
+                                }
+                            }
+                        };
+
+                        match result {
+                            Ok((crate_info, files)) => {
+                                if let Err(e) = response_sender
+                                    .send(ProjectUpdate::Project { crate_info, files })
+                                {
+                                    error!("Failed to send project update: {}", e);
+                                }
+                            }
+                            Err(e) => {
+                                error!("Failed to load project: {}", e);
+                                // Treat as standalone on error
+                                if let Err(e) =
+                                    response_sender.send(ProjectUpdate::Standalone(file_path))
+                                {
+                                    error!("Failed to send standalone update: {}", e);
                                 }
                             }
                         }
-                        None => {
-                            info!("No project manifest found, treating as standalone file");
-                            if let Err(e) =
-                                response_sender.send(ProjectUpdate::Standalone(file_path))
-                            {
-                                error!("Failed to send standalone update: {}", e);
-                            }
+                    }
+                    None => {
+                        info!("No project manifest found, treating as standalone file");
+                        if let Err(e) = response_sender.send(ProjectUpdate::Standalone(file_path)) {
+                            error!("Failed to send standalone update: {}", e);
                         }
                     }
                 }
             }
         }
-
-        // Clean up expired cache entries on shutdown
-        if let Ok(mut cache) = manifest_cache.lock() {
-            cache.retain(|_, entry| entry.last_accessed.elapsed() < CACHE_EXPIRY);
-            debug!(
-                "Cleaned up manifest cache, {} entries remaining",
-                cache.len()
-            );
-        }
-
-        info!("ProjectController worker thread shutting down");
     }
 
     fn load_project(manifest: ProjectManifestPath) -> Result<(CrateInfo, Vec<PathBuf>), String> {
@@ -249,8 +249,8 @@ impl ProjectController {
 impl Drop for ProjectController {
     fn drop(&mut self) {
         if let Some(handle) = self.handle.take() {
-            drop(self.sender.clone()); // Close the channel
-            let _ = handle.join();
+            // Dropping the sender closes the channel, which will cause the task to exit
+            handle.abort();
         }
     }
 }
