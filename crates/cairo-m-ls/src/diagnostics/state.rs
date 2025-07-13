@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::sync::RwLock;
 
+use tokio::sync::RwLock;
 use tower_lsp::lsp_types::{Diagnostic, Url};
 use tracing::debug;
 
@@ -19,10 +19,10 @@ impl ProjectDiagnostics {
     }
 
     /// Set diagnostics for a specific file
-    pub fn set_diagnostics(&self, uri: &Url, diagnostics: Vec<Diagnostic>) {
+    pub async fn set_diagnostics(&self, uri: &Url, diagnostics: Vec<Diagnostic>) {
         debug!("Setting {} diagnostics for {}", diagnostics.len(), uri);
 
-        let mut map = self.diagnostics.write().unwrap();
+        let mut map = self.diagnostics.write().await;
         if diagnostics.is_empty() {
             map.remove(uri);
         } else {
@@ -31,13 +31,13 @@ impl ProjectDiagnostics {
     }
 
     /// Clear diagnostics for all files in a project
-    pub fn clear_for_project(&self, project_files: &[Url]) {
+    pub async fn clear_for_project(&self, project_files: &[Url]) {
         debug!(
             "Clearing diagnostics for {} project files",
             project_files.len()
         );
 
-        let mut map = self.diagnostics.write().unwrap();
+        let mut map = self.diagnostics.write().await;
         for uri in project_files {
             map.remove(uri);
         }

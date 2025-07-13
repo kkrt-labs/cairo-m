@@ -43,6 +43,10 @@ pub struct DiagnosticsController {
 
 impl DiagnosticsController {
     /// Create a new diagnostics controller
+    ///
+    /// Note: This implementation uses delta-based diagnostics tracking via DeltaDiagnosticsTracker
+    /// rather than full recomputation. The delta system leverages Salsa's revision tracking to
+    /// only recompute diagnostics for changed modules, providing significant performance improvements.
     pub fn new(
         db: Arc<Mutex<AnalysisDatabase>>,
         diagnostics_state: Arc<ProjectDiagnostics>,
@@ -146,7 +150,7 @@ impl DiagnosticsController {
                 uri
             );
             // No project found, just clear diagnostics for this file
-            diagnostics_state.set_diagnostics(&uri, vec![]);
+            diagnostics_state.set_diagnostics(&uri, vec![]).await;
 
             let _ = response_sender.send(DiagnosticsResponse {
                 uri,
@@ -198,14 +202,8 @@ impl DiagnosticsController {
         };
 
         // Process the results
-        tokio::task::spawn_blocking(move || {
-            Self::compute_project_diagnostics_delta_sync(
-                diagnostics_state_clone,
-                response_sender_clone,
-                version,
-                result.0,
-                result.1,
-            );
+        let diagnostics_result = tokio::task::spawn_blocking(move || {
+            Self::compute_project_diagnostics_delta_sync(result.0, result.1)
         })
         .await
         .unwrap_or_else(|e| {
@@ -213,38 +211,40 @@ impl DiagnosticsController {
                 "Failed to spawn blocking task for delta diagnostics: {:?}",
                 e
             );
+            Err("Failed to spawn blocking task".to_string())
         });
+
+        // Handle the result and publish diagnostics
+        if let Ok(diagnostics_by_file) = diagnostics_result {
+            Self::publish_diagnostics(
+                diagnostics_by_file,
+                &diagnostics_state_clone,
+                &response_sender_clone,
+                version,
+            )
+            .await;
+        }
     }
 
     /// Process delta diagnostics results (synchronous version)
     fn compute_project_diagnostics_delta_sync(
-        diagnostics_state: Arc<ProjectDiagnostics>,
-        response_sender: UnboundedSender<DiagnosticsResponse>,
-        version: Option<i32>,
         files_with_content: HashMap<PathBuf, String>,
         diagnostics_collection: cairo_m_compiler_diagnostics::DiagnosticCollection,
-    ) {
+    ) -> Result<HashMap<Url, Vec<Diagnostic>>, String> {
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             // Convert delta diagnostics to LSP format
-            let diagnostics_by_file = Self::convert_delta_diagnostics_to_lsp(
-                &files_with_content,
-                &diagnostics_collection,
-            );
-
-            // Update state and send responses
-            Self::publish_diagnostics(
-                diagnostics_by_file,
-                &diagnostics_state,
-                &response_sender,
-                version,
-            );
+            Self::convert_delta_diagnostics_to_lsp(&files_with_content, &diagnostics_collection)
         }));
 
-        if let Err(panic_payload) = result {
-            error!(
-                "Panic in delta diagnostics computation: {:?}",
-                panic_payload
-            );
+        match result {
+            Ok(diagnostics_by_file) => Ok(diagnostics_by_file),
+            Err(panic_payload) => {
+                error!(
+                    "Panic in delta diagnostics computation: {:?}",
+                    panic_payload
+                );
+                Err("Panic in diagnostics computation".to_string())
+            }
         }
     }
 
@@ -322,14 +322,16 @@ impl DiagnosticsController {
     }
 
     /// Publish diagnostics to the client
-    fn publish_diagnostics(
+    async fn publish_diagnostics(
         diagnostics_by_file: HashMap<Url, Vec<Diagnostic>>,
         diagnostics_state: &ProjectDiagnostics,
         response_sender: &UnboundedSender<DiagnosticsResponse>,
         version: Option<i32>,
     ) {
         for (uri, diagnostics) in diagnostics_by_file {
-            diagnostics_state.set_diagnostics(&uri, diagnostics.clone());
+            diagnostics_state
+                .set_diagnostics(&uri, diagnostics.clone())
+                .await;
 
             let _ = response_sender.send(DiagnosticsResponse {
                 uri,

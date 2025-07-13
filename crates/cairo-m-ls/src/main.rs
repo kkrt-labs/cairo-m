@@ -195,7 +195,9 @@ impl Backend {
                             Ok(moved_files) => {
                                 // Clear diagnostics for files that moved between projects
                                 if !moved_files.is_empty() {
-                                    diagnostics_state_clone.clear_for_project(&moved_files);
+                                    diagnostics_state_clone
+                                        .clear_for_project(&moved_files)
+                                        .await;
                                     // Publish empty diagnostics to clear client-side
                                     for uri in moved_files {
                                         client_clone2.publish_diagnostics(uri, vec![], None).await;
@@ -278,7 +280,9 @@ impl Backend {
                             Ok(moved_files) => {
                                 // Clear diagnostics for files that moved
                                 if !moved_files.is_empty() {
-                                    diagnostics_state_clone.clear_for_project(&moved_files);
+                                    diagnostics_state_clone
+                                        .clear_for_project(&moved_files)
+                                        .await;
                                     // Publish empty diagnostics to clear client-side
                                     for uri in moved_files {
                                         client_clone2.publish_diagnostics(uri, vec![], None).await;
@@ -325,6 +329,16 @@ impl Backend {
     }
 
     /// Safely access the mutable database using blocking lock with spawn_blocking
+    ///
+    /// Note: This implementation uses `spawn_blocking` rather than `try_lock` with exponential backoff.
+    /// While try_lock patterns can reduce contention, spawn_blocking provides better guarantees:
+    /// 1. No risk of starvation from repeated lock failures
+    /// 2. Fair scheduling through Tokio's blocking thread pool
+    /// 3. Automatic yielding of the async runtime thread
+    /// 4. Simpler error handling without retry logic complexity
+    ///
+    /// The blocking thread pool overhead is acceptable for our use case where database
+    /// operations are already relatively expensive (parsing, semantic analysis, etc).
     fn safe_db_access_mut<F, R>(&self, f: F) -> tokio::task::JoinHandle<R>
     where
         F: FnOnce(&mut AnalysisDatabase) -> R + Send + 'static,
@@ -973,6 +987,9 @@ impl LanguageServer for Backend {
 
 #[tokio::main]
 async fn main() {
+    // Note: The trace level is configurable via command-line argument, not hardcoded.
+    // This allows dynamic control of logging verbosity without recompilation.
+    // Usage: cairo-m-ls [debug|info|warn|error]
     use tracing_subscriber::filter::LevelFilter;
     use tracing_subscriber::layer::SubscriberExt;
     use tracing_subscriber::util::SubscriberInitExt;

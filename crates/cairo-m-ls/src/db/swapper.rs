@@ -9,6 +9,7 @@ use tracing::{debug, info};
 
 use crate::db::AnalysisDatabase;
 use crate::project::ProjectModel;
+use crate::project::model::Crate;
 
 /// Periodically swaps the analysis database to prevent unbounded memory growth.
 ///
@@ -95,6 +96,7 @@ impl AnalysisDatabaseSwapper {
         // This part is computationally expensive but doesn't block the language server.
         let new_db = AnalysisDatabase::new();
         let mut new_project_crate_ids = std::collections::HashMap::new();
+        let mut new_crates = std::collections::HashMap::new();
 
         for krate in all_crates {
             let mut new_files_in_crate = std::collections::HashMap::new();
@@ -123,15 +125,25 @@ impl AnalysisDatabaseSwapper {
                 &new_db,
                 krate.info.root.clone(),
                 main_module_name,
-                new_files_in_crate,
+                new_files_in_crate.clone(),
             );
             new_project_crate_ids.insert(krate.info.root.clone(), new_project_crate);
+
+            // Create new Crate object with fresh SourceFile IDs
+            let new_crate = Crate {
+                info: krate.info.clone(),
+                main_file: krate.main_file.clone(),
+                files: new_files_in_crate,
+            };
+            new_crates.insert(krate.info.root.clone(), new_crate);
         }
 
         // Step 4: Update the project model first (async call)
+        // CRITICAL: Must update both project_crate_ids AND crates to avoid stale Salsa IDs
         project_model
             .replace_project_crate_ids(new_project_crate_ids)
             .await;
+        project_model.replace_crates(new_crates).await;
 
         // Step 5: Perform the atomic database swap.
         // We acquire the DB lock and swap the database.

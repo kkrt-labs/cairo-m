@@ -198,6 +198,13 @@ impl ProjectModel {
         *project_crate_ids = new_ids;
     }
 
+    /// Replaces the stored Crate objects with new ones containing fresh SourceFile IDs.
+    /// This MUST be called after a database swap to avoid stale Salsa ID panics.
+    pub async fn replace_crates(&self, new_crates: HashMap<PathBuf, Crate>) {
+        let mut crates = self.crates.write().await;
+        *crates = new_crates;
+    }
+
     fn find_main_file(
         &self,
         crate_info: &CrateInfo,
