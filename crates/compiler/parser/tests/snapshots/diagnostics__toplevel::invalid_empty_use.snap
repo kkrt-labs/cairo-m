@@ -1,0 +1,14 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+use ;
+--- Diagnostics ---
+[02] Error: found ';' expected identifier
+   ╭─[ test.cairo:1:5 ]
+   │
+ 1 │ use ;
+   │     ┬  
+   │     ╰── found ';' expected identifier
+───╯

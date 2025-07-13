@@ -7,6 +7,7 @@ mod lsp_tracing;
 mod project;
 mod utils;
 
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -43,6 +44,8 @@ struct Backend {
     client: Client,
     db: Arc<Mutex<AnalysisDatabase>>,
     source_files: Arc<DashMap<Url, SourceFile>>,
+    /// Reverse lookup map from file path to URI for O(1) access
+    path_to_uri: Arc<DashMap<PathBuf, Url>>,
     /// Project controller for background project management
     project_controller: Option<ProjectController>,
     /// Central project model
@@ -128,6 +131,8 @@ impl Backend {
         let project_model_clone = Arc::clone(&project_model);
         let db_clone = Arc::clone(&db);
         let source_files_clone = Arc::clone(&source_files);
+        let path_to_uri = Arc::new(DashMap::new());
+        let path_to_uri_clone = Arc::clone(&path_to_uri);
         let diagnostics_state_clone = Arc::clone(&diagnostics_state);
         let diagnostics_sender_clone = diagnostics_controller.sender.clone();
 
@@ -148,6 +153,7 @@ impl Backend {
                         let project_model_clone_for_task = Arc::clone(&project_model_clone);
                         let db_clone_for_task = Arc::clone(&db_clone);
                         let source_files_clone_for_task = Arc::clone(&source_files_clone);
+                        let path_to_uri_clone_for_task = Arc::clone(&path_to_uri_clone);
                         let load_result = tokio::task::spawn_blocking(move || {
                             match db_clone_for_task.lock() {
                                 Ok(mut db) => {
@@ -173,6 +179,8 @@ impl Backend {
                                                     );
                                                 source_files_clone_for_task
                                                     .insert(uri.clone(), source_file);
+                                                path_to_uri_clone_for_task
+                                                    .insert(path, uri.clone());
                                                 Some(source_file)
                                             }
                                         },
@@ -234,6 +242,7 @@ impl Backend {
                         let project_model_clone_for_task = Arc::clone(&project_model_clone);
                         let db_clone_for_task = Arc::clone(&db_clone);
                         let source_files_clone_for_task = Arc::clone(&source_files_clone);
+                        let path_to_uri_clone_for_task = Arc::clone(&path_to_uri_clone);
                         let load_result = tokio::task::spawn_blocking(move || {
                             match db_clone_for_task.lock() {
                                 Ok(mut db) => {
@@ -258,6 +267,8 @@ impl Backend {
                                                     );
                                                 source_files_clone_for_task
                                                     .insert(uri.clone(), source_file);
+                                                path_to_uri_clone_for_task
+                                                    .insert(path, uri.clone());
                                                 Some(source_file)
                                             }
                                         },
@@ -319,6 +330,7 @@ impl Backend {
             client,
             db,
             source_files,
+            path_to_uri,
             project_controller: Some(project_controller),
             project_model,
             diagnostics_controller: Some(diagnostics_controller),
@@ -579,6 +591,9 @@ impl LanguageServer for Backend {
         };
 
         self.source_files.insert(uri.clone(), source);
+
+        // Update reverse lookup map
+        self.path_to_uri.insert(path.clone(), uri.clone());
 
         // Request project update from the controller
         if let Some(controller) = &self.project_controller {

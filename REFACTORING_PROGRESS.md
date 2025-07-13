@@ -1411,6 +1411,101 @@ The language server now features:
 The Cairo-M Language Server is now **production-ready** with comprehensive error
 handling, reliable diagnostics, and robust operation under all conditions.
 
+## 24. ✅ Code Review Issues - Critical Improvements
+
+**Completed**: Addressed 3 critical issues identified in expert code review to
+improve production stability.
+
+### Issues Resolved
+
+#### 1. ✅ Fixed AnalysisDatabaseSwapper Stale Salsa IDs
+
+**Problem**: After database swap, using stale Salsa IDs from old database caused
+panics with "no value set for SourceFile" errors.
+
+**Root Cause**: The swapper only updated `project_crate_ids` but the
+`ProjectModel.crates` still held references to old SourceFile entities.
+
+**Solution**:
+
+- Added `replace_crates()` method to ProjectModel for updating Crate objects
+- Modified `perform_swap()` to create new Crate objects with fresh SourceFile
+  IDs
+- Both `project_crate_ids` AND `crates` are now updated atomically
+
+**Code Changes**:
+
+```rust
+// In swapper.rs
+let new_crate = Crate {
+    info: krate.info.clone(),
+    main_file: krate.main_file.clone(),
+    files: new_files_in_crate, // Fresh SourceFile IDs
+};
+new_crates.insert(krate.info.root.clone(), new_crate);
+
+// Update both maps
+project_model.replace_project_crate_ids(new_project_crate_ids).await;
+project_model.replace_crates(new_crates).await;
+```
+
+**Impact**: Eliminates Salsa panics after database swaps, ensuring stable
+long-running operation.
+
+#### 2. ✅ Replaced Blocking RwLock with Async RwLock
+
+**Problem**: `ProjectDiagnostics` used `std::sync::RwLock` in async context,
+potentially blocking tokio runtime threads.
+
+**Solution**:
+
+- Converted to `tokio::sync::RwLock` throughout ProjectDiagnostics
+- Made `set_diagnostics()` and `clear_for_project()` async methods
+- Updated all callers to use `.await` properly
+
+**Code Changes**:
+
+```rust
+// Before
+diagnostics: RwLock<HashMap<Url, Vec<Diagnostic>>>,
+
+// After
+diagnostics: tokio::sync::RwLock<HashMap<Url, Vec<Diagnostic>>>,
+
+pub async fn set_diagnostics(&self, uri: &Url, diagnostics: Vec<Diagnostic>) {
+    let mut map = self.diagnostics.write().await;
+    // ...
+}
+```
+
+**Impact**: Prevents blocking async runtime, better concurrency under load.
+
+#### 3. ✅ Added Documentation for Implementation Decisions
+
+**Problem**: Code/journal mismatches needed documentation to explain
+implementation choices.
+
+**Solution**: Added comprehensive inline documentation explaining:
+
+- Why `spawn_blocking` is used instead of `try_lock` with backoff in
+  `safe_db_access_mut`
+- Delta diagnostics implementation using DeltaDiagnosticsTracker
+- Configurable trace levels via command-line arguments
+
+**Key Documentation Added**:
+
+```rust
+/// Note: This implementation uses `spawn_blocking` rather than `try_lock` with exponential backoff.
+/// While try_lock patterns can reduce contention, spawn_blocking provides better guarantees:
+/// 1. No risk of starvation from repeated lock failures
+/// 2. Fair scheduling through Tokio's blocking thread pool
+/// 3. Automatic yielding of the async runtime thread
+/// 4. Simpler error handling without retry logic complexity
+```
+
+**Impact**: Better code maintainability and understanding of architectural
+decisions.
+
 ## 12. ✅ Implemented Debouncing for didChange Notifications
 
 **Problem**:

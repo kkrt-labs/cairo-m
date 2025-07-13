@@ -133,6 +133,11 @@ fn invalid_use_no_semicolon() {
     assert_parses_err!("use std::math::add");
 }
 
+#[test]
+fn invalid_empty_use() {
+    assert_parses_err!("use ;");
+}
+
 // ===================
 // Constants
 // ===================

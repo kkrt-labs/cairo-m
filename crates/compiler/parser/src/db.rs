@@ -33,8 +33,11 @@ pub struct SourceFile {
     pub file_path: String,
 }
 
+/// Represents raw discovered files from the filesystem.
+/// This is a parser-level input representing what files were found,
+/// not yet organized into a semantic module structure.
 #[salsa::input(debug)]
-pub struct Crate {
+pub struct DiscoveredCrate {
     #[returns(ref)]
     pub root_dir: String,
     #[returns(ref)]
@@ -49,7 +52,7 @@ pub struct ParsedCrate {
 }
 
 #[salsa::tracked]
-pub fn parse_crate(db: &dyn Db, cairo_m_crate: Crate) -> ParsedCrate {
+pub fn parse_crate(db: &dyn Db, cairo_m_crate: DiscoveredCrate) -> ParsedCrate {
     let mut modules = std::collections::HashMap::new();
     let mut diagnostics = Vec::new();
 
@@ -68,7 +71,10 @@ pub fn parse_crate(db: &dyn Db, cairo_m_crate: Crate) -> ParsedCrate {
 
 /// Project-level parser validation that returns diagnostics in the same format as semantic validation
 #[salsa::tracked]
-pub fn project_validate_parser(db: &dyn Db, cairo_m_crate: Crate) -> DiagnosticCollection {
+pub fn project_validate_parser(
+    db: &dyn Db,
+    cairo_m_crate: DiscoveredCrate,
+) -> DiagnosticCollection {
     let parsed_crate = parse_crate(db, cairo_m_crate);
     DiagnosticCollection::new(parsed_crate.diagnostics)
 }

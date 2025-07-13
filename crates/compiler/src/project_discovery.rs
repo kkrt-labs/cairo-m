@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use cairo_m_compiler_parser::{Crate, SourceFile};
+use cairo_m_compiler_parser::{DiscoveredCrate, SourceFile};
 use walkdir::WalkDir;
 
 /// Configuration for project discovery
@@ -113,11 +113,11 @@ pub fn discover_project_files(
     })
 }
 
-/// Create a Crate from discovered project files
+/// Create a DiscoveredCrate from discovered project files
 pub fn create_crate_from_discovery(
     db: &dyn cairo_m_compiler_parser::Db,
     discovered: &DiscoveredProject,
-) -> Result<Crate, std::io::Error> {
+) -> Result<DiscoveredCrate, std::io::Error> {
     let mut source_files = Vec::new();
 
     for file_path in &discovered.files {
@@ -134,7 +134,7 @@ pub fn create_crate_from_discovery(
         .unwrap_or("main.cm")
         .to_string();
 
-    Ok(Crate::new(
+    Ok(DiscoveredCrate::new(
         db,
         discovered.root.display().to_string(),
         entry_file,
@@ -142,10 +142,10 @@ pub fn create_crate_from_discovery(
     ))
 }
 
-/// Create a semantic Project from a Crate
+/// Create a semantic Project from a DiscoveredCrate
 pub fn create_project_from_crate(
     db: &dyn cairo_m_compiler_semantic::SemanticDb,
-    crate_data: Crate,
+    crate_data: DiscoveredCrate,
 ) -> cairo_m_compiler_semantic::Crate {
     let mut modules = HashMap::new();
 

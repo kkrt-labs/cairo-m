@@ -35,6 +35,7 @@ flow of client requests, and the modular architecture.
 - `salsa`: Incremental computation framework integrated into the compiler DB.
 - `tracing`: Logging with LSP forwarding.
 - `notify`: File system watching for manifest changes.
+- `dashmap`: For concurrent maps like debounce timers.
 - Cairo-M compiler crates: For parsing, semantics, MIR, and codegen.
 
 ## Asynchronous Programming with Tokio
@@ -64,7 +65,7 @@ manage this concurrency without blocking threads.
   - Diagnostics responses are published back to the client via channels.
 - **Debouncing**: For frequent events like `did_change`, Tokio timers
   (`tokio::time::sleep`) debounce requests to avoid recomputing diagnostics on
-  every keystroke.
+  every keystroke. Per-file timers are managed with DashMap.
 - **File Watching**: `notify` integrated with Tokio watches for changes in
   project manifests (e.g., `cairom.toml`), triggering reloads asynchronously.
 - **Mutexes for Shared State**: Shared resources like the analysis database use
@@ -113,7 +114,7 @@ The crate is organized into modules for separation of concerns:
 - Client requests (e.g., `did_open`) trigger project discovery and loading.
 - Changes (`did_change`) update source files in Salsa inputs, invalidating
   dependent queries.
-- Diagnostics are computed asynchronously and published back.
+- Diagnostics are computed asynchronously using delta tracking and published back.
 - Semantic features (hover, goto) query the DB synchronously but leverage cached
   results.
 
@@ -162,7 +163,7 @@ sequenceDiagram
     Backend->>ProjectController: Send UpdateForFile(path)
     ProjectController->>ProjectModel: Load crate/standalone (async)
     ProjectModel->>DB: Apply to DB (mutex lock in spawn_blocking)
-    ProjectController-->>Backend: (via channel) ProjectUpdate
+    ProjectController-->>Backend: (via async channel) ProjectUpdate
     Backend->>DiagnosticsController: Request ProjectChanged
     DiagnosticsController->>DB: Compute diagnostics (delta, mutex lock)
     DiagnosticsController-->>Client: publish_diagnostics
@@ -180,7 +181,7 @@ sequenceDiagram
 
     Client->>Backend: did_change(uri, new_content)
     Backend->>DB: Update SourceFile text (mutex lock)
-    Backend->>DebounceTimer: Cancel existing, spawn new sleep(300ms)
+    Backend->>DebounceTimer: Cancel existing, spawn new sleep(300ms) with tokio
     DebounceTimer-->>DiagnosticsController: After delay, send FileChanged
     DiagnosticsController->>DB: Compute delta diagnostics (mutex lock)
     DiagnosticsController-->>Client: publish_diagnostics
@@ -218,7 +219,7 @@ sequenceDiagram
 - **Traits**: Implements `Upcast` for parser/semantic phases.
 - **Extensions**: `ProjectCrateExt` for converting to semantic crates.
 - **Design Notes**: Uses Salsa inputs for incremental updates. Swapper snapshots
-  state to avoid blocking.
+  state to avoid blocking, with atomic swaps for consistency.
 
 ### 2. **diagnostics (Diagnostics Computation)**
 
@@ -234,7 +235,7 @@ sequenceDiagram
     `DeltaDiagnosticsTracker`.
   - `convert_cairo_diagnostic`: Maps Cairo diagnostics to LSP format.
 - **Design Notes**: Uses delta tracking for efficiency. Spawn_blocking for
-  CPU-heavy parts. Publishes via channel.
+  CPU-heavy parts. Publishes via async channel. Methods are async where appropriate.
 
 ### 3. **project (Project Management)**
 
@@ -249,8 +250,8 @@ sequenceDiagram
 - **Key Functions**:
   - `load_crate`/`load_standalone`: Loads into model and DB.
   - `discover`: Finds manifests by walking directories.
-- **Design Notes**: Caching for manifests (5min expiry). File watching triggers
-  reloads. Handles moved files for diagnostics clearing.
+- **Design Notes**: Caching for manifests (5min expiry) with periodic cleanup. File watching triggers
+  reloads. Handles moved files for diagnostics clearing. Methods are async.
 
 ### 4. **lsp_tracing (Logging Integration)**
 
@@ -270,7 +271,7 @@ sequenceDiagram
   - `hover`: Formats types on hover.
   - `completion`: Suggests keywords and symbols.
 - **Design Notes**: Uses `safe_db_access_mut` with spawn_blocking for DB
-  mutations. Dedicated tasks for monitoring channels.
+  mutations. Dedicated async tasks for monitoring channels. Debouncing with per-file timers.
 
 ### 6. **utils (Helpers)**
 
@@ -283,12 +284,14 @@ sequenceDiagram
 - **Concurrency**: Channels and tasks prevent blocking.
 - **Memory**: DB swapper clears Salsa accumulations.
 - **Caching**: Project manifests cached with expiry.
+- **Debouncing**: Reduces diagnostics computation frequency on rapid changes.
+- **Delta Diagnostics**: Only processes changed modules via DeltaDiagnosticsTracker.
 
 ## Potential Improvements
 
 - **Error Recovery**: Better handling of partial analysis.
 - **More Features**: Rename, references, formatting.
-- **Testing**: End-to-end LSP tests.
-- **Config**: More client-configurable options (e.g., debounce time).
+- **Testing**: End-to-end LSP tests (partial implementation in progress).
+- **Config**: More client-configurable options (e.g., debounce time implemented via initialization params).
 
 This document will be updated as the crate evolves.

@@ -104,6 +104,9 @@ pub fn project_validate_semantics(db: &dyn SemanticDb, crate_id: Crate) -> Diagn
     }
 }
 
+/// Represents a semantically structured project with named modules.
+/// This is the semantic-level view where files are organized as modules
+/// with proper names and relationships established.
 #[salsa::input(debug)]
 pub struct Crate {
     #[return_ref]

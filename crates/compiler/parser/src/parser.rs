@@ -1057,13 +1057,19 @@ where
     let module_path = spanned_ident
         .clone()
         .separated_by(just(TokenType::ColonColon))
+        .at_least(1) // Ensure at least one segment
         .collect::<Vec<_>>();
 
     // Single item: use path::to::module::item;
     let single = module_path
         .clone()
         .map(|mut path| {
-            let item = path.pop().expect("Path must have at least one segment");
+            // Safe unwrap: at_least(1) ensures path has at least one segment
+            // But we use safe pattern matching for robustness
+            let item = path.pop().unwrap_or_else(|| {
+                // This should never happen due to at_least(1) constraint
+                Spanned(String::from(""), SimpleSpan::new((), 0..0))
+            });
             UseStmt {
                 path,
                 items: UseItems::Single(item),

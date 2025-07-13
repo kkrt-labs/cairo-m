@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use cairo_m_common::Program;
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticSeverity, build_diagnostic_message};
-use cairo_m_compiler_parser::{Crate, SourceFile, parse_crate, parse_file};
+use cairo_m_compiler_parser::{DiscoveredCrate, SourceFile, parse_crate, parse_file};
 use cairo_m_compiler_semantic::Crate as SemanticCrate;
 use cairo_m_compiler_semantic::db::project_validate_semantics;
 use db::CompilerDatabase;
@@ -117,7 +117,7 @@ pub fn compile_from_file(
 /// This compiles all files in the project and handles multi-file dependencies.
 pub fn compile_from_crate(
     db: &CompilerDatabase,
-    crate_data: Crate,
+    crate_data: DiscoveredCrate,
     _options: CompilerOptions,
 ) -> Result<CompilerOutput> {
     let parsed_crate = parse_crate(db, crate_data);
