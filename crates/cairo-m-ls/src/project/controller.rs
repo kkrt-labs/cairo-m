@@ -230,7 +230,6 @@ impl ProjectController {
                 let crate_info = CrateInfo {
                     name,
                     root: project_root.to_path_buf(),
-                    manifest_path: manifest_path.clone(),
                 };
 
                 // Discover project files

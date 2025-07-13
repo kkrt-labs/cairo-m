@@ -45,13 +45,6 @@ impl ProjectManifestPath {
         }
     }
 
-    /// Get the project root directory
-    pub fn project_root(&self) -> Option<&Path> {
-        match self {
-            Self::CairoM(path) => path.parent(),
-        }
-    }
-
     /// Get the manifest file path
     pub fn path(&self) -> &Path {
         match self {

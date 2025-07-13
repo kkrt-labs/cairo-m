@@ -82,47 +82,11 @@ impl Upcast<dyn SemanticDb> for AnalysisDatabase {
 /// Trait for converting ProjectCrate to the various crate representations
 /// used by different compiler phases.
 pub trait ProjectCrateExt {
-    /// Convert to a parser::Crate for the parsing phase.
-    fn to_parser_crate(&self, db: &dyn ParserDb) -> cairo_m_compiler_parser::Crate;
-
     /// Convert to a semantic::Crate for semantic analysis.
     fn to_semantic_crate(&self, db: &dyn SemanticDb) -> cairo_m_compiler_semantic::Crate;
 }
 
 impl ProjectCrateExt for ProjectCrate {
-    fn to_parser_crate(&self, db: &dyn ParserDb) -> cairo_m_compiler_parser::Crate {
-        // Access fields via getter methods
-        let files = self.files(db);
-        let root_dir = self.root_dir(db);
-        let main_module = self.main_module(db);
-
-        // Find the entry file path
-        let entry_file = files
-            .keys()
-            .find(|path| {
-                path.file_stem()
-                    .and_then(|s| s.to_str())
-                    .map(|s| s == main_module)
-                    .unwrap_or(false)
-            })
-            .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_else(|| {
-                // If no matching file found, use the first file or error
-                files
-                    .keys()
-                    .next()
-                    .map(|p| p.to_string_lossy().to_string())
-                    .unwrap_or_else(|| format!("{}.cm", main_module))
-            });
-
-        cairo_m_compiler_parser::Crate::new(
-            db,
-            root_dir.to_string_lossy().to_string(),
-            entry_file,
-            files.values().cloned().collect(),
-        )
-    }
-
     fn to_semantic_crate(&self, db: &dyn SemanticDb) -> cairo_m_compiler_semantic::Crate {
         let files = self.files(db);
         let main_module = self.main_module(db);

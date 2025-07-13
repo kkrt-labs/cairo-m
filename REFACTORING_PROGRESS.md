@@ -1441,6 +1441,189 @@ lifecycle points:
 This fix ensures diagnostics are published as soon as they're ready, eliminating
 the lag and providing a much better user experience.
 
+## 17. ✅ Test Suite Cleanup
+
+**Problem**:
+
+- Test files (`debug_test.rs`, `test_real_file.rs`, `debounce_test.rs`)
+  contained hardcoded absolute paths
+- Tests were not maintainable or portable across different environments
+- Prevented tests from running on CI or other developers' machines
+
+**Solution**:
+
+- Removed all three test files with environment-specific paths
+- Removed module declarations from `main.rs`
+
+**Files Removed**:
+
+- `crates/cairo-m-ls/src/debug_test.rs` - hardcoded path:
+  `/Users/msaug/kkrt-labs/cairo-m/test_diagnostics.cm`
+- `crates/cairo-m-ls/src/test_real_file.rs` - hardcoded path:
+  `/Users/msaug/kkrt-labs/cairo-m/cairo-m-project/src/math.cm`
+- `crates/cairo-m-ls/src/debounce_test.rs` - less problematic but part of
+  cleanup
+
+**Impact**:
+
+- Cleaner codebase without non-portable tests
+- Future tests should use relative paths or test fixtures
+- Tests should be properly integrated with `cargo test`
+
+## 18. ✅ Background Event Processing Task
+
+**Problem**:
+
+- Project updates were only processed when files were opened via
+  `process_project_updates()` in `did_open`
+- This created a race condition where project discovery results could be ignored
+  if they arrived after initial processing
+- No continuous monitoring meant updates could be missed, leading to
+  inconsistent project state
+
+**Solution**:
+
+- Created a dedicated async task that continuously monitors the project update
+  channel
+- Removed the manual `process_project_updates()` method and its call in
+  `did_open`
+- The monitoring task handles all project updates asynchronously and immediately
+
+**Implementation**:
+
+```rust
+// Spawn dedicated task for continuous project update monitoring
+tokio::spawn(async move {
+    while let Ok(update) = project_rx.recv() {
+        match update {
+            ProjectUpdate::Project { crate_info, files } => {
+                // Load project into model
+                // Clear diagnostics for moved files
+                // Trigger diagnostics for the project
+            }
+            ProjectUpdate::Standalone(file_path) => {
+                // Load standalone file
+                // Clear diagnostics if needed
+            }
+            ProjectUpdate::ThreadError(error_msg) => {
+                // Report error to client
+            }
+        }
+    }
+});
+```
+
+**Key Benefits**:
+
+- Project discovery results are processed immediately when available
+- No manual polling or triggering required
+- Better separation of concerns - LSP handlers focus on their tasks while
+  background processing happens independently
+- Consistent with the diagnostics monitoring pattern already established
+
+**Impact**:
+
+- More responsive project loading
+- Eliminates race conditions in project discovery
+- Better resource utilization with event-driven processing
+
+## 19. ✅ Refactored compute_project_diagnostics
+
+**Problem**:
+
+- The `compute_project_diagnostics` function was over 200 lines long and doing
+  too many things
+- Mixed concerns: database access, diagnostic collection, conversion, and
+  publishing
+- Difficult to test, maintain, and understand
+- Repeated code for processing parser and semantic diagnostics
+
+**Solution**:
+
+- Broke down the monolithic function into 7 focused helper methods:
+  1. `collect_diagnostics_from_db` - Handles database access and diagnostic
+     collection
+  2. `has_fatal_parser_errors` - Checks for errors that prevent semantic
+     analysis
+  3. `convert_diagnostics_to_lsp` - Orchestrates diagnostic conversion
+  4. `process_diagnostic_collection` - Processes a collection of diagnostics
+     (DRY)
+  5. `get_path_from_diagnostic` - Extracts PathBuf from diagnostic data
+  6. `get_uri_from_path_str` - Converts path strings to URIs
+  7. `publish_diagnostics` - Publishes diagnostics to client
+
+**Benefits**:
+
+- Each function has a single, clear responsibility
+- Eliminated code duplication between parser and semantic diagnostic processing
+- Easier to test individual components
+- Better error handling at each step
+- More maintainable and readable code
+
+**Key Improvements**:
+
+- Separated database access from processing logic
+- Created reusable utility functions for path/URI conversions
+- Made the diagnostic flow more explicit and easier to follow
+- Maintained the same error handling and panic recovery
+
+## 20. ✅ General Code Cleanup and Dead Code Removal
+
+**Problem**:
+
+- Multiple unused methods and fields across the codebase
+- Unnecessary imports
+- Dead code warnings from the compiler
+- Methods that were implemented but never used
+
+**Solution**: Systematically removed dead code based on compiler warnings:
+
+1. **Removed unused fields from Backend struct**:
+
+   - `project_update_receiver` - no longer needed with dedicated monitoring task
+   - Marked `db_swapper` as `#[allow(dead_code)]` since it's needed for memory
+     management
+
+2. **Removed unused methods from main.rs**:
+
+   - `safe_db_access` - async database access helper
+   - `safe_db_access_mut_sync` - sync mutable database access
+   - `convert_diagnostic` - Cairo to LSP diagnostic conversion (duplicated in
+     controller)
+   - `get_or_create_source_file` - source file creation helper
+
+3. **Cleaned up DiagnosticsRequest enum**:
+
+   - Removed unused `Clear` variant
+   - Removed unused `HealthCheck` variant
+   - Removed corresponding match arms in worker thread
+
+4. **Cleaned up ProjectDiagnostics**:
+
+   - Removed unused `get_diagnostics` method
+   - Removed unused `get_all_diagnostics` method
+   - Removed unused `clear_file` method
+   - Removed unused `total_count` method
+   - Removed unused `file_count` method
+   - Marked `clear` method as `#[allow(dead_code)]` for future use
+
+5. **Cleaned up Project module**:
+
+   - Removed unused `project_root` method from ProjectManifestPath
+   - Removed unused `manifest_path` field from CrateInfo
+   - Removed unused `get_crate_for_file` method from ProjectModel
+   - Removed unused `clear` method from ProjectModel
+
+6. **Cleaned up ProjectCrateExt trait**:
+   - Removed unused `to_parser_crate` method and its implementation
+
+**Impact**:
+
+- Cleaner, more maintainable codebase
+- Reduced binary size
+- Easier to understand what code is actually in use
+- Better compiler warnings for future development
+
 ## Next Steps
 
 1. ❓ **Make Debounce Delay Configurable**

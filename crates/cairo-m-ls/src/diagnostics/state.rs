@@ -30,27 +30,8 @@ impl ProjectDiagnostics {
         }
     }
 
-    /// Get diagnostics for a specific file
-    pub fn get_diagnostics(&self, uri: &Url) -> Option<Vec<Diagnostic>> {
-        let map = self.diagnostics.read().unwrap();
-        map.get(uri).cloned()
-    }
-
-    /// Get all diagnostics grouped by file
-    pub fn get_all_diagnostics(&self) -> HashMap<Url, Vec<Diagnostic>> {
-        let map = self.diagnostics.read().unwrap();
-        map.clone()
-    }
-
-    /// Clear diagnostics for a specific file
-    pub fn clear_file(&self, uri: &Url) {
-        debug!("Clearing diagnostics for {}", uri);
-
-        let mut map = self.diagnostics.write().unwrap();
-        map.remove(uri);
-    }
-
     /// Clear all diagnostics
+    #[allow(dead_code)]
     pub fn clear(&self) {
         debug!("Clearing all diagnostics");
 
@@ -69,18 +50,6 @@ impl ProjectDiagnostics {
         for uri in project_files {
             map.remove(uri);
         }
-    }
-
-    /// Get the total number of diagnostics across all files
-    pub fn total_count(&self) -> usize {
-        let map = self.diagnostics.read().unwrap();
-        map.values().map(|v| v.len()).sum()
-    }
-
-    /// Get the number of files with diagnostics
-    pub fn file_count(&self) -> usize {
-        let map = self.diagnostics.read().unwrap();
-        map.len()
     }
 }
 

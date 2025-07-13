@@ -13,7 +13,6 @@ use crate::db::{AnalysisDatabase, ProjectCrate};
 pub struct CrateInfo {
     pub name: String,
     pub root: PathBuf,
-    pub manifest_path: PathBuf,
 }
 
 /// Represents a loaded crate with all its files
@@ -132,7 +131,6 @@ impl ProjectModel {
                 .unwrap_or("standalone")
                 .to_string(),
             root: unique_root,
-            manifest_path: file_path.clone(), // Use the file itself as "manifest"
         };
 
         let mut files = HashMap::new();
@@ -167,15 +165,6 @@ impl ProjectModel {
         Ok(moved_files)
     }
 
-    /// Get the crate for a given file URL
-    pub fn get_crate_for_file(&self, file_url: &Url) -> Option<Crate> {
-        let file_to_project = self.file_to_project.read().unwrap();
-        let project_root = file_to_project.get(file_url)?;
-
-        let crates = self.crates.read().unwrap();
-        crates.get(project_root).cloned()
-    }
-
     /// Get all loaded crates
     pub fn all_crates(&self) -> Vec<Crate> {
         let crates = self.crates.read().unwrap();
@@ -195,17 +184,6 @@ impl ProjectModel {
     pub fn get_project_crate_for_root(&self, root: &PathBuf) -> Option<ProjectCrate> {
         let project_crate_ids = self.project_crate_ids.read().unwrap();
         project_crate_ids.get(root).cloned()
-    }
-
-    /// Clear all loaded projects
-    pub fn clear(&self) {
-        let mut crates = self.crates.write().unwrap();
-        let mut file_to_project = self.file_to_project.write().unwrap();
-        let mut project_crate_ids = self.project_crate_ids.write().unwrap();
-
-        crates.clear();
-        file_to_project.clear();
-        project_crate_ids.clear();
     }
 
     /// Replaces the stored ProjectCrate IDs with a new set.

@@ -2,6 +2,11 @@ use math::{add,sub, abibi};
 func main(){
     let x= 3;
 
+    let lili = 111;
+    const X = 3;
+    let lili = 111;
+    let lola = lili + lili;
+
     let t = 3;
     let aa = 3;
     sub(1,2);

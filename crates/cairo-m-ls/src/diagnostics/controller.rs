@@ -23,12 +23,6 @@ pub enum DiagnosticsRequest {
     /// Recompute diagnostics for an entire project
     ProjectChanged { project_crate: ProjectCrate },
 
-    /// Clear all diagnostics
-    Clear,
-
-    /// Health check ping
-    HealthCheck,
-
     /// Shutdown the controller
     Shutdown,
 }
@@ -142,25 +136,6 @@ impl DiagnosticsController {
                     debug!("Project diagnostics completed in {:?}", start.elapsed());
                 }
 
-                DiagnosticsRequest::Clear => {
-                    info!("Clearing all diagnostics");
-                    diagnostics_state.clear();
-                }
-
-                DiagnosticsRequest::HealthCheck => {
-                    debug!("Health check received - diagnostics controller is alive");
-                    // Send a health check response using a special URI
-                    let health_uri =
-                        tower_lsp::lsp_types::Url::parse("file:///health-check/diagnostics")
-                            .expect("Valid health check URI");
-
-                    let _ = response_sender.send(DiagnosticsResponse {
-                        uri: health_uri,
-                        version: None,
-                        diagnostics: vec![],
-                    });
-                }
-
                 DiagnosticsRequest::Shutdown => {
                     info!("DiagnosticsController shutting down");
                     break;
@@ -220,189 +195,23 @@ impl DiagnosticsController {
         // Wrap the entire operation in catch_unwind to prevent panics from poisoning the mutex
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             // Extract necessary data with minimal lock time
-            let (files_with_content, parser_diagnostics, semantic_diagnostics) = {
-                let db_guard = match db.lock() {
-                    Ok(guard) => guard,
-                    Err(poisoned) => {
-                        debug!("Database was poisoned, recovering from panic");
-                        poisoned.into_inner()
-                    }
-                };
+            let (files_with_content, parser_diagnostics, semantic_diagnostics) =
+                Self::collect_diagnostics_from_db(db, &project_crate);
 
-                let files = project_crate.files(&*db_guard);
-                debug!(
-                    "Converting ProjectCrate with {} files for validation",
-                    files.len()
-                );
-                for (path, _) in files {
-                    debug!("  File: {}", path.display());
-                }
-
-                // First run parser validation
-                let semantic_crate = project_crate.to_semantic_crate(&*db_guard);
-                let parser_diagnostics = project_parse_diagnostics(&*db_guard, semantic_crate);
-
-                debug!(
-                    "Parser validation found {} diagnostics",
-                    parser_diagnostics.all().len()
-                );
-
-                // Check if there are fatal parser errors (syntax errors that would break semantic analysis)
-                let has_fatal_errors = parser_diagnostics.all().iter().any(|d| {
-                    matches!(
-                        d.severity,
-                        cairo_m_compiler_diagnostics::DiagnosticSeverity::Error
-                    )
-                });
-
-                // Only run semantic validation if no fatal parser errors
-                let semantic_diagnostics = if !has_fatal_errors {
-                    let semantic_crate = project_crate.to_semantic_crate(&*db_guard);
-                    let collection = project_validate_semantics(&*db_guard, semantic_crate);
-                    debug!(
-                        "Semantic validation found {} diagnostics",
-                        collection.all().len()
-                    );
-                    collection
-                } else {
-                    debug!("Skipping semantic validation due to parser errors");
-                    cairo_m_compiler_diagnostics::DiagnosticCollection::new(Vec::new())
-                };
-
-                // Clone file contents while we have the lock
-                let files = project_crate.files(&*db_guard);
-                let mut files_with_content = HashMap::new();
-                for (path, source_file) in files {
-                    let content = source_file.text(&*db_guard).to_string();
-                    files_with_content.insert(path.clone(), content);
-                }
-
-                (files_with_content, parser_diagnostics, semantic_diagnostics)
-            }; // Lock is released here
-
-            // Helper function to convert diagnostics
-            fn get_uri_from_path_str(path_str: &str) -> Result<Url, String> {
-                if path_str.starts_with("file://") {
-                    Url::parse(path_str).map_err(|e| format!("Failed to parse URI: {}", e))
-                } else {
-                    Url::from_file_path(path_str)
-                        .map_err(|_| format!("Failed to convert path to URI: {}", path_str))
-                }
-            }
-
-            // Now process diagnostics without holding the lock
-            let mut diagnostics_by_file: std::collections::HashMap<Url, Vec<Diagnostic>> =
-                std::collections::HashMap::new();
-
-            // Initialize with empty diagnostics for all files
-            for file_path in files_with_content.keys() {
-                if let Ok(uri) = get_uri_from_path_str(&file_path.to_string_lossy()) {
-                    diagnostics_by_file.insert(uri, vec![]);
-                }
-            }
-
-            let total_diagnostics =
-                parser_diagnostics.all().len() + semantic_diagnostics.all().len();
-            debug!(
-                "Converting {} total diagnostics to LSP format ({} parser + {} semantic)",
-                total_diagnostics,
-                parser_diagnostics.all().len(),
-                semantic_diagnostics.all().len()
+            // Convert diagnostics to LSP format
+            let diagnostics_by_file = Self::convert_diagnostics_to_lsp(
+                &files_with_content,
+                &parser_diagnostics,
+                &semantic_diagnostics,
             );
 
-            // Convert parser diagnostics first
-            for cairo_diag in parser_diagnostics.all() {
-                let uri = match get_uri_from_path_str(&cairo_diag.file_path) {
-                    Ok(uri) => uri,
-                    Err(e) => {
-                        debug!("Warning: {}", e);
-                        continue;
-                    }
-                };
-
-                debug!("Processing parser diagnostic for URI: {}", uri);
-
-                // Find the source file content
-                let path_buf = if cairo_diag.file_path.starts_with("file://") {
-                    match uri.to_file_path() {
-                        Ok(path) => path,
-                        Err(_) => {
-                            debug!("Warning: Failed to convert URI to file path: {}", uri);
-                            continue;
-                        }
-                    }
-                } else {
-                    PathBuf::from(&cairo_diag.file_path)
-                };
-
-                if let Some(content) = files_with_content.get(&path_buf) {
-                    let lsp_diag = convert_cairo_diagnostic(content, cairo_diag);
-                    debug!(
-                        "Converted parser diagnostic: {:?} -> LSP range {:?}",
-                        cairo_diag.message, lsp_diag.range
-                    );
-
-                    diagnostics_by_file.entry(uri).or_default().push(lsp_diag);
-                } else {
-                    debug!(
-                        "Warning: No content found for file path: {} (URI: {})",
-                        path_buf.display(),
-                        uri
-                    );
-                }
-            }
-
-            // Convert semantic diagnostics
-            for cairo_diag in semantic_diagnostics.all() {
-                let uri = match get_uri_from_path_str(&cairo_diag.file_path) {
-                    Ok(uri) => uri,
-                    Err(e) => {
-                        debug!("Warning: {}", e);
-                        continue;
-                    }
-                };
-
-                debug!("Processing semantic diagnostic for URI: {}", uri);
-
-                let path_buf = if cairo_diag.file_path.starts_with("file://") {
-                    match uri.to_file_path() {
-                        Ok(path) => path,
-                        Err(_) => {
-                            debug!("Warning: Failed to convert URI to file path: {}", uri);
-                            continue;
-                        }
-                    }
-                } else {
-                    PathBuf::from(&cairo_diag.file_path)
-                };
-
-                if let Some(content) = files_with_content.get(&path_buf) {
-                    let lsp_diag = convert_cairo_diagnostic(content, cairo_diag);
-                    debug!(
-                        "Converted semantic diagnostic: {:?} -> LSP range {:?}",
-                        cairo_diag.message, lsp_diag.range
-                    );
-
-                    diagnostics_by_file.entry(uri).or_default().push(lsp_diag);
-                } else {
-                    debug!(
-                        "Warning: No content found for file path: {} (URI: {})",
-                        path_buf.display(),
-                        uri
-                    );
-                }
-            }
-
             // Update state and send responses
-            for (uri, diagnostics) in diagnostics_by_file {
-                diagnostics_state.set_diagnostics(&uri, diagnostics.clone());
-
-                let _ = response_sender.send(DiagnosticsResponse {
-                    uri,
-                    version, // Use the passed version
-                    diagnostics,
-                });
-            }
+            Self::publish_diagnostics(
+                diagnostics_by_file,
+                diagnostics_state,
+                response_sender,
+                version,
+            );
         }));
 
         // Handle panic in diagnostics computation
@@ -411,6 +220,209 @@ impl DiagnosticsController {
             error!(
                 "This indicates a bug in the compiler or semantic analysis - the mutex should not be poisoned anymore"
             );
+        }
+    }
+
+    /// Collect diagnostics from the database with minimal lock time
+    fn collect_diagnostics_from_db(
+        db: &Arc<Mutex<AnalysisDatabase>>,
+        project_crate: &ProjectCrate,
+    ) -> (
+        HashMap<PathBuf, String>,
+        cairo_m_compiler_diagnostics::DiagnosticCollection,
+        cairo_m_compiler_diagnostics::DiagnosticCollection,
+    ) {
+        let db_guard = match db.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => {
+                debug!("Database was poisoned, recovering from panic");
+                poisoned.into_inner()
+            }
+        };
+
+        let files = project_crate.files(&*db_guard);
+        debug!(
+            "Converting ProjectCrate with {} files for validation",
+            files.len()
+        );
+        for (path, _) in files {
+            debug!("  File: {}", path.display());
+        }
+
+        // First run parser validation
+        let semantic_crate = project_crate.to_semantic_crate(&*db_guard);
+        let parser_diagnostics = project_parse_diagnostics(&*db_guard, semantic_crate);
+
+        debug!(
+            "Parser validation found {} diagnostics",
+            parser_diagnostics.all().len()
+        );
+
+        // Check if there are fatal parser errors
+        let has_fatal_errors = Self::has_fatal_parser_errors(&parser_diagnostics);
+
+        // Only run semantic validation if no fatal parser errors
+        let semantic_diagnostics = if !has_fatal_errors {
+            let semantic_crate = project_crate.to_semantic_crate(&*db_guard);
+            let collection = project_validate_semantics(&*db_guard, semantic_crate);
+            debug!(
+                "Semantic validation found {} diagnostics",
+                collection.all().len()
+            );
+            collection
+        } else {
+            debug!("Skipping semantic validation due to parser errors");
+            cairo_m_compiler_diagnostics::DiagnosticCollection::new(Vec::new())
+        };
+
+        // Clone file contents while we have the lock
+        let files = project_crate.files(&*db_guard);
+        let mut files_with_content = HashMap::new();
+        for (path, source_file) in files {
+            let content = source_file.text(&*db_guard).to_string();
+            files_with_content.insert(path.clone(), content);
+        }
+
+        (files_with_content, parser_diagnostics, semantic_diagnostics)
+    }
+
+    /// Check if there are fatal parser errors that would prevent semantic analysis
+    fn has_fatal_parser_errors(
+        parser_diagnostics: &cairo_m_compiler_diagnostics::DiagnosticCollection,
+    ) -> bool {
+        parser_diagnostics.all().iter().any(|d| {
+            matches!(
+                d.severity,
+                cairo_m_compiler_diagnostics::DiagnosticSeverity::Error
+            )
+        })
+    }
+
+    /// Convert Cairo diagnostics to LSP format
+    fn convert_diagnostics_to_lsp(
+        files_with_content: &HashMap<PathBuf, String>,
+        parser_diagnostics: &cairo_m_compiler_diagnostics::DiagnosticCollection,
+        semantic_diagnostics: &cairo_m_compiler_diagnostics::DiagnosticCollection,
+    ) -> HashMap<Url, Vec<Diagnostic>> {
+        let mut diagnostics_by_file: HashMap<Url, Vec<Diagnostic>> = HashMap::new();
+
+        // Initialize with empty diagnostics for all files
+        for file_path in files_with_content.keys() {
+            if let Ok(uri) = Self::get_uri_from_path_str(&file_path.to_string_lossy()) {
+                diagnostics_by_file.insert(uri, vec![]);
+            }
+        }
+
+        let total_diagnostics = parser_diagnostics.all().len() + semantic_diagnostics.all().len();
+        debug!(
+            "Converting {} total diagnostics to LSP format ({} parser + {} semantic)",
+            total_diagnostics,
+            parser_diagnostics.all().len(),
+            semantic_diagnostics.all().len()
+        );
+
+        // Process parser diagnostics
+        Self::process_diagnostic_collection(
+            parser_diagnostics,
+            files_with_content,
+            &mut diagnostics_by_file,
+            "parser",
+        );
+
+        // Process semantic diagnostics
+        Self::process_diagnostic_collection(
+            semantic_diagnostics,
+            files_with_content,
+            &mut diagnostics_by_file,
+            "semantic",
+        );
+
+        diagnostics_by_file
+    }
+
+    /// Process a collection of diagnostics and add them to the diagnostics map
+    fn process_diagnostic_collection(
+        diagnostics: &cairo_m_compiler_diagnostics::DiagnosticCollection,
+        files_with_content: &HashMap<PathBuf, String>,
+        diagnostics_by_file: &mut HashMap<Url, Vec<Diagnostic>>,
+        diagnostic_type: &str,
+    ) {
+        for cairo_diag in diagnostics.all() {
+            let uri = match Self::get_uri_from_path_str(&cairo_diag.file_path) {
+                Ok(uri) => uri,
+                Err(e) => {
+                    debug!("Warning: {}", e);
+                    continue;
+                }
+            };
+
+            debug!("Processing {} diagnostic for URI: {}", diagnostic_type, uri);
+
+            // Find the source file content
+            let path_buf = Self::get_path_from_diagnostic(&uri, &cairo_diag.file_path);
+            let path_buf = match path_buf {
+                Some(path) => path,
+                None => continue,
+            };
+
+            if let Some(content) = files_with_content.get(&path_buf) {
+                let lsp_diag = convert_cairo_diagnostic(content, cairo_diag);
+                debug!(
+                    "Converted {} diagnostic: {:?} -> LSP range {:?}",
+                    diagnostic_type, cairo_diag.message, lsp_diag.range
+                );
+
+                diagnostics_by_file.entry(uri).or_default().push(lsp_diag);
+            } else {
+                debug!(
+                    "Warning: No content found for file path: {} (URI: {})",
+                    path_buf.display(),
+                    uri
+                );
+            }
+        }
+    }
+
+    /// Get PathBuf from diagnostic file path and URI
+    fn get_path_from_diagnostic(uri: &Url, file_path: &str) -> Option<PathBuf> {
+        if file_path.starts_with("file://") {
+            match uri.to_file_path() {
+                Ok(path) => Some(path),
+                Err(_) => {
+                    debug!("Warning: Failed to convert URI to file path: {}", uri);
+                    None
+                }
+            }
+        } else {
+            Some(PathBuf::from(file_path))
+        }
+    }
+
+    /// Convert path string to URI
+    fn get_uri_from_path_str(path_str: &str) -> Result<Url, String> {
+        if path_str.starts_with("file://") {
+            Url::parse(path_str).map_err(|e| format!("Failed to parse URI: {}", e))
+        } else {
+            Url::from_file_path(path_str)
+                .map_err(|_| format!("Failed to convert path to URI: {}", path_str))
+        }
+    }
+
+    /// Publish diagnostics to the client
+    fn publish_diagnostics(
+        diagnostics_by_file: HashMap<Url, Vec<Diagnostic>>,
+        diagnostics_state: &ProjectDiagnostics,
+        response_sender: &UnboundedSender<DiagnosticsResponse>,
+        version: Option<i32>,
+    ) {
+        for (uri, diagnostics) in diagnostics_by_file {
+            diagnostics_state.set_diagnostics(&uri, diagnostics.clone());
+
+            let _ = response_sender.send(DiagnosticsResponse {
+                uri,
+                version,
+                diagnostics,
+            });
         }
     }
 }

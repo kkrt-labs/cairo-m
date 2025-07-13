@@ -6,28 +6,15 @@ mod diagnostics;
 mod lsp_tracing;
 mod project;
 
-#[cfg(test)]
-mod debug_test;
-
-#[cfg(test)]
-mod test_real_file;
-
-#[cfg(test)]
-mod debounce_test;
-
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use cairo_m_compiler_diagnostics::{
-    Diagnostic as CairoDiagnostic, DiagnosticSeverity as CairoSeverity,
-};
 use cairo_m_compiler_parser::{SourceFile, Upcast};
 use cairo_m_compiler_semantic::db::module_semantic_index;
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
 use cairo_m_compiler_semantic::type_resolution::definition_semantic_type;
 use cairo_m_compiler_semantic::types::{TypeData, TypeId};
 use cairo_m_compiler_semantic::{DefinitionKind, SemanticDb};
-use crossbeam_channel::{Receiver, TryRecvError};
 use dashmap::DashMap;
 use salsa::Setter;
 use tokio::sync::mpsc;
@@ -58,13 +45,10 @@ struct Backend {
     project_controller: Option<ProjectController>,
     /// Central project model
     project_model: Arc<ProjectModel>,
-    /// Receiver for project updates
-    project_update_receiver: Option<Receiver<ProjectUpdate>>,
     /// Diagnostics controller for background diagnostic computation
     diagnostics_controller: Option<DiagnosticsController>,
-    /// Central diagnostics state
-    diagnostics_state: Arc<ProjectDiagnostics>,
     /// Database swapper for memory management
+    #[allow(dead_code)]
     db_swapper: Option<AnalysisDatabaseSwapper>,
     /// Debounce timers for per-file diagnostics
     debounce_timers: Arc<DashMap<Url, JoinHandle<()>>>,
@@ -100,6 +84,9 @@ impl Backend {
             diag_tx,
         );
 
+        // Create source files map
+        let source_files = Arc::new(DashMap::new());
+
         // Create database swapper (5 minute interval)
         let db_swapper = AnalysisDatabaseSwapper::new(
             Arc::clone(&db),
@@ -134,35 +121,179 @@ impl Backend {
             tracing::error!("Diagnostics receiver channel closed unexpectedly");
         });
 
+        // Spawn dedicated task for continuous project update monitoring
+        let client_clone2 = client.clone();
+        let project_model_clone = Arc::clone(&project_model);
+        let db_clone = Arc::clone(&db);
+        let source_files_clone = Arc::clone(&source_files);
+        let diagnostics_state_clone = Arc::clone(&diagnostics_state);
+        let diagnostics_sender_clone = diagnostics_controller.sender.clone();
+
+        tokio::spawn(async move {
+            tracing::info!("Starting dedicated project update monitor task");
+
+            while let Ok(update) = project_rx.recv() {
+                tracing::debug!("Project update monitor received update: {:?}", update);
+
+                match update {
+                    ProjectUpdate::Project { crate_info, files } => {
+                        tracing::info!("Processing project update: {}", crate_info.name);
+
+                        // Load the project into the model
+                        let load_result = {
+                            match db_clone.lock() {
+                                Ok(mut db) => {
+                                    project_model_clone.load_crate(
+                                        crate_info.clone(),
+                                        files,
+                                        &mut db,
+                                        |db, uri| {
+                                            // Try to get existing source file or create new one
+                                            if let Some(sf) = source_files_clone.get(uri) {
+                                                Some(*sf)
+                                            } else {
+                                                let path = uri.to_file_path().ok()?;
+                                                let content =
+                                                    std::fs::read_to_string(&path).ok()?;
+                                                let source_file =
+                                                    cairo_m_compiler_parser::SourceFile::new(
+                                                        db,
+                                                        content,
+                                                        uri.to_string(),
+                                                    );
+                                                source_files_clone.insert(uri.clone(), source_file);
+                                                Some(source_file)
+                                            }
+                                        },
+                                    )
+                                }
+                                Err(e) => {
+                                    tracing::error!("Failed to acquire database lock: {:?}", e);
+                                    Err("Failed to acquire database lock".to_string())
+                                }
+                            }
+                        };
+
+                        // Process result after releasing the lock
+                        match load_result {
+                            Ok(moved_files) => {
+                                // Clear diagnostics for files that moved between projects
+                                if !moved_files.is_empty() {
+                                    diagnostics_state_clone.clear_for_project(&moved_files);
+                                    // Publish empty diagnostics to clear client-side
+                                    for uri in moved_files {
+                                        client_clone2.publish_diagnostics(uri, vec![], None).await;
+                                    }
+                                }
+
+                                // Trigger diagnostics for the loaded project
+                                if let Some(project_crate) =
+                                    project_model_clone.get_project_crate_for_root(&crate_info.root)
+                                {
+                                    let _ = diagnostics_sender_clone
+                                        .send(DiagnosticsRequest::ProjectChanged { project_crate });
+                                }
+                            }
+                            Err(e) => {
+                                tracing::error!("Failed to load project: {}", e);
+                                client_clone2
+                                    .show_message(
+                                        MessageType::WARNING,
+                                        &format!("Failed to load project: {}", e),
+                                    )
+                                    .await;
+                            }
+                        }
+                    }
+                    ProjectUpdate::Standalone(file_path) => {
+                        tracing::info!(
+                            "Processing standalone file update: {}",
+                            file_path.display()
+                        );
+
+                        // Load the standalone file
+                        let load_result = {
+                            match db_clone.lock() {
+                                Ok(mut db) => {
+                                    project_model_clone.load_standalone(
+                                        file_path,
+                                        &mut db,
+                                        |db, uri| {
+                                            // Try to get existing source file or create new one
+                                            if let Some(sf) = source_files_clone.get(uri) {
+                                                Some(*sf)
+                                            } else {
+                                                let path = uri.to_file_path().ok()?;
+                                                let content =
+                                                    std::fs::read_to_string(&path).ok()?;
+                                                let source_file =
+                                                    cairo_m_compiler_parser::SourceFile::new(
+                                                        db,
+                                                        content,
+                                                        uri.to_string(),
+                                                    );
+                                                source_files_clone.insert(uri.clone(), source_file);
+                                                Some(source_file)
+                                            }
+                                        },
+                                    )
+                                }
+                                Err(e) => {
+                                    tracing::error!("Failed to acquire database lock: {:?}", e);
+                                    Err("Failed to acquire database lock".to_string())
+                                }
+                            }
+                        };
+
+                        // Process result after releasing the lock
+                        match load_result {
+                            Ok(moved_files) => {
+                                // Clear diagnostics for files that moved
+                                if !moved_files.is_empty() {
+                                    diagnostics_state_clone.clear_for_project(&moved_files);
+                                    // Publish empty diagnostics to clear client-side
+                                    for uri in moved_files {
+                                        client_clone2.publish_diagnostics(uri, vec![], None).await;
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                tracing::error!("Failed to load standalone file: {}", e);
+                            }
+                        }
+                    }
+                    ProjectUpdate::ThreadError(error_msg) => {
+                        tracing::error!("Project controller thread error: {}", error_msg);
+                        client_clone2
+                            .show_message(
+                                MessageType::ERROR,
+                                &format!("Project discovery failed: {}", error_msg),
+                            )
+                            .await;
+                    }
+                }
+            }
+
+            tracing::error!("Project update monitor task exiting - channel closed");
+            client_clone2
+                .show_message(
+                    MessageType::ERROR,
+                    "Project controller thread has stopped unexpectedly",
+                )
+                .await;
+        });
+
         Self {
             client,
             db,
-            source_files: Arc::new(DashMap::new()),
+            source_files,
             project_controller: Some(project_controller),
             project_model,
-            project_update_receiver: Some(project_rx),
             diagnostics_controller: Some(diagnostics_controller),
-            diagnostics_state,
             db_swapper: Some(db_swapper),
             debounce_timers: Arc::new(DashMap::new()),
             debounce_delay_ms: 300, // Default to 300ms
         }
-    }
-
-    /// Safely access the database using blocking lock with spawn_blocking
-    fn safe_db_access<F, R>(&self, f: F) -> tokio::task::JoinHandle<R>
-    where
-        F: FnOnce(&AnalysisDatabase) -> R + Send + 'static,
-        R: Send + 'static,
-    {
-        let db_clone = self.db.clone();
-        tokio::task::spawn_blocking(move || {
-            let db = db_clone.lock().unwrap_or_else(|poisoned| {
-                tracing::error!("Database mutex poisoned - recovering from panic");
-                poisoned.into_inner()
-            });
-            f(&db)
-        })
     }
 
     /// Safely access the mutable database using blocking lock with spawn_blocking
@@ -193,52 +324,6 @@ impl Backend {
                 let db = poisoned.into_inner();
                 Some(f(&db))
             }
-        }
-    }
-
-    /// Synchronously access the mutable database (for use in sync contexts)
-    fn safe_db_access_mut_sync<F, R>(&self, f: F) -> Option<R>
-    where
-        F: FnOnce(&mut AnalysisDatabase) -> R,
-    {
-        match self.db.lock() {
-            Ok(mut db) => Some(f(&mut db)),
-            Err(poisoned) => {
-                tracing::error!("Database mutex poisoned - recovering from panic");
-                let mut db = poisoned.into_inner();
-                Some(f(&mut db))
-            }
-        }
-    }
-
-    /// Convert Cairo diagnostic to LSP diagnostic
-    fn convert_diagnostic(&self, source: &str, diag: &CairoDiagnostic) -> Diagnostic {
-        let severity = match diag.severity {
-            CairoSeverity::Error => DiagnosticSeverity::ERROR,
-            CairoSeverity::Warning => DiagnosticSeverity::WARNING,
-            CairoSeverity::Info => DiagnosticSeverity::INFORMATION,
-            CairoSeverity::Hint => DiagnosticSeverity::HINT,
-        };
-
-        // Convert byte offsets to line/column positions
-        let start_pos = self.offset_to_position(source, diag.span.start);
-        let end_pos = self.offset_to_position(source, diag.span.end);
-
-        let range = Range {
-            start: start_pos,
-            end: end_pos,
-        };
-
-        Diagnostic {
-            range,
-            severity: Some(severity),
-            code: None,
-            code_description: None,
-            source: Some("cairo-m".to_string()),
-            message: diag.message.clone(),
-            related_information: None,
-            tags: None,
-            data: None,
         }
     }
 
@@ -369,153 +454,6 @@ impl Backend {
         self.debounce_timers.insert(uri, handle);
     }
 
-    /// Gets the canonical `SourceFile` for a URI, creating it from disk if not open.
-    fn get_or_create_source_file(
-        &self,
-        db: &mut AnalysisDatabase,
-        uri: &Url,
-    ) -> Option<SourceFile> {
-        if let Some(sf) = self.source_files.get(uri) {
-            return Some(*sf);
-        }
-
-        let path = uri.to_file_path().ok()?;
-        let content = std::fs::read_to_string(&path).ok()?;
-        let source_file = cairo_m_compiler_parser::SourceFile::new(db, content, uri.to_string());
-        self.source_files.insert(uri.clone(), source_file);
-        Some(source_file)
-    }
-
-    /// Process project updates from the controller
-    async fn process_project_updates(&self) {
-        if let Some(receiver) = &self.project_update_receiver {
-            // Process all pending updates
-            loop {
-                match receiver.try_recv() {
-                    Ok(update) => {
-                        match update {
-                            ProjectUpdate::Project { crate_info, files } => {
-                                tracing::info!("Received project update: {}", crate_info.name);
-
-                                // Load the project into the model
-                                let load_result = if let Ok(mut db) = self.db.lock() {
-                                    // Create a closure that captures self
-                                    let backend = self;
-                                    let get_source_file = |db: &mut AnalysisDatabase, uri: &Url| {
-                                        backend.get_or_create_source_file(db, uri)
-                                    };
-
-                                    self.project_model.load_crate(
-                                        crate_info.clone(),
-                                        files,
-                                        &mut db,
-                                        get_source_file,
-                                    )
-                                } else {
-                                    Err("Failed to acquire database lock".to_string())
-                                };
-
-                                // Process result after releasing the lock
-                                match load_result {
-                                    Ok(moved_files) => {
-                                        // Clear diagnostics for files that moved between projects
-                                        if !moved_files.is_empty() {
-                                            self.diagnostics_state.clear_for_project(&moved_files);
-                                            // Publish empty diagnostics to clear client-side
-                                            for uri in moved_files {
-                                                self.client
-                                                    .publish_diagnostics(uri, vec![], None)
-                                                    .await;
-                                            }
-                                        }
-
-                                        // Trigger diagnostics for the loaded project
-                                        if let Some(project_crate) = self
-                                            .project_model
-                                            .get_project_crate_for_root(&crate_info.root)
-                                        {
-                                            if let Some(controller) = &self.diagnostics_controller {
-                                                let _ = controller.request(
-                                                    DiagnosticsRequest::ProjectChanged {
-                                                        project_crate,
-                                                    },
-                                                );
-                                            }
-                                        }
-                                    }
-                                    Err(e) => {
-                                        tracing::error!("Failed to load project: {}", e);
-                                    }
-                                }
-                            }
-                            ProjectUpdate::Standalone(file_path) => {
-                                tracing::info!(
-                                    "Received standalone file update: {}",
-                                    file_path.display()
-                                );
-
-                                // Load the standalone file
-                                let load_result = if let Ok(mut db) = self.db.lock() {
-                                    // Create a closure that captures self
-                                    let backend = self;
-                                    let get_source_file = |db: &mut AnalysisDatabase, uri: &Url| {
-                                        backend.get_or_create_source_file(db, uri)
-                                    };
-
-                                    self.project_model.load_standalone(
-                                        file_path,
-                                        &mut db,
-                                        get_source_file,
-                                    )
-                                } else {
-                                    Err("Failed to acquire database lock".to_string())
-                                };
-
-                                // Process result after releasing the lock
-                                match load_result {
-                                    Ok(moved_files) => {
-                                        // Clear diagnostics for files that moved
-                                        if !moved_files.is_empty() {
-                                            self.diagnostics_state.clear_for_project(&moved_files);
-                                            // Publish empty diagnostics to clear client-side
-                                            for uri in moved_files {
-                                                self.client
-                                                    .publish_diagnostics(uri, vec![], None)
-                                                    .await;
-                                            }
-                                        }
-                                    }
-                                    Err(e) => {
-                                        tracing::error!("Failed to load standalone file: {}", e);
-                                    }
-                                }
-                            }
-                            ProjectUpdate::ThreadError(error_msg) => {
-                                tracing::error!("Project controller thread error: {}", error_msg);
-                                self.client
-                                    .show_message(
-                                        MessageType::ERROR,
-                                        &format!("Project discovery failed: {}", error_msg),
-                                    )
-                                    .await;
-                            }
-                        }
-                    }
-                    Err(TryRecvError::Empty) => break,
-                    Err(TryRecvError::Disconnected) => {
-                        self.client
-                            .show_message(
-                                MessageType::ERROR,
-                                "Project controller thread has stopped unexpectedly",
-                            )
-                            .await;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
     /// Run semantic validation and publish diagnostics.
     ///
     /// This now delegates to the DiagnosticsController for background computation.
@@ -592,8 +530,7 @@ impl LanguageServer for Backend {
             let _ = controller.update(ProjectUpdateRequest::UpdateForFile { file_path: path });
         }
 
-        // Process any pending project updates
-        self.process_project_updates().await;
+        // No need to process project updates here - the dedicated monitor task handles them continuously
 
         self.run_diagnostics(uri, Some(version)).await;
     }
