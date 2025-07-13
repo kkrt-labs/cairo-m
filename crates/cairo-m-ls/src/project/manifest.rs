@@ -23,7 +23,7 @@ impl ProjectManifestPath {
 
         // Look for cairom.toml
         if let Some(cairom_path) = Self::find_manifest_file(start_dir, "cairom.toml") {
-            return Some(ProjectManifestPath::CairoM(cairom_path));
+            return Some(Self::CairoM(cairom_path));
         }
 
         None
@@ -48,14 +48,14 @@ impl ProjectManifestPath {
     /// Get the project root directory
     pub fn project_root(&self) -> Option<&Path> {
         match self {
-            ProjectManifestPath::CairoM(path) => path.parent(),
+            Self::CairoM(path) => path.parent(),
         }
     }
 
     /// Get the manifest file path
     pub fn path(&self) -> &Path {
         match self {
-            ProjectManifestPath::CairoM(path) => path,
+            Self::CairoM(path) => path,
         }
     }
 }

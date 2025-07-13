@@ -25,6 +25,8 @@ pub enum ProjectUpdate {
     },
     /// No project manifest found, treat as standalone file
     Standalone(PathBuf),
+    /// Thread error occurred
+    ThreadError(String),
 }
 
 /// Cache entry for a loaded manifest
@@ -32,6 +34,8 @@ pub enum ProjectUpdate {
 struct ManifestCacheEntry {
     /// The loaded crate info
     crate_info: CrateInfo,
+    /// Discovered files in the project
+    files: Vec<PathBuf>,
     /// When this entry was last accessed
     last_accessed: Instant,
 }
@@ -48,11 +52,26 @@ impl ProjectController {
         // Create shared manifest cache
         let manifest_cache = Arc::new(Mutex::new(HashMap::new()));
 
-        let handle = thread::spawn(move || {
-            Self::worker_thread(receiver, response_sender, manifest_cache);
-        });
+        let error_response_sender = response_sender.clone();
+        let handle = thread::Builder::new()
+            .name("project-controller".to_string())
+            .spawn(move || {
+                // Catch panics to log them and notify the client
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    Self::worker_thread(receiver, response_sender, manifest_cache);
+                }));
 
-        ProjectController {
+                if let Err(e) = result {
+                    error!("ProjectController worker thread panicked: {:?}", e);
+
+                    // Send an error response to notify the main thread
+                    let error_msg = format!("ProjectController thread panicked: {:?}", e);
+                    let _ = error_response_sender.send(ProjectUpdate::ThreadError(error_msg));
+                }
+            })
+            .expect("Failed to spawn ProjectController thread");
+
+        Self {
             sender,
             handle: Some(handle),
         }
@@ -75,7 +94,25 @@ impl ProjectController {
         // Cache expiration time (5 minutes)
         const CACHE_EXPIRY: Duration = Duration::from_secs(300);
 
+        // Counter for periodic cleanup
+        let mut request_count = 0u32;
+
         for request in receiver {
+            request_count += 1;
+
+            // Periodic cache cleanup every 10 requests
+            if request_count % 10 == 0 {
+                let mut cache = manifest_cache.lock().unwrap();
+                let before_size = cache.len();
+                cache.retain(|_, entry| entry.last_accessed.elapsed() < CACHE_EXPIRY);
+                let after_size = cache.len();
+                if before_size > after_size {
+                    debug!(
+                        "Periodic cache cleanup: removed {} stale entries",
+                        before_size - after_size
+                    );
+                }
+            }
             match request {
                 ProjectUpdateRequest::UpdateForFile { file_path } => {
                     info!(
@@ -94,7 +131,7 @@ impl ProjectController {
                                 cache.get(&manifest_path).and_then(|entry| {
                                     if entry.last_accessed.elapsed() < CACHE_EXPIRY {
                                         debug!("Cache hit for manifest: {:?}", manifest_path);
-                                        Some(entry.crate_info.clone())
+                                        Some(entry.clone())
                                     } else {
                                         debug!("Cache expired for manifest: {:?}", manifest_path);
                                         None
@@ -103,18 +140,14 @@ impl ProjectController {
                             };
 
                             let result = match cache_hit {
-                                Some(info) => {
+                                Some(entry) => {
                                     // Update last accessed time
                                     let mut cache = manifest_cache.lock().unwrap();
-                                    if let Some(entry) = cache.get_mut(&manifest_path) {
-                                        entry.last_accessed = Instant::now();
+                                    if let Some(cached_entry) = cache.get_mut(&manifest_path) {
+                                        cached_entry.last_accessed = Instant::now();
                                     }
-                                    // Need to discover files even for cached entries
-                                    let config = cairo_m_compiler::project_discovery::ProjectDiscoveryConfig::default();
-                                    match cairo_m_compiler::project_discovery::discover_project_files(&info.root, &config) {
-                                        Ok(discovered) => Ok((info, discovered.files)),
-                                        Err(e) => Err(format!("Failed to discover files: {}", e))
-                                    }
+                                    // Use cached file list
+                                    Ok((entry.crate_info, entry.files))
                                 }
                                 None => {
                                     // Load project and update cache
@@ -125,6 +158,7 @@ impl ProjectController {
                                                 manifest_path.clone(),
                                                 ManifestCacheEntry {
                                                     crate_info: crate_info.clone(),
+                                                    files: files.clone(),
                                                     last_accessed: Instant::now(),
                                                 },
                                             );

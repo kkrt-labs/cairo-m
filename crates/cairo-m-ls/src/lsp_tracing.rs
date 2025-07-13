@@ -1,18 +1,19 @@
-use std::sync::Arc;
-
-use tower_lsp::Client;
+use tokio::sync::mpsc;
 use tracing::{Event, Level, Subscriber};
 use tracing_subscriber::Layer;
 use tracing_subscriber::layer::Context;
 
 /// A tracing layer that sends log messages to the LSP client
 pub struct LspTracingLayer {
-    client: Arc<Client>,
+    /// This sender will send log messages to a dedicated async task.
+    sender: mpsc::UnboundedSender<(tower_lsp::lsp_types::MessageType, String)>,
 }
 
 impl LspTracingLayer {
-    pub const fn new(client: Arc<Client>) -> Self {
-        Self { client }
+    pub const fn new(
+        sender: mpsc::UnboundedSender<(tower_lsp::lsp_types::MessageType, String)>,
+    ) -> Self {
+        Self { sender }
     }
 }
 
@@ -39,8 +40,7 @@ where
         let mut message = String::new();
         event.record(&mut MessageVisitor(&mut message));
 
-        // Send to LSP client based on level
-        let client = self.client.clone();
+        // Determine level
         let level = match *metadata.level() {
             Level::ERROR => tower_lsp::lsp_types::MessageType::ERROR,
             Level::WARN => tower_lsp::lsp_types::MessageType::WARNING,
@@ -48,13 +48,9 @@ where
             Level::DEBUG | Level::TRACE => tower_lsp::lsp_types::MessageType::LOG,
         };
 
-        // Send asynchronously, but only if we're in a Tokio context
-        // Background threads without Tokio runtime will skip logging to LSP
-        if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            handle.spawn(async move {
-                client.log_message(level, message).await;
-            });
-        }
+        // Send the log message to the receiver task.
+        // This is a non-blocking send and is safe to call from any thread.
+        let _ = self.sender.send((level, message));
     }
 }
 

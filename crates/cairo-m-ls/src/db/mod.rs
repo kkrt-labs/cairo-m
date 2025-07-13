@@ -39,7 +39,7 @@ pub struct ProjectCrate {
 /// This database extends the compiler database with additional
 /// functionality needed for language server operations.
 #[salsa::db]
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct AnalysisDatabase {
     storage: salsa::Storage<Self>,
 }
@@ -48,14 +48,6 @@ impl AnalysisDatabase {
     /// Create a new analysis database.
     pub fn new() -> Self {
         Self::default()
-    }
-}
-
-impl Default for AnalysisDatabase {
-    fn default() -> Self {
-        Self {
-            storage: salsa::Storage::default(),
-        }
     }
 }
 
@@ -114,7 +106,14 @@ impl ProjectCrateExt for ProjectCrate {
                     .unwrap_or(false)
             })
             .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_default();
+            .unwrap_or_else(|| {
+                // If no matching file found, use the first file or error
+                files
+                    .keys()
+                    .next()
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_else(|| format!("{}.cm", main_module))
+            });
 
         cairo_m_compiler_parser::Crate::new(
             db,
@@ -137,6 +136,6 @@ impl ProjectCrateExt for ProjectCrate {
             }
         }
 
-        cairo_m_compiler_semantic::Crate::new(db, modules, main_module.clone())
+        cairo_m_compiler_semantic::Crate::new(db, modules, main_module)
     }
 }

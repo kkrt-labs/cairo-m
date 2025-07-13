@@ -315,10 +315,6 @@ pub fn module_semantic_index(
     crate_id: Crate,
     module_name: String,
 ) -> SemanticIndex {
-    tracing::info!(
-        "[SEMANTIC] Building semantic index for module: {}",
-        module_name
-    );
     let parsed_modules = project_parsed_modules(db, crate_id);
     let parsed_module = parsed_modules
         .get(&module_name)
@@ -337,14 +333,8 @@ pub fn module_semantic_index(
             crate_id.modules(db).keys().collect::<Vec<_>>()
         )
     });
-    let index = semantic_index_from_module(&parsed_module, file);
-    tracing::info!(
-        "[SEMANTIC] Semantic index built for module '{}': {} definitions, {} identifier usages",
-        module_name,
-        index.all_definitions().count(),
-        index.identifier_usages().len()
-    );
-    index
+
+    semantic_index_from_module(&parsed_module, file)
 }
 
 #[cfg(test)]

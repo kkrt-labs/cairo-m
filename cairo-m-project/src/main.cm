@@ -1,17 +1,10 @@
-use math::{add, sub, fooba};
-
+use math::{add,sub, abibi};
 func main(){
-    let a = 1;
-    let b = 2;
-    let c = add(a, b);
-    let x = 3;
-    let d = sub(a, b);
+    let x= 3;
+
+    let t = 3;
+    let aa = 3;
+    sub(1,2);
+    let x =1;
     return();
-}
-
-
-func fiba(){
-    let x = 3;
-    let y = 3;
-    return ();
 }

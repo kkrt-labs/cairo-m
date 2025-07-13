@@ -1,4 +1,4 @@
-use cairo_m_compiler_diagnostics::Diagnostic;
+use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCollection};
 
 use crate::ParsedModule;
 
@@ -54,6 +54,7 @@ pub fn parse_crate(db: &dyn Db, cairo_m_crate: Crate) -> ParsedCrate {
     let mut diagnostics = Vec::new();
 
     for file in cairo_m_crate.files(db) {
+        tracing::debug!("Parsing file with content: {}", file.text(db));
         let parsed = super::parser::parse_file(db, file);
         diagnostics.extend(parsed.diagnostics);
         modules.insert(file.file_path(db).to_string(), parsed.module);
@@ -63,4 +64,11 @@ pub fn parse_crate(db: &dyn Db, cairo_m_crate: Crate) -> ParsedCrate {
         modules,
         diagnostics,
     }
+}
+
+/// Project-level parser validation that returns diagnostics in the same format as semantic validation
+#[salsa::tracked]
+pub fn project_validate_parser(db: &dyn Db, cairo_m_crate: Crate) -> DiagnosticCollection {
+    let parsed_crate = parse_crate(db, cairo_m_crate);
+    DiagnosticCollection::new(parsed_crate.diagnostics)
 }

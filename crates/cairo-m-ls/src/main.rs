@@ -6,43 +6,41 @@ mod diagnostics;
 mod lsp_tracing;
 mod project;
 
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
-use std::time::SystemTime;
+#[cfg(test)]
+mod debug_test;
 
-use cairo_m_compiler::project_discovery::discover_project_files;
+#[cfg(test)]
+mod test_real_file;
+
+#[cfg(test)]
+mod debounce_test;
+
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
 use cairo_m_compiler_diagnostics::{
     Diagnostic as CairoDiagnostic, DiagnosticSeverity as CairoSeverity,
 };
 use cairo_m_compiler_parser::{SourceFile, Upcast};
-use cairo_m_compiler_semantic::db::{module_semantic_index, project_validate_semantics};
+use cairo_m_compiler_semantic::db::module_semantic_index;
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
 use cairo_m_compiler_semantic::type_resolution::definition_semantic_type;
 use cairo_m_compiler_semantic::types::{TypeData, TypeId};
-use cairo_m_compiler_semantic::{Crate, DefinitionKind, SemanticDb};
-use crossbeam_channel::Receiver;
+use cairo_m_compiler_semantic::{DefinitionKind, SemanticDb};
+use crossbeam_channel::{Receiver, TryRecvError};
 use dashmap::DashMap;
 use salsa::Setter;
+use tokio::sync::mpsc;
+use tokio::task::JoinHandle;
+use tokio::time::sleep;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
+use tracing_subscriber::EnvFilter;
 
 use crate::db::{AnalysisDatabase, AnalysisDatabaseSwapper};
 use crate::diagnostics::{DiagnosticsController, DiagnosticsRequest, ProjectDiagnostics};
 use crate::project::{ProjectController, ProjectModel, ProjectUpdate, ProjectUpdateRequest};
-
-/// Cached project discovery information
-#[derive(Debug, Clone)]
-struct ProjectCache {
-    /// List of .cm files found in the project (kept for compatibility)
-    #[allow(dead_code)]
-    files: Vec<PathBuf>,
-    /// Entry point file (main.cm if found, otherwise first file)
-    entry_point: PathBuf,
-    /// When this cache was last updated
-    last_updated: SystemTime,
-}
 
 /// LSP Backend for Cairo-M
 ///
@@ -56,8 +54,6 @@ struct Backend {
     client: Client,
     db: Arc<Mutex<AnalysisDatabase>>,
     source_files: Arc<DashMap<Url, SourceFile>>,
-    /// Cache for project file discovery to avoid re-scanning
-    project_caches: Arc<DashMap<PathBuf, ProjectCache>>,
     /// Project controller for background project management
     project_controller: Option<ProjectController>,
     /// Central project model
@@ -68,10 +64,12 @@ struct Backend {
     diagnostics_controller: Option<DiagnosticsController>,
     /// Central diagnostics state
     diagnostics_state: Arc<ProjectDiagnostics>,
-    /// Receiver for diagnostics responses
-    diagnostics_receiver: Option<Receiver<crate::diagnostics::controller::DiagnosticsResponse>>,
     /// Database swapper for memory management
     db_swapper: Option<AnalysisDatabaseSwapper>,
+    /// Debounce timers for per-file diagnostics
+    debounce_timers: Arc<DashMap<Url, JoinHandle<()>>>,
+    /// Debounce delay in milliseconds
+    debounce_delay_ms: u64,
 }
 
 impl Backend {
@@ -86,7 +84,7 @@ impl Backend {
         let diagnostics_state = Arc::new(ProjectDiagnostics::new());
 
         // Create channel for diagnostics responses
-        let (diag_tx, diag_rx) = crossbeam_channel::unbounded();
+        let (diag_tx, mut diag_rx) = tokio::sync::mpsc::unbounded_channel();
 
         // Create shared database
         let db = Arc::new(Mutex::new(AnalysisDatabase::default()));
@@ -109,219 +107,108 @@ impl Backend {
             std::time::Duration::from_secs(300),
         );
 
+        // Spawn dedicated task for continuous diagnostics monitoring
+        let client_clone = client.clone();
+        tokio::spawn(async move {
+            while let Some(response) = diag_rx.recv().await {
+                // Handle special URIs or publish
+                match response.uri.as_str() {
+                    "file:///thread-error/diagnostics" => {
+                        tracing::error!("Diagnostics controller thread has died");
+                        client_clone.show_message(MessageType::ERROR, "Diagnostics system has failed - please restart the language server").await;
+                    }
+                    "file:///health-check/diagnostics" => {
+                        tracing::debug!("Diagnostics controller health check received");
+                    }
+                    _ => {
+                        client_clone
+                            .publish_diagnostics(
+                                response.uri,
+                                response.diagnostics,
+                                response.version,
+                            )
+                            .await;
+                    }
+                }
+            }
+            tracing::error!("Diagnostics receiver channel closed unexpectedly");
+        });
+
         Self {
             client,
             db,
             source_files: Arc::new(DashMap::new()),
-            project_caches: Arc::new(DashMap::new()),
             project_controller: Some(project_controller),
             project_model,
             project_update_receiver: Some(project_rx),
             diagnostics_controller: Some(diagnostics_controller),
             diagnostics_state,
-            diagnostics_receiver: Some(diag_rx),
             db_swapper: Some(db_swapper),
+            debounce_timers: Arc::new(DashMap::new()),
+            debounce_delay_ms: 300, // Default to 300ms
         }
     }
 
-    /// Find the project root for a given file URI.
-    ///
-    /// Uses the shared project discovery logic.
-    fn find_project_root(&self, file_uri: &Url) -> Option<PathBuf> {
-        let file_path = file_uri.to_file_path().ok()?;
-        cairo_m_compiler::project_discovery::find_project_root(&file_path)
+    /// Safely access the database using blocking lock with spawn_blocking
+    fn safe_db_access<F, R>(&self, f: F) -> tokio::task::JoinHandle<R>
+    where
+        F: FnOnce(&AnalysisDatabase) -> R + Send + 'static,
+        R: Send + 'static,
+    {
+        let db_clone = self.db.clone();
+        tokio::task::spawn_blocking(move || {
+            let db = db_clone.lock().unwrap_or_else(|poisoned| {
+                tracing::error!("Database mutex poisoned - recovering from panic");
+                poisoned.into_inner()
+            });
+            f(&db)
+        })
     }
 
-    /// Clean up stale project caches that haven't been accessed in over 5 minutes
-    fn cleanup_stale_caches(&self) {
-        const STALE_TIMEOUT_SECS: u64 = 300; // 5 minutes
-
-        let mut stale_keys = Vec::new();
-
-        // Find stale entries
-        for entry in self.project_caches.iter() {
-            if let Ok(elapsed) = entry.value().last_updated.elapsed() {
-                if elapsed.as_secs() > STALE_TIMEOUT_SECS {
-                    stale_keys.push(entry.key().clone());
-                }
-            }
-        }
-
-        // Remove stale entries
-        for key in stale_keys {
-            self.project_caches.remove(&key);
-            tracing::debug!(
-                "[CACHE] Cleaned up stale project cache for {}",
-                key.display()
-            );
-        }
+    /// Safely access the mutable database using blocking lock with spawn_blocking
+    fn safe_db_access_mut<F, R>(&self, f: F) -> tokio::task::JoinHandle<R>
+    where
+        F: FnOnce(&mut AnalysisDatabase) -> R + Send + 'static,
+        R: Send + 'static,
+    {
+        let db_clone = self.db.clone();
+        tokio::task::spawn_blocking(move || {
+            let mut db = db_clone.lock().unwrap_or_else(|poisoned| {
+                tracing::error!("Database mutex poisoned - recovering from panic");
+                poisoned.into_inner()
+            });
+            f(&mut db)
+        })
     }
 
-    /// Discover all .cm files in a project directory recursively
-    ///
-    /// Returns a cached result if available and recent, otherwise performs a fresh scan.
-    fn discover_project_files(&self, project_root: &PathBuf) -> Option<ProjectCache> {
-        // Periodically clean up stale caches (every 10th call approximately)
-        static CLEANUP_COUNTER: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-        if CLEANUP_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % 10 == 0 {
-            self.cleanup_stale_caches();
-        }
-
-        // Check if we have a recent cache
-        if let Some(cache) = self.project_caches.get(project_root) {
-            // Cache is valid for 30 seconds to avoid excessive re-scanning
-            if let Ok(elapsed) = cache.last_updated.elapsed() {
-                if elapsed.as_secs() < 30 {
-                    return Some(cache.clone());
-                }
-            }
-        }
-
-        // Use shared project discovery logic
-        let config = cairo_m_compiler::project_discovery::ProjectDiscoveryConfig::default();
-        let discovered = discover_project_files(project_root, &config).ok()?;
-
-        let cache = ProjectCache {
-            files: discovered.files,
-            entry_point: discovered.entry_point,
-            last_updated: SystemTime::now(),
-        };
-
-        // Store in cache
-        self.project_caches
-            .insert(project_root.clone(), cache.clone());
-
-        Some(cache)
-    }
-
-    /// Get or create a crate for the given file URI.
-    ///
-    /// ALWAYS rebuilds the crate input to ensure Salsa gets fresh project structure.
-    /// This is critical for proper incremental compilation - Salsa will cache the
-    /// expensive operations (parsing, semantic analysis) while we provide fresh inputs.
-    #[allow(dead_code)]
-    fn get_or_create_crate(&self, file_uri: &Url) -> Option<Crate> {
-        let project_root = self.find_project_root(file_uri)?;
-
-        // ALWAYS REBUILD THE CRATE. DO NOT CHECK ANY CACHE HERE.
-        // This ensures Salsa always gets the latest project structure.
-        // Salsa will cache the underlying expensive operations.
-        tracing::info!(
-            "[PROJECT] Rebuilding crate for root: {}",
-            project_root.display()
-        );
-
-        // Check if this is a real project (has cairom.toml) or a standalone file
-        let is_real_project = project_root.join("cairom.toml").exists();
-        let mut modules = HashMap::new();
-
-        if is_real_project {
-            // Real project: discover all files
-            // Discover project files using cached recursive search
-            let project_cache = self.discover_project_files(&project_root)?;
-
-            // Process all discovered .cm files
-            for file_path in &project_cache.files {
-                // Use filename without extension as module name
-                let module_name = file_path
-                    .file_stem()
-                    .and_then(|stem| stem.to_str())
-                    .unwrap_or("unknown")
-                    .to_string();
-
-                if let Ok(file_uri) = Url::from_file_path(file_path) {
-                    // Check if file is already open in the editor
-                    if let Some(existing_source) = self.source_files.get(&file_uri) {
-                        // Reuse the existing source file (which has the current editor content)
-                        modules.insert(module_name, *existing_source.value());
-                    } else {
-                        // File not open in editor, read from disk
-                        if let Ok(content) = std::fs::read_to_string(file_path) {
-                            let source_file = self.safe_db_access(|db| {
-                                SourceFile::new(db, content, file_path.display().to_string())
-                            })?;
-
-                            modules.insert(module_name, source_file);
-
-                            // Store in source_files map for LSP operations
-                            self.source_files.insert(file_uri, source_file);
-                        }
-                    }
-                }
-            }
-
-            if modules.is_empty() {
-                return None;
-            }
-
-            // Determine entry point based on discovered files
-            let entry_point_name = project_cache
-                .entry_point
-                .file_stem()
-                .and_then(|stem| stem.to_str())?
-                .to_string();
-
-            // Ensure the entry point exists in modules, fallback to first module if not
-            #[allow(clippy::map_entry)]
-            let main_module = if modules.contains_key(&entry_point_name) {
-                entry_point_name
-            } else {
-                modules.keys().next()?.clone()
-            };
-
-            // Create and return a new Crate input.
-            // Do NOT insert it into any cache.
-            self.safe_db_access(|db| Crate::new(db, modules, main_module))
-        } else {
-            // Single-file crate: only include the file that was opened
-            tracing::info!("[PROJECT] Creating single-file crate for standalone file");
-
-            // Get the file path from the URI
-            let file_path = file_uri.to_file_path().ok()?;
-            let module_name = file_path
-                .file_stem()
-                .and_then(|stem| stem.to_str())
-                .unwrap_or("main")
-                .to_string();
-
-            // Check if file is already open in the editor
-            if let Some(existing_source) = self.source_files.get(file_uri) {
-                // Reuse the existing source file
-                modules.insert(module_name.clone(), *existing_source.value());
-            } else {
-                // Read the file from disk
-                if let Ok(content) = std::fs::read_to_string(&file_path) {
-                    let source_file = self.safe_db_access(|db| {
-                        SourceFile::new(db, content, file_path.display().to_string())
-                    })?;
-
-                    modules.insert(module_name.clone(), source_file);
-                    self.source_files.insert(file_uri.clone(), source_file);
-                } else {
-                    return None;
-                }
-            }
-
-            // Create and return a new Crate input.
-            // Do NOT insert it into any cache.
-            self.safe_db_access(|db| Crate::new(db, modules, module_name))
-        }
-    }
-
-    /// Safely access the database, returning None if mutex is poisoned
-    fn safe_db_access<F, R>(&self, f: F) -> Option<R>
+    /// Synchronously access the database (for use in sync contexts)
+    fn safe_db_access_sync<F, R>(&self, f: F) -> Option<R>
     where
         F: FnOnce(&AnalysisDatabase) -> R,
     {
-        self.db.lock().ok().map(|db| f(&db))
+        match self.db.lock() {
+            Ok(db) => Some(f(&db)),
+            Err(poisoned) => {
+                tracing::error!("Database mutex poisoned - recovering from panic");
+                let db = poisoned.into_inner();
+                Some(f(&db))
+            }
+        }
     }
 
-    /// Safely access the mutable database, returning None if mutex is poisoned
-    fn safe_db_access_mut<F, R>(&self, f: F) -> Option<R>
+    /// Synchronously access the mutable database (for use in sync contexts)
+    fn safe_db_access_mut_sync<F, R>(&self, f: F) -> Option<R>
     where
         F: FnOnce(&mut AnalysisDatabase) -> R,
     {
-        self.db.lock().ok().map(|mut db| f(&mut db))
+        match self.db.lock() {
+            Ok(mut db) => Some(f(&mut db)),
+            Err(poisoned) => {
+                tracing::error!("Database mutex poisoned - recovering from panic");
+                let mut db = poisoned.into_inner();
+                Some(f(&mut db))
+            }
+        }
     }
 
     /// Convert Cairo diagnostic to LSP diagnostic
@@ -375,6 +262,16 @@ impl Backend {
         Position {
             line: line as u32,
             character: character as u32,
+        }
+    }
+
+    /// Helper for URI conversion from path strings that may already be URIs
+    fn get_uri_from_path_str(&self, path_str: &str) -> std::result::Result<Url, String> {
+        if path_str.starts_with("file://") {
+            Url::parse(path_str).map_err(|e| format!("Failed to parse URI: {}", e))
+        } else {
+            Url::from_file_path(path_str)
+                .map_err(|_| format!("Failed to convert path to URI: {}", path_str))
         }
     }
 
@@ -436,23 +333,40 @@ impl Backend {
         let project_crate = self.project_model.get_project_crate_for_file(uri)?;
 
         // Convert to semantic crate
-        self.safe_db_access(|db| {
+        self.safe_db_access_sync(|db| {
             use crate::db::ProjectCrateExt;
             project_crate.to_semantic_crate(db)
         })
     }
 
-    /// Process diagnostics responses from the controller
-    async fn process_diagnostics_responses(&self) {
-        if let Some(receiver) = &self.diagnostics_receiver {
-            // Process all pending responses
-            while let Ok(response) = receiver.try_recv() {
-                // Publish diagnostics to the client
-                self.client
-                    .publish_diagnostics(response.uri, response.diagnostics, response.version)
-                    .await;
-            }
+    /// Schedule debounced diagnostics for a file
+    fn schedule_debounced_diagnostics(&self, uri: Url, version: Option<i32>) {
+        // Cancel any existing timer for this file
+        if let Some((_, handle)) = self.debounce_timers.remove(&uri) {
+            handle.abort();
         }
+
+        // Clone necessary components for the async task
+        let uri_clone = uri.clone();
+        let version_clone = version;
+        let delay_ms = self.debounce_delay_ms;
+        let request_sender = self.diagnostics_controller.as_ref().unwrap().sender.clone();
+
+        // Spawn the debounced task
+        let handle = tokio::spawn(async move {
+            // Wait for the debounce delay
+            sleep(Duration::from_millis(delay_ms)).await;
+
+            // Send the diagnostic request (sync)
+            tracing::debug!("Sending diagnostic request for URI: {}", uri_clone);
+            let _ = request_sender.send(DiagnosticsRequest::FileChanged {
+                uri: uri_clone.clone(),
+                version: version_clone,
+            });
+        });
+
+        // Store the new timer handle
+        self.debounce_timers.insert(uri, handle);
     }
 
     /// Gets the canonical `SourceFile` for a URI, creating it from disk if not open.
@@ -476,60 +390,126 @@ impl Backend {
     async fn process_project_updates(&self) {
         if let Some(receiver) = &self.project_update_receiver {
             // Process all pending updates
-            while let Ok(update) = receiver.try_recv() {
-                match update {
-                    ProjectUpdate::Project { crate_info, files } => {
-                        tracing::info!("Received project update: {}", crate_info.name);
+            loop {
+                match receiver.try_recv() {
+                    Ok(update) => {
+                        match update {
+                            ProjectUpdate::Project { crate_info, files } => {
+                                tracing::info!("Received project update: {}", crate_info.name);
 
-                        // Load the project into the model
-                        if let Ok(mut db) = self.db.lock() {
-                            // Create a closure that captures self
-                            let backend = self;
-                            let get_source_file = |db: &mut AnalysisDatabase, uri: &Url| {
-                                backend.get_or_create_source_file(db, uri)
-                            };
+                                // Load the project into the model
+                                let load_result = if let Ok(mut db) = self.db.lock() {
+                                    // Create a closure that captures self
+                                    let backend = self;
+                                    let get_source_file = |db: &mut AnalysisDatabase, uri: &Url| {
+                                        backend.get_or_create_source_file(db, uri)
+                                    };
 
-                            if let Err(e) = self.project_model.load_crate(
-                                crate_info.clone(),
-                                files,
-                                &mut db,
-                                get_source_file,
-                            ) {
-                                tracing::error!("Failed to load project: {}", e);
-                            } else {
-                                // Trigger diagnostics for the loaded project
-                                if let Some(project_crate) = self
-                                    .project_model
-                                    .get_project_crate_for_root(&crate_info.root)
-                                {
-                                    if let Some(controller) = &self.diagnostics_controller {
-                                        let _ = controller.request(
-                                            DiagnosticsRequest::ProjectChanged { project_crate },
-                                        );
+                                    self.project_model.load_crate(
+                                        crate_info.clone(),
+                                        files,
+                                        &mut db,
+                                        get_source_file,
+                                    )
+                                } else {
+                                    Err("Failed to acquire database lock".to_string())
+                                };
+
+                                // Process result after releasing the lock
+                                match load_result {
+                                    Ok(moved_files) => {
+                                        // Clear diagnostics for files that moved between projects
+                                        if !moved_files.is_empty() {
+                                            self.diagnostics_state.clear_for_project(&moved_files);
+                                            // Publish empty diagnostics to clear client-side
+                                            for uri in moved_files {
+                                                self.client
+                                                    .publish_diagnostics(uri, vec![], None)
+                                                    .await;
+                                            }
+                                        }
+
+                                        // Trigger diagnostics for the loaded project
+                                        if let Some(project_crate) = self
+                                            .project_model
+                                            .get_project_crate_for_root(&crate_info.root)
+                                        {
+                                            if let Some(controller) = &self.diagnostics_controller {
+                                                let _ = controller.request(
+                                                    DiagnosticsRequest::ProjectChanged {
+                                                        project_crate,
+                                                    },
+                                                );
+                                            }
+                                        }
+                                    }
+                                    Err(e) => {
+                                        tracing::error!("Failed to load project: {}", e);
                                     }
                                 }
                             }
-                        }
-                    }
-                    ProjectUpdate::Standalone(file_path) => {
-                        tracing::info!("Received standalone file update: {}", file_path.display());
+                            ProjectUpdate::Standalone(file_path) => {
+                                tracing::info!(
+                                    "Received standalone file update: {}",
+                                    file_path.display()
+                                );
 
-                        // Load the standalone file
-                        if let Ok(mut db) = self.db.lock() {
-                            // Create a closure that captures self
-                            let backend = self;
-                            let get_source_file = |db: &mut AnalysisDatabase, uri: &Url| {
-                                backend.get_or_create_source_file(db, uri)
-                            };
+                                // Load the standalone file
+                                let load_result = if let Ok(mut db) = self.db.lock() {
+                                    // Create a closure that captures self
+                                    let backend = self;
+                                    let get_source_file = |db: &mut AnalysisDatabase, uri: &Url| {
+                                        backend.get_or_create_source_file(db, uri)
+                                    };
 
-                            if let Err(e) = self.project_model.load_standalone(
-                                file_path,
-                                &mut db,
-                                get_source_file,
-                            ) {
-                                tracing::error!("Failed to load standalone file: {}", e);
+                                    self.project_model.load_standalone(
+                                        file_path,
+                                        &mut db,
+                                        get_source_file,
+                                    )
+                                } else {
+                                    Err("Failed to acquire database lock".to_string())
+                                };
+
+                                // Process result after releasing the lock
+                                match load_result {
+                                    Ok(moved_files) => {
+                                        // Clear diagnostics for files that moved
+                                        if !moved_files.is_empty() {
+                                            self.diagnostics_state.clear_for_project(&moved_files);
+                                            // Publish empty diagnostics to clear client-side
+                                            for uri in moved_files {
+                                                self.client
+                                                    .publish_diagnostics(uri, vec![], None)
+                                                    .await;
+                                            }
+                                        }
+                                    }
+                                    Err(e) => {
+                                        tracing::error!("Failed to load standalone file: {}", e);
+                                    }
+                                }
+                            }
+                            ProjectUpdate::ThreadError(error_msg) => {
+                                tracing::error!("Project controller thread error: {}", error_msg);
+                                self.client
+                                    .show_message(
+                                        MessageType::ERROR,
+                                        &format!("Project discovery failed: {}", error_msg),
+                                    )
+                                    .await;
                             }
                         }
+                    }
+                    Err(TryRecvError::Empty) => break,
+                    Err(TryRecvError::Disconnected) => {
+                        self.client
+                            .show_message(
+                                MessageType::ERROR,
+                                "Project controller thread has stopped unexpectedly",
+                            )
+                            .await;
+                        break;
                     }
                 }
             }
@@ -542,192 +522,7 @@ impl Backend {
     async fn run_diagnostics(&self, uri: Url, version: Option<i32>) {
         // Request diagnostics from the controller
         if let Some(controller) = &self.diagnostics_controller {
-            let _ = controller.request(DiagnosticsRequest::FileChanged {
-                uri: uri.clone(),
-                version,
-            });
-        }
-
-        // Process any pending diagnostics responses
-        self.process_diagnostics_responses().await;
-    }
-
-    /// Legacy run_diagnostics implementation - kept for reference
-    #[allow(dead_code)]
-    async fn _old_run_diagnostics(&self, uri: Url, version: Option<i32>) {
-        // Log start of diagnostics run
-        self.client
-            .log_message(
-                MessageType::INFO,
-                format!("[DIAGNOSTICS] Starting validation for {}", uri.path()),
-            )
-            .await;
-
-        let _project_root = match self.find_project_root(&uri) {
-            Some(root) => root,
-            None => return, // Can't determine project root
-        };
-
-        let crate_id = match self.get_or_create_crate(&uri) {
-            Some(crate_id) => {
-                // Log crate modules for debugging
-                self.safe_db_access(|db| {
-                    tracing::info!(
-                        "[LSP] Crate modules: {:?}",
-                        crate_id.modules(db).keys().collect::<Vec<_>>()
-                    );
-                });
-                crate_id
-            }
-            None => return, // Silently fail if crate can't be created
-        };
-
-        // Collect all file URIs that belong to this crate
-        let project_file_uris = match self.safe_db_access(|db| {
-            let mut uris = std::collections::HashSet::new();
-
-            // Get all files in the crate
-            for (_module_name, file) in crate_id.modules(db).iter() {
-                let file_path = file.file_path(db);
-                if let Ok(file_uri) = Url::from_file_path(file_path) {
-                    uris.insert(file_uri);
-                }
-            }
-
-            tracing::info!("[LSP] Project contains {} files", uris.len());
-
-            uris
-        }) {
-            Some(uris) => uris,
-            None => return, // Database access failed
-        };
-
-        // Get all diagnostics grouped by file
-        let diagnostics_by_file = match self.safe_db_access(|db| {
-            let all_diagnostics = project_validate_semantics(db, crate_id);
-
-            // Group diagnostics by file path
-            let mut grouped: HashMap<String, Vec<CairoDiagnostic>> = HashMap::new();
-            for diag in all_diagnostics.all() {
-                grouped
-                    .entry(diag.file_path.clone())
-                    .or_default()
-                    .push(diag.clone());
-            }
-
-            // Log which files have diagnostics
-            tracing::info!(
-                "[LSP] Diagnostics collected for files: {:?}",
-                grouped.keys().collect::<Vec<_>>()
-            );
-
-            grouped
-        }) {
-            Some(grouped) => grouped,
-            None => {
-                self.client
-                    .log_message(
-                        MessageType::ERROR,
-                        "Database access failed during diagnostics",
-                    )
-                    .await;
-                return;
-            }
-        };
-
-        // Process diagnostics for each file
-        for (file_path, file_diagnostics) in &diagnostics_by_file {
-            // Find the source file for this path
-            let file_source = self
-                .source_files
-                .iter()
-                .find(|entry| {
-                    self.safe_db_access(|db| entry.value().file_path(db) == file_path)
-                        .unwrap_or(false)
-                })
-                .map(|entry| (entry.key().clone(), *entry.value()));
-
-            if let Some((file_uri, source)) = file_source {
-                // Only publish diagnostics if this file belongs to the current project
-                if !project_file_uris.contains(&file_uri) {
-                    tracing::debug!(
-                        "[LSP] Skipping diagnostics for file outside project: {}",
-                        file_uri.path()
-                    );
-                    continue;
-                }
-
-                // Get the content for this specific file
-                let content = match self.safe_db_access(|db| source.text(db).to_string()) {
-                    Some(content) => content,
-                    None => continue,
-                };
-
-                // Convert diagnostics using the correct file's content
-                let converted_diagnostics: Vec<Diagnostic> = file_diagnostics
-                    .iter()
-                    .map(|d| self.convert_diagnostic(&content, d))
-                    .collect();
-
-                // Log diagnostics for this file
-                self.client
-                    .log_message(
-                        MessageType::INFO,
-                        format!(
-                            "[DIAGNOSTICS] Publishing {} diagnostics for {}",
-                            converted_diagnostics.len(),
-                            file_path
-                        ),
-                    )
-                    .await;
-                // Publish diagnostics to the correct file URI
-                // Use None for version when publishing to other files
-                let publish_version = if file_uri == uri { version } else { None };
-                self.client
-                    .publish_diagnostics(file_uri, converted_diagnostics, publish_version)
-                    .await;
-            } else {
-                // Log when we can't find a file URI for diagnostics
-                self.client
-                    .log_message(
-                        MessageType::WARNING,
-                        format!(
-                            "[DIAGNOSTICS] Cannot find URI for file with diagnostics: {}",
-                            file_path
-                        ),
-                    )
-                    .await;
-            }
-        }
-
-        // Clear diagnostics for project files that no longer have any
-        // Only clear diagnostics for files that belong to this specific project
-        // IMPORTANT: Don't clear diagnostics for the file that triggered this run (uri parameter)
-        // as its diagnostics should only be managed by its own diagnostic runs
-        for file_uri in &project_file_uris {
-            // Skip the file that triggered this diagnostic run
-            if file_uri == &uri {
-                continue;
-            }
-
-            // Get the file path for this URI
-            let file_path = match file_uri.to_file_path() {
-                Ok(path) => path.display().to_string(),
-                Err(_) => continue,
-            };
-
-            // If this file has no diagnostics, clear them
-            if !diagnostics_by_file.contains_key(&file_path) {
-                self.client
-                    .log_message(
-                        MessageType::INFO,
-                        format!("[DIAGNOSTICS] Clearing diagnostics for {}", file_path),
-                    )
-                    .await;
-                self.client
-                    .publish_diagnostics(file_uri.clone(), vec![], None)
-                    .await;
-            }
+            let _ = controller.request(DiagnosticsRequest::FileChanged { uri, version });
         }
     }
 }
@@ -772,19 +567,23 @@ impl LanguageServer for Backend {
 
         // Create a new SourceFile for the opened file. This requires a mutable
         // database lock because it allocates a new entity.
-        let source =
-            match self.safe_db_access_mut(|db| SourceFile::new(db, content, uri.to_string())) {
-                Some(source) => source,
-                None => {
-                    self.client
-                        .log_message(
-                            MessageType::ERROR,
-                            "Failed to create source file due to database error",
-                        )
-                        .await;
-                    return;
-                }
-            };
+        let uri_string = uri.to_string();
+        let join_handle =
+            self.safe_db_access_mut(move |db| SourceFile::new(db, content, uri_string));
+
+        let source = match join_handle.await {
+            Ok(source) => source,
+            Err(e) => {
+                tracing::error!("Failed to create source file: {:?}", e);
+                self.client
+                    .log_message(
+                        MessageType::ERROR,
+                        "Failed to create source file due to database error",
+                    )
+                    .await;
+                return;
+            }
+        };
 
         self.source_files.insert(uri.clone(), source);
 
@@ -797,13 +596,9 @@ impl LanguageServer for Backend {
         self.process_project_updates().await;
 
         self.run_diagnostics(uri, Some(version)).await;
-
-        // Process diagnostics responses
-        self.process_diagnostics_responses().await;
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
-        tracing::info!("Did change: {:?}", params);
         let uri = params.text_document.uri;
         let version = params.text_document.version;
 
@@ -811,14 +606,18 @@ impl LanguageServer for Backend {
             // Update the SourceFile with new content. This is the key to
             // incremental compilation.
             if let Some(source) = self.source_files.get(&uri).map(|s| *s.value()) {
-                match self.safe_db_access_mut(|db| {
-                    source.set_text(db).to(change.text);
-                }) {
-                    Some(_) => {
-                        self.run_diagnostics(uri, Some(version)).await;
-                        self.process_diagnostics_responses().await;
+                let change_text = change.text.clone();
+                let join_handle = self.safe_db_access_mut(move |db| {
+                    source.set_text(db).to(change_text);
+                });
+
+                match join_handle.await {
+                    Ok(_) => {
+                        // Schedule debounced diagnostics instead of immediate run
+                        self.schedule_debounced_diagnostics(uri, Some(version));
                     }
-                    None => {
+                    Err(e) => {
+                        tracing::error!("Failed to update file content: {:?}", e);
                         self.client
                             .log_message(
                                 MessageType::ERROR,
@@ -851,7 +650,7 @@ impl LanguageServer for Backend {
             None => return Ok(None),
         };
 
-        let definition_location = self.safe_db_access(|db| {
+        let definition_location = self.safe_db_access_sync(|db| {
             let content = source.text(db);
             let offset = self.position_to_offset(content, position);
 
@@ -886,7 +685,7 @@ impl LanguageServer for Backend {
                     if def_file != source {
                         // Get the URI for the definition file
                         let def_path = def_file.file_path(db);
-                        if let Ok(def_uri) = Url::from_file_path(def_path) {
+                        if let Ok(def_uri) = self.get_uri_from_path_str(def_path) {
                             let def_content = def_file.text(db);
                             let start_pos =
                                 self.offset_to_position(def_content, def.name_span.start);
@@ -943,7 +742,7 @@ impl LanguageServer for Backend {
                             for (mod_name, mod_file) in crate_id.modules(db).iter() {
                                 if mod_name == &use_ref.imported_module {
                                     let mod_path = mod_file.file_path(db);
-                                    if let Ok(mod_uri) = Url::from_file_path(mod_path) {
+                                    if let Ok(mod_uri) = self.get_uri_from_path_str(mod_path) {
                                         // Navigate to the beginning of the module file
                                         return Some(Location {
                                             uri: mod_uri,
@@ -991,7 +790,7 @@ impl LanguageServer for Backend {
             None => return Ok(None),
         };
 
-        let hover_info = self.safe_db_access(|db| {
+        let hover_info = self.safe_db_access_sync(|db| {
             let content = source.text(db);
             let offset = self.position_to_offset(content, position);
 
@@ -1075,7 +874,7 @@ impl LanguageServer for Backend {
             None => return Ok(None),
         };
 
-        let completion_items = match self.safe_db_access(|db| {
+        let completion_items = match self.safe_db_access_sync(|db| {
             let content = source.text(db);
             let offset = self.position_to_offset(content, position);
 
@@ -1196,26 +995,50 @@ impl LanguageServer for Backend {
 
 #[tokio::main]
 async fn main() {
+    use tracing_subscriber::filter::LevelFilter;
     use tracing_subscriber::layer::SubscriberExt;
     use tracing_subscriber::util::SubscriberInitExt;
 
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
 
-    let (service, socket) = LspService::build(|client| {
-        let backend = Backend::new(client.clone());
+    let args = std::env::args().collect::<Vec<String>>();
+    let _trace_level = args.get(1);
 
-        // Set up tracing to send logs to LSP client
-        let lsp_layer = lsp_tracing::LspTracingLayer::new(Arc::new(client));
+    let (service, socket) = LspService::build(|client| {
+        // --- Start of new logging setup ---
+
+        // 1. Create a channel for log messages.
+        // The sender is passed to the tracing layer, and the receiver is used in a dedicated task.
+        let (log_sender, mut log_receiver) = mpsc::unbounded_channel();
+
+        // 2. Clone the client for the logging task.
+        let client_clone = client.clone();
+
+        // 3. Spawn a task to listen for log messages and forward them to the LSP client.
+        // This task runs on the main Tokio runtime and can safely call async functions.
+        tokio::spawn(async move {
+            while let Some((level, message)) = log_receiver.recv().await {
+                // tracing::info!("{}", message);
+                client_clone.log_message(level, message).await;
+            }
+        });
+
+        // 4. Create the LspTracingLayer with the sender part of the channel.
+        let lsp_layer = lsp_tracing::LspTracingLayer::new(log_sender);
+
+        // --- End of new logging setup ---
+
+        let directives = EnvFilter::builder()
+            .with_default_directive(LevelFilter::DEBUG.into())
+            .parse_lossy("");
 
         tracing_subscriber::registry()
             .with(lsp_layer)
-            .with(tracing_subscriber::EnvFilter::new(
-                std::env::var("RUST_LOG").unwrap_or_else(|_| "cairo_m=info".to_string()),
-            ))
+            .with(directives)
             .init();
 
-        backend
+        Backend::new(client)
     })
     .finish();
 

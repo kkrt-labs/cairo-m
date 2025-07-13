@@ -13,7 +13,7 @@ pub struct ProjectDiagnostics {
 impl ProjectDiagnostics {
     /// Create a new ProjectDiagnostics instance
     pub fn new() -> Self {
-        ProjectDiagnostics {
+        Self {
             diagnostics: RwLock::new(HashMap::new()),
         }
     }
@@ -56,6 +56,19 @@ impl ProjectDiagnostics {
 
         let mut map = self.diagnostics.write().unwrap();
         map.clear();
+    }
+
+    /// Clear diagnostics for all files in a project
+    pub fn clear_for_project(&self, project_files: &[Url]) {
+        debug!(
+            "Clearing diagnostics for {} project files",
+            project_files.len()
+        );
+
+        let mut map = self.diagnostics.write().unwrap();
+        for uri in project_files {
+            map.remove(uri);
+        }
     }
 
     /// Get the total number of diagnostics across all files

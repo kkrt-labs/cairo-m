@@ -2,7 +2,8 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use tracing::{debug, info};
+use tower_lsp::lsp_types::Url;
+use tracing::{debug, error, info};
 
 use crate::db::AnalysisDatabase;
 use crate::project::ProjectModel;
@@ -27,11 +28,21 @@ impl AnalysisDatabaseSwapper {
     ) -> Self {
         let (shutdown_tx, shutdown_rx) = crossbeam_channel::bounded(1);
 
-        let handle = thread::spawn(move || {
-            Self::worker_thread(db, project_model, interval, shutdown_rx);
-        });
+        let handle = thread::Builder::new()
+            .name("database-swapper".to_string())
+            .spawn(move || {
+                // Catch panics to log them
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    Self::worker_thread(db, project_model, interval, shutdown_rx);
+                }));
 
-        AnalysisDatabaseSwapper {
+                if let Err(e) = result {
+                    error!("DatabaseSwapper worker thread panicked: {:?}", e);
+                }
+            })
+            .expect("Failed to spawn DatabaseSwapper thread");
+
+        Self {
             handle: Some(handle),
             shutdown_tx,
         }
@@ -73,54 +84,73 @@ impl AnalysisDatabaseSwapper {
         debug!("Starting database swap");
         let start = std::time::Instant::now();
 
-        // Step 1: Extract essential state with minimal lock time
-        let (open_files, all_crates) = {
+        // Step 1: Snapshot live state with minimal lock time.
+        // We get all project definitions and the current text of every file.
+        let (all_crates, files_content_map) = {
             let old_db = match db.lock() {
                 Ok(guard) => guard,
                 Err(_) => {
-                    debug!("Failed to lock database for swap");
+                    debug!("Failed to lock database for swap snapshot");
                     return;
                 }
             };
-
-            let mut open_files = Vec::new();
             let crates = project_model.all_crates();
+            let mut content_map = std::collections::HashMap::new();
+            for krate in &crates {
+                for (path, sf) in &krate.files {
+                    if let Ok(uri) = Url::from_file_path(path) {
+                        let content = sf.text(&*old_db).to_string();
+                        content_map.insert(uri, content);
+                    }
+                }
+            }
+            (crates, content_map)
+        }; // Lock on old_db is released here.
 
-            // Quickly extract file contents
-            for crate_obj in &crates {
-                for (path, source_file) in &crate_obj.files {
-                    let content = source_file.text(&*old_db).to_string();
-                    let file_path = source_file.file_path(&*old_db).to_string();
-                    open_files.push((path.clone(), file_path, content));
+        // Step 2: Build the new database and project state offline.
+        // This part is computationally expensive but doesn't block the language server.
+        let mut new_db = AnalysisDatabase::new();
+        let mut new_project_crate_ids = std::collections::HashMap::new();
+
+        for krate in all_crates {
+            let mut new_files_in_crate = std::collections::HashMap::new();
+            for path in krate.files.keys() {
+                if let Ok(uri) = Url::from_file_path(path) {
+                    if let Some(content) = files_content_map.get(&uri) {
+                        let new_sf = cairo_m_compiler_parser::SourceFile::new(
+                            &mut new_db,
+                            content.clone(),
+                            uri.to_string(),
+                        );
+                        new_files_in_crate.insert(path.clone(), new_sf);
+                    }
                 }
             }
 
-            (open_files, crates)
-        }; // Lock is released here
+            let main_module_name = krate
+                .main_file
+                .as_ref()
+                .and_then(|p| p.file_stem())
+                .and_then(|s| s.to_str())
+                .unwrap_or("main")
+                .to_string();
 
-        // Step 2: Build the new database without holding any locks
-        let mut new_db = AnalysisDatabase::new();
-
-        // Re-create source files in the new database
-        let mut file_map = std::collections::HashMap::new();
-        for (_path, file_path, content) in open_files {
-            let source_file =
-                cairo_m_compiler_parser::SourceFile::new(&new_db, content, file_path.clone());
-            file_map.insert(file_path, source_file);
+            let new_project_crate = crate::db::ProjectCrate::new(
+                &mut new_db,
+                krate.info.root.clone(),
+                main_module_name,
+                new_files_in_crate,
+            );
+            new_project_crate_ids.insert(krate.info.root.clone(), new_project_crate);
         }
 
-        // Re-apply all project crates
-        // TODO: Update this to work with the new load_crate signature that requires file paths and get_source_file closure
-        // for crate_obj in all_crates {
-        //     if let Err(e) = project_model.load_crate(crate_obj.info, &mut new_db) {
-        //         debug!("Failed to reload crate during swap: {}", e);
-        //     }
-        // }
-
-        // Step 3: Perform the atomic swap with minimal lock time
+        // Step 3: Perform the atomic swap.
+        // We acquire the DB lock and, while holding it, swap the database
+        // and update the project model to point to the new entities.
         match db.lock() {
             Ok(mut old_db) => {
                 *old_db = new_db;
+                project_model.replace_project_crate_ids(new_project_crate_ids);
                 let elapsed = start.elapsed();
                 info!("Database swap completed in {:?}", elapsed);
             }

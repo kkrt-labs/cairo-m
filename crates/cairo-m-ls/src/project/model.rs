@@ -36,7 +36,7 @@ pub struct ProjectModel {
 
 impl ProjectModel {
     pub fn new() -> Self {
-        ProjectModel {
+        Self {
             crates: Arc::new(RwLock::new(HashMap::new())),
             file_to_project: Arc::new(RwLock::new(HashMap::new())),
             project_crate_ids: Arc::new(RwLock::new(HashMap::new())),
@@ -44,13 +44,14 @@ impl ProjectModel {
     }
 
     /// Load a new crate into the model
+    /// Returns URLs of files that moved from other projects (for diagnostics clearing)
     pub fn load_crate(
         &self,
         crate_info: CrateInfo,
         file_paths: Vec<PathBuf>,
         db: &mut AnalysisDatabase,
         get_source_file: impl Fn(&mut AnalysisDatabase, &Url) -> Option<SourceFile>,
-    ) -> Result<(), String> {
+    ) -> Result<Vec<Url>, String> {
         info!(
             "Loading crate: {} with {} files",
             crate_info.name,
@@ -72,7 +73,7 @@ impl ProjectModel {
 
         let crate_obj = Crate {
             info: crate_info.clone(),
-            main_file: main_file.clone(),
+            main_file,
             files: files.clone(),
         };
 
@@ -85,26 +86,34 @@ impl ProjectModel {
             crates.insert(crate_info.root.clone(), crate_obj);
         }
 
-        // Update file mappings
+        // Update file mappings and track files that moved projects
+        let mut moved_files = Vec::new();
         {
             let mut file_to_project = self.file_to_project.write().unwrap();
             for file_path in files.keys() {
                 if let Ok(url) = Url::from_file_path(file_path) {
+                    // Check if file was in a different project
+                    if let Some(old_project) = file_to_project.get(&url) {
+                        if old_project != &crate_info.root {
+                            moved_files.push(url.clone());
+                        }
+                    }
                     file_to_project.insert(url, crate_info.root.clone());
                 }
             }
         }
 
-        Ok(())
+        Ok(moved_files)
     }
 
     /// Load a standalone file (no project)
+    /// Returns URLs of files that moved from other projects (for diagnostics clearing)
     pub fn load_standalone(
         &self,
         file_path: PathBuf,
         db: &mut AnalysisDatabase,
         get_source_file: impl Fn(&mut AnalysisDatabase, &Url) -> Option<SourceFile>,
-    ) -> Result<(), String> {
+    ) -> Result<Vec<Url>, String> {
         info!("Loading standalone file: {}", file_path.display());
 
         let uri = Url::from_file_path(&file_path)
@@ -113,14 +122,16 @@ impl ProjectModel {
         let source_file = get_source_file(db, &uri)
             .ok_or_else(|| format!("Failed to get source file for: {}", file_path.display()))?;
 
-        // For standalone files, create a minimal crate
+        // For standalone files, create a minimal crate with unique root
+        // Use the file path itself with a ".standalone" extension to ensure uniqueness
+        let unique_root = file_path.with_extension("standalone");
         let crate_info = CrateInfo {
             name: file_path
                 .file_stem()
                 .and_then(|s| s.to_str())
                 .unwrap_or("standalone")
                 .to_string(),
-            root: file_path.parent().unwrap_or(&file_path).to_path_buf(),
+            root: unique_root,
             manifest_path: file_path.clone(), // Use the file itself as "manifest"
         };
 
@@ -129,7 +140,7 @@ impl ProjectModel {
 
         let crate_obj = Crate {
             info: crate_info.clone(),
-            main_file: Some(file_path.clone()),
+            main_file: Some(file_path),
             files,
         };
 
@@ -141,7 +152,19 @@ impl ProjectModel {
             crates.insert(crate_info.root.clone(), crate_obj);
         }
 
-        Ok(())
+        // Check if file moved from another project
+        let mut moved_files = Vec::new();
+        {
+            let mut file_to_project = self.file_to_project.write().unwrap();
+            if let Some(old_project) = file_to_project.get(&uri) {
+                if old_project != &crate_info.root {
+                    moved_files.push(uri.clone());
+                }
+            }
+            file_to_project.insert(uri, crate_info.root);
+        }
+
+        Ok(moved_files)
     }
 
     /// Get the crate for a given file URL
@@ -183,6 +206,16 @@ impl ProjectModel {
         crates.clear();
         file_to_project.clear();
         project_crate_ids.clear();
+    }
+
+    /// Replaces the stored ProjectCrate IDs with a new set.
+    /// This is intended to be used by the AnalysisDatabaseSwapper after a DB swap.
+    pub fn replace_project_crate_ids(&self, new_ids: HashMap<PathBuf, ProjectCrate>) {
+        if let Ok(mut project_crate_ids) = self.project_crate_ids.write() {
+            *project_crate_ids = new_ids;
+        } else {
+            tracing::error!("Failed to acquire write lock on project_crate_ids during swap.");
+        }
     }
 
     fn find_main_file(

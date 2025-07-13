@@ -4,10 +4,11 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Instant;
 
-use cairo_m_compiler_semantic::db::project_validate_semantics;
+use cairo_m_compiler_semantic::db::{project_parse_diagnostics, project_validate_semantics};
 use crossbeam_channel::{Receiver, Sender};
+use tokio::sync::mpsc::UnboundedSender;
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity, Position, Range, Url};
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 
 use crate::db::{AnalysisDatabase, ProjectCrate, ProjectCrateExt};
 use crate::diagnostics::state::ProjectDiagnostics;
@@ -25,6 +26,9 @@ pub enum DiagnosticsRequest {
     /// Clear all diagnostics
     Clear,
 
+    /// Health check ping
+    HealthCheck,
+
     /// Shutdown the controller
     Shutdown,
 }
@@ -39,7 +43,7 @@ pub struct DiagnosticsResponse {
 
 /// Controller for computing diagnostics in a background thread
 pub struct DiagnosticsController {
-    sender: Sender<DiagnosticsRequest>,
+    pub sender: Sender<DiagnosticsRequest>,
     handle: Option<thread::JoinHandle<()>>,
 }
 
@@ -49,21 +53,44 @@ impl DiagnosticsController {
         db: Arc<Mutex<AnalysisDatabase>>,
         diagnostics_state: Arc<ProjectDiagnostics>,
         project_model: Arc<ProjectModel>,
-        response_sender: Sender<DiagnosticsResponse>,
+        response_sender: UnboundedSender<DiagnosticsResponse>,
     ) -> Self {
         let (sender, receiver) = crossbeam_channel::unbounded();
 
-        let handle = thread::spawn(move || {
-            Self::worker_thread(
-                db,
-                diagnostics_state,
-                project_model,
-                receiver,
-                response_sender,
-            );
-        });
+        let error_response_sender = response_sender.clone();
+        let handle = thread::Builder::new()
+            .name("diagnostics-controller".to_string())
+            .spawn(move || {
+                // Catch panics to log them and notify the client
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    Self::worker_thread(
+                        db,
+                        diagnostics_state,
+                        project_model,
+                        receiver,
+                        response_sender,
+                    );
+                }));
 
-        DiagnosticsController {
+                if let Err(e) = result {
+                    error!("DiagnosticsController worker thread panicked: {:?}", e);
+
+                    // Send an error response to notify the main thread
+                    // Use a special URI to indicate thread failure
+                    let error_uri =
+                        tower_lsp::lsp_types::Url::parse("file:///thread-error/diagnostics")
+                            .expect("Valid error URI");
+
+                    let _ = error_response_sender.send(DiagnosticsResponse {
+                        uri: error_uri,
+                        version: None,
+                        diagnostics: vec![], // Empty diagnostics indicate error
+                    });
+                }
+            })
+            .expect("Failed to spawn DiagnosticsController thread");
+
+        Self {
             sender,
             handle: Some(handle),
         }
@@ -83,14 +110,15 @@ impl DiagnosticsController {
         diagnostics_state: Arc<ProjectDiagnostics>,
         project_model: Arc<ProjectModel>,
         receiver: Receiver<DiagnosticsRequest>,
-        response_sender: Sender<DiagnosticsResponse>,
+        response_sender: UnboundedSender<DiagnosticsResponse>,
     ) {
         info!("DiagnosticsController worker thread started");
 
         for request in receiver {
+            info!("Received request: {:?}", request);
             match request {
                 DiagnosticsRequest::FileChanged { uri, version } => {
-                    debug!("Processing diagnostics for file: {}", uri);
+                    info!("FileChainged: Processing diagnostics for file: {}", uri);
                     Self::compute_file_diagnostics(
                         &db,
                         &diagnostics_state,
@@ -109,6 +137,7 @@ impl DiagnosticsController {
                         &diagnostics_state,
                         project_crate,
                         &response_sender,
+                        None,
                     );
                     debug!("Project diagnostics completed in {:?}", start.elapsed());
                 }
@@ -116,6 +145,20 @@ impl DiagnosticsController {
                 DiagnosticsRequest::Clear => {
                     info!("Clearing all diagnostics");
                     diagnostics_state.clear();
+                }
+
+                DiagnosticsRequest::HealthCheck => {
+                    debug!("Health check received - diagnostics controller is alive");
+                    // Send a health check response using a special URI
+                    let health_uri =
+                        tower_lsp::lsp_types::Url::parse("file:///health-check/diagnostics")
+                            .expect("Valid health check URI");
+
+                    let _ = response_sender.send(DiagnosticsResponse {
+                        uri: health_uri,
+                        version: None,
+                        diagnostics: vec![],
+                    });
                 }
 
                 DiagnosticsRequest::Shutdown => {
@@ -135,18 +178,26 @@ impl DiagnosticsController {
         project_model: &ProjectModel,
         uri: Url,
         version: Option<i32>,
-        response_sender: &Sender<DiagnosticsResponse>,
+        response_sender: &UnboundedSender<DiagnosticsResponse>,
     ) {
+        debug!("Computing diagnostics for file: {}", uri);
+
         // Try to get the ProjectCrate for this file
         if let Some(project_crate) = project_model.get_project_crate_for_file(&uri) {
+            info!("Found project crate for file, running project diagnostics");
             // We have a project, run full project diagnostics
             Self::compute_project_diagnostics(
                 db,
                 diagnostics_state,
                 project_crate,
                 response_sender,
+                version,
             );
         } else {
+            info!(
+                "No project crate found for file: {}, clearing diagnostics",
+                uri
+            );
             // No project found, just clear diagnostics for this file
             diagnostics_state.set_diagnostics(&uri, vec![]);
 
@@ -163,68 +214,203 @@ impl DiagnosticsController {
         db: &Arc<Mutex<AnalysisDatabase>>,
         diagnostics_state: &ProjectDiagnostics,
         project_crate: ProjectCrate,
-        response_sender: &Sender<DiagnosticsResponse>,
+        response_sender: &UnboundedSender<DiagnosticsResponse>,
+        version: Option<i32>,
     ) {
-        // Extract necessary data with minimal lock time
-        let (_semantic_crate, files_with_content, diagnostic_collection) = {
-            let db_guard = match db.lock() {
-                Ok(guard) => guard,
-                Err(_) => {
-                    debug!("Failed to lock database for diagnostics");
-                    return;
+        // Wrap the entire operation in catch_unwind to prevent panics from poisoning the mutex
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            // Extract necessary data with minimal lock time
+            let (files_with_content, parser_diagnostics, semantic_diagnostics) = {
+                let db_guard = match db.lock() {
+                    Ok(guard) => guard,
+                    Err(poisoned) => {
+                        debug!("Database was poisoned, recovering from panic");
+                        poisoned.into_inner()
+                    }
+                };
+
+                let files = project_crate.files(&*db_guard);
+                debug!(
+                    "Converting ProjectCrate with {} files for validation",
+                    files.len()
+                );
+                for (path, _) in files {
+                    debug!("  File: {}", path.display());
                 }
-            };
 
-            // Convert to semantic crate for validation
-            let semantic_crate = project_crate.to_semantic_crate(&*db_guard);
+                // First run parser validation
+                let semantic_crate = project_crate.to_semantic_crate(&*db_guard);
+                let parser_diagnostics = project_parse_diagnostics(&*db_guard, semantic_crate);
 
-            // Run semantic validation
-            let diagnostic_collection = project_validate_semantics(&*db_guard, semantic_crate);
+                debug!(
+                    "Parser validation found {} diagnostics",
+                    parser_diagnostics.all().len()
+                );
 
-            // Clone file contents while we have the lock
-            let files = project_crate.files(&*db_guard);
-            let mut files_with_content = HashMap::new();
-            for (path, source_file) in files {
-                let content = source_file.text(&*db_guard).to_string();
-                files_with_content.insert(path.clone(), content);
+                // Check if there are fatal parser errors (syntax errors that would break semantic analysis)
+                let has_fatal_errors = parser_diagnostics.all().iter().any(|d| {
+                    matches!(
+                        d.severity,
+                        cairo_m_compiler_diagnostics::DiagnosticSeverity::Error
+                    )
+                });
+
+                // Only run semantic validation if no fatal parser errors
+                let semantic_diagnostics = if !has_fatal_errors {
+                    let semantic_crate = project_crate.to_semantic_crate(&*db_guard);
+                    let collection = project_validate_semantics(&*db_guard, semantic_crate);
+                    debug!(
+                        "Semantic validation found {} diagnostics",
+                        collection.all().len()
+                    );
+                    collection
+                } else {
+                    debug!("Skipping semantic validation due to parser errors");
+                    cairo_m_compiler_diagnostics::DiagnosticCollection::new(Vec::new())
+                };
+
+                // Clone file contents while we have the lock
+                let files = project_crate.files(&*db_guard);
+                let mut files_with_content = HashMap::new();
+                for (path, source_file) in files {
+                    let content = source_file.text(&*db_guard).to_string();
+                    files_with_content.insert(path.clone(), content);
+                }
+
+                (files_with_content, parser_diagnostics, semantic_diagnostics)
+            }; // Lock is released here
+
+            // Helper function to convert diagnostics
+            fn get_uri_from_path_str(path_str: &str) -> Result<Url, String> {
+                if path_str.starts_with("file://") {
+                    Url::parse(path_str).map_err(|e| format!("Failed to parse URI: {}", e))
+                } else {
+                    Url::from_file_path(path_str)
+                        .map_err(|_| format!("Failed to convert path to URI: {}", path_str))
+                }
             }
 
-            (semantic_crate, files_with_content, diagnostic_collection)
-        }; // Lock is released here
+            // Now process diagnostics without holding the lock
+            let mut diagnostics_by_file: std::collections::HashMap<Url, Vec<Diagnostic>> =
+                std::collections::HashMap::new();
 
-        // Now process diagnostics without holding the lock
-        let mut diagnostics_by_file: std::collections::HashMap<Url, Vec<Diagnostic>> =
-            std::collections::HashMap::new();
-
-        // Initialize with empty diagnostics for all files
-        for file_path in files_with_content.keys() {
-            if let Ok(uri) = Url::from_file_path(file_path) {
-                diagnostics_by_file.insert(uri, vec![]);
+            // Initialize with empty diagnostics for all files
+            for file_path in files_with_content.keys() {
+                if let Ok(uri) = get_uri_from_path_str(&file_path.to_string_lossy()) {
+                    diagnostics_by_file.insert(uri, vec![]);
+                }
             }
-        }
 
-        // Convert and group Cairo diagnostics to LSP diagnostics
-        for cairo_diag in diagnostic_collection.all() {
-            if let Ok(uri) = Url::from_file_path(&cairo_diag.file_path) {
+            let total_diagnostics =
+                parser_diagnostics.all().len() + semantic_diagnostics.all().len();
+            debug!(
+                "Converting {} total diagnostics to LSP format ({} parser + {} semantic)",
+                total_diagnostics,
+                parser_diagnostics.all().len(),
+                semantic_diagnostics.all().len()
+            );
+
+            // Convert parser diagnostics first
+            for cairo_diag in parser_diagnostics.all() {
+                let uri = match get_uri_from_path_str(&cairo_diag.file_path) {
+                    Ok(uri) => uri,
+                    Err(e) => {
+                        debug!("Warning: {}", e);
+                        continue;
+                    }
+                };
+
+                debug!("Processing parser diagnostic for URI: {}", uri);
+
                 // Find the source file content
-                if let Some(content) = files_with_content.get(&PathBuf::from(&cairo_diag.file_path))
-                {
+                let path_buf = if cairo_diag.file_path.starts_with("file://") {
+                    match uri.to_file_path() {
+                        Ok(path) => path,
+                        Err(_) => {
+                            debug!("Warning: Failed to convert URI to file path: {}", uri);
+                            continue;
+                        }
+                    }
+                } else {
+                    PathBuf::from(&cairo_diag.file_path)
+                };
+
+                if let Some(content) = files_with_content.get(&path_buf) {
                     let lsp_diag = convert_cairo_diagnostic(content, cairo_diag);
+                    debug!(
+                        "Converted parser diagnostic: {:?} -> LSP range {:?}",
+                        cairo_diag.message, lsp_diag.range
+                    );
 
                     diagnostics_by_file.entry(uri).or_default().push(lsp_diag);
+                } else {
+                    debug!(
+                        "Warning: No content found for file path: {} (URI: {})",
+                        path_buf.display(),
+                        uri
+                    );
                 }
             }
-        }
 
-        // Update state and send responses
-        for (uri, diagnostics) in diagnostics_by_file {
-            diagnostics_state.set_diagnostics(&uri, diagnostics.clone());
+            // Convert semantic diagnostics
+            for cairo_diag in semantic_diagnostics.all() {
+                let uri = match get_uri_from_path_str(&cairo_diag.file_path) {
+                    Ok(uri) => uri,
+                    Err(e) => {
+                        debug!("Warning: {}", e);
+                        continue;
+                    }
+                };
 
-            let _ = response_sender.send(DiagnosticsResponse {
-                uri,
-                version: None, // Project-wide validation doesn't have a specific version
-                diagnostics,
-            });
+                debug!("Processing semantic diagnostic for URI: {}", uri);
+
+                let path_buf = if cairo_diag.file_path.starts_with("file://") {
+                    match uri.to_file_path() {
+                        Ok(path) => path,
+                        Err(_) => {
+                            debug!("Warning: Failed to convert URI to file path: {}", uri);
+                            continue;
+                        }
+                    }
+                } else {
+                    PathBuf::from(&cairo_diag.file_path)
+                };
+
+                if let Some(content) = files_with_content.get(&path_buf) {
+                    let lsp_diag = convert_cairo_diagnostic(content, cairo_diag);
+                    debug!(
+                        "Converted semantic diagnostic: {:?} -> LSP range {:?}",
+                        cairo_diag.message, lsp_diag.range
+                    );
+
+                    diagnostics_by_file.entry(uri).or_default().push(lsp_diag);
+                } else {
+                    debug!(
+                        "Warning: No content found for file path: {} (URI: {})",
+                        path_buf.display(),
+                        uri
+                    );
+                }
+            }
+
+            // Update state and send responses
+            for (uri, diagnostics) in diagnostics_by_file {
+                diagnostics_state.set_diagnostics(&uri, diagnostics.clone());
+
+                let _ = response_sender.send(DiagnosticsResponse {
+                    uri,
+                    version, // Use the passed version
+                    diagnostics,
+                });
+            }
+        }));
+
+        // Handle panic in diagnostics computation
+        if let Err(panic_payload) = result {
+            error!("Panic in diagnostics computation: {:?}", panic_payload);
+            error!(
+                "This indicates a bug in the compiler or semantic analysis - the mutex should not be poisoned anymore"
+            );
         }
     }
 }
@@ -242,7 +428,7 @@ impl Drop for DiagnosticsController {
 }
 
 /// Convert Cairo diagnostic to LSP diagnostic
-fn convert_cairo_diagnostic(
+pub fn convert_cairo_diagnostic(
     source: &str,
     diag: &cairo_m_compiler_diagnostics::Diagnostic,
 ) -> Diagnostic {
