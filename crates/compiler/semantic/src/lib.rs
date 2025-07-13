@@ -34,7 +34,11 @@ pub mod db;
 pub use db::{
     Crate, SemanticDatabaseImpl, SemanticDb, module_semantic_index, project_semantic_index,
 };
+pub mod delta_diagnostics;
 pub mod validation;
+
+#[cfg(test)]
+mod delta_diagnostics_example;
 
 // Re-export main types and functions
 pub use definition::{Definition, DefinitionKind, Definitions};

@@ -5,7 +5,9 @@ mod db;
 mod diagnostics;
 mod lsp_tracing;
 mod project;
+mod utils;
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -53,7 +55,7 @@ struct Backend {
     /// Debounce timers for per-file diagnostics
     debounce_timers: Arc<DashMap<Url, JoinHandle<()>>>,
     /// Debounce delay in milliseconds
-    debounce_delay_ms: u64,
+    debounce_delay_ms: Arc<AtomicU64>,
 }
 
 impl Backend {
@@ -318,7 +320,7 @@ impl Backend {
             diagnostics_controller: Some(diagnostics_controller),
             db_swapper: Some(db_swapper),
             debounce_timers: Arc::new(DashMap::new()),
-            debounce_delay_ms: 300, // Default to 300ms
+            debounce_delay_ms: Arc::new(AtomicU64::new(300)), // Default to 300ms
         }
     }
 
@@ -463,7 +465,7 @@ impl Backend {
         // Clone necessary components for the async task
         let uri_clone = uri.clone();
         let version_clone = version;
-        let delay_ms = self.debounce_delay_ms;
+        let delay_ms = self.debounce_delay_ms.load(Ordering::Relaxed);
         let request_sender = self.diagnostics_controller.as_ref().unwrap().sender.clone();
 
         // Spawn the debounced task
@@ -496,7 +498,17 @@ impl Backend {
 
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
-    async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
+    async fn initialize(&self, params: InitializeParams) -> Result<InitializeResult> {
+        // Check for initialization options
+        if let Some(options) = params.initialization_options {
+            if let Some(debounce) = options.get("debounce_ms") {
+                if let Some(debounce_value) = debounce.as_u64() {
+                    self.debounce_delay_ms
+                        .store(debounce_value, Ordering::Relaxed);
+                    tracing::info!("Set debounce delay to {}ms", debounce_value);
+                }
+            }
+        }
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(

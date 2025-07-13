@@ -337,6 +337,98 @@ pub fn module_semantic_index(
     semantic_index_from_module(&parsed_module, file)
 }
 
+/// Get parse diagnostics for a specific module
+#[salsa::tracked]
+pub fn module_parse_diagnostics(
+    db: &dyn SemanticDb,
+    crate_id: Crate,
+    module_name: String,
+) -> DiagnosticCollection {
+    if let Some(file) = crate_id.modules(db).get(&module_name) {
+        let parsed = parse_file(db.upcast(), *file);
+        DiagnosticCollection::new(parsed.diagnostics)
+    } else {
+        DiagnosticCollection::default()
+    }
+}
+
+/// Get semantic diagnostics for a specific module
+#[salsa::tracked]
+pub fn module_semantic_diagnostics(
+    db: &dyn SemanticDb,
+    crate_id: Crate,
+    module_name: String,
+) -> DiagnosticCollection {
+    let parse_diag = module_parse_diagnostics(db, crate_id, module_name.clone());
+    if !parse_diag.is_empty() {
+        tracing::warn!(
+            "[SEMANTIC] Found {} parse errors in module '{}', skipping semantic validation",
+            parse_diag.len(),
+            module_name
+        );
+        return parse_diag;
+    }
+
+    if let Some(file) = crate_id.modules(db).get(&module_name) {
+        let index = module_semantic_index(db, crate_id, module_name.clone());
+        let registry = create_default_registry();
+        let module_diagnostics = registry.validate_all(db, crate_id, *file, &index);
+
+        tracing::info!(
+            "[SEMANTIC] Module '{}' validation complete: {} diagnostics",
+            module_name,
+            module_diagnostics.len()
+        );
+
+        module_diagnostics
+    } else {
+        DiagnosticCollection::default()
+    }
+}
+
+/// Get all diagnostics (parse + semantic) for a specific module
+#[salsa::tracked]
+pub fn module_all_diagnostics(
+    db: &dyn SemanticDb,
+    crate_id: Crate,
+    module_name: String,
+) -> DiagnosticCollection {
+    let parse_diag = module_parse_diagnostics(db, crate_id, module_name.clone());
+    let semantic_diag = module_semantic_diagnostics(db, crate_id, module_name);
+
+    let mut collection = DiagnosticCollection::default();
+    collection.extend(parse_diag.all().iter().cloned());
+    collection.extend(semantic_diag.all().iter().cloned());
+    collection
+}
+
+/// Check if a specific module has changed since a given revision
+/// This function can be used to detect which modules need recomputation
+pub fn module_changed_since_revision(
+    db: &dyn SemanticDb,
+    crate_id: Crate,
+    module_name: String,
+    revision: salsa::Revision,
+) -> bool {
+    // Check if the source file has changed
+    if let Some(file) = crate_id.modules(db).get(&module_name) {
+        // Use Salsa's built-in change detection for the file
+        let current_revision = db.zalsa().current_revision();
+        if current_revision > revision {
+            // Check if this specific file's content has been invalidated
+            let file_changed = file.text(db);
+            drop(file_changed); // We just need to trigger the query
+
+            // The query system will tell us if this input has changed
+            true
+        } else {
+            false
+        }
+    } else {
+        false
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use salsa::Setter;

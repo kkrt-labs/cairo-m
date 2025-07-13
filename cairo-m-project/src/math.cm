@@ -13,6 +13,7 @@ func mul(a: felt, b: felt) -> felt {
 func fooba(){
     let x = 3;
     let lola = 3;
+    let lolbi = 1;
     let ll = 1 + 1 ;
     return x;
 

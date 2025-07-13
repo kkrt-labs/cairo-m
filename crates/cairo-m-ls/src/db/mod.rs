@@ -12,9 +12,6 @@ use cairo_m_compiler_parser::{Db as ParserDb, SourceFile, Upcast};
 use cairo_m_compiler_semantic::SemanticDb;
 pub use swapper::AnalysisDatabaseSwapper;
 
-// We'll add these back when we integrate with MIR and Codegen
-// For now, let's focus on Parser and Semantic phases
-
 /// The unified project crate representation used by the language server.
 ///
 /// This serves as the single source of truth for project structure,

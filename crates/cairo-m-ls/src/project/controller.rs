@@ -3,9 +3,10 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 use super::manifest::ProjectManifestPath;
 use super::model::CrateInfo;
@@ -43,6 +44,7 @@ struct ManifestCacheEntry {
 pub struct ProjectController {
     sender: UnboundedSender<ProjectUpdateRequest>,
     handle: Option<JoinHandle<()>>,
+    _watcher: Option<RecommendedWatcher>,
 }
 
 impl ProjectController {
@@ -52,6 +54,80 @@ impl ProjectController {
         // Create shared manifest cache
         let manifest_cache: Arc<Mutex<HashMap<PathBuf, ManifestCacheEntry>>> =
             Arc::new(Mutex::new(HashMap::new()));
+
+        // Set up file system watcher for project manifests
+        let watcher_sender = sender.clone();
+        let manifest_cache_for_watcher = Arc::clone(&manifest_cache);
+        let watcher = notify::recommended_watcher(move |res: Result<Event, notify::Error>| {
+            match res {
+                Ok(event) => {
+                    // Check if this is a cairom.toml file modification
+                    for path in event.paths {
+                        if path.file_name().and_then(|n| n.to_str()) == Some("cairom.toml") {
+                            info!("Detected cairom.toml change: {:?}", path);
+
+                            // Clear cache entry for this manifest to force reload
+                            if let Ok(mut cache) = manifest_cache_for_watcher.lock() {
+                                cache.remove(&path);
+                                debug!("Cleared cache for changed manifest: {:?}", path);
+                            }
+
+                            // Trigger project reload for any file in the project directory
+                            if let Some(project_root) = path.parent() {
+                                // Try to find any .cm file in the project to trigger reload
+                                if let Ok(entries) = std::fs::read_dir(project_root) {
+                                    for entry in entries.flatten() {
+                                        let entry_path = entry.path();
+                                        if entry_path.extension().and_then(|e| e.to_str())
+                                            == Some("cm")
+                                        {
+                                            debug!(
+                                                "Triggering project reload for file: {:?}",
+                                                entry_path
+                                            );
+                                            let _ = watcher_sender.send(
+                                                ProjectUpdateRequest::UpdateForFile {
+                                                    file_path: entry_path,
+                                                },
+                                            );
+                                            break; // Only need to trigger once per project
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    warn!("File watcher error: {:?}", e);
+                }
+            }
+        });
+
+        // Try to create the watcher and watch the current directory
+        let watcher = match watcher {
+            Ok(mut w) => {
+                // Watch the current working directory recursively for cairom.toml changes
+                if let Ok(current_dir) = std::env::current_dir() {
+                    if let Err(e) = w.watch(&current_dir, RecursiveMode::Recursive) {
+                        warn!(
+                            "Failed to watch current directory {:?}: {:?}",
+                            current_dir, e
+                        );
+                    } else {
+                        info!(
+                            "Started watching directory {:?} for cairom.toml changes",
+                            current_dir
+                        );
+                    }
+                }
+                Some(w)
+            }
+            Err(e) => {
+                warn!("Failed to create file watcher: {:?}", e);
+                None
+            }
+        };
 
         let handle = tokio::spawn(async move {
             info!("ProjectController worker task started");
@@ -111,6 +187,7 @@ impl ProjectController {
         Self {
             sender,
             handle: Some(handle),
+            _watcher: watcher,
         }
     }
 

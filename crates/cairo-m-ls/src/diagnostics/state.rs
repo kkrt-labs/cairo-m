@@ -30,15 +30,6 @@ impl ProjectDiagnostics {
         }
     }
 
-    /// Clear all diagnostics
-    #[allow(dead_code)]
-    pub fn clear(&self) {
-        debug!("Clearing all diagnostics");
-
-        let mut map = self.diagnostics.write().unwrap();
-        map.clear();
-    }
-
     /// Clear diagnostics for all files in a project
     pub fn clear_for_project(&self, project_files: &[Url]) {
         debug!(

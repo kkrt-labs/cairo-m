@@ -9,6 +9,7 @@ func main(){
 
     let t = 3;
     let aa = 3;
+    let a = t == 1;
     sub(1,2);
     let x =1;
     return();

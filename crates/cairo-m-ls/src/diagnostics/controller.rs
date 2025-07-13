@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use cairo_m_compiler_semantic::db::{project_parse_diagnostics, project_validate_semantics};
+use cairo_m_compiler_semantic::delta_diagnostics::DeltaDiagnosticsTracker;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity, Position, Range, Url};
@@ -12,6 +13,7 @@ use tracing::{debug, error, info};
 use crate::db::{AnalysisDatabase, ProjectCrate, ProjectCrateExt};
 use crate::diagnostics::state::ProjectDiagnostics;
 use crate::project::ProjectModel;
+use crate::utils::{get_path_from_diagnostic, get_uri_from_path_str};
 
 /// Request types for the diagnostics controller
 #[derive(Debug, Clone)]
@@ -54,32 +56,37 @@ impl DiagnosticsController {
         let handle = tokio::spawn(async move {
             info!("DiagnosticsController worker task started");
 
+            // Initialize delta diagnostics tracker for this task
+            let mut delta_tracker = DeltaDiagnosticsTracker::new();
+
             // Process requests until channel is closed
             while let Some(request) = receiver.recv().await {
                 info!("Received request: {:?}", request);
                 match request {
                     DiagnosticsRequest::FileChanged { uri, version } => {
                         info!("FileChanged: Processing diagnostics for file: {}", uri);
-                        Self::compute_file_diagnostics(
+                        Self::compute_file_diagnostics_delta(
                             &db,
                             &diagnostics_state,
                             &project_model,
                             uri,
                             version,
                             &response_sender,
+                            &mut delta_tracker,
                         )
                         .await;
                     }
 
                     DiagnosticsRequest::ProjectChanged { project_crate } => {
-                        debug!("Processing diagnostics for entire project");
+                        debug!("Processing diagnostics for entire project using delta tracking");
                         let start = Instant::now();
-                        Self::compute_project_diagnostics(
+                        Self::compute_project_diagnostics_delta(
                             &db,
                             &diagnostics_state,
                             project_crate,
                             &response_sender,
                             None,
+                            &mut delta_tracker,
                         )
                         .await;
                         debug!("Project diagnostics completed in {:?}", start.elapsed());
@@ -130,6 +137,47 @@ impl DiagnosticsController {
                 project_crate,
                 response_sender,
                 version,
+            )
+            .await;
+        } else {
+            info!(
+                "No project crate found for file: {}, clearing diagnostics",
+                uri
+            );
+            // No project found, just clear diagnostics for this file
+            diagnostics_state.set_diagnostics(&uri, vec![]);
+
+            let _ = response_sender.send(DiagnosticsResponse {
+                uri,
+                version,
+                diagnostics: vec![],
+            });
+        }
+    }
+
+    /// Compute diagnostics for a single file using delta tracking
+    async fn compute_file_diagnostics_delta(
+        db: &Arc<Mutex<AnalysisDatabase>>,
+        diagnostics_state: &Arc<ProjectDiagnostics>,
+        project_model: &Arc<ProjectModel>,
+        uri: Url,
+        version: Option<i32>,
+        response_sender: &UnboundedSender<DiagnosticsResponse>,
+        delta_tracker: &mut DeltaDiagnosticsTracker,
+    ) {
+        debug!("Computing delta diagnostics for file: {}", uri);
+
+        // First try to get the ProjectCrate for this file (async call)
+        if let Some(project_crate) = project_model.get_project_crate_for_file(&uri).await {
+            info!("Found project crate for file, running delta project diagnostics");
+            // We have a project, run delta project diagnostics
+            Self::compute_project_diagnostics_delta(
+                db,
+                diagnostics_state,
+                project_crate,
+                response_sender,
+                version,
+                delta_tracker,
             )
             .await;
         } else {
@@ -217,6 +265,128 @@ impl DiagnosticsController {
         }
     }
 
+    /// Compute diagnostics for an entire project using delta tracking (async wrapper)
+    async fn compute_project_diagnostics_delta(
+        db: &Arc<Mutex<AnalysisDatabase>>,
+        diagnostics_state: &Arc<ProjectDiagnostics>,
+        project_crate: ProjectCrate,
+        response_sender: &UnboundedSender<DiagnosticsResponse>,
+        version: Option<i32>,
+        delta_tracker: &mut DeltaDiagnosticsTracker,
+    ) {
+        let db_clone = Arc::clone(db);
+        let diagnostics_state_clone = Arc::clone(diagnostics_state);
+        let response_sender_clone = response_sender.clone();
+
+        // We need to move the delta tracker computation to a blocking task
+        // Since we can't move the mutable reference, we'll do the computation here
+        let result = {
+            let db_guard = match db.lock() {
+                Ok(guard) => guard,
+                Err(poisoned) => {
+                    debug!("Database was poisoned, recovering from panic");
+                    poisoned.into_inner()
+                }
+            };
+
+            let semantic_crate = project_crate.to_semantic_crate(&*db_guard);
+
+            // Use delta diagnostics tracker to get only changed module diagnostics
+            let diagnostics_collection =
+                delta_tracker.get_project_diagnostics(&*db_guard, semantic_crate);
+
+            // Get file contents for LSP conversion
+            let files = project_crate.files(&*db_guard);
+            let mut files_with_content = HashMap::new();
+            for (path, source_file) in files {
+                let content = source_file.text(&*db_guard).to_string();
+                files_with_content.insert(path.clone(), content);
+            }
+
+            (files_with_content, diagnostics_collection)
+        };
+
+        // Process the results
+        tokio::task::spawn_blocking(move || {
+            Self::compute_project_diagnostics_delta_sync(
+                diagnostics_state_clone,
+                response_sender_clone,
+                version,
+                result.0,
+                result.1,
+            );
+        })
+        .await
+        .unwrap_or_else(|e| {
+            error!(
+                "Failed to spawn blocking task for delta diagnostics: {:?}",
+                e
+            );
+        });
+    }
+
+    /// Process delta diagnostics results (synchronous version)
+    fn compute_project_diagnostics_delta_sync(
+        diagnostics_state: Arc<ProjectDiagnostics>,
+        response_sender: UnboundedSender<DiagnosticsResponse>,
+        version: Option<i32>,
+        files_with_content: HashMap<PathBuf, String>,
+        diagnostics_collection: cairo_m_compiler_diagnostics::DiagnosticCollection,
+    ) {
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            // Convert delta diagnostics to LSP format
+            let diagnostics_by_file = Self::convert_delta_diagnostics_to_lsp(
+                &files_with_content,
+                &diagnostics_collection,
+            );
+
+            // Update state and send responses
+            Self::publish_diagnostics(
+                diagnostics_by_file,
+                &diagnostics_state,
+                &response_sender,
+                version,
+            );
+        }));
+
+        if let Err(panic_payload) = result {
+            error!(
+                "Panic in delta diagnostics computation: {:?}",
+                panic_payload
+            );
+        }
+    }
+
+    /// Convert delta diagnostics to LSP format
+    fn convert_delta_diagnostics_to_lsp(
+        files_with_content: &HashMap<PathBuf, String>,
+        diagnostics_collection: &cairo_m_compiler_diagnostics::DiagnosticCollection,
+    ) -> HashMap<Url, Vec<Diagnostic>> {
+        let mut diagnostics_by_file: HashMap<Url, Vec<Diagnostic>> = HashMap::new();
+
+        // Initialize with empty diagnostics for all files
+        for file_path in files_with_content.keys() {
+            if let Ok(uri) = get_uri_from_path_str(&file_path.to_string_lossy()) {
+                diagnostics_by_file.insert(uri, vec![]);
+            }
+        }
+
+        debug!(
+            "Converting {} delta diagnostics to LSP format",
+            diagnostics_collection.all().len()
+        );
+
+        // Process diagnostics
+        Self::process_diagnostic_collection(
+            diagnostics_collection,
+            files_with_content,
+            &mut diagnostics_by_file,
+            "delta",
+        );
+
+        diagnostics_by_file
+    }
+
     /// Collect diagnostics from the database with minimal lock time
     fn collect_diagnostics_from_db(
         db: &Arc<Mutex<AnalysisDatabase>>,
@@ -302,7 +472,7 @@ impl DiagnosticsController {
 
         // Initialize with empty diagnostics for all files
         for file_path in files_with_content.keys() {
-            if let Ok(uri) = Self::get_uri_from_path_str(&file_path.to_string_lossy()) {
+            if let Ok(uri) = get_uri_from_path_str(&file_path.to_string_lossy()) {
                 diagnostics_by_file.insert(uri, vec![]);
             }
         }
@@ -342,7 +512,7 @@ impl DiagnosticsController {
         diagnostic_type: &str,
     ) {
         for cairo_diag in diagnostics.all() {
-            let uri = match Self::get_uri_from_path_str(&cairo_diag.file_path) {
+            let uri = match get_uri_from_path_str(&cairo_diag.file_path) {
                 Ok(uri) => uri,
                 Err(e) => {
                     debug!("Warning: {}", e);
@@ -353,7 +523,7 @@ impl DiagnosticsController {
             debug!("Processing {} diagnostic for URI: {}", diagnostic_type, uri);
 
             // Find the source file content
-            let path_buf = Self::get_path_from_diagnostic(&uri, &cairo_diag.file_path);
+            let path_buf = get_path_from_diagnostic(&uri, &cairo_diag.file_path);
             let path_buf = match path_buf {
                 Some(path) => path,
                 None => continue,
@@ -374,31 +544,6 @@ impl DiagnosticsController {
                     uri
                 );
             }
-        }
-    }
-
-    /// Get PathBuf from diagnostic file path and URI
-    fn get_path_from_diagnostic(uri: &Url, file_path: &str) -> Option<PathBuf> {
-        if file_path.starts_with("file://") {
-            match uri.to_file_path() {
-                Ok(path) => Some(path),
-                Err(_) => {
-                    debug!("Warning: Failed to convert URI to file path: {}", uri);
-                    None
-                }
-            }
-        } else {
-            Some(PathBuf::from(file_path))
-        }
-    }
-
-    /// Convert path string to URI
-    fn get_uri_from_path_str(path_str: &str) -> Result<Url, String> {
-        if path_str.starts_with("file://") {
-            Url::parse(path_str).map_err(|e| format!("Failed to parse URI: {}", e))
-        } else {
-            Url::from_file_path(path_str)
-                .map_err(|_| format!("Failed to convert path to URI: {}", path_str))
         }
     }
 
