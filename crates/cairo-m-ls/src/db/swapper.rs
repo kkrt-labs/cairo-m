@@ -69,24 +69,27 @@ impl AnalysisDatabaseSwapper {
         // Step 2: Snapshot live state with minimal lock time.
         // We get the current text of every file.
         let files_content_map = {
-            let old_db = match db.lock() {
-                Ok(guard) => guard,
-                Err(_) => {
-                    debug!("Failed to lock database for swap snapshot");
-                    return;
-                }
-            };
             let mut content_map = std::collections::HashMap::new();
-            for krate in &all_crates {
-                for (path, sf) in &krate.files {
-                    if let Ok(uri) = Url::from_file_path(path) {
-                        let content = sf.text(&*old_db).to_string();
-                        content_map.insert(uri, content);
+            {
+                let old_db = match db.lock() {
+                    Ok(guard) => guard,
+                    Err(_) => {
+                        debug!("Failed to lock database for swap snapshot");
+                        return;
+                    }
+                };
+                for krate in &all_crates {
+                    for (path, sf) in &krate.files {
+                        if let Ok(uri) = Url::from_file_path(path) {
+                            let content = sf.text(&*old_db).to_string();
+                            content_map.insert(uri, content);
+                        }
                     }
                 }
-            }
+                drop(old_db);
+            } // Lock on old_db is released here.
             content_map
-        }; // Lock on old_db is released here.
+        };
 
         // Step 3: Build the new database and project state offline.
         // This part is computationally expensive but doesn't block the language server.

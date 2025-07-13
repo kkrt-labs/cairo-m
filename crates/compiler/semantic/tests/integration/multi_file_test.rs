@@ -801,20 +801,16 @@ func test() {
     let diagnostics = project_validate_semantics(&db, crate_id);
 
     // Should have errors for invalid struct literal
-    let struct_errors: Vec<_> = diagnostics
-        .errors()
-        .into_iter()
-        .filter(|d| {
-            matches!(
-                d.code,
-                cairo_m_compiler_diagnostics::DiagnosticCode::InvalidStructLiteral
-                    | cairo_m_compiler_diagnostics::DiagnosticCode::InvalidFieldAccess
-            )
-        })
-        .collect();
+    let has_struct_errors = diagnostics.errors().into_iter().any(|d| {
+        matches!(
+            d.code,
+            cairo_m_compiler_diagnostics::DiagnosticCode::InvalidStructLiteral
+                | cairo_m_compiler_diagnostics::DiagnosticCode::InvalidFieldAccess
+        )
+    });
 
     assert!(
-        !struct_errors.is_empty(),
+        has_struct_errors,
         "Expected InvalidStructLiteral or InvalidFieldAccess errors"
     );
 

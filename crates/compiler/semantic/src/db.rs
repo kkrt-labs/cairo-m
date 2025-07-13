@@ -417,7 +417,7 @@ pub fn module_changed_since_revision(
         if current_revision > revision {
             // Check if this specific file's content has been invalidated
             let file_changed = file.text(db);
-            drop(file_changed); // We just need to trigger the query
+            let _ = file_changed; // We just need to trigger the query
 
             // The query system will tell us if this input has changed
             true

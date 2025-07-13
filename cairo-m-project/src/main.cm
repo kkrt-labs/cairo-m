@@ -12,5 +12,6 @@ func main(){
     let a = t == 1;
     sub(1,2);
     let x =1;
+    let x = 1;
     return();
 }

@@ -368,7 +368,7 @@ impl ParseOutput {
 #[salsa::tracked]
 pub fn parse_file(db: &dyn crate::Db, source: SourceFile) -> ParseOutput {
     use logos::Logos;
-    let file_path = source.file_path(db);
+    let _file_path = source.file_path(db);
     let input = source.text(db);
 
     // Collect tokens and handle lexer errors

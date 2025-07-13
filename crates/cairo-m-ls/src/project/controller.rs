@@ -147,6 +147,7 @@ impl ProjectController {
                     let before_size = cache.len();
                     cache.retain(|_, entry| entry.last_accessed.elapsed() < CACHE_EXPIRY);
                     let after_size = cache.len();
+                    drop(cache);
                     if before_size > after_size {
                         debug!(
                             "Periodic cache cleanup: removed {} stale entries",
@@ -233,10 +234,12 @@ impl ProjectController {
                         let result = match cache_hit {
                             Some(entry) => {
                                 // Update last accessed time
-                                let mut cache = manifest_cache.lock().unwrap();
-                                if let Some(cached_entry) = cache.get_mut(&manifest_path) {
-                                    cached_entry.last_accessed = Instant::now();
-                                }
+                                {
+                                    let mut cache = manifest_cache.lock().unwrap();
+                                    if let Some(cached_entry) = cache.get_mut(&manifest_path) {
+                                        cached_entry.last_accessed = Instant::now();
+                                    }
+                                } // cache dropped here
                                 // Use cached file list
                                 Ok((entry.crate_info, entry.files))
                             }
@@ -244,15 +247,17 @@ impl ProjectController {
                                 // Load project and update cache
                                 match Self::load_project(manifest) {
                                     Ok((crate_info, files)) => {
-                                        let mut cache = manifest_cache.lock().unwrap();
-                                        cache.insert(
-                                            manifest_path.clone(),
-                                            ManifestCacheEntry {
-                                                crate_info: crate_info.clone(),
-                                                files: files.clone(),
-                                                last_accessed: Instant::now(),
-                                            },
-                                        );
+                                        {
+                                            let mut cache = manifest_cache.lock().unwrap();
+                                            cache.insert(
+                                                manifest_path.clone(),
+                                                ManifestCacheEntry {
+                                                    crate_info: crate_info.clone(),
+                                                    files: files.clone(),
+                                                    last_accessed: Instant::now(),
+                                                },
+                                            );
+                                        } // cache dropped here
                                         debug!("Cached manifest: {:?}", manifest_path);
                                         Ok((crate_info, files))
                                     }

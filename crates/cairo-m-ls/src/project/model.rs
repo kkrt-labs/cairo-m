@@ -45,6 +45,7 @@ impl ProjectModel {
 
     /// Load a new crate into the model
     /// Returns URLs of files that moved from other projects (for diagnostics clearing)
+    #[allow(clippy::future_not_send)]
     pub async fn load_crate(
         &self,
         crate_info: CrateInfo,
@@ -108,6 +109,7 @@ impl ProjectModel {
 
     /// Load a standalone file (no project)
     /// Returns URLs of files that moved from other projects (for diagnostics clearing)
+    #[allow(clippy::future_not_send)]
     pub async fn load_standalone(
         &self,
         file_path: PathBuf,
@@ -174,11 +176,13 @@ impl ProjectModel {
 
     /// Get the ProjectCrate for a given file URL
     pub async fn get_project_crate_for_file(&self, file_url: &Url) -> Option<ProjectCrate> {
-        let file_to_project = self.file_to_project.read().await;
-        let project_root = file_to_project.get(file_url)?;
+        let project_root = {
+            let file_to_project = self.file_to_project.read().await;
+            file_to_project.get(file_url).cloned()?
+        };
 
         let project_crate_ids = self.project_crate_ids.read().await;
-        project_crate_ids.get(project_root).cloned()
+        project_crate_ids.get(&project_root).cloned()
     }
 
     /// Get the ProjectCrate for a given project root
@@ -214,6 +218,7 @@ impl ProjectModel {
         files.keys().next().cloned()
     }
 
+    #[allow(clippy::future_not_send)]
     async fn apply_crate_to_db(
         &self,
         crate_obj: &Crate,

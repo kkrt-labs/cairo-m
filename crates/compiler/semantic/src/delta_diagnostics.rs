@@ -131,7 +131,7 @@ impl DeltaDiagnosticsTracker {
         db: &dyn SemanticDb,
         crate_id: Crate,
     ) -> DiagnosticCollection {
-        let current_revision = db.zalsa().current_revision();
+        let _current_revision = db.zalsa().current_revision();
         let modules = crate_id.modules(db);
         let mut total_diagnostics = DiagnosticCollection::default();
 
@@ -276,7 +276,7 @@ mod tests {
         let crate_id = crate_from_program(&db, "fn main() { let x = 42; }");
         let mut tracker = DeltaDiagnosticsTracker::new();
 
-        let diagnostics = tracker.get_project_diagnostics(&db, crate_id);
+        let _diagnostics = tracker.get_project_diagnostics(&db, crate_id);
         let stats = tracker.get_cache_stats();
 
         // First computation should process all modules

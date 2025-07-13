@@ -981,11 +981,17 @@ async fn main() {
     let stdout = tokio::io::stdout();
 
     let args = std::env::args().collect::<Vec<String>>();
-    let _trace_level = args.get(1);
+    let default_trace_level = "info".to_string();
+    let trace_level_str = args.get(1).unwrap_or(&default_trace_level);
+    let trace_level = match trace_level_str.as_str() {
+        "debug" => LevelFilter::DEBUG,
+        "info" => LevelFilter::INFO,
+        "warn" => LevelFilter::WARN,
+        "error" => LevelFilter::ERROR,
+        _ => LevelFilter::INFO,
+    };
 
     let (service, socket) = LspService::build(|client| {
-        // --- Start of new logging setup ---
-
         // 1. Create a channel for log messages.
         // The sender is passed to the tracing layer, and the receiver is used in a dedicated task.
         let (log_sender, mut log_receiver) = mpsc::unbounded_channel();
@@ -1005,10 +1011,8 @@ async fn main() {
         // 4. Create the LspTracingLayer with the sender part of the channel.
         let lsp_layer = lsp_tracing::LspTracingLayer::new(log_sender);
 
-        // --- End of new logging setup ---
-
         let directives = EnvFilter::builder()
-            .with_default_directive(LevelFilter::DEBUG.into())
+            .with_default_directive(trace_level.into())
             .parse_lossy("");
 
         tracing_subscriber::registry()

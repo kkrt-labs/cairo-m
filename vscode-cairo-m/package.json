@@ -48,11 +48,12 @@
         "cairo-m.trace.server": {
           "type": "string",
           "enum": [
-            "off",
+            "error",
+            "warn",
             "info",
             "debug"
           ],
-          "default": "off",
+          "default": "info",
           "description": "Traces the communication between VS Code and the Cairo-M language server."
         }
       }
