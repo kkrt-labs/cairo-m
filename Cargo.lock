@@ -390,6 +390,8 @@ dependencies = [
  "sonic-rs 0.3.17",
  "tempfile",
  "thiserror",
+ "tracing",
+ "tracing-subscriber",
  "walkdir",
 ]
 

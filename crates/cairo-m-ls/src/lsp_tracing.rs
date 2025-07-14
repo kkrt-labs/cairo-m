@@ -50,7 +50,10 @@ where
 
         // Send the log message to the receiver task.
         // This is a non-blocking send and is safe to call from any thread.
-        let _ = self.sender.send((level, message));
+        if let Err(e) = self.sender.send((level, message)) {
+            // Can't use tracing here as it would cause recursion
+            tracing::warn!("Failed to send log message to LSP client: {}", e);
+        }
     }
 }
 

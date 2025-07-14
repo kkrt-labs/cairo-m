@@ -305,9 +305,22 @@ impl ScopeValidator {
                         }
                     }
                 }
+            } else {
+                // The target module doesn't exist - report error
+                // Find the definition that corresponds to this import to get the span
+                for (_def_idx, def) in index.all_definitions() {
+                    if let crate::definition::DefinitionKind::Use(use_def) = &def.kind {
+                        if use_def.imported_module == *imported_module_name {
+                            diagnostics.push(Diagnostic::unresolved_import(
+                                file.file_path(db).to_string(),
+                                imported_module_name,
+                                def.name_span,
+                            ));
+                            break;
+                        }
+                    }
+                }
             }
-            // Note: If the target module doesn't exist, that's handled by other validation
-            // (the module import itself will fail during dependency resolution)
         }
 
         diagnostics

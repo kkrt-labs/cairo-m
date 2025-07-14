@@ -78,11 +78,16 @@ impl ProjectController {
                                         if entry_path.extension().and_then(|e| e.to_str())
                                             == Some("cm")
                                         {
-                                            let _ = watcher_sender.send(
+                                            if let Err(e) = watcher_sender.send(
                                                 ProjectUpdateRequest::UpdateForFile {
                                                     file_path: entry_path,
                                                 },
-                                            );
+                                            ) {
+                                                debug!(
+                                                    "Failed to send project update request from watcher: {}",
+                                                    e
+                                                );
+                                            }
                                             break; // Only need to trigger once per project
                                         }
                                     }
@@ -155,7 +160,14 @@ impl ProjectController {
                         e
                     );
                     let error_msg = format!("ProjectController task failed: {:?}", e);
-                    let _ = response_sender.send(ProjectUpdate::ThreadError(error_msg));
+                    if let Err(e) =
+                        response_sender.send(ProjectUpdate::ThreadError(error_msg.clone()))
+                    {
+                        error!(
+                            "Failed to send thread error message: {} (original error: {})",
+                            e, error_msg
+                        );
+                    }
                 });
             }
 
@@ -280,14 +292,15 @@ impl ProjectController {
                     .parent()
                     .ok_or_else(|| "Invalid manifest path".to_string())?;
 
-                let name = project_root
+                // TODO in the future read from the cairom.toml manifest file. For now we just use the project root name.
+                let project_name = project_root
                     .file_name()
                     .and_then(|n| n.to_str())
                     .unwrap_or("unnamed")
                     .to_string();
 
                 let crate_info = CrateInfo {
-                    name,
+                    name: project_name,
                     root: project_root.to_path_buf(),
                 };
 

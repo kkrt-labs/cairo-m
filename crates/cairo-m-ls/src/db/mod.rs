@@ -6,7 +6,7 @@
 mod swapper;
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use cairo_m_compiler_parser::{Db as ParserDb, SourceFile, Upcast};
 use cairo_m_compiler_semantic::SemanticDb;
@@ -83,20 +83,82 @@ pub trait ProjectCrateExt {
     fn to_semantic_crate(&self, db: &dyn SemanticDb) -> cairo_m_compiler_semantic::Crate;
 }
 
+// TODO this is a complete mess. Project discovery should be properly handled by the compiler. It should
+// absolutely not be done here.
+//
+// This must critically be addressed before merging this PR.
 impl ProjectCrateExt for ProjectCrate {
     fn to_semantic_crate(&self, db: &dyn SemanticDb) -> cairo_m_compiler_semantic::Crate {
         let files = self.files(db);
         let main_module = self.main_module(db);
+        let root_dir = self.root_dir(db);
 
         let mut modules = HashMap::new();
 
-        // Convert PathBuf keys to module names
+        // Convert PathBuf keys to module names with proper nesting
         for (path, source_file) in files {
-            if let Some(module_name) = path.file_stem().and_then(|s| s.to_str()) {
-                modules.insert(module_name.to_string(), source_file);
+            // Calculate relative path from project source directory
+            if let Ok(module_name) = get_module_path_repr_from_source_file_path(&path, &root_dir) {
+                // Convert path to module name (e.g., "x/y/z.cm" -> "x::y::z")
+                modules.insert(module_name, source_file);
+            } else {
+                // Fallback for files outside project root (shouldn't happen)
+                if let Some(module_name) = path.file_stem().and_then(|s| s.to_str()) {
+                    modules.insert(module_name.to_string(), source_file);
+                }
             }
         }
 
+        tracing::info!("Creating semantic crate with modules: {:?}", modules);
         cairo_m_compiler_semantic::Crate::new(db, modules, main_module)
     }
+}
+
+// Gets the module path representation relative to the root/src directory.
+fn get_module_path_repr_from_source_file_path(
+    path: &Path,
+    root_dir: &Path,
+) -> Result<String, String> {
+    let src_path = root_dir.join("src");
+    let relative_path = path.strip_prefix(&src_path);
+
+    if let Err(e) = relative_path {
+        return Err(e.to_string());
+    }
+
+    let relative_path = relative_path.unwrap();
+    let module_name = if let Some(stem) = relative_path.file_stem() {
+        let stem_str = stem.to_string_lossy();
+
+        // Get parent directories as module path
+        if let Some(parent) = relative_path.parent() {
+            if parent.as_os_str().is_empty() {
+                // File is in root directory
+                stem_str.to_string()
+            } else {
+                // Convert path separators to :: and append file stem
+                let parent_modules = parent
+                    .components()
+                    .filter_map(|c| match c {
+                        std::path::Component::Normal(name) => {
+                            Some(name.to_string_lossy().to_string())
+                        }
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>()
+                    .join("::");
+                format!("{}::{}", parent_modules, stem_str)
+            }
+        } else {
+            stem_str.to_string()
+        }
+    } else {
+        // Fallback to simple file stem if something goes wrong
+        path.file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("unknown")
+            .to_string()
+    };
+
+    Ok(module_name)
 }

@@ -24,6 +24,8 @@ sonic-rs = "0.3"
 num-traits.workspace = true
 thiserror.workspace = true
 walkdir = "2.4"
+tracing.workspace = true
+tracing-subscriber.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

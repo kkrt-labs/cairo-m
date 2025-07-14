@@ -76,11 +76,13 @@ impl DiagnosticsController {
                         )
                         .await;
                         // Signal completion of work
-                        let _ = response_sender.send(DiagnosticsResponse {
+                        if let Err(e) = response_sender.send(DiagnosticsResponse {
                             uri: Url::parse("internal://analysis-finished").unwrap(),
                             version: None,
                             diagnostics: vec![],
-                        });
+                        }) {
+                            debug!("Failed to send analysis-finished signal: {}", e);
+                        }
                     }
 
                     DiagnosticsRequest::ProjectChanged { project_crate } => {
@@ -98,11 +100,13 @@ impl DiagnosticsController {
                         debug!("Project diagnostics completed in {:?}", start.elapsed());
 
                         // Signal completion of work
-                        let _ = response_sender.send(DiagnosticsResponse {
+                        if let Err(e) = response_sender.send(DiagnosticsResponse {
                             uri: Url::parse("internal://analysis-finished").unwrap(),
                             version: None,
                             diagnostics: vec![],
-                        });
+                        }) {
+                            debug!("Failed to send analysis-finished signal: {}", e);
+                        }
                     }
 
                     DiagnosticsRequest::Shutdown => {
@@ -157,11 +161,13 @@ impl DiagnosticsController {
             // No project found, just clear diagnostics for this file
             diagnostics_state.set_diagnostics(&uri, vec![]).await;
 
-            let _ = response_sender.send(DiagnosticsResponse {
+            if let Err(e) = response_sender.send(DiagnosticsResponse {
                 uri,
                 version,
                 diagnostics: vec![],
-            });
+            }) {
+                debug!("Failed to send empty diagnostics response: {}", e);
+            }
         }
     }
 
@@ -341,11 +347,13 @@ impl DiagnosticsController {
                 .set_diagnostics(&uri, diagnostics.clone())
                 .await;
 
-            let _ = response_sender.send(DiagnosticsResponse {
-                uri,
+            if let Err(e) = response_sender.send(DiagnosticsResponse {
+                uri: uri.clone(),
                 version,
                 diagnostics,
-            });
+            }) {
+                debug!("Failed to send diagnostics response for {}: {}", uri, e);
+            }
         }
     }
 }
@@ -353,7 +361,12 @@ impl DiagnosticsController {
 impl Drop for DiagnosticsController {
     fn drop(&mut self) {
         // Send shutdown signal
-        let _ = self.sender.send(DiagnosticsRequest::Shutdown);
+        if let Err(e) = self.sender.send(DiagnosticsRequest::Shutdown) {
+            debug!(
+                "Failed to send shutdown signal to diagnostics controller: {}",
+                e
+            );
+        }
 
         // Abort the task since we can't await in Drop
         if let Some(handle) = self.handle.take() {

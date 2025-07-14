@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use cairo_m_compiler_parser::SourceFile;
 use tokio::sync::RwLock;
 use tower_lsp::lsp_types::Url;
-use tracing::{debug, info};
+use tracing::info;
 
 use crate::db::{AnalysisDatabase, ProjectCrate};
 
@@ -24,6 +24,30 @@ pub struct Crate {
     pub files: HashMap<PathBuf, SourceFile>,
 }
 
+/// Resource limits for project loading
+#[derive(Debug, Clone)]
+pub struct ProjectResourceLimits {
+    /// Maximum number of projects that can be loaded simultaneously
+    pub max_projects: usize,
+    /// Maximum number of files per project
+    pub max_files_per_project: usize,
+    /// Maximum file size in bytes
+    pub max_file_size: usize,
+    /// Maximum total memory usage across all projects (approximate, in bytes)
+    pub max_total_memory: usize,
+}
+
+impl Default for ProjectResourceLimits {
+    fn default() -> Self {
+        Self {
+            max_projects: 50,                    // 50 projects max
+            max_files_per_project: 10_000,       // 10k files per project
+            max_file_size: 10 * 1024 * 1024,     // 10MB per file
+            max_total_memory: 500 * 1024 * 1024, // 500MB total
+        }
+    }
+}
+
 /// Central model for all loaded projects
 pub struct ProjectModel {
     /// Map from project root to loaded crate
@@ -32,41 +56,66 @@ pub struct ProjectModel {
     file_to_project: Arc<RwLock<HashMap<Url, PathBuf>>>,
     /// Map from project root to ProjectCrate ID in the database
     project_crate_ids: Arc<RwLock<HashMap<PathBuf, ProjectCrate>>>,
+    /// Resource limits
+    pub limits: ProjectResourceLimits,
+    /// Approximate total memory usage tracking
+    total_memory_usage: Arc<RwLock<usize>>,
 }
 
 impl ProjectModel {
     pub fn new() -> Self {
+        Self::with_limits(ProjectResourceLimits::default())
+    }
+
+    pub fn with_limits(limits: ProjectResourceLimits) -> Self {
         Self {
             crates: Arc::new(RwLock::new(HashMap::new())),
             file_to_project: Arc::new(RwLock::new(HashMap::new())),
             project_crate_ids: Arc::new(RwLock::new(HashMap::new())),
+            limits,
+            total_memory_usage: Arc::new(RwLock::new(0)),
         }
     }
 
-    /// Load a new crate into the model
-    /// Returns URLs of files that moved from other projects (for diagnostics clearing)
-    #[allow(clippy::future_not_send)]
-    pub async fn load_crate(
+    /// Load a new crate into the model with pre-prepared source files
+    /// This avoids the need for nested async-blocking patterns
+    pub async fn load_crate_with_prepared_files(
         &self,
         crate_info: CrateInfo,
-        file_paths: Vec<PathBuf>,
-        db: &mut AnalysisDatabase,
-        get_source_file: impl Fn(&mut AnalysisDatabase, &Url) -> Option<SourceFile>,
+        files: HashMap<PathBuf, SourceFile>,
+        db: &Arc<Mutex<AnalysisDatabase>>,
     ) -> Result<Vec<Url>, String> {
-        info!(
-            "Loading crate: {} with {} files",
-            crate_info.name,
-            file_paths.len()
-        );
-
-        // Use the provided closure to get or create SourceFile entities
-        let mut files = HashMap::new();
-        for path in file_paths {
-            if let Ok(uri) = Url::from_file_path(&path) {
-                if let Some(source_file) = get_source_file(db, &uri) {
-                    files.insert(path, source_file);
-                }
+        // Check resource limits
+        {
+            let crates = self.crates.read().await;
+            if crates.len() >= self.limits.max_projects && !crates.contains_key(&crate_info.root) {
+                return Err(format!(
+                    "Maximum number of projects ({}) exceeded",
+                    self.limits.max_projects
+                ));
             }
+        }
+
+        if files.len() > self.limits.max_files_per_project {
+            return Err(format!(
+                "Project has too many files ({} > {})",
+                files.len(),
+                self.limits.max_files_per_project
+            ));
+        }
+
+        // Estimate memory usage for this project (rough approximation)
+        let estimated_memory = files.len() * 1024; // Assume ~1KB metadata per file
+
+        {
+            let mut total_memory = self.total_memory_usage.write().await;
+            if *total_memory + estimated_memory > self.limits.max_total_memory {
+                return Err(format!(
+                    "Loading project would exceed memory limit ({} bytes)",
+                    self.limits.max_total_memory
+                ));
+            }
+            *total_memory += estimated_memory;
         }
 
         // Find main file
@@ -78,8 +127,37 @@ impl ProjectModel {
             files: files.clone(),
         };
 
-        // Apply to database
-        self.apply_crate_to_db(&crate_obj, db).await?;
+        // Apply to database - create ProjectCrate synchronously
+        let project_crate = {
+            let db_guard = db.lock().unwrap_or_else(|poisoned| {
+                tracing::error!("Database mutex poisoned - recovering from panic");
+                poisoned.into_inner()
+            });
+
+            // Create the unified ProjectCrate input
+            ProjectCrate::new(
+                &*db_guard,
+                crate_obj.info.root.clone(),
+                crate_obj
+                    .main_file
+                    .as_ref()
+                    .and_then(|p| p.file_stem())
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("main")
+                    .to_string(),
+                crate_obj
+                    .files
+                    .iter()
+                    .map(|(path, source)| (path.clone(), *source))
+                    .collect(),
+            )
+        }; // db_guard dropped here
+
+        // Store the ProjectCrate for later retrieval (async)
+        {
+            let mut project_crate_ids = self.project_crate_ids.write().await;
+            project_crate_ids.insert(crate_obj.info.root.clone(), project_crate);
+        }
 
         // Update internal state
         {
@@ -107,22 +185,18 @@ impl ProjectModel {
         Ok(moved_files)
     }
 
-    /// Load a standalone file (no project)
-    /// Returns URLs of files that moved from other projects (for diagnostics clearing)
-    #[allow(clippy::future_not_send)]
-    pub async fn load_standalone(
+    /// Load a standalone file with pre-prepared source file
+    /// This avoids the need for nested async-blocking patterns
+    pub async fn load_standalone_with_prepared_file(
         &self,
         file_path: PathBuf,
-        db: &mut AnalysisDatabase,
-        get_source_file: impl Fn(&mut AnalysisDatabase, &Url) -> Option<SourceFile>,
+        source_file: SourceFile,
+        db: &Arc<Mutex<AnalysisDatabase>>,
     ) -> Result<Vec<Url>, String> {
         info!("Loading standalone file: {}", file_path.display());
 
         let uri = Url::from_file_path(&file_path)
             .map_err(|_| format!("Invalid file path: {}", file_path.display()))?;
-
-        let source_file = get_source_file(db, &uri)
-            .ok_or_else(|| format!("Failed to get source file for: {}", file_path.display()))?;
 
         // For standalone files, create a minimal crate with unique root
         // Use the file path itself with a ".standalone" extension to ensure uniqueness
@@ -145,7 +219,37 @@ impl ProjectModel {
             files,
         };
 
-        self.apply_crate_to_db(&crate_obj, db).await?;
+        // Apply to database - create ProjectCrate synchronously
+        let project_crate = {
+            let db_guard = db.lock().unwrap_or_else(|poisoned| {
+                tracing::error!("Database mutex poisoned - recovering from panic");
+                poisoned.into_inner()
+            });
+
+            // Create the unified ProjectCrate input
+            ProjectCrate::new(
+                &*db_guard,
+                crate_obj.info.root.clone(),
+                crate_obj
+                    .main_file
+                    .as_ref()
+                    .and_then(|p| p.file_stem())
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("main")
+                    .to_string(),
+                crate_obj
+                    .files
+                    .iter()
+                    .map(|(path, source)| (path.clone(), *source))
+                    .collect(),
+            )
+        }; // db_guard dropped here
+
+        // Store the ProjectCrate for later retrieval (async)
+        {
+            let mut project_crate_ids = self.project_crate_ids.write().await;
+            project_crate_ids.insert(crate_obj.info.root.clone(), project_crate);
+        }
 
         // Update internal state
         {
@@ -153,10 +257,11 @@ impl ProjectModel {
             crates.insert(crate_info.root.clone(), crate_obj);
         }
 
-        // Check if file moved from another project
+        // Update file mappings and track files that moved
         let mut moved_files = Vec::new();
         {
             let mut file_to_project = self.file_to_project.write().await;
+            // Check if file was in a different project
             if let Some(old_project) = file_to_project.get(&uri) {
                 if old_project != &crate_info.root {
                     moved_files.push(uri.clone());
@@ -211,12 +316,12 @@ impl ProjectModel {
         files: &HashMap<PathBuf, SourceFile>,
     ) -> Option<PathBuf> {
         // Look for main.cm or lib.cm
-        let main_path = crate_info.root.join("main.cm");
+        let main_path = crate_info.root.join("src/main.cm");
         if files.contains_key(&main_path) {
             return Some(main_path);
         }
 
-        let lib_path = crate_info.root.join("lib.cm");
+        let lib_path = crate_info.root.join("src/lib.cm");
         if files.contains_key(&lib_path) {
             return Some(lib_path);
         }
@@ -225,41 +330,6 @@ impl ProjectModel {
         let mut keys: Vec<_> = files.keys().cloned().collect();
         keys.sort();
         keys.into_iter().next()
-    }
-
-    #[allow(clippy::future_not_send)]
-    async fn apply_crate_to_db(
-        &self,
-        crate_obj: &Crate,
-        db: &AnalysisDatabase,
-    ) -> Result<(), String> {
-        debug!("Applying crate {} to database", crate_obj.info.name);
-
-        // Create the unified ProjectCrate input
-        let project_crate = ProjectCrate::new(
-            db,
-            crate_obj.info.root.clone(),
-            crate_obj
-                .main_file
-                .as_ref()
-                .and_then(|p| p.file_stem())
-                .and_then(|s| s.to_str())
-                .unwrap_or("main")
-                .to_string(),
-            crate_obj
-                .files
-                .iter()
-                .map(|(path, source)| (path.clone(), *source))
-                .collect(),
-        );
-
-        // Store the ProjectCrate for later retrieval
-        {
-            let mut project_crate_ids = self.project_crate_ids.write().await;
-            project_crate_ids.insert(crate_obj.info.root.clone(), project_crate);
-        }
-
-        Ok(())
     }
 }
 

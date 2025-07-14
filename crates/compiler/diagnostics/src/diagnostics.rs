@@ -306,6 +306,19 @@ impl Diagnostic {
         )
         .with_location(file_path, span)
     }
+
+    /// Convenience method for unresolved import error
+    pub fn unresolved_import(
+        file_path: String,
+        module_name: &str,
+        span: SimpleSpan<usize>,
+    ) -> Self {
+        Self::error(
+            DiagnosticCode::UnresolvedImport,
+            format!("Module '{}' not found", module_name),
+        )
+        .with_location(file_path, span)
+    }
 }
 
 impl fmt::Display for Diagnostic {

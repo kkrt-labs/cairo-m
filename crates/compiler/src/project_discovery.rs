@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use cairo_m_compiler_parser::{DiscoveredCrate, SourceFile};
@@ -68,11 +67,12 @@ pub fn discover_project_files(
 ) -> Result<DiscoveredProject, String> {
     let mut files = Vec::new();
     let mut main_file = None;
+    let source_path = root.join("src");
 
     let walker = if let Some(max_depth) = config.max_depth {
-        WalkDir::new(root).max_depth(max_depth)
+        WalkDir::new(source_path).max_depth(max_depth)
     } else {
-        WalkDir::new(root)
+        WalkDir::new(source_path)
     };
 
     for entry in walker.into_iter().filter_map(|e| e.ok()) {
@@ -140,33 +140,6 @@ pub fn create_crate_from_discovery(
         entry_file,
         source_files,
     ))
-}
-
-/// Create a semantic Project from a DiscoveredCrate
-pub fn create_project_from_crate(
-    db: &dyn cairo_m_compiler_semantic::SemanticDb,
-    crate_data: DiscoveredCrate,
-) -> cairo_m_compiler_semantic::Crate {
-    let mut modules = HashMap::new();
-
-    for source_file in crate_data.files(db) {
-        let file_path = source_file.file_path(db);
-        let module_name = Path::new(&file_path)
-            .file_stem()
-            .and_then(|stem| stem.to_str())
-            .unwrap_or("unknown")
-            .to_string();
-        modules.insert(module_name, source_file);
-    }
-
-    let entry_path = crate_data.entry_file(db);
-    let entry_module_name = Path::new(&entry_path)
-        .file_stem()
-        .and_then(|stem| stem.to_str())
-        .unwrap_or("main")
-        .to_string();
-
-    cairo_m_compiler_semantic::Crate::new(db, modules, entry_module_name)
 }
 
 #[cfg(test)]

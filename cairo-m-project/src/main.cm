@@ -1,6 +1,9 @@
 use math::helper_func;
+use library::utils::foo;
 
 func main() {
+    let x = 3;
     helper_func();
+    foo();
     return();
 }

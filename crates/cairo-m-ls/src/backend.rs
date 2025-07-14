@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -125,7 +126,8 @@ impl Backend {
         });
 
         // Spawn dedicated task for continuous project update monitoring
-        let client_clone2 = client.clone();
+        let max_file_size = project_model.limits.max_file_size;
+        let client_clone2: Client = client.clone();
         let project_model_clone = Arc::clone(&project_model);
         let db_clone = Arc::clone(&db);
         let source_files_clone = Arc::clone(&source_files);
@@ -138,57 +140,89 @@ impl Backend {
             while let Some(update) = project_rx.recv().await {
                 match update {
                     ProjectUpdate::Project { crate_info, files } => {
+                        tracing::info!("Project update: {:?}", crate_info);
+                        tracing::info!("Files: {:?}", files);
                         // Clone crate_info so we can use it later
                         let crate_info_for_later = crate_info.clone();
 
-                        // Load the project into the model using spawn_blocking to avoid holding locks across await
-                        let project_model_clone_for_task = Arc::clone(&project_model_clone);
-                        let db_clone_for_task = Arc::clone(&db_clone);
-                        let source_files_clone_for_task = Arc::clone(&source_files_clone);
-                        let path_to_uri_clone_for_task = Arc::clone(&path_to_uri_clone);
-                        let load_result = tokio::task::spawn_blocking(move || {
-                            match db_clone_for_task.lock() {
-                                Ok(mut db) => {
-                                    // This is now a sync call inside spawn_blocking
-                                    let rt = tokio::runtime::Handle::current();
-                                    rt.block_on(project_model_clone_for_task.load_crate(
-                                        crate_info,
-                                        files,
-                                        &mut db,
-                                        |db, uri| {
-                                            // Try to get existing source file or create new one
-                                            if let Some(sf) = source_files_clone_for_task.get(uri) {
-                                                Some(*sf)
-                                            } else {
-                                                let path = uri.to_file_path().ok()?;
-                                                let content =
-                                                    std::fs::read_to_string(&path).ok()?;
-                                                let source_file =
-                                                    cairo_m_compiler_parser::SourceFile::new(
-                                                        db,
-                                                        content,
-                                                        uri.to_string(),
-                                                    );
-                                                source_files_clone_for_task
-                                                    .insert(uri.clone(), source_file);
-                                                path_to_uri_clone_for_task
-                                                    .insert(path, uri.clone());
-                                                Some(source_file)
-                                            }
-                                        },
-                                    ))
-                                }
+                        // Load the project into the model
+                        // First, handle database operations in a blocking context
+                        let _project_model_clone_for_db = Arc::clone(&project_model_clone);
+                        let db_clone_for_db = Arc::clone(&db_clone);
+                        let source_files_clone_for_db = Arc::clone(&source_files_clone);
+                        let path_to_uri_clone_for_db = Arc::clone(&path_to_uri_clone);
+
+                        // Prepare source files synchronously
+                        #[allow(clippy::significant_drop_tightening)]
+                        let prepared_files = tokio::task::spawn_blocking(move || {
+                            let db = match db_clone_for_db.lock() {
+                                Ok(db) => db,
                                 Err(e) => {
                                     tracing::error!("Failed to acquire database lock: {:?}", e);
-                                    Err("Failed to acquire database lock".to_string())
+                                    return Err("Failed to acquire database lock".to_string());
+                                }
+                            };
+
+                            let mut source_files_map = HashMap::new();
+                            for path in &files {
+                                if let Ok(uri) = Url::from_file_path(path) {
+                                    let source_file = if let Some(sf) = source_files_clone_for_db.get(&uri) {
+                                        *sf
+                                    } else {
+                                        // Check file size before reading
+                                        if let Ok(metadata) = std::fs::metadata(path) {
+                                            let file_size = metadata.len() as usize;
+                                            // Default 10MB limit - could be made configurable
+                                            if file_size > max_file_size {
+                                                tracing::warn!(
+                                                    "File {:?} exceeds size limit ({} > {} bytes), skipping",
+                                                    path, file_size, max_file_size
+                                                );
+                                                continue;
+                                            }
+                                        }
+
+                                        match std::fs::read_to_string(path) {
+                                            Ok(content) => {
+                                                let sf = cairo_m_compiler_parser::SourceFile::new(
+                                                    &*db,
+                                                    content,
+                                                    uri.to_string(),
+                                                );
+                                                source_files_clone_for_db.insert(uri.clone(), sf);
+                                                path_to_uri_clone_for_db.insert(path.clone(), uri.clone());
+                                                sf
+                                            }
+                                            Err(e) => {
+                                                tracing::warn!("Failed to read file {:?}: {}", path, e);
+                                                continue;
+                                            }
+                                        }
+                                    };
+                                    source_files_map.insert(path.clone(), source_file);
                                 }
                             }
+                            Ok(source_files_map)
                         })
                         .await
                         .unwrap_or_else(|e| {
                             tracing::error!("spawn_blocking task failed: {:?}", e);
                             Err("spawn_blocking task failed".to_string())
                         });
+
+                        // Now load the crate asynchronously with prepared data
+                        let load_result = match prepared_files {
+                            Ok(source_files_map) => {
+                                project_model_clone
+                                    .load_crate_with_prepared_files(
+                                        crate_info,
+                                        source_files_map,
+                                        &db_clone,
+                                    )
+                                    .await
+                            }
+                            Err(e) => Err(e),
+                        };
 
                         // Process result after releasing the lock
                         match load_result {
@@ -209,8 +243,14 @@ impl Backend {
                                     .get_project_crate_for_root(&crate_info_for_later.root)
                                     .await
                                 {
-                                    let _ = diagnostics_sender_clone
-                                        .send(DiagnosticsRequest::ProjectChanged { project_crate });
+                                    if let Err(e) = diagnostics_sender_clone
+                                        .send(DiagnosticsRequest::ProjectChanged { project_crate })
+                                    {
+                                        tracing::debug!(
+                                            "Failed to send project changed diagnostics request: {}",
+                                            e
+                                        );
+                                    }
                                 }
                             }
                             Err(e) => {
@@ -225,46 +265,72 @@ impl Backend {
                         }
                     }
                     ProjectUpdate::Standalone(file_path) => {
-                        // Load the standalone file using spawn_blocking to avoid holding locks across await
-                        let project_model_clone_for_task = Arc::clone(&project_model_clone);
-                        let db_clone_for_task = Arc::clone(&db_clone);
-                        let source_files_clone_for_task = Arc::clone(&source_files_clone);
-                        let path_to_uri_clone_for_task = Arc::clone(&path_to_uri_clone);
-                        let load_result = tokio::task::spawn_blocking(move || {
-                            match db_clone_for_task.lock() {
-                                Ok(mut db) => {
-                                    // This is now a sync call inside spawn_blocking
-                                    let rt = tokio::runtime::Handle::current();
-                                    rt.block_on(project_model_clone_for_task.load_standalone(
-                                        file_path,
-                                        &mut db,
-                                        |db, uri| {
-                                            // Try to get existing source file or create new one
-                                            if let Some(sf) = source_files_clone_for_task.get(uri) {
-                                                Some(*sf)
-                                            } else {
-                                                let path = uri.to_file_path().ok()?;
-                                                let content =
-                                                    std::fs::read_to_string(&path).ok()?;
-                                                let source_file =
-                                                    cairo_m_compiler_parser::SourceFile::new(
-                                                        db,
-                                                        content,
-                                                        uri.to_string(),
-                                                    );
-                                                source_files_clone_for_task
-                                                    .insert(uri.clone(), source_file);
-                                                path_to_uri_clone_for_task
-                                                    .insert(path, uri.clone());
-                                                Some(source_file)
-                                            }
-                                        },
-                                    ))
-                                }
+                        // Load the standalone file
+                        // First prepare the source file synchronously
+                        let db_clone_for_standalone = Arc::clone(&db_clone);
+                        let source_files_clone_for_standalone = Arc::clone(&source_files_clone);
+                        let path_to_uri_clone_for_standalone = Arc::clone(&path_to_uri_clone);
+                        let file_path_clone = file_path.clone();
+
+                        #[allow(clippy::significant_drop_tightening)]
+                        let prepared_file = tokio::task::spawn_blocking(move || {
+                            let db = match db_clone_for_standalone.lock() {
+                                Ok(db) => db,
                                 Err(e) => {
                                     tracing::error!("Failed to acquire database lock: {:?}", e);
-                                    Err("Failed to acquire database lock".to_string())
+                                    return Err("Failed to acquire database lock".to_string());
                                 }
+                            };
+
+                            if let Ok(uri) = Url::from_file_path(&file_path_clone) {
+                                let source_file =
+                                    if let Some(sf) = source_files_clone_for_standalone.get(&uri) {
+                                        Some(*sf)
+                                    } else {
+                                        // Check file size before reading
+                                        if let Ok(metadata) = std::fs::metadata(&file_path_clone) {
+                                            let file_size = metadata.len() as usize;
+                                            const MAX_FILE_SIZE: usize = 10 * 1024 * 1024;
+                                            if file_size > MAX_FILE_SIZE {
+                                                tracing::error!(
+                                                    "File {:?} exceeds size limit ({} > {} bytes)",
+                                                    file_path_clone,
+                                                    file_size,
+                                                    MAX_FILE_SIZE
+                                                );
+                                                return Err(format!(
+                                                    "File exceeds size limit: {} bytes",
+                                                    file_size
+                                                ));
+                                            }
+                                        }
+
+                                        match std::fs::read_to_string(&file_path_clone) {
+                                            Ok(content) => {
+                                                let sf = cairo_m_compiler_parser::SourceFile::new(
+                                                    &*db,
+                                                    content,
+                                                    uri.to_string(),
+                                                );
+                                                source_files_clone_for_standalone
+                                                    .insert(uri.clone(), sf);
+                                                path_to_uri_clone_for_standalone
+                                                    .insert(file_path_clone.clone(), uri);
+                                                Some(sf)
+                                            }
+                                            Err(e) => {
+                                                tracing::error!(
+                                                    "Failed to read file {:?}: {}",
+                                                    file_path_clone,
+                                                    e
+                                                );
+                                                None
+                                            }
+                                        }
+                                    };
+                                Ok(source_file)
+                            } else {
+                                Err("Invalid file path".to_string())
                             }
                         })
                         .await
@@ -272,6 +338,21 @@ impl Backend {
                             tracing::error!("spawn_blocking task failed: {:?}", e);
                             Err("spawn_blocking task failed".to_string())
                         });
+
+                        // Now load the standalone file asynchronously
+                        let load_result = match prepared_file {
+                            Ok(Some(source_file)) => {
+                                project_model_clone
+                                    .load_standalone_with_prepared_file(
+                                        file_path,
+                                        source_file,
+                                        &db_clone,
+                                    )
+                                    .await
+                            }
+                            Ok(None) => Err("Failed to prepare source file".to_string()),
+                            Err(e) => Err(e),
+                        };
 
                         // Process result after releasing the lock
                         match load_result {
@@ -496,10 +577,12 @@ impl Backend {
 
             // Send the diagnostic request (sync)
             tracing::debug!("Sending diagnostic request for URI: {}", uri_clone);
-            let _ = request_sender.send(DiagnosticsRequest::FileChanged {
+            if let Err(e) = request_sender.send(DiagnosticsRequest::FileChanged {
                 uri: uri_clone.clone(),
                 version: version_clone,
-            });
+            }) {
+                tracing::debug!("Failed to send file changed diagnostics request: {}", e);
+            }
         });
 
         // Store the new timer handle
@@ -518,7 +601,9 @@ impl Backend {
             .await;
         // Request diagnostics from the controller
         if let Some(controller) = &self.diagnostics_controller {
-            let _ = controller.request(DiagnosticsRequest::FileChanged { uri, version });
+            if let Err(e) = controller.request(DiagnosticsRequest::FileChanged { uri, version }) {
+                tracing::debug!("Failed to send file changed diagnostics request: {}", e);
+            }
         }
     }
 }
@@ -600,7 +685,11 @@ impl LanguageServer for Backend {
 
         // Request project update from the controller
         if let Some(controller) = &self.project_controller {
-            let _ = controller.update(ProjectUpdateRequest::UpdateForFile { file_path: path });
+            if let Err(e) =
+                controller.update(ProjectUpdateRequest::UpdateForFile { file_path: path })
+            {
+                tracing::debug!("Failed to send project update request: {}", e);
+            }
         }
 
         // No need to process project updates here - the dedicated monitor task handles them continuously
