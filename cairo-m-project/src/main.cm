@@ -1,17 +1,6 @@
-use math::{add,sub, abibi};
-func main(){
-    let x= 3;
+use math::helper_func;
 
-    let lili = 111;
-    const X = 3;
-    let lili = 111;
-    let lola = lili + lili;
-
-    let t = 3;
-    let aa = 3;
-    let a = t == 1;
-    sub(1,2);
-    let x =1;
-    let x = 1;
+func main() {
+    helper_func();
     return();
 }

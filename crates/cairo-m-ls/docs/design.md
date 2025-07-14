@@ -247,7 +247,7 @@ sequenceDiagram
   - `ProjectUpdate`: Project info or standalone file.
   - `ProjectController`: Spawns worker, watches manifests with `notify`.
   - `ProjectManifestPath`: Enum for manifest types (e.g., CairoM).
-  - `ProjectModel`: Arc<RwLock> for crates, file mappings, Salsa IDs.
+  - `ProjectModel`: `Arc<RwLock>` for crates, file mappings, Salsa IDs.
   - `Crate`: Loaded crate with files and info.
 - **Key Functions**:
   - `load_crate`/`load_standalone`: Loads into model and DB.

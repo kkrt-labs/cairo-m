@@ -5,7 +5,7 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tokio::time::interval;
 use tower_lsp::lsp_types::Url;
-use tracing::{debug, info};
+use tracing::debug;
 
 use crate::db::AnalysisDatabase;
 use crate::project::ProjectModel;
@@ -32,18 +32,13 @@ impl AnalysisDatabaseSwapper {
         let (shutdown_tx, mut shutdown_rx) = mpsc::unbounded_channel();
 
         let handle = tokio::spawn(async move {
-            info!(
-                "AnalysisDatabaseSwapper started with interval: {:?}",
-                interval_duration
-            );
-
             let mut timer = interval(interval_duration);
             timer.tick().await; // Skip the first immediate tick
 
             loop {
                 tokio::select! {
                     _ = shutdown_rx.recv() => {
-                        info!("AnalysisDatabaseSwapper shutting down");
+                        debug!("AnalysisDatabaseSwapper shutting down");
                         break;
                     }
                     _ = timer.tick() => {
@@ -151,7 +146,7 @@ impl AnalysisDatabaseSwapper {
             Ok(mut old_db) => {
                 *old_db = new_db;
                 let elapsed = start.elapsed();
-                info!("Database swap completed in {:?}", elapsed);
+                debug!("Database swap completed in {:?}", elapsed);
             }
             Err(_) => {
                 debug!("Failed to lock database for final swap");

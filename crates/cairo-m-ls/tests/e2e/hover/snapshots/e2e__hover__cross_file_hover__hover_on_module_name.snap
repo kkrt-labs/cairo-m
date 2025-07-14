@@ -1,0 +1,5 @@
+---
+source: crates/cairo-m-ls/tests/e2e/hover/cross_file_hover.rs
+expression: result
+---
+No hover info

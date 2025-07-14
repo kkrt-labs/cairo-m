@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, warn};
 
 use super::manifest::ProjectManifestPath;
 use super::model::CrateInfo;
@@ -64,12 +64,9 @@ impl ProjectController {
                     // Check if this is a cairom.toml file modification
                     for path in event.paths {
                         if path.file_name().and_then(|n| n.to_str()) == Some("cairom.toml") {
-                            info!("Detected cairom.toml change: {:?}", path);
-
                             // Clear cache entry for this manifest to force reload
                             if let Ok(mut cache) = manifest_cache_for_watcher.lock() {
                                 cache.remove(&path);
-                                debug!("Cleared cache for changed manifest: {:?}", path);
                             }
 
                             // Trigger project reload for any file in the project directory
@@ -81,10 +78,6 @@ impl ProjectController {
                                         if entry_path.extension().and_then(|e| e.to_str())
                                             == Some("cm")
                                         {
-                                            debug!(
-                                                "Triggering project reload for file: {:?}",
-                                                entry_path
-                                            );
                                             let _ = watcher_sender.send(
                                                 ProjectUpdateRequest::UpdateForFile {
                                                     file_path: entry_path,
@@ -114,11 +107,6 @@ impl ProjectController {
                             "Failed to watch current directory {:?}: {:?}",
                             current_dir, e
                         );
-                    } else {
-                        info!(
-                            "Started watching directory {:?} for cairom.toml changes",
-                            current_dir
-                        );
                     }
                 }
                 Some(w)
@@ -130,8 +118,6 @@ impl ProjectController {
         };
 
         let handle = tokio::spawn(async move {
-            info!("ProjectController worker task started");
-
             // Cache expiration time (5 minutes)
             const CACHE_EXPIRY: Duration = Duration::from_secs(300);
 
@@ -181,8 +167,6 @@ impl ProjectController {
                     cache.len()
                 );
             }
-
-            info!("ProjectController worker task shutting down");
         });
 
         Self {
@@ -206,15 +190,8 @@ impl ProjectController {
     ) {
         match request {
             ProjectUpdateRequest::UpdateForFile { file_path } => {
-                info!(
-                    "Processing project update request for: {}",
-                    file_path.display()
-                );
-
                 match ProjectManifestPath::discover(&file_path) {
                     Some(manifest) => {
-                        info!("Found project manifest: {:?}", manifest);
-
                         // Check cache first
                         let manifest_path = manifest.path().to_path_buf();
                         const CACHE_EXPIRY: Duration = Duration::from_secs(300);
@@ -286,7 +263,7 @@ impl ProjectController {
                         }
                     }
                     None => {
-                        info!("No project manifest found, treating as standalone file");
+                        debug!("No project manifest found, treating as standalone file");
                         if let Err(e) = response_sender.send(ProjectUpdate::Standalone(file_path)) {
                             error!("Failed to send standalone update: {}", e);
                         }

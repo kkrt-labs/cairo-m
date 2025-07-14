@@ -1,0 +1,7 @@
+---
+source: crates/cairo-m-ls/tests/e2e/hover/type_hover.rs
+expression: result
+---
+```cairo-m
+b: felt
+```

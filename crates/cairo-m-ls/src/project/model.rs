@@ -271,27 +271,12 @@ impl Default for ProjectModel {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
     use std::path::PathBuf;
 
     use super::*;
 
-    // Helper to create dummy SourceFile for tests
-    fn create_test_files_map() -> HashMap<PathBuf, SourceFile> {
-        // Since find_main_file only looks at the keys, we can use any valid SourceFile
-        // In real tests this would need a proper database setup
-        HashMap::new()
-    }
-
     #[test]
     fn test_find_main_file_deterministic_fallback() {
-        let model = ProjectModel::new();
-        let crate_info = CrateInfo {
-            name: "test".to_string(),
-            root: PathBuf::from("/test"),
-        };
-
-        // Create test data - only keys matter for find_main_file
         let files_keys = vec![
             PathBuf::from("/test/c_module.cm"),
             PathBuf::from("/test/b_module.cm"),
@@ -304,10 +289,9 @@ mod tests {
         assert_eq!(sorted_keys[0], PathBuf::from("/test/a_module.cm"));
     }
 
+    // TODO: This test is not actually testing the main / lib precedence.
     #[test]
     fn test_find_main_file_logic() {
-        let model = ProjectModel::new();
-
         // Test that main.cm is preferred
         {
             let crate_info = CrateInfo {

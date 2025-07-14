@@ -7,7 +7,7 @@ use cairo_m_compiler_semantic::delta_diagnostics::DeltaDiagnosticsTracker;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity, Position, Range, Url};
-use tracing::{debug, error, info};
+use tracing::{debug, error};
 
 use crate::db::{AnalysisDatabase, ProjectCrate, ProjectCrateExt};
 use crate::diagnostics::state::ProjectDiagnostics;
@@ -57,17 +57,14 @@ impl DiagnosticsController {
 
         let _error_response_sender = response_sender.clone();
         let handle = tokio::spawn(async move {
-            info!("DiagnosticsController worker task started");
-
             // Initialize delta diagnostics tracker for this task
             let mut delta_tracker = DeltaDiagnosticsTracker::new();
 
             // Process requests until channel is closed
             while let Some(request) = receiver.recv().await {
-                info!("Received request: {:?}", request);
+                debug!("Received request: {:?}", request);
                 match request {
                     DiagnosticsRequest::FileChanged { uri, version } => {
-                        info!("FileChanged: Processing diagnostics for file: {}", uri);
                         Self::compute_file_diagnostics_delta(
                             &db,
                             &diagnostics_state,
@@ -78,6 +75,12 @@ impl DiagnosticsController {
                             &mut delta_tracker,
                         )
                         .await;
+                        // Signal completion of work
+                        let _ = response_sender.send(DiagnosticsResponse {
+                            uri: Url::parse("internal://analysis-finished").unwrap(),
+                            version: None,
+                            diagnostics: vec![],
+                        });
                     }
 
                     DiagnosticsRequest::ProjectChanged { project_crate } => {
@@ -93,16 +96,21 @@ impl DiagnosticsController {
                         )
                         .await;
                         debug!("Project diagnostics completed in {:?}", start.elapsed());
+
+                        // Signal completion of work
+                        let _ = response_sender.send(DiagnosticsResponse {
+                            uri: Url::parse("internal://analysis-finished").unwrap(),
+                            version: None,
+                            diagnostics: vec![],
+                        });
                     }
 
                     DiagnosticsRequest::Shutdown => {
-                        info!("DiagnosticsController shutting down");
+                        debug!("DiagnosticsController shutting down");
                         break;
                     }
                 }
             }
-
-            info!("DiagnosticsController worker task stopped");
         });
 
         Self {
@@ -129,11 +137,8 @@ impl DiagnosticsController {
         response_sender: &UnboundedSender<DiagnosticsResponse>,
         delta_tracker: &mut DeltaDiagnosticsTracker,
     ) {
-        debug!("Computing delta diagnostics for file: {}", uri);
-
         // First try to get the ProjectCrate for this file (async call)
         if let Some(project_crate) = project_model.get_project_crate_for_file(&uri).await {
-            info!("Found project crate for file, running delta project diagnostics");
             // We have a project, run delta project diagnostics
             Self::compute_project_diagnostics_delta(
                 db,
@@ -145,7 +150,7 @@ impl DiagnosticsController {
             )
             .await;
         } else {
-            info!(
+            debug!(
                 "No project crate found for file: {}, clearing diagnostics",
                 uri
             );
@@ -201,18 +206,21 @@ impl DiagnosticsController {
             (files_with_content, diagnostics_collection)
         };
 
-        // Process the results
-        let diagnostics_result = tokio::task::spawn_blocking(move || {
-            Self::compute_project_diagnostics_delta_sync(result.0, result.1)
+        // Process the results with unconstrained wrapper to prevent cancellation
+        let diagnostics_result = tokio::task::unconstrained(async {
+            tokio::task::spawn_blocking(move || {
+                Self::compute_project_diagnostics_delta_sync(result.0, result.1)
+            })
+            .await
+            .unwrap_or_else(|e| {
+                error!(
+                    "Failed to spawn blocking task for delta diagnostics: {:?}",
+                    e
+                );
+                Err("Failed to spawn blocking task".to_string())
+            })
         })
-        .await
-        .unwrap_or_else(|e| {
-            error!(
-                "Failed to spawn blocking task for delta diagnostics: {:?}",
-                e
-            );
-            Err("Failed to spawn blocking task".to_string())
-        });
+        .await;
 
         // Handle the result and publish diagnostics
         if let Ok(diagnostics_by_file) = diagnostics_result {

@@ -1,0 +1,7 @@
+---
+source: crates/cairo-m-ls/tests/e2e/diagnostics_test.rs
+expression: result
+---
+2:13-26: Error: Undeclared variable 'undefined_var'
+2:8-10: Warning: Unused variable '_x'
+1:5-9: Error: Function 'main' doesn't return on all paths
