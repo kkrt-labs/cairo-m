@@ -14,7 +14,9 @@ func test() { if (true) { if (false) { if (true) { if (true) { if (true) { let x
                     5..9,
                 ),
                 params: [],
-                return_type: None,
+                return_type: Tuple(
+                    [],
+                ),
                 body: [
                     Spanned(
                         If {

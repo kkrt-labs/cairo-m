@@ -14,10 +14,8 @@ func get_constant() -> felt { return 42; }
                     5..17,
                 ),
                 params: [],
-                return_type: Some(
-                    Named(
-                        "felt",
-                    ),
+                return_type: Named(
+                    "felt",
                 ),
                 body: [
                     Spanned(

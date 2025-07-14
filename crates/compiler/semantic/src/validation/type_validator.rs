@@ -1134,106 +1134,89 @@ impl TypeValidator {
         span: SimpleSpan<usize>,
         diagnostics: &mut Vec<Diagnostic>,
     ) {
-        if let Some(expected_return_type_expr) = &function_def.return_type {
-            // Function has an explicit return type
-            let scope_id = index.root_scope().expect("No root scope found");
-            let expected_return_type =
-                resolve_ast_type(db, file, expected_return_type_expr.clone(), scope_id);
+        let scope_id = index.root_scope().expect("No root scope found");
+        let expected_return_type =
+            resolve_ast_type(db, file, function_def.return_type.clone(), scope_id);
 
-            // Skip type checking if the expected type is Unknown
-            if matches!(expected_return_type.data(db), TypeData::Tuple(_)) {
-                return;
-            }
+        if matches!(expected_return_type.data(db), TypeData::Unknown) {
+            panic!("Expected return type is unknown");
+        }
 
-            // If there's no return value but a return type is expected, that's an error
-            let return_expr = match value {
-                Some(expr) => expr,
-                None => {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            DiagnosticCode::MissingReturnValue,
-                            "Function with return type must return a value".to_string(),
-                        )
-                        .with_location(file.file_path(db).to_string(), span),
-                    );
-                    return;
-                }
-            };
+        // Check if the function expects a non-unit return type
+        let expects_value = !matches!(expected_return_type.data(db), TypeData::Tuple(ref types) if types.is_empty());
 
-            let return_expr_id = index
-                .expression_id_by_span(return_expr.span())
-                .expect("Return expression not found");
-            let return_type = expression_semantic_type(db, file, return_expr_id);
-            if !are_types_compatible(db, return_type, expected_return_type) {
-                let suggestion =
-                    self.suggest_type_conversion(db, return_type, expected_return_type);
-                let mut diag = Diagnostic::error(
-                    DiagnosticCode::TypeMismatch,
-                    format!(
-                        "Type mismatch in return statement. Function expects '{}', but returning '{}'",
-                        expected_return_type.data(db).display_name(db),
-                        return_type.data(db).display_name(db)
-                    ),
-                )
-                .with_location(file.file_path(db).to_string(), span);
-
-                if let Some(suggestion) = suggestion {
-                    diag = diag.with_related_span(
-                        file.file_path(db).to_string(),
-                        return_expr.span(),
-                        suggestion,
-                    );
-                }
-
-                // Add context about the function signature
-                diag = diag.with_related_span(
-                    file.file_path(db).to_string(),
-                    function_def.name.span(),
-                    format!(
-                        "Function '{}' declared here with return type '{}'",
-                        function_def.name.value(),
-                        expected_return_type.data(db).display_name(db)
-                    ),
+        match (value, expects_value) {
+            (None, true) => {
+                // Missing return value when one is expected
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::MissingReturnValue,
+                        "Function with return type must return a value".to_string(),
+                    )
+                    .with_location(file.file_path(db).to_string(), span),
                 );
-
-                diagnostics.push(diag);
             }
-        } else {
-            // Function has no explicit return type (void function)
-            // It implicitly returns () (empty tuple)
-            if let Some(return_expr) = value {
-                // Check if the return expression is not unit type
+            (Some(return_expr), _) => {
+                // Check type compatibility
                 let return_expr_id = index
                     .expression_id_by_span(return_expr.span())
                     .expect("Return expression not found");
                 let return_type = expression_semantic_type(db, file, return_expr_id);
 
-                // Unit type is represented as an empty tuple
-                let unit_type = TypeId::new(db, TypeData::Tuple(vec![]));
+                if !are_types_compatible(db, return_type, expected_return_type) {
+                    let suggestion =
+                        self.suggest_type_conversion(db, return_type, expected_return_type);
 
-                if !are_types_compatible(db, return_type, unit_type) {
-                    let mut diag = Diagnostic::error(
-                        DiagnosticCode::TypeMismatch,
+                    let error_message = if expects_value {
+                        format!(
+                            "Type mismatch in return statement. Function expects '{}', but returning '{}'",
+                            expected_return_type.data(db).display_name(db),
+                            return_type.data(db).display_name(db)
+                        )
+                    } else {
                         format!(
                             "Function '{}' returns no value (unit type), but found return statement with type '{}'",
                             function_def.name.value(),
                             return_type.data(db).display_name(db)
-                        ),
-                    )
-                    .with_location(file.file_path(db).to_string(), span);
+                        )
+                    };
+
+                    let mut diag = Diagnostic::error(DiagnosticCode::TypeMismatch, error_message)
+                        .with_location(file.file_path(db).to_string(), span);
+
+                    if let Some(suggestion) = suggestion {
+                        diag = diag.with_related_span(
+                            file.file_path(db).to_string(),
+                            return_expr.span(),
+                            suggestion,
+                        );
+                    }
 
                     // Add context about the function signature
+                    let context_message = if expects_value {
+                        format!(
+                            "Function '{}' declared here with return type '{}'",
+                            function_def.name.value(),
+                            expected_return_type.data(db).display_name(db)
+                        )
+                    } else {
+                        format!(
+                            "Function '{}' declared here without explicit return type (implicitly returns unit)",
+                            function_def.name.value()
+                        )
+                    };
+
                     diag = diag.with_related_span(
                         file.file_path(db).to_string(),
                         function_def.name.span(),
-                        format!(
-                            "Function '{}' declared here without return type (implicitly returns unit)",
-                            function_def.name.value()
-                        ),
+                        context_message,
                     );
 
                     diagnostics.push(diag);
                 }
+            }
+            (None, false) => {
+                // No return value for unit type - this is fine
             }
         }
     }
@@ -1538,9 +1521,9 @@ mod tests {
                 }
 
                 if (1) {                      // OK: felt condition
-                    return 1;
+                    return 1; // Error: return type mismatch
                 } else {
-                    return 2;
+                    return (); // OK: unit type
                 }
 
                 if (1 && 2) {                 // OK: logical operation on felt
@@ -1585,8 +1568,8 @@ mod tests {
             .count();
 
         assert_eq!(
-            type_mismatch_errors, 3,
-            "Should have 3 type mismatch errors"
+            type_mismatch_errors, 4,
+            "Should have 4 type mismatch errors"
         );
     }
 

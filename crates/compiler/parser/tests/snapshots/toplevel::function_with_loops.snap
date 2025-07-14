@@ -32,7 +32,9 @@ expression: snapshot
                     14..24,
                 ),
                 params: [],
-                return_type: None,
+                return_type: Tuple(
+                    [],
+                ),
                 body: [
                     Spanned(
                         Loop {

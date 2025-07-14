@@ -46,7 +46,7 @@ fn test_multiple_unused_variables() {
 fn test_mixed_used_and_unused() {
     assert_semantic_err!(
         r#"
-        func test() {
+        func test() -> felt {
             let used = 10;
             let unused = 20;
             return used;
@@ -60,7 +60,7 @@ fn test_mixed_used_and_unused() {
 fn test_unused_in_nested_scope() {
     assert_semantic_err!(
         r#"
-        func test() {
+        func test() -> felt {
             let used = 10;
             {
                 let unused_inner = 20;

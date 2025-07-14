@@ -14,7 +14,9 @@ func test() { (1, 2, 3); }
                     5..9,
                 ),
                 params: [],
-                return_type: None,
+                return_type: Tuple(
+                    [],
+                ),
                 body: [
                     Spanned(
                         Expression(

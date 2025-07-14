@@ -1,6 +1,5 @@
 ---
 source: crates/compiler/parser/tests/common.rs
-assertion_line: 96
 expression: snapshot
 ---
 --- Code ---
@@ -15,7 +14,9 @@ func test() { break; }
                     5..9,
                 ),
                 params: [],
-                return_type: None,
+                return_type: Tuple(
+                    [],
+                ),
                 body: [
                     Spanned(
                         Break,

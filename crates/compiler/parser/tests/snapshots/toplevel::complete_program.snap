@@ -86,10 +86,8 @@ expression: snapshot
                                         ),
                                     },
                                 ],
-                                return_type: Some(
-                                    Named(
-                                        "felt",
-                                    ),
+                                return_type: Named(
+                                    "felt",
                                 ),
                                 body: [
                                     Spanned(
@@ -212,10 +210,8 @@ expression: snapshot
                                         ),
                                     },
                                 ],
-                                return_type: Some(
-                                    Named(
-                                        "felt",
-                                    ),
+                                return_type: Named(
+                                    "felt",
                                 ),
                                 body: [
                                     Spanned(

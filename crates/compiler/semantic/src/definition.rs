@@ -10,9 +10,9 @@ use cairo_m_compiler_parser::parser::{
 };
 use chumsky::span::SimpleSpan;
 
+use crate::File;
 use crate::place::{FileScopeId, ScopedPlaceId};
 use crate::semantic_index::ExpressionId;
-use crate::File;
 
 /// A definition that links a semantic place to its AST node
 ///
@@ -85,8 +85,8 @@ pub struct FunctionDefRef {
     pub name: String,
     /// Parameter information with names and AST type expressions
     pub params_ast: Vec<(String, TypeExpr)>,
-    /// Return type AST expression, if specified
-    pub return_type_ast: Option<TypeExpr>,
+    /// Return type AST expression (defaults to unit type)
+    pub return_type_ast: TypeExpr,
 }
 
 impl FunctionDefRef {
@@ -361,13 +361,16 @@ mod tests {
         let func_def = FunctionDef {
             name: Spanned::new("test_func".to_string(), SimpleSpan::from(0..5)),
             params: vec![],
-            return_type: Some(TypeExpr::Named("felt".to_string())),
+            return_type: TypeExpr::Named("felt".to_string()),
             body: vec![],
         };
         let spanned_func = Spanned::new(func_def, SimpleSpan::from(0..10));
         let func_ref = FunctionDefRef::from_ast(&spanned_func);
         assert_eq!(func_ref.name, "test_func");
-        assert!(func_ref.return_type_ast.is_some());
+        assert_eq!(
+            func_ref.return_type_ast,
+            TypeExpr::Named("felt".to_string())
+        );
         assert_eq!(func_ref.params_ast.len(), 0);
 
         let struct_def = StructDef {
@@ -406,7 +409,7 @@ mod tests {
         let def1_kind = DefinitionKind::Function(FunctionDefRef {
             name: "func1".to_string(),
             params_ast: vec![],
-            return_type_ast: None,
+            return_type_ast: TypeExpr::Tuple(vec![]), // Unit type
         });
 
         let def2_kind = DefinitionKind::Const(ConstDefRef {
@@ -437,7 +440,7 @@ mod tests {
         let def_kind = DefinitionKind::Function(FunctionDefRef {
             name: "test".to_string(),
             params_ast: vec![("param".to_string(), TypeExpr::Named("felt".to_string()))],
-            return_type_ast: Some(TypeExpr::Named("felt".to_string())),
+            return_type_ast: TypeExpr::Named("felt".to_string()),
         });
 
         let definitions = Definitions::single(scope_id, place_id, def_kind);

@@ -26,7 +26,9 @@ func test(x: MyStruct*) { }
                         ),
                     },
                 ],
-                return_type: None,
+                return_type: Tuple(
+                    [],
+                ),
                 body: [],
             },
             0..27,

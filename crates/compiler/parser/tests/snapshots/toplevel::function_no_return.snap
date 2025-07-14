@@ -14,7 +14,9 @@ func print_hello() { let msg = hello; }
                     5..16,
                 ),
                 params: [],
-                return_type: None,
+                return_type: Tuple(
+                    [],
+                ),
                 body: [
                     Spanned(
                         Let {

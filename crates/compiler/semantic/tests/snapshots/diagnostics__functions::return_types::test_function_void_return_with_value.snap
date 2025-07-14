@@ -19,7 +19,7 @@ Found 1 diagnostic(s):
    │
  2 │         func test() {
    │              ──┬─  
-   │                ╰─── Function 'test' declared here without return type (implicitly returns unit)
+   │                ╰─── Function 'test' declared here without explicit return type (implicitly returns unit)
  3 │             return 42; // Error: should return ()
    │             ─────┬────  
    │                  ╰────── Function 'test' returns no value (unit type), but found return statement with type 'felt'

@@ -35,7 +35,9 @@ func test(x: (felt*, felt*)) { }
                         ),
                     },
                 ],
-                return_type: None,
+                return_type: Tuple(
+                    [],
+                ),
                 body: [],
             },
             0..32,

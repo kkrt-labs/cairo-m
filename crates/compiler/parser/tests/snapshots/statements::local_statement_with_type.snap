@@ -14,7 +14,9 @@ func test() { local x: felt = 42; }
                     5..9,
                 ),
                 params: [],
-                return_type: None,
+                return_type: Tuple(
+                    [],
+                ),
                 body: [
                     Spanned(
                         Local {

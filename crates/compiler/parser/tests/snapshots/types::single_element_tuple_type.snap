@@ -24,7 +24,9 @@ func test(x: (felt,)) { }
                         ),
                     },
                 ],
-                return_type: None,
+                return_type: Tuple(
+                    [],
+                ),
                 body: [],
             },
             0..25,

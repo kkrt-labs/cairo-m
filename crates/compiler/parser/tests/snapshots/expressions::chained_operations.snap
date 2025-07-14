@@ -14,7 +14,9 @@ func test() { obj.method1().field.method2()[0].final_field; }
                     5..9,
                 ),
                 params: [],
-                return_type: None,
+                return_type: Tuple(
+                    [],
+                ),
                 body: [
                     Spanned(
                         Expression(

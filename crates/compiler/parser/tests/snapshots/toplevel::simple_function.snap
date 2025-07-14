@@ -33,10 +33,8 @@ func add(a: felt, b: felt) -> felt { return a + b; }
                         ),
                     },
                 ],
-                return_type: Some(
-                    Named(
-                        "felt",
-                    ),
+                return_type: Named(
+                    "felt",
                 ),
                 body: [
                     Spanned(

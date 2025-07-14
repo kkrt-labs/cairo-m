@@ -14,7 +14,9 @@ func test() { if (a == b) { return a; } else { return b; } }
                     5..9,
                 ),
                 params: [],
-                return_type: None,
+                return_type: Tuple(
+                    [],
+                ),
                 body: [
                     Spanned(
                         If {

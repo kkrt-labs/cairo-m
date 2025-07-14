@@ -104,7 +104,7 @@ fn test_undeclared_in_assignment() {
 fn test_declared_variable_ok() {
     assert_semantic_ok!(
         r#"
-        func test() {
+        func test() -> felt {
             let x = 5;
             let y = x + 10;
             return y;

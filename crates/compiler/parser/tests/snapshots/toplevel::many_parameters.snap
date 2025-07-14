@@ -71,17 +71,15 @@ func complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStru
                         ),
                     },
                 ],
-                return_type: Some(
-                    Tuple(
-                        [
-                            Named(
-                                "felt",
-                            ),
-                            Named(
-                                "felt",
-                            ),
-                        ],
-                    ),
+                return_type: Tuple(
+                    [
+                        Named(
+                            "felt",
+                        ),
+                        Named(
+                            "felt",
+                        ),
+                    ],
                 ),
                 body: [
                     Spanned(
