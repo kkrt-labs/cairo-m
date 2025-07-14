@@ -1273,7 +1273,7 @@ impl TypeValidator {
                 let return_expr_id = index
                     .expression_id_by_span(return_expr.span())
                     .expect("Return expression not found");
-                let return_type = expression_semantic_type(db, file, return_expr_id);
+                let return_type = expression_semantic_type(db, crate_id, file, return_expr_id);
 
                 if !are_types_compatible(db, return_type, expected_return_type) {
                     let suggestion =
@@ -1293,7 +1293,6 @@ impl TypeValidator {
                         )
                     };
 
-<<<<<<< HEAD
                     let mut diag = Diagnostic::error(DiagnosticCode::TypeMismatch, error_message)
                         .with_location(file.file_path(db).to_string(), span);
 
@@ -1318,24 +1317,6 @@ impl TypeValidator {
                             function_def.name.value()
                         )
                     };
-=======
-            let return_expr_id = index
-                .expression_id_by_span(return_expr.span())
-                .expect("Return expression not found");
-            let return_type = expression_semantic_type(db, crate_id, file, return_expr_id);
-            if !are_types_compatible(db, return_type, expected_return_type) {
-                let suggestion =
-                    self.suggest_type_conversion(db, return_type, expected_return_type);
-                let mut diag = Diagnostic::error(
-                    DiagnosticCode::TypeMismatch,
-                    format!(
-                        "Type mismatch in return statement. Function expects '{}', but returning '{}'",
-                        expected_return_type.data(db).display_name(db),
-                        return_type.data(db).display_name(db)
-                    ),
-                )
-                .with_location(file.file_path(db).to_string(), span);
->>>>>>> 1421a52 (fix LS issue)
 
                     diag = diag.with_related_span(
                         file.file_path(db).to_string(),

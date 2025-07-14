@@ -17,7 +17,7 @@ expression: snapshot
             local dy: felt = p1.y - p2.y;
             return sqrt(dx * dx + dy * dy);
         }
-
+    
 --- AST ---
 [
     Use(
@@ -124,10 +124,8 @@ expression: snapshot
                         ),
                     },
                 ],
-                return_type: Some(
-                    Named(
-                        "felt",
-                    ),
+                return_type: Named(
+                    "felt",
                 ),
                 body: [
                     Spanned(

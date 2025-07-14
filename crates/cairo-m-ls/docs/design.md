@@ -114,7 +114,8 @@ The crate is organized into modules for separation of concerns:
 - Client requests (e.g., `did_open`) trigger project discovery and loading.
 - Changes (`did_change`) update source files in Salsa inputs, invalidating
   dependent queries.
-- Diagnostics are computed asynchronously using delta tracking and published back.
+- Diagnostics are computed asynchronously using delta tracking and published
+  back.
 - Semantic features (hover, goto) query the DB synchronously but leverage cached
   results.
 
@@ -235,7 +236,8 @@ sequenceDiagram
     `DeltaDiagnosticsTracker`.
   - `convert_cairo_diagnostic`: Maps Cairo diagnostics to LSP format.
 - **Design Notes**: Uses delta tracking for efficiency. Spawn_blocking for
-  CPU-heavy parts. Publishes via async channel. Methods are async where appropriate.
+  CPU-heavy parts. Publishes via async channel. Methods are async where
+  appropriate.
 
 ### 3. **project (Project Management)**
 
@@ -250,8 +252,9 @@ sequenceDiagram
 - **Key Functions**:
   - `load_crate`/`load_standalone`: Loads into model and DB.
   - `discover`: Finds manifests by walking directories.
-- **Design Notes**: Caching for manifests (5min expiry) with periodic cleanup. File watching triggers
-  reloads. Handles moved files for diagnostics clearing. Methods are async.
+- **Design Notes**: Caching for manifests (5min expiry) with periodic cleanup.
+  File watching triggers reloads. Handles moved files for diagnostics clearing.
+  Methods are async.
 
 ### 4. **lsp_tracing (Logging Integration)**
 
@@ -271,7 +274,8 @@ sequenceDiagram
   - `hover`: Formats types on hover.
   - `completion`: Suggests keywords and symbols.
 - **Design Notes**: Uses `safe_db_access_mut` with spawn_blocking for DB
-  mutations. Dedicated async tasks for monitoring channels. Debouncing with per-file timers.
+  mutations. Dedicated async tasks for monitoring channels. Debouncing with
+  per-file timers.
 
 ### 6. **utils (Helpers)**
 
@@ -285,13 +289,15 @@ sequenceDiagram
 - **Memory**: DB swapper clears Salsa accumulations.
 - **Caching**: Project manifests cached with expiry.
 - **Debouncing**: Reduces diagnostics computation frequency on rapid changes.
-- **Delta Diagnostics**: Only processes changed modules via DeltaDiagnosticsTracker.
+- **Delta Diagnostics**: Only processes changed modules via
+  DeltaDiagnosticsTracker.
 
 ## Potential Improvements
 
 - **Error Recovery**: Better handling of partial analysis.
 - **More Features**: Rename, references, formatting.
 - **Testing**: End-to-end LSP tests (partial implementation in progress).
-- **Config**: More client-configurable options (e.g., debounce time implemented via initialization params).
+- **Config**: More client-configurable options (e.g., debounce time implemented
+  via initialization params).
 
 This document will be updated as the crate evolves.
