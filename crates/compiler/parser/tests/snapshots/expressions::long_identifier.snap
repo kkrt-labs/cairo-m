@@ -14,7 +14,9 @@ func test() { very_long_variable_name_that_tests_identifier_parsing; }
                     5..9,
                 ),
                 params: [],
-                return_type: None,
+                return_type: Tuple(
+                    [],
+                ),
                 body: [
                     Spanned(
                         Expression(

@@ -8,7 +8,7 @@ fn test_simple_assignment() {
         "
         let x = 10;
         x = 20;
-        return x;
+        return;
     "
     ));
 }
@@ -29,7 +29,7 @@ fn test_assignment_with_expression() {
         let x = 10;
         let y = 5;
         x = y + 15;
-        return x;
+        return;
     "
     ));
 }
@@ -49,7 +49,7 @@ fn test_assignment_to_parameter() {
     assert_semantic_ok!(&in_function_with_params(
         "
         param = 42;
-        return param;
+        return;
     ",
         "param: felt"
     ));
@@ -63,7 +63,7 @@ fn test_assignment_in_nested_scope() {
         {
             x = 20; // OK: x is visible from outer scope
         }
-        return x;
+        return;
     "
     ));
 }
@@ -77,7 +77,7 @@ fn test_assignment_to_variable_from_outer_scope() {
             let inner = 2;
             outer = inner + 1; // OK: outer is visible
         }
-        return outer;
+        return;
     "
     ));
 }
@@ -102,7 +102,7 @@ fn test_assignment_with_function_call() {
             "
             let x = 10;
             x = get_value();
-            return x;
+            return;
         "
         )
     ));
@@ -116,7 +116,7 @@ fn test_assignment_with_complex_expression() {
         let y = 5;
         let z = 3;
         x = (y + z) * 2 - 1;
-        return x;
+        return;
     "
     ));
 }
@@ -130,7 +130,7 @@ fn test_multiple_assignments() {
         x = 10;
         y = 20;
         x = y + 5;
-        return x;
+        return;
     "
     ));
 }
@@ -145,7 +145,7 @@ fn test_assignment_in_if_statement() {
         } else {
             x = 30;
         }
-        return x;
+        return;
     "
     ));
 }
@@ -158,7 +158,7 @@ fn test_assignment_rhs_creates_usage() {
         let x = 10;
         let y = 5;
         x = y + 1; // y is used here
-        return x;
+        return;
     "
     ));
 }

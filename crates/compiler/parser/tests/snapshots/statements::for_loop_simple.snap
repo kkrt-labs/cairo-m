@@ -14,7 +14,9 @@ func test() { for i in range { let x = i; } }
                     5..9,
                 ),
                 params: [],
-                return_type: None,
+                return_type: Tuple(
+                    [],
+                ),
                 body: [
                     Spanned(
                         For {

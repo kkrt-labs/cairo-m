@@ -1,4 +1,4 @@
-func main(){
+func main() -> felt {
     let x = 3;
     let y = 13;
     let even_number = 16;

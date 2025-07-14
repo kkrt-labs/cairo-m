@@ -14,12 +14,12 @@
 
 use cairo_m_compiler_parser::parser::{Expression, TypeExpr as AstTypeExpr};
 
+use crate::File;
 use crate::db::SemanticDb;
 use crate::definition::{DefinitionKind, FunctionDefRef, ParameterDefRef, StructDefRef};
 use crate::place::FileScopeId;
-use crate::semantic_index::{semantic_index, DefinitionId, ExpressionId};
+use crate::semantic_index::{DefinitionId, ExpressionId, semantic_index};
 use crate::types::{FunctionSignatureId, StructTypeId, TypeData, TypeId};
-use crate::File;
 
 /// Resolves an AST type expression to a `TypeId`
 #[salsa::tracked]
@@ -418,11 +418,7 @@ pub fn function_semantic_signature<'db>(
             params.push((param_name.clone(), param_type));
         }
 
-        let return_type = match return_type_ast.clone() {
-            Some(ty) => resolve_ast_type(db, file, ty, definition.scope_id),
-            // Assuming no return type means returns a tuple `()`
-            None => TypeId::new(db, TypeData::Tuple(vec![])),
-        };
+        let return_type = resolve_ast_type(db, file, return_type_ast.clone(), definition.scope_id);
 
         Some(FunctionSignatureId::new(
             db,

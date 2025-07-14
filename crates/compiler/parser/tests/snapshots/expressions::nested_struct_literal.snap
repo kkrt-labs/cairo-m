@@ -14,7 +14,9 @@ func test() { Rectangle { top_left: Point { x: 0, y: 0 }, width: 10 }; }
                     5..9,
                 ),
                 params: [],
-                return_type: None,
+                return_type: Tuple(
+                    [],
+                ),
                 body: [
                     Spanned(
                         Expression(

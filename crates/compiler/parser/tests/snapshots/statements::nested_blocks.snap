@@ -14,7 +14,9 @@ func test() { { { let inner = 1; } let outer = 2; } }
                     5..9,
                 ),
                 params: [],
-                return_type: None,
+                return_type: Tuple(
+                    [],
+                ),
                 body: [
                     Spanned(
                         Block(

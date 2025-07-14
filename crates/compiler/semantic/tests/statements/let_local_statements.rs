@@ -18,7 +18,7 @@ fn test_let_with_expression() {
         "
         let x = 10;
         let y = x + 20;
-        return y;
+        return;
     "
     ));
 }
@@ -29,7 +29,7 @@ fn test_local_with_expression() {
         "
         local x = 10;
         local y = x + 20;
-        return y;
+        return;
     "
     ));
 }
@@ -46,7 +46,7 @@ fn test_multiple_let_statements() {
         let a = 1;
         let b = 2;
         let c = a + b;
-        return c;
+        return;
     "
     ));
 }
@@ -58,7 +58,7 @@ fn test_let_statement_with_function_call() {
         &in_function(
             "
             let x = helper();
-            return x;
+            return;
         "
         )
     ));
@@ -71,7 +71,7 @@ fn test_let_statement_in_nested_scope() {
         let outer = 1;
         {
             let inner = outer + 1;
-            return inner;
+            return;
         }
     "
     ));
@@ -82,7 +82,7 @@ fn test_let_statement_type_annotation() {
     assert_semantic_ok!(&in_function(
         "
         let x: felt = 42;
-        return x;
+        return;
     "
     ));
 }
@@ -94,7 +94,7 @@ fn test_let_statement_with_complex_expression() {
         let a = 10;
         let b = 20;
         let result = (a + b) * 2 - 5;
-        return result;
+        return;
     "
     ));
 }
@@ -105,7 +105,7 @@ fn test_let_statement_shadowing() {
         "
         let x = 1;
         let x = 2;
-        return x;
+        return;
     "
     ));
 }
@@ -116,7 +116,7 @@ fn test_local_statement_shadowing() {
         "
         local x = 1;
         local x = 2;
-        return x;
+        return;
     "
     ));
 }

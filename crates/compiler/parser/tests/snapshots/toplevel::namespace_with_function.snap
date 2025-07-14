@@ -22,10 +22,8 @@ namespace Utils { func helper() -> felt { return 1; } }
                                     23..29,
                                 ),
                                 params: [],
-                                return_type: Some(
-                                    Named(
-                                        "felt",
-                                    ),
+                                return_type: Named(
+                                    "felt",
                                 ),
                                 body: [
                                     Spanned(

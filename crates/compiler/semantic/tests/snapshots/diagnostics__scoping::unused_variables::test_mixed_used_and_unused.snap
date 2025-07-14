@@ -6,7 +6,7 @@ Fixture: semantic_tests::scoping::unused_variables::test_mixed_used_and_unused
 ============================================================
 Source code:
 
-        func test() {
+        func test() -> felt {
             let used = 10;
             let unused = 20;
             return used;
