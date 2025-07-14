@@ -13,8 +13,8 @@ use std::collections::HashSet;
 
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode};
 use cairo_m_compiler_parser::parser::{
-    parse_program, BinaryOp, Expression, FunctionDef, Pattern, Spanned, Statement, TopLevelItem,
-    TypeExpr, UnaryOp,
+    BinaryOp, Expression, FunctionDef, Pattern, Spanned, Statement, TopLevelItem, TypeExpr,
+    UnaryOp, parse_program,
 };
 use chumsky::span::SimpleSpan;
 
@@ -1134,8 +1134,8 @@ impl TypeValidator {
         span: SimpleSpan<usize>,
         diagnostics: &mut Vec<Diagnostic>,
     ) {
-        // Only check return types if the function has an explicit return type
         if let Some(expected_return_type_expr) = &function_def.return_type {
+            // Function has an explicit return type
             let scope_id = index.root_scope().expect("No root scope found");
             let expected_return_type =
                 resolve_ast_type(db, file, expected_return_type_expr.clone(), scope_id);
@@ -1197,6 +1197,43 @@ impl TypeValidator {
                 );
 
                 diagnostics.push(diag);
+            }
+        } else {
+            // Function has no explicit return type (void function)
+            // It implicitly returns () (empty tuple)
+            if let Some(return_expr) = value {
+                // Check if the return expression is not unit type
+                let return_expr_id = index
+                    .expression_id_by_span(return_expr.span())
+                    .expect("Return expression not found");
+                let return_type = expression_semantic_type(db, file, return_expr_id);
+
+                // Unit type is represented as an empty tuple
+                let unit_type = TypeId::new(db, TypeData::Tuple(vec![]));
+
+                if !are_types_compatible(db, return_type, unit_type) {
+                    let mut diag = Diagnostic::error(
+                        DiagnosticCode::TypeMismatch,
+                        format!(
+                            "Function '{}' returns no value (unit type), but found return statement with type '{}'",
+                            function_def.name.value(),
+                            return_type.data(db).display_name(db)
+                        ),
+                    )
+                    .with_location(file.file_path(db).to_string(), span);
+
+                    // Add context about the function signature
+                    diag = diag.with_related_span(
+                        file.file_path(db).to_string(),
+                        function_def.name.span(),
+                        format!(
+                            "Function '{}' declared here without return type (implicitly returns unit)",
+                            function_def.name.value()
+                        ),
+                    );
+
+                    diagnostics.push(diag);
+                }
             }
         }
     }

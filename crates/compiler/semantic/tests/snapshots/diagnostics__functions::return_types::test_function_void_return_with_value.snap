@@ -1,0 +1,26 @@
+---
+source: crates/compiler/semantic/tests/mod.rs
+description: "Inline semantic validation error test: functions::return_types::test_function_void_return_with_value"
+---
+Fixture: semantic_tests::functions::return_types::test_function_void_return_with_value
+============================================================
+Source code:
+
+        func test() {
+            return 42; // Error: should return ()
+        }
+    
+============================================================
+Found 1 diagnostic(s):
+
+--- Diagnostic 1 ---
+[2001] Error: Function 'test' returns no value (unit type), but found return statement with type 'felt'
+   ╭─[ semantic_tests::functions::return_types::test_function_void_return_with_value:3:13 ]
+   │
+ 2 │         func test() {
+   │              ──┬─  
+   │                ╰─── Function 'test' declared here without return type (implicitly returns unit)
+ 3 │             return 42; // Error: should return ()
+   │             ─────┬────  
+   │                  ╰────── Function 'test' returns no value (unit type), but found return statement with type 'felt'
+───╯

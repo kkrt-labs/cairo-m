@@ -268,10 +268,8 @@ fn test_function_return_literal() {
 }
 
 #[test]
-#[ignore]
 fn test_function_void_return_with_value() {
     // Unit functions should return () not values
-    // TODO: fix this one
     assert_semantic_err!(
         r#"
         func test() {
