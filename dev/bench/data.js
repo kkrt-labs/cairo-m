@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1752066716125,
+  "lastUpdate": 1752494486884,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -1153,6 +1153,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 260491534,
             "range": "± 1873990",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a6a4e983d3d5b27d774d5075acdcf57f5f8841b6",
+          "message": "fix(compiler): fix return type validation (#154)\n\n* fix(compiler): fix return type validation\n\n* refactor all void functions to return unit type by default\n\n* fix return data",
+          "timestamp": "2025-07-14T13:58:39+02:00",
+          "tree_id": "b08e89a1bbc7dbbcecabc12e5a43a965414edd58",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/a6a4e983d3d5b27d774d5075acdcf57f5f8841b6"
+        },
+        "date": 1752494486490,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 259717969,
+            "range": "± 1205109",
             "unit": "ns/iter"
           }
         ]
