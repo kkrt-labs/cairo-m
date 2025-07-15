@@ -136,7 +136,7 @@ impl CodeGenerator {
         self.label_counter += builder.label_counter();
 
         // Remove duplicate offsets
-        let _ = builder.remove_duplicate_offsets();
+        let _ = builder.resolve_duplicate_offsets();
 
         // Fix label addresses to be relative to the global instruction stream
         let instruction_offset = self.instructions.len();
