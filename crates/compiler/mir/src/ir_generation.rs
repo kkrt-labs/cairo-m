@@ -658,6 +658,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         let dummy_addr = self.mir_function.new_value_id();
                         self.definition_to_value.insert(mir_def_id, dummy_addr);
                     }
+                    return Ok(());
                 }
             }
         }
