@@ -1122,27 +1122,34 @@ impl CasmBuilder {
         let temp_var_offset = layout.reserve_stack(1);
         let temp_var_offset2 = layout.reserve_stack(1);
 
-        let mut new_instructions = Vec::new();
-        // Track how instruction indices change: original_index -> new_index
-        let mut index_mapping = Vec::new();
+        // First, identify which instructions have labels pointing to them
+        let mut labeled_instructions = std::collections::HashSet::new();
+        for label in &self.labels {
+            if let Some(address) = label.address {
+                labeled_instructions.insert(address);
+            }
+        }
 
-        for instr in &mut self.instructions {
+        let mut new_instructions = Vec::new();
+        // Track how instruction indices change: original_index -> new_index_range
+        let mut index_mapping: Vec<Option<std::ops::Range<usize>>> = Vec::new();
+
+        for (original_index, instr) in self.instructions.iter().enumerate() {
             let current_new_index = new_instructions.len();
+            let is_labeled = labeled_instructions.contains(&original_index);
 
             match Opcode::from_u32(instr.opcode).unwrap() {
                 Opcode::StoreDerefFp => {
-                    // In this case the instruction is a nop, we can remove it
                     let off0 = instr.off0.unwrap();
                     let off2 = instr.off2.unwrap();
 
-                    if off0 == off2 {
-                        // This is a nop instruction - remove it (don't add to new_instructions)
-                        // Map this original index to None (removed)
+                    if off0 == off2 && !is_labeled {
+                        // This is a nop instruction and it's not labeled - safe to remove
                         index_mapping.push(None);
                     } else {
-                        // Not a nop, keep the instruction
+                        // Either not a nop, or it's labeled (don't remove labeled instructions)
                         new_instructions.push(instr.clone());
-                        index_mapping.push(Some(current_new_index));
+                        index_mapping.push(Some(current_new_index..current_new_index + 1));
                     }
                 }
                 Opcode::StoreAddFpFp
@@ -1174,7 +1181,8 @@ impl CasmBuilder {
                         new_instructions.push(instr1);
                         new_instructions.push(instr2);
                         new_instructions.push(instr3);
-                        // Map original instruction to the first of the replacement instructions
+                        // Map to range covering all 3 replacement instructions
+                        index_mapping.push(Some(current_new_index..current_new_index + 3));
                     } else if off0 == off1 || off0 == off2 {
                         // Replace with 2 instructions
                         let instr1 = InstructionBuilder::new(Opcode::StoreDerefFp.into())
@@ -1192,6 +1200,7 @@ impl CasmBuilder {
 
                         new_instructions.push(instr1);
                         new_instructions.push(instr2);
+                        index_mapping.push(Some(current_new_index..current_new_index + 2));
                     } else if off1 == off2 {
                         // Replace with 2 instructions
                         let instr1 = InstructionBuilder::new(Opcode::StoreDerefFp.into())
@@ -1209,11 +1218,12 @@ impl CasmBuilder {
 
                         new_instructions.push(instr1);
                         new_instructions.push(instr2);
+                        index_mapping.push(Some(current_new_index..current_new_index + 2));
                     } else {
                         // No duplicates, keep as-is
                         new_instructions.push(instr.clone());
+                        index_mapping.push(Some(current_new_index..current_new_index + 1));
                     }
-                    index_mapping.push(Some(current_new_index));
                 }
                 Opcode::StoreAddFpImm
                 | Opcode::StoreSubFpImm
@@ -1248,16 +1258,17 @@ impl CasmBuilder {
 
                         new_instructions.push(instr1);
                         new_instructions.push(instr2);
+                        index_mapping.push(Some(current_new_index..current_new_index + 2));
                     } else {
                         // No duplicates, keep as-is
                         new_instructions.push(instr.clone());
+                        index_mapping.push(Some(current_new_index..current_new_index + 1));
                     }
-                    index_mapping.push(Some(current_new_index));
                 }
                 _ => {
                     // Keep instruction as-is
                     new_instructions.push(instr.clone());
-                    index_mapping.push(Some(current_new_index));
+                    index_mapping.push(Some(current_new_index..current_new_index + 1));
                 }
             }
         }
@@ -1265,19 +1276,18 @@ impl CasmBuilder {
         // Update label addresses based on the index mapping
         for label in &mut self.labels {
             if let Some(original_address) = label.address {
-                // Find the new address for this label
                 if original_address < index_mapping.len() {
-                    if let Some(new_address) = index_mapping[original_address] {
-                        label.address = Some(new_address);
+                    if let Some(ref range) = index_mapping[original_address] {
+                        // Point to the first instruction in the replacement range
+                        // This preserves the semantic meaning: execution starts at the first replacement
+                        label.address = Some(range.start);
                     } else {
-                        // The instruction was removed - this shouldn't happen for labeled instructions
-                        // but if it does, we need to find the next valid instruction
+                        // The instruction was removed - this should not happen for labeled instructions
+                        // due to our check above, but if it does, we need to find the next valid instruction
                         let next_valid = index_mapping
                             .iter()
                             .skip(original_address + 1)
-                            .flatten()
-                            .next()
-                            .copied();
+                            .find_map(|opt_range| opt_range.as_ref().map(|range| range.start));
                         label.address = next_valid;
                     }
                 }
