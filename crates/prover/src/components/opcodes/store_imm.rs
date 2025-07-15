@@ -314,7 +314,6 @@ impl FrameworkEval for Eval {
         let zero = E::F::from(M31::zero());
         let expected_opcode_id = E::F::from(M31::from(Opcode::StoreImm));
 
-        // 11 columns
         let enabler = eval.next_trace_mask();
         let pc = eval.next_trace_mask();
         let fp = eval.next_trace_mask();
