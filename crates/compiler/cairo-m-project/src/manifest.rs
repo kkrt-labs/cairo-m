@@ -30,7 +30,10 @@ impl CairoMToml {
     /// Load manifest from a file path
     pub fn from_path(path: &Path) -> anyhow::Result<Self> {
         let content = std::fs::read_to_string(path)?;
-        let manifest: Self = toml::from_str(&content)?;
+        let manifest: Self = toml::from_str(&content).map_err(|e| {
+            tracing::error!("Failed to parse TOML: {}", e);
+            e
+        })?;
         Ok(manifest)
     }
 }

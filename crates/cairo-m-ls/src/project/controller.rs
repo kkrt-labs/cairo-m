@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use cairo_m_project::{Project, discover_project};
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
@@ -21,6 +22,7 @@ pub enum ProjectUpdateRequest {
 pub enum ProjectUpdate {
     /// A project with manifest was found
     Project {
+        project: Project,
         crate_info: CrateInfo,
         files: Vec<PathBuf>,
     },
@@ -33,8 +35,8 @@ pub enum ProjectUpdate {
 /// Cache entry for a loaded manifest
 #[derive(Debug, Clone)]
 struct ManifestCacheEntry {
-    /// The loaded crate info
-    crate_info: CrateInfo,
+    /// The loaded project
+    project: Project,
     /// Discovered files in the project
     files: Vec<PathBuf>,
     /// When this entry was last accessed
@@ -229,25 +231,38 @@ impl ProjectController {
                                         cached_entry.last_accessed = Instant::now();
                                     }
                                 } // cache dropped here
-                                // Use cached file list
-                                Ok((entry.crate_info, entry.files))
+                                // Use cached file list and convert project to crate info
+                                let crate_info = CrateInfo {
+                                    name: entry.project.name,
+                                    root: entry.project.root_directory,
+                                };
+                                Ok((crate_info, entry.files))
                             }
                             None => {
                                 // Load project and update cache
                                 match Self::load_project(manifest) {
-                                    Ok((crate_info, files)) => {
+                                    Ok((project, files)) => {
+                                        debug!(
+                                            "Successfully loaded project: {} with {} files",
+                                            project.name,
+                                            files.len()
+                                        );
                                         {
                                             let mut cache = manifest_cache.lock().unwrap();
                                             cache.insert(
                                                 manifest_path.clone(),
                                                 ManifestCacheEntry {
-                                                    crate_info: crate_info.clone(),
+                                                    project: project.clone(),
                                                     files: files.clone(),
                                                     last_accessed: Instant::now(),
                                                 },
                                             );
                                         } // cache dropped here
                                         debug!("Cached manifest: {:?}", manifest_path);
+                                        let crate_info = CrateInfo {
+                                            name: project.name,
+                                            root: project.root_directory,
+                                        };
                                         Ok((crate_info, files))
                                     }
                                     Err(e) => Err(e),
@@ -257,9 +272,20 @@ impl ProjectController {
 
                         match result {
                             Ok((crate_info, files)) => {
-                                if let Err(e) = response_sender
-                                    .send(ProjectUpdate::Project { crate_info, files })
-                                {
+                                // Get the project from the cache
+                                let project = {
+                                    let cache = manifest_cache.lock().unwrap();
+                                    cache
+                                        .get(&manifest_path)
+                                        .map(|entry| entry.project.clone())
+                                        .expect("Project should be in cache after loading")
+                                };
+
+                                if let Err(e) = response_sender.send(ProjectUpdate::Project {
+                                    project,
+                                    crate_info,
+                                    files,
+                                }) {
                                     error!("Failed to send project update: {}", e);
                                 }
                             }
@@ -285,34 +311,24 @@ impl ProjectController {
         }
     }
 
-    fn load_project(manifest: ProjectManifestPath) -> Result<(CrateInfo, Vec<PathBuf>), String> {
+    fn load_project(manifest: ProjectManifestPath) -> Result<(Project, Vec<PathBuf>), String> {
         match manifest {
             ProjectManifestPath::CairoM(manifest_path) => {
+                // Use cairo-m-project's discovery to load project from manifest
                 let project_root = manifest_path
                     .parent()
                     .ok_or_else(|| "Invalid manifest path".to_string())?;
 
-                // TODO in the future read from the cairom.toml manifest file. For now we just use the project root name.
-                let project_name = project_root
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("unnamed")
-                    .to_string();
+                let project = discover_project(project_root)
+                    .map_err(|e| format!("Failed to discover project: {}", e))?
+                    .ok_or_else(|| "Project discovery returned None".to_string())?;
 
-                let crate_info = CrateInfo {
-                    name: project_name,
-                    root: project_root.to_path_buf(),
-                };
+                // Get project files using cairo-m-project
+                let files = project
+                    .source_files()
+                    .map_err(|e| format!("Failed to get source files: {}", e))?;
 
-                // Discover project files
-                let config = cairo_m_compiler::project_discovery::ProjectDiscoveryConfig::default();
-                let discovered = cairo_m_compiler::project_discovery::discover_project_files(
-                    project_root,
-                    &config,
-                )
-                .map_err(|e| format!("Failed to discover project files: {}", e))?;
-
-                Ok((crate_info, discovered.files))
+                Ok((project, files))
             }
         }
     }

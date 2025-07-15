@@ -13,6 +13,7 @@
 //! - **Expression Tracking**: Verify expression metadata and scope context
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use cairo_m_compiler_parser::{Db as ParserDb, Upcast};
 use cairo_m_compiler_semantic::db::{Crate, module_semantic_index};
@@ -51,7 +52,13 @@ pub fn test_db() -> TestDb {
 fn single_file_crate(db: &dyn SemanticDb, file: File) -> Crate {
     let mut modules = HashMap::new();
     modules.insert("main".to_string(), file);
-    Crate::new(db, modules, "main".to_string())
+    Crate::new(
+        db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    )
 }
 
 pub fn crate_from_program(db: &dyn SemanticDb, program: &str) -> Crate {

@@ -41,9 +41,6 @@ impl Transformer for HoverTransformer {
             work_done_progress_params: Default::default(),
         };
 
-        // Open the file and wait for analysis first
-        client.open_and_wait_for_analysis(Self::main_file()).await?;
-
         let response: Option<Hover> = client
             .send_request::<lsp_types::request::HoverRequest>(params)
             .await?;

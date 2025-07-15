@@ -40,6 +40,8 @@ pub fn mir_errors(_db: &dyn MirDb, _crate_id: Crate) -> Vec<MirError> {
 
 #[cfg(test)]
 pub(crate) mod tests {
+    use std::path::PathBuf;
+
     use super::*;
 
     /// Test database that implements all required traits for MIR generation
@@ -93,7 +95,13 @@ pub(crate) mod tests {
         let file = File::new(&db, "fn main() {}".to_string(), "test.cm".to_string());
         let mut modules = HashMap::new();
         modules.insert("main".to_string(), file);
-        let crate_id = Crate::new(&db, modules, "main".to_string());
+        let crate_id = Crate::new(
+            &db,
+            modules,
+            "main".to_string(),
+            PathBuf::from("."),
+            "crate_test".to_string(),
+        );
 
         // This should trigger MIR generation through Salsa
         let _mir = generate_mir(&db, crate_id);

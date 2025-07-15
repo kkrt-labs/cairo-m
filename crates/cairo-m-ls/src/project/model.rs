@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use cairo_m_compiler_parser::SourceFile;
+use cairo_m_project::Project;
 use tokio::sync::RwLock;
 use tower_lsp::lsp_types::Url;
 use tracing::info;
@@ -85,6 +86,23 @@ impl ProjectModel {
         files: HashMap<PathBuf, SourceFile>,
         db: &Arc<Mutex<AnalysisDatabase>>,
     ) -> Result<Vec<Url>, String> {
+        self.load_crate_with_prepared_files_and_project(crate_info, files, db, None)
+            .await
+    }
+
+    /// Load a new crate into the model with pre-prepared source files and optional project
+    ///
+    /// When a `Project` is provided, it will be used to:
+    /// - Find the appropriate entry point file (from project manifest or defaults)
+    /// - Use project-specific configuration for module resolution
+    /// - Ensure consistency with cairo-m-project's project model
+    pub async fn load_crate_with_prepared_files_and_project(
+        &self,
+        crate_info: CrateInfo,
+        files: HashMap<PathBuf, SourceFile>,
+        db: &Arc<Mutex<AnalysisDatabase>>,
+        project: Option<Project>,
+    ) -> Result<Vec<Url>, String> {
         // Check resource limits
         {
             let crates = self.crates.read().await;
@@ -119,7 +137,7 @@ impl ProjectModel {
         }
 
         // Find main file
-        let main_file = self.find_main_file(&crate_info, &files);
+        let main_file = self.find_main_file(&crate_info, &files, project.as_ref());
 
         let crate_obj = Crate {
             info: crate_info.clone(),
@@ -314,7 +332,26 @@ impl ProjectModel {
         &self,
         crate_info: &CrateInfo,
         files: &HashMap<PathBuf, SourceFile>,
+        project: Option<&Project>,
     ) -> Option<PathBuf> {
+        // If we have a project, try to use its entry point
+        if let Some(project) = project {
+            // Check if project has a specific entry point
+            if let Some(entry_point) = &project.entry_point {
+                let full_entry_path = project.root_directory.join(entry_point);
+                if files.contains_key(&full_entry_path) {
+                    return Some(full_entry_path);
+                }
+            }
+
+            // Try to find the entry point using cairo-m-project's find_entry_point
+            if let Some(entry_point) = cairo_m_project::find_entry_point(project) {
+                if files.contains_key(&entry_point) {
+                    return Some(entry_point);
+                }
+            }
+        }
+
         // Look for main.cm or lib.cm
         let main_path = crate_info.root.join("src/main.cm");
         if files.contains_key(&main_path) {

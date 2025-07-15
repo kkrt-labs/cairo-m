@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use cairo_m_compiler_semantic::File;
@@ -25,7 +25,13 @@ pub fn check_mir(source: &str) -> MirOutput {
     let file = File::new(&db, source.to_string(), "test.cm".to_string());
     let mut modules = HashMap::new();
     modules.insert("main".to_string(), file);
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
 
     let module = match generate_mir(&db, crate_id) {
         Ok(module) => module,

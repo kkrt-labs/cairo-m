@@ -37,14 +37,28 @@ impl Fixture {
 
     /// Add a cairom.toml file with default project configuration
     pub fn add_cairom_toml(&self, project_name: &str) {
-        let content = format!(
-            r#"[project]
+        self.add_cairom_toml_with_entry_point(project_name, None);
+    }
+
+    /// Add a cairom.toml file with project configuration and optional entry point
+    pub fn add_cairom_toml_with_entry_point(&self, project_name: &str, entry_point: Option<&str>) {
+        let mut content = format!(
+            r#"
 name = "{}"
 version = "0.1.0"
 "#,
             project_name
         );
+
+        if let Some(entry_point) = entry_point {
+            content.push_str(&format!("entry_point = \"{}\"\n", entry_point));
+        }
+
         self.add_file("cairom.toml", content);
+
+        // Create src directory by default as cairo-m-project expects it
+        std::fs::create_dir_all(self.temp_dir.path().join("src"))
+            .expect("Failed to create src directory");
     }
 
     /// Get the root path of the temporary directory

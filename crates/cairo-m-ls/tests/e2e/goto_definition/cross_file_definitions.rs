@@ -6,10 +6,10 @@ async fn goto_imported_function_definition() {
     let mut ls = sandbox! {
         files {
             "cairom.toml" => r#"
-[project]
 name = "test_project"
+version = "0.1.0"
 "#,
-            "main.cm" => r#"
+            "src/main.cm" => r#"
 use math::add;
 
 func main() {
@@ -17,7 +17,7 @@ func main() {
     return result;
 }
 "#,
-            "math.cm" => r#"
+            "src/math.cm" => r#"
 func add(a: felt, b: felt) -> felt {
     return a + b;
 }
@@ -25,7 +25,7 @@ func add(a: felt, b: felt) -> felt {
         }
     };
 
-    ls.open_and_wait_for_analysis("main.cm").await.unwrap();
+    ls.open_and_wait_for_analysis("src/main.cm").await.unwrap();
     let (_code, cursors) = extract_cursors(
         r#"
 use math::add;
@@ -49,17 +49,17 @@ async fn goto_module_definition() {
     let mut ls = sandbox! {
         files {
             "cairom.toml" => r#"
-[project]
 name = "test_project"
+version = "0.1.0"
 "#,
-            "main.cm" => r#"
+            "src/main.cm" => r#"
 use <caret>utils::helper;
 
 func main() {
     helper();
 }
 "#,
-            "utils.cm" => r#"
+            "src/utils.cm" => r#"
 func helper() -> felt {
     42
 }
@@ -67,7 +67,7 @@ func helper() -> felt {
         }
     };
 
-    ls.open_and_wait_for_analysis("main.cm").await.unwrap();
+    ls.open_and_wait_for_analysis("src/main.cm").await.unwrap();
     let (_code, cursors) = extract_cursors(
         r#"
 use <caret>utils;
@@ -92,10 +92,10 @@ async fn goto_external_type_definition() {
     let mut ls = sandbox! {
         files {
             "cairom.toml" => r#"
-[project]
 name = "test_project"
+version = "0.1.0"
 "#,
-            "main.cm" => r#"
+            "src/main.cm" => r#"
 use types::Point;
 
 func main() {
@@ -111,7 +111,7 @@ struct Point {
         }
     };
 
-    ls.open_and_wait_for_analysis("main.cm").await.unwrap();
+    ls.open_and_wait_for_analysis("src/main.cm").await.unwrap();
     let (_code, cursors) = extract_cursors(
         r#"
 use types::Point;
@@ -136,10 +136,10 @@ async fn goto_deeply_nested_import() {
     let mut ls = sandbox! {
         files {
             "cairom.toml" => r#"
-[project]
 name = "test_project"
+version = "0.1.0"
 "#,
-            "main.cm" => r#"
+            "src/main.cm" => r#"
 use math::ops::add;
 
 func main() {
@@ -154,7 +154,7 @@ func add(a: felt, b: felt) -> felt {
         }
     };
 
-    ls.open_and_wait_for_analysis("main.cm").await.unwrap();
+    ls.open_and_wait_for_analysis("src/main.cm").await.unwrap();
     let (_code, cursors) = extract_cursors(
         r#"
 use math::ops::add;
@@ -177,10 +177,10 @@ async fn no_definition_cross_file_unresolved() {
     let mut ls = sandbox! {
         files {
             "cairom.toml" => r#"
-[project]
 name = "test_project"
+version = "0.1.0"
 "#,
-            "main.cm" => r#"
+            "src/main.cm" => r#"
 use nonexistent::function;
 
 func main() {
@@ -190,7 +190,7 @@ func main() {
         }
     };
 
-    ls.open_and_wait_for_analysis("main.cm").await.unwrap();
+    ls.open_and_wait_for_analysis("src/main.cm").await.unwrap();
     let (_code, cursors) = extract_cursors(
         r#"
 use nonexistent::function;

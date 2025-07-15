@@ -4,6 +4,7 @@
 //! through the entire MIR generation pipeline.
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use cairo_m_compiler_mir::{MirDb, PrettyPrint, generate_mir};
 use cairo_m_compiler_parser::Upcast;
@@ -91,7 +92,13 @@ func subtract(a: felt, b: felt) -> felt {
     let mut modules = HashMap::new();
     modules.insert("main".to_string(), main_file);
     modules.insert("math".to_string(), math_file);
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
 
     // Generate MIR for the entire crate
     let mir_result = generate_mir(&db, crate_id);
@@ -187,7 +194,13 @@ func unused_function(x: felt) -> felt {
     let mut modules = HashMap::new();
     modules.insert("main".to_string(), main_file);
     modules.insert("utils".to_string(), utils_file);
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
 
     // Generate MIR
     let mir_result = generate_mir(&db, crate_id);
@@ -256,7 +269,13 @@ func main() -> felt {
     modules.insert("main".to_string(), main_file);
     modules.insert("module_a".to_string(), module_a_file);
     modules.insert("module_b".to_string(), module_b_file);
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
 
     // Generate MIR - should fail due to cyclic imports
     let mir_result = generate_mir(&db, crate_id);
@@ -309,7 +328,13 @@ func main() -> felt {
     let main_file = File::new(&db, main_source.to_string(), "main.cm".to_string());
     let mut modules = HashMap::new();
     modules.insert("main".to_string(), main_file);
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
 
     // Generate MIR - current implementation uses graceful error recovery
     let mir_result = generate_mir(&db, crate_id);
@@ -364,7 +389,13 @@ func helper(x: felt) -> felt {
             modules.insert("caller".to_string(), caller_file);
         }
 
-        let crate_id = Crate::new(&db, modules, "caller".to_string());
+        let crate_id = Crate::new(
+            &db,
+            modules,
+            "caller".to_string(),
+            PathBuf::from("."),
+            "crate_test".to_string(),
+        );
 
         // Generate MIR
         let mir_result = generate_mir(&db, crate_id);

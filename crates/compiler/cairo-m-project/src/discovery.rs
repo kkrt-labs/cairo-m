@@ -173,7 +173,6 @@ mod tests {
 
         // Create a simple manifest
         let manifest_content = r#"
-            [crate-manifest]
             name = "test_project"
             version = "0.1.0"
         "#;

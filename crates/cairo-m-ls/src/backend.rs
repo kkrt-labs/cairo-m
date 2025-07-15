@@ -139,7 +139,11 @@ impl Backend {
         tokio::spawn(async move {
             while let Some(update) = project_rx.recv().await {
                 match update {
-                    ProjectUpdate::Project { crate_info, files } => {
+                    ProjectUpdate::Project {
+                        project,
+                        crate_info,
+                        files,
+                    } => {
                         tracing::info!("Project update: {:?}", crate_info);
                         tracing::info!("Files: {:?}", files);
                         // Clone crate_info so we can use it later
@@ -214,10 +218,11 @@ impl Backend {
                         let load_result = match prepared_files {
                             Ok(source_files_map) => {
                                 project_model_clone
-                                    .load_crate_with_prepared_files(
+                                    .load_crate_with_prepared_files_and_project(
                                         crate_info,
                                         source_files_map,
                                         &db_clone,
+                                        Some(project),
                                     )
                                     .await
                             }

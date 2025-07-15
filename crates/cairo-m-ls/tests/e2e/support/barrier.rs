@@ -35,13 +35,15 @@ impl AnalysisBarrier {
 
     /// Signal that analysis has started
     pub fn signal_started(&self) {
-        *self.last_start.lock().unwrap() = Some(Instant::now());
+        let now = Instant::now();
+        *self.last_start.lock().unwrap() = Some(now);
         self.analysis_started.notify_waiters();
     }
 
     /// Signal that analysis has finished
     pub fn signal_finished(&self) {
-        *self.last_finish.lock().unwrap() = Some(Instant::now());
+        let now = Instant::now();
+        *self.last_finish.lock().unwrap() = Some(now);
         self.analysis_finished.notify_waiters();
     }
 
@@ -66,10 +68,17 @@ impl AnalysisBarrier {
         &self,
         timeout_duration: Duration,
     ) -> Result<(), tokio::time::error::Elapsed> {
+        // Check if analysis has already completed
+        if self.has_completed_analysis() {
+            return Ok(());
+        }
+
         // First wait for start
         self.wait_for_start(timeout_duration).await?;
+
         // Then wait for finish
         self.wait_for_finish(timeout_duration).await?;
+
         Ok(())
     }
 

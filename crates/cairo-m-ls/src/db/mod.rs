@@ -110,7 +110,17 @@ impl ProjectCrateExt for ProjectCrate {
         }
 
         tracing::info!("Creating semantic crate with modules: {:?}", modules);
-        cairo_m_compiler_semantic::Crate::new(db, modules, main_module)
+        cairo_m_compiler_semantic::Crate::new(
+            db,
+            modules,
+            main_module,
+            root_dir.clone(),
+            root_dir
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("unknown")
+                .to_string(),
+        )
     }
 }
 

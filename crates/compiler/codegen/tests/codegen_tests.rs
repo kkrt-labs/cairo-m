@@ -1,7 +1,7 @@
 //! Main test runner for CASM code generation.
 
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use cairo_m_compiler_codegen::{CodeGenerator, CodegenDb};
 use cairo_m_compiler_mir::{MirDb, generate_mir};
@@ -79,7 +79,13 @@ pub fn check_codegen(source: &str, path: &str) -> CodegenOutput {
     // Create a single-file crate for MIR generation
     let mut modules = HashMap::new();
     modules.insert("main".to_string(), file);
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
 
     // Generate MIR from source
     let mir_module = generate_mir(&db, crate_id).expect("MIR generation failed");

@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use cairo_m_project::discover_project;
 use tracing::debug;
 
 /// Represents different types of project manifests
@@ -11,37 +12,20 @@ pub enum ProjectManifestPath {
 
 impl ProjectManifestPath {
     /// Discover project manifest starting from a given file path
+    ///
+    /// This method uses cairo-m-project's discovery mechanism to find and parse
+    /// cairom.toml files, ensuring consistency with the compiler's project model.
     pub fn discover(file_path: &Path) -> Option<Self> {
         debug!("Discovering project manifest for: {}", file_path.display());
 
-        // Start from the file's directory
-        let start_dir = if file_path.is_file() {
-            file_path.parent()?
-        } else {
-            file_path
-        };
-
-        // Look for cairom.toml
-        if let Some(cairom_path) = Self::find_manifest_file(start_dir, "cairom.toml") {
-            return Some(Self::CairoM(cairom_path));
-        }
-
-        None
-    }
-
-    /// Find a manifest file by walking up the directory tree
-    fn find_manifest_file(start_dir: &Path, filename: &str) -> Option<PathBuf> {
-        let mut current = start_dir;
-
-        loop {
-            let manifest_path = current.join(filename);
-            if manifest_path.exists() && manifest_path.is_file() {
-                debug!("Found manifest: {}", manifest_path.display());
-                return Some(manifest_path);
+        // Use cairo-m-project's discovery mechanism
+        match discover_project(file_path) {
+            Ok(Some(project)) => Some(Self::CairoM(project.manifest_path)),
+            Ok(None) => None,
+            Err(e) => {
+                tracing::error!("Project discovery error details: {:?}", e);
+                None
             }
-
-            // Move up to parent directory
-            current = current.parent()?;
         }
     }
 

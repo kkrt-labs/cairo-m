@@ -1424,14 +1424,22 @@ impl TypeValidator {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
+    use std::path::PathBuf;
 
     use super::*;
     use crate::db::tests::test_db;
 
+    // TODO For tests only - ideally not present there
     fn single_file_crate(db: &dyn SemanticDb, file: File) -> Crate {
         let mut modules = HashMap::new();
         modules.insert("main".to_string(), file);
-        Crate::new(db, modules, "main".to_string())
+        Crate::new(
+            db,
+            modules,
+            "main".to_string(),
+            PathBuf::from("."),
+            "crate_test".to_string(),
+        )
     }
 
     fn get_main_semantic_index(db: &dyn SemanticDb, crate_id: Crate) -> SemanticIndex {

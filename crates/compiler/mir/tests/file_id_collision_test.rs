@@ -4,6 +4,7 @@
 //! silent definition collisions between files with the same content.
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use cairo_m_compiler_mir::{MirDb, generate_mir};
 use cairo_m_compiler_parser::Upcast;
@@ -90,11 +91,23 @@ func main() -> felt {
     // Create two separate single-file crates
     let mut modules1 = HashMap::new();
     modules1.insert("math".to_string(), file1);
-    let crate1 = Crate::new(&db, modules1, "math".to_string());
+    let crate1 = Crate::new(
+        &db,
+        modules1,
+        "math".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
 
     let mut modules2 = HashMap::new();
     modules2.insert("math".to_string(), file2);
-    let crate2 = Crate::new(&db, modules2, "math".to_string());
+    let crate2 = Crate::new(
+        &db,
+        modules2,
+        "math".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
 
     // Generate MIR for both crates
     let mir_result1 = generate_mir(&db, crate1);
@@ -177,7 +190,13 @@ func test() -> felt {
     // Create crate and generate MIR multiple times
     let mut modules = HashMap::new();
     modules.insert("test".to_string(), file);
-    let crate_obj = Crate::new(&db, modules, "test".to_string());
+    let crate_obj = Crate::new(
+        &db,
+        modules,
+        "test".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
 
     let mir_result1 = generate_mir(&db, crate_obj);
     let mir_result2 = generate_mir(&db, crate_obj);

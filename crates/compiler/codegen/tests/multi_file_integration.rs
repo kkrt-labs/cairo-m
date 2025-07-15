@@ -4,6 +4,7 @@
 //! through the entire compilation pipeline including code generation.
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use cairo_m_compiler_codegen::{CodegenDb, compile_module};
 use cairo_m_compiler_mir::{MirDb, generate_mir};
@@ -93,7 +94,13 @@ func multiply(a: felt, b: felt) -> felt {
     let mut modules = HashMap::new();
     modules.insert("main".to_string(), main_file);
     modules.insert("math".to_string(), math_file);
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
 
     // Generate MIR for the entire crate
     let mir_result = generate_mir(&db, crate_id);
@@ -181,7 +188,13 @@ func main() -> felt {
     modules.insert("main".to_string(), main_file);
     modules.insert("calculator".to_string(), calc_file);
     modules.insert("utilities".to_string(), utils_file);
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
 
     // Generate MIR
     let mir_result = generate_mir(&db, crate_id);
@@ -243,7 +256,13 @@ func another_unused() -> felt {
     let mut modules = HashMap::new();
     modules.insert("main".to_string(), main_file);
     modules.insert("library".to_string(), lib_file);
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
 
     // Generate MIR
     let mir_result = generate_mir(&db, crate_id);
@@ -286,7 +305,13 @@ func main() -> felt {
     let main_file = File::new(&db, main_source.to_string(), "main.cm".to_string());
     let mut modules = HashMap::new();
     modules.insert("main".to_string(), main_file);
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
 
     // Generate MIR - should succeed with error recovery (generates error values)
     let mir_result = generate_mir(&db, crate_id);
@@ -350,7 +375,13 @@ func main() -> felt {
             modules.insert("main".to_string(), main_file);
         }
 
-        let crate_id = Crate::new(&db, modules, "main".to_string());
+        let crate_id = Crate::new(
+            &db,
+            modules,
+            "main".to_string(),
+            PathBuf::from("."),
+            "crate_test".to_string(),
+        );
 
         // Generate MIR
         let mir_result = generate_mir(&db, crate_id);

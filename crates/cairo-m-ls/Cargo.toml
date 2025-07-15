@@ -30,6 +30,7 @@ cairo-m-compiler = { path = "../compiler" }
 cairo-m-compiler-diagnostics = { path = "../compiler/diagnostics" }
 cairo-m-compiler-parser = { path = "../compiler/parser" }
 cairo-m-compiler-semantic = { path = "../compiler/semantic" }
+cairo-m-project = { path = "../compiler/cairo-m-project" }
 
 [dev-dependencies]
 tempfile = "3.8"

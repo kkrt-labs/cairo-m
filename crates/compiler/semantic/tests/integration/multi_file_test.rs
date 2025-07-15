@@ -1,6 +1,7 @@
 //! Test for multi-file compilation with cross-module name resolution
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use cairo_m_compiler_diagnostics::build_diagnostic_message;
 use cairo_m_compiler_parser::SourceFile;
@@ -36,7 +37,13 @@ func test() -> felt {
     modules.insert("utils".to_string(), utils_file);
     modules.insert("main".to_string(), main_file);
 
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
     let diagnostics = project_validate_semantics(&db, crate_id);
 
     // Should have no errors - the import should resolve correctly
@@ -66,7 +73,13 @@ func test() {
     let mut modules = HashMap::new();
     modules.insert("main".to_string(), main_file);
 
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
     let diagnostics = project_validate_semantics(&db, crate_id);
 
     // Should have errors about undefined module/function
@@ -104,7 +117,13 @@ func test() -> Point {
     modules.insert("types".to_string(), types_file);
     modules.insert("main".to_string(), main_file);
 
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
     let diagnostics = project_validate_semantics(&db, crate_id);
 
     // Should have no errors - the struct import should resolve correctly
@@ -148,7 +167,13 @@ func func_b() {
     modules.insert("module_a".to_string(), module_a_file);
     modules.insert("module_b".to_string(), module_b_file);
 
-    let crate_id = Crate::new(&db, modules, "module_a".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "module_a".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
     let diagnostics = project_validate_semantics(&db, crate_id);
 
     // Should have error about cyclic imports
@@ -212,7 +237,13 @@ func main() -> felt {
     modules.insert("utils".to_string(), utils_file);
     modules.insert("main".to_string(), main_file);
 
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
 
     // This should not panic - the panic for multiple modules has been removed
     let diagnostics = project_validate_semantics(&db, crate_id);
@@ -263,7 +294,13 @@ func test() -> felt {
     modules.insert("lib".to_string(), lib_file);
     modules.insert("main".to_string(), main_file);
 
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
     let diagnostics = project_validate_semantics(&db, crate_id);
 
     // Should have no errors - braced imports should work correctly
@@ -303,7 +340,13 @@ func test() -> felt {
     modules.insert("lib".to_string(), lib_file);
     modules.insert("main".to_string(), main_file);
 
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
     let diagnostics = project_validate_semantics(&db, crate_id);
 
     // Should have no errors - local shadowing should work correctly
@@ -344,7 +387,13 @@ func test() -> felt {
     modules.insert("lib".to_string(), lib_file);
     modules.insert("main".to_string(), main_file);
 
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
     let diagnostics = project_validate_semantics(&db, crate_id);
 
     // Should have errors about the undefined import
@@ -406,7 +455,13 @@ func test() -> felt {
     modules.insert("utils".to_string(), utils_file);
     modules.insert("main".to_string(), main_file);
 
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
     let diagnostics = project_validate_semantics(&db, crate_id);
 
     // Take a snapshot of the diagnostics using proper ariadne formatting
@@ -470,7 +525,13 @@ func test() -> felt {
     modules.insert("utils".to_string(), utils_file);
     modules.insert("main".to_string(), main_file);
 
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
     let diagnostics = project_validate_semantics(&db, crate_id);
 
     // Should have error about duplicate import of calculate
@@ -536,7 +597,13 @@ func test() -> felt {
     modules.insert("utils".to_string(), utils_file);
     modules.insert("main".to_string(), main_file);
 
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
     let diagnostics = project_validate_semantics(&db, crate_id);
 
     // Should have no errors - nested imports should work correctly
@@ -570,7 +637,13 @@ func test() -> felt {
     let mut modules = HashMap::new();
     modules.insert("main".to_string(), main_file);
 
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
     let diagnostics = project_validate_semantics(&db, crate_id);
 
     // Should have one error for self-import
@@ -617,7 +690,13 @@ func test() -> felt {
     let mut modules = HashMap::new();
     modules.insert("utils".to_string(), utils_file);
 
-    let crate_id = Crate::new(&db, modules, "utils".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "utils".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
     let diagnostics = project_validate_semantics(&db, crate_id);
 
     // Should have one error - cyclic import detection catches self-imports
@@ -677,7 +756,13 @@ func test() {
     modules.insert("types".to_string(), types_file);
     modules.insert("main".to_string(), main_file);
 
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
     let diagnostics = project_validate_semantics(&db, crate_id);
 
     // Should have a TypeMismatch error for the second argument
@@ -734,7 +819,13 @@ func test() {
     modules.insert("math".to_string(), math_file);
     modules.insert("main".to_string(), main_file);
 
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
     let diagnostics = project_validate_semantics(&db, crate_id);
 
     // Should have an InvalidFunctionCall error
@@ -797,7 +888,13 @@ func test() {
     modules.insert("types".to_string(), types_file);
     modules.insert("main".to_string(), main_file);
 
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
     let diagnostics = project_validate_semantics(&db, crate_id);
 
     // Should have errors for invalid struct literal
@@ -857,7 +954,13 @@ func test() {
     modules.insert("math".to_string(), math_file);
     modules.insert("main".to_string(), main_file);
 
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
     let diagnostics = project_validate_semantics(&db, crate_id);
 
     // Should have a DuplicateDefinition error
@@ -920,7 +1023,13 @@ func test() -> felt {
     modules.insert("lib".to_string(), lib_file);
     modules.insert("main".to_string(), main_file);
 
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
     let diagnostics = project_validate_semantics(&db, crate_id);
 
     // Should have a DuplicateDefinition error
@@ -979,7 +1088,13 @@ func test() -> felt {
     modules.insert("lib".to_string(), lib_file);
     modules.insert("main".to_string(), main_file);
 
-    let crate_id = Crate::new(&db, modules, "main".to_string());
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
     let diagnostics = project_validate_semantics(&db, crate_id);
 
     // Should have warnings for unused imports

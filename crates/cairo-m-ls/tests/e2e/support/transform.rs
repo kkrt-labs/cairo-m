@@ -21,6 +21,6 @@ pub trait Transformer {
 
     /// The default main file name for tests
     fn main_file() -> &'static str {
-        "main.cm"
+        "src/main.cm"
     }
 }

@@ -57,6 +57,7 @@ pub fn codegen_errors(db: &dyn CodegenDb, crate_id: Crate) -> Vec<CodegenError> 
 #[cfg(test)]
 pub(crate) mod tests {
     use std::collections::HashMap;
+    use std::path::PathBuf;
 
     use cairo_m_compiler_mir::MirDb;
     use cairo_m_compiler_semantic::{File, SemanticDb};
@@ -118,7 +119,13 @@ pub(crate) mod tests {
         let file = File::new(&db, "fn main() {}".to_string(), "test.cm".to_string());
         let mut modules = HashMap::new();
         modules.insert("main".to_string(), file);
-        let crate_id = Crate::new(&db, modules, "main".to_string());
+        let crate_id = Crate::new(
+            &db,
+            modules,
+            "main".to_string(),
+            PathBuf::from("."),
+            "test".to_string(),
+        );
 
         // This should trigger code generation through Salsa
         let _result = compile_project(&db, crate_id);

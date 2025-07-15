@@ -3,6 +3,7 @@
 //! These tests verify that the type system actually works end-to-end
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use cairo_m_compiler_parser::parser::TypeExpr as AstTypeExpr;
 
@@ -16,10 +17,17 @@ use crate::type_resolution::{
 use crate::types::{TypeData, TypeId};
 use crate::{File, FileScopeId, SemanticDb, SemanticIndex, project_semantic_index};
 
+// TODO For tests only - ideally not present there
 fn single_file_crate(db: &dyn SemanticDb, file: File) -> Crate {
     let mut modules = HashMap::new();
     modules.insert("main".to_string(), file);
-    Crate::new(db, modules, "main".to_string())
+    Crate::new(
+        db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    )
 }
 
 fn get_root_scope(db: &dyn SemanticDb, crate_id: Crate) -> FileScopeId {

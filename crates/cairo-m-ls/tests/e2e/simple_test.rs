@@ -6,7 +6,7 @@ async fn test_simple_diagnostics() {
     let fixture = Fixture::new();
     fixture.add_cairom_toml("test_project");
     fixture.add_file(
-        "main.cm",
+        "src/main.cm",
         r#"
 func main() {
     let _x = undefined_var; // This should produce an error
@@ -26,10 +26,13 @@ func main() {
     let client = start_mock_client(fixture, caps, config).await.unwrap();
 
     // Use the open_and_wait_for_analysis method which handles this correctly
-    client.open_and_wait_for_analysis("main.cm").await.unwrap();
+    client
+        .open_and_wait_for_analysis("src/main.cm")
+        .await
+        .unwrap();
 
     // Now get the diagnostics
-    let main_uri = client.file_url("main.cm").to_string();
+    let main_uri = client.file_url("src/main.cm").to_string();
     let diagnostics = client
         .wait_for_diagnostics(&main_uri, std::time::Duration::from_secs(5))
         .await

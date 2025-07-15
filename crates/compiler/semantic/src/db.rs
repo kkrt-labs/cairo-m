@@ -205,7 +205,7 @@ pub fn crate_from_project(
         modules,
         entry_point,
         project.root_directory.clone(),
-        project.name.clone(),
+        project.name,
     ))
 }
 
@@ -221,7 +221,7 @@ fn path_to_module_name(file_path: &Path, src_dir: &Path) -> anyhow::Result<Strin
         if let std::path::Component::Normal(name) = component {
             let name_str = name.to_string_lossy();
             // Remove .cm extension from the last component
-            if component == relative_path.components().last().unwrap() {
+            if component == relative_path.components().next_back().unwrap() {
                 if let Some(stem) = name_str.strip_suffix(".cm") {
                     components.push(stem.to_string());
                 } else {
@@ -606,7 +606,13 @@ pub(crate) mod tests {
     fn single_file_crate(db: &dyn SemanticDb, file: File) -> Crate {
         let mut modules = HashMap::new();
         modules.insert("main".to_string(), file);
-        Crate::new(db, modules, "main".to_string())
+        Crate::new(
+            db,
+            modules,
+            "main".to_string(),
+            PathBuf::from("."),
+            "crate_test".to_string(),
+        )
     }
 
     pub fn crate_from_program(db: &dyn SemanticDb, program: &str) -> Crate {
@@ -624,7 +630,13 @@ pub(crate) mod tests {
         // Create a crate with this file
         let mut modules = HashMap::new();
         modules.insert("test".to_string(), file1);
-        let crate_id = Crate::new(&db, modules, "test".to_string());
+        let crate_id = Crate::new(
+            &db,
+            modules,
+            "test".to_string(),
+            PathBuf::from("."),
+            "crate_test".to_string(),
+        );
 
         // Update the file content (simulating user typing)
         file1.set_text(&mut db).to("updated content".to_string());
@@ -645,7 +657,13 @@ pub(crate) mod tests {
         // Create a crate with file1
         let mut modules = HashMap::new();
         modules.insert("test".to_string(), file1);
-        let crate_id = Crate::new(&db, modules, "test".to_string());
+        let crate_id = Crate::new(
+            &db,
+            modules,
+            "test".to_string(),
+            PathBuf::from("."),
+            "crate_test".to_string(),
+        );
 
         // Should find the module even when querying with file2 (same path)
         let module_name = module_name_for_file(&db, crate_id, file2);

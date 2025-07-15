@@ -1240,6 +1240,8 @@ impl<'db> SemanticIndexBuilder<'db> {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use cairo_m_compiler_parser::SourceFile;
 
     use super::*;
@@ -1257,10 +1259,17 @@ mod tests {
         TestCase { db, source }
     }
 
+    //TODO For tests only - ideally not present there
     fn single_file_crate(db: &dyn SemanticDb, file: File) -> Crate {
         let mut modules = HashMap::new();
         modules.insert("main".to_string(), file);
-        Crate::new(db, modules, "main".to_string())
+        Crate::new(
+            db,
+            modules,
+            "main".to_string(),
+            PathBuf::from("."),
+            "crate_test".to_string(),
+        )
     }
 
     #[test]

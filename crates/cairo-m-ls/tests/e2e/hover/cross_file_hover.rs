@@ -4,10 +4,12 @@ use crate::support::insta::test_transform;
 
 #[tokio::test]
 async fn test_hover_on_imported_function() {
+    tracing_subscriber::fmt::init();
+
     let fixture = Fixture::new();
     fixture.add_cairom_toml("test_project");
     fixture.add_file(
-        "main.cm",
+        "src/main.cm",
         r#"
 use utils::helper_foo;
 
@@ -17,7 +19,7 @@ func main() {
 "#,
     );
     fixture.add_file(
-        "utils.cm",
+        "src/utils.cm",
         r#"
 func helper_foo(x: felt) -> felt {
     return x * 2;
@@ -46,7 +48,7 @@ async fn test_hover_on_imported_type() {
     let fixture = Fixture::new();
     fixture.add_cairom_toml("test_project");
     fixture.add_file(
-        "main.cm",
+        "src/main.cm",
         r#"
 use types::CustomType;
 
@@ -56,7 +58,7 @@ func main() {
 "#,
     );
     fixture.add_file(
-        "types.cm",
+        "src/types.cm",
         r#"
 struct CustomType {
     value: felt,
@@ -84,7 +86,7 @@ async fn test_hover_on_module_name() {
     let fixture = Fixture::new();
     fixture.add_cairom_toml("test_project");
     fixture.add_file(
-        "main.cm",
+        "src/main.cm",
         r#"
 use utils::calculate;
 
@@ -94,7 +96,7 @@ func main() {
 "#,
     );
     fixture.add_file(
-        "utils.cm",
+        "src/utils.cm",
         r#"
 func calculate(a: felt, b: felt) -> felt {
     a + b
@@ -126,17 +128,18 @@ async fn test_hover_on_imported_constant() {
     let fixture = Fixture::new();
     fixture.add_cairom_toml("test_project");
     fixture.add_file(
-        "main.cm",
+        "src/main.cm",
         r#"
 use constants::MAX_VALUE;
 
 func main() {
     let limit = MAX_VALUE;
+    return();
 }
 "#,
     );
     fixture.add_file(
-        "constants.cm",
+        "src/constants.cm",
         r#"
 const MAX_VALUE = 1000;
 "#,
@@ -148,6 +151,7 @@ use constants::MAX_VALUE;
 
 func main() {
     let limit = MAX_<caret>VALUE;
+    return();
 }
 "#,
     );
