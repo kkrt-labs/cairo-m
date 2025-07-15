@@ -58,7 +58,7 @@ use crate::adapter::ExecutionBundle;
 use crate::components::Relations;
 use crate::utils::{Enabler, PackedExecutionBundle};
 
-const N_TRACE_COLUMNS: usize = 10;
+const N_TRACE_COLUMNS: usize = 11;
 const N_MEMORY_LOOKUPS: usize = 4;
 const N_REGISTERS_LOOKUPS: usize = 2;
 const N_RANGE_CHECK_20_LOOKUPS: usize = 2;
@@ -156,6 +156,7 @@ impl Claim {
                 let opcode_id = input.inst_value_0;
                 let off0 = input.inst_value_1;
                 let off1 = input.inst_value_2;
+                let imm = input.inst_value_3;
                 let op0_prev_clock = input.mem1_prev_clock;
                 let op0_prev_val = input.mem1_prev_value;
 
@@ -167,14 +168,15 @@ impl Claim {
                 *row[5] = opcode_id;
                 *row[6] = off0;
                 *row[7] = off1;
-                *row[8] = op0_prev_clock;
-                *row[9] = op0_prev_val;
+                *row[8] = imm;
+                *row[9] = op0_prev_clock;
+                *row[10] = op0_prev_val;
 
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [input.pc + one, input.fp];
 
-                *lookup_data.memory[0] = [input.pc, inst_prev_clock, opcode_id, off0, off1, zero];
-                *lookup_data.memory[1] = [input.pc, clock, opcode_id, off0, off1, zero];
+                *lookup_data.memory[0] = [input.pc, inst_prev_clock, opcode_id, off0, off1, imm];
+                *lookup_data.memory[1] = [input.pc, clock, opcode_id, off0, off1, imm];
 
                 *lookup_data.memory[2] =
                     [fp + off0, op0_prev_clock, op0_prev_val, zero, zero, zero];
@@ -329,6 +331,7 @@ impl FrameworkEval for Eval {
         let opcode_id = eval.next_trace_mask();
         let off0 = eval.next_trace_mask();
         let off1 = eval.next_trace_mask();
+        let imm = eval.next_trace_mask();
         let op0_prev_clock = eval.next_trace_mask();
         let op0_prev_val = eval.next_trace_mask();
 
@@ -360,12 +363,20 @@ impl FrameworkEval for Eval {
                 opcode_id.clone(),
                 off0.clone(),
                 off1.clone(),
+                imm.clone(),
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[pc, clock.clone(), opcode_id, off0.clone(), off1.clone()],
+            &[
+                pc,
+                clock.clone(),
+                opcode_id,
+                off0.clone(),
+                off1.clone(),
+                imm,
+            ],
         ));
 
         // Update op0

@@ -23,7 +23,7 @@
 //!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
 //!   * `op0_val` (=0)
 //! * read instruction from memory
-//!   * `- [pc, inst_prev_clk, opcode_id, off0] + [pc, clk, opcode_id, off0]` in `Memory` relation
+//!   * `- [pc, inst_prev_clk, opcode_id, off0, imm] + [pc, clk, opcode_id, off0, imm]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
 //! * assert opcode id
 //!   * `opcode_id - 31`
@@ -60,7 +60,7 @@ use crate::adapter::ExecutionBundle;
 use crate::components::Relations;
 use crate::utils::{Enabler, PackedExecutionBundle};
 
-const N_TRACE_COLUMNS: usize = 9;
+const N_TRACE_COLUMNS: usize = 10;
 const N_MEMORY_LOOKUPS: usize = 4;
 const N_REGISTERS_LOOKUPS: usize = 2;
 const N_RANGE_CHECK_20_LOOKUPS: usize = 2;
@@ -155,6 +155,7 @@ impl Claim {
                 let inst_prev_clock = input.inst_prev_clock;
                 let opcode_id = input.inst_value_0;
                 let off0 = input.inst_value_1;
+                let imm = input.inst_value_2;
                 let op0_prev_clock = input.mem1_prev_clock;
                 let op0_val = input.mem1_value;
 
@@ -165,16 +166,17 @@ impl Claim {
                 *row[4] = inst_prev_clock;
                 *row[5] = opcode_id;
                 *row[6] = off0;
-                *row[7] = op0_prev_clock;
-                *row[8] = op0_val;
+                *row[7] = imm;
+                *row[8] = op0_prev_clock;
+                *row[9] = op0_val;
 
                 // TODO: This component requires special handling for taken vs not taken branches
                 // For now, implementing as not taken (op0_val = 0 case)
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [input.pc + one, input.fp];
 
-                *lookup_data.memory[0] = [input.pc, inst_prev_clock, opcode_id, off0, zero, zero];
-                *lookup_data.memory[1] = [input.pc, clock, opcode_id, off0, zero, zero];
+                *lookup_data.memory[0] = [input.pc, inst_prev_clock, opcode_id, off0, imm, zero];
+                *lookup_data.memory[1] = [input.pc, clock, opcode_id, off0, imm, zero];
 
                 *lookup_data.memory[2] = [fp + off0, op0_prev_clock, op0_val, zero, zero, zero];
                 *lookup_data.memory[3] = [fp + off0, clock, op0_val, zero, zero, zero];
@@ -327,6 +329,7 @@ impl FrameworkEval for Eval {
         let inst_prev_clock = eval.next_trace_mask();
         let opcode_id = eval.next_trace_mask();
         let off0 = eval.next_trace_mask();
+        let imm = eval.next_trace_mask();
         let op0_prev_clock = eval.next_trace_mask();
         let op0_val = eval.next_trace_mask();
 
@@ -360,12 +363,13 @@ impl FrameworkEval for Eval {
                 inst_prev_clock.clone(),
                 opcode_id.clone(),
                 off0.clone(),
+                imm.clone(),
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[pc, clock.clone(), opcode_id, off0.clone()],
+            &[pc, clock.clone(), opcode_id, off0.clone(), imm],
         ));
 
         // Read op0
