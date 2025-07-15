@@ -11,7 +11,6 @@
 //! - opcode_id
 //! - off0
 //! - off1
-//! - off2
 //! - op0_prev_clock
 //! - op0_prev_val
 //!
@@ -22,7 +21,7 @@
 //! * registers update is regular
 //!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
 //! * read instruction from memory
-//!   * `- [pc, inst_prev_clk, opcode_id, off0, off1, off2] + [pc, clk, opcode_id, off0, off1, off2]` in `Memory` relation
+//!   * `- [pc, inst_prev_clk, opcode_id, off0, off1] + [pc, clk, opcode_id, off0, off1]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
 //! * assert opcode id
 //!   * `opcode_id - 1`
@@ -43,17 +42,17 @@ use stwo_constraint_framework::logup::LogupTraceGenerator;
 use stwo_constraint_framework::{
     EvalAtRow, FrameworkComponent, FrameworkEval, Relation, RelationEntry,
 };
-use stwo_prover::core::backend::simd::conversion::Pack;
-use stwo_prover::core::backend::simd::m31::{PackedM31, LOG_N_LANES, N_LANES};
-use stwo_prover::core::backend::simd::qm31::PackedQM31;
-use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::backend::BackendForChannel;
+use stwo_prover::core::backend::simd::SimdBackend;
+use stwo_prover::core::backend::simd::conversion::Pack;
+use stwo_prover::core::backend::simd::m31::{LOG_N_LANES, N_LANES, PackedM31};
+use stwo_prover::core::backend::simd::qm31::PackedQM31;
 use stwo_prover::core::channel::{Channel, MerkleChannel};
 use stwo_prover::core::fields::m31::{BaseField, M31};
-use stwo_prover::core::fields::qm31::{SecureField, SECURE_EXTENSION_DEGREE};
+use stwo_prover::core::fields::qm31::{SECURE_EXTENSION_DEGREE, SecureField};
 use stwo_prover::core::pcs::TreeVec;
-use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
+use stwo_prover::core::poly::circle::CircleEvaluation;
 
 use crate::adapter::ExecutionBundle;
 use crate::components::Relations;
@@ -157,7 +156,6 @@ impl Claim {
                 let opcode_id = input.inst_value_0;
                 let off0 = input.inst_value_1;
                 let off1 = input.inst_value_2;
-                let off2 = input.inst_value_3;
                 let op0_prev_clock = input.mem1_prev_clock;
                 let op0_prev_val = input.mem1_prev_value;
 
@@ -169,15 +167,14 @@ impl Claim {
                 *row[5] = opcode_id;
                 *row[6] = off0;
                 *row[7] = off1;
-                *row[8] = off2;
-                *row[9] = op0_prev_clock;
-                *row[10] = op0_prev_val;
+                *row[8] = op0_prev_clock;
+                *row[9] = op0_prev_val;
 
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [input.pc + one, input.fp];
 
-                *lookup_data.memory[0] = [input.pc, inst_prev_clock, opcode_id, off0, off1, off2];
-                *lookup_data.memory[1] = [input.pc, clock, opcode_id, off0, off1, off2];
+                *lookup_data.memory[0] = [input.pc, inst_prev_clock, opcode_id, off0, off1, zero];
+                *lookup_data.memory[1] = [input.pc, clock, opcode_id, off0, off1, zero];
 
                 *lookup_data.memory[2] =
                     [fp + off0, op0_prev_clock, op0_prev_val, zero, zero, zero];
@@ -333,7 +330,6 @@ impl FrameworkEval for Eval {
         let opcode_id = eval.next_trace_mask();
         let off0 = eval.next_trace_mask();
         let off1 = eval.next_trace_mask();
-        let off2 = eval.next_trace_mask();
         let op0_prev_clock = eval.next_trace_mask();
         let op0_prev_val = eval.next_trace_mask();
 
@@ -365,20 +361,12 @@ impl FrameworkEval for Eval {
                 opcode_id.clone(),
                 off0.clone(),
                 off1.clone(),
-                off2.clone(),
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[
-                pc,
-                clock.clone(),
-                opcode_id,
-                off0.clone(),
-                off1.clone(),
-                off2,
-            ],
+            &[pc, clock.clone(), opcode_id, off0.clone(), off1.clone()],
         ));
 
         // Update op0
