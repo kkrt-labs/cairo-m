@@ -1111,4 +1111,181 @@ impl CasmBuilder {
 
         Ok(())
     }
+
+    /// Removes any occurences of instructions where two or more offsets are the same.
+    pub fn remove_duplicate_offsets(&mut self) -> CodegenResult<()> {
+        let layout = self
+            .layout
+            .as_mut()
+            .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
+
+        let temp_var_offset = layout.reserve_stack(1);
+        let temp_var_offset2 = layout.reserve_stack(1);
+
+        let mut new_instructions = Vec::new();
+        // Track how instruction indices change: original_index -> new_index
+        let mut index_mapping = Vec::new();
+
+        for instr in &mut self.instructions {
+            let current_new_index = new_instructions.len();
+
+            match Opcode::from_u32(instr.opcode).unwrap() {
+                Opcode::StoreDerefFp => {
+                    // In this case the instruction is a nop, we can remove it
+                    let off0 = instr.off0.unwrap();
+                    let off2 = instr.off2.unwrap();
+
+                    if off0 == off2 {
+                        // This is a nop instruction - remove it (don't add to new_instructions)
+                        // Map this original index to None (removed)
+                        index_mapping.push(None);
+                    } else {
+                        // Not a nop, keep the instruction
+                        new_instructions.push(instr.clone());
+                        index_mapping.push(Some(current_new_index));
+                    }
+                }
+                Opcode::StoreAddFpFp
+                | Opcode::StoreSubFpFp
+                | Opcode::StoreMulFpFp
+                | Opcode::StoreDivFpFp => {
+                    let off0 = instr.off0.unwrap();
+                    let off1 = instr.off1.unwrap();
+                    let off2 = instr.off2.unwrap();
+
+                    if off0 == off1 && off1 == off2 {
+                        // The three offsets are the same, replace with 3 instructions
+                        let instr1 = InstructionBuilder::new(Opcode::StoreDerefFp.into())
+                            .with_off2(temp_var_offset)
+                            .with_off0(off0)
+                            .with_comment(format!("[fp + {temp_var_offset}] = [fp + {off0}]"));
+
+                        let instr2 = InstructionBuilder::new(Opcode::StoreDerefFp.into())
+                            .with_off2(temp_var_offset2)
+                            .with_off0(off1)
+                            .with_comment(format!("[fp + {temp_var_offset2}] = [fp + {off1}]"));
+
+                        let instr3 = InstructionBuilder::new(instr.opcode)
+                            .with_off2(off2)
+                            .with_off0(temp_var_offset)
+                            .with_off1(temp_var_offset2)
+                            .with_comment(format!("[fp + {off2}] = [fp + {temp_var_offset}] op [fp + {temp_var_offset2}]"));
+
+                        new_instructions.push(instr1);
+                        new_instructions.push(instr2);
+                        new_instructions.push(instr3);
+                        // Map original instruction to the first of the replacement instructions
+                    } else if off0 == off1 || off0 == off2 {
+                        // Replace with 2 instructions
+                        let instr1 = InstructionBuilder::new(Opcode::StoreDerefFp.into())
+                            .with_off2(temp_var_offset)
+                            .with_off0(off0)
+                            .with_comment(format!("[fp + {temp_var_offset}] = [fp + {off0}]"));
+
+                        let instr2 = InstructionBuilder::new(instr.opcode)
+                            .with_off2(off2)
+                            .with_off0(temp_var_offset)
+                            .with_off1(off1)
+                            .with_comment(format!(
+                                "[fp + {off2}] = [fp + {temp_var_offset}] op [fp + {off1}]"
+                            ));
+
+                        new_instructions.push(instr1);
+                        new_instructions.push(instr2);
+                    } else if off1 == off2 {
+                        // Replace with 2 instructions
+                        let instr1 = InstructionBuilder::new(Opcode::StoreDerefFp.into())
+                            .with_off2(temp_var_offset)
+                            .with_off0(off1)
+                            .with_comment(format!("[fp + {temp_var_offset}] = [fp + {off1}]"));
+
+                        let instr2 = InstructionBuilder::new(instr.opcode)
+                            .with_off2(off2)
+                            .with_off0(off0)
+                            .with_off1(temp_var_offset)
+                            .with_comment(format!(
+                                "[fp + {off2}] = [fp + {off0}] op [fp + {temp_var_offset}]"
+                            ));
+
+                        new_instructions.push(instr1);
+                        new_instructions.push(instr2);
+                    } else {
+                        // No duplicates, keep as-is
+                        new_instructions.push(instr.clone());
+                    }
+                    index_mapping.push(Some(current_new_index));
+                }
+                Opcode::StoreAddFpImm
+                | Opcode::StoreSubFpImm
+                | Opcode::StoreMulFpImm
+                | Opcode::StoreDivFpImm => {
+                    let off0 = instr.off0.unwrap();
+                    let off2 = instr.off2.unwrap();
+
+                    let imm = match instr.operand.clone().unwrap() {
+                        Operand::Literal(imm) => imm,
+                        _ => {
+                            return Err(CodegenError::UnsupportedInstruction(
+                                "Store immediate operand must be a literal".to_string(),
+                            ));
+                        }
+                    };
+
+                    if off0 == off2 {
+                        // Replace with 2 instructions
+                        let instr1 = InstructionBuilder::new(Opcode::StoreDerefFp.into())
+                            .with_off2(temp_var_offset)
+                            .with_off0(off0)
+                            .with_comment(format!("[fp + {temp_var_offset}] = [fp + {off0}]"));
+
+                        let instr2 = InstructionBuilder::new(instr.opcode)
+                            .with_off2(off2)
+                            .with_off0(temp_var_offset)
+                            .with_imm(imm)
+                            .with_comment(format!(
+                                "[fp + {off2}] = [fp + {temp_var_offset}] op {imm}"
+                            ));
+
+                        new_instructions.push(instr1);
+                        new_instructions.push(instr2);
+                    } else {
+                        // No duplicates, keep as-is
+                        new_instructions.push(instr.clone());
+                    }
+                    index_mapping.push(Some(current_new_index));
+                }
+                _ => {
+                    // Keep instruction as-is
+                    new_instructions.push(instr.clone());
+                    index_mapping.push(Some(current_new_index));
+                }
+            }
+        }
+
+        // Update label addresses based on the index mapping
+        for label in &mut self.labels {
+            if let Some(original_address) = label.address {
+                // Find the new address for this label
+                if original_address < index_mapping.len() {
+                    if let Some(new_address) = index_mapping[original_address] {
+                        label.address = Some(new_address);
+                    } else {
+                        // The instruction was removed - this shouldn't happen for labeled instructions
+                        // but if it does, we need to find the next valid instruction
+                        let next_valid = index_mapping
+                            .iter()
+                            .skip(original_address + 1)
+                            .flatten()
+                            .next()
+                            .copied();
+                        label.address = next_valid;
+                    }
+                }
+            }
+        }
+
+        self.instructions = new_instructions;
+
+        Ok(())
+    }
 }
