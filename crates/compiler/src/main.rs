@@ -1,12 +1,10 @@
 use std::path::PathBuf;
 use std::{fs, process};
 
-use cairo_m_compiler::project_discovery::{
-    ProjectDiscoveryConfig, create_crate_from_discovery, discover_project_files, find_project_root,
-};
 use cairo_m_compiler::{
-    CompilerError, CompilerOptions, compile_from_crate, format_diagnostics_multi_file,
+    CompilerError, CompilerOptions, compile_project, format_diagnostics_multi_file,
 };
+use cairo_m_project::discover_project;
 use clap::Parser;
 
 /// Cairo-M compiler
@@ -31,35 +29,18 @@ fn main() {
 
     let db = cairo_m_compiler::create_compiler_database();
 
-    // Use project discovery to find the project root and all source files
-    let project_root = if args.input.is_file() {
-        // For single file, find the project root starting from the file
-        find_project_root(&args.input).unwrap_or_else(|| {
-            // If no project root found, use the file's parent directory
-            args.input.parent().unwrap().to_path_buf()
-        })
-    } else if args.input.is_dir() {
-        args.input.clone()
-    } else {
-        eprintln!(
-            "Input must be a file or directory: '{}'",
-            args.input.display()
-        );
+    // Discover the project
+    let project = match discover_project(&args.input).unwrap_or_else(|e| {
+        eprintln!("Failed to discover project: {}", e);
         process::exit(1);
+    }) {
+        Some(project) => project,
+        None => {
+            eprintln!("No Cairo-M project found at '{}'", args.input.display());
+            eprintln!("Make sure there's a cairom.toml file in the project root");
+            process::exit(1);
+        }
     };
-
-    // Discover all project files
-    let config = ProjectDiscoveryConfig::default();
-    let discovered = discover_project_files(&project_root, &config).unwrap_or_else(|e| {
-        eprintln!("Failed to discover project files: {}", e);
-        process::exit(1);
-    });
-
-    // Create the crate from discovered files
-    let cm_crate = create_crate_from_discovery(&db, &discovered).unwrap_or_else(|e| {
-        eprintln!("Failed to read project files: {}", e);
-        process::exit(1);
-    });
 
     let options = CompilerOptions {
         verbose: args.verbose,
@@ -67,13 +48,16 @@ fn main() {
 
     // Build a map of file paths to source text for multi-file diagnostics
     let mut source_map = std::collections::HashMap::new();
-    for source_file in cm_crate.files(&db) {
-        let file_path = source_file.file_path(&db).to_string();
-        let source_text = source_file.text(&db).to_string();
-        source_map.insert(file_path, source_text);
+    // We'll need to read the source files for error reporting
+    if let Ok(source_files) = project.source_files() {
+        for file_path in source_files {
+            if let Ok(content) = fs::read_to_string(&file_path) {
+                source_map.insert(file_path.to_string_lossy().to_string(), content);
+            }
+        }
     }
 
-    let output = compile_from_crate(&db, cm_crate, options).unwrap_or_else(|e| {
+    let output = compile_project(&db, project, options).unwrap_or_else(|e| {
         match &e {
             CompilerError::ParseErrors(diagnostics)
             | CompilerError::SemanticErrors(diagnostics) => {

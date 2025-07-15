@@ -8,6 +8,7 @@
 //! and invalidating them only when their dependencies change.
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::path::{Path, PathBuf};
 
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode, DiagnosticCollection};
 use cairo_m_compiler_parser::parser::TopLevelItem;
@@ -107,11 +108,22 @@ pub fn project_validate_semantics(db: &dyn SemanticDb, crate_id: Crate) -> Diagn
 /// Represents a semantically structured project with named modules.
 /// This is the semantic-level view where files are organized as modules
 /// with proper names and relationships established.
+///
+/// This is the canonical crate representation used throughout the compiler.
 #[salsa::input(debug)]
 pub struct Crate {
+    /// Map from fully-qualified module names to their source files
+    /// e.g., "my_project::utils::math" -> File
     #[return_ref]
     pub modules: HashMap<String, File>,
+    /// The entry point module name (e.g., "main" or "lib")
     pub entry_point: String,
+    /// Root directory of the crate (for diagnostics and file resolution)
+    #[return_ref]
+    pub root_dir: PathBuf,
+    /// Name of the crate (from cairom.toml)
+    #[return_ref]
+    pub name: String,
 }
 
 /// Find the module name for a given file in the crate
@@ -123,6 +135,131 @@ pub fn module_name_for_file(db: &dyn SemanticDb, crate_id: Crate, file: File) ->
         }
     }
     None
+}
+
+/// Create a semantic crate from a cairo-m-project Project
+pub fn crate_from_project(
+    db: &dyn SemanticDb,
+    project: cairo_m_project::Project,
+) -> Result<Crate, DiagnosticCollection> {
+    let mut modules = HashMap::new();
+    let mut diagnostics = DiagnosticCollection::default();
+
+    // Get all source files from the project
+    let source_files = match project.source_files() {
+        Ok(files) => files,
+        Err(e) => {
+            diagnostics.add(Diagnostic::error(
+                DiagnosticCode::InternalError,
+                format!("Failed to discover source files: {}", e),
+            ));
+            return Err(diagnostics);
+        }
+    };
+
+    let src_dir = project.source_directory();
+
+    // Convert each file path to a module name and create File entities
+    for file_path in source_files {
+        let module_name = match path_to_module_name(&file_path, &src_dir) {
+            Ok(name) => name,
+            Err(e) => {
+                diagnostics.add(Diagnostic::error(
+                    DiagnosticCode::InternalError,
+                    format!(
+                        "Failed to resolve module name for {}: {}",
+                        file_path.display(),
+                        e
+                    ),
+                ));
+                continue;
+            }
+        };
+
+        // Read the file content
+        let content = match std::fs::read_to_string(&file_path) {
+            Ok(content) => content,
+            Err(e) => {
+                diagnostics.add(Diagnostic::error(
+                    DiagnosticCode::InternalError,
+                    format!("Failed to read file {}: {}", file_path.display(), e),
+                ));
+                continue;
+            }
+        };
+
+        // Create a File entity in the database
+        let file = File::new(db, content, file_path.to_string_lossy().to_string());
+        modules.insert(module_name, file);
+    }
+
+    if !diagnostics.is_empty() {
+        return Err(diagnostics);
+    }
+
+    // Determine entry point
+    let entry_point = determine_entry_point(&modules, &project);
+
+    Ok(Crate::new(
+        db,
+        modules,
+        entry_point,
+        project.root_directory.clone(),
+        project.name.clone(),
+    ))
+}
+
+/// Convert a file path to a module name
+/// e.g., "src/foo/bar.cm" -> "foo::bar"
+fn path_to_module_name(file_path: &Path, src_dir: &Path) -> anyhow::Result<String> {
+    let relative_path = file_path
+        .strip_prefix(src_dir)
+        .map_err(|_| anyhow::anyhow!("File is not under source directory"))?;
+
+    let mut components = Vec::new();
+    for component in relative_path.components() {
+        if let std::path::Component::Normal(name) = component {
+            let name_str = name.to_string_lossy();
+            // Remove .cm extension from the last component
+            if component == relative_path.components().last().unwrap() {
+                if let Some(stem) = name_str.strip_suffix(".cm") {
+                    components.push(stem.to_string());
+                } else {
+                    components.push(name_str.to_string());
+                }
+            } else {
+                components.push(name_str.to_string());
+            }
+        }
+    }
+
+    Ok(components.join("::"))
+}
+
+/// Determine the entry point module name
+fn determine_entry_point(
+    modules: &HashMap<String, File>,
+    project: &cairo_m_project::Project,
+) -> String {
+    // If project specifies an entry point, use it
+    if let Some(ref entry_point_path) = project.entry_point {
+        if let Ok(module_name) = path_to_module_name(entry_point_path, &project.source_directory())
+        {
+            if modules.contains_key(&module_name) {
+                return module_name;
+            }
+        }
+    }
+
+    // Otherwise, look for common entry points
+    for candidate in ["main", "lib"] {
+        if modules.contains_key(candidate) {
+            return candidate.to_string();
+        }
+    }
+
+    // Default to "main" even if not found
+    "main".to_string()
 }
 
 #[salsa::tracked]

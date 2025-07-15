@@ -14,6 +14,7 @@ cairo-m-compiler-mir.workspace = true
 cairo-m-compiler-diagnostics.workspace = true
 cairo-m-compiler-codegen.workspace = true
 cairo-m-common.workspace = true
+cairo-m-project.workspace = true
 clap.workspace = true
 ariadne = "0.5.1"
 anyhow = "1.0"

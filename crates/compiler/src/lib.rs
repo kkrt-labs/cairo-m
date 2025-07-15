@@ -8,9 +8,9 @@ use std::sync::Arc;
 
 use cairo_m_common::Program;
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticSeverity, build_diagnostic_message};
-use cairo_m_compiler_parser::{DiscoveredCrate, SourceFile, parse_crate, parse_file};
+use cairo_m_compiler_parser::{SourceFile, parse_file};
 use cairo_m_compiler_semantic::Crate as SemanticCrate;
-use cairo_m_compiler_semantic::db::project_validate_semantics;
+use cairo_m_compiler_semantic::db::{crate_from_project, project_validate_semantics};
 use db::CompilerDatabase;
 use thiserror::Error;
 
@@ -90,7 +90,13 @@ pub fn compile_from_file(
     // Create a single-file crate for semantic validation
     let mut modules = HashMap::new();
     modules.insert("main".to_string(), source);
-    let crate_id = SemanticCrate::new(db, modules, "main".to_string());
+    let crate_id = SemanticCrate::new(
+        db,
+        modules,
+        "main".to_string(),
+        std::path::PathBuf::from("."),
+        "single_file".to_string(),
+    );
 
     // Validate semantics using crate-based API
     let semantic_diagnostics = project_validate_semantics(db, crate_id);
@@ -115,40 +121,19 @@ pub fn compile_from_file(
 /// Compiles a Cairo-M project
 ///
 /// This compiles all files in the project and handles multi-file dependencies.
-pub fn compile_from_crate(
+pub fn compile_project(
     db: &CompilerDatabase,
-    crate_data: DiscoveredCrate,
+    project: cairo_m_project::Project,
     _options: CompilerOptions,
 ) -> Result<CompilerOutput> {
-    let parsed_crate = parse_crate(db, crate_data);
-
-    if !parsed_crate.diagnostics.is_empty() {
-        return Err(CompilerError::ParseErrors(parsed_crate.diagnostics));
-    }
-
-    // Build modules map for project creation
-    let entry_path = crate_data.entry_file(db);
-    let mut modules = HashMap::new();
-
-    for source_file in crate_data.files(db) {
-        let file_path = source_file.file_path(db);
-        let module_name = std::path::Path::new(&file_path)
-            .file_stem()
-            .and_then(|stem| stem.to_str())
-            .unwrap_or("unknown")
-            .to_string();
-        modules.insert(module_name, source_file);
-    }
-
-    // Determine entry point module name
-    let entry_module_name = std::path::Path::new(&entry_path)
-        .file_stem()
-        .and_then(|stem| stem.to_str())
-        .unwrap_or("main")
-        .to_string();
-
-    // Create semantic crate
-    let crate_id = SemanticCrate::new(db, modules, entry_module_name);
+    // Create a semantic crate from the project
+    let crate_id = match crate_from_project(db, project) {
+        Ok(crate_id) => crate_id,
+        Err(diagnostics) => {
+            let errors = diagnostics.errors().into_iter().cloned().collect();
+            return Err(CompilerError::ParseErrors(errors));
+        }
+    };
 
     // Validate semantics using crate-based API
     let semantic_diagnostics = project_validate_semantics(db, crate_id);
