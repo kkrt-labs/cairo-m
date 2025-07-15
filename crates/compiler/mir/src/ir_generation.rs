@@ -30,7 +30,7 @@ use cairo_m_compiler_parser::parse_file;
 use cairo_m_compiler_parser::parser::{
     Expression, FunctionDef, Pattern, Spanned, Statement, TopLevelItem,
 };
-use cairo_m_compiler_semantic::db::{Crate, project_semantic_index};
+use cairo_m_compiler_semantic::db::{project_semantic_index, Crate};
 use cairo_m_compiler_semantic::definition::{Definition, DefinitionKind};
 use cairo_m_compiler_semantic::semantic_index::{DefinitionId, SemanticIndex};
 use cairo_m_compiler_semantic::type_resolution::{
@@ -595,6 +595,73 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             _ => {}
         }
 
+        // Check for binary operation optimization before falling back to normal processing
+        if let Pattern::Identifier(name) = pattern {
+            if let Expression::BinaryOp { op, left, right } = value.value() {
+                // Binary operation optimization for let statements
+                if let Some((def_idx, _)) = self
+                    .semantic_index
+                    .resolve_name_to_definition(name.value(), scope_id)
+                {
+                    let def_id = DefinitionId::new(self.db, self.file, def_idx);
+                    let mir_def_id = self.convert_definition_id(def_id);
+
+                    // Check if this variable is actually used
+                    let is_used = if let Some(definition) = self.semantic_index.definition(def_idx)
+                    {
+                        if let Some(place_table) =
+                            self.semantic_index.place_table(definition.scope_id)
+                        {
+                            if let Some(place) = place_table.place(definition.place_id) {
+                                place.is_used()
+                            } else {
+                                true
+                            }
+                        } else {
+                            true
+                        }
+                    } else {
+                        true
+                    };
+
+                    if is_used {
+                        // Lower the operands
+                        let left_value = self.lower_expression(left)?;
+                        let right_value = self.lower_expression(right)?;
+
+                        // Get the variable type
+                        let semantic_type =
+                            definition_semantic_type(self.db, self.crate_id, def_id);
+                        let var_type = MirType::from_semantic_type(self.db, semantic_type);
+
+                        // Allocate storage for the variable
+                        let var_storage = self.mir_function.new_typed_value_id(var_type.clone());
+                        self.add_instruction(Instruction::stack_alloc(
+                            var_storage,
+                            var_type.size_units(),
+                        ));
+
+                        // Generate single binary operation directly to allocated storage
+                        self.add_instruction(Instruction::binary_op(
+                            *op,
+                            var_storage,
+                            left_value,
+                            right_value,
+                        ));
+
+                        // Map the variable to its storage ValueId
+                        self.definition_to_value.insert(mir_def_id, var_storage);
+                    } else {
+                        // For unused variables, still evaluate operands for side effects but don't store
+                        let _ = self.lower_expression(left)?;
+                        let _ = self.lower_expression(right)?;
+                        let dummy_addr = self.mir_function.new_value_id();
+                        self.definition_to_value.insert(mir_def_id, dummy_addr);
+                    }
+                }
+            }
+        }
+
         // Fall back to normal processing for non-optimizable cases
         let rhs_value = self.lower_expression(value)?;
 
@@ -890,14 +957,92 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         lhs: &Spanned<Expression>,
         rhs: &Spanned<Expression>,
     ) -> Result<(), String> {
-        // Lower the right-hand side to get the value to assign
-        let rhs_value = self.lower_expression(rhs)?;
+        // Check if RHS is a binary operation that we can optimize
+        match rhs.value() {
+            Expression::BinaryOp { op, left, right } => {
+                // Optimization: Generate direct assignment with binary operation
+                // Instead of: temp = left op right; lhs = temp
+                // Generate: lhs = left op right (single instruction)
 
-        // Lower the left-hand side to get the address to assign to
-        let lhs_address = self.lower_lvalue_expression(lhs)?;
+                // Lower the left and right operands separately
+                let left_value = self.lower_expression(left)?;
+                let right_value = self.lower_expression(right)?;
 
-        // Emit a store instruction
-        self.add_instruction(Instruction::store(lhs_address, rhs_value));
+                // Get the expression ID for the RHS binary operation to get type information
+                let rhs_expr_id = self
+                    .semantic_index
+                    .expression_id_by_span(rhs.span())
+                    .ok_or_else(|| {
+                        format!(
+                            "MIR: No ExpressionId found for RHS binary op span {:?}",
+                            rhs.span()
+                        )
+                    })?;
+
+                // Query semantic type system for result type
+                let semantic_type =
+                    expression_semantic_type(self.db, self.crate_id, self.file, rhs_expr_id);
+                let result_type = MirType::from_semantic_type(self.db, semantic_type);
+
+                // Try to get the LHS ValueId directly if it's a simple identifier
+                let lhs_value_id = if let Expression::Identifier(name) = lhs.value() {
+                    // Get the expression info for the LHS to get its scope
+                    let lhs_expr_id = self
+                        .semantic_index
+                        .expression_id_by_span(lhs.span())
+                        .ok_or_else(|| {
+                            format!("MIR: No ExpressionId found for LHS span {:?}", lhs.span())
+                        })?;
+                    let lhs_expr_info =
+                        self.semantic_index.expression(lhs_expr_id).ok_or_else(|| {
+                            format!("MIR: No ExpressionInfo for LHS ID {lhs_expr_id:?}")
+                        })?;
+
+                    // Resolve the identifier to a definition
+                    if let Some((def_idx, _)) = self
+                        .semantic_index
+                        .resolve_name_to_definition(name.value(), lhs_expr_info.scope_id)
+                    {
+                        let def_id = DefinitionId::new(self.db, self.file, def_idx);
+                        let mir_def_id = self.convert_definition_id(def_id);
+
+                        // Look up the ValueId for this definition
+                        self.definition_to_value.get(&mir_def_id).copied()
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
+                if let Some(dest_id) = lhs_value_id {
+                    // Generate single binary operation instruction directly to LHS
+                    self.add_instruction(Instruction::binary_op(
+                        *op,
+                        dest_id,
+                        left_value,
+                        right_value,
+                    ));
+                } else {
+                    // Fall back to two-instruction approach for complex LHS expressions
+                    let dest = self.mir_function.new_typed_value_id(result_type);
+                    self.add_instruction(Instruction::binary_op(
+                        *op,
+                        dest,
+                        left_value,
+                        right_value,
+                    ));
+                    let lhs_address = self.lower_lvalue_expression(lhs)?;
+                    self.add_instruction(Instruction::store(lhs_address, Value::operand(dest)));
+                }
+            }
+            _ => {
+                // Standard assignment: lower RHS then store to LHS
+                let rhs_value = self.lower_expression(rhs)?;
+                let lhs_address = self.lower_lvalue_expression(lhs)?;
+                self.add_instruction(Instruction::store(lhs_address, rhs_value));
+            }
+        }
         Ok(())
     }
 

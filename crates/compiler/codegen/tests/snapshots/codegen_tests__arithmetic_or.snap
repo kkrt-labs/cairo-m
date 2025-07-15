@@ -30,6 +30,13 @@ simple_or_0:
 or_true_0:
    6: 6 1 _ 2              // [fp + 2] = 1
 or_end_1:
-   7: 4 2 _ 3              // Store: [fp + 3] = [fp + 2]
-   8: 4 3 _ -3             // Return value 0: [fp -3] = [fp + 3]
-   9: 12 _ _ _             // return
+   7: 6 0 _ 3              // Initialize OR result to 0
+   8: 15 0 3 _             // if [fp + 0] != 0, jump to or_true_2
+   9: 15 1 2 _             // if [fp + 1] != 0, jump to or_true_2
+  10: 13 12 _ _            // jump to or_end_3
+or_true_2:
+  11: 6 1 _ 3              // [fp + 3] = 1
+or_end_3:
+  12: 4 3 _ 4              // Store: [fp + 4] = [fp + 3]
+  13: 4 4 _ -3             // Return value 0: [fp -3] = [fp + 4]
+  14: 12 _ _ _             // return

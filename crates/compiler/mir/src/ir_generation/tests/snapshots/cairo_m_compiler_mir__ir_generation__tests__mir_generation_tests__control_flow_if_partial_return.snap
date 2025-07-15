@@ -40,7 +40,7 @@ module {
       return 10
 
     2:
-      %3 = %0 Add 1
+      %4 = %0 Add 1
       jump 3
 
     3:
