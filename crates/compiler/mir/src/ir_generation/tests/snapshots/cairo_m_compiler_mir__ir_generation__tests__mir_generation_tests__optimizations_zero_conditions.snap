@@ -15,8 +15,11 @@ func zero_conditions(x: felt) -> felt {
     }
     if (x != 0){
         return 2;
-    } else {
+    }
+    if (!x) {
         return 3;
+    } else {
+        return 4;
     }
 }
 
@@ -41,7 +44,13 @@ module {
       return 2
 
     4:
+      if %0 then jump 6 else jump 5
+
+    5:
       return 3
+
+    6:
+      return 4
 
   }
 

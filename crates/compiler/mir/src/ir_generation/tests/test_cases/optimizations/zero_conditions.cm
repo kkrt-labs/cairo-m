@@ -4,7 +4,10 @@ func zero_conditions(x: felt) -> felt {
     }
     if (x != 0){
         return 2;
-    } else {
+    }
+    if (!x) {
         return 3;
+    } else {
+        return 4;
     }
 }

@@ -3,7 +3,7 @@
 //! This module implements various optimization passes that can be applied to MIR functions
 //! to improve code quality and remove dead code.
 
-use cairo_m_compiler_parser::parser::BinaryOp;
+use cairo_m_compiler_parser::parser::{BinaryOp, UnaryOp};
 use rustc_hash::FxHashMap;
 
 use crate::{Instruction, InstructionKind, Literal, MirFunction, Terminator, Value, ValueId};
@@ -107,6 +107,19 @@ impl MirPass for FuseCmpBranch {
                                 }
 
                                 // Remove the now-redundant BinaryOp instruction.
+                                block.instructions.pop();
+
+                                modified = true;
+                            }
+                        } else if let InstructionKind::UnaryOp { op, source, .. } = &last_instr.kind
+                        {
+                            if matches!(op, UnaryOp::Not) {
+                                // If the condition is a not, we switch the targets
+                                // For simplicity, we assume dumb conditions such as !42 will never appear in the source code
+                                block.terminator =
+                                    Terminator::branch(*source, else_target, then_target);
+
+                                // Remove the now-redundant UnaryOp instruction.
                                 block.instructions.pop();
 
                                 modified = true;
