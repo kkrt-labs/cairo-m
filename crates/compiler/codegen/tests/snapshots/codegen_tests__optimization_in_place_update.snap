@@ -40,35 +40,34 @@ test_in_place_update_0:
    0: 6 5 _ 0              // Store immediate: [fp + 0] = 5
    1: 1 0 1 0              // [fp + 0] = [fp + 0] op 1
    2: 6 10 _ 1             // Store immediate: [fp + 1] = 10
-   3: 0 1 0 1              // [fp + 1] = [fp + 1] op [fp + 0]
-   4: 4 1 _ -3             // Return value 0: [fp -3] = [fp + 1]
-   5: 12 _ _ _             // return
+   3: 0 -3 0 -3            // [fp + -3] = [fp + -3] op [fp + 0]
+   4: 12 _ _ _             // return
 test_loop_optimization:
 test_loop_optimization:
 test_loop_optimization_0:
-   6: 6 0 _ 0              // Store immediate: [fp + 0] = 0
-   7: 6 0 _ 1              // Store immediate: [fp + 1] = 0
+   5: 6 0 _ 0              // Store immediate: [fp + 0] = 0
+   6: 6 0 _ 1              // Store immediate: [fp + 1] = 0
 test_loop_optimization_1:
-   8: 3 0 5 2              // [fp + 2] = [fp + 0] op 5
-   9: 15 2 3 _             // if [fp + 2] != 0, jump to neq_non_zero_0
-  10: 6 0 _ 2              // [fp + 2] = 0
-  11: 13 13 _ _            // jump to neq_end_1
+   7: 3 0 5 2              // [fp + 2] = [fp + 0] op 5
+   8: 15 2 3 _             // if [fp + 2] != 0, jump to neq_non_zero_0
+   9: 6 0 _ 2              // [fp + 2] = 0
+  10: 13 12 _ _            // jump to neq_end_1
 neq_non_zero_0:
-  12: 6 1 _ 2              // [fp + 2] = 1
+  11: 6 1 _ 2              // [fp + 2] = 1
 neq_end_1:
-  13: 15 2 2 _             // if [fp + 2] != 0 jmp rel test_loop_optimization_2
-  14: 13 18 _ _            // jump abs test_loop_optimization_3
+  12: 15 2 2 _             // if [fp + 2] != 0 jmp rel test_loop_optimization_2
+  13: 13 17 _ _            // jump abs test_loop_optimization_3
 test_loop_optimization_2:
-  15: 0 1 0 1              // [fp + 1] = [fp + 1] op [fp + 0]
-  16: 1 0 1 0              // [fp + 0] = [fp + 0] op 1
-  17: 13 8 _ _             // jump abs test_loop_optimization_1
+  14: 0 1 0 1              // [fp + 1] = [fp + 1] op [fp + 0]
+  15: 1 0 1 0              // [fp + 0] = [fp + 0] op 1
+  16: 13 7 _ _             // jump abs test_loop_optimization_1
 test_loop_optimization_3:
-  18: 4 1 _ -3             // Return value 0: [fp -3] = [fp + 1]
-  19: 12 _ _ _             // return
+  17: 4 1 _ -3             // Return value 0: [fp -3] = [fp + 1]
+  18: 12 _ _ _             // return
 main:
-  20: 11 1 0 _             // call test_in_place_update
-  21: 4 0 _ 2              // Store: [fp + 2] = [fp + 0]
-  22: 11 4 6 _             // call test_loop_optimization
-  23: 4 3 _ 5              // Store: [fp + 5] = [fp + 3]
-  24: 0 2 5 -3             // [fp + -3] = [fp + 2] op [fp + 5]
-  25: 12 _ _ _             // return
+  19: 11 1 0 _             // call test_in_place_update
+  20: 4 0 _ 2              // Store: [fp + 2] = [fp + 0]
+  21: 11 4 5 _             // call test_loop_optimization
+  22: 4 3 _ 5              // Store: [fp + 5] = [fp + 3]
+  23: 0 2 5 -3             // [fp + -3] = [fp + 2] op [fp + 5]
+  24: 12 _ _ _             // return

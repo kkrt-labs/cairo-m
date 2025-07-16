@@ -48,26 +48,25 @@ neq_end_3:
 and_non_zero_4:
   16: 6 1 _ 4              // [fp + 4] = 1
 and_end_5:
-  17: 4 4 _ 5              // Store: [fp + 5] = [fp + 4]
-  18: 2 0 1 6              // [fp + 6] = [fp + 0] op [fp + 1]
-  19: 15 6 3 _             // if [fp + 6] != 0, jump to not_zero_6
-  20: 6 1 _ 6              // [fp + 6] = 1
-  21: 13 23 _ _            // jump to end_7
+  17: 2 0 1 5              // [fp + 5] = [fp + 0] op [fp + 1]
+  18: 15 5 3 _             // if [fp + 5] != 0, jump to not_zero_6
+  19: 6 1 _ 5              // [fp + 5] = 1
+  20: 13 22 _ _            // jump to end_7
 not_zero_6:
-  22: 6 0 _ 6              // [fp + 6] = 0
+  21: 6 0 _ 5              // [fp + 5] = 0
 end_7:
-  23: 6 0 _ 7              // Initialize OR result to 0
-  24: 15 5 3 _             // if [fp + 5] != 0, jump to or_true_8
-  25: 15 6 2 _             // if [fp + 6] != 0, jump to or_true_8
-  26: 13 28 _ _            // jump to or_end_9
+  22: 6 0 _ 6              // Initialize OR result to 0
+  23: 15 4 3 _             // if [fp + 4] != 0, jump to or_true_8
+  24: 15 5 2 _             // if [fp + 5] != 0, jump to or_true_8
+  25: 13 27 _ _            // jump to or_end_9
 or_true_8:
-  27: 6 1 _ 7              // [fp + 7] = 1
+  26: 6 1 _ 6              // [fp + 6] = 1
 or_end_9:
-  28: 15 7 2 _             // if [fp + 7] != 0 jmp rel complex_condition_1
-  29: 13 32 _ _            // jump abs complex_condition_2
+  27: 15 6 2 _             // if [fp + 6] != 0 jmp rel complex_condition_1
+  28: 13 31 _ _            // jump abs complex_condition_2
 complex_condition_1:
-  30: 6 0 _ -3             // Return value 0: [fp -3] = 0
-  31: 12 _ _ _             // return
+  29: 6 0 _ -3             // Return value 0: [fp -3] = 0
+  30: 12 _ _ _             // return
 complex_condition_2:
-  32: 6 1 _ -3             // Return value 0: [fp -3] = 1
-  33: 12 _ _ _             // return
+  31: 6 1 _ -3             // Return value 0: [fp -3] = 1
+  32: 12 _ _ _             // return

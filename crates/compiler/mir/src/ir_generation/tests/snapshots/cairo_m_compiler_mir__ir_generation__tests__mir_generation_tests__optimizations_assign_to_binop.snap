@@ -6,30 +6,31 @@ expression: snapshot_content
 source: crates/compiler/mir/src/ir_generation/tests/mir_generation_tests.rs
 expression: mir_output
 ---
-Fixture: unused_variable_elimination.cm
+Fixture: assign_to_binop.cm
 ============================================================
 Source code:
-//!ASSERT FUNCTION_COUNT: 1
-//!ASSERT NOT_CONTAINS: %5 = stackalloc
-//!ASSERT NOT_CONTAINS: store %5
-
-// Test that unused variables don't generate allocations
-func test_unused(a: felt, b: felt) -> felt {
-    let c = a + b;  // Used - should allocate
-    let d = a * b;  // Unused - should NOT allocate
-    let e = a == b; // Unused - should NOT allocate
+func assign_to_binop() -> felt {
+    let a = 10;
+    let b = 20;
+    let c = 0;
+    c = a + b;
     return c;
 }
+
 ============================================================
 Generated MIR:
 module {
   // Function 0
-  fn test_unused {
-    parameters: [0, 1]
+  fn assign_to_binop {
     entry: 0
 
     0:
+      %0 = stackalloc 1
+      store %0, 10
+      %1 = stackalloc 1
+      store %1, 20
       %2 = stackalloc 1
+      store %2, 0
       %2 = %0 Add %1
       return %2
 
