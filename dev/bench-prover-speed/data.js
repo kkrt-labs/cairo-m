@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1752669699784,
+  "lastUpdate": 1752670688670,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -509,6 +509,36 @@ window.BENCHMARK_DATA = {
             "name": "prover_fibonacci/prove",
             "value": 5584455761,
             "range": "± 26649408",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "34771985+gael-bigot@users.noreply.github.com",
+            "name": "Gaël Bigot",
+            "username": "gael-bigot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dcc6828f09f251d6a5ea38d239b10b3fc856771f",
+          "message": "fix(compiler): avoid inplace store operations (#155)\n\n* fix(compiler): avoid inplace store operations\n\n* fix prover test + claude critical issues\n\n* refactor + tests: apply suggestions\n\n* changed fib_loop throughout codebase to avoid b = a + b",
+          "timestamp": "2025-07-16T14:44:09+02:00",
+          "tree_id": "ba107477cb6803a93c3434bb3705b22c7d1bfa58",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/dcc6828f09f251d6a5ea38d239b10b3fc856771f"
+        },
+        "date": 1752670688168,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 6415164285,
+            "range": "± 27887075",
             "unit": "ns/iter"
           }
         ]
