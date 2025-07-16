@@ -170,8 +170,16 @@ impl ScopeValidator {
             let is_local_or_param = !place.flags.contains(PlaceFlags::FUNCTION)
                 && !place.flags.contains(PlaceFlags::STRUCT);
 
-            // Skip variables that start with underscore (_) as they are intentionally unused
-            let is_intentionally_unused = place.name.starts_with('_');
+            // Check if this is an import (Use) by examining the definition kind
+            let is_import = if let Some((_, definition)) = index.definition_for_place(scope_id, place_id) {
+                matches!(definition.kind, crate::definition::DefinitionKind::Use(_))
+            } else {
+                false
+            };
+
+            // Skip variables that start with underscore (_) as they are intentionally unused,
+            // but don't skip imports even if they start with underscore
+            let is_intentionally_unused = place.name.starts_with('_') && !is_import;
 
             if is_local_or_param && place.flags.contains(PlaceFlags::DEFINED) 
                 && !place.is_used() && !is_intentionally_unused {
