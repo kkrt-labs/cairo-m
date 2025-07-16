@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1752669700621,
+  "lastUpdate": 1752670689922,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -492,6 +492,35 @@ window.BENCHMARK_DATA = {
           {
             "name": "fibonacci_prove_peak_mem",
             "value": 2261456744,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "34771985+gael-bigot@users.noreply.github.com",
+            "name": "Gaël Bigot",
+            "username": "gael-bigot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dcc6828f09f251d6a5ea38d239b10b3fc856771f",
+          "message": "fix(compiler): avoid inplace store operations (#155)\n\n* fix(compiler): avoid inplace store operations\n\n* fix prover test + claude critical issues\n\n* refactor + tests: apply suggestions\n\n* changed fib_loop throughout codebase to avoid b = a + b",
+          "timestamp": "2025-07-16T14:44:09+02:00",
+          "tree_id": "ba107477cb6803a93c3434bb3705b22c7d1bfa58",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/dcc6828f09f251d6a5ea38d239b10b3fc856771f"
+        },
+        "date": 1752670689878,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2478509336,
             "unit": "bytes"
           }
         ]
