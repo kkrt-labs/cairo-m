@@ -7,7 +7,7 @@ Fixture: semantic_tests::control_flow::loop_scoping::test_while_loop_scoping
 Source code:
 
         fn test() {
-            let condition = 1;
+            let condition = true;
             while (condition) {
                 let loop_var = 42;
                 break;

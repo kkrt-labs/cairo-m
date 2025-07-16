@@ -2,8 +2,8 @@ use crate::{assert_semantic_err, assert_semantic_ok};
 
 #[test]
 fn test_while_loop_with_felt_condition() {
-    // This should pass - felt is the correct type for conditions
-    assert_semantic_ok!(
+    // This should fail - only bool is allowed for conditions
+    assert_semantic_err!(
         r#"
         fn test() {
             let x: felt = 1;
@@ -70,8 +70,8 @@ fn test_while_loop_with_complex_non_felt_expression() {
 
 #[test]
 fn test_while_loop_with_nested_conditions() {
-    // This should pass - all conditions are felt
-    assert_semantic_ok!(
+    // This should fail - conditions must be bool, not felt
+    assert_semantic_err!(
         r#"
         fn test() {
             let a: felt = 1;
@@ -91,7 +91,7 @@ fn test_while_loop_with_nested_conditions() {
 
 #[test]
 fn test_while_loop_with_comparison_expression() {
-    // This should pass - comparisons return felt
+    // This should pass - comparisons return bool
     assert_semantic_ok!(
         r#"
         fn test() {
@@ -107,12 +107,12 @@ fn test_while_loop_with_comparison_expression() {
 
 #[test]
 fn test_while_loop_with_logical_expression() {
-    // This should pass - logical operations return felt
+    // This should pass - logical operations return bool
     assert_semantic_ok!(
         r#"
         fn test() {
-            let a: felt = 1;
-            let b: felt = 0;
+            let a: bool = true;
+            let b: bool = false;
             while (a && b) {
                 return;
             }

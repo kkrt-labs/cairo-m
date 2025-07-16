@@ -43,6 +43,9 @@ pub enum TypeData<'db> {
     /// The `felt` primitive type - Cairo's basic field element type
     Felt,
 
+    /// The `bool` primitive type - Boolean type (true/false)
+    Bool,
+
     /// A struct type, identified by its interned struct type ID
     Struct(StructTypeId<'db>),
 
@@ -110,7 +113,7 @@ pub struct FunctionSignatureId<'db> {
 impl<'db> TypeData<'db> {
     /// Check if this type is a primitive type
     pub const fn is_primitive(&self) -> bool {
-        matches!(self, TypeData::Felt)
+        matches!(self, TypeData::Felt | TypeData::Bool)
     }
 
     /// Check if this type represents an error state
@@ -132,6 +135,7 @@ impl<'db> TypeData<'db> {
     pub fn display_name(&self, db: &dyn SemanticDb) -> String {
         match self {
             TypeData::Felt => "felt".to_string(),
+            TypeData::Bool => "bool".to_string(),
             TypeData::Struct(struct_id) => struct_id.name(db),
             TypeData::Tuple(types) => {
                 let type_names: Vec<String> =

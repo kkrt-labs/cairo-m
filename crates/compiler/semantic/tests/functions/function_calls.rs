@@ -103,7 +103,7 @@ fn test_function_call_in_expression() {
 fn test_function_call_as_condition() {
     assert_semantic_ok!(
         r#"
-        fn is_null(x: felt) -> felt {
+        fn is_null(x: felt) -> bool {
             return x == 0;
         }
 

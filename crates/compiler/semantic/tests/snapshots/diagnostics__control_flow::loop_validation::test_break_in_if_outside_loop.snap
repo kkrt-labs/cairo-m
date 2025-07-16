@@ -12,15 +12,24 @@ Source code:
             }
             return;
         }
-        
+
 ============================================================
-Found 1 diagnostic(s):
+Found 2 diagnostic(s):
 
 --- Diagnostic 1 ---
+[2001] Error: If condition must be of type 'bool', found 'felt'
+   ╭─[ semantic_tests::control_flow::loop_validation::test_break_in_if_outside_loop:3:17 ]
+   │
+ 3 │             if (1) {
+   │                 ┬
+   │                 ╰── If condition must be of type 'bool', found 'felt'
+───╯
+
+--- Diagnostic 2 ---
 [3003] Error: Break statement outside of loop
    ╭─[ semantic_tests::control_flow::loop_validation::test_break_in_if_outside_loop:4:17 ]
    │
  4 │                 break;
-   │                 ───┬──  
+   │                 ───┬──
    │                    ╰──── Break statement outside of loop
 ───╯

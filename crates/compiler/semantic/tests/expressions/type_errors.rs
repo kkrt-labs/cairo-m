@@ -182,3 +182,17 @@ fn test_unary_op_type_error() {
     "#
     );
 }
+
+#[test]
+fn test_bool_felt_addition_error() {
+    assert_semantic_err!(
+        r#"
+        fn main() -> felt {
+            let x = 3;
+            let ybool = true;
+            let resx = ybool + x;  // Expected type mismatch error
+            return x;
+        }
+        "#
+    );
+}
