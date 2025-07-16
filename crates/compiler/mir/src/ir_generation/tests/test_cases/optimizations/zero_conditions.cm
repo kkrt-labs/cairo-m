@@ -1,4 +1,4 @@
-func zero_conditions(x: felt) -> felt {
+fn zero_conditions(x: felt) -> felt {
     if (0 == x){
         return 1;
     }

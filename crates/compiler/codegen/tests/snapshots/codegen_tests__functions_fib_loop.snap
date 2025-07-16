@@ -39,26 +39,20 @@ fibonacci_loop_0:
 fibonacci_loop_1:
    3: 2 2 -4 3             // [fp + 3] = [fp + 2] op [fp + -4]
    4: 15 3 2 _             // if [fp + 3] != 0 jmp rel fibonacci_loop_2
-   5: 13 11 _ _            // jump abs fibonacci_loop_3
+   5: 13 12 _ _            // jump abs fibonacci_loop_3
 fibonacci_loop_2:
-   6: 4 0 _ 4              // Store: [fp + 4] = [fp + 0]
+   6: 0 0 1 4              // [fp + 4] = [fp + 0] op [fp + 1]
    7: 4 1 _ 0              // Store: [fp + 0] = [fp + 1]
-   8: 0 1 4 1              // [fp + 1] = [fp + 1] op [fp + 4]
-   9: 1 2 1 2              // [fp + 2] = [fp + 2] op 1
-  10: 13 3 _ _             // jump abs fibonacci_loop_1
+   8: 4 4 _ 1              // Store: [fp + 1] = [fp + 4]
+   9: 4 2 _ 5              // [fp + 5] = [fp + 2]
+  10: 1 5 1 2              // [fp + 2] = [fp + 5] op 1
+  11: 13 3 _ _             // jump abs fibonacci_loop_1
 fibonacci_loop_3:
-  11: 4 0 _ -3             // Return value 0: [fp -3] = [fp + 0]
-  12: 12 _ _ _             // return
-  11: 4 0 _ -3             // Return value 0: [fp -3] = [fp + 0]
-  12: 12 _ _ _             // return
+  12: 4 0 _ -3             // Return value 0: [fp -3] = [fp + 0]
+  13: 12 _ _ _             // return
 main:
-  13: 6 10 _ 0             // Store immediate: [fp + 0] = 10
-  14: 11 2 0 _             // call fibonacci_loop
-  15: 4 1 _ 3              // Store: [fp + 3] = [fp + 1]
-  16: 4 3 _ -3             // Return value 0: [fp -3] = [fp + 3]
-  17: 12 _ _ _             // return
-  13: 6 10 _ 0             // Store immediate: [fp + 0] = 10
-  14: 11 2 0 _             // call fibonacci_loop
-  15: 4 1 _ 3              // Store: [fp + 3] = [fp + 1]
-  16: 4 3 _ -3             // Return value 0: [fp -3] = [fp + 3]
-  17: 12 _ _ _             // return
+  14: 6 10 _ 0             // Store immediate: [fp + 0] = 10
+  15: 11 2 0 _             // call fibonacci_loop
+  16: 4 1 _ 3              // Store: [fp + 3] = [fp + 1]
+  17: 4 3 _ -3             // Return value 0: [fp -3] = [fp + 3]
+  18: 12 _ _ _             // return
