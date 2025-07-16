@@ -1111,4 +1111,313 @@ impl CasmBuilder {
 
         Ok(())
     }
+
+    /// Removes any occurences of instructions where two or more offsets are the same.
+    /// This is required by the prover, which does not currently support memory operations on the same memory location in a single instruction.
+    /// This fix was designed to be as uninvasive as possible to be reverted easily in case of design changes in the prover.
+    pub fn resolve_duplicate_offsets(&mut self) -> CodegenResult<()> {
+        let layout = self
+            .layout
+            .as_mut()
+            .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
+
+        let temp_var_offset = layout.reserve_stack(1);
+        let temp_var_offset2 = layout.reserve_stack(1);
+
+        // First, identify which instructions have labels pointing to them
+        let mut labeled_instructions = std::collections::HashSet::new();
+        for label in &self.labels {
+            if let Some(address) = label.address {
+                labeled_instructions.insert(address);
+            }
+        }
+
+        let mut new_instructions = Vec::new();
+        // Track how instruction indices change: original_index -> new_index_range
+        let mut index_mapping: Vec<Option<std::ops::Range<usize>>> = Vec::new();
+
+        for (original_index, instr) in self.instructions.iter().enumerate() {
+            let current_new_index = new_instructions.len();
+            let is_labeled = labeled_instructions.contains(&original_index);
+
+            let replacement_instructions = match Opcode::from_u32(instr.opcode).unwrap() {
+                Opcode::StoreDerefFp => Self::handle_deref_duplicates(instr, is_labeled),
+                Opcode::StoreAddFpFp
+                | Opcode::StoreSubFpFp
+                | Opcode::StoreMulFpFp
+                | Opcode::StoreDivFpFp => {
+                    Self::handle_fp_fp_duplicates(instr, temp_var_offset, temp_var_offset2)
+                }
+                Opcode::StoreAddFpImm
+                | Opcode::StoreSubFpImm
+                | Opcode::StoreMulFpImm
+                | Opcode::StoreDivFpImm => Self::handle_fp_imm_duplicates(instr, temp_var_offset)?,
+                _ => {
+                    // Keep instruction as-is
+                    vec![instr.clone()]
+                }
+            };
+
+            if replacement_instructions.is_empty() {
+                // Instruction was removed
+                index_mapping.push(None);
+            } else {
+                let start_index = current_new_index;
+                let end_index = current_new_index + replacement_instructions.len();
+                new_instructions.extend(replacement_instructions);
+                index_mapping.push(Some(start_index..end_index));
+            }
+        }
+
+        // Update label addresses based on the index mapping
+        for label in &mut self.labels {
+            if let Some(original_address) = label.address {
+                if original_address < index_mapping.len() {
+                    if let Some(ref range) = index_mapping[original_address] {
+                        // Point to the first instruction in the replacement range
+                        // This preserves the semantic meaning: execution starts at the first replacement
+                        label.address = Some(range.start);
+                    } else {
+                        // The instruction was removed - this should not happen for labeled instructions
+                        // due to our check above, but if it does, we need to find the next valid instruction
+                        let next_valid = index_mapping
+                            .iter()
+                            .skip(original_address + 1)
+                            .find_map(|opt_range| opt_range.as_ref().map(|range| range.start));
+                        label.address = next_valid;
+                    }
+                }
+            }
+        }
+
+        self.instructions = new_instructions;
+
+        Ok(())
+    }
+
+    /// Handles duplicate offsets in StoreDerefFp instructions (copy operations).
+    /// Removes nop instructions ([fp + X] = [fp + X]) unless they are labeled.
+    fn handle_deref_duplicates(
+        instr: &InstructionBuilder,
+        is_labeled: bool,
+    ) -> Vec<InstructionBuilder> {
+        let off0 = instr.off0.unwrap();
+        let off2 = instr.off2.unwrap();
+
+        if off0 == off2 && !is_labeled {
+            // This is a nop instruction and it's not labeled - safe to remove
+            vec![]
+        } else {
+            // Either not a nop, or it's labeled (don't remove labeled instructions)
+            vec![instr.clone()]
+        }
+    }
+
+    /// Handles duplicate offsets in fp+fp binary operations.
+    /// Expands in-place operations using temporary variables to avoid undefined behavior.
+    fn handle_fp_fp_duplicates(
+        instr: &InstructionBuilder,
+        temp_var_offset: i32,
+        temp_var_offset2: i32,
+    ) -> Vec<InstructionBuilder> {
+        let off0 = instr.off0.unwrap();
+        let off1 = instr.off1.unwrap();
+        let off2 = instr.off2.unwrap();
+
+        if off0 == off1 && off1 == off2 {
+            // The three offsets are the same, store off0 and off1 in temp vars and replace with 3 instructions
+            vec![
+                InstructionBuilder::new(Opcode::StoreDerefFp.into())
+                    .with_off2(temp_var_offset)
+                    .with_off0(off0)
+                    .with_comment(format!("[fp + {temp_var_offset}] = [fp + {off0}]")),
+                InstructionBuilder::new(Opcode::StoreDerefFp.into())
+                    .with_off2(temp_var_offset2)
+                    .with_off0(off1)
+                    .with_comment(format!("[fp + {temp_var_offset2}] = [fp + {off1}]")),
+                InstructionBuilder::new(instr.opcode)
+                    .with_off2(off2)
+                    .with_off0(temp_var_offset)
+                    .with_off1(temp_var_offset2)
+                    .with_comment(format!(
+                        "[fp + {off2}] = [fp + {temp_var_offset}] op [fp + {temp_var_offset2}]"
+                    )),
+            ]
+        } else if off0 == off1 || off0 == off2 {
+            // off0 is a duplicate, store off0 in a temp var and replace with 2 instructions
+            vec![
+                InstructionBuilder::new(Opcode::StoreDerefFp.into())
+                    .with_off2(temp_var_offset)
+                    .with_off0(off0)
+                    .with_comment(format!("[fp + {temp_var_offset}] = [fp + {off0}]")),
+                InstructionBuilder::new(instr.opcode)
+                    .with_off2(off2)
+                    .with_off0(temp_var_offset)
+                    .with_off1(off1)
+                    .with_comment(format!(
+                        "[fp + {off2}] = [fp + {temp_var_offset}] op [fp + {off1}]"
+                    )),
+            ]
+        } else if off1 == off2 {
+            // off1 is a duplicate, store off1 in a temp var and replace with 2 instructions
+            vec![
+                InstructionBuilder::new(Opcode::StoreDerefFp.into())
+                    .with_off2(temp_var_offset)
+                    .with_off0(off1)
+                    .with_comment(format!("[fp + {temp_var_offset}] = [fp + {off1}]")),
+                InstructionBuilder::new(instr.opcode)
+                    .with_off2(off2)
+                    .with_off0(off0)
+                    .with_off1(temp_var_offset)
+                    .with_comment(format!(
+                        "[fp + {off2}] = [fp + {off0}] op [fp + {temp_var_offset}]"
+                    )),
+            ]
+        } else {
+            // No duplicates, keep as-is
+            vec![instr.clone()]
+        }
+    }
+
+    /// Handles duplicate offsets in fp+immediate binary operations.
+    /// Expands in-place operations using a temporary variable when source equals destination.
+    fn handle_fp_imm_duplicates(
+        instr: &InstructionBuilder,
+        temp_var_offset: i32,
+    ) -> CodegenResult<Vec<InstructionBuilder>> {
+        let off0 = instr.off0.unwrap();
+        let off2 = instr.off2.unwrap();
+
+        let imm = match instr.operand.clone().unwrap() {
+            Operand::Literal(imm) => imm,
+            _ => {
+                return Err(CodegenError::UnsupportedInstruction(
+                    "Store immediate operand must be a literal".to_string(),
+                ));
+            }
+        };
+
+        if off0 == off2 {
+            // off0 is a duplicate, store off0 in a temp var and replace with 2 instructions
+            Ok(vec![
+                InstructionBuilder::new(Opcode::StoreDerefFp.into())
+                    .with_off2(temp_var_offset)
+                    .with_off0(off0)
+                    .with_comment(format!("[fp + {temp_var_offset}] = [fp + {off0}]")),
+                InstructionBuilder::new(instr.opcode)
+                    .with_off2(off2)
+                    .with_off0(temp_var_offset)
+                    .with_imm(imm)
+                    .with_comment(format!("[fp + {off2}] = [fp + {temp_var_offset}] op {imm}")),
+            ])
+        } else {
+            // No duplicates, keep as-is
+            Ok(vec![instr.clone()])
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_handle_deref_duplicates_nop_removal() {
+        // Create a nop instruction: [fp + 5] = [fp + 5]
+        let instr = InstructionBuilder::new(Opcode::StoreDerefFp.into())
+            .with_off0(5)
+            .with_off2(5);
+
+        let result = CasmBuilder::handle_deref_duplicates(&instr, false);
+        assert_eq!(result.len(), 0, "Nop instruction should be removed");
+    }
+
+    #[test]
+    fn test_handle_deref_duplicates_labeled_preservation() {
+        // Create a nop instruction: [fp + 5] = [fp + 5] but it's labeled
+        let instr = InstructionBuilder::new(Opcode::StoreDerefFp.into())
+            .with_off0(5)
+            .with_off2(5);
+
+        let result = CasmBuilder::handle_deref_duplicates(&instr, true);
+        assert_eq!(
+            result.len(),
+            1,
+            "Labeled nop instruction should be preserved"
+        );
+    }
+
+    #[test]
+    fn test_handle_fp_fp_duplicates_all_same() {
+        // Create instruction: [fp + 5] = [fp + 5] + [fp + 5]
+        let instr = InstructionBuilder::new(Opcode::StoreAddFpFp.into())
+            .with_off0(5)
+            .with_off1(5)
+            .with_off2(5);
+
+        let temp1 = 10;
+        let temp2 = 11;
+        let result = CasmBuilder::handle_fp_fp_duplicates(&instr, temp1, temp2);
+        assert_eq!(result.len(), 3, "Should expand to 3 instructions");
+
+        // Check that we use temp variables
+        assert_eq!(result[0].off2, Some(temp1));
+        assert_eq!(result[1].off2, Some(temp2));
+        assert_eq!(result[2].off0, Some(temp1));
+        assert_eq!(result[2].off1, Some(temp2));
+    }
+
+    #[test]
+    fn test_handle_fp_fp_duplicates_first_operand_conflict() {
+        // Create instruction: [fp + 5] = [fp + 5] + [fp + 3]
+        let instr = InstructionBuilder::new(Opcode::StoreAddFpFp.into())
+            .with_off0(5)
+            .with_off1(3)
+            .with_off2(5);
+
+        let temp1 = 10;
+        let temp2 = 11;
+        let result = CasmBuilder::handle_fp_fp_duplicates(&instr, temp1, temp2);
+        assert_eq!(result.len(), 2, "Should expand to 2 instructions");
+
+        // Check that first operand is copied to temp
+        assert_eq!(result[0].off2, Some(temp1));
+        assert_eq!(result[0].off0, Some(5));
+        assert_eq!(result[1].off0, Some(temp1));
+    }
+
+    #[test]
+    fn test_handle_fp_imm_duplicates_in_place() {
+        // Create instruction: [fp + 5] = [fp + 5] + 42
+        let instr = InstructionBuilder::new(Opcode::StoreAddFpImm.into())
+            .with_off0(5)
+            .with_off2(5)
+            .with_operand(Operand::Literal(42));
+
+        let temp1 = 10;
+        let result = CasmBuilder::handle_fp_imm_duplicates(&instr, temp1).unwrap();
+        assert_eq!(result.len(), 2, "Should expand to 2 instructions");
+
+        // Check that source is copied to temp first
+        assert_eq!(result[0].off2, Some(temp1));
+        assert_eq!(result[0].off0, Some(5));
+        assert_eq!(result[1].off0, Some(temp1));
+    }
+
+    #[test]
+    fn test_handle_fp_imm_duplicates_no_conflict() {
+        // Create instruction: [fp + 7] = [fp + 5] + 42 (no conflict)
+        let instr = InstructionBuilder::new(Opcode::StoreAddFpImm.into())
+            .with_off0(5)
+            .with_off2(7)
+            .with_operand(Operand::Literal(42));
+
+        let temp1 = 10;
+        let result = CasmBuilder::handle_fp_imm_duplicates(&instr, temp1).unwrap();
+        assert_eq!(result.len(), 1, "Should keep as single instruction");
+
+        // Should be unchanged
+        assert_eq!(result[0].off0, Some(5));
+        assert_eq!(result[0].off2, Some(7));
+    }
 }

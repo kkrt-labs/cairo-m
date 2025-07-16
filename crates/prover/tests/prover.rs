@@ -126,7 +126,6 @@ fn test_prove_and_verify_recursive_fibonacci_program() {
 }
 
 #[test]
-#[should_panic]
 fn test_prove_and_verify_all_opcodes() {
     let source_path = format!(
         "{}/tests/test_data/{}",
@@ -150,7 +149,6 @@ fn test_prove_and_verify_all_opcodes() {
 }
 
 #[test]
-#[should_panic]
 fn test_all_opcodes_constraints() {
     let source_path = format!(
         "{}/tests/test_data/{}",

@@ -14,9 +14,9 @@ fn fibonacci_loop(n: felt) -> felt {
     let b = 1;
     let i = 0;
     while (i != n) {
-        let temp = a;
+        let temp = a + b;
         a = b;
-        b = b + temp;
+        b = temp;
         i = i + 1;
     }
     return a;
@@ -45,19 +45,20 @@ neq_non_zero_0:
    7: 6 1 _ 3              // [fp + 3] = 1
 neq_end_1:
    8: 15 3 2 _             // if [fp + 3] != 0 jmp rel fibonacci_loop_2
-   9: 13 15 _ _            // jump abs fibonacci_loop_3
+   9: 13 16 _ _            // jump abs fibonacci_loop_3
 fibonacci_loop_2:
-  10: 4 0 _ 4              // Store: [fp + 4] = [fp + 0]
+  10: 0 0 1 4              // [fp + 4] = [fp + 0] op [fp + 1]
   11: 4 1 _ 0              // Store: [fp + 0] = [fp + 1]
-  12: 0 1 4 1              // [fp + 1] = [fp + 1] op [fp + 4]
-  13: 1 2 1 2              // [fp + 2] = [fp + 2] op 1
-  14: 13 3 _ _             // jump abs fibonacci_loop_1
+  12: 4 4 _ 1              // Store: [fp + 1] = [fp + 4]
+  13: 4 2 _ 5              // [fp + 5] = [fp + 2]
+  14: 1 5 1 2              // [fp + 2] = [fp + 5] op 1
+  15: 13 3 _ _             // jump abs fibonacci_loop_1
 fibonacci_loop_3:
-  15: 4 0 _ -3             // Return value 0: [fp -3] = [fp + 0]
-  16: 12 _ _ _             // return
+  16: 4 0 _ -3             // Return value 0: [fp -3] = [fp + 0]
+  17: 12 _ _ _             // return
 main:
-  17: 6 10 _ 0             // Store immediate: [fp + 0] = 10
-  18: 11 2 0 _             // call fibonacci_loop
-  19: 4 1 _ 3              // Store: [fp + 3] = [fp + 1]
-  20: 4 3 _ -3             // Return value 0: [fp -3] = [fp + 3]
-  21: 12 _ _ _             // return
+  18: 6 10 _ 0             // Store immediate: [fp + 0] = 10
+  19: 11 2 0 _             // call fibonacci_loop
+  20: 4 1 _ 3              // Store: [fp + 3] = [fp + 1]
+  21: 4 3 _ -3             // Return value 0: [fp -3] = [fp + 3]
+  22: 12 _ _ _             // return

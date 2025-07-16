@@ -14,9 +14,9 @@ fn fibonacci_loop(n: felt) -> felt {
     let b = 1;
     let i = 0;
     while (i != n) {
-        let temp = a;
+        let temp = a + b;
         a = b;
-        b = b + temp;
+        b = temp;
         i = i + 1;
     }
     return a;
@@ -51,9 +51,9 @@ module {
 
     2:
       %5 = stackalloc 1
-      store %5, %1
+      %5 = %1 Add %2
       store %1, %2
-      %2 = %2 Add %5
+      store %2, %5
       %3 = %3 Add 1
       jump 1
 
