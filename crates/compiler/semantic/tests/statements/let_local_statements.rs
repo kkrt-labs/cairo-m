@@ -8,27 +8,11 @@ fn test_simple_let_statement() {
 }
 
 #[test]
-fn test_simple_local_statement() {
-    assert_semantic_ok!(&in_function("local x = 42; \n return();"));
-}
-
-#[test]
 fn test_let_with_expression() {
     assert_semantic_ok!(&in_function(
         "
         let x = 10;
         let y = x + 20;
-        return;
-    "
-    ));
-}
-
-#[test]
-fn test_local_with_expression() {
-    assert_semantic_ok!(&in_function(
-        "
-        local x = 10;
-        local y = x + 20;
         return;
     "
     ));
@@ -105,17 +89,6 @@ fn test_let_statement_shadowing() {
         "
         let x = 1;
         let x = 2;
-        return;
-    "
-    ));
-}
-
-#[test]
-fn test_local_statement_shadowing() {
-    assert_semantic_ok!(&in_function(
-        "
-        local x = 1;
-        local x = 2;
         return;
     "
     ));

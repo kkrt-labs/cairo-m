@@ -1036,7 +1036,6 @@ impl LanguageServer for Backend {
                                 let kind = match def.kind {
                                     DefinitionKind::Function(_) => CompletionItemKind::FUNCTION,
                                     DefinitionKind::Parameter(_) => CompletionItemKind::VARIABLE,
-                                    DefinitionKind::Local(_) => CompletionItemKind::VARIABLE,
                                     DefinitionKind::Let(_) => CompletionItemKind::VARIABLE,
                                     DefinitionKind::Const(_) => CompletionItemKind::CONSTANT,
                                     DefinitionKind::Struct(_) => CompletionItemKind::STRUCT,

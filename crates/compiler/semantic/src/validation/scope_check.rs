@@ -102,8 +102,8 @@ impl ScopeValidator {
 
     /// Check for duplicate definitions within a scope
     ///
-    /// Variable shadowing is allowed for let/local bindings, but duplicate
-    /// function names, duplicate parameter names, and duplicate imports are errors.
+    /// Variable shadowing is allowed for let bindings, but duplicate
+    /// function names and duplicate parameter names are still errors.
     fn check_duplicate_definitions(
         &self,
         scope_id: crate::FileScopeId,

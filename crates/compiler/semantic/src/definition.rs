@@ -51,8 +51,6 @@ pub enum DefinitionKind {
     Const(ConstDefRef),
     /// Variable definition from let statement
     Let(LetDefRef),
-    /// Local variable definition
-    Local(LocalDefRef),
     /// Function parameter definition
     Parameter(ParameterDefRef),
     /// Import definition (imported symbol)
@@ -70,7 +68,6 @@ impl fmt::Display for DefinitionKind {
             Self::Struct(_) => write!(f, "struct"),
             Self::Const(_) => write!(f, "constant"),
             Self::Let(_) => write!(f, "variable"),
-            Self::Local(_) => write!(f, "local variable"),
             Self::Parameter(_) => write!(f, "parameter"),
             Self::Use(_) => write!(f, "use"),
             Self::Namespace(_) => write!(f, "namespace"),
@@ -165,47 +162,6 @@ impl LetDefRef {
             name: name.to_string(),
             value_expr_id,
             explicit_type_ast,
-            destructuring_info: None,
-        }
-    }
-
-    pub fn from_destructuring(
-        name: &str,
-        explicit_type_ast: Option<TypeExpr>,
-        value_expr_id: ExpressionId,
-        index: usize,
-    ) -> Self {
-        Self {
-            name: name.to_string(),
-            value_expr_id: Some(value_expr_id),
-            explicit_type_ast,
-            destructuring_info: Some((value_expr_id, index)),
-        }
-    }
-}
-
-/// Reference to a local variable definition
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LocalDefRef {
-    pub name: String,
-    /// The expression ID for the local's value (to be assigned during semantic analysis)
-    pub value_expr_id: Option<ExpressionId>,
-    /// Explicit type annotation, if provided
-    pub explicit_type_ast: Option<TypeExpr>,
-    /// Destructuring information: (RHS expression ID, index in tuple pattern)
-    pub destructuring_info: Option<(ExpressionId, usize)>,
-}
-
-impl LocalDefRef {
-    pub fn from_local_statement(
-        name: &str,
-        type_ast: Option<TypeExpr>,
-        value_expr_id: Option<ExpressionId>,
-    ) -> Self {
-        Self {
-            name: name.to_string(),
-            value_expr_id,
-            explicit_type_ast: type_ast,
             destructuring_info: None,
         }
     }

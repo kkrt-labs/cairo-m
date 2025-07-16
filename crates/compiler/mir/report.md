@@ -51,7 +51,7 @@ I've identified a bug (marked as TODO) in the current implementation.
 
   ```rust
   // In MirBuilder::lower_statement
-  Statement::Let { name, value, .. } | Statement::Local { name, value, .. } => {
+  Statement::Let { name, value, .. } => {
       let rhs_value = self.lower_expression(value)?;
 
       // ... resolve definition, get type, etc. ...

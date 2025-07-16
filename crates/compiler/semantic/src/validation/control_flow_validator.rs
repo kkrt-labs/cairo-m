@@ -372,7 +372,6 @@ impl ControlFlowValidator {
     const fn statement_type_name(stmt: &Statement) -> &'static str {
         match stmt {
             Statement::Let { .. } => "variable declaration",
-            Statement::Local { .. } => "local variable declaration",
             Statement::Const(_) => "constant declaration",
             Statement::Assignment { .. } => "assignment",
             Statement::Return { .. } => "return statement",
