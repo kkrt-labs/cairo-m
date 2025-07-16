@@ -5,7 +5,7 @@ fn test_loop_body_creates_new_scope() {
     // Variables declared in loop body should not be visible outside
     assert_semantic_err!(
         r#"
-        func test() {
+        fn test() {
             loop {
                 let x = 42;
                 break;
@@ -24,7 +24,7 @@ fn test_nested_loop_scopes() {
     // Each loop creates its own scope
     assert_semantic_err!(
         r#"
-        func test() {
+        fn test() {
             loop {
                 let outer = 1;
                 loop {
@@ -46,7 +46,7 @@ fn test_while_loop_scoping() {
     // While loop body creates new scope
     assert_semantic_err!(
         r#"
-        func test() {
+        fn test() {
             let condition = 1;
             while (condition) {
                 let loop_var = 42;
@@ -64,7 +64,7 @@ fn test_loop_variable_shadowing() {
     // Variables in loop can shadow outer variables
     assert_semantic_ok!(
         r#"
-        func test() {
+        fn test() {
             let x = 1;
             loop {
                 let x = 2;  // Shadows outer x
@@ -88,7 +88,7 @@ fn test_loop_scope_with_blocks() {
     // Blocks inside loops create additional scopes
     assert_semantic_err!(
         r#"
-        func test() {
+        fn test() {
             loop {
                 let loop_var = 1;
                 {

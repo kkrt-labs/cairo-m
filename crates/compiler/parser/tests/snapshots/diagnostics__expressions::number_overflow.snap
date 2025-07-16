@@ -3,12 +3,12 @@ source: crates/compiler/parser/tests/common.rs
 expression: snapshot
 ---
 --- Code ---
-func test() { 0x80000000; }
+fn test() { 0x80000000; }
 --- Diagnostics ---
 [01] Error: Invalid number '0x80000000': Number overflows 2**31 - 1
-   ╭─[ test.cairo:1:15 ]
+   ╭─[ test.cairo:1:13 ]
    │
- 1 │ func test() { 0x80000000; }
-   │               ─────┬────  
-   │                    ╰────── Invalid number '0x80000000': Number overflows 2**31 - 1
+ 1 │ fn test() { 0x80000000; }
+   │             ─────┬────  
+   │                  ╰────── Invalid number '0x80000000': Number overflows 2**31 - 1
 ───╯

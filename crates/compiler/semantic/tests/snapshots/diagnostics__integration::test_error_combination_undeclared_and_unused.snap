@@ -6,7 +6,7 @@ Fixture: semantic_tests::integration::test_error_combination_undeclared_and_unus
 ============================================================
 Source code:
 
-        func test() {
+        fn test() {
             let unused_var = 42;
             let result = undefined_var + 10;
         }
@@ -25,9 +25,9 @@ Found 2 diagnostic(s):
 
 --- Diagnostic 2 ---
 [3002] Error: Function 'test' doesn't return on all paths
-   ╭─[ semantic_tests::integration::test_error_combination_undeclared_and_unused:2:14 ]
+   ╭─[ semantic_tests::integration::test_error_combination_undeclared_and_unused:2:12 ]
    │
- 2 │         func test() {
-   │              ──┬─  
-   │                ╰─── Function 'test' doesn't return on all paths
+ 2 │         fn test() {
+   │            ──┬─  
+   │              ╰─── Function 'test' doesn't return on all paths
 ───╯

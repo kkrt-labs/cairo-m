@@ -6,7 +6,7 @@ use crate::*;
 fn test_simple_unused_variable() {
     assert_semantic_err!(
         r#"
-        func test() {
+        fn test() {
             let unused = 42;
             return ();
         }
@@ -19,7 +19,7 @@ fn test_simple_unused_variable() {
 fn test_unused_parameter() {
     assert_semantic_err!(
         r#"
-        func test(unused_param: felt) {
+        fn test(unused_param: felt) {
             return ();
         }
     "#,
@@ -31,7 +31,7 @@ fn test_unused_parameter() {
 fn test_multiple_unused_variables() {
     assert_semantic_err!(
         r#"
-        func test() {
+        fn test() {
             let unused1 = 10;
             let unused2 = 20;
             let unused3 = 30;
@@ -46,7 +46,7 @@ fn test_multiple_unused_variables() {
 fn test_mixed_used_and_unused() {
     assert_semantic_err!(
         r#"
-        func test() -> felt {
+        fn test() -> felt {
             let used = 10;
             let unused = 20;
             return used;
@@ -60,7 +60,7 @@ fn test_mixed_used_and_unused() {
 fn test_unused_in_nested_scope() {
     assert_semantic_err!(
         r#"
-        func test() -> felt {
+        fn test() -> felt {
             let used = 10;
             {
                 let unused_inner = 20;
@@ -76,7 +76,7 @@ fn test_unused_in_nested_scope() {
 fn test_variable_used_in_expression() {
     assert_semantic_ok!(
         r#"
-        func test() -> felt {
+        fn test() -> felt {
             let x = 10;
             let y = 20;
             return x + y;
@@ -89,7 +89,7 @@ fn test_variable_used_in_expression() {
 fn test_variable_used_in_assignment() {
     assert_semantic_ok!(
         r#"
-        func test() -> felt {
+        fn test() -> felt {
             let x = 10;
             let y = 20;
             y = x + 5;
@@ -103,7 +103,7 @@ fn test_variable_used_in_assignment() {
 fn test_parameter_used() {
     assert_semantic_ok!(
         r#"
-        func test(param: felt) -> felt {
+        fn test(param: felt) -> felt {
             return param + 1;
         }
     "#
@@ -117,7 +117,7 @@ fn test_unused_but_assigned() {
     // TODO: fix this one
     assert_semantic_err!(
         r#"
-        func test() {
+        fn test() {
             let unused = 10;
             unused = 20;
             return ();

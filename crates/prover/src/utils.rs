@@ -1,6 +1,6 @@
 use num_traits::{One, Zero};
 use stwo_prover::core::backend::simd::conversion::Pack;
-use stwo_prover::core::backend::simd::m31::{PackedM31, N_LANES};
+use stwo_prover::core::backend::simd::m31::{N_LANES, PackedM31};
 use stwo_prover::core::fields::m31::M31;
 
 use crate::adapter::ExecutionBundle;
@@ -86,16 +86,16 @@ impl Pack for ExecutionBundle {
                 inputs[i].instruction.prev_clock
             })),
             inst_value_0: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].instruction.value.0 .0
+                inputs[i].instruction.value.0.0
             })),
             inst_value_1: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].instruction.value.0 .1
+                inputs[i].instruction.value.0.1
             })),
             inst_value_2: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].instruction.value.1 .0
+                inputs[i].instruction.value.1.0
             })),
             inst_value_3: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].instruction.value.1 .1
+                inputs[i].instruction.value.1.1
             })),
 
             // Memory arg 1

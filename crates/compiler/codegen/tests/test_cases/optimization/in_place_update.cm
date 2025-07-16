@@ -1,4 +1,4 @@
-func test_in_place_update() -> felt {
+fn test_in_place_update() -> felt {
     let a = 5;
     a = a + 1;
     let b = 10;
@@ -6,7 +6,7 @@ func test_in_place_update() -> felt {
     return b;
 }
 
-func test_loop_optimization() -> felt {
+fn test_loop_optimization() -> felt {
     let i = 0;
     let sum = 0;
     while (i != 5) {
@@ -16,7 +16,7 @@ func test_loop_optimization() -> felt {
     return sum;
 }
 
-func main() -> felt {
+fn main() -> felt {
     let x = test_in_place_update();
     let y = test_loop_optimization();
     return x + y;

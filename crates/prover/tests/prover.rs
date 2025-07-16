@@ -2,10 +2,10 @@
 use std::collections::HashMap;
 use std::fs;
 
-use cairo_m_compiler::{compile_cairo, CompilerOptions};
+use cairo_m_compiler::{CompilerOptions, compile_cairo};
 use cairo_m_prover::adapter::memory::Memory;
-use cairo_m_prover::adapter::partial_merkle::{build_partial_merkle_tree, MockHasher};
-use cairo_m_prover::adapter::{import_from_runner_output, Instructions, MerkleTrees, ProverInput};
+use cairo_m_prover::adapter::partial_merkle::{MockHasher, build_partial_merkle_tree};
+use cairo_m_prover::adapter::{Instructions, MerkleTrees, ProverInput, import_from_runner_output};
 use cairo_m_prover::debug_tools::assert_constraints::assert_constraints;
 use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_prover::verifier::verify_cairo_m;
@@ -126,7 +126,6 @@ fn test_prove_and_verify_recursive_fibonacci_program() {
 }
 
 #[test]
-#[should_panic]
 fn test_prove_and_verify_all_opcodes() {
     let source_path = format!(
         "{}/tests/test_data/{}",
@@ -150,7 +149,6 @@ fn test_prove_and_verify_all_opcodes() {
 }
 
 #[test]
-#[should_panic]
 fn test_all_opcodes_constraints() {
     let source_path = format!(
         "{}/tests/test_data/{}",

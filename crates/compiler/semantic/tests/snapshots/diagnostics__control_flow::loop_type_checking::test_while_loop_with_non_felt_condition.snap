@@ -11,7 +11,7 @@ Source code:
             y: felt,
         }
 
-        func test() {
+        fn test() {
             let p: Point = Point { x: 1, y: 2 };
             while (p) {
                 return;
@@ -32,9 +32,9 @@ Found 2 diagnostic(s):
 
 --- Diagnostic 2 ---
 [3002] Error: Function 'test' doesn't return on all paths
-   ╭─[ semantic_tests::control_flow::loop_type_checking::test_while_loop_with_non_felt_condition:7:14 ]
+   ╭─[ semantic_tests::control_flow::loop_type_checking::test_while_loop_with_non_felt_condition:7:12 ]
    │
- 7 │         func test() {
-   │              ──┬─  
-   │                ╰─── Function 'test' doesn't return on all paths
+ 7 │         fn test() {
+   │            ──┬─  
+   │              ╰─── Function 'test' doesn't return on all paths
 ───╯

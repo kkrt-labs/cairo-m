@@ -8,7 +8,7 @@ async fn test_simple_diagnostics() {
     fixture.add_file(
         "src/main.cm",
         r#"
-func main() {
+fn main() {
     let _x = undefined_var; // This should produce an error
 }
 "#,

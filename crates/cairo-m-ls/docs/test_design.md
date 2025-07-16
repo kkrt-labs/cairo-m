@@ -156,7 +156,7 @@ async fn test_variable_type_hover() {
     test_transform!(
         HoverTransformer,
         r#"
-func main() {
+fn main() {
     let x: felt = 42;
     let y = x<caret>;
     return y;
@@ -181,13 +181,13 @@ name = "test_project"
             "main.cm" => r#"
 use math::add;
 
-func main() {
+fn main() {
     let result = <caret>add(3, 4);
     return result;
 }
 "#,
             "math.cm" => r#"
-func add(a: felt, b: felt) -> felt {
+fn add(a: felt, b: felt) -> felt {
     return a + b;
 }
 "#
@@ -234,7 +234,7 @@ async fn test_basic_diagnostics() {
     test_transform!(
         DiagnosticsTransformer,
         r#"
-func main() {
+fn main() {
     let _x = undefined_var; // This should produce an error
 }
 "#
@@ -259,8 +259,8 @@ func main() {
 let mut ls = sandbox! {
     files {
         "cairom.toml" => r#"[project]\nname = "test""#,
-        "main.cm" => "use lib::func;",
-        "lib.cm" => "fn func() {}"
+        "main.cm" => "use lib::fn;",
+        "lib.cm" => "fn fn() {}"
     }
 };
 ```
@@ -275,7 +275,7 @@ fixture.add_file(
     r#"
 use utils::helper_foo;
 
-func main() {
+fn main() {
     let result = helper_foo(42);
 }
 "#,
@@ -283,7 +283,7 @@ func main() {
 fixture.add_file(
     "utils.cm",
     r#"
-func helper_foo(x: felt) -> felt {
+fn helper_foo(x: felt) -> felt {
     return x * 2;
 }
 "#,
@@ -430,7 +430,7 @@ async fn goto_variable_definition() {
     test_transform!(
         GotoDefinition,
         r#"
-func main() {
+fn main() {
     let x = 42;
     let y = <caret>x + 1;
     return y;
@@ -480,7 +480,7 @@ async fn test_basic_diagnostics() {
     test_transform!(
         DiagnosticsTransformer,
         r#"
-func main() {
+fn main() {
     let _x = undefined_var; // This should produce an error
 }
 "#

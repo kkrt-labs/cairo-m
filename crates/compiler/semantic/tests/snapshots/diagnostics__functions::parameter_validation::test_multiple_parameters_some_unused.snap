@@ -6,7 +6,7 @@ Fixture: semantic_tests::functions::parameter_validation::test_multiple_paramete
 ============================================================
 Source code:
 
-        func test(used: felt, unused1: felt, unused2: felt) -> felt {
+        fn test(used: felt, unused1: felt, unused2: felt) -> felt {
             return used;
         }
     
@@ -15,18 +15,18 @@ Found 2 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1002] Warning: Unused variable 'unused1'
-   ╭─[ semantic_tests::functions::parameter_validation::test_multiple_parameters_some_unused:2:31 ]
+   ╭─[ semantic_tests::functions::parameter_validation::test_multiple_parameters_some_unused:2:29 ]
    │
- 2 │         func test(used: felt, unused1: felt, unused2: felt) -> felt {
-   │                               ───┬───  
-   │                                  ╰───── Unused variable 'unused1'
+ 2 │         fn test(used: felt, unused1: felt, unused2: felt) -> felt {
+   │                             ───┬───  
+   │                                ╰───── Unused variable 'unused1'
 ───╯
 
 --- Diagnostic 2 ---
 [1002] Warning: Unused variable 'unused2'
-   ╭─[ semantic_tests::functions::parameter_validation::test_multiple_parameters_some_unused:2:46 ]
+   ╭─[ semantic_tests::functions::parameter_validation::test_multiple_parameters_some_unused:2:44 ]
    │
- 2 │         func test(used: felt, unused1: felt, unused2: felt) -> felt {
-   │                                              ───┬───  
-   │                                                 ╰───── Unused variable 'unused2'
+ 2 │         fn test(used: felt, unused1: felt, unused2: felt) -> felt {
+   │                                            ───┬───  
+   │                                               ╰───── Unused variable 'unused2'
 ───╯

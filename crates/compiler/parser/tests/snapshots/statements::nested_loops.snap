@@ -3,7 +3,7 @@ source: crates/compiler/parser/tests/common.rs
 expression: snapshot
 ---
 --- Code ---
-func test() { while (outer) { for inner in items { if (found) { break; } } } }
+fn test() { while (outer) { for inner in items { if (found) { break; } } } }
 --- AST ---
 [
     Function(
@@ -11,7 +11,7 @@ func test() { while (outer) { for inner in items { if (found) { break; } } } }
             FunctionDef {
                 name: Spanned(
                     "test",
-                    5..9,
+                    3..7,
                 ),
                 params: [],
                 return_type: Tuple(
@@ -24,10 +24,10 @@ func test() { while (outer) { for inner in items { if (found) { break; } } } }
                                 Identifier(
                                     Spanned(
                                         "outer",
-                                        21..26,
+                                        19..24,
                                     ),
                                 ),
-                                21..26,
+                                19..24,
                             ),
                             body: Spanned(
                                 Block(
@@ -36,16 +36,16 @@ func test() { while (outer) { for inner in items { if (found) { break; } } } }
                                             For {
                                                 variable: Spanned(
                                                     "inner",
-                                                    34..39,
+                                                    32..37,
                                                 ),
                                                 iterable: Spanned(
                                                     Identifier(
                                                         Spanned(
                                                             "items",
-                                                            43..48,
+                                                            41..46,
                                                         ),
                                                     ),
-                                                    43..48,
+                                                    41..46,
                                                 ),
                                                 body: Spanned(
                                                     Block(
@@ -56,43 +56,43 @@ func test() { while (outer) { for inner in items { if (found) { break; } } } }
                                                                         Identifier(
                                                                             Spanned(
                                                                                 "found",
-                                                                                55..60,
+                                                                                53..58,
                                                                             ),
                                                                         ),
-                                                                        55..60,
+                                                                        53..58,
                                                                     ),
                                                                     then_block: Spanned(
                                                                         Block(
                                                                             [
                                                                                 Spanned(
                                                                                     Break,
-                                                                                    64..70,
+                                                                                    62..68,
                                                                                 ),
                                                                             ],
                                                                         ),
-                                                                        62..72,
+                                                                        60..70,
                                                                     ),
                                                                     else_block: None,
                                                                 },
-                                                                51..72,
+                                                                49..70,
                                                             ),
                                                         ],
                                                     ),
-                                                    49..74,
+                                                    47..72,
                                                 ),
                                             },
-                                            30..74,
+                                            28..72,
                                         ),
                                     ],
                                 ),
-                                28..76,
+                                26..74,
                             ),
                         },
-                        14..76,
+                        12..74,
                     ),
                 ],
             },
-            0..78,
+            0..76,
         ),
     ),
 ]

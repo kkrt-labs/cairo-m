@@ -6,7 +6,7 @@ Fixture: semantic_tests::functions::tuple_destructuring::test_tuple_destructurin
 ============================================================
 Source code:
 
-        func test() {
+        fn test() {
             let (x, y): felt = (1, 2); // Error: Expected felt, found tuple
         }
         
@@ -24,9 +24,9 @@ Found 2 diagnostic(s):
 
 --- Diagnostic 2 ---
 [3002] Error: Function 'test' doesn't return on all paths
-   ╭─[ semantic_tests::functions::tuple_destructuring::test_tuple_destructuring_wrong_type_annotation:2:14 ]
+   ╭─[ semantic_tests::functions::tuple_destructuring::test_tuple_destructuring_wrong_type_annotation:2:12 ]
    │
- 2 │         func test() {
-   │              ──┬─  
-   │                ╰─── Function 'test' doesn't return on all paths
+ 2 │         fn test() {
+   │            ──┬─  
+   │              ╰─── Function 'test' doesn't return on all paths
 ───╯

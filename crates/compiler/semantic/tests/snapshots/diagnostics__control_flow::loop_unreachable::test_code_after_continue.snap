@@ -6,7 +6,7 @@ Fixture: semantic_tests::control_flow::loop_unreachable::test_code_after_continu
 ============================================================
 Source code:
 
-        func test() {
+        fn test() {
             loop {
                 continue;
                 let x = 1;  // Unreachable

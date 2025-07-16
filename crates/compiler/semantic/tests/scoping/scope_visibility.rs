@@ -6,7 +6,7 @@ use crate::*;
 fn test_basic_scope_visibility() {
     assert_semantic_ok!(
         r#"
-        func test() -> felt {
+        fn test() -> felt {
             let outer = 1;
             {
                 let inner = outer + 1; // OK: outer is visible
@@ -21,7 +21,7 @@ fn test_basic_scope_visibility() {
 fn test_inner_scope_not_visible_outside() {
     assert_semantic_err!(
         r#"
-        func test() {
+        fn test() {
             {
                 let inner = 42;
             }
@@ -35,7 +35,7 @@ fn test_inner_scope_not_visible_outside() {
 fn test_nested_scope_access() {
     assert_semantic_ok!(
         r#"
-        func test() -> felt {
+        fn test() -> felt {
             let level1 = 1;
             {
                 let level2 = level1 + 1; // OK: level1 visible
@@ -53,7 +53,7 @@ fn test_nested_scope_access() {
 fn test_sibling_scopes_not_visible() {
     assert_semantic_err!(
         r#"
-        func test() {
+        fn test() {
             {
                 let first_scope = 1;
             }
@@ -69,7 +69,7 @@ fn test_sibling_scopes_not_visible() {
 fn test_parameter_visible_in_function() {
     assert_semantic_ok!(
         r#"
-        func test(param: felt) -> felt {
+        fn test(param: felt) -> felt {
             let var =  param + 1;
             return var;
         }
@@ -81,7 +81,7 @@ fn test_parameter_visible_in_function() {
 fn test_parameter_visible_in_nested_scopes() {
     assert_semantic_ok!(
         r#"
-        func test(param: felt) -> felt {
+        fn test(param: felt) -> felt {
             {
                 let inner = param + 1; // OK: param visible
                 {
@@ -99,7 +99,7 @@ fn test_parameter_visible_in_nested_scopes() {
 fn test_if_statement_scope() {
     assert_semantic_err!(
         r#"
-        func test() {
+        fn test() {
             if (true) {
                 let if_var = 42;
             }
@@ -114,7 +114,7 @@ fn test_variable_shadowing_different_scopes() {
     // This should be OK - different scopes can have same variable names
     assert_semantic_ok!(
         r#"
-        func test() -> felt {
+        fn test() -> felt {
             let x = 1;
             {
                 let x = 2; // OK: different scope
@@ -129,7 +129,7 @@ fn test_variable_shadowing_different_scopes() {
 fn test_complex_nested_visibility() {
     assert_semantic_err!(
         r#"
-        func test() {
+        fn test() {
             let outer = 1;
             {
                 let middle = outer + 1; // OK

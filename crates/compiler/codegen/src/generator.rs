@@ -135,6 +135,9 @@ impl CodeGenerator {
 
         self.label_counter += builder.label_counter();
 
+        // Remove duplicate offsets
+        let _ = builder.resolve_duplicate_offsets();
+
         // Fix label addresses to be relative to the global instruction stream
         let instruction_offset = self.instructions.len();
         let mut corrected_labels = builder.labels().to_vec();
@@ -143,6 +146,7 @@ impl CodeGenerator {
                 label.address = Some(local_addr + instruction_offset);
             }
         }
+
         // Append generated instructions and corrected labels
         self.instructions
             .extend(builder.instructions().iter().cloned());

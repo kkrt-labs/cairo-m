@@ -1,4 +1,4 @@
-func test_nested_loops() -> felt {
+fn test_nested_loops() -> felt {
     let result = 0;
     let i = 0;
 

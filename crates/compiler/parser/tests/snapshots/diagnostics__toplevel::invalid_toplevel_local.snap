@@ -5,10 +5,10 @@ expression: snapshot
 --- Code ---
 local x: felt = 42;
 --- Diagnostics ---
-[02] Error: found 'local' expected 'func', 'struct', 'const', 'namespace', 'use', or end of input
+[02] Error: found 'local' expected 'fn', 'struct', 'const', 'namespace', 'use', or end of input
    ╭─[ test.cairo:1:1 ]
    │
  1 │ local x: felt = 42;
    │ ──┬──  
-   │   ╰──── found 'local' expected 'func', 'struct', 'const', 'namespace', 'use', or end of input
+   │   ╰──── found 'local' expected 'fn', 'struct', 'const', 'namespace', 'use', or end of input
 ───╯

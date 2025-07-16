@@ -6,7 +6,7 @@ Fixture: semantic_tests::control_flow::missing_returns::test_missing_return_simp
 ============================================================
 Source code:
 
-        func test() -> felt {
+        fn test() -> felt {
             let x = 42;
             // Missing return statement
         }
@@ -16,9 +16,9 @@ Found 1 diagnostic(s):
 
 --- Diagnostic 1 ---
 [3002] Error: Function 'test' doesn't return on all paths
-   ╭─[ semantic_tests::control_flow::missing_returns::test_missing_return_simple:2:14 ]
+   ╭─[ semantic_tests::control_flow::missing_returns::test_missing_return_simple:2:12 ]
    │
- 2 │         func test() -> felt {
-   │              ──┬─  
-   │                ╰─── Function 'test' doesn't return on all paths
+ 2 │         fn test() -> felt {
+   │            ──┬─  
+   │              ╰─── Function 'test' doesn't return on all paths
 ───╯

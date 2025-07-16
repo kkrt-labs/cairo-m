@@ -172,8 +172,8 @@ mod tests {
         let src_dir = temp_dir.path().join("src");
         fs::create_dir_all(&src_dir).unwrap();
 
-        fs::write(src_dir.join("main.cm"), "func main() {}").unwrap();
-        fs::write(src_dir.join("math.cm"), "func add() {}").unwrap();
+        fs::write(src_dir.join("main.cm"), "fn main() {}").unwrap();
+        fs::write(src_dir.join("math.cm"), "fn add() {}").unwrap();
         fs::write(src_dir.join("README.md"), "# Test").unwrap(); // Should be ignored
 
         let config = ProjectDiscoveryConfig::default();

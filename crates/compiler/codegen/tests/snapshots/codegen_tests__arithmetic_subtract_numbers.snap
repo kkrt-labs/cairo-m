@@ -9,11 +9,12 @@ expression: codegen_output
 Fixture: subtract_numbers.cm
 ============================================================
 Source code:
-func subtract_numbers() -> felt {
+fn subtract_numbers() -> felt {
     let a = 100;
     let b = 25;
     return a - b;
 }
+
 ============================================================
 Generated CASM:
 subtract_numbers:

@@ -10,17 +10,18 @@ Fixture: single_arg_optimization.cm
 ============================================================
 Source code:
 // Test the optimization for a single argument case
-func increment(x: felt) -> felt {
+fn increment(x: felt) -> felt {
     return x + 1;
 }
 
-func test_single_arg() -> felt {
+fn test_single_arg() -> felt {
     // n is allocated at [fp + 0], and when we call increment(n),
     // it's already at the top of the stack, so no copy is needed
     let n = 10;
     let result = increment(n);
     return result;
 }
+
 ============================================================
 Generated CASM:
 increment:

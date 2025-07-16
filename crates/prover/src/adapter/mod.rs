@@ -5,19 +5,19 @@ pub mod partial_merkle;
 use std::collections::HashMap;
 use std::path::Path;
 
+use cairo_m_common::State as VmRegisters;
 use cairo_m_common::opcode::Opcode;
 use cairo_m_common::state::MemoryEntry as RunnerMemoryEntry;
-use cairo_m_common::State as VmRegisters;
 use cairo_m_runner::RunnerOutput;
 use io::VmImportError;
 pub use memory::ExecutionBundle;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
-use tracing::{span, Level};
+use tracing::{Level, span};
 
 use crate::adapter::io::{MemoryEntryFileIter, TraceFileIter};
 use crate::adapter::memory::{ExecutionBundleIterator, Memory};
-use crate::adapter::partial_merkle::{build_partial_merkle_tree, MockHasher, NodeData};
+use crate::adapter::partial_merkle::{MockHasher, NodeData, build_partial_merkle_tree};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ProverInput {

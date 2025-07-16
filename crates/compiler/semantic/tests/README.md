@@ -100,7 +100,7 @@ fn test_unused_variable_error() {
 #[test]
 fn test_with_helper_function() {
     assert_semantic_ok!(&with_functions(
-        "func helper() -> felt { return 42; }",
+        "fn helper() -> felt { return 42; }",
         &in_function("let x = helper(); return x;")
     ));
 }

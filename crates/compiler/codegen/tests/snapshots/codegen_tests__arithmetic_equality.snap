@@ -9,7 +9,7 @@ expression: codegen_output
 Fixture: equality.cm
 ============================================================
 Source code:
-func main() -> felt {
+fn main() -> felt {
     let a = 1;
     let b = 0;
     let c = a == b;
@@ -29,14 +29,12 @@ main:
 not_zero_0:
    6: 6 0 _ 2              // [fp + 2] = 0
 end_1:
-   7: 4 2 _ 3              // Store: [fp + 3] = [fp + 2]
-   8: 3 0 0 4              // [fp + 4] = [fp + 0] op 0
-   9: 15 4 3 _             // if [fp + 4] != 0, jump to not_zero_2
-  10: 6 1 _ 4              // [fp + 4] = 1
-  11: 13 13 _ _            // jump to end_3
+   7: 3 0 0 3              // [fp + 3] = [fp + 0] op 0
+   8: 15 3 3 _             // if [fp + 3] != 0, jump to not_zero_2
+   9: 6 1 _ 3              // [fp + 3] = 1
+  10: 13 12 _ _            // jump to end_3
 not_zero_2:
-  12: 6 0 _ 4              // [fp + 4] = 0
+  11: 6 0 _ 3              // [fp + 3] = 0
 end_3:
-  13: 4 4 _ 5              // Store: [fp + 5] = [fp + 4]
-  14: 0 3 5 -3             // [fp + -3] = [fp + 3] op [fp + 5]
-  15: 12 _ _ _             // return
+  12: 0 2 3 -3             // [fp + -3] = [fp + 2] op [fp + 3]
+  13: 12 _ _ _             // return

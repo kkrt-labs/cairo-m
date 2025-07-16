@@ -157,7 +157,7 @@ Test helpers:
 ### Language Features Supported
 
 - Functions with parameters and return types
-- Local variables (`let` and `local` bindings)
+- Local variables (`let bindings)
 - Control flow (`if`/`else` statements)
 - Basic types (`felt`)
 - Arithmetic and comparison operations

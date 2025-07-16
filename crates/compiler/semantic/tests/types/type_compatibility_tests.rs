@@ -9,7 +9,7 @@ use crate::{crate_from_program, get_maybe_main_semantic_index, test_db};
 #[test]
 fn test_basic_type_compatibility() {
     let source = r#"
-        func test() {
+        fn test() {
             let a: felt = 42;
             let b: felt = a; // felt should be compatible with felt
         }
@@ -39,7 +39,7 @@ fn test_struct_type_compatibility() {
             y: felt,
         }
 
-        func test() {
+        fn test() {
             let p: Point = Point { x: 1, y: 2 };
             let v: Vector = Vector { x: 3, y: 4 };
         }
@@ -70,7 +70,7 @@ fn test_struct_type_compatibility() {
 #[test]
 fn test_error_type_handling() {
     let source = r#"
-        func test() {
+        fn test() {
             let x: BadType = 1; // BadType doesn't exist
             let y = x;          // y should get error type
             let z = y + 1;      // z should also get error type
@@ -110,15 +110,15 @@ fn test_error_type_handling() {
 #[test]
 fn test_function_type_handling() {
     let source = r#"
-        func add(a: felt, b: felt) -> felt {
+        fn add(a: felt, b: felt) -> felt {
             return a + b;
         }
 
-        func multiply(x: felt, y: felt) -> felt {
+        fn multiply(x: felt, y: felt) -> felt {
             return x * y;
         }
 
-        func single_param(x: felt) -> felt {
+        fn single_param(x: felt) -> felt {
             return x;
         }
     "#;
@@ -163,7 +163,7 @@ fn test_nested_type_handling() {
             inner: Container,
         }
 
-        func test() {
+        fn test() {
             let c: Container = Container { value: 42 };
             let w: Wrapper = Wrapper { inner: c };
         }
@@ -203,7 +203,7 @@ fn test_type_error_recovery() {
             field: felt,
         }
 
-        func test() {
+        fn test() {
             let good: Valid = Valid { field: 42 };
             let bad: InvalidType = good;  // Type error
             let nested = bad.nonexistent_field; // Should not crash
@@ -237,7 +237,7 @@ fn test_type_error_recovery() {
 #[test]
 fn test_mixed_valid_and_error_types() {
     let source = r#"
-        func test() -> felt {
+        fn test() -> felt {
             let x: UnknownType = 42;
             let y: felt = 10;
             return x + y; // Should handle mixed error/valid types
@@ -266,7 +266,7 @@ fn test_mixed_valid_and_error_types() {
 #[test]
 fn test_type_compatibility_reflexivity() {
     let source = r#"
-        func test() {
+        fn test() {
             let a: felt = 42;
             let b: felt = a; // Same type should be compatible
         }
@@ -291,13 +291,13 @@ fn test_complex_type_scenario() {
             y: felt,
         }
 
-        func distance(p1: Point, p2: Point) -> felt {
+        fn distance(p1: Point, p2: Point) -> felt {
             let dx = p1.x - p2.x;
             let dy = p1.y - p2.y;
             return dx * dx + dy * dy;
         }
 
-        func test() {
+        fn test() {
             let origin: Point = Point { x: 0, y: 0 };
             let point: Point = Point { x: 3, y: 4 };
             let dist = distance(origin, point);

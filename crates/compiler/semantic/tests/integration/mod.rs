@@ -12,21 +12,21 @@ pub mod multi_file_test;
 fn test_complete_program_with_multiple_functions() {
     assert_semantic_ok!(
         r#"
-        func add(a: felt, b: felt) -> felt {
+        fn add(a: felt, b: felt) -> felt {
             return a + b;
         }
 
-        func multiply(a: felt, b: felt) -> felt {
+        fn multiply(a: felt, b: felt) -> felt {
             return a * b;
         }
 
-        func calculate(x: felt, y: felt) -> felt {
+        fn calculate(x: felt, y: felt) -> felt {
             let sum = add(x, y);
             let product = multiply(sum, 2);
             return product;
         }
 
-        func main() -> felt {
+        fn main() -> felt {
             let result = calculate(10, 20);
             return result;
         }
@@ -40,15 +40,15 @@ fn test_program_with_structs_and_functions() {
         "Point",
         "x: felt, y: felt",
         r#"
-        func create_point(x: felt, y: felt) -> Point {
+        fn create_point(x: felt, y: felt) -> Point {
             return Point { x: x, y: y };
         }
 
-        func distance_squared(p: Point) -> felt {
+        fn distance_squared(p: Point) -> felt {
             return p.x * p.x + p.y * p.y;
         }
 
-        func main() -> felt {
+        fn main() -> felt {
             let point = create_point(3, 4);
             return distance_squared(point);
         }
@@ -62,7 +62,7 @@ fn test_complex_control_flow_integration() {
     // TODO: fix this when support for arrays is added
     assert_semantic_ok!(
         r#"
-        func process_number(n: felt) -> felt {
+        fn process_number(n: felt) -> felt {
             if (n == 0) {
                 return n / 2;
             } else {
@@ -70,7 +70,7 @@ fn test_complex_control_flow_integration() {
             }
         }
 
-        func main() -> felt {
+        fn main() -> felt {
             let numbers: felt* = [1, 2, 3, 4, 5];
             let result = 0;
 
@@ -90,7 +90,7 @@ fn test_error_combination_undeclared_and_unused() {
     // This should catch both undeclared variable and unused variable errors
     assert_semantic_err!(
         r#"
-        func test() {
+        fn test() {
             let unused_var = 42;
             let result = undefined_var + 10;
         }
@@ -102,11 +102,11 @@ fn test_error_combination_undeclared_and_unused() {
 fn test_nested_scopes_with_function_calls() {
     assert_semantic_ok!(
         r#"
-        func helper(x: felt) -> felt {
+        fn helper(x: felt) -> felt {
             return x * 2;
         }
 
-        func complex_function(param: felt) -> felt {
+        fn complex_function(param: felt) -> felt {
             let outer = param;
             {
                 let middle = helper(outer);
@@ -121,7 +121,7 @@ fn test_nested_scopes_with_function_calls() {
             }
         }
 
-        func main() -> felt {
+        fn main() -> felt {
             return complex_function(10);
         }
     "#
@@ -133,12 +133,12 @@ fn test_comprehensive_error_detection() {
     // Test that multiple types of errors are detected in one program
     assert_semantic_err!(
         r#"
-        func helper(x: felt) -> felt {
+        fn helper(x: felt) -> felt {
             let unused = 42; // Unused variable
             return undefined_var; // Undeclared variable
         }
 
-        func test() -> felt {
+        fn test() -> felt {
             let shadowed = 1;
             let shadowed = 2;
 

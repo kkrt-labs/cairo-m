@@ -3,7 +3,7 @@ source: crates/compiler/parser/tests/common.rs
 expression: snapshot
 ---
 --- Code ---
-func test() { let (sum, diff) = (a + b, a - b); }
+fn test() { let (sum, diff) = (a + b, a - b); }
 --- AST ---
 [
     Function(
@@ -11,7 +11,7 @@ func test() { let (sum, diff) = (a + b, a - b); }
             FunctionDef {
                 name: Spanned(
                     "test",
-                    5..9,
+                    3..7,
                 ),
                 params: [],
                 return_type: Tuple(
@@ -24,11 +24,11 @@ func test() { let (sum, diff) = (a + b, a - b); }
                                 [
                                     Spanned(
                                         "sum",
-                                        19..22,
+                                        17..20,
                                     ),
                                     Spanned(
                                         "diff",
-                                        24..28,
+                                        22..26,
                                     ),
                                 ],
                             ),
@@ -43,22 +43,22 @@ func test() { let (sum, diff) = (a + b, a - b); }
                                                     Identifier(
                                                         Spanned(
                                                             "a",
-                                                            33..34,
+                                                            31..32,
                                                         ),
                                                     ),
-                                                    33..34,
+                                                    31..32,
                                                 ),
                                                 right: Spanned(
                                                     Identifier(
                                                         Spanned(
                                                             "b",
-                                                            37..38,
+                                                            35..36,
                                                         ),
                                                     ),
-                                                    37..38,
+                                                    35..36,
                                                 ),
                                             },
-                                            33..38,
+                                            31..36,
                                         ),
                                         Spanned(
                                             BinaryOp {
@@ -67,33 +67,33 @@ func test() { let (sum, diff) = (a + b, a - b); }
                                                     Identifier(
                                                         Spanned(
                                                             "a",
-                                                            40..41,
+                                                            38..39,
                                                         ),
                                                     ),
-                                                    40..41,
+                                                    38..39,
                                                 ),
                                                 right: Spanned(
                                                     Identifier(
                                                         Spanned(
                                                             "b",
-                                                            44..45,
+                                                            42..43,
                                                         ),
                                                     ),
-                                                    44..45,
+                                                    42..43,
                                                 ),
                                             },
-                                            40..45,
+                                            38..43,
                                         ),
                                     ],
                                 ),
-                                32..46,
+                                30..44,
                             ),
                         },
-                        14..47,
+                        12..45,
                     ),
                 ],
             },
-            0..49,
+            0..47,
         ),
     ),
 ]

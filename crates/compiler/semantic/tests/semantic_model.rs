@@ -81,7 +81,7 @@ where
 #[test]
 fn test_use_def_resolution_simple() {
     let source = r#"
-        func main() {
+        fn main() {
             let x = 42; // Definition
             let y = x;  // Usage
         }
@@ -117,7 +117,7 @@ fn test_use_def_resolution_across_scopes() {
     let source = r#"
         const global_var = 100;
 
-        func test() {
+        fn test() {
             let local_var = global_var; // Usage of global_var
             return local_var;           // Usage of local_var
         }
@@ -171,7 +171,7 @@ fn test_use_def_resolution_across_scopes() {
 fn test_scope_hierarchy_correctness() {
     let source = r#"
         namespace Math {
-            func square(x: felt) -> felt {
+            fn square(x: felt) -> felt {
                 let result = x * x;
                 return result;
             }
@@ -222,7 +222,7 @@ fn test_scope_hierarchy_correctness() {
 #[test]
 fn test_symbol_table_flags() {
     let source = r#"
-        func test(param: felt) {
+        fn test(param: felt) {
             let used_var = 1;
             let unused_var = 2;
             return used_var + param;
@@ -265,7 +265,7 @@ fn test_symbol_table_flags() {
 
 #[test]
 fn test_span_to_scope_mapping() {
-    let source = r#"func test() { let x = 1; }"#;
+    let source = r#"fn test() { let x = 1; }"#;
 
     with_semantic_index(source, |_db, _file, index| {
         // The exact spans depend on the parser, but we can verify the mapping exists
@@ -298,7 +298,7 @@ fn test_span_to_scope_mapping() {
 #[test]
 fn test_expression_tracking() {
     let source = r#"
-        func test() {
+        fn test() {
             let a = 42;
             let b = a + 1;
             return b;
@@ -345,7 +345,7 @@ fn test_definition_completeness() {
             y: felt,
         }
 
-        func distance(p1: Point, p2: Point) -> felt {
+        fn distance(p1: Point, p2: Point) -> felt {
             let dx = p1.x - p2.x;
             return dx;
         }
@@ -397,7 +397,7 @@ fn test_definition_completeness() {
 #[test]
 fn test_unresolved_identifier_tracking() {
     let source = r#"
-        func test() {
+        fn test() {
             let x = undefined_variable; // This should be tracked as unresolved
         }
     "#;
@@ -433,7 +433,7 @@ fn test_nested_scope_name_resolution() {
     let source = r#"
         const outer = 1;
 
-        func test() {
+        fn test() {
             let inner = 2;
             let combined = outer + inner; // Uses both outer and inner
         }
@@ -483,7 +483,7 @@ fn test_nested_scope_name_resolution() {
 fn test_variable_shadowing_resolution() {
     let source = r#"
         const x = 1; // Outer x
-        func test() {
+        fn test() {
             let x = 2; // Inner x, shadows outer
             let y = x; // This should resolve to the inner x
         }
@@ -577,7 +577,7 @@ fn test_variable_shadowing_resolution() {
 #[test]
 fn test_same_scope_shadowing_resolution() {
     let source = r#"
-        func test() -> felt {
+        fn test() -> felt {
             let x = 10;     // First definition
             let y = x;      // Uses first x (10)
             let x = 20;     // Shadows x in same scope

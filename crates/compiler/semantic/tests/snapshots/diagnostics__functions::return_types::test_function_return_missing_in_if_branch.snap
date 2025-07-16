@@ -6,7 +6,7 @@ Fixture: semantic_tests::functions::return_types::test_function_return_missing_i
 ============================================================
 Source code:
 
-        func test(x: felt) -> felt {
+        fn test(x: felt) -> felt {
             if (x == 0) {
                 return x;
             }
@@ -18,9 +18,9 @@ Found 1 diagnostic(s):
 
 --- Diagnostic 1 ---
 [3002] Error: Function 'test' doesn't return on all paths
-   ╭─[ semantic_tests::functions::return_types::test_function_return_missing_in_if_branch:2:14 ]
+   ╭─[ semantic_tests::functions::return_types::test_function_return_missing_in_if_branch:2:12 ]
    │
- 2 │         func test(x: felt) -> felt {
-   │              ──┬─  
-   │                ╰─── Function 'test' doesn't return on all paths
+ 2 │         fn test(x: felt) -> felt {
+   │            ──┬─  
+   │              ╰─── Function 'test' doesn't return on all paths
 ───╯

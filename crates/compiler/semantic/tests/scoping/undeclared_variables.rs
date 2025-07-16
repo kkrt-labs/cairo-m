@@ -6,7 +6,7 @@ use crate::*;
 fn test_simple_undeclared_variable() {
     assert_semantic_err!(
         r#"
-        func test() {
+        fn test() {
             let x = undefined_var;
         }
     "#
@@ -17,7 +17,7 @@ fn test_simple_undeclared_variable() {
 fn test_undeclared_in_expression() {
     assert_semantic_err!(
         r#"
-        func test() {
+        fn test() {
             let x = 5;
             let y = x + undefined_var;
         }
@@ -29,7 +29,7 @@ fn test_undeclared_in_expression() {
 fn test_undeclared_in_return() {
     assert_semantic_err!(
         r#"
-        func test() -> felt {
+        fn test() -> felt {
             return undefined_var;
         }
     "#
@@ -40,11 +40,11 @@ fn test_undeclared_in_return() {
 fn test_undeclared_in_function_call() {
     assert_semantic_err!(
         r#"
-        func valid_func(x: felt) -> felt {
+        fn valid_func(x: felt) -> felt {
             return x;
         }
 
-        func test() {
+        fn test() {
             let result = valid_func(undefined_var);
         }
     "#
@@ -55,7 +55,7 @@ fn test_undeclared_in_function_call() {
 fn test_undeclared_function_call() {
     assert_semantic_err!(
         r#"
-        func test() {
+        fn test() {
             let result = undefined_function(42);
         }
     "#
@@ -66,7 +66,7 @@ fn test_undeclared_function_call() {
 fn test_multiple_undeclared_variables() {
     assert_semantic_err!(
         r#"
-        func test() {
+        fn test() {
             let x = first_undefined;
             let y = second_undefined;
             let z = x + y + third_undefined;
@@ -79,7 +79,7 @@ fn test_multiple_undeclared_variables() {
 fn test_undeclared_in_if_condition() {
     assert_semantic_err!(
         r#"
-        func test() {
+        fn test() {
             if (undefined_condition) {
                 let x = 1;
             }
@@ -92,7 +92,7 @@ fn test_undeclared_in_if_condition() {
 fn test_undeclared_in_assignment() {
     assert_semantic_err!(
         r#"
-        func test() {
+        fn test() {
             let x = 5;
             x = undefined_var;
         }
@@ -104,7 +104,7 @@ fn test_undeclared_in_assignment() {
 fn test_declared_variable_ok() {
     assert_semantic_ok!(
         r#"
-        func test() -> felt {
+        fn test() -> felt {
             let x = 5;
             let y = x + 10;
             return y;
@@ -117,7 +117,7 @@ fn test_declared_variable_ok() {
 fn test_parameter_usage_ok() {
     assert_semantic_ok!(
         r#"
-        func test(param: felt) -> felt {
+        fn test(param: felt) -> felt {
             let variable = param + 1;
             return variable;
         }

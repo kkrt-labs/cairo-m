@@ -6,7 +6,7 @@ async fn goto_variable_definition() {
     test_transform!(
         GotoDefinition,
         r#"
-func main() {
+fn main() {
     let x = 42;
     let y = <caret>x + 1;
     return y;
@@ -20,11 +20,11 @@ async fn goto_function_definition() {
     test_transform!(
         GotoDefinition,
         r#"
-func add(a: felt, b: felt) -> felt {
+fn add(a: felt, b: felt) -> felt {
     return a + b;
 }
 
-func main() {
+fn main() {
     let result = <caret>add(3, 4);
     return result;
 }
@@ -37,7 +37,7 @@ async fn goto_parameter_definition() {
     test_transform!(
         GotoDefinition,
         r#"
-func calculate(value: felt) -> felt {
+fn calculate(value: felt) -> felt {
     return <caret>value * 2;
 }
 "#
@@ -54,7 +54,7 @@ struct Point {
     y: felt,
 }
 
-func main() {
+fn main() {
     let p: <caret>Point = Point { x: 1, y: 2 };
     return p;
 }
@@ -72,7 +72,7 @@ struct Rectangle {
     height: felt,
 }
 
-func main() {
+fn main() {
     let rect = Rectangle { width: 10, height: 20 };
     let w = rect.<caret>width;
     return w;
@@ -86,7 +86,7 @@ async fn goto_local_in_block() {
     test_transform!(
         GotoDefinition,
         r#"
-func main() {
+fn main() {
     let outer = 1;
     {
         let inner = 2;
@@ -103,7 +103,7 @@ async fn goto_loop_variable() {
     test_transform!(
         GotoDefinition,
         r#"
-func main() {
+fn main() {
     for i in 0..10 {
         let doubled = <caret>i * 2;
     }
@@ -117,7 +117,7 @@ async fn goto_shadowed_variable() {
     test_transform!(
         GotoDefinition,
         r#"
-func main() {
+fn main() {
     let x = 1;
     let x = 2;
     let y = <caret>x + 1;  // Should go to the second definition
@@ -132,7 +132,7 @@ async fn no_definition_for_keyword() {
     test_transform!(
         GotoDefinition,
         r#"
-func main() {
+fn main() {
     <caret>let x = 42;
     return x;
 }
@@ -145,7 +145,7 @@ async fn no_definition_for_literal() {
     test_transform!(
         GotoDefinition,
         r#"
-func main() {
+fn main() {
     let x = <caret>42;
 }
 "#
@@ -157,15 +157,15 @@ async fn goto_function_in_call_chain() {
     test_transform!(
         GotoDefinition,
         r#"
-func first() -> felt {
+fn first() -> felt {
     1
 }
 
-func second() -> felt {
+fn second() -> felt {
     2
 }
 
-func main() {
+fn main() {
     let x = <caret>first() + second();
 }
 "#
@@ -177,8 +177,8 @@ async fn goto_nested_function_definition() {
     test_transform!(
         GotoDefinition,
         r#"
-func outer() {
-    func inner() -> felt {
+fn outer() {
+    fn inner() -> felt {
         42
     }
 

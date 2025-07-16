@@ -60,7 +60,7 @@ fn test_recursive_struct_with_pointers() {
 #[test]
 fn test_error_type_propagation() {
     let source = r#"
-        func test() {
+        fn test() {
             let x: BadType = 1; // BadType doesn't exist
             let y = x;          // y should get error type
             let z = y + 1;      // z should also get error type
@@ -149,7 +149,7 @@ fn test_deeply_nested_error_recovery() {
             field: felt,
         }
 
-        func test() {
+        fn test() {
             let good: Valid = Valid { field: 42 };
             let bad: InvalidType = good;  // Type error
             let nested = bad.nonexistent_field; // Should not crash
@@ -184,7 +184,7 @@ fn test_deeply_nested_error_recovery() {
 #[test]
 fn test_type_error_in_expression_context() {
     let source = r#"
-        func test() -> felt {
+        fn test() -> felt {
             let x: UnknownType = 42;
             let y: felt = 10;
             return x + y; // Should handle mixed error/valid types
@@ -254,7 +254,7 @@ fn test_recursive_type_alias() {
 #[test]
 fn test_error_type_compatibility() {
     let source = r#"
-        func test() {
+        fn test() {
             let x: BadType1 = 1;
             let y: BadType2 = 2;
             let z = x + y; // Two error types in operation
@@ -318,7 +318,7 @@ fn test_complex_recursive_scenario() {
             parent: TreeNode*,
         }
 
-        func traverse(node: TreeNode*) -> felt {
+        fn traverse(node: TreeNode*) -> felt {
             if (node == null) {
                 return 0;
             }

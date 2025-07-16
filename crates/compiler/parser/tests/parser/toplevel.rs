@@ -6,49 +6,49 @@ use crate::{assert_parses_err, assert_parses_ok};
 
 #[test]
 fn simple_function() {
-    assert_parses_ok!("func add(a: felt, b: felt) -> felt { return a + b; }");
+    assert_parses_ok!("fn add(a: felt, b: felt) -> felt { return a + b; }");
 }
 
 #[test]
 fn function_no_params() {
-    assert_parses_ok!("func get_constant() -> felt { return 42; }");
+    assert_parses_ok!("fn get_constant() -> felt { return 42; }");
 }
 
 #[test]
 fn function_no_return() {
-    assert_parses_ok!("func print_hello() { let msg = hello; }");
+    assert_parses_ok!("fn print_hello() { let msg = hello; }");
 }
 
 #[test]
 fn function_multiple_params() {
-    assert_parses_ok!("func complex(a: felt, b: felt*, c: (felt, felt)) { }");
+    assert_parses_ok!("fn complex(a: felt, b: felt*, c: (felt, felt)) { }");
 }
 
 #[test]
 fn many_parameters() {
     assert_parses_ok!(
-        "func complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStruct*) -> (felt, felt) { return (a, b); }"
+        "fn complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStruct*) -> (felt, felt) { return (a, b); }"
     );
 }
 
 #[test]
 fn trailing_comma_function_params() {
-    assert_parses_ok!("func test(a: felt, b: felt,) { }");
+    assert_parses_ok!("fn test(a: felt, b: felt,) { }");
 }
 
 #[test]
 fn missing_function_name() {
-    assert_parses_err!("func (a: felt) -> felt { }");
+    assert_parses_err!("fn (a: felt) -> felt { }");
 }
 
 #[test]
 fn invalid_parameter() {
-    assert_parses_err!("func test(: felt) { }");
+    assert_parses_err!("fn test(: felt) { }");
 }
 
 #[test]
 fn missing_function_body() {
-    assert_parses_err!("func test() -> felt");
+    assert_parses_err!("fn test() -> felt");
 }
 
 // ===================
@@ -106,7 +106,7 @@ fn simple_namespace() {
 
 #[test]
 fn namespace_with_function() {
-    assert_parses_ok!("namespace Utils { func helper() -> felt { return 1; } }");
+    assert_parses_ok!("namespace Utils { fn helper() -> felt { return 1; } }");
 }
 
 #[test]
@@ -162,11 +162,6 @@ fn invalid_toplevel_let() {
 }
 
 #[test]
-fn invalid_toplevel_local() {
-    assert_parses_err!("local x: felt = 42;");
-}
-
-#[test]
 fn invalid_toplevel_assignment() {
     assert_parses_err!("x = 10;");
 }
@@ -205,11 +200,11 @@ fn complete_program() {
         }
 
         namespace MathUtils {
-            func magnitude(v: Vector) -> felt {
+            fn magnitude(v: Vector) -> felt {
                 return (v.x * v.x + v.y * v.y);
             }
 
-            func rfib(n: felt) -> felt {
+            fn rfib(n: felt) -> felt {
                 if (n == 0) {
                     return 0;
                 }
@@ -237,9 +232,9 @@ fn imports_and_functions() {
             y: felt
         }
 
-        func distance(p1: Point, p2: Point) -> felt {
-            local dx: felt = p1.x - p2.x;
-            local dy: felt = p1.y - p2.y;
+        fn distance(p1: Point, p2: Point) -> felt {
+            let dx: felt = p1.x - p2.x;
+            let dy: felt = p1.y - p2.y;
             return sqrt(dx * dx + dy * dy);
         }
     "#
@@ -268,8 +263,8 @@ fn whitespace_only() {
 fn multiple_syntax_errors() {
     assert_parses_err!(
         r#"
-        func bad1( { }
-        func good() { return 1; }
+        fn bad1( { }
+        fn good() { return 1; }
         struct bad2 x: felt }
         struct Good { x: felt }
     "#
@@ -295,7 +290,7 @@ fn mixed_valid_invalid() {
 fn function_with_loops() {
     assert_parses_ok!(
         r#"
-        func test_loops() {
+        fn test_loops() {
             loop {
                 let x = 1;
                 if (x == 1) {

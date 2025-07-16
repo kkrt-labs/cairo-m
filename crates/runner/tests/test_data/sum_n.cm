@@ -1,10 +1,10 @@
-func main() -> felt {
+fn main() -> felt {
     let n = 10;
     let result = sum_n(n);
     return result;
 }
 
-func sum_n(n: felt) -> felt {
+fn sum_n(n: felt) -> felt {
     if (n == 0) {
         return 0;
     }

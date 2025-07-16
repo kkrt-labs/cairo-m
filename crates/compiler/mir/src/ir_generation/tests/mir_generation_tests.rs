@@ -77,6 +77,7 @@ mir_test!(reassignment_from_var, "variables");
 
 // --- Optimizations ---
 mir_test!(unused_variable_elimination, "optimizations");
+mir_test!(assign_to_binop, "optimizations");
 
 // --- Aggregates (Structs/Tuples) ---
 mir_test!(struct_literal, "aggregates");

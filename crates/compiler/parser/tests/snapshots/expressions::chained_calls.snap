@@ -3,7 +3,7 @@ source: crates/compiler/parser/tests/common.rs
 expression: snapshot
 ---
 --- Code ---
-func test() { obj.method().another(); }
+fn test() { obj.method().another(); }
 --- AST ---
 [
     Function(
@@ -11,7 +11,7 @@ func test() { obj.method().another(); }
             FunctionDef {
                 name: Spanned(
                     "test",
-                    5..9,
+                    3..7,
                 ),
                 params: [],
                 return_type: Tuple(
@@ -32,39 +32,39 @@ func test() { obj.method().another(); }
                                                                 Identifier(
                                                                     Spanned(
                                                                         "obj",
-                                                                        14..17,
+                                                                        12..15,
                                                                     ),
                                                                 ),
-                                                                14..17,
+                                                                12..15,
                                                             ),
                                                             field: Spanned(
                                                                 "method",
-                                                                18..24,
+                                                                16..22,
                                                             ),
                                                         },
-                                                        14..24,
+                                                        12..22,
                                                     ),
                                                     args: [],
                                                 },
-                                                14..26,
+                                                12..24,
                                             ),
                                             field: Spanned(
                                                 "another",
-                                                27..34,
+                                                25..32,
                                             ),
                                         },
-                                        14..34,
+                                        12..32,
                                     ),
                                     args: [],
                                 },
-                                14..36,
+                                12..34,
                             ),
                         ),
-                        14..37,
+                        12..35,
                     ),
                 ],
             },
-            0..39,
+            0..37,
         ),
     ),
 ]

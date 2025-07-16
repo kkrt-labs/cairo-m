@@ -97,7 +97,7 @@ fn test_assignment_to_variable_not_in_scope() {
 #[test]
 fn test_assignment_with_function_call() {
     assert_semantic_ok!(&with_functions(
-        "func get_value() -> felt { return 42; }",
+        "fn get_value() -> felt { return 42; }",
         &in_function(
             "
             let x = 10;

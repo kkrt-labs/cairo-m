@@ -6,7 +6,7 @@ Fixture: semantic_tests::control_flow::loop_unreachable::test_loop_with_return
 ============================================================
 Source code:
 
-        func test() {
+        fn test() {
             loop {
                 return;
                 let x = 1;  // Unreachable

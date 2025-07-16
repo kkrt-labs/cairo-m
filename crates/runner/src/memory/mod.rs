@@ -1,8 +1,8 @@
 use std::cell::RefCell;
 
 use cairo_m_common::state::MemoryEntry;
-use num_traits::identities::Zero;
 use num_traits::One;
+use num_traits::identities::Zero;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 use thiserror::Error;
@@ -99,11 +99,11 @@ impl Memory {
     pub fn get_data(&self, addr: M31) -> Result<M31, MemoryError> {
         let address = addr.0 as usize;
         let value = self.data.get(address).copied().unwrap_or_default();
-        if !value.1.is_zero() || !value.0 .1.is_zero() {
+        if !value.1.is_zero() || !value.0.1.is_zero() {
             return Err(MemoryError::BaseFieldProjectionFailed { addr, value });
         }
         self.trace.borrow_mut().push(MemoryEntry { addr, value });
-        Ok(value.0 .0)
+        Ok(value.0.0)
     }
 
     /// Inserts a `QM31` value at a specified validated memory address.
@@ -276,10 +276,10 @@ impl Memory {
             .flat_map(|entry| {
                 [
                     entry.addr.0,
-                    entry.value.0 .0 .0,
-                    entry.value.0 .1 .0,
-                    entry.value.1 .0 .0,
-                    entry.value.1 .1 .0,
+                    entry.value.0.0.0,
+                    entry.value.0.1.0,
+                    entry.value.1.0.0,
+                    entry.value.1.1.0,
                 ]
             })
             .flat_map(u32::to_le_bytes)
@@ -418,7 +418,7 @@ mod tests {
         let value = QM31::from_m31_array([123, 0, 0, 0].map(Into::into));
 
         memory.insert(addr, value).unwrap();
-        assert_eq!(memory.get_data(addr).unwrap(), value.0 .0);
+        assert_eq!(memory.get_data(addr).unwrap(), value.0.0);
         assert_eq!(memory.data.len(), 43);
         assert_eq!(memory.trace.borrow().len(), 2);
         assert_eq!(memory.trace.borrow()[0], MemoryEntry { addr, value });

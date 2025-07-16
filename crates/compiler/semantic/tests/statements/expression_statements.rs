@@ -5,7 +5,7 @@ use crate::*;
 #[test]
 fn test_function_call_statement() {
     assert_semantic_ok!(&with_functions(
-        "func side_effect() { return (); }",
+        "fn side_effect() { return (); }",
         &in_function(
             "
             side_effect(); // Function call as statement
@@ -27,7 +27,7 @@ fn test_function_call_statement_undeclared() {
 #[test]
 fn test_function_call_statement_with_args() {
     assert_semantic_ok!(&with_functions(
-        "func process(x: felt) { return (); }",
+        "fn process(x: felt) { return (); }",
         &in_function(
             "
             process(42); // Function call with arguments
@@ -40,7 +40,7 @@ fn test_function_call_statement_with_args() {
 #[test]
 fn test_function_call_statement_with_undeclared_args() {
     assert_semantic_err!(&with_functions(
-        "func process(x: felt) { return (); }",
+        "fn process(x: felt) { return (); }",
         &in_function(
             "
             process(undefined_var); // Error: undeclared variable in argument
@@ -52,7 +52,7 @@ fn test_function_call_statement_with_undeclared_args() {
 #[test]
 fn test_function_call_statement_with_variable_args() {
     assert_semantic_ok!(&with_functions(
-        "func process(x: felt, y: felt) { return (); }",
+        "fn process(x: felt, y: felt) { return (); }",
         &in_function(
             "
             let a = 10;
@@ -68,9 +68,9 @@ fn test_function_call_statement_with_variable_args() {
 fn test_nested_function_call_statements() {
     assert_semantic_ok!(&with_functions(
         r#"
-        func helper1() { return (); }
-        func helper2() { return (); }
-        func helper3() { return (); }
+        fn helper1() { return (); }
+        fn helper2() { return (); }
+        fn helper3() { return (); }
         "#,
         &in_function(
             "
@@ -86,7 +86,7 @@ fn test_nested_function_call_statements() {
 #[test]
 fn test_function_call_statement_in_block() {
     assert_semantic_ok!(&with_functions(
-        "func helper() { return (); }",
+        "fn helper() { return (); }",
         &in_function(
             "
             {
@@ -101,7 +101,7 @@ fn test_function_call_statement_in_block() {
 #[test]
 fn test_function_call_statement_in_if() {
     assert_semantic_ok!(&with_functions(
-        "func helper() { return (); }",
+        "fn helper() { return (); }",
         &in_function(
             "
             if (true) {
@@ -118,7 +118,7 @@ fn test_function_call_statement_in_if() {
 #[test]
 fn test_function_call_statement_with_complex_args() {
     assert_semantic_ok!(&with_functions(
-        "func process(x: felt) { return (); }",
+        "fn process(x: felt) { return (); }",
         &in_function(
             "
             let a = 10;
@@ -134,9 +134,9 @@ fn test_function_call_statement_with_complex_args() {
 fn test_multiple_function_call_statements() {
     assert_semantic_ok!(&with_functions(
         r#"
-        func step1() { return (); }
-        func step2(x: felt) { return (); }
-        func step3() { return (); }
+        fn step1() { return (); }
+        fn step2(x: felt) { return (); }
+        fn step3() { return (); }
         "#,
         &in_function(
             "
@@ -153,7 +153,7 @@ fn test_multiple_function_call_statements() {
 fn test_function_call_statement_return_value_ignored() {
     // Function calls that return values can be used as statements (return value ignored)
     assert_semantic_ok!(&with_functions(
-        "func get_value() -> felt { return 42; }",
+        "fn get_value() -> felt { return 42; }",
         &in_function(
             "
             get_value(); // Return value ignored
@@ -167,7 +167,7 @@ fn test_function_call_statement_return_value_ignored() {
 fn test_function_call_statement_with_side_effects() {
     // Test that function calls in statements properly validate their arguments
     assert_semantic_ok!(&with_functions(
-        "func modify(x: felt) { return (); }",
+        "fn modify(x: felt) { return (); }",
         &in_function(
             "
             let value = 100;
@@ -182,14 +182,14 @@ fn test_function_call_statement_with_side_effects() {
 fn test_recursive_function_call_statement() {
     assert_semantic_ok!(
         r#"
-        func recursive_helper(n: felt) {
+        fn recursive_helper(n: felt) {
             if (n == 0) {
                 recursive_helper(n - 1); // Recursive call as statement
             }
             return ();
         }
 
-        func test() {
+        fn test() {
             recursive_helper(5);
             return ();
         }
@@ -202,8 +202,8 @@ fn test_chained_function_calls_as_statements() {
     // While we can't chain calls directly, we can have sequential calls
     assert_semantic_ok!(&with_functions(
         r#"
-        func first() -> felt { return 1; }
-        func second(x: felt) { return (); }
+        fn first() -> felt { return 1; }
+        fn second(x: felt) { return (); }
         "#,
         &in_function(
             "

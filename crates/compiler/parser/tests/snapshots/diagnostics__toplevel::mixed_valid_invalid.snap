@@ -9,10 +9,10 @@ expression: snapshot
         const ALSO_GOOD = 2;
     
 --- Diagnostics ---
-[02] Error: found 'let' expected 'func', 'struct', 'const', 'namespace', 'use', or end of input
+[02] Error: found 'let' expected 'fn', 'struct', 'const', 'namespace', 'use', or end of input
    ╭─[ test.cairo:3:9 ]
    │
  3 │         let bad = 42;
    │         ─┬─  
-   │          ╰─── found 'let' expected 'func', 'struct', 'const', 'namespace', 'use', or end of input
+   │          ╰─── found 'let' expected 'fn', 'struct', 'const', 'namespace', 'use', or end of input
 ───╯

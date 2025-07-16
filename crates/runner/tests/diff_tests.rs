@@ -1,7 +1,7 @@
 use std::fs;
 
 use cairo_m_common::Program;
-use cairo_m_compiler::{compile_cairo, CompilerOptions};
+use cairo_m_compiler::{CompilerOptions, compile_cairo};
 use cairo_m_runner::run_cairo_program;
 use stwo_prover::core::fields::m31::M31;
 
@@ -190,11 +190,7 @@ diff_test!(
 // 5. Sum of first N numbers
 fn rust_sum_n() -> u32 {
     fn sum_n(n: u32) -> u32 {
-        if n == 0 {
-            0
-        } else {
-            n + sum_n(n - 1)
-        }
+        if n == 0 { 0 } else { n + sum_n(n - 1) }
     }
     sum_n(10)
 }
@@ -274,11 +270,7 @@ diff_test!(
 // 9. Triangular number (using recursion)
 fn rust_triangular() -> u32 {
     fn triangular(n: u32) -> u32 {
-        if n == 0 {
-            0
-        } else {
-            n + triangular(n - 1)
-        }
+        if n == 0 { 0 } else { n + triangular(n - 1) }
     }
     triangular(100)
 }
@@ -294,18 +286,10 @@ diff_test!(
 // 10. Mutual recursion (even/odd check)
 fn rust_mutual_recursion() -> u32 {
     fn is_even(n: u32) -> u32 {
-        if n == 0 {
-            1
-        } else {
-            is_odd(n - 1)
-        }
+        if n == 0 { 1 } else { is_odd(n - 1) }
     }
     fn is_odd(n: u32) -> u32 {
-        if n == 0 {
-            0
-        } else {
-            is_even(n - 1)
-        }
+        if n == 0 { 0 } else { is_even(n - 1) }
     }
     is_even(42) * 100 + is_odd(42) // Should be 100 (even=1, odd=0)
 }

@@ -971,48 +971,6 @@ impl<'db> SemanticIndexBuilder<'db> {
                     }
                 }
             }
-            Statement::Local { pattern, value, ty } => {
-                use crate::definition::{DefinitionKind, LocalDefRef};
-                // Visit the value expression and capture the ID
-                let value_expr_id = self.visit_expression(value);
-
-                match pattern {
-                    Pattern::Identifier(name) => {
-                        // Simple identifier pattern
-                        let def_kind = DefinitionKind::Local(LocalDefRef::from_local_statement(
-                            name.value(),
-                            ty.clone(),
-                            Some(value_expr_id),
-                        ));
-                        self.add_place_with_definition(
-                            name.value(),
-                            PlaceFlags::DEFINED,
-                            def_kind,
-                            name.span(),
-                            stmt.span(),
-                        );
-                    }
-                    Pattern::Tuple(names) => {
-                        // Tuple destructuring pattern
-                        for (index, name) in names.iter().enumerate() {
-                            let def_kind = DefinitionKind::Local(LocalDefRef::from_destructuring(
-                                name.value(),
-                                ty.clone(),
-                                value_expr_id,
-                                index,
-                            ));
-                            self.add_place_with_definition(
-                                name.value(),
-                                PlaceFlags::DEFINED,
-                                def_kind,
-                                name.span(),
-                                stmt.span(),
-                            );
-                        }
-                    }
-                }
-                // TODO: Analyze type annotation when type system is implemented
-            }
             Statement::Const(const_def) => {
                 // Statement-level const is wrapped in a spanned context
                 let spanned_const = Spanned::new(const_def.clone(), stmt.span());
@@ -1286,7 +1244,7 @@ mod tests {
 
     #[test]
     fn test_simple_function() {
-        let TestCase { db, source } = test_case("func test() { }");
+        let TestCase { db, source } = test_case("fn test() { }");
         let crate_id = single_file_crate(&db, source);
         let index = module_semantic_index(&db, crate_id, "main".to_string());
 
@@ -1316,7 +1274,7 @@ mod tests {
 
     #[test]
     fn test_function_with_parameters() {
-        let TestCase { db, source } = test_case("func add(a: felt, b: felt) { }");
+        let TestCase { db, source } = test_case("fn add(a: felt, b: felt) { }");
         let crate_id = single_file_crate(&db, source);
         let index = module_semantic_index(&db, crate_id, "main".to_string());
 
@@ -1341,8 +1299,7 @@ mod tests {
 
     #[test]
     fn test_variable_resolution() {
-        let TestCase { db, source } =
-            test_case("func test(param: felt) { let local_var = param; }");
+        let TestCase { db, source } = test_case("fn test(param: felt) { let local_var = param; }");
         let crate_id = single_file_crate(&db, source);
         let index = module_semantic_index(&db, crate_id, "main".to_string());
 
@@ -1373,14 +1330,14 @@ mod tests {
                 y: felt
             }
 
-            func distance(p1: Point, p2: Point) -> felt {
+            fn distance(p1: Point, p2: Point) -> felt {
                 let dx = p1.x - p2.x;
-                local dy: felt = p1.y - p2.y;
+                let dy: felt = p1.y - p2.y;
                 return dx * dx + dy * dy;
             }
 
             namespace Math {
-                func square(x: felt) -> felt {
+                fn square(x: felt) -> felt {
                     return x * x;
                 }
             }
@@ -1474,7 +1431,7 @@ mod tests {
 
     #[test]
     fn test_real_spans_are_used() {
-        let TestCase { db, source } = test_case("func test(x: felt) { let y = x; }");
+        let TestCase { db, source } = test_case("fn test(x: felt) { let y = x; }");
         let crate_id = single_file_crate(&db, source);
         let index = module_semantic_index(&db, crate_id, "main".to_string());
 
@@ -1529,9 +1486,9 @@ mod tests {
             r#"
             const Z = 314;
 
-            func test() -> felt {
+            fn test() -> felt {
                 let x = 42;
-                local y: felt = 100;
+                let y: felt = 100;
                 return x + y;
             }
             "#,
@@ -1548,15 +1505,6 @@ mod tests {
             })
             .collect();
 
-        // Find the local definition
-        let local_definitions: Vec<_> = index
-            .all_definitions()
-            .filter_map(|(_, def)| match &def.kind {
-                DefinitionKind::Local(local_ref) => Some(local_ref),
-                _ => None,
-            })
-            .collect();
-
         // Find the const definition
         let const_definitions: Vec<_> = index
             .all_definitions()
@@ -1569,13 +1517,8 @@ mod tests {
         // Check that we found the expected definitions
         assert_eq!(
             let_definitions.len(),
-            1,
-            "Should find exactly 1 let definition"
-        );
-        assert_eq!(
-            local_definitions.len(),
-            1,
-            "Should find exactly 1 local definition"
+            2, // Now we have 2 let definitions (x and y)
+            "Should find exactly 2 let definitions"
         );
         assert_eq!(
             const_definitions.len(),
@@ -1590,10 +1533,10 @@ mod tests {
             "Let definition should have a value expression ID"
         );
 
-        assert_eq!(local_definitions[0].name, "y");
+        assert_eq!(let_definitions[1].name, "y");
         assert!(
-            local_definitions[0].value_expr_id.is_some(),
-            "Local definition should have a value expression ID"
+            let_definitions[1].value_expr_id.is_some(),
+            "Let definition should have a value expression ID"
         );
 
         assert_eq!(const_definitions[0].name, "Z");
@@ -1605,14 +1548,6 @@ mod tests {
         // Verify that the expression IDs actually correspond to real expressions in the index
         for let_def in &let_definitions {
             if let Some(expr_id) = let_def.value_expr_id {
-                assert!(
-                    index.expression(expr_id).is_some(),
-                    "Expression ID should be valid"
-                );
-            }
-        }
-        for local_def in &local_definitions {
-            if let Some(expr_id) = local_def.value_expr_id {
                 assert!(
                     index.expression(expr_id).is_some(),
                     "Expression ID should be valid"

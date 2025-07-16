@@ -14,7 +14,7 @@ Source code:
 //!ASSERT CONTAINS: return 42
 
 // A very simple function that returns a literal.
-func test() -> felt {
+fn test() -> felt {
     return 42;
 }
 

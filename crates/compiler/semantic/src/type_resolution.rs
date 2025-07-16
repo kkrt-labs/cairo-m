@@ -91,7 +91,7 @@ pub fn resolve_ast_type<'db>(
     }
 }
 
-/// Helper function to resolve variable types (for Local and Let definitions)
+/// Helper function to resolve variable types (for Let definitions)
 fn resolve_variable_type<'db>(
     db: &'db dyn SemanticDb,
     crate_id: Crate,
@@ -166,34 +166,6 @@ pub fn definition_semantic_type<'db>(
             name: _name,
             type_ast,
         }) => resolve_ast_type(db, crate_id, file, type_ast.clone(), definition.scope_id),
-        DefinitionKind::Local(local_ref) => {
-            // Check if this is from tuple destructuring
-            if let Some((value_expr_id, index)) = local_ref.destructuring_info {
-                // Get the type of the RHS tuple expression
-                let tuple_type = expression_semantic_type(db, crate_id, file, value_expr_id);
-                // Extract the type of the element at the given index
-                match tuple_type.data(db) {
-                    TypeData::Tuple(element_types) => {
-                        if index < element_types.len() {
-                            element_types[index]
-                        } else {
-                            TypeId::new(db, TypeData::Error)
-                        }
-                    }
-                    _ => TypeId::new(db, TypeData::Error),
-                }
-            } else {
-                // Regular local variable
-                resolve_variable_type(
-                    db,
-                    crate_id,
-                    file,
-                    &local_ref.explicit_type_ast,
-                    local_ref.value_expr_id,
-                    definition.scope_id,
-                )
-            }
-        }
         DefinitionKind::Let(let_ref) => {
             // Check if this is from tuple destructuring
             if let Some((value_expr_id, index)) = let_ref.destructuring_info {
@@ -713,7 +685,7 @@ mod tests {
     #[test]
     fn test_direct_ast_node_access() {
         let db = test_db();
-        let crate_id = crate_from_program(&db, "func test() { let x = 42; }");
+        let crate_id = crate_from_program(&db, "fn test() { let x = 42; }");
         let file = *crate_id.modules(&db).values().next().unwrap();
         let semantic_index = module_semantic_index(&db, crate_id, "main".to_string());
 
@@ -756,7 +728,7 @@ mod tests {
         // Simple test program that exercises all expression types
         let program = r#"
             struct Point { x: felt, y: felt }
-            func test() {
+            fn test() {
                 let p = Point { x: 1, y: 2 };
                 let sum = 1 + 2;
                 let coord = p.x;
@@ -844,7 +816,7 @@ mod tests {
             struct Point { x: felt, y: felt }
             struct Nested { point: Point, value: felt }
 
-            func test(p: Point, ptr: felt*, nested: Nested) -> felt {
+            fn test(p: Point, ptr: felt*, nested: Nested) -> felt {
                 let x1 = p.x;           // Direct struct field access
                 let n1 = nested.value;  // Nested struct field
                 let n2 = nested.point;  // Nested struct returns Point type
@@ -891,7 +863,7 @@ mod tests {
         let program = r#"
             struct Point { x: felt, y: felt }
 
-            func test(ptr: Point*) -> felt {
+            fn test(ptr: Point*) -> felt {
                 let x = ptr.x;  // Should automatically dereference
                 return x;
             }

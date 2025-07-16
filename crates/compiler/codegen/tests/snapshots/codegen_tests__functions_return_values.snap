@@ -9,7 +9,7 @@ expression: codegen_output
 Fixture: return_values.cm
 ============================================================
 Source code:
-func foo(x: felt) -> (felt, felt){
+fn foo(x: felt) -> (felt, felt){
     return (x, 1);
 }
 

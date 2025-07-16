@@ -3,7 +3,7 @@ source: crates/compiler/parser/tests/common.rs
 expression: snapshot
 ---
 --- Code ---
-func test() { result = a.field[0].method(b + c * d, e && f || g).value; }
+fn test() { result = a.field[0].method(b + c * d, e && f || g).value; }
 --- AST ---
 [
     Function(
@@ -11,7 +11,7 @@ func test() { result = a.field[0].method(b + c * d, e && f || g).value; }
             FunctionDef {
                 name: Spanned(
                     "test",
-                    5..9,
+                    3..7,
                 ),
                 params: [],
                 return_type: Tuple(
@@ -24,10 +24,10 @@ func test() { result = a.field[0].method(b + c * d, e && f || g).value; }
                                 Identifier(
                                     Spanned(
                                         "result",
-                                        14..20,
+                                        12..18,
                                     ),
                                 ),
-                                14..20,
+                                12..18,
                             ),
                             rhs: Spanned(
                                 MemberAccess {
@@ -43,33 +43,33 @@ func test() { result = a.field[0].method(b + c * d, e && f || g).value; }
                                                                         Identifier(
                                                                             Spanned(
                                                                                 "a",
-                                                                                23..24,
+                                                                                21..22,
                                                                             ),
                                                                         ),
-                                                                        23..24,
+                                                                        21..22,
                                                                     ),
                                                                     field: Spanned(
                                                                         "field",
-                                                                        25..30,
+                                                                        23..28,
                                                                     ),
                                                                 },
-                                                                23..30,
+                                                                21..28,
                                                             ),
                                                             index: Spanned(
                                                                 Literal(
                                                                     0,
                                                                 ),
-                                                                31..32,
+                                                                29..30,
                                                             ),
                                                         },
-                                                        23..32,
+                                                        21..30,
                                                     ),
                                                     field: Spanned(
                                                         "method",
-                                                        34..40,
+                                                        32..38,
                                                     ),
                                                 },
-                                                23..40,
+                                                21..38,
                                             ),
                                             args: [
                                                 Spanned(
@@ -79,10 +79,10 @@ func test() { result = a.field[0].method(b + c * d, e && f || g).value; }
                                                             Identifier(
                                                                 Spanned(
                                                                     "b",
-                                                                    41..42,
+                                                                    39..40,
                                                                 ),
                                                             ),
-                                                            41..42,
+                                                            39..40,
                                                         ),
                                                         right: Spanned(
                                                             BinaryOp {
@@ -91,25 +91,25 @@ func test() { result = a.field[0].method(b + c * d, e && f || g).value; }
                                                                     Identifier(
                                                                         Spanned(
                                                                             "c",
-                                                                            45..46,
+                                                                            43..44,
                                                                         ),
                                                                     ),
-                                                                    45..46,
+                                                                    43..44,
                                                                 ),
                                                                 right: Spanned(
                                                                     Identifier(
                                                                         Spanned(
                                                                             "d",
-                                                                            49..50,
+                                                                            47..48,
                                                                         ),
                                                                     ),
-                                                                    49..50,
+                                                                    47..48,
                                                                 ),
                                                             },
-                                                            45..50,
+                                                            43..48,
                                                         ),
                                                     },
-                                                    41..50,
+                                                    39..48,
                                                 ),
                                                 Spanned(
                                                     BinaryOp {
@@ -121,52 +121,52 @@ func test() { result = a.field[0].method(b + c * d, e && f || g).value; }
                                                                     Identifier(
                                                                         Spanned(
                                                                             "e",
-                                                                            52..53,
+                                                                            50..51,
                                                                         ),
                                                                     ),
-                                                                    52..53,
+                                                                    50..51,
                                                                 ),
                                                                 right: Spanned(
                                                                     Identifier(
                                                                         Spanned(
                                                                             "f",
-                                                                            57..58,
+                                                                            55..56,
                                                                         ),
                                                                     ),
-                                                                    57..58,
+                                                                    55..56,
                                                                 ),
                                                             },
-                                                            52..58,
+                                                            50..56,
                                                         ),
                                                         right: Spanned(
                                                             Identifier(
                                                                 Spanned(
                                                                     "g",
-                                                                    62..63,
+                                                                    60..61,
                                                                 ),
                                                             ),
-                                                            62..63,
+                                                            60..61,
                                                         ),
                                                     },
-                                                    52..63,
+                                                    50..61,
                                                 ),
                                             ],
                                         },
-                                        23..63,
+                                        21..61,
                                     ),
                                     field: Spanned(
                                         "value",
-                                        65..70,
+                                        63..68,
                                     ),
                                 },
-                                23..70,
+                                21..68,
                             ),
                         },
-                        14..71,
+                        12..69,
                     ),
                 ],
             },
-            0..73,
+            0..71,
         ),
     ),
 ]

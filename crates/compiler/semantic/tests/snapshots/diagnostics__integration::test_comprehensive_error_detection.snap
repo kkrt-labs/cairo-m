@@ -6,12 +6,12 @@ Fixture: semantic_tests::integration::test_comprehensive_error_detection
 ============================================================
 Source code:
 
-        func helper(x: felt) -> felt {
+        fn helper(x: felt) -> felt {
             let unused = 42; // Unused variable
             return undefined_var; // Undeclared variable
         }
 
-        func test() -> felt {
+        fn test() -> felt {
             let shadowed = 1;
             let shadowed = 2;
 

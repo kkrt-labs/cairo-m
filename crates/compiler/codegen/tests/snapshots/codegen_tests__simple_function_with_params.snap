@@ -9,9 +9,10 @@ expression: codegen_output
 Fixture: function_with_params.cm
 ============================================================
 Source code:
-func add(a: felt, b: felt) -> felt {
+fn add(a: felt, b: felt) -> felt {
     return a + b;
 }
+
 ============================================================
 Generated CASM:
 add:

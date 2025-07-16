@@ -9,7 +9,7 @@ Source code:
         struct Point { x: felt, y: felt }
         struct Counter { value: felt }
 
-        func test() -> felt {
+        fn test() -> felt {
             let p = Point { x: 1, y: 2 };
             let c = Counter { value: 10 };
             let result = p + c;  // Two type errors, both should have suggestions

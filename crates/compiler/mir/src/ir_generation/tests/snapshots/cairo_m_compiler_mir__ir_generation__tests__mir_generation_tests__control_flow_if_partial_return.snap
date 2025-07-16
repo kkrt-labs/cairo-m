@@ -14,7 +14,7 @@ Source code:
 
 // Tests an `if-else` where one branch returns and the other continues.
 // This is a critical test for correct merge block generation.
-func test(x: felt) -> felt {
+fn test(x: felt) -> felt {
     if (x == 5) {
         return 10;
     } else {
@@ -40,7 +40,6 @@ module {
       return 10
 
     2:
-      %3 = %0 Add 1
       jump 3
 
     3:

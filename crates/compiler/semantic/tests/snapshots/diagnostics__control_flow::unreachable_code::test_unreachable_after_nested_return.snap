@@ -6,7 +6,7 @@ Fixture: semantic_tests::control_flow::unreachable_code::test_unreachable_after_
 ============================================================
 Source code:
 
-        func test() -> felt {
+        fn test() -> felt {
             {
                 {
                     return 42;

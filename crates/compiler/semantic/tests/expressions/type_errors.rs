@@ -9,7 +9,7 @@ fn test_struct_in_arithmetic_operation() {
         r#"
         struct Point { x: felt, y: felt }
 
-        func test() {
+        fn test() {
             let p = Point { x: 10, y: 20 };
             let result = p + 5;  // Error: struct in arithmetic
         }
@@ -24,7 +24,7 @@ fn test_struct_with_numeric_field_suggestion() {
         r#"
         struct Counter { value: felt }
 
-        func test() {
+        fn test() {
             let c = Counter { value: 42 };
             let result = c * 2;  // Should suggest accessing 'value' field
         }
@@ -37,7 +37,7 @@ fn test_tuple_in_arithmetic_operation() {
     // Test tuple in arithmetic with suggestion
     assert_semantic_err!(
         r#"
-        func test() {
+        fn test() {
             let t = (42,);
             let result = t + 10;  // Should suggest accessing with [0]
         }
@@ -50,11 +50,11 @@ fn test_function_not_called_error() {
     // Test function used without parentheses
     assert_semantic_err!(
         r#"
-        func get_value() -> felt {
+        fn get_value() -> felt {
             return 42;
         }
 
-        func test() {
+        fn test() {
             let x = get_value + 5;  // Should suggest adding parentheses
         }
     "#
@@ -68,7 +68,7 @@ fn test_comparison_type_mismatch_with_context() {
         r#"
         struct Point { x: felt, y: felt }
 
-        func test() {
+        fn test() {
             let p = Point { x: 1, y: 2 };
             let num = 42;
             if (p == num) {  // Type mismatch with context
@@ -87,11 +87,11 @@ fn test_function_argument_type_mismatch_with_param_name() {
         r#"
         struct Point { x: felt, y: felt }
 
-        func distance(p1: Point, p2: Point) -> felt {
+        fn distance(p1: Point, p2: Point) -> felt {
             return 0;
         }
 
-        func test() {
+        fn test() {
             let p = Point { x: 1, y: 2 };
             let d = distance(p, 42);  // Should show parameter name 'p2'
         }
@@ -106,7 +106,7 @@ fn test_assignment_type_mismatch_with_context() {
         r#"
         struct Point { x: felt, y: felt }
 
-        func test() {
+        fn test() {
             let x: felt = 10;
             let p = Point { x: 1, y: 2 };
             x = p;  // Should show variable type context
@@ -123,7 +123,7 @@ fn test_return_type_mismatch_with_function_context() {
         r#"
         struct Point { x: felt, y: felt }
 
-        func get_coordinate() -> felt {
+        fn get_coordinate() -> felt {
             let p = Point { x: 10, y: 20 };
             return p;  // Should show function signature context
         }
@@ -138,7 +138,7 @@ fn test_if_condition_type_error() {
         r#"
         struct Point { x: felt, y: felt }
 
-        func test() {
+        fn test() {
             let p = Point { x: 1, y: 2 };
             if (p) {  // Non-felt condition
                 return ();
@@ -157,7 +157,7 @@ fn test_multiple_type_errors_with_suggestions() {
         struct Point { x: felt, y: felt }
         struct Counter { value: felt }
 
-        func test() -> felt {
+        fn test() -> felt {
             let p = Point { x: 1, y: 2 };
             let c = Counter { value: 10 };
             let result = p + c;  // Two type errors, both should have suggestions
@@ -174,7 +174,7 @@ fn test_unary_op_type_error() {
         r#"
         struct Point { x: felt, y: felt }
 
-        func test() -> felt {
+        fn test() -> felt {
             let p = Point { x: 1, y: 2 };
             let x = -p;  // Should show type error for negation on struct
             return x;

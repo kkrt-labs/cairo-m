@@ -801,18 +801,6 @@ impl TypeValidator {
                     diagnostics,
                 );
             }
-            Statement::Local { pattern, value, ty } => {
-                self.check_local_statement_types(
-                    db,
-                    crate_id,
-                    file,
-                    index,
-                    pattern,
-                    value,
-                    ty,
-                    diagnostics,
-                );
-            }
             Statement::Assignment { lhs, rhs } => {
                 self.check_assignment_types(db, crate_id, file, index, lhs, rhs, diagnostics);
             }
@@ -1001,113 +989,6 @@ impl TypeValidator {
                                 .scope_id;
                             let expected_type =
                                 resolve_ast_type(db, crate_id, file, ty.clone(), scope_id);
-                            if !are_types_compatible(db, value_type, expected_type) {
-                                diagnostics.push(
-                                    Diagnostic::error(
-                                        DiagnosticCode::TypeMismatch,
-                                        format!(
-                                            "Type mismatch for tuple destructuring. Expected '{}', found '{}'",
-                                            expected_type.data(db).display_name(db),
-                                            value_type.data(db).display_name(db)
-                                        ),
-                                    )
-                                    .with_location(file.file_path(db).to_string(), value.span()),
-                                );
-                            }
-                        }
-                    }
-                    _ => {
-                        diagnostics.push(
-                            Diagnostic::error(
-                                DiagnosticCode::TypeMismatch,
-                                format!(
-                                    "Cannot destructure non-tuple type '{}' in tuple pattern",
-                                    value_type.data(db).display_name(db)
-                                ),
-                            )
-                            .with_location(file.file_path(db).to_string(), value.span()),
-                        );
-                    }
-                }
-            }
-        }
-    }
-
-    /// Check types for local statements
-    #[allow(clippy::too_many_arguments)]
-    fn check_local_statement_types(
-        &self,
-        db: &dyn SemanticDb,
-        crate_id: Crate,
-        file: File,
-        index: &SemanticIndex,
-        pattern: &Pattern,
-        value: &Spanned<Expression>,
-        ty: &Option<TypeExpr>,
-        diagnostics: &mut Vec<Diagnostic>,
-    ) {
-        let Some(value_expr_id) = index.expression_id_by_span(value.span()) else {
-            return;
-        };
-        let value_type = expression_semantic_type(db, crate_id, file, value_expr_id);
-
-        match pattern {
-            Pattern::Identifier(name) => {
-                // Simple identifier - check type if specified
-                if let Some(expected_type_expr) = ty {
-                    let scope_id = index
-                        .expression(value_expr_id)
-                        .expect("No expression info found")
-                        .scope_id;
-                    let expected_type =
-                        resolve_ast_type(db, crate_id, file, expected_type_expr.clone(), scope_id);
-                    if !are_types_compatible(db, value_type, expected_type) {
-                        diagnostics.push(
-                            Diagnostic::error(
-                                DiagnosticCode::TypeMismatch,
-                                format!(
-                                    "Type mismatch for local statement '{}'. Expected '{}', found '{}'",
-                                    name.value(),
-                                    expected_type.data(db).display_name(db),
-                                    value_type.data(db).display_name(db)
-                                ),
-                            )
-                            .with_location(file.file_path(db).to_string(), value.span()),
-                        );
-                    }
-                }
-            }
-            Pattern::Tuple(names) => {
-                // Tuple pattern - check that RHS is a tuple with matching arity
-                match value_type.data(db) {
-                    TypeData::Tuple(element_types) => {
-                        if element_types.len() != names.len() {
-                            diagnostics.push(
-                                Diagnostic::error(
-                                    DiagnosticCode::TypeMismatch,
-                                    format!(
-                                        "Tuple pattern has {} elements but value has {} elements",
-                                        names.len(),
-                                        element_types.len()
-                                    ),
-                                )
-                                .with_location(file.file_path(db).to_string(), value.span()),
-                            );
-                        }
-
-                        // If a type annotation is provided, it should be a tuple type
-                        if let Some(expected_type_expr) = ty {
-                            let scope_id = index
-                                .expression(value_expr_id)
-                                .expect("No expression info found")
-                                .scope_id;
-                            let expected_type = resolve_ast_type(
-                                db,
-                                crate_id,
-                                file,
-                                expected_type_expr.clone(),
-                                scope_id,
-                            );
                             if !are_types_compatible(db, value_type, expected_type) {
                                 diagnostics.push(
                                     Diagnostic::error(
@@ -1452,8 +1333,8 @@ mod tests {
         let db = test_db();
         let program = r#"
             struct Point { x: felt, y: felt }
-            func returns_felt() -> felt { return 0; }
-            func test() {
+            fn returns_felt() -> felt { return 0; }
+            fn test() {
                 let valid = 1 + 2;              // OK: felt + felt
                 let point = Point { x: 1, y: 2 };
                 let invalid_1 = point + 1;        // Error: struct + felt
@@ -1483,9 +1364,9 @@ mod tests {
     fn test_function_call_type_validation() {
         let db = test_db();
         let program = r#"
-            func add(x: felt, y: felt) -> felt { return x + y; }
+            fn add(x: felt, y: felt) -> felt { return x + y; }
             struct Point { x: felt, y: felt }
-            func test() {
+            fn test() {
                 let valid = add(1, 2);          // OK: correct types
                 let point = Point { x: 1, y: 2 };
                 let invalid = add(point, 1);    // Error: struct instead of felt
@@ -1515,7 +1396,7 @@ mod tests {
         let db = test_db();
         let program = r#"
             struct Point { x: felt, y: felt }
-            func test() {
+            fn test() {
                 let p = Point { x: 1, y: 2 };
                 let valid_access = p.x;         // OK: valid field
                 let invalid_access = p.z;      // Error: invalid field
@@ -1562,7 +1443,7 @@ mod tests {
         let db = test_db();
         let program = r#"
             struct Point { x: felt, y: felt }
-            func test() {
+            fn test() {
                 // Let statement tests
                 let a: felt = 1;              // OK: correct type
                 let b: Point = Point { x: 1, y: 2 }; // OK: correct type
@@ -1601,15 +1482,15 @@ mod tests {
             struct Point { x: felt, y: felt }
 
             // Valid return type functions
-            func valid_return_felt() -> felt {
+            fn valid_return_felt() -> felt {
                 return 42;                    // OK: correct return type
             }
 
-            func valid_return_point() -> Point {
+            fn valid_return_point() -> Point {
                 return Point { x: 1, y: 2 };  // OK: correct return type
             }
 
-            func valid_return_conditional() -> felt {
+            fn valid_return_conditional() -> felt {
                 if (1) {
                     return 1;                 // OK: correct return type
                 } else {
@@ -1618,15 +1499,15 @@ mod tests {
             }
 
             // Invalid return type functions
-            func invalid_return_felt() -> felt {
+            fn invalid_return_felt() -> felt {
                 return Point { x: 1, y: 2 };  // Error: wrong return type
             }
 
-            func invalid_return_point() -> Point {
+            fn invalid_return_point() -> Point {
                 return 42;                    // Error: wrong return type
             }
 
-            func invalid_return_conditional() -> felt {
+            fn invalid_return_conditional() -> felt {
                 if (1) {
                     return Point { x: 1, y: 2 }; // Error: wrong return type
                 } else {
@@ -1658,7 +1539,7 @@ mod tests {
         let db = test_db();
         let program = r#"
             struct Point { x: felt, y: felt }
-            func test() {
+            fn test() {
                 // Valid if statements
                 if (1) {                      // OK: felt condition
                     let a = 42;
@@ -1717,53 +1598,11 @@ mod tests {
     }
 
     #[test]
-    fn test_local_statement_validation() {
-        let db = test_db();
-        let program = r#"
-            struct Point { x: felt, y: felt }
-            func test() {
-                // Valid local statements
-                local a: felt = 1;            // OK: correct type
-                local b: Point = Point { x: 1, y: 2 }; // OK: correct type
-                local c = 42;                 // OK: type inference
-                local d = Point { x: 1, y: 2 }; // OK: type inference
-
-                // Invalid local statements
-                local e: felt = Point { x: 1, y: 2 }; // Error: type mismatch
-                local f: Point = 42;          // Error: type mismatch
-                local h: Point = (1, 2);      // Error: type mismatch
-
-                // Local statements with expressions
-                local i: felt = 1 + 2;        // OK: arithmetic result
-                local j: felt = 1 && 2;       // OK: logical result
-                local k: Point = Point { x: 1 + 2, y: 3 + 4 }; // OK: complex initialization
-            }
-        "#;
-        let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
-        let crate_id = single_file_crate(&db, file);
-        let semantic_index = get_main_semantic_index(&db, crate_id);
-
-        let validator = TypeValidator;
-        let diagnostics = validator.validate(&db, crate_id, file, &semantic_index);
-
-        // Count type mismatch errors
-        let type_mismatch_errors = diagnostics
-            .iter()
-            .filter(|d| d.code == DiagnosticCode::TypeMismatch)
-            .count();
-
-        assert_eq!(
-            type_mismatch_errors, 3,
-            "Should have 3 type mismatch errors"
-        );
-    }
-
-    #[test]
     fn test_comparison_operators_validation() {
         let db = test_db();
         let program = r#"
             struct Point { x: felt, y: felt }
-            func test() {
+            fn test() {
                 // Valid comparisons - all with felt operands
                 let a = 1 < 2;                // OK: felt < felt
                 let b = 3 > 1;                // OK: felt > felt
@@ -1829,7 +1668,7 @@ mod tests {
         let db = test_db();
         let program = r#"
             struct Point { x: felt, y: felt }
-            func test() {
+            fn test() {
                 let a = 5;
                 let b = 10;
 
@@ -1895,7 +1734,7 @@ mod tests {
     fn test_mixed_operators_with_comparisons() {
         let db = test_db();
         let program = r#"
-            func test() {
+            fn test() {
                 let a = 5;
                 let b = 10;
                 let c = 15;
@@ -1943,7 +1782,7 @@ mod tests {
         let db = test_db();
         let program = r#"
             struct Point { x: felt, y: felt }
-            func test() {
+            fn test() {
                 // Valid assignments
                 let a: felt = 1;
                 a = 2;                        // OK: same type

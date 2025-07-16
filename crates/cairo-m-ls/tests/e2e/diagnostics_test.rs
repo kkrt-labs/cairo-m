@@ -54,7 +54,7 @@ async fn test_basic_diagnostics() {
     test_transform!(
         DiagnosticsTransformer,
         r#"
-func main() {
+fn main() {
     let _x = undefined_var; // This should produce an error
 }
 "#
@@ -66,7 +66,7 @@ async fn test_no_errors() {
     test_transform!(
         DiagnosticsTransformer,
         r#"
-func main() {
+fn main() {
     let x = 42;
     let _y = x + 1;
 }

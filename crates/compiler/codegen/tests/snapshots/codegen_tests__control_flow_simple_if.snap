@@ -9,12 +9,13 @@ expression: codegen_output
 Fixture: simple_if.cm
 ============================================================
 Source code:
-func test_if(x: felt) -> felt {
+fn test_if(x: felt) -> felt {
     if (x == 0) {
         return 1;
     }
     return 2;
 }
+
 ============================================================
 Generated CASM:
 test_if:

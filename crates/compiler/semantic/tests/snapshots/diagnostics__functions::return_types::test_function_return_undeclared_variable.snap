@@ -6,7 +6,7 @@ Fixture: semantic_tests::functions::return_types::test_function_return_undeclare
 ============================================================
 Source code:
 
-        func test() -> felt {
+        fn test() -> felt {
             return undefined_var;
         }
     
