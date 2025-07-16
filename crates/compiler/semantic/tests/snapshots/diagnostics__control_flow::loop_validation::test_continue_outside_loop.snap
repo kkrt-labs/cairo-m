@@ -6,7 +6,7 @@ Fixture: semantic_tests::control_flow::loop_validation::test_continue_outside_lo
 ============================================================
 Source code:
 
-        func test() {
+        fn test() {
             continue;
             return;
         }

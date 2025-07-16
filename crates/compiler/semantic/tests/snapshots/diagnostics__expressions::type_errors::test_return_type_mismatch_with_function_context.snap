@@ -8,7 +8,7 @@ Source code:
 
         struct Point { x: felt, y: felt }
 
-        func get_coordinate() -> felt {
+        fn get_coordinate() -> felt {
             let p = Point { x: 10, y: 20 };
             return p;  // Should show function signature context
         }
@@ -20,9 +20,9 @@ Found 1 diagnostic(s):
 [2001] Error: Type mismatch in return statement. Function expects 'felt', but returning 'Point'
    ╭─[ semantic_tests::expressions::type_errors::test_return_type_mismatch_with_function_context:6:13 ]
    │
- 4 │         func get_coordinate() -> felt {
-   │              ───────┬──────  
-   │                     ╰──────── Function 'get_coordinate' declared here with return type 'felt'
+ 4 │         fn get_coordinate() -> felt {
+   │            ───────┬──────  
+   │                   ╰──────── Function 'get_coordinate' declared here with return type 'felt'
    │ 
  6 │             return p;  // Should show function signature context
    │             ────┬──┬─  

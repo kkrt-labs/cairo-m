@@ -8,7 +8,7 @@ Source code:
 
         struct Point { x: felt, y: felt }
 
-        func test() {
+        fn test() {
             let p = Point { x: 10, y: 20 };
             let result = p + 5;  // Error: struct in arithmetic
         }
@@ -29,9 +29,9 @@ Found 2 diagnostic(s):
 
 --- Diagnostic 2 ---
 [3002] Error: Function 'test' doesn't return on all paths
-   ╭─[ semantic_tests::expressions::type_errors::test_struct_in_arithmetic_operation:4:14 ]
+   ╭─[ semantic_tests::expressions::type_errors::test_struct_in_arithmetic_operation:4:12 ]
    │
- 4 │         func test() {
-   │              ──┬─  
-   │                ╰─── Function 'test' doesn't return on all paths
+ 4 │         fn test() {
+   │            ──┬─  
+   │              ╰─── Function 'test' doesn't return on all paths
 ───╯

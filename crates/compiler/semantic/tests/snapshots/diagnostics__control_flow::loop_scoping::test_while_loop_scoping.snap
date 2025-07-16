@@ -6,7 +6,7 @@ Fixture: semantic_tests::control_flow::loop_scoping::test_while_loop_scoping
 ============================================================
 Source code:
 
-        func test() {
+        fn test() {
             let condition = 1;
             while (condition) {
                 let loop_var = 42;

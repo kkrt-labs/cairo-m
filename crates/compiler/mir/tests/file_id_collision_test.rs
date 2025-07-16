@@ -55,11 +55,11 @@ fn test_identical_content_different_paths_unique_file_ids() {
 
     // Same exact source code content
     let identical_source = r#"
-func add(a: felt, b: felt) -> felt {
+fn add(a: felt, b: felt) -> felt {
     return a + b;
 }
 
-func main() -> felt {
+fn main() -> felt {
     return add(10, 20);
 }
 "#;
@@ -180,7 +180,7 @@ fn test_same_file_consistent_file_id() {
     let db = TestDatabase::default();
 
     let source = r#"
-func test() -> felt {
+fn test() -> felt {
     return 42;
 }
 "#;

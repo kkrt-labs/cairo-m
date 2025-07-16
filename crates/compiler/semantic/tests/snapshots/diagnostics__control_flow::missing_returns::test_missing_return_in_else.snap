@@ -6,7 +6,7 @@ Fixture: semantic_tests::control_flow::missing_returns::test_missing_return_in_e
 ============================================================
 Source code:
 
-        func test(x: felt) -> felt {
+        fn test(x: felt) -> felt {
             if (x == 0) {
                 return 1;
             } else {
@@ -20,9 +20,9 @@ Found 1 diagnostic(s):
 
 --- Diagnostic 1 ---
 [3002] Error: Function 'test' doesn't return on all paths
-   ╭─[ semantic_tests::control_flow::missing_returns::test_missing_return_in_else:2:14 ]
+   ╭─[ semantic_tests::control_flow::missing_returns::test_missing_return_in_else:2:12 ]
    │
- 2 │         func test(x: felt) -> felt {
-   │              ──┬─  
-   │                ╰─── Function 'test' doesn't return on all paths
+ 2 │         fn test(x: felt) -> felt {
+   │            ──┬─  
+   │              ╰─── Function 'test' doesn't return on all paths
 ───╯

@@ -713,7 +713,7 @@ mod tests {
     #[test]
     fn test_direct_ast_node_access() {
         let db = test_db();
-        let crate_id = crate_from_program(&db, "func test() { let x = 42; }");
+        let crate_id = crate_from_program(&db, "fn test() { let x = 42; }");
         let file = *crate_id.modules(&db).values().next().unwrap();
         let semantic_index = module_semantic_index(&db, crate_id, "main".to_string());
 
@@ -756,7 +756,7 @@ mod tests {
         // Simple test program that exercises all expression types
         let program = r#"
             struct Point { x: felt, y: felt }
-            func test() {
+            fn test() {
                 let p = Point { x: 1, y: 2 };
                 let sum = 1 + 2;
                 let coord = p.x;
@@ -844,7 +844,7 @@ mod tests {
             struct Point { x: felt, y: felt }
             struct Nested { point: Point, value: felt }
 
-            func test(p: Point, ptr: felt*, nested: Nested) -> felt {
+            fn test(p: Point, ptr: felt*, nested: Nested) -> felt {
                 let x1 = p.x;           // Direct struct field access
                 let n1 = nested.value;  // Nested struct field
                 let n2 = nested.point;  // Nested struct returns Point type
@@ -891,7 +891,7 @@ mod tests {
         let program = r#"
             struct Point { x: felt, y: felt }
 
-            func test(ptr: Point*) -> felt {
+            fn test(ptr: Point*) -> felt {
                 let x = ptr.x;  // Should automatically dereference
                 return x;
             }

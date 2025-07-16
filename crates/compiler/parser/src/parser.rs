@@ -982,7 +982,7 @@ where
     let type_expr = type_expr_parser();
     let statement = statement_parser();
 
-    // Function definition: func name(param1: type1, param2: type2) -> return_type { body }
+    // Function definition: fn name(param1: type1, param2: type2) -> return_type { body }
     just(TokenType::Function)
         .ignore_then(spanned_ident) // function name
         .then(

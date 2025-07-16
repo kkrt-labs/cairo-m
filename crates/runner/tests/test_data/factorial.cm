@@ -1,10 +1,10 @@
-func main() -> felt {
+fn main() -> felt {
     let n = 10;
     let result = factorial(n);
     return result;
 }
 
-func factorial(n: felt) -> felt {
+fn factorial(n: felt) -> felt {
     if (n == 0) {
         return 1;
     }

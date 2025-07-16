@@ -1,4 +1,4 @@
-func loop_control_flow() {
+fn loop_control_flow() {
     // Break in different contexts
     loop {
         break;

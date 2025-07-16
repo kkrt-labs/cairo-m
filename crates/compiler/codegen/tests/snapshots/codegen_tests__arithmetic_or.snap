@@ -9,7 +9,7 @@ expression: codegen_output
 Fixture: or.cm
 ============================================================
 Source code:
-func simple_or() -> felt {
+fn simple_or() -> felt {
     let x = 10;
     let y = 20;
     let z = x || y;

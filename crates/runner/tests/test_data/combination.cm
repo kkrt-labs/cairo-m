@@ -1,4 +1,4 @@
-func main() -> felt {
+fn main() -> felt {
     let x = 3;
     let y = 13;
     let even_number = 16;
@@ -19,10 +19,10 @@ func main() -> felt {
     return mut_val + eq2 + a + bar() + b + compound1 + compound2;
 }
 
-func foo() -> (felt, felt) {
+fn foo() -> (felt, felt) {
     return (32, 62);
 }
 
-func bar() -> felt {
+fn bar() -> felt {
     return 123;
 }

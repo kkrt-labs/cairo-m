@@ -1,4 +1,4 @@
-func test_if_else(x: felt) -> felt {
+fn test_if_else(x: felt) -> felt {
     if (x == 0) {
         return 1;
     } else {

@@ -6,7 +6,7 @@ Fixture: semantic_tests::scoping::undeclared_variables::test_multiple_undeclared
 ============================================================
 Source code:
 
-        func test() {
+        fn test() {
             let x = first_undefined;
             let y = second_undefined;
             let z = x + y + third_undefined;
@@ -44,9 +44,9 @@ Found 4 diagnostic(s):
 
 --- Diagnostic 4 ---
 [3002] Error: Function 'test' doesn't return on all paths
-   ╭─[ semantic_tests::scoping::undeclared_variables::test_multiple_undeclared_variables:2:14 ]
+   ╭─[ semantic_tests::scoping::undeclared_variables::test_multiple_undeclared_variables:2:12 ]
    │
- 2 │         func test() {
-   │              ──┬─  
-   │                ╰─── Function 'test' doesn't return on all paths
+ 2 │         fn test() {
+   │            ──┬─  
+   │              ╰─── Function 'test' doesn't return on all paths
 ───╯

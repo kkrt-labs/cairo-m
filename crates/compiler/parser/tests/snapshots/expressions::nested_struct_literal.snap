@@ -3,7 +3,7 @@ source: crates/compiler/parser/tests/common.rs
 expression: snapshot
 ---
 --- Code ---
-func test() { Rectangle { top_left: Point { x: 0, y: 0 }, width: 10 }; }
+fn test() { Rectangle { top_left: Point { x: 0, y: 0 }, width: 10 }; }
 --- AST ---
 [
     Function(
@@ -11,7 +11,7 @@ func test() { Rectangle { top_left: Point { x: 0, y: 0 }, width: 10 }; }
             FunctionDef {
                 name: Spanned(
                     "test",
-                    5..9,
+                    3..7,
                 ),
                 params: [],
                 return_type: Tuple(
@@ -24,72 +24,72 @@ func test() { Rectangle { top_left: Point { x: 0, y: 0 }, width: 10 }; }
                                 StructLiteral {
                                     name: Spanned(
                                         "Rectangle",
-                                        14..23,
+                                        12..21,
                                     ),
                                     fields: [
                                         (
                                             Spanned(
                                                 "top_left",
-                                                26..34,
+                                                24..32,
                                             ),
                                             Spanned(
                                                 StructLiteral {
                                                     name: Spanned(
                                                         "Point",
-                                                        36..41,
+                                                        34..39,
                                                     ),
                                                     fields: [
                                                         (
                                                             Spanned(
                                                                 "x",
-                                                                44..45,
+                                                                42..43,
                                                             ),
                                                             Spanned(
                                                                 Literal(
                                                                     0,
                                                                 ),
-                                                                47..48,
+                                                                45..46,
                                                             ),
                                                         ),
                                                         (
                                                             Spanned(
                                                                 "y",
-                                                                50..51,
+                                                                48..49,
                                                             ),
                                                             Spanned(
                                                                 Literal(
                                                                     0,
                                                                 ),
-                                                                53..54,
+                                                                51..52,
                                                             ),
                                                         ),
                                                     ],
                                                 },
-                                                36..56,
+                                                34..54,
                                             ),
                                         ),
                                         (
                                             Spanned(
                                                 "width",
-                                                58..63,
+                                                56..61,
                                             ),
                                             Spanned(
                                                 Literal(
                                                     10,
                                                 ),
-                                                65..67,
+                                                63..65,
                                             ),
                                         ),
                                     ],
                                 },
-                                14..69,
+                                12..67,
                             ),
                         ),
-                        14..70,
+                        12..68,
                     ),
                 ],
             },
-            0..72,
+            0..70,
         ),
     ),
 ]

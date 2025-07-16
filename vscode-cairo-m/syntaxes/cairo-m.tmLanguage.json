@@ -96,7 +96,7 @@
         },
         {
           "name": "keyword.other.cairo-m",
-          "match": "\\b(func|let|local|const|struct|namespace|use|as)\\b"
+          "match": "\\b(fn|let|local|const|struct|namespace|use|as)\\b"
         },
         {
           "name": "constant.language.boolean.cairo-m",
@@ -165,7 +165,7 @@
     "functions": {
       "patterns": [
         {
-          "match": "(func)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(",
+          "match": "(fn)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(",
           "captures": {
             "1": {
               "name": "keyword.other.cairo-m"

@@ -2,7 +2,7 @@ use crate::assert_parses_ok;
 
 // Helper to wrap type expressions in function parameters for testing
 fn with_param(type_expr: &str) -> String {
-    format!("func test(x: {type_expr}) {{ }}")
+    format!("fn test(x: {type_expr}) {{ }}")
 }
 
 // ===================

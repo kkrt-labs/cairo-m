@@ -2,4 +2,4 @@
 source: crates/cairo-m-ls/tests/e2e/goto_definition/local_definitions.rs
 expression: result
 ---
-Definition at <TEMP_DIR>/main.cm:2:6
+Definition at <TEMP_DIR>/main.cm:2:4

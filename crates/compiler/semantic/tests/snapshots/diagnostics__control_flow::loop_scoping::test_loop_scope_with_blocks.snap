@@ -6,7 +6,7 @@ Fixture: semantic_tests::control_flow::loop_scoping::test_loop_scope_with_blocks
 ============================================================
 Source code:
 
-        func test() {
+        fn test() {
             loop {
                 let loop_var = 1;
                 {

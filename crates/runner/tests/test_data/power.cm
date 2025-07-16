@@ -1,4 +1,4 @@
-func power(base: felt, exp: felt) -> felt {
+fn power(base: felt, exp: felt) -> felt {
     if (exp == 0) {
         return 1;
     }

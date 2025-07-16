@@ -156,5 +156,5 @@ macro_rules! assert_parses_err {
 
 /// Helper to wrap statement code inside a function, since most statements are not top-level.
 pub fn in_function(code: &str) -> String {
-    format!("func test() {{ {code} }}")
+    format!("fn test() {{ {code} }}")
 }

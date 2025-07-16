@@ -3,7 +3,7 @@ source: crates/compiler/parser/tests/common.rs
 expression: snapshot
 ---
 --- Code ---
-func test() { let result = a + b * c; }
+fn test() { let result = a + b * c; }
 --- AST ---
 [
     Function(
@@ -11,7 +11,7 @@ func test() { let result = a + b * c; }
             FunctionDef {
                 name: Spanned(
                     "test",
-                    5..9,
+                    3..7,
                 ),
                 params: [],
                 return_type: Tuple(
@@ -23,7 +23,7 @@ func test() { let result = a + b * c; }
                             pattern: Identifier(
                                 Spanned(
                                     "result",
-                                    18..24,
+                                    16..22,
                                 ),
                             ),
                             statement_type: None,
@@ -34,10 +34,10 @@ func test() { let result = a + b * c; }
                                         Identifier(
                                             Spanned(
                                                 "a",
-                                                27..28,
+                                                25..26,
                                             ),
                                         ),
-                                        27..28,
+                                        25..26,
                                     ),
                                     right: Spanned(
                                         BinaryOp {
@@ -46,32 +46,32 @@ func test() { let result = a + b * c; }
                                                 Identifier(
                                                     Spanned(
                                                         "b",
-                                                        31..32,
+                                                        29..30,
                                                     ),
                                                 ),
-                                                31..32,
+                                                29..30,
                                             ),
                                             right: Spanned(
                                                 Identifier(
                                                     Spanned(
                                                         "c",
-                                                        35..36,
+                                                        33..34,
                                                     ),
                                                 ),
-                                                35..36,
+                                                33..34,
                                             ),
                                         },
-                                        31..36,
+                                        29..34,
                                     ),
                                 },
-                                27..36,
+                                25..34,
                             ),
                         },
-                        14..37,
+                        12..35,
                     ),
                 ],
             },
-            0..39,
+            0..37,
         ),
     ),
 ]

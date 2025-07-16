@@ -9,7 +9,7 @@ expression: mir_output
 Fixture: nested_loops.cm
 ============================================================
 Source code:
-func test_nested_loops() -> felt {
+fn test_nested_loops() -> felt {
     let result = 0;
     let i = 0;
 

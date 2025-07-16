@@ -3,7 +3,7 @@ source: crates/compiler/parser/tests/common.rs
 expression: snapshot
 ---
 --- Code ---
-func test() { Unit {}; }
+fn test() { Unit {}; }
 --- AST ---
 [
     Function(
@@ -11,7 +11,7 @@ func test() { Unit {}; }
             FunctionDef {
                 name: Spanned(
                     "test",
-                    5..9,
+                    3..7,
                 ),
                 params: [],
                 return_type: Tuple(
@@ -24,18 +24,18 @@ func test() { Unit {}; }
                                 StructLiteral {
                                     name: Spanned(
                                         "Unit",
-                                        14..18,
+                                        12..16,
                                     ),
                                     fields: [],
                                 },
-                                14..21,
+                                12..19,
                             ),
                         ),
-                        14..22,
+                        12..20,
                     ),
                 ],
             },
-            0..24,
+            0..22,
         ),
     ),
 ]

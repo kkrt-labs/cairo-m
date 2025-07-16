@@ -9,7 +9,7 @@ expression: codegen_output
 Fixture: fib_loop.cm
 ============================================================
 Source code:
-func fibonacci_loop(n: felt) -> felt {
+fn fibonacci_loop(n: felt) -> felt {
     let a = 0;
     let b = 1;
     let i = 0;
@@ -22,7 +22,7 @@ func fibonacci_loop(n: felt) -> felt {
     return a;
 }
 
-func main() -> felt {
+fn main() -> felt {
     let n = 10;
     let result = fibonacci_loop(n);
     return result;

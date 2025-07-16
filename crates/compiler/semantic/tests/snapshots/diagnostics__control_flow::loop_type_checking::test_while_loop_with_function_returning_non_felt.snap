@@ -9,17 +9,17 @@ Source code:
         struct Data {
             value: felt,
         }
-        
-        func get_data() -> Data {
+
+        fn get_data() -> Data {
             return Data { value: 42 };
         }
-        
-        func test() {
+
+        fn test() {
             while (get_data()) {
                 return;
             }
         }
-        
+
 ============================================================
 Found 2 diagnostic(s):
 
@@ -28,7 +28,7 @@ Found 2 diagnostic(s):
     ╭─[ semantic_tests::control_flow::loop_type_checking::test_while_loop_with_function_returning_non_felt:11:20 ]
     │
  11 │             while (get_data()) {
-    │                    ─────┬────  
+    │                    ─────┬────
     │                         ╰────── While loop condition must be of type felt, found 'Data'
 ────╯
 
@@ -36,7 +36,7 @@ Found 2 diagnostic(s):
 [3002] Error: Function 'test' doesn't return on all paths
     ╭─[ semantic_tests::control_flow::loop_type_checking::test_while_loop_with_function_returning_non_felt:10:14 ]
     │
- 10 │         func test() {
-    │              ──┬─  
+ 10 │         fn test() {
+    │              ──┬─
     │                ╰─── Function 'test' doesn't return on all paths
 ────╯

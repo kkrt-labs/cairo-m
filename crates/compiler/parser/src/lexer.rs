@@ -123,7 +123,7 @@ pub enum TokenType<'a> {
     Else,
     #[token("false")]
     False,
-    #[token("func")]
+    #[token("fn")]
     Function,
     #[token("if")]
     If,
@@ -221,7 +221,7 @@ impl<'a> fmt::Display for TokenType<'a> {
             TokenType::Const => write!(f, "const"),
             TokenType::Else => write!(f, "else"),
             TokenType::False => write!(f, "false"),
-            TokenType::Function => write!(f, "func"),
+            TokenType::Function => write!(f, "fn"),
             TokenType::If => write!(f, "if"),
             TokenType::Let => write!(f, "let"),
             TokenType::Local => write!(f, "local"),
@@ -275,7 +275,7 @@ mod tests {
         let input = r#"
             use std::math::add;
 
-            func add(x: felt, y: felt) -> felt {
+            fn add(x: felt, y: felt) -> felt {
                 let result = x + y;
                 if result == 0 {
                     return result;

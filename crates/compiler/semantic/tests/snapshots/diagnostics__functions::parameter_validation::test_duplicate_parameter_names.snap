@@ -6,7 +6,7 @@ Fixture: semantic_tests::functions::parameter_validation::test_duplicate_paramet
 ============================================================
 Source code:
 
-        func test(x: felt, x: felt) -> felt {
+        fn test(x: felt, x: felt) -> felt {
             return x;
         }
     
@@ -15,9 +15,9 @@ Found 1 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1003] Error: Duplicate definition of 'x'
-   ╭─[ semantic_tests::functions::parameter_validation::test_duplicate_parameter_names:2:28 ]
+   ╭─[ semantic_tests::functions::parameter_validation::test_duplicate_parameter_names:2:26 ]
    │
- 2 │         func test(x: felt, x: felt) -> felt {
-   │                            ┬  
-   │                            ╰── Duplicate definition of 'x'
+ 2 │         fn test(x: felt, x: felt) -> felt {
+   │                          ┬  
+   │                          ╰── Duplicate definition of 'x'
 ───╯

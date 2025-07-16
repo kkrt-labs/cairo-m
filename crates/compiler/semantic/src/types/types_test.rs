@@ -128,7 +128,7 @@ fn test_function_signature_resolution() {
     let db = test_db();
     let program = r#"
         struct Point { x: felt, y: felt }
-        func get_point(x: felt) -> Point {
+        fn get_point(x: felt) -> Point {
             return Point { x: x, y: 0 };
         }
     "#;
@@ -177,7 +177,7 @@ fn test_parameter_type_resolution() {
     let db = test_db();
     let program = r#"
         struct Vector { x: felt, y: felt }
-        func magnitude(v: Vector) -> felt {
+        fn magnitude(v: Vector) -> felt {
             return 0;
         }
     "#;
@@ -213,7 +213,7 @@ fn test_expression_type_inference() {
     let db = test_db();
     let program = r#"
         struct Point { x: felt, y: felt }
-        func test(p: Point) -> felt {
+        fn test(p: Point) -> felt {
             let a = 42;
             let b = a + 1;
             let c = p.x;
@@ -277,7 +277,7 @@ fn test_let_variable_type_inference() {
     let db = test_db();
     let program = r#"
         struct Point { x: felt, y: felt }
-        func test() {
+        fn test() {
             let a = 42;
             let b = 13;
             let p = Point { x: 1, y: 2 };
@@ -366,7 +366,7 @@ fn test_explicit_type_annotations_priority() {
     let db = test_db();
     let program = r#"
         struct Point { x: felt, y: felt }
-        func test() {
+        fn test() {
             let x: felt = 42;
             local y: Point = 13;
             let p: Point = Point { x: 1, y: 2 };
@@ -423,7 +423,7 @@ fn test_local_variable_inference_without_annotation() {
     let db = test_db();
     let program = r#"
         struct Point { x: felt, y: felt }
-        func test() {
+        fn test() {
             local x = 42;
             local y = Point { x: 1, y: 2 };
         }
@@ -469,7 +469,7 @@ fn test_mixed_variable_scenarios() {
     let db = test_db();
     let program = r#"
         struct Vector { x: felt, y: felt }
-        func complex_test() {
+        fn complex_test() {
             let a = 42;                    // infer from literal
             let b: felt = a + 1;           // explicit annotation, infer from expression
             local c = Vector { x: 1, y: 2 }; // infer from struct literal
@@ -528,7 +528,7 @@ fn test_multiple_return_type_signature() {
     let db = test_db();
     let program = r#"
         struct Point { x: felt, y: felt }
-        func my_func() -> (felt, Point) {
+        fn my_func() -> (felt, Point) {
             return (1, Point { x: 2, y: 3 });
         }
     "#;

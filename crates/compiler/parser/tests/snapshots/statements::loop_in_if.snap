@@ -3,7 +3,7 @@ source: crates/compiler/parser/tests/common.rs
 expression: snapshot
 ---
 --- Code ---
-func test() { if (condition) { loop { work(); if (done) { break; } } } }
+fn test() { if (condition) { loop { work(); if (done) { break; } } } }
 --- AST ---
 [
     Function(
@@ -11,7 +11,7 @@ func test() { if (condition) { loop { work(); if (done) { break; } } } }
             FunctionDef {
                 name: Spanned(
                     "test",
-                    5..9,
+                    3..7,
                 ),
                 params: [],
                 return_type: Tuple(
@@ -24,10 +24,10 @@ func test() { if (condition) { loop { work(); if (done) { break; } } } }
                                 Identifier(
                                     Spanned(
                                         "condition",
-                                        18..27,
+                                        16..25,
                                     ),
                                 ),
-                                18..27,
+                                16..25,
                             ),
                             then_block: Spanned(
                                 Block(
@@ -45,17 +45,17 @@ func test() { if (condition) { loop { work(); if (done) { break; } } } }
                                                                                 Identifier(
                                                                                     Spanned(
                                                                                         "work",
-                                                                                        38..42,
+                                                                                        36..40,
                                                                                     ),
                                                                                 ),
-                                                                                38..42,
+                                                                                36..40,
                                                                             ),
                                                                             args: [],
                                                                         },
-                                                                        38..44,
+                                                                        36..42,
                                                                     ),
                                                                 ),
-                                                                38..45,
+                                                                36..43,
                                                             ),
                                                             Spanned(
                                                                 If {
@@ -63,44 +63,44 @@ func test() { if (condition) { loop { work(); if (done) { break; } } } }
                                                                         Identifier(
                                                                             Spanned(
                                                                                 "done",
-                                                                                50..54,
+                                                                                48..52,
                                                                             ),
                                                                         ),
-                                                                        50..54,
+                                                                        48..52,
                                                                     ),
                                                                     then_block: Spanned(
                                                                         Block(
                                                                             [
                                                                                 Spanned(
                                                                                     Break,
-                                                                                    58..64,
+                                                                                    56..62,
                                                                                 ),
                                                                             ],
                                                                         ),
-                                                                        56..66,
+                                                                        54..64,
                                                                     ),
                                                                     else_block: None,
                                                                 },
-                                                                46..66,
+                                                                44..64,
                                                             ),
                                                         ],
                                                     ),
-                                                    36..68,
+                                                    34..66,
                                                 ),
                                             },
-                                            31..68,
+                                            29..66,
                                         ),
                                     ],
                                 ),
-                                29..70,
+                                27..68,
                             ),
                             else_block: None,
                         },
-                        14..70,
+                        12..68,
                     ),
                 ],
             },
-            0..72,
+            0..70,
         ),
     ),
 ]

@@ -14,7 +14,7 @@ Source code:
 //!ASSERT CONTAINS: Mul
 
 // Tests a more complex expression involving parentheses and multiple variables.
-func test_complex(x: felt, y: felt) -> felt {
+fn test_complex(x: felt, y: felt) -> felt {
     let temp = x + y;
     let result = temp * (x - y);
     return result;

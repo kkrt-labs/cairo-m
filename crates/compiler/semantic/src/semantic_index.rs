@@ -1286,7 +1286,7 @@ mod tests {
 
     #[test]
     fn test_simple_function() {
-        let TestCase { db, source } = test_case("func test() { }");
+        let TestCase { db, source } = test_case("fn test() { }");
         let crate_id = single_file_crate(&db, source);
         let index = module_semantic_index(&db, crate_id, "main".to_string());
 
@@ -1316,7 +1316,7 @@ mod tests {
 
     #[test]
     fn test_function_with_parameters() {
-        let TestCase { db, source } = test_case("func add(a: felt, b: felt) { }");
+        let TestCase { db, source } = test_case("fn add(a: felt, b: felt) { }");
         let crate_id = single_file_crate(&db, source);
         let index = module_semantic_index(&db, crate_id, "main".to_string());
 
@@ -1341,8 +1341,7 @@ mod tests {
 
     #[test]
     fn test_variable_resolution() {
-        let TestCase { db, source } =
-            test_case("func test(param: felt) { let local_var = param; }");
+        let TestCase { db, source } = test_case("fn test(param: felt) { let local_var = param; }");
         let crate_id = single_file_crate(&db, source);
         let index = module_semantic_index(&db, crate_id, "main".to_string());
 
@@ -1373,14 +1372,14 @@ mod tests {
                 y: felt
             }
 
-            func distance(p1: Point, p2: Point) -> felt {
+            fn distance(p1: Point, p2: Point) -> felt {
                 let dx = p1.x - p2.x;
                 local dy: felt = p1.y - p2.y;
                 return dx * dx + dy * dy;
             }
 
             namespace Math {
-                func square(x: felt) -> felt {
+                fn square(x: felt) -> felt {
                     return x * x;
                 }
             }
@@ -1474,7 +1473,7 @@ mod tests {
 
     #[test]
     fn test_real_spans_are_used() {
-        let TestCase { db, source } = test_case("func test(x: felt) { let y = x; }");
+        let TestCase { db, source } = test_case("fn test(x: felt) { let y = x; }");
         let crate_id = single_file_crate(&db, source);
         let index = module_semantic_index(&db, crate_id, "main".to_string());
 
@@ -1529,7 +1528,7 @@ mod tests {
             r#"
             const Z = 314;
 
-            func test() -> felt {
+            fn test() -> felt {
                 let x = 42;
                 local y: felt = 100;
                 return x + y;

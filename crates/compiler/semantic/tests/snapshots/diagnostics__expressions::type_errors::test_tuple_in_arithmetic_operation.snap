@@ -6,7 +6,7 @@ Fixture: semantic_tests::expressions::type_errors::test_tuple_in_arithmetic_oper
 ============================================================
 Source code:
 
-        func test() {
+        fn test() {
             let t = (42,);
             let result = t + 10;  // Should suggest accessing with [0]
         }
@@ -16,9 +16,9 @@ Found 1 diagnostic(s):
 
 --- Diagnostic 1 ---
 [3002] Error: Function 'test' doesn't return on all paths
-   ╭─[ semantic_tests::expressions::type_errors::test_tuple_in_arithmetic_operation:2:14 ]
+   ╭─[ semantic_tests::expressions::type_errors::test_tuple_in_arithmetic_operation:2:12 ]
    │
- 2 │         func test() {
-   │              ──┬─  
-   │                ╰─── Function 'test' doesn't return on all paths
+ 2 │         fn test() {
+   │            ──┬─  
+   │              ╰─── Function 'test' doesn't return on all paths
 ───╯

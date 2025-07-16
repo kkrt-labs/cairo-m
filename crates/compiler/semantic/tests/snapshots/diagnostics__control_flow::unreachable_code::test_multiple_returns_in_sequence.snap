@@ -6,7 +6,7 @@ Fixture: semantic_tests::control_flow::unreachable_code::test_multiple_returns_i
 ============================================================
 Source code:
 
-        func test() -> felt {
+        fn test() -> felt {
             return 1;
             return 2; // Error: unreachable code
         }

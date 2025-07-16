@@ -19,7 +19,7 @@ fn get_main_semantic_index(db: &dyn SemanticDb, crate_id: Crate) -> SemanticInde
 fn test_let_variable_type_inference() {
     let db = test_db();
     let program = r#"
-        func test() {
+        fn test() {
             let x = 42;        // Should infer felt
             let y: felt = 100; // Explicit felt type
         }
@@ -58,7 +58,7 @@ fn test_parameter_type_resolution() {
     let db = test_db();
     let program = r#"
         struct Vector { x: felt, y: felt }
-        func magnitude(v: Vector, scale: felt) -> felt {
+        fn magnitude(v: Vector, scale: felt) -> felt {
             return 0;
         }
     "#;
@@ -101,7 +101,7 @@ fn test_function_type_resolution() {
     let db = test_db();
     let program = r#"
         struct Point { x: felt, y: felt }
-        func get_point(x: felt) -> Point {
+        fn get_point(x: felt) -> Point {
             return Point { x: x, y: 0 };
         }
     "#;
@@ -203,7 +203,7 @@ fn test_pointer_variable_types() {
     // For now we have no support for casts, so, this should not even compile (type checks).
     // TODO: Add typechecks for literal -> pointers.
     let program = r#"
-        func test() {
+        fn test() {
             let ptr: felt* = 0;
             let double_ptr: felt** = 0;
         }

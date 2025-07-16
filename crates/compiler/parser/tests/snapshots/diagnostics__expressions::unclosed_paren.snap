@@ -3,12 +3,12 @@ source: crates/compiler/parser/tests/common.rs
 expression: snapshot
 ---
 --- Code ---
-func test() { foo(a, b; }
+fn test() { foo(a, b; }
 --- Diagnostics ---
 [02] Error: found ';' expected '{', '(', '.', '[', '*', '/', '+', '-', '==', '!=', '<', '>', '<=', '>=', '&&', '||', ',', or ')'
-   ╭─[ test.cairo:1:23 ]
+   ╭─[ test.cairo:1:21 ]
    │
- 1 │ func test() { foo(a, b; }
-   │                       ┬  
-   │                       ╰── found ';' expected '{', '(', '.', '[', '*', '/', '+', '-', '==', '!=', '<', '>', '<=', '>=', '&&', '||', ',', or ')'
+ 1 │ fn test() { foo(a, b; }
+   │                     ┬  
+   │                     ╰── found ';' expected '{', '(', '.', '[', '*', '/', '+', '-', '==', '!=', '<', '>', '<=', '>=', '&&', '||', ',', or ')'
 ───╯

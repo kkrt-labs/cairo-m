@@ -6,7 +6,7 @@ use crate::*;
 fn test_function_with_felt_return_type() {
     assert_semantic_ok!(
         r#"
-        func test() -> felt {
+        fn test() -> felt {
             return 42;
         }
     "#
@@ -17,7 +17,7 @@ fn test_function_with_felt_return_type() {
 fn test_function_with_unit_return_type() {
     assert_semantic_ok!(
         r#"
-        func test() {
+        fn test() {
             return ();
         }
     "#
@@ -28,7 +28,7 @@ fn test_function_with_unit_return_type() {
 fn test_function_with_explicit_unit_return_type() {
     assert_semantic_ok!(
         r#"
-        func test() -> () {
+        fn test() -> () {
             return ();
         }
     "#
@@ -39,7 +39,7 @@ fn test_function_with_explicit_unit_return_type() {
 fn test_function_missing_return_statement() {
     assert_semantic_err!(
         r#"
-        func test() -> felt {
+        fn test() -> felt {
             let x = 42;
             // Missing return statement
         }
@@ -52,7 +52,7 @@ fn test_function_unit_missing_return_statement() {
     // Unit functions should still require explicit return
     assert_semantic_err!(
         r#"
-        func test() {
+        fn test() {
             let x = 42;
             // Missing return () statement
         }
@@ -64,7 +64,7 @@ fn test_function_unit_missing_return_statement() {
 fn test_function_return_variable() {
     assert_semantic_ok!(
         r#"
-        func test() -> felt {
+        fn test() -> felt {
             let x = 42;
             return x;
         }
@@ -76,7 +76,7 @@ fn test_function_return_variable() {
 fn test_function_return_expression() {
     assert_semantic_ok!(
         r#"
-        func test() -> felt {
+        fn test() -> felt {
             let x = 10;
             let y = 20;
             return x + y;
@@ -89,11 +89,11 @@ fn test_function_return_expression() {
 fn test_function_return_function_call() {
     assert_semantic_ok!(
         r#"
-        func helper() -> felt {
+        fn helper() -> felt {
             return 42;
         }
 
-        func test() -> felt {
+        fn test() -> felt {
             return helper();
         }
     "#
@@ -104,7 +104,7 @@ fn test_function_return_function_call() {
 fn test_function_return_complex_expression() {
     assert_semantic_ok!(
         r#"
-        func test() -> felt {
+        fn test() -> felt {
             let a = 10;
             let b = 5;
             let c = 2;
@@ -118,7 +118,7 @@ fn test_function_return_complex_expression() {
 fn test_function_return_in_if_statement() {
     assert_semantic_ok!(
         r#"
-        func test(x: felt) -> felt {
+        fn test(x: felt) -> felt {
             if (x == 0) {
                 return x;
             } else {
@@ -133,7 +133,7 @@ fn test_function_return_in_if_statement() {
 fn test_function_return_missing_in_if_branch() {
     assert_semantic_err!(
         r#"
-        func test(x: felt) -> felt {
+        fn test(x: felt) -> felt {
             if (x == 0) {
                 return x;
             }
@@ -147,7 +147,7 @@ fn test_function_return_missing_in_if_branch() {
 fn test_function_return_missing_in_else_branch() {
     assert_semantic_err!(
         r#"
-        func test(x: felt) -> felt {
+        fn test(x: felt) -> felt {
             if (x == 0) {
                 return x;
             } else {
@@ -163,7 +163,7 @@ fn test_function_return_missing_in_else_branch() {
 fn test_function_return_in_nested_blocks() {
     assert_semantic_ok!(
         r#"
-        func test() -> felt {
+        fn test() -> felt {
             {
                 {
                     return 42;
@@ -178,7 +178,7 @@ fn test_function_return_in_nested_blocks() {
 fn test_function_return_parameter() {
     assert_semantic_ok!(
         r#"
-        func test(param: felt) -> felt {
+        fn test(param: felt) -> felt {
             return param;
         }
     "#
@@ -189,7 +189,7 @@ fn test_function_return_parameter() {
 fn test_function_return_modified_parameter() {
     assert_semantic_ok!(
         r#"
-        func test(param: felt) -> felt {
+        fn test(param: felt) -> felt {
             param = param + 1;
             return param;
         }
@@ -201,7 +201,7 @@ fn test_function_return_modified_parameter() {
 fn test_function_early_return() {
     assert_semantic_ok!(
         r#"
-        func test(x: felt) -> felt {
+        fn test(x: felt) -> felt {
             if (x == 0) {
                 return 0; // Early return
             }
@@ -217,7 +217,7 @@ fn test_function_early_return() {
 fn test_function_multiple_return_paths() {
     assert_semantic_ok!(
         r#"
-        func test(x: felt) -> felt {
+        fn test(x: felt) -> felt {
             if (x == 100) {
                 return 100;
             } else if (x == 0) {
@@ -234,7 +234,7 @@ fn test_function_multiple_return_paths() {
 fn test_function_return_undeclared_variable() {
     assert_semantic_err!(
         r#"
-        func test() -> felt {
+        fn test() -> felt {
             return undefined_var;
         }
     "#
@@ -245,7 +245,7 @@ fn test_function_return_undeclared_variable() {
 fn test_recursive_function_return() {
     assert_semantic_ok!(
         r#"
-        func factorial(n: felt) -> felt {
+        fn factorial(n: felt) -> felt {
             if (n == 1) {
                 return 1;
             } else {
@@ -260,7 +260,7 @@ fn test_recursive_function_return() {
 fn test_function_return_literal() {
     assert_semantic_ok!(
         r#"
-        func test() -> felt {
+        fn test() -> felt {
             return 42;
         }
     "#
@@ -272,7 +272,7 @@ fn test_function_void_return_with_value() {
     // Unit functions should return () not values
     assert_semantic_err!(
         r#"
-        func test() {
+        fn test() {
             return 42; // Error: should return ()
         }
     "#
@@ -283,7 +283,7 @@ fn test_function_void_return_with_value() {
 fn test_function_nested_control_flow_all_paths_return() {
     assert_semantic_ok!(
         r#"
-        func test(x: felt, y: felt) -> felt {
+        fn test(x: felt, y: felt) -> felt {
             if (x == 0) {
                 if (y == 0) {
                     return 1;

@@ -6,7 +6,7 @@ Fixture: semantic_tests::control_flow::loop_validation::test_break_in_if_outside
 ============================================================
 Source code:
 
-        func test() {
+        fn test() {
             if (1) {
                 break;
             }

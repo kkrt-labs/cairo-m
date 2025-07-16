@@ -16,7 +16,7 @@ Source code:
 //!ASSERT CONTAINS: return 99
 
 // Tests that a `let` statement correctly generates stack allocation and storage.
-func test() -> felt {
+fn test() -> felt {
     let x = 10;
     return 99;
 }

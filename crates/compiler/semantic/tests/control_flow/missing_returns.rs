@@ -6,7 +6,7 @@ use crate::*;
 fn test_missing_return_simple() {
     assert_semantic_err!(
         r#"
-        func test() -> felt {
+        fn test() -> felt {
             let x = 42;
             // Missing return statement
         }
@@ -18,7 +18,7 @@ fn test_missing_return_simple() {
 fn test_missing_return_with_if() {
     assert_semantic_err!(
         r#"
-        func test(x: felt) -> felt {
+        fn test(x: felt) -> felt {
             if (x == 0) {
                 return 1;
             }
@@ -32,7 +32,7 @@ fn test_missing_return_with_if() {
 fn test_missing_return_in_else() {
     assert_semantic_err!(
         r#"
-        func test(x: felt) -> felt {
+        fn test(x: felt) -> felt {
             if (x == 0) {
                 return 1;
             } else {
@@ -48,7 +48,7 @@ fn test_missing_return_in_else() {
 fn test_valid_return_all_paths() {
     assert_semantic_ok!(
         r#"
-        func test(x: felt) -> felt {
+        fn test(x: felt) -> felt {
             if (x == 0) {
                 return 1;
             } else {
@@ -63,7 +63,7 @@ fn test_valid_return_all_paths() {
 fn test_valid_return_simple() {
     assert_semantic_ok!(
         r#"
-        func test() -> felt {
+        fn test() -> felt {
             let x = 42;
             return x;
         }
@@ -75,7 +75,7 @@ fn test_valid_return_simple() {
 fn test_unit_return_type_ok() {
     assert_semantic_ok!(
         r#"
-        func test() {
+        fn test() {
             let x = 42;
             return ();
         }
@@ -88,7 +88,7 @@ fn test_unit_return_type_implicit() {
     // Functions with unit return type should still require explicit return
     assert_semantic_err!(
         r#"
-        func test() {
+        fn test() {
             let x = 42;
             // Missing return () for unit functions
         }
@@ -100,7 +100,7 @@ fn test_unit_return_type_implicit() {
 fn test_nested_missing_return() {
     assert_semantic_err!(
         r#"
-        func test(x: felt) -> felt {
+        fn test(x: felt) -> felt {
             if (x == 0) {
                 if (x == 10) {
                     return 1;
@@ -119,7 +119,7 @@ fn test_nested_missing_return() {
 fn test_complex_control_flow_valid() {
     assert_semantic_ok!(
         r#"
-        func test(x: felt) -> felt {
+        fn test(x: felt) -> felt {
             if (x == 0) {
                 if (x == 10) {
                     return 1;
@@ -138,7 +138,7 @@ fn test_complex_control_flow_valid() {
 fn test_return_in_nested_block() {
     assert_semantic_ok!(
         r#"
-        func test() -> felt {
+        fn test() -> felt {
             {
                 {
                     return 42;

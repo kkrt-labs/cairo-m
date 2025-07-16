@@ -4,16 +4,16 @@ expression: snapshot
 ---
 --- Code ---
 
-        func bad1( { }
-        func good() { return 1; }
+        fn bad1( { }
+        fn good() { return 1; }
         struct bad2 x: felt }
         struct Good { x: felt }
     
 --- Diagnostics ---
 [02] Error: found '{' expected identifier, or ')'
-   ╭─[ test.cairo:2:20 ]
+   ╭─[ test.cairo:2:18 ]
    │
- 2 │         func bad1( { }
-   │                    ┬  
-   │                    ╰── found '{' expected identifier, or ')'
+ 2 │         fn bad1( { }
+   │                  ┬  
+   │                  ╰── found '{' expected identifier, or ')'
 ───╯

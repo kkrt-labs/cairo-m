@@ -6,7 +6,7 @@ Fixture: semantic_tests::scoping::unused_variables::test_unused_in_nested_scope
 ============================================================
 Source code:
 
-        func test() -> felt {
+        fn test() -> felt {
             let used = 10;
             {
                 let unused_inner = 20;

@@ -10,7 +10,7 @@ Source code:
             enabled: felt,
         }
 
-        func test() {
+        fn test() {
             let config: Config = Config { enabled: 1 };
             // This should fail - accessing the struct itself, not the field
             while (config) {
@@ -32,9 +32,9 @@ Found 2 diagnostic(s):
 
 --- Diagnostic 2 ---
 [3002] Error: Function 'test' doesn't return on all paths
-   ╭─[ semantic_tests::control_flow::loop_type_checking::test_while_loop_with_complex_non_felt_expression:6:14 ]
+   ╭─[ semantic_tests::control_flow::loop_type_checking::test_while_loop_with_complex_non_felt_expression:6:12 ]
    │
- 6 │         func test() {
-   │              ──┬─  
-   │                ╰─── Function 'test' doesn't return on all paths
+ 6 │         fn test() {
+   │            ──┬─  
+   │              ╰─── Function 'test' doesn't return on all paths
 ───╯

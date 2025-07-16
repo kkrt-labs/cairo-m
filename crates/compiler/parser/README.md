@@ -142,7 +142,7 @@ for beautiful error reporting. These error snapshots help ensure that:
 #[test]
 fn test_function_declaration() {
     assert_parse_snapshot!(
-        "func add(x: felt, y: felt) -> felt { return x + y; }",
+        "fn add(x: felt, y: felt) -> felt { return x + y; }",
         "function_declaration"
     );
 }

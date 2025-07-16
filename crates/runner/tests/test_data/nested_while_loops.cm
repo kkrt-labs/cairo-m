@@ -1,4 +1,4 @@
-func nested_while_loops() -> felt {
+fn nested_while_loops() -> felt {
     let i = 0;
     let j = 0;
     while (i != 10) {

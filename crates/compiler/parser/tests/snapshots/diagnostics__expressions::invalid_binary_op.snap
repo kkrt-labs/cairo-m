@@ -3,12 +3,12 @@ source: crates/compiler/parser/tests/common.rs
 expression: snapshot
 ---
 --- Code ---
-func test() { a +; }
+fn test() { a +; }
 --- Diagnostics ---
 [02] Error: found ';' expected '!', '-', something else, identifier, or '('
-   ╭─[ test.cairo:1:18 ]
+   ╭─[ test.cairo:1:16 ]
    │
- 1 │ func test() { a +; }
-   │                  ┬  
-   │                  ╰── found ';' expected '!', '-', something else, identifier, or '('
+ 1 │ fn test() { a +; }
+   │                ┬  
+   │                ╰── found ';' expected '!', '-', something else, identifier, or '('
 ───╯

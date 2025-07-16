@@ -6,7 +6,7 @@ Fixture: semantic_tests::control_flow::loop_scoping::test_nested_loop_scopes
 ============================================================
 Source code:
 
-        func test() {
+        fn test() {
             loop {
                 let outer = 1;
                 loop {

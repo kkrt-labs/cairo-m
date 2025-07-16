@@ -9,7 +9,7 @@ expression: mir_output
 Fixture: simple_while.cm
 ============================================================
 Source code:
-func test_simple_while() -> felt {
+fn test_simple_while() -> felt {
     let i = 0;
     let sum = 0;
 

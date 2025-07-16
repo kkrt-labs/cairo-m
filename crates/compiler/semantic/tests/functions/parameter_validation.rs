@@ -6,7 +6,7 @@ use crate::*;
 fn test_function_with_single_parameter() {
     assert_semantic_ok!(
         r#"
-        func test(x: felt) -> felt {
+        fn test(x: felt) -> felt {
             return x;
         }
     "#
@@ -17,7 +17,7 @@ fn test_function_with_single_parameter() {
 fn test_function_with_multiple_parameters() {
     assert_semantic_ok!(
         r#"
-        func test(x: felt, y: felt, z: felt) -> felt {
+        fn test(x: felt, y: felt, z: felt) -> felt {
             return x + y + z;
         }
     "#
@@ -28,7 +28,7 @@ fn test_function_with_multiple_parameters() {
 fn test_function_with_no_parameters() {
     assert_semantic_ok!(
         r#"
-        func test() -> felt {
+        fn test() -> felt {
             return 42;
         }
     "#
@@ -39,7 +39,7 @@ fn test_function_with_no_parameters() {
 fn test_duplicate_parameter_names() {
     assert_semantic_err!(
         r#"
-        func test(x: felt, x: felt) -> felt {
+        fn test(x: felt, x: felt) -> felt {
             return x;
         }
     "#
@@ -50,7 +50,7 @@ fn test_duplicate_parameter_names() {
 fn test_parameter_used_in_function_body() {
     assert_semantic_ok!(
         r#"
-        func test(param: felt) -> felt {
+        fn test(param: felt) -> felt {
             let var = param + 1;
             return var;
         }
@@ -62,7 +62,7 @@ fn test_parameter_used_in_function_body() {
 fn test_unused_parameter_warning() {
     assert_semantic_err!(
         r#"
-        func test(unused_param: felt) -> felt {
+        fn test(unused_param: felt) -> felt {
             return 42;
         }
     "#,
@@ -74,7 +74,7 @@ fn test_unused_parameter_warning() {
 fn test_parameter_used_in_nested_scope() {
     assert_semantic_ok!(
         r#"
-        func test(param: felt) -> felt {
+        fn test(param: felt) -> felt {
             {
                 let inner = param * 2;
                 return inner;
@@ -88,7 +88,7 @@ fn test_parameter_used_in_nested_scope() {
 fn test_parameter_used_in_if_statement() {
     assert_semantic_ok!(
         r#"
-        func test(param: felt) -> felt {
+        fn test(param: felt) -> felt {
             if (param == 0) {
                 return param;
             } else {
@@ -103,7 +103,7 @@ fn test_parameter_used_in_if_statement() {
 fn test_parameter_assignment() {
     assert_semantic_ok!(
         r#"
-        func test(param: felt) -> felt {
+        fn test(param: felt) -> felt {
             param = param + 1;
             return param;
         }
@@ -116,7 +116,7 @@ fn test_parameter_vs_local_variable_shadowing() {
     // Shadowing is now supported - local variables can shadow parameters
     assert_semantic_ok!(
         r#"
-        func test(param: felt) -> felt {
+        fn test(param: felt) -> felt {
             let param = 42; // OK: shadows parameter
             return param;
         }
@@ -129,7 +129,7 @@ fn test_parameter_shadowed_in_nested_scope() {
     // Parameter can be shadowed in nested scope
     assert_semantic_ok!(
         r#"
-        func test(param: felt) -> felt {
+        fn test(param: felt) -> felt {
             {
                 let param = 100; // OK: shadows parameter in nested scope
                 return param;
@@ -143,7 +143,7 @@ fn test_parameter_shadowed_in_nested_scope() {
 fn test_multiple_parameters_all_used() {
     assert_semantic_ok!(
         r#"
-        func test(a: felt, b: felt, c: felt) -> felt {
+        fn test(a: felt, b: felt, c: felt) -> felt {
             return a + b + c;
         }
     "#
@@ -154,7 +154,7 @@ fn test_multiple_parameters_all_used() {
 fn test_multiple_parameters_some_unused() {
     assert_semantic_err!(
         r#"
-        func test(used: felt, unused1: felt, unused2: felt) -> felt {
+        fn test(used: felt, unused1: felt, unused2: felt) -> felt {
             return used;
         }
     "#,
@@ -166,11 +166,11 @@ fn test_multiple_parameters_some_unused() {
 fn test_parameter_used_in_function_call() {
     assert_semantic_ok!(
         r#"
-        func helper(x: felt) -> felt {
+        fn helper(x: felt) -> felt {
             return x * 2;
         }
 
-        func test(param: felt) -> felt {
+        fn test(param: felt) -> felt {
             return helper(param);
         }
     "#
@@ -181,7 +181,7 @@ fn test_parameter_used_in_function_call() {
 fn test_parameter_used_in_complex_expression() {
     assert_semantic_ok!(
         r#"
-        func test(a: felt, b: felt, c: felt) -> felt {
+        fn test(a: felt, b: felt, c: felt) -> felt {
             return (a + b) * c - a / b;
         }
     "#
@@ -192,7 +192,7 @@ fn test_parameter_used_in_complex_expression() {
 fn test_parameter_type_annotation() {
     assert_semantic_ok!(
         r#"
-        func test(param: felt) -> felt {
+        fn test(param: felt) -> felt {
             return param;
         }
     "#
@@ -203,11 +203,11 @@ fn test_parameter_type_annotation() {
 fn test_function_call_with_correct_parameter_count() {
     assert_semantic_ok!(
         r#"
-        func helper(x: felt, y: felt) -> felt {
+        fn helper(x: felt, y: felt) -> felt {
             return x + y;
         }
 
-        func test() -> felt {
+        fn test() -> felt {
             return helper(10, 20);
         }
     "#
@@ -218,7 +218,7 @@ fn test_function_call_with_correct_parameter_count() {
 fn test_parameter_used_as_condition() {
     assert_semantic_ok!(
         r#"
-        func test(condition: felt) -> felt {
+        fn test(condition: felt) -> felt {
             if (condition == 0) {
                 return 1;
             } else {
@@ -233,7 +233,7 @@ fn test_parameter_used_as_condition() {
 fn test_parameter_used_in_return_statement() {
     assert_semantic_ok!(
         r#"
-        func test(value: felt) -> felt {
+        fn test(value: felt) -> felt {
             return value;
         }
     "#
@@ -244,7 +244,7 @@ fn test_parameter_used_in_return_statement() {
 fn test_recursive_function_with_parameter() {
     assert_semantic_ok!(
         r#"
-        func factorial(n: felt) -> felt {
+        fn factorial(n: felt) -> felt {
             if (n == 1) {
                 return 1;
             } else {

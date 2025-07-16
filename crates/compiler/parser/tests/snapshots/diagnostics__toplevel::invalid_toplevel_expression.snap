@@ -5,10 +5,10 @@ expression: snapshot
 --- Code ---
 42;
 --- Diagnostics ---
-[02] Error: found '42' expected 'func', 'struct', 'const', 'namespace', 'use', or end of input
+[02] Error: found '42' expected 'fn', 'struct', 'const', 'namespace', 'use', or end of input
    ╭─[ test.cairo:1:1 ]
    │
  1 │ 42;
    │ ─┬  
-   │  ╰── found '42' expected 'func', 'struct', 'const', 'namespace', 'use', or end of input
+   │  ╰── found '42' expected 'fn', 'struct', 'const', 'namespace', 'use', or end of input
 ───╯

@@ -6,7 +6,7 @@ async fn test_variable_type_hover() {
     test_transform!(
         HoverTransformer,
         r#"
-func main() {
+fn main() {
     let x: felt = 42;
     let y = x<caret>;
     return y;
@@ -20,11 +20,11 @@ async fn test_function_signature_hover() {
     test_transform!(
         HoverTransformer,
         r#"
-func add(a: felt, b: felt) -> felt {
+fn add(a: felt, b: felt) -> felt {
     return a + b;
 }
 
-func main() {
+fn main() {
     let sum = ad<caret>d(1, 2);
     return sum;
 }
@@ -37,7 +37,7 @@ async fn test_parameter_type_hover() {
     test_transform!(
         HoverTransformer,
         r#"
-func process(value<caret>: felt) -> felt {
+fn process(value<caret>: felt) -> felt {
     return value * 2;
 }
 "#
@@ -49,7 +49,7 @@ async fn test_return_type_hover() {
     test_transform!(
         HoverTransformer,
         r#"
-func calculate() -> fe<caret>lt {
+fn calculate() -> fe<caret>lt {
     return 42;
 }
 "#
@@ -61,7 +61,7 @@ async fn test_hover_on_type_annotation() {
     test_transform!(
         HoverTransformer,
         r#"
-func main() {
+fn main() {
     let x: fe<caret>lt = 100;
     return x;
 }
@@ -74,11 +74,11 @@ async fn test_hover_on_function_call_result() {
     test_transform!(
         HoverTransformer,
         r#"
-func get_value() -> felt {
+fn get_value() -> felt {
     42
 }
 
-func main() {
+fn main() {
     let result = get_va<caret>lue();
 }
 "#
@@ -90,7 +90,7 @@ async fn test_hover_no_info() {
     test_transform!(
         HoverTransformer,
         r#"
-func main() {
+fn main() {
     // Hovering on whitespace should return no info
     let x = 42;   <caret>
 }
@@ -103,7 +103,7 @@ async fn test_hover_on_binary_expression() {
     test_transform!(
         HoverTransformer,
         r#"
-func main() {
+fn main() {
     let a: felt = 10;
     let b: felt = 20;
     let sum = a + <caret>b;
@@ -122,7 +122,7 @@ struct Point {
     y: felt,
 }
 
-func main() {
+fn main() {
     let p = Point { x: 10, y: 20 };
     let x_val = p.x<caret>;
 }

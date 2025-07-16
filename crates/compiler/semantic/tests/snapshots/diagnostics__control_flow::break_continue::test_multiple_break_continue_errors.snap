@@ -6,7 +6,7 @@ Fixture: semantic_tests::control_flow::break_continue::test_multiple_break_conti
 ============================================================
 Source code:
 
-        func test() {
+        fn test() {
             break;
             if (1) {
                 continue;

@@ -3,7 +3,7 @@ source: crates/compiler/parser/tests/common.rs
 expression: snapshot
 ---
 --- Code ---
-func test() { very_long_variable_name_that_tests_identifier_parsing; }
+fn test() { very_long_variable_name_that_tests_identifier_parsing; }
 --- AST ---
 [
     Function(
@@ -11,7 +11,7 @@ func test() { very_long_variable_name_that_tests_identifier_parsing; }
             FunctionDef {
                 name: Spanned(
                     "test",
-                    5..9,
+                    3..7,
                 ),
                 params: [],
                 return_type: Tuple(
@@ -24,17 +24,17 @@ func test() { very_long_variable_name_that_tests_identifier_parsing; }
                                 Identifier(
                                     Spanned(
                                         "very_long_variable_name_that_tests_identifier_parsing",
-                                        14..67,
+                                        12..65,
                                     ),
                                 ),
-                                14..67,
+                                12..65,
                             ),
                         ),
-                        14..68,
+                        12..66,
                     ),
                 ],
             },
-            0..70,
+            0..68,
         ),
     ),
 ]

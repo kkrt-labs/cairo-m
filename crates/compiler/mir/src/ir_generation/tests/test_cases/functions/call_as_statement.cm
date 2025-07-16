@@ -2,9 +2,9 @@
 
 // Tests a function call used as a statement, where the return value is ignored.
 // This generates a call instruction with a destination that is not used.
-func helper() -> felt { return 123; }
+fn helper() -> felt { return 123; }
 
-func main() -> felt {
+fn main() -> felt {
     helper(); // Call in statement context
     return 0;
 }

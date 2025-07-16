@@ -9,9 +9,10 @@ expression: codegen_output
 Fixture: function_simple.cm
 ============================================================
 Source code:
-func test() -> felt {
+fn test() -> felt {
     return 42;
 }
+
 ============================================================
 Generated CASM:
 test:

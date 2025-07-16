@@ -205,7 +205,7 @@ fn test_resolve_types_in_nested_scopes() {
                 y: felt,
             }
 
-            func test() -> LocalStruct {
+            fn test() -> LocalStruct {
                 return LocalStruct { y: 0 };
             }
         }

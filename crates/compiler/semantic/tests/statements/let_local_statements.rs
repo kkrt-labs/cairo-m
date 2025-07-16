@@ -54,7 +54,7 @@ fn test_multiple_let_statements() {
 #[test]
 fn test_let_statement_with_function_call() {
     assert_semantic_ok!(&with_functions(
-        "func helper() -> felt { return 42; }",
+        "fn helper() -> felt { return 42; }",
         &in_function(
             "
             let x = helper();

@@ -11,14 +11,14 @@ const JMP_REL_INITIAL_STATE: State = State {
 
 /// Macro for absolute jump tests with empty memory
 macro_rules! test_jmp_abs_no_memory {
-    ($test_name:ident, $opcode:expr, $func:ident, $operands:expr, $expected_pc:expr) => {
+    ($test_name:ident, $opcode:expr, $fn:ident, $operands:expr, $expected_pc:expr) => {
         #[test]
         fn $test_name() -> Result<(), MemoryError> {
             let mut memory = Memory::default();
             let state = State::default();
             let instruction = Instruction::new($opcode, $operands);
 
-            let new_state = $func(&mut memory, state, &instruction)?;
+            let new_state = $fn(&mut memory, state, &instruction)?;
 
             let expected_state = State {
                 pc: M31($expected_pc),
@@ -33,13 +33,13 @@ macro_rules! test_jmp_abs_no_memory {
 
 /// Macro for relative jump tests with empty memory
 macro_rules! test_jmp_rel_no_memory {
-    ($test_name:ident, $opcode:expr, $func:ident, $operands:expr, $expected_pc:expr) => {
+    ($test_name:ident, $opcode:expr, $fn:ident, $operands:expr, $expected_pc:expr) => {
         #[test]
         fn $test_name() -> Result<(), MemoryError> {
             let mut memory = Memory::default();
             let instruction = Instruction::new($opcode, $operands);
 
-            let new_state = $func(&mut memory, JMP_REL_INITIAL_STATE, &instruction)?;
+            let new_state = $fn(&mut memory, JMP_REL_INITIAL_STATE, &instruction)?;
 
             let expected_state = State {
                 pc: M31($expected_pc),

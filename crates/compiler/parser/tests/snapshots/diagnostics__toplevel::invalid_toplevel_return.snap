@@ -5,10 +5,10 @@ expression: snapshot
 --- Code ---
 return 5;
 --- Diagnostics ---
-[02] Error: found 'return' expected 'func', 'struct', 'const', 'namespace', 'use', or end of input
+[02] Error: found 'return' expected 'fn', 'struct', 'const', 'namespace', 'use', or end of input
    ╭─[ test.cairo:1:1 ]
    │
  1 │ return 5;
    │ ───┬──  
-   │    ╰──── found 'return' expected 'func', 'struct', 'const', 'namespace', 'use', or end of input
+   │    ╰──── found 'return' expected 'fn', 'struct', 'const', 'namespace', 'use', or end of input
 ───╯

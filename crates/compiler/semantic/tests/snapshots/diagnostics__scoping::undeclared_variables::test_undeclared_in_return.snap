@@ -6,7 +6,7 @@ Fixture: semantic_tests::scoping::undeclared_variables::test_undeclared_in_retur
 ============================================================
 Source code:
 
-        func test() -> felt {
+        fn test() -> felt {
             return undefined_var;
         }
     

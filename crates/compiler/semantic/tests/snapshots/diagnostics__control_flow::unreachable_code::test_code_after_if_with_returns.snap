@@ -6,7 +6,7 @@ Fixture: semantic_tests::control_flow::unreachable_code::test_code_after_if_with
 ============================================================
 Source code:
 
-        func test(x: felt) -> felt {
+        fn test(x: felt) -> felt {
             if (x == 0) {
                 return 1;
             } else {

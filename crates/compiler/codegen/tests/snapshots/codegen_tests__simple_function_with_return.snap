@@ -9,10 +9,11 @@ expression: codegen_output
 Fixture: function_with_return.cm
 ============================================================
 Source code:
-func identity(x: felt) -> felt {
+fn identity(x: felt) -> felt {
     let y = x;
     return y;
 }
+
 ============================================================
 Generated CASM:
 identity:
