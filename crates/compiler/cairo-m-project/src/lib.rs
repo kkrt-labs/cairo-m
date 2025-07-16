@@ -1,3 +1,5 @@
+#![allow(clippy::option_if_let_else)]
+
 mod discovery;
 mod manifest;
 mod model;
