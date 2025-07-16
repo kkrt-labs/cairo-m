@@ -1,9 +1,9 @@
 use std::fs;
 use std::time::Duration;
 
-use cairo_m_compiler::{compile_cairo, CompilerOptions};
+use cairo_m_compiler::{CompilerOptions, compile_cairo};
 use cairo_m_runner::run_cairo_program;
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{Criterion, Throughput, black_box, criterion_group, criterion_main};
 use stwo_prover::core::fields::m31::M31;
 
 const BENCHMARK_DURATION_SECS: u64 = 30;

@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::iter::Peekable;
 
+use cairo_m_common::State as VmRegisters;
 use cairo_m_common::opcode::Opcode;
 use cairo_m_common::state::MemoryEntry as RunnerMemoryEntry;
-use cairo_m_common::State as VmRegisters;
 use num_traits::{One, Zero};
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
@@ -176,8 +176,8 @@ where
             let data_access = DataAccess {
                 address: operand_arg.address,
                 prev_clock: operand_arg.prev_clock,
-                prev_value: operand_arg.prev_val.0 .0,
-                value: operand_arg.value.0 .0,
+                prev_value: operand_arg.prev_val.0.0,
+                value: operand_arg.value.0.0,
             };
 
             *operand_slot = Some(data_access);

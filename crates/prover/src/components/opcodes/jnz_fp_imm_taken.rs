@@ -47,17 +47,17 @@ use stwo_constraint_framework::logup::LogupTraceGenerator;
 use stwo_constraint_framework::{
     EvalAtRow, FrameworkComponent, FrameworkEval, Relation, RelationEntry,
 };
-use stwo_prover::core::backend::simd::conversion::Pack;
-use stwo_prover::core::backend::simd::m31::{PackedM31, LOG_N_LANES, N_LANES};
-use stwo_prover::core::backend::simd::qm31::PackedQM31;
-use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::backend::BackendForChannel;
+use stwo_prover::core::backend::simd::SimdBackend;
+use stwo_prover::core::backend::simd::conversion::Pack;
+use stwo_prover::core::backend::simd::m31::{LOG_N_LANES, N_LANES, PackedM31};
+use stwo_prover::core::backend::simd::qm31::PackedQM31;
 use stwo_prover::core::channel::{Channel, MerkleChannel};
 use stwo_prover::core::fields::m31::{BaseField, M31};
-use stwo_prover::core::fields::qm31::{SecureField, SECURE_EXTENSION_DEGREE};
+use stwo_prover::core::fields::qm31::{SECURE_EXTENSION_DEGREE, SecureField};
 use stwo_prover::core::pcs::TreeVec;
-use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
+use stwo_prover::core::poly::circle::CircleEvaluation;
 
 use crate::adapter::ExecutionBundle;
 use crate::components::Relations;
