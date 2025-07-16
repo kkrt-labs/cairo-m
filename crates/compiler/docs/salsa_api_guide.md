@@ -429,7 +429,7 @@ Minimize cross-file dependencies:
 
 ```rust
 // BAD: Direct AST dependency across files
-pub fn analyze_function(db: &dyn Db, fn: &ast::FunctionDef) -> Analysis {
+pub fn analyze_function(db: &dyn Db, func: &ast::FunctionDef) -> Analysis {
     // This creates cross-file AST dependencies
 }
 
