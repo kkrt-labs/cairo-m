@@ -85,17 +85,8 @@ pub fn project_validate_semantics(db: &dyn SemanticDb, crate_id: Crate) -> Diagn
                     .get(module_name)
                     .unwrap_or_else(|| panic!("Module file should exist: {}", module_name));
                 let module_diagnostics = registry.validate_all(db, crate_id, module_file, index);
-                tracing::info!(
-                    "[SEMANTIC] Module '{}' validation complete: {} diagnostics",
-                    module_name,
-                    module_diagnostics.len()
-                );
                 coll.extend(module_diagnostics);
             }
-            tracing::info!(
-                "[SEMANTIC] Project validation complete: {} total diagnostics",
-                coll.len()
-            );
             coll
         }
         Err(err_diag) => {
@@ -371,12 +362,6 @@ pub fn project_semantic_index(
     db: &dyn SemanticDb,
     crate_id: Crate,
 ) -> Result<std::sync::Arc<ProjectSemanticIndex>, DiagnosticCollection> {
-    let num_modules = crate_id.modules(db).len();
-    tracing::info!(
-        "[SEMANTIC] Building project semantic index for {} modules",
-        num_modules
-    );
-
     let graph = project_import_graph(db, crate_id);
 
     if let Some(cycle) = detect_import_cycle(&graph) {
@@ -413,7 +398,6 @@ pub fn project_semantic_index(
         }
     }
 
-    tracing::info!("[SEMANTIC] Project semantic index complete");
     Ok(std::sync::Arc::new(ProjectSemanticIndex::new(
         module_indices,
     )))
@@ -482,15 +466,8 @@ pub fn module_semantic_diagnostics(
     if let Some(file) = crate_id.modules(db).get(&module_name) {
         let index = module_semantic_index(db, crate_id, module_name.clone());
         let registry = create_default_registry();
-        let module_diagnostics = registry.validate_all(db, crate_id, *file, &index);
 
-        tracing::info!(
-            "[SEMANTIC] Module '{}' validation complete: {} diagnostics",
-            module_name,
-            module_diagnostics.len()
-        );
-
-        module_diagnostics
+        registry.validate_all(db, crate_id, *file, &index)
     } else {
         DiagnosticCollection::default()
     }

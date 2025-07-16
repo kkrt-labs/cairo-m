@@ -18,6 +18,22 @@ Each `.cm` file inside the `src` directory is treated as a separate **module**.
 While it's possible to compile single files outside of a crate, a crate **must**
 have a root module: either `main.cm` or `lib.cm`.
 
+## The Crate Manifest
+
+The `cairom.toml` file is a manifest file that defines the project. It is used
+to define the project name, version, and entry point.
+
+```toml
+name = "cairo-m-project"
+version = "0.1.0"
+entry_point = "main.cm"
+```
+
+The `name` field is the name of the project. The `version` field is the version
+of the project. The `entry_point` field is the entry point of the project.
+
+> Note: The `entry_point` might be removed in the future.
+
 ## Example Structure
 
 ```text

@@ -147,8 +147,6 @@ impl Backend {
                         crate_info,
                         files,
                     } => {
-                        tracing::info!("Project update: {:?}", crate_info);
-                        tracing::info!("Files: {:?}", files);
                         // Clone crate_info so we can use it later
                         let crate_info_for_later = crate_info.clone();
 

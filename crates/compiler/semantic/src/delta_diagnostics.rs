@@ -68,11 +68,8 @@ impl DeltaDiagnosticsTracker {
             return self.get_cached_project_diagnostics();
         }
 
-        info!("[DELTA] Computing delta diagnostics for project");
         let modules = crate_id.modules(db);
         let mut total_diagnostics = DiagnosticCollection::default();
-        let mut recomputed_modules = 0;
-        let mut cached_modules = 0;
 
         for (module_name, _file) in modules.iter() {
             let module_changed = self.has_module_changed(db, crate_id, module_name.clone());
@@ -91,7 +88,6 @@ impl DeltaDiagnosticsTracker {
                     .insert(module_name.clone(), current_revision);
 
                 total_diagnostics.extend(module_diagnostics.all().iter().cloned());
-                recomputed_modules += 1;
             } else {
                 debug!(
                     "[DELTA] Using cached diagnostics for unchanged module: {}",
@@ -99,7 +95,6 @@ impl DeltaDiagnosticsTracker {
                 );
                 if let Some(cached_diag) = self.cached_diagnostics.get(module_name) {
                     total_diagnostics.extend(cached_diag.all().iter().cloned());
-                    cached_modules += 1;
                 } else {
                     // Module wasn't in cache, need to compute it
                     debug!("[DELTA] Module {} not in cache, computing", module_name);
@@ -110,17 +105,11 @@ impl DeltaDiagnosticsTracker {
                     self.module_revisions
                         .insert(module_name.clone(), current_revision);
                     total_diagnostics.extend(module_diagnostics.all().iter().cloned());
-                    recomputed_modules += 1;
                 }
             }
         }
 
         self.last_project_revision = Some(current_revision);
-
-        info!(
-            "[DELTA] Delta computation complete: {} modules recomputed, {} modules cached",
-            recomputed_modules, cached_modules
-        );
 
         total_diagnostics
     }
