@@ -65,7 +65,9 @@ impl ProjectController {
                 Ok(event) => {
                     // Check if this is a cairom.toml file modification
                     for path in event.paths {
-                        if path.file_name().and_then(|n| n.to_str()) == Some("cairom.toml") {
+                        if path.file_name().and_then(|n| n.to_str())
+                            == Some(cairo_m_project::MANIFEST_FILE_NAME)
+                        {
                             // Clear cache entry for this manifest to force reload
                             if let Ok(mut cache) = manifest_cache_for_watcher.lock() {
                                 cache.remove(&path);

@@ -44,8 +44,11 @@ pub struct Backend {
     /// Diagnostics controller for background diagnostic computation
     diagnostics_controller: Option<DiagnosticsController>,
     /// Database swapper for memory management
+    /// This field is intentionally kept alive to maintain the background swapping task.
+    /// The swapper spawns a task that periodically resets the database to prevent
+    /// unbounded memory growth. It must be stored to keep the task running.
     #[allow(dead_code)]
-    db_swapper: Option<AnalysisDatabaseSwapper>,
+    _db_swapper: Option<AnalysisDatabaseSwapper>,
     /// Debounce timers for per-file diagnostics
     debounce_timers: Arc<DashMap<Url, JoinHandle<()>>>,
     /// Debounce delay in milliseconds
@@ -407,7 +410,7 @@ impl Backend {
             project_controller: Some(project_controller),
             project_model,
             diagnostics_controller: Some(diagnostics_controller),
-            db_swapper: Some(db_swapper),
+            _db_swapper: Some(db_swapper),
             debounce_timers: Arc::new(DashMap::new()),
             debounce_delay_ms: Arc::new(AtomicU64::new(300)), // Default to 300ms
         }

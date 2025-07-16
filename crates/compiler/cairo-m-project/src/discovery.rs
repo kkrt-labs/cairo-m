@@ -59,7 +59,7 @@ pub fn discover_workspace(workspace_root: &Path) -> Result<Workspace> {
         let entry = entry?;
         let path = entry.path();
 
-        if path.file_name() == Some(std::ffi::OsStr::new("cairom.toml")) {
+        if path.file_name() == Some(std::ffi::OsStr::new(crate::MANIFEST_FILE_NAME)) {
             match load_project_from_manifest(path) {
                 Ok(project) => {
                     let crate_id = CrateId(next_id);
@@ -96,7 +96,7 @@ fn find_project_manifest(start_path: &Path) -> Result<Option<PathBuf>> {
     let mut current = start_dir;
 
     loop {
-        let manifest_path = current.join("cairom.toml");
+        let manifest_path = current.join(crate::MANIFEST_FILE_NAME);
         if manifest_path.exists() {
             return Ok(Some(manifest_path));
         }
@@ -176,7 +176,11 @@ mod tests {
             name = "test_project"
             version = "0.1.0"
         "#;
-        fs::write(project_dir.join("cairom.toml"), manifest_content).unwrap();
+        fs::write(
+            project_dir.join(crate::MANIFEST_FILE_NAME),
+            manifest_content,
+        )
+        .unwrap();
 
         // Create src directory
         fs::create_dir(project_dir.join("src")).unwrap();

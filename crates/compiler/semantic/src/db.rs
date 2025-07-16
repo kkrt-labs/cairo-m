@@ -8,7 +8,7 @@
 //! and invalidating them only when their dependencies change.
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode, DiagnosticCollection};
 use cairo_m_compiler_parser::parser::TopLevelItem;
@@ -157,11 +157,9 @@ pub fn crate_from_project(
         }
     };
 
-    let src_dir = project.source_directory();
-
     // Convert each file path to a module name and create File entities
     for file_path in source_files {
-        let module_name = match path_to_module_name(&file_path, &src_dir) {
+        let module_name = match project.module_name_from_path(&file_path) {
             Ok(name) => name,
             Err(e) => {
                 diagnostics.add(Diagnostic::error(
@@ -209,33 +207,6 @@ pub fn crate_from_project(
     ))
 }
 
-/// Convert a file path to a module name
-/// e.g., "src/foo/bar.cm" -> "foo::bar"
-fn path_to_module_name(file_path: &Path, src_dir: &Path) -> anyhow::Result<String> {
-    let relative_path = file_path
-        .strip_prefix(src_dir)
-        .map_err(|_| anyhow::anyhow!("File is not under source directory"))?;
-
-    let mut components = Vec::new();
-    for component in relative_path.components() {
-        if let std::path::Component::Normal(name) = component {
-            let name_str = name.to_string_lossy();
-            // Remove .cm extension from the last component
-            if component == relative_path.components().next_back().unwrap() {
-                if let Some(stem) = name_str.strip_suffix(".cm") {
-                    components.push(stem.to_string());
-                } else {
-                    components.push(name_str.to_string());
-                }
-            } else {
-                components.push(name_str.to_string());
-            }
-        }
-    }
-
-    Ok(components.join("::"))
-}
-
 /// Determine the entry point module name
 fn determine_entry_point(
     modules: &HashMap<String, File>,
@@ -243,8 +214,7 @@ fn determine_entry_point(
 ) -> String {
     // If project specifies an entry point, use it
     if let Some(ref entry_point_path) = project.entry_point {
-        if let Ok(module_name) = path_to_module_name(entry_point_path, &project.source_directory())
-        {
+        if let Ok(module_name) = project.module_name_from_path(entry_point_path) {
             if modules.contains_key(&module_name) {
                 return module_name;
             }
