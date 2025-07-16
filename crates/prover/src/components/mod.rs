@@ -18,8 +18,7 @@ use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::BitReversedOrder;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 
-use crate::adapter::ProverInput;
-use crate::adapter::merkle::MerkleHasher;
+use crate::adapter::{MockHasher, ProverInput};
 use crate::preprocessed::range_check::range_check_20;
 use crate::public_data::PublicData;
 use crate::relations;
@@ -73,7 +72,7 @@ impl Claim {
         self.range_check_20.mix_into(channel);
     }
 
-    pub fn write_trace<MC: MerkleChannel, H: MerkleHasher>(
+    pub fn write_trace<MC: MerkleChannel>(
         input: &mut ProverInput,
     ) -> (
         Self,
@@ -93,7 +92,7 @@ impl Claim {
 
         // Write merkle trace
         let (merkle_claim, merkle_trace, merkle_interaction_claim_data) =
-            merkle::Claim::write_trace::<MC, H>(&input.merkle_trees);
+            merkle::Claim::write_trace::<MC, MockHasher>(&input.merkle_trees);
 
         // Write range_check components
         let range_check_data = opcodes_interaction_claim_data.range_check_20();

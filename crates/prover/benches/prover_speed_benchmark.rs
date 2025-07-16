@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use cairo_m_common::Program;
 use cairo_m_compiler::{CompilerOptions, compile_cairo};
-use cairo_m_prover::adapter::{MockHasher, import_from_runner_output};
+use cairo_m_prover::adapter::import_from_runner_output;
 use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_runner::run_cairo_program;
 use criterion::{Criterion, Throughput, black_box, criterion_group, criterion_main};
@@ -60,9 +60,8 @@ fn fibonacci_prove_benchmark(c: &mut Criterion) {
     group.bench_function("prove", |b| {
         b.iter(|| {
             // Benchmark: prove the execution
-            let proof =
-                prove_cairo_m::<Blake2sMerkleChannel, MockHasher>(&mut prover_input.clone(), None)
-                    .expect("Proving failed");
+            let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input.clone(), None)
+                .expect("Proving failed");
             black_box(proof)
         })
     });

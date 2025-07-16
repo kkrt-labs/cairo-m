@@ -11,7 +11,6 @@ use stwo_prover::core::prover::prove;
 use tracing::{Level, info, span};
 
 use crate::adapter::ProverInput;
-use crate::adapter::merkle::MerkleHasher;
 use crate::components::{Claim, Components, InteractionClaim, Relations};
 use crate::errors::ProvingError;
 use crate::preprocessed::PreProcessedTraceBuilder;
@@ -21,7 +20,7 @@ use crate::{Proof, relations};
 
 pub(crate) const PREPROCESSED_TRACE_LOG_SIZE: u32 = 20;
 
-pub fn prove_cairo_m<MC: MerkleChannel, H: MerkleHasher>(
+pub fn prove_cairo_m<MC: MerkleChannel>(
     input: &mut ProverInput,
     pcs_config: Option<PcsConfig>,
 ) -> Result<Proof<MC::H>, ProvingError>
@@ -74,7 +73,7 @@ where
 
     // Execution traces
     info!("execution trace");
-    let (claim, trace, lookup_data) = Claim::write_trace::<MC, H>(input);
+    let (claim, trace, lookup_data) = Claim::write_trace::<MC>(input);
     claim.mix_into(channel);
 
     let mut tree_builder = commitment_scheme.tree_builder();

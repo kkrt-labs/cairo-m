@@ -17,7 +17,7 @@ use stwo_prover::core::poly::BitReversedOrder;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
 
-use crate::adapter::{MockHasher, ProverInput};
+use crate::adapter::ProverInput;
 use crate::components::{Claim, Components, InteractionClaim, Relations};
 use crate::preprocessed::PreProcessedTraceBuilder;
 
@@ -31,7 +31,7 @@ pub fn assert_constraints(input: &mut ProverInput) {
     tree_builder.finalize_interaction();
 
     // Base trace.
-    let (claim, trace, lookup_data) = Claim::write_trace::<Blake2sMerkleChannel, MockHasher>(input);
+    let (claim, trace, lookup_data) = Claim::write_trace::<Blake2sMerkleChannel>(input);
     let mut tree_builder = commitment_scheme.tree_builder();
     tree_builder.extend_evals(trace);
     tree_builder.finalize_interaction();

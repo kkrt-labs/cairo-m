@@ -8,14 +8,13 @@ use stwo_prover::core::pcs::{CommitmentSchemeVerifier, PcsConfig};
 use stwo_prover::core::prover::{VerificationError as StwoVerificationError, verify};
 use tracing::{Level, info, span};
 
-use crate::adapter::merkle::MerkleHasher;
 use crate::components::{Components, Relations};
 use crate::errors::VerificationError;
 use crate::preprocessed::PreProcessedTraceBuilder;
 use crate::prover_config::REGULAR_96_BITS;
 use crate::{Proof, relations};
 
-pub fn verify_cairo_m<MC: MerkleChannel, H: MerkleHasher>(
+pub fn verify_cairo_m<MC: MerkleChannel>(
     proof: Proof<MC::H>,
     pcs_config: Option<PcsConfig>,
 ) -> Result<(), VerificationError>
