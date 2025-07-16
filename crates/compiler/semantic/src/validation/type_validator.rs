@@ -365,7 +365,7 @@ impl TypeValidator {
                         Diagnostic::error(
                             DiagnosticCode::TypeMismatch,
                             format!(
-                                "Logical operator '{:?}' requires operands of type 'felt' or 'bool', found '{}'",
+                                "Logical operator '{:?}' requires operands of type 'bool', found '{}'",
                                 op,
                                 right_type.data(db).display_name(db)
                             ),

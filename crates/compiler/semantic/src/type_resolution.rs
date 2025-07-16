@@ -350,14 +350,11 @@ pub fn expression_semantic_type<'db>(
                         TypeId::new(db, TypeData::Error)
                     }
                 }
-                // Logical operations can take felt or bool operands and return bool
+                // Logical operations require bool operands and return bool
                 BinaryOp::And | BinaryOp::Or => {
-                    let felt_type = TypeId::new(db, TypeData::Felt);
                     let bool_type = TypeId::new(db, TypeData::Bool);
-                    if (are_types_compatible(db, left_type, felt_type)
-                        || are_types_compatible(db, left_type, bool_type))
-                        && (are_types_compatible(db, right_type, felt_type)
-                            || are_types_compatible(db, right_type, bool_type))
+                    if are_types_compatible(db, left_type, bool_type)
+                        && are_types_compatible(db, right_type, bool_type)
                     {
                         TypeId::new(db, TypeData::Bool)
                     } else {
