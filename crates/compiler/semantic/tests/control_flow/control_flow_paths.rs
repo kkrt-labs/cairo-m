@@ -6,7 +6,7 @@ use crate::*;
 fn test_all_paths_return() {
     assert_semantic_ok!(
         r#"
-        func test(x: felt) -> felt {
+        fn test(x: felt) -> felt {
             if (x == 0) {
                 return 1;
             } else {
@@ -21,7 +21,7 @@ fn test_all_paths_return() {
 fn test_not_all_paths_return() {
     assert_semantic_err!(
         r#"
-        func test(x: felt) -> felt {
+        fn test(x: felt) -> felt {
             if (x == 0) {
                 return 1;
             }
@@ -35,7 +35,7 @@ fn test_not_all_paths_return() {
 fn test_nested_control_flow_all_paths() {
     assert_semantic_ok!(
         r#"
-        func test(x: felt, y: felt) -> felt {
+        fn test(x: felt, y: felt) -> felt {
             if (x == 0) {
                 if (y == 0) {
                     return 1;
@@ -54,7 +54,7 @@ fn test_nested_control_flow_all_paths() {
 fn test_nested_control_flow_missing_path() {
     assert_semantic_err!(
         r#"
-        func test(x: felt, y: felt) -> felt {
+        fn test(x: felt, y: felt) -> felt {
             if (x == 0) {
                 if (y == 0) {
                     return 1;
@@ -72,7 +72,7 @@ fn test_nested_control_flow_missing_path() {
 fn test_early_return_valid() {
     assert_semantic_ok!(
         r#"
-        func test(x: felt) -> felt {
+        fn test(x: felt) -> felt {
             if (x == 0) {
                 return 0; // Early return
             }

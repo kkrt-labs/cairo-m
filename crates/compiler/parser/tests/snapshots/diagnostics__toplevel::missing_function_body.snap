@@ -3,12 +3,12 @@ source: crates/compiler/parser/tests/common.rs
 expression: snapshot
 ---
 --- Code ---
-func test() -> felt
+fn test() -> felt
 --- Diagnostics ---
 [02] Error: found end of input expected '*', or '{'
-   ╭─[ test.cairo:1:20 ]
+   ╭─[ test.cairo:1:18 ]
    │
- 1 │ func test() -> felt
-   │                    │ 
-   │                    ╰─ found end of input expected '*', or '{'
+ 1 │ fn test() -> felt
+   │                  │ 
+   │                  ╰─ found end of input expected '*', or '{'
 ───╯

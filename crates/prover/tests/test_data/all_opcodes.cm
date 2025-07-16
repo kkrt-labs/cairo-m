@@ -1,7 +1,7 @@
 // Cairo-M combination test file demonstrating all compilable opcodes
 // This program exercises all implemented opcodes for comprehensive testing
 
-func main() -> felt {
+fn main() -> felt {
     // Initialize some values for arithmetic operations
     let a = 10;
     let b = 5;
@@ -71,6 +71,6 @@ func main() -> felt {
     return result;
 }
 
-func helper() -> felt {
+fn helper() -> felt {
     return 5;
 }

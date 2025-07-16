@@ -6,16 +6,16 @@ Fixture: semantic_tests::control_flow::break_continue::test_break_continue_mix
 ============================================================
 Source code:
 
-        func test() {
+        fn test() {
             break;  // Error
-            
+
             loop {
                 break;  // OK
                 continue;  // OK (unreachable but syntactically valid)
             }
-            
+
             continue;  // Error
-            
+
             while (1) {
                 if (1) {
                     break;  // OK
@@ -23,7 +23,7 @@ Source code:
                     continue;  // OK
                 }
             }
-            
+
             return;
         }
         

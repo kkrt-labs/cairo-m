@@ -144,14 +144,14 @@ mod tests {
         let fixture = Fixture::new();
 
         // Test adding a file with explicit extension
-        fixture.add_file("test.cm", "func main() {}");
+        fixture.add_file("test.cm", "fn main() {}");
         assert!(fixture.file_exists("test.cm"));
-        assert_eq!(fixture.read_file("test.cm"), "func main() {}");
+        assert_eq!(fixture.read_file("test.cm"), "fn main() {}");
 
         // Test adding a file without extension (should default to .cm)
-        fixture.add_file("test2", "func test() {}");
+        fixture.add_file("test2", "fn test() {}");
         assert!(fixture.file_exists("test2.cm"));
-        assert_eq!(fixture.read_file("test2.cm"), "func test() {}");
+        assert_eq!(fixture.read_file("test2.cm"), "fn test() {}");
 
         // Test adding a cairom.toml file
         fixture.add_cairom_toml("test_project");
@@ -159,7 +159,7 @@ mod tests {
         assert!(fixture.read_file("cairom.toml").contains("test_project"));
 
         // Test adding a file in a subdirectory
-        fixture.add_file("src/lib.cm", "func lib_func() {}");
+        fixture.add_file("src/lib.cm", "fn lib_func() {}");
         assert!(fixture.file_exists("src/lib.cm"));
 
         // Test root path and URLs

@@ -1,4 +1,4 @@
-func test_loops() {
+fn test_loops() {
     // Infinite loop
     loop {
         let x = 1;

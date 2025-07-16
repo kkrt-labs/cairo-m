@@ -6,7 +6,7 @@ Fixture: semantic_tests::control_flow::loop_scoping::test_loop_body_creates_new_
 ============================================================
 Source code:
 
-        func test() {
+        fn test() {
             loop {
                 let x = 42;
                 break;

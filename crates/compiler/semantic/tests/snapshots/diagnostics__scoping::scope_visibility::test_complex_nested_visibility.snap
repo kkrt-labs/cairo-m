@@ -6,7 +6,7 @@ Fixture: semantic_tests::scoping::scope_visibility::test_complex_nested_visibili
 ============================================================
 Source code:
 
-        func test() {
+        fn test() {
             let outer = 1;
             {
                 let middle = outer + 1; // OK
@@ -31,9 +31,9 @@ Found 2 diagnostic(s):
 
 --- Diagnostic 2 ---
 [3002] Error: Function 'test' doesn't return on all paths
-   ╭─[ semantic_tests::scoping::scope_visibility::test_complex_nested_visibility:2:14 ]
+   ╭─[ semantic_tests::scoping::scope_visibility::test_complex_nested_visibility:2:12 ]
    │
- 2 │         func test() {
-   │              ──┬─  
-   │                ╰─── Function 'test' doesn't return on all paths
+ 2 │         fn test() {
+   │            ──┬─  
+   │              ╰─── Function 'test' doesn't return on all paths
 ───╯

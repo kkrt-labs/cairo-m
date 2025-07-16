@@ -5,7 +5,7 @@ fn test_while_loop_with_felt_condition() {
     // This should pass - felt is the correct type for conditions
     assert_semantic_ok!(
         r#"
-        func test() {
+        fn test() {
             let x: felt = 1;
             while (x) {
                 return;
@@ -25,7 +25,7 @@ fn test_while_loop_with_non_felt_condition() {
             y: felt,
         }
 
-        func test() {
+        fn test() {
             let p: Point = Point { x: 1, y: 2 };
             while (p) {
                 return;
@@ -39,7 +39,7 @@ fn test_while_loop_with_non_felt_condition() {
 fn test_while_loop_with_tuple_condition() {
     assert_semantic_err!(
         r#"
-        func test() {
+        fn test() {
             let t: (felt, felt) = (1, 2);
             while (t) {
                 return;
@@ -57,7 +57,7 @@ fn test_while_loop_with_complex_non_felt_expression() {
             enabled: felt,
         }
 
-        func test() {
+        fn test() {
             let config: Config = Config { enabled: 1 };
             // This should fail - accessing the struct itself, not the field
             while (config) {
@@ -73,7 +73,7 @@ fn test_while_loop_with_nested_conditions() {
     // This should pass - all conditions are felt
     assert_semantic_ok!(
         r#"
-        func test() {
+        fn test() {
             let a: felt = 1;
             let b: felt = 0;
 
@@ -94,7 +94,7 @@ fn test_while_loop_with_comparison_expression() {
     // This should pass - comparisons return felt
     assert_semantic_ok!(
         r#"
-        func test() {
+        fn test() {
             let x: felt = 10;
             while (x == 0) {
                 return;
@@ -110,7 +110,7 @@ fn test_while_loop_with_logical_expression() {
     // This should pass - logical operations return felt
     assert_semantic_ok!(
         r#"
-        func test() {
+        fn test() {
             let a: felt = 1;
             let b: felt = 0;
             while (a && b) {

@@ -6,7 +6,7 @@ use crate::*;
 fn test_deeply_nested_scopes() {
     assert_semantic_ok!(
         r#"
-        func test() -> felt {
+        fn test() -> felt {
             let level1 = 1;
             {
                 let level2 = level1 + 1;
@@ -27,7 +27,7 @@ fn test_deeply_nested_scopes() {
 fn test_nested_scope_variable_access() {
     assert_semantic_err!(
         r#"
-        func test() {
+        fn test() {
             let outer = 1;
             {
                 let middle = 2;
@@ -45,7 +45,7 @@ fn test_nested_scope_variable_access() {
 fn test_nested_if_scopes() {
     assert_semantic_ok!(
         r#"
-        func test(x: felt) -> felt {
+        fn test(x: felt) -> felt {
             if (x == 0) {
                 let positive = x;
                 if (positive == 10) {
@@ -66,7 +66,7 @@ fn test_nested_if_scopes() {
 fn test_nested_scope_shadowing() {
     assert_semantic_ok!(
         r#"
-        func test() -> felt {
+        fn test() -> felt {
             let x = 1;
             {
                 let x = 2; // Shadows outer x
@@ -84,7 +84,7 @@ fn test_nested_scope_shadowing() {
 fn test_complex_scope_interaction() {
     assert_semantic_err!(
         r#"
-        func test() {
+        fn test() {
             let a = 1;
             {
                 let b = a + 1; // OK: a is visible
@@ -103,11 +103,11 @@ fn test_complex_scope_interaction() {
 fn test_nested_function_calls_with_scopes() {
     assert_semantic_ok!(
         r#"
-        func helper(x: felt) -> felt {
+        fn helper(x: felt) -> felt {
             return x * 2;
         }
 
-        func test() -> felt {
+        fn test() -> felt {
             let outer = 5;
             {
                 let middle = helper(outer);
@@ -125,7 +125,7 @@ fn test_nested_function_calls_with_scopes() {
 fn test_scope_boundaries_with_assignments() {
     assert_semantic_err!(
         r#"
-        func test() {
+        fn test() {
             let x = 1;
             {
                 let y = 2;
@@ -141,7 +141,7 @@ fn test_scope_boundaries_with_assignments() {
 fn test_multiple_nested_branches() {
     assert_semantic_ok!(
         r#"
-        func test(condition: felt) -> felt {
+        fn test(condition: felt) -> felt {
             let base = 10;
             if (condition == 0) {
                 let branch1 = base + 1;

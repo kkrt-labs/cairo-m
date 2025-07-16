@@ -6,7 +6,7 @@ Fixture: semantic_tests::scoping::scope_visibility::test_sibling_scopes_not_visi
 ============================================================
 Source code:
 
-        func test() {
+        fn test() {
             {
                 let first_scope = 1;
             }
@@ -29,9 +29,9 @@ Found 2 diagnostic(s):
 
 --- Diagnostic 2 ---
 [3002] Error: Function 'test' doesn't return on all paths
-   ╭─[ semantic_tests::scoping::scope_visibility::test_sibling_scopes_not_visible:2:14 ]
+   ╭─[ semantic_tests::scoping::scope_visibility::test_sibling_scopes_not_visible:2:12 ]
    │
- 2 │         func test() {
-   │              ──┬─  
-   │                ╰─── Function 'test' doesn't return on all paths
+ 2 │         fn test() {
+   │            ──┬─  
+   │              ╰─── Function 'test' doesn't return on all paths
 ───╯

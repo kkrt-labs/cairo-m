@@ -6,7 +6,7 @@ Fixture: semantic_tests::functions::parameter_validation::test_unused_parameter_
 ============================================================
 Source code:
 
-        func test(unused_param: felt) -> felt {
+        fn test(unused_param: felt) -> felt {
             return 42;
         }
     
@@ -15,9 +15,9 @@ Found 1 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1002] Warning: Unused variable 'unused_param'
-   ╭─[ semantic_tests::functions::parameter_validation::test_unused_parameter_warning:2:19 ]
+   ╭─[ semantic_tests::functions::parameter_validation::test_unused_parameter_warning:2:17 ]
    │
- 2 │         func test(unused_param: felt) -> felt {
-   │                   ──────┬─────  
-   │                         ╰─────── Unused variable 'unused_param'
+ 2 │         fn test(unused_param: felt) -> felt {
+   │                 ──────┬─────  
+   │                       ╰─────── Unused variable 'unused_param'
 ───╯

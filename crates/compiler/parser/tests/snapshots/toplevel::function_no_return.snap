@@ -3,7 +3,7 @@ source: crates/compiler/parser/tests/common.rs
 expression: snapshot
 ---
 --- Code ---
-func print_hello() { let msg = hello; }
+fn print_hello() { let msg = hello; }
 --- AST ---
 [
     Function(
@@ -11,7 +11,7 @@ func print_hello() { let msg = hello; }
             FunctionDef {
                 name: Spanned(
                     "print_hello",
-                    5..16,
+                    3..14,
                 ),
                 params: [],
                 return_type: Tuple(
@@ -23,7 +23,7 @@ func print_hello() { let msg = hello; }
                             pattern: Identifier(
                                 Spanned(
                                     "msg",
-                                    25..28,
+                                    23..26,
                                 ),
                             ),
                             statement_type: None,
@@ -31,17 +31,17 @@ func print_hello() { let msg = hello; }
                                 Identifier(
                                     Spanned(
                                         "hello",
-                                        31..36,
+                                        29..34,
                                     ),
                                 ),
-                                31..36,
+                                29..34,
                             ),
                         },
-                        21..37,
+                        19..35,
                     ),
                 ],
             },
-            0..39,
+            0..37,
         ),
     ),
 ]

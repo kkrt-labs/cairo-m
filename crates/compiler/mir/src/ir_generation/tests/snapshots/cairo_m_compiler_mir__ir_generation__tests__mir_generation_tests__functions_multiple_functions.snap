@@ -12,9 +12,9 @@ Source code:
 //!ASSERT FUNCTION_COUNT: 3
 
 // Tests that a module can contain multiple function definitions.
-func first() -> felt { return 1; }
-func second() -> felt { return 2; }
-func third() -> felt { return 3; }
+fn first() -> felt { return 1; }
+fn second() -> felt { return 2; }
+fn third() -> felt { return 3; }
 
 ============================================================
 Generated MIR:

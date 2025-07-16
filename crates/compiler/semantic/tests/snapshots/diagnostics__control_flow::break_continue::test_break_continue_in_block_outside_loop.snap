@@ -6,7 +6,7 @@ Fixture: semantic_tests::control_flow::break_continue::test_break_continue_in_bl
 ============================================================
 Source code:
 
-        func test() {
+        fn test() {
             {
                 break;
             }

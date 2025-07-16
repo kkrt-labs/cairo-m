@@ -14,12 +14,13 @@ Source code:
 //!ASSERT NOT_CONTAINS: store %5
 
 // Test that unused variables don't generate allocations
-func test_unused(a: felt, b: felt) -> felt {
+fn test_unused(a: felt, b: felt) -> felt {
     let c = a + b;  // Used - should allocate
     let d = a * b;  // Unused - should NOT allocate
     let e = a == b; // Unused - should NOT allocate
     return c;
 }
+
 ============================================================
 Generated MIR:
 module {

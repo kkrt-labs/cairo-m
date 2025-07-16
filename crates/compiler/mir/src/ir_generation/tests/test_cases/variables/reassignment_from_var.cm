@@ -1,5 +1,5 @@
 // Tests reassigning one variable with the value of another.
-func test_reassignment() -> felt {
+fn test_reassignment() -> felt {
     let x = 10;
     let y = 20;
     x = y; // Should generate a load from y's address and a store to x's address.

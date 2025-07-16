@@ -3,7 +3,7 @@ source: crates/compiler/parser/tests/common.rs
 expression: snapshot
 ---
 --- Code ---
-func complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStruct*) -> (felt, felt) { return (a, b); }
+fn complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStruct*) -> (felt, felt) { return (a, b); }
 --- AST ---
 [
     Function(
@@ -11,13 +11,13 @@ func complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStru
             FunctionDef {
                 name: Spanned(
                     "complex_function",
-                    5..21,
+                    3..19,
                 ),
                 params: [
                     Parameter {
                         name: Spanned(
                             "a",
-                            22..23,
+                            20..21,
                         ),
                         type_expr: Named(
                             "felt",
@@ -26,7 +26,7 @@ func complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStru
                     Parameter {
                         name: Spanned(
                             "b",
-                            31..32,
+                            29..30,
                         ),
                         type_expr: Pointer(
                             Named(
@@ -37,7 +37,7 @@ func complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStru
                     Parameter {
                         name: Spanned(
                             "c",
-                            41..42,
+                            39..40,
                         ),
                         type_expr: Tuple(
                             [
@@ -53,7 +53,7 @@ func complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStru
                     Parameter {
                         name: Spanned(
                             "d",
-                            58..59,
+                            56..57,
                         ),
                         type_expr: Named(
                             "MyStruct",
@@ -62,7 +62,7 @@ func complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStru
                     Parameter {
                         name: Spanned(
                             "e",
-                            71..72,
+                            69..70,
                         ),
                         type_expr: Pointer(
                             Named(
@@ -92,31 +92,31 @@ func complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStru
                                                 Identifier(
                                                     Spanned(
                                                         "a",
-                                                        111..112,
+                                                        109..110,
                                                     ),
                                                 ),
-                                                111..112,
+                                                109..110,
                                             ),
                                             Spanned(
                                                 Identifier(
                                                     Spanned(
                                                         "b",
-                                                        114..115,
+                                                        112..113,
                                                     ),
                                                 ),
-                                                114..115,
+                                                112..113,
                                             ),
                                         ],
                                     ),
-                                    110..116,
+                                    108..114,
                                 ),
                             ),
                         },
-                        103..117,
+                        101..115,
                     ),
                 ],
             },
-            0..119,
+            0..117,
         ),
     ),
 ]

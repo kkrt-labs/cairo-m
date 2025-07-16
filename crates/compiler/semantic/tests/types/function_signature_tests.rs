@@ -12,7 +12,7 @@ use crate::{crate_from_program, get_main_semantic_index};
 fn test_simple_function_signature() {
     let db = test_db();
     let program = r#"
-        func add(a: felt, b: felt) -> felt {
+        fn add(a: felt, b: felt) -> felt {
             return a + b;
         }
     "#;
@@ -46,7 +46,7 @@ fn test_function_with_struct_parameters() {
         struct Point { x: felt, y: felt }
         struct Vector { dx: felt, dy: felt }
 
-        func translate(point: Point, offset: Vector) -> Point {
+        fn translate(point: Point, offset: Vector) -> Point {
             return Point {
                 x: point.x + offset.dx,
                 y: point.y + offset.dy
@@ -101,7 +101,7 @@ fn test_function_with_struct_parameters() {
 fn test_function_with_pointer_parameters() {
     let db = test_db();
     let program = r#"
-        func modify_value(ptr: felt*, new_value: felt) {
+        fn modify_value(ptr: felt*, new_value: felt) {
             // Function body would modify the value
         }
     "#;
@@ -152,7 +152,7 @@ fn test_function_with_pointer_parameters() {
 fn test_function_with_no_parameters() {
     let db = test_db();
     let program = r#"
-        func get_constant() -> felt {
+        fn get_constant() -> felt {
             return 42;
         }
     "#;
@@ -182,7 +182,7 @@ fn test_function_signature_consistency() {
     let db = test_db();
     let program = r#"
         struct Point { x: felt, y: felt }
-        func create_point(x: felt, y: felt) -> Point {
+        fn create_point(x: felt, y: felt) -> Point {
             return Point { x: x, y: y };
         }
     "#;
@@ -219,11 +219,11 @@ fn test_nested_function_signatures() {
     let db = test_db();
     let program = r#"
         namespace Math {
-            func square(x: felt) -> felt {
+            fn square(x: felt) -> felt {
                 return x * x;
             }
 
-            func cube(x: felt) -> felt {
+            fn cube(x: felt) -> felt {
                 return x * square(x);
             }
         }

@@ -1,7 +1,0 @@
-func test_unused() {
-    let x = 3;
-    let x = 4;
-    let x = 5;
-    faoskhd();
-    return ();
-}

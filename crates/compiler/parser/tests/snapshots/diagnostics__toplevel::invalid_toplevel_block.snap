@@ -5,10 +5,10 @@ expression: snapshot
 --- Code ---
 { let x = 1; }
 --- Diagnostics ---
-[02] Error: found '{' expected 'func', 'struct', 'const', 'namespace', 'use', or end of input
+[02] Error: found '{' expected 'fn', 'struct', 'const', 'namespace', 'use', or end of input
    ╭─[ test.cairo:1:1 ]
    │
  1 │ { let x = 1; }
    │ ┬  
-   │ ╰── found '{' expected 'func', 'struct', 'const', 'namespace', 'use', or end of input
+   │ ╰── found '{' expected 'fn', 'struct', 'const', 'namespace', 'use', or end of input
 ───╯

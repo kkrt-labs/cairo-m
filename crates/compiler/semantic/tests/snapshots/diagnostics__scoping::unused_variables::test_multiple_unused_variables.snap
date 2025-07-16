@@ -6,7 +6,7 @@ Fixture: semantic_tests::scoping::unused_variables::test_multiple_unused_variabl
 ============================================================
 Source code:
 
-        func test() {
+        fn test() {
             let unused1 = 10;
             let unused2 = 20;
             let unused3 = 30;

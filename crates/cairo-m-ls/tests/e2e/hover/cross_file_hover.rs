@@ -13,7 +13,7 @@ async fn test_hover_on_imported_function() {
         r#"
 use utils::helper_foo;
 
-func main() {
+fn main() {
     let result = helper_foo(42);
 }
 "#,
@@ -21,7 +21,7 @@ func main() {
     fixture.add_file(
         "src/utils.cm",
         r#"
-func helper_foo(x: felt) -> felt {
+fn helper_foo(x: felt) -> felt {
     return x * 2;
 }
 "#,
@@ -31,7 +31,7 @@ func helper_foo(x: felt) -> felt {
         r#"
 use utils::helper_foo;
 
-func main() {
+fn main() {
     let result = helper_<caret>foo(42);
 }
 "#,
@@ -52,7 +52,7 @@ async fn test_hover_on_imported_type() {
         r#"
 use types::CustomType;
 
-func main() {
+fn main() {
     let value: CustomType = CustomType { value: 42 };
 }
 "#,
@@ -70,7 +70,7 @@ struct CustomType {
         r#"
 use types::CustomType;
 
-func main() {
+fn main() {
     let value: Custom<caret>Type = CustomType { value: 42 };
 }
 "#,
@@ -90,7 +90,7 @@ async fn test_hover_on_module_name() {
         r#"
 use utils::calculate;
 
-func main() {
+fn main() {
     let result = calculate(10, 20);
 }
 "#,
@@ -98,11 +98,11 @@ func main() {
     fixture.add_file(
         "src/utils.cm",
         r#"
-func calculate(a: felt, b: felt) -> felt {
+fn calculate(a: felt, b: felt) -> felt {
     a + b
 }
 
-func multiply(a: felt, b: felt) -> felt {
+fn multiply(a: felt, b: felt) -> felt {
     a * b
 }
 "#,
@@ -112,7 +112,7 @@ func multiply(a: felt, b: felt) -> felt {
         r#"
 use util<caret>s::calculate;
 
-func main() {
+fn main() {
     let result = calculate(10, 20);
 }
 "#,
@@ -132,7 +132,7 @@ async fn test_hover_on_imported_constant() {
         r#"
 use constants::MAX_VALUE;
 
-func main() {
+fn main() {
     let limit = MAX_VALUE;
     return();
 }
@@ -149,7 +149,7 @@ const MAX_VALUE = 1000;
         r#"
 use constants::MAX_VALUE;
 
-func main() {
+fn main() {
     let limit = MAX_<caret>VALUE;
     return();
 }

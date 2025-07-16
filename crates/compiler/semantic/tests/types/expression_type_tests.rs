@@ -12,7 +12,7 @@ use crate::{crate_from_program, get_main_semantic_index};
 fn test_literal_expression_types() {
     let db = test_db();
     let program = r#"
-        func test() {
+        fn test() {
             let a = 42;
             let b = 0;
         }
@@ -50,7 +50,7 @@ fn test_identifier_expression_types() {
     let db = test_db();
     let program = r#"
         struct Point { x: felt, y: felt }
-        func test(p: Point) -> felt {
+        fn test(p: Point) -> felt {
             let a = 42;
             let b = a;  // b should have type felt (same as a)
             let c = p;  // c should have type Point (same as p)
@@ -82,7 +82,7 @@ fn test_identifier_expression_types() {
 fn test_binary_expression_types() {
     let db = test_db();
     let program = r#"
-        func test() {
+        fn test() {
             let a = 10;
             let b = 20;
             let sum = a + b;      // Should be felt
@@ -119,7 +119,7 @@ fn test_member_access_expression_types() {
     let db = test_db();
     let program = r#"
         struct Point { x: felt, y: felt }
-        func test(p: Point) -> felt {
+        fn test(p: Point) -> felt {
             let x_val = p.x;  // Should be felt
             let y_val = p.y;  // Should be felt
             return x_val;
@@ -155,11 +155,11 @@ fn test_function_call_expression_types() {
     let program = r#"
         struct Point { x: felt, y: felt }
 
-        func make_point(x: felt, y: felt) -> Point {
+        fn make_point(x: felt, y: felt) -> Point {
             return Point { x: x, y: y };
         }
 
-        func test() -> Point {
+        fn test() -> Point {
             let p = make_point(1, 2);  // Should be Point
             return p;
         }
@@ -197,7 +197,7 @@ fn test_struct_literal_expression_types() {
     let db = test_db();
     let program = r#"
         struct Point { x: felt, y: felt }
-        func test() -> Point {
+        fn test() -> Point {
             let p = Point { x: 1, y: 2 };  // Should be Point
             return p;
         }
@@ -239,7 +239,7 @@ fn test_complex_expression_type_inference() {
     let program = r#"
         struct Point { x: felt, y: felt }
 
-        func distance_squared(p1: Point, p2: Point) -> felt {
+        fn distance_squared(p1: Point, p2: Point) -> felt {
             let dx = p1.x - p2.x;
             let dy = p1.y - p2.y;
             let result = dx * dx + dy * dy;  // Complex expression
@@ -276,7 +276,7 @@ fn test_complex_expression_type_inference() {
 fn test_unary_expression_types() {
     let db = test_db();
     let program = r#"
-        func test() {
+        fn test() {
             let a = 10;
             let neg_a = -a;       // Should be felt
             let not_a = !a;       // Should be felt
@@ -313,7 +313,7 @@ fn test_unary_operation_type_errors() {
     let db = test_db();
     let program = r#"
         struct Point { x: felt, y: felt }
-        func test() {
+        fn test() {
             let p = Point { x: 1, y: 2 };
             let invalid_neg = -p;     // Error: negation on struct
             let invalid_not = !p;     // Error: logical not on struct

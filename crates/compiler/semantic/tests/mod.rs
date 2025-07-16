@@ -266,22 +266,22 @@ macro_rules! assert_semantic_err {
 
 /// Helper to wrap statement code inside a function, since most statements are not top-level.
 pub fn in_function(code: &str) -> String {
-    format!("func test() {{ {code} }}")
+    format!("fn test() {{ {code} }}")
 }
 
 /// Helper to wrap code in a function with a return type
 pub fn in_function_with_return(code: &str, return_type: &str) -> String {
-    format!("func test() -> {return_type} {{ {code} }}")
+    format!("fn test() -> {return_type} {{ {code} }}")
 }
 
 /// Helper to wrap code in a function with parameters
 pub fn in_function_with_params(code: &str, params: &str) -> String {
-    format!("func test({params}) {{ {code} }}")
+    format!("fn test({params}) {{ {code} }}")
 }
 
 /// Helper to wrap code in a function with both parameters and return type
 pub fn in_function_with_params_and_return(code: &str, params: &str, return_type: &str) -> String {
-    format!("func test({params}) -> {return_type} {{ {code} }}")
+    format!("fn test({params}) -> {return_type} {{ {code} }}")
 }
 
 /// Helper to create a struct definition with the given fields

@@ -3,7 +3,7 @@ source: crates/compiler/parser/tests/common.rs
 expression: snapshot
 ---
 --- Code ---
-func test() { while (true) { if (done) { break; } } }
+fn test() { while (true) { if (done) { break; } } }
 --- AST ---
 [
     Function(
@@ -11,7 +11,7 @@ func test() { while (true) { if (done) { break; } } }
             FunctionDef {
                 name: Spanned(
                     "test",
-                    5..9,
+                    3..7,
                 ),
                 params: [],
                 return_type: Tuple(
@@ -24,7 +24,7 @@ func test() { while (true) { if (done) { break; } } }
                                 BooleanLiteral(
                                     true,
                                 ),
-                                21..25,
+                                19..23,
                             ),
                             body: Spanned(
                                 Block(
@@ -35,36 +35,36 @@ func test() { while (true) { if (done) { break; } } }
                                                     Identifier(
                                                         Spanned(
                                                             "done",
-                                                            33..37,
+                                                            31..35,
                                                         ),
                                                     ),
-                                                    33..37,
+                                                    31..35,
                                                 ),
                                                 then_block: Spanned(
                                                     Block(
                                                         [
                                                             Spanned(
                                                                 Break,
-                                                                41..47,
+                                                                39..45,
                                                             ),
                                                         ],
                                                     ),
-                                                    39..49,
+                                                    37..47,
                                                 ),
                                                 else_block: None,
                                             },
-                                            29..49,
+                                            27..47,
                                         ),
                                     ],
                                 ),
-                                27..51,
+                                25..49,
                             ),
                         },
-                        14..51,
+                        12..49,
                     ),
                 ],
             },
-            0..53,
+            0..51,
         ),
     ),
 ]

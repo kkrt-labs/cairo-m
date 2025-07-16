@@ -3,7 +3,7 @@ source: crates/compiler/parser/tests/common.rs
 expression: snapshot
 ---
 --- Code ---
-func test() { obj.inner.field; }
+fn test() { obj.inner.field; }
 --- AST ---
 [
     Function(
@@ -11,7 +11,7 @@ func test() { obj.inner.field; }
             FunctionDef {
                 name: Spanned(
                     "test",
-                    5..9,
+                    3..7,
                 ),
                 params: [],
                 return_type: Tuple(
@@ -28,31 +28,31 @@ func test() { obj.inner.field; }
                                                 Identifier(
                                                     Spanned(
                                                         "obj",
-                                                        14..17,
+                                                        12..15,
                                                     ),
                                                 ),
-                                                14..17,
+                                                12..15,
                                             ),
                                             field: Spanned(
                                                 "inner",
-                                                18..23,
+                                                16..21,
                                             ),
                                         },
-                                        14..23,
+                                        12..21,
                                     ),
                                     field: Spanned(
                                         "field",
-                                        24..29,
+                                        22..27,
                                     ),
                                 },
-                                14..29,
+                                12..27,
                             ),
                         ),
-                        14..30,
+                        12..28,
                     ),
                 ],
             },
-            0..32,
+            0..30,
         ),
     ),
 ]

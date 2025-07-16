@@ -6,11 +6,11 @@ Fixture: semantic_tests::scoping::duplicate_definitions::test_duplicate_function
 ============================================================
 Source code:
 
-        func duplicate_func() {
+        fn duplicate_func() {
             return ();
         }
 
-        func duplicate_func() {
+        fn duplicate_func() {
             return ();
         }
     
@@ -19,9 +19,9 @@ Found 1 diagnostic(s):
 
 --- Diagnostic 1 ---
 [1003] Error: Duplicate definition of 'duplicate_func'
-   ╭─[ semantic_tests::scoping::duplicate_definitions::test_duplicate_function_names:6:14 ]
+   ╭─[ semantic_tests::scoping::duplicate_definitions::test_duplicate_function_names:6:12 ]
    │
- 6 │         func duplicate_func() {
-   │              ───────┬──────  
-   │                     ╰──────── Duplicate definition of 'duplicate_func'
+ 6 │         fn duplicate_func() {
+   │            ───────┬──────  
+   │                   ╰──────── Duplicate definition of 'duplicate_func'
 ───╯

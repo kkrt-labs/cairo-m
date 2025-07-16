@@ -6,7 +6,7 @@ Fixture: semantic_tests::control_flow::loop_type_checking::test_while_loop_with_
 ============================================================
 Source code:
 
-        func test() {
+        fn test() {
             let t: (felt, felt) = (1, 2);
             while (t) {
                 return;
@@ -27,9 +27,9 @@ Found 2 diagnostic(s):
 
 --- Diagnostic 2 ---
 [3002] Error: Function 'test' doesn't return on all paths
-   ╭─[ semantic_tests::control_flow::loop_type_checking::test_while_loop_with_tuple_condition:2:14 ]
+   ╭─[ semantic_tests::control_flow::loop_type_checking::test_while_loop_with_tuple_condition:2:12 ]
    │
- 2 │         func test() {
-   │              ──┬─  
-   │                ╰─── Function 'test' doesn't return on all paths
+ 2 │         fn test() {
+   │            ──┬─  
+   │              ╰─── Function 'test' doesn't return on all paths
 ───╯

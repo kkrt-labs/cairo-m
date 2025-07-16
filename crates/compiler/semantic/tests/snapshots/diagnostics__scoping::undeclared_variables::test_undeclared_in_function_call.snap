@@ -6,11 +6,11 @@ Fixture: semantic_tests::scoping::undeclared_variables::test_undeclared_in_funct
 ============================================================
 Source code:
 
-        func valid_func(x: felt) -> felt {
+        fn valid_func(x: felt) -> felt {
             return x;
         }
 
-        func test() {
+        fn test() {
             let result = valid_func(undefined_var);
         }
     
@@ -28,9 +28,9 @@ Found 2 diagnostic(s):
 
 --- Diagnostic 2 ---
 [3002] Error: Function 'test' doesn't return on all paths
-   ╭─[ semantic_tests::scoping::undeclared_variables::test_undeclared_in_function_call:6:14 ]
+   ╭─[ semantic_tests::scoping::undeclared_variables::test_undeclared_in_function_call:6:12 ]
    │
- 6 │         func test() {
-   │              ──┬─  
-   │                ╰─── Function 'test' doesn't return on all paths
+ 6 │         fn test() {
+   │            ──┬─  
+   │              ╰─── Function 'test' doesn't return on all paths
 ───╯

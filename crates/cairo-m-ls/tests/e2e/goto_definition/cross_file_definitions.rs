@@ -12,13 +12,13 @@ version = "0.1.0"
             "src/main.cm" => r#"
 use math::add;
 
-func main() {
+fn main() {
     let result = <caret>add(3, 4);
     return result;
 }
 "#,
             "src/math.cm" => r#"
-func add(a: felt, b: felt) -> felt {
+fn add(a: felt, b: felt) -> felt {
     return a + b;
 }
 "#
@@ -30,7 +30,7 @@ func add(a: felt, b: felt) -> felt {
         r#"
 use math::add;
 
-func main() {
+fn main() {
     let result = <caret>add(3, 4);
     return result;
 }
@@ -55,12 +55,12 @@ version = "0.1.0"
             "src/main.cm" => r#"
 use <caret>utils::helper;
 
-func main() {
+fn main() {
     helper();
 }
 "#,
             "src/utils.cm" => r#"
-func helper() -> felt {
+fn helper() -> felt {
     42
 }
 "#
@@ -72,7 +72,7 @@ func helper() -> felt {
         r#"
 use <caret>utils;
 
-func main() {
+fn main() {
     helper();
 }
 "#,
@@ -98,7 +98,7 @@ version = "0.1.0"
             "src/main.cm" => r#"
 use types::Point;
 
-func main() {
+fn main() {
     let p: <caret>Point = Point { x: 1, y: 2 };
 }
 "#,
@@ -116,7 +116,7 @@ struct Point {
         r#"
 use types::Point;
 
-func main() {
+fn main() {
     let p: <caret>Point = Point { x: 1, y: 2 };
 }
 "#,
@@ -142,12 +142,12 @@ version = "0.1.0"
             "src/main.cm" => r#"
 use math::ops::add;
 
-func main() {
+fn main() {
     let result = <caret>add(1, 2);
 }
 "#,
     "math/ops.cm" => r#"
-func add(a: felt, b: felt) -> felt {
+fn add(a: felt, b: felt) -> felt {
     a + b
 }
 "#
@@ -159,7 +159,7 @@ func add(a: felt, b: felt) -> felt {
         r#"
 use math::ops::add;
 
-func main() {
+fn main() {
     let result = <caret>add(1, 2);
 }
 "#,
@@ -183,7 +183,7 @@ version = "0.1.0"
             "src/main.cm" => r#"
 use nonexistent::function;
 
-func main() {
+fn main() {
     <caret>function();
 }
 "#
@@ -195,7 +195,7 @@ func main() {
         r#"
 use nonexistent::function;
 
-func main() {
+fn main() {
     <caret>function();
 }
 "#,

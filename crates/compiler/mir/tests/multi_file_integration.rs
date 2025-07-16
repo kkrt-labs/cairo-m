@@ -58,28 +58,28 @@ fn test_cross_module_function_calls() {
 use math::add;
 use math::multiply;
 
-func main() -> felt {
+fn main() -> felt {
     let x = add(2, 3);
     let y = multiply(x, 4);
     return y;
 }
 
-func local_helper() -> felt {
+fn local_helper() -> felt {
     return add(1, 1);
 }
 "#;
 
     // Math module with utility functions
     let math_source = r#"
-func add(a: felt, b: felt) -> felt {
+fn add(a: felt, b: felt) -> felt {
     return a + b;
 }
 
-func multiply(a: felt, b: felt) -> felt {
+fn multiply(a: felt, b: felt) -> felt {
     return a * b;
 }
 
-func subtract(a: felt, b: felt) -> felt {
+fn subtract(a: felt, b: felt) -> felt {
     return a - b;
 }
 "#;
@@ -171,17 +171,17 @@ fn test_unused_imports_in_mir() {
     let main_source = r#"
 use utils::used_function;
 
-func main() -> felt {
+fn main() -> felt {
     return used_function(42);
 }
 "#;
 
     let utils_source = r#"
-func used_function(x: felt) -> felt {
+fn used_function(x: felt) -> felt {
     return x * 2;
 }
 
-func unused_function(x: felt) -> felt {
+fn unused_function(x: felt) -> felt {
     return x + 1;
 }
 "#;
@@ -227,7 +227,7 @@ fn test_cyclic_import_detection() {
     let module_a_source = r#"
 use module_b::even;
 
-func odd(n: felt) -> felt {
+fn odd(n: felt) -> felt {
     if (n == 0) {
         return 0;
     } else {
@@ -239,7 +239,7 @@ func odd(n: felt) -> felt {
     let module_b_source = r#"
 use module_a::odd;
 
-func even(n: felt) -> felt {
+fn even(n: felt) -> felt {
     if (n == 0) {
         return 1;
     } else {
@@ -252,7 +252,7 @@ func even(n: felt) -> felt {
 use module_a::odd;
 use module_b::even;
 
-func main() -> felt {
+fn main() -> felt {
     let result1 = odd(5);
     let result2 = even(4);
     return result1 + result2;
@@ -319,7 +319,7 @@ fn test_missing_imported_function_error() {
     let main_source = r#"
 use nonexistent::missing_function;
 
-func main() -> felt {
+fn main() -> felt {
     return missing_function(42);
 }
 "#;
@@ -364,13 +364,13 @@ fn test_dependency_order_independence() {
     let caller_source = r#"
 use callee::helper;
 
-func main() -> felt {
+fn main() -> felt {
     return helper(10);
 }
 "#;
 
     let callee_source = r#"
-func helper(x: felt) -> felt {
+fn helper(x: felt) -> felt {
     return x * 2;
 }
 "#;

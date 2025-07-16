@@ -9,11 +9,12 @@ expression: codegen_output
 Fixture: add_two_numbers.cm
 ============================================================
 Source code:
-func add_two_numbers() -> felt {
+fn add_two_numbers() -> felt {
     let a = 10;
     let b = 32;
     return a + b;
 }
+
 ============================================================
 Generated CASM:
 add_two_numbers:

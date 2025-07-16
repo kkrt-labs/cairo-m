@@ -1072,7 +1072,7 @@ impl LanguageServer for Backend {
                 ("let", CompletionItemKind::KEYWORD),
                 ("local", CompletionItemKind::KEYWORD),
                 ("const", CompletionItemKind::KEYWORD),
-                ("func", CompletionItemKind::KEYWORD),
+                ("fn", CompletionItemKind::KEYWORD),
                 ("struct", CompletionItemKind::KEYWORD),
                 ("true", CompletionItemKind::KEYWORD),
                 ("false", CompletionItemKind::KEYWORD),

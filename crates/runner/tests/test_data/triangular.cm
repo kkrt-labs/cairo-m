@@ -1,10 +1,10 @@
-func main() -> felt {
+fn main() -> felt {
     let n = 100;
     let result = triangular(n);
     return result;
 }
 
-func triangular(n: felt) -> felt {
+fn triangular(n: felt) -> felt {
     if (n == 0) {
         return 0;
     }

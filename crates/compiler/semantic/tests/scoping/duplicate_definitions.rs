@@ -6,7 +6,7 @@ use crate::*;
 fn test_duplicate_in_same_scope() {
     assert_semantic_ok!(
         r#"
-        func test() -> felt {
+        fn test() -> felt {
             let var = 10;
             let another = 20;
             let var = 30;
@@ -20,7 +20,7 @@ fn test_duplicate_in_same_scope() {
 fn test_duplicate_parameters() {
     assert_semantic_err!(
         r#"
-        func test(param: felt, param: felt) -> felt {
+        fn test(param: felt, param: felt) -> felt {
             return param;
         }
     "#
@@ -32,7 +32,7 @@ fn test_parameter_and_local_shadowing() {
     // Local variables can shadow parameters
     assert_semantic_ok!(
         r#"
-        func test(param: felt) -> felt {
+        fn test(param: felt) -> felt {
             let param = 42;
             return param;
         }
@@ -45,7 +45,7 @@ fn test_no_duplicate_across_scopes() {
     // This should be OK - different scopes can have same variable names
     assert_semantic_ok!(
         r#"
-        func test() -> felt {
+        fn test() -> felt {
             let x = 1;
             {
                 let x = 2; // OK: different scope
@@ -60,11 +60,11 @@ fn test_no_duplicate_across_scopes() {
 fn test_duplicate_function_names() {
     assert_semantic_err!(
         r#"
-        func duplicate_func() {
+        fn duplicate_func() {
             return ();
         }
 
-        func duplicate_func() {
+        fn duplicate_func() {
             return ();
         }
     "#
@@ -76,7 +76,7 @@ fn test_multiple_shadowing() {
     // Multiple variables can be shadowed
     assert_semantic_ok!(
         r#"
-        func test() -> felt {
+        fn test() -> felt {
             let x = 1;
             let y = 2;
             let x = 3;

@@ -1,17 +1,17 @@
-func main() -> felt {
+fn main() -> felt {
     let x = 7;
     let result = compute(x);
     return result;
 }
 
-func compute(x: felt) -> felt {
+fn compute(x: felt) -> felt {
     return add(mul(x, 3), mul(x, 5));
 }
 
-func add(a: felt, b: felt) -> felt {
+fn add(a: felt, b: felt) -> felt {
     return a + b;
 }
 
-func mul(a: felt, b: felt) -> felt {
+fn mul(a: felt, b: felt) -> felt {
     return a * b;
 }

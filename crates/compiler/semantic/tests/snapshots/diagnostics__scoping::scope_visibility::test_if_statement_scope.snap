@@ -6,7 +6,7 @@ Fixture: semantic_tests::scoping::scope_visibility::test_if_statement_scope
 ============================================================
 Source code:
 
-        func test() {
+        fn test() {
             if (true) {
                 let if_var = 42;
             }
@@ -27,9 +27,9 @@ Found 2 diagnostic(s):
 
 --- Diagnostic 2 ---
 [3002] Error: Function 'test' doesn't return on all paths
-   ╭─[ semantic_tests::scoping::scope_visibility::test_if_statement_scope:2:14 ]
+   ╭─[ semantic_tests::scoping::scope_visibility::test_if_statement_scope:2:12 ]
    │
- 2 │         func test() {
-   │              ──┬─  
-   │                ╰─── Function 'test' doesn't return on all paths
+ 2 │         fn test() {
+   │            ──┬─  
+   │              ╰─── Function 'test' doesn't return on all paths
 ───╯

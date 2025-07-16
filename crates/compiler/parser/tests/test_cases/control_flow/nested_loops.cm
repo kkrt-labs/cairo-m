@@ -1,4 +1,4 @@
-func nested_loops() {
+fn nested_loops() {
     // Nested while loops
     let i = 0;
     while (i != 5) {

@@ -9,7 +9,7 @@ expression: codegen_output
 Fixture: not_equals.cm
 ============================================================
 Source code:
-func simple_neq() -> felt {
+fn simple_neq() -> felt {
     let x = 10;
     let y = 20;
     let z = x != y;

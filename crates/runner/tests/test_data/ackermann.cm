@@ -1,11 +1,11 @@
-func main() -> felt {
+fn main() -> felt {
     let m = 2;
     let n = 2;
     let result = ackermann(m, n);
     return result;
 }
 
-func ackermann(m: felt, n: felt) -> felt {
+fn ackermann(m: felt, n: felt) -> felt {
     if (m == 0) {
         return n + 1;
     }

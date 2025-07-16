@@ -63,7 +63,7 @@ To import the `add` function from the `math` module:
 // In src/main.cm
 use math::add;
 
-func main() -> felt {
+fn main() -> felt {
     return add(1, 2);
 }
 ```
@@ -74,7 +74,7 @@ To import multiple items from the same module, use curly braces `{}`:
 // In src/main.cm
 use math::{add, sub};
 
-func main() -> felt {
+fn main() -> felt {
     let a = add(5, 3);
     return sub(a, 1);
 }
@@ -114,11 +114,11 @@ Follow these steps to create a new project.
     **`src/math.cm`**:
 
     ```cairo
-    func add(a: felt, b: felt) -> felt {
+    fn add(a: felt, b: felt) -> felt {
         return a + b;
     }
 
-    func sub(a: felt, b: felt) -> felt {
+    fn sub(a: felt, b: felt) -> felt {
         return a - b;
     }
     ```
@@ -128,7 +128,7 @@ Follow these steps to create a new project.
     ```cairo
     use math::{add, sub};
 
-    func main() -> felt {
+    fn main() -> felt {
         let x = add(10, 5);
         let y = sub(x, 3);
         return y;

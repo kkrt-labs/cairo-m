@@ -10,7 +10,7 @@ Fixture: tuple_literal_and_access.cm
 ============================================================
 Source code:
 // Tests tuple creation, indexed write, and indexed read.
-func test_tuple() -> felt {
+fn test_tuple() -> felt {
     let t = (100, 200, 300);
     t[1] = 250;
     return t[1];

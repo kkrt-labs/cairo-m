@@ -3,7 +3,7 @@ source: crates/compiler/parser/tests/common.rs
 expression: snapshot
 ---
 --- Code ---
-func test() { for i in range { let x = i; } }
+fn test() { for i in range { let x = i; } }
 --- AST ---
 [
     Function(
@@ -11,7 +11,7 @@ func test() { for i in range { let x = i; } }
             FunctionDef {
                 name: Spanned(
                     "test",
-                    5..9,
+                    3..7,
                 ),
                 params: [],
                 return_type: Tuple(
@@ -22,16 +22,16 @@ func test() { for i in range { let x = i; } }
                         For {
                             variable: Spanned(
                                 "i",
-                                18..19,
+                                16..17,
                             ),
                             iterable: Spanned(
                                 Identifier(
                                     Spanned(
                                         "range",
-                                        23..28,
+                                        21..26,
                                     ),
                                 ),
-                                23..28,
+                                21..26,
                             ),
                             body: Spanned(
                                 Block(
@@ -41,7 +41,7 @@ func test() { for i in range { let x = i; } }
                                                 pattern: Identifier(
                                                     Spanned(
                                                         "x",
-                                                        35..36,
+                                                        33..34,
                                                     ),
                                                 ),
                                                 statement_type: None,
@@ -49,24 +49,24 @@ func test() { for i in range { let x = i; } }
                                                     Identifier(
                                                         Spanned(
                                                             "i",
-                                                            39..40,
+                                                            37..38,
                                                         ),
                                                     ),
-                                                    39..40,
+                                                    37..38,
                                                 ),
                                             },
-                                            31..41,
+                                            29..39,
                                         ),
                                     ],
                                 ),
-                                29..43,
+                                27..41,
                             ),
                         },
-                        14..43,
+                        12..41,
                     ),
                 ],
             },
-            0..45,
+            0..43,
         ),
     ),
 ]

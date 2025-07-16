@@ -6,7 +6,7 @@ Fixture: semantic_tests::functions::tuple_destructuring::test_tuple_destructurin
 ============================================================
 Source code:
 
-        func test() {
+        fn test() {
             let (x, y) = (1, 2); // y should be marked as unused
             let z = x + 1;
         }
@@ -16,9 +16,9 @@ Found 1 diagnostic(s):
 
 --- Diagnostic 1 ---
 [3002] Error: Function 'test' doesn't return on all paths
-   ╭─[ semantic_tests::functions::tuple_destructuring::test_tuple_destructuring_unused_variables:2:14 ]
+   ╭─[ semantic_tests::functions::tuple_destructuring::test_tuple_destructuring_unused_variables:2:12 ]
    │
- 2 │         func test() {
-   │              ──┬─  
-   │                ╰─── Function 'test' doesn't return on all paths
+ 2 │         fn test() {
+   │            ──┬─  
+   │              ╰─── Function 'test' doesn't return on all paths
 ───╯

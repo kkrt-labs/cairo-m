@@ -3,12 +3,12 @@ source: crates/compiler/parser/tests/common.rs
 expression: snapshot
 ---
 --- Code ---
-func (a: felt) -> felt { }
+fn (a: felt) -> felt { }
 --- Diagnostics ---
 [02] Error: found '(' expected identifier
-   ╭─[ test.cairo:1:6 ]
+   ╭─[ test.cairo:1:4 ]
    │
- 1 │ func (a: felt) -> felt { }
-   │      ┬  
-   │      ╰── found '(' expected identifier
+ 1 │ fn (a: felt) -> felt { }
+   │    ┬  
+   │    ╰── found '(' expected identifier
 ───╯

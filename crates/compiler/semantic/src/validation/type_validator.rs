@@ -1452,8 +1452,8 @@ mod tests {
         let db = test_db();
         let program = r#"
             struct Point { x: felt, y: felt }
-            func returns_felt() -> felt { return 0; }
-            func test() {
+            fn returns_felt() -> felt { return 0; }
+            fn test() {
                 let valid = 1 + 2;              // OK: felt + felt
                 let point = Point { x: 1, y: 2 };
                 let invalid_1 = point + 1;        // Error: struct + felt
@@ -1483,9 +1483,9 @@ mod tests {
     fn test_function_call_type_validation() {
         let db = test_db();
         let program = r#"
-            func add(x: felt, y: felt) -> felt { return x + y; }
+            fn add(x: felt, y: felt) -> felt { return x + y; }
             struct Point { x: felt, y: felt }
-            func test() {
+            fn test() {
                 let valid = add(1, 2);          // OK: correct types
                 let point = Point { x: 1, y: 2 };
                 let invalid = add(point, 1);    // Error: struct instead of felt
@@ -1515,7 +1515,7 @@ mod tests {
         let db = test_db();
         let program = r#"
             struct Point { x: felt, y: felt }
-            func test() {
+            fn test() {
                 let p = Point { x: 1, y: 2 };
                 let valid_access = p.x;         // OK: valid field
                 let invalid_access = p.z;      // Error: invalid field
@@ -1562,7 +1562,7 @@ mod tests {
         let db = test_db();
         let program = r#"
             struct Point { x: felt, y: felt }
-            func test() {
+            fn test() {
                 // Let statement tests
                 let a: felt = 1;              // OK: correct type
                 let b: Point = Point { x: 1, y: 2 }; // OK: correct type
@@ -1601,15 +1601,15 @@ mod tests {
             struct Point { x: felt, y: felt }
 
             // Valid return type functions
-            func valid_return_felt() -> felt {
+            fn valid_return_felt() -> felt {
                 return 42;                    // OK: correct return type
             }
 
-            func valid_return_point() -> Point {
+            fn valid_return_point() -> Point {
                 return Point { x: 1, y: 2 };  // OK: correct return type
             }
 
-            func valid_return_conditional() -> felt {
+            fn valid_return_conditional() -> felt {
                 if (1) {
                     return 1;                 // OK: correct return type
                 } else {
@@ -1618,15 +1618,15 @@ mod tests {
             }
 
             // Invalid return type functions
-            func invalid_return_felt() -> felt {
+            fn invalid_return_felt() -> felt {
                 return Point { x: 1, y: 2 };  // Error: wrong return type
             }
 
-            func invalid_return_point() -> Point {
+            fn invalid_return_point() -> Point {
                 return 42;                    // Error: wrong return type
             }
 
-            func invalid_return_conditional() -> felt {
+            fn invalid_return_conditional() -> felt {
                 if (1) {
                     return Point { x: 1, y: 2 }; // Error: wrong return type
                 } else {
@@ -1658,7 +1658,7 @@ mod tests {
         let db = test_db();
         let program = r#"
             struct Point { x: felt, y: felt }
-            func test() {
+            fn test() {
                 // Valid if statements
                 if (1) {                      // OK: felt condition
                     let a = 42;
@@ -1721,7 +1721,7 @@ mod tests {
         let db = test_db();
         let program = r#"
             struct Point { x: felt, y: felt }
-            func test() {
+            fn test() {
                 // Valid local statements
                 local a: felt = 1;            // OK: correct type
                 local b: Point = Point { x: 1, y: 2 }; // OK: correct type
@@ -1763,7 +1763,7 @@ mod tests {
         let db = test_db();
         let program = r#"
             struct Point { x: felt, y: felt }
-            func test() {
+            fn test() {
                 // Valid comparisons - all with felt operands
                 let a = 1 < 2;                // OK: felt < felt
                 let b = 3 > 1;                // OK: felt > felt
@@ -1829,7 +1829,7 @@ mod tests {
         let db = test_db();
         let program = r#"
             struct Point { x: felt, y: felt }
-            func test() {
+            fn test() {
                 let a = 5;
                 let b = 10;
 
@@ -1895,7 +1895,7 @@ mod tests {
     fn test_mixed_operators_with_comparisons() {
         let db = test_db();
         let program = r#"
-            func test() {
+            fn test() {
                 let a = 5;
                 let b = 10;
                 let c = 15;
@@ -1943,7 +1943,7 @@ mod tests {
         let db = test_db();
         let program = r#"
             struct Point { x: felt, y: felt }
-            func test() {
+            fn test() {
                 // Valid assignments
                 let a: felt = 1;
                 a = 2;                        // OK: same type

@@ -1,7 +1,7 @@
-func helper() -> felt {
+fn helper() -> felt {
     return 42;
 }
 
-func main() -> felt {
+fn main() -> felt {
     return helper();
 }

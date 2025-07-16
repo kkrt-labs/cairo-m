@@ -6,7 +6,7 @@ Fixture: semantic_tests::control_flow::unreachable_code::test_unreachable_in_com
 ============================================================
 Source code:
 
-        func test(x: felt) -> felt {
+        fn test(x: felt) -> felt {
             if (x == 0) {
                 if (x == 10) {
                     return 1;

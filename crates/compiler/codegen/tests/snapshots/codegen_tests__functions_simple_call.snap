@@ -9,13 +9,14 @@ expression: codegen_output
 Fixture: simple_call.cm
 ============================================================
 Source code:
-func helper() -> felt {
+fn helper() -> felt {
     return 42;
 }
 
-func main() -> felt {
+fn main() -> felt {
     return helper();
 }
+
 ============================================================
 Generated CASM:
 helper:

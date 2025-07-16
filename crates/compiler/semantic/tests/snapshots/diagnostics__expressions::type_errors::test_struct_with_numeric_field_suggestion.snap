@@ -8,7 +8,7 @@ Source code:
 
         struct Counter { value: felt }
 
-        func test() {
+        fn test() {
             let c = Counter { value: 42 };
             let result = c * 2;  // Should suggest accessing 'value' field
         }
@@ -29,9 +29,9 @@ Found 2 diagnostic(s):
 
 --- Diagnostic 2 ---
 [3002] Error: Function 'test' doesn't return on all paths
-   ╭─[ semantic_tests::expressions::type_errors::test_struct_with_numeric_field_suggestion:4:14 ]
+   ╭─[ semantic_tests::expressions::type_errors::test_struct_with_numeric_field_suggestion:4:12 ]
    │
- 4 │         func test() {
-   │              ──┬─  
-   │                ╰─── Function 'test' doesn't return on all paths
+ 4 │         fn test() {
+   │            ──┬─  
+   │              ╰─── Function 'test' doesn't return on all paths
 ───╯

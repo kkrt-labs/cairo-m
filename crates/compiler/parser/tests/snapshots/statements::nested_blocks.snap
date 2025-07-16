@@ -3,7 +3,7 @@ source: crates/compiler/parser/tests/common.rs
 expression: snapshot
 ---
 --- Code ---
-func test() { { { let inner = 1; } let outer = 2; } }
+fn test() { { { let inner = 1; } let outer = 2; } }
 --- AST ---
 [
     Function(
@@ -11,7 +11,7 @@ func test() { { { let inner = 1; } let outer = 2; } }
             FunctionDef {
                 name: Spanned(
                     "test",
-                    5..9,
+                    3..7,
                 ),
                 params: [],
                 return_type: Tuple(
@@ -29,7 +29,7 @@ func test() { { { let inner = 1; } let outer = 2; } }
                                                     pattern: Identifier(
                                                         Spanned(
                                                             "inner",
-                                                            22..27,
+                                                            20..25,
                                                         ),
                                                     ),
                                                     statement_type: None,
@@ -37,21 +37,21 @@ func test() { { { let inner = 1; } let outer = 2; } }
                                                         Literal(
                                                             1,
                                                         ),
-                                                        30..31,
+                                                        28..29,
                                                     ),
                                                 },
-                                                18..32,
+                                                16..30,
                                             ),
                                         ],
                                     ),
-                                    16..34,
+                                    14..32,
                                 ),
                                 Spanned(
                                     Let {
                                         pattern: Identifier(
                                             Spanned(
                                                 "outer",
-                                                39..44,
+                                                37..42,
                                             ),
                                         ),
                                         statement_type: None,
@@ -59,18 +59,18 @@ func test() { { { let inner = 1; } let outer = 2; } }
                                             Literal(
                                                 2,
                                             ),
-                                            47..48,
+                                            45..46,
                                         ),
                                     },
-                                    35..49,
+                                    33..47,
                                 ),
                             ],
                         ),
-                        14..51,
+                        12..49,
                     ),
                 ],
             },
-            0..53,
+            0..51,
         ),
     ),
 ]

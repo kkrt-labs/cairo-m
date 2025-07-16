@@ -1,4 +1,4 @@
-func fibonacci_loop(n: felt) -> felt {
+fn fibonacci_loop(n: felt) -> felt {
     let a = 0;
     let b = 1;
     let i = 0;

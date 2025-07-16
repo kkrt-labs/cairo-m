@@ -1,10 +1,10 @@
-func main() -> felt {
+fn main() -> felt {
     let n = 9;
     let result = double_factorial(n);
     return result;
 }
 
-func double_factorial(n: felt) -> felt {
+fn double_factorial(n: felt) -> felt {
     if (n == 0) {
         return 1;
     }

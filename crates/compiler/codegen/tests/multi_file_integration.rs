@@ -70,18 +70,18 @@ fn test_cross_module_codegen() {
     let main_source = r#"
 use math::add;
 
-func main() -> felt {
+fn main() -> felt {
     let result = add(10, 20);
     return result;
 }
 "#;
 
     let math_source = r#"
-func add(a: felt, b: felt) -> felt {
+fn add(a: felt, b: felt) -> felt {
     return a + b;
 }
 
-func multiply(a: felt, b: felt) -> felt {
+fn multiply(a: felt, b: felt) -> felt {
     return a * b;
 }
 "#;
@@ -142,11 +142,11 @@ fn test_multi_module_functions_codegen() {
     let db = TestDatabase::default();
 
     let utilities_source = r#"
-func square(x: felt) -> felt {
+fn square(x: felt) -> felt {
     return x * x;
 }
 
-func double(x: felt) -> felt {
+fn double(x: felt) -> felt {
     return x + x;
 }
 "#;
@@ -155,7 +155,7 @@ func double(x: felt) -> felt {
 use utilities::square;
 use utilities::double;
 
-func compute(x: felt) -> felt {
+fn compute(x: felt) -> felt {
     let a = square(x);
     let b = double(x);
     return a + b;
@@ -165,7 +165,7 @@ func compute(x: felt) -> felt {
     let main_source = r#"
 use calculator::compute;
 
-func main() -> felt {
+fn main() -> felt {
     return compute(5);
 }
 "#;
@@ -229,21 +229,21 @@ fn test_unused_function_compilation() {
     let main_source = r#"
 use library::used_function;
 
-func main() -> felt {
+fn main() -> felt {
     return used_function();
 }
 "#;
 
     let library_source = r#"
-func used_function() -> felt {
+fn used_function() -> felt {
     return 42;
 }
 
-func unused_function() -> felt {
+fn unused_function() -> felt {
     return 99;
 }
 
-func another_unused() -> felt {
+fn another_unused() -> felt {
     return 123;
 }
 "#;
@@ -296,7 +296,7 @@ fn test_compilation_with_missing_imports() {
     let main_source = r#"
 use missing_module::missing_function;
 
-func main() -> felt {
+fn main() -> felt {
     return missing_function(42);
 }
 "#;
@@ -338,13 +338,13 @@ fn test_deterministic_compilation() {
     let db = TestDatabase::default();
 
     let module_a_source = r#"
-func func_a() -> felt {
+fn func_a() -> felt {
     return 1;
 }
 "#;
 
     let module_b_source = r#"
-func func_b() -> felt {
+fn func_b() -> felt {
     return 2;
 }
 "#;
@@ -353,7 +353,7 @@ func func_b() -> felt {
 use module_a::func_a;
 use module_b::func_b;
 
-func main() -> felt {
+fn main() -> felt {
     return func_a() + func_b();
 }
 "#;

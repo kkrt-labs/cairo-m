@@ -8,7 +8,7 @@ Source code:
 
         struct Point { x: felt, y: felt }
 
-        func test() {
+        fn test() {
             let p = Point { x: 1, y: 2 };
             if (p) {  // Non-felt condition
                 return ();

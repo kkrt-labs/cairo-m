@@ -3,27 +3,27 @@
 //!ASSERT CONTAINS: Eq
 
 // Tests various binary operations.
-func test_add(a: felt, b: felt) -> felt {
+fn test_add(a: felt, b: felt) -> felt {
     let c = a + b;
     return c;
 }
 
-func test_mul(a: felt, b: felt) -> felt {
+fn test_mul(a: felt, b: felt) -> felt {
     let c = a * b;
     return c;
 }
 
-func test_sub(a: felt, b: felt) -> felt {
+fn test_sub(a: felt, b: felt) -> felt {
     let c = a - b;
     return c;
 }
 
-func test_div(a: felt, b: felt) -> felt {
+fn test_div(a: felt, b: felt) -> felt {
     let c = a / b;
     return c;
 }
 
-func test_eq(a: felt, b: felt) -> felt {
+fn test_eq(a: felt, b: felt) -> felt {
     let c = a == b;
     return c;
 }

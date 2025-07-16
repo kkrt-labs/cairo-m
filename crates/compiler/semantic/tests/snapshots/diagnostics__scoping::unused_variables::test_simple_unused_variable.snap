@@ -6,7 +6,7 @@ Fixture: semantic_tests::scoping::unused_variables::test_simple_unused_variable
 ============================================================
 Source code:
 
-        func test() {
+        fn test() {
             let unused = 42;
             return ();
         }

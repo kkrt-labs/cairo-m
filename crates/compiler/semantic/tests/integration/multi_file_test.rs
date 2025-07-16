@@ -16,7 +16,7 @@ fn test_cross_module_function_call() {
 
     // Create utils module with a function
     let utils_source = r#"
-func add(a: felt, b: felt) -> felt {
+fn add(a: felt, b: felt) -> felt {
     return a + b;
 }
 "#;
@@ -25,7 +25,7 @@ func add(a: felt, b: felt) -> felt {
     let main_source = r#"
 use utils::add;
 
-func test() -> felt {
+fn test() -> felt {
     return add(1, 2);
 }
 "#;
@@ -62,7 +62,7 @@ fn test_undefined_import() {
     let main_source = r#"
 use utils::nonexistent;
 
-func test() {
+fn test() {
     nonexistent();
 }
 "#;
@@ -105,7 +105,7 @@ struct Point {
     let main_source = r#"
 use types::Point;
 
-func test() -> Point {
+fn test() -> Point {
     return Point { x: 1, y: 2 };
 }
 "#;
@@ -144,7 +144,7 @@ fn test_cyclic_imports() {
     let module_a_source = r#"
 use module_b::func_b;
 
-func func_a() {
+fn func_a() {
     func_b();
 }
 "#;
@@ -153,7 +153,7 @@ func func_a() {
     let module_b_source = r#"
 use module_a::func_a;
 
-func func_b() {
+fn func_b() {
     func_a();
 }
 "#;
@@ -197,22 +197,22 @@ fn test_multi_file_project_validation() {
 
     // Create a project with multiple independent modules
     let math_source = r#"
-func multiply(a: felt, b: felt) -> felt {
+fn multiply(a: felt, b: felt) -> felt {
     return a * b;
 }
 
-func divide(a: felt, b: felt) -> felt {
+fn divide(a: felt, b: felt) -> felt {
     return a / b;
 }
 "#;
 
     let utils_source = r#"
-func foo(a: felt, b: felt) -> felt {
+fn foo(a: felt, b: felt) -> felt {
     // Simplified max function for testing
     return a;
 }
 
-func square(x: felt) -> felt {
+fn square(x: felt) -> felt {
     return x * x;
 }
 "#;
@@ -221,7 +221,7 @@ func square(x: felt) -> felt {
 use math::multiply;
 use utils::foo;
 
-func main() -> felt {
+fn main() -> felt {
     let x = multiply(5, 6);
     let y = foo(x, 10);
     return y;
@@ -263,15 +263,15 @@ fn test_braced_imports() {
 
     // Create lib module with multiple functions
     let lib_source = r#"
-func a() -> felt {
+fn a() -> felt {
     return 1;
 }
 
-func b() -> felt {
+fn b() -> felt {
     return 2;
 }
 
-func c() -> felt {
+fn c() -> felt {
     return 3;
 }
 "#;
@@ -280,7 +280,7 @@ func c() -> felt {
     let main_source = r#"
 use lib::{a, b};
 
-func test() -> felt {
+fn test() -> felt {
     let x = a();
     let y = b();
     return x + y;
@@ -318,7 +318,7 @@ fn test_import_name_conflict_with_local() {
 
     // Create lib module with a function
     let lib_source = r#"
-func my_func() -> felt {
+fn my_func() -> felt {
     return 42;
 }
 "#;
@@ -327,7 +327,7 @@ func my_func() -> felt {
     let main_source = r#"
 use lib::my_func;
 
-func test() -> felt {
+fn test() -> felt {
     let my_func = 100;  // Local variable shadows the imported function
     return my_func;     // Should refer to the local variable (100), not imported function
 }
@@ -364,7 +364,7 @@ fn test_undefined_braced_import_item() {
 
     // Create lib module with only one function
     let lib_source = r#"
-func a() -> felt {
+fn a() -> felt {
     return 1;
 }
 "#;
@@ -373,7 +373,7 @@ func a() -> felt {
     let main_source = r#"
 use lib::{a, nonexistent_b};
 
-func test() -> felt {
+fn test() -> felt {
     let x = a();
     let y = nonexistent_b();  // This should cause an error
     return x + y;
@@ -425,13 +425,13 @@ fn test_multiple_import_conflicts() {
 
     // Create two modules with conflicting function names
     let math_source = r#"
-func calculate() -> felt {
+fn calculate() -> felt {
     return 42;
 }
 "#;
 
     let utils_source = r#"
-func calculate() -> felt {
+fn calculate() -> felt {
     return 100;
 }
 "#;
@@ -441,7 +441,7 @@ func calculate() -> felt {
 use math::calculate;
 use utils::calculate;  // This should cause a conflict
 
-func test() -> felt {
+fn test() -> felt {
     return calculate();
 }
 "#;
@@ -487,21 +487,21 @@ fn test_braced_import_conflicts() {
 
     // Create two modules with conflicting function names
     let math_source = r#"
-func calculate() -> felt {
+fn calculate() -> felt {
     return 42;
 }
 
-func add() -> felt {
+fn add() -> felt {
     return 1;
 }
 "#;
 
     let utils_source = r#"
-func calculate() -> felt {
+fn calculate() -> felt {
     return 100;
 }
 
-func subtract() -> felt {
+fn subtract() -> felt {
     return 2;
 }
 "#;
@@ -511,7 +511,7 @@ func subtract() -> felt {
 use math::{calculate, add};
 use utils::{calculate, subtract};  // calculate should cause a conflict
 
-func test() -> felt {
+fn test() -> felt {
     return calculate() + add() + subtract();
 }
 "#;
@@ -567,7 +567,7 @@ fn test_nested_module_imports() {
 
     // Create a chain of modules: main -> utils -> core
     let core_source = r#"
-func core_function() -> felt {
+fn core_function() -> felt {
     return 1;
 }
 "#;
@@ -575,7 +575,7 @@ func core_function() -> felt {
     let utils_source = r#"
 use core::core_function;
 
-func utils_function() -> felt {
+fn utils_function() -> felt {
     return core_function() + 1;
 }
 "#;
@@ -583,7 +583,7 @@ func utils_function() -> felt {
     let main_source = r#"
 use utils::utils_function;
 
-func test() -> felt {
+fn test() -> felt {
     return utils_function();
 }
 "#;
@@ -623,11 +623,11 @@ fn test_self_import_detected() {
     let main_source = r#"
 use main::foo;
 
-func foo() -> felt {
+fn foo() -> felt {
     return 42;
 }
 
-func test() -> felt {
+fn test() -> felt {
     return foo();
 }
 "#;
@@ -672,15 +672,15 @@ fn test_self_import_with_braced_syntax() {
     let utils_source = r#"
 use utils::{add, multiply};
 
-func add(a: felt, b: felt) -> felt {
+fn add(a: felt, b: felt) -> felt {
     return a + b;
 }
 
-func multiply(a: felt, b: felt) -> felt {
+fn multiply(a: felt, b: felt) -> felt {
     return a * b;
 }
 
-func test() -> felt {
+fn test() -> felt {
     return add(1, 2);
 }
 "#;
@@ -723,7 +723,7 @@ fn test_cross_module_type_checking_wrong_argument_types() {
 
     // Create math module with add function
     let math_source = r#"
-func add(a: felt, b: felt) -> felt {
+fn add(a: felt, b: felt) -> felt {
     return a + b;
 }
 "#;
@@ -741,7 +741,7 @@ struct Point {
 use math::add;
 use types::Point;
 
-func test() {
+fn test() {
     let p = Point { x: 1, y: 1 };
     add(1, p); // ERROR: second argument should be 'felt', not 'Point'
 }
@@ -798,7 +798,7 @@ fn test_cross_module_type_checking_wrong_argument_count() {
 
     // Create math module with add function that takes 2 parameters
     let math_source = r#"
-func add(a: felt, b: felt) -> felt {
+fn add(a: felt, b: felt) -> felt {
     return a + b;
 }
 "#;
@@ -807,7 +807,7 @@ func add(a: felt, b: felt) -> felt {
     let main_source = r#"
 use math::add;
 
-func test() {
+fn test() {
     add(1); // ERROR: Expected 2 arguments, got 1
 }
 "#;
@@ -875,7 +875,7 @@ struct Point {
     let main_source = r#"
 use types::Point;
 
-func test() {
+fn test() {
     // ERROR: wrong field name 'z' and missing field 'y'
     let p = Point { x: 1, z: 2 };
 }
@@ -932,7 +932,7 @@ fn test_duplicate_import_same_item() {
 
     // Create math module with add function
     let math_source = r#"
-func add(a: felt, b: felt) -> felt {
+fn add(a: felt, b: felt) -> felt {
     return a + b;
 }
 "#;
@@ -942,7 +942,7 @@ func add(a: felt, b: felt) -> felt {
 use math::add;
 use math::add; // ERROR: 'add' is already imported
 
-func test() {
+fn test() {
     add(1, 2);
 }
 "#;
@@ -997,7 +997,7 @@ fn test_import_conflict_with_top_level_definition() {
 
     // Create lib module with my_func
     let lib_source = r#"
-func my_func() -> felt {
+fn my_func() -> felt {
     return 1;
 }
 "#;
@@ -1007,11 +1007,11 @@ func my_func() -> felt {
 use lib::my_func;
 
 // ERROR: 'my_func' is defined multiple times
-func my_func() -> felt {
+fn my_func() -> felt {
     return 2;
 }
 
-func test() -> felt {
+fn test() -> felt {
     return my_func();
 }
 "#;
@@ -1065,7 +1065,7 @@ fn test_unused_imports() {
 
     // Create lib module with functions and struct
     let lib_source = r#"
-func my_func() {}
+fn my_func() {}
 
 struct Point {
     x: felt
@@ -1076,7 +1076,7 @@ struct Point {
     let main_source = r#"
 use lib::{my_func, Point}; // Both 'my_func' and 'Point' are unused
 
-func test() -> felt {
+fn test() -> felt {
     return 0;
 }
 "#;

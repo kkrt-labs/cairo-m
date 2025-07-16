@@ -365,13 +365,13 @@ fn test_run_from_entrypoint_exponential_recursive_fibonacci() {
 /// Runs a Fibonacci program on the VM and asserts the result against the reference implementation.
 ///
 /// ```cairo-m
-/// func main() -> felt {
+/// fn main() -> felt {
 ///   let n = 10;
 ///   let result = fib(n);
 ///   return result;
 /// }
 ///
-/// func fib(n: felt) -> felt {
+/// fn fib(n: felt) -> felt {
 ///   if n == 0 {
 ///     return 0;
 ///   }

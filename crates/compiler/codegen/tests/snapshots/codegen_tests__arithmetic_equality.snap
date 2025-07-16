@@ -9,7 +9,7 @@ expression: codegen_output
 Fixture: equality.cm
 ============================================================
 Source code:
-func main() -> felt {
+fn main() -> felt {
     let a = 1;
     let b = 0;
     let c = a == b;

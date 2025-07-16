@@ -5,7 +5,7 @@ expression: snapshot_content
 Fixture: fib.cm
 ============================================================
 Source code:
-func fib(n: felt) -> felt {
+fn fib(n: felt) -> felt {
     if (n == 0) {
         return 0;
     }

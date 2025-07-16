@@ -9,7 +9,7 @@ expression: mir_output
 Fixture: infinite_loop.cm
 ============================================================
 Source code:
-func test_infinite_loop() -> felt {
+fn test_infinite_loop() -> felt {
     let counter = 0;
 
     loop {

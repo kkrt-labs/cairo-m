@@ -3,7 +3,7 @@ source: crates/compiler/parser/tests/common.rs
 expression: snapshot
 ---
 --- Code ---
-func test() { a + b * c == d && e || f; }
+fn test() { a + b * c == d && e || f; }
 --- AST ---
 [
     Function(
@@ -11,7 +11,7 @@ func test() { a + b * c == d && e || f; }
             FunctionDef {
                 name: Spanned(
                     "test",
-                    5..9,
+                    3..7,
                 ),
                 params: [],
                 return_type: Tuple(
@@ -36,10 +36,10 @@ func test() { a + b * c == d && e || f; }
                                                                 Identifier(
                                                                     Spanned(
                                                                         "a",
-                                                                        14..15,
+                                                                        12..13,
                                                                     ),
                                                                 ),
-                                                                14..15,
+                                                                12..13,
                                                             ),
                                                             right: Spanned(
                                                                 BinaryOp {
@@ -48,68 +48,68 @@ func test() { a + b * c == d && e || f; }
                                                                         Identifier(
                                                                             Spanned(
                                                                                 "b",
-                                                                                18..19,
+                                                                                16..17,
                                                                             ),
                                                                         ),
-                                                                        18..19,
+                                                                        16..17,
                                                                     ),
                                                                     right: Spanned(
                                                                         Identifier(
                                                                             Spanned(
                                                                                 "c",
-                                                                                22..23,
+                                                                                20..21,
                                                                             ),
                                                                         ),
-                                                                        22..23,
+                                                                        20..21,
                                                                     ),
                                                                 },
-                                                                18..23,
+                                                                16..21,
                                                             ),
                                                         },
-                                                        14..23,
+                                                        12..21,
                                                     ),
                                                     right: Spanned(
                                                         Identifier(
                                                             Spanned(
                                                                 "d",
-                                                                27..28,
+                                                                25..26,
                                                             ),
                                                         ),
-                                                        27..28,
+                                                        25..26,
                                                     ),
                                                 },
-                                                14..28,
+                                                12..26,
                                             ),
                                             right: Spanned(
                                                 Identifier(
                                                     Spanned(
                                                         "e",
-                                                        32..33,
+                                                        30..31,
                                                     ),
                                                 ),
-                                                32..33,
+                                                30..31,
                                             ),
                                         },
-                                        14..33,
+                                        12..31,
                                     ),
                                     right: Spanned(
                                         Identifier(
                                             Spanned(
                                                 "f",
-                                                37..38,
+                                                35..36,
                                             ),
                                         ),
-                                        37..38,
+                                        35..36,
                                     ),
                                 },
-                                14..38,
+                                12..36,
                             ),
                         ),
-                        14..39,
+                        12..37,
                     ),
                 ],
             },
-            0..41,
+            0..39,
         ),
     ),
 ]

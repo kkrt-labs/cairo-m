@@ -14,7 +14,7 @@ Source code:
 
 // Tests an `if-else` where both branches terminate with a `return`.
 // No merge block should be generated.
-func test(x: felt) -> felt {
+fn test(x: felt) -> felt {
     if (x == 0) {
         return 1;
     } else {

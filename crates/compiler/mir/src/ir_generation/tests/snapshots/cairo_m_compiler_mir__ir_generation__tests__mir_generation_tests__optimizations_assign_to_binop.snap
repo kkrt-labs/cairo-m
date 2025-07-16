@@ -9,7 +9,7 @@ expression: mir_output
 Fixture: assign_to_binop.cm
 ============================================================
 Source code:
-func assign_to_binop() -> felt {
+fn assign_to_binop() -> felt {
     let a = 10;
     let b = 20;
     let c = 0;

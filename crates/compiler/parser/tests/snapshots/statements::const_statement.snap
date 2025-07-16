@@ -3,7 +3,7 @@ source: crates/compiler/parser/tests/common.rs
 expression: snapshot
 ---
 --- Code ---
-func test() { const PI = 314; }
+fn test() { const PI = 314; }
 --- AST ---
 [
     Function(
@@ -11,7 +11,7 @@ func test() { const PI = 314; }
             FunctionDef {
                 name: Spanned(
                     "test",
-                    5..9,
+                    3..7,
                 ),
                 params: [],
                 return_type: Tuple(
@@ -23,21 +23,21 @@ func test() { const PI = 314; }
                             ConstDef {
                                 name: Spanned(
                                     "PI",
-                                    20..22,
+                                    18..20,
                                 ),
                                 value: Spanned(
                                     Literal(
                                         314,
                                     ),
-                                    25..28,
+                                    23..26,
                                 ),
                             },
                         ),
-                        14..29,
+                        12..27,
                     ),
                 ],
             },
-            0..31,
+            0..29,
         ),
     ),
 ]

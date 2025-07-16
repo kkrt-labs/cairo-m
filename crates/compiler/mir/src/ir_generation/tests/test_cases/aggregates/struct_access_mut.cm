@@ -7,7 +7,7 @@ struct Point {
     y: felt,
 }
 
-func test() -> felt {
+fn test() -> felt {
     let p = Point { x: 10, y: 20 };
     p.y = 30; // Should generate getelementptr followed by a store.
     return p.y;
