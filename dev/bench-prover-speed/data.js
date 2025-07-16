@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1752668039371,
+  "lastUpdate": 1752669699784,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -479,6 +479,36 @@ window.BENCHMARK_DATA = {
             "name": "prover_fibonacci/prove",
             "value": 5622453241,
             "range": "± 38533548",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "clement0walter@gmail.com",
+            "name": "Clément Walter",
+            "username": "ClementWalter"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b7f2a7363e6c346c63edbd6e61513b2efdd59239",
+          "message": "refactor: remove opcode_id column from opcode components (#157)\n\n- Remove redundant opcode_id column from trace masks in evaluate() functions\n- Replace opcode assertion constraints with direct constant usage in memory relations\n- Update header documentation to remove opcode_id column and constraint descriptions\n- Reduce N_TRACE_COLUMNS constants to reflect column removal\n- Use compile-time Opcode constants directly in memory relations instead of runtime opcode_id\n\nBenefits:\n- Reduced memory usage (one fewer column per component)\n- Simplified logic by removing redundant opcode validation\n- Better performance with compile-time constants\n- Cleaner, more maintainable code structure\n\nComponents refactored:\n- store_imm.rs: 11 → 10 columns\n- store_deref_fp.rs: 14 → 13 columns\n- store_double_deref_fp.rs: 15 → 14 columns\n- store_add_fp_imm.rs: 13 → 12 columns\n- store_add_fp_imm_inplace.rs: 11 → 10 columns\n- store_add_fp_fp.rs: 15 → 14 columns\n\nAll tests pass and functionality is preserved.",
+          "timestamp": "2025-07-16T15:29:02+03:00",
+          "tree_id": "e28e7bd0e7913e521c048d250541af6f0ad60eb4",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/b7f2a7363e6c346c63edbd6e61513b2efdd59239"
+        },
+        "date": 1752669699182,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 5584455761,
+            "range": "± 26649408",
             "unit": "ns/iter"
           }
         ]
