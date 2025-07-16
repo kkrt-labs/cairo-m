@@ -6,7 +6,7 @@ static PEAK_ALLOC: PeakAlloc = PeakAlloc;
 use std::fs;
 
 use cairo_m_common::Program;
-use cairo_m_compiler::{compile_cairo, CompilerOptions};
+use cairo_m_compiler::{CompilerOptions, compile_cairo};
 use cairo_m_prover::adapter::import_from_runner_output;
 use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_runner::run_cairo_program;

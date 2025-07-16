@@ -11,7 +11,7 @@ use tempfile::NamedTempFile;
 // Import test utilities
 use super::test_utils::*;
 use crate::memory::Memory;
-use crate::vm::{VmError, VM};
+use crate::vm::{VM, VmError};
 
 #[test]
 fn test_program_from_vec_instructions() {

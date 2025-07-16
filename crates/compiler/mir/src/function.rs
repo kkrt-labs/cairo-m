@@ -6,7 +6,7 @@
 use index_vec::IndexVec;
 use rustc_hash::FxHashMap;
 
-use crate::{indent_str, BasicBlock, BasicBlockId, MirType, PrettyPrint, ValueId};
+use crate::{BasicBlock, BasicBlockId, MirType, PrettyPrint, ValueId, indent_str};
 
 /// A simple definition identifier for MIR that doesn't depend on Salsa lifetimes
 ///
