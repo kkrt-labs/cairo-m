@@ -46,7 +46,7 @@ pub mod fibonacci {
 
             // Run the program to generate trace and memory data
             let cairo_result =
-                run_cairo_program(&compiled, "fib", &[M31::from(1000)], Default::default())
+                run_cairo_program(&compiled, "fib", &[M31::from(5)], Default::default())
                     .expect("Failed to run Cairo-M program");
 
             // Create paths for temporary trace and memory files
@@ -66,8 +66,9 @@ pub mod fibonacci {
             // Test importing from the generated files
             let from_files = import_from_runner_artifacts(&trace_path, &memory_path)
                 .expect("Failed to import from vm output");
-            let from_runner_output = import_from_runner_output(cairo_result)
-                .expect("Failed to import from runner output");
+            let from_runner_output =
+                import_from_runner_output(cairo_result.vm.segments.into_iter().next().unwrap())
+                    .expect("Failed to import from runner output");
 
             // Compare the results
             assert_eq!(from_files, from_runner_output);

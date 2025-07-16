@@ -37,7 +37,8 @@ fn fibonacci_prove_benchmark(c: &mut Criterion) {
     )
     .expect("Failed to run fibonacci program");
 
-    let trace_length = runner_output.vm.trace.len();
+    let segment = runner_output.vm.segments.into_iter().next().unwrap();
+    let trace_length = segment.trace.len();
     println!(
         "Fibonacci {} iterations - trace length: {}",
         N_ITERATIONS, trace_length
@@ -47,15 +48,7 @@ fn fibonacci_prove_benchmark(c: &mut Criterion) {
     group.throughput(Throughput::Elements(trace_length as u64));
     group.measurement_time(Duration::from_secs(BENCHMARK_DURATION_SECS));
 
-    let runner_output = run_cairo_program(
-        &program,
-        "fib",
-        &[M31::from(N_ITERATIONS)],
-        Default::default(),
-    )
-    .expect("Failed to run fibonacci program");
-    let prover_input =
-        import_from_runner_output(runner_output).expect("Failed to import runner output");
+    let prover_input = import_from_runner_output(segment).expect("Failed to import runner output");
 
     group.bench_function("prove", |b| {
         b.iter(|| {

@@ -6,6 +6,7 @@ use std::io::{self, Write};
 use std::path::Path;
 
 use cairo_m_common::instruction::InstructionError;
+use cairo_m_common::program::Segment;
 use cairo_m_common::{Instruction, Program, State};
 use instructions::opcode_to_instruction_fn;
 use num_traits::Zero;
@@ -13,7 +14,16 @@ use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 use thiserror::Error;
 
+use crate::RunnerOptions;
 use crate::memory::{Memory, MemoryError};
+
+// Current limitation is that the maximum clock difference must be < 2^20
+const MAX_N_STEPS: usize = (1 << 20) - 1;
+
+enum ExecutionStatus {
+    Complete,
+    Ongoing,
+}
 
 /// Custom error type for VM operations.
 #[derive(Debug, Error)]
@@ -22,6 +32,8 @@ pub enum VmError {
     Memory(#[from] MemoryError),
     #[error("VM instruction error: {0}")]
     Instruction(#[from] InstructionError),
+    #[error("VM didn't reach the final PC, step limit reached: {0}")]
+    StepLimitReached(usize),
     #[error("VM I/O error: {0}")]
     Io(#[from] io::Error),
 }
@@ -38,11 +50,13 @@ pub enum VmError {
 #[derive(Debug, Default, Clone)]
 pub struct VM {
     pub final_pc: M31,
-    pub initial_memory: Memory,
+    pub initial_memory: Vec<QM31>,
     pub memory: Memory,
     pub state: State,
     pub program_length: M31,
     pub trace: Vec<State>,
+    pub steps_counter: usize,
+    pub segments: Vec<Segment>,
 }
 
 impl TryFrom<&Program> for VM {
@@ -85,11 +99,13 @@ impl TryFrom<&Program> for VM {
 
         Ok(Self {
             final_pc,
-            initial_memory: memory.clone(),
+            initial_memory: vec![],
             memory,
             state,
             program_length,
             trace: vec![],
+            steps_counter: 0,
+            segments: vec![],
         })
     }
 }
@@ -110,30 +126,54 @@ impl VM {
         Ok(())
     }
 
-    /// Executes the loaded program from start to completion.
+    /// Executes the loaded program from start to completion with a limit on the number of steps.
     ///
     /// This method runs the VM by repeatedly calling [`step()`](Self::step) until the program
     /// counter reaches the end of the loaded instructions. It assumes that the program is loaded
-    /// at the beginning of the memory ([0..instructions_length]).
+    /// at the beginning of the memory ([0..instructions_length]). The prover enforces that the
+    /// maximum number of steps is less than 2^20.
+    ///
+    /// ## Arguments
+    ///
+    /// * `n_steps` - The maximum number of steps to execute, MAX_N_STEPS by default.
     ///
     /// ## Errors
     ///
     /// Returns a [`VmError`] if any instruction execution fails:
     /// - Invalid opcodes ([`VmError::Instruction`])
     /// - Memory errors ([`VmError::Memory`])
-    fn execute(&mut self) -> Result<(), VmError> {
+    /// - Step limit error ([`VmError::StepLimitReached`])
+    fn execute(&mut self, n_steps: Option<usize>) -> Result<ExecutionStatus, VmError> {
         if self.final_pc.is_zero() {
-            return Ok(());
+            return Ok(ExecutionStatus::Complete);
         }
 
-        while self.state.pc != self.final_pc {
+        while self.state.pc != self.final_pc && self.steps_counter < n_steps.unwrap_or(MAX_N_STEPS)
+        {
             self.step()?;
+            self.steps_counter += 1;
         }
 
         // Push the final state to the trace
         self.trace.push(self.state);
 
-        Ok(())
+        if self.state.pc == self.final_pc {
+            Ok(ExecutionStatus::Complete)
+        } else if self.steps_counter >= MAX_N_STEPS {
+            Err(VmError::StepLimitReached(self.steps_counter))
+        } else {
+            Ok(ExecutionStatus::Ongoing)
+        }
+    }
+
+    fn finalize_segment(&mut self) {
+        // Move the current segment data into a new segment
+        self.segments.push(Segment {
+            initial_memory: std::mem::replace(&mut self.initial_memory, self.memory.data.clone()),
+            memory_trace: std::mem::take(&mut self.memory.trace),
+            trace: std::mem::take(&mut self.trace),
+        });
+        self.steps_counter = 0;
     }
 
     /// Executes the loaded program from a given entrypoint and frame pointer.
@@ -162,6 +202,7 @@ impl VM {
         fp_offset: u32,
         args: &[M31],
         num_return_values: usize,
+        options: RunnerOptions,
     ) -> Result<(), VmError> {
         // Write arguments to memory before the frame pointer
         // Arguments should be at [new_fp - M - K - 2 + i] for arg i
@@ -180,75 +221,154 @@ impl VM {
 
         self.memory
             .insert_entrypoint_call(&self.final_pc, &self.state.fp)?;
+        self.initial_memory = self.memory.data.clone();
 
-        self.execute()
+        loop {
+            match self.execute(options.n_steps) {
+                Ok(ExecutionStatus::Complete) => {
+                    self.finalize_segment();
+                    break;
+                }
+                Ok(ExecutionStatus::Ongoing) => self.finalize_segment(),
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(())
     }
 
-    /// Serializes the trace to a byte vector.
+    /// Serializes a segment's trace to a byte vector.
     ///
     /// Each trace entry consists of `fp` and `pc` values, both `u32`.
-    /// This function serializes the entire trace as a flat sequence of bytes.
+    /// This function serializes the trace as a flat sequence of bytes.
     /// For each entry, it first serializes `fp` into little-endian bytes,
     /// followed by the little-endian bytes of `pc`.
     ///
-    /// The final output is a single `Vec<u8>` concatenating the bytes for all entries.
+    /// ## Arguments
+    ///
+    /// * `segment` - The segment to serialize
     ///
     /// ## Returns
     ///
-    /// A `Vec<u8>` containing the serialized trace data.
-    pub fn serialize_trace(&self) -> Vec<u8> {
-        self.trace
+    /// A `Vec<u8>` containing the serialized trace data for the segment.
+    fn serialize_segment_trace(segment: &Segment) -> Vec<u8> {
+        segment
+            .trace
             .iter()
             .flat_map(|entry| [entry.fp.0, entry.pc.0])
             .flat_map(u32::to_le_bytes)
             .collect()
     }
 
-    /// Writes the serialized trace to a binary file.
+    /// Writes the serialized trace to binary files, one per segment.
     ///
-    /// This function serializes the trace using [`serialize_trace()`](Self::serialize_trace)
-    /// and writes the resulting bytes to the specified file path.
+    /// This function creates a file for each segment with the naming pattern:
+    /// `<base_path>_segment_<index>.<extension>`
+    ///
+    /// For example, if the path is "trace.bin", the files will be:
+    /// - trace_segment_0.bin
+    /// - trace_segment_1.bin
+    /// - etc.
     ///
     /// ## Arguments
     ///
-    /// * `path` - The file path where the binary trace will be written.
+    /// * `path` - The base file path for the binary trace files.
     ///
     /// ## Errors
     ///
     /// Returns a [`VmError::Io`] if:
-    /// - The file cannot be created or opened for writing
-    /// - Writing to the file fails
+    /// - Any file cannot be created or opened for writing
+    /// - Writing to any file fails
     pub fn write_binary_trace<P: AsRef<Path>>(&self, path: P) -> Result<(), VmError> {
-        let serialized_trace = self.serialize_trace();
-        let mut file = File::create(path)?;
-        file.write_all(&serialized_trace)?;
+        let path = path.as_ref();
+        let path_str = path.to_string_lossy();
+
+        // Extract base name and extension
+        let (base, ext) = path_str.rfind('.').map_or_else(
+            || (path_str.as_ref(), ""),
+            |dot_pos| (&path_str[..dot_pos], &path_str[dot_pos..]),
+        );
+
+        // Write each segment's trace
+        for (i, segment) in self.segments.iter().enumerate() {
+            let segment_path = format!("{}_segment_{}{}", base, i, ext);
+            let serialized_trace = Self::serialize_segment_trace(segment);
+            let mut file = File::create(&segment_path)?;
+            file.write_all(&serialized_trace)?;
+        }
+
         Ok(())
     }
 
-    /// Writes the serialized memory trace to a binary file.
+    /// Writes the serialized memory trace to binary files, one per segment.
     ///
-    /// This function first writes the program length to the file, then serializes
-    /// the memory trace using the memory's [`serialize_trace()`](Memory::serialize_trace)
-    /// method and writes the resulting bytes to the specified file path.
+    /// This function creates a file for each segment with the naming pattern:
+    /// `<base_path>_segment_<index>.<extension>`
     ///
-    /// Each memory trace entry consists of an address (`M31`) and a value (`QM31`).
-    /// The serialization format includes the program length first, followed by the address
-    /// and the 4 components of the `QM31` value for each entry, all in little-endian byte order.
+    /// Each file starts with the program length, followed by the serialized memory trace
+    /// for that segment.
     ///
     /// ## Arguments
     ///
-    /// * `path` - The file path where the binary memory trace will be written.
+    /// * `path` - The base file path for the binary memory trace files.
     ///
+    /// Serializes the memory trace of a single segment into a binary format.
+    ///
+    /// The binary format consists of a sequence of memory entries, where each entry contains:
+    /// - Address (4 bytes, little-endian u32)
+    /// - Value (16 bytes, representing QM31 as 4 u32 values in little-endian)
+    ///
+    /// ## Arguments
+    ///
+    /// * `segment` - The segment whose memory trace should be serialized
+    ///
+    /// ## Returns
+    ///
+    /// A vector of bytes containing the serialized memory trace
+    fn serialize_segment_memory_trace(segment: &Segment) -> Vec<u8> {
+        let memory_trace = segment.memory_trace.borrow();
+        memory_trace
+            .iter()
+            .flat_map(|entry| {
+                let mut bytes = Vec::with_capacity(20);
+                bytes.extend_from_slice(&entry.addr.0.to_le_bytes());
+                // QM31 has two CM31 fields, each CM31 has two M31 fields
+                bytes.extend_from_slice(&entry.value.0.0.0.to_le_bytes());
+                bytes.extend_from_slice(&entry.value.0.1.0.to_le_bytes());
+                bytes.extend_from_slice(&entry.value.1.0.0.to_le_bytes());
+                bytes.extend_from_slice(&entry.value.1.1.0.to_le_bytes());
+                bytes
+            })
+            .collect()
+    }
+
     /// ## Errors
     ///
     /// Returns a [`VmError::Io`] if:
-    /// - The file cannot be created or opened for writing
-    /// - Writing to the file fails
+    /// - Any file cannot be created or opened for writing
+    /// - Writing to any file fails
     pub fn write_binary_memory_trace<P: AsRef<Path>>(&self, path: P) -> Result<(), VmError> {
-        let mut file = File::create(path)?;
-        let serialized_memory_trace = self.memory.serialize_trace();
-        file.write_all(&self.program_length.0.to_le_bytes())?;
-        file.write_all(&serialized_memory_trace)?;
+        let path = path.as_ref();
+        let path_str = path.to_string_lossy();
+
+        // Extract base name and extension
+        let (base, ext) = path_str.rfind('.').map_or_else(
+            || (path_str.as_ref(), ""),
+            |dot_pos| (&path_str[..dot_pos], &path_str[dot_pos..]),
+        );
+
+        // Write each segment's memory trace
+        for (i, segment) in self.segments.iter().enumerate() {
+            let segment_path = format!("{}_segment_{}{}", base, i, ext);
+            let mut file = File::create(&segment_path)?;
+
+            // Write program length
+            file.write_all(&self.program_length.0.to_le_bytes())?;
+
+            // Serialize and write the segment's memory trace
+            let serialized = Self::serialize_segment_memory_trace(segment);
+            file.write_all(&serialized)?;
+        }
+
         Ok(())
     }
 }

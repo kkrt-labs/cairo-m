@@ -40,15 +40,17 @@ fn main() {
     )
     .expect("Failed to run fibonacci program");
 
+    let segment = runner_output.vm.segments.into_iter().next().unwrap();
+
     eprintln!("Running fibonacci with n={}", N_ITERATIONS);
-    eprintln!("Trace length: {}", runner_output.vm.trace.len());
+    eprintln!("Trace length: {}", segment.trace.len());
     eprintln!("Setup complete. Starting prover benchmark...");
 
     // Reset peak memory tracking before proving
     PEAK_ALLOC.reset_peak_usage();
 
     let mut prover_input =
-        import_from_runner_output(runner_output).expect("Failed to import runner output");
+        import_from_runner_output(segment).expect("Failed to import runner output");
 
     let _proof =
         prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).expect("Proving failed");

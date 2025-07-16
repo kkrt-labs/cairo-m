@@ -28,7 +28,8 @@ pub enum RunnerError {
 /// Options for running a Cairo program
 #[derive(Debug, Clone, Default)]
 pub struct RunnerOptions {
-    // Empty for now
+    /// The maximum number of steps to execute, MAX_N_STEPS by default.
+    pub n_steps: Option<usize>,
 }
 
 /// Result of running a Cairo program
@@ -55,7 +56,7 @@ pub fn run_cairo_program(
     program: &Program,
     entrypoint: &str,
     args: &[M31],
-    _options: RunnerOptions,
+    options: RunnerOptions,
 ) -> Result<RunnerOutput> {
     let entrypoint_info = program.get_entrypoint(entrypoint).ok_or_else(|| {
         RunnerError::EntryPointNotFound(
@@ -87,6 +88,7 @@ pub fn run_cairo_program(
         fp_offset as u32,
         args,
         num_return_values,
+        options,
     )?;
 
     // Retrieve return values from memory

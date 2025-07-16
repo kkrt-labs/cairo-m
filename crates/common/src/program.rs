@@ -1,8 +1,18 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
+use stwo_prover::core::fields::qm31::QM31;
 
-use crate::Instruction;
+use crate::state::MemoryEntry;
+use crate::{Instruction, State};
+
+#[derive(Debug, Default, Clone)]
+pub struct Segment {
+    pub initial_memory: Vec<QM31>,
+    pub memory_trace: RefCell<Vec<MemoryEntry>>,
+    pub trace: Vec<State>,
+}
 
 /// Information about a function entrypoint
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
