@@ -45,6 +45,7 @@ use crate::lexer::TokenType;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeExpr {
     /// A named type (e.g., `felt`, `Vector`)
+    // TODO: introduce an enum for common types like felt, bool, etc.
     Named(String),
     /// A pointer type (e.g., `felt*`, `Vector*`)
     Pointer(Box<TypeExpr>),

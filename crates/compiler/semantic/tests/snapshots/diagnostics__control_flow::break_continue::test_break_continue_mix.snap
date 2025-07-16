@@ -16,8 +16,8 @@ Source code:
 
             continue;  // Error
 
-            while (1) {
-                if (1) {
+            while (true) {
+                if (true) {
                     break;  // OK
                 } else {
                     continue;  // OK

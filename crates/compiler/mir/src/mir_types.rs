@@ -217,6 +217,7 @@ impl MirType {
     pub fn from_semantic_type(db: &dyn SemanticDb, type_id: TypeId) -> Self {
         match type_id.data(db) {
             TypeData::Felt => Self::felt(),
+            TypeData::Bool => Self::bool(),
             TypeData::Pointer(inner_type) => {
                 let inner_mir_type = Self::from_semantic_type(db, inner_type);
                 Self::pointer(inner_mir_type)

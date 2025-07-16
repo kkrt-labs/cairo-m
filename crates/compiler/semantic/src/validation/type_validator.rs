@@ -136,6 +136,9 @@ impl TypeValidator {
             (TypeData::Pointer(_), TypeData::Felt) => {
                 Some("Dereference the pointer to access its value".to_string())
             }
+            (TypeData::Bool, TypeData::Felt) => {
+                Some("Cannot use bool in arithmetic operations. Consider using logical operators (&&, ||) instead.".to_string())
+            }
             (TypeData::Function(_), _) => {
                 Some("Did you forget to call the function with parentheses?".to_string())
             }
@@ -238,11 +241,11 @@ impl TypeValidator {
         let right_type = expression_semantic_type(db, crate_id, file, right_id);
         let felt_type = TypeId::new(db, TypeData::Felt);
 
-        // For now, all binary operations require felt operands
+        // For now, all binary operations require felt (or bool) operands
         // TODO: Expand this when more numeric types are added
         match op {
             BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div => {
-                // Arithmetic operations
+                // Arithmetic operations - only on felt type.
                 if !are_types_compatible(db, left_type, felt_type) {
                     let suggestion = self.suggest_type_conversion(db, left_type, felt_type);
                     let mut diag = Diagnostic::error(
@@ -288,6 +291,7 @@ impl TypeValidator {
                     diagnostics.push(diag);
                 }
             }
+            // TODO: we should be able to call `==` and `!=` on bool and felt.
             BinaryOp::Eq
             | BinaryOp::Neq
             | BinaryOp::Less
@@ -341,13 +345,14 @@ impl TypeValidator {
                 }
             }
             BinaryOp::And | BinaryOp::Or => {
-                // Logical operations - both operands must be felt (acting as boolean)
-                if !are_types_compatible(db, left_type, felt_type) {
+                // Logical operations - both operands must be bool
+                let bool_type = TypeId::new(db, TypeData::Bool);
+                if !are_types_compatible(db, left_type, bool_type) {
                     diagnostics.push(
                         Diagnostic::error(
                             DiagnosticCode::TypeMismatch,
                             format!(
-                                "Logical operator '{:?}' cannot be applied to type '{}'",
+                                "Logical operator '{:?}' requires operands of type 'bool', found '{}'",
                                 op,
                                 left_type.data(db).display_name(db)
                             ),
@@ -355,12 +360,12 @@ impl TypeValidator {
                         .with_location(file.file_path(db).to_string(), left.span()),
                     );
                 }
-                if !are_types_compatible(db, right_type, felt_type) {
+                if !are_types_compatible(db, right_type, bool_type) {
                     diagnostics.push(
                         Diagnostic::error(
                             DiagnosticCode::TypeMismatch,
                             format!(
-                                "Logical operator '{:?}' cannot be applied to type '{}'",
+                                "Logical operator '{:?}' requires operands of type 'bool', found '{}'",
                                 op,
                                 right_type.data(db).display_name(db)
                             ),
@@ -417,13 +422,14 @@ impl TypeValidator {
                 }
             }
             UnaryOp::Not => {
-                // Logical not - operand must be felt (acting as boolean)
-                if !are_types_compatible(db, expr_type, felt_type) {
+                // Logical not - operand must be bool
+                let bool_type = TypeId::new(db, TypeData::Bool);
+                if !are_types_compatible(db, expr_type, bool_type) {
                     diagnostics.push(
                         Diagnostic::error(
                             DiagnosticCode::TypeMismatch,
                             format!(
-                                "Logical not operator '!' cannot be applied to type '{}'",
+                                "Logical not operator '!' requires operand of type 'bool', found '{}'",
                                 expr_type.data(db).display_name(db)
                             ),
                         )
@@ -880,18 +886,17 @@ impl TypeValidator {
                         );
                     }
 
-                    // TODO: change this to check bool type once implemented
-                    // Check that condition is boolean type (felt)
+                    // Check that condition is boolean type
                     let condition_type =
                         expression_semantic_type(db, crate_id, file, condition_expr_id);
-                    let felt_type = TypeId::new(db, TypeData::Felt);
+                    let bool_type = TypeId::new(db, TypeData::Bool);
 
-                    if !are_types_compatible(db, condition_type, felt_type) {
+                    if !are_types_compatible(db, condition_type, bool_type) {
                         diagnostics.push(
                             Diagnostic::error(
                                 DiagnosticCode::TypeMismatch,
                                 format!(
-                                    "While loop condition must be of type felt, found '{}'",
+                                    "While loop condition must be of type 'bool', found '{}'",
                                     condition_type.data(db).display_name(db)
                                 ),
                             )
@@ -1233,14 +1238,14 @@ impl TypeValidator {
             return;
         };
         let condition_type = expression_semantic_type(db, crate_id, file, condition_expr_id);
-        let felt_type = TypeId::new(db, TypeData::Felt);
+        let bool_type = TypeId::new(db, TypeData::Bool);
 
-        if !are_types_compatible(db, condition_type, felt_type) {
+        if !are_types_compatible(db, condition_type, bool_type) {
             diagnostics.push(
                 Diagnostic::error(
                     DiagnosticCode::TypeMismatch,
                     format!(
-                        "Condition must be of type felt, found '{}'",
+                        "If condition must be of type 'bool', found '{}'",
                         condition_type.data(db).display_name(db)
                     ),
                 )
@@ -1491,7 +1496,7 @@ mod tests {
             }
 
             fn valid_return_conditional() -> felt {
-                if (1) {
+                if (true) {
                     return 1;                 // OK: correct return type
                 } else {
                     return 2;                 // OK: correct return type
@@ -1508,7 +1513,7 @@ mod tests {
             }
 
             fn invalid_return_conditional() -> felt {
-                if (1) {
+                if (false) {
                     return Point { x: 1, y: 2 }; // Error: wrong return type
                 } else {
                     return 42;                 // OK: correct return type
@@ -1541,37 +1546,37 @@ mod tests {
             struct Point { x: felt, y: felt }
             fn test() {
                 // Valid if statements
-                if (1) {                      // OK: felt condition
+                if (1) {                      // Error: felt condition
                     let a = 42;
                 }
 
-                if (1) {                      // OK: felt condition
+                if (true) {                      // OK: bool condition
                     return 1; // Error: return type mismatch
                 } else {
                     return (); // OK: unit type
                 }
 
-                if (1 && 2) {                 // OK: logical operation on felt
+                if (true && false) {                 // OK: logical operation on bool
                     let b = 42;
                 }
 
                 // Invalid if statements
-                if (Point { x: 1, y: 2 }) {   // Error: non-felt condition
+                if (Point { x: 1, y: 2 }) {   // Error: non-bool condition
                     let c = 42;
                 }
 
-                if ((1, 2)) {                 // Error: non-felt condition
+                if ((1, 2)) {                 // Error: non-bool condition
                     let e = 42;
                 }
 
                 // Nested if statements
-                if (1) {
-                    if (2) {                   // OK: felt condition
+                if (true) {
+                    if (false) {                   // OK: bool condition
                         let f = 42;
                     }
                 }
 
-                if (1) {
+                if (true) {
                     if (Point { x: 1, y: 2 }) { // Error: non-felt condition
                         let g = 42;
                     }
@@ -1592,8 +1597,8 @@ mod tests {
             .count();
 
         assert_eq!(
-            type_mismatch_errors, 4,
-            "Should have 4 type mismatch errors"
+            type_mismatch_errors, 5,
+            "Should have 5 type mismatch errors"
         );
     }
 
@@ -1745,8 +1750,8 @@ mod tests {
                 let result3 = (a - 1) <= (b + 1);    // OK: (felt - felt) <= (felt + felt)
 
                 // Valid: comparison results in logical operations
-                let result4 = (a < b) && (b < c);    // OK: comparison results are felt
-                let result5 = (a > 0) || (b >= 20);  // OK: comparison results are felt
+                let result4 = (a < b) && (b < c);    // OK: comparison results are bool
+                let result5 = (a > 0) || (b >= 20);  // OK: comparison results are bool
 
                 // Valid: nested comparisons and arithmetic
                 let result6 = ((a + b) > c) && ((c - a) < b); // OK
@@ -1754,11 +1759,11 @@ mod tests {
                 // Invalid: trying to do arithmetic on comparison results (which return felt but semantically are booleans)
                 // This actually passes type checking since comparisons return felt,
                 // but it's semantically questionable
-                let weird_but_valid = (a < b) + 1;   // OK: felt + felt (though semantically odd)
+                let weird_but_valid = (a < b) + 1;   // Error: bool + felt
 
                 // Test equality/inequality mixed with other comparisons
-                let result7 = (a == b) || (a < b);   // OK: both return felt
-                let result8 = (a != b) && (a > 0);   // OK: both return felt
+                let result7 = (a == b) || (a < b);   // Ok: both return bool
+                let result8 = (a != b) && (a > 0);   // OK: both return bool
             }
         "#;
         let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
@@ -1774,7 +1779,11 @@ mod tests {
             .filter(|d| d.code == DiagnosticCode::TypeMismatch)
             .count();
 
-        assert_eq!(type_errors, 0, "Should have no type mismatch errors");
+        assert_eq!(
+            type_errors, 1,
+            "Should have 1 type mismatch error, got: {:?}",
+            diagnostics
+        );
     }
 
     #[test]
@@ -1784,10 +1793,10 @@ mod tests {
             struct Point { x: felt, y: felt }
             fn test() {
                 // Valid assignments
-                let a: felt = 1;
-                a = 2;                        // OK: same type
-                a = 1 + 2;                    // OK: arithmetic result
-                a = 1 && 2;                   // OK: logical result
+                let a: bool = true;
+                a = false;                        // OK: same type
+                a = true || false;                    // OK: logical result
+                a = true && false;                   // OK: logical result
 
                 let b: Point = Point { x: 1, y: 2 };
                 b = Point { x: 3, y: 4 };     // OK: same type

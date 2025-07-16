@@ -12,7 +12,7 @@
 //! - `function_semantic_signature`: Resolves function signature information
 //! - `are_types_compatible`: Checks type compatibility
 
-use cairo_m_compiler_parser::parser::{Expression, TypeExpr as AstTypeExpr};
+use cairo_m_compiler_parser::parser::{BinaryOp, Expression, TypeExpr as AstTypeExpr, UnaryOp};
 
 use crate::File;
 use crate::db::{
@@ -57,6 +57,8 @@ pub fn resolve_ast_type<'db>(
         AstTypeExpr::Named(name_str) => {
             if name_str == "felt" {
                 return TypeId::new(db, TypeData::Felt);
+            } else if name_str == "bool" {
+                return TypeId::new(db, TypeData::Bool);
             }
 
             // Try to resolve as a struct type
@@ -276,7 +278,7 @@ pub fn expression_semantic_type<'db>(
     // Access the AST node directly from ExpressionInfo - no lookup needed!
     match &expr_info.ast_node {
         Expression::Literal(_) => TypeId::new(db, TypeData::Felt),
-        Expression::BooleanLiteral(_) => TypeId::new(db, TypeData::Felt),
+        Expression::BooleanLiteral(_) => TypeId::new(db, TypeData::Bool),
         Expression::Identifier(name) => {
             if let Some((def_idx, _)) =
                 semantic_index.resolve_name_to_definition(name.value(), expr_info.scope_id)
@@ -287,33 +289,78 @@ pub fn expression_semantic_type<'db>(
                 TypeId::new(db, TypeData::Error)
             }
         }
-        Expression::UnaryOp { expr, op: _ } => {
+        Expression::UnaryOp { expr, op } => {
             let expr_id = semantic_index.expression_id_by_span(expr.span()).unwrap();
             let expr_type = expression_semantic_type(db, crate_id, file, expr_id);
-            // TODO : proper type checking
-            if are_types_compatible(db, expr_type, TypeId::new(db, TypeData::Felt)) {
-                TypeId::new(db, TypeData::Felt)
-            } else {
-                TypeId::new(db, TypeData::Error)
+
+            match op {
+                UnaryOp::Neg => {
+                    // Negation requires felt operand and returns felt
+                    if are_types_compatible(db, expr_type, TypeId::new(db, TypeData::Felt)) {
+                        TypeId::new(db, TypeData::Felt)
+                    } else {
+                        TypeId::new(db, TypeData::Error)
+                    }
+                }
+                UnaryOp::Not => {
+                    // Logical not can take felt or bool operand and returns bool
+                    let felt_type = TypeId::new(db, TypeData::Felt);
+                    let bool_type = TypeId::new(db, TypeData::Bool);
+                    if are_types_compatible(db, expr_type, felt_type)
+                        || are_types_compatible(db, expr_type, bool_type)
+                    {
+                        TypeId::new(db, TypeData::Bool)
+                    } else {
+                        TypeId::new(db, TypeData::Error)
+                    }
+                }
             }
         }
-        Expression::BinaryOp { left, op: _, right } => {
-            // TODO For now, assume all binary ops are on felts and return felt.
-            // A real implementation would check left/right types.
+        Expression::BinaryOp { left, op, right } => {
             let left_id = semantic_index.expression_id_by_span(left.span()).unwrap();
             let right_id = semantic_index.expression_id_by_span(right.span()).unwrap();
 
             let left_type = expression_semantic_type(db, crate_id, file, left_id);
             let right_type = expression_semantic_type(db, crate_id, file, right_id);
 
-            // Basic type check - both should be felt, or fail.
-            // TODO: add test for this.
-            if are_types_compatible(db, left_type, TypeId::new(db, TypeData::Felt))
-                && are_types_compatible(db, right_type, TypeId::new(db, TypeData::Felt))
-            {
-                TypeId::new(db, TypeData::Felt)
-            } else {
-                TypeId::new(db, TypeData::Error)
+            // Check operand types based on the operator
+            match op {
+                // Arithmetic operations require felt operands and return felt
+                BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div => {
+                    if are_types_compatible(db, left_type, TypeId::new(db, TypeData::Felt))
+                        && are_types_compatible(db, right_type, TypeId::new(db, TypeData::Felt))
+                    {
+                        TypeId::new(db, TypeData::Felt)
+                    } else {
+                        TypeId::new(db, TypeData::Error)
+                    }
+                }
+                // Comparison operations require felt operands and return bool
+                BinaryOp::Eq
+                | BinaryOp::Neq
+                | BinaryOp::Less
+                | BinaryOp::Greater
+                | BinaryOp::LessEqual
+                | BinaryOp::GreaterEqual => {
+                    if are_types_compatible(db, left_type, TypeId::new(db, TypeData::Felt))
+                        && are_types_compatible(db, right_type, TypeId::new(db, TypeData::Felt))
+                    {
+                        TypeId::new(db, TypeData::Bool)
+                    } else {
+                        TypeId::new(db, TypeData::Error)
+                    }
+                }
+                // Logical operations require bool operands and return bool
+                BinaryOp::And | BinaryOp::Or => {
+                    let bool_type = TypeId::new(db, TypeData::Bool);
+                    if are_types_compatible(db, left_type, bool_type)
+                        && are_types_compatible(db, right_type, bool_type)
+                    {
+                        TypeId::new(db, TypeData::Bool)
+                    } else {
+                        TypeId::new(db, TypeData::Error)
+                    }
+                }
             }
         }
         Expression::MemberAccess { object, field } => {
@@ -540,6 +587,10 @@ pub fn are_types_compatible<'db>(
         (TypeData::Pointer(actual_inner), TypeData::Pointer(expected_inner)) => {
             are_types_compatible(db, actual_inner, expected_inner)
         }
+
+        // Bool is only compatible with Bool (not with Felt)
+        (TypeData::Bool, TypeData::Bool) => true,
+        (TypeData::Bool, _) | (_, TypeData::Bool) => false,
 
         // All other combinations are incompatible if not caught by direct equality
         _ => false,

@@ -8,7 +8,7 @@ Source code:
 
         fn test() {
             break;
-            if (1) {
+            if (true) {
                 continue;
             }
             {

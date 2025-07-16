@@ -8,12 +8,12 @@ fn test_nested_loops_with_break_continue() {
         fn test() {
             loop {
                 loop {
-                    if (1) {
+                    if (true) {
                         break;
                     }
                     continue;
                 }
-                if (0) {
+                if (false) {
                     continue;
                 }
                 break;
@@ -32,7 +32,7 @@ fn test_break_continue_in_block() {
         fn test() {
             loop {
                 {
-                    if (1) {
+                    if (true) {
                         break;
                     }
                     continue;
@@ -66,7 +66,7 @@ fn test_multiple_break_continue_errors() {
         r#"
         fn test() {
             break;
-            if (1) {
+            if (true) {
                 continue;
             }
             {
@@ -87,7 +87,7 @@ fn test_break_in_while_condition() {
     assert_semantic_ok!(
         r#"
         fn test() {
-            while (1) {
+            while (true) {
                 break;
             }
             return;
@@ -111,8 +111,8 @@ fn test_break_continue_mix() {
 
             continue;  // Error
 
-            while (1) {
-                if (1) {
+            while (true) {
+                if (true) {
                     break;  // OK
                 } else {
                     continue;  // OK

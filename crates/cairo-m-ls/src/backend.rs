@@ -520,6 +520,7 @@ impl Backend {
     fn format_type(db: &dyn SemanticDb, type_id: TypeId) -> String {
         match type_id.data(db) {
             TypeData::Felt => "felt".to_string(),
+            TypeData::Bool => "bool".to_string(),
             TypeData::Pointer(inner) => format!("{}*", Self::format_type(db, inner)),
             TypeData::Tuple(types) => {
                 if types.is_empty() {

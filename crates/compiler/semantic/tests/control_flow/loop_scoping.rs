@@ -47,7 +47,7 @@ fn test_while_loop_scoping() {
     assert_semantic_err!(
         r#"
         fn test() {
-            let condition = 1;
+            let condition = true;
             while (condition) {
                 let loop_var = 42;
                 break;
@@ -68,7 +68,7 @@ fn test_loop_variable_shadowing() {
             let x = 1;
             loop {
                 let x = 2;  // Shadows outer x
-                if (x) {
+                if (x == 2) {
                     break;
                 }
             }

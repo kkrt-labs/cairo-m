@@ -6,7 +6,7 @@ fn test_break_in_loop() {
     assert_semantic_ok!(
         r#"
         fn test() {
-            let running = 1;
+            let running = true;
             loop {
                 if (running) {
                     break;
@@ -37,7 +37,7 @@ fn test_continue_in_loop() {
     assert_semantic_ok!(
         r#"
         fn test() {
-            let x = 0;
+            let x = false;
             loop {
                 if (x) {
                     break;
@@ -88,7 +88,7 @@ fn test_break_in_if_inside_loop() {
         r#"
         fn test() {
             loop {
-                if (1) {
+                if (true) {
                     break;
                 }
             }
@@ -104,7 +104,7 @@ fn test_break_in_if_outside_loop() {
     assert_semantic_err!(
         r#"
         fn test() {
-            if (1) {
+            if (true) {
                 break;
             }
             return;
@@ -119,7 +119,7 @@ fn test_while_loop_with_break() {
     assert_semantic_ok!(
         r#"
         fn test() {
-            while (1) {
+            while (true) {
                 break;
             }
             return;

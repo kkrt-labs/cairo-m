@@ -71,7 +71,7 @@ fn test_conditional_break_unreachable() {
         r#"
         fn test() {
             loop {
-                if (1) {
+                if (true) {
                     break;
                 }
                 let x = 1;  // Reachable (break is conditional)
@@ -108,7 +108,7 @@ fn test_while_loop_unreachable() {
     assert_semantic_ok!(
         r#"
         fn test() {
-            while (0) {
+            while (false) {
                 let x = 1;
             }
             let y = 2;  // Reachable

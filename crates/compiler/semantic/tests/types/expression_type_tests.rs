@@ -277,11 +277,12 @@ fn test_unary_expression_types() {
     let db = test_db();
     let program = r#"
         fn test() {
-            let a = 10;
-            let neg_a = -a;       // Should be felt
-            let not_a = !a;       // Should be felt
-            let neg_lit = -42;    // Should be felt
-            let not_lit = !0;     // Should be felt
+            let a: felt = 10;
+            let b: bool = true;
+            let neg_a: felt = -a;       // Should be felt
+            let not_b: bool = !b;       // Should be bool
+            let neg_lit: felt = -42;    // Should be felt
+            let not_lit: bool = !true;  // Should be bool
         }
     "#;
     let crate_id = crate_from_program(&db, program);
@@ -299,11 +300,21 @@ fn test_unary_expression_types() {
             cairo_m_compiler_parser::parser::Expression::UnaryOp { .. }
         ) {
             let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id);
-            // Unary operations on felt should result in felt
-            assert!(
-                matches!(expr_type.data(&db), TypeData::Felt),
-                "Unary expression '{source_text}' should have felt type"
-            );
+
+            // Check type based on the operation
+            if source_text.starts_with('-') {
+                // Negation should result in felt
+                assert!(
+                    matches!(expr_type.data(&db), TypeData::Felt),
+                    "Negation expression '{source_text}' should have felt type"
+                );
+            } else if source_text.starts_with('!') {
+                // Logical not should result in bool
+                assert!(
+                    matches!(expr_type.data(&db), TypeData::Bool),
+                    "Logical not expression '{source_text}' should have bool type"
+                );
+            }
         }
     }
 }
