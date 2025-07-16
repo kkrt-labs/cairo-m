@@ -126,3 +126,18 @@ fn test_unused_but_assigned() {
         show_unused
     );
 }
+
+#[test]
+fn test_underscore_prefixed_variables_ignored() {
+    // Variables with underscore prefix should not trigger unused variable warnings
+    assert_semantic_ok!(
+        r#"
+        func test() -> felt {
+            let _ignored = 10;
+            let _unused_param = 20;
+            let used = 30;
+            return used;
+        }
+    "#
+    );
+}
