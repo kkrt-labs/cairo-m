@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
@@ -31,12 +32,56 @@ pub fn discover_project(start_path: &Path) -> Result<Option<Project>> {
         }
         None => {
             trace!(
-                "No project manifest found starting from: {}",
+                "No project manifest found starting from: {}, treating as standalone file",
                 start_path.display()
             );
-            Ok(None)
+            let project = setup_as_standalone_file(start_path)?;
+            Ok(Some(project))
         }
     }
+}
+
+/// Quick workaround to setup a standalone file as a project
+///
+/// This function will:
+/// 1. Create a temporary directory
+/// 2. Create a src directory
+/// 3. Copy the file to the src directory
+/// 4. Create a manifest file in the root directory
+fn setup_as_standalone_file(start_path: &Path) -> Result<Project> {
+    let filename = start_path.file_name().unwrap().to_str().unwrap();
+
+    // Create temporary directory structure
+    let temp_dir = tempfile::tempdir().expect("Failed to create temporary directory");
+    let temp_dir_path = temp_dir.keep();
+
+    // Write manifest file
+    let manifest_content = format!(
+        r#"name = "{filename}"
+version = "0.1.0"
+entry_point = "src/{filename}.cm"
+"#
+    );
+    let manifest_path = temp_dir_path.join(crate::MANIFEST_FILE_NAME);
+    fs::write(&manifest_path, manifest_content).expect("Failed to write manifest file");
+
+    // Create src directory and copy file
+    let src_dir = temp_dir_path.join("src");
+    fs::create_dir(&src_dir).expect("Failed to create src directory");
+
+    let file_content = fs::read_to_string(start_path).expect("Failed to read file");
+    let file_path = src_dir.join(filename);
+    fs::write(file_path, file_content).expect("Failed to write file");
+
+    let project = Project {
+        manifest_path,
+        root_directory: temp_dir_path,
+        name: filename.to_string(),
+        source_layout: SourceLayout::default(),
+        entry_point: Some(start_path.to_owned()),
+    };
+
+    Ok(project)
 }
 
 /// Discovers a workspace containing multiple projects
