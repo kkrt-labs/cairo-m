@@ -30,6 +30,11 @@ The main design choices are
 - **Prover**: The `cairo-m-prover` crate generates proofs of correct execution
   for the programs run using the runner.
 
+## Developing with Cairo M
+
+To get started with Cairo M, read the
+[getting-started](./docs/getting-started.md)
+
 ## Getting Started
 
 To get started with Cairo M, clone the repository and build the project using
