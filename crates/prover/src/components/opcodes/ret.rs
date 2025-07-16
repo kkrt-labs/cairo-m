@@ -8,9 +8,6 @@
 //! - fp
 //! - clock
 //! - inst_prev_clock
-//! - off0
-//! - off1
-//! - off2
 //! - fp_min_2_prev_clock
 //! - fp_min_2_val
 //! - fp_min_1_prev_clock
@@ -23,7 +20,7 @@
 //! * registers update is regular
 //!   * `- [pc, fp] + [fp_min_1_val, fp_min_2_val]` in `Registers` relation
 //! * read instruction from memory
-//!   * `- [pc, inst_prev_clk, opcode_constant, off0, off1, off2] + [pc, clk, opcode_constant, off0, off1, off2]` in `Memory` relation
+//!   * `- [pc, inst_prev_clk, opcode_constant] + [pc, clk, opcode_constant]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
 //! * read return fp
 //!   * `- [fp - 2, fp_min_2_prev_clk, fp_min_2_val] + [fp - 2, clk, fp_min_2_val]` in `Memory` relation
@@ -61,7 +58,7 @@ use crate::adapter::ExecutionBundle;
 use crate::components::Relations;
 use crate::utils::{Enabler, PackedExecutionBundle};
 
-const N_TRACE_COLUMNS: usize = 12;
+const N_TRACE_COLUMNS: usize = 9;
 const N_MEMORY_LOOKUPS: usize = 6;
 const N_REGISTERS_LOOKUPS: usize = 2;
 const N_RANGE_CHECK_20_LOOKUPS: usize = 3;
@@ -150,9 +147,6 @@ impl Claim {
                 let clock = input.clock;
                 let inst_prev_clock = input.inst_prev_clock;
                 let opcode_constant = PackedM31::from(M31::from(Opcode::Ret));
-                let off0 = input.inst_value_1;
-                let off1 = input.inst_value_2;
-                let off2 = input.inst_value_3;
                 let fp_min_1_prev_clock = input.mem1_prev_clock;
                 let fp_min_1_val = input.mem1_value;
                 let fp_min_2_prev_clock = input.mem2_prev_clock;
@@ -163,13 +157,10 @@ impl Claim {
                 *row[2] = fp;
                 *row[3] = clock;
                 *row[4] = inst_prev_clock;
-                *row[5] = off0;
-                *row[6] = off1;
-                *row[7] = off2;
-                *row[8] = fp_min_2_prev_clock;
-                *row[9] = fp_min_2_val;
-                *row[10] = fp_min_1_prev_clock;
-                *row[11] = fp_min_1_val;
+                *row[5] = fp_min_2_prev_clock;
+                *row[6] = fp_min_2_val;
+                *row[7] = fp_min_1_prev_clock;
+                *row[8] = fp_min_1_val;
 
                 // Registers update: - [pc, fp] + [fp_min_1_val, fp_min_2_val]
                 *lookup_data.registers[0] = [input.pc, input.fp];
@@ -177,8 +168,8 @@ impl Claim {
 
                 // Read instruction from memory
                 *lookup_data.memory[0] =
-                    [input.pc, inst_prev_clock, opcode_constant, off0, off1, off2];
-                *lookup_data.memory[1] = [input.pc, clock, opcode_constant, off0, off1, off2];
+                    [input.pc, inst_prev_clock, opcode_constant, zero, zero, zero];
+                *lookup_data.memory[1] = [input.pc, clock, opcode_constant, zero, zero, zero];
 
                 // Read return fp from [fp - 2]
                 *lookup_data.memory[2] = [
@@ -381,15 +372,11 @@ impl FrameworkEval for Eval {
         let two = E::F::from(M31::from(2));
         let opcode_constant = E::F::from(M31::from(Opcode::Ret));
 
-        // 12 columns
         let enabler = eval.next_trace_mask();
         let pc = eval.next_trace_mask();
         let fp = eval.next_trace_mask();
         let clock = eval.next_trace_mask();
         let inst_prev_clock = eval.next_trace_mask();
-        let off0 = eval.next_trace_mask();
-        let off1 = eval.next_trace_mask();
-        let off2 = eval.next_trace_mask();
         let fp_min_2_prev_clock = eval.next_trace_mask();
         let fp_min_2_val = eval.next_trace_mask();
         let fp_min_1_prev_clock = eval.next_trace_mask();
@@ -414,19 +401,12 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             -E::EF::from(enabler.clone()),
-            &[
-                pc.clone(),
-                inst_prev_clock.clone(),
-                opcode_constant.clone(),
-                off0.clone(),
-                off1.clone(),
-                off2.clone(),
-            ],
+            &[pc.clone(), inst_prev_clock.clone(), opcode_constant.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[pc, clock.clone(), opcode_constant, off0, off1, off2],
+            &[pc, clock.clone(), opcode_constant],
         ));
 
         // Read return fp from [fp - 2]
