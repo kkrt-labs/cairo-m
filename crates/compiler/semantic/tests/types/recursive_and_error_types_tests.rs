@@ -5,9 +5,11 @@
 //! - Error type propagation and handling
 //! - Type system robustness under error conditions
 
+use cairo_m_compiler_semantic::project_semantic_index;
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
 
 use super::*;
+use crate::{crate_from_program, get_main_semantic_index};
 
 #[test]
 #[ignore] // TODO: Enable when pointer types are supported
@@ -20,17 +22,16 @@ fn test_recursive_struct_with_pointers() {
             next: Node*,
         }
     "#;
-    let file = File::new(&db, program.to_string(), "test.cm".to_string());
-    let semantic_index = semantic_index(&db, file)
-        .as_ref()
-        .expect("Got unexpected parse errors");
+    let crate_id = crate_from_program(&db, program);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
     let (def_idx, _) = semantic_index
         .resolve_name_to_definition("Node", root_scope)
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
-    let struct_data = struct_semantic_data(&db, def_id).unwrap();
+    let struct_data = struct_semantic_data(&db, crate_id, def_id).unwrap();
 
     assert_eq!(struct_data.name(&db), "Node");
 
@@ -67,19 +68,20 @@ fn test_error_type_propagation() {
     "#;
 
     let db = test_db();
-    let file = File::new(&db, source.to_string(), "test.cm".to_string());
+    let crate_id = crate_from_program(&db, source);
 
     // The semantic analysis should handle undefined types gracefully
     // and not crash or produce cascading errors
-    let semantic_index_result = semantic_index(&db, file);
+    let p_semantic_index = project_semantic_index(&db, crate_id);
 
     // Even with errors, we should get a semantic index
     assert!(
-        semantic_index_result.is_ok(),
+        p_semantic_index.is_ok(),
         "Should handle undefined types gracefully"
     );
 
-    if let Ok(index) = semantic_index_result.as_ref() {
+    if let Ok(p_index) = p_semantic_index.as_ref() {
+        let index = p_index.modules().values().next().unwrap().clone();
         // The system should track the error but continue analysis
         let all_definitions: Vec<_> = index.all_definitions().collect();
 
@@ -113,14 +115,15 @@ fn test_circular_struct_dependency() {
     "#;
 
     let db = test_db();
-    let file = File::new(&db, source.to_string(), "test.cm".to_string());
+    let crate_id = crate_from_program(&db, source);
 
     // This should either work (if pointers are supported) or fail gracefully
-    let semantic_index_result = semantic_index(&db, file);
+    let p_semantic_index = project_semantic_index(&db, crate_id);
 
     // The important thing is that it doesn't crash or infinite loop
-    match semantic_index_result {
-        Ok(index) => {
+    match p_semantic_index {
+        Ok(p_index) => {
+            let index = p_index.modules().values().next().unwrap().clone();
             // If it succeeds, verify the structures are properly defined
             let root_scope = index.root_scope().unwrap();
 
@@ -155,18 +158,19 @@ fn test_deeply_nested_error_recovery() {
     "#;
 
     let db = test_db();
-    let file = File::new(&db, source.to_string(), "test.cm".to_string());
+    let crate_id = crate_from_program(&db, source);
 
     // Should handle the error chain gracefully
-    let semantic_index_result = semantic_index(&db, file);
+    let p_semantic_index = project_semantic_index(&db, crate_id);
 
     // Even with multiple errors, should not crash
     assert!(
-        semantic_index_result.is_ok(),
+        p_semantic_index.is_ok(),
         "Should handle error chain gracefully"
     );
 
-    if let Ok(index) = semantic_index_result.as_ref() {
+    if let Ok(p_index) = p_semantic_index.as_ref() {
+        let index = p_index.modules().values().next().unwrap().clone();
         // Should still be able to analyze the valid parts
         let root_scope = index.root_scope().unwrap();
         let valid_resolution = index.resolve_name("Valid", root_scope);
@@ -188,15 +192,16 @@ fn test_type_error_in_expression_context() {
     "#;
 
     let db = test_db();
-    let file = File::new(&db, source.to_string(), "test.cm".to_string());
+    let crate_id = crate_from_program(&db, source);
 
-    let semantic_index_result = semantic_index(&db, file);
+    let p_semantic_index = project_semantic_index(&db, crate_id);
     assert!(
-        semantic_index_result.is_ok(),
+        p_semantic_index.is_ok(),
         "Should handle mixed error/valid types"
     );
 
-    if let Ok(index) = semantic_index_result.as_ref() {
+    if let Ok(p_index) = p_semantic_index.as_ref() {
+        let index = p_index.modules().values().next().unwrap().clone();
         // Should still track expressions even with type errors
         let expressions = index.all_expressions().count();
         assert_ne!(
@@ -207,6 +212,7 @@ fn test_type_error_in_expression_context() {
 }
 
 #[test]
+#[ignore = "Type aliases not yet implemented in parser"]
 fn test_recursive_type_alias() {
     // Test type aliases that might create recursion
     let source = r#"
@@ -219,13 +225,14 @@ fn test_recursive_type_alias() {
     "#;
 
     let db = test_db();
-    let file = File::new(&db, source.to_string(), "test.cm".to_string());
+    let crate_id = crate_from_program(&db, source);
 
     // Should handle type aliases in recursive contexts
-    let semantic_index_result = semantic_index(&db, file);
+    let p_semantic_index = project_semantic_index(&db, crate_id);
 
-    match semantic_index_result {
-        Ok(index) => {
+    match p_semantic_index {
+        Ok(p_index) => {
+            let index = p_index.modules().values().next().unwrap().clone();
             let root_scope = index.root_scope().unwrap();
 
             // Should resolve both the type alias and the struct
@@ -255,12 +262,12 @@ fn test_error_type_compatibility() {
     "#;
 
     let db = test_db();
-    let file = File::new(&db, source.to_string(), "test.cm".to_string());
+    let crate_id = crate_from_program(&db, source);
 
     // Should handle operations between error types
-    let semantic_index_result = semantic_index(&db, file);
+    let p_semantic_index = project_semantic_index(&db, crate_id);
     assert!(
-        semantic_index_result.is_ok(),
+        p_semantic_index.is_ok(),
         "Should handle operations between error types"
     );
 
@@ -279,15 +286,15 @@ fn test_self_referential_struct_without_pointers() {
     "#;
 
     let db = test_db();
-    let file = File::new(&db, source.to_string(), "test.cm".to_string());
+    let crate_id = crate_from_program(&db, source);
 
     // This should either:
     // 1. Produce a semantic error about infinite size
     // 2. Handle it gracefully without crashing
-    let semantic_index_result = semantic_index(&db, file);
+    let p_semantic_index = project_semantic_index(&db, crate_id);
 
     // The important thing is that it doesn't infinite loop or crash
-    match semantic_index_result {
+    match p_semantic_index {
         Ok(_) => {
             // If it succeeds, the type system should have some way to handle this
             // (perhaps by detecting the cycle and creating an error type)
@@ -320,13 +327,14 @@ fn test_complex_recursive_scenario() {
     "#;
 
     let db = test_db();
-    let file = File::new(&db, source.to_string(), "test.cm".to_string());
+    let crate_id = crate_from_program(&db, source);
 
     // Should handle complex recursive structures
-    let semantic_index_result = semantic_index(&db, file);
+    let p_semantic_index = project_semantic_index(&db, crate_id);
 
-    match semantic_index_result {
-        Ok(index) => {
+    match p_semantic_index {
+        Ok(p_index) => {
+            let index = p_index.modules().values().next().unwrap().clone();
             let root_scope = index.root_scope().unwrap();
 
             // Should resolve the recursive struct

@@ -6,7 +6,7 @@
 use std::fmt;
 
 use cairo_m_compiler_parser::parser::{
-    ConstDef, FunctionDef, ImportStmt, Namespace, Parameter, Spanned, StructDef, TypeExpr,
+    ConstDef, FunctionDef, Namespace, Parameter, Spanned, StructDef, TypeExpr,
 };
 use chumsky::span::SimpleSpan;
 
@@ -56,7 +56,7 @@ pub enum DefinitionKind {
     /// Function parameter definition
     Parameter(ParameterDefRef),
     /// Import definition (imported symbol)
-    Import(ImportDefRef),
+    Use(UseDefRef),
     /// Namespace definition
     Namespace(NamespaceDefRef),
     /// Loop variable definition (from for loops)
@@ -72,7 +72,7 @@ impl fmt::Display for DefinitionKind {
             Self::Let(_) => write!(f, "variable"),
             Self::Local(_) => write!(f, "local variable"),
             Self::Parameter(_) => write!(f, "parameter"),
-            Self::Import(_) => write!(f, "import"),
+            Self::Use(_) => write!(f, "use"),
             Self::Namespace(_) => write!(f, "namespace"),
             Self::LoopVariable(_) => write!(f, "loop variable"),
         }
@@ -244,25 +244,9 @@ impl ParameterDefRef {
 
 /// Reference to an import definition
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ImportDefRef {
-    pub imported_name: String,
-    pub alias: Option<String>,
-    pub module_path: Vec<String>,
-}
-
-impl ImportDefRef {
-    pub fn from_ast(import: &Spanned<ImportStmt>) -> Self {
-        Self {
-            imported_name: import.value().item.value().clone(),
-            alias: import.value().alias.as_ref().map(|a| a.value().clone()),
-            module_path: import
-                .value()
-                .path
-                .iter()
-                .map(|p| p.value().clone())
-                .collect(),
-        }
-    }
+pub struct UseDefRef {
+    pub imported_module: String,
+    pub item: String,
 }
 
 /// Reference to a namespace definition

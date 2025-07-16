@@ -18,9 +18,9 @@
 #[cfg(test)]
 mod types_test;
 
+use crate::SemanticDb;
 use crate::place::FileScopeId;
 use crate::semantic_index::DefinitionId;
-use crate::SemanticDb;
 
 /// Main type identifier that represents any type in the system
 ///

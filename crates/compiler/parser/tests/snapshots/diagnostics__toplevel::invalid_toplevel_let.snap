@@ -5,10 +5,10 @@ expression: snapshot
 --- Code ---
 let x = 5;
 --- Diagnostics ---
-[02] Error: found 'let' expected 'func', 'struct', 'from', 'const', 'namespace', or end of input
+[02] Error: found 'let' expected 'func', 'struct', 'const', 'namespace', 'use', or end of input
    ╭─[ test.cairo:1:1 ]
    │
  1 │ let x = 5;
    │ ─┬─  
-   │  ╰─── found 'let' expected 'func', 'struct', 'from', 'const', 'namespace', or end of input
+   │  ╰─── found 'let' expected 'func', 'struct', 'const', 'namespace', 'use', or end of input
 ───╯

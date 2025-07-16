@@ -4,13 +4,14 @@
 
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use cairo_m_compiler_semantic::File;
+use cairo_m_compiler_semantic::db::Crate;
 
 use crate::db::tests::test_db;
-use crate::{generate_mir, MirModule, PrettyPrint};
+use crate::{MirModule, PrettyPrint, generate_mir};
 
 /// The result of running MIR generation on a test source.
 pub struct MirOutput {
@@ -21,8 +22,18 @@ pub struct MirOutput {
 /// Runs the full lowering pipeline on a source string.
 pub fn check_mir(source: &str) -> MirOutput {
     let db = test_db();
-    let file = File::new(&db, source.to_string(), "".to_string());
-    let module = match generate_mir(&db, file) {
+    let file = File::new(&db, source.to_string(), "test.cm".to_string());
+    let mut modules = HashMap::new();
+    modules.insert("main".to_string(), file);
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
+
+    let module = match generate_mir(&db, crate_id) {
         Ok(module) => module,
         Err(diagnostics) => {
             panic!(

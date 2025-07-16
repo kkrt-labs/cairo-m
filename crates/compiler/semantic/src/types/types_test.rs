@@ -2,28 +2,59 @@
 //!
 //! These tests verify that the type system actually works end-to-end
 
+use std::collections::HashMap;
+use std::path::PathBuf;
+
 use cairo_m_compiler_parser::parser::TypeExpr as AstTypeExpr;
 
+use crate::db::Crate;
 use crate::db::tests::test_db;
-use crate::semantic_index::{semantic_index, DefinitionId};
+use crate::semantic_index::DefinitionId;
 use crate::type_resolution::{
     definition_semantic_type, expression_semantic_type, function_semantic_signature,
     resolve_ast_type, struct_semantic_data,
 };
 use crate::types::{TypeData, TypeId};
-use crate::File;
+use crate::{File, FileScopeId, SemanticDb, SemanticIndex, project_semantic_index};
+
+// TODO For tests only - ideally not present there
+fn single_file_crate(db: &dyn SemanticDb, file: File) -> Crate {
+    let mut modules = HashMap::new();
+    modules.insert("main".to_string(), file);
+    Crate::new(
+        db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    )
+}
+
+fn get_root_scope(db: &dyn SemanticDb, crate_id: Crate) -> FileScopeId {
+    let semantic_index = project_semantic_index(db, crate_id).unwrap();
+    semantic_index
+        .modules()
+        .get("main")
+        .unwrap()
+        .root_scope()
+        .unwrap()
+}
+
+fn get_main_semantic_index(db: &dyn SemanticDb, crate_id: Crate) -> SemanticIndex {
+    let semantic_index = project_semantic_index(db, crate_id).unwrap();
+    semantic_index.modules().get("main").unwrap().clone()
+}
 
 #[test]
 fn test_resolve_primitive_types() {
     let db = test_db();
     let file = File::new(&db, "".to_string(), "test.cm".to_string());
-    let semantic_index = semantic_index(&db, file)
-        .as_ref()
-        .expect("Got unexpected parse errors");
-    let root_scope = semantic_index.root_scope().unwrap();
+    let crate_id = single_file_crate(&db, file);
+    let root_scope = get_root_scope(&db, crate_id);
 
     let felt_type = resolve_ast_type(
         &db,
+        crate_id,
         file,
         AstTypeExpr::Named("felt".to_string()),
         root_scope,
@@ -32,6 +63,7 @@ fn test_resolve_primitive_types() {
 
     let pointer_felt_type = resolve_ast_type(
         &db,
+        crate_id,
         file,
         AstTypeExpr::Pointer(Box::new(AstTypeExpr::Named("felt".to_string()))),
         root_scope,
@@ -51,14 +83,14 @@ fn test_struct_type_resolution() {
         }
     "#;
     let file = File::new(&db, program.to_string(), "test.cm".to_string());
-    let semantic_index = semantic_index(&db, file)
-        .as_ref()
-        .expect("Got unexpected parse errors");
+    let crate_id = single_file_crate(&db, file);
+    let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
     // 1. Resolve `Point` as a type name.
     let point_type_id = resolve_ast_type(
         &db,
+        crate_id,
         file,
         AstTypeExpr::Named("Point".to_string()),
         root_scope,
@@ -79,7 +111,7 @@ fn test_struct_type_resolution() {
         .resolve_name_to_definition("Point", root_scope)
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
-    let semantic_data = struct_semantic_data(&db, def_id).unwrap();
+    let semantic_data = struct_semantic_data(&db, crate_id, def_id).unwrap();
 
     assert_eq!(struct_id, semantic_data);
     assert_eq!(semantic_data.name(&db), "Point");
@@ -101,9 +133,8 @@ fn test_function_signature_resolution() {
         }
     "#;
     let file = File::new(&db, program.to_string(), "test.cm".to_string());
-    let semantic_index = semantic_index(&db, file)
-        .as_ref()
-        .expect("Got unexpected parse errors");
+    let crate_id = single_file_crate(&db, file);
+    let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
     // 1. Get the function definition.
@@ -113,7 +144,7 @@ fn test_function_signature_resolution() {
     let def_id = DefinitionId::new(&db, file, def_idx);
 
     // 2. Resolve the function's signature.
-    let signature = function_semantic_signature(&db, def_id).unwrap();
+    let signature = function_semantic_signature(&db, crate_id, def_id).unwrap();
     let params = signature.params(&db);
     let return_type = signature.return_type(&db);
 
@@ -125,6 +156,7 @@ fn test_function_signature_resolution() {
     // 4. Assert return type.
     let point_type_id = resolve_ast_type(
         &db,
+        crate_id,
         file,
         AstTypeExpr::Named("Point".to_string()),
         root_scope,
@@ -133,7 +165,7 @@ fn test_function_signature_resolution() {
     assert!(matches!(return_type.data(&db), TypeData::Struct(_)));
 
     // 5. Check the full function type from its definition.
-    let func_type = definition_semantic_type(&db, def_id);
+    let func_type = definition_semantic_type(&db, crate_id, def_id);
     match func_type.data(&db) {
         TypeData::Function(sig_id) => assert_eq!(sig_id, signature),
         other => panic!("Expected function type, got {other:?}"),
@@ -150,9 +182,8 @@ fn test_parameter_type_resolution() {
         }
     "#;
     let file = File::new(&db, program.to_string(), "test.cm".to_string());
-    let semantic_index = semantic_index(&db, file)
-        .as_ref()
-        .expect("Got unexpected parse errors");
+    let crate_id = single_file_crate(&db, file);
+    let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
     let func_scope = semantic_index
         .child_scopes(root_scope)
@@ -166,7 +197,7 @@ fn test_parameter_type_resolution() {
     let param_def_id = DefinitionId::new(&db, file, param_def_idx);
 
     // 2. Get its semantic type.
-    let param_type = definition_semantic_type(&db, param_def_id);
+    let param_type = definition_semantic_type(&db, crate_id, param_def_id);
 
     // 3. Assert it's a struct type `Vector`.
     match param_type.data(&db) {
@@ -190,9 +221,8 @@ fn test_expression_type_inference() {
         }
     "#;
     let file = File::new(&db, program.to_string(), "test.cm".to_string());
-    let semantic_index = semantic_index(&db, file)
-        .as_ref()
-        .expect("Got unexpected parse errors");
+    let crate_id = single_file_crate(&db, file);
+    let semantic_index = get_main_semantic_index(&db, crate_id);
 
     // Helper to find an expression by matching against tracked expressions
     let find_expr_id = |target_text: &str| {
@@ -217,28 +247,28 @@ fn test_expression_type_inference() {
 
     // Test literal
     let expr_id = find_expr_id("42");
-    let expr_type = expression_semantic_type(&db, file, expr_id);
+    let expr_type = expression_semantic_type(&db, crate_id, file, expr_id);
     assert_eq!(expr_type, felt_type);
 
     // Test identifier `a` (inferred from literal)
     let a_expr_id = find_expr_id("a");
-    let a_expr_type = expression_semantic_type(&db, file, a_expr_id);
+    let a_expr_type = expression_semantic_type(&db, crate_id, file, a_expr_id);
     assert_eq!(a_expr_type, felt_type);
 
     // Test binary operation
     let expr_id = find_expr_id("a + 1");
-    let expr_type = expression_semantic_type(&db, file, expr_id);
+    let expr_type = expression_semantic_type(&db, crate_id, file, expr_id);
     assert_eq!(expr_type, felt_type);
 
     // Test member access
     let expr_id = find_expr_id("p.x");
-    let expr_type = expression_semantic_type(&db, file, expr_id);
+    let expr_type = expression_semantic_type(&db, crate_id, file, expr_id);
     assert_eq!(expr_type, felt_type);
 
     // Test identifier `c` (inferred from member access)
     // Find the identifier 'c' in the return statement
     let c_expr_id = find_expr_id("c");
-    let c_expr_type = expression_semantic_type(&db, file, c_expr_id);
+    let c_expr_type = expression_semantic_type(&db, crate_id, file, c_expr_id);
     assert_eq!(c_expr_type, felt_type);
 }
 
@@ -254,9 +284,8 @@ fn test_let_variable_type_inference() {
         }
     "#;
     let file = File::new(&db, program.to_string(), "test.cm".to_string());
-    let semantic_index = semantic_index(&db, file)
-        .as_ref()
-        .expect("Got unexpected parse errors");
+    let crate_id = single_file_crate(&db, file);
+    let semantic_index = get_main_semantic_index(&db, crate_id);
     let func_scope = semantic_index
         .scopes()
         .find(|(_, scope)| scope.kind == crate::place::ScopeKind::Function)
@@ -269,7 +298,7 @@ fn test_let_variable_type_inference() {
             .resolve_name_to_definition(var_name, func_scope)
             .unwrap_or_else(|| panic!("Variable '{var_name}' not found"));
         let def_id = DefinitionId::new(&db, file, def_idx);
-        definition_semantic_type(&db, def_id)
+        definition_semantic_type(&db, crate_id, def_id)
     };
 
     let felt_type = TypeId::new(&db, TypeData::Felt);
@@ -303,9 +332,8 @@ fn test_const_variable_type_inference() {
         const PI_APPROX = 314;
     "#;
     let file = File::new(&db, program.to_string(), "test.cm".to_string());
-    let semantic_index = semantic_index(&db, file)
-        .as_ref()
-        .expect("Got unexpected parse errors");
+    let crate_id = single_file_crate(&db, file);
+    let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
     // Helper function to get constant type
@@ -314,7 +342,7 @@ fn test_const_variable_type_inference() {
             .resolve_name_to_definition(const_name, root_scope)
             .unwrap_or_else(|| panic!("Constant '{const_name}' not found"));
         let def_id = DefinitionId::new(&db, file, def_idx);
-        definition_semantic_type(&db, def_id)
+        definition_semantic_type(&db, crate_id, def_id)
     };
 
     let felt_type = TypeId::new(&db, TypeData::Felt);
@@ -345,9 +373,8 @@ fn test_explicit_type_annotations_priority() {
         }
     "#;
     let file = File::new(&db, program.to_string(), "test.cm".to_string());
-    let semantic_index = semantic_index(&db, file)
-        .as_ref()
-        .expect("Got unexpected parse errors");
+    let crate_id = single_file_crate(&db, file);
+    let semantic_index = get_main_semantic_index(&db, crate_id);
     let func_scope = semantic_index
         .scopes()
         .find(|(_, scope)| scope.kind == crate::place::ScopeKind::Function)
@@ -360,7 +387,7 @@ fn test_explicit_type_annotations_priority() {
             .resolve_name_to_definition(var_name, func_scope)
             .unwrap_or_else(|| panic!("Variable '{var_name}' not found"));
         let def_id = DefinitionId::new(&db, file, def_idx);
-        definition_semantic_type(&db, def_id)
+        definition_semantic_type(&db, crate_id, def_id)
     };
 
     let felt_type = TypeId::new(&db, TypeData::Felt);
@@ -402,9 +429,8 @@ fn test_local_variable_inference_without_annotation() {
         }
     "#;
     let file = File::new(&db, program.to_string(), "test.cm".to_string());
-    let semantic_index = semantic_index(&db, file)
-        .as_ref()
-        .expect("Got unexpected parse errors");
+    let crate_id = single_file_crate(&db, file);
+    let semantic_index = get_main_semantic_index(&db, crate_id);
     let func_scope = semantic_index
         .scopes()
         .find(|(_, scope)| scope.kind == crate::place::ScopeKind::Function)
@@ -417,7 +443,7 @@ fn test_local_variable_inference_without_annotation() {
             .resolve_name_to_definition(var_name, func_scope)
             .unwrap_or_else(|| panic!("Variable '{var_name}' not found"));
         let def_id = DefinitionId::new(&db, file, def_idx);
-        definition_semantic_type(&db, def_id)
+        definition_semantic_type(&db, crate_id, def_id)
     };
 
     let felt_type = TypeId::new(&db, TypeData::Felt);
@@ -451,9 +477,8 @@ fn test_mixed_variable_scenarios() {
         }
     "#;
     let file = File::new(&db, program.to_string(), "test.cm".to_string());
-    let semantic_index = semantic_index(&db, file)
-        .as_ref()
-        .expect("Got unexpected parse errors");
+    let crate_id = single_file_crate(&db, file);
+    let semantic_index = get_main_semantic_index(&db, crate_id);
     let func_scope = semantic_index
         .scopes()
         .find(|(_, scope)| scope.kind == crate::place::ScopeKind::Function)
@@ -466,7 +491,7 @@ fn test_mixed_variable_scenarios() {
             .resolve_name_to_definition(var_name, func_scope)
             .unwrap_or_else(|| panic!("Variable '{var_name}' not found"));
         let def_id = DefinitionId::new(&db, file, def_idx);
-        definition_semantic_type(&db, def_id)
+        definition_semantic_type(&db, crate_id, def_id)
     };
 
     let felt_type = TypeId::new(&db, TypeData::Felt);
@@ -508,9 +533,8 @@ fn test_multiple_return_type_signature() {
         }
     "#;
     let file = File::new(&db, program.to_string(), "test.cm".to_string());
-    let semantic_index = semantic_index(&db, file)
-        .as_ref()
-        .expect("Got unexpected parse errors");
+    let crate_id = single_file_crate(&db, file);
+    let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
     // 1. Get the function definition.
@@ -520,7 +544,7 @@ fn test_multiple_return_type_signature() {
     let def_id = DefinitionId::new(&db, file, def_idx);
 
     // 2. Resolve the function's signature.
-    let signature = function_semantic_signature(&db, def_id).unwrap();
+    let signature = function_semantic_signature(&db, crate_id, def_id).unwrap();
     let return_type = signature.return_type(&db);
 
     // 3. Assert return type is a tuple.
@@ -544,7 +568,7 @@ fn test_multiple_return_type_signature() {
     }
 
     // 4. Check the full function type from its definition.
-    let func_type = definition_semantic_type(&db, def_id);
+    let func_type = definition_semantic_type(&db, crate_id, def_id);
     match func_type.data(&db) {
         TypeData::Function(sig_id) => assert_eq!(sig_id, signature),
         other => panic!("Expected function type, got {other:?}"),

@@ -22,13 +22,15 @@
 //! - `assert_semantic_err!(code)` - Assert code produces validation errors
 //! - `assert_diagnostics_snapshot!(file, name)` - Snapshot test for .cm files
 
+use std::collections::HashMap;
+use std::path::PathBuf;
+
 use cairo_m_compiler_diagnostics::{
-    build_diagnostic_message, DiagnosticCode, DiagnosticCollection,
+    DiagnosticCode, DiagnosticCollection, build_diagnostic_message,
 };
-use cairo_m_compiler_parser::{Db as ParserDb, SourceProgram, Upcast};
-use cairo_m_compiler_semantic::semantic_index::semantic_index;
-use cairo_m_compiler_semantic::validation::validator::create_default_registry;
-use cairo_m_compiler_semantic::SemanticDb;
+use cairo_m_compiler_parser::{Db as ParserDb, SourceFile, Upcast};
+use cairo_m_compiler_semantic::db::{Crate, project_validate_semantics};
+use cairo_m_compiler_semantic::{File, SemanticDb, SemanticIndex, project_semantic_index};
 use insta::assert_snapshot;
 
 #[salsa::db]
@@ -57,19 +59,43 @@ fn test_db() -> TestDb {
     TestDb::default()
 }
 
+// TODO For tests only - ideally not present there
+fn single_file_crate(db: &dyn SemanticDb, file: File) -> Crate {
+    let mut modules = HashMap::new();
+    modules.insert("main".to_string(), file);
+    Crate::new(
+        db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    )
+}
+
+fn crate_from_program(db: &dyn SemanticDb, program: &str) -> Crate {
+    let file = File::new(db, program.to_string(), "test.cm".to_string());
+    single_file_crate(db, file)
+}
+
+fn get_main_semantic_index(db: &dyn SemanticDb, crate_id: Crate) -> SemanticIndex {
+    let semantic_index = project_semantic_index(db, crate_id).unwrap();
+    semantic_index.modules().values().next().unwrap().clone()
+}
+
+fn get_maybe_main_semantic_index(
+    db: &dyn SemanticDb,
+    crate_id: Crate,
+) -> Result<SemanticIndex, DiagnosticCollection> {
+    let semantic_index = project_semantic_index(db, crate_id)?;
+    Ok(semantic_index.modules().values().next().unwrap().clone())
+}
+
 /// Run semantic validation on source code
 fn run_validation(source: &str, file_name: &str) -> DiagnosticCollection {
     let db = test_db();
-    let source_program = SourceProgram::new(&db, source.to_string(), file_name.to_string());
-
-    // Build semantic index
-    let index = semantic_index(&db, source_program)
-        .as_ref()
-        .expect("Got unexpected parse errors");
-
-    // Run validation
-    let registry = create_default_registry();
-    registry.validate_all(&db, source_program, index)
+    let source_program = SourceFile::new(&db, source.to_string(), file_name.to_string());
+    let crate_id = single_file_crate(&db, source_program);
+    project_validate_semantics(&db, crate_id)
 }
 
 // Format diagnostics for snapshot testing using ariadne for beautiful error reports

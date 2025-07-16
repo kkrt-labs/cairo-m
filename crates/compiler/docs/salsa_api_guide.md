@@ -166,7 +166,7 @@ pub struct File {
 
 /// Source program text
 #[salsa::input(debug)]
-pub struct SourceProgram {
+pub struct SourceFile {
     #[returns(ref)]
     pub text: String,
 }

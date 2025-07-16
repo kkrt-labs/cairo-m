@@ -3,14 +3,25 @@ name = "cairo-m-ls"
 version = "0.1.0"
 edition.workspace = true
 
+[[bin]]
+name = "cairo-m-ls"
+path = "src/main.rs"
+
+[lib]
+path = "src/lib.rs"
+
 [dependencies]
 tower-lsp = "0.20"
+lsp-types = "0.94"                                                              # Match tower-lsp's version
 tokio = { version = "1.35", features = ["full"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 dashmap = "5.5"
+walkdir = "2.5"
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "registry"] }
+crossbeam-channel = "0.5"
+notify = "6.1"
 
 salsa = "0.22"
 
@@ -19,3 +30,12 @@ cairo-m-compiler = { path = "../compiler" }
 cairo-m-compiler-diagnostics = { path = "../compiler/diagnostics" }
 cairo-m-compiler-parser = { path = "../compiler/parser" }
 cairo-m-compiler-semantic = { path = "../compiler/semantic" }
+cairo-m-project = { path = "../compiler/cairo-m-project" }
+
+[dev-dependencies]
+tempfile = "3.8"
+insta = "1.34"
+futures = "0.3"
+anyhow = "1.0"
+async-trait = "0.1"
+filetime = "0.2"

@@ -1,0 +1,4 @@
+func helper_func() -> (){
+    let x =2;
+    return();
+}

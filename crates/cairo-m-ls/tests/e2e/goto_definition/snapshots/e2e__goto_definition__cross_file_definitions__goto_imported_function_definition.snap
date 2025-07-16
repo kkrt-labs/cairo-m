@@ -1,0 +1,5 @@
+---
+source: crates/cairo-m-ls/tests/e2e/goto_definition/cross_file_definitions.rs
+expression: result
+---
+No definition found

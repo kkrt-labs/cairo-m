@@ -12,10 +12,14 @@
 //! - **Span Mappings**: Test source location to semantic entity mappings
 //! - **Expression Tracking**: Verify expression metadata and scope context
 
+use std::collections::HashMap;
+use std::path::PathBuf;
+
 use cairo_m_compiler_parser::{Db as ParserDb, Upcast};
+use cairo_m_compiler_semantic::db::{Crate, module_semantic_index};
 use cairo_m_compiler_semantic::definition::DefinitionKind;
 use cairo_m_compiler_semantic::place::{PlaceFlags, ScopeKind};
-use cairo_m_compiler_semantic::semantic_index::{semantic_index, DefinitionId};
+use cairo_m_compiler_semantic::semantic_index::DefinitionId;
 use cairo_m_compiler_semantic::{File, SemanticDb};
 
 #[salsa::db]
@@ -44,17 +48,34 @@ pub fn test_db() -> TestDb {
     TestDb::default()
 }
 
+// TODO For tests only - ideally not present there
+fn single_file_crate(db: &dyn SemanticDb, file: File) -> Crate {
+    let mut modules = HashMap::new();
+    modules.insert("main".to_string(), file);
+    Crate::new(
+        db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    )
+}
+
+pub fn crate_from_program(db: &dyn SemanticDb, program: &str) -> Crate {
+    let file = File::new(db, program.to_string(), "test.cm".to_string());
+    single_file_crate(db, file)
+}
+
 /// Helper to run a test with a semantic index
 fn with_semantic_index<F>(source: &str, test_fn: F)
 where
     F: FnOnce(&TestDb, File, &cairo_m_compiler_semantic::semantic_index::SemanticIndex),
 {
     let db = test_db();
-    let file = File::new(&db, source.to_string(), "test.cm".to_string());
-    let index = semantic_index(&db, file)
-        .as_ref()
-        .expect("Got unexpected parse errors");
-    test_fn(&db, file, index);
+    let crate_id = crate_from_program(&db, source);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let index = module_semantic_index(&db, crate_id, "main".to_string());
+    test_fn(&db, file, &index);
 }
 
 #[test]

@@ -1,7 +1,10 @@
 use std::path::PathBuf;
 use std::{fs, process};
 
-use cairo_m_compiler::{compile_cairo, format_diagnostics, CompilerError, CompilerOptions};
+use cairo_m_compiler::{
+    CompilerError, CompilerOptions, compile_project, format_diagnostics_multi_file,
+};
+use cairo_m_project::discover_project;
 use clap::Parser;
 
 /// Cairo-M compiler
@@ -24,21 +27,41 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    let source_text = fs::read_to_string(&args.input).unwrap_or_else(|e| {
-        eprintln!("Error reading file '{}': {}", args.input.display(), e);
-        process::exit(1);
-    });
+    let db = cairo_m_compiler::create_compiler_database();
 
-    let source_name = args.input.display().to_string();
+    // Discover the project
+    let project = match discover_project(&args.input).unwrap_or_else(|e| {
+        eprintln!("Failed to discover project: {}", e);
+        process::exit(1);
+    }) {
+        Some(project) => project,
+        None => {
+            eprintln!("No Cairo-M project found at '{}'", args.input.display());
+            eprintln!("Make sure there's a cairom.toml file in the project root");
+            process::exit(1);
+        }
+    };
+
     let options = CompilerOptions {
         verbose: args.verbose,
     };
 
-    let output = compile_cairo(source_text.clone(), source_name, options).unwrap_or_else(|e| {
+    // Build a map of file paths to source text for multi-file diagnostics
+    let mut source_map = std::collections::HashMap::new();
+    // We'll need to read the source files for error reporting
+    if let Ok(source_files) = project.source_files() {
+        for file_path in source_files {
+            if let Ok(content) = fs::read_to_string(&file_path) {
+                source_map.insert(file_path.to_string_lossy().to_string(), content);
+            }
+        }
+    }
+
+    let output = compile_project(&db, project, options).unwrap_or_else(|e| {
         match &e {
             CompilerError::ParseErrors(diagnostics)
             | CompilerError::SemanticErrors(diagnostics) => {
-                let error_msg = format_diagnostics(&source_text, diagnostics, true);
+                let error_msg = format_diagnostics_multi_file(&source_map, diagnostics, true);
                 eprintln!("{}", error_msg);
             }
             CompilerError::MirGenerationFailed => {
@@ -53,7 +76,8 @@ fn main() {
 
     // Print any warnings
     if !output.diagnostics.is_empty() {
-        let diagnostic_messages = format_diagnostics(&source_text, &output.diagnostics, true);
+        let diagnostic_messages =
+            format_diagnostics_multi_file(&source_map, &output.diagnostics, true);
         println!("{}", diagnostic_messages);
     }
 

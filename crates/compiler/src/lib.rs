@@ -1,11 +1,16 @@
 //! Cairo-M compiler library
+#![allow(clippy::option_if_let_else)]
 
 pub mod db;
+pub mod project_discovery;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use cairo_m_common::Program;
-use cairo_m_compiler_diagnostics::{build_diagnostic_message, Diagnostic, DiagnosticSeverity};
-use cairo_m_compiler_parser::{parse_program, SourceProgram};
+use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticSeverity, build_diagnostic_message};
+use cairo_m_compiler_parser::{SourceFile, parse_file};
+use cairo_m_compiler_semantic::Crate as SemanticCrate;
+use cairo_m_compiler_semantic::db::{crate_from_project, project_validate_semantics};
 use db::CompilerDatabase;
 use thiserror::Error;
 
@@ -61,29 +66,40 @@ pub fn compile_cairo(
     options: CompilerOptions,
 ) -> Result<CompilerOutput> {
     let db = CompilerDatabase::new();
-    let source = SourceProgram::new(&db, source_text, source_name);
+    let source = SourceFile::new(&db, source_text, source_name);
 
-    compile_from_source(&db, source, options)
+    compile_from_file(&db, source, options)
 }
 
-/// Compiles a Cairo-M program from a SourceProgram
+/// Compiles a Cairo-M program from a SourceFile
 ///
 /// This is a lower-level API that allows reusing a database instance
 /// for incremental compilation scenarios.
-pub fn compile_from_source(
+pub fn compile_from_file(
     db: &CompilerDatabase,
-    source: SourceProgram,
+    source: SourceFile,
     _options: CompilerOptions,
 ) -> Result<CompilerOutput> {
     // Parse the program
-    let parsed_program = parse_program(db, source);
+    let parsed_program = parse_file(db, source);
 
     if !parsed_program.diagnostics.is_empty() {
         return Err(CompilerError::ParseErrors(parsed_program.diagnostics));
     }
 
-    // Validate semantics
-    let semantic_diagnostics = cairo_m_compiler_semantic::db::validate_semantics(db, source);
+    // Create a single-file crate for semantic validation
+    let mut modules = HashMap::new();
+    modules.insert("main".to_string(), source);
+    let crate_id = SemanticCrate::new(
+        db,
+        modules,
+        "main".to_string(),
+        std::path::PathBuf::from("."),
+        "single_file".to_string(),
+    );
+
+    // Validate semantics using crate-based API
+    let semantic_diagnostics = project_validate_semantics(db, crate_id);
 
     let (semantic_errors, diagnostics): (Vec<_>, Vec<_>) = semantic_diagnostics
         .into_iter()
@@ -93,7 +109,7 @@ pub fn compile_from_source(
         return Err(CompilerError::SemanticErrors(semantic_errors));
     }
 
-    let program = cairo_m_compiler_codegen::db::compile_module(db, source)
+    let program = cairo_m_compiler_codegen::db::compile_project(db, crate_id)
         .map_err(|e| CompilerError::CodeGenerationFailed(e.to_string()))?;
 
     Ok(CompilerOutput {
@@ -102,7 +118,44 @@ pub fn compile_from_source(
     })
 }
 
-/// Formats diagnostics for display
+/// Compiles a Cairo-M project
+///
+/// This compiles all files in the project and handles multi-file dependencies.
+pub fn compile_project(
+    db: &CompilerDatabase,
+    project: cairo_m_project::Project,
+    _options: CompilerOptions,
+) -> Result<CompilerOutput> {
+    // Create a semantic crate from the project
+    let crate_id = match crate_from_project(db, project) {
+        Ok(crate_id) => crate_id,
+        Err(diagnostics) => {
+            let errors = diagnostics.errors().into_iter().cloned().collect();
+            return Err(CompilerError::ParseErrors(errors));
+        }
+    };
+
+    // Validate semantics using crate-based API
+    let semantic_diagnostics = project_validate_semantics(db, crate_id);
+
+    let (semantic_errors, diagnostics): (Vec<_>, Vec<_>) = semantic_diagnostics
+        .into_iter()
+        .partition(|d| d.severity == DiagnosticSeverity::Error);
+
+    if !semantic_errors.is_empty() {
+        return Err(CompilerError::SemanticErrors(semantic_errors));
+    }
+
+    let program = cairo_m_compiler_codegen::db::compile_project(db, crate_id)
+        .map_err(|e| CompilerError::CodeGenerationFailed(e.to_string()))?;
+
+    Ok(CompilerOutput {
+        program,
+        diagnostics,
+    })
+}
+
+/// Formats diagnostics for display (single file)
 ///
 /// # Arguments
 /// * `source_text` - The source code text
@@ -119,6 +172,34 @@ pub fn format_diagnostics(
     diagnostics
         .iter()
         .map(|d| build_diagnostic_message(source_text, d, use_color))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Formats diagnostics for display (multi-file)
+///
+/// # Arguments
+/// * `source_map` - Map from file path to source code text
+/// * `diagnostics` - The diagnostics to format
+/// * `use_color` - Whether to use color in the output
+///
+/// # Returns
+/// A formatted string containing all diagnostics
+pub fn format_diagnostics_multi_file(
+    source_map: &HashMap<String, String>,
+    diagnostics: &[Diagnostic],
+    use_color: bool,
+) -> String {
+    diagnostics
+        .iter()
+        .map(|d| {
+            // Get the source text for this diagnostic's file
+            let source_text = source_map
+                .get(&d.file_path)
+                .map(|s| s.as_str())
+                .unwrap_or(""); // Use empty string if file not found
+            build_diagnostic_message(source_text, d, use_color)
+        })
         .collect::<Vec<_>>()
         .join("\n")
 }

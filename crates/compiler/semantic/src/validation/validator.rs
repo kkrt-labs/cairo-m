@@ -30,7 +30,7 @@
 
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCollection};
 
-use crate::db::SemanticDb;
+use crate::db::{Crate, SemanticDb};
 use crate::{File, SemanticIndex};
 
 /// Trait for semantic validators
@@ -54,13 +54,20 @@ pub trait Validator {
     /// # Parameters
     ///
     /// - `db`: Database for additional queries if needed
+    /// - `crate_id`: The crate for cross-module resolution
     /// - `file`: The file being validated (for context)
     /// - `index`: The semantic index containing all semantic information
     ///
     /// # Returns
     ///
     /// A vector of diagnostics representing any issues found during validation.
-    fn validate(&self, db: &dyn SemanticDb, file: File, index: &SemanticIndex) -> Vec<Diagnostic>;
+    fn validate(
+        &self,
+        db: &dyn SemanticDb,
+        crate_id: Crate,
+        file: File,
+        index: &SemanticIndex,
+    ) -> Vec<Diagnostic>;
 
     /// Get the name of this validator (for debugging/logging)
     ///
@@ -106,13 +113,14 @@ impl ValidatorRegistry {
     pub fn validate_all(
         &self,
         db: &dyn SemanticDb,
+        crate_id: Crate,
         file: File,
         index: &SemanticIndex,
     ) -> DiagnosticCollection {
         let mut collection: DiagnosticCollection = Default::default();
 
         for validator in &self.validators {
-            let diagnostics = validator.validate(db, file, index);
+            let diagnostics = validator.validate(db, crate_id, file, index);
             collection.extend(diagnostics);
         }
 
@@ -174,6 +182,7 @@ mod tests {
         fn validate(
             &self,
             _db: &dyn SemanticDb,
+            _crate_id: Crate,
             _file: File,
             _index: &SemanticIndex,
         ) -> Vec<Diagnostic> {

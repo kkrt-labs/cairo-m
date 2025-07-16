@@ -26,7 +26,9 @@ fn function_multiple_params() {
 
 #[test]
 fn many_parameters() {
-    assert_parses_ok!("func complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStruct*) -> (felt, felt) { return (a, b); }");
+    assert_parses_ok!(
+        "func complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStruct*) -> (felt, felt) { return (a, b); }"
+    );
 }
 
 #[test]
@@ -117,28 +119,23 @@ fn nested_namespace() {
 // ===================
 
 #[test]
-fn simple_import() {
-    assert_parses_ok!("from std.math import add");
+fn simple_use() {
+    assert_parses_ok!("use std::math::add;");
 }
 
 #[test]
-fn import_with_alias() {
-    assert_parses_ok!("from std.math import add as plus");
+fn use_with_list() {
+    assert_parses_ok!("use std::math::{add, sub};");
 }
 
 #[test]
-fn nested_path_import() {
-    assert_parses_ok!("from very.deep.module.path import function");
+fn invalid_use_no_semicolon() {
+    assert_parses_err!("use std::math::add");
 }
 
 #[test]
-fn invalid_import_syntax() {
-    assert_parses_err!("import std.math");
-}
-
-#[test]
-fn empty_import_path() {
-    assert_parses_err!("from import item");
+fn invalid_empty_use() {
+    assert_parses_err!("use ;");
 }
 
 // ===================
@@ -232,8 +229,8 @@ fn complete_program() {
 fn imports_and_functions() {
     assert_parses_ok!(
         r#"
-        from std.math import sqrt
-        from std.io import print as output
+        use std::math::sqrt;
+        use std::io::print;
 
         struct Point {
             x: felt,
@@ -305,12 +302,12 @@ fn function_with_loops() {
                     break;
                 }
             }
-            
+
             let counter = 0;
             while (counter != 10) {
                 counter = counter + 1;
             }
-            
+
             for i in range {
                 let squared = i * i;
             }

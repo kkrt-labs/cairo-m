@@ -32,10 +32,14 @@ export async function activate(context: vscode.ExtensionContext) {
 
     outputChannel.appendLine(`Found language server at: ${serverPath}`);
 
+    // Enable trace based on configuration
+    const config = vscode.workspace.getConfiguration("cairo-m");
+    const trace = config.get<string>("trace.server", "off");
+
     // Server executable options
     const serverExecutable: Executable = {
       command: serverPath,
-      args: [],
+      args: [`${trace}`],
       options: {
         env: process.env,
       },
@@ -45,10 +49,6 @@ export async function activate(context: vscode.ExtensionContext) {
       run: serverExecutable,
       debug: serverExecutable,
     };
-
-    // Enable trace based on configuration
-    const config = vscode.workspace.getConfiguration("cairo-m");
-    const trace = config.get<string>("trace.server", "off");
 
     // Client options
     const clientOptions: LanguageClientOptions = {

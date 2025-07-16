@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "crates/common",
+  "crates/compiler/cairo-m-project",
   "crates/compiler/parser",
   "crates/compiler/semantic",
   "crates/compiler/mir",
@@ -26,6 +27,7 @@ cairo-m-compiler-semantic = { path = "crates/compiler/semantic" }
 cairo-m-compiler-mir = { path = "crates/compiler/mir" }
 cairo-m-compiler-diagnostics = { path = "crates/compiler/diagnostics" }
 cairo-m-compiler-codegen = { path = "crates/compiler/codegen" }
+cairo-m-project = { path = "crates/compiler/cairo-m-project" }
 cairo-m-compiler = { path = "crates/compiler" }
 cairo-m-runner = { path = "crates/runner" }
 cairo-m-prover = { path = "crates/prover" }

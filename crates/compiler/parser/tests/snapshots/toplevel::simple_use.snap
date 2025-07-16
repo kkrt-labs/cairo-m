@@ -1,0 +1,32 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+use std::math::add;
+--- AST ---
+[
+    Use(
+        Spanned(
+            UseStmt {
+                path: [
+                    Spanned(
+                        "std",
+                        4..7,
+                    ),
+                    Spanned(
+                        "math",
+                        9..13,
+                    ),
+                ],
+                items: Single(
+                    Spanned(
+                        "add",
+                        15..18,
+                    ),
+                ),
+            },
+            0..19,
+        ),
+    ),
+]
