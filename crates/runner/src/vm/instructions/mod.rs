@@ -63,6 +63,7 @@ pub fn opcode_to_instruction_fn(op: M31) -> Result<InstructionFn, InstructionErr
         Opcode::JmpAbsImm => jmp_abs_imm,
         Opcode::JmpRelImm => jmp_rel_imm,
         Opcode::JnzFpImm => jnz_fp_imm,
+        Opcode::U32StoreAddFpImm => todo!(),
     };
     Ok(f)
 }

@@ -8,6 +8,7 @@ use crate::instruction::InstructionError;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct OpcodeInfo {
     pub memory_accesses: usize,
+    pub operand_count: usize,
 }
 
 /// CASM opcodes with type-safe representation
@@ -41,6 +42,9 @@ pub enum Opcode {
 
     // Conditional jumps
     JnzFpImm, // jmp rel imm if [fp + off0] != 0
+
+    // U32 operations
+    U32StoreAddFpImm, // u32([fp + off2], [fp + off2 + 1]) = u32([fp + off0], [fp + off0 + 1]) + u32(imm_limb_0, imm_limb_1)
 }
 
 impl From<Opcode> for u32 {
@@ -106,6 +110,7 @@ impl Opcode {
             13 => Some(Self::JmpAbsImm),
             14 => Some(Self::JmpRelImm),
             15 => Some(Self::JnzFpImm),
+            16 => Some(Self::U32StoreAddFpImm),
             _ => None,
         }
     }
@@ -113,28 +118,109 @@ impl Opcode {
     /// Get the constant characteristics for the opcode
     pub const fn info(self) -> OpcodeInfo {
         match self {
-            Self::StoreAddFpFp => OpcodeInfo { memory_accesses: 3 },
-            Self::StoreAddFpImm => OpcodeInfo { memory_accesses: 2 },
-            Self::StoreSubFpFp => OpcodeInfo { memory_accesses: 3 },
-            Self::StoreSubFpImm => OpcodeInfo { memory_accesses: 2 },
-            Self::StoreDerefFp => OpcodeInfo { memory_accesses: 2 },
-            Self::StoreDoubleDerefFp => OpcodeInfo { memory_accesses: 3 },
-            Self::StoreImm => OpcodeInfo { memory_accesses: 1 },
-            Self::StoreMulFpFp => OpcodeInfo { memory_accesses: 3 },
-            Self::StoreMulFpImm => OpcodeInfo { memory_accesses: 2 },
-            Self::StoreDivFpFp => OpcodeInfo { memory_accesses: 3 },
-            Self::StoreDivFpImm => OpcodeInfo { memory_accesses: 2 },
-            Self::CallAbsImm => OpcodeInfo { memory_accesses: 2 },
-            Self::Ret => OpcodeInfo { memory_accesses: 2 },
-            Self::JmpAbsImm => OpcodeInfo { memory_accesses: 0 },
-            Self::JmpRelImm => OpcodeInfo { memory_accesses: 0 },
-            Self::JnzFpImm => OpcodeInfo { memory_accesses: 1 },
+            Self::StoreAddFpFp => OpcodeInfo {
+                memory_accesses: 3,
+                operand_count: 3,
+            },
+            Self::StoreAddFpImm => OpcodeInfo {
+                memory_accesses: 2,
+                operand_count: 3,
+            },
+            Self::StoreSubFpFp => OpcodeInfo {
+                memory_accesses: 3,
+                operand_count: 3,
+            },
+            Self::StoreSubFpImm => OpcodeInfo {
+                memory_accesses: 2,
+                operand_count: 3,
+            },
+            Self::StoreDerefFp => OpcodeInfo {
+                memory_accesses: 2,
+                operand_count: 3,
+            },
+            Self::StoreDoubleDerefFp => OpcodeInfo {
+                memory_accesses: 3,
+                operand_count: 3,
+            },
+            Self::StoreImm => OpcodeInfo {
+                memory_accesses: 1,
+                operand_count: 3,
+            },
+            Self::StoreMulFpFp => OpcodeInfo {
+                memory_accesses: 3,
+                operand_count: 3,
+            },
+            Self::StoreMulFpImm => OpcodeInfo {
+                memory_accesses: 2,
+                operand_count: 3,
+            },
+            Self::StoreDivFpFp => OpcodeInfo {
+                memory_accesses: 3,
+                operand_count: 3,
+            },
+            Self::StoreDivFpImm => OpcodeInfo {
+                memory_accesses: 2,
+                operand_count: 3,
+            },
+            Self::CallAbsImm => OpcodeInfo {
+                memory_accesses: 2,
+                operand_count: 3,
+            },
+            Self::Ret => OpcodeInfo {
+                memory_accesses: 2,
+                operand_count: 0,
+            },
+            Self::JmpAbsImm => OpcodeInfo {
+                memory_accesses: 0,
+                operand_count: 1,
+            },
+            Self::JmpRelImm => OpcodeInfo {
+                memory_accesses: 0,
+                operand_count: 1,
+            },
+            Self::JnzFpImm => OpcodeInfo {
+                memory_accesses: 1,
+                operand_count: 2,
+            },
+            Self::U32StoreAddFpImm => OpcodeInfo {
+                memory_accesses: 3,
+                operand_count: 4,
+            },
         }
     }
 
     /// Get the name of the opcode as a string
     pub fn name(&self) -> String {
         format!("{self:?}")
+    }
+
+    /// Get the total size of the instruction in M31 fields (opcode + operands)
+    ///
+    /// This method is defined on Opcode rather than Instruction because:
+    /// 1. Size is an intrinsic property of the opcode type, not the instruction instance
+    /// 2. We need to know the expected size during parsing/decoding BEFORE creating an instruction
+    /// 3. The VM needs to know how many QM31s to read from memory based solely on the opcode
+    ///
+    /// Example use case in parsing:
+    /// ```ignore
+    /// let opcode = Opcode::try_from(values[0])?;
+    /// let expected_size = opcode.size_in_m31s();  // Need size before creating instruction!
+    /// if values.len() != expected_size { /* error */ }
+    /// ```
+    pub const fn size_in_m31s(self) -> usize {
+        1 + self.info().operand_count
+    }
+
+    /// Get the size of the instruction in QM31 fields (rounded up to nearest multiple of 4)
+    ///
+    /// This method is defined on Opcode for the same reasons as size_in_m31s().
+    /// The VM uses this to determine how many memory cells to read for variable-sized instructions.
+    ///
+    /// For example:
+    /// - Most instructions: size_in_qm31s() = 1 (fits in single QM31)
+    /// - U32StoreAddFpImm: size_in_qm31s() = 2 (needs 5 M31s, spans 2 QM31s)
+    pub const fn size_in_qm31s(self) -> u32 {
+        self.size_in_m31s().div_ceil(4) as u32
     }
 }
 
@@ -158,4 +244,5 @@ pub mod opcodes {
     pub const JMP_ABS_IMM: u32 = Opcode::JmpAbsImm as u32;
     pub const JMP_REL_IMM: u32 = Opcode::JmpRelImm as u32;
     pub const JNZ_FP_IMM: u32 = Opcode::JnzFpImm as u32;
+    pub const U32_STORE_ADD_FP_IMM: u32 = Opcode::U32StoreAddFpImm as u32;
 }
