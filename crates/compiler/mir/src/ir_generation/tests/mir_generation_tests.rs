@@ -50,6 +50,7 @@ mir_test!(binary_ops, "expressions");
 mir_test!(comparison_ops, "expressions");
 mir_test!(compound_expr, "expressions");
 mir_test!(operator_precedence, "expressions");
+mir_test!(combination, "expressions");
 
 // --- Control Flow ---
 mir_test!(if_else, "control_flow");
@@ -78,6 +79,7 @@ mir_test!(reassignment_from_var, "variables");
 // --- Optimizations ---
 mir_test!(unused_variable_elimination, "optimizations");
 mir_test!(assign_to_binop, "optimizations");
+mir_test!(zero_conditions, "optimizations");
 
 // --- Aggregates (Structs/Tuples) ---
 mir_test!(struct_literal, "aggregates");

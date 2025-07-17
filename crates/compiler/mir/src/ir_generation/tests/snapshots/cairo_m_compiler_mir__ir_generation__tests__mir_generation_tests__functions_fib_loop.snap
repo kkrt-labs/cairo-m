@@ -46,8 +46,7 @@ module {
       jump 1
 
     1:
-      %4 = %3 Neq %0
-      if %4 then jump 2 else jump 3
+      if %3 Neq %0 then jump 2 else jump 3
 
     2:
       %5 = stackalloc 1

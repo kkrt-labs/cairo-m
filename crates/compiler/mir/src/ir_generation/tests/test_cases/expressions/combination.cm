@@ -1,0 +1,28 @@
+fn main(){
+    let x = 3;
+    let y = 13;
+    let even_number = 16;
+    let eq = x == y;
+    let mut_val = 1;
+    if (eq) {
+        mut_val = mut_val + eq + 1;
+    }
+    mut_val = mut_val * mut_val;
+    mut_val = mut_val + (even_number / 2);
+
+    let eq2 = (x == 3);
+
+    let compound1 = x || (y == 3) + 2;
+    let compound2 = eq != 2 && 3;
+
+    let (a, b) = foo();
+    return mut_val + eq2 + a + bar() + b + compound1 + compound2;
+}
+
+fn foo() -> (felt, felt) {
+    return (32, 62);
+}
+
+fn bar() -> felt {
+    return 123;
+}

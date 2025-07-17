@@ -365,11 +365,11 @@ impl CodeGenerator {
         match terminator {
             Terminator::Jump { target } => {
                 // Check if this jump is to the immediately following block
-                if let Some(next_id) = next_block_id
-                    && *target == next_id
-                {
-                    // Skip generating the jump - fall through to next block
-                    return Ok(());
+                if let Some(next_id) = next_block_id {
+                    if *target == next_id {
+                        // Skip generating the jump - fall through to next block
+                        return Ok(());
+                    }
                 }
                 let target_label = format!("{function_name}_{target:?}");
                 builder.jump(&target_label)?;
@@ -409,32 +409,39 @@ impl CodeGenerator {
                 let then_label = format!("{function_name}_{then_target:?}");
                 let else_label = format!("{function_name}_{else_target:?}");
 
+                // For comparison, we compute `a - b`. The result is non-zero if they are not equal.
+                builder.generate_arithmetic_op(BinaryOp::Sub, temp_slot_offset, *left, *right)?;
+
                 match op {
                     BinaryOp::Eq => {
-                        // For `a == b`, we compute `a - b`. The result is zero if they are equal.
-                        builder.generate_arithmetic_op(
-                            BinaryOp::Sub,
-                            temp_slot_offset,
-                            *left,
-                            *right,
-                        )?;
-
                         // `jnz` jumps if the result is non-zero.
                         // A non-zero result means `a != b`, so we should jump to the `else` block.
                         // Otherwise we can simply fallthrough.
                         builder.jnz_offset(temp_slot_offset, &else_label)?;
+
+                        // Fallthrough to the `then` block if the `jnz` was not taken.
+                        let then_is_next = next_block_id == Some(*then_target);
+                        if !then_is_next {
+                            builder.jump(&then_label)?;
+                        }
+                    }
+                    BinaryOp::Neq => {
+                        // `jnz` jumps if the result is non-zero.
+                        // A non-zero result means `a != b`, so we should jump to the `then` block.
+                        // Otherwise we can simply fallthrough.
+                        builder.jnz_offset(temp_slot_offset, &then_label)?;
+
+                        // Fallthrough to the `else` block if the `jnz` was not taken.
+                        let else_is_next = next_block_id == Some(*else_target);
+                        if !else_is_next {
+                            builder.jump(&else_label)?;
+                        }
                     }
                     _ => {
                         return Err(CodegenError::UnsupportedInstruction(format!(
                             "Unsupported comparison op in BranchCmp: {op:?}"
                         )));
                     }
-                }
-
-                // Fallthrough to the `then` block if the `jnz` was not taken.
-                let then_is_next = next_block_id == Some(*then_target);
-                if !then_is_next {
-                    builder.jump(&then_label)?;
                 }
             }
 
