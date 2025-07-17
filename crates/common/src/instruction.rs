@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::QM31;
 
 use crate::Opcode;
 
@@ -8,86 +7,101 @@ use crate::Opcode;
 pub enum InstructionError {
     #[error("Invalid opcode: {0}")]
     InvalidOpcode(M31),
+    #[error("Invalid operand count: expected {expected}, actual {actual}")]
+    InvalidOperandCount { expected: usize, actual: usize },
+    #[error("Empty instruction")]
+    EmptyInstruction,
+    #[error("Instruction size mismatch for opcode. Expected {expected}, found {found}")]
+    SizeMismatch { expected: usize, found: usize },
 }
 
-/// The operands of a Cairo M instruction.
-/// It is represented as a fixed-size array of 3 M31 values.
-/// * off0 - The first element of the array.
-/// * off1 - The second element of the array.
-/// * off2 - The third element of the array.
-pub(crate) type InstructionOperands = [M31; 3];
-
-/// A Cairo M instruction is made of an opcode and 3 arguments.
+/// A Cairo M instruction is made of an opcode and variable number of operands.
 /// * opcode - The opcode id of the instruction.
 /// * operands - The arguments (offsets) of the instruction.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Instruction {
     pub opcode: Opcode,
-    pub operands: InstructionOperands,
+    pub operands: Vec<M31>,
 }
 
-impl TryFrom<QM31> for Instruction {
+impl TryFrom<Vec<M31>> for Instruction {
     type Error = InstructionError;
 
-    fn try_from(instruction: QM31) -> Result<Self, Self::Error> {
-        instruction.to_m31_array().try_into()
-    }
-}
+    fn try_from(mut values: Vec<M31>) -> Result<Self, Self::Error> {
+        if values.is_empty() {
+            return Err(InstructionError::EmptyInstruction);
+        }
 
-impl TryFrom<[M31; 4]> for Instruction {
-    type Error = InstructionError;
+        let opcode = Opcode::try_from(values[0])?;
+        let expected_size = opcode.size_in_m31s();
 
-    fn try_from(array: [M31; 4]) -> Result<Self, Self::Error> {
-        let [opcode, operands @ ..] = array;
+        if values.len() != expected_size {
+            return Err(InstructionError::SizeMismatch {
+                expected: expected_size,
+                found: values.len(),
+            });
+        }
+
+        values.remove(0); // Remove opcode, leaving just operands
         Ok(Self {
-            opcode: Opcode::try_from(opcode)?,
-            operands,
+            opcode,
+            operands: values,
         })
     }
 }
 
-impl From<Instruction> for [M31; 4] {
+impl From<&Instruction> for Vec<M31> {
+    fn from(instruction: &Instruction) -> Self {
+        let mut result = Self::with_capacity(instruction.size_in_m31s());
+        result.push(instruction.opcode.into());
+        result.extend(&instruction.operands);
+        result
+    }
+}
+
+impl From<Instruction> for Vec<M31> {
     fn from(instruction: Instruction) -> Self {
-        [
-            instruction.opcode.into(),
-            instruction.operands[0],
-            instruction.operands[1],
-            instruction.operands[2],
-        ]
-    }
-}
-
-impl From<&Instruction> for [M31; 4] {
-    fn from(instruction: &Instruction) -> Self {
-        (*instruction).into()
-    }
-}
-
-impl From<&Instruction> for QM31 {
-    fn from(instruction: &Instruction) -> Self {
-        Self::from_m31_array(instruction.into())
+        Self::from(&instruction)
     }
 }
 
 impl Instruction {
-    /// Create a new instruction
-    pub const fn new(opcode: Opcode, operands: [M31; 3]) -> Self {
+    /// Create a new instruction with validation
+    /// This validates that the operand count matches what the opcode expects
+    pub fn new(opcode: Opcode, operands: Vec<M31>) -> Result<Self, InstructionError> {
+        let info = opcode.info();
+        if operands.len() != info.operand_count {
+            return Err(InstructionError::InvalidOperandCount {
+                expected: info.operand_count,
+                actual: operands.len(),
+            });
+        }
+        Ok(Self { opcode, operands })
+    }
+
+    /// Create a new instruction without validation
+    pub const fn new_unchecked(opcode: Opcode, operands: Vec<M31>) -> Self {
         Self { opcode, operands }
     }
 
-    /// Get the first operand
-    pub const fn op0(&self) -> M31 {
-        self.operands[0]
+    /// Get operand by index
+    pub fn operand(&self, index: usize) -> Option<M31> {
+        self.operands.get(index).copied()
     }
 
-    /// Get the second operand
-    pub const fn op1(&self) -> M31 {
-        self.operands[1]
+    /// Get all operands as a slice
+    pub fn operands(&self) -> &[M31] {
+        &self.operands
     }
 
-    /// Get the third operand
-    pub const fn op2(&self) -> M31 {
-        self.operands[2]
+    /// Get the expected size in M31s for this instruction's opcode
+    pub const fn size_in_m31s(&self) -> usize {
+        self.opcode.size_in_m31s()
+    }
+
+    /// Get the expected size in QM31s for this instruction's opcode
+    pub const fn size_in_qm31s(&self) -> u32 {
+        self.opcode.size_in_qm31s()
     }
 }
 
@@ -98,10 +112,10 @@ impl Serialize for Instruction {
         S: serde::Serializer,
     {
         use serde::ser::SerializeSeq;
-        let mut seq = serializer.serialize_seq(Some(4))?;
+        let mut seq = serializer.serialize_seq(Some(self.size_in_m31s()))?;
 
         seq.serialize_element(&format!("0x{:x}", self.opcode.to_u32()))?;
-        for operand in self.operands {
+        for &operand in &self.operands {
             seq.serialize_element(&format!("0x{:x}", operand.0))?;
         }
         seq.end()
@@ -115,19 +129,19 @@ impl<'de> Deserialize<'de> for Instruction {
         D: serde::Deserializer<'de>,
     {
         use serde::de;
-        let hex_strings: [String; 4] = Deserialize::deserialize(deserializer)?;
+        let hex_strings: Vec<String> = Deserialize::deserialize(deserializer)?;
         let parse_hex = |s: &str| -> Result<u32, D::Error> {
             u32::from_str_radix(s.trim_start_matches("0x"), 16).map_err(de::Error::custom)
         };
-        let opcode_u32 = parse_hex(&hex_strings[0])?;
-        let opcode = Opcode::try_from(opcode_u32).map_err(de::Error::custom)?;
-        Ok(Self {
-            opcode,
-            operands: [
-                M31::from(parse_hex(&hex_strings[1])?),
-                M31::from(parse_hex(&hex_strings[2])?),
-                M31::from(parse_hex(&hex_strings[3])?),
-            ],
-        })
+
+        // Convert hex strings to M31 values
+        let m31_values: Vec<M31> = hex_strings
+            .iter()
+            .map(|s| parse_hex(s).map(M31::from))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(de::Error::custom)?;
+
+        // Use TryFrom to handle all validation
+        Self::try_from(m31_values).map_err(de::Error::custom)
     }
 }
