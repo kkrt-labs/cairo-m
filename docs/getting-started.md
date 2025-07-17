@@ -19,9 +19,11 @@ Currently, the recommended way to install is by building from the source.
 #### Step 1: Clone the Repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/kkrt-labs/cairo-m.git
 cd cairo-m
 ```
+
+Follow instructions in [README.md](../README.md) to install the project.
 
 #### Step 2: Build the Language Server
 
@@ -156,7 +158,7 @@ fn variables_and_constants() {
     // Constants
     const PI = 314;
     const MAX_VALUE = PI * 2;
-    return();
+    return;
 }
 ```
 
@@ -171,7 +173,7 @@ fn shadowing() {
         // Here, x is 10
     }
     // Here, x is 5
-    return();
+    return;
 }
 ```
 
@@ -197,7 +199,7 @@ fn data_types() {
 
     // Single-element tuples require a trailing comma
     let single: (felt,) = (100,);
-    return();
+    return;
 }
 ```
 
@@ -269,7 +271,7 @@ fn use_structs() {
 
     // Assigning to a struct field
     p1.y = 30;
-    return();
+    return;
 }
 ```
 
@@ -310,7 +312,7 @@ fn use_structs() {
   ```rust
   fn while_loop() {
       let x = 0;
-      while (x !- 10) {
+      while (x != 10) {
           x = x + 1;
       }
       return ();
@@ -372,3 +374,24 @@ The following common language features are not yet implemented:
   evaluate to a `bool`. You cannot use a `felt` like `0` or `1` directly. Use
   comparison operators like `x == 0` to produce a `bool`. In the future this
   will be doable with the `as` keyword.
+
+## 6. Compiling your programs
+
+To compile your program, run the compiler and point it to your project's root
+directory:
+
+```bash
+cargo run --release -p cairo-m-compiler -- --input /path/to/my_project -o project_compiled.json
+```
+
+Once you have your compiled program, you can run it with the runner:
+
+```bash
+cargo run --release -p cairo-m-runner -- project_compiled.json --entrypoint main [-a <arguments>]
+```
+
+And prove it with the prover:
+
+```bash
+cargo run --release -p cairo-m-prover -- --input project_compiled.json --entrypoint main [-a <arguments>] --output proof.json
+```
