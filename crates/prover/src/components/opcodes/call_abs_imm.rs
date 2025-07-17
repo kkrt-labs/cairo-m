@@ -10,7 +10,6 @@
 //! - inst_prev_clock
 //! - off0
 //! - off1
-//! - off2
 //! - op0_prev_clock
 //! - op0_prev_val
 //! - op0_plus_one_prev_clock
@@ -23,7 +22,7 @@
 //! * registers update is regular
 //!   * `- [pc, fp] + [off1, fp + off0 + 2]` in `Registers` relation
 //! * read instruction from memory
-//!   * `- [pc, inst_prev_clk, opcode_constant, off0, off1, off2] + [pc, clk, opcode_constant, off0, off1, off2]` in `Memory` relation
+//!   * `- [pc, inst_prev_clk, opcode_constant, off0, off1] + [pc, clk, opcode_constant, off0, off1]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
 //! * write return fp
 //!   * `- [fp + off0, op0_prev_clk, op0_prev_val] + [fp + off0, clk, fp]` in `Memory` relation
@@ -61,7 +60,7 @@ use crate::adapter::ExecutionBundle;
 use crate::components::Relations;
 use crate::utils::{Enabler, PackedExecutionBundle};
 
-const N_TRACE_COLUMNS: usize = 12;
+const N_TRACE_COLUMNS: usize = 11;
 const N_MEMORY_LOOKUPS: usize = 6;
 const N_REGISTERS_LOOKUPS: usize = 2;
 const N_RANGE_CHECK_20_LOOKUPS: usize = 3;
@@ -151,7 +150,6 @@ impl Claim {
                 let opcode_constant = PackedM31::from(M31::from(Opcode::CallAbsImm));
                 let off0 = input.inst_value_1;
                 let off1 = input.inst_value_2;
-                let off2 = input.inst_value_3;
                 let op0_prev_clock = input.mem1_prev_clock;
                 let op0_prev_val = input.mem1_prev_value;
                 let op0_plus_one_prev_clock = input.mem2_prev_clock;
@@ -164,18 +162,17 @@ impl Claim {
                 *row[4] = inst_prev_clock;
                 *row[5] = off0;
                 *row[6] = off1;
-                *row[7] = off2;
-                *row[8] = op0_prev_clock;
-                *row[9] = op0_prev_val;
-                *row[10] = op0_plus_one_prev_clock;
-                *row[11] = op0_plus_one_prev_val;
+                *row[7] = op0_prev_clock;
+                *row[8] = op0_prev_val;
+                *row[9] = op0_plus_one_prev_clock;
+                *row[10] = op0_plus_one_prev_val;
 
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [off1, input.fp + off0 + one + one];
 
                 *lookup_data.memory[0] =
-                    [input.pc, inst_prev_clock, opcode_constant, off0, off1, off2];
-                *lookup_data.memory[1] = [input.pc, clock, opcode_constant, off0, off1, off2];
+                    [input.pc, inst_prev_clock, opcode_constant, off0, off1, zero];
+                *lookup_data.memory[1] = [input.pc, clock, opcode_constant, off0, off1, zero];
 
                 *lookup_data.memory[2] =
                     [fp + off0, op0_prev_clock, op0_prev_val, zero, zero, zero];
@@ -369,7 +366,6 @@ impl FrameworkEval for Eval {
         let one = E::F::from(M31::one());
         let opcode_constant = E::F::from(M31::from(Opcode::CallAbsImm));
 
-        // 12 columns
         let enabler = eval.next_trace_mask();
         let pc = eval.next_trace_mask();
         let fp = eval.next_trace_mask();
@@ -377,7 +373,6 @@ impl FrameworkEval for Eval {
         let inst_prev_clock = eval.next_trace_mask();
         let off0 = eval.next_trace_mask();
         let off1 = eval.next_trace_mask();
-        let off2 = eval.next_trace_mask();
         let op0_prev_clock = eval.next_trace_mask();
         let op0_prev_val = eval.next_trace_mask();
         let op0_plus_one_prev_clock = eval.next_trace_mask();
@@ -411,7 +406,6 @@ impl FrameworkEval for Eval {
                 opcode_constant.clone(),
                 off0.clone(),
                 off1.clone(),
-                off2.clone(),
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
@@ -423,7 +417,6 @@ impl FrameworkEval for Eval {
                 opcode_constant,
                 off0.clone(),
                 off1,
-                off2,
             ],
         ));
 

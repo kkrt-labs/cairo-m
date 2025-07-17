@@ -9,8 +9,6 @@
 //! - clock
 //! - inst_prev_clock
 //! - off0
-//! - off1
-//! - off2
 //!
 //! # Constraints
 //!
@@ -19,11 +17,11 @@
 //! * registers update is regular
 //!   * `- [pc, fp] + [off0, fp]` in `Registers` relation
 //! * read instruction from memory
-//!   * `- [pc, inst_prev_clk, opcode_constant, off0, off1, off2] + [pc, clk, opcode_constant, off0, off1, off2]` in `Memory` relation
+//!   * `- [pc, inst_prev_clk, opcode_constant, off0] + [pc, clk, opcode_constant, off0]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
 
 use cairo_m_common::Opcode;
-use num_traits::One;
+use num_traits::{One, Zero};
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
 };
@@ -51,7 +49,7 @@ use crate::adapter::ExecutionBundle;
 use crate::components::Relations;
 use crate::utils::{Enabler, PackedExecutionBundle};
 
-const N_TRACE_COLUMNS: usize = 8;
+const N_TRACE_COLUMNS: usize = 6;
 const N_MEMORY_LOOKUPS: usize = 2;
 const N_REGISTERS_LOOKUPS: usize = 2;
 const N_RANGE_CHECK_20_LOOKUPS: usize = 1;
@@ -122,6 +120,7 @@ impl Claim {
         inputs.clear();
         inputs.shrink_to_fit();
 
+        let zero = PackedM31::from(M31::zero());
         let enabler_col = Enabler::new(non_padded_length);
         (
             trace.par_iter_mut(),
@@ -138,8 +137,6 @@ impl Claim {
                 let inst_prev_clock = input.inst_prev_clock;
                 let opcode_constant = PackedM31::from(M31::from(Opcode::JmpAbsImm));
                 let off0 = input.inst_value_1;
-                let off1 = input.inst_value_2;
-                let off2 = input.inst_value_3;
 
                 *row[0] = enabler;
                 *row[1] = pc;
@@ -147,15 +144,13 @@ impl Claim {
                 *row[3] = clock;
                 *row[4] = inst_prev_clock;
                 *row[5] = off0;
-                *row[6] = off1;
-                *row[7] = off2;
 
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [off0, input.fp];
 
                 *lookup_data.memory[0] =
-                    [input.pc, inst_prev_clock, opcode_constant, off0, off1, off2];
-                *lookup_data.memory[1] = [input.pc, clock, opcode_constant, off0, off1, off2];
+                    [input.pc, inst_prev_clock, opcode_constant, off0, zero, zero];
+                *lookup_data.memory[1] = [input.pc, clock, opcode_constant, off0, zero, zero];
 
                 *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
             });
@@ -271,15 +266,12 @@ impl FrameworkEval for Eval {
         let one = E::F::from(M31::one());
         let opcode_constant = E::F::from(M31::from(Opcode::JmpAbsImm));
 
-        // 8 columns
         let enabler = eval.next_trace_mask();
         let pc = eval.next_trace_mask();
         let fp = eval.next_trace_mask();
         let clock = eval.next_trace_mask();
         let inst_prev_clock = eval.next_trace_mask();
         let off0 = eval.next_trace_mask();
-        let off1 = eval.next_trace_mask();
-        let off2 = eval.next_trace_mask();
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one - enabler.clone()));
@@ -305,14 +297,12 @@ impl FrameworkEval for Eval {
                 inst_prev_clock.clone(),
                 opcode_constant.clone(),
                 off0.clone(),
-                off1.clone(),
-                off2.clone(),
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[pc, clock.clone(), opcode_constant, off0, off1, off2],
+            &[pc, clock.clone(), opcode_constant, off0],
         ));
 
         // Range check 20
