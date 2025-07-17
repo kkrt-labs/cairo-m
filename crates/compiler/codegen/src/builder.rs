@@ -1112,7 +1112,7 @@ impl CasmBuilder {
         Ok(())
     }
 
-    /// Removes any occurences of instructions where two or more offsets are the same.
+    /// Removes any occurrences of instructions where two or more offsets are the same.
     /// This is required by the prover, which does not currently support memory operations on the same memory location in a single instruction.
     /// This fix was designed to be as uninvasive as possible to be reverted easily in case of design changes in the prover.
     pub fn resolve_duplicate_offsets(&mut self) -> CodegenResult<()> {
