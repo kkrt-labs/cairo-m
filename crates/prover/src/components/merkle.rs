@@ -20,8 +20,8 @@ use stwo_prover::core::poly::circle::CircleEvaluation;
 
 use crate::adapter::MerkleTrees;
 use crate::adapter::merkle::MerkleHasher;
+use crate::components::Relations;
 use crate::components::chips::hash::Hash;
-use crate::relations;
 use crate::utils::Enabler;
 
 const N_TRACE_COLUMNS: usize = 6; // enabler, index, depth, value_left, value_right, root
@@ -164,7 +164,7 @@ impl InteractionClaim {
     }
 
     pub fn write_interaction_trace(
-        merkle: &relations::Merkle,
+        relations: &Relations,
         interaction_claim_data: &InteractionClaimData,
     ) -> (
         Self,
@@ -184,9 +184,9 @@ impl InteractionClaim {
             .enumerate()
             .for_each(|(i, (writer, value0, value1))| {
                 let num0: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
-                let denom0: PackedQM31 = merkle.combine(value0);
+                let denom0: PackedQM31 = relations.merkle.combine(value0);
                 let num1: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
-                let denom1: PackedQM31 = merkle.combine(value1);
+                let denom1: PackedQM31 = relations.merkle.combine(value1);
 
                 let numerator = num0 * denom1 + num1 * denom0;
                 let denom = denom0 * denom1;
@@ -204,7 +204,7 @@ impl InteractionClaim {
             .enumerate()
             .for_each(|(i, (writer, value))| {
                 let numerator: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
-                let denom: PackedQM31 = merkle.combine(value);
+                let denom: PackedQM31 = relations.merkle.combine(value);
 
                 writer.write_frac(numerator, denom);
             });
@@ -218,7 +218,7 @@ impl InteractionClaim {
 
 pub struct Eval {
     pub claim: Claim,
-    pub merkle: relations::Merkle,
+    pub relations: Relations,
 }
 
 impl FrameworkEval for Eval {
@@ -247,7 +247,7 @@ impl FrameworkEval for Eval {
 
         // Use current depth node
         eval.add_to_relation(RelationEntry::new(
-            &self.merkle,
+            &self.relations.merkle,
             -E::EF::from(enabler.clone()),
             &[
                 index.clone(),
@@ -257,7 +257,7 @@ impl FrameworkEval for Eval {
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
-            &self.merkle,
+            &self.relations.merkle,
             -E::EF::from(enabler.clone()),
             &[
                 index.clone() + one.clone(),
@@ -272,7 +272,7 @@ impl FrameworkEval for Eval {
 
         // Emit next layer
         eval.add_to_relation(RelationEntry::new(
-            &self.merkle,
+            &self.relations.merkle,
             E::EF::from(enabler),
             &[index * m31_2_inv, depth - one, parent_hash, root],
         ));

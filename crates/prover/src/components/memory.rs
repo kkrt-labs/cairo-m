@@ -13,7 +13,7 @@ use stwo_prover::core::backend::simd::m31::{LOG_N_LANES, N_LANES, PackedM31};
 use stwo_prover::core::backend::simd::qm31::PackedQM31;
 use stwo_prover::core::channel::{Channel, MerkleChannel};
 use stwo_prover::core::fields::m31::{BaseField, M31};
-use stwo_prover::core::fields::qm31::{SECURE_EXTENSION_DEGREE, SecureField};
+use stwo_prover::core::fields::qm31::{QM31, SECURE_EXTENSION_DEGREE, SecureField};
 use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::BitReversedOrder;
 use stwo_prover::core::poly::circle::CircleEvaluation;
@@ -21,10 +21,10 @@ use stwo_prover::core::poly::circle::CircleEvaluation;
 use crate::adapter::MerkleTrees;
 use crate::adapter::memory::Memory;
 use crate::adapter::merkle::TREE_HEIGHT;
-use crate::relations;
+use crate::components::Relations;
 use crate::utils::Enabler;
 
-const N_TRACE_COLUMNS: usize = 12; // enabler, address, first_index, clock, value0, value1, value2, value3, multiplicity, depth, root, intermediate_node_flag
+const N_TRACE_COLUMNS: usize = 11; // enabler, address, clock, value0, value1, value2, value3, multiplicity, depth, root, intermediate_node_flag
 const N_INPUT_COLUMNS: usize = 10; // address, clock, value0, value1, value2, value3, mulitplicity, depth, root, intermediate_node_flag
 const N_MEMORY_LOOKUPS: usize = 1;
 const N_MERKLE_LOOKUPS: usize = 4;
@@ -144,25 +144,22 @@ impl Claim {
                 let depth = input[7];
                 let root = input[8];
                 let intermediate_node_flag = input[9];
-                let first_index = (one - intermediate_node_flag) * address * m31_4
-                    + intermediate_node_flag * address;
 
                 *row[0] = enabler;
                 *row[1] = address;
-                *row[2] = first_index;
-                *row[3] = clock;
-                *row[4] = value0;
-                *row[5] = value1;
-                *row[6] = value2;
-                *row[7] = value3;
-                *row[8] = multiplicity;
-                *row[9] = depth;
-                *row[10] = root;
-                *row[11] = intermediate_node_flag;
+                *row[2] = clock;
+                *row[3] = value0;
+                *row[4] = value1;
+                *row[5] = value2;
+                *row[6] = value3;
+                *row[7] = multiplicity;
+                *row[8] = depth;
+                *row[9] = root;
+                *row[10] = intermediate_node_flag;
 
                 *lookup_data.memory[0] =
                     [address, clock, value0, value1, value2, value3, multiplicity];
-                *lookup_data.merkle[0] = [first_index, depth, value0, root, intermediate_node_flag];
+                *lookup_data.merkle[0] = [address, depth, value0, root, intermediate_node_flag];
                 *lookup_data.merkle[1] = [
                     address * m31_4 + one,
                     depth,
@@ -204,8 +201,7 @@ impl InteractionClaim {
     }
 
     pub fn write_interaction_trace(
-        memory: &relations::Memory,
-        merkle: &relations::Merkle,
+        relations: &Relations,
         interaction_claim_data: &InteractionClaimData,
     ) -> (
         Self,
@@ -215,20 +211,24 @@ impl InteractionClaim {
         let mut interaction_trace = LogupTraceGenerator::new(log_size);
         let enabler_col = Enabler::new(interaction_claim_data.non_padded_length);
         let one = PackedQM31::one();
+        let qm31_3 = PackedQM31::from(QM31::from(3));
+        let qm31_4 = PackedQM31::from(QM31::from(4));
         let mut col = interaction_trace.new_col();
         (
             col.par_iter_mut(),
             &interaction_claim_data.lookup_data.memory[0],
-            &interaction_claim_data.lookup_data.merkle[0],
+            &interaction_claim_data.lookup_data.merkle[1],
         )
             .into_par_iter()
             .enumerate()
             .for_each(|(i, (writer, value0, value1))| {
                 let num0: PackedQM31 = PackedQM31::from(value0[6]);
-                let denom0: PackedQM31 = memory.combine(&value0[..6]);
+                let denom0: PackedQM31 = relations.memory.combine(&value0[..6]);
 
-                let num1: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
-                let denom1: PackedQM31 = merkle.combine(&value1[..4]);
+                let intermediate_node_flag1 = PackedQM31::from(value1[4]);
+                let num1: PackedQM31 =
+                    (one - intermediate_node_flag1) * PackedQM31::from(enabler_col.packed_at(i));
+                let denom1: PackedQM31 = relations.merkle.combine(&value1[..4]);
 
                 let numerator = num0 * denom1 + num1 * denom0;
                 let denom = denom0 * denom1;
@@ -240,8 +240,8 @@ impl InteractionClaim {
         let mut col = interaction_trace.new_col();
         (
             col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.merkle[1],
             &interaction_claim_data.lookup_data.merkle[2],
+            &interaction_claim_data.lookup_data.merkle[3],
         )
             .into_par_iter()
             .enumerate()
@@ -249,12 +249,12 @@ impl InteractionClaim {
                 let intermediate_node_flag0 = PackedQM31::from(value0[4]);
                 let num0: PackedQM31 =
                     (one - intermediate_node_flag0) * PackedQM31::from(enabler_col.packed_at(i));
-                let denom0: PackedQM31 = merkle.combine(&value0[..4]);
+                let denom0: PackedQM31 = relations.merkle.combine(&value0[..4]);
 
                 let intermediate_node_flag1 = PackedQM31::from(value1[4]);
                 let num1: PackedQM31 =
                     (one - intermediate_node_flag1) * PackedQM31::from(enabler_col.packed_at(i));
-                let denom1: PackedQM31 = merkle.combine(&value1[..4]);
+                let denom1: PackedQM31 = relations.merkle.combine(&value1[..4]);
 
                 let numerator = num0 * denom1 + num1 * denom0;
                 let denom = denom0 * denom1;
@@ -263,18 +263,25 @@ impl InteractionClaim {
             });
         col.finalize_col();
 
+        // It's important for this column to contain only the first leaf as single lookup
+        // for matters of constraint degree
         let mut col = interaction_trace.new_col();
         (
             col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.merkle[3],
+            &interaction_claim_data.lookup_data.merkle[0],
         )
             .into_par_iter()
             .enumerate()
             .for_each(|(i, (writer, value))| {
                 let intermediate_node_flag = PackedQM31::from(value[4]);
-                let numerator: PackedQM31 =
-                    (one - intermediate_node_flag) * PackedQM31::from(enabler_col.packed_at(i));
-                let denom: PackedQM31 = merkle.combine(&value[..4]);
+                let address = PackedQM31::from(value[0]);
+                let index = address * (qm31_4 - qm31_3 * intermediate_node_flag);
+                let depth = PackedQM31::from(value[1]);
+                let value0 = PackedQM31::from(value[2]);
+                let root = PackedQM31::from(value[3]);
+
+                let numerator = PackedQM31::from(enabler_col.packed_at(i));
+                let denom: PackedQM31 = relations.merkle.combine(&[index, depth, value0, root]);
 
                 writer.write_frac(numerator, denom);
             });
@@ -288,8 +295,7 @@ impl InteractionClaim {
 
 pub struct Eval {
     pub claim: Claim,
-    pub memory: relations::Memory,
-    pub merkle: relations::Merkle,
+    pub relations: Relations,
 }
 
 impl FrameworkEval for Eval {
@@ -308,7 +314,6 @@ impl FrameworkEval for Eval {
         let m31_4 = E::F::from(M31::from(4));
         let enabler = eval.next_trace_mask();
         let address = eval.next_trace_mask();
-        let first_index = eval.next_trace_mask();
         let clock = eval.next_trace_mask();
         let value0 = eval.next_trace_mask();
         let value1 = eval.next_trace_mask();
@@ -327,16 +332,9 @@ impl FrameworkEval for Eval {
             intermediate_node_flag.clone() * (one.clone() - intermediate_node_flag.clone()),
         );
 
-        // first_index is correctly computed
-        eval.add_constraint(
-            (one.clone() - intermediate_node_flag.clone()) * address.clone() * m31_4.clone()
-                + intermediate_node_flag.clone() * address.clone()
-                - first_index.clone(),
-        );
-
         // Emit initial values and use final ones
         eval.add_to_relation(RelationEntry::new(
-            &self.memory,
+            &self.relations.memory,
             E::EF::from(multiplicity),
             &[
                 address.clone(),
@@ -350,12 +348,7 @@ impl FrameworkEval for Eval {
 
         // Emit leaves and intermediate nodes
         eval.add_to_relation(RelationEntry::new(
-            &self.merkle,
-            E::EF::from(enabler.clone()),
-            &[first_index, depth.clone(), value0, root.clone()],
-        ));
-        eval.add_to_relation(RelationEntry::new(
-            &self.merkle,
+            &self.relations.merkle,
             E::EF::from((one.clone() - intermediate_node_flag.clone()) * enabler.clone()),
             &[
                 address.clone() * m31_4.clone() + one.clone(),
@@ -365,7 +358,7 @@ impl FrameworkEval for Eval {
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
-            &self.merkle,
+            &self.relations.merkle,
             E::EF::from((one.clone() - intermediate_node_flag.clone()) * enabler.clone()),
             &[
                 address.clone() * m31_4.clone() + m31_2,
@@ -375,9 +368,26 @@ impl FrameworkEval for Eval {
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
-            &self.merkle,
-            E::EF::from((one - intermediate_node_flag) * enabler),
-            &[address * m31_4 + m31_3, depth, value3, root],
+            &self.relations.merkle,
+            E::EF::from((one - intermediate_node_flag.clone()) * enabler.clone()),
+            &[
+                address.clone() * m31_4.clone() + m31_3.clone(),
+                depth.clone(),
+                value3,
+                root.clone(),
+            ],
+        ));
+        // First leaf must be added in last to not be batched with another lookup
+        // in order to keep the constraint degree equal to 2
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.merkle,
+            E::EF::from(enabler),
+            &[
+                address * (m31_4 - m31_3 * intermediate_node_flag),
+                depth,
+                value0,
+                root,
+            ],
         ));
         eval.finalize_logup_in_pairs();
 

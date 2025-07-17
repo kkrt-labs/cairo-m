@@ -143,14 +143,13 @@ impl InteractionClaim {
 
         let (memory_interaction_claim, memory_interaction_trace) =
             memory::InteractionClaim::write_interaction_trace(
-                &relations.memory,
-                &relations.merkle,
+                relations,
                 &interaction_claim_data.memory,
             );
 
         let (merkle_interaction_claim, merkle_interaction_trace) =
             merkle::InteractionClaim::write_interaction_trace(
-                &relations.merkle,
+                relations,
                 &interaction_claim_data.merkle,
             );
 
@@ -229,8 +228,7 @@ impl Components {
                 location_allocator,
                 memory::Eval {
                     claim: claim.memory.clone(),
-                    memory: relations.memory.clone(),
-                    merkle: relations.merkle.clone(),
+                    relations: relations.clone(),
                 },
                 interaction_claim.memory.claimed_sum,
             ),
@@ -238,7 +236,7 @@ impl Components {
                 location_allocator,
                 merkle::Eval {
                     claim: claim.merkle.clone(),
-                    merkle: relations.merkle.clone(),
+                    relations: relations.clone(),
                 },
                 interaction_claim.merkle.claimed_sum,
             ),

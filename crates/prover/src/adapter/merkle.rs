@@ -133,7 +133,7 @@ pub fn build_partial_merkle_tree<H: MerkleHasher>(
                     (M31::from(node_index), M31::from(depth)),
                     (
                         QM31::from(default_hash),
-                        M31::from(10101010), // clock is irrelevant
+                        M31::zero(), // clock is irrelevant
                         M31::zero(), // intermediate nodes shouldn't be emitted for the memory relation
                     ),
                 );
