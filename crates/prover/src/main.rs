@@ -69,7 +69,8 @@ fn main() -> Result<(), Error> {
             .context("Failed to prove")?;
 
     if let Some(output) = args.output {
-        let proof_output = sonic_rs::to_string_pretty(&proof).unwrap();
+        let proof_output =
+            sonic_rs::to_string(&proof).context("Failed to serialize proof to JSON")?;
         fs::write(&output, proof_output)?;
         println!("Proof written to {}", output.display());
     }
