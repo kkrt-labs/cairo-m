@@ -30,6 +30,10 @@ struct Args {
     #[arg(short, long)]
     arguments: Vec<u32>,
 
+    /// Output file to write the proof to
+    #[arg(short, long)]
+    output: Option<PathBuf>,
+
     /// Enable verbose output
     #[arg(short, long)]
     verbose: bool,
@@ -55,8 +59,14 @@ fn main() -> Result<(), Error> {
 
     let mut prover_input =
         import_from_runner_output(output).context("Failed to import from runner output")?;
-    let _proof: cairo_m_prover::Proof<stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleHasher> =
-        prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).context("Failed to prove")?;
+    let proof: cairo_m_prover::Proof<stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleHasher> =
+        prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None)
+            .context("Failed to prove")?;
+
+    if let Some(output) = args.output {
+        let out = sonic_rs::to_string_pretty(&proof).unwrap();
+        fs::write(output, out)?;
+    }
 
     Ok(())
 }
