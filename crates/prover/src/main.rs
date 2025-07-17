@@ -5,6 +5,7 @@ use anyhow::{Context, Error, Result};
 use cairo_m_common::Program;
 use cairo_m_prover::adapter::import_from_runner_output;
 use cairo_m_prover::prover::prove_cairo_m;
+use cairo_m_prover::verifier::verify_cairo_m;
 use cairo_m_runner::run_cairo_program;
 use clap::{Parser, ValueHint};
 use stwo_prover::core::fields::m31::M31;
@@ -33,6 +34,10 @@ struct Args {
     /// Output file to write the proof to
     #[arg(short, long)]
     output: Option<PathBuf>,
+
+    /// Whether to verify the proof
+    #[arg(short, long, default_value = "false")]
+    verify: bool,
 
     /// Enable verbose output
     #[arg(short, long)]
@@ -64,8 +69,14 @@ fn main() -> Result<(), Error> {
             .context("Failed to prove")?;
 
     if let Some(output) = args.output {
-        let out = sonic_rs::to_string_pretty(&proof).unwrap();
-        fs::write(output, out)?;
+        let proof_output = sonic_rs::to_string_pretty(&proof).unwrap();
+        fs::write(&output, proof_output)?;
+        println!("Proof written to {}", output.display());
+    }
+
+    if args.verify {
+        verify_cairo_m::<Blake2sMerkleChannel>(proof, None).context("Failed to verify proof")?;
+        println!("Proof verified successfully!");
     }
 
     Ok(())
