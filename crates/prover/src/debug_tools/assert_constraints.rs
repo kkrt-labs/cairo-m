@@ -149,8 +149,7 @@ fn assert_components(trace: TreeVec<Vec<&Vec<M31>>>, components: &Components) {
         range_check_20,
     } = components;
     assert_component(&opcodes.call_abs_imm, &trace);
-    assert_component(&opcodes.jmp_abs_imm, &trace);
-    assert_component(&opcodes.jmp_rel_imm, &trace);
+    assert_component(&opcodes.jmp_imm, &trace);
     assert_component(&opcodes.jnz_fp_imm, &trace);
     assert_component(&opcodes.jnz_fp_imm_taken, &trace);
     assert_component(&opcodes.ret, &trace);
