@@ -1,8 +1,6 @@
-//! # Structure Validation Tests
+//! # Struct Validation Tests
 //!
-//! Tests for struct definition, field access, and struct validation.
+//! Tests for struct definition, instantiation (literals), and member access.
 
-// TODO: Implement structure validation tests
-// pub mod struct_definitions;
-// pub mod field_access;
-// pub mod struct_construction;
+pub mod literals;
+pub mod member_access;

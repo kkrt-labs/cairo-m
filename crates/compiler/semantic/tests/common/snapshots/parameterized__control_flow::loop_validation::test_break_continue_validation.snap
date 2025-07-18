@@ -1,0 +1,113 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test() { break; return; }
+--- Diagnostics ---
+[3003] Error: Break statement outside of loop
+   ╭─[ semantic_tests::control_flow::loop_validation::test_break_continue_validation:1:13 ]
+   │
+ 1 │ fn test() { break; return; }
+   │             ───┬──  
+   │                ╰──── Break statement outside of loop
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+fn test() { continue; return; }
+--- Diagnostics ---
+[3004] Error: Continue statement outside of loop
+   ╭─[ semantic_tests::control_flow::loop_validation::test_break_continue_validation:1:13 ]
+   │
+ 1 │ fn test() { continue; return; }
+   │             ────┬────  
+   │                 ╰────── Continue statement outside of loop
+───╯
+
+============================================================
+
+--- Input 3 (ERROR) ---
+fn test() { if (true) { break; } return; }
+--- Diagnostics ---
+[3003] Error: Break statement outside of loop
+   ╭─[ semantic_tests::control_flow::loop_validation::test_break_continue_validation:1:25 ]
+   │
+ 1 │ fn test() { if (true) { break; } return; }
+   │                         ───┬──  
+   │                            ╰──── Break statement outside of loop
+───╯
+
+============================================================
+
+--- Input 4 (ERROR) ---
+fn test() { if (true) { continue; } return; }
+--- Diagnostics ---
+[3004] Error: Continue statement outside of loop
+   ╭─[ semantic_tests::control_flow::loop_validation::test_break_continue_validation:1:25 ]
+   │
+ 1 │ fn test() { if (true) { continue; } return; }
+   │                         ────┬────  
+   │                             ╰────── Continue statement outside of loop
+───╯
+
+============================================================
+
+--- Input 5 (ERROR) ---
+fn test() { { break; } return; }
+--- Diagnostics ---
+[3003] Error: Break statement outside of loop
+   ╭─[ semantic_tests::control_flow::loop_validation::test_break_continue_validation:1:15 ]
+   │
+ 1 │ fn test() { { break; } return; }
+   │               ───┬──  
+   │                  ╰──── Break statement outside of loop
+───╯
+
+============================================================
+
+--- Input 6 (ERROR) ---
+fn test() { break; if (true) { continue; } { break; } return; }
+--- Diagnostics ---
+[3003] Error: Break statement outside of loop
+   ╭─[ semantic_tests::control_flow::loop_validation::test_break_continue_validation:1:13 ]
+   │
+ 1 │ fn test() { break; if (true) { continue; } { break; } return; }
+   │             ───┬──  
+   │                ╰──── Break statement outside of loop
+───╯
+[3004] Error: Continue statement outside of loop
+   ╭─[ semantic_tests::control_flow::loop_validation::test_break_continue_validation:1:32 ]
+   │
+ 1 │ fn test() { break; if (true) { continue; } { break; } return; }
+   │                                ────┬────  
+   │                                    ╰────── Continue statement outside of loop
+───╯
+[3003] Error: Break statement outside of loop
+   ╭─[ semantic_tests::control_flow::loop_validation::test_break_continue_validation:1:46 ]
+   │
+ 1 │ fn test() { break; if (true) { continue; } { break; } return; }
+   │                                              ───┬──  
+   │                                                 ╰──── Break statement outside of loop
+───╯
+
+============================================================
+
+--- Input 7 (ERROR) ---
+fn test() { break; loop { break; } continue; while (true) { if (true) { break; } else { continue; } } return; }
+--- Diagnostics ---
+[3003] Error: Break statement outside of loop
+   ╭─[ semantic_tests::control_flow::loop_validation::test_break_continue_validation:1:13 ]
+   │
+ 1 │ fn test() { break; loop { break; } continue; while (true) { if (true) { break; } else { continue; } } return; }
+   │             ───┬──  
+   │                ╰──── Break statement outside of loop
+───╯
+[3004] Error: Continue statement outside of loop
+   ╭─[ semantic_tests::control_flow::loop_validation::test_break_continue_validation:1:36 ]
+   │
+ 1 │ fn test() { break; loop { break; } continue; while (true) { if (true) { break; } else { continue; } } return; }
+   │                                    ────┬────  
+   │                                        ╰────── Continue statement outside of loop
+───╯

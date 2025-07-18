@@ -1,131 +1,35 @@
-use crate::*;
+//! Tests for break/continue statement validation.
+use crate::{assert_semantic_parameterized, in_function};
 
 #[test]
-fn test_break_in_loop() {
-    // Break inside loop should be valid
-    assert_semantic_ok!(
-        r#"
-        fn test() {
-            let running = true;
-            loop {
-                if (running) {
-                    break;
-                }
-            }
-            return;
-        }
-        "#
-    );
+fn test_break_continue_validation() {
+    assert_semantic_parameterized! {
+        ok: [
+            // break/continue in loop
+            in_function("loop { break; }"),
+            in_function("loop { if(1==2) { continue; } else {break;} }"),
+            // break/continue in while loop
+            in_function("while(true) { break; }"),
+            in_function("while(true) { if(true) {continue;} }"),
+            // in nested loops
+            in_function("loop { loop { break; } break; }"),
+            in_function("loop { loop { if (true) {continue;} else {break;} } break; }"),
+            // in block inside loop
+            in_function("loop { { if (true) { break; } continue; } }"),
+        ],
+        err: [
+            // break/continue outside loop
+            in_function("break;"),
+            in_function("continue;"),
+            // in if outside loop
+            in_function("if (true) { break; }"),
+            in_function("if (true) { continue; }"),
+            // in block outside loop
+            in_function("{ break; }"),
+            // multiple errors
+            in_function("break; if (true) { continue; } { break; }"),
+            // mix of valid and invalid
+            in_function("break; loop { break; } continue; while (true) { if (true) { break; } else { continue; } }"),
+        ]
+    }
 }
-
-#[test]
-fn test_break_outside_loop() {
-    // Break outside loop should error
-    assert_semantic_err!(
-        r#"
-        fn test() {
-            break;
-            return;
-        }
-        "#
-    );
-}
-
-#[test]
-fn test_continue_in_loop() {
-    // Continue inside loop should be valid
-    assert_semantic_ok!(
-        r#"
-        fn test() {
-            let x = false;
-            loop {
-                if (x) {
-                    break;
-                }
-                continue;
-            }
-            return;
-        }
-        "#
-    );
-}
-
-#[test]
-fn test_continue_outside_loop() {
-    // Continue outside loop should error
-    assert_semantic_err!(
-        r#"
-        fn test() {
-            continue;
-            return;
-        }
-        "#
-    );
-}
-
-#[test]
-fn test_break_in_nested_loops() {
-    // Break in nested loops should be valid
-    assert_semantic_ok!(
-        r#"
-        fn test() {
-            loop {
-                loop {
-                    break;
-                }
-                break;
-            }
-            return;
-        }
-        "#
-    );
-}
-
-#[test]
-fn test_break_in_if_inside_loop() {
-    // Break inside if statement within loop should be valid
-    assert_semantic_ok!(
-        r#"
-        fn test() {
-            loop {
-                if (true) {
-                    break;
-                }
-            }
-            return;
-        }
-        "#
-    );
-}
-
-#[test]
-fn test_break_in_if_outside_loop() {
-    // Break inside if statement outside loop should error
-    assert_semantic_err!(
-        r#"
-        fn test() {
-            if (true) {
-                break;
-            }
-            return;
-        }
-        "#
-    );
-}
-
-#[test]
-fn test_while_loop_with_break() {
-    // Break in while loop should be valid
-    assert_semantic_ok!(
-        r#"
-        fn test() {
-            while (true) {
-                break;
-            }
-            return;
-        }
-        "#
-    );
-}
-
-// TODO: Add for-loop tests when iterator/range types are implemented

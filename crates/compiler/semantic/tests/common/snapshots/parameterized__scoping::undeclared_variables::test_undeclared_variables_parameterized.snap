@@ -1,0 +1,122 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test() { let x = undefined_var; return; }
+--- Diagnostics ---
+[1001] Error: Undeclared variable 'undefined_var'
+   ╭─[ semantic_tests::scoping::undeclared_variables::test_undeclared_variables_parameterized:1:21 ]
+   │
+ 1 │ fn test() { let x = undefined_var; return; }
+   │                     ──────┬──────  
+   │                           ╰──────── Undeclared variable 'undefined_var'
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+fn test() { let x = 5; let y = x + undefined_var; return; }
+--- Diagnostics ---
+[1001] Error: Undeclared variable 'undefined_var'
+   ╭─[ semantic_tests::scoping::undeclared_variables::test_undeclared_variables_parameterized:1:36 ]
+   │
+ 1 │ fn test() { let x = 5; let y = x + undefined_var; return; }
+   │                                    ──────┬──────  
+   │                                          ╰──────── Undeclared variable 'undefined_var'
+───╯
+
+============================================================
+
+--- Input 3 (ERROR) ---
+fn test() { fn test() -> felt { return undefined_var; } return; }
+--- Diagnostics ---
+[02] Error: found 'fn' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, identifier, '(', or '}'
+   ╭─[ semantic_tests::scoping::undeclared_variables::test_undeclared_variables_parameterized:1:13 ]
+   │
+ 1 │ fn test() { fn test() -> felt { return undefined_var; } return; }
+   │             ─┬  
+   │              ╰── found 'fn' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, identifier, '(', or '}'
+───╯
+
+============================================================
+
+--- Input 4 (ERROR) ---
+
+            fn valid_func(x: felt) -> felt { return x; }
+            fn test() { let result = valid_func(undefined_var); }"
+            
+--- Diagnostics ---
+[01] Error: Invalid character
+   ╭─[ semantic_tests::scoping::undeclared_variables::test_undeclared_variables_parameterized:3:66 ]
+   │
+ 3 │             fn test() { let result = valid_func(undefined_var); }"
+   │                                                                  ┬  
+   │                                                                  ╰── Invalid character
+───╯
+
+============================================================
+
+--- Input 5 (ERROR) ---
+fn test() { fn test() { let result = undefined_function(42); } return; }
+--- Diagnostics ---
+[02] Error: found 'fn' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, identifier, '(', or '}'
+   ╭─[ semantic_tests::scoping::undeclared_variables::test_undeclared_variables_parameterized:1:13 ]
+   │
+ 1 │ fn test() { fn test() { let result = undefined_function(42); } return; }
+   │             ─┬  
+   │              ╰── found 'fn' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, identifier, '(', or '}'
+───╯
+
+============================================================
+
+--- Input 6 (ERROR) ---
+fn test() { let x = first_undefined; let y = second_undefined; let z = x + y + third_undefined; return; }
+--- Diagnostics ---
+[1001] Error: Undeclared variable 'first_undefined'
+   ╭─[ semantic_tests::scoping::undeclared_variables::test_undeclared_variables_parameterized:1:21 ]
+   │
+ 1 │ fn test() { let x = first_undefined; let y = second_undefined; let z = x + y + third_undefined; return; }
+   │                     ───────┬───────  
+   │                            ╰───────── Undeclared variable 'first_undefined'
+───╯
+[1001] Error: Undeclared variable 'second_undefined'
+   ╭─[ semantic_tests::scoping::undeclared_variables::test_undeclared_variables_parameterized:1:46 ]
+   │
+ 1 │ fn test() { let x = first_undefined; let y = second_undefined; let z = x + y + third_undefined; return; }
+   │                                              ────────┬───────  
+   │                                                      ╰───────── Undeclared variable 'second_undefined'
+───╯
+[1001] Error: Undeclared variable 'third_undefined'
+   ╭─[ semantic_tests::scoping::undeclared_variables::test_undeclared_variables_parameterized:1:80 ]
+   │
+ 1 │ fn test() { let x = first_undefined; let y = second_undefined; let z = x + y + third_undefined; return; }
+   │                                                                                ───────┬───────  
+   │                                                                                       ╰───────── Undeclared variable 'third_undefined'
+───╯
+
+============================================================
+
+--- Input 7 (ERROR) ---
+fn test() { if (undefined_condition) { let x = 1; } return; }
+--- Diagnostics ---
+[1001] Error: Undeclared variable 'undefined_condition'
+   ╭─[ semantic_tests::scoping::undeclared_variables::test_undeclared_variables_parameterized:1:17 ]
+   │
+ 1 │ fn test() { if (undefined_condition) { let x = 1; } return; }
+   │                 ─────────┬─────────  
+   │                          ╰─────────── Undeclared variable 'undefined_condition'
+───╯
+
+============================================================
+
+--- Input 8 (ERROR) ---
+fn test() { let x = 5; x = undefined_var; return; }
+--- Diagnostics ---
+[1001] Error: Undeclared variable 'undefined_var'
+   ╭─[ semantic_tests::scoping::undeclared_variables::test_undeclared_variables_parameterized:1:28 ]
+   │
+ 1 │ fn test() { let x = 5; x = undefined_var; return; }
+   │                            ──────┬──────  
+   │                                  ╰──────── Undeclared variable 'undefined_var'
+───╯

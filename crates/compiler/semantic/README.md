@@ -119,7 +119,7 @@ Extensible plugin-like system:
 ### 🚧 Not Yet Implemented
 
 - Arrays (parsing exists, semantic support pending)
-- Loops (`for`, `while`)
+- `for` loops (iterator protocol needed)
 - Advanced type inference (constraint solving)
 - Module/import resolution
 - Generic types

@@ -1,0 +1,53 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test() { let x: u32 = 42; let y: felt = x; return; }
+--- Diagnostics ---
+[2001] Error: Type mismatch for let statement 'y'. Expected 'felt', found 'u32'
+   ╭─[ semantic_tests::types::u32_type_tests::test_u32_type_checking:1:44 ]
+   │
+ 1 │ fn test() { let x: u32 = 42; let y: felt = x; return; }
+   │                                            ┬  
+   │                                            ╰── Type mismatch for let statement 'y'. Expected 'felt', found 'u32'
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+fn test() { let z:felt = 3; let u: u32 = z; return; }
+--- Diagnostics ---
+[2001] Error: Type mismatch for let statement 'u'. Expected 'u32', found 'felt'
+   ╭─[ semantic_tests::types::u32_type_tests::test_u32_type_checking:1:42 ]
+   │
+ 1 │ fn test() { let z:felt = 3; let u: u32 = z; return; }
+   │                                          ┬  
+   │                                          ╰── Type mismatch for let statement 'u'. Expected 'u32', found 'felt'
+───╯
+
+============================================================
+
+--- Input 3 (ERROR) ---
+fn test() { let x: u32 = 10; let y: felt = 20; let z = x + y; return; }
+--- Diagnostics ---
+[2001] Error: Invalid left operand for arithmetic operator 'Add'. Expected 'felt', found 'u32'
+   ╭─[ semantic_tests::types::u32_type_tests::test_u32_type_checking:1:56 ]
+   │
+ 1 │ fn test() { let x: u32 = 10; let y: felt = 20; let z = x + y; return; }
+   │                                                        ┬  
+   │                                                        ╰── Invalid left operand for arithmetic operator 'Add'. Expected 'felt', found 'u32'
+───╯
+
+============================================================
+
+--- Input 4 (ERROR) ---
+struct Config { port: u32 } fn create_config() -> Config { return Config { port: 8080 }; }
+--- Diagnostics ---
+[2001] Error: Type mismatch for field 'port'. Expected 'u32', found 'felt'
+   ╭─[ semantic_tests::types::u32_type_tests::test_u32_type_checking:1:82 ]
+   │
+ 1 │ struct Config { port: u32 } fn create_config() -> Config { return Config { port: 8080 }; }
+   │                                                                                  ──┬─  
+   │                                                                                    ╰─── Type mismatch for field 'port'. Expected 'u32', found 'felt'
+───╯

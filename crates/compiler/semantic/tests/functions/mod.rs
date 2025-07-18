@@ -1,12 +1,8 @@
 //! # Function Validation Tests
 //!
-//! Tests for function-related semantic validation including:
-//! - Function call validation
-//! - Parameter type checking
-//! - Return type validation
-//! - Function resolution
+//! Tests for function calls, parameter validation, return types, and other function-related semantics.
 
 pub mod function_calls;
 pub mod parameter_validation;
 pub mod return_types;
-pub mod tuple_destructuring;
+pub mod tuples;

@@ -1,0 +1,27 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test() { undefined_function(); return; }
+--- Diagnostics ---
+[1001] Error: Undeclared variable 'undefined_function'
+   ╭─[ semantic_tests::statements::expression_statements::test_expression_statements:1:13 ]
+   │
+ 1 │ fn test() { undefined_function(); return; }
+   │             ─────────┬────────  
+   │                      ╰────────── Undeclared variable 'undefined_function'
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+fn process(x: felt) {return;} fn test() { process(undefined_var); return (); }
+--- Diagnostics ---
+[1001] Error: Undeclared variable 'undefined_var'
+   ╭─[ semantic_tests::statements::expression_statements::test_expression_statements:1:51 ]
+   │
+ 1 │ fn process(x: felt) {return;} fn test() { process(undefined_var); return (); }
+   │                                                   ──────┬──────  
+   │                                                         ╰──────── Undeclared variable 'undefined_var'
+───╯

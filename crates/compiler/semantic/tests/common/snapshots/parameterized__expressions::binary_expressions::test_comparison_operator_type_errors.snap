@@ -1,0 +1,196 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test() { let x: felt = 42; let y: u32 = 100; let c1 = x == y; }
+--- Diagnostics ---
+[2001] Error: Invalid right operand for comparison operator 'Eq'. Expected 'felt', found 'u32'
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_type_errors:1:63 ]
+   │
+ 1 │ fn test() { let x: felt = 42; let y: u32 = 100; let c1 = x == y; }
+   │                                                               ┬  
+   │                                                               ╰── Invalid right operand for comparison operator 'Eq'. Expected 'felt', found 'u32'
+───╯
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_type_errors:1:4 ]
+   │
+ 1 │ fn test() { let x: felt = 42; let y: u32 = 100; let c1 = x == y; }
+   │    ──┬─  
+   │      ╰─── Function 'test' doesn't return on all paths
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+fn test() { let x: felt = 42; let y: u32 = 100; let c2 = x != y; }
+--- Diagnostics ---
+[2001] Error: Invalid right operand for comparison operator 'Neq'. Expected 'felt', found 'u32'
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_type_errors:1:63 ]
+   │
+ 1 │ fn test() { let x: felt = 42; let y: u32 = 100; let c2 = x != y; }
+   │                                                               ┬  
+   │                                                               ╰── Invalid right operand for comparison operator 'Neq'. Expected 'felt', found 'u32'
+───╯
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_type_errors:1:4 ]
+   │
+ 1 │ fn test() { let x: felt = 42; let y: u32 = 100; let c2 = x != y; }
+   │    ──┬─  
+   │      ╰─── Function 'test' doesn't return on all paths
+───╯
+
+============================================================
+
+--- Input 3 (ERROR) ---
+fn test() { let x: felt = 42; let y: u32 = 100; let c3 = x < y; }
+--- Diagnostics ---
+[2001] Error: Invalid right operand for comparison operator 'Less'. Expected 'felt', found 'u32'
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_type_errors:1:62 ]
+   │
+ 1 │ fn test() { let x: felt = 42; let y: u32 = 100; let c3 = x < y; }
+   │                                                              ┬  
+   │                                                              ╰── Invalid right operand for comparison operator 'Less'. Expected 'felt', found 'u32'
+───╯
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_type_errors:1:4 ]
+   │
+ 1 │ fn test() { let x: felt = 42; let y: u32 = 100; let c3 = x < y; }
+   │    ──┬─  
+   │      ╰─── Function 'test' doesn't return on all paths
+───╯
+
+============================================================
+
+--- Input 4 (ERROR) ---
+fn test() { let x: felt = 42; let y: u32 = 100; let c4 = x > y; }
+--- Diagnostics ---
+[2001] Error: Invalid right operand for comparison operator 'Greater'. Expected 'felt', found 'u32'
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_type_errors:1:62 ]
+   │
+ 1 │ fn test() { let x: felt = 42; let y: u32 = 100; let c4 = x > y; }
+   │                                                              ┬  
+   │                                                              ╰── Invalid right operand for comparison operator 'Greater'. Expected 'felt', found 'u32'
+───╯
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_type_errors:1:4 ]
+   │
+ 1 │ fn test() { let x: felt = 42; let y: u32 = 100; let c4 = x > y; }
+   │    ──┬─  
+   │      ╰─── Function 'test' doesn't return on all paths
+───╯
+
+============================================================
+
+--- Input 5 (ERROR) ---
+fn test() { let x: felt = 42; let y: u32 = 100; let c5 = x <= y; }
+--- Diagnostics ---
+[2001] Error: Invalid right operand for comparison operator 'LessEqual'. Expected 'felt', found 'u32'
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_type_errors:1:63 ]
+   │
+ 1 │ fn test() { let x: felt = 42; let y: u32 = 100; let c5 = x <= y; }
+   │                                                               ┬  
+   │                                                               ╰── Invalid right operand for comparison operator 'LessEqual'. Expected 'felt', found 'u32'
+───╯
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_type_errors:1:4 ]
+   │
+ 1 │ fn test() { let x: felt = 42; let y: u32 = 100; let c5 = x <= y; }
+   │    ──┬─  
+   │      ╰─── Function 'test' doesn't return on all paths
+───╯
+
+============================================================
+
+--- Input 6 (ERROR) ---
+fn test() { let x: felt = 42; let y: u32 = 100; let c6 = x >= y; }
+--- Diagnostics ---
+[2001] Error: Invalid right operand for comparison operator 'GreaterEqual'. Expected 'felt', found 'u32'
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_type_errors:1:63 ]
+   │
+ 1 │ fn test() { let x: felt = 42; let y: u32 = 100; let c6 = x >= y; }
+   │                                                               ┬  
+   │                                                               ╰── Invalid right operand for comparison operator 'GreaterEqual'. Expected 'felt', found 'u32'
+───╯
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_type_errors:1:4 ]
+   │
+ 1 │ fn test() { let x: felt = 42; let y: u32 = 100; let c6 = x >= y; }
+   │    ──┬─  
+   │      ╰─── Function 'test' doesn't return on all paths
+───╯
+
+============================================================
+
+--- Input 7 (ERROR) ---
+fn test() { let x: felt = 42; let b: bool = true; let c7 = x == b; }
+--- Diagnostics ---
+[2001] Error: Invalid right operand for comparison operator 'Eq'. Expected 'felt', found 'bool'
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_type_errors:1:65 ]
+   │
+ 1 │ fn test() { let x: felt = 42; let b: bool = true; let c7 = x == b; }
+   │                                                                 ┬  
+   │                                                                 ╰── Invalid right operand for comparison operator 'Eq'. Expected 'felt', found 'bool'
+   │                                                                 │  
+   │                                                                 ╰── Cannot use bool in arithmetic operations. Consider using logical operators (&&, ||) instead.
+───╯
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_type_errors:1:4 ]
+   │
+ 1 │ fn test() { let x: felt = 42; let b: bool = true; let c7 = x == b; }
+   │    ──┬─  
+   │      ╰─── Function 'test' doesn't return on all paths
+───╯
+
+============================================================
+
+--- Input 8 (ERROR) ---
+struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10, y: 20 }; let x: felt = 42; let c8 = p == x; }
+--- Diagnostics ---
+[2001] Error: Invalid left operand for comparison operator 'Eq'. Expected 'felt', found 'Point'
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_type_errors:1:106 ]
+   │
+ 1 │ struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10, y: 20 }; let x: felt = 42; let c8 = p == x; }
+   │                                                                                                          ┬  
+   │                                                                                                          ╰── Invalid left operand for comparison operator 'Eq'. Expected 'felt', found 'Point'
+   │                                                                                                          │  
+   │                                                                                                          ╰── This struct has numeric fields that could be accessed
+───╯
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_type_errors:1:38 ]
+   │
+ 1 │ struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10, y: 20 }; let x: felt = 42; let c8 = p == x; }
+   │                                      ──┬─  
+   │                                        ╰─── Function 'test' doesn't return on all paths
+───╯
+
+============================================================
+
+--- Input 9 (ERROR) ---
+struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = Point { x: 30, y: 40 }; let is_greater = p1 > p2; }
+--- Diagnostics ---
+[2001] Error: Invalid left operand for comparison operator 'Greater'. Expected 'felt', found 'Point'
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_type_errors:1:130 ]
+   │
+ 1 │ struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = Point { x: 30, y: 40 }; let is_greater = p1 > p2; }
+   │                                                                                                                                  ─┬  
+   │                                                                                                                                   ╰── Invalid left operand for comparison operator 'Greater'. Expected 'felt', found 'Point'
+   │                                                                                                                                   │  
+   │                                                                                                                                   ╰── This struct has numeric fields that could be accessed
+───╯
+[2001] Error: Invalid right operand for comparison operator 'Greater'. Expected 'felt', found 'Point'
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_type_errors:1:135 ]
+   │
+ 1 │ struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = Point { x: 30, y: 40 }; let is_greater = p1 > p2; }
+   │                                                                                                                                       ─┬  
+   │                                                                                                                                        ╰── Invalid right operand for comparison operator 'Greater'. Expected 'felt', found 'Point'
+   │                                                                                                                                        │  
+   │                                                                                                                                        ╰── This struct has numeric fields that could be accessed
+───╯
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_type_errors:1:38 ]
+   │
+ 1 │ struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = Point { x: 30, y: 40 }; let is_greater = p1 > p2; }
+   │                                      ──┬─  
+   │                                        ╰─── Function 'test' doesn't return on all paths
+───╯
