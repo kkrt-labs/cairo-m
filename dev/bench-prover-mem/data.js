@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1752749179721,
+  "lastUpdate": 1752826384246,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -579,6 +579,35 @@ window.BENCHMARK_DATA = {
           {
             "name": "fibonacci_prove_peak_mem",
             "value": 2338524568,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antoine.fondeur@gmail.com",
+            "name": "Antoine Fondeur",
+            "username": "AntoineFONDEUR"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b757a5544089d0ced055c16e706dc29e49f30ccc",
+          "message": "feat(prover): add the merkle component (#149)\n\n* added merkle component\n\n* removed generic hash in prover_cairo_m\n\n* review modifications\n\n* deleted poseidon file",
+          "timestamp": "2025-07-18T10:00:09+02:00",
+          "tree_id": "f630569d492d02b3d881b158347a2e6575a58f09",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/b757a5544089d0ced055c16e706dc29e49f30ccc"
+        },
+        "date": 1752826384203,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2338642400,
             "unit": "bytes"
           }
         ]
