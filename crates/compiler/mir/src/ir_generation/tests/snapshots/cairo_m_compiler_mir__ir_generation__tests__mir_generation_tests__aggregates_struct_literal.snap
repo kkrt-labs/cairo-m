@@ -18,9 +18,9 @@ struct Point {
     y: felt,
 }
 
-fn test() -> felt {
+fn test() -> Point {
     let p = Point { x: 10, y: 20 };
-    return 0;
+    return p;
 }
 
 ============================================================
@@ -39,7 +39,7 @@ module {
       // Get address of field 'y'
 %2 = getelementptr %0, 1
       store %2, 20
-      return 0
+      return %0
 
   }
 

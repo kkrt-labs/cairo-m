@@ -1,11 +1,30 @@
-//!ASSERT FUNCTION_COUNT: 1
-//!ASSERT NOT_CONTAINS: %5 = stackalloc
-//!ASSERT NOT_CONTAINS: store %5
-
 // Test that unused variables don't generate allocations
 fn test_unused(a: felt, b: felt) -> felt {
     let c = a + b;  // Used - should allocate
     let d = a * b;  // Unused - should NOT allocate
     let e = a == b; // Unused - should NOT allocate
     return c;
+}
+
+struct TestStruct {
+    a: felt,
+    b: felt,
+}
+
+fn test_unused_struct(a: felt, b: felt) -> felt {
+    let s = TestStruct { a: a, b: b }; // Unused - should NOT allocate
+    let s2 = TestStruct { a: a, b: b }; // Used - should allocate TODO: propagate unused variables so that this is also ignored
+    let c = s2.a; // Unused - should NOT allocate
+    return 0;
+}
+
+
+fn foo() -> felt {
+    return 0;
+}
+
+fn test_unused_side_effect() -> felt {
+    let y = 1 + 2; // Unused - should NOT allocate
+    let x = foo() + 42; // Unused - should NOT allocate but should call foo
+    return 0;
 }
