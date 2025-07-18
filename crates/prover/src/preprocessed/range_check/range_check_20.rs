@@ -109,20 +109,20 @@ impl InteractionClaim {
     }
 
     pub fn write_interaction_trace(
-        relation: &RangeCheck20,
-        lookup_data: &InteractionClaimData,
+        range_check_20: &RangeCheck20,
+        interaction_claim_data: &InteractionClaimData,
     ) -> (
         Self,
         impl IntoIterator<Item = CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
     ) {
-        let log_size = lookup_data.range_check_20.len().ilog2() + LOG_N_LANES;
+        let log_size = interaction_claim_data.range_check_20.len().ilog2() + LOG_N_LANES;
         let mut interaction_trace = LogupTraceGenerator::new(log_size);
 
         let mut col = interaction_trace.new_col();
-        (col.par_iter_mut(), &lookup_data.range_check_20)
+        (col.par_iter_mut(), &interaction_claim_data.range_check_20)
             .into_par_iter()
             .for_each(|(writer, value)| {
-                let denom: PackedQM31 = relation.combine(&[value[0]]);
+                let denom: PackedQM31 = range_check_20.combine(&[value[0]]);
                 writer.write_frac(value[1].into(), denom);
             });
         col.finalize_col();

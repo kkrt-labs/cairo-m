@@ -1,4 +1,5 @@
 use cairo_m_common::State as VmRegisters;
+use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use stwo_constraint_framework::Relation;
 use stwo_prover::core::fields::FieldExpOps;
@@ -42,6 +43,19 @@ impl PublicData {
             -<relations::Registers as Relation<M31, QM31>>::combine(
                 &relations.registers,
                 &[self.final_registers.pc, self.final_registers.fp],
+            ),
+            -<relations::Merkle as Relation<M31, QM31>>::combine(
+                &relations.merkle,
+                &[
+                    M31::zero(),
+                    M31::zero(),
+                    self.initial_root,
+                    self.initial_root,
+                ],
+            ),
+            -<relations::Merkle as Relation<M31, QM31>>::combine(
+                &relations.merkle,
+                &[M31::zero(), M31::zero(), self.final_root, self.final_root],
             ),
         ];
 

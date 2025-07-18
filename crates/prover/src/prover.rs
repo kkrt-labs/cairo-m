@@ -38,7 +38,7 @@ where
     let trace_log_size = std::cmp::max(
         PREPROCESSED_TRACE_LOG_SIZE,
         std::cmp::max(
-            (input.memory.initial_memory.len() + input.memory.final_memory.len())
+            (input.merkle_trees.initial_tree.len() + input.merkle_trees.final_tree.len())
                 .next_power_of_two()
                 .ilog2(),
             input
@@ -73,7 +73,7 @@ where
 
     // Execution traces
     info!("execution trace");
-    let (claim, trace, lookup_data) = Claim::write_trace(input);
+    let (claim, trace, lookup_data) = Claim::write_trace::<MC>(input);
     claim.mix_into(channel);
 
     let mut tree_builder = commitment_scheme.tree_builder();

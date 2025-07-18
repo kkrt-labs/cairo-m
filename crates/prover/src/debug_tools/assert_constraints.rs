@@ -145,6 +145,7 @@ fn assert_components(trace: TreeVec<Vec<&Vec<M31>>>, components: &Components) {
     let Components {
         opcodes,
         memory,
+        merkle,
         range_check_20,
     } = components;
     assert_component(&opcodes.call_abs_imm, &trace);
@@ -167,6 +168,7 @@ fn assert_components(trace: TreeVec<Vec<&Vec<M31>>>, components: &Components) {
     assert_component(&opcodes.store_sub_fp_fp, &trace);
     assert_component(&opcodes.store_sub_fp_imm, &trace);
     assert_component(memory, &trace);
+    assert_component(merkle, &trace);
     assert_component(range_check_20, &trace);
 }
 

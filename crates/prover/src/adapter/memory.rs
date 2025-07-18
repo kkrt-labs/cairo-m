@@ -9,6 +9,7 @@ use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 
 use crate::adapter::io::VmImportError;
+use crate::adapter::merkle::TREE_HEIGHT;
 
 #[derive(Copy, Clone, Default, Debug, Eq, PartialEq)]
 pub struct MemoryEntry {
@@ -67,9 +68,9 @@ struct MemoryArg {
 // TODO: Memory Value can take a value enum(M31, QM31) instead of QM31 to save space
 #[derive(Debug, Default, Eq, PartialEq, Clone)]
 pub struct Memory {
-    // (value, clock, multiplicity which is -1, 0 or 1)
-    pub initial_memory: HashMap<M31, (QM31, M31, M31)>,
-    pub final_memory: HashMap<M31, (QM31, M31, M31)>,
+    // (addr, depth) => (value, clock, multiplicity which is -1, 0 or 1)
+    pub initial_memory: HashMap<(M31, M31), (QM31, M31, M31)>,
+    pub final_memory: HashMap<(M31, M31), (QM31, M31, M31)>,
 }
 
 pub struct ExecutionBundleIterator<T, M>
@@ -198,10 +199,15 @@ where
 
 impl Memory {
     pub fn new(initial_memory: Vec<QM31>) -> Self {
-        let initial_memory_hashmap: HashMap<M31, (QM31, M31, M31)> = initial_memory
+        let initial_memory_hashmap: HashMap<(M31, M31), (QM31, M31, M31)> = initial_memory
             .iter()
             .enumerate()
-            .map(|(i, value)| (M31::from(i as u32), (*value, M31::zero(), M31::zero())))
+            .map(|(i, value)| {
+                (
+                    (M31::from(i as u32), M31::from(TREE_HEIGHT)),
+                    (*value, M31::zero(), M31::zero()),
+                )
+            })
             .collect();
         Self {
             initial_memory: initial_memory_hashmap.clone(),
@@ -212,7 +218,7 @@ impl Memory {
         let prev_memory_entry = self
             .final_memory
             .insert(
-                memory_entry.address,
+                (memory_entry.address, M31::from(TREE_HEIGHT)),
                 (memory_entry.value, memory_entry.clock, -M31::one()),
             )
             .unwrap_or_else(|| (memory_entry.value, M31::zero(), -M31::one()));
@@ -222,15 +228,23 @@ impl Memory {
         // Thus we extend the initial memory (initial from the VM point of view) with first accesses.
         if prev_memory_entry.1 == M31::zero() {
             // Sanity check: first access to a cell present in the initial memory should match the initial value.
-            if let Some(initial_memory_cell) = self.initial_memory.get_mut(&memory_entry.address) {
-                assert_eq!(
-                    *initial_memory_cell,
-                    (memory_entry.value, M31::zero(), M31::zero())
+            if let Some(initial_memory_cell) = self
+                .initial_memory
+                .get_mut(&(memory_entry.address, M31::from(TREE_HEIGHT)))
+            {
+                debug_assert_eq!(
+                    initial_memory_cell.0, memory_entry.value,
+                    "Initial memory value mismatch"
+                );
+                // Update the multiplicity to 1
+                initial_memory_cell.2 = M31::one();
+            } else {
+                let initial_memory_entry = (memory_entry.value, M31::zero(), M31::one());
+                self.initial_memory.insert(
+                    (memory_entry.address, M31::from(TREE_HEIGHT)),
+                    initial_memory_entry,
                 );
             }
-            let initial_memory_entry = (memory_entry.value, M31::zero(), M31::one());
-            self.initial_memory
-                .insert(memory_entry.address, initial_memory_entry);
         };
 
         MemoryArg {
@@ -273,20 +287,20 @@ mod tests {
 
         // Verify final_memory was updated
         assert_eq!(
-            memory.final_memory[&M31::from(100)],
+            memory.final_memory[&(M31::from(100), M31::from(TREE_HEIGHT))],
             (
                 QM31::from_u32_unchecked(1, 2, 3, 4),
                 M31::from(10),
-                -M31::one()
+                -M31::one(),
             )
         );
         // initial_memory should now contain the first access with multiplicity 1
         assert_eq!(
-            memory.initial_memory[&M31::from(100)],
+            memory.initial_memory[&(M31::from(100), M31::from(TREE_HEIGHT))],
             (
                 QM31::from_u32_unchecked(1, 2, 3, 4),
                 M31::zero(),
-                M31::one()
+                M31::one(),
             )
         );
     }
@@ -321,20 +335,20 @@ mod tests {
 
         // Verify final_memory was updated
         assert_eq!(
-            memory.final_memory[&M31::from(100)],
+            memory.final_memory[&(M31::from(100), M31::from(TREE_HEIGHT))],
             (
                 QM31::from_u32_unchecked(5, 6, 7, 8),
                 M31::from(20),
-                -M31::one()
+                -M31::one(),
             )
         );
         // initial_memory should still contain the first access
         assert_eq!(
-            memory.initial_memory[&M31::from(100)],
+            memory.initial_memory[&(M31::from(100), M31::from(TREE_HEIGHT))],
             (
                 QM31::from_u32_unchecked(1, 2, 3, 4),
                 M31::zero(),
-                M31::one()
+                M31::one(),
             )
         );
     }
@@ -370,37 +384,37 @@ mod tests {
         // Verify final_memory contains both addresses
         assert_eq!(memory.final_memory.len(), 2);
         assert_eq!(
-            memory.final_memory[&M31::from(100)],
+            memory.final_memory[&(M31::from(100), M31::from(TREE_HEIGHT))],
             (
                 QM31::from_u32_unchecked(1, 2, 3, 4),
                 M31::from(10),
-                -M31::one()
+                -M31::one(),
             )
         );
         assert_eq!(
-            memory.final_memory[&M31::from(200)],
+            memory.final_memory[&(M31::from(200), M31::from(TREE_HEIGHT))],
             (
                 QM31::from_u32_unchecked(9, 10, 11, 12),
                 M31::from(30),
-                -M31::one()
+                -M31::one(),
             )
         );
         // initial_memory should contain both addresses
         assert_eq!(memory.initial_memory.len(), 2);
         assert_eq!(
-            memory.initial_memory[&M31::from(100)],
+            memory.initial_memory[&(M31::from(100), M31::from(TREE_HEIGHT))],
             (
                 QM31::from_u32_unchecked(1, 2, 3, 4),
                 M31::zero(),
-                M31::one()
+                M31::one(),
             )
         );
         assert_eq!(
-            memory.initial_memory[&M31::from(200)],
+            memory.initial_memory[&(M31::from(200), M31::from(TREE_HEIGHT))],
             (
                 QM31::from_u32_unchecked(9, 10, 11, 12),
                 M31::zero(),
-                M31::one()
+                M31::one(),
             )
         );
     }
@@ -418,19 +432,19 @@ mod tests {
         assert_eq!(memory.initial_memory.len(), 2);
         assert_eq!(memory.final_memory.len(), 2);
         assert_eq!(
-            memory.initial_memory[&M31::from(0)],
+            memory.initial_memory[&(M31::from(0), M31::from(TREE_HEIGHT))],
             (
                 QM31::from_u32_unchecked(10, 20, 30, 40),
                 M31::zero(),
-                M31::zero()
+                M31::zero(),
             )
         );
         assert_eq!(
-            memory.initial_memory[&M31::from(1)],
+            memory.initial_memory[&(M31::from(1), M31::from(TREE_HEIGHT))],
             (
                 QM31::from_u32_unchecked(50, 60, 70, 80),
                 M31::zero(),
-                M31::zero()
+                M31::zero(),
             )
         );
 
@@ -451,20 +465,20 @@ mod tests {
 
         // Initial memory multiplicity is updated to 1 on first access
         assert_eq!(
-            memory.initial_memory[&M31::from(0)],
+            memory.initial_memory[&(M31::from(0), M31::from(TREE_HEIGHT))],
             (
                 QM31::from_u32_unchecked(10, 20, 30, 40),
                 M31::zero(),
-                M31::one()
+                M31::one(),
             )
         );
         // Verify final_memory was updated
         assert_eq!(
-            memory.final_memory[&M31::from(0)],
+            memory.final_memory[&(M31::from(0), M31::from(TREE_HEIGHT))],
             (
                 QM31::from_u32_unchecked(10, 20, 30, 40),
                 M31::from(5),
-                -M31::one()
+                -M31::one(),
             )
         );
 
@@ -485,11 +499,11 @@ mod tests {
 
         // Verify final_memory was updated again
         assert_eq!(
-            memory.final_memory[&M31::from(0)],
+            memory.final_memory[&(M31::from(0), M31::from(TREE_HEIGHT))],
             (
                 QM31::from_u32_unchecked(100, 200, 300, 400),
                 M31::from(10),
-                -M31::one()
+                -M31::one(),
             )
         );
     }
