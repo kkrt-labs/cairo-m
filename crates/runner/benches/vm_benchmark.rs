@@ -2,7 +2,7 @@ use std::fs;
 use std::time::Duration;
 
 use cairo_m_compiler::{CompilerOptions, compile_cairo};
-use cairo_m_runner::run_cairo_program;
+use cairo_m_runner::{RunnerOptions, run_cairo_program};
 use criterion::{Criterion, Throughput, black_box, criterion_group, criterion_main};
 use stwo_prover::core::fields::m31::M31;
 
@@ -24,8 +24,10 @@ fn fibonacci_1m_benchmark(c: &mut Criterion) {
     let output = run_cairo_program(
         &program,
         "fibonacci_loop",
-        &[M31::from(N_ITERATIONS / N_CHUNKS)],
-        Default::default(),
+        &[M31::from(N_ITERATIONS)],
+        RunnerOptions {
+            n_steps: (N_ITERATIONS / N_CHUNKS) as usize,
+        },
     )
     .expect("Execution failed");
 
@@ -38,8 +40,10 @@ fn fibonacci_1m_benchmark(c: &mut Criterion) {
             let output = run_cairo_program(
                 &program,
                 "fibonacci_loop",
-                &[M31::from(N_ITERATIONS / N_CHUNKS)],
-                Default::default(),
+                &[M31::from(N_ITERATIONS)],
+                RunnerOptions {
+                    n_steps: (N_ITERATIONS / N_CHUNKS) as usize,
+                },
             )
             .expect("Execution failed");
 
