@@ -51,7 +51,6 @@ pub fn opcode_to_instruction_fn(op: M31) -> Result<InstructionFn, InstructionErr
         Opcode::StoreAddFpImm => store_add_fp_imm,
         Opcode::StoreSubFpFp => store_sub_fp_fp,
         Opcode::StoreSubFpImm => store_sub_fp_imm,
-        Opcode::StoreDerefFp => store_deref_fp,
         Opcode::StoreDoubleDerefFp => store_double_deref_fp,
         Opcode::StoreImm => store_imm,
         Opcode::StoreMulFpFp => store_mul_fp_fp,
@@ -76,7 +75,7 @@ mod tests {
 
     use super::opcode_to_instruction_fn;
 
-    const LAST_VALID_OPCODE_ID: u32 = 15;
+    const LAST_VALID_OPCODE_ID: u32 = 14;
 
     #[test]
     fn test_instruction_from_qm31() {

@@ -73,22 +73,6 @@ pub fn store_sub_fp_imm(
 
 /// CASM equivalent:
 /// ```casm
-/// [fp + off2] = [fp + off0]
-/// ```
-pub fn store_deref_fp(
-    memory: &mut Memory,
-    state: State,
-    instruction: &Instruction,
-) -> Result<State, MemoryError> {
-    let [off0, _, off2] = instruction.operands;
-    let value = memory.get_data(state.fp + off0)?;
-    memory.insert(state.fp + off2, value.into())?;
-
-    Ok(state.advance())
-}
-
-/// CASM equivalent:
-/// ```casm
 /// [fp + off2] = [[fp + off0] + off1]
 /// ```
 pub fn store_double_deref_fp(

@@ -92,13 +92,14 @@ impl CasmBuilder {
             }
 
             Value::Operand(src_id) => {
-                // Copy from another value
+                // Copy from another value using StoreAddFpImm with imm=0
                 let src_off = layout.get_offset(src_id)?;
 
-                let instr = InstructionBuilder::new(Opcode::StoreDerefFp.into())
+                let instr = InstructionBuilder::new(Opcode::StoreAddFpImm.into())
                     .with_off0(src_off)
+                    .with_imm(0)
                     .with_off2(dest_off)
-                    .with_comment(format!("[fp + {dest_off}] = [fp + {src_off}]"));
+                    .with_comment(format!("[fp + {dest_off}] = [fp + {src_off}] + 0"));
 
                 self.instructions.push(instr);
             }
@@ -332,7 +333,7 @@ impl CasmBuilder {
                 }
             }
 
-            // Both operands are immediates: fold constants
+            // Both operands are immediate: fold constants
             // This is a workaround for the fact that we don't have a constant folding pass yet.
             (Value::Literal(Literal::Integer(imm)), Value::Literal(Literal::Integer(imm2))) => {
                 let result = match op {
@@ -827,10 +828,13 @@ impl CasmBuilder {
                 }
                 Value::Operand(arg_id) => {
                     let src_off = layout.get_offset(*arg_id)?;
-                    InstructionBuilder::new(Opcode::StoreDerefFp.into())
+                    InstructionBuilder::new(Opcode::StoreAddFpImm.into())
                         .with_off0(src_off)
+                        .with_imm(0)
                         .with_off2(arg_offset)
-                        .with_comment(format!("Arg {i}: [fp + {arg_offset}] = [fp + {src_off}]"))
+                        .with_comment(format!(
+                            "Arg {i}: [fp + {arg_offset}] = [fp + {src_off}] + 0"
+                        ))
                 }
                 _ => {
                     return Err(CodegenError::UnsupportedInstruction(
@@ -879,11 +883,12 @@ impl CasmBuilder {
                     }
                     Value::Operand(val_id) => {
                         let src_off = layout.get_offset(*val_id)?;
-                        InstructionBuilder::new(Opcode::StoreDerefFp.into())
+                        InstructionBuilder::new(Opcode::StoreAddFpImm.into())
                             .with_off0(src_off)
+                            .with_imm(0)
                             .with_off2(return_slot_offset)
                             .with_comment(format!(
-                                "Return value {}: [fp {}] = [fp + {}]",
+                                "Return value {}: [fp {}] = [fp + {}] + 0",
                                 i, return_slot_offset, src_off
                             ))
                     }
@@ -1084,11 +1089,12 @@ impl CasmBuilder {
                     Value::Operand(val_id) => {
                         let val_offset = layout.get_offset(val_id)?;
 
-                        let instr = InstructionBuilder::new(Opcode::StoreDerefFp.into())
+                        let instr = InstructionBuilder::new(Opcode::StoreAddFpImm.into())
                             .with_off0(val_offset)
+                            .with_imm(0)
                             .with_off2(dest_offset)
                             .with_comment(format!(
-                                "Store: [fp + {dest_offset}] = [fp + {val_offset}]"
+                                "Store: [fp + {dest_offset}] = [fp + {val_offset}] + 0"
                             ));
 
                         self.instructions.push(instr);
@@ -1112,9 +1118,9 @@ impl CasmBuilder {
         Ok(())
     }
 
-    /// Removes any occurences of instructions where two or more offsets are the same.
+    /// Removes any occurrences of instructions where two or more offsets are the same.
     /// This is required by the prover, which does not currently support memory operations on the same memory location in a single instruction.
-    /// This fix was designed to be as uninvasive as possible to be reverted easily in case of design changes in the prover.
+    /// This fix was designed to be as non-invasive as possible to be reverted easily in case of design changes in the prover.
     pub fn resolve_duplicate_offsets(&mut self) -> CodegenResult<()> {
         let layout = self
             .layout
@@ -1124,24 +1130,14 @@ impl CasmBuilder {
         let temp_var_offset = layout.reserve_stack(1);
         let temp_var_offset2 = layout.reserve_stack(1);
 
-        // First, identify which instructions have labels pointing to them
-        let mut labeled_instructions = std::collections::HashSet::new();
-        for label in &self.labels {
-            if let Some(address) = label.address {
-                labeled_instructions.insert(address);
-            }
-        }
-
         let mut new_instructions = Vec::new();
         // Track how instruction indices change: original_index -> new_index_range
         let mut index_mapping: Vec<Option<std::ops::Range<usize>>> = Vec::new();
 
-        for (original_index, instr) in self.instructions.iter().enumerate() {
+        for instr in self.instructions.iter() {
             let current_new_index = new_instructions.len();
-            let is_labeled = labeled_instructions.contains(&original_index);
 
             let replacement_instructions = match Opcode::from_u32(instr.opcode).unwrap() {
-                Opcode::StoreDerefFp => Self::handle_deref_duplicates(instr, is_labeled),
                 Opcode::StoreAddFpFp
                 | Opcode::StoreSubFpFp
                 | Opcode::StoreMulFpFp
@@ -1195,24 +1191,6 @@ impl CasmBuilder {
         Ok(())
     }
 
-    /// Handles duplicate offsets in StoreDerefFp instructions (copy operations).
-    /// Removes nop instructions ([fp + X] = [fp + X]) unless they are labeled.
-    fn handle_deref_duplicates(
-        instr: &InstructionBuilder,
-        is_labeled: bool,
-    ) -> Vec<InstructionBuilder> {
-        let off0 = instr.off0.unwrap();
-        let off2 = instr.off2.unwrap();
-
-        if off0 == off2 && !is_labeled {
-            // This is a nop instruction and it's not labeled - safe to remove
-            vec![]
-        } else {
-            // Either not a nop, or it's labeled (don't remove labeled instructions)
-            vec![instr.clone()]
-        }
-    }
-
     /// Handles duplicate offsets in fp+fp binary operations.
     /// Expands in-place operations using temporary variables to avoid undefined behavior.
     fn handle_fp_fp_duplicates(
@@ -1227,14 +1205,16 @@ impl CasmBuilder {
         if off0 == off1 && off1 == off2 {
             // The three offsets are the same, store off0 and off1 in temp vars and replace with 3 instructions
             vec![
-                InstructionBuilder::new(Opcode::StoreDerefFp.into())
-                    .with_off2(temp_var_offset)
+                InstructionBuilder::new(Opcode::StoreAddFpImm.into())
                     .with_off0(off0)
-                    .with_comment(format!("[fp + {temp_var_offset}] = [fp + {off0}]")),
-                InstructionBuilder::new(Opcode::StoreDerefFp.into())
-                    .with_off2(temp_var_offset2)
+                    .with_imm(0)
+                    .with_off2(temp_var_offset)
+                    .with_comment(format!("[fp + {temp_var_offset}] = [fp + {off0}] + 0")),
+                InstructionBuilder::new(Opcode::StoreAddFpImm.into())
                     .with_off0(off1)
-                    .with_comment(format!("[fp + {temp_var_offset2}] = [fp + {off1}]")),
+                    .with_imm(0)
+                    .with_off2(temp_var_offset2)
+                    .with_comment(format!("[fp + {temp_var_offset2}] = [fp + {off1}] + 0")),
                 InstructionBuilder::new(instr.opcode)
                     .with_off2(off2)
                     .with_off0(temp_var_offset)
@@ -1246,10 +1226,11 @@ impl CasmBuilder {
         } else if off0 == off1 || off0 == off2 {
             // off0 is a duplicate, store off0 in a temp var and replace with 2 instructions
             vec![
-                InstructionBuilder::new(Opcode::StoreDerefFp.into())
-                    .with_off2(temp_var_offset)
+                InstructionBuilder::new(Opcode::StoreAddFpImm.into())
                     .with_off0(off0)
-                    .with_comment(format!("[fp + {temp_var_offset}] = [fp + {off0}]")),
+                    .with_imm(0)
+                    .with_off2(temp_var_offset)
+                    .with_comment(format!("[fp + {temp_var_offset}] = [fp + {off0}] + 0")),
                 InstructionBuilder::new(instr.opcode)
                     .with_off2(off2)
                     .with_off0(temp_var_offset)
@@ -1261,10 +1242,11 @@ impl CasmBuilder {
         } else if off1 == off2 {
             // off1 is a duplicate, store off1 in a temp var and replace with 2 instructions
             vec![
-                InstructionBuilder::new(Opcode::StoreDerefFp.into())
-                    .with_off2(temp_var_offset)
+                InstructionBuilder::new(Opcode::StoreAddFpImm.into())
                     .with_off0(off1)
-                    .with_comment(format!("[fp + {temp_var_offset}] = [fp + {off1}]")),
+                    .with_imm(0)
+                    .with_off2(temp_var_offset)
+                    .with_comment(format!("[fp + {temp_var_offset}] = [fp + {off1}] + 0")),
                 InstructionBuilder::new(instr.opcode)
                     .with_off2(off2)
                     .with_off0(off0)
@@ -1300,10 +1282,11 @@ impl CasmBuilder {
         if off0 == off2 {
             // off0 is a duplicate, store off0 in a temp var and replace with 2 instructions
             Ok(vec![
-                InstructionBuilder::new(Opcode::StoreDerefFp.into())
-                    .with_off2(temp_var_offset)
+                InstructionBuilder::new(Opcode::StoreAddFpImm.into())
                     .with_off0(off0)
-                    .with_comment(format!("[fp + {temp_var_offset}] = [fp + {off0}]")),
+                    .with_imm(0)
+                    .with_off2(temp_var_offset)
+                    .with_comment(format!("[fp + {temp_var_offset}] = [fp + {off0}] + 0")),
                 InstructionBuilder::new(instr.opcode)
                     .with_off2(off2)
                     .with_off0(temp_var_offset)
@@ -1320,32 +1303,6 @@ impl CasmBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_handle_deref_duplicates_nop_removal() {
-        // Create a nop instruction: [fp + 5] = [fp + 5]
-        let instr = InstructionBuilder::new(Opcode::StoreDerefFp.into())
-            .with_off0(5)
-            .with_off2(5);
-
-        let result = CasmBuilder::handle_deref_duplicates(&instr, false);
-        assert_eq!(result.len(), 0, "Nop instruction should be removed");
-    }
-
-    #[test]
-    fn test_handle_deref_duplicates_labeled_preservation() {
-        // Create a nop instruction: [fp + 5] = [fp + 5] but it's labeled
-        let instr = InstructionBuilder::new(Opcode::StoreDerefFp.into())
-            .with_off0(5)
-            .with_off2(5);
-
-        let result = CasmBuilder::handle_deref_duplicates(&instr, true);
-        assert_eq!(
-            result.len(),
-            1,
-            "Labeled nop instruction should be preserved"
-        );
-    }
 
     #[test]
     fn test_handle_fp_fp_duplicates_all_same() {

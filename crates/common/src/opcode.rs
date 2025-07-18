@@ -21,7 +21,6 @@ pub enum Opcode {
     StoreSubFpImm, // [fp + off2] = [fp + off0] - imm
 
     // Memory operations
-    StoreDerefFp,       // [fp + off2] = [fp + off0]
     StoreDoubleDerefFp, // [fp + off2] = [[fp + off0] + off1]
     StoreImm,           // [fp + off2] = imm
 
@@ -94,18 +93,17 @@ impl Opcode {
             1 => Some(Self::StoreAddFpImm),
             2 => Some(Self::StoreSubFpFp),
             3 => Some(Self::StoreSubFpImm),
-            4 => Some(Self::StoreDerefFp),
-            5 => Some(Self::StoreDoubleDerefFp),
-            6 => Some(Self::StoreImm),
-            7 => Some(Self::StoreMulFpFp),
-            8 => Some(Self::StoreMulFpImm),
-            9 => Some(Self::StoreDivFpFp),
-            10 => Some(Self::StoreDivFpImm),
-            11 => Some(Self::CallAbsImm),
-            12 => Some(Self::Ret),
-            13 => Some(Self::JmpAbsImm),
-            14 => Some(Self::JmpRelImm),
-            15 => Some(Self::JnzFpImm),
+            4 => Some(Self::StoreDoubleDerefFp),
+            5 => Some(Self::StoreImm),
+            6 => Some(Self::StoreMulFpFp),
+            7 => Some(Self::StoreMulFpImm),
+            8 => Some(Self::StoreDivFpFp),
+            9 => Some(Self::StoreDivFpImm),
+            10 => Some(Self::CallAbsImm),
+            11 => Some(Self::Ret),
+            12 => Some(Self::JmpAbsImm),
+            13 => Some(Self::JmpRelImm),
+            14 => Some(Self::JnzFpImm),
             _ => None,
         }
     }
@@ -117,7 +115,6 @@ impl Opcode {
             Self::StoreAddFpImm => OpcodeInfo { memory_accesses: 2 },
             Self::StoreSubFpFp => OpcodeInfo { memory_accesses: 3 },
             Self::StoreSubFpImm => OpcodeInfo { memory_accesses: 2 },
-            Self::StoreDerefFp => OpcodeInfo { memory_accesses: 2 },
             Self::StoreDoubleDerefFp => OpcodeInfo { memory_accesses: 3 },
             Self::StoreImm => OpcodeInfo { memory_accesses: 1 },
             Self::StoreMulFpFp => OpcodeInfo { memory_accesses: 3 },
@@ -146,7 +143,6 @@ pub mod opcodes {
     pub const STORE_ADD_FP_IMM: u32 = Opcode::StoreAddFpImm as u32;
     pub const STORE_SUB_FP_FP: u32 = Opcode::StoreSubFpFp as u32;
     pub const STORE_SUB_FP_IMM: u32 = Opcode::StoreSubFpImm as u32;
-    pub const STORE_DEREF_FP: u32 = Opcode::StoreDerefFp as u32;
     pub const STORE_DOUBLE_DEREF_FP: u32 = Opcode::StoreDoubleDerefFp as u32;
     pub const STORE_IMM: u32 = Opcode::StoreImm as u32;
     pub const STORE_MUL_FP_FP: u32 = Opcode::StoreMulFpFp as u32;

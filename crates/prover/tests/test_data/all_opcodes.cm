@@ -44,9 +44,6 @@ fn main() -> felt {
     let div2 = d / 4;
     d = d / 4;
 
-    // StoreDerefFp: [fp + off2] = [fp + off0] (memory copy)
-    let copy = a;
-    a = a;
 
     // StoreImm: [fp + off2] = imm (immediate store)
     let immediate = 42;

@@ -16,5 +16,5 @@ fn test() -> felt {
 ============================================================
 Generated CASM:
 test:
-   0: 6 42 _ -3            // Return value 0: [fp -3] = 42
-   1: 12 _ _ _             // return
+   0: 5 42 _ -3            // Return value 0: [fp -3] = 42
+   1: 11 _ _ _             // return

@@ -21,13 +21,13 @@ Generated CASM:
 simple_or:
 simple_or:
 simple_or_0:
-   0: 6 10 _ 0             // Store immediate: [fp + 0] = 10
-   1: 6 20 _ 1             // Store immediate: [fp + 1] = 20
-   2: 6 0 _ -3             // Initialize OR result to 0
-   3: 15 0 3 _             // if [fp + 0] != 0, jump to or_true_0
-   4: 15 1 2 _             // if [fp + 1] != 0, jump to or_true_0
-   5: 13 7 _ _             // jump to or_end_1
+   0: 5 10 _ 0             // Store immediate: [fp + 0] = 10
+   1: 5 20 _ 1             // Store immediate: [fp + 1] = 20
+   2: 5 0 _ -3             // Initialize OR result to 0
+   3: 14 0 3 _             // if [fp + 0] != 0, jump to or_true_0
+   4: 14 1 2 _             // if [fp + 1] != 0, jump to or_true_0
+   5: 12 7 _ _             // jump to or_end_1
 or_true_0:
-   6: 6 1 _ -3             // [fp + -3] = 1
+   6: 5 1 _ -3             // [fp + -3] = 1
 or_end_1:
-   7: 12 _ _ _             // return
+   7: 11 _ _ _             // return
