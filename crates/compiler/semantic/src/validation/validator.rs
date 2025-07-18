@@ -145,6 +145,7 @@ impl ValidatorRegistry {
 /// - **ScopeValidator**: Undeclared variables, unused variables, duplicate definitions
 /// - **TypeValidator**: Comprehensive type checking for all expressions and operations
 /// - **ControlFlowValidator**: Reachability analysis, dead code detection
+/// - **LiteralValidator**: Range checking for bounded types (e.g., u16)
 ///
 /// TODO: Expand default registry with additional validators:
 /// - **AssignmentValidator**: Validate assignment compatibility and mutability
@@ -160,6 +161,7 @@ pub fn create_default_registry() -> ValidatorRegistry {
         .add_validator(crate::validation::scope_check::ScopeValidator)
         .add_validator(crate::validation::type_validator::TypeValidator)
         .add_validator(crate::validation::control_flow_validator::ControlFlowValidator)
+        .add_validator(crate::validation::literal_validator::LiteralValidator)
 }
 
 #[cfg(test)]

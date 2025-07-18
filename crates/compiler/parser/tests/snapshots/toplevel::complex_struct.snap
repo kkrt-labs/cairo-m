@@ -28,7 +28,7 @@ expression: snapshot
                             44..50,
                         ),
                         Named(
-                            "felt",
+                            Felt,
                         ),
                     ),
                     (
@@ -38,7 +38,7 @@ expression: snapshot
                         ),
                         Pointer(
                             Named(
-                                "felt",
+                                Felt,
                             ),
                         ),
                     ),
@@ -50,10 +50,10 @@ expression: snapshot
                         Tuple(
                             [
                                 Named(
-                                    "felt",
+                                    Felt,
                                 ),
                                 Named(
-                                    "felt",
+                                    Felt,
                                 ),
                             ],
                         ),
@@ -64,7 +64,9 @@ expression: snapshot
                             131..137,
                         ),
                         Named(
-                            "AnotherStruct",
+                            Custom(
+                                "AnotherStruct",
+                            ),
                         ),
                     ),
                     (
@@ -74,7 +76,9 @@ expression: snapshot
                         ),
                         Pointer(
                             Named(
-                                "AnotherStruct",
+                                Custom(
+                                    "AnotherStruct",
+                                ),
                             ),
                         ),
                     ),

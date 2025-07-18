@@ -22,20 +22,20 @@ fn test(x: (felt, felt*, (felt, felt))) { }
                         type_expr: Tuple(
                             [
                                 Named(
-                                    "felt",
+                                    Felt,
                                 ),
                                 Pointer(
                                     Named(
-                                        "felt",
+                                        Felt,
                                     ),
                                 ),
                                 Tuple(
                                     [
                                         Named(
-                                            "felt",
+                                            Felt,
                                         ),
                                         Named(
-                                            "felt",
+                                            Felt,
                                         ),
                                     ],
                                 ),

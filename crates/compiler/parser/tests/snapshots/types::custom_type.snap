@@ -20,7 +20,9 @@ fn test(x: MyStruct) { }
                             8..9,
                         ),
                         type_expr: Named(
-                            "MyStruct",
+                            Custom(
+                                "MyStruct",
+                            ),
                         ),
                     },
                 ],

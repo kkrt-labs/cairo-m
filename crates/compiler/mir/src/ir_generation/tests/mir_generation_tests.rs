@@ -35,6 +35,35 @@ macro_rules! mir_test {
             test.check_assertions(&mir_output);
         }
     };
+    ($test_name:ident, $subdir:expr, #[$attr:meta]) => {
+        #[test]
+        #[$attr]
+        fn $test_name() {
+            // Construct the path to the test source file.
+            let path = concat!("test_cases/", $subdir, "/", stringify!($test_name), ".cm");
+
+            // Load the test case, which also parses assertions.
+            let test = MirTest::load(path);
+
+            // Generate MIR from the source code.
+            let mir_output = check_mir(&test.source);
+
+
+            // Use insta to snapshot the entire MIR test output.
+            // The snapshot name is derived from the subdirectory and test name for clarity.
+            let snapshot_content = format!(
+                "---\nsource: {}\nexpression: mir_output\n---\nFixture: {}.cm\n============================================================\nSource code:\n{}\n============================================================\nGenerated MIR:\n{}",
+                file!(),
+                stringify!($test_name),
+                test.source,
+                mir_output.mir_string
+            );
+            assert_snapshot!(concat!($subdir, "_", stringify!($test_name)), snapshot_content);
+
+            // Validate assertions after snapshotting (to get visual output).
+            test.check_assertions(&mir_output);
+        }
+    };
 }
 
 // ====== Test Groups ======
@@ -91,3 +120,6 @@ mir_test!(array_access, "aggregates");
 
 // --- Tuple Destructuring ---
 mir_test!(tuple_destructuring, "expressions");
+
+// --- Types ---
+mir_test!(u32_type, "types", #[should_panic(expected = "not yet implemented")]);

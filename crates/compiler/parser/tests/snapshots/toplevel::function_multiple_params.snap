@@ -20,7 +20,7 @@ fn complex(a: felt, b: felt*, c: (felt, felt)) { }
                             11..12,
                         ),
                         type_expr: Named(
-                            "felt",
+                            Felt,
                         ),
                     },
                     Parameter {
@@ -30,7 +30,7 @@ fn complex(a: felt, b: felt*, c: (felt, felt)) { }
                         ),
                         type_expr: Pointer(
                             Named(
-                                "felt",
+                                Felt,
                             ),
                         ),
                     },
@@ -42,10 +42,10 @@ fn complex(a: felt, b: felt*, c: (felt, felt)) { }
                         type_expr: Tuple(
                             [
                                 Named(
-                                    "felt",
+                                    Felt,
                                 ),
                                 Named(
-                                    "felt",
+                                    Felt,
                                 ),
                             ],
                         ),

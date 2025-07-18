@@ -20,6 +20,7 @@ mod recursive_and_error_types_tests;
 mod struct_type_tests;
 mod type_compatibility_tests;
 mod type_resolution_tests;
+mod u32_type_tests;
 
 // Re-export test utilities for use in submodules
 use cairo_m_compiler_parser::{Db as ParserDb, Upcast};

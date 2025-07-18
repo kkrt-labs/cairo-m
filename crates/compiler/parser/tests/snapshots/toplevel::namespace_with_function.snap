@@ -23,7 +23,7 @@ namespace Utils { fn helper() -> felt { return 1; } }
                                 ),
                                 params: [],
                                 return_type: Named(
-                                    "felt",
+                                    Felt,
                                 ),
                                 body: [
                                     Spanned(

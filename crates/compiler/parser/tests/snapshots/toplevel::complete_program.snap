@@ -43,7 +43,7 @@ expression: snapshot
                             37..38,
                         ),
                         Named(
-                            "felt",
+                            Felt,
                         ),
                     ),
                     (
@@ -52,7 +52,7 @@ expression: snapshot
                             58..59,
                         ),
                         Named(
-                            "felt",
+                            Felt,
                         ),
                     ),
                 ],
@@ -82,12 +82,14 @@ expression: snapshot
                                             132..133,
                                         ),
                                         type_expr: Named(
-                                            "Vector",
+                                            Custom(
+                                                "Vector",
+                                            ),
                                         ),
                                     },
                                 ],
                                 return_type: Named(
-                                    "felt",
+                                    Felt,
                                 ),
                                 body: [
                                     Spanned(
@@ -206,12 +208,12 @@ expression: snapshot
                                             236..237,
                                         ),
                                         type_expr: Named(
-                                            "felt",
+                                            Felt,
                                         ),
                                     },
                                 ],
                                 return_type: Named(
-                                    "felt",
+                                    Felt,
                                 ),
                                 body: [
                                     Spanned(

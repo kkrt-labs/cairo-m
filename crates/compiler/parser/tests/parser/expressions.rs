@@ -11,18 +11,18 @@ fn integer_literal() {
 }
 
 #[test]
-fn large_number() {
-    assert_parses_err!(&in_function("4294967295;")); // Max u32
+fn u32_bound_up() {
+    assert_parses_ok!(&in_function("4294967295;")); // u32::max
+}
+
+#[test]
+fn u32_overflow() {
+    assert_parses_err!(&in_function("4294967296;")); // u32::max + 1
 }
 
 #[test]
 fn invalid_number_format() {
     assert_parses_err!(&in_function("0xGG;"));
-}
-
-#[test]
-fn number_overflow() {
-    assert_parses_err!(&in_function("0x80000000;"));
 }
 
 // ===================

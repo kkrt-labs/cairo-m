@@ -20,7 +20,7 @@ fn add(a: felt, b: felt) -> felt { return a + b; }
                             7..8,
                         ),
                         type_expr: Named(
-                            "felt",
+                            Felt,
                         ),
                     },
                     Parameter {
@@ -29,12 +29,12 @@ fn add(a: felt, b: felt) -> felt { return a + b; }
                             16..17,
                         ),
                         type_expr: Named(
-                            "felt",
+                            Felt,
                         ),
                     },
                 ],
                 return_type: Named(
-                    "felt",
+                    Felt,
                 ),
                 body: [
                     Spanned(

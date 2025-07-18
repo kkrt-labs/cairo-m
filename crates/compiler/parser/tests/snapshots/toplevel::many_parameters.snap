@@ -20,7 +20,7 @@ fn complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStruct
                             20..21,
                         ),
                         type_expr: Named(
-                            "felt",
+                            Felt,
                         ),
                     },
                     Parameter {
@@ -30,7 +30,7 @@ fn complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStruct
                         ),
                         type_expr: Pointer(
                             Named(
-                                "felt",
+                                Felt,
                             ),
                         ),
                     },
@@ -42,10 +42,10 @@ fn complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStruct
                         type_expr: Tuple(
                             [
                                 Named(
-                                    "felt",
+                                    Felt,
                                 ),
                                 Named(
-                                    "felt",
+                                    Felt,
                                 ),
                             ],
                         ),
@@ -56,7 +56,9 @@ fn complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStruct
                             56..57,
                         ),
                         type_expr: Named(
-                            "MyStruct",
+                            Custom(
+                                "MyStruct",
+                            ),
                         ),
                     },
                     Parameter {
@@ -66,7 +68,9 @@ fn complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStruct
                         ),
                         type_expr: Pointer(
                             Named(
-                                "MyStruct",
+                                Custom(
+                                    "MyStruct",
+                                ),
                             ),
                         ),
                     },
@@ -74,10 +78,10 @@ fn complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStruct
                 return_type: Tuple(
                     [
                         Named(
-                            "felt",
+                            Felt,
                         ),
                         Named(
-                            "felt",
+                            Felt,
                         ),
                     ],
                 ),

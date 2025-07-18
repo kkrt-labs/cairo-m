@@ -289,7 +289,7 @@ impl Definitions {
 
 #[cfg(test)]
 mod tests {
-    use cairo_m_compiler_parser::parser::{Expression, TypeExpr};
+    use cairo_m_compiler_parser::parser::{Expression, NamedType, TypeExpr};
 
     use super::*;
 
@@ -301,16 +301,13 @@ mod tests {
         let func_def = FunctionDef {
             name: Spanned::new("test_func".to_string(), SimpleSpan::from(0..5)),
             params: vec![],
-            return_type: TypeExpr::Named("felt".to_string()),
+            return_type: TypeExpr::Named(NamedType::Felt),
             body: vec![],
         };
         let spanned_func = Spanned::new(func_def, SimpleSpan::from(0..10));
         let func_ref = FunctionDefRef::from_ast(&spanned_func);
         assert_eq!(func_ref.name, "test_func");
-        assert_eq!(
-            func_ref.return_type_ast,
-            TypeExpr::Named("felt".to_string())
-        );
+        assert_eq!(func_ref.return_type_ast, TypeExpr::Named(NamedType::Felt));
         assert_eq!(func_ref.params_ast.len(), 0);
 
         let struct_def = StructDef {
@@ -318,11 +315,11 @@ mod tests {
             fields: vec![
                 (
                     Spanned::new("x".to_string(), SimpleSpan::from(6..7)),
-                    TypeExpr::Named("felt".to_string()),
+                    TypeExpr::Named(NamedType::Felt),
                 ),
                 (
                     Spanned::new("y".to_string(), SimpleSpan::from(8..9)),
-                    TypeExpr::Named("felt".to_string()),
+                    TypeExpr::Named(NamedType::Felt),
                 ),
             ],
         };
@@ -379,8 +376,8 @@ mod tests {
 
         let def_kind = DefinitionKind::Function(FunctionDefRef {
             name: "test".to_string(),
-            params_ast: vec![("param".to_string(), TypeExpr::Named("felt".to_string()))],
-            return_type_ast: TypeExpr::Named("felt".to_string()),
+            params_ast: vec![("param".to_string(), TypeExpr::Named(NamedType::Felt))],
+            return_type_ast: TypeExpr::Named(NamedType::Felt),
         });
 
         let definitions = Definitions::single(scope_id, place_id, def_kind);

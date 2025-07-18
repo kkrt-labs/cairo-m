@@ -20,7 +20,7 @@ fn test(a: felt, b: felt,) { }
                             8..9,
                         ),
                         type_expr: Named(
-                            "felt",
+                            Felt,
                         ),
                     },
                     Parameter {
@@ -29,7 +29,7 @@ fn test(a: felt, b: felt,) { }
                             17..18,
                         ),
                         type_expr: Named(
-                            "felt",
+                            Felt,
                         ),
                     },
                 ],

@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use cairo_m_compiler_parser::parser::TypeExpr as AstTypeExpr;
+use cairo_m_compiler_parser::parser::{NamedType, TypeExpr as AstTypeExpr};
 
 use crate::db::Crate;
 use crate::db::tests::test_db;
@@ -15,7 +15,8 @@ use crate::type_resolution::{
     resolve_ast_type, struct_semantic_data,
 };
 use crate::types::{TypeData, TypeId};
-use crate::{File, FileScopeId, SemanticDb, SemanticIndex, project_semantic_index};
+use crate::validation::validator::Validator;
+use crate::{File, FileScopeId, SemanticDb, SemanticIndex, project_semantic_index, validation};
 
 // TODO For tests only - ideally not present there
 fn single_file_crate(db: &dyn SemanticDb, file: File) -> Crate {
@@ -56,7 +57,7 @@ fn test_resolve_primitive_types() {
         &db,
         crate_id,
         file,
-        AstTypeExpr::Named("felt".to_string()),
+        AstTypeExpr::Named(NamedType::Felt),
         root_scope,
     );
     assert!(matches!(felt_type.data(&db), TypeData::Felt));
@@ -65,7 +66,7 @@ fn test_resolve_primitive_types() {
         &db,
         crate_id,
         file,
-        AstTypeExpr::Pointer(Box::new(AstTypeExpr::Named("felt".to_string()))),
+        AstTypeExpr::Pointer(Box::new(AstTypeExpr::Named(NamedType::Felt))),
         root_scope,
     );
     assert!(
@@ -92,7 +93,7 @@ fn test_struct_type_resolution() {
         &db,
         crate_id,
         file,
-        AstTypeExpr::Named("Point".to_string()),
+        AstTypeExpr::Named(NamedType::Custom("Point".to_string())),
         root_scope,
     );
     let point_type_data = point_type_id.data(&db);
@@ -158,7 +159,7 @@ fn test_function_signature_resolution() {
         &db,
         crate_id,
         file,
-        AstTypeExpr::Named("Point".to_string()),
+        AstTypeExpr::Named(NamedType::Custom("Point".to_string())),
         root_scope,
     );
     assert_eq!(return_type, point_type_id);
@@ -573,4 +574,66 @@ fn test_multiple_return_type_signature() {
         TypeData::Function(sig_id) => assert_eq!(sig_id, signature),
         other => panic!("Expected function type, got {other:?}"),
     }
+}
+
+#[test]
+fn test_literal_inference_with_explicit_type() {
+    let db = test_db();
+    let program = r#"
+        fn test() {
+            let x: u32 = 42; // The literal `42` should be inferred as `u32`
+            let y = 100;    // The literal `100` should be inferred as `felt`
+            return;
+        }
+    "#;
+    let file = File::new(&db, program.to_string(), "test.cm".to_string());
+    let crate_id = single_file_crate(&db, file);
+    let semantic_index = get_main_semantic_index(&db, crate_id);
+
+    // Helper to find an expression and get its type
+    let find_expr_type = |target_text: &str| {
+        for (span, expr_id) in &semantic_index.span_to_expression_id {
+            let source_text = &program[span.start..span.end];
+            if source_text == target_text {
+                return expression_semantic_type(&db, crate_id, file, *expr_id);
+            }
+        }
+        panic!(
+            "Expression '{}' not found in tracked expressions. Available: {:?}",
+            target_text,
+            semantic_index
+                .span_to_expression_id
+                .keys()
+                .map(|span| &program[span.into_range()])
+                .collect::<Vec<_>>()
+        );
+    };
+
+    // 1. Check that `42` is inferred as u32
+    let x_val_type = find_expr_type("42");
+    assert!(
+        matches!(x_val_type.data(&db), TypeData::U32),
+        "Literal `42` should be inferred as u32 due to context"
+    );
+
+    // 2. Check that `100` is inferred as felt (no context)
+    let y_val_type = find_expr_type("100");
+    assert!(
+        matches!(y_val_type.data(&db), TypeData::Felt),
+        "Literal `100` should be inferred as felt by default"
+    );
+
+    // 3. Run the TypeValidator to ensure no errors are produced
+    let validator = validation::TypeValidator;
+    let diagnostics = validator.validate(&db, crate_id, file, &semantic_index);
+    let type_mismatch_errors: Vec<_> = diagnostics
+        .iter()
+        .filter(|d| d.code == cairo_m_compiler_diagnostics::DiagnosticCode::TypeMismatch)
+        .collect();
+    assert_eq!(
+        type_mismatch_errors.len(),
+        0,
+        "There should be no type mismatch errors. Diagnostics: {:?}",
+        type_mismatch_errors
+    );
 }

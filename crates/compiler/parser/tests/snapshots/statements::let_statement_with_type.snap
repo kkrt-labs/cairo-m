@@ -28,7 +28,7 @@ fn test() { let x: felt = 5; }
                             ),
                             statement_type: Some(
                                 Named(
-                                    "felt",
+                                    Felt,
                                 ),
                             ),
                             value: Spanned(

@@ -22,7 +22,7 @@ fn test(x: felt**) { }
                         type_expr: Pointer(
                             Pointer(
                                 Named(
-                                    "felt",
+                                    Felt,
                                 ),
                             ),
                         ),

@@ -48,7 +48,7 @@ impl fmt::Display for LexingError {
 impl fmt::Display for NumberParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Overflow => write!(f, "Number overflows 2**31 - 1"),
+            Self::Overflow => write!(f, "Value is higher than u32::max"),
             Self::InvalidFormat => write!(f, "Invalid number format"),
             Self::Unknown(s) => write!(f, "{s}"),
         }
@@ -75,17 +75,7 @@ fn parse_number_literal<'a>(lex: &logos::Lexer<'a, TokenType<'a>>) -> Result<u32
 
     // Parse the number string as u32
     match u32::from_str_radix(number_str, base) {
-        Ok(n) => {
-            // Additional check for signed 32-bit range to match the original behavior
-            if n >= 0x80000000 {
-                Err(LexingError::InvalidNumber {
-                    value: slice.to_string(),
-                    reason: NumberParseError::Overflow,
-                })
-            } else {
-                Ok(n)
-            }
-        }
+        Ok(n) => Ok(n),
         Err(err) => {
             let reason = match err.kind() {
                 std::num::IntErrorKind::PosOverflow | std::num::IntErrorKind::NegOverflow => {
@@ -382,8 +372,9 @@ mod tests {
 
     #[test]
     fn test_should_err_on_number_too_large() {
-        let input = "let x = 0x80000000;";
-        let lexer = TokenType::lexer(input);
+        let u32_max = format!("{}", (u32::MAX as u64 + 1));
+        let input = format!("let x = {};", u32_max);
+        let lexer = TokenType::lexer(&input);
         let tokens = lexer.spanned().collect::<Vec<_>>();
         assert_eq!(tokens.len(), 5);
         assert_eq!(tokens[0].0, Ok(TokenType::Let));
@@ -393,7 +384,7 @@ mod tests {
         // Check that we get a proper LexingError for the oversized number
         match &tokens[3].0 {
             Err(LexingError::InvalidNumber { value, reason }) => {
-                assert_eq!(value, "0x80000000");
+                assert_eq!(value, &u32_max);
                 assert_eq!(reason, &NumberParseError::Overflow);
             }
             _ => panic!(

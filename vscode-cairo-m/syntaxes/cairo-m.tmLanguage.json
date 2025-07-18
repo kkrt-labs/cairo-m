@@ -154,7 +154,7 @@
       "patterns": [
         {
           "name": "support.type.primitive.cairo-m",
-          "match": "\\b(felt)\\b"
+          "match": "\\b(felt|u32)\\b"
         },
         {
           "name": "entity.name.type.cairo-m",
