@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1752847501441,
+  "lastUpdate": 1752851931526,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -659,6 +659,36 @@ window.BENCHMARK_DATA = {
             "name": "prover_fibonacci/prove",
             "value": 5893210712,
             "range": "± 25559473",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "clement0walter@gmail.com",
+            "name": "Clément Walter",
+            "username": "ClementWalter"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "52df73080408295fdf5628f1fff79e63cb5db784",
+          "message": "feat(prover): Remove StoreDerefFp opcode and replace with StoreAddFpImm (#174)\n\n* Fix typos\n\n* Vibecode it",
+          "timestamp": "2025-07-18T17:06:34+02:00",
+          "tree_id": "bc4a33b59ac85c1336128bd44c47a66cd1cbdffe",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/52df73080408295fdf5628f1fff79e63cb5db784"
+        },
+        "date": 1752851931167,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 5622709022,
+            "range": "± 20588429",
             "unit": "ns/iter"
           }
         ]
