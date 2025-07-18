@@ -392,14 +392,14 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         let def_id = DefinitionId::new(self.db, self.file, def_idx);
                         let mir_def_id = self.convert_definition_id(def_id);
 
-                        // Check if this variable is used
+                        // Check if this variable is used (read)
                         let is_used =
                             if let Some(definition) = self.semantic_index.definition(def_idx) {
                                 if let Some(place_table) =
                                     self.semantic_index.place_table(definition.scope_id)
                                 {
                                     if let Some(place) = place_table.place(definition.place_id) {
-                                        place.is_used()
+                                        place.is_read()
                                     } else {
                                         true
                                     }
@@ -564,7 +564,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                                     .place_table(def.scope_id)
                                     .and_then(|pt| pt.place(def.place_id))
                             })
-                            .map(|p| p.is_used())
+                            .map(|p| p.is_read())
                             .unwrap_or(true); // Conservatively assume used
 
                         let elem_type = element_types[i];
@@ -611,7 +611,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                             self.semantic_index.place_table(definition.scope_id)
                         {
                             if let Some(place) = place_table.place(definition.place_id) {
-                                place.is_used()
+                                place.is_read()
                             } else {
                                 true
                             }
@@ -696,7 +696,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                                 {
                                     // Check if the place is marked as used
                                     if let Some(place) = place_table.place(definition.place_id) {
-                                        place.is_used()
+                                        place.is_read()
                                     } else {
                                         true // Conservative: assume used if we can't find the place
                                     }
@@ -779,7 +779,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                                             if let Some(place) =
                                                 place_table.place(definition.place_id)
                                             {
-                                                place.is_used()
+                                                place.is_read()
                                             } else {
                                                 true
                                             }

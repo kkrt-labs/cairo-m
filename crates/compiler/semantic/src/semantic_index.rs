@@ -863,9 +863,9 @@ impl<'db> SemanticIndexBuilder<'db> {
             // Define parameters in the function scope
             for param in &func_def.params {
                 let def_kind = DefinitionKind::Parameter(ParameterDefRef::from_ast(param));
-                builder.add_place_with_definition(
+                let (_place_id, _def_id) = builder.add_place_with_definition(
                     param.name.value(),
-                    PlaceFlags::DEFINED | PlaceFlags::PARAMETER,
+                    PlaceFlags::DEFINED | PlaceFlags::PARAMETER | PlaceFlags::WRITTEN, // Mark as written since parameters receive values
                     def_kind,
                     param.name.span(),
                     param.name.span(), // TODO: Extend to full parameter span when available
@@ -943,9 +943,9 @@ impl<'db> SemanticIndexBuilder<'db> {
                             statement_type.clone(),
                             Some(value_expr_id),
                         ));
-                        self.add_place_with_definition(
+                        let (_place_id, _def_id) = self.add_place_with_definition(
                             name.value(),
-                            PlaceFlags::DEFINED,
+                            PlaceFlags::DEFINED | PlaceFlags::WRITTEN, // Mark as written since it receives a value
                             def_kind,
                             name.span(),
                             stmt.span(),
@@ -960,9 +960,9 @@ impl<'db> SemanticIndexBuilder<'db> {
                                 value_expr_id,
                                 index,
                             ));
-                            self.add_place_with_definition(
+                            let (_place_id, _def_id) = self.add_place_with_definition(
                                 name.value(),
-                                PlaceFlags::DEFINED,
+                                PlaceFlags::DEFINED | PlaceFlags::WRITTEN, // Mark as written since it receives a value
                                 def_kind,
                                 name.span(),
                                 stmt.span(),
@@ -977,9 +977,12 @@ impl<'db> SemanticIndexBuilder<'db> {
                 self.visit_const(&spanned_const);
             }
             Statement::Assignment { lhs, rhs } => {
-                // Visit both sides - assignment targets and values
-                let _lhs_expr_id = self.visit_expression(lhs);
+                // Visit RHS as normal (reads from variables)
                 let _rhs_expr_id = self.visit_expression(rhs);
+
+                // Visit LHS as assignment target (writes to variables)
+                let _lhs_expr_id = self.visit_assignment_target(lhs);
+
                 // TODO: Validate assignment compatibility (AssignmentValidator)
                 // - Check that LHS is actually assignable (not a constant, etc.)
                 // - Validate type compatibility between LHS and RHS
@@ -1107,13 +1110,13 @@ impl<'db> SemanticIndexBuilder<'db> {
 
                 let usage_index = self.index.add_identifier_usage(usage);
 
-                // This is a use of an identifier - mark it as used if we can resolve it
+                // This is a use of an identifier - mark it as read if we can resolve it
                 if let Some((def_scope_id, place_id)) =
                     self.index.resolve_name(name.value(), current_scope)
                 {
                     if let Some(place_table) = self.index.place_table_mut(def_scope_id) {
-                        // Mark the place as used
-                        place_table.mark_as_used(place_id);
+                        // Mark the place as read (its value is being accessed)
+                        place_table.mark_as_read(place_id);
 
                         // Find the corresponding definition ID and record the use-def relationship
                         if let Some((def_id, _)) =
@@ -1190,6 +1193,70 @@ impl<'db> SemanticIndexBuilder<'db> {
             } // TODO: Add support for more expression types as the parser is extended:
               // - Conditional expressions (ternary operator)
               // - Array/slice literals
+        }
+
+        expr_id
+    }
+
+    /// Visit an expression that is being assigned to (write operation)
+    fn visit_assignment_target(&mut self, expr: &Spanned<Expression>) -> ExpressionId {
+        // First, create an ExpressionInfo for this expression and track it
+        let expr_info = ExpressionInfo {
+            file: self.file,
+            ast_node: expr.value().clone(),
+            ast_span: expr.span(),
+            scope_id: self.current_scope(),
+        };
+        let expr_id = self.index.add_expression(expr_info);
+
+        match expr.value() {
+            Expression::Identifier(name) => {
+                let current_scope = self.current_scope();
+
+                // Create a usage entry for undefined variable detection
+                let usage = IdentifierUsage {
+                    name: name.value().clone(),
+                    span: name.span(),
+                    scope_id: current_scope,
+                };
+
+                let usage_index = self.index.add_identifier_usage(usage);
+
+                // Mark the variable as written if we can resolve it, and record the use-def relationship
+                if let Some((def_scope_id, place_id)) =
+                    self.index.resolve_name(name.value(), current_scope)
+                {
+                    if let Some(place_table) = self.index.place_table_mut(def_scope_id) {
+                        // Mark the place as written (it's being assigned to)
+                        place_table.mark_as_written(place_id);
+
+                        // Find the corresponding definition ID and record the use-def relationship
+                        if let Some((def_id, _)) =
+                            self.index.definition_for_place(def_scope_id, place_id)
+                        {
+                            self.index.add_use(usage_index, def_id);
+                        }
+                    }
+                }
+                // Note: If not resolved, the validator will catch it as an undeclared variable
+            }
+            Expression::MemberAccess { object, .. } => {
+                // For struct field assignments like `obj.field = value`
+                // We need to visit the object part as a read (to access the struct)
+                self.visit_expression(object);
+                // Note: The field itself doesn't need separate tracking
+            }
+            Expression::IndexAccess { array, index } => {
+                // For array assignments like `arr[i] = value`
+                // We need to visit both the array and index as reads
+                self.visit_expression(array);
+                self.visit_expression(index);
+            }
+            _ => {
+                // For other expressions used as assignment targets, treat them as reads
+                // This handles cases like function calls that return lvalues
+                self.visit_expression(expr);
+            }
         }
 
         expr_id

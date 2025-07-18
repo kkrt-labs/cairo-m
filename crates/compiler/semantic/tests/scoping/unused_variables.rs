@@ -111,7 +111,6 @@ fn test_parameter_used() {
 }
 
 #[test]
-#[ignore]
 fn test_unused_but_assigned() {
     // Variable is assigned but never read - should still be unused
     // TODO: fix this one
