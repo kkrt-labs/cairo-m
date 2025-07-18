@@ -64,7 +64,8 @@ use stwo_prover::core::poly::circle::CircleEvaluation;
 
 use crate::adapter::ExecutionBundle;
 use crate::components::Relations;
-use crate::utils::{Enabler, PackedExecutionBundle};
+use crate::utils::enabler::Enabler;
+use crate::utils::execution_bundle::PackedExecutionBundle;
 
 const N_TRACE_COLUMNS: usize = 14;
 const N_MEMORY_LOOKUPS: usize = 8;
