@@ -104,7 +104,6 @@ fn relation_entries(
         add_to_relation_entries(&opcodes.jmp_abs_imm, trace),
         add_to_relation_entries(&opcodes.jmp_rel_imm, trace),
         add_to_relation_entries(&opcodes.jnz_fp_imm, trace),
-        add_to_relation_entries(&opcodes.jnz_fp_imm_taken, trace),
         add_to_relation_entries(&opcodes.ret, trace),
         add_to_relation_entries(&opcodes.store_add_fp_fp, trace),
         add_to_relation_entries(&opcodes.store_add_fp_imm, trace),

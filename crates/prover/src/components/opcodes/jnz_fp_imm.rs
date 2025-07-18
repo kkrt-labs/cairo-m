@@ -1,8 +1,6 @@
 //! This component is used to prove the JnzFpImm opcode.
 //! jmp rel imm if [fp + off0] != 0
 //!
-//! **One needs two components for this opcode: jnz_fp_fp and jnz_fp_fp_taken**
-//!
 //! # Columns
 //!
 //! - enabler
@@ -14,14 +12,17 @@
 //! - imm
 //! - op0_prev_clock
 //! - op0_val
+//! - taken
 //!
-//! # Constraints jnz_fp_fp (not taken)
+//! # Constraints
 //!
 //! * enabler is a bool
 //!   * `enabler * (1 - enabler)`
-//! * registers update is regular
-//!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
-//!   * `op0_val` (=0)
+//! * conditional jump logic
+//!   * `op0_val * (taken - 1) = 0` (either op0_val = 0 or taken = 1)
+//!   * `taken * (1 - taken)`
+//! * registers update is conditional
+//!   * `- [pc, fp] + [pc + 1 + taken * (imm - 1), fp]` in `Registers` relation
 //! * read instruction from memory
 //!   * `- [pc, inst_prev_clk, opcode_constant, off0, imm] + [pc, clk, opcode_constant, off0, imm]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
@@ -59,13 +60,13 @@ use crate::components::Relations;
 use crate::utils::enabler::Enabler;
 use crate::utils::execution_bundle::PackedExecutionBundle;
 
-const N_TRACE_COLUMNS: usize = 9;
+const N_TRACE_COLUMNS: usize = 10;
 const N_MEMORY_LOOKUPS: usize = 4;
 const N_REGISTERS_LOOKUPS: usize = 2;
 const N_RANGE_CHECK_20_LOOKUPS: usize = 2;
 
 const N_LOOKUPS_COLUMNS: usize = SECURE_EXTENSION_DEGREE
-    * (N_MEMORY_LOOKUPS + N_REGISTERS_LOOKUPS + N_RANGE_CHECK_20_LOOKUPS).div_ceil(2);
+    * ((N_MEMORY_LOOKUPS + N_REGISTERS_LOOKUPS + N_RANGE_CHECK_20_LOOKUPS).div_ceil(2) + 1);
 
 pub struct InteractionClaimData {
     pub lookup_data: LookupData,
@@ -98,9 +99,8 @@ impl Claim {
     /// Writes the trace for the JnzFpImm opcode.
     ///
     /// # Important
-    /// This function filters the inputs and creates a local vector which is cleared after processing.
-    /// The local vector's capacity is preserved but its length is set to 0.
-    /// This is done to free memory during proof generation as the filtered inputs are no longer needed
+    /// This function consumes the contents of `inputs` by clearing it after processing.
+    /// This is done to free memory during proof generation as the inputs are no longer needed
     /// after being packed into SIMD-friendly format.
     pub fn write_trace<MC: MerkleChannel>(
         inputs: &mut Vec<ExecutionBundle>,
@@ -108,11 +108,6 @@ impl Claim {
     where
         SimdBackend: BackendForChannel<MC>,
     {
-        let mut inputs = inputs
-            .extract_if(.., |input| {
-                input.operands[0].is_some_and(|data| data.value == M31::zero())
-            })
-            .collect::<Vec<_>>();
         let non_padded_length = inputs.len();
         let log_size = std::cmp::max(LOG_N_LANES, non_padded_length.next_power_of_two().ilog2());
 
@@ -157,6 +152,13 @@ impl Claim {
                 let imm = input.inst_value_2;
                 let op0_prev_clock = input.mem1_prev_clock;
                 let op0_val = input.mem1_value;
+                let taken = PackedM31::from(op0_val.to_array().map(|m| {
+                    if m == M31::zero() {
+                        M31::zero()
+                    } else {
+                        M31::one()
+                    }
+                }));
 
                 *row[0] = enabler;
                 *row[1] = pc;
@@ -167,11 +169,13 @@ impl Claim {
                 *row[6] = imm;
                 *row[7] = op0_prev_clock;
                 *row[8] = op0_val;
+                *row[9] = taken;
 
-                // TODO: This component requires special handling for taken vs not taken branches
-                // For now, implementing as not taken (op0_val = 0 case)
+                // Conditional PC update: if taken then pc+imm, else pc+1
+                let pc_new = pc + one + taken * (imm - one);
+
                 *lookup_data.registers[0] = [input.pc, input.fp];
-                *lookup_data.registers[1] = [input.pc + one, input.fp];
+                *lookup_data.registers[1] = [pc_new, input.fp];
 
                 *lookup_data.memory[0] =
                     [input.pc, inst_prev_clock, opcode_constant, off0, imm, zero];
@@ -219,20 +223,29 @@ impl InteractionClaim {
         (
             col.par_iter_mut(),
             &interaction_claim_data.lookup_data.registers[0],
+        )
+            .into_par_iter()
+            .enumerate()
+            .for_each(|(i, (writer, registers))| {
+                let num = -PackedQM31::from(enabler_col.packed_at(i));
+                let denom: PackedQM31 = relations.registers.combine(registers);
+
+                writer.write_frac(num, denom);
+            });
+        col.finalize_col();
+
+        let mut col = interaction_trace.new_col();
+        (
+            col.par_iter_mut(),
             &interaction_claim_data.lookup_data.registers[1],
         )
             .into_par_iter()
             .enumerate()
-            .for_each(|(i, (writer, registers_prev, registers_new))| {
-                let num_prev = -PackedQM31::from(enabler_col.packed_at(i));
-                let num_new = PackedQM31::from(enabler_col.packed_at(i));
-                let denom_prev: PackedQM31 = relations.registers.combine(registers_prev);
-                let denom_new: PackedQM31 = relations.registers.combine(registers_new);
+            .for_each(|(i, (writer, registers))| {
+                let num = PackedQM31::from(enabler_col.packed_at(i));
+                let denom: PackedQM31 = relations.registers.combine(registers);
 
-                let numerator = num_prev * denom_new + num_new * denom_prev;
-                let denom = denom_prev * denom_new;
-
-                writer.write_frac(numerator, denom);
+                writer.write_frac(num, denom);
             });
         col.finalize_col();
 
@@ -330,12 +343,19 @@ impl FrameworkEval for Eval {
         let imm = eval.next_trace_mask();
         let op0_prev_clock = eval.next_trace_mask();
         let op0_val = eval.next_trace_mask();
+        let taken = eval.next_trace_mask();
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
 
-        // Op0 val is 0
-        eval.add_constraint(enabler.clone() * op0_val.clone());
+        // Either op0_val = 0 or taken = 1
+        eval.add_constraint(enabler.clone() * op0_val.clone() * (taken.clone() - one.clone()));
+
+        // Taken is 1 or 0
+        eval.add_constraint(enabler.clone() * taken.clone() * (one.clone() - taken.clone()));
+
+        // Conditional PC update
+        let pc_new = pc.clone() + one.clone() + taken * (imm.clone() - one);
 
         // Registers update
         eval.add_to_relation(RelationEntry::new(
@@ -346,7 +366,7 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.registers,
             E::EF::from(enabler.clone()),
-            &[pc.clone() + one, fp.clone()],
+            &[pc_new, fp.clone()],
         ));
 
         // Read instruction from memory
@@ -395,7 +415,12 @@ impl FrameworkEval for Eval {
             &[clock - op0_prev_clock - enabler],
         ));
 
-        eval.finalize_logup_in_pairs();
+        eval.finalize_logup_batched(&vec![
+            0, 1, // Registers
+            2, 2, // Instruction
+            3, 3, // Op0
+            4, 4, // Range check 20
+        ]);
         eval
     }
 }
