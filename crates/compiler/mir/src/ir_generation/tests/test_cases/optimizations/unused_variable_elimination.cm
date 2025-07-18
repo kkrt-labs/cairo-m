@@ -18,6 +18,11 @@ fn test_unused_struct(a: felt, b: felt) -> felt {
     return 0;
 }
 
+fn test_unused_tuple(a: felt, b: felt) -> felt {
+    let t = (a, b); // Unused - should NOT allocate
+    return 0;
+}
+
 
 fn foo() -> felt {
     return 0;

@@ -29,6 +29,11 @@ fn test_unused_struct(a: felt, b: felt) -> felt {
     return 0;
 }
 
+fn test_unused_tuple(a: felt, b: felt) -> felt {
+    let t = (a, b); // Unused - should NOT allocate
+    return 0;
+}
+
 
 fn foo() -> felt {
     return 0;
@@ -74,7 +79,8 @@ module {
   }
 
   // Function 2
-  fn foo {
+  fn test_unused_tuple {
+    parameters: [0, 1]
     entry: 0
 
     0:
@@ -83,11 +89,20 @@ module {
   }
 
   // Function 3
+  fn foo {
+    entry: 0
+
+    0:
+      return 0
+
+  }
+
+  // Function 4
   fn test_unused_side_effect {
     entry: 0
 
     0:
-      %1 = call 2()
+      %1 = call 3()
       return 0
 
   }
