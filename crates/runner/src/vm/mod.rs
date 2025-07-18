@@ -17,9 +17,6 @@ use thiserror::Error;
 use crate::RunnerOptions;
 use crate::memory::{Memory, MemoryError};
 
-// Current limitation is that the maximum clock difference must be < 2^20
-const MAX_N_STEPS: usize = (1 << 20) - 1;
-
 enum ExecutionStatus {
     Complete,
     Ongoing,
@@ -32,8 +29,6 @@ pub enum VmError {
     Memory(#[from] MemoryError),
     #[error("VM instruction error: {0}")]
     Instruction(#[from] InstructionError),
-    #[error("VM didn't reach the final PC, step limit reached: {0}")]
-    StepLimitReached(usize),
     #[error("VM I/O error: {0}")]
     Io(#[from] io::Error),
 }
@@ -43,10 +38,12 @@ pub enum VmError {
 /// ## Fields
 ///
 /// - `final_pc`: The final program counter (PC) of the executed program.
+/// - `initial_memory`: the memory right before the first step.
 /// - `memory`: Flat address space storing instructions and data
 /// - `state`: Current processor state (PC, FP)
 /// - `program_length`: Length of the program in instructions
 /// - `trace`: Execution trace
+/// - `segments`: chunks of execution containing necessary data for continuation.
 #[derive(Debug, Default, Clone)]
 pub struct VM {
     pub final_pc: M31,
@@ -55,7 +52,6 @@ pub struct VM {
     pub state: State,
     pub program_length: M31,
     pub trace: Vec<State>,
-    pub steps_counter: usize,
     pub segments: Vec<Segment>,
 }
 
@@ -104,7 +100,6 @@ impl TryFrom<&Program> for VM {
             state,
             program_length,
             trace: vec![],
-            steps_counter: 0,
             segments: vec![],
         })
     }
@@ -126,12 +121,12 @@ impl VM {
         Ok(())
     }
 
-    /// Executes the loaded program from start to completion with a limit on the number of steps.
+    /// Executes the loaded program from start to either completion or target number of steps is reached.
     ///
     /// This method runs the VM by repeatedly calling [`step()`](Self::step) until the program
     /// counter reaches the end of the loaded instructions. It assumes that the program is loaded
-    /// at the beginning of the memory ([0..instructions_length]). The prover enforces that the
-    /// maximum number of steps is less than 2^20.
+    /// at the beginning of the memory ([0..instructions_length]). The prover enforces that memory accesses
+    /// are not seperated by more than 2^20 steps.
     ///
     /// ## Arguments
     ///
@@ -142,16 +137,13 @@ impl VM {
     /// Returns a [`VmError`] if any instruction execution fails:
     /// - Invalid opcodes ([`VmError::Instruction`])
     /// - Memory errors ([`VmError::Memory`])
-    /// - Step limit error ([`VmError::StepLimitReached`])
-    fn execute(&mut self, n_steps: Option<usize>) -> Result<ExecutionStatus, VmError> {
+    fn execute(&mut self, n_steps: usize) -> Result<ExecutionStatus, VmError> {
         if self.final_pc.is_zero() {
             return Ok(ExecutionStatus::Complete);
         }
 
-        while self.state.pc != self.final_pc && self.steps_counter < n_steps.unwrap_or(MAX_N_STEPS)
-        {
+        while self.state.pc != self.final_pc && self.trace.len() < n_steps {
             self.step()?;
-            self.steps_counter += 1;
         }
 
         // Push the final state to the trace
@@ -159,13 +151,14 @@ impl VM {
 
         if self.state.pc == self.final_pc {
             Ok(ExecutionStatus::Complete)
-        } else if self.steps_counter >= MAX_N_STEPS {
-            Err(VmError::StepLimitReached(self.steps_counter))
         } else {
             Ok(ExecutionStatus::Ongoing)
         }
     }
 
+    /// Finalizes the current segment by moving the current segment data into a new segment.
+    ///
+    /// This method is called when the numbers of steps for the current segment is reached or for the last segment.
     fn finalize_segment(&mut self) {
         // Move the current segment data into a new segment
         self.segments.push(Segment {
@@ -173,7 +166,6 @@ impl VM {
             memory_trace: std::mem::take(&mut self.memory.trace),
             trace: std::mem::take(&mut self.trace),
         });
-        self.steps_counter = 0;
     }
 
     /// Executes the loaded program from a given entrypoint and frame pointer.
@@ -225,38 +217,12 @@ impl VM {
 
         loop {
             match self.execute(options.n_steps) {
-                Ok(ExecutionStatus::Complete) => {
-                    self.finalize_segment();
-                    break;
-                }
+                Ok(ExecutionStatus::Complete) => break self.finalize_segment(),
                 Ok(ExecutionStatus::Ongoing) => self.finalize_segment(),
                 Err(e) => return Err(e),
             }
         }
         Ok(())
-    }
-
-    /// Serializes a segment's trace to a byte vector.
-    ///
-    /// Each trace entry consists of `fp` and `pc` values, both `u32`.
-    /// This function serializes the trace as a flat sequence of bytes.
-    /// For each entry, it first serializes `fp` into little-endian bytes,
-    /// followed by the little-endian bytes of `pc`.
-    ///
-    /// ## Arguments
-    ///
-    /// * `segment` - The segment to serialize
-    ///
-    /// ## Returns
-    ///
-    /// A `Vec<u8>` containing the serialized trace data for the segment.
-    fn serialize_segment_trace(segment: &Segment) -> Vec<u8> {
-        segment
-            .trace
-            .iter()
-            .flat_map(|entry| [entry.fp.0, entry.pc.0])
-            .flat_map(u32::to_le_bytes)
-            .collect()
     }
 
     /// Writes the serialized trace to binary files, one per segment.
@@ -291,54 +257,12 @@ impl VM {
         // Write each segment's trace
         for (i, segment) in self.segments.iter().enumerate() {
             let segment_path = format!("{}_segment_{}{}", base, i, ext);
-            let serialized_trace = Self::serialize_segment_trace(segment);
+            let serialized_trace = segment.serialize_segment_trace();
             let mut file = File::create(&segment_path)?;
             file.write_all(&serialized_trace)?;
         }
 
         Ok(())
-    }
-
-    /// Writes the serialized memory trace to binary files, one per segment.
-    ///
-    /// This function creates a file for each segment with the naming pattern:
-    /// `<base_path>_segment_<index>.<extension>`
-    ///
-    /// Each file starts with the program length, followed by the serialized memory trace
-    /// for that segment.
-    ///
-    /// ## Arguments
-    ///
-    /// * `path` - The base file path for the binary memory trace files.
-    ///
-    /// Serializes the memory trace of a single segment into a binary format.
-    ///
-    /// The binary format consists of a sequence of memory entries, where each entry contains:
-    /// - Address (4 bytes, little-endian u32)
-    /// - Value (16 bytes, representing QM31 as 4 u32 values in little-endian)
-    ///
-    /// ## Arguments
-    ///
-    /// * `segment` - The segment whose memory trace should be serialized
-    ///
-    /// ## Returns
-    ///
-    /// A vector of bytes containing the serialized memory trace
-    fn serialize_segment_memory_trace(segment: &Segment) -> Vec<u8> {
-        let memory_trace = segment.memory_trace.borrow();
-        memory_trace
-            .iter()
-            .flat_map(|entry| {
-                let mut bytes = Vec::with_capacity(20);
-                bytes.extend_from_slice(&entry.addr.0.to_le_bytes());
-                // QM31 has two CM31 fields, each CM31 has two M31 fields
-                bytes.extend_from_slice(&entry.value.0.0.0.to_le_bytes());
-                bytes.extend_from_slice(&entry.value.0.1.0.to_le_bytes());
-                bytes.extend_from_slice(&entry.value.1.0.0.to_le_bytes());
-                bytes.extend_from_slice(&entry.value.1.1.0.to_le_bytes());
-                bytes
-            })
-            .collect()
     }
 
     /// ## Errors
@@ -365,7 +289,7 @@ impl VM {
             file.write_all(&self.program_length.0.to_le_bytes())?;
 
             // Serialize and write the segment's memory trace
-            let serialized = Self::serialize_segment_memory_trace(segment);
+            let serialized = segment.serialize_segment_memory_trace();
             file.write_all(&serialized)?;
         }
 

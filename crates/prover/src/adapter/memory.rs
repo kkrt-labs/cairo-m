@@ -232,10 +232,6 @@ impl Memory {
                 .initial_memory
                 .get_mut(&(memory_entry.address, M31::from(TREE_HEIGHT)))
             {
-                debug_assert_eq!(
-                    initial_memory_cell.0, memory_entry.value,
-                    "Initial memory value mismatch"
-                );
                 // Update the multiplicity to 1
                 initial_memory_cell.2 = M31::one();
             } else {

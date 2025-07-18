@@ -170,7 +170,6 @@ fn test_execute_with_error() {
         },
         program_length: M31::from(instructions.len() as u32),
         trace: vec![],
-        steps_counter: 0,
         segments: vec![],
     };
     // Execute should fail when it hits the invalid instruction
@@ -402,7 +401,7 @@ fn test_write_binary_trace_per_segment() {
     let mut vm = VM::try_from(&program).unwrap();
 
     // Execute with segments - this will hit step limit and create segments
-    let _ = vm.run_from_entrypoint(0, 3, &[], 0, RunnerOptions { n_steps: Some(2) });
+    let _ = vm.run_from_entrypoint(0, 3, &[], 0, RunnerOptions { n_steps: 2 });
 
     // Create a temporary directory for the trace files
     let temp_dir = tempfile::tempdir().unwrap();
@@ -442,7 +441,7 @@ fn test_write_binary_memory_trace_per_segment() {
     let mut vm = VM::try_from(&program).unwrap();
 
     // Execute with segments (limit steps to create multiple segments)
-    let _ = vm.run_from_entrypoint(0, 3, &[], 0, RunnerOptions { n_steps: Some(2) });
+    let _ = vm.run_from_entrypoint(0, 3, &[], 0, RunnerOptions { n_steps: 2 });
 
     // Create a temporary directory for the memory trace files
     let temp_dir = tempfile::tempdir().unwrap();

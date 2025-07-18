@@ -150,7 +150,7 @@ fn test_hash_continuity_fibonacci() {
     )
     .unwrap();
 
-    let runner_options = RunnerOptions { n_steps: Some(10) };
+    let runner_options = RunnerOptions { n_steps: 10 };
 
     let runner_output = run_cairo_program(
         &compiled_fib.program,
