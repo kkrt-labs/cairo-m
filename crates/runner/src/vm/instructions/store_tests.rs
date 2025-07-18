@@ -68,21 +68,6 @@ fn test_store_sub_fp_imm() -> Result<(), MemoryError> {
 }
 
 #[test]
-fn test_store_deref_fp() -> Result<(), MemoryError> {
-    let mut memory = Memory::from_iter([0, 4].map(Into::into));
-    let state = State::default();
-    let instruction = instr!(Opcode::StoreDerefFp, 1, 0, 2);
-
-    let new_state = store_deref_fp(&mut memory, state, &instruction)?;
-
-    let expected_memory = Memory::from_iter([0, 4, 4].map(Into::into));
-    assert_eq!(memory.data, expected_memory.data);
-    assert_vm_state!(new_state, 1, 0);
-
-    Ok(())
-}
-
-#[test]
 fn test_store_double_deref_fp() -> Result<(), MemoryError> {
     let mut memory = Memory::from_iter([0, 1, 7, 9].map(Into::into));
     let state = State::default();

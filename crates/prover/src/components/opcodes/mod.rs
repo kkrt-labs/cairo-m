@@ -193,7 +193,6 @@ define_opcodes! {
     (Opcode::Ret, ret),
     (Opcode::StoreAddFpFp, store_add_fp_fp),
     (Opcode::StoreAddFpImm, store_add_fp_imm),
-    (Opcode::StoreDerefFp, store_deref_fp),
     (Opcode::StoreDivFpFp, store_div_fp_fp),
     (Opcode::StoreDivFpImm, store_div_fp_imm),
     (Opcode::StoreDoubleDerefFp, store_double_deref_fp),

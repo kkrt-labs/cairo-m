@@ -156,7 +156,7 @@ fn test_execute_with_error() {
     // Create a program with an invalid instructions
 
     let instructions = [
-        QM31::from_m31_array([M31::from(6), M31::from(10), Zero::zero(), Zero::zero()]), // Valid: [fp + 0] = 10
+        QM31::from_m31_array([M31::from(5), M31::from(10), Zero::zero(), Zero::zero()]), // Valid: [fp + 0] = 10
         QM31::from_m31_array([M31::from(99), Zero::zero(), Zero::zero(), Zero::zero()]), // Invalid: opcode 99
     ];
     let initial_memory = Memory::from_iter(instructions);
@@ -319,8 +319,8 @@ fn run_fib_test(n: u32) {
         // Exit jump if counter was 0
         instr!(Opcode::JmpAbsImm, 10, 0, 0), // jmp_abs_imm: jmp abs 10
         // Loop body
-        instr!(Opcode::StoreDerefFp, 1, 0, 3), // store_deref_fp: [fp+3] = [fp+1] (tmp = a)
-        instr!(Opcode::StoreDerefFp, 2, 0, 1), // store_deref_fp: [fp+1] = [fp+2] (a = b)
+        instr!(Opcode::StoreAddFpImm, 1, 0, 3), // store_add_fp_imm: [fp+3] = [fp+1] + 0 (tmp = a)
+        instr!(Opcode::StoreAddFpImm, 2, 0, 1), // store_add_fp_imm: [fp+1] = [fp+2] + 0 (a = b)
         instr!(Opcode::StoreAddFpFp, 3, 2, 2), // store_add_fp_fp: [fp+2] = [fp+3] + [fp+2] (b = temp + b)
         instr!(Opcode::StoreSubFpImm, 0, 1, 0), // store_sub_fp_imm: [fp+0] = [fp+0] - 1 (counter--)
         // Jump back to condition check
@@ -389,8 +389,8 @@ fn run_exponential_recursive_fib_test(n: u32) {
         instr!(Opcode::StoreImm, n, 0, 0), // 0: store_imm: [fp] = n
         instr!(Opcode::CallAbsImm, 2, 4, 0), // 1: call_abs_imm: call fib(n)
         // Store the computed fib(n) and return.
-        instr!(Opcode::StoreDerefFp, 1, 0, minus_3), // 2: store_deref_fp: [fp - 3] = [fp + 1]
-        instr!(Opcode::Ret, 0, 0, 0),                // 3: ret
+        instr!(Opcode::StoreAddFpImm, 1, 0, minus_3), // 2: store_add_fp_imm: [fp - 3] = [fp + 1] + 0
+        instr!(Opcode::Ret, 0, 0, 0),                 // 3: ret
         // fib(n: felt) function
         // Check if argument is 0
         instr!(Opcode::JnzFpImm, minus_4, 3, 0), // 4: jnz_fp_imm: jmp rel 3 if [fp - 4] != 0
@@ -407,7 +407,7 @@ fn run_exponential_recursive_fib_test(n: u32) {
         // fib(n-1)
         // n - 1 is already stored at [fp], ready to be used as argument.
         instr!(Opcode::CallAbsImm, 2, 4, 0), // 11: call_abs_imm: call fib(n-1)
-        instr!(Opcode::StoreDerefFp, 1, 0, minus_3), // 12: store_deref_fp: [fp - 3] = [fp + 1]
+        instr!(Opcode::StoreAddFpImm, 1, 0, minus_3), // 12: store_add_fp_imm: [fp - 3] = [fp + 1] + 0
         // fib(n-2)
         instr!(Opcode::StoreSubFpImm, 0, 1, 0), // 13: Store n - 2, from previously computed n - 1 [fp] = [fp] - 1
         instr!(Opcode::CallAbsImm, 2, 4, 0),    // 1

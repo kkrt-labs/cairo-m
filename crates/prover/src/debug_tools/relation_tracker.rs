@@ -108,7 +108,6 @@ fn relation_entries(
         add_to_relation_entries(&opcodes.ret, trace),
         add_to_relation_entries(&opcodes.store_add_fp_fp, trace),
         add_to_relation_entries(&opcodes.store_add_fp_imm, trace),
-        add_to_relation_entries(&opcodes.store_deref_fp, trace),
         add_to_relation_entries(&opcodes.store_div_fp_fp, trace),
         add_to_relation_entries(&opcodes.store_div_fp_imm, trace),
         add_to_relation_entries(&opcodes.store_double_deref_fp, trace),

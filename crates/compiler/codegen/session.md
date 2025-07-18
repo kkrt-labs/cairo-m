@@ -28,7 +28,6 @@ operations:
 
 2. **Data Movement**
 
-   - `STORE_DEREF_FP` (opcode 4): Copy value from one fp location to another
    - `STORE_IMM` (opcode 6): Store immediate value to fp location
 
 3. **Control Flow**

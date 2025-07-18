@@ -21,7 +21,7 @@ Generated CASM:
 with_left_imm:
 with_left_imm:
 with_left_imm_0:
-   0: 6 2 _ 0              // [fp + 0] = 2
-   1: 6 20 _ 2             // [fp + 2] = 20
-   2: 9 2 0 -3             // [fp + -3] = [fp + 2] op [fp + 0]
-   3: 12 _ _ _             // return
+   0: 5 2 _ 0              // [fp + 0] = 2
+   1: 5 20 _ 2             // [fp + 2] = 20
+   2: 8 2 0 -3             // [fp + -3] = [fp + 2] op [fp + 0]
+   3: 11 _ _ _             // return

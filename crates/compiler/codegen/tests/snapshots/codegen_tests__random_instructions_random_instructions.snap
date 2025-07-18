@@ -41,78 +41,78 @@ fn bar() -> felt {
 ============================================================
 Generated CASM:
 main:
-   0: 6 3 _ 0              // Store immediate: [fp + 0] = 3
-   1: 6 13 _ 1             // Store immediate: [fp + 1] = 13
-   2: 6 16 _ 2             // Store immediate: [fp + 2] = 16
+   0: 5 3 _ 0              // Store immediate: [fp + 0] = 3
+   1: 5 13 _ 1             // Store immediate: [fp + 1] = 13
+   2: 5 16 _ 2             // Store immediate: [fp + 2] = 16
    3: 2 0 1 3              // [fp + 3] = [fp + 0] op [fp + 1]
-   4: 15 3 3 _             // if [fp + 3] != 0, jump to not_zero_0
-   5: 6 1 _ 3              // [fp + 3] = 1
-   6: 13 8 _ _             // jump to end_1
+   4: 14 3 3 _             // if [fp + 3] != 0, jump to not_zero_0
+   5: 5 1 _ 3              // [fp + 3] = 1
+   6: 12 8 _ _             // jump to end_1
 not_zero_0:
-   7: 6 0 _ 3              // [fp + 3] = 0
+   7: 5 0 _ 3              // [fp + 3] = 0
 end_1:
-   8: 6 1 _ 4              // Store immediate: [fp + 4] = 1
-   9: 15 3 2 _             // if [fp + 3] != 0 jmp rel main_1
-  10: 13 13 _ _            // jump abs main_2
+   8: 5 1 _ 4              // Store immediate: [fp + 4] = 1
+   9: 14 3 2 _             // if [fp + 3] != 0 jmp rel main_1
+  10: 12 13 _ _            // jump abs main_2
 main_1:
   11: 0 4 3 5              // [fp + 5] = [fp + 4] op [fp + 3]
   12: 1 5 1 4              // [fp + 4] = [fp + 5] op 1
 main_2:
-  13: 4 4 _ 24             // [fp + 24] = [fp + 4]
-  14: 4 4 _ 25             // [fp + 25] = [fp + 4]
-  15: 7 24 25 4            // [fp + 4] = [fp + 24] op [fp + 25]
-  16: 10 2 2 6             // [fp + 6] = [fp + 2] op 2
-  17: 4 4 _ 24             // [fp + 24] = [fp + 4]
+  13: 1 4 0 24             // [fp + 24] = [fp + 4] + 0
+  14: 1 4 0 25             // [fp + 25] = [fp + 4] + 0
+  15: 6 24 25 4            // [fp + 4] = [fp + 24] op [fp + 25]
+  16: 9 2 2 6              // [fp + 6] = [fp + 2] op 2
+  17: 1 4 0 24             // [fp + 24] = [fp + 4] + 0
   18: 0 24 6 4             // [fp + 4] = [fp + 24] op [fp + 6]
   19: 3 0 3 7              // [fp + 7] = [fp + 0] op 3
-  20: 15 7 3 _             // if [fp + 7] != 0, jump to not_zero_2
-  21: 6 1 _ 7              // [fp + 7] = 1
-  22: 13 24 _ _            // jump to end_3
+  20: 14 7 3 _             // if [fp + 7] != 0, jump to not_zero_2
+  21: 5 1 _ 7              // [fp + 7] = 1
+  22: 12 24 _ _            // jump to end_3
 not_zero_2:
-  23: 6 0 _ 7              // [fp + 7] = 0
+  23: 5 0 _ 7              // [fp + 7] = 0
 end_3:
   24: 3 1 3 8              // [fp + 8] = [fp + 1] op 3
-  25: 15 8 3 _             // if [fp + 8] != 0, jump to not_zero_4
-  26: 6 1 _ 8              // [fp + 8] = 1
-  27: 13 29 _ _            // jump to end_5
+  25: 14 8 3 _             // if [fp + 8] != 0, jump to not_zero_4
+  26: 5 1 _ 8              // [fp + 8] = 1
+  27: 12 29 _ _            // jump to end_5
 not_zero_4:
-  28: 6 0 _ 8              // [fp + 8] = 0
+  28: 5 0 _ 8              // [fp + 8] = 0
 end_5:
   29: 1 8 2 9              // [fp + 9] = [fp + 8] op 2
-  30: 6 0 _ 10             // Initialize OR result to 0
-  31: 15 0 3 _             // if [fp + 0] != 0, jump to or_true_6
-  32: 15 9 2 _             // if [fp + 9] != 0, jump to or_true_6
-  33: 13 35 _ _            // jump to or_end_7
+  30: 5 0 _ 10             // Initialize OR result to 0
+  31: 14 0 3 _             // if [fp + 0] != 0, jump to or_true_6
+  32: 14 9 2 _             // if [fp + 9] != 0, jump to or_true_6
+  33: 12 35 _ _            // jump to or_end_7
 or_true_6:
-  34: 6 1 _ 10             // [fp + 10] = 1
+  34: 5 1 _ 10             // [fp + 10] = 1
 or_end_7:
   35: 3 3 2 11             // [fp + 11] = [fp + 3] op 2
-  36: 15 11 3 _            // if [fp + 11] != 0, jump to neq_non_zero_8
-  37: 6 0 _ 11             // [fp + 11] = 0
-  38: 13 40 _ _            // jump to neq_end_9
+  36: 14 11 3 _            // if [fp + 11] != 0, jump to neq_non_zero_8
+  37: 5 0 _ 11             // [fp + 11] = 0
+  38: 12 40 _ _            // jump to neq_end_9
 neq_non_zero_8:
-  39: 6 1 _ 11             // [fp + 11] = 1
+  39: 5 1 _ 11             // [fp + 11] = 1
 neq_end_9:
-  40: 8 11 3 12            // [fp + 12] = [fp + 11] op 3
-  41: 15 12 3 _            // if [fp + 12] != 0, jump to and_non_zero_10
-  42: 6 0 _ 12             // [fp + 12] = 0
-  43: 13 45 _ _            // jump to and_end_11
+  40: 7 11 3 12            // [fp + 12] = [fp + 11] op 3
+  41: 14 12 3 _            // if [fp + 12] != 0, jump to and_non_zero_10
+  42: 5 0 _ 12             // [fp + 12] = 0
+  43: 12 45 _ _            // jump to and_end_11
 and_non_zero_10:
-  44: 6 1 _ 12             // [fp + 12] = 1
+  44: 5 1 _ 12             // [fp + 12] = 1
 and_end_11:
-  45: 11 15 54 _           // call foo
+  45: 10 15 54 _           // call foo
   46: 0 4 7 17             // [fp + 17] = [fp + 4] op [fp + 7]
   47: 0 17 13 18           // [fp + 18] = [fp + 17] op [fp + 13]
-  48: 11 20 57 _           // call bar
+  48: 10 20 57 _           // call bar
   49: 0 18 19 21           // [fp + 21] = [fp + 18] op [fp + 19]
   50: 0 21 14 22           // [fp + 22] = [fp + 21] op [fp + 14]
   51: 0 22 10 23           // [fp + 23] = [fp + 22] op [fp + 10]
   52: 0 23 12 -3           // [fp + -3] = [fp + 23] op [fp + 12]
-  53: 12 _ _ _             // return
+  53: 11 _ _ _             // return
 foo:
-  54: 6 32 _ -4            // Return value 0: [fp -4] = 32
-  55: 6 62 _ -3            // Return value 1: [fp -3] = 62
-  56: 12 _ _ _             // return
+  54: 5 32 _ -4            // Return value 0: [fp -4] = 32
+  55: 5 62 _ -3            // Return value 1: [fp -3] = 62
+  56: 11 _ _ _             // return
 bar:
-  57: 6 123 _ -3           // Return value 0: [fp -3] = 123
-  58: 12 _ _ _             // return
+  57: 5 123 _ -3           // Return value 0: [fp -3] = 123
+  58: 11 _ _ _             // return
