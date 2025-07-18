@@ -1,0 +1,14 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test(x: felt, x: felt) -> felt { return x; }
+--- Diagnostics ---
+[1003] Error: Duplicate definition of 'x'
+   ╭─[ semantic_tests::functions::parameter_validation::test_function_parameters:1:18 ]
+   │
+ 1 │ fn test(x: felt, x: felt) -> felt { return x; }
+   │                  ┬  
+   │                  ╰── Duplicate definition of 'x'
+───╯

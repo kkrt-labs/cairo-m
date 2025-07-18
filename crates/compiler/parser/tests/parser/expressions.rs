@@ -1,28 +1,31 @@
 use crate::common::in_function;
-use crate::{assert_parses_err, assert_parses_ok};
+use crate::{assert_parses_ok, assert_parses_parameterized};
 
 // ===================
 // Literals
 // ===================
 
 #[test]
-fn integer_literal() {
-    assert_parses_ok!(&in_function("42;"));
-}
-
-#[test]
-fn u32_bound_up() {
-    assert_parses_ok!(&in_function("4294967295;")); // u32::max
-}
-
-#[test]
-fn u32_overflow() {
-    assert_parses_err!(&in_function("4294967296;")); // u32::max + 1
-}
-
-#[test]
-fn invalid_number_format() {
-    assert_parses_err!(&in_function("0xGG;"));
+fn number_literals_parameterized() {
+    assert_parses_parameterized! {
+        ok: [
+            in_function("0;"),
+            in_function("1;"),
+            in_function("42;"),
+            in_function("1234567890;"),
+            in_function("4294967295;"), // u32::MAX
+            in_function("0x0;"),
+            in_function("0xFF;"),
+            in_function("0xABCDEF;"),
+        ],
+        err: [
+            in_function("4294967296;"), // u32::MAX + 1
+            in_function("0xGG;"),
+            in_function("0x;"),
+            in_function("123abc;"),
+            in_function("100"),
+        ]
+    }
 }
 
 // ===================
@@ -30,15 +33,16 @@ fn invalid_number_format() {
 // ===================
 
 #[test]
-fn simple_identifier() {
-    assert_parses_ok!(&in_function("my_var;"));
-}
-
-#[test]
-fn long_identifier() {
-    assert_parses_ok!(&in_function(
-        "very_long_variable_name_that_tests_identifier_parsing;"
-    ));
+fn identifier_parameterized() {
+    assert_parses_parameterized! {
+        ok: [
+            in_function("my_var;"),
+            in_function("very_long_variable_name_that_tests_identifier_parsing;"),
+        ],
+        err: [
+            in_function("my_var"),
+        ]
+    }
 }
 
 // ===================
@@ -59,9 +63,38 @@ fn unary_not() {
 // Binary Operations
 // ===================
 
+// Parameterized test for various binary operations
 #[test]
-fn addition() {
-    assert_parses_ok!(&in_function("a + b;"));
+fn binary_operations_parameterized() {
+    assert_parses_parameterized! {
+        ok: [
+            in_function("a + b;"),
+            in_function("a - b;"),
+            in_function("a * b;"),
+            in_function("a / b;"),
+            in_function("a == b;"),
+            in_function("a != b;"),
+            in_function("a < b;"),
+            in_function("a <= b;"),
+            in_function("a > b;"),
+            in_function("a >= b;"),
+            in_function("a && b;"),
+            in_function("a || b;"),
+        ],
+        err: [
+            in_function("a +;"),
+            in_function("+ b;"),
+            in_function("a ==;"),
+            in_function("&& b;"),
+            in_function("a | b;"),
+            in_function("a & b;"),
+            in_function("a ^ b;"),
+            in_function("a << b;"),
+            in_function("a >> b;"),
+            in_function("a % b;"),
+            in_function("a ** b;"),
+        ]
+    }
 }
 
 #[test]
@@ -84,38 +117,24 @@ fn precedence_chain() {
     assert_parses_ok!(&in_function("a || b && c == d + e * f / g - h;"));
 }
 
-#[test]
-fn invalid_binary_op() {
-    assert_parses_err!(&in_function("a +;"));
-}
-
 // ===================
 // Function Calls
 // ===================
 
 #[test]
-fn simple_function_call() {
-    assert_parses_ok!(&in_function("foo();"));
-}
-
-#[test]
-fn function_call_with_args() {
-    assert_parses_ok!(&in_function("add(a, b, c);"));
-}
-
-#[test]
-fn chained_calls() {
-    assert_parses_ok!(&in_function("obj.method().another();"));
-}
-
-#[test]
-fn trailing_comma_function_call() {
-    assert_parses_ok!(&in_function("foo(a, b, c,);"));
-}
-
-#[test]
-fn unclosed_paren() {
-    assert_parses_err!(&in_function("foo(a, b;"));
+fn function_call_parameterized() {
+    assert_parses_parameterized! {
+        ok: [
+            in_function("foo();"),
+            in_function("add(a, b, c);"),
+            in_function("foo(a, b, c,);"),
+            in_function("obj.method().another();"),
+            ],
+            err: [
+            in_function("foo(a, b;"),
+            in_function("add(a: felt, b: u32, c: bool);"),
+        ]
+    }
 }
 
 // ===================
@@ -123,20 +142,14 @@ fn unclosed_paren() {
 // ===================
 
 #[test]
-fn simple_member_access() {
-    assert_parses_ok!(&in_function("obj.field;"));
-}
-
-#[test]
-fn nested_member_access() {
-    assert_parses_ok!(&in_function("obj.inner.field;"));
-}
-
-#[test]
-fn chained_operations() {
-    assert_parses_ok!(&in_function(
-        "obj.method1().field.method2()[0].final_field;"
-    ));
+fn member_access_parameterized() {
+    assert_parses_parameterized! {
+        ok: [
+            in_function("obj.field;"),
+            in_function("obj.inner.field;"),
+            in_function("obj.method().field.method2()[0].final_field;"),
+        ]
+    }
 }
 
 // ===================
@@ -144,13 +157,13 @@ fn chained_operations() {
 // ===================
 
 #[test]
-fn array_index() {
-    assert_parses_ok!(&in_function("arr[0];"));
-}
-
-#[test]
-fn nested_index() {
-    assert_parses_ok!(&in_function("matrix[i][j];"));
+fn array_indexing_parameterized() {
+    assert_parses_parameterized! {
+        ok: [
+            in_function("arr[0];"),
+            in_function("matrix[i][j];"),
+        ]
+    }
 }
 
 // ===================
@@ -158,25 +171,19 @@ fn nested_index() {
 // ===================
 
 #[test]
-fn simple_struct_literal() {
-    assert_parses_ok!(&in_function("Point { x: 1, y: 2 };"));
-}
-
-#[test]
-fn nested_struct_literal() {
-    assert_parses_ok!(&in_function(
-        "Rectangle { top_left: Point { x: 0, y: 0 }, width: 10 };"
-    ));
-}
-
-#[test]
-fn empty_struct_literal() {
-    assert_parses_ok!(&in_function("Unit {};"));
-}
-
-#[test]
-fn trailing_comma_struct_literal() {
-    assert_parses_ok!(&in_function("Point { x: 1, y: 2, };"));
+fn struct_literal_parameterized() {
+    assert_parses_parameterized! {
+        ok: [
+            in_function("Point { x: 1, y: 2 };"),
+            in_function("Point { x: 1, y: 2, };"),
+            in_function("Rectangle { top_left: Point { x: 0, y: 0 }, width: 10 };"),
+            in_function("Unit {};"),
+        ],
+        err: [
+            in_function("Point { x: 1, y: 2, z };"),
+            in_function("Rectangle { top_left: Point { x: 0, y: 0 }, width: };"),
+        ]
+    }
 }
 
 // ===================
@@ -184,18 +191,17 @@ fn trailing_comma_struct_literal() {
 // ===================
 
 #[test]
-fn simple_tuple() {
-    assert_parses_ok!(&in_function("(1, 2, 3);"));
-}
-
-#[test]
-fn nested_tuple() {
-    assert_parses_ok!(&in_function("((1, 2), (3, 4));"));
-}
-
-#[test]
-fn single_element_tuple() {
-    assert_parses_ok!(&in_function("(single_element,);"));
+fn tuple_parameterized() {
+    assert_parses_parameterized! {
+        ok: [
+            in_function("(1, 2, 3);"),
+            in_function("((1, 2), (3, 4));"),
+            in_function("(single_element,);"),
+        ],
+        err: [
+            in_function("(single_element,"),
+        ]
+    }
 }
 
 // ===================
@@ -203,13 +209,13 @@ fn single_element_tuple() {
 // ===================
 
 #[test]
-fn parenthesized_expr() {
-    assert_parses_ok!(&in_function("(a + b);"));
-}
-
-#[test]
-fn deeply_nested() {
-    assert_parses_ok!(&in_function("((((((a + b) * c) - d) / e) == f) && g);"));
+fn parenthesized_expr_parameterized() {
+    assert_parses_parameterized! {
+        ok: [
+            in_function("(a + b);"),
+            in_function("((((((a + b) * c) - d) / e) == f) && g);"),
+        ]
+    }
 }
 
 // ===================

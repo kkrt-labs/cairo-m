@@ -1,0 +1,42 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+description: "Inline semantic validation error test: expressions::type_errors::test_multiple_type_errors_with_suggestions"
+---
+Fixture: semantic_tests::expressions::type_errors::test_multiple_type_errors_with_suggestions
+============================================================
+Source code:
+
+        struct Point { x: felt, y: felt }
+        struct Counter { value: felt }
+
+        fn test() -> felt {
+            let p = Point { x: 1, y: 2 };
+            let c = Counter { value: 10 };
+            let result = p + c;  // Two type errors, both should have suggestions
+            return result;
+        }
+    
+============================================================
+Found 2 diagnostic(s):
+
+--- Diagnostic 1 ---
+[2001] Error: Invalid left operand for arithmetic operator 'Add'. Expected 'felt', found 'Point'
+   ╭─[ semantic_tests::expressions::type_errors::test_multiple_type_errors_with_suggestions:8:26 ]
+   │
+ 8 │             let result = p + c;  // Two type errors, both should have suggestions
+   │                          ┬  
+   │                          ╰── Invalid left operand for arithmetic operator 'Add'. Expected 'felt', found 'Point'
+   │                          │  
+   │                          ╰── This struct has numeric fields that could be accessed
+───╯
+
+--- Diagnostic 2 ---
+[2001] Error: Invalid right operand for arithmetic operator 'Add'. Expected 'felt', found 'Counter'
+   ╭─[ semantic_tests::expressions::type_errors::test_multiple_type_errors_with_suggestions:8:30 ]
+   │
+ 8 │             let result = p + c;  // Two type errors, both should have suggestions
+   │                              ┬  
+   │                              ╰── Invalid right operand for arithmetic operator 'Add'. Expected 'felt', found 'Counter'
+   │                              │  
+   │                              ╰── Did you mean to access the 'value' field?
+───╯

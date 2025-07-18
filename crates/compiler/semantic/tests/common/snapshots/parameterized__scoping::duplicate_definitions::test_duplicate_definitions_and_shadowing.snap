@@ -1,0 +1,41 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test(param: felt, param: felt) -> felt { return param; }
+--- Diagnostics ---
+[1003] Error: Duplicate definition of 'param'
+   ╭─[ semantic_tests::scoping::duplicate_definitions::test_duplicate_definitions_and_shadowing:1:22 ]
+   │
+ 1 │ fn test(param: felt, param: felt) -> felt { return param; }
+   │                      ──┬──  
+   │                        ╰──── Duplicate definition of 'param'
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+fn duplicate_func() {} fn duplicate_func() {}
+--- Diagnostics ---
+[1003] Error: Duplicate definition of 'duplicate_func'
+   ╭─[ semantic_tests::scoping::duplicate_definitions::test_duplicate_definitions_and_shadowing:1:27 ]
+   │
+ 1 │ fn duplicate_func() {} fn duplicate_func() {}
+   │                           ───────┬──────  
+   │                                  ╰──────── Duplicate definition of 'duplicate_func'
+───╯
+[3002] Error: Function 'duplicate_func' doesn't return on all paths
+   ╭─[ semantic_tests::scoping::duplicate_definitions::test_duplicate_definitions_and_shadowing:1:4 ]
+   │
+ 1 │ fn duplicate_func() {} fn duplicate_func() {}
+   │    ───────┬──────  
+   │           ╰──────── Function 'duplicate_func' doesn't return on all paths
+───╯
+[3002] Error: Function 'duplicate_func' doesn't return on all paths
+   ╭─[ semantic_tests::scoping::duplicate_definitions::test_duplicate_definitions_and_shadowing:1:4 ]
+   │
+ 1 │ fn duplicate_func() {} fn duplicate_func() {}
+   │    ───────┬──────  
+   │           ╰──────── Function 'duplicate_func' doesn't return on all paths
+───╯

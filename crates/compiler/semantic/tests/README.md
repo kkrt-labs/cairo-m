@@ -1,85 +1,104 @@
-# Semantic Validation Tests
+# Semantic Test Infrastructure
 
-This directory contains the reorganized semantic validation tests for the
-Cairo-M compiler. The tests are structured by concern to provide clear
-visibility into what semantic features are implemented and validated.
+This directory contains the comprehensive test suite for the Cairo-M semantic
+analyzer. The tests are organized to ensure thorough coverage of all semantic
+validation features while maintaining clarity and ease of maintenance.
 
 ## Test Organization
 
-### By Concern
+The test suite is organized by semantic concern into different modules:
 
-- **`scoping/`** - Variable scoping, visibility, and declaration tests
+- **`scoping/`** - Variable scoping, visibility, and declaration tests.
+- **`control_flow/`** - Control flow analysis tests.
+- **`functions/`** - Function-related validation tests.
+- **`statements/`** - Statement-level validation tests.
+- **`types/`** - Type system validation tests.
+- **`structures/`** - Struct validation tests.
+- **`expressions/`** - Expression validation tests.
+- **`integration/`** - End-to-end integration tests.
+- **`semantic_model/`** - White-box tests for internal semantic model
+  consistency.
 
-  - `undeclared_variables.rs` - Tests for undeclared variable detection
-  - `duplicate_definitions.rs` - Tests for duplicate definition detection
-  - `unused_variables.rs` - Tests for unused variable warnings
-  - `scope_visibility.rs` - Tests for scope visibility rules
-  - `nested_scopes.rs` - Tests for complex nested scope scenarios
+This structure makes it easy to locate tests for a specific language feature and
+to identify areas that may need more test coverage.
 
-- **`control_flow/`** - Control flow analysis tests
+## Test Infrastructure
 
-  - `unreachable_code.rs` - Tests for unreachable code detection
-  - `missing_returns.rs` - Tests for missing return statement detection
-  - `control_flow_paths.rs` - Tests for control flow path analysis
+### Basic Assertions
 
-- **`functions/`** - Function-related validation tests
+The test suite provides macros for simple, inline semantic validation tests:
 
-  - `function_calls.rs` - Tests for function call validation
-  - `parameter_validation.rs` - Tests for parameter validation
-  - `return_types.rs` - Tests for return type validation
+```rust
+// Assert that code validates successfully
+assert_semantic_ok!("fn test() { let x = 42; }");
 
-- **`statements/`** - Statement-level validation tests
+// Assert that code produces validation errors
+assert_semantic_err!("fn test() { let x = undefined; }");
 
-  - `let_statements.rs` - Tests for let statement validation
-  - `assignments.rs` - Tests for assignment validation
-  - `expression_statements.rs` - Tests for expression statement validation
-
-- **`types/`** - Type system validation tests
-
-  - `type_resolution_tests.rs` - Tests for basic type resolution
-  - `definition_type_tests.rs` - Tests for definition type resolution
-  - `expression_type_tests.rs` - Tests for expression type inference
-  - `function_signature_tests.rs` - Tests for function signature resolution
-  - `struct_type_tests.rs` - Tests for struct type resolution
-  - `type_compatibility_tests.rs` - Tests for type compatibility checks
-  - `recursive_and_error_types_tests.rs` - Tests for recursive types and error
-    handling
-
-- **`structures/`** - Struct validation tests (TODO)
-- **`expressions/`** - Expression validation tests (TODO)
-- **`integration/`** - End-to-end integration tests
-- **`test_data/`** - Complex scenarios using .cm files
-
-## Test Utilities
-
-### Assertion Macros
+// Show unused variable warnings (hidden by default)
+assert_semantic_ok!("fn test() { let x = 42; }", show_unused);
+assert_semantic_err!("fn test() { let x = y; }", show_unused);
+```
 
 By default, unused variable warnings are ignored by the assertion macros to
 allow tests to focus on other errors. The `show_unused` flag can be used to make
 these warnings visible to the assertions.
 
-- `assert_semantic_ok!(code)` - Asserts successful validation. Unused variable
-  warnings are ignored.
-- `assert_semantic_ok!(code, show_unused)` - Asserts successful validation.
-  Fails if there are _any_ diagnostics, including unused variable warnings.
-- `assert_semantic_err!(code)` - Asserts validation failure. Unused variable
-  warnings are ignored.
-- `assert_semantic_err!(code, show_unused)` - Asserts validation failure. Unused
-  variable warnings will be treated as an error.
-- `assert_diagnostics_snapshot!(file, name)` - Snapshot test for .cm files.
-- `test_fixture_clean!(file)` - Assert .cm file validates without errors.
+### Parameterized Testing
+
+For testing multiple similar scenarios, the `assert_semantic_parameterized!`
+macro is provided. This is the preferred way to write most tests as it reduces
+boilerplate and groups related cases.
+
+```rust
+#[test]
+fn test_variable_declarations() {
+    assert_semantic_parameterized! {
+        ok: [
+            "fn test() { let x = 42; }",
+            "fn test() { let x: felt = 42; }",
+            "fn test(y: felt) { let x = y; }",
+        ],
+        err: [
+            "fn test() { let x = undefined; }",
+            "fn test() { let x: u32 = 42; }",  // Type mismatch
+            "fn test() { x = 42; }",  // Undeclared variable
+        ]
+    }
+}
+```
+
+You can also test only successful or only failing cases:
+
+```rust
+assert_semantic_parameterized! {
+    ok: ["fn test() {}", "fn main() { let x = 1; }"]
+}
+
+assert_semantic_parameterized! {
+    err: ["fn test() { undefined; }", "fn test() { x = 1; }"]
+}
+```
+
+### Snapshot Testing
+
+For complex scenarios where the exact diagnostic output is important, snapshot
+tests can be used:
+
+- `assert_diagnostics_snapshot!(file, name)` - Snapshot test for `.cm` files.
+  While most tests have been migrated to be inline, this can still be useful for
+  very large or complex integration tests.
 
 ### Helper Functions
 
-- `in_function(code)` - Wrap statement code inside a function
-- `in_function_with_return(code, return_type)` - Wrap code in function with
-  return type
-- `in_function_with_params(code, params)` - Wrap code in function with
-  parameters
-- `in_function_with_params_and_return(code, params, return_type)` - Full
-  function wrapper
-- `with_struct(name, fields, code)` - Add struct definition before code
-- `with_functions(functions, main_code)` - Add helper functions before main code
+A set of helper functions is available to reduce boilerplate in test cases by
+wrapping code snippets in common structures like functions or structs.
+
+- `in_function(code)` - Wrap statement code inside a function.
+- `with_struct(name, fields, code)` - Add a struct definition before the main
+  code.
+- `with_functions(functions, main_code)` - Add helper functions before the main
+  code.
 
 ### Example Usage
 
@@ -87,64 +106,56 @@ these warnings visible to the assertions.
 #[test]
 fn test_let_statement() {
     // Simple inline test - this passes because `x` is used.
-    assert_semantic_ok!(&in_function("let x = 42; return x;"));
+    assert_semantic_ok!(in_function("let x = 42; return x;"));
 }
 
 #[test]
 fn test_unused_variable_error() {
     // To test for an unused variable warning, use `show_unused`.
     // This will fail if the warning is not produced.
-    assert_semantic_err!(&in_function("let x = 42; return ();"), show_unused);
-}
-
-#[test]
-fn test_with_helper_function() {
-    assert_semantic_ok!(&with_functions(
-        "fn helper() -> felt { return 42; }",
-        &in_function("let x = helper(); return x;")
-    ));
-}
-
-#[test]
-fn test_complex_scenario() {
-    // Use .cm file for complex scenarios
-    assert_diagnostics_snapshot!("complex_program.cm", "complex_program_diagnostics");
+    assert_semantic_err!(in_function("let x = 42; return ();"), show_unused);
 }
 ```
 
-## Migration from Old Structure
+## Benefits of the Current Structure
 
-The old test structure in `src/validation/tests/` used primarily `.cm` files
-with snapshot testing. The new structure:
+1.  **Clear Organization**: Easy to find tests related to a specific feature.
+2.  **Reduced Boilerplate**: Parameterized tests and helper functions keep tests
+    concise.
+3.  **Focused Testing**: Unused variable warnings can be ignored to focus on
+    specific errors.
+4.  **High Maintainability**: Inline tests are self-contained and easy to read,
+    modify, and debug.
+5.  **Comprehensive Coverage**: A systematic, concern-oriented organization
+    helps ensure all language features are tested thoroughly.
 
-1. **Migrates simple tests to inline strings** using `assert_semantic_ok!` and
-   `assert_semantic_err!`
-2. **Organizes tests by semantic concern** rather than by file
-3. **Provides helper functions** to reduce boilerplate
-4. **Adds unused variable warning filtering** to focus tests on specific
-   features
-5. **Keeps .cm files for complex scenarios** that benefit from separate files
+## Adding New Tests
 
-## Benefits
-
-1. **Clear test organization** - Easy to see what's tested and what's missing
-2. **Reduced boilerplate** - Helper functions eliminate repetitive code
-3. **Focused testing** - Mute irrelevant warnings to focus on specific features
-4. **Better maintainability** - Inline tests are easier to read and modify
-5. **Comprehensive coverage** - Systematic organization ensures complete
-   coverage
+1.  **Identify the appropriate test module** (e.g.,
+    `expressions/binary_expressions.rs`).
+2.  **Add a new test function** or extend an existing one.
+3.  **Use `assert_semantic_parameterized!`** to add new valid (`ok`) and invalid
+    (`err`) test cases.
+4.  **Keep test cases small and focused** on a single semantic rule.
 
 ## Running Tests
 
 ```bash
 # Run all semantic tests
-cargo test --test semantic_tests
+cargo test -p cairo-m-compiler-semantic
 
-# Run specific test modules
-cargo test --test semantic_tests scoping
-cargo test --test semantic_tests control_flow
-cargo test --test semantic_tests integration
+# Run a specific test module
+cargo test -p cairo-m-compiler-semantic --test expressions
 
-# Run with snapshot review
+# Run a specific test function
+cargo test -p cairo-m-compiler-semantic --test expressions -- test_binary_operator_type_errors
+
+# Run with output
+cargo test -p cairo-m-compiler-semantic -- --nocapture
+
+# Review snapshot changes
 cargo insta review
+
+# Accept all snapshot changes
+cargo insta accept
 ```

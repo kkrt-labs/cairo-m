@@ -1,0 +1,80 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test() { let unused = 42; return; }
+--- Diagnostics ---
+[1002] Warning: Unused variable 'unused'
+   ╭─[ semantic_tests::scoping::unused_variables::test_unused_variable_detection:1:17 ]
+   │
+ 1 │ fn test() { let unused = 42; return; }
+   │                 ───┬──  
+   │                    ╰──── Unused variable 'unused'
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+fn test(unused_param: felt) { return (); }
+--- Diagnostics ---
+[1002] Warning: Unused variable 'unused_param'
+   ╭─[ semantic_tests::scoping::unused_variables::test_unused_variable_detection:1:9 ]
+   │
+ 1 │ fn test(unused_param: felt) { return (); }
+   │         ──────┬─────  
+   │               ╰─────── Unused variable 'unused_param'
+───╯
+
+============================================================
+
+--- Input 3 (ERROR) ---
+fn test() { let unused1 = 10; let unused2 = 20; let unused3 = 30; return; }
+--- Diagnostics ---
+[1002] Warning: Unused variable 'unused1'
+   ╭─[ semantic_tests::scoping::unused_variables::test_unused_variable_detection:1:17 ]
+   │
+ 1 │ fn test() { let unused1 = 10; let unused2 = 20; let unused3 = 30; return; }
+   │                 ───┬───  
+   │                    ╰───── Unused variable 'unused1'
+───╯
+[1002] Warning: Unused variable 'unused2'
+   ╭─[ semantic_tests::scoping::unused_variables::test_unused_variable_detection:1:35 ]
+   │
+ 1 │ fn test() { let unused1 = 10; let unused2 = 20; let unused3 = 30; return; }
+   │                                   ───┬───  
+   │                                      ╰───── Unused variable 'unused2'
+───╯
+[1002] Warning: Unused variable 'unused3'
+   ╭─[ semantic_tests::scoping::unused_variables::test_unused_variable_detection:1:53 ]
+   │
+ 1 │ fn test() { let unused1 = 10; let unused2 = 20; let unused3 = 30; return; }
+   │                                                     ───┬───  
+   │                                                        ╰───── Unused variable 'unused3'
+───╯
+
+============================================================
+
+--- Input 4 (ERROR) ---
+fn test() -> felt { let used = 10; let unused = 20; return used; }
+--- Diagnostics ---
+[1002] Warning: Unused variable 'unused'
+   ╭─[ semantic_tests::scoping::unused_variables::test_unused_variable_detection:1:40 ]
+   │
+ 1 │ fn test() -> felt { let used = 10; let unused = 20; return used; }
+   │                                        ───┬──  
+   │                                           ╰──── Unused variable 'unused'
+───╯
+
+============================================================
+
+--- Input 5 (ERROR) ---
+fn test() -> felt { let used = 10; { let unused_inner = 20; } return used; }
+--- Diagnostics ---
+[1002] Warning: Unused variable 'unused_inner'
+   ╭─[ semantic_tests::scoping::unused_variables::test_unused_variable_detection:1:42 ]
+   │
+ 1 │ fn test() -> felt { let used = 10; { let unused_inner = 20; } return used; }
+   │                                          ──────┬─────  
+   │                                                ╰─────── Unused variable 'unused_inner'
+───╯

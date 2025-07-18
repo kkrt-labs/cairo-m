@@ -331,64 +331,20 @@ fn test_u32_default_literal_inference() {
 
 // Integration tests using assert_semantic_ok! and assert_semantic_err! macros
 #[test]
-fn test_u32_type_mismatch_errors() {
-    // u32 and felt are not compatible
-    // With context-aware literal inference, literals assigned to u32 variables work correctly
-    assert_semantic_err!(
-        r#"
-        fn test() {
-            let x: u32 = 42;  // Ok - literal inferred as u32
-            let y: felt = x;  // Error: cannot assign u32 to felt
-            let z = 3; // Ok
-            let u: u32 = z; // Error: cannot assign felt to u32
-            return;
-        }
-        "#
-    );
-}
-
-#[test]
-fn test_u32_binary_op_type_mismatch() {
-    // With context-aware inference, literals are correctly typed
-    // The error now is from the binary operation type mismatch
-    assert_semantic_err!(
-        r#"
-        fn test() {
-            let x: u32 = 10;  // Now works - literal inferred as u32
-            let y: felt = 20;
-            let z = x + y;    // Error: cannot add u32 and felt
-            return;
-        }
-        "#
-    );
-}
-
-#[test]
-fn test_u32_requires_explicit_conversion() {
-    // With context-aware literal inference, u32 literals now work correctly
-    // when assigned to explicitly typed variables
-    assert_semantic_ok!(
-        r#"
-        fn test() -> u32 {
-            let x: u32 = 10;  // Now works - literal inferred as u32
-            let y: u32 = 20;  // Now works - literal inferred as u32
-            return x;  // Just return x to avoid arithmetic operation issues
-        }
-        "#
-    );
-
-    // To use u32, we would need explicit conversion functions (not yet implemented)
-    assert_semantic_err!(
-        r#"
-        struct Config {
-            port: u32,
-            max_connections: u32,
-        }
-
-        fn create_config() -> Config {
-            // Error: literals are felt, not u32
-            return Config { port: 8080, max_connections: 1000 };
-        }
-        "#
-    );
+fn test_u32_type_checking() {
+    assert_semantic_parameterized! {
+        ok: [
+            // u32 literals can be assigned to u32 variables
+            "fn test() -> u32 { let x: u32 = 10; return x; }",
+        ],
+        err: [
+            // u32 and felt are not compatible
+            in_function("let x: u32 = 42; let y: felt = x;"),
+            in_function("let z:felt = 3; let u: u32 = z;"),
+            // Mismatch in binary op
+            in_function("let x: u32 = 10; let y: felt = 20; let z = x + y;"),
+            // Struct field assignment from felt literal
+            "struct Config { port: u32 } fn create_config() -> Config { return Config { port: 8080 }; }",
+        ]
+    }
 }

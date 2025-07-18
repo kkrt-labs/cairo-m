@@ -1,22 +1,5 @@
 //! Tests for enhanced type error messages with suggestions
 
-use crate::assert_semantic_err;
-
-#[test]
-fn test_struct_in_arithmetic_operation() {
-    // This test verifies that we get helpful suggestions when trying to use structs in arithmetic
-    assert_semantic_err!(
-        r#"
-        struct Point { x: felt, y: felt }
-
-        fn test() {
-            let p = Point { x: 10, y: 20 };
-            let result = p + 5;  // Error: struct in arithmetic
-        }
-    "#
-    );
-}
-
 #[test]
 fn test_struct_with_numeric_field_suggestion() {
     // Test suggestion for accessing numeric field when struct has one

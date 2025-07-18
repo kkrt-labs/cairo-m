@@ -1,0 +1,32 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+description: "Inline semantic validation error test: expressions::type_errors::test_comparison_type_mismatch_with_context"
+---
+Fixture: semantic_tests::expressions::type_errors::test_comparison_type_mismatch_with_context
+============================================================
+Source code:
+
+        struct Point { x: felt, y: felt }
+
+        fn test() {
+            let p = Point { x: 1, y: 2 };
+            let num = 42;
+            if (p == num) {  // Type mismatch with context
+                return ();
+            }
+            return ();
+        }
+    
+============================================================
+Found 1 diagnostic(s):
+
+--- Diagnostic 1 ---
+[2001] Error: Invalid left operand for comparison operator 'Eq'. Expected 'felt', found 'Point'
+   ╭─[ semantic_tests::expressions::type_errors::test_comparison_type_mismatch_with_context:7:17 ]
+   │
+ 7 │             if (p == num) {  // Type mismatch with context
+   │                 ┬  
+   │                 ╰── Invalid left operand for comparison operator 'Eq'. Expected 'felt', found 'Point'
+   │                 │  
+   │                 ╰── This struct has numeric fields that could be accessed
+───╯

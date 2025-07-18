@@ -1,0 +1,285 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Input 1 ---
+fn test() { if (condition) { x = 1; } }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Tuple(
+                    [],
+                ),
+                body: [
+                    Spanned(
+                        If {
+                            condition: Spanned(
+                                Identifier(
+                                    Spanned(
+                                        "condition",
+                                        16..25,
+                                    ),
+                                ),
+                                16..25,
+                            ),
+                            then_block: Spanned(
+                                Block(
+                                    [
+                                        Spanned(
+                                            Assignment {
+                                                lhs: Spanned(
+                                                    Identifier(
+                                                        Spanned(
+                                                            "x",
+                                                            29..30,
+                                                        ),
+                                                    ),
+                                                    29..30,
+                                                ),
+                                                rhs: Spanned(
+                                                    Literal(
+                                                        1,
+                                                    ),
+                                                    33..34,
+                                                ),
+                                            },
+                                            29..35,
+                                        ),
+                                    ],
+                                ),
+                                27..37,
+                            ),
+                            else_block: None,
+                        },
+                        12..37,
+                    ),
+                ],
+            },
+            0..39,
+        ),
+    ),
+]
+============================================================
+
+--- Input 2 ---
+fn test() { if (a == b) { return a; } else { return b; } }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Tuple(
+                    [],
+                ),
+                body: [
+                    Spanned(
+                        If {
+                            condition: Spanned(
+                                BinaryOp {
+                                    op: Eq,
+                                    left: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "a",
+                                                16..17,
+                                            ),
+                                        ),
+                                        16..17,
+                                    ),
+                                    right: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "b",
+                                                21..22,
+                                            ),
+                                        ),
+                                        21..22,
+                                    ),
+                                },
+                                16..22,
+                            ),
+                            then_block: Spanned(
+                                Block(
+                                    [
+                                        Spanned(
+                                            Return {
+                                                value: Some(
+                                                    Spanned(
+                                                        Identifier(
+                                                            Spanned(
+                                                                "a",
+                                                                33..34,
+                                                            ),
+                                                        ),
+                                                        33..34,
+                                                    ),
+                                                ),
+                                            },
+                                            26..35,
+                                        ),
+                                    ],
+                                ),
+                                24..37,
+                            ),
+                            else_block: Some(
+                                Spanned(
+                                    Block(
+                                        [
+                                            Spanned(
+                                                Return {
+                                                    value: Some(
+                                                        Spanned(
+                                                            Identifier(
+                                                                Spanned(
+                                                                    "b",
+                                                                    52..53,
+                                                                ),
+                                                            ),
+                                                            52..53,
+                                                        ),
+                                                    ),
+                                                },
+                                                45..54,
+                                            ),
+                                        ],
+                                    ),
+                                    43..56,
+                                ),
+                            ),
+                        },
+                        12..56,
+                    ),
+                ],
+            },
+            0..58,
+        ),
+    ),
+]
+============================================================
+
+--- Input 3 ---
+fn test() { if (a) { if (b) { c = 1; } else { c = 2; } } }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Tuple(
+                    [],
+                ),
+                body: [
+                    Spanned(
+                        If {
+                            condition: Spanned(
+                                Identifier(
+                                    Spanned(
+                                        "a",
+                                        16..17,
+                                    ),
+                                ),
+                                16..17,
+                            ),
+                            then_block: Spanned(
+                                Block(
+                                    [
+                                        Spanned(
+                                            If {
+                                                condition: Spanned(
+                                                    Identifier(
+                                                        Spanned(
+                                                            "b",
+                                                            25..26,
+                                                        ),
+                                                    ),
+                                                    25..26,
+                                                ),
+                                                then_block: Spanned(
+                                                    Block(
+                                                        [
+                                                            Spanned(
+                                                                Assignment {
+                                                                    lhs: Spanned(
+                                                                        Identifier(
+                                                                            Spanned(
+                                                                                "c",
+                                                                                30..31,
+                                                                            ),
+                                                                        ),
+                                                                        30..31,
+                                                                    ),
+                                                                    rhs: Spanned(
+                                                                        Literal(
+                                                                            1,
+                                                                        ),
+                                                                        34..35,
+                                                                    ),
+                                                                },
+                                                                30..36,
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    28..38,
+                                                ),
+                                                else_block: Some(
+                                                    Spanned(
+                                                        Block(
+                                                            [
+                                                                Spanned(
+                                                                    Assignment {
+                                                                        lhs: Spanned(
+                                                                            Identifier(
+                                                                                Spanned(
+                                                                                    "c",
+                                                                                    46..47,
+                                                                                ),
+                                                                            ),
+                                                                            46..47,
+                                                                        ),
+                                                                        rhs: Spanned(
+                                                                            Literal(
+                                                                                2,
+                                                                            ),
+                                                                            50..51,
+                                                                        ),
+                                                                    },
+                                                                    46..52,
+                                                                ),
+                                                            ],
+                                                        ),
+                                                        44..54,
+                                                    ),
+                                                ),
+                                            },
+                                            21..54,
+                                        ),
+                                    ],
+                                ),
+                                19..56,
+                            ),
+                            else_block: None,
+                        },
+                        12..56,
+                    ),
+                ],
+            },
+            0..58,
+        ),
+    ),
+]

@@ -37,9 +37,6 @@ pub use db::{
 pub mod delta_diagnostics;
 pub mod validation;
 
-#[cfg(test)]
-mod delta_diagnostics_example;
-
 // Re-export main types and functions
 pub use definition::{Definition, DefinitionKind, Definitions};
 pub use place::{FileScopeId, PlaceFlags, PlaceTable, Scope, ScopeKind, ScopedPlaceId};

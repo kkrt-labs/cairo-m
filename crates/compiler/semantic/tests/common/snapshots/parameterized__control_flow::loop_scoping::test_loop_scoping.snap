@@ -1,0 +1,53 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test() { loop { let x = 42; break; } let y = x; return; }
+--- Diagnostics ---
+[1001] Error: Undeclared variable 'x'
+   ╭─[ semantic_tests::control_flow::loop_scoping::test_loop_scoping:1:49 ]
+   │
+ 1 │ fn test() { loop { let x = 42; break; } let y = x; return; }
+   │                                                 ┬  
+   │                                                 ╰── Undeclared variable 'x'
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+fn test() { loop { let outer = 1; loop { let inner = 2; let x = outer; break; } let y = inner; break; } return; }
+--- Diagnostics ---
+[1001] Error: Undeclared variable 'inner'
+   ╭─[ semantic_tests::control_flow::loop_scoping::test_loop_scoping:1:89 ]
+   │
+ 1 │ fn test() { loop { let outer = 1; loop { let inner = 2; let x = outer; break; } let y = inner; break; } return; }
+   │                                                                                         ──┬──  
+   │                                                                                           ╰──── Undeclared variable 'inner'
+───╯
+
+============================================================
+
+--- Input 3 (ERROR) ---
+fn test() { let condition = true; while (condition) { let loop_var = 42; break; } let x = loop_var; return; }
+--- Diagnostics ---
+[1001] Error: Undeclared variable 'loop_var'
+   ╭─[ semantic_tests::control_flow::loop_scoping::test_loop_scoping:1:91 ]
+   │
+ 1 │ fn test() { let condition = true; while (condition) { let loop_var = 42; break; } let x = loop_var; return; }
+   │                                                                                           ────┬───  
+   │                                                                                               ╰───── Undeclared variable 'loop_var'
+───╯
+
+============================================================
+
+--- Input 4 (ERROR) ---
+fn test() { loop { let loop_var = 1; { let block_var = 2; let x = loop_var; } let y = block_var; break; } return; }
+--- Diagnostics ---
+[1001] Error: Undeclared variable 'block_var'
+   ╭─[ semantic_tests::control_flow::loop_scoping::test_loop_scoping:1:87 ]
+   │
+ 1 │ fn test() { loop { let loop_var = 1; { let block_var = 2; let x = loop_var; } let y = block_var; break; } return; }
+   │                                                                                       ────┬────  
+   │                                                                                           ╰────── Undeclared variable 'block_var'
+───╯

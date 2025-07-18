@@ -1,0 +1,14 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test() { let x = undefined_var; return; }
+--- Diagnostics ---
+[1001] Error: Undeclared variable 'undefined_var'
+   ╭─[ semantic_tests::statements::let_local_statements::test_let_statements:1:21 ]
+   │
+ 1 │ fn test() { let x = undefined_var; return; }
+   │                     ──────┬──────  
+   │                           ╰──────── Undeclared variable 'undefined_var'
+───╯

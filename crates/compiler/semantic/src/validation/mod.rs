@@ -12,9 +12,6 @@ pub mod validator;
 // TODO: Implement these validators once type system is available
 pub mod control_flow_validator;
 
-#[cfg(test)]
-pub mod tests;
-
 pub use control_flow_validator::ControlFlowValidator;
 pub use literal_validator::LiteralValidator;
 pub use scope_check::ScopeValidator;

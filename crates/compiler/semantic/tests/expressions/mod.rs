@@ -4,7 +4,8 @@
 
 pub mod type_errors;
 
-// TODO: Implement expression validation tests
-// pub mod binary_expressions;
-// pub mod unary_expressions;
+pub mod binary_expressions;
+pub mod unary_expressions;
+
+// TODO: Implement literal expression validation tests.
 // pub mod literal_expressions;
