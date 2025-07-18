@@ -165,16 +165,16 @@ fn test_hash_continuity_fibonacci() {
     for segment in runner_output.vm.segments {
         let mut prover_input = import_from_runner_output(segment).unwrap();
 
+        let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
+
         if let Some(final_root) = previous_final_root {
             assert_eq!(
-                Some(final_root),
-                prover_input.merkle_trees.initial_root,
+                final_root, proof.public_data.initial_root,
                 "Initial root of current segment should match final root of previous segment"
             );
         }
-        previous_final_root = prover_input.merkle_trees.final_root;
+        previous_final_root = Some(proof.public_data.final_root);
 
-        let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
         verify_cairo_m::<Blake2sMerkleChannel>(proof, None).unwrap();
     }
 }

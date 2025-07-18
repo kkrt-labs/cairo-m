@@ -6,8 +6,8 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use cairo_m_common::State as VmRegisters;
+use cairo_m_common::execution::Segment;
 use cairo_m_common::opcode::Opcode;
-use cairo_m_common::program::Segment;
 use cairo_m_common::state::MemoryEntry as RunnerMemoryEntry;
 use io::VmImportError;
 pub use memory::ExecutionBundle;

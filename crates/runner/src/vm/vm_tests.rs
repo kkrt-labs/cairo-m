@@ -233,6 +233,55 @@ fn test_run_from_entrypoint() {
     );
 }
 
+#[test]
+fn test_serialize_trace() {
+    // Create a program with two instructions to generate a trace.
+    let instructions = vec![
+        instr!(Opcode::StoreImm, 10, 0, 0), // [fp + 0] = 10
+        instr!(Opcode::StoreImm, 20, 0, 1), // [fp + 1] = 20
+    ];
+    let program = Program::from(instructions);
+    let mut vm = VM::try_from(&program).unwrap();
+
+    // Execute the program to generate a trace.
+    assert!(vm.execute(RunnerOptions::default().n_steps).is_ok());
+
+    // The trace should have 3 entries, one for each instruction executed.
+    // The last one is the final state of the VM.
+    assert_eq!(vm.trace.len(), 3);
+
+    // Verify the trace contents.
+    assert_eq!(
+        vm.trace[0],
+        State {
+            pc: M31::zero(),
+            fp: M31(2)
+        }
+    );
+    assert_eq!(
+        vm.trace[1],
+        State {
+            pc: M31::one(),
+            fp: M31(2)
+        }
+    );
+
+    // Finalize the segment to move trace data into segments
+    vm.finalize_segment();
+
+    // Serialize the trace from the first segment and verify its contents.
+    assert_eq!(vm.segments.len(), 1);
+    let serialized_trace = vm.segments[0].serialize_segment_trace();
+
+    // Expected serialized data:
+    // Entry 1: fp=2, pc=0.
+    // Entry 2: fp=2, pc=1.
+    // Entry 3: fp=2, pc=2. (final state)
+    let expected_bytes = Vec::from([2, 0, 2, 1, 2, 2].map(u32::to_le_bytes).as_flattened());
+
+    assert_eq!(serialized_trace, expected_bytes);
+}
+
 /// Reference implementation of Fibonacci sequence for diff testing.
 fn fib(n: u32) -> u32 {
     let mut a = 0;

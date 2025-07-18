@@ -5,8 +5,8 @@ use std::fs::File;
 use std::io::{self, Write};
 use std::path::Path;
 
+use cairo_m_common::execution::Segment;
 use cairo_m_common::instruction::InstructionError;
-use cairo_m_common::program::Segment;
 use cairo_m_common::{Instruction, Program, State};
 use instructions::opcode_to_instruction_fn;
 use num_traits::Zero;
@@ -269,6 +269,23 @@ impl VM {
         Ok(())
     }
 
+    /// Writes the serialized memory trace to binary files, one per segment.
+    ///
+    /// This function creates a file for each segment with the naming pattern:
+    /// `<base_path>_segment_<index>.<extension>`
+    ///
+    /// ## File Format
+    ///
+    /// Each file contains:
+    /// 1. Program length (4 bytes, little-endian u32)
+    /// 2. Memory entries, each consisting of:
+    ///    - Address (4 bytes, little-endian u32)
+    ///    - QM31 value (16 bytes, 4 x little-endian u32)
+    ///
+    /// ## Arguments
+    ///
+    /// * `path` - The base file path for the binary memory trace files.
+    ///
     /// ## Errors
     ///
     /// Returns a [`VmError::Io`] if:
