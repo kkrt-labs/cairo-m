@@ -384,7 +384,7 @@ impl FrameworkEval for Eval {
         let fp_min_1_val = eval.next_trace_mask();
 
         // Enabler is 1 or 0
-        eval.add_constraint(enabler.clone() * (one - enabler.clone()));
+        eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
 
         // Registers update: - [pc, fp] + [fp_min_1_val, fp_min_2_val]
         eval.add_to_relation(RelationEntry::new(
@@ -431,7 +431,7 @@ impl FrameworkEval for Eval {
             &self.relations.memory,
             -E::EF::from(enabler.clone()),
             &[
-                fp.clone() - enabler.clone(),
+                fp.clone() - one.clone(),
                 fp_min_1_prev_clock.clone(),
                 fp_min_1_val.clone(),
             ],
@@ -439,7 +439,7 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[fp - enabler.clone(), clock.clone(), fp_min_1_val],
+            &[fp - one, clock.clone(), fp_min_1_val],
         ));
 
         // Range check 20

@@ -101,8 +101,7 @@ fn relation_entries(
 
     let entries: Vec<RelationTrackerEntry> = chain!(
         add_to_relation_entries(&opcodes.call_abs_imm, trace),
-        add_to_relation_entries(&opcodes.jmp_abs_imm, trace),
-        add_to_relation_entries(&opcodes.jmp_rel_imm, trace),
+        add_to_relation_entries(&opcodes.jmp_imm, trace),
         add_to_relation_entries(&opcodes.jnz_fp_imm, trace),
         add_to_relation_entries(&opcodes.jnz_fp_imm_taken, trace),
         add_to_relation_entries(&opcodes.ret, trace),

@@ -1,5 +1,5 @@
 macro_rules! define_opcodes {
-    ($(($opcode_enum:expr, $opcode:ident)),* $(,)?) => {
+    ($(([$($opcode_variant:expr),+], $opcode:ident)),* $(,)?) => {
         // Generate pub mod declarations for all opcodes
         $(pub mod $opcode;)*
         // Define all structures
@@ -45,9 +45,10 @@ macro_rules! define_opcodes {
                 SimdBackend: BackendForChannel<MC>,
             {
                 $(
-                    let state_data = instructions.states_by_opcodes.entry($opcode_enum).or_default();
+                    let mut state_data = Vec::new();
+                    $(state_data.extend(std::mem::take(instructions.states_by_opcodes.entry($opcode_variant).or_default()));)+
                     let (paste::paste! { [<$opcode _claim>] }, paste::paste! { [<$opcode _trace_raw>] }, paste::paste! { [<$opcode _interaction_claim_data>] }) =
-                        $opcode::Claim::write_trace(state_data);
+                        $opcode::Claim::write_trace(&mut state_data);
                     let paste::paste! { [<$opcode _trace>] } = Box::new(paste::paste! { [<$opcode _trace_raw>] }.to_evals().into_iter());
                 )*
 
@@ -185,20 +186,19 @@ use crate::components::Relations;
 
 // Define all opcode structures and implementations with a single macro call
 define_opcodes! {
-    (Opcode::CallAbsImm, call_abs_imm),
-    (Opcode::JmpAbsImm, jmp_abs_imm),
-    (Opcode::JmpRelImm, jmp_rel_imm),
-    (Opcode::JnzFpImm, jnz_fp_imm),
-    (Opcode::JnzFpImm, jnz_fp_imm_taken),
-    (Opcode::Ret, ret),
-    (Opcode::StoreAddFpFp, store_add_fp_fp),
-    (Opcode::StoreAddFpImm, store_add_fp_imm),
-    (Opcode::StoreDivFpFp, store_div_fp_fp),
-    (Opcode::StoreDivFpImm, store_div_fp_imm),
-    (Opcode::StoreDoubleDerefFp, store_double_deref_fp),
-    (Opcode::StoreImm, store_imm),
-    (Opcode::StoreMulFpFp, store_mul_fp_fp),
-    (Opcode::StoreMulFpImm, store_mul_fp_imm),
-    (Opcode::StoreSubFpFp, store_sub_fp_fp),
-    (Opcode::StoreSubFpImm, store_sub_fp_imm),
+    ([Opcode::CallAbsImm], call_abs_imm),
+    ([Opcode::JmpAbsImm, Opcode::JmpRelImm], jmp_imm),
+    ([Opcode::JnzFpImm], jnz_fp_imm),
+    ([Opcode::JnzFpImm], jnz_fp_imm_taken),
+    ([Opcode::Ret], ret),
+    ([Opcode::StoreAddFpFp], store_add_fp_fp),
+    ([Opcode::StoreAddFpImm], store_add_fp_imm),
+    ([Opcode::StoreDivFpFp], store_div_fp_fp),
+    ([Opcode::StoreDivFpImm], store_div_fp_imm),
+    ([Opcode::StoreDoubleDerefFp], store_double_deref_fp),
+    ([Opcode::StoreImm], store_imm),
+    ([Opcode::StoreMulFpFp], store_mul_fp_fp),
+    ([Opcode::StoreMulFpImm], store_mul_fp_imm),
+    ([Opcode::StoreSubFpFp], store_sub_fp_fp),
+    ([Opcode::StoreSubFpImm], store_sub_fp_imm),
 }
