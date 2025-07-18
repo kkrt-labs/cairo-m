@@ -59,7 +59,8 @@ use stwo_prover::core::poly::circle::CircleEvaluation;
 
 use crate::adapter::ExecutionBundle;
 use crate::components::Relations;
-use crate::utils::{Enabler, PackedExecutionBundle};
+use crate::utils::enabler::Enabler;
+use crate::utils::execution_bundle::PackedExecutionBundle;
 
 const N_TRACE_COLUMNS: usize = 12;
 const N_MEMORY_LOOKUPS: usize = 6;
@@ -110,13 +111,6 @@ impl Claim {
     where
         SimdBackend: BackendForChannel<MC>,
     {
-        // Filter out inplace instructions (off0 == off2)
-        let mut inputs = inputs
-            .extract_if(.., |input| {
-                input.instruction.value.to_m31_array()[3]
-                    != input.instruction.value.to_m31_array()[1]
-            })
-            .collect::<Vec<_>>();
         let non_padded_length = inputs.len();
         let log_size = std::cmp::max(LOG_N_LANES, inputs.len().next_power_of_two().ilog2());
 

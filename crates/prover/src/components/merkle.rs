@@ -22,7 +22,7 @@ use crate::adapter::MerkleTrees;
 use crate::adapter::merkle::MerkleHasher;
 use crate::components::Relations;
 use crate::components::chips::hash::Hash;
-use crate::utils::Enabler;
+use crate::utils::enabler::Enabler;
 
 const N_TRACE_COLUMNS: usize = 6; // enabler, index, depth, value_left, value_right, root
 const N_MERKLE_LOOKUPS: usize = 3;

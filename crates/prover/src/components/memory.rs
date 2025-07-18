@@ -22,7 +22,7 @@ use crate::adapter::MerkleTrees;
 use crate::adapter::memory::Memory;
 use crate::adapter::merkle::TREE_HEIGHT;
 use crate::components::Relations;
-use crate::utils::Enabler;
+use crate::utils::enabler::Enabler;
 
 const N_TRACE_COLUMNS: usize = 11; // enabler, address, clock, value0, value1, value2, value3, multiplicity, depth, root, intermediate_node_flag
 const N_INPUT_COLUMNS: usize = 10; // address, clock, value0, value1, value2, value3, mulitplicity, depth, root, intermediate_node_flag
