@@ -24,15 +24,15 @@ fn test(x: ((felt, felt), felt)) { }
                                 Tuple(
                                     [
                                         Named(
-                                            "felt",
+                                            Felt,
                                         ),
                                         Named(
-                                            "felt",
+                                            Felt,
                                         ),
                                     ],
                                 ),
                                 Named(
-                                    "felt",
+                                    Felt,
                                 ),
                             ],
                         ),

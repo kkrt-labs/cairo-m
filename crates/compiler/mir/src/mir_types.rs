@@ -20,6 +20,9 @@ pub enum MirType {
     /// Boolean type (represented as felt internally)
     Bool,
 
+    /// 16-bit unsigned integer type
+    U32,
+
     /// Pointer to another type
     Pointer(Box<MirType>),
 
@@ -69,6 +72,11 @@ impl MirType {
     /// Creates a boolean type
     pub const fn bool() -> Self {
         Self::Bool
+    }
+
+    /// Creates a u32 type
+    pub const fn u32() -> Self {
+        Self::U32
     }
 
     /// Creates a pointer type
@@ -133,10 +141,11 @@ impl MirType {
     }
 
     /// Gets the size in "units" for this type (simplified)
-    /// In a real implementation, this would depend on the target architecture
     pub fn size_units(&self) -> usize {
         match self {
             Self::Felt | Self::Bool => 1,
+            // TODO: Support U32 in MIR Types
+            Self::U32 => todo!(),
             Self::Pointer(_) => 1, // Assuming pointer size = 1 unit
             Self::Tuple(types) => types.iter().map(|t| t.size_units()).sum(),
             Self::Struct { fields, .. } => {
@@ -217,6 +226,8 @@ impl MirType {
     pub fn from_semantic_type(db: &dyn SemanticDb, type_id: TypeId) -> Self {
         match type_id.data(db) {
             TypeData::Felt => Self::felt(),
+            // TODO: Support U32 in MIR Types
+            TypeData::U32 => todo!(),
             TypeData::Bool => Self::bool(),
             TypeData::Pointer(inner_type) => {
                 let inner_mir_type = Self::from_semantic_type(db, inner_type);
@@ -272,6 +283,7 @@ impl std::fmt::Display for MirType {
         match self {
             Self::Felt => write!(f, "felt"),
             Self::Bool => write!(f, "bool"),
+            Self::U32 => write!(f, "u32"),
             Self::Pointer(inner) => write!(f, "*{inner}"),
             Self::Tuple(types) => {
                 write!(f, "(")?;

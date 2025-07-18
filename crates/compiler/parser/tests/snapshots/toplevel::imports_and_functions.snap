@@ -80,7 +80,7 @@ expression: snapshot
                             94..95,
                         ),
                         Named(
-                            "felt",
+                            Felt,
                         ),
                     ),
                     (
@@ -89,7 +89,7 @@ expression: snapshot
                             115..116,
                         ),
                         Named(
-                            "felt",
+                            Felt,
                         ),
                     ),
                 ],
@@ -111,7 +111,9 @@ expression: snapshot
                             154..156,
                         ),
                         type_expr: Named(
-                            "Point",
+                            Custom(
+                                "Point",
+                            ),
                         ),
                     },
                     Parameter {
@@ -120,12 +122,14 @@ expression: snapshot
                             165..167,
                         ),
                         type_expr: Named(
-                            "Point",
+                            Custom(
+                                "Point",
+                            ),
                         ),
                     },
                 ],
                 return_type: Named(
-                    "felt",
+                    Felt,
                 ),
                 body: [
                     Spanned(
@@ -138,7 +142,7 @@ expression: snapshot
                             ),
                             statement_type: Some(
                                 Named(
-                                    "felt",
+                                    Felt,
                                 ),
                             ),
                             value: Spanned(
@@ -196,7 +200,7 @@ expression: snapshot
                             ),
                             statement_type: Some(
                                 Named(
-                                    "felt",
+                                    Felt,
                                 ),
                             ),
                             value: Spanned(

@@ -1,0 +1,36 @@
+---
+source: crates/compiler/semantic/tests/mod.rs
+description: "Inline semantic validation error test: types::u32_type_tests::test_u32_type_mismatch_errors"
+---
+Fixture: semantic_tests::types::u32_type_tests::test_u32_type_mismatch_errors
+============================================================
+Source code:
+
+        fn test() {
+            let x: u32 = 42;  // Ok - literal inferred as u32
+            let y: felt = x;  // Error: cannot assign u32 to felt
+            let z = 3; // Ok
+            let u: u32 = z; // Error: cannot assign felt to u32
+            return;
+        }
+        
+============================================================
+Found 2 diagnostic(s):
+
+--- Diagnostic 1 ---
+[2001] Error: Type mismatch for let statement 'y'. Expected 'felt', found 'u32'
+   ╭─[ semantic_tests::types::u32_type_tests::test_u32_type_mismatch_errors:4:27 ]
+   │
+ 4 │             let y: felt = x;  // Error: cannot assign u32 to felt
+   │                           ┬  
+   │                           ╰── Type mismatch for let statement 'y'. Expected 'felt', found 'u32'
+───╯
+
+--- Diagnostic 2 ---
+[2001] Error: Type mismatch for let statement 'u'. Expected 'u32', found 'felt'
+   ╭─[ semantic_tests::types::u32_type_tests::test_u32_type_mismatch_errors:6:26 ]
+   │
+ 6 │             let u: u32 = z; // Error: cannot assign felt to u32
+   │                          ┬  
+   │                          ╰── Type mismatch for let statement 'u'. Expected 'u32', found 'felt'
+───╯

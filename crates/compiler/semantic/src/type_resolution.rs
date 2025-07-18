@@ -12,16 +12,41 @@
 //! - `function_semantic_signature`: Resolves function signature information
 //! - `are_types_compatible`: Checks type compatibility
 
-use cairo_m_compiler_parser::parser::{BinaryOp, Expression, TypeExpr as AstTypeExpr, UnaryOp};
+use cairo_m_compiler_parser::parser::{
+    BinaryOp, Expression, NamedType, TypeExpr as AstTypeExpr, UnaryOp,
+};
 
 use crate::File;
 use crate::db::{
     Crate, SemanticDb, module_name_for_file, module_semantic_index, project_semantic_index,
 };
-use crate::definition::{DefinitionKind, FunctionDefRef, ParameterDefRef, StructDefRef};
+use crate::definition::{DefinitionKind, FunctionDefRef, LetDefRef, ParameterDefRef, StructDefRef};
 use crate::place::FileScopeId;
 use crate::semantic_index::{DefinitionId, ExpressionId};
 use crate::types::{FunctionSignatureId, StructTypeId, TypeData, TypeId};
+
+/// Helper function to find the explicit type for an expression that is a `let` initializer.
+fn find_explicit_type_for_let_initializer(
+    semantic_index: &crate::SemanticIndex,
+    expression_id: ExpressionId,
+) -> Option<AstTypeExpr> {
+    // TODO: this should be O(1) ideally?
+    // This is not very performant, but it's okay for now as it will be cached by Salsa.
+    // A better approach might be to have a back-pointer from ExpressionInfo to its "parent" statement.
+    for (_def_idx, def) in semantic_index.all_definitions() {
+        if let DefinitionKind::Let(LetDefRef {
+            value_expr_id: Some(val_id),
+            explicit_type_ast: Some(type_ast),
+            ..
+        }) = &def.kind
+        {
+            if *val_id == expression_id {
+                return Some(type_ast.clone());
+            }
+        }
+    }
+    None
+}
 
 /// Resolves an AST type expression to a `TypeId`
 #[salsa::tracked]
@@ -54,12 +79,13 @@ pub fn resolve_ast_type<'db>(
         .expect("Module index should exist for module name");
 
     match ast_type_expr {
-        AstTypeExpr::Named(name_str) => {
-            if name_str == "felt" {
-                return TypeId::new(db, TypeData::Felt);
-            } else if name_str == "bool" {
-                return TypeId::new(db, TypeData::Bool);
-            }
+        AstTypeExpr::Named(name) => {
+            let name_str = match name {
+                NamedType::Felt => return TypeId::new(db, TypeData::Felt),
+                NamedType::Bool => return TypeId::new(db, TypeData::Bool),
+                NamedType::U32 => return TypeId::new(db, TypeData::U32),
+                NamedType::Custom(name) => name,
+            };
 
             // Try to resolve as a struct type
             if let Some((def_idx, _)) =
@@ -277,7 +303,24 @@ pub fn expression_semantic_type<'db>(
 
     // Access the AST node directly from ExpressionInfo - no lookup needed!
     match &expr_info.ast_node {
-        Expression::Literal(_) => TypeId::new(db, TypeData::Felt),
+        Expression::Literal(_) => {
+            // TODO: make this more efficient.
+            if let Some(type_ast) =
+                find_explicit_type_for_let_initializer(semantic_index, expression_id)
+            {
+                // We found an explicit type annotation. Resolve it.
+                let expected_type =
+                    resolve_ast_type(db, crate_id, file, type_ast, expr_info.scope_id);
+
+                // If the context expects a u32, infer the literal as u32.
+                // This can be extended for other integer types in the future.
+                if matches!(expected_type.data(db), TypeData::U32) {
+                    return expected_type;
+                }
+            }
+            // If no specific context is found, default to `felt`.
+            TypeId::new(db, TypeData::Felt)
+        }
         Expression::BooleanLiteral(_) => TypeId::new(db, TypeData::Bool),
         Expression::Identifier(name) => {
             if let Some((def_idx, _)) =
@@ -295,18 +338,26 @@ pub fn expression_semantic_type<'db>(
 
             match op {
                 UnaryOp::Neg => {
-                    // Negation requires felt operand and returns felt
-                    if are_types_compatible(db, expr_type, TypeId::new(db, TypeData::Felt)) {
-                        TypeId::new(db, TypeData::Felt)
+                    // TODO: This is going to grow big as we add types - find a smarter way.
+                    // Negation requires numeric operand (felt or u32) and returns the same type
+                    let felt_type = TypeId::new(db, TypeData::Felt);
+                    let u32_type = TypeId::new(db, TypeData::U32);
+
+                    if are_types_compatible(db, expr_type, felt_type) {
+                        felt_type
+                    } else if are_types_compatible(db, expr_type, u32_type) {
+                        u32_type
                     } else {
                         TypeId::new(db, TypeData::Error)
                     }
                 }
                 UnaryOp::Not => {
-                    // Logical not can take felt or bool operand and returns bool
+                    // Logical not can take felt, u32, or bool operand and returns bool
                     let felt_type = TypeId::new(db, TypeData::Felt);
+                    let u32_type = TypeId::new(db, TypeData::U32);
                     let bool_type = TypeId::new(db, TypeData::Bool);
                     if are_types_compatible(db, expr_type, felt_type)
+                        || are_types_compatible(db, expr_type, u32_type)
                         || are_types_compatible(db, expr_type, bool_type)
                     {
                         TypeId::new(db, TypeData::Bool)
@@ -325,25 +376,41 @@ pub fn expression_semantic_type<'db>(
 
             // Check operand types based on the operator
             match op {
-                // Arithmetic operations require felt operands and return felt
+                // Arithmetic operations require matching numeric operands (felt or u32) and return the same type
                 BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div => {
-                    if are_types_compatible(db, left_type, TypeId::new(db, TypeData::Felt))
-                        && are_types_compatible(db, right_type, TypeId::new(db, TypeData::Felt))
+                    let felt_type = TypeId::new(db, TypeData::Felt);
+                    let u32_type = TypeId::new(db, TypeData::U32);
+
+                    // Both operands must be felt
+                    if are_types_compatible(db, left_type, felt_type)
+                        && are_types_compatible(db, right_type, felt_type)
                     {
-                        TypeId::new(db, TypeData::Felt)
+                        felt_type
+                    }
+                    // Both operands must be u32
+                    else if are_types_compatible(db, left_type, u32_type)
+                        && are_types_compatible(db, right_type, u32_type)
+                    {
+                        u32_type
                     } else {
                         TypeId::new(db, TypeData::Error)
                     }
                 }
-                // Comparison operations require felt operands and return bool
+                // Comparison operations require matching numeric operands (felt or u32) and return bool
                 BinaryOp::Eq
                 | BinaryOp::Neq
                 | BinaryOp::Less
                 | BinaryOp::Greater
                 | BinaryOp::LessEqual
                 | BinaryOp::GreaterEqual => {
-                    if are_types_compatible(db, left_type, TypeId::new(db, TypeData::Felt))
-                        && are_types_compatible(db, right_type, TypeId::new(db, TypeData::Felt))
+                    let felt_type = TypeId::new(db, TypeData::Felt);
+                    let u32_type = TypeId::new(db, TypeData::U32);
+
+                    // Both operands must be felt or both must be u32
+                    if (are_types_compatible(db, left_type, felt_type)
+                        && are_types_compatible(db, right_type, felt_type))
+                        || (are_types_compatible(db, left_type, u32_type)
+                            && are_types_compatible(db, right_type, u32_type))
                     {
                         TypeId::new(db, TypeData::Bool)
                     } else {
@@ -588,9 +655,13 @@ pub fn are_types_compatible<'db>(
             are_types_compatible(db, actual_inner, expected_inner)
         }
 
-        // Bool is only compatible with Bool (not with Felt)
+        // Bool is only compatible with Bool (not with Felt or U32)
         (TypeData::Bool, TypeData::Bool) => true,
         (TypeData::Bool, _) | (_, TypeData::Bool) => false,
+
+        // U32 is only compatible with U32 (not with Felt)
+        (TypeData::U32, TypeData::U32) => true,
+        (TypeData::U32, _) | (_, TypeData::U32) => false,
 
         // All other combinations are incompatible if not caught by direct equality
         _ => false,
@@ -616,12 +687,31 @@ mod tests {
             &db,
             crate_id,
             file,
-            AstTypeExpr::Named("felt".to_string()),
+            AstTypeExpr::Named(NamedType::Felt),
             scope_id,
         );
         let felt_data = felt_type.data(&db);
 
         assert!(matches!(felt_data, TypeData::Felt));
+    }
+
+    #[test]
+    fn test_resolve_u32_type() {
+        let db = test_db();
+        let crate_id = crate_from_program(&db, "");
+        let file = *crate_id.modules(&db).values().next().unwrap();
+        let scope_id = FileScopeId::new(0);
+
+        let u32_type = resolve_ast_type(
+            &db,
+            crate_id,
+            file,
+            AstTypeExpr::Named(NamedType::U32),
+            scope_id,
+        );
+        let u32_data = u32_type.data(&db);
+
+        assert!(matches!(u32_data, TypeData::U32));
     }
 
     #[test]
@@ -635,7 +725,7 @@ mod tests {
             &db,
             crate_id,
             file,
-            AstTypeExpr::Pointer(Box::new(AstTypeExpr::Named("felt".to_string()))),
+            AstTypeExpr::Pointer(Box::new(AstTypeExpr::Named(NamedType::Felt))),
             scope_id,
         );
         let pointer_data = pointer_type.data(&db);
@@ -661,8 +751,8 @@ mod tests {
             crate_id,
             file,
             AstTypeExpr::Tuple(vec![
-                AstTypeExpr::Named("felt".to_string()),
-                AstTypeExpr::Named("felt".to_string()),
+                AstTypeExpr::Named(NamedType::Felt),
+                AstTypeExpr::Named(NamedType::Felt),
             ]),
             scope_id,
         );
@@ -688,17 +778,32 @@ mod tests {
 
         let felt1 = TypeId::new(&db, TypeData::Felt);
         let felt2 = TypeId::new(&db, TypeData::Felt);
+        let u32_1 = TypeId::new(&db, TypeData::U32);
+        let u32_2 = TypeId::new(&db, TypeData::U32);
+        let bool_type = TypeId::new(&db, TypeData::Bool);
         let error_type = TypeId::new(&db, TypeData::Error);
         let unknown_type = TypeId::new(&db, TypeData::Unknown);
 
         // Same types should be compatible
         assert!(are_types_compatible(&db, felt1, felt2));
+        assert!(are_types_compatible(&db, u32_1, u32_2));
+        assert!(are_types_compatible(&db, bool_type, bool_type));
+
+        // Different primitive types should NOT be compatible
+        assert!(!are_types_compatible(&db, felt1, u32_1));
+        assert!(!are_types_compatible(&db, u32_1, felt1));
+        assert!(!are_types_compatible(&db, felt1, bool_type));
+        assert!(!are_types_compatible(&db, u32_1, bool_type));
 
         // Error and Unknown types should be compatible with anything
         assert!(are_types_compatible(&db, felt1, error_type));
         assert!(are_types_compatible(&db, error_type, felt1));
         assert!(are_types_compatible(&db, felt1, unknown_type));
         assert!(are_types_compatible(&db, unknown_type, felt1));
+        assert!(are_types_compatible(&db, u32_1, error_type));
+        assert!(are_types_compatible(&db, error_type, u32_1));
+        assert!(are_types_compatible(&db, u32_1, unknown_type));
+        assert!(are_types_compatible(&db, unknown_type, u32_1));
 
         // Structs should be compatible if they have the same definitions.
         let def_id_1 = DefinitionId::new(&db, file, DefinitionIndex::from(0));

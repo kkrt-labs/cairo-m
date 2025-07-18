@@ -38,6 +38,26 @@ use chumsky::prelude::*;
 use crate::SourceFile;
 use crate::lexer::TokenType;
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum NamedType {
+    Felt,
+    Bool,
+    U32,
+    Custom(String),
+}
+
+impl std::fmt::Display for NamedType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Felt => write!(f, "felt"),
+            Self::Bool => write!(f, "bool"),
+            Self::U32 => write!(f, "u32"),
+            Self::Custom(name) => write!(f, "{}", name),
+        }?;
+        Ok(())
+    }
+}
+
 /// Represents a type expression in the Cairo-M language.
 ///
 /// Type expressions describe the shape and structure of data, including
@@ -45,8 +65,7 @@ use crate::lexer::TokenType;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeExpr {
     /// A named type (e.g., `felt`, `Vector`)
-    // TODO: introduce an enum for common types like felt, bool, etc.
-    Named(String),
+    Named(NamedType),
     /// A pointer type (e.g., `felt*`, `Vector*`)
     Pointer(Box<TypeExpr>),
     /// A tuple type (e.g., `(felt, felt)`, `(Vector, felt, bool)`)
@@ -464,7 +483,12 @@ where
 
     recursive(|type_expr| {
         // Named types: felt, Vector, MyStruct, etc.
-        let named_type = ident.map(TypeExpr::Named);
+        let named_type = ident.map(|name| match name.as_str() {
+            "felt" => TypeExpr::Named(NamedType::Felt),
+            "bool" => TypeExpr::Named(NamedType::Bool),
+            "u32" => TypeExpr::Named(NamedType::U32),
+            _ => TypeExpr::Named(NamedType::Custom(name)),
+        });
 
         // Tuple types: (felt, felt), (Vector, bool, felt), etc.
         let tuple_type = type_expr

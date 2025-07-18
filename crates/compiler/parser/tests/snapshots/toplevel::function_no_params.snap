@@ -15,7 +15,7 @@ fn get_constant() -> felt { return 42; }
                 ),
                 params: [],
                 return_type: Named(
-                    "felt",
+                    Felt,
                 ),
                 body: [
                     Spanned(

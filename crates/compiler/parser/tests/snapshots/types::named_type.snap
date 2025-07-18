@@ -20,7 +20,7 @@ fn test(x: felt) { }
                             8..9,
                         ),
                         type_expr: Named(
-                            "felt",
+                            Felt,
                         ),
                     },
                 ],

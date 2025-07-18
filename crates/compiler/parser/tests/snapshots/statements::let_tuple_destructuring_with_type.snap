@@ -36,10 +36,10 @@ fn test() { let (x, y): (felt, felt) = (1, 2); }
                                 Tuple(
                                     [
                                         Named(
-                                            "felt",
+                                            Felt,
                                         ),
                                         Named(
-                                            "felt",
+                                            Felt,
                                         ),
                                     ],
                                 ),

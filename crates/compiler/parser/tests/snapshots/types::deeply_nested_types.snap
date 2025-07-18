@@ -26,22 +26,22 @@ fn test(x: ((felt*, felt), (felt, felt*))*) { }
                                         [
                                             Pointer(
                                                 Named(
-                                                    "felt",
+                                                    Felt,
                                                 ),
                                             ),
                                             Named(
-                                                "felt",
+                                                Felt,
                                             ),
                                         ],
                                     ),
                                     Tuple(
                                         [
                                             Named(
-                                                "felt",
+                                                Felt,
                                             ),
                                             Pointer(
                                                 Named(
-                                                    "felt",
+                                                    Felt,
                                                 ),
                                             ),
                                         ],

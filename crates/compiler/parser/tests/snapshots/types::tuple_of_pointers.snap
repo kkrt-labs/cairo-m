@@ -23,12 +23,12 @@ fn test(x: (felt*, felt*)) { }
                             [
                                 Pointer(
                                     Named(
-                                        "felt",
+                                        Felt,
                                     ),
                                 ),
                                 Pointer(
                                     Named(
-                                        "felt",
+                                        Felt,
                                     ),
                                 ),
                             ],

@@ -33,6 +33,33 @@ pub struct TypeId<'db> {
     pub data: TypeData<'db>,
 }
 
+impl<'db> TypeId<'db> {
+    pub fn format_type(db: &'db dyn SemanticDb, type_id: Self) -> String {
+        match type_id.data(db) {
+            TypeData::Felt => "felt".to_string(),
+            TypeData::U32 => "u32".to_string(),
+            TypeData::Bool => "bool".to_string(),
+            TypeData::Pointer(inner) => format!("{}*", Self::format_type(db, inner)),
+            TypeData::Tuple(types) => {
+                if types.is_empty() {
+                    "()".to_string()
+                } else {
+                    let formatted_types: Vec<String> =
+                        types.iter().map(|t| Self::format_type(db, *t)).collect();
+                    format!("({})", formatted_types.join(", "))
+                }
+            }
+            TypeData::Function(_sig_id) => {
+                // For now, just show "function" - we'd need to query the signature data
+                "function".to_string()
+            }
+            TypeData::Struct(struct_id) => struct_id.name(db),
+            TypeData::Unknown => "?".to_string(),
+            TypeData::Error => "error".to_string(),
+        }
+    }
+}
+
 /// The actual type information
 ///
 /// This enum represents all the different kinds of types in Cairo-M.
@@ -45,6 +72,9 @@ pub enum TypeData<'db> {
 
     /// The `bool` primitive type - Boolean type (true/false)
     Bool,
+
+    /// The `u32` primitive type - 32-bit unsigned integer type
+    U32,
 
     /// A struct type, identified by its interned struct type ID
     Struct(StructTypeId<'db>),
@@ -113,7 +143,7 @@ pub struct FunctionSignatureId<'db> {
 impl<'db> TypeData<'db> {
     /// Check if this type is a primitive type
     pub const fn is_primitive(&self) -> bool {
-        matches!(self, TypeData::Felt | TypeData::Bool)
+        matches!(self, TypeData::Felt | TypeData::Bool | TypeData::U32)
     }
 
     /// Check if this type represents an error state
@@ -136,6 +166,7 @@ impl<'db> TypeData<'db> {
         match self {
             TypeData::Felt => "felt".to_string(),
             TypeData::Bool => "bool".to_string(),
+            TypeData::U32 => "u32".to_string(),
             TypeData::Struct(struct_id) => struct_id.name(db),
             TypeData::Tuple(types) => {
                 let type_names: Vec<String> =

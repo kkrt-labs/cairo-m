@@ -20,7 +20,7 @@ struct Node { data: felt, next: Node* }
                             14..18,
                         ),
                         Named(
-                            "felt",
+                            Felt,
                         ),
                     ),
                     (
@@ -30,7 +30,9 @@ struct Node { data: felt, next: Node* }
                         ),
                         Pointer(
                             Named(
-                                "Node",
+                                Custom(
+                                    "Node",
+                                ),
                             ),
                         ),
                     ),

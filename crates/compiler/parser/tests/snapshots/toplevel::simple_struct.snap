@@ -20,7 +20,7 @@ struct Point { x: felt, y: felt }
                             15..16,
                         ),
                         Named(
-                            "felt",
+                            Felt,
                         ),
                     ),
                     (
@@ -29,7 +29,7 @@ struct Point { x: felt, y: felt }
                             24..25,
                         ),
                         Named(
-                            "felt",
+                            Felt,
                         ),
                     ),
                 ],

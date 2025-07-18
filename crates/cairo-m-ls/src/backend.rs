@@ -8,7 +8,7 @@ use cairo_m_compiler_parser::{SourceFile, Upcast};
 use cairo_m_compiler_semantic::db::module_semantic_index;
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
 use cairo_m_compiler_semantic::type_resolution::definition_semantic_type;
-use cairo_m_compiler_semantic::types::{TypeData, TypeId};
+use cairo_m_compiler_semantic::types::TypeId;
 use cairo_m_compiler_semantic::{DefinitionKind, SemanticDb};
 use dashmap::DashMap;
 use salsa::Setter;
@@ -516,31 +516,6 @@ impl Backend {
         source.len()
     }
 
-    /// Format a type for display in hover information
-    fn format_type(db: &dyn SemanticDb, type_id: TypeId) -> String {
-        match type_id.data(db) {
-            TypeData::Felt => "felt".to_string(),
-            TypeData::Bool => "bool".to_string(),
-            TypeData::Pointer(inner) => format!("{}*", Self::format_type(db, inner)),
-            TypeData::Tuple(types) => {
-                if types.is_empty() {
-                    "()".to_string()
-                } else {
-                    let formatted_types: Vec<String> =
-                        types.iter().map(|t| Self::format_type(db, *t)).collect();
-                    format!("({})", formatted_types.join(", "))
-                }
-            }
-            TypeData::Function(_sig_id) => {
-                // For now, just show "function" - we'd need to query the signature data
-                "function".to_string()
-            }
-            TypeData::Struct(struct_id) => struct_id.name(db),
-            TypeData::Unknown => "?".to_string(),
-            TypeData::Error => "error".to_string(),
-        }
-    }
-
     /// Get the semantic crate for a file URL
     async fn get_semantic_crate_for_file(
         &self,
@@ -927,7 +902,7 @@ impl LanguageServer for Backend {
                 ) {
                     let def_id = DefinitionId::new(db, def_file, def_idx);
                     let type_id = definition_semantic_type(db.upcast(), crate_id, def_id);
-                    let type_str = Self::format_type(db.upcast(), type_id);
+                    let type_str = TypeId::format_type(db.upcast(), type_id);
 
                     let mut hover_text = format!("```cairo-m\n{}: {}\n```", usage.name, type_str);
 
@@ -1031,7 +1006,7 @@ impl LanguageServer for Backend {
                                     let def_id = DefinitionId::new(db, source, def_idx);
                                     let type_id =
                                         definition_semantic_type(db.upcast(), crate_id, def_id);
-                                    Self::format_type(db.upcast(), type_id)
+                                    TypeId::format_type(db.upcast(), type_id)
                                 };
 
                                 let kind = match def.kind {
