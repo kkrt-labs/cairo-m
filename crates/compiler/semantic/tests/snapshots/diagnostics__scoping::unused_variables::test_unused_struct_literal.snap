@@ -1,0 +1,29 @@
+---
+source: crates/compiler/semantic/tests/mod.rs
+description: "Inline semantic validation error test: scoping::unused_variables::test_unused_struct_literal"
+---
+Fixture: semantic_tests::scoping::unused_variables::test_unused_struct_literal
+============================================================
+Source code:
+
+        struct TestStruct {
+            a: felt,
+            b: felt,
+        }
+
+        fn test() -> felt {
+            let s = TestStruct { a: 1, b: 2};
+            return 0;
+        }
+    
+============================================================
+Found 1 diagnostic(s):
+
+--- Diagnostic 1 ---
+[1002] Warning: Unused variable 's'
+   ╭─[ semantic_tests::scoping::unused_variables::test_unused_struct_literal:8:17 ]
+   │
+ 8 │             let s = TestStruct { a: 1, b: 2};
+   │                 ┬  
+   │                 ╰── Unused variable 's'
+───╯

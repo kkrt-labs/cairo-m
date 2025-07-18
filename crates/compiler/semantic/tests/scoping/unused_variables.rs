@@ -125,3 +125,21 @@ fn test_unused_but_assigned() {
         show_unused
     );
 }
+
+#[test]
+fn test_unused_struct_literal() {
+    assert_semantic_err!(
+        r#"
+        struct TestStruct {
+            a: felt,
+            b: felt,
+        }
+
+        fn test() -> felt {
+            let s = TestStruct { a: 1, b: 2};
+            return 0;
+        }
+    "#,
+        show_unused
+    );
+}
