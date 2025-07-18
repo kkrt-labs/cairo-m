@@ -17,6 +17,10 @@ use thiserror::Error;
 use crate::RunnerOptions;
 use crate::memory::{Memory, MemoryError};
 
+/// The status of the overall program execution.
+///
+/// - `Complete`: The program has reached the final program counter (PC) and is complete.
+/// - `Ongoing`: The program has reached the step limit and will continue in the next continuation segment.
 enum ExecutionStatus {
     Complete,
     Ongoing,
