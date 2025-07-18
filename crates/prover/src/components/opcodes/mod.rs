@@ -189,7 +189,6 @@ define_opcodes! {
     (Opcode::JmpAbsImm, jmp_abs_imm),
     (Opcode::JmpRelImm, jmp_rel_imm),
     (Opcode::JnzFpImm, jnz_fp_imm),
-    (Opcode::JnzFpImm, jnz_fp_imm_taken),
     (Opcode::Ret, ret),
     (Opcode::StoreAddFpFp, store_add_fp_fp),
     (Opcode::StoreAddFpImm, store_add_fp_imm),
