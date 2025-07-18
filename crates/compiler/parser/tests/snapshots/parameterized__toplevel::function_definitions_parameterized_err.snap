@@ -1,0 +1,40 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn (a: felt) -> felt { }
+--- Diagnostics ---
+[02] Error: found '(' expected identifier
+   ╭─[ test.cairo:1:4 ]
+   │
+ 1 │ fn (a: felt) -> felt { }
+   │    ┬  
+   │    ╰── found '(' expected identifier
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+fn test(: felt) { }
+--- Diagnostics ---
+[02] Error: found ':' expected identifier, or ')'
+   ╭─[ test.cairo:1:9 ]
+   │
+ 1 │ fn test(: felt) { }
+   │         ┬  
+   │         ╰── found ':' expected identifier, or ')'
+───╯
+
+============================================================
+
+--- Input 3 (ERROR) ---
+fn test() -> felt
+--- Diagnostics ---
+[02] Error: found end of input expected '*', or '{'
+   ╭─[ test.cairo:1:18 ]
+   │
+ 1 │ fn test() -> felt
+   │                  │ 
+   │                  ╰─ found end of input expected '*', or '{'
+───╯

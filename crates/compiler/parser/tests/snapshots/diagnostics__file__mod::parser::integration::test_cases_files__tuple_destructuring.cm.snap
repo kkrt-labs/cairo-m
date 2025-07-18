@@ -1,0 +1,53 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+// Test file for tuple destructuring patterns
+
+fn test_basic_tuple_destructuring() -> felt {
+    // Basic tuple destructuring
+    let (x, y) = (10, 20);
+    return x + y;
+}
+
+fn test_function_return_destructuring() -> (felt, felt) {
+    // Function that returns a tuple
+    fn get_pair() -> (felt, felt) {
+        return (100, 200);
+    }
+
+    // Destructure function return value
+    let (a, b) = get_pair();
+    return (a, b);
+}
+
+fn test_let_destructuring() {
+    // Let tuple destructuring
+    let (x, y) = (5, 15);
+    let sum = x + y;
+
+    // Nested expressions
+    let (a, b) = (x + 1, y - 1);
+}
+
+fn test_three_element_tuple() -> felt {
+    // Three element tuple
+    let (x, y, z) = (1, 2, 3);
+    return x + y + z;
+}
+
+fn test_with_type_annotation() {
+    // With type annotation
+    let (x, y): (felt, felt) = (42, 84);
+    let (a, b): (felt, felt) = (1, 2);
+}
+
+--- Diagnostics ---
+[02] Error: found 'fn' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, identifier, '(', or '}'
+    ╭─[ tests/test_cases/tuple_destructuring.cm:11:5 ]
+    │
+ 11 │     fn get_pair() -> (felt, felt) {
+    │     ─┬  
+    │      ╰── found 'fn' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, identifier, '(', or '}'
+────╯

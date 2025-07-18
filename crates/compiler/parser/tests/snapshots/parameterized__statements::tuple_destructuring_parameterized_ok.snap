@@ -1,0 +1,504 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Input 1 ---
+fn test() { let (x, y) = (1, 2); }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Tuple(
+                    [],
+                ),
+                body: [
+                    Spanned(
+                        Let {
+                            pattern: Tuple(
+                                [
+                                    Spanned(
+                                        "x",
+                                        17..18,
+                                    ),
+                                    Spanned(
+                                        "y",
+                                        20..21,
+                                    ),
+                                ],
+                            ),
+                            statement_type: None,
+                            value: Spanned(
+                                Tuple(
+                                    [
+                                        Spanned(
+                                            Literal(
+                                                1,
+                                            ),
+                                            26..27,
+                                        ),
+                                        Spanned(
+                                            Literal(
+                                                2,
+                                            ),
+                                            29..30,
+                                        ),
+                                    ],
+                                ),
+                                25..31,
+                            ),
+                        },
+                        12..32,
+                    ),
+                ],
+            },
+            0..34,
+        ),
+    ),
+]
+============================================================
+
+--- Input 2 ---
+fn test() { let (x, y): (felt, felt) = (1, 2); }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Tuple(
+                    [],
+                ),
+                body: [
+                    Spanned(
+                        Let {
+                            pattern: Tuple(
+                                [
+                                    Spanned(
+                                        "x",
+                                        17..18,
+                                    ),
+                                    Spanned(
+                                        "y",
+                                        20..21,
+                                    ),
+                                ],
+                            ),
+                            statement_type: Some(
+                                Tuple(
+                                    [
+                                        Named(
+                                            Felt,
+                                        ),
+                                        Named(
+                                            Felt,
+                                        ),
+                                    ],
+                                ),
+                            ),
+                            value: Spanned(
+                                Tuple(
+                                    [
+                                        Spanned(
+                                            Literal(
+                                                1,
+                                            ),
+                                            40..41,
+                                        ),
+                                        Spanned(
+                                            Literal(
+                                                2,
+                                            ),
+                                            43..44,
+                                        ),
+                                    ],
+                                ),
+                                39..45,
+                            ),
+                        },
+                        12..46,
+                    ),
+                ],
+            },
+            0..48,
+        ),
+    ),
+]
+============================================================
+
+--- Input 3 ---
+fn test() { let (x, y) = get_pair(); }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Tuple(
+                    [],
+                ),
+                body: [
+                    Spanned(
+                        Let {
+                            pattern: Tuple(
+                                [
+                                    Spanned(
+                                        "x",
+                                        17..18,
+                                    ),
+                                    Spanned(
+                                        "y",
+                                        20..21,
+                                    ),
+                                ],
+                            ),
+                            statement_type: None,
+                            value: Spanned(
+                                FunctionCall {
+                                    callee: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "get_pair",
+                                                25..33,
+                                            ),
+                                        ),
+                                        25..33,
+                                    ),
+                                    args: [],
+                                },
+                                25..35,
+                            ),
+                        },
+                        12..36,
+                    ),
+                ],
+            },
+            0..38,
+        ),
+    ),
+]
+============================================================
+
+--- Input 4 ---
+fn test() { let (sum, diff) = (a + b, a - b); }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Tuple(
+                    [],
+                ),
+                body: [
+                    Spanned(
+                        Let {
+                            pattern: Tuple(
+                                [
+                                    Spanned(
+                                        "sum",
+                                        17..20,
+                                    ),
+                                    Spanned(
+                                        "diff",
+                                        22..26,
+                                    ),
+                                ],
+                            ),
+                            statement_type: None,
+                            value: Spanned(
+                                Tuple(
+                                    [
+                                        Spanned(
+                                            BinaryOp {
+                                                op: Add,
+                                                left: Spanned(
+                                                    Identifier(
+                                                        Spanned(
+                                                            "a",
+                                                            31..32,
+                                                        ),
+                                                    ),
+                                                    31..32,
+                                                ),
+                                                right: Spanned(
+                                                    Identifier(
+                                                        Spanned(
+                                                            "b",
+                                                            35..36,
+                                                        ),
+                                                    ),
+                                                    35..36,
+                                                ),
+                                            },
+                                            31..36,
+                                        ),
+                                        Spanned(
+                                            BinaryOp {
+                                                op: Sub,
+                                                left: Spanned(
+                                                    Identifier(
+                                                        Spanned(
+                                                            "a",
+                                                            38..39,
+                                                        ),
+                                                    ),
+                                                    38..39,
+                                                ),
+                                                right: Spanned(
+                                                    Identifier(
+                                                        Spanned(
+                                                            "b",
+                                                            42..43,
+                                                        ),
+                                                    ),
+                                                    42..43,
+                                                ),
+                                            },
+                                            38..43,
+                                        ),
+                                    ],
+                                ),
+                                30..44,
+                            ),
+                        },
+                        12..45,
+                    ),
+                ],
+            },
+            0..47,
+        ),
+    ),
+]
+============================================================
+
+--- Input 5 ---
+fn test() { let (x, y, z) = (1, 2, 3); }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Tuple(
+                    [],
+                ),
+                body: [
+                    Spanned(
+                        Let {
+                            pattern: Tuple(
+                                [
+                                    Spanned(
+                                        "x",
+                                        17..18,
+                                    ),
+                                    Spanned(
+                                        "y",
+                                        20..21,
+                                    ),
+                                    Spanned(
+                                        "z",
+                                        23..24,
+                                    ),
+                                ],
+                            ),
+                            statement_type: None,
+                            value: Spanned(
+                                Tuple(
+                                    [
+                                        Spanned(
+                                            Literal(
+                                                1,
+                                            ),
+                                            29..30,
+                                        ),
+                                        Spanned(
+                                            Literal(
+                                                2,
+                                            ),
+                                            32..33,
+                                        ),
+                                        Spanned(
+                                            Literal(
+                                                3,
+                                            ),
+                                            35..36,
+                                        ),
+                                    ],
+                                ),
+                                28..37,
+                            ),
+                        },
+                        12..38,
+                    ),
+                ],
+            },
+            0..40,
+        ),
+    ),
+]
+============================================================
+
+--- Input 6 ---
+fn test() { let (x, y): (felt, felt) = (42, 84); }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Tuple(
+                    [],
+                ),
+                body: [
+                    Spanned(
+                        Let {
+                            pattern: Tuple(
+                                [
+                                    Spanned(
+                                        "x",
+                                        17..18,
+                                    ),
+                                    Spanned(
+                                        "y",
+                                        20..21,
+                                    ),
+                                ],
+                            ),
+                            statement_type: Some(
+                                Tuple(
+                                    [
+                                        Named(
+                                            Felt,
+                                        ),
+                                        Named(
+                                            Felt,
+                                        ),
+                                    ],
+                                ),
+                            ),
+                            value: Spanned(
+                                Tuple(
+                                    [
+                                        Spanned(
+                                            Literal(
+                                                42,
+                                            ),
+                                            40..42,
+                                        ),
+                                        Spanned(
+                                            Literal(
+                                                84,
+                                            ),
+                                            44..46,
+                                        ),
+                                    ],
+                                ),
+                                39..47,
+                            ),
+                        },
+                        12..48,
+                    ),
+                ],
+            },
+            0..50,
+        ),
+    ),
+]
+============================================================
+
+--- Input 7 ---
+fn test() { let (a, b): (felt, felt) = (1, 2); }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Tuple(
+                    [],
+                ),
+                body: [
+                    Spanned(
+                        Let {
+                            pattern: Tuple(
+                                [
+                                    Spanned(
+                                        "a",
+                                        17..18,
+                                    ),
+                                    Spanned(
+                                        "b",
+                                        20..21,
+                                    ),
+                                ],
+                            ),
+                            statement_type: Some(
+                                Tuple(
+                                    [
+                                        Named(
+                                            Felt,
+                                        ),
+                                        Named(
+                                            Felt,
+                                        ),
+                                    ],
+                                ),
+                            ),
+                            value: Spanned(
+                                Tuple(
+                                    [
+                                        Spanned(
+                                            Literal(
+                                                1,
+                                            ),
+                                            40..41,
+                                        ),
+                                        Spanned(
+                                            Literal(
+                                                2,
+                                            ),
+                                            43..44,
+                                        ),
+                                    ],
+                                ),
+                                39..45,
+                            ),
+                        },
+                        12..46,
+                    ),
+                ],
+            },
+            0..48,
+        ),
+    ),
+]

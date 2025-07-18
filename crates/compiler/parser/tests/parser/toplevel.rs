@@ -1,79 +1,32 @@
-use crate::{assert_parses_err, assert_parses_ok};
-
-// ===================
-// Functions
-// ===================
+use crate::{assert_parses_err, assert_parses_ok, assert_parses_parameterized};
 
 #[test]
-fn simple_function() {
-    assert_parses_ok!("fn add(a: felt, b: felt) -> felt { return a + b; }");
+fn function_definitions_parameterized() {
+    assert_parses_parameterized! {
+        ok: [
+            "fn add(a: felt, b: felt) -> felt { return a + b; }",
+            "fn get_constant() -> felt { return 42; }",
+            "fn print_hello() { let msg = hello; }",
+            "fn complex(a: felt, b: felt*, c: (felt, felt)) { }",
+            "fn complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStruct*) -> (felt, felt) { return (a, b); }",
+            "fn test(a: felt, b: felt,) { }",
+        ],
+        err: [
+            "fn (a: felt) -> felt { }",
+            "fn test(: felt) { }",
+            "fn test() -> felt",
+        ]
+    }
 }
 
 #[test]
-fn function_no_params() {
-    assert_parses_ok!("fn get_constant() -> felt { return 42; }");
-}
-
-#[test]
-fn function_no_return() {
-    assert_parses_ok!("fn print_hello() { let msg = hello; }");
-}
-
-#[test]
-fn function_multiple_params() {
-    assert_parses_ok!("fn complex(a: felt, b: felt*, c: (felt, felt)) { }");
-}
-
-#[test]
-fn many_parameters() {
-    assert_parses_ok!(
-        "fn complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStruct*) -> (felt, felt) { return (a, b); }"
-    );
-}
-
-#[test]
-fn trailing_comma_function_params() {
-    assert_parses_ok!("fn test(a: felt, b: felt,) { }");
-}
-
-#[test]
-fn missing_function_name() {
-    assert_parses_err!("fn (a: felt) -> felt { }");
-}
-
-#[test]
-fn invalid_parameter() {
-    assert_parses_err!("fn test(: felt) { }");
-}
-
-#[test]
-fn missing_function_body() {
-    assert_parses_err!("fn test() -> felt");
-}
-
-// ===================
-// Structs
-// ===================
-
-#[test]
-fn simple_struct() {
-    assert_parses_ok!("struct Point { x: felt, y: felt }");
-}
-
-#[test]
-fn empty_struct() {
-    assert_parses_ok!("struct Unit { }");
-}
-
-#[test]
-fn struct_with_pointers() {
-    assert_parses_ok!("struct Node { data: felt, next: Node* }");
-}
-
-#[test]
-fn complex_struct() {
-    assert_parses_ok!(
-        r#"
+fn struct_definitions_parameterized() {
+    assert_parses_parameterized! {
+        ok: [
+            "struct Point { x: felt, y: felt }",
+            "struct Unit { }",
+            "struct Node { data: felt, next: Node* }",
+            r#"
         struct ComplexStruct {
             field1: felt,
             field2: felt*,
@@ -81,114 +34,63 @@ fn complex_struct() {
             field4: AnotherStruct,
             field5: AnotherStruct*
         }
-    "#
-    );
+    "#,
+        ],
+        err: [
+            "struct { x: felt }",
+            "struct Point { x, y: felt }",
+        ]
+    }
 }
 
 #[test]
-fn missing_struct_name() {
-    assert_parses_err!("struct { x: felt }");
+fn namespace_definitions_parameterized() {
+    assert_parses_parameterized! {
+        ok: [
+            "namespace Math { const PI = 314; }",
+            "namespace Utils { fn helper() -> felt { return 1; } }",
+            "namespace Outer { namespace Inner { const VALUE = 42; } }",
+        ]
+    }
 }
 
 #[test]
-fn invalid_field_definition() {
-    assert_parses_err!("struct Point { x, y: felt }");
-}
-
-// ===================
-// Namespaces
-// ===================
-
-#[test]
-fn simple_namespace() {
-    assert_parses_ok!("namespace Math { const PI = 314; }");
-}
-
-#[test]
-fn namespace_with_function() {
-    assert_parses_ok!("namespace Utils { fn helper() -> felt { return 1; } }");
+fn use_statements_parameterized() {
+    assert_parses_parameterized! {
+        ok: [
+            "use std::math::add;",
+            "use std::math::{add, sub};",
+        ],
+        err: [
+            "use std::math::add",
+            "use ;",
+        ]
+    }
 }
 
 #[test]
-fn nested_namespace() {
-    assert_parses_ok!("namespace Outer { namespace Inner { const VALUE = 42; } }");
-}
-
-// ===================
-// Imports
-// ===================
-
-#[test]
-fn simple_use() {
-    assert_parses_ok!("use std::math::add;");
+fn toplevel_const_parameterized() {
+    assert_parses_parameterized! {
+        ok: [
+            "const MAX_SIZE = 100;",
+            "const COMPUTED = 2 * 3 + 1;",
+        ]
+    }
 }
 
 #[test]
-fn use_with_list() {
-    assert_parses_ok!("use std::math::{add, sub};");
+fn invalid_toplevel_parameterized() {
+    assert_parses_parameterized! {
+        err: [
+            "let x = 5;",
+            "x = 10;",
+            "42;",
+            "return 5;",
+            "if (true) { x = 1; }",
+            "{ let x = 1; }",
+        ]
+    }
 }
-
-#[test]
-fn invalid_use_no_semicolon() {
-    assert_parses_err!("use std::math::add");
-}
-
-#[test]
-fn invalid_empty_use() {
-    assert_parses_err!("use ;");
-}
-
-// ===================
-// Constants
-// ===================
-
-#[test]
-fn toplevel_const() {
-    assert_parses_ok!("const MAX_SIZE = 100;");
-}
-
-#[test]
-fn const_with_expression() {
-    assert_parses_ok!("const COMPUTED = 2 * 3 + 1;");
-}
-
-// ===================
-// Invalid Top-Level Items
-// ===================
-
-#[test]
-fn invalid_toplevel_let() {
-    assert_parses_err!("let x = 5;");
-}
-
-#[test]
-fn invalid_toplevel_assignment() {
-    assert_parses_err!("x = 10;");
-}
-
-#[test]
-fn invalid_toplevel_expression() {
-    assert_parses_err!("42;");
-}
-
-#[test]
-fn invalid_toplevel_return() {
-    assert_parses_err!("return 5;");
-}
-
-#[test]
-fn invalid_toplevel_if() {
-    assert_parses_err!("if (true) { x = 1; }");
-}
-
-#[test]
-fn invalid_toplevel_block() {
-    assert_parses_err!("{ let x = 1; }");
-}
-
-// ===================
-// Integration Tests
-// ===================
 
 #[test]
 fn complete_program() {
@@ -241,10 +143,6 @@ fn imports_and_functions() {
     );
 }
 
-// ===================
-// Edge Cases
-// ===================
-
 #[test]
 fn empty_program() {
     assert_parses_ok!("");
@@ -254,10 +152,6 @@ fn empty_program() {
 fn whitespace_only() {
     assert_parses_ok!("   \n\t   \n  ");
 }
-
-// ===================
-// Error Recovery
-// ===================
 
 #[test]
 fn multiple_syntax_errors() {
