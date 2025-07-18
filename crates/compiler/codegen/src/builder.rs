@@ -332,7 +332,7 @@ impl CasmBuilder {
                 }
             }
 
-            // Both operands are immediates: fold constants
+            // Both operands are immediate: fold constants
             // This is a workaround for the fact that we don't have a constant folding pass yet.
             (Value::Literal(Literal::Integer(imm)), Value::Literal(Literal::Integer(imm2))) => {
                 let result = match op {
@@ -1112,9 +1112,9 @@ impl CasmBuilder {
         Ok(())
     }
 
-    /// Removes any occurences of instructions where two or more offsets are the same.
+    /// Removes any occurrences of instructions where two or more offsets are the same.
     /// This is required by the prover, which does not currently support memory operations on the same memory location in a single instruction.
-    /// This fix was designed to be as uninvasive as possible to be reverted easily in case of design changes in the prover.
+    /// This fix was designed to be as non-invasive as possible to be reverted easily in case of design changes in the prover.
     pub fn resolve_duplicate_offsets(&mut self) -> CodegenResult<()> {
         let layout = self
             .layout
