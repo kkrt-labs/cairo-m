@@ -267,7 +267,7 @@ fn test_serialize_trace() {
     );
 
     // Finalize the segment to move trace data into segments
-    vm.finalize_segment();
+    vm.finalize_segment(true); // Last segment
 
     // Serialize the trace from the first segment and verify its contents.
     assert_eq!(vm.segments.len(), 1);

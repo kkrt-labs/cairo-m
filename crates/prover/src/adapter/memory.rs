@@ -227,7 +227,6 @@ impl Memory {
         // We insert it in the initial memory with multiplicity 1.
         // Thus we extend the initial memory (initial from the VM point of view) with first accesses.
         if prev_memory_entry.1 == M31::zero() {
-            // Sanity check: first access to a cell present in the initial memory should match the initial value.
             if let Some(initial_memory_cell) = self
                 .initial_memory
                 .get_mut(&(memory_entry.address, M31::from(TREE_HEIGHT)))

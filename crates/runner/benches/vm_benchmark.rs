@@ -8,7 +8,6 @@ use stwo_prover::core::fields::m31::M31;
 
 const BENCHMARK_DURATION_SECS: u64 = 30;
 const N_ITERATIONS: u32 = 1_000_000;
-const N_CHUNKS: u32 = 10;
 
 fn fibonacci_1m_benchmark(c: &mut Criterion) {
     let source_path = format!(
@@ -26,7 +25,7 @@ fn fibonacci_1m_benchmark(c: &mut Criterion) {
         "fibonacci_loop",
         &[M31::from(N_ITERATIONS)],
         RunnerOptions {
-            n_steps: (N_ITERATIONS / N_CHUNKS) as usize,
+            n_steps: 2_usize.pow(30),
         },
     )
     .expect("Execution failed");
@@ -42,7 +41,7 @@ fn fibonacci_1m_benchmark(c: &mut Criterion) {
                 "fibonacci_loop",
                 &[M31::from(N_ITERATIONS)],
                 RunnerOptions {
-                    n_steps: (N_ITERATIONS / N_CHUNKS) as usize,
+                    n_steps: 2_usize.pow(30),
                 },
             )
             .expect("Execution failed");

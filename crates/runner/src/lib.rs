@@ -10,7 +10,7 @@ use vm::{VM, VmError};
 pub type Result<T> = std::result::Result<T, RunnerError>;
 
 // Current limitation is that the maximum clock difference must be < 2^20
-const MAX_N_STEPS: usize = (1 << 20) - 1;
+const DEFAULT_N_STEPS: usize = (1 << 20) - 1;
 
 /// Errors that can occur during program execution
 #[derive(Debug, thiserror::Error)]
@@ -31,14 +31,14 @@ pub enum RunnerError {
 /// Options for running a Cairo program
 #[derive(Debug, Clone)]
 pub struct RunnerOptions {
-    /// The maximum number of steps to execute, MAX_N_STEPS by default.
+    /// The maximum number of steps to execute, DEFAULT_N_STEPS by default.
     pub n_steps: usize,
 }
 
 impl Default for RunnerOptions {
     fn default() -> Self {
         Self {
-            n_steps: MAX_N_STEPS,
+            n_steps: DEFAULT_N_STEPS,
         }
     }
 }
@@ -69,13 +69,6 @@ pub fn run_cairo_program(
     args: &[M31],
     options: RunnerOptions,
 ) -> Result<RunnerOutput> {
-    assert!(
-        options.n_steps <= MAX_N_STEPS,
-        "n_steps must be <= MAX_N_STEPS, found {} > {}",
-        options.n_steps,
-        MAX_N_STEPS
-    );
-
     let entrypoint_info = program.get_entrypoint(entrypoint).ok_or_else(|| {
         RunnerError::EntryPointNotFound(
             entrypoint.to_string(),

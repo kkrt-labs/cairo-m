@@ -129,12 +129,11 @@ impl VM {
     ///
     /// This method runs the VM by repeatedly calling [`step()`](Self::step) until the program
     /// counter reaches the end of the loaded instructions. It assumes that the program is loaded
-    /// at the beginning of the memory ([0..instructions_length]). The prover enforces that memory accesses
-    /// are not seperated by more than 2^20 steps.
+    /// at the beginning of the memory ([0..instructions_length]).
     ///
     /// ## Arguments
     ///
-    /// * `n_steps` - The maximum number of steps to execute, MAX_N_STEPS by default.
+    /// * `n_steps` - The maximum number of steps to execute, DEFAULT_N_STEPS by default.
     ///
     /// ## Errors
     ///
@@ -163,13 +162,29 @@ impl VM {
     /// Finalizes the current segment by moving the current segment data into a new segment.
     ///
     /// This method is called when the numbers of steps for the current segment is reached or for the last segment.
-    fn finalize_segment(&mut self) {
-        // Move the current segment data into a new segment
-        self.segments.push(Segment {
-            initial_memory: std::mem::replace(&mut self.initial_memory, self.memory.data.clone()),
-            memory_trace: std::mem::take(&mut self.memory.trace),
-            trace: std::mem::take(&mut self.trace),
-        });
+    ///
+    /// ## Arguments
+    ///
+    /// * `is_last_segment` - If true, this is the last segment and we can move all data without cloning. If false, we need to clone memory for the next segment.
+    pub fn finalize_segment(&mut self, is_last_segment: bool) {
+        if is_last_segment {
+            // For the last segment, we can move everything without cloning
+            self.segments.push(Segment {
+                initial_memory: std::mem::take(&mut self.initial_memory),
+                memory_trace: std::mem::take(&mut self.memory.trace),
+                trace: std::mem::take(&mut self.trace),
+            });
+        } else {
+            // For intermediate segments, we need to clone memory for the next segment
+            self.segments.push(Segment {
+                initial_memory: std::mem::replace(
+                    &mut self.initial_memory,
+                    self.memory.data.clone(),
+                ),
+                memory_trace: std::mem::take(&mut self.memory.trace),
+                trace: std::mem::take(&mut self.trace),
+            });
+        }
     }
 
     /// Executes the loaded program from a given entrypoint and frame pointer.
@@ -221,8 +236,8 @@ impl VM {
 
         loop {
             match self.execute(options.n_steps) {
-                Ok(ExecutionStatus::Complete) => break self.finalize_segment(),
-                Ok(ExecutionStatus::Ongoing) => self.finalize_segment(),
+                Ok(ExecutionStatus::Complete) => break self.finalize_segment(true),
+                Ok(ExecutionStatus::Ongoing) => self.finalize_segment(false),
                 Err(e) => return Err(e),
             }
         }
