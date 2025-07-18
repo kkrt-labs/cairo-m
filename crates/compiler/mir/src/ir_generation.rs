@@ -32,7 +32,7 @@ use cairo_m_compiler_parser::parser::{
 };
 use cairo_m_compiler_semantic::db::{Crate, project_semantic_index};
 use cairo_m_compiler_semantic::definition::{Definition, DefinitionKind};
-use cairo_m_compiler_semantic::semantic_index::{DefinitionId, SemanticIndex};
+use cairo_m_compiler_semantic::semantic_index::{DefinitionId, DefinitionIndex, SemanticIndex};
 use cairo_m_compiler_semantic::type_resolution::{
     definition_semantic_type, expression_semantic_type,
 };
@@ -235,6 +235,27 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         }
     }
 
+    /// Helper function to check if a variable is used (read)
+    ///
+    /// This consolidates the common pattern of checking if a variable definition
+    /// is marked as read in the semantic analysis phase. Returns `true` conservatively
+    /// if the usage information cannot be determined.
+    fn is_variable_used(&self, def_idx: DefinitionIndex) -> bool {
+        if let Some(definition) = self.semantic_index.definition(def_idx) {
+            if let Some(place_table) = self.semantic_index.place_table(definition.scope_id) {
+                if let Some(place) = place_table.place(definition.place_id) {
+                    place.is_read()
+                } else {
+                    true // Conservative: assume used if we can't find the place
+                }
+            } else {
+                true // Conservative: assume used if we can't find the place table
+            }
+        } else {
+            true // Conservative: assume used if we can't find the definition
+        }
+    }
+
     /// Resolves an imported function to its FunctionId in the crate
     ///
     /// Follows the import chain: module_name.function_name -> FunctionId
@@ -393,24 +414,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         let mir_def_id = self.convert_definition_id(def_id);
 
                         // Check if this variable is used (read)
-                        let is_used =
-                            if let Some(definition) = self.semantic_index.definition(def_idx) {
-                                if let Some(place_table) =
-                                    self.semantic_index.place_table(definition.scope_id)
-                                {
-                                    if let Some(place) = place_table.place(definition.place_id) {
-                                        place.is_read()
-                                    } else {
-                                        true
-                                    }
-                                } else {
-                                    true
-                                }
-                            } else {
-                                true
-                            };
-
-                        if is_used {
+                        if self.is_variable_used(def_idx) {
                             // Lower the element expression directly
                             let element_value = self.lower_expression(element_expr)?;
 
@@ -542,41 +546,30 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                     let mut dests = Vec::new();
                     for (i, name) in names.iter().enumerate() {
-                        let (def_idx, _) = self
+                        if let Some((def_idx, _)) = self
                             .semantic_index
                             .resolve_name_to_definition(name.value(), scope_id)
-                            .ok_or_else(|| {
-                                format!(
-                                    "Failed to resolve variable '{}' in scope {:?}",
-                                    name.value(),
-                                    scope_id
-                                )
-                            })?;
+                        {
+                            let def_id = DefinitionId::new(self.db, self.file, def_idx);
+                            let mir_def_id = self.convert_definition_id(def_id);
 
-                        let def_id = DefinitionId::new(self.db, self.file, def_idx);
-                        let mir_def_id = self.convert_definition_id(def_id);
+                            let elem_type = element_types[i];
+                            let elem_mir_type = MirType::from_semantic_type(self.db, elem_type);
+                            let dest = self.mir_function.new_typed_value_id(elem_mir_type);
+                            dests.push(dest);
 
-                        let is_used = self
-                            .semantic_index
-                            .definition(def_idx)
-                            .and_then(|def| {
-                                self.semantic_index
-                                    .place_table(def.scope_id)
-                                    .and_then(|pt| pt.place(def.place_id))
-                            })
-                            .map(|p| p.is_read())
-                            .unwrap_or(true); // Conservatively assume used
-
-                        let elem_type = element_types[i];
-                        let elem_mir_type = MirType::from_semantic_type(self.db, elem_type);
-                        let dest = self.mir_function.new_typed_value_id(elem_mir_type);
-                        dests.push(dest);
-
-                        if is_used {
-                            self.definition_to_value.insert(mir_def_id, dest);
+                            if self.is_variable_used(def_idx) {
+                                self.definition_to_value.insert(mir_def_id, dest);
+                            } else {
+                                let dummy_addr = self.mir_function.new_value_id();
+                                self.definition_to_value.insert(mir_def_id, dummy_addr);
+                            }
                         } else {
-                            let dummy_addr = self.mir_function.new_value_id();
-                            self.definition_to_value.insert(mir_def_id, dummy_addr);
+                            return Err(format!(
+                                "Failed to resolve variable '{}' in scope {:?}",
+                                name.value(),
+                                scope_id
+                            ));
                         }
                     }
 
@@ -605,24 +598,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     let mir_def_id = self.convert_definition_id(def_id);
 
                     // Check if this variable is actually used
-                    let is_used = if let Some(definition) = self.semantic_index.definition(def_idx)
-                    {
-                        if let Some(place_table) =
-                            self.semantic_index.place_table(definition.scope_id)
-                        {
-                            if let Some(place) = place_table.place(definition.place_id) {
-                                place.is_read()
-                            } else {
-                                true
-                            }
-                        } else {
-                            true
-                        }
-                    } else {
-                        true
-                    };
-
-                    if is_used {
+                    if self.is_variable_used(def_idx) {
                         // Lower the operands
                         let left_value = self.lower_expression(left)?;
                         let right_value = self.lower_expression(right)?;
@@ -688,26 +664,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         }
                     } else {
                         // Check if this variable is actually used
-                        let is_used =
-                            if let Some(definition) = self.semantic_index.definition(def_idx) {
-                                // Get the place table for this scope
-                                if let Some(place_table) =
-                                    self.semantic_index.place_table(definition.scope_id)
-                                {
-                                    // Check if the place is marked as used
-                                    if let Some(place) = place_table.place(definition.place_id) {
-                                        place.is_read()
-                                    } else {
-                                        true // Conservative: assume used if we can't find the place
-                                    }
-                                } else {
-                                    true // Conservative: assume used if we can't find the place table
-                                }
-                            } else {
-                                true // Conservative: assume used if we can't find the definition
-                            };
-
-                        if is_used {
+                        if self.is_variable_used(def_idx) {
                             // Original behavior for used variables
                             let semantic_type =
                                 definition_semantic_type(self.db, self.crate_id, def_id);
@@ -770,27 +727,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                                     let def_id = DefinitionId::new(self.db, self.file, def_idx);
                                     let mir_def_id = self.convert_definition_id(def_id);
 
-                                    let is_used = if let Some(definition) =
-                                        self.semantic_index.definition(def_idx)
-                                    {
-                                        if let Some(place_table) =
-                                            self.semantic_index.place_table(definition.scope_id)
-                                        {
-                                            if let Some(place) =
-                                                place_table.place(definition.place_id)
-                                            {
-                                                place.is_read()
-                                            } else {
-                                                true
-                                            }
-                                        } else {
-                                            true
-                                        }
-                                    } else {
-                                        true
-                                    };
-
-                                    if is_used {
+                                    if self.is_variable_used(def_idx) {
                                         // Get the element type
                                         let element_type = element_types[index];
                                         let element_mir_type =
