@@ -64,19 +64,19 @@ impl Segment {
     /// A vector of bytes containing the serialized memory trace
     pub fn serialize_segment_memory_trace(&self) -> Vec<u8> {
         let memory_trace = self.memory_trace.borrow();
-        memory_trace
-            .iter()
-            .flat_map(|entry| {
-                let mut bytes = Vec::with_capacity(20);
-                bytes.extend_from_slice(&entry.addr.0.to_le_bytes());
-                // QM31 has two CM31 fields, each CM31 has two M31 fields
-                bytes.extend_from_slice(&entry.value.0.0.0.to_le_bytes());
-                bytes.extend_from_slice(&entry.value.0.1.0.to_le_bytes());
-                bytes.extend_from_slice(&entry.value.1.0.0.to_le_bytes());
-                bytes.extend_from_slice(&entry.value.1.1.0.to_le_bytes());
-                bytes
-            })
-            .collect()
+        // Each entry has 5 u32 values, each u32 is 4 bytes
+        let capacity = memory_trace.len() * 5 * 4;
+        let mut result = Vec::with_capacity(capacity);
+
+        for entry in memory_trace.iter() {
+            result.extend_from_slice(&entry.addr.0.to_le_bytes());
+            result.extend_from_slice(&entry.value.0.0.0.to_le_bytes());
+            result.extend_from_slice(&entry.value.0.1.0.to_le_bytes());
+            result.extend_from_slice(&entry.value.1.0.0.to_le_bytes());
+            result.extend_from_slice(&entry.value.1.1.0.to_le_bytes());
+        }
+
+        result
     }
 }
 
