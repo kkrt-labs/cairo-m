@@ -7,7 +7,7 @@ struct Point {
     y: felt,
 }
 
-fn test() -> felt {
+fn test() -> Point {
     let p = Point { x: 10, y: 20 };
-    return 0;
+    return p;
 }

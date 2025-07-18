@@ -175,10 +175,8 @@ impl ScopeValidator {
 
     /// Check for unused variables (warnings for local variables)
     ///
-    /// TODO: Improve unused variable detection:
-    /// - Different handling for different variable types (params vs locals)
-    /// - Allow-list for common unused patterns (e.g., _unused prefix)
-    /// - Consider usage in different contexts (read vs write)
+    /// A variable is considered unused if it is defined but never read.
+    /// Variables that are only written to (assigned) but never read are still unused.
     fn check_unused_variables(
         &self,
         scope_id: crate::FileScopeId,
@@ -194,7 +192,8 @@ impl ScopeValidator {
             let is_local_or_param = !place.flags.contains(PlaceFlags::FUNCTION)
                 && !place.flags.contains(PlaceFlags::STRUCT);
 
-            if is_local_or_param && place.flags.contains(PlaceFlags::DEFINED) && !place.is_used() {
+            // A variable is unused if it's defined but never read
+            if is_local_or_param && place.flags.contains(PlaceFlags::DEFINED) && !place.is_read() {
                 // Get the proper span from the definition
                 let span =
                     if let Some((_, definition)) = index.definition_for_place(scope_id, place_id) {

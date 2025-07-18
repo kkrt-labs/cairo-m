@@ -32,7 +32,7 @@ use cairo_m_compiler_parser::parser::{
 };
 use cairo_m_compiler_semantic::db::{Crate, project_semantic_index};
 use cairo_m_compiler_semantic::definition::{Definition, DefinitionKind};
-use cairo_m_compiler_semantic::semantic_index::{DefinitionId, SemanticIndex};
+use cairo_m_compiler_semantic::semantic_index::{DefinitionId, DefinitionIndex, SemanticIndex};
 use cairo_m_compiler_semantic::type_resolution::{
     definition_semantic_type, expression_semantic_type,
 };
@@ -181,6 +181,20 @@ fn find_function_ast<'a>(
     None
 }
 
+/// Explores an expression and returns true if it may cause a potential side effect.
+/// For now it only checks for function calls
+fn expression_contains_possible_side_effect(expr: &Spanned<Expression>) -> bool {
+    match expr.value() {
+        Expression::FunctionCall { callee: _, args: _ } => true,
+        Expression::UnaryOp { op: _, expr } => expression_contains_possible_side_effect(expr),
+        Expression::BinaryOp { op: _, left, right } => {
+            expression_contains_possible_side_effect(left)
+                || expression_contains_possible_side_effect(right)
+        }
+        _ => false,
+    }
+}
+
 /// A builder that constructs a `MirFunction` from a semantic AST function definition
 ///
 /// The `MirBuilder` maintains state for the function currently being built and provides
@@ -232,6 +246,27 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             file_id,
             is_terminated: false,
             loop_stack: Vec::new(),
+        }
+    }
+
+    /// Helper function to check if a variable is used (read)
+    ///
+    /// This consolidates the common pattern of checking if a variable definition
+    /// is marked as read in the semantic analysis phase. Returns `true` conservatively
+    /// if the usage information cannot be determined.
+    fn is_variable_used(&self, def_idx: DefinitionIndex) -> bool {
+        if let Some(definition) = self.semantic_index.definition(def_idx) {
+            if let Some(place_table) = self.semantic_index.place_table(definition.scope_id) {
+                if let Some(place) = place_table.place(definition.place_id) {
+                    place.is_read()
+                } else {
+                    true // Conservative: assume used if we can't find the place
+                }
+            } else {
+                true // Conservative: assume used if we can't find the place table
+            }
+        } else {
+            true // Conservative: assume used if we can't find the definition
         }
     }
 
@@ -392,25 +427,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         let def_id = DefinitionId::new(self.db, self.file, def_idx);
                         let mir_def_id = self.convert_definition_id(def_id);
 
-                        // Check if this variable is used
-                        let is_used =
-                            if let Some(definition) = self.semantic_index.definition(def_idx) {
-                                if let Some(place_table) =
-                                    self.semantic_index.place_table(definition.scope_id)
-                                {
-                                    if let Some(place) = place_table.place(definition.place_id) {
-                                        place.is_used()
-                                    } else {
-                                        true
-                                    }
-                                } else {
-                                    true
-                                }
-                            } else {
-                                true
-                            };
-
-                        if is_used {
+                        // Check if this variable is used (read)
+                        if self.is_variable_used(def_idx) {
                             // Lower the element expression directly
                             let element_value = self.lower_expression(element_expr)?;
 
@@ -437,8 +455,10 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                             self.definition_to_value.insert(mir_def_id, var_addr);
                         } else {
-                            // Unused variable - still evaluate for side effects but don't store
-                            let _ = self.lower_expression(element_expr)?;
+                            // Unused variable - only evaluate for side effects if needed
+                            if expression_contains_possible_side_effect(element_expr) {
+                                let _ = self.lower_expression(element_expr)?;
+                            }
                             let dummy_addr = self.mir_function.new_value_id();
                             self.definition_to_value.insert(mir_def_id, dummy_addr);
                         }
@@ -542,41 +562,30 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                     let mut dests = Vec::new();
                     for (i, name) in names.iter().enumerate() {
-                        let (def_idx, _) = self
+                        if let Some((def_idx, _)) = self
                             .semantic_index
                             .resolve_name_to_definition(name.value(), scope_id)
-                            .ok_or_else(|| {
-                                format!(
-                                    "Failed to resolve variable '{}' in scope {:?}",
-                                    name.value(),
-                                    scope_id
-                                )
-                            })?;
+                        {
+                            let def_id = DefinitionId::new(self.db, self.file, def_idx);
+                            let mir_def_id = self.convert_definition_id(def_id);
 
-                        let def_id = DefinitionId::new(self.db, self.file, def_idx);
-                        let mir_def_id = self.convert_definition_id(def_id);
+                            let elem_type = element_types[i];
+                            let elem_mir_type = MirType::from_semantic_type(self.db, elem_type);
+                            let dest = self.mir_function.new_typed_value_id(elem_mir_type);
+                            dests.push(dest);
 
-                        let is_used = self
-                            .semantic_index
-                            .definition(def_idx)
-                            .and_then(|def| {
-                                self.semantic_index
-                                    .place_table(def.scope_id)
-                                    .and_then(|pt| pt.place(def.place_id))
-                            })
-                            .map(|p| p.is_used())
-                            .unwrap_or(true); // Conservatively assume used
-
-                        let elem_type = element_types[i];
-                        let elem_mir_type = MirType::from_semantic_type(self.db, elem_type);
-                        let dest = self.mir_function.new_typed_value_id(elem_mir_type);
-                        dests.push(dest);
-
-                        if is_used {
-                            self.definition_to_value.insert(mir_def_id, dest);
+                            if self.is_variable_used(def_idx) {
+                                self.definition_to_value.insert(mir_def_id, dest);
+                            } else {
+                                let dummy_addr = self.mir_function.new_value_id();
+                                self.definition_to_value.insert(mir_def_id, dummy_addr);
+                            }
                         } else {
-                            let dummy_addr = self.mir_function.new_value_id();
-                            self.definition_to_value.insert(mir_def_id, dummy_addr);
+                            return Err(format!(
+                                "Failed to resolve variable '{}' in scope {:?}",
+                                name.value(),
+                                scope_id
+                            ));
                         }
                     }
 
@@ -605,24 +614,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     let mir_def_id = self.convert_definition_id(def_id);
 
                     // Check if this variable is actually used
-                    let is_used = if let Some(definition) = self.semantic_index.definition(def_idx)
-                    {
-                        if let Some(place_table) =
-                            self.semantic_index.place_table(definition.scope_id)
-                        {
-                            if let Some(place) = place_table.place(definition.place_id) {
-                                place.is_used()
-                            } else {
-                                true
-                            }
-                        } else {
-                            true
-                        }
-                    } else {
-                        true
-                    };
-
-                    if is_used {
+                    if self.is_variable_used(def_idx) {
                         // Lower the operands
                         let left_value = self.lower_expression(left)?;
                         let right_value = self.lower_expression(right)?;
@@ -650,9 +642,13 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         // Map the variable to its storage ValueId
                         self.definition_to_value.insert(mir_def_id, var_storage);
                     } else {
-                        // For unused variables, still evaluate operands for side effects but don't store
-                        let _ = self.lower_expression(left)?;
-                        let _ = self.lower_expression(right)?;
+                        // For unused variables, only evaluate operands if they have side effects
+                        if expression_contains_possible_side_effect(left) {
+                            let _ = self.lower_expression(left)?;
+                        }
+                        if expression_contains_possible_side_effect(right) {
+                            let _ = self.lower_expression(right)?;
+                        }
                         let dummy_addr = self.mir_function.new_value_id();
                         self.definition_to_value.insert(mir_def_id, dummy_addr);
                     }
@@ -662,11 +658,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         }
 
         // Fall back to normal processing for non-optimizable cases
-        let rhs_value = self.lower_expression(value)?;
-
         match pattern {
             Pattern::Identifier(name) => {
-                // Single identifier pattern - existing logic
+                // Single identifier pattern - check usage before evaluating RHS
                 if let Some((def_idx, _)) = self
                     .semantic_index
                     .resolve_name_to_definition(name.value(), scope_id)
@@ -674,41 +668,28 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     let def_id = DefinitionId::new(self.db, self.file, def_idx);
                     let mir_def_id = self.convert_definition_id(def_id);
 
-                    // Check if the RHS is already a stack-allocated aggregate.
-                    // If so, we can bind the variable name directly to its address.
-                    if let Expression::StructLiteral { .. } | Expression::Tuple(_) = value.value() {
-                        if let Value::Operand(addr) = rhs_value {
-                            // The RHS expression already allocated the object and returned its address.
-                            // We just need to map the variable `name` to this address.
-                            self.definition_to_value.insert(mir_def_id, addr);
-                        } else {
-                            // This case should ideally not happen if aggregates always return addresses.
-                            // Handle as an error or fall back to old behavior.
-                            return Err("Expected an address from aggregate literal".to_string());
-                        }
-                    } else {
-                        // Check if this variable is actually used
-                        let is_used =
-                            if let Some(definition) = self.semantic_index.definition(def_idx) {
-                                // Get the place table for this scope
-                                if let Some(place_table) =
-                                    self.semantic_index.place_table(definition.scope_id)
-                                {
-                                    // Check if the place is marked as used
-                                    if let Some(place) = place_table.place(definition.place_id) {
-                                        place.is_used()
-                                    } else {
-                                        true // Conservative: assume used if we can't find the place
-                                    }
-                                } else {
-                                    true // Conservative: assume used if we can't find the place table
-                                }
-                            } else {
-                                true // Conservative: assume used if we can't find the definition
-                            };
+                    if self.is_variable_used(def_idx) {
+                        // Variable is used - evaluate RHS and store
+                        let rhs_value = self.lower_expression(value)?;
 
-                        if is_used {
-                            // Original behavior for used variables
+                        // Check if the RHS is already a stack-allocated aggregate.
+                        // If so, we can bind the variable name directly to its address.
+                        if let Expression::StructLiteral { .. } | Expression::Tuple(_) =
+                            value.value()
+                        {
+                            if let Value::Operand(addr) = rhs_value {
+                                // The RHS expression already allocated the object and returned its address.
+                                // We just need to map the variable `name` to this address.
+                                self.definition_to_value.insert(mir_def_id, addr);
+                            } else {
+                                // This case should ideally not happen if aggregates always return addresses.
+                                // Handle as an error or fall back to old behavior.
+                                return Err(
+                                    "Expected an address from aggregate literal".to_string()
+                                );
+                            }
+                        } else {
+                            // Standard variable allocation and storage
                             let semantic_type =
                                 definition_semantic_type(self.db, self.crate_id, def_id);
                             let var_type = MirType::from_semantic_type(self.db, semantic_type);
@@ -724,15 +705,14 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                                 rhs_value,
                             ));
                             self.definition_to_value.insert(mir_def_id, var_addr);
-                        } else {
-                            // For unused variables, we still need to evaluate the RHS for side effects,
-                            // but we don't allocate storage. We map the definition to a dummy value.
-                            // Note: In a more sophisticated implementation, we might also eliminate
-                            // the RHS computation if it has no side effects.
-                            // TODO: Implement this.
-                            let dummy_addr = self.mir_function.new_value_id();
-                            self.definition_to_value.insert(mir_def_id, dummy_addr);
                         }
+                    } else {
+                        // Variable is unused - only evaluate RHS if it has side effects
+                        if expression_contains_possible_side_effect(value) {
+                            let _ = self.lower_expression(value)?;
+                        }
+                        let dummy_addr = self.mir_function.new_value_id();
+                        self.definition_to_value.insert(mir_def_id, dummy_addr);
                     }
                 } else {
                     return Err(format!(
@@ -745,6 +725,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             Pattern::Tuple(names) => {
                 // Tuple destructuring pattern for non-literal tuples
                 // (literal tuples are handled by the optimization above)
+                let rhs_value = self.lower_expression(value)?;
                 let rhs_semantic_type =
                     expression_semantic_type(self.db, self.crate_id, self.file, expr_id);
 
@@ -770,27 +751,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                                     let def_id = DefinitionId::new(self.db, self.file, def_idx);
                                     let mir_def_id = self.convert_definition_id(def_id);
 
-                                    let is_used = if let Some(definition) =
-                                        self.semantic_index.definition(def_idx)
-                                    {
-                                        if let Some(place_table) =
-                                            self.semantic_index.place_table(definition.scope_id)
-                                        {
-                                            if let Some(place) =
-                                                place_table.place(definition.place_id)
-                                            {
-                                                place.is_used()
-                                            } else {
-                                                true
-                                            }
-                                        } else {
-                                            true
-                                        }
-                                    } else {
-                                        true
-                                    };
-
-                                    if is_used {
+                                    if self.is_variable_used(def_idx) {
                                         // Get the element type
                                         let element_type = element_types[index];
                                         let element_mir_type =
@@ -956,6 +917,16 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         lhs: &Spanned<Expression>,
         rhs: &Spanned<Expression>,
     ) -> Result<(), String> {
+        // Check if the LHS is actually used
+        if self.is_lvalue_used(lhs) == Some(false) {
+            // LHS is unused - only evaluate RHS if it has side effects
+            if expression_contains_possible_side_effect(rhs) {
+                let _ = self.lower_expression(rhs)?;
+            }
+            return Ok(());
+        }
+
+        // LHS is used or unknown - proceed with assignment
         // Check if RHS is a binary operation that we can optimize
         match rhs.value() {
             Expression::BinaryOp { op, left, right } => {
@@ -1391,6 +1362,31 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // Const statements are handled at the semantic level, not in MIR
         // They don't generate any runtime code
         Ok(())
+    }
+
+    /// Helper function to check if an lvalue expression represents a used variable
+    ///
+    /// This is used for assignment optimization - if the LHS variable is unused,
+    /// we can skip the assignment but still need to evaluate RHS for side effects.
+    fn is_lvalue_used(&self, expr: &Spanned<Expression>) -> Option<bool> {
+        // First, get the ExpressionId and its associated info
+        let expr_id = self.semantic_index.expression_id_by_span(expr.span())?;
+        let expr_info = self.semantic_index.expression(expr_id)?;
+
+        match &expr_info.ast_node {
+            Expression::Identifier(name) => {
+                // Simple variable assignment - check if the variable is used
+                let (def_idx, _) = self
+                    .semantic_index
+                    .resolve_name_to_definition(name.value(), expr_info.scope_id)?;
+                Some(self.is_variable_used(def_idx))
+            }
+            _ => {
+                // Complex lvalue (field access, array access, etc.) - assume it's used
+                // since it affects memory that might be observed elsewhere
+                Some(true)
+            }
+        }
     }
 
     /// Lowers an l-value expression and returns the `Value` holding its address

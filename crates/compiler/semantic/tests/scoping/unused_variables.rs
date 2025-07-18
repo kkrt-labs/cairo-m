@@ -111,7 +111,6 @@ fn test_parameter_used() {
 }
 
 #[test]
-#[ignore]
 fn test_unused_but_assigned() {
     // Variable is assigned but never read - should still be unused
     // TODO: fix this one
@@ -121,6 +120,24 @@ fn test_unused_but_assigned() {
             let unused = 10;
             unused = 20;
             return ();
+        }
+    "#,
+        show_unused
+    );
+}
+
+#[test]
+fn test_unused_struct_literal() {
+    assert_semantic_err!(
+        r#"
+        struct TestStruct {
+            a: felt,
+            b: felt,
+        }
+
+        fn test() -> felt {
+            let s = TestStruct { a: 1, b: 2};
+            return 0;
         }
     "#,
         show_unused

@@ -243,7 +243,7 @@ fn test_symbol_table_flags() {
             .expect("Should find parameter");
         let param_place = func_table.place(param_place_id).unwrap();
         assert!(param_place.flags.contains(PlaceFlags::PARAMETER));
-        assert!(param_place.flags.contains(PlaceFlags::USED));
+        assert!(param_place.flags.contains(PlaceFlags::READ));
 
         // Check used variable flags
         let used_var_place_id = func_table
@@ -251,7 +251,7 @@ fn test_symbol_table_flags() {
             .expect("Should find used_var");
         let used_var_place = func_table.place(used_var_place_id).unwrap();
         assert!(used_var_place.flags.contains(PlaceFlags::DEFINED));
-        assert!(used_var_place.flags.contains(PlaceFlags::USED));
+        assert!(used_var_place.flags.contains(PlaceFlags::READ));
 
         // Check unused variable flags
         let unused_var_place_id = func_table
@@ -259,7 +259,7 @@ fn test_symbol_table_flags() {
             .expect("Should find unused_var");
         let unused_var_place = func_table.place(unused_var_place_id).unwrap();
         assert!(unused_var_place.flags.contains(PlaceFlags::DEFINED));
-        assert!(!unused_var_place.flags.contains(PlaceFlags::USED));
+        assert!(!unused_var_place.flags.contains(PlaceFlags::READ));
     });
 }
 

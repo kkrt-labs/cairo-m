@@ -138,10 +138,17 @@ impl PlaceTable {
         self.places.get_mut(id)
     }
 
-    /// Mark a place as used
-    pub fn mark_as_used(&mut self, id: ScopedPlaceId) {
+    /// Mark a place as read (its value is accessed)
+    pub fn mark_as_read(&mut self, id: ScopedPlaceId) {
         if let Some(place) = self.place_mut(id) {
-            place.flags.insert(PlaceFlags::USED);
+            place.flags.insert(PlaceFlags::READ);
+        }
+    }
+
+    /// Mark a place as written (assigned a value)
+    pub fn mark_as_written(&mut self, id: ScopedPlaceId) {
+        if let Some(place) = self.place_mut(id) {
+            place.flags.insert(PlaceFlags::WRITTEN);
         }
     }
 
@@ -183,9 +190,19 @@ impl Place {
         self.flags.contains(PlaceFlags::DEFINED)
     }
 
-    /// Check if this place is used as a value
+    /// Check if this place's value has been read/accessed
+    pub const fn is_read(&self) -> bool {
+        self.flags.contains(PlaceFlags::READ)
+    }
+
+    /// Check if this place has been written to/assigned
+    pub const fn is_written(&self) -> bool {
+        self.flags.contains(PlaceFlags::WRITTEN)
+    }
+
+    /// Check if this place is used (either read or written) - for backward compatibility
     pub const fn is_used(&self) -> bool {
-        self.flags.contains(PlaceFlags::USED)
+        self.flags.contains(PlaceFlags::READ) || self.flags.contains(PlaceFlags::WRITTEN)
     }
 }
 
@@ -196,16 +213,18 @@ bitflags! {
     pub struct PlaceFlags: u8 {
         /// The place is defined in this scope (e.g., `let x = ...`)
         const DEFINED = 1 << 0;
-        /// The place is used as a value in this scope
-        const USED = 1 << 1;
+        /// The place's value has been read/accessed
+        const READ = 1 << 1;
+        /// The place has been written to/assigned
+        const WRITTEN = 1 << 2;
         /// The place is a function parameter
-        const PARAMETER = 1 << 2;
+        const PARAMETER = 1 << 3;
         /// The place is a function name
-        const FUNCTION = 1 << 3;
+        const FUNCTION = 1 << 4;
         /// The place is a struct name
-        const STRUCT = 1 << 4;
+        const STRUCT = 1 << 5;
         /// The place is a constant
-        const CONSTANT = 1 << 5;
+        const CONSTANT = 1 << 6;
     }
 }
 
@@ -215,8 +234,11 @@ impl fmt::Display for PlaceFlags {
         if self.contains(Self::DEFINED) {
             flags.push("defined");
         }
-        if self.contains(Self::USED) {
-            flags.push("used");
+        if self.contains(Self::READ) {
+            flags.push("read");
+        }
+        if self.contains(Self::WRITTEN) {
+            flags.push("written");
         }
         if self.contains(Self::PARAMETER) {
             flags.push("parameter");
@@ -260,12 +282,12 @@ mod tests {
         let x_place = table.place(x_id).unwrap();
         assert_eq!(x_place.name, "x");
         assert!(x_place.is_defined());
-        assert!(!x_place.is_used());
+        assert!(!x_place.is_read());
 
-        // Test marking as used
-        table.mark_as_used(x_id);
+        // Test marking as read
+        table.mark_as_read(x_id);
         let x_place = table.place(x_id).unwrap();
-        assert!(x_place.is_used());
+        assert!(x_place.is_read());
     }
 
     #[test]
@@ -283,14 +305,14 @@ mod tests {
     fn test_place_flags() {
         let mut flags = PlaceFlags::DEFINED;
         assert!(flags.contains(PlaceFlags::DEFINED));
-        assert!(!flags.contains(PlaceFlags::USED));
+        assert!(!flags.contains(PlaceFlags::READ));
 
-        flags.insert(PlaceFlags::USED);
+        flags.insert(PlaceFlags::READ);
         assert!(flags.contains(PlaceFlags::DEFINED));
-        assert!(flags.contains(PlaceFlags::USED));
+        assert!(flags.contains(PlaceFlags::READ));
 
         flags.remove(PlaceFlags::DEFINED);
         assert!(!flags.contains(PlaceFlags::DEFINED));
-        assert!(flags.contains(PlaceFlags::USED));
+        assert!(flags.contains(PlaceFlags::READ));
     }
 }
