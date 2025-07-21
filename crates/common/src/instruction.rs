@@ -145,31 +145,31 @@ macro_rules! define_instruction {
 // Define all instructions with their opcodes, memory accesses, fields, and sizes
 define_instruction!(
     // Arithmetic operations
-    StoreAddFpFp = 0, 3, fields: [src0_off, src1_off, dst_off], size: 4;
-    StoreAddFpImm = 1, 2, fields: [src_off, imm, dst_off], size: 4;
-    StoreSubFpFp = 2, 3, fields: [src0_off, src1_off, dst_off], size: 4;
-    StoreSubFpImm = 3, 2, fields: [src_off, imm, dst_off], size: 4;
+    StoreAddFpFp = 0, 3, fields: [src0_off, src1_off, dst_off], size: 4;     // [fp + dst_off] = [fp + src0_off] + [fp + src1_off]
+    StoreAddFpImm = 1, 2, fields: [src_off, imm, dst_off], size: 4;          // [fp + dst_off] = [fp + src_off] + imm
+    StoreSubFpFp = 2, 3, fields: [src0_off, src1_off, dst_off], size: 4;     // [fp + dst_off] = [fp + src0_off] - [fp + src1_off]
+    StoreSubFpImm = 3, 2, fields: [src_off, imm, dst_off], size: 4;          // [fp + dst_off] = [fp + src_off] - imm
 
     // Memory operations
-    StoreDoubleDerefFp = 4, 3, fields: [base_off, offset, dst_off], size: 4;
-    StoreImm = 5, 1, fields: [imm, dst_off], size: 3;  // [fp + dst_off] = imm
+    StoreDoubleDerefFp = 4, 3, fields: [base_off, offset, dst_off], size: 4; // [fp + dst_off] = [[fp + base_off] + offset]
+    StoreImm = 5, 1, fields: [imm, dst_off], size: 3;                        // [fp + dst_off] = imm
 
     // Multiplication/Division
-    StoreMulFpFp = 6, 3, fields: [src0_off, src1_off, dst_off], size: 4;
-    StoreMulFpImm = 7, 2, fields: [src_off, imm, dst_off], size: 4;
-    StoreDivFpFp = 8, 3, fields: [src0_off, src1_off, dst_off], size: 4;
-    StoreDivFpImm = 9, 2, fields: [src_off, imm, dst_off], size: 4;
+    StoreMulFpFp = 6, 3, fields: [src0_off, src1_off, dst_off], size: 4;    // [fp + dst_off] = [fp + src0_off] * [fp + src1_off]
+    StoreMulFpImm = 7, 2, fields: [src_off, imm, dst_off], size: 4;         // [fp + dst_off] = [fp + src_off] * imm
+    StoreDivFpFp = 8, 3, fields: [src0_off, src1_off, dst_off], size: 4;    // [fp + dst_off] = [fp + src0_off] / [fp + src1_off]
+    StoreDivFpImm = 9, 2, fields: [src_off, imm, dst_off], size: 4;         // [fp + dst_off] = [fp + src_off] / imm
 
     // Call operations
-    CallAbsImm = 10, 2, fields: [ret_off_1, ret_off_2, target], size: 4;
-    Ret = 11, 2, fields: [], size: 1;
+    CallAbsImm = 10, 2, fields: [ret_off_1, ret_off_2, target], size: 4;    // call abs imm
+    Ret = 11, 2, fields: [], size: 1;                                       // ret
 
     // Jump operations
-    JmpAbsImm = 12, 0, fields: [target], size: 2;
-    JmpRelImm = 13, 0, fields: [offset], size: 2;
+    JmpAbsImm = 12, 0, fields: [target], size: 2;                           // jmp abs imm
+    JmpRelImm = 13, 0, fields: [offset], size: 2;                           // jmp rel imm
 
     // Conditional jumps
-    JnzFpImm = 14, 1, fields: [cond_off, offset], size: 3;
+    JnzFpImm = 14, 1, fields: [cond_off, offset], size: 3;                  // jmp rel imm if [fp + cond_off] != 0
 
     // New instructions
     // U32 instruction - stores the result of [fp + src_off] + (imm_hi << 16 | imm_lo) to [fp + dst_off]
