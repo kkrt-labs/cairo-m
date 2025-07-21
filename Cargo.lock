@@ -374,6 +374,7 @@ name = "cairo-m-common"
 version = "0.1.0"
 dependencies = [
  "num-traits",
+ "paste",
  "serde",
  "serde_json",
  "stwo-prover",
