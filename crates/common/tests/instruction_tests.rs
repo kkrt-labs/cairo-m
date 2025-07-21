@@ -22,13 +22,6 @@ fn test_instruction_sizes() {
     assert_eq!(jmp_rel.size_in_qm31s(), 1);
 
     // Test size 3 instructions
-    let store_deref = Instruction::StoreDerefFp {
-        src_off: M31::from(1),
-        dst_off: M31::from(2),
-    };
-    assert_eq!(store_deref.size_in_m31s(), 3);
-    assert_eq!(store_deref.size_in_qm31s(), 1);
-
     let store_imm = Instruction::StoreImm {
         imm: M31::from(42),
         dst_off: M31::from(3),
@@ -102,21 +95,13 @@ fn test_opcode_values() {
         3
     );
     assert_eq!(
-        Instruction::StoreDerefFp {
-            src_off: M31::from(0),
-            dst_off: M31::from(0)
-        }
-        .opcode_value(),
-        4
-    );
-    assert_eq!(
         Instruction::StoreDoubleDerefFp {
             base_off: M31::from(0),
             offset: M31::from(0),
             dst_off: M31::from(0)
         }
         .opcode_value(),
-        5
+        4
     );
     assert_eq!(
         Instruction::StoreImm {
@@ -124,7 +109,7 @@ fn test_opcode_values() {
             dst_off: M31::from(0)
         }
         .opcode_value(),
-        6
+        5
     );
     assert_eq!(
         Instruction::StoreMulFpFp {
@@ -133,7 +118,7 @@ fn test_opcode_values() {
             dst_off: M31::from(0)
         }
         .opcode_value(),
-        7
+        6
     );
     assert_eq!(
         Instruction::StoreMulFpImm {
@@ -142,7 +127,7 @@ fn test_opcode_values() {
             dst_off: M31::from(0)
         }
         .opcode_value(),
-        8
+        7
     );
     assert_eq!(
         Instruction::StoreDivFpFp {
@@ -151,7 +136,7 @@ fn test_opcode_values() {
             dst_off: M31::from(0)
         }
         .opcode_value(),
-        9
+        8
     );
     assert_eq!(
         Instruction::StoreDivFpImm {
@@ -160,7 +145,7 @@ fn test_opcode_values() {
             dst_off: M31::from(0)
         }
         .opcode_value(),
-        10
+        9
     );
     assert_eq!(
         Instruction::CallAbsImm {
@@ -169,27 +154,37 @@ fn test_opcode_values() {
             target: M31::from(0)
         }
         .opcode_value(),
-        11
+        10
     );
-    assert_eq!(Instruction::Ret {}.opcode_value(), 12);
+    assert_eq!(Instruction::Ret {}.opcode_value(), 11);
     assert_eq!(
         Instruction::JmpAbsImm {
             target: M31::from(0)
         }
         .opcode_value(),
-        13
+        12
     );
     assert_eq!(
         Instruction::JmpRelImm {
             offset: M31::from(0)
         }
         .opcode_value(),
-        14
+        13
     );
     assert_eq!(
         Instruction::JnzFpImm {
             cond_off: M31::from(0),
             offset: M31::from(0)
+        }
+        .opcode_value(),
+        14
+    );
+    assert_eq!(
+        Instruction::U32StoreAddFpImm {
+            src_off: M31::from(0),
+            imm_hi: M31::from(0),
+            imm_lo: M31::from(0),
+            dst_off: M31::from(0)
         }
         .opcode_value(),
         15
@@ -202,7 +197,7 @@ fn test_opcode_values() {
             dst_off: M31::from(0)
         }
         .opcode_value(),
-        16
+        15
     );
 }
 
@@ -273,7 +268,7 @@ fn test_to_m31_vec() {
     let ret = Instruction::Ret {};
     let vec = ret.to_m31_vec();
     assert_eq!(vec.len(), 1);
-    assert_eq!(vec[0], M31::from(12));
+    assert_eq!(vec[0], M31::from(11));
 
     let store_imm = Instruction::StoreImm {
         imm: M31::from(42),
@@ -281,7 +276,7 @@ fn test_to_m31_vec() {
     };
     let vec = store_imm.to_m31_vec();
     assert_eq!(vec.len(), 3);
-    assert_eq!(vec[0], M31::from(6)); // opcode
+    assert_eq!(vec[0], M31::from(5)); // opcode
     assert_eq!(vec[1], M31::from(42)); // imm
     assert_eq!(vec[2], M31::from(3)); // dst_off
 
@@ -323,12 +318,12 @@ fn test_operands() {
 #[test]
 fn test_try_from_vec_m31() {
     // Test Ret instruction
-    let vec = vec![M31::from(12)];
+    let vec = vec![M31::from(11)];
     let instruction = Instruction::try_from(vec).unwrap();
     assert!(matches!(instruction, Instruction::Ret {}));
 
     // Test StoreImm instruction
-    let vec = vec![M31::from(6), M31::from(42), M31::from(3)];
+    let vec = vec![M31::from(5), M31::from(42), M31::from(3)];
     let instruction = Instruction::try_from(vec).unwrap();
     match instruction {
         Instruction::StoreImm { imm, dst_off } => {
@@ -356,7 +351,7 @@ fn test_try_from_vec_m31() {
 
     // Test U32StoreAddFpImm instruction
     let vec = vec![
-        M31::from(16),
+        M31::from(15),
         M31::from(1),
         M31::from(0x1234),
         M31::from(0x5678),
@@ -409,7 +404,7 @@ fn test_try_from_vec_m31_errors() {
     ));
 
     // Test size mismatch - too many operands
-    let vec = vec![M31::from(12), M31::from(1)]; // Ret needs 0 operands
+    let vec = vec![M31::from(11), M31::from(1)]; // Ret needs 0 operands
     let result = Instruction::try_from(vec);
     assert!(matches!(
         result,
@@ -441,7 +436,7 @@ fn test_from_instruction_to_vec() {
         dst_off: M31::from(3),
     };
     let vec: Vec<M31> = (&instruction).into();
-    assert_eq!(vec, vec![M31::from(6), M31::from(42), M31::from(3)]);
+    assert_eq!(vec, vec![M31::from(5), M31::from(42), M31::from(3)]);
 }
 
 #[test]
@@ -451,7 +446,7 @@ fn test_to_qm31_vec() {
     let qm31_vec = ret.to_qm31_vec();
     assert_eq!(qm31_vec.len(), 1);
     let m31_array = qm31_vec[0].to_m31_array();
-    assert_eq!(m31_array[0], M31::from(12));
+    assert_eq!(m31_array[0], M31::from(11));
     assert_eq!(m31_array[1], M31::from(0)); // padded
     assert_eq!(m31_array[2], M31::from(0)); // padded
     assert_eq!(m31_array[3], M31::from(0)); // padded
@@ -481,7 +476,7 @@ fn test_to_qm31_vec() {
     assert_eq!(qm31_vec.len(), 2);
 
     let m31_array = qm31_vec[0].to_m31_array();
-    assert_eq!(m31_array[0], M31::from(16)); // opcode
+    assert_eq!(m31_array[0], M31::from(15)); // opcode
     assert_eq!(m31_array[1], M31::from(1)); // src_off
     assert_eq!(m31_array[2], M31::from(0x1234)); // imm_hi
     assert_eq!(m31_array[3], M31::from(0x5678)); // imm_lo
@@ -517,7 +512,7 @@ fn test_serialization() {
         dst_off: M31::from(0xcafe),
     };
     let json = serde_json::to_string(&instruction).unwrap();
-    assert_eq!(json, r#"["0x6","0x1234567","0xcafe"]"#);
+    assert_eq!(json, r#"["0x5","0x1234567","0xcafe"]"#);
 
     let deserialized: Instruction = serde_json::from_str(&json).unwrap();
     assert_eq!(instruction, deserialized);
@@ -546,10 +541,6 @@ fn test_roundtrip_all_instructions() {
             src_off: M31::from(4),
             imm: M31::from(200),
             dst_off: M31::from(6),
-        },
-        Instruction::StoreDerefFp {
-            src_off: M31::from(7),
-            dst_off: M31::from(8),
         },
         Instruction::StoreDoubleDerefFp {
             base_off: M31::from(9),

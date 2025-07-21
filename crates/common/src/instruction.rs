@@ -151,30 +151,30 @@ define_instruction!(
     StoreSubFpImm = 3, 2, fields: [src_off, imm, dst_off], size: 4;
 
     // Memory operations
-    StoreDerefFp = 4, 2, fields: [src_off, dst_off], size: 3;  // [fp + dst_off] = [fp + src_off]
-    StoreDoubleDerefFp = 5, 3, fields: [base_off, offset, dst_off], size: 4;
-    StoreImm = 6, 1, fields: [imm, dst_off], size: 3;  // [fp + dst_off] = imm
+    StoreDoubleDerefFp = 4, 3, fields: [base_off, offset, dst_off], size: 4;
+    StoreImm = 5, 1, fields: [imm, dst_off], size: 3;  // [fp + dst_off] = imm
 
     // Multiplication/Division
-    StoreMulFpFp = 7, 3, fields: [src0_off, src1_off, dst_off], size: 4;
-    StoreMulFpImm = 8, 2, fields: [src_off, imm, dst_off], size: 4;
-    StoreDivFpFp = 9, 3, fields: [src0_off, src1_off, dst_off], size: 4;
-    StoreDivFpImm = 10, 2, fields: [src_off, imm, dst_off], size: 4;
+    StoreMulFpFp = 6, 3, fields: [src0_off, src1_off, dst_off], size: 4;
+    StoreMulFpImm = 7, 2, fields: [src_off, imm, dst_off], size: 4;
+    StoreDivFpFp = 8, 3, fields: [src0_off, src1_off, dst_off], size: 4;
+    StoreDivFpImm = 9, 2, fields: [src_off, imm, dst_off], size: 4;
 
     // Call operations
-    CallAbsImm = 11, 2, fields: [ret_off_1, ret_off_2, target], size: 4;
-    Ret = 12, 2, fields: [], size: 1;
+    CallAbsImm = 10, 2, fields: [ret_off_1, ret_off_2, target], size: 4;
+    Ret = 11, 2, fields: [], size: 1;
 
     // Jump operations
-    JmpAbsImm = 13, 0, fields: [target], size: 2;
-    JmpRelImm = 14, 0, fields: [offset], size: 2;
+    JmpAbsImm = 12, 0, fields: [target], size: 2;
+    JmpRelImm = 13, 0, fields: [offset], size: 2;
 
     // Conditional jumps
-    JnzFpImm = 15, 1, fields: [cond_off, offset], size: 3;
+    JnzFpImm = 14, 1, fields: [cond_off, offset], size: 3;
 
-    // New U32 instruction - stores the result of [fp + src_off] + (imm_hi << 16 | imm_lo) to [fp + dst_off]
+    // New instructions
+    // U32 instruction - stores the result of [fp + src_off] + (imm_hi << 16 | imm_lo) to [fp + dst_off]
     // This instruction supports 32-bit immediate values split across two M31 fields
-    U32StoreAddFpImm = 16, 2, fields: [src_off, imm_hi, imm_lo, dst_off], size: 5
+    U32StoreAddFpImm = 15, 2, fields: [src_off, imm_hi, imm_lo, dst_off], size: 5
 );
 
 impl From<Instruction> for Vec<M31> {
