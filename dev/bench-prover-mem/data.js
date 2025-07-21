@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1753092862784,
+  "lastUpdate": 1753107099669,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -695,6 +695,35 @@ window.BENCHMARK_DATA = {
           {
             "name": "fibonacci_prove_peak_mem",
             "value": 2228999331,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "clement0walter@gmail.com",
+            "name": "Clément Walter",
+            "username": "ClementWalter"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9a9b47179d84b13b29016be0cea9ae8638d75c15",
+          "message": "feat(prover): Consolidate JnzFpImm opcode implementation (#175)\n\n* Vibecode it\n\n* Add PR claude command\n\n* Make sure that taken is the bool version of op0 * op0_inv\n\n* Add pc_new col to save one interaction",
+          "timestamp": "2025-07-21T15:59:13+02:00",
+          "tree_id": "4435311b9a662c38c2d7041ccbb9d535aac113d8",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/9a9b47179d84b13b29016be0cea9ae8638d75c15"
+        },
+        "date": 1753107099628,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2220053156,
             "unit": "bytes"
           }
         ]
