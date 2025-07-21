@@ -53,10 +53,11 @@ jobs:
             - Security concerns
             - Test coverage
 
-            Be constructive and helpful in your feedback.
+            Be constructive and helpful in your feedback. Keep the output concise and to the point.
+            Include a TLDR; at the beginning.
 
           # Optional: Use sticky comments to make Claude reuse the same comment on subsequent pushes to the same PR
-          # use_sticky_comment: true
+          use_sticky_comment: true
 
           # Optional: Customize review based on file types
           # direct_prompt: |
@@ -76,6 +77,5 @@ jobs:
           # allowed_tools: "Bash(npm run test),Bash(npm run lint),Bash(npm run typecheck)"
 
           # Optional: Skip review for certain conditions
-          # if: |
-          #   !contains(github.event.pull_request.title, '[skip-review]') &&
-          #   !contains(github.event.pull_request.title, '[WIP]')
+          if: |
+            !contains(github.event.pull_request.title, 'wip')
