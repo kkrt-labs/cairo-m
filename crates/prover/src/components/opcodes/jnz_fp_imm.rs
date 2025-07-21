@@ -12,6 +12,7 @@
 //! - imm
 //! - op0_prev_clock
 //! - op0_val
+//! - op0_val_inv
 //! - taken
 //!
 //! # Constraints
@@ -20,7 +21,7 @@
 //!   * `enabler * (1 - enabler)`
 //! * conditional jump logic
 //!   * `op0_val * (taken - 1) = 0` (either op0_val = 0 or taken = 1)
-//!   * `taken * (1 - taken)`
+//!   * `taken - op0_val * op0_val_inv`
 //! * registers update is conditional
 //!   * `- [pc, fp] + [pc + 1 + taken * (imm - 1), fp]` in `Registers` relation
 //! * read instruction from memory
@@ -60,7 +61,7 @@ use crate::components::Relations;
 use crate::utils::enabler::Enabler;
 use crate::utils::execution_bundle::PackedExecutionBundle;
 
-const N_TRACE_COLUMNS: usize = 10;
+const N_TRACE_COLUMNS: usize = 11;
 const N_MEMORY_LOOKUPS: usize = 4;
 const N_REGISTERS_LOOKUPS: usize = 2;
 const N_RANGE_CHECK_20_LOOKUPS: usize = 2;
@@ -152,6 +153,13 @@ impl Claim {
                 let imm = input.inst_value_2;
                 let op0_prev_clock = input.mem1_prev_clock;
                 let op0_val = input.mem1_value;
+                let op0_val_inv = PackedM31::from(op0_val.to_array().map(|m| {
+                    if m == M31::zero() {
+                        M31::zero()
+                    } else {
+                        m.inverse()
+                    }
+                }));
                 let taken = PackedM31::from(op0_val.to_array().map(|m| {
                     if m == M31::zero() {
                         M31::zero()
@@ -169,7 +177,8 @@ impl Claim {
                 *row[6] = imm;
                 *row[7] = op0_prev_clock;
                 *row[8] = op0_val;
-                *row[9] = taken;
+                *row[9] = op0_val_inv;
+                *row[10] = taken;
 
                 // Conditional PC update: if taken then pc+imm, else pc+1
                 let pc_new = pc + one + taken * (imm - one);
@@ -343,6 +352,7 @@ impl FrameworkEval for Eval {
         let imm = eval.next_trace_mask();
         let op0_prev_clock = eval.next_trace_mask();
         let op0_val = eval.next_trace_mask();
+        let op0_val_inv = eval.next_trace_mask();
         let taken = eval.next_trace_mask();
 
         // Enabler is 1 or 0
@@ -351,8 +361,8 @@ impl FrameworkEval for Eval {
         // Either op0_val = 0 or taken = 1
         eval.add_constraint(enabler.clone() * op0_val.clone() * (taken.clone() - one.clone()));
 
-        // Taken is 1 or 0
-        eval.add_constraint(enabler.clone() * taken.clone() * (one.clone() - taken.clone()));
+        // taken = op0_val * op0_val_inv
+        eval.add_constraint(enabler.clone() * (taken.clone() - op0_val.clone() * op0_val_inv));
 
         // Conditional PC update
         let pc_new = pc.clone() + one.clone() + taken * (imm.clone() - one);
