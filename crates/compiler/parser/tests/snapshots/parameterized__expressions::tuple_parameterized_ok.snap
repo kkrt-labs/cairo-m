@@ -1,0 +1,168 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Input 1 ---
+fn test() { (1, 2, 3); }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Tuple(
+                    [],
+                ),
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                Tuple(
+                                    [
+                                        Spanned(
+                                            Literal(
+                                                1,
+                                            ),
+                                            13..14,
+                                        ),
+                                        Spanned(
+                                            Literal(
+                                                2,
+                                            ),
+                                            16..17,
+                                        ),
+                                        Spanned(
+                                            Literal(
+                                                3,
+                                            ),
+                                            19..20,
+                                        ),
+                                    ],
+                                ),
+                                12..21,
+                            ),
+                        ),
+                        12..22,
+                    ),
+                ],
+            },
+            0..24,
+        ),
+    ),
+]
+============================================================
+
+--- Input 2 ---
+fn test() { ((1, 2), (3, 4)); }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Tuple(
+                    [],
+                ),
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                Tuple(
+                                    [
+                                        Spanned(
+                                            Tuple(
+                                                [
+                                                    Spanned(
+                                                        Literal(
+                                                            1,
+                                                        ),
+                                                        14..15,
+                                                    ),
+                                                    Spanned(
+                                                        Literal(
+                                                            2,
+                                                        ),
+                                                        17..18,
+                                                    ),
+                                                ],
+                                            ),
+                                            13..19,
+                                        ),
+                                        Spanned(
+                                            Tuple(
+                                                [
+                                                    Spanned(
+                                                        Literal(
+                                                            3,
+                                                        ),
+                                                        22..23,
+                                                    ),
+                                                    Spanned(
+                                                        Literal(
+                                                            4,
+                                                        ),
+                                                        25..26,
+                                                    ),
+                                                ],
+                                            ),
+                                            21..27,
+                                        ),
+                                    ],
+                                ),
+                                12..28,
+                            ),
+                        ),
+                        12..29,
+                    ),
+                ],
+            },
+            0..31,
+        ),
+    ),
+]
+============================================================
+
+--- Input 3 ---
+fn test() { (single_element,); }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Tuple(
+                    [],
+                ),
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                Identifier(
+                                    Spanned(
+                                        "single_element",
+                                        13..27,
+                                    ),
+                                ),
+                                12..29,
+                            ),
+                        ),
+                        12..30,
+                    ),
+                ],
+            },
+            0..32,
+        ),
+    ),
+]

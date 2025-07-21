@@ -1,0 +1,588 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+fn nested_loops() {
+    // Nested while loops
+    let i = 0;
+    while (i != 5) {
+        let j = 0;
+        while (j != 3) {
+            if (i == 2 && j == 1) {
+                break;
+            }
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+
+    // Loop with continue
+    for x in items {
+        if (x == 0) {
+            continue;
+        }
+        let result = process(x);
+    }
+
+    // Infinite loop with nested control
+    loop {
+        let value = get_value();
+        if (value == -1) {
+            break;
+        }
+        while (value != 0) {
+            value = value - 1;
+            if (value == 5) {
+                continue;
+            }
+        }
+    }
+}
+
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "nested_loops",
+                    3..15,
+                ),
+                params: [],
+                return_type: Tuple(
+                    [],
+                ),
+                body: [
+                    Spanned(
+                        Let {
+                            pattern: Identifier(
+                                Spanned(
+                                    "i",
+                                    54..55,
+                                ),
+                            ),
+                            statement_type: None,
+                            value: Spanned(
+                                Literal(
+                                    0,
+                                ),
+                                58..59,
+                            ),
+                        },
+                        50..60,
+                    ),
+                    Spanned(
+                        While {
+                            condition: Spanned(
+                                BinaryOp {
+                                    op: Neq,
+                                    left: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "i",
+                                                72..73,
+                                            ),
+                                        ),
+                                        72..73,
+                                    ),
+                                    right: Spanned(
+                                        Literal(
+                                            5,
+                                        ),
+                                        77..78,
+                                    ),
+                                },
+                                72..78,
+                            ),
+                            body: Spanned(
+                                Block(
+                                    [
+                                        Spanned(
+                                            Let {
+                                                pattern: Identifier(
+                                                    Spanned(
+                                                        "j",
+                                                        94..95,
+                                                    ),
+                                                ),
+                                                statement_type: None,
+                                                value: Spanned(
+                                                    Literal(
+                                                        0,
+                                                    ),
+                                                    98..99,
+                                                ),
+                                            },
+                                            90..100,
+                                        ),
+                                        Spanned(
+                                            While {
+                                                condition: Spanned(
+                                                    BinaryOp {
+                                                        op: Neq,
+                                                        left: Spanned(
+                                                            Identifier(
+                                                                Spanned(
+                                                                    "j",
+                                                                    116..117,
+                                                                ),
+                                                            ),
+                                                            116..117,
+                                                        ),
+                                                        right: Spanned(
+                                                            Literal(
+                                                                3,
+                                                            ),
+                                                            121..122,
+                                                        ),
+                                                    },
+                                                    116..122,
+                                                ),
+                                                body: Spanned(
+                                                    Block(
+                                                        [
+                                                            Spanned(
+                                                                If {
+                                                                    condition: Spanned(
+                                                                        BinaryOp {
+                                                                            op: And,
+                                                                            left: Spanned(
+                                                                                BinaryOp {
+                                                                                    op: Eq,
+                                                                                    left: Spanned(
+                                                                                        Identifier(
+                                                                                            Spanned(
+                                                                                                "i",
+                                                                                                142..143,
+                                                                                            ),
+                                                                                        ),
+                                                                                        142..143,
+                                                                                    ),
+                                                                                    right: Spanned(
+                                                                                        Literal(
+                                                                                            2,
+                                                                                        ),
+                                                                                        147..148,
+                                                                                    ),
+                                                                                },
+                                                                                142..148,
+                                                                            ),
+                                                                            right: Spanned(
+                                                                                BinaryOp {
+                                                                                    op: Eq,
+                                                                                    left: Spanned(
+                                                                                        Identifier(
+                                                                                            Spanned(
+                                                                                                "j",
+                                                                                                152..153,
+                                                                                            ),
+                                                                                        ),
+                                                                                        152..153,
+                                                                                    ),
+                                                                                    right: Spanned(
+                                                                                        Literal(
+                                                                                            1,
+                                                                                        ),
+                                                                                        157..158,
+                                                                                    ),
+                                                                                },
+                                                                                152..158,
+                                                                            ),
+                                                                        },
+                                                                        142..158,
+                                                                    ),
+                                                                    then_block: Spanned(
+                                                                        Block(
+                                                                            [
+                                                                                Spanned(
+                                                                                    Break,
+                                                                                    178..184,
+                                                                                ),
+                                                                            ],
+                                                                        ),
+                                                                        160..198,
+                                                                    ),
+                                                                    else_block: None,
+                                                                },
+                                                                138..198,
+                                                            ),
+                                                            Spanned(
+                                                                Assignment {
+                                                                    lhs: Spanned(
+                                                                        Identifier(
+                                                                            Spanned(
+                                                                                "j",
+                                                                                211..212,
+                                                                            ),
+                                                                        ),
+                                                                        211..212,
+                                                                    ),
+                                                                    rhs: Spanned(
+                                                                        BinaryOp {
+                                                                            op: Add,
+                                                                            left: Spanned(
+                                                                                Identifier(
+                                                                                    Spanned(
+                                                                                        "j",
+                                                                                        215..216,
+                                                                                    ),
+                                                                                ),
+                                                                                215..216,
+                                                                            ),
+                                                                            right: Spanned(
+                                                                                Literal(
+                                                                                    1,
+                                                                                ),
+                                                                                219..220,
+                                                                            ),
+                                                                        },
+                                                                        215..220,
+                                                                    ),
+                                                                },
+                                                                211..221,
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    124..231,
+                                                ),
+                                            },
+                                            109..231,
+                                        ),
+                                        Spanned(
+                                            Assignment {
+                                                lhs: Spanned(
+                                                    Identifier(
+                                                        Spanned(
+                                                            "i",
+                                                            240..241,
+                                                        ),
+                                                    ),
+                                                    240..241,
+                                                ),
+                                                rhs: Spanned(
+                                                    BinaryOp {
+                                                        op: Add,
+                                                        left: Spanned(
+                                                            Identifier(
+                                                                Spanned(
+                                                                    "i",
+                                                                    244..245,
+                                                                ),
+                                                            ),
+                                                            244..245,
+                                                        ),
+                                                        right: Spanned(
+                                                            Literal(
+                                                                1,
+                                                            ),
+                                                            248..249,
+                                                        ),
+                                                    },
+                                                    244..249,
+                                                ),
+                                            },
+                                            240..250,
+                                        ),
+                                    ],
+                                ),
+                                80..256,
+                            ),
+                        },
+                        65..256,
+                    ),
+                    Spanned(
+                        For {
+                            variable: Spanned(
+                                "x",
+                                292..293,
+                            ),
+                            iterable: Spanned(
+                                Identifier(
+                                    Spanned(
+                                        "items",
+                                        297..302,
+                                    ),
+                                ),
+                                297..302,
+                            ),
+                            body: Spanned(
+                                Block(
+                                    [
+                                        Spanned(
+                                            If {
+                                                condition: Spanned(
+                                                    BinaryOp {
+                                                        op: Eq,
+                                                        left: Spanned(
+                                                            Identifier(
+                                                                Spanned(
+                                                                    "x",
+                                                                    317..318,
+                                                                ),
+                                                            ),
+                                                            317..318,
+                                                        ),
+                                                        right: Spanned(
+                                                            Literal(
+                                                                0,
+                                                            ),
+                                                            322..323,
+                                                        ),
+                                                    },
+                                                    317..323,
+                                                ),
+                                                then_block: Spanned(
+                                                    Block(
+                                                        [
+                                                            Spanned(
+                                                                Continue,
+                                                                339..348,
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    325..358,
+                                                ),
+                                                else_block: None,
+                                            },
+                                            313..358,
+                                        ),
+                                        Spanned(
+                                            Let {
+                                                pattern: Identifier(
+                                                    Spanned(
+                                                        "result",
+                                                        371..377,
+                                                    ),
+                                                ),
+                                                statement_type: None,
+                                                value: Spanned(
+                                                    FunctionCall {
+                                                        callee: Spanned(
+                                                            Identifier(
+                                                                Spanned(
+                                                                    "process",
+                                                                    380..387,
+                                                                ),
+                                                            ),
+                                                            380..387,
+                                                        ),
+                                                        args: [
+                                                            Spanned(
+                                                                Identifier(
+                                                                    Spanned(
+                                                                        "x",
+                                                                        388..389,
+                                                                    ),
+                                                                ),
+                                                                388..389,
+                                                            ),
+                                                        ],
+                                                    },
+                                                    380..389,
+                                                ),
+                                            },
+                                            367..391,
+                                        ),
+                                    ],
+                                ),
+                                303..397,
+                            ),
+                        },
+                        288..397,
+                    ),
+                    Spanned(
+                        Loop {
+                            body: Spanned(
+                                Block(
+                                    [
+                                        Spanned(
+                                            Let {
+                                                pattern: Identifier(
+                                                    Spanned(
+                                                        "value",
+                                                        463..468,
+                                                    ),
+                                                ),
+                                                statement_type: None,
+                                                value: Spanned(
+                                                    FunctionCall {
+                                                        callee: Spanned(
+                                                            Identifier(
+                                                                Spanned(
+                                                                    "get_value",
+                                                                    471..480,
+                                                                ),
+                                                            ),
+                                                            471..480,
+                                                        ),
+                                                        args: [],
+                                                    },
+                                                    471..482,
+                                                ),
+                                            },
+                                            459..483,
+                                        ),
+                                        Spanned(
+                                            If {
+                                                condition: Spanned(
+                                                    BinaryOp {
+                                                        op: Eq,
+                                                        left: Spanned(
+                                                            Identifier(
+                                                                Spanned(
+                                                                    "value",
+                                                                    496..501,
+                                                                ),
+                                                            ),
+                                                            496..501,
+                                                        ),
+                                                        right: Spanned(
+                                                            UnaryOp {
+                                                                op: Neg,
+                                                                expr: Spanned(
+                                                                    Literal(
+                                                                        1,
+                                                                    ),
+                                                                    506..507,
+                                                                ),
+                                                            },
+                                                            505..507,
+                                                        ),
+                                                    },
+                                                    496..507,
+                                                ),
+                                                then_block: Spanned(
+                                                    Block(
+                                                        [
+                                                            Spanned(
+                                                                Break,
+                                                                523..529,
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    509..539,
+                                                ),
+                                                else_block: None,
+                                            },
+                                            492..539,
+                                        ),
+                                        Spanned(
+                                            While {
+                                                condition: Spanned(
+                                                    BinaryOp {
+                                                        op: Neq,
+                                                        left: Spanned(
+                                                            Identifier(
+                                                                Spanned(
+                                                                    "value",
+                                                                    555..560,
+                                                                ),
+                                                            ),
+                                                            555..560,
+                                                        ),
+                                                        right: Spanned(
+                                                            Literal(
+                                                                0,
+                                                            ),
+                                                            564..565,
+                                                        ),
+                                                    },
+                                                    555..565,
+                                                ),
+                                                body: Spanned(
+                                                    Block(
+                                                        [
+                                                            Spanned(
+                                                                Assignment {
+                                                                    lhs: Spanned(
+                                                                        Identifier(
+                                                                            Spanned(
+                                                                                "value",
+                                                                                581..586,
+                                                                            ),
+                                                                        ),
+                                                                        581..586,
+                                                                    ),
+                                                                    rhs: Spanned(
+                                                                        BinaryOp {
+                                                                            op: Sub,
+                                                                            left: Spanned(
+                                                                                Identifier(
+                                                                                    Spanned(
+                                                                                        "value",
+                                                                                        589..594,
+                                                                                    ),
+                                                                                ),
+                                                                                589..594,
+                                                                            ),
+                                                                            right: Spanned(
+                                                                                Literal(
+                                                                                    1,
+                                                                                ),
+                                                                                597..598,
+                                                                            ),
+                                                                        },
+                                                                        589..598,
+                                                                    ),
+                                                                },
+                                                                581..599,
+                                                            ),
+                                                            Spanned(
+                                                                If {
+                                                                    condition: Spanned(
+                                                                        BinaryOp {
+                                                                            op: Eq,
+                                                                            left: Spanned(
+                                                                                Identifier(
+                                                                                    Spanned(
+                                                                                        "value",
+                                                                                        616..621,
+                                                                                    ),
+                                                                                ),
+                                                                                616..621,
+                                                                            ),
+                                                                            right: Spanned(
+                                                                                Literal(
+                                                                                    5,
+                                                                                ),
+                                                                                625..626,
+                                                                            ),
+                                                                        },
+                                                                        616..626,
+                                                                    ),
+                                                                    then_block: Spanned(
+                                                                        Block(
+                                                                            [
+                                                                                Spanned(
+                                                                                    Continue,
+                                                                                    646..655,
+                                                                                ),
+                                                                            ],
+                                                                        ),
+                                                                        628..669,
+                                                                    ),
+                                                                    else_block: None,
+                                                                },
+                                                                612..669,
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    567..679,
+                                                ),
+                                            },
+                                            548..679,
+                                        ),
+                                    ],
+                                ),
+                                449..685,
+                            ),
+                        },
+                        444..685,
+                    ),
+                ],
+            },
+            0..687,
+        ),
+    ),
+]

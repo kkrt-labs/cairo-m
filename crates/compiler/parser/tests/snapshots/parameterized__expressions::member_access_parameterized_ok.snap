@@ -1,0 +1,202 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Input 1 ---
+fn test() { obj.field; }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Tuple(
+                    [],
+                ),
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                MemberAccess {
+                                    object: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "obj",
+                                                12..15,
+                                            ),
+                                        ),
+                                        12..15,
+                                    ),
+                                    field: Spanned(
+                                        "field",
+                                        16..21,
+                                    ),
+                                },
+                                12..21,
+                            ),
+                        ),
+                        12..22,
+                    ),
+                ],
+            },
+            0..24,
+        ),
+    ),
+]
+============================================================
+
+--- Input 2 ---
+fn test() { obj.inner.field; }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Tuple(
+                    [],
+                ),
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                MemberAccess {
+                                    object: Spanned(
+                                        MemberAccess {
+                                            object: Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "obj",
+                                                        12..15,
+                                                    ),
+                                                ),
+                                                12..15,
+                                            ),
+                                            field: Spanned(
+                                                "inner",
+                                                16..21,
+                                            ),
+                                        },
+                                        12..21,
+                                    ),
+                                    field: Spanned(
+                                        "field",
+                                        22..27,
+                                    ),
+                                },
+                                12..27,
+                            ),
+                        ),
+                        12..28,
+                    ),
+                ],
+            },
+            0..30,
+        ),
+    ),
+]
+============================================================
+
+--- Input 3 ---
+fn test() { obj.method().field.method2()[0].final_field; }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Tuple(
+                    [],
+                ),
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                MemberAccess {
+                                    object: Spanned(
+                                        IndexAccess {
+                                            array: Spanned(
+                                                FunctionCall {
+                                                    callee: Spanned(
+                                                        MemberAccess {
+                                                            object: Spanned(
+                                                                MemberAccess {
+                                                                    object: Spanned(
+                                                                        FunctionCall {
+                                                                            callee: Spanned(
+                                                                                MemberAccess {
+                                                                                    object: Spanned(
+                                                                                        Identifier(
+                                                                                            Spanned(
+                                                                                                "obj",
+                                                                                                12..15,
+                                                                                            ),
+                                                                                        ),
+                                                                                        12..15,
+                                                                                    ),
+                                                                                    field: Spanned(
+                                                                                        "method",
+                                                                                        16..22,
+                                                                                    ),
+                                                                                },
+                                                                                12..22,
+                                                                            ),
+                                                                            args: [],
+                                                                        },
+                                                                        12..24,
+                                                                    ),
+                                                                    field: Spanned(
+                                                                        "field",
+                                                                        25..30,
+                                                                    ),
+                                                                },
+                                                                12..30,
+                                                            ),
+                                                            field: Spanned(
+                                                                "method2",
+                                                                31..38,
+                                                            ),
+                                                        },
+                                                        12..38,
+                                                    ),
+                                                    args: [],
+                                                },
+                                                12..40,
+                                            ),
+                                            index: Spanned(
+                                                Literal(
+                                                    0,
+                                                ),
+                                                41..42,
+                                            ),
+                                        },
+                                        12..42,
+                                    ),
+                                    field: Spanned(
+                                        "final_field",
+                                        44..55,
+                                    ),
+                                },
+                                12..55,
+                            ),
+                        ),
+                        12..56,
+                    ),
+                ],
+            },
+            0..58,
+        ),
+    ),
+]

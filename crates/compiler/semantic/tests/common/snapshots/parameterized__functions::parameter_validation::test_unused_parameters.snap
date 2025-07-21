@@ -1,0 +1,34 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test(unused_param: felt) -> felt { return 42; }
+--- Diagnostics ---
+[1002] Warning: Unused variable 'unused_param'
+   ╭─[ semantic_tests::functions::parameter_validation::test_unused_parameters:1:9 ]
+   │
+ 1 │ fn test(unused_param: felt) -> felt { return 42; }
+   │         ──────┬─────  
+   │               ╰─────── Unused variable 'unused_param'
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+fn test(used: felt, unused1: felt, unused2: felt) -> felt { return used; }
+--- Diagnostics ---
+[1002] Warning: Unused variable 'unused1'
+   ╭─[ semantic_tests::functions::parameter_validation::test_unused_parameters:1:21 ]
+   │
+ 1 │ fn test(used: felt, unused1: felt, unused2: felt) -> felt { return used; }
+   │                     ───┬───  
+   │                        ╰───── Unused variable 'unused1'
+───╯
+[1002] Warning: Unused variable 'unused2'
+   ╭─[ semantic_tests::functions::parameter_validation::test_unused_parameters:1:36 ]
+   │
+ 1 │ fn test(used: felt, unused1: felt, unused2: felt) -> felt { return used; }
+   │                                    ───┬───  
+   │                                       ╰───── Unused variable 'unused2'
+───╯

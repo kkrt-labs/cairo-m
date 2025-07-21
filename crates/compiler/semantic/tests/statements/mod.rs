@@ -1,9 +1,6 @@
 //! # Statement Validation Tests
 //!
-//! Tests for statement-level semantic validation including:
-//! - Let statement validation
-//! - Assignment statement validation
-//! - Expression statement validation
+//! Tests for statement-level validation, including let statements and assignments.
 
 pub mod assignments;
 pub mod expression_statements;

@@ -1,0 +1,61 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test() { let (x, y) = 42; }
+--- Diagnostics ---
+[2001] Error: Cannot destructure non-tuple type 'felt' in tuple pattern
+   ╭─[ semantic_tests::functions::tuples::test_tuple_destructuring:1:26 ]
+   │
+ 1 │ fn test() { let (x, y) = 42; }
+   │                          ─┬  
+   │                           ╰── Cannot destructure non-tuple type 'felt' in tuple pattern
+───╯
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ semantic_tests::functions::tuples::test_tuple_destructuring:1:4 ]
+   │
+ 1 │ fn test() { let (x, y) = 42; }
+   │    ──┬─  
+   │      ╰─── Function 'test' doesn't return on all paths
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+fn test() { let (x, y) = (1, 2, 3); }
+--- Diagnostics ---
+[2001] Error: Tuple pattern has 2 elements but value has 3 elements
+   ╭─[ semantic_tests::functions::tuples::test_tuple_destructuring:1:26 ]
+   │
+ 1 │ fn test() { let (x, y) = (1, 2, 3); }
+   │                          ────┬────  
+   │                              ╰────── Tuple pattern has 2 elements but value has 3 elements
+───╯
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ semantic_tests::functions::tuples::test_tuple_destructuring:1:4 ]
+   │
+ 1 │ fn test() { let (x, y) = (1, 2, 3); }
+   │    ──┬─  
+   │      ╰─── Function 'test' doesn't return on all paths
+───╯
+
+============================================================
+
+--- Input 3 (ERROR) ---
+fn test() { let (x, y): felt = (1, 2); }
+--- Diagnostics ---
+[2001] Error: Type mismatch for tuple destructuring. Expected 'felt', found '(felt, felt)'
+   ╭─[ semantic_tests::functions::tuples::test_tuple_destructuring:1:32 ]
+   │
+ 1 │ fn test() { let (x, y): felt = (1, 2); }
+   │                                ───┬──  
+   │                                   ╰──── Type mismatch for tuple destructuring. Expected 'felt', found '(felt, felt)'
+───╯
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ semantic_tests::functions::tuples::test_tuple_destructuring:1:4 ]
+   │
+ 1 │ fn test() { let (x, y): felt = (1, 2); }
+   │    ──┬─  
+   │      ╰─── Function 'test' doesn't return on all paths
+───╯

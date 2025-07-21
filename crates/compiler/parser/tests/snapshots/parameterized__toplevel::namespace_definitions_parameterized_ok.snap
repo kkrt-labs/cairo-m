@@ -1,0 +1,139 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Input 1 ---
+namespace Math { const PI = 314; }
+--- AST ---
+[
+    Namespace(
+        Spanned(
+            Namespace {
+                name: Spanned(
+                    "Math",
+                    10..14,
+                ),
+                body: [
+                    Const(
+                        Spanned(
+                            ConstDef {
+                                name: Spanned(
+                                    "PI",
+                                    23..25,
+                                ),
+                                value: Spanned(
+                                    Literal(
+                                        314,
+                                    ),
+                                    28..31,
+                                ),
+                            },
+                            17..32,
+                        ),
+                    ),
+                ],
+            },
+            0..34,
+        ),
+    ),
+]
+============================================================
+
+--- Input 2 ---
+namespace Utils { fn helper() -> felt { return 1; } }
+--- AST ---
+[
+    Namespace(
+        Spanned(
+            Namespace {
+                name: Spanned(
+                    "Utils",
+                    10..15,
+                ),
+                body: [
+                    Function(
+                        Spanned(
+                            FunctionDef {
+                                name: Spanned(
+                                    "helper",
+                                    21..27,
+                                ),
+                                params: [],
+                                return_type: Named(
+                                    Felt,
+                                ),
+                                body: [
+                                    Spanned(
+                                        Return {
+                                            value: Some(
+                                                Spanned(
+                                                    Literal(
+                                                        1,
+                                                    ),
+                                                    47..48,
+                                                ),
+                                            ),
+                                        },
+                                        40..49,
+                                    ),
+                                ],
+                            },
+                            18..51,
+                        ),
+                    ),
+                ],
+            },
+            0..53,
+        ),
+    ),
+]
+============================================================
+
+--- Input 3 ---
+namespace Outer { namespace Inner { const VALUE = 42; } }
+--- AST ---
+[
+    Namespace(
+        Spanned(
+            Namespace {
+                name: Spanned(
+                    "Outer",
+                    10..15,
+                ),
+                body: [
+                    Namespace(
+                        Spanned(
+                            Namespace {
+                                name: Spanned(
+                                    "Inner",
+                                    28..33,
+                                ),
+                                body: [
+                                    Const(
+                                        Spanned(
+                                            ConstDef {
+                                                name: Spanned(
+                                                    "VALUE",
+                                                    42..47,
+                                                ),
+                                                value: Spanned(
+                                                    Literal(
+                                                        42,
+                                                    ),
+                                                    50..52,
+                                                ),
+                                            },
+                                            36..53,
+                                        ),
+                                    ),
+                                ],
+                            },
+                            18..55,
+                        ),
+                    ),
+                ],
+            },
+            0..57,
+        ),
+    ),
+]

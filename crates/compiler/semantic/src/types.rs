@@ -15,9 +15,6 @@
 //! All complex types (structs, functions) are interned separately to enable efficient
 //! structural comparison and avoid deep recursion during type checking.
 
-#[cfg(test)]
-mod types_test;
-
 use crate::SemanticDb;
 use crate::place::FileScopeId;
 use crate::semantic_index::DefinitionId;

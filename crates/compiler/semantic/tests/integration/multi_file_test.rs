@@ -8,7 +8,7 @@ use cairo_m_compiler_parser::SourceFile;
 use cairo_m_compiler_semantic::db::{Crate, project_validate_semantics};
 use insta::assert_snapshot;
 
-use crate::test_db;
+use crate::common::*;
 
 #[test]
 fn test_cross_module_function_call() {

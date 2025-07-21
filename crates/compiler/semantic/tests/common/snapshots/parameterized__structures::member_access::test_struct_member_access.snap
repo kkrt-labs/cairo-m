@@ -1,0 +1,92 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test() { let x: felt = 42; let a = x.field; return; }
+--- Diagnostics ---
+[2002] Error: Expected struct type, found felt
+   ╭─[ semantic_tests::structures::member_access::test_struct_member_access:1:39 ]
+   │
+ 1 │ fn test() { let x: felt = 42; let a = x.field; return; }
+   │                                       ┬  
+   │                                       ╰── Expected struct type, found felt
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+fn test() { let y: u32 = 100; let b = y.value; return; }
+--- Diagnostics ---
+[2002] Error: Expected struct type, found u32
+   ╭─[ semantic_tests::structures::member_access::test_struct_member_access:1:39 ]
+   │
+ 1 │ fn test() { let y: u32 = 100; let b = y.value; return; }
+   │                                       ┬  
+   │                                       ╰── Expected struct type, found u32
+───╯
+
+============================================================
+
+--- Input 3 (ERROR) ---
+fn test() { let z: bool = true; let c = z.flag; return; }
+--- Diagnostics ---
+[2002] Error: Expected struct type, found bool
+   ╭─[ semantic_tests::structures::member_access::test_struct_member_access:1:41 ]
+   │
+ 1 │ fn test() { let z: bool = true; let c = z.flag; return; }
+   │                                         ┬  
+   │                                         ╰── Expected struct type, found bool
+───╯
+
+============================================================
+
+--- Input 4 (ERROR) ---
+fn test() { let t = (10, 20, 30); let x = t.x; return; }
+--- Diagnostics ---
+[2002] Error: Expected struct type, found (felt, felt, felt)
+   ╭─[ semantic_tests::structures::member_access::test_struct_member_access:1:43 ]
+   │
+ 1 │ fn test() { let t = (10, 20, 30); let x = t.x; return; }
+   │                                           ┬  
+   │                                           ╰── Expected struct type, found (felt, felt, felt)
+───╯
+
+============================================================
+
+--- Input 5 (ERROR) ---
+fn test() { let t = (10, 20, 30); let first = t.first; return; }
+--- Diagnostics ---
+[2002] Error: Expected struct type, found (felt, felt, felt)
+   ╭─[ semantic_tests::structures::member_access::test_struct_member_access:1:47 ]
+   │
+ 1 │ fn test() { let t = (10, 20, 30); let first = t.first; return; }
+   │                                               ┬  
+   │                                               ╰── Expected struct type, found (felt, felt, felt)
+───╯
+
+============================================================
+
+--- Input 6 (ERROR) ---
+struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10, y: 20 }; let z = p.z; return;}
+--- Diagnostics ---
+[2002] Error: Field 'z' does not exist in struct Point
+   ╭─[ semantic_tests::structures::member_access::test_struct_member_access:1:89 ]
+   │
+ 1 │ struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10, y: 20 }; let z = p.z; return;}
+   │                                                                                         ┬  
+   │                                                                                         ╰── Field 'z' does not exist in struct Point
+───╯
+
+============================================================
+
+--- Input 7 (ERROR) ---
+struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10, y: 20 }; let mag = p.magnitude; return;}
+--- Diagnostics ---
+[2002] Error: Field 'magnitude' does not exist in struct Point
+   ╭─[ semantic_tests::structures::member_access::test_struct_member_access:1:91 ]
+   │
+ 1 │ struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10, y: 20 }; let mag = p.magnitude; return;}
+   │                                                                                           ────┬────  
+   │                                                                                               ╰────── Field 'magnitude' does not exist in struct Point
+───╯

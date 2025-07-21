@@ -36,10 +36,10 @@ fn test_complete_program_with_multiple_functions() {
 
 #[test]
 fn test_program_with_structs_and_functions() {
-    assert_semantic_ok!(&with_struct(
-        "Point",
-        "x: felt, y: felt",
+    assert_semantic_ok!(
         r#"
+        struct Point { x: felt, y: felt }
+
         fn create_point(x: felt, y: felt) -> Point {
             return Point { x: x, y: y };
         }
@@ -53,7 +53,7 @@ fn test_program_with_structs_and_functions() {
             return distance_squared(point);
         }
         "#
-    ));
+    );
 }
 
 #[test]
