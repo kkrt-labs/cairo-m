@@ -25,7 +25,7 @@ fn fibonacci_1m_benchmark(c: &mut Criterion) {
         "fibonacci_loop",
         &[M31::from(N_ITERATIONS)],
         RunnerOptions {
-            n_steps: 2_usize.pow(30),
+            max_steps: 2_usize.pow(30),
         },
     )
     .expect("Execution failed");
@@ -41,7 +41,7 @@ fn fibonacci_1m_benchmark(c: &mut Criterion) {
                 "fibonacci_loop",
                 &[M31::from(N_ITERATIONS)],
                 RunnerOptions {
-                    n_steps: 2_usize.pow(30),
+                    max_steps: 2_usize.pow(30),
                 },
             )
             .expect("Execution failed");

@@ -99,7 +99,7 @@ fn test_step_invalid_instruction() {
 fn test_execute_empty_program() {
     let program = Program::from(vec![]);
     let mut vm = VM::try_from(&program).unwrap();
-    let result = vm.execute(RunnerOptions::default().n_steps);
+    let result = vm.execute(RunnerOptions::default().max_steps);
     assert!(result.is_ok());
     assert_vm_state!(vm.state, 0, 0);
     assert_eq!(vm.memory.data.len(), 0);
@@ -112,7 +112,7 @@ fn test_execute_single_instruction() {
     let program = Program::from(instructions);
     let mut vm = VM::try_from(&program).unwrap();
 
-    let result = vm.execute(RunnerOptions::default().n_steps);
+    let result = vm.execute(RunnerOptions::default().max_steps);
     assert!(result.is_ok());
 
     // PC should be at final position (memory.len() = 1)
@@ -139,7 +139,7 @@ fn test_execute_multiple_instructions() {
     // Initial state
     assert_vm_state!(vm.state, 0, 3); // FP should be after 3 instructions
 
-    let result = vm.execute(RunnerOptions::default().n_steps);
+    let result = vm.execute(RunnerOptions::default().max_steps);
     assert!(result.is_ok());
 
     // PC should be at final position (memory.len() = 3)
@@ -173,7 +173,7 @@ fn test_execute_with_error() {
         segments: vec![],
     };
     // Execute should fail when it hits the invalid instruction
-    let result = vm.execute(RunnerOptions::default().n_steps);
+    let result = vm.execute(RunnerOptions::default().max_steps);
     assert!(result.is_err());
     assert!(matches!(
         result.err().unwrap(),
@@ -202,7 +202,7 @@ fn test_execute_arithmetic_operations() {
     let program = Program::from(instructions);
     let mut vm = VM::try_from(&program).unwrap();
 
-    let result = vm.execute(RunnerOptions::default().n_steps);
+    let result = vm.execute(RunnerOptions::default().max_steps);
     assert!(result.is_ok());
 
     // Check all computed values
@@ -244,7 +244,7 @@ fn test_serialize_trace() {
     let mut vm = VM::try_from(&program).unwrap();
 
     // Execute the program to generate a trace.
-    assert!(vm.execute(RunnerOptions::default().n_steps).is_ok());
+    assert!(vm.execute(RunnerOptions::default().max_steps).is_ok());
 
     // The trace should have 3 entries, one for each instruction executed.
     // The last one is the final state of the VM.
@@ -337,7 +337,7 @@ fn run_fib_test(n: u32) {
     let program = Program::from(instructions);
     let mut vm = VM::try_from(&program).unwrap();
 
-    assert!(vm.execute(RunnerOptions::default().n_steps).is_ok());
+    assert!(vm.execute(RunnerOptions::default().max_steps).is_ok());
     // Verify that FP is still at the end of the program
     // Verify PC reached the end of the program
     assert_vm_state!(vm.state, instructions_len, instructions_len);
@@ -450,7 +450,7 @@ fn test_write_binary_trace_per_segment() {
     let mut vm = VM::try_from(&program).unwrap();
 
     // Execute with segments - this will hit step limit and create segments
-    let _ = vm.run_from_entrypoint(0, 3, &[], 0, RunnerOptions { n_steps: 2 });
+    let _ = vm.run_from_entrypoint(0, 3, &[], 0, RunnerOptions { max_steps: 2 });
 
     // Create a temporary directory for the trace files
     let temp_dir = tempfile::tempdir().unwrap();
@@ -490,7 +490,7 @@ fn test_write_binary_memory_trace_per_segment() {
     let mut vm = VM::try_from(&program).unwrap();
 
     // Execute with segments (limit steps to create multiple segments)
-    let _ = vm.run_from_entrypoint(0, 3, &[], 0, RunnerOptions { n_steps: 2 });
+    let _ = vm.run_from_entrypoint(0, 3, &[], 0, RunnerOptions { max_steps: 2 });
 
     // Create a temporary directory for the memory trace files
     let temp_dir = tempfile::tempdir().unwrap();

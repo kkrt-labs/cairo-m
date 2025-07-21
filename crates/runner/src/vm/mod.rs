@@ -133,19 +133,19 @@ impl VM {
     ///
     /// ## Arguments
     ///
-    /// * `n_steps` - The maximum number of steps to execute, DEFAULT_N_STEPS by default.
+    /// * `max_steps` - The maximum number of steps to execute, DEFAULT_max_steps by default.
     ///
     /// ## Errors
     ///
     /// Returns a [`VmError`] if any instruction execution fails:
     /// - Invalid opcodes ([`VmError::Instruction`])
     /// - Memory errors ([`VmError::Memory`])
-    fn execute(&mut self, n_steps: usize) -> Result<ExecutionStatus, VmError> {
+    fn execute(&mut self, max_steps: usize) -> Result<ExecutionStatus, VmError> {
         if self.final_pc.is_zero() {
             return Ok(ExecutionStatus::Complete);
         }
 
-        while self.state.pc != self.final_pc && self.trace.len() < n_steps {
+        while self.state.pc != self.final_pc && self.trace.len() < max_steps {
             self.step()?;
         }
 
@@ -235,7 +235,7 @@ impl VM {
         self.initial_memory = self.memory.data.clone();
 
         loop {
-            match self.execute(options.n_steps) {
+            match self.execute(options.max_steps) {
                 Ok(ExecutionStatus::Complete) => break self.finalize_segment(true),
                 Ok(ExecutionStatus::Ongoing) => self.finalize_segment(false),
                 Err(e) => return Err(e),
