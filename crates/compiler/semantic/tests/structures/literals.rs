@@ -5,7 +5,6 @@ use crate::assert_semantic_parameterized;
 fn test_struct_literals() {
     assert_semantic_parameterized! {
         ok: [
-            // From: correct_instantiation.cm
             r#"
                 struct Point { x: felt, y: felt }
                 struct Rectangle {

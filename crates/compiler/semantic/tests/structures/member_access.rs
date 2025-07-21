@@ -5,7 +5,6 @@ use crate::{assert_semantic_parameterized, in_function};
 fn test_struct_member_access() {
     assert_semantic_parameterized! {
         ok: [
-            // From: valid_field_access.cm
             r#"
                 struct Point { x: felt, y: felt }
                 struct Rectangle {
@@ -30,16 +29,23 @@ fn test_struct_member_access() {
             "#,
         ],
         err: [
-            // From: member_access_on_primitive.cm
+            // Non-struct
             in_function("let x: felt = 42; let a = x.field;"),
             in_function("let y: u32 = 100; let b = y.value;"),
             in_function("let z: bool = true; let c = z.flag;"),
-            // From: member_access_on_tuple.cm
+
+            // Tuple member access
             in_function("let t = (10, 20, 30); let x = t.x;"),
             in_function("let t = (10, 20, 30); let first = t.first;"),
-            // From: non_existent_field.cm
+
+            // Non-existent field
             "struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10, y: 20 }; let z = p.z; return;}",
             "struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10, y: 20 }; let mag = p.magnitude; return;}",
+
+            // TODO: This does not fail and should be fixed.
+            // Duplicated field names
+            // "struct Point { x: felt, x: felt } fn test() { let p = Point { x: 10, x: 20 }; return; }",
+
         ]
     }
 }
