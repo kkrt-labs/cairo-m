@@ -15,6 +15,7 @@
 #![feature(let_chains)]
 #![allow(clippy::option_if_let_else)]
 
+use cairo_m_common::instruction::{CALL_ABS_IMM, JNZ_FP_IMM, STORE_IMM};
 use cairo_m_common::{Instruction, Program};
 use cairo_m_compiler_mir::{BasicBlockId, MirModule};
 
@@ -180,8 +181,7 @@ impl InstructionBuilder {
         // For StoreImm, dst_off is the second operand
         // For arithmetic operations, dst_off is the third operand
         match self.opcode {
-            5 => {
-                // STORE_IMM
+            STORE_IMM => {
                 while self.operands.len() < 2 {
                     self.operands.push(Operand::Literal(0));
                 }
@@ -213,8 +213,7 @@ impl InstructionBuilder {
         // For JnzFpImm, offset is the second operand
         // For other jumps, offset is the first operand
         match self.opcode {
-            14 => {
-                // JNZ_FP_IMM
+            JNZ_FP_IMM => {
                 while self.operands.len() < 2 {
                     self.operands.push(Operand::Literal(0));
                 }
@@ -246,8 +245,7 @@ impl InstructionBuilder {
         // For CallAbsImm, target is the second operand
         // For other instructions, target is the first operand
         match self.opcode {
-            10 => {
-                // CALL_ABS_IMM
+            CALL_ABS_IMM => {
                 while self.operands.len() < 2 {
                     self.operands.push(Operand::Literal(0));
                 }
