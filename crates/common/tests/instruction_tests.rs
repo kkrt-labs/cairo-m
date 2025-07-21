@@ -149,8 +149,7 @@ fn test_opcode_values() {
     );
     assert_eq!(
         Instruction::CallAbsImm {
-            ret_off_1: M31::from(0),
-            ret_off_2: M31::from(0),
+            frame_off: M31::from(0),
             target: M31::from(0)
         }
         .opcode_value(),
@@ -572,8 +571,7 @@ fn test_roundtrip_all_instructions() {
             dst_off: M31::from(18),
         },
         Instruction::CallAbsImm {
-            ret_off_1: M31::from(19),
-            ret_off_2: M31::from(20),
+            frame_off: M31::from(19),
             target: M31::from(1000),
         },
         Instruction::Ret {},
