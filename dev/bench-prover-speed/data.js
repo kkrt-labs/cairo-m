@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1752851931526,
+  "lastUpdate": 1753092861721,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -689,6 +689,36 @@ window.BENCHMARK_DATA = {
             "name": "prover_fibonacci/prove",
             "value": 5622709022,
             "range": "± 20588429",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "155267459+reallesee@users.noreply.github.com",
+            "name": "Micke",
+            "username": "reallesee"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d0ea827c5505bdd49f8ab02e1ea5660ae6ac15b2",
+          "message": "refactor(prover): optimize array filling in Enabler::packed_at (#176)",
+          "timestamp": "2025-07-21T12:01:51+02:00",
+          "tree_id": "3115627bba230e4ef3315f4d6f916f601f693ff7",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/d0ea827c5505bdd49f8ab02e1ea5660ae6ac15b2"
+        },
+        "date": 1753092860790,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 5697373144,
+            "range": "± 17943479",
             "unit": "ns/iter"
           }
         ]
