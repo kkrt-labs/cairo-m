@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1752851932320,
+  "lastUpdate": 1753092862784,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -666,6 +666,35 @@ window.BENCHMARK_DATA = {
           {
             "name": "fibonacci_prove_peak_mem",
             "value": 2228998819,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "155267459+reallesee@users.noreply.github.com",
+            "name": "Micke",
+            "username": "reallesee"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d0ea827c5505bdd49f8ab02e1ea5660ae6ac15b2",
+          "message": "refactor(prover): optimize array filling in Enabler::packed_at (#176)",
+          "timestamp": "2025-07-21T12:01:51+02:00",
+          "tree_id": "3115627bba230e4ef3315f4d6f916f601f693ff7",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/d0ea827c5505bdd49f8ab02e1ea5660ae6ac15b2"
+        },
+        "date": 1753092862743,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2228999331,
             "unit": "bytes"
           }
         ]
