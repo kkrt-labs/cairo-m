@@ -28,6 +28,10 @@ fn test_assignments() {
             // Assignment with incompatible operator result type
             in_function("let x: felt = 42; let y: felt = 100; let z: felt = (x == y);"),
             in_function("let x: felt = 42; let y: felt = 100; let z: felt = (x != y);"),
+
+            // TODO: This should be fixed.
+            // Assignment to consts
+            // in_function("const x = 42; x = 100;"),
         ]
     }
 }

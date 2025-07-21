@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use cairo_m_common::Program;
-use cairo_m_compiler_mir::{MirDb, MirModule};
+use cairo_m_compiler_mir::MirDb;
 use cairo_m_compiler_parser::Upcast;
 use cairo_m_compiler_semantic::db::Crate;
 
@@ -31,27 +31,6 @@ pub fn compile_project(db: &dyn CodegenDb, crate_id: Crate) -> Result<Arc<Progra
     let compiled = crate::compile_module(&mir_module)?;
 
     Ok(Arc::new(compiled))
-}
-
-/// Get the MIR module for a crate (convenience re-export).
-///
-/// This allows code generation to access MIR without directly depending
-/// on the MIR crate's internals.
-#[salsa::tracked]
-pub fn codegen_mir_module(db: &dyn CodegenDb, crate_id: Crate) -> Option<Arc<MirModule>> {
-    cairo_m_compiler_mir::db::generate_mir(db.upcast(), crate_id).map(Arc::new)
-}
-
-/// Track code generation errors separately for better diagnostics.
-///
-/// This allows us to report codegen errors without blocking other phases.
-#[salsa::tracked]
-pub fn codegen_errors(db: &dyn CodegenDb, crate_id: Crate) -> Vec<CodegenError> {
-    // Collect errors from code generation
-    match compile_project(db, crate_id) {
-        Ok(_) => vec![],
-        Err(e) => vec![e],
-    }
 }
 
 #[cfg(test)]

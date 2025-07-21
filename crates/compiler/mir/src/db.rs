@@ -4,7 +4,7 @@ use cairo_m_compiler_parser::Upcast;
 use cairo_m_compiler_semantic::SemanticDb;
 use cairo_m_compiler_semantic::db::Crate;
 
-use crate::{MirError, MirModule};
+use crate::MirModule;
 
 /// Database trait for MIR (Mid-level Intermediate Representation) queries.
 ///
@@ -24,18 +24,6 @@ pub fn generate_mir(db: &dyn MirDb, crate_id: Crate) -> Option<MirModule> {
     crate::ir_generation::generate_mir(db, crate_id)
         .ok()
         .map(|arc| (*arc).clone())
-}
-
-/// Track MIR-specific errors separately for better diagnostics.
-///
-/// This allows us to report MIR generation errors without blocking
-/// other compilation phases.
-#[salsa::tracked]
-pub fn mir_errors(_db: &dyn MirDb, _crate_id: Crate) -> Vec<MirError> {
-    // TODO
-    // For now, we'll return an empty vector
-    // In the future, this should collect errors from MIR generation
-    vec![]
 }
 
 #[cfg(test)]

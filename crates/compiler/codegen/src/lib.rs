@@ -25,9 +25,7 @@ pub mod layout;
 
 // Re-export main components
 pub use builder::CasmBuilder;
-pub use db::{
-    CodegenDb, codegen_errors, codegen_mir_module, compile_project as db_compile_project,
-};
+pub use db::{CodegenDb, compile_project as db_compile_project};
 pub use generator::CodeGenerator;
 pub use layout::FunctionLayout;
 

@@ -598,6 +598,8 @@ impl<'db> SemanticIndexBuilder<'db> {
         builder
     }
 
+    /// Build the semantic index from the module.
+    /// Processes recursively all items from the root scope.
     pub fn build(mut self) -> SemanticIndex {
         // Pass 1: Collect all top-level declarations (functions, structs, etc.)
         // This allows forward references to work correctly
@@ -616,6 +618,7 @@ impl<'db> SemanticIndexBuilder<'db> {
         self.index
     }
 
+    /// Returns the current, last active scope.
     fn current_scope(&self) -> FileScopeId {
         *self
             .scope_stack
@@ -623,6 +626,7 @@ impl<'db> SemanticIndexBuilder<'db> {
             .expect("scope stack should never be empty")
     }
 
+    /// Push a new scope onto the scope stack, which becomes the active scope.
     fn push_scope(&mut self, kind: crate::place::ScopeKind) -> FileScopeId {
         let parent = Some(self.current_scope());
         let scope = Scope::new(parent, kind);
@@ -631,12 +635,15 @@ impl<'db> SemanticIndexBuilder<'db> {
         scope_id
     }
 
+    /// Pop the current scope from the scope stack. The parent scope becomes the active scope.
     fn pop_scope(&mut self) {
         self.scope_stack
             .pop()
             .expect("tried to pop from empty scope stack");
     }
 
+    /// Create a new scope and execute the given function within it.
+    /// The scope is popped after the function returns.
     fn with_new_scope<F>(&mut self, kind: crate::place::ScopeKind, f: F)
     where
         F: FnOnce(&mut Self),
@@ -646,6 +653,7 @@ impl<'db> SemanticIndexBuilder<'db> {
         self.pop_scope();
     }
 
+    /// Add a new place to the current scope.
     fn add_place(
         &mut self,
         name: &str,
@@ -658,6 +666,7 @@ impl<'db> SemanticIndexBuilder<'db> {
             .add_place(name.to_string(), flags)
     }
 
+    /// Add a new place to the current scope along with a definition.
     fn add_place_with_definition(
         &mut self,
         name: &str,
@@ -711,6 +720,7 @@ impl<'db> SemanticIndexBuilder<'db> {
         }
     }
 
+    /// Visit a struct definition and add it to the current scope.
     fn visit_struct(&mut self, struct_def: &Spanned<StructDef>) {
         use crate::definition::{DefinitionKind, StructDefRef};
         use crate::place::PlaceFlags;
@@ -732,6 +742,7 @@ impl<'db> SemanticIndexBuilder<'db> {
         // so we don't create a new scope here. The fields are part of the type system.
     }
 
+    /// Visit a use statement and add it to the current scope.
     fn visit_use(&mut self, use_stmt: &Spanned<UseStmt>) {
         use crate::definition::{DefinitionKind, UseDefRef};
         use crate::place::PlaceFlags;
@@ -742,6 +753,8 @@ impl<'db> SemanticIndexBuilder<'db> {
         let path_len = use_inner.path.len();
 
         if path_len < 1 {
+            // TODO: This could also be caught early here by a semantic_syntax_error vec of
+            // diagnostics!
             // Invalid import, skip (validation will catch)
             return;
         }
@@ -806,6 +819,7 @@ impl<'db> SemanticIndexBuilder<'db> {
         }
     }
 
+    /// Visit a const definition and add it to the current scope.
     fn visit_const(&mut self, const_def: &Spanned<ConstDef>) {
         use crate::definition::{ConstDefRef, DefinitionKind};
         use crate::place::PlaceFlags;
@@ -832,6 +846,8 @@ impl<'db> SemanticIndexBuilder<'db> {
     fn declare_function(&mut self, func: &Spanned<FunctionDef>) {
         use crate::definition::{DefinitionKind, FunctionDefRef};
         use crate::place::PlaceFlags;
+
+        // TODO: We could catch params duplication here.
 
         let func_def = func.value();
         let func_span = func.span();
@@ -922,6 +938,7 @@ impl<'db> SemanticIndexBuilder<'db> {
         });
     }
 
+    /// Visit a statement and add it to the current scope.
     fn visit_statement(&mut self, stmt: &Spanned<Statement>) {
         use crate::place::PlaceFlags;
 
@@ -983,7 +1000,6 @@ impl<'db> SemanticIndexBuilder<'db> {
                 // TODO: Validate assignment compatibility (AssignmentValidator)
                 // - Check that LHS is actually assignable (not a constant, etc.)
                 // - Validate type compatibility between LHS and RHS
-                // - Check mutability constraints (let vs mutable variables)
                 // - Validate assignment to valid lvalue expressions
             }
             Statement::Return { value } => {
@@ -1010,10 +1026,6 @@ impl<'db> SemanticIndexBuilder<'db> {
                         builder.visit_statement(else_stmt);
                     });
                 }
-                // TODO: Implement control flow analysis (ControlFlowValidator)
-                // - Track reachability and dead code detection
-                // - Validate boolean condition type when type system is ready
-                // - Check for unreachable code after returns
             }
             Statement::Expression(expr) => {
                 let _stmt_expr_id = self.visit_expression(expr);
@@ -1078,9 +1090,6 @@ impl<'db> SemanticIndexBuilder<'db> {
                 // Map the break/continue statement's span to its scope for IDE features
                 let current_scope = self.current_scope();
                 self.index.set_scope_for_span(stmt.span(), current_scope);
-
-                // Note: Validation of break/continue being inside a loop will be done
-                // in the ControlFlowValidator
             }
         }
     }
@@ -1140,21 +1149,14 @@ impl<'db> SemanticIndexBuilder<'db> {
                 for arg in args {
                     self.visit_expression(arg);
                 }
-                // TODO: Validate function call arity (FunctionCallValidator)
-                // - Check argument count matches parameter count
-                // - Validate argument types match parameter types
-                // - Check function exists and is callable
             }
             Expression::MemberAccess { object, .. } => {
                 self.visit_expression(object);
                 // TODO: Implement proper member access analysis
                 // Current limitation: Field access doesn't introduce new scope issues for now
                 // Future improvements needed:
-                // - Validate that the field exists on the type (StructFieldValidator)
                 // - Validate that the object type has the accessed field
                 // - Handle method calls vs field access
-                // - Support for nested member access chains
-                // - Validate member access on primitive types (should error)
                 // Field access doesn't introduce new scope issues for now
             }
             Expression::IndexAccess { array, index } => {
@@ -1167,13 +1169,11 @@ impl<'db> SemanticIndexBuilder<'db> {
                 // - Validate index expression is integer type
             }
             Expression::StructLiteral { fields, .. } => {
-                for (_, field_value) in fields {
+                for (_field_name, field_value) in fields {
+                    // TODO: We could catch duplicated field names here.
+
                     self.visit_expression(field_value);
                 }
-                // TODO: Validate struct literal field names against struct definition (StructLiteralValidator)
-                // TODO: Check for missing required fields
-                // TODO: Check for unknown fields
-                // TODO: Validate field value types match struct definition
             }
             Expression::Tuple(exprs) => {
                 for expr in exprs {
@@ -1182,7 +1182,6 @@ impl<'db> SemanticIndexBuilder<'db> {
             }
             Expression::Literal(_) => {
                 // Literals don't reference any symbols
-                // TODO: Consider adding literal validation (e.g., numeric range checks)
             }
             Expression::BooleanLiteral(_) => {
                 // Boolean literals don't reference any symbols

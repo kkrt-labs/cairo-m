@@ -20,6 +20,8 @@ fn test_function_parameters() {
         err: [
             // Duplicate parameter names
             "fn test(x: felt, x: felt) -> felt { return x; }",
+            // Incompatible types
+            "fn foo(x: felt){return;} \n fn test(){foo(true); return;}"
         ]
     }
 }
