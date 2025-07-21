@@ -14,16 +14,18 @@
 //! - op0_val
 //! - op0_val_inv
 //! - taken
+//! - pc_new
 //!
 //! # Constraints
 //!
 //! * enabler is a bool
 //!   * `enabler * (1 - enabler)`
 //! * conditional jump logic
-//!   * `op0_val * (taken - 1) = 0` (either op0_val = 0 or taken = 1)
+//!   * `op0_val * (taken - 1) = 0` (op0_val = 0 or taken = 1)
 //!   * `taken - op0_val * op0_val_inv`
+//!   * `pc_new = pc + 1 + taken * (imm - 1)`
 //! * registers update is conditional
-//!   * `- [pc, fp] + [pc + 1 + taken * (imm - 1), fp]` in `Registers` relation
+//!   * `- [pc, fp] + [pc_new, fp]` in `Registers` relation
 //! * read instruction from memory
 //!   * `- [pc, inst_prev_clk, opcode_constant, off0, imm] + [pc, clk, opcode_constant, off0, imm]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
@@ -61,13 +63,13 @@ use crate::components::Relations;
 use crate::utils::enabler::Enabler;
 use crate::utils::execution_bundle::PackedExecutionBundle;
 
-const N_TRACE_COLUMNS: usize = 11;
+const N_TRACE_COLUMNS: usize = 12;
 const N_MEMORY_LOOKUPS: usize = 4;
 const N_REGISTERS_LOOKUPS: usize = 2;
 const N_RANGE_CHECK_20_LOOKUPS: usize = 2;
 
 const N_LOOKUPS_COLUMNS: usize = SECURE_EXTENSION_DEGREE
-    * ((N_MEMORY_LOOKUPS + N_REGISTERS_LOOKUPS + N_RANGE_CHECK_20_LOOKUPS).div_ceil(2) + 1);
+    * ((N_MEMORY_LOOKUPS + N_REGISTERS_LOOKUPS + N_RANGE_CHECK_20_LOOKUPS).div_ceil(2));
 
 pub struct InteractionClaimData {
     pub lookup_data: LookupData,
@@ -168,6 +170,9 @@ impl Claim {
                     }
                 }));
 
+                // Conditional PC update: if taken then pc+imm, else pc+1
+                let pc_new = pc + one + taken * (imm - one);
+
                 *row[0] = enabler;
                 *row[1] = pc;
                 *row[2] = fp;
@@ -179,9 +184,7 @@ impl Claim {
                 *row[8] = op0_val;
                 *row[9] = op0_val_inv;
                 *row[10] = taken;
-
-                // Conditional PC update: if taken then pc+imm, else pc+1
-                let pc_new = pc + one + taken * (imm - one);
+                *row[11] = pc_new;
 
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [pc_new, input.fp];
@@ -232,29 +235,20 @@ impl InteractionClaim {
         (
             col.par_iter_mut(),
             &interaction_claim_data.lookup_data.registers[0],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(i, (writer, registers))| {
-                let num = -PackedQM31::from(enabler_col.packed_at(i));
-                let denom: PackedQM31 = relations.registers.combine(registers);
-
-                writer.write_frac(num, denom);
-            });
-        col.finalize_col();
-
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
             &interaction_claim_data.lookup_data.registers[1],
         )
             .into_par_iter()
             .enumerate()
-            .for_each(|(i, (writer, registers))| {
-                let num = PackedQM31::from(enabler_col.packed_at(i));
-                let denom: PackedQM31 = relations.registers.combine(registers);
+            .for_each(|(i, (writer, registers_prev, registers_new))| {
+                let num_prev = -PackedQM31::from(enabler_col.packed_at(i));
+                let num_new = PackedQM31::from(enabler_col.packed_at(i));
+                let denom_prev: PackedQM31 = relations.registers.combine(registers_prev);
+                let denom_new: PackedQM31 = relations.registers.combine(registers_new);
 
-                writer.write_frac(num, denom);
+                let numerator = num_prev * denom_new + num_new * denom_prev;
+                let denom = denom_prev * denom_new;
+
+                writer.write_frac(numerator, denom);
             });
         col.finalize_col();
 
@@ -354,18 +348,22 @@ impl FrameworkEval for Eval {
         let op0_val = eval.next_trace_mask();
         let op0_val_inv = eval.next_trace_mask();
         let taken = eval.next_trace_mask();
+        let pc_new = eval.next_trace_mask();
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
 
-        // Either op0_val = 0 or taken = 1
+        // op0_val = 0 or taken = 1
         eval.add_constraint(enabler.clone() * op0_val.clone() * (taken.clone() - one.clone()));
 
         // taken = op0_val * op0_val_inv
         eval.add_constraint(enabler.clone() * (taken.clone() - op0_val.clone() * op0_val_inv));
 
         // Conditional PC update
-        let pc_new = pc.clone() + one.clone() + taken * (imm.clone() - one);
+        eval.add_constraint(
+            enabler.clone()
+                * (pc_new.clone() - pc.clone() - one.clone() - taken * (imm.clone() - one)),
+        );
 
         // Registers update
         eval.add_to_relation(RelationEntry::new(
@@ -425,12 +423,7 @@ impl FrameworkEval for Eval {
             &[clock - op0_prev_clock - enabler],
         ));
 
-        eval.finalize_logup_batched(&vec![
-            0, 1, // Registers
-            2, 2, // Instruction
-            3, 3, // Op0
-            4, 4, // Range check 20
-        ]);
+        eval.finalize_logup_in_pairs();
         eval
     }
 }
