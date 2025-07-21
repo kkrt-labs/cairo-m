@@ -34,6 +34,7 @@
 use cairo_m_compiler_diagnostics::Diagnostic;
 use chumsky::input::ValueInput;
 use chumsky::prelude::*;
+use logos::Logos;
 
 use crate::SourceFile;
 use crate::lexer::TokenType;
@@ -375,15 +376,22 @@ impl ParseOutput {
     }
 }
 
-/// Parse a source program into a module AST with diagnostics.
+/// Returns the parsed AST of `file`, including its token stream.
 ///
-/// This is the main Salsa-tracked parsing function. It caches the entire
-/// parse result, following best practices from the Ruff codebase.
-#[salsa::tracked]
-pub fn parse_file(db: &dyn crate::Db, source: SourceFile) -> ParseOutput {
-    use logos::Logos;
-    let _file_path = source.file_path(db);
-    let input = source.text(db);
+/// The query uses chumsky's parser. This parser is not resilient yet; meaning that it will not
+/// return AST even if the file contains syntax errors. The parse errors are then accessible
+/// through [`ParseOutput::diagnostics`].
+///
+/// The query is only cached when the [`SourceFile::text()`] hasn't changed. This is because
+/// comparing two ASTs is a non-trivial operation and every offset change is directly
+/// reflected in the changed AST offsets.
+/// The other reason is that the AST doesn't implement `Eq` which Salsa requires
+/// for determining if a query result is unchanged.
+#[salsa::tracked(returns(ref), no_eq)]
+pub fn parse_file(db: &dyn crate::Db, file: SourceFile) -> ParseOutput {
+    let _span = tracing::trace_span!("parse_file", ?file).entered();
+    let _file_path = file.file_path(db);
+    let input = file.text(db);
 
     // Collect tokens and handle lexer errors
     let mut tokens = Vec::new();
@@ -395,7 +403,7 @@ pub fn parse_file(db: &dyn crate::Db, source: SourceFile) -> ParseOutput {
             Err(lexing_error) => {
                 // Create a meaningful diagnostic for lexer errors
                 let diagnostic = Diagnostic::lexical_error(
-                    source.file_path(db).to_string(),
+                    file.file_path(db).to_string(),
                     format!("{lexing_error}"),
                     span.into(),
                 );
@@ -424,7 +432,7 @@ pub fn parse_file(db: &dyn crate::Db, source: SourceFile) -> ParseOutput {
             // Convert parser errors to diagnostics with better messages
             for error in parse_errors {
                 let diagnostic = Diagnostic::syntax_error(
-                    source.file_path(db).to_string(),
+                    file.file_path(db).to_string(),
                     format!("{error}"),
                     *error.span(),
                 );

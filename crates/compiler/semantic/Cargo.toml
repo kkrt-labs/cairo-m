@@ -24,6 +24,8 @@ cairo-m-project.workspace = true
 index_vec = "0.1.4"
 tracing = "0.1"
 anyhow.workspace = true
+hashbrown = "0.15.4"
+smallvec = "1.15.1"
 
 [dev-dependencies]
 stdext = "0.3"

@@ -47,11 +47,11 @@
 
 use std::collections::HashMap;
 
-use cairo_m_compiler_parser::ParsedModule;
 use cairo_m_compiler_parser::parser::{
     ConstDef, Expression, FunctionDef, Namespace, Pattern, Spanned, Statement, StructDef,
     TopLevelItem, UseItems, UseStmt,
 };
+use cairo_m_compiler_parser::{ParsedModule, parse_file};
 use chumsky::span::SimpleSpan;
 use index_vec::IndexVec;
 use rustc_hash::FxHashMap;
@@ -59,6 +59,63 @@ use rustc_hash::FxHashMap;
 use crate::definition::{DefinitionKind, UseDefRef};
 use crate::place::{FileScopeId, PlaceTable, Scope};
 use crate::{Crate, Definition, File, SemanticDb, project_semantic_index};
+
+/// Returns the semantic index for `file`.
+///
+/// Prefer using [`symbol_table`] when working with symbols from a single scope.
+#[salsa::tracked(returns(ref), no_eq)]
+pub(crate) fn semantic_index(db: &dyn SemanticDb, file: File) -> SemanticIndex {
+    let _span = tracing::trace_span!("semantic_index", ?file).entered();
+
+    let parsed_module = parse_file(db.upcast(), file);
+    SemanticIndexBuilder::new(db, file, &parsed_module.module).build()
+}
+
+// TODO: wip
+
+// /// Returns the place table for a specific `scope`.
+// ///
+// /// Using [`place_table`] over [`semantic_index`] has the advantage that
+// /// Salsa can avoid invalidating dependent queries if this scope's place table
+// /// is unchanged.
+// #[salsa::tracked(returns(deref))]
+// pub(crate) fn place_table<'db>(db: &'db dyn Db, scope: ScopeId<'db>) -> Arc<PlaceTable> {
+//     let file = scope.file(db);
+//     let _span = tracing::trace_span!("place_table", scope=?scope.as_id(), ?file).entered();
+//     let index = semantic_index(db, file);
+
+//     index.place_table(scope.file_scope_id(db))
+// }
+
+// /// Returns the set of modules that are imported anywhere in `file`.
+// ///
+// /// This set only considers `import` statements, not `from...import` statements, because:
+// ///
+// ///   - In `from foo import bar`, we cannot determine whether `foo.bar` is a submodule (and is
+// ///     therefore imported) without looking outside the content of this file.  (We could turn this
+// ///     into a _potentially_ imported modules set, but that would change how it's used in our type
+// ///     inference logic.)
+// ///
+// ///   - We cannot resolve relative imports (which aren't allowed in `import` statements) without
+// ///     knowing the name of the current module, and whether it's a package.
+// #[salsa::tracked(returns(deref))]
+// pub(crate) fn imported_modules<'db>(db: &'db dyn Db, file: File) -> Arc<FxHashSet<ModuleName>> {
+//     semantic_index(db, file).imported_modules.clone()
+// }
+
+// /// Returns the use-def map for a specific `scope`.
+// ///
+// /// Using [`use_def_map`] over [`semantic_index`] has the advantage that
+// /// Salsa can avoid invalidating dependent queries if this scope's use-def map
+// /// is unchanged.
+// #[salsa::tracked(returns(deref))]
+// pub(crate) fn use_def_map<'db>(db: &'db dyn Db, scope: ScopeId<'db>) -> ArcUseDefMap<'db> {
+//     let file = scope.file(db);
+//     let _span = tracing::trace_span!("use_def_map", scope=?scope.as_id(), ?file).entered();
+//     let index = semantic_index(db, file);
+
+//     index.use_def_map(scope.file_scope_id(db))
+// }
 
 // Define DefinitionIndex as an index type for definitions within a single file.
 index_vec::define_index_type! {
@@ -551,9 +608,20 @@ impl Default for SemanticIndex {
 ///
 /// This function performs the actual semantic analysis work by building
 /// scope trees, symbol tables, and use-def chains.
-pub fn semantic_index_from_module(module: &ParsedModule, file: File) -> SemanticIndex {
-    let builder = SemanticIndexBuilder::new(file, module);
+pub fn semantic_index_from_module(
+    db: &dyn SemanticDb,
+    module: &ParsedModule,
+    file: File,
+) -> SemanticIndex {
+    let builder = SemanticIndexBuilder::new(db, file, module);
     builder.build()
+}
+
+struct ScopeInfo {
+    file_scope_id: FileScopeId,
+    //TOD: Add loop tracking?
+    // /// Current loop state; None if we are not currently visiting a loop
+    // current_loop: Option<Loop>,
 }
 
 /// Internal builder for constructing semantic indices
@@ -568,23 +636,29 @@ pub fn semantic_index_from_module(module: &ParsedModule, file: File) -> Semantic
 /// The builder uses a stack-based approach to track nested scopes,
 /// which simplifies the implementation of scope-aware analysis.
 pub(crate) struct SemanticIndexBuilder<'db> {
+    // Builder state
+    db: &'db dyn SemanticDb,
     file: File,
     module: &'db ParsedModule,
-
-    // Current building state
-    index: SemanticIndex,
     /// Stack of scope IDs representing the current nesting level
     /// The top of the stack is the currently active scope
-    scope_stack: Vec<FileScopeId>,
+    scope_stack: Vec<ScopeInfo>,
+
+    // Semantic index fields
+    place_tables: IndexVec<FileScopeId, PlaceTable>,
+
+    index: SemanticIndex,
     /// Current loop nesting depth for tracking break/continue validity
     loop_depth: usize,
 }
 
 impl<'db> SemanticIndexBuilder<'db> {
-    pub fn new(file: File, module: &'db ParsedModule) -> Self {
+    pub fn new(db: &'db dyn SemanticDb, file: File, module: &'db ParsedModule) -> Self {
         let mut builder = Self {
+            db,
             file,
             module,
+            place_tables: IndexVec::new(),
             index: SemanticIndex::new(),
             scope_stack: Vec::new(),
             loop_depth: 0,
@@ -593,7 +667,9 @@ impl<'db> SemanticIndexBuilder<'db> {
         // Create the root module scope
         let root_scope = Scope::new(None, crate::place::ScopeKind::Module);
         let root_scope_id = builder.index.add_scope(root_scope);
-        builder.scope_stack.push(root_scope_id);
+        builder.scope_stack.push(ScopeInfo {
+            file_scope_id: root_scope_id,
+        });
 
         builder
     }
@@ -616,18 +692,29 @@ impl<'db> SemanticIndexBuilder<'db> {
         self.index
     }
 
-    fn current_scope(&self) -> FileScopeId {
-        *self
-            .scope_stack
+    fn current_scope_info(&self) -> &ScopeInfo {
+        self.scope_stack
             .last()
-            .expect("scope stack should never be empty")
+            .expect("SemanticIndexBuilder should have created a root scope")
+    }
+
+    fn current_scope_info_mut(&mut self) -> &mut ScopeInfo {
+        self.scope_stack
+            .last_mut()
+            .expect("SemanticIndexBuilder should have created a root scope")
+    }
+
+    fn current_scope(&self) -> FileScopeId {
+        self.current_scope_info().file_scope_id
     }
 
     fn push_scope(&mut self, kind: crate::place::ScopeKind) -> FileScopeId {
         let parent = Some(self.current_scope());
         let scope = Scope::new(parent, kind);
         let scope_id = self.index.add_scope(scope);
-        self.scope_stack.push(scope_id);
+        self.scope_stack.push(ScopeInfo {
+            file_scope_id: scope_id,
+        });
         scope_id
     }
 
@@ -652,10 +739,26 @@ impl<'db> SemanticIndexBuilder<'db> {
         flags: crate::place::PlaceFlags,
     ) -> crate::place::ScopedPlaceId {
         let scope_id = self.current_scope();
+        let place_expr = crate::place::PlaceExpr::name(name.to_string());
         self.index
             .place_table_mut(scope_id)
             .expect("current scope should have a place table")
-            .add_place(name.to_string(), flags)
+            .add_place(place_expr, flags)
+    }
+
+    fn add_place_from_expr(
+        &mut self,
+        expr: &Expression,
+        flags: crate::place::PlaceFlags,
+    ) -> Option<crate::place::ScopedPlaceId> {
+        let place_expr = crate::place::PlaceExpr::try_from(expr).ok()?;
+        let scope_id = self.current_scope();
+        Some(
+            self.index
+                .place_table_mut(scope_id)
+                .expect("current scope should have a place table")
+                .add_place(place_expr, flags),
+        )
     }
 
     fn add_place_with_definition(
@@ -1204,7 +1307,7 @@ mod tests {
 
     use super::*;
     use crate::db::tests::{TestDb, test_db};
-    use crate::{SemanticDb, module_semantic_index};
+    use crate::{PlaceFlags, SemanticDb, module_semantic_index};
 
     struct TestCase {
         db: TestDb,
@@ -1311,12 +1414,18 @@ mod tests {
         // Parameter should be marked as used
         let param_place_id = func_table.place_id_by_name("param").unwrap();
         let param_place = func_table.place(param_place_id).unwrap();
-        assert!(param_place.is_used(), "parameter should be marked as used");
+        assert!(
+            param_place.flags.contains(PlaceFlags::USED),
+            "parameter should be marked as used"
+        );
 
         // Local variable should be defined
         let local_place_id = func_table.place_id_by_name("local_var").unwrap();
         let local_place = func_table.place(local_place_id).unwrap();
-        assert!(local_place.is_defined(), "local variable should be defined");
+        assert!(
+            local_place.flags.contains(PlaceFlags::DEFINED),
+            "local variable should be defined"
+        );
     }
 
     #[test]

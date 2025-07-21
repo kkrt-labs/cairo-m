@@ -59,8 +59,8 @@ pub fn parse_crate(db: &dyn Db, cairo_m_crate: DiscoveredCrate) -> ParsedCrate {
     for file in cairo_m_crate.files(db) {
         tracing::debug!("Parsing file with content: {}", file.text(db));
         let parsed = super::parser::parse_file(db, file);
-        diagnostics.extend(parsed.diagnostics);
-        modules.insert(file.file_path(db).to_string(), parsed.module);
+        diagnostics.extend(parsed.diagnostics.clone());
+        modules.insert(file.file_path(db).to_string(), parsed.module.clone());
     }
 
     ParsedCrate {

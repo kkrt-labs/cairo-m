@@ -45,7 +45,7 @@ impl Validator for ControlFlowValidator {
         if !parsed_program.diagnostics.is_empty() {
             panic!("Got unexpected parse errors");
         }
-        let parsed_module = parsed_program.module;
+        let parsed_module = &parsed_program.module;
 
         // Analyse each function's control-flow in this module only.
         for (_def_idx, definition) in index.all_definitions() {

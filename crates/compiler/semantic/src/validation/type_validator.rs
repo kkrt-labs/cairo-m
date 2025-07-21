@@ -57,7 +57,7 @@ impl Validator for TypeValidator {
         if !parsed_program.diagnostics.is_empty() {
             panic!("Got unexpected parse errors");
         }
-        let parsed_module = parsed_program.module;
+        let parsed_module = &parsed_program.module;
 
         // Single pass through all expressions for type checking in this module only
         for (expr_id, expr_info) in index.all_expressions() {

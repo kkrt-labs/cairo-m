@@ -228,7 +228,7 @@ pub fn project_parse_diagnostics(db: &dyn SemanticDb, crate_id: Crate) -> Diagno
     let mut coll = DiagnosticCollection::default();
     for file in crate_id.modules(db).values() {
         let parsed = parse_file(db.upcast(), *file);
-        coll.extend(parsed.diagnostics);
+        coll.extend(parsed.diagnostics.clone());
     }
     coll
 }
@@ -241,7 +241,7 @@ pub fn project_parsed_modules(
     let mut parsed = HashMap::new();
     for (name, file) in crate_id.modules(db) {
         let parsed_module = parse_file(db.upcast(), file);
-        parsed.insert(name.clone(), parsed_module.module);
+        parsed.insert(name.clone(), parsed_module.module.clone());
     }
     parsed
 }
@@ -428,7 +428,7 @@ pub fn module_semantic_index(
         )
     });
 
-    semantic_index_from_module(&parsed_module, file)
+    semantic_index_from_module(db, &parsed_module, file)
 }
 
 /// Get parse diagnostics for a specific module
@@ -440,7 +440,7 @@ pub fn module_parse_diagnostics(
 ) -> DiagnosticCollection {
     if let Some(file) = crate_id.modules(db).get(&module_name) {
         let parsed = parse_file(db.upcast(), *file);
-        DiagnosticCollection::new(parsed.diagnostics)
+        DiagnosticCollection::new(parsed.diagnostics.clone())
     } else {
         DiagnosticCollection::default()
     }

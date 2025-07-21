@@ -1,19 +1,20 @@
-//! # Places and Scopes
+//! Place management system for semantic analysis
 //!
-//! This module defines the core data structures for tracking scopes and places (symbols)
-//! in the semantic analysis. It follows patterns from Ruff's semantic analysis.
-//!
-//! ## Key Concepts
-//!
-//! - **Scope**: A region of code that contains symbols (like a function or module)
-//! - **Place**: A named entity that can hold a value (variables, functions, parameters)
-//! - **PlaceTable**: Symbol table for a specific scope, mapping names to places
+//! This module provides the infrastructure for tracking symbols and their properties
+//! within scopes during semantic analysis. It uses an architecture inspired by ruff's
+//! semantic analyzer.
+
+pub mod expr;
+pub mod table;
 
 use std::fmt;
 
 use bitflags::bitflags;
-use index_vec::{self, IndexVec};
-use rustc_hash::FxHashMap;
+use index_vec::{self};
+
+// Re-export the new place system
+pub use self::expr::{PlaceExpr, PlaceExprSubSegment};
+pub use self::table::{PlaceExprWithFlags, PlaceTable};
 
 index_vec::define_index_type! {
     /// A unique ID for a scope within a file
@@ -83,112 +84,6 @@ impl fmt::Display for ScopeKind {
     }
 }
 
-/// The symbol table for a single scope
-///
-/// This tracks all the places (symbols) within a scope and provides
-/// efficient name-to-place lookup. Supports variable shadowing by
-/// storing multiple places with the same name.
-#[derive(Debug, Default, PartialEq, Eq, Clone)]
-pub struct PlaceTable {
-    /// All places in this scope, indexed by ScopedPlaceId
-    places: IndexVec<ScopedPlaceId, Place>,
-    /// Mapping from name to place IDs for fast lookup
-    /// Stores a vector to support variable shadowing - the last element
-    /// is the most recent definition
-    places_by_name: FxHashMap<String, Vec<ScopedPlaceId>>,
-}
-
-impl PlaceTable {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Add a new place to this scope
-    pub fn add_place(&mut self, name: String, flags: PlaceFlags) -> ScopedPlaceId {
-        let place_id = ScopedPlaceId::new(self.places.len());
-        let place = Place::new(name.clone(), flags);
-
-        self.places.push(place);
-
-        // Support shadowing by appending to the vector
-        self.places_by_name.entry(name).or_default().push(place_id);
-
-        place_id
-    }
-
-    /// Look up a place by name, returning the most recent definition
-    pub fn place_id_by_name(&self, name: &str) -> Option<ScopedPlaceId> {
-        self.places_by_name
-            .get(name)
-            .and_then(|vec| vec.last().copied())
-    }
-
-    /// Get all place IDs with the given name (for checking shadowing)
-    pub fn all_place_ids_by_name(&self, name: &str) -> Option<&[ScopedPlaceId]> {
-        self.places_by_name.get(name).map(|vec| vec.as_slice())
-    }
-
-    /// Get a place by its ID
-    pub fn place(&self, id: ScopedPlaceId) -> Option<&Place> {
-        self.places.get(id)
-    }
-
-    /// Get a mutable reference to a place by its ID
-    pub fn place_mut(&mut self, id: ScopedPlaceId) -> Option<&mut Place> {
-        self.places.get_mut(id)
-    }
-
-    /// Mark a place as used
-    pub fn mark_as_used(&mut self, id: ScopedPlaceId) {
-        if let Some(place) = self.place_mut(id) {
-            place.flags.insert(PlaceFlags::USED);
-        }
-    }
-
-    /// Iterate over all places in this scope
-    pub fn places(&self) -> impl Iterator<Item = (ScopedPlaceId, &Place)> {
-        self.places
-            .iter()
-            .enumerate()
-            .map(|(i, place)| (ScopedPlaceId::new(i), place))
-    }
-
-    /// Get the number of places in this scope
-    pub fn len(&self) -> usize {
-        self.places.len()
-    }
-
-    /// Check if this scope has no places
-    pub fn is_empty(&self) -> bool {
-        self.places.is_empty()
-    }
-}
-
-/// Represents a single symbol or place in the program
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Place {
-    /// The name of this place
-    pub name: String,
-    /// Flags indicating properties of this place
-    pub flags: PlaceFlags,
-}
-
-impl Place {
-    pub const fn new(name: String, flags: PlaceFlags) -> Self {
-        Self { name, flags }
-    }
-
-    /// Check if this place is defined in its scope
-    pub const fn is_defined(&self) -> bool {
-        self.flags.contains(PlaceFlags::DEFINED)
-    }
-
-    /// Check if this place is used as a value
-    pub const fn is_used(&self) -> bool {
-        self.flags.contains(PlaceFlags::USED)
-    }
-}
-
 bitflags! {
     /// Flags indicating properties of a place
     // TODO: assess whether we need this. This might be thrown away as un-needed.
@@ -248,8 +143,8 @@ mod tests {
         let mut table = PlaceTable::new();
 
         // Add some places
-        let x_id = table.add_place("x".to_string(), PlaceFlags::DEFINED);
-        let y_id = table.add_place("y".to_string(), PlaceFlags::PARAMETER);
+        let x_id = table.add_place(PlaceExpr::name("x".to_string()), PlaceFlags::DEFINED);
+        let y_id = table.add_place(PlaceExpr::name("y".to_string()), PlaceFlags::PARAMETER);
 
         // Test lookup by name
         assert_eq!(table.place_id_by_name("x"), Some(x_id));
@@ -258,14 +153,14 @@ mod tests {
 
         // Test place retrieval
         let x_place = table.place(x_id).unwrap();
-        assert_eq!(x_place.name, "x");
-        assert!(x_place.is_defined());
-        assert!(!x_place.is_used());
+        assert_eq!(x_place.expr.as_name(), Some("x"));
+        assert!(x_place.flags.contains(PlaceFlags::DEFINED));
+        assert!(!x_place.flags.contains(PlaceFlags::USED));
 
         // Test marking as used
         table.mark_as_used(x_id);
         let x_place = table.place(x_id).unwrap();
-        assert!(x_place.is_used());
+        assert!(x_place.flags.contains(PlaceFlags::USED));
     }
 
     #[test]

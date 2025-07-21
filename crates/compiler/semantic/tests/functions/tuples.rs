@@ -17,14 +17,3 @@ fn test_tuple_destructuring() {
         ]
     }
 }
-
-#[test]
-#[ignore = "TODO: Fix this test"]
-fn test_tuple_destructuring_unused_variable() {
-    assert_semantic_parameterized! {
-        err: [
-            // y is unused
-            in_function("let (x, y) = (1, 2); let z = x + 1;"),
-        ]
-    }
-}

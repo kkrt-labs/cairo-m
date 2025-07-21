@@ -121,49 +121,55 @@ impl ScopeValidator {
             if place.flags.contains(PlaceFlags::DEFINED) {
                 // Check for duplicate function names
                 if place.flags.contains(PlaceFlags::FUNCTION) {
-                    if !seen_functions.insert(&place.name) {
-                        let span = if let Some((_, definition)) =
-                            index.definition_for_place(scope_id, place_id)
-                        {
-                            definition.name_span
-                        } else {
-                            panic!("No definition found for function {}", place.name);
-                        };
-                        diagnostics.push(Diagnostic::duplicate_definition(
-                            file.file_path(db).to_string(),
-                            &place.name,
-                            span,
-                        ));
+                    if let Some(name) = place.expr.as_name() {
+                        if !seen_functions.insert(name) {
+                            let span = if let Some((_, definition)) =
+                                index.definition_for_place(scope_id, place_id)
+                            {
+                                definition.name_span
+                            } else {
+                                panic!("No definition found for function {}", name);
+                            };
+                            diagnostics.push(Diagnostic::duplicate_definition(
+                                file.file_path(db).to_string(),
+                                name,
+                                span,
+                            ));
+                        }
                     }
                 }
                 // Check for duplicate parameter names
-                else if place.flags.contains(PlaceFlags::PARAMETER)
-                    && !seen_parameters.insert(&place.name)
-                {
-                    let span = if let Some((_, definition)) =
-                        index.definition_for_place(scope_id, place_id)
-                    {
-                        definition.name_span
-                    } else {
-                        panic!("No definition found for parameter {}", place.name);
-                    };
-                    diagnostics.push(Diagnostic::duplicate_definition(
-                        file.file_path(db).to_string(),
-                        &place.name,
-                        span,
-                    ));
+                else if place.flags.contains(PlaceFlags::PARAMETER) {
+                    if let Some(name) = place.expr.as_name() {
+                        if !seen_parameters.insert(name) {
+                            let span = if let Some((_, definition)) =
+                                index.definition_for_place(scope_id, place_id)
+                            {
+                                definition.name_span
+                            } else {
+                                panic!("No definition found for parameter {}", name);
+                            };
+                            diagnostics.push(Diagnostic::duplicate_definition(
+                                file.file_path(db).to_string(),
+                                name,
+                                span,
+                            ));
+                        }
+                    }
                 }
                 // Check for duplicate import names
                 else if let Some((_, definition)) = index.definition_for_place(scope_id, place_id)
                 {
-                    if matches!(definition.kind, crate::definition::DefinitionKind::Use(_))
-                        && !seen_imports.insert(&place.name)
-                    {
-                        diagnostics.push(Diagnostic::duplicate_definition(
-                            file.file_path(db).to_string(),
-                            &place.name,
-                            definition.name_span,
-                        ));
+                    if matches!(definition.kind, crate::definition::DefinitionKind::Use(_)) {
+                        if let Some(name) = place.expr.as_name() {
+                            if !seen_imports.insert(name) {
+                                diagnostics.push(Diagnostic::duplicate_definition(
+                                    file.file_path(db).to_string(),
+                                    name,
+                                    definition.name_span,
+                                ));
+                            }
+                        }
                     }
                 }
                 // Allow shadowing for regular variables (let/local)
@@ -194,7 +200,10 @@ impl ScopeValidator {
             let is_local_or_param = !place.flags.contains(PlaceFlags::FUNCTION)
                 && !place.flags.contains(PlaceFlags::STRUCT);
 
-            if is_local_or_param && place.flags.contains(PlaceFlags::DEFINED) && !place.is_used() {
+            if is_local_or_param
+                && place.flags.contains(PlaceFlags::DEFINED)
+                && !place.flags.contains(PlaceFlags::USED)
+            {
                 // Get the proper span from the definition
                 let span =
                     if let Some((_, definition)) = index.definition_for_place(scope_id, place_id) {
@@ -202,11 +211,13 @@ impl ScopeValidator {
                     } else {
                         chumsky::span::SimpleSpan::from(0..0)
                     };
-                diagnostics.push(Diagnostic::unused_variable(
-                    file.file_path(db).to_string(),
-                    &place.name,
-                    span,
-                ));
+                if let Some(name) = place.expr.as_name() {
+                    diagnostics.push(Diagnostic::unused_variable(
+                        file.file_path(db).to_string(),
+                        name,
+                        span,
+                    ));
+                }
             }
         }
 
@@ -339,7 +350,9 @@ impl ScopeValidator {
             if let Some(place_table) = index.place_table(scope_id) {
                 // Check if the name exists in this scope
                 for (_, place) in place_table.places() {
-                    if place.name == name && place.flags.contains(PlaceFlags::DEFINED) {
+                    if place.expr.as_name() == Some(name)
+                        && place.flags.contains(PlaceFlags::DEFINED)
+                    {
                         return true; // Found definition
                     }
                 }
