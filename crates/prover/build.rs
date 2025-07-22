@@ -73,6 +73,7 @@ fn main() {
     writeln!(f, "];").unwrap();
 
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=src/utils/poseidon/poseidon_params.rs");
 }
 
 /// Generate round constants using Grain LFSR in self-shrinking mode (u32 version)
