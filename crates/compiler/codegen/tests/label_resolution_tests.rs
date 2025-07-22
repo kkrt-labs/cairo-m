@@ -35,7 +35,7 @@ fn test_structured_label_resolution() {
     // Verify that instructions contain resolved labels (no more Operand::Label variants)
     let instructions = generator.instructions();
     for instruction in instructions {
-        if let Some(operand) = &instruction.operand {
+        for operand in &instruction.operands {
             match operand {
                 Operand::Literal(_) => {
                     // This is good - labels should be resolved to literals
@@ -86,36 +86,33 @@ fn test_operand_creation() {
 
 #[test]
 fn test_instruction_operand_methods() {
-    use cairo_m_common::Opcode;
+    use cairo_m_common::instruction::*;
     use cairo_m_compiler_codegen::InstructionBuilder;
 
     // Test with_operand method
-    let instr1 = InstructionBuilder::new(Opcode::JmpAbsImm.into())
-        .with_operand(Operand::Label("target".to_string()));
+    let instr1 =
+        InstructionBuilder::new(JMP_ABS_IMM).with_operand(Operand::Label("target".to_string()));
 
-    match &instr1.operand {
+    // Check the last operand (which is what with_operand adds)
+    match instr1.operands.last() {
         Some(Operand::Label(name)) => assert_eq!(name, "target"),
         _ => panic!("Expected label operand"),
     }
 
     // Test with_label convenience method
     let instr2 =
-        InstructionBuilder::new(Opcode::JmpAbsImm.into()).with_label("target2".to_string());
+        InstructionBuilder::new(JMP_ABS_IMM).with_operand(Operand::Label("target2".to_string()));
 
-    match &instr2.operand {
+    match instr2.operands.last() {
         Some(Operand::Label(name)) => assert_eq!(name, "target2"),
         _ => panic!("Expected label operand"),
     }
 
     // Test with_imm convenience method
-    let instr3 = InstructionBuilder::new(Opcode::JmpAbsImm.into()).with_imm(100);
+    let instr3 = InstructionBuilder::new(JMP_ABS_IMM).with_operand(Operand::Literal(100));
 
-    match &instr3.operand {
+    match instr3.operands.last() {
         Some(Operand::Literal(val)) => assert_eq!(*val, 100),
         _ => panic!("Expected literal operand"),
     }
-
-    // Test imm() getter method
-    assert_eq!(instr3.imm(), Some(100));
-    assert_eq!(instr1.imm(), None); // Label operand should return None for imm()
 }
