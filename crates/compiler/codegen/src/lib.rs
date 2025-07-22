@@ -15,7 +15,7 @@
 #![feature(let_chains)]
 #![allow(clippy::option_if_let_else)]
 
-use cairo_m_common::{Instruction, Opcode, Program};
+use cairo_m_common::{Instruction, Program};
 use cairo_m_compiler_mir::{BasicBlockId, MirModule};
 
 pub mod builder;
@@ -69,14 +69,8 @@ impl Operand {
 pub struct InstructionBuilder {
     /// The opcode number for this instruction
     pub opcode: u32,
-    /// First offset operand (fp-relative)
-    pub off0: Option<i32>,
-    /// Second offset operand (fp-relative)
-    pub off1: Option<i32>,
-    /// Third offset operand (fp-relative)
-    pub off2: Option<i32>,
-    /// Operand that can be either a literal or label reference
-    pub operand: Option<Operand>,
+    /// Vector of operands (can be literals or label references)
+    pub operands: Vec<Operand>,
     /// Human-readable comment for debugging
     pub comment: Option<String>,
 }
@@ -86,59 +80,38 @@ impl InstructionBuilder {
     pub const fn new(opcode: u32) -> Self {
         Self {
             opcode,
-            off0: None,
-            off1: None,
-            off2: None,
-            operand: None,
+            operands: Vec::new(),
             comment: None,
         }
     }
 
     pub fn build(&self) -> Instruction {
-        Instruction {
-            opcode: Opcode::from_u32(self.opcode)
-                .unwrap_or_else(|| panic!("Invalid opcode: {}", self.opcode)),
-            operands: [
-                self.op0().unwrap_or(0).into(),
-                self.op1().unwrap_or(0).into(),
-                self.op2().unwrap_or(0).into(),
-            ],
-        }
+        // For now, we'll panic if we can't convert operands to literals
+        // This should only happen for unresolved labels, which should be resolved by this point
+        let m31_operands: Vec<stwo_prover::core::fields::m31::M31> = self
+            .operands
+            .iter()
+            .map(|op| match op {
+                Operand::Literal(val) => stwo_prover::core::fields::m31::M31::from(*val),
+                Operand::Label(label) => panic!("Unresolved label in build(): {}", label),
+            })
+            .collect();
+
+        // Create the instruction from opcode and operands
+        let mut values = vec![stwo_prover::core::fields::m31::M31::from(self.opcode)];
+        values.extend(m31_operands);
+
+        Instruction::try_from(values).unwrap_or_else(|e| {
+            panic!(
+                "Failed to build instruction: {:?}. Opcode: {}, Operands: {:?}",
+                e, self.opcode, self.operands
+            )
+        })
     }
 
-    /// Set the first offset
-    pub const fn with_off0(mut self, off0: i32) -> Self {
-        self.off0 = Some(off0);
-        self
-    }
-
-    /// Set the second offset
-    pub const fn with_off1(mut self, off1: i32) -> Self {
-        self.off1 = Some(off1);
-        self
-    }
-
-    /// Set the third offset
-    pub const fn with_off2(mut self, off2: i32) -> Self {
-        self.off2 = Some(off2);
-        self
-    }
-
-    /// Set the operand (replaces with_imm)
+    /// Add an operand to the instruction
     pub fn with_operand(mut self, operand: Operand) -> Self {
-        self.operand = Some(operand);
-        self
-    }
-
-    /// Set the immediate value (convenience method)
-    pub fn with_imm(mut self, imm: i32) -> Self {
-        self.operand = Some(Operand::Literal(imm));
-        self
-    }
-
-    /// Set a label operand (convenience method)
-    pub fn with_label(mut self, label: String) -> Self {
-        self.operand = Some(Operand::Label(label));
+        self.operands.push(operand);
         self
     }
 
@@ -148,63 +121,44 @@ impl InstructionBuilder {
         self
     }
 
-    /// Get the immediate value if this instruction has a literal operand
-    pub const fn imm(&self) -> Option<i32> {
-        match &self.operand {
-            Some(Operand::Literal(value)) => Some(*value),
-            _ => None,
-        }
-    }
-
     /// Get the first operand
-    pub const fn op0(&self) -> Option<i32> {
-        if let Some(off0) = self.off0 {
-            Some(off0)
-        } else {
-            self.imm()
-        }
+    pub fn op0(&self) -> Option<i32> {
+        self.operands.first().and_then(|op| match op {
+            Operand::Literal(value) => Some(*value),
+            _ => None,
+        })
     }
 
     /// Get the second operand
-    pub const fn op1(&self) -> Option<i32> {
-        if let Some(off1) = self.off1 {
-            Some(off1)
-        } else if self.off0.is_some() {
-            self.imm()
-        } else {
-            None
-        }
+    pub fn op1(&self) -> Option<i32> {
+        self.operands.get(1).and_then(|op| match op {
+            Operand::Literal(value) => Some(*value),
+            _ => None,
+        })
     }
 
     /// Get the third operand
-    pub const fn op2(&self) -> Option<i32> {
-        if let Some(off2) = self.off2 {
-            Some(off2)
-        } else if self.off0.is_some() && self.off1.is_some() {
-            self.imm()
-        } else {
-            None
-        }
+    pub fn op2(&self) -> Option<i32> {
+        self.operands.get(2).and_then(|op| match op {
+            Operand::Literal(value) => Some(*value),
+            _ => None,
+        })
     }
 
-    /// Get the third operand
     /// Convert to CASM assembly string
     pub fn to_asm(&self) -> String {
         let mut parts = vec![self.opcode.to_string()];
 
-        if let Some(op0) = self.op0() {
-            parts.push(op0.to_string());
-        } else {
-            parts.push("_".to_string());
+        // Add operands to the string
+        for operand in &self.operands {
+            match operand {
+                Operand::Literal(val) => parts.push(val.to_string()),
+                Operand::Label(label) => parts.push(format!("@{}", label)),
+            }
         }
-        if let Some(op1) = self.op1() {
-            parts.push(op1.to_string());
-        } else {
-            parts.push("_".to_string());
-        }
-        if let Some(op2) = self.op2() {
-            parts.push(op2.to_string());
-        } else {
+
+        // Pad with underscores to reach exactly 4 parts for consistent formatting
+        while parts.len() < 4 {
             parts.push("_".to_string());
         }
 
@@ -220,20 +174,21 @@ impl InstructionBuilder {
     /// Convert asm instruction to a vector of hex strings
     /// Signed offsets are encoded as M31 before being converted to hex.
     pub fn to_hex(&self) -> Vec<String> {
-        let opcode = format!("{:#02x}", self.opcode);
-        let op0 = self
-            .op0()
-            .map(|off| format!("{off:#02x}"))
-            .unwrap_or_else(|| "0x00".to_string());
-        let op1 = self
-            .op1()
-            .map(|off| format!("{off:#02x}"))
-            .unwrap_or_else(|| "0x00".to_string());
-        let op2 = self
-            .op2()
-            .map(|off| format!("{off:#02x}"))
-            .unwrap_or_else(|| "0x00".to_string());
-        vec![opcode, op0, op1, op2]
+        let mut hex_parts = vec![format!("{:#02x}", self.opcode)];
+
+        for operand in &self.operands {
+            match operand {
+                Operand::Literal(val) => hex_parts.push(format!("{val:#02x}")),
+                Operand::Label(label) => hex_parts.push(format!("@{}", label)),
+            }
+        }
+
+        // Pad with zeros if needed
+        while hex_parts.len() < 4 {
+            hex_parts.push("0x00".to_string());
+        }
+
+        hex_parts
     }
 }
 
