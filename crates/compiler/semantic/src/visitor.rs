@@ -23,10 +23,6 @@
 //!             Statement::Let { .. } => {
 //!                 // Handle let statements specially
 //!             }
-//!             _ => {
-//!                 // Use default traversal for other statements
-//!                 walk_stmt(self, stmt);
-//!             }
 //!         }
 //!     }
 //! }
@@ -43,7 +39,9 @@ use cairo_m_compiler_parser::parser::{
 /// walk function, enabling selective overriding of traversal behavior.
 pub trait Visitor<'ast> {
     /// Visit a top-level item (function, struct, namespace, etc.)
-    fn visit_top_level_item(&mut self, item: &'ast TopLevelItem);
+    fn visit_top_level_item(&mut self, item: &'ast TopLevelItem) {
+        walk_top_level_item(self, item);
+    }
 
     /// Visit a statement node
     fn visit_stmt(&mut self, stmt: &'ast Spanned<Statement>);
@@ -71,5 +69,15 @@ pub trait Visitor<'ast> {
         for stmt in stmts {
             self.visit_stmt(stmt);
         }
+    }
+}
+
+fn walk_top_level_item<'ast, V: Visitor<'ast> + ?Sized>(visitor: &mut V, item: &'ast TopLevelItem) {
+    match item {
+        TopLevelItem::Function(func) => visitor.visit_function(func),
+        TopLevelItem::Struct(struct_def) => visitor.visit_struct(struct_def),
+        TopLevelItem::Namespace(namespace) => visitor.visit_namespace(namespace),
+        TopLevelItem::Const(const_def) => visitor.visit_const(const_def),
+        TopLevelItem::Use(use_stmt) => visitor.visit_use(use_stmt),
     }
 }

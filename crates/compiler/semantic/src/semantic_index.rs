@@ -744,16 +744,6 @@ impl<'db, 'ast> Visitor<'ast> for SemanticIndexBuilder<'db>
 where
     'ast: 'db,
 {
-    fn visit_top_level_item(&mut self, item: &'ast TopLevelItem) {
-        match item {
-            TopLevelItem::Function(func) => self.visit_function(func),
-            TopLevelItem::Struct(struct_def) => self.visit_struct(struct_def),
-            TopLevelItem::Namespace(namespace) => self.visit_namespace(namespace),
-            TopLevelItem::Const(const_def) => self.visit_const(const_def),
-            TopLevelItem::Use(use_stmt) => self.visit_use(use_stmt),
-        }
-    }
-
     fn visit_stmt(&mut self, stmt: &'ast Spanned<Statement>) {
         // Map statement span to scope for IDE features
         let current_scope = self.current_scope();
