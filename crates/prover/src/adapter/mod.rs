@@ -11,7 +11,7 @@ use cairo_m_common::opcode::Opcode;
 use cairo_m_common::state::MemoryEntry as RunnerMemoryEntry;
 use io::VmImportError;
 pub use memory::ExecutionBundle;
-pub use merkle::MockHasher;
+pub use merkle::DefaultHasher;
 use num_traits::{One, Zero};
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
@@ -20,6 +20,7 @@ use tracing::{Level, span};
 use crate::adapter::io::{MemoryEntryFileIter, TraceFileIter};
 use crate::adapter::memory::{ExecutionBundleIterator, Memory};
 use crate::adapter::merkle::{NodeData, TREE_HEIGHT, build_partial_merkle_tree};
+use crate::utils::poseidon::{PoseidonHash, PoseidonRoundData};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ProverInput {
@@ -27,6 +28,7 @@ pub struct ProverInput {
     pub memory: Memory,
     pub instructions: Instructions,
     pub public_addresses: Vec<M31>,
+    pub poseidon_round_data: Vec<PoseidonRoundData>,
 }
 
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
@@ -113,10 +115,14 @@ where
     }
 
     // Build the partial merkle trees and add to the memory the intermediate nodes
-    let (initial_tree, initial_root) =
-        build_partial_merkle_tree::<MockHasher>(&mut memory.initial_memory);
-    let (final_tree, final_root) =
-        build_partial_merkle_tree::<MockHasher>(&mut memory.final_memory);
+    let (initial_tree, initial_root, initial_round_data) =
+        build_partial_merkle_tree::<PoseidonHash>(&mut memory.initial_memory);
+    let (final_tree, final_root, final_round_data) =
+        build_partial_merkle_tree::<PoseidonHash>(&mut memory.final_memory);
+
+    // Concatenate all round data
+    let mut poseidon_round_data = initial_round_data;
+    poseidon_round_data.extend(final_round_data);
 
     Ok(ProverInput {
         merkle_trees: MerkleTrees {
@@ -132,6 +138,7 @@ where
             final_registers,
             states_by_opcodes,
         },
+        poseidon_round_data,
     })
 }
 
