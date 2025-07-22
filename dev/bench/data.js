@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1752851383841,
+  "lastUpdate": 1753178132639,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -1303,6 +1303,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 241213293,
             "range": "± 1985504",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antoine.fondeur@gmail.com",
+            "name": "Antoine Fondeur",
+            "username": "AntoineFONDEUR"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0f49972b20474c255c1877c66d601543636abc9a",
+          "message": "feat(runner): split execution for continuation (#164)\n\n* feat(runner): split execution for continuation\n\n* review fixes\n\n* use vec with capacity for memory serialization\n\n* added doc for ExecutionStatus\n\n* review modifs\n\n* updated the vm benchmark\n\n* remove cloning for single segment executions\n\n* replace n_steps by max_steps",
+          "timestamp": "2025-07-22T11:52:46+02:00",
+          "tree_id": "4a63737008d11d2861d0d6cab0c3ea3bbff40ec8",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/0f49972b20474c255c1877c66d601543636abc9a"
+        },
+        "date": 1753178131984,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 238056180,
+            "range": "± 1718119",
             "unit": "ns/iter"
           }
         ]
