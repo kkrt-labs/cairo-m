@@ -495,10 +495,13 @@ mod tests {
     fn test_insert_slice() {
         let mut memory = Memory::default();
         let start_addr = M31(10);
+
+        // Insert valid instructions in QM31 words:
+        // QM31[0]: store_imm (opcode 5, size 3): imm=100, dst_off=0
+        // QM31[1]: jmp_abs_imm (opcode 12, size 2): target=42
         let values = vec![
-            QM31::from_m31_array([1, 0, 0, 0].map(Into::into)),
-            QM31::from_m31_array([2, 0, 0, 0].map(Into::into)),
-            QM31::from_m31_array([3, 0, 0, 0].map(Into::into)),
+            QM31::from_m31_array([5, 100, 0, 0].map(Into::into)), // store_imm
+            QM31::from_m31_array([12, 42, 11, 0].map(Into::into)), // jmp_abs_imm
         ];
 
         memory.insert_slice(start_addr, &values).unwrap();
@@ -506,9 +509,8 @@ mod tests {
         // Verify data is stored correctly by checking raw data
         assert_eq!(memory.data[10], values[0]);
         assert_eq!(memory.data[11], values[1]);
-        assert_eq!(memory.data[12], values[2]);
 
-        assert_eq!(memory.trace.borrow().len(), 3);
+        assert_eq!(memory.trace.borrow().len(), 2);
         // Trace entries from `insert_slice`
         for (i, value) in values.iter().enumerate() {
             assert_eq!(
@@ -519,26 +521,45 @@ mod tests {
                 }
             );
         }
+    }
 
-        // Clear trace to test get_data operations
+    #[test]
+    fn test_get_instruction_multi_qm31() {
+        let mut memory = Memory::default();
+        let start_addr = M31(0);
+
+        // Insert a U32StoreAddFpImm instruction (opcode 15, size 5 M31s = 2 QM31s)
+        // Fields: src_off=1, imm_hi=2, imm_lo=3, dst_off=4
+        let values = vec![
+            QM31::from_m31_array([15, 1, 2, 3].map(Into::into)), // First 4 M31s
+            QM31::from_m31_array([4, 0, 0, 0].map(Into::into)),  // Last M31 + padding
+        ];
+
+        memory.insert_slice(start_addr, &values).unwrap();
+
+        // Clear trace to test get_instruction operations
         memory.trace.borrow_mut().clear();
 
-        // Test that get_data properly traces memory accesses
-        assert_eq!(memory.get_data(start_addr).unwrap(), M31(1));
-        assert_eq!(memory.get_data(start_addr + M31(1)).unwrap(), M31(2));
-        assert_eq!(memory.get_data(start_addr + M31(2)).unwrap(), M31(3));
+        // Get U32StoreAddFpImm instruction (5 M31s, spans 2 QM31s)
+        let inst = memory.get_instruction(start_addr).unwrap();
+        assert_eq!(inst, vec![M31(15), M31(1), M31(2), M31(3), M31(4)]);
 
-        assert_eq!(memory.trace.borrow().len(), 3);
-        // Trace entries from `get_data`
-        for (i, value) in values.iter().enumerate() {
-            assert_eq!(
-                memory.trace.borrow()[i],
-                MemoryEntry {
-                    addr: start_addr + M31(i as u32),
-                    value: *value
-                }
-            );
-        }
+        // Verify trace contains both QM31 accesses
+        assert_eq!(memory.trace.borrow().len(), 2);
+        assert_eq!(
+            memory.trace.borrow()[0],
+            MemoryEntry {
+                addr: start_addr,
+                value: values[0]
+            }
+        );
+        assert_eq!(
+            memory.trace.borrow()[1],
+            MemoryEntry {
+                addr: start_addr + M31(1),
+                value: values[1]
+            }
+        );
     }
 
     #[test]
