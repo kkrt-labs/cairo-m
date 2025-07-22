@@ -36,3 +36,40 @@ fn test_unused_but_assigned() {
         show_unused
     );
 }
+
+#[test]
+fn test_underscore_prefixed_variables_ignored() {
+    // Variables with underscore prefix should not trigger unused variable warnings
+    assert_semantic_ok!(
+        r#"
+        func test() -> felt {
+            let _ignored = 10;
+            let _unused_param = 20;
+            let used = 30;
+            return used;
+        }
+    "#
+    );
+}
+
+#[test]
+fn test_underscore_imports_still_checked() {
+    // Imports with underscore prefix should still trigger unused variable warnings
+    assert_semantic_err!(
+        r#"
+        // First define a module to import from
+        namespace math {
+            func add(a: felt, b: felt) -> felt {
+                return a + b;
+            }
+        }
+
+        func test() -> felt {
+            // Import with underscore prefix - should still be flagged as unused
+            use math::{_add};
+            return 42;
+        }
+    "#,
+        show_unused
+    );
+}
