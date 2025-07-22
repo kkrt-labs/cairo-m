@@ -9,7 +9,7 @@ use cairo_m_prover::adapter::{Instructions, MerkleTrees, ProverInput, import_fro
 use cairo_m_prover::debug_tools::assert_constraints::assert_constraints;
 use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_prover::verifier::verify_cairo_m;
-use cairo_m_runner::run_cairo_program;
+use cairo_m_runner::{RunnerOptions, run_cairo_program};
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
@@ -100,7 +100,8 @@ fn test_prove_and_verify_fibonacci_program() {
     )
     .unwrap();
 
-    let mut prover_input = import_from_runner_output(runner_output).unwrap();
+    let mut prover_input =
+        import_from_runner_output(runner_output.vm.segments.into_iter().next().unwrap()).unwrap();
     let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
 
     verify_cairo_m::<Blake2sMerkleChannel>(proof, None).unwrap();
@@ -128,10 +129,54 @@ fn test_prove_and_verify_recursive_fibonacci_program() {
     )
     .unwrap();
 
-    let mut prover_input = import_from_runner_output(runner_output).unwrap();
+    let mut prover_input =
+        import_from_runner_output(runner_output.vm.segments.into_iter().next().unwrap()).unwrap();
     let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
 
     verify_cairo_m::<Blake2sMerkleChannel>(proof, None).unwrap();
+}
+
+#[test]
+fn test_hash_continuity_fibonacci() {
+    let source_path = format!(
+        "{}/tests/test_data/{}",
+        env!("CARGO_MANIFEST_DIR"),
+        "fibonacci.cm"
+    );
+    let compiled_fib = compile_cairo(
+        fs::read_to_string(&source_path).unwrap(),
+        source_path,
+        CompilerOptions::default(),
+    )
+    .unwrap();
+
+    let runner_options = RunnerOptions { max_steps: 10 };
+
+    let runner_output = run_cairo_program(
+        &compiled_fib.program,
+        "fib",
+        &[M31::from(5)],
+        runner_options,
+    )
+    .unwrap();
+
+    let mut previous_final_root: Option<M31> = None;
+
+    for segment in runner_output.vm.segments {
+        let mut prover_input = import_from_runner_output(segment).unwrap();
+
+        let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
+
+        if let Some(final_root) = previous_final_root {
+            assert_eq!(
+                final_root, proof.public_data.initial_root,
+                "Initial root of current segment should match final root of previous segment"
+            );
+        }
+        previous_final_root = Some(proof.public_data.final_root);
+
+        verify_cairo_m::<Blake2sMerkleChannel>(proof, None).unwrap();
+    }
 }
 
 #[test]
@@ -151,7 +196,8 @@ fn test_prove_and_verify_all_opcodes() {
     let runner_output =
         run_cairo_program(&compiled_fib.program, "main", &[], Default::default()).unwrap();
 
-    let mut prover_input = import_from_runner_output(runner_output).unwrap();
+    let mut prover_input =
+        import_from_runner_output(runner_output.vm.segments.into_iter().next().unwrap()).unwrap();
     let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
 
     verify_cairo_m::<Blake2sMerkleChannel>(proof, None).unwrap();
@@ -174,7 +220,8 @@ fn test_all_opcodes_constraints() {
     let runner_output =
         run_cairo_program(&compiled_fib.program, "main", &[], Default::default()).unwrap();
 
-    let mut prover_input = import_from_runner_output(runner_output).unwrap();
+    let mut prover_input =
+        import_from_runner_output(runner_output.vm.segments.into_iter().next().unwrap()).unwrap();
     assert_constraints(&mut prover_input);
 }
 
@@ -203,7 +250,8 @@ fn test_memory_profile_fibonacci_prover() {
 
     let _profiler = dhat::Profiler::new_heap();
 
-    let mut prover_input = import_from_runner_output(runner_output).unwrap();
+    let mut prover_input =
+        import_from_runner_output(runner_output.segments.into_iter().next().unwrap()).unwrap();
     let _proof: cairo_m_prover::Proof<stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleHasher> =
         prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
 }

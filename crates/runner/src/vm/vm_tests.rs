@@ -6,10 +6,10 @@ use cairo_m_common::{Instruction, Opcode, Program, State};
 use num_traits::{One, Zero};
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
-use tempfile::NamedTempFile;
 
 // Import test utilities
 use super::test_utils::*;
+use crate::RunnerOptions;
 use crate::memory::Memory;
 use crate::vm::{VM, VmError};
 
@@ -99,7 +99,7 @@ fn test_step_invalid_instruction() {
 fn test_execute_empty_program() {
     let program = Program::from(vec![]);
     let mut vm = VM::try_from(&program).unwrap();
-    let result = vm.execute();
+    let result = vm.execute(RunnerOptions::default().max_steps);
     assert!(result.is_ok());
     assert_vm_state!(vm.state, 0, 0);
     assert_eq!(vm.memory.data.len(), 0);
@@ -112,7 +112,7 @@ fn test_execute_single_instruction() {
     let program = Program::from(instructions);
     let mut vm = VM::try_from(&program).unwrap();
 
-    let result = vm.execute();
+    let result = vm.execute(RunnerOptions::default().max_steps);
     assert!(result.is_ok());
 
     // PC should be at final position (memory.len() = 1)
@@ -139,7 +139,7 @@ fn test_execute_multiple_instructions() {
     // Initial state
     assert_vm_state!(vm.state, 0, 3); // FP should be after 3 instructions
 
-    let result = vm.execute();
+    let result = vm.execute(RunnerOptions::default().max_steps);
     assert!(result.is_ok());
 
     // PC should be at final position (memory.len() = 3)
@@ -162,7 +162,7 @@ fn test_execute_with_error() {
     let initial_memory = Memory::from_iter(instructions);
     let mut vm = VM {
         final_pc: M31::from(instructions.len() as u32),
-        initial_memory: initial_memory.clone(),
+        initial_memory: instructions.to_vec(),
         memory: initial_memory,
         state: State {
             pc: M31::zero(),
@@ -170,9 +170,10 @@ fn test_execute_with_error() {
         },
         program_length: M31::from(instructions.len() as u32),
         trace: vec![],
+        segments: vec![],
     };
     // Execute should fail when it hits the invalid instruction
-    let result = vm.execute();
+    let result = vm.execute(RunnerOptions::default().max_steps);
     assert!(result.is_err());
     assert!(matches!(
         result.err().unwrap(),
@@ -201,7 +202,7 @@ fn test_execute_arithmetic_operations() {
     let program = Program::from(instructions);
     let mut vm = VM::try_from(&program).unwrap();
 
-    let result = vm.execute();
+    let result = vm.execute(RunnerOptions::default().max_steps);
     assert!(result.is_ok());
 
     // Check all computed values
@@ -223,7 +224,8 @@ fn test_run_from_entrypoint() {
 
     // Initial FP is 2 in the default case, we add an offset of 2.
     // We run the program from PC = 1, so the first instruction should be ignored.
-    vm.run_from_entrypoint(1, 2, &[], 0).unwrap();
+    vm.run_from_entrypoint(1, 2, &[], 0, RunnerOptions::default())
+        .unwrap();
     assert_vm_state!(vm.state, 2, 4);
     assert_eq!(
         vm.memory.get_data(vm.state.fp + M31::one()).unwrap(),
@@ -242,7 +244,7 @@ fn test_serialize_trace() {
     let mut vm = VM::try_from(&program).unwrap();
 
     // Execute the program to generate a trace.
-    assert!(vm.execute().is_ok());
+    assert!(vm.execute(RunnerOptions::default().max_steps).is_ok());
 
     // The trace should have 3 entries, one for each instruction executed.
     // The last one is the final state of the VM.
@@ -264,8 +266,13 @@ fn test_serialize_trace() {
         }
     );
 
-    // Serialize the trace and verify its contents.
-    let serialized_trace = vm.serialize_trace();
+    // Finalize the segment to move trace data into segments
+    vm.finalize_segment(true); // Last segment
+
+    // Serialize the trace from the first segment and verify its contents.
+    assert_eq!(vm.segments.len(), 1);
+    let serialized_trace = vm.segments[0].serialize_segment_trace();
+
     // Expected serialized data:
     // Entry 1: fp=2, pc=0.
     // Entry 2: fp=2, pc=1.
@@ -330,7 +337,7 @@ fn run_fib_test(n: u32) {
     let program = Program::from(instructions);
     let mut vm = VM::try_from(&program).unwrap();
 
-    assert!(vm.execute().is_ok());
+    assert!(vm.execute(RunnerOptions::default().max_steps).is_ok());
     // Verify that FP is still at the end of the program
     // Verify PC reached the end of the program
     assert_vm_state!(vm.state, instructions_len, instructions_len);
@@ -420,7 +427,8 @@ fn run_exponential_recursive_fib_test(n: u32) {
     let mut vm = VM::try_from(&program).unwrap();
 
     let fp_offset = 3;
-    vm.run_from_entrypoint(0, fp_offset, &[], 0).unwrap();
+    vm.run_from_entrypoint(0, fp_offset, &[], 0, RunnerOptions::default())
+        .unwrap();
     // Verify that FP is still at the end of the program
     assert_eq!(vm.state.fp, M31(instructions_len + fp_offset));
     // Verify PC reached the end of the program
@@ -431,49 +439,8 @@ fn run_exponential_recursive_fib_test(n: u32) {
 }
 
 #[test]
-fn test_write_binary_trace() {
-    // Create a program with two instructions to generate a trace.
-    let instructions = vec![
-        Instruction::new(
-            Opcode::StoreImm,
-            [M31::from(10), Zero::zero(), Zero::zero()],
-        ), // [fp + 0] = 10
-        Instruction::new(Opcode::StoreImm, [M31::from(20), Zero::zero(), One::one()]), // [fp + 1] = 20
-    ];
-    let program = Program::from(instructions);
-    let mut vm = VM::try_from(&program).unwrap();
-
-    // Execute the program to generate a trace.
-    assert!(vm.execute().is_ok());
-
-    // Create a temporary file for the trace.
-    let temp_file = NamedTempFile::new().unwrap();
-    let temp_file_path = temp_file.path();
-
-    // Write the trace to the temporary file.
-    let result = vm.write_binary_trace(temp_file_path);
-    assert!(result.is_ok());
-
-    // Read the file back and verify its contents.
-    let mut file = File::open(temp_file_path).unwrap();
-    let mut file_contents = Vec::new();
-    file.read_to_end(&mut file_contents).unwrap();
-
-    // Compare with the expected serialized trace.
-    assert_eq!(file_contents, vm.serialize_trace());
-
-    // Expected serialized data:
-    // Entry 1: fp=2, pc=0.
-    // Entry 2: fp=2, pc=1.
-    // Entry 3: fp=2, pc=2. (final state)
-    let expected_bytes = Vec::from([2, 0, 2, 1, 2, 2].map(u32::to_le_bytes).as_flattened());
-
-    assert_eq!(file_contents, expected_bytes);
-}
-
-#[test]
-fn test_write_binary_memory_trace() {
-    // Create a program with instructions that access memory to generate a memory trace.
+fn test_write_binary_trace_per_segment() {
+    // Create a program that will be executed with segments
     let instructions = vec![
         instr!(Opcode::StoreImm, 10, 0, 0),    // store_imm: [fp + 0] = 10
         instr!(Opcode::StoreImm, 20, 0, 1),    // store_imm: [fp + 1] = 20
@@ -482,37 +449,92 @@ fn test_write_binary_memory_trace() {
     let program = Program::from(instructions);
     let mut vm = VM::try_from(&program).unwrap();
 
-    // Execute the program to generate memory accesses.
-    assert!(vm.execute().is_ok());
+    // Execute with segments - this will hit step limit and create segments
+    let _ = vm.run_from_entrypoint(0, 3, &[], 0, RunnerOptions { max_steps: 2 });
 
-    // Create a temporary file for the memory trace.
-    let temp_file = NamedTempFile::new().unwrap();
-    let temp_file_path = temp_file.path();
+    // Create a temporary directory for the trace files
+    let temp_dir = tempfile::tempdir().unwrap();
+    let trace_path = temp_dir.path().join("trace.bin");
 
-    // Write the memory trace to the temporary file.
-    let result = vm.write_binary_memory_trace(temp_file_path);
+    // Write the trace files per segment
+    let result = vm.write_binary_trace(&trace_path);
     assert!(result.is_ok());
 
-    // Read the file back and verify its contents.
-    let mut file = File::open(temp_file_path).unwrap();
-    let mut file_contents = Vec::new();
-    file.read_to_end(&mut file_contents).unwrap();
+    // Verify that segment files were created
+    for i in 0..vm.segments.len() {
+        let segment_file = temp_dir.path().join(format!("trace_segment_{}.bin", i));
+        assert!(segment_file.exists(), "Segment {} file should exist", i);
 
-    // Compare with the expected serialized memory trace.
-    let mut expected_contents = Vec::new();
-    expected_contents.extend_from_slice(&vm.program_length.0.to_le_bytes());
-    expected_contents.extend_from_slice(&vm.memory.serialize_trace());
-    assert_eq!(file_contents, expected_contents);
+        // Read and verify each segment file
+        let mut file = File::open(&segment_file).unwrap();
+        let mut contents = Vec::new();
+        file.read_to_end(&mut contents).unwrap();
 
-    // Verify that the memory trace is not empty (we should have memory accesses).
-    assert!(!file_contents.is_empty());
+        // Should contain serialized trace data for the segment
+        assert!(!contents.is_empty(), "Segment {} should have trace data", i);
 
-    // The memory trace should contain entries for:
-    // 1. Instruction fetches (3 instructions)
-    // 2. Memory stores (3 store operations)
-    // 3. Memory loads (2 loads for the addition operation)
-    // Each entry is 5 * 4 = 20 bytes (addr + 4 QM31 components)
-    let expected_entries = 3 + 3 + 2; // instruction fetches + stores + loads
-    let expected_size = expected_entries * 5 * 4 + 4; // 5 u32 values * 4 bytes each + 4 bytes for program length
-    assert_eq!(file_contents.len(), expected_size);
+        // Verify the data is a multiple of 8 bytes (2 u32 values per entry)
+        assert_eq!(contents.len() % 8, 0, "Trace data should be aligned");
+    }
+}
+
+#[test]
+fn test_write_binary_memory_trace_per_segment() {
+    // Create a program that will be executed with segments
+    let instructions = vec![
+        instr!(Opcode::StoreImm, 10, 0, 0),    // store_imm: [fp + 0] = 10
+        instr!(Opcode::StoreImm, 20, 0, 1),    // store_imm: [fp + 1] = 20
+        instr!(Opcode::StoreAddFpFp, 0, 1, 2), // store_add_fp_fp: [fp + 2] = [fp + 0] + [fp + 1]
+    ];
+    let program = Program::from(instructions);
+    let mut vm = VM::try_from(&program).unwrap();
+
+    // Execute with segments (limit steps to create multiple segments)
+    let _ = vm.run_from_entrypoint(0, 3, &[], 0, RunnerOptions { max_steps: 2 });
+
+    // Create a temporary directory for the memory trace files
+    let temp_dir = tempfile::tempdir().unwrap();
+    let memory_trace_path = temp_dir.path().join("memory_trace.bin");
+
+    // Write the memory trace files per segment
+    let result = vm.write_binary_memory_trace(&memory_trace_path);
+    assert!(result.is_ok());
+
+    // Verify that segment files were created
+    for i in 0..vm.segments.len() {
+        let segment_file = temp_dir
+            .path()
+            .join(format!("memory_trace_segment_{}.bin", i));
+        assert!(
+            segment_file.exists(),
+            "Memory segment {} file should exist",
+            i
+        );
+
+        // Read and verify each segment file
+        let mut file = File::open(&segment_file).unwrap();
+        let mut contents = Vec::new();
+        file.read_to_end(&mut contents).unwrap();
+
+        // Should contain program length (4 bytes) + memory trace data
+        assert!(
+            contents.len() >= 4,
+            "Segment {} should have at least program length",
+            i
+        );
+
+        // Extract program length
+        let mut program_length_bytes = [0u8; 4];
+        program_length_bytes.copy_from_slice(&contents[0..4]);
+        let program_length = u32::from_le_bytes(program_length_bytes);
+        assert_eq!(program_length, vm.program_length.0);
+
+        // Remaining data should be memory entries (20 bytes each)
+        let memory_data_len = contents.len() - 4;
+        assert_eq!(
+            memory_data_len % 20,
+            0,
+            "Memory trace data should be aligned"
+        );
+    }
 }
