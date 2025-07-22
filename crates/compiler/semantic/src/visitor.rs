@@ -1,0 +1,83 @@
+//! # AST Visitor Pattern for Semantic Analysis
+//!
+//! This module provides a visitor pattern implementation for traversing the Cairo-M AST.
+//! Following the approach used in ruff, it separates traversal logic from semantic analysis,
+//! enabling clean, extensible analysis passes.
+//!
+//! ## Architecture
+//!
+//! The visitor pattern consists of:
+//! - **Visitor trait**: Defines visit methods for each AST node type
+//! - **Walk functions**: Default traversal implementations that visit child nodes
+//! - **Custom visitors**: Implement the trait to perform specific analyses
+//!
+//! ## Usage
+//!
+//! ```rust,ignore
+//! struct MyVisitor;
+//!
+//! impl<'ast> Visitor<'ast> for MyVisitor {
+//!     fn visit_stmt(&mut self, stmt: &'ast Spanned<Statement>) {
+//!         // Custom logic before traversing children
+//!         match stmt.value() {
+//!             Statement::Let { .. } => {
+//!                 // Handle let statements specially
+//!             }
+//!         }
+//!     }
+//! }
+//! ```
+
+use cairo_m_compiler_parser::parser::{
+    ConstDef, Expression, FunctionDef, Namespace, Spanned, Statement, StructDef, TopLevelItem,
+    UseStmt,
+};
+
+/// Core visitor trait for AST traversal.
+///
+/// Each visit method has a default implementation that calls the corresponding
+/// walk function, enabling selective overriding of traversal behavior.
+pub trait Visitor<'ast> {
+    /// Visit a top-level item (function, struct, namespace, etc.)
+    fn visit_top_level_item(&mut self, item: &'ast TopLevelItem) {
+        walk_top_level_item(self, item);
+    }
+
+    /// Visit a statement node
+    fn visit_stmt(&mut self, stmt: &'ast Spanned<Statement>);
+
+    /// Visit an expression node
+    fn visit_expr(&mut self, expr: &'ast Spanned<Expression>);
+
+    /// Visit a function definition
+    fn visit_function(&mut self, func: &'ast Spanned<FunctionDef>);
+
+    /// Visit a struct definition
+    fn visit_struct(&mut self, struct_def: &'ast Spanned<StructDef>);
+
+    /// Visit a namespace definition
+    fn visit_namespace(&mut self, namespace: &'ast Spanned<Namespace>);
+
+    /// Visit a const definition
+    fn visit_const(&mut self, const_def: &'ast Spanned<ConstDef>);
+
+    /// Visit a use statement
+    fn visit_use(&mut self, use_stmt: &'ast Spanned<UseStmt>);
+
+    /// Visit a function body (list of statements)
+    fn visit_body(&mut self, stmts: &'ast [Spanned<Statement>]) {
+        for stmt in stmts {
+            self.visit_stmt(stmt);
+        }
+    }
+}
+
+fn walk_top_level_item<'ast, V: Visitor<'ast> + ?Sized>(visitor: &mut V, item: &'ast TopLevelItem) {
+    match item {
+        TopLevelItem::Function(func) => visitor.visit_function(func),
+        TopLevelItem::Struct(struct_def) => visitor.visit_struct(struct_def),
+        TopLevelItem::Namespace(namespace) => visitor.visit_namespace(namespace),
+        TopLevelItem::Const(const_def) => visitor.visit_const(const_def),
+        TopLevelItem::Use(use_stmt) => visitor.visit_use(use_stmt),
+    }
+}

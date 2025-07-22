@@ -58,6 +58,7 @@ use rustc_hash::FxHashMap;
 
 use crate::definition::{DefinitionKind, UseDefRef};
 use crate::place::{FileScopeId, PlaceTable, Scope};
+use crate::visitor::Visitor;
 use crate::{Crate, Definition, File, SemanticDb, project_semantic_index};
 
 // Define DefinitionIndex as an index type for definitions within a single file.
@@ -601,15 +602,22 @@ impl<'db> SemanticIndexBuilder<'db> {
     /// Build the semantic index from the module.
     /// Processes recursively all items from the root scope.
     pub fn build(mut self) -> SemanticIndex {
-        // Pass 1: Collect all top-level declarations (functions, structs, etc.)
-        // This allows forward references to work correctly
-        for item in self.module.items() {
-            self.collect_top_level_declaration(item);
+        // Pass 1: Declare functions and namespaces for forward references
+        // Only functions and namespaces need forward declarations
+        {
+            for item in self.module.items() {
+                match item {
+                    TopLevelItem::Function(func) => self.declare_function(func),
+                    TopLevelItem::Namespace(namespace) => self.declare_namespace(namespace),
+                    // Structs, use statements, and consts will be handled in pass 2
+                    _ => {}
+                }
+            }
         }
 
         // Pass 2: Process function bodies and other content
         for item in self.module.items() {
-            self.process_top_level_item_body(item);
+            self.visit_top_level_item(item);
         }
 
         // Pop the root scope
@@ -692,162 +700,10 @@ impl<'db> SemanticIndexBuilder<'db> {
         (place_id, def_id)
     }
 
-    /// Pass 1: Collect top-level declarations without processing bodies
-    /// This enables forward references by declaring all symbols first
-    fn collect_top_level_declaration(&mut self, item: &TopLevelItem) {
-        match item {
-            TopLevelItem::Function(func) => {
-                self.declare_function(func);
-            }
-            TopLevelItem::Struct(struct_def) => self.visit_struct(struct_def), // Structs don't have bodies
-            TopLevelItem::Namespace(namespace) => self.declare_namespace(namespace),
-            TopLevelItem::Use(use_stmt) => {
-                self.visit_use(use_stmt); // Imports are just declarations
-            }
-            TopLevelItem::Const(const_def) => self.visit_const(const_def), // Constants need full processing
-        }
-    }
-
-    /// Pass 2: Process the bodies of top-level items
-    /// This is where we analyze function bodies, namespace contents, etc.
-    fn process_top_level_item_body(&mut self, item: &TopLevelItem) {
-        match item {
-            TopLevelItem::Function(func) => self.process_function_body(func),
-            TopLevelItem::Struct(_) => {} // Structs don't have bodies to process
-            TopLevelItem::Namespace(namespace) => self.process_namespace_body(namespace),
-            TopLevelItem::Use(_) => {}   // Imports already fully processed
-            TopLevelItem::Const(_) => {} // Constants already fully processed
-        }
-    }
-
-    /// Visit a struct definition and add it to the current scope.
-    fn visit_struct(&mut self, struct_def: &Spanned<StructDef>) {
-        use crate::definition::{DefinitionKind, StructDefRef};
-        use crate::place::PlaceFlags;
-
-        let struct_def_inner = struct_def.value();
-        let struct_span = struct_def.span();
-
-        // Define the struct in the current scope
-        let def_kind = DefinitionKind::Struct(StructDefRef::from_ast(struct_def));
-        self.add_place_with_definition(
-            struct_def_inner.name.value(),
-            PlaceFlags::DEFINED | PlaceFlags::STRUCT,
-            def_kind,
-            struct_def_inner.name.span(),
-            struct_span,
-        );
-
-        // Note: Struct fields are not separate scopes in most languages,
-        // so we don't create a new scope here. The fields are part of the type system.
-    }
-
-    /// Visit a use statement and add it to the current scope.
-    fn visit_use(&mut self, use_stmt: &Spanned<UseStmt>) {
-        use crate::definition::{DefinitionKind, UseDefRef};
-        use crate::place::PlaceFlags;
-
-        let use_inner = use_stmt.value();
-        let use_span = use_stmt.span();
-
-        let path_len = use_inner.path.len();
-
-        if path_len < 1 {
-            // TODO: This could also be caught early here by a semantic_syntax_error vec of
-            // diagnostics!
-            // Invalid import, skip (validation will catch)
-            return;
-        }
-
-        // Get the module name from the path
-        let imported_module = use_inner
-            .path
-            .iter()
-            .map(|s| s.value().clone())
-            .collect::<Vec<_>>()
-            .join("::");
-
-        // Process the imported items
-        match &use_inner.items {
-            UseItems::Single(item_spanned) => {
-                let item = item_spanned.value().clone();
-                let item_span = item_spanned.span();
-
-                // Always create the Use definition, even if we can't verify it exists yet
-                // Validation will catch if the imported item doesn't exist
-                let use_def_ref = UseDefRef {
-                    imported_module,
-                    item: item.clone(),
-                };
-                let def_kind = DefinitionKind::Use(use_def_ref.clone());
-                let current_scope = self.current_scope();
-                self.add_place_with_definition(
-                    &item,
-                    PlaceFlags::DEFINED,
-                    def_kind,
-                    item_span,
-                    use_span,
-                );
-
-                // Store the import for cross-module resolution
-                self.index.imports.push((current_scope, use_def_ref));
-            }
-            UseItems::List(items) => {
-                // Handle multiple imports: use module::{item1, item2};
-                for item_spanned in items {
-                    let item = item_spanned.value().clone();
-                    let item_span = item_spanned.span();
-
-                    let use_def_ref = UseDefRef {
-                        imported_module: imported_module.clone(),
-                        item: item.clone(),
-                    };
-                    let def_kind = DefinitionKind::Use(use_def_ref.clone());
-                    let current_scope = self.current_scope();
-                    self.add_place_with_definition(
-                        &item,
-                        PlaceFlags::DEFINED,
-                        def_kind,
-                        item_span,
-                        use_span,
-                    );
-
-                    // Store the import for cross-module resolution
-                    self.index.imports.push((current_scope, use_def_ref));
-                }
-            }
-        }
-    }
-
-    /// Visit a const definition and add it to the current scope.
-    fn visit_const(&mut self, const_def: &Spanned<ConstDef>) {
-        use crate::definition::{ConstDefRef, DefinitionKind};
-        use crate::place::PlaceFlags;
-
-        let const_def_inner = const_def.value();
-        let const_span = const_def.span();
-
-        // Visit the value expression to find any identifier uses and capture the ID
-        let value_expr_id = self.visit_expression(&const_def_inner.value);
-
-        // Define the constant in the current scope with the captured expression ID
-        let def_kind = DefinitionKind::Const(ConstDefRef::from_ast(const_def, Some(value_expr_id)));
-        self.add_place_with_definition(
-            const_def_inner.name.value(),
-            PlaceFlags::DEFINED | PlaceFlags::CONSTANT,
-            def_kind,
-            const_def_inner.name.span(),
-            const_span,
-        );
-    }
-
-    /// Pass 1: Declare function without processing its body
-    /// This allows forward references to work
+    /// Declare a function without processing its body (for forward references)
     fn declare_function(&mut self, func: &Spanned<FunctionDef>) {
         use crate::definition::{DefinitionKind, FunctionDefRef};
         use crate::place::PlaceFlags;
-
-        // TODO: We could catch params duplication here.
 
         let func_def = func.value();
         let func_span = func.span();
@@ -863,39 +719,7 @@ impl<'db> SemanticIndexBuilder<'db> {
         );
     }
 
-    /// Pass 2: Process function body with parameters and statements
-    fn process_function_body(&mut self, func: &Spanned<FunctionDef>) {
-        use crate::definition::{DefinitionKind, ParameterDefRef};
-        use crate::place::PlaceFlags;
-
-        let func_def = func.value();
-
-        // Create a new scope for the function body
-        self.with_new_scope(crate::place::ScopeKind::Function, |builder| {
-            // Map the function body span to its scope for IDE features
-            let current_scope = builder.current_scope();
-            builder.index.set_scope_for_span(func.span(), current_scope);
-
-            // Define parameters in the function scope
-            for param in &func_def.params {
-                let def_kind = DefinitionKind::Parameter(ParameterDefRef::from_ast(param));
-                builder.add_place_with_definition(
-                    param.name.value(),
-                    PlaceFlags::DEFINED | PlaceFlags::PARAMETER,
-                    def_kind,
-                    param.name.span(),
-                    param.name.span(), // TODO: Extend to full parameter span when available
-                );
-            }
-
-            // Visit function body statements
-            for stmt in &func_def.body {
-                builder.visit_statement(stmt);
-            }
-        });
-    }
-
-    /// Pass 1: Declare namespace without processing its contents
+    /// Declare a namespace without processing its contents (for forward references)
     fn declare_namespace(&mut self, namespace: &Spanned<Namespace>) {
         use crate::definition::{DefinitionKind, NamespaceDefRef};
         use crate::place::PlaceFlags;
@@ -913,34 +737,17 @@ impl<'db> SemanticIndexBuilder<'db> {
             namespace_span,
         );
     }
+}
 
-    /// Pass 2: Process namespace contents
-    fn process_namespace_body(&mut self, namespace: &Spanned<Namespace>) {
-        let namespace_inner = namespace.value();
-
-        // Create a new scope for the namespace contents
-        self.with_new_scope(crate::place::ScopeKind::Namespace, |builder| {
-            // Map the namespace body span to its scope for IDE features
-            let current_scope = builder.current_scope();
-            builder
-                .index
-                .set_scope_for_span(namespace.span(), current_scope);
-
-            // Pass 1: Collect declarations within the namespace
-            for item in &namespace_inner.body {
-                builder.collect_top_level_declaration(item);
-            }
-
-            // Pass 2: Process bodies within the namespace
-            for item in &namespace_inner.body {
-                builder.process_top_level_item_body(item);
-            }
-        });
-    }
-
-    /// Visit a statement and add it to the current scope.
-    fn visit_statement(&mut self, stmt: &Spanned<Statement>) {
-        use crate::place::PlaceFlags;
+/// Implement the Visitor trait for SemanticIndexBuilder
+impl<'db, 'ast> Visitor<'ast> for SemanticIndexBuilder<'db>
+where
+    'ast: 'db,
+{
+    fn visit_stmt(&mut self, stmt: &'ast Spanned<Statement>) {
+        // Map statement span to scope for IDE features
+        let current_scope = self.current_scope();
+        self.index.set_scope_for_span(stmt.span(), current_scope);
 
         match stmt.value() {
             Statement::Let {
@@ -949,12 +756,18 @@ impl<'db> SemanticIndexBuilder<'db> {
                 statement_type,
             } => {
                 use crate::definition::{DefinitionKind, LetDefRef};
-                // Visit the value expression and capture the ID
-                let value_expr_id = self.visit_expression(value);
+                use crate::place::PlaceFlags;
 
+                // Visit the value expression first (evaluation order)
+                self.visit_expr(value);
+                let value_expr_id = self
+                    .index
+                    .expression_id_by_span(value.span())
+                    .expect("expression should have been registered");
+
+                // Then handle the pattern binding
                 match pattern {
                     Pattern::Identifier(name) => {
-                        // Simple identifier pattern
                         let def_kind = DefinitionKind::Let(LetDefRef::from_let_statement(
                             name.value(),
                             statement_type.clone(),
@@ -969,7 +782,6 @@ impl<'db> SemanticIndexBuilder<'db> {
                         );
                     }
                     Pattern::Tuple(names) => {
-                        // Tuple destructuring pattern
                         for (index, name) in names.iter().enumerate() {
                             let def_kind = DefinitionKind::Let(LetDefRef::from_destructuring(
                                 name.value(),
@@ -988,58 +800,34 @@ impl<'db> SemanticIndexBuilder<'db> {
                     }
                 }
             }
-            Statement::Const(const_def) => {
-                // Statement-level const is wrapped in a spanned context
-                let spanned_const = Spanned::new(const_def.clone(), stmt.span());
-                self.visit_const(&spanned_const);
-            }
-            Statement::Assignment { lhs, rhs } => {
-                // Visit both sides - assignment targets and values
-                let _lhs_expr_id = self.visit_expression(lhs);
-                let _rhs_expr_id = self.visit_expression(rhs);
-                // TODO: Validate assignment compatibility (AssignmentValidator)
-                // - Check that LHS is actually assignable (not a constant, etc.)
-                // - Validate type compatibility between LHS and RHS
-                // - Validate assignment to valid lvalue expressions
-            }
-            Statement::Return { value } => {
-                // Map the return statement's span to its scope for IDE features
-                let current_scope = self.current_scope();
-                self.index.set_scope_for_span(stmt.span(), current_scope);
-
-                if let Some(expr) = value {
-                    let _return_expr_id = self.visit_expression(expr);
-                }
-            }
             Statement::If {
                 condition,
                 then_block,
                 else_block,
             } => {
-                let _condition_expr_id = self.visit_expression(condition);
-                // Create new scopes for if/else blocks to properly handle variable visibility
+                // Handle control flow analysis
+                self.visit_expr(condition);
+
+                // Visit then branch in a new scope
                 self.with_new_scope(crate::place::ScopeKind::Block, |builder| {
-                    builder.visit_statement(then_block);
+                    builder.visit_stmt(then_block);
                 });
+
+                // Visit else branch in a new scope
                 if let Some(else_stmt) = else_block {
                     self.with_new_scope(crate::place::ScopeKind::Block, |builder| {
-                        builder.visit_statement(else_stmt);
+                        builder.visit_stmt(else_stmt);
                     });
                 }
             }
-            Statement::Expression(expr) => {
-                let _stmt_expr_id = self.visit_expression(expr);
-            }
             Statement::Block(statements) => {
-                // Create new scope for block statements to ensure proper variable scoping
-                // Variables declared in blocks should not be visible outside the block
+                // Create new scope for block statements
                 self.with_new_scope(crate::place::ScopeKind::Block, |builder| {
-                    // Map the block's span to its scope for IDE features
                     let current_scope = builder.current_scope();
                     builder.index.set_scope_for_span(stmt.span(), current_scope);
 
                     for stmt in statements {
-                        builder.visit_statement(stmt);
+                        builder.visit_stmt(stmt);
                     }
                 });
             }
@@ -1050,20 +838,18 @@ impl<'db> SemanticIndexBuilder<'db> {
                         depth: self.loop_depth,
                     },
                     |builder| {
-                        // Map the loop's span to its scope for IDE features
                         let current_scope = builder.current_scope();
                         builder.index.set_scope_for_span(stmt.span(), current_scope);
 
-                        // Increment loop depth for nested loops
                         builder.loop_depth += 1;
-                        builder.visit_statement(body);
+                        builder.visit_stmt(body);
                         builder.loop_depth -= 1;
                     },
                 );
             }
             Statement::While { condition, body } => {
                 // Visit the condition expression
-                let _condition_expr_id = self.visit_expression(condition);
+                self.visit_expr(condition);
 
                 // Create a new scope for the while loop body
                 self.with_new_scope(
@@ -1071,38 +857,83 @@ impl<'db> SemanticIndexBuilder<'db> {
                         depth: self.loop_depth,
                     },
                     |builder| {
-                        // Map the loop's span to its scope for IDE features
                         let current_scope = builder.current_scope();
                         builder.index.set_scope_for_span(stmt.span(), current_scope);
 
-                        // Increment loop depth for nested loops
                         builder.loop_depth += 1;
-                        builder.visit_statement(body);
+                        builder.visit_stmt(body);
                         builder.loop_depth -= 1;
                     },
                 );
             }
-            Statement::For { .. } => {
-                // TODO: For loops are not yet supported - we need iterator/range types first
-                panic!("For loops are not yet supported - need iterator/range types");
+            Statement::For {
+                variable: _,
+                iterable,
+                body,
+            } => {
+                // Visit the iterable expression
+                self.visit_expr(iterable);
+                // The variable binding happens inside the loop scope,
+                // so it will be handled by the semantic visitor
+                self.visit_stmt(body);
             }
             Statement::Break | Statement::Continue => {
-                // Map the break/continue statement's span to its scope for IDE features
+                // No sub-nodes to visit
+            }
+            Statement::Const(const_def) => {
+                use crate::definition::{ConstDefRef, DefinitionKind};
+                use crate::place::PlaceFlags;
+
+                // Handle const definitions inline like the original implementation
+                // Map the const's span to its scope for IDE features
                 let current_scope = self.current_scope();
                 self.index.set_scope_for_span(stmt.span(), current_scope);
+
+                // Process the value expression first
+                self.visit_expr(&const_def.value);
+                let value_expr_id = self
+                    .index
+                    .expression_id_by_span(const_def.value.span())
+                    .expect("expression should have been registered");
+
+                // Define the constant
+                let def_kind = DefinitionKind::Const(ConstDefRef {
+                    name: const_def.name.value().clone(),
+                    value_expr_id: Some(value_expr_id),
+                });
+                self.add_place_with_definition(
+                    const_def.name.value(),
+                    PlaceFlags::DEFINED | PlaceFlags::CONSTANT,
+                    def_kind,
+                    const_def.name.span(),
+                    stmt.span(),
+                );
+            }
+            Statement::Assignment { lhs, rhs } => {
+                // Visit in evaluation order: RHS first, then LHS
+                self.visit_expr(rhs);
+                self.visit_expr(lhs);
+            }
+            Statement::Return { value } => {
+                if let Some(expr) = value {
+                    self.visit_expr(expr);
+                }
+            }
+            Statement::Expression(spanned) => {
+                self.visit_expr(spanned);
             }
         }
     }
 
-    fn visit_expression(&mut self, expr: &Spanned<Expression>) -> ExpressionId {
-        // First, create an ExpressionInfo for this expression and track it
+    fn visit_expr(&mut self, expr: &'ast Spanned<Expression>) {
+        // Track expression for type inference
         let expr_info = ExpressionInfo {
             file: self.file,
             ast_node: expr.value().clone(),
             ast_span: expr.span(),
             scope_id: self.current_scope(),
         };
-        let expr_id = self.index.add_expression(expr_info);
+        let _expr_id = self.index.add_expression(expr_info);
 
         match expr.value() {
             Expression::Identifier(name) => {
@@ -1130,68 +961,223 @@ impl<'db> SemanticIndexBuilder<'db> {
                         {
                             self.index.add_use(usage_index, def_id);
                         }
-                    } else {
-                        eprintln!("Could not find '{}' in any scope", name.value());
                     }
                 }
                 // Note: Unresolved symbols will be detected in the validation pass
-                // using the identifier_usages tracking
-            }
-            Expression::UnaryOp { expr, .. } => {
-                self.visit_expression(expr);
             }
             Expression::BinaryOp { left, right, .. } => {
-                self.visit_expression(left);
-                self.visit_expression(right);
+                self.visit_expr(left);
+                self.visit_expr(right);
+            }
+            Expression::UnaryOp { expr, .. } => {
+                self.visit_expr(expr);
             }
             Expression::FunctionCall { callee, args } => {
-                self.visit_expression(callee);
+                self.visit_expr(callee);
                 for arg in args {
-                    self.visit_expression(arg);
+                    self.visit_expr(arg);
                 }
             }
             Expression::MemberAccess { object, .. } => {
-                self.visit_expression(object);
-                // TODO: Implement proper member access analysis
-                // Current limitation: Field access doesn't introduce new scope issues for now
-                // Future improvements needed:
-                // - Validate that the object type has the accessed field
-                // - Handle method calls vs field access
-                // Field access doesn't introduce new scope issues for now
+                self.visit_expr(object);
             }
             Expression::IndexAccess { array, index } => {
-                self.visit_expression(array);
-                self.visit_expression(index);
-                // TODO: Add array bounds checking validation in future passes
-                // provided the array size is known.
-                // TODO: Validate indexing on non-array types (IndexingValidator)
-                // - Check that the array expression has an indexable type
-                // - Validate index expression is integer type
+                self.visit_expr(array);
+                self.visit_expr(index);
             }
             Expression::StructLiteral { fields, .. } => {
-                for (_field_name, field_value) in fields {
-                    // TODO: We could catch duplicated field names here.
-
-                    self.visit_expression(field_value);
+                for (_, value) in fields {
+                    self.visit_expr(value);
                 }
             }
             Expression::Tuple(exprs) => {
                 for expr in exprs {
-                    self.visit_expression(expr);
+                    self.visit_expr(expr);
                 }
             }
-            Expression::Literal(_) => {
-                // Literals don't reference any symbols
+            Expression::Literal(_) | Expression::BooleanLiteral(_) => {
+                // Leaf nodes - no sub-expressions
             }
-            Expression::BooleanLiteral(_) => {
-                // Boolean literals don't reference any symbols
-                // TODO: Consider adding boolean literal validation
-            } // TODO: Add support for more expression types as the parser is extended:
-              // - Conditional expressions (ternary operator)
-              // - Array/slice literals
+        }
+    }
+
+    fn visit_function(&mut self, func: &'ast Spanned<FunctionDef>) {
+        use crate::definition::{DefinitionKind, ParameterDefRef};
+        use crate::place::PlaceFlags;
+
+        let func_def = func.value();
+
+        // Note: Function declaration already handled in pass 1
+        // Here we process the body
+
+        // Create a new scope for the function body
+        self.with_new_scope(crate::place::ScopeKind::Function, |builder| {
+            let current_scope = builder.current_scope();
+            builder.index.set_scope_for_span(func.span(), current_scope);
+
+            // Define parameters in the function scope
+            for param in &func_def.params {
+                let def_kind = DefinitionKind::Parameter(ParameterDefRef::from_ast(param));
+                builder.add_place_with_definition(
+                    param.name.value(),
+                    PlaceFlags::DEFINED | PlaceFlags::PARAMETER,
+                    def_kind,
+                    param.name.span(),
+                    param.name.span(),
+                );
+            }
+
+            // Visit function body statements
+            builder.visit_body(&func_def.body);
+        });
+    }
+
+    fn visit_namespace(&mut self, namespace: &'ast Spanned<Namespace>) {
+        let namespace_inner = namespace.value();
+
+        // Note: Namespace declaration already handled in pass 1
+        // Here we process the contents
+
+        // Create a new scope for the namespace contents
+        self.with_new_scope(crate::place::ScopeKind::Namespace, |builder| {
+            let current_scope = builder.current_scope();
+            builder
+                .index
+                .set_scope_for_span(namespace.span(), current_scope);
+
+            // First pass: declare functions and namespaces within namespace for forward references
+            let namespace_items: Vec<_> = namespace_inner.body.iter().collect();
+            for item in &namespace_items {
+                match item {
+                    TopLevelItem::Function(func) => builder.declare_function(func),
+                    TopLevelItem::Namespace(inner_namespace) => {
+                        builder.declare_namespace(inner_namespace)
+                    }
+                    // Structs, use statements, and consts will be handled in pass 2
+                    _ => {}
+                }
+            }
+
+            // Second pass: process bodies within namespace
+            for item in &namespace_inner.body {
+                builder.visit_top_level_item(item);
+            }
+        });
+    }
+
+    fn visit_struct(&mut self, struct_def: &'ast Spanned<StructDef>) {
+        use crate::definition::{DefinitionKind, StructDefRef};
+        use crate::place::PlaceFlags;
+
+        let struct_def_inner = struct_def.value();
+        let struct_span = struct_def.span();
+
+        // Define the struct in the current scope
+        let def_kind = DefinitionKind::Struct(StructDefRef::from_ast(struct_def));
+        self.add_place_with_definition(
+            struct_def_inner.name.value(),
+            PlaceFlags::DEFINED | PlaceFlags::STRUCT,
+            def_kind,
+            struct_def_inner.name.span(),
+            struct_span,
+        );
+    }
+
+    fn visit_use(&mut self, use_stmt: &'ast Spanned<UseStmt>) {
+        use crate::definition::{DefinitionKind, UseDefRef};
+        use crate::place::PlaceFlags;
+
+        let use_inner = use_stmt.value();
+        let use_span = use_stmt.span();
+
+        let path_len = use_inner.path.len();
+        if path_len < 1 {
+            return;
         }
 
-        expr_id
+        // Get the module name from the path
+        let imported_module = use_inner
+            .path
+            .iter()
+            .map(|s| s.value().clone())
+            .collect::<Vec<_>>()
+            .join("::");
+
+        // Process the imported items
+        match &use_inner.items {
+            UseItems::Single(item_spanned) => {
+                let item = item_spanned.value().clone();
+                let item_span = item_spanned.span();
+
+                let use_def_ref = UseDefRef {
+                    imported_module,
+                    item: item.clone(),
+                };
+                let def_kind = DefinitionKind::Use(use_def_ref.clone());
+                let current_scope = self.current_scope();
+                self.add_place_with_definition(
+                    &item,
+                    PlaceFlags::DEFINED,
+                    def_kind,
+                    item_span,
+                    use_span,
+                );
+
+                // Store the import for cross-module resolution
+                self.index.imports.push((current_scope, use_def_ref));
+            }
+            UseItems::List(items) => {
+                for item_spanned in items {
+                    let item = item_spanned.value().clone();
+                    let item_span = item_spanned.span();
+
+                    let use_def_ref = UseDefRef {
+                        imported_module: imported_module.clone(),
+                        item: item.clone(),
+                    };
+                    let def_kind = DefinitionKind::Use(use_def_ref.clone());
+                    let current_scope = self.current_scope();
+                    self.add_place_with_definition(
+                        &item,
+                        PlaceFlags::DEFINED,
+                        def_kind,
+                        item_span,
+                        use_span,
+                    );
+
+                    self.index.imports.push((current_scope, use_def_ref));
+                }
+            }
+        }
+    }
+
+    fn visit_const(&mut self, const_def: &'ast Spanned<ConstDef>) {
+        use crate::definition::{ConstDefRef, DefinitionKind};
+        use crate::place::PlaceFlags;
+
+        let const_def_inner = const_def.value();
+        let const_span = const_def.span();
+
+        // Map the const's span to its scope for IDE features
+        let current_scope = self.current_scope();
+        self.index.set_scope_for_span(const_span, current_scope);
+
+        // Visit the value expression first
+        self.visit_expr(&const_def_inner.value);
+        let value_expr_id = self
+            .index
+            .expression_id_by_span(const_def_inner.value.span())
+            .expect("expression should have been registered");
+
+        // Define the constant in the current scope
+        let def_kind = DefinitionKind::Const(ConstDefRef::from_ast(const_def, Some(value_expr_id)));
+        self.add_place_with_definition(
+            const_def_inner.name.value(),
+            PlaceFlags::DEFINED | PlaceFlags::CONSTANT,
+            def_kind,
+            const_def_inner.name.span(),
+            const_span,
+        );
     }
 }
 
