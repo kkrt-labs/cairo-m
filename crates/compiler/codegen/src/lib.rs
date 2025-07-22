@@ -15,7 +15,6 @@
 #![feature(let_chains)]
 #![allow(clippy::option_if_let_else)]
 
-use cairo_m_common::instruction::{CALL_ABS_IMM, JNZ_FP_IMM, STORE_IMM};
 use cairo_m_common::{Instruction, Program};
 use cairo_m_compiler_mir::{BasicBlockId, MirModule};
 
@@ -110,155 +109,15 @@ impl InstructionBuilder {
         })
     }
 
-    /// Set frame offset (for CallAbsImm)
-    pub fn with_frame_off(mut self, frame_off: i32) -> Self {
-        if self.operands.is_empty() {
-            self.operands.push(Operand::Literal(frame_off));
-        } else {
-            self.operands[0] = Operand::Literal(frame_off);
-        }
-        self
-    }
-
-    /// Set the operand (replaces with_imm)
+    /// Add an operand to the instruction
     pub fn with_operand(mut self, operand: Operand) -> Self {
-        // Add the operand to the end of the operands vector
         self.operands.push(operand);
-        self
-    }
-
-    /// Set the immediate value (convenience method)
-    pub fn with_imm(mut self, imm: i32) -> Self {
-        self.operands.push(Operand::Literal(imm));
-        self
-    }
-
-    /// Set a label operand (convenience method)
-    pub fn with_label(mut self, label: String) -> Self {
-        self.operands.push(Operand::Label(label));
         self
     }
 
     /// Set a comment
     pub fn with_comment(mut self, comment: String) -> Self {
         self.comment = Some(comment);
-        self
-    }
-
-    // Semantic builder methods for better API consistency with instruction.rs
-
-    /// Set source offset (for FpImm arithmetic operations)
-    pub fn with_src_off(mut self, src_off: i32) -> Self {
-        if self.operands.is_empty() {
-            self.operands.push(Operand::Literal(src_off));
-        } else {
-            self.operands[0] = Operand::Literal(src_off);
-        }
-        self
-    }
-
-    /// Set first source offset (for FpFp arithmetic operations)
-    pub fn with_src0_off(mut self, src0_off: i32) -> Self {
-        if self.operands.is_empty() {
-            self.operands.push(Operand::Literal(src0_off));
-        } else {
-            self.operands[0] = Operand::Literal(src0_off);
-        }
-        self
-    }
-
-    /// Set second source offset (for FpFp arithmetic operations)
-    pub fn with_src1_off(mut self, src1_off: i32) -> Self {
-        while self.operands.len() < 2 {
-            self.operands.push(Operand::Literal(0));
-        }
-        self.operands[1] = Operand::Literal(src1_off);
-        self
-    }
-
-    /// Set destination offset
-    pub fn with_dst_off(mut self, dst_off: i32) -> Self {
-        // For StoreImm, dst_off is the second operand
-        // For arithmetic operations, dst_off is the third operand
-        match self.opcode {
-            STORE_IMM => {
-                while self.operands.len() < 2 {
-                    self.operands.push(Operand::Literal(0));
-                }
-                self.operands[1] = Operand::Literal(dst_off);
-            }
-            _ => {
-                // Arithmetic operations
-                while self.operands.len() < 3 {
-                    self.operands.push(Operand::Literal(0));
-                }
-                self.operands[2] = Operand::Literal(dst_off);
-            }
-        }
-        self
-    }
-
-    /// Set base offset (for StoreDoubleDerefFp)
-    pub fn with_base_off(mut self, base_off: i32) -> Self {
-        if self.operands.is_empty() {
-            self.operands.push(Operand::Literal(base_off));
-        } else {
-            self.operands[0] = Operand::Literal(base_off);
-        }
-        self
-    }
-
-    /// Set offset (for jumps and dereference)
-    pub fn with_offset(mut self, offset: Operand) -> Self {
-        // For JnzFpImm, offset is the second operand
-        // For other jumps, offset is the first operand
-        match self.opcode {
-            JNZ_FP_IMM => {
-                while self.operands.len() < 2 {
-                    self.operands.push(Operand::Literal(0));
-                }
-                self.operands[1] = offset;
-            }
-            _ => {
-                if self.operands.is_empty() {
-                    self.operands.push(offset);
-                } else {
-                    self.operands[0] = offset;
-                }
-            }
-        }
-        self
-    }
-
-    /// Set condition offset (for JnzFpImm)
-    pub fn with_cond_off(mut self, cond_off: i32) -> Self {
-        if self.operands.is_empty() {
-            self.operands.push(Operand::Literal(cond_off));
-        } else {
-            self.operands[0] = Operand::Literal(cond_off);
-        }
-        self
-    }
-
-    /// Set target (for jumps and calls)
-    pub fn with_target(mut self, target: Operand) -> Self {
-        // For CallAbsImm, target is the second operand
-        // For other instructions, target is the first operand
-        match self.opcode {
-            CALL_ABS_IMM => {
-                while self.operands.len() < 2 {
-                    self.operands.push(Operand::Literal(0));
-                }
-                self.operands[1] = target;
-            }
-            _ => {
-                if self.operands.is_empty() {
-                    self.operands.push(target);
-                } else {
-                    self.operands[0] = target;
-                }
-            }
-        }
         self
     }
 

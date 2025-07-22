@@ -100,7 +100,8 @@ fn test_instruction_operand_methods() {
     }
 
     // Test with_label convenience method
-    let instr2 = InstructionBuilder::new(JMP_ABS_IMM).with_label("target2".to_string());
+    let instr2 =
+        InstructionBuilder::new(JMP_ABS_IMM).with_operand(Operand::Label("target2".to_string()));
 
     match instr2.operands.last() {
         Some(Operand::Label(name)) => assert_eq!(name, "target2"),
@@ -108,7 +109,7 @@ fn test_instruction_operand_methods() {
     }
 
     // Test with_imm convenience method
-    let instr3 = InstructionBuilder::new(JMP_ABS_IMM).with_imm(100);
+    let instr3 = InstructionBuilder::new(JMP_ABS_IMM).with_operand(Operand::Literal(100));
 
     match instr3.operands.last() {
         Some(Operand::Literal(val)) => assert_eq!(*val, 100),

@@ -84,8 +84,8 @@ impl CasmBuilder {
             Value::Literal(Literal::Integer(imm)) => {
                 // Store immediate value
                 let instr = InstructionBuilder::new(STORE_IMM)
-                    .with_imm(imm)
-                    .with_dst_off(dest_off)
+                    .with_operand(Operand::Literal(imm))
+                    .with_operand(Operand::Literal(dest_off))
                     .with_comment(format!("[fp + {dest_off}] = {imm}"));
                 self.instructions.push(instr);
             }
@@ -95,9 +95,9 @@ impl CasmBuilder {
                 let src_off = layout.get_offset(src_id)?;
 
                 let instr = InstructionBuilder::new(STORE_ADD_FP_IMM) // StoreAddFpImm
-                    .with_src_off(src_off)
-                    .with_imm(0)
-                    .with_dst_off(dest_off)
+                    .with_operand(Operand::Literal(src_off))
+                    .with_operand(Operand::Literal(0))
+                    .with_operand(Operand::Literal(dest_off))
                     .with_comment(format!("[fp + {dest_off}] = [fp + {src_off}] + 0"));
 
                 self.instructions.push(instr);
@@ -264,9 +264,9 @@ impl CasmBuilder {
                 let right_off = layout.get_offset(*right_id)?;
 
                 let instr = InstructionBuilder::new(self.fp_fp_opcode_for_binary_op(op)?)
-                    .with_src0_off(left_off)
-                    .with_src1_off(right_off)
-                    .with_dst_off(dest_off)
+                    .with_operand(Operand::Literal(left_off))
+                    .with_operand(Operand::Literal(right_off))
+                    .with_operand(Operand::Literal(dest_off))
                     .with_comment(format!(
                         "[fp + {dest_off}] = [fp + {left_off}] op [fp + {right_off}]"
                     ));
@@ -279,9 +279,9 @@ impl CasmBuilder {
                 let left_off = layout.get_offset(*left_id)?;
 
                 let instr = InstructionBuilder::new(self.fp_imm_opcode_for_binary_op(op)?)
-                    .with_src_off(left_off)
-                    .with_imm(*imm)
-                    .with_dst_off(dest_off)
+                    .with_operand(Operand::Literal(left_off))
+                    .with_operand(Operand::Literal(*imm))
+                    .with_operand(Operand::Literal(dest_off))
                     .with_comment(format!("[fp + {dest_off}] = [fp + {left_off}] op {imm}"));
 
                 self.instructions.push(instr);
@@ -294,9 +294,9 @@ impl CasmBuilder {
                     BinaryOp::Add | BinaryOp::Mul => {
                         let right_off = layout.get_offset(*right_id)?;
                         let instr = InstructionBuilder::new(self.fp_imm_opcode_for_binary_op(op)?)
-                            .with_src_off(right_off)
-                            .with_imm(*imm)
-                            .with_dst_off(dest_off)
+                            .with_operand(Operand::Literal(right_off))
+                            .with_operand(Operand::Literal(*imm))
+                            .with_operand(Operand::Literal(dest_off))
                             .with_comment(format!(
                                 "[fp + {dest_off}] = [fp + {right_off}] op {imm}"
                             ));
@@ -310,15 +310,15 @@ impl CasmBuilder {
                         let temp_off = layout.reserve_stack(1);
 
                         let copy_instr = InstructionBuilder::new(STORE_IMM)
-                            .with_imm(*imm)
-                            .with_dst_off(temp_off)
+                            .with_operand(Operand::Literal(*imm))
+                            .with_operand(Operand::Literal(temp_off))
                             .with_comment(format!("[fp + {temp_off}] = {imm}"));
                         self.instructions.push(copy_instr);
 
                         let instr = InstructionBuilder::new(self.fp_fp_opcode_for_binary_op(op)?)
-                            .with_src0_off(temp_off)
-                            .with_src1_off(right_off)
-                            .with_dst_off(dest_off)
+                            .with_operand(Operand::Literal(temp_off))
+                            .with_operand(Operand::Literal(right_off))
+                            .with_operand(Operand::Literal(dest_off))
                             .with_comment(format!(
                                 "[fp + {dest_off}] = [fp + {temp_off}] op [fp + {right_off}]"
                             ));
@@ -348,8 +348,8 @@ impl CasmBuilder {
                 };
 
                 let instr = InstructionBuilder::new(STORE_IMM)
-                    .with_imm(result as i32)
-                    .with_dst_off(dest_off)
+                    .with_operand(Operand::Literal(result as i32))
+                    .with_operand(Operand::Literal(dest_off))
                     .with_comment(format!("[fp + {dest_off}] = {result}"));
                 self.instructions.push(instr);
             }
@@ -380,8 +380,8 @@ impl CasmBuilder {
         // Step 3: Check if temp == 0 (meaning left == right)
         // jnz jumps if non-zero, so if temp != 0, jump to set result to 0 (or 1 if not equal)
         let jnz_instr = InstructionBuilder::new(JNZ_FP_IMM)
-            .with_cond_off(dest_off)
-            .with_offset(Operand::Label(not_zero_label.clone()))
+            .with_operand(Operand::Literal(dest_off))
+            .with_operand(Operand::Label(not_zero_label.clone()))
             .with_comment(format!(
                 "if [fp + {dest_off}] != 0, jump to {not_zero_label}"
             ));
@@ -389,14 +389,14 @@ impl CasmBuilder {
 
         // Step 4: If we reach here, temp == 0, so left == right, set result to 1
         let set_false_instr = InstructionBuilder::new(STORE_IMM)
-            .with_imm(1)
-            .with_dst_off(dest_off)
+            .with_operand(Operand::Literal(1))
+            .with_operand(Operand::Literal(dest_off))
             .with_comment(format!("[fp + {dest_off}] = 1"));
         self.instructions.push(set_false_instr);
 
         // Jump to end
         let jmp_end_instr = InstructionBuilder::new(JMP_ABS_IMM)
-            .with_target(Operand::Label(end_label.clone()))
+            .with_operand(Operand::Label(end_label.clone()))
             .with_comment(format!("jump to {end_label}"));
         self.instructions.push(jmp_end_instr);
 
@@ -405,8 +405,8 @@ impl CasmBuilder {
         self.add_label(not_equal_label_obj);
 
         let set_true_instr = InstructionBuilder::new(STORE_IMM)
-            .with_imm(0)
-            .with_dst_off(dest_off)
+            .with_operand(Operand::Literal(0))
+            .with_operand(Operand::Literal(dest_off))
             .with_comment(format!("[fp + {dest_off}] = 0"));
         self.instructions.push(set_true_instr);
 
@@ -433,8 +433,8 @@ impl CasmBuilder {
         // Step 3: Check if temp != 0 (meaning left != right)
         // jnz jumps if non-zero, so if temp != 0, jump to set result to 1
         let jnz_instr = InstructionBuilder::new(JNZ_FP_IMM)
-            .with_cond_off(dest_off)
-            .with_offset(Operand::Label(non_zero_label.clone()))
+            .with_operand(Operand::Literal(dest_off))
+            .with_operand(Operand::Label(non_zero_label.clone()))
             .with_comment(format!(
                 "if [fp + {dest_off}] != 0, jump to {non_zero_label}"
             ));
@@ -442,14 +442,14 @@ impl CasmBuilder {
 
         // Step 4: If we reach here, temp == 0, so left == right, set result to 0
         let set_false_instr = InstructionBuilder::new(STORE_IMM)
-            .with_imm(0)
-            .with_dst_off(dest_off)
+            .with_operand(Operand::Literal(0))
+            .with_operand(Operand::Literal(dest_off))
             .with_comment(format!("[fp + {dest_off}] = 0"));
         self.instructions.push(set_false_instr);
 
         // Jump to end
         let jmp_end_instr = InstructionBuilder::new(JMP_ABS_IMM)
-            .with_target(Operand::Label(end_label.clone()))
+            .with_operand(Operand::Label(end_label.clone()))
             .with_comment(format!("jump to {end_label}"));
         self.instructions.push(jmp_end_instr);
 
@@ -458,8 +458,8 @@ impl CasmBuilder {
         self.add_label(non_zero_label_obj);
 
         let set_true_instr = InstructionBuilder::new(STORE_IMM)
-            .with_imm(1)
-            .with_dst_off(dest_off)
+            .with_operand(Operand::Literal(1))
+            .with_operand(Operand::Literal(dest_off))
             .with_comment(format!("[fp + {dest_off}] = 1"));
         self.instructions.push(set_true_instr);
 
@@ -486,8 +486,8 @@ impl CasmBuilder {
         // Step 3: Check if temp != 0 (meaning both operands were non-zero)
         // jnz jumps if non-zero, so if temp != 0, jump to set result to 1
         let jnz_instr = InstructionBuilder::new(JNZ_FP_IMM)
-            .with_cond_off(dest_off)
-            .with_offset(Operand::Label(non_zero_label.clone()))
+            .with_operand(Operand::Literal(dest_off))
+            .with_operand(Operand::Label(non_zero_label.clone()))
             .with_comment(format!(
                 "if [fp + {dest_off}] != 0, jump to {non_zero_label}"
             ));
@@ -495,14 +495,14 @@ impl CasmBuilder {
 
         // Step 4: If we reach here, temp == 0, so at least one operand was 0, set result to 0
         let set_false_instr = InstructionBuilder::new(STORE_IMM)
-            .with_imm(0)
-            .with_dst_off(dest_off)
+            .with_operand(Operand::Literal(0))
+            .with_operand(Operand::Literal(dest_off))
             .with_comment(format!("[fp + {dest_off}] = 0"));
         self.instructions.push(set_false_instr);
 
         // Jump to end
         let jmp_end_instr = InstructionBuilder::new(JMP_ABS_IMM)
-            .with_target(Operand::Label(end_label.clone()))
+            .with_operand(Operand::Label(end_label.clone()))
             .with_comment(format!("jump to {end_label}"));
         self.instructions.push(jmp_end_instr);
 
@@ -511,8 +511,8 @@ impl CasmBuilder {
         self.add_label(non_zero_label_obj);
 
         let set_true_instr = InstructionBuilder::new(STORE_IMM)
-            .with_imm(1)
-            .with_dst_off(dest_off)
+            .with_operand(Operand::Literal(1))
+            .with_operand(Operand::Literal(dest_off))
             .with_comment(format!("[fp + {dest_off}] = 1"));
         self.instructions.push(set_true_instr);
 
@@ -537,8 +537,8 @@ impl CasmBuilder {
 
         // Step 1: Initialize result to 0
         let init_instr = InstructionBuilder::new(STORE_IMM)
-            .with_imm(0)
-            .with_dst_off(dest_off)
+            .with_operand(Operand::Literal(0))
+            .with_operand(Operand::Literal(dest_off))
             .with_comment("Initialize OR result to 0".to_string());
         self.instructions.push(init_instr);
 
@@ -547,8 +547,8 @@ impl CasmBuilder {
             Value::Operand(left_id) => {
                 let left_off = layout.get_offset(left_id)?;
                 let jnz_left = InstructionBuilder::new(JNZ_FP_IMM)
-                    .with_cond_off(left_off)
-                    .with_offset(Operand::Label(set_true_label.clone()))
+                    .with_operand(Operand::Literal(left_off))
+                    .with_operand(Operand::Label(set_true_label.clone()))
                     .with_comment(format!(
                         "if [fp + {left_off}] != 0, jump to {set_true_label}"
                     ));
@@ -558,7 +558,7 @@ impl CasmBuilder {
                 // If left is a non-zero immediate, directly jump to set true
                 if imm != 0 {
                     let jmp_true = InstructionBuilder::new(JMP_ABS_IMM)
-                        .with_target(Operand::Label(set_true_label.clone()))
+                        .with_operand(Operand::Label(set_true_label.clone()))
                         .with_comment(format!("jump to {set_true_label}"));
                     self.instructions.push(jmp_true);
                 }
@@ -576,8 +576,8 @@ impl CasmBuilder {
             Value::Operand(right_id) => {
                 let right_off = layout.get_offset(right_id)?;
                 let jnz_right = InstructionBuilder::new(JNZ_FP_IMM)
-                    .with_cond_off(right_off)
-                    .with_offset(Operand::Label(set_true_label.clone()))
+                    .with_operand(Operand::Literal(right_off))
+                    .with_operand(Operand::Label(set_true_label.clone()))
                     .with_comment(format!(
                         "if [fp + {right_off}] != 0, jump to {set_true_label}"
                     ));
@@ -587,7 +587,7 @@ impl CasmBuilder {
                 // If right is a non-zero immediate, directly jump to set true
                 if imm != 0 {
                     let jmp_true = InstructionBuilder::new(JMP_ABS_IMM)
-                        .with_target(Operand::Label(set_true_label.clone()))
+                        .with_operand(Operand::Label(set_true_label.clone()))
                         .with_comment(format!("jump to {set_true_label}"));
                     self.instructions.push(jmp_true);
                 }
@@ -602,15 +602,15 @@ impl CasmBuilder {
 
         // Step 4: Jump to end (both operands were 0, result stays 0)
         let jmp_end = InstructionBuilder::new(JMP_ABS_IMM)
-            .with_target(Operand::Label(end_label.clone()))
+            .with_operand(Operand::Label(end_label.clone()))
             .with_comment(format!("jump to {end_label}"));
         self.instructions.push(jmp_end);
 
         // Step 5: set_true label - set result to 1
         self.add_label(Label::new(set_true_label));
         let set_true_instr = InstructionBuilder::new(STORE_IMM)
-            .with_imm(1)
-            .with_dst_off(dest_off)
+            .with_operand(Operand::Literal(1))
+            .with_operand(Operand::Literal(dest_off))
             .with_comment(format!("[fp + {dest_off}] = 1"));
         self.instructions.push(set_true_instr);
 
@@ -629,8 +629,8 @@ impl CasmBuilder {
                 let src_off = self.layout.as_ref().unwrap().get_offset(src_id)?;
                 // If source is non-zero, jump to set result to 0
                 let jnz_instr = InstructionBuilder::new(JNZ_FP_IMM)
-                    .with_cond_off(src_off)
-                    .with_offset(Operand::Label(set_zero_label.clone()))
+                    .with_operand(Operand::Literal(src_off))
+                    .with_operand(Operand::Label(set_zero_label.clone()))
                     .with_comment(format!(
                         "if [fp + {src_off}] != 0, jump to {set_zero_label}"
                     ));
@@ -640,8 +640,8 @@ impl CasmBuilder {
                 // For immediate values, we can directly compute the NOT result
                 let result = if imm == 0 { 1 } else { 0 };
                 let instr = InstructionBuilder::new(STORE_IMM)
-                    .with_imm(result)
-                    .with_dst_off(dest_off)
+                    .with_operand(Operand::Literal(result))
+                    .with_operand(Operand::Literal(dest_off))
                     .with_comment(format!("[fp + {dest_off}] = {result}"));
                 self.instructions.push(instr);
                 return Ok(());
@@ -655,22 +655,22 @@ impl CasmBuilder {
 
         // If we reach here, source was 0, so set result to 1
         let set_one_instr = InstructionBuilder::new(STORE_IMM)
-            .with_imm(1)
-            .with_dst_off(dest_off)
+            .with_operand(Operand::Literal(1))
+            .with_operand(Operand::Literal(dest_off))
             .with_comment(format!("[fp + {dest_off}] = 1"));
         self.instructions.push(set_one_instr);
 
         // Jump to end
         let jmp_end_instr = InstructionBuilder::new(JMP_ABS_IMM)
-            .with_target(Operand::Label(end_label.clone()))
+            .with_operand(Operand::Label(end_label.clone()))
             .with_comment(format!("jump to {end_label}"));
         self.instructions.push(jmp_end_instr);
 
         // set_zero label - set result to 0
         self.add_label(Label::new(set_zero_label));
         let set_zero_instr = InstructionBuilder::new(STORE_IMM)
-            .with_imm(0)
-            .with_dst_off(dest_off)
+            .with_operand(Operand::Literal(0))
+            .with_operand(Operand::Literal(dest_off))
             .with_comment(format!("[fp + {dest_off}] = 0"));
         self.instructions.push(set_zero_instr);
 
@@ -708,8 +708,8 @@ impl CasmBuilder {
         // Step 3: Calculate `frame_off` and emit the `call` instruction.
         let frame_off = l + m as i32 + k as i32;
         let instr = InstructionBuilder::new(CALL_ABS_IMM)
-            .with_frame_off(frame_off)
-            .with_target(Operand::Label(callee_name.to_string()))
+            .with_operand(Operand::Literal(frame_off))
+            .with_operand(Operand::Label(callee_name.to_string()))
             .with_comment(format!("call {callee_name}"));
         self.instructions.push(instr);
 
@@ -748,8 +748,8 @@ impl CasmBuilder {
         // Step 3: Calculate `frame_off` and emit the `call` instruction.
         let frame_off = l + m as i32 + k as i32;
         let instr = InstructionBuilder::new(CALL_ABS_IMM)
-            .with_frame_off(frame_off)
-            .with_target(Operand::Label(callee_name.to_string()))
+            .with_operand(Operand::Literal(frame_off))
+            .with_operand(Operand::Label(callee_name.to_string()))
             .with_comment(format!("call {callee_name}"));
         self.instructions.push(instr);
 
@@ -775,8 +775,8 @@ impl CasmBuilder {
 
         let frame_off = l + m as i32 + k as i32;
         let instr = InstructionBuilder::new(CALL_ABS_IMM)
-            .with_frame_off(frame_off)
-            .with_target(Operand::Label(callee_name.to_string()))
+            .with_operand(Operand::Literal(frame_off))
+            .with_operand(Operand::Label(callee_name.to_string()))
             .with_comment(format!("call {callee_name}"));
         self.instructions.push(instr);
         Ok(())
@@ -820,15 +820,15 @@ impl CasmBuilder {
             let arg_offset = l + i as i32; // Place i-th arg at `[fp_c + L + i]`.
             let instr = match arg {
                 Value::Literal(Literal::Integer(imm)) => InstructionBuilder::new(STORE_IMM)
-                    .with_imm(*imm)
-                    .with_dst_off(arg_offset)
+                    .with_operand(Operand::Literal(*imm))
+                    .with_operand(Operand::Literal(arg_offset))
                     .with_comment(format!("Arg {i}: [fp + {arg_offset}] = {imm}")),
                 Value::Operand(arg_id) => {
                     let src_off = layout.get_offset(*arg_id)?;
                     InstructionBuilder::new(STORE_ADD_FP_IMM)
-                        .with_src_off(src_off)
-                        .with_imm(0)
-                        .with_dst_off(arg_offset)
+                        .with_operand(Operand::Literal(src_off))
+                        .with_operand(Operand::Literal(0))
+                        .with_operand(Operand::Literal(arg_offset))
                         .with_comment(format!(
                             "Arg {i}: [fp + {arg_offset}] = [fp + {src_off}] + 0"
                         ))
@@ -870,8 +870,8 @@ impl CasmBuilder {
             if needs_copy {
                 let instr = match return_val {
                     Value::Literal(Literal::Integer(imm)) => InstructionBuilder::new(STORE_IMM)
-                        .with_imm(*imm)
-                        .with_dst_off(return_slot_offset)
+                        .with_operand(Operand::Literal(*imm))
+                        .with_operand(Operand::Literal(return_slot_offset))
                         .with_comment(format!(
                             "Return value {}: [fp {}] = {}",
                             i, return_slot_offset, imm
@@ -879,9 +879,9 @@ impl CasmBuilder {
                     Value::Operand(val_id) => {
                         let src_off = layout.get_offset(*val_id)?;
                         InstructionBuilder::new(STORE_ADD_FP_IMM)
-                            .with_src_off(src_off)
-                            .with_imm(0)
-                            .with_dst_off(return_slot_offset)
+                            .with_operand(Operand::Literal(src_off))
+                            .with_operand(Operand::Literal(0))
+                            .with_operand(Operand::Literal(return_slot_offset))
                             .with_comment(format!(
                                 "Return value {}: [fp {}] = [fp + {}] + 0",
                                 i, return_slot_offset, src_off
@@ -964,7 +964,7 @@ impl CasmBuilder {
     /// Generate unconditional jump
     pub fn jump(&mut self, target_label: &str) -> CodegenResult<()> {
         let instr = InstructionBuilder::new(JMP_ABS_IMM)
-            .with_target(Operand::Label(target_label.to_string()))
+            .with_operand(Operand::Label(target_label.to_string()))
             .with_comment(format!("jump abs {target_label}"));
 
         self.instructions.push(instr);
@@ -995,8 +995,8 @@ impl CasmBuilder {
     /// Generates a conditional jump based on a direct fp-relative offset.
     pub fn jnz_offset(&mut self, cond_off: i32, target_label: &str) -> CodegenResult<()> {
         let instr = InstructionBuilder::new(JNZ_FP_IMM)
-            .with_cond_off(cond_off)
-            .with_offset(Operand::Label(target_label.to_string()))
+            .with_operand(Operand::Literal(cond_off))
+            .with_operand(Operand::Label(target_label.to_string()))
             .with_comment(format!("if [fp + {cond_off}] != 0 jmp rel {target_label}"));
 
         self.instructions.push(instr);
@@ -1074,8 +1074,8 @@ impl CasmBuilder {
                 match value {
                     Value::Literal(Literal::Integer(imm)) => {
                         let instr = InstructionBuilder::new(STORE_IMM)
-                            .with_imm(imm)
-                            .with_dst_off(dest_offset)
+                            .with_operand(Operand::Literal(imm))
+                            .with_operand(Operand::Literal(dest_offset))
                             .with_comment(format!("Store immediate: [fp + {dest_offset}] = {imm}"));
 
                         self.instructions.push(instr);
@@ -1085,9 +1085,9 @@ impl CasmBuilder {
                         let val_offset = layout.get_offset(val_id)?;
 
                         let instr = InstructionBuilder::new(STORE_ADD_FP_IMM) // StoreAddFpImm
-                            .with_src_off(val_offset)
-                            .with_imm(0)
-                            .with_dst_off(dest_offset)
+                            .with_operand(Operand::Literal(val_offset))
+                            .with_operand(Operand::Literal(0))
+                            .with_operand(Operand::Literal(dest_offset))
                             .with_comment(format!(
                                 "Store: [fp + {dest_offset}] = [fp + {val_offset}] + 0"
                             ));
@@ -1198,19 +1198,19 @@ impl CasmBuilder {
             // The three offsets are the same, store off0 and off1 in temp vars and replace with 3 instructions
             vec![
                 InstructionBuilder::new(STORE_ADD_FP_IMM)
-                    .with_src_off(off0)
-                    .with_imm(0)
-                    .with_dst_off(temp_var_offset)
+                    .with_operand(Operand::Literal(off0))
+                    .with_operand(Operand::Literal(0))
+                    .with_operand(Operand::Literal(temp_var_offset))
                     .with_comment(format!("[fp + {temp_var_offset}] = [fp + {off0}] + 0")),
                 InstructionBuilder::new(STORE_ADD_FP_IMM)
-                    .with_src_off(off1)
-                    .with_imm(0)
-                    .with_dst_off(temp_var_offset2)
+                    .with_operand(Operand::Literal(off1))
+                    .with_operand(Operand::Literal(0))
+                    .with_operand(Operand::Literal(temp_var_offset2))
                     .with_comment(format!("[fp + {temp_var_offset2}] = [fp + {off1}] + 0")),
                 InstructionBuilder::new(instr.opcode)
-                    .with_src0_off(temp_var_offset)
-                    .with_src1_off(temp_var_offset2)
-                    .with_dst_off(off2)
+                    .with_operand(Operand::Literal(temp_var_offset))
+                    .with_operand(Operand::Literal(temp_var_offset2))
+                    .with_operand(Operand::Literal(off2))
                     .with_comment(format!(
                         "[fp + {off2}] = [fp + {temp_var_offset}] op [fp + {temp_var_offset2}]"
                     )),
@@ -1219,14 +1219,14 @@ impl CasmBuilder {
             // off0 is a duplicate, store off0 in a temp var and replace with 2 instructions
             vec![
                 InstructionBuilder::new(STORE_ADD_FP_IMM)
-                    .with_src_off(off0)
-                    .with_imm(0)
-                    .with_dst_off(temp_var_offset)
+                    .with_operand(Operand::Literal(off0))
+                    .with_operand(Operand::Literal(0))
+                    .with_operand(Operand::Literal(temp_var_offset))
                     .with_comment(format!("[fp + {temp_var_offset}] = [fp + {off0}] + 0")),
                 InstructionBuilder::new(instr.opcode)
-                    .with_src0_off(temp_var_offset)
-                    .with_src1_off(off1)
-                    .with_dst_off(off2)
+                    .with_operand(Operand::Literal(temp_var_offset))
+                    .with_operand(Operand::Literal(off1))
+                    .with_operand(Operand::Literal(off2))
                     .with_comment(format!(
                         "[fp + {off2}] = [fp + {temp_var_offset}] op [fp + {off1}]"
                     )),
@@ -1235,14 +1235,14 @@ impl CasmBuilder {
             // off1 is a duplicate, store off1 in a temp var and replace with 2 instructions
             vec![
                 InstructionBuilder::new(STORE_ADD_FP_IMM)
-                    .with_src_off(off1)
-                    .with_imm(0)
-                    .with_dst_off(temp_var_offset)
+                    .with_operand(Operand::Literal(off1))
+                    .with_operand(Operand::Literal(0))
+                    .with_operand(Operand::Literal(temp_var_offset))
                     .with_comment(format!("[fp + {temp_var_offset}] = [fp + {off1}] + 0")),
                 InstructionBuilder::new(instr.opcode)
-                    .with_src0_off(off0)
-                    .with_src1_off(temp_var_offset)
-                    .with_dst_off(off2)
+                    .with_operand(Operand::Literal(off0))
+                    .with_operand(Operand::Literal(temp_var_offset))
+                    .with_operand(Operand::Literal(off2))
                     .with_comment(format!(
                         "[fp + {off2}] = [fp + {off0}] op [fp + {temp_var_offset}]"
                     )),
@@ -1276,14 +1276,14 @@ impl CasmBuilder {
             // off0 is a duplicate, store off0 in a temp var and replace with 2 instructions
             Ok(vec![
                 InstructionBuilder::new(STORE_ADD_FP_IMM)
-                    .with_src_off(off0)
-                    .with_imm(0)
-                    .with_dst_off(temp_var_offset)
+                    .with_operand(Operand::Literal(off0))
+                    .with_operand(Operand::Literal(0))
+                    .with_operand(Operand::Literal(temp_var_offset))
                     .with_comment(format!("[fp + {temp_var_offset}] = [fp + {off0}] + 0")),
                 InstructionBuilder::new(instr.opcode)
-                    .with_src_off(temp_var_offset)
-                    .with_imm(imm)
-                    .with_dst_off(off2)
+                    .with_operand(Operand::Literal(temp_var_offset))
+                    .with_operand(Operand::Literal(imm))
+                    .with_operand(Operand::Literal(off2))
                     .with_comment(format!("[fp + {off2}] = [fp + {temp_var_offset}] op {imm}")),
             ])
         } else {
@@ -1301,9 +1301,9 @@ mod tests {
     fn test_handle_fp_fp_duplicates_all_same() {
         // Create instruction: [fp + 5] = [fp + 5] + [fp + 5]
         let instr = InstructionBuilder::new(STORE_ADD_FP_FP)
-            .with_src0_off(5)
-            .with_src1_off(5)
-            .with_dst_off(5);
+            .with_operand(Operand::Literal(5))
+            .with_operand(Operand::Literal(5))
+            .with_operand(Operand::Literal(5));
 
         let temp1 = 10;
         let temp2 = 11;
@@ -1321,9 +1321,9 @@ mod tests {
     fn test_handle_fp_fp_duplicates_first_operand_conflict() {
         // Create instruction: [fp + 5] = [fp + 5] + [fp + 3]
         let instr = InstructionBuilder::new(STORE_ADD_FP_FP)
-            .with_src0_off(5)
-            .with_src1_off(3)
-            .with_dst_off(5);
+            .with_operand(Operand::Literal(5))
+            .with_operand(Operand::Literal(3))
+            .with_operand(Operand::Literal(5));
 
         let temp1 = 10;
         let temp2 = 11;
@@ -1340,9 +1340,9 @@ mod tests {
     fn test_handle_fp_imm_duplicates_in_place() {
         // Create instruction: [fp + 5] = [fp + 5] + 42
         let instr = InstructionBuilder::new(STORE_ADD_FP_IMM)
-            .with_src_off(5)
-            .with_imm(42)
-            .with_dst_off(5);
+            .with_operand(Operand::Literal(5))
+            .with_operand(Operand::Literal(42))
+            .with_operand(Operand::Literal(5));
 
         let temp1 = 10;
         let result = CasmBuilder::handle_fp_imm_duplicates(&instr, temp1).unwrap();
@@ -1358,9 +1358,9 @@ mod tests {
     fn test_handle_fp_imm_duplicates_no_conflict() {
         // Create instruction: [fp + 7] = [fp + 5] + 42 (no conflict)
         let instr = InstructionBuilder::new(STORE_ADD_FP_IMM)
-            .with_src_off(5)
-            .with_imm(42)
-            .with_dst_off(7);
+            .with_operand(Operand::Literal(5))
+            .with_operand(Operand::Literal(42))
+            .with_operand(Operand::Literal(7));
 
         let temp1 = 10;
         let result = CasmBuilder::handle_fp_imm_duplicates(&instr, temp1).unwrap();
