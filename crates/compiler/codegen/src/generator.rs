@@ -4,8 +4,9 @@
 
 use std::collections::HashMap;
 
+use cairo_m_common::instruction::*;
 use cairo_m_common::program::EntrypointInfo;
-use cairo_m_common::{Opcode, Program, ProgramMetadata};
+use cairo_m_common::{Program, ProgramMetadata};
 use cairo_m_compiler_mir::{
     BasicBlockId, Instruction, InstructionKind, MirFunction, MirModule, Terminator, Value, ValueId,
 };
@@ -26,6 +27,8 @@ pub struct CodeGenerator {
     function_entrypoints: HashMap<String, EntrypointInfo>,
     /// Function layouts for frame size calculations
     function_layouts: HashMap<String, FunctionLayout>,
+    /// Memory layout: maps logical instruction index to physical memory address
+    memory_layout: Vec<u32>,
 
     label_counter: usize,
 }
@@ -38,6 +41,7 @@ impl CodeGenerator {
             labels: Vec::new(),
             function_entrypoints: HashMap::new(),
             function_layouts: HashMap::new(),
+            memory_layout: Vec::new(),
             label_counter: 0,
         }
     }
@@ -50,7 +54,10 @@ impl CodeGenerator {
         // Step 2: Generate code for all functions (first pass)
         self.generate_all_functions(module)?;
 
-        // Step 3: Resolve labels (second pass)
+        // Step 3: Calculate memory layout for variable-sized instructions
+        self.calculate_memory_layout()?;
+
+        // Step 4: Resolve labels (second pass)
         self.resolve_labels()?;
 
         Ok(())
@@ -86,6 +93,29 @@ impl CodeGenerator {
         Ok(())
     }
 
+    /// Calculate memory layout for variable-sized instructions
+    fn calculate_memory_layout(&mut self) -> CodegenResult<()> {
+        self.memory_layout.clear();
+        let mut current_mem_pc = 0u32;
+
+        for instr_builder in &self.instructions {
+            self.memory_layout.push(current_mem_pc);
+
+            // Get the size of this instruction based on its opcode
+            let size_in_qm31s =
+                cairo_m_common::Instruction::size_in_qm31s_for_opcode(instr_builder.opcode)
+                    .ok_or_else(|| {
+                        CodegenError::InvalidMir(format!(
+                            "Unknown opcode: {}",
+                            instr_builder.opcode
+                        ))
+                    })?;
+            current_mem_pc += size_in_qm31s;
+        }
+
+        Ok(())
+    }
+
     /// Generate code for all functions
     fn generate_all_functions(&mut self, module: &MirModule) -> CodegenResult<()> {
         for function in module.functions.iter() {
@@ -118,6 +148,7 @@ impl CodeGenerator {
         // Create entrypoint info for this function
         // TODO: this is not using the name of the argument, rather a placeholder with arg_{index}.
         // Fix this with the proper argument names.
+        // Note: We store the logical PC here, will convert to physical address later
         let entrypoint_info = EntrypointInfo {
             pc: self.instructions.len(),
             args: (0..function.parameters.len())
@@ -459,61 +490,86 @@ impl CodeGenerator {
 
     /// Resolve all label references (second pass)
     fn resolve_labels(&mut self) -> CodegenResult<()> {
-        // Build a map of label names to their addresses
+        // Build a map of label names to their physical addresses
         let mut label_map = HashMap::new();
 
-        // Add function addresses
-        for (name, info) in &self.function_entrypoints {
-            label_map.insert(name.clone(), info.pc);
+        // Update function entrypoints to use physical addresses and add to label map
+        for (name, info) in &mut self.function_entrypoints {
+            let logical_pc = info.pc;
+            if let Some(&physical_pc) = self.memory_layout.get(logical_pc) {
+                info.pc = physical_pc as usize;
+                label_map.insert(name.clone(), physical_pc as usize);
+            } else {
+                return Err(CodegenError::UnresolvedLabel(format!(
+                    "Function {} has invalid PC {}",
+                    name, logical_pc
+                )));
+            }
         }
 
-        // Add block labels
+        // Add block labels with their physical addresses
         for label in &self.labels {
-            if let Some(addr) = label.address {
-                label_map.insert(label.name.clone(), addr);
+            if let Some(logical_addr) = label.address {
+                if let Some(&physical_addr) = self.memory_layout.get(logical_addr) {
+                    label_map.insert(label.name.clone(), physical_addr as usize);
+                } else {
+                    return Err(CodegenError::UnresolvedLabel(format!(
+                        "Label {} has invalid address {}",
+                        label.name, logical_addr
+                    )));
+                }
             }
         }
 
         // Resolve label references in instructions
-        for (pc, instruction) in self.instructions.iter_mut().enumerate() {
-            if let Some(Operand::Label(label_name)) = &instruction.operand {
-                match Opcode::from_u32(instruction.opcode) {
-                    Some(Opcode::JmpAbsImm) => {
-                        // Absolute jump - use direct address
-                        if let Some(&target_addr) = label_map.get(label_name) {
-                            instruction.operand = Some(Operand::Literal(target_addr as i32));
-                        } else {
-                            return Err(CodegenError::UnresolvedLabel(label_name.clone()));
-                        }
-                    }
+        for (logical_pc, instruction) in self.instructions.iter_mut().enumerate() {
+            // Check all operands for labels
+            for operand in instruction.operands.iter_mut() {
+                if let Operand::Label(label_name) = operand {
+                    let physical_pc =
+                        self.memory_layout.get(logical_pc).copied().ok_or_else(|| {
+                            CodegenError::UnresolvedLabel(format!(
+                                "Invalid PC {} for instruction",
+                                logical_pc
+                            ))
+                        })?;
 
-                    Some(Opcode::JnzFpImm) => {
-                        // Conditional jump - use relative offset
-                        if let Some(&target_addr) = label_map.get(label_name) {
-                            let relative_offset = (target_addr as i32) - (pc as i32);
-                            instruction.operand = Some(Operand::Literal(relative_offset));
-                        } else {
-                            return Err(CodegenError::UnresolvedLabel(label_name.clone()));
+                    match instruction.opcode {
+                        JMP_ABS_IMM => {
+                            // Absolute jump - use direct physical address
+                            if let Some(&target_addr) = label_map.get(label_name) {
+                                *operand = Operand::Literal(target_addr as i32);
+                            } else {
+                                return Err(CodegenError::UnresolvedLabel(label_name.clone()));
+                            }
                         }
-                    }
 
-                    Some(Opcode::CallAbsImm) => {
-                        // Function call - use direct address
-                        if let Some(&target_addr) = label_map.get(label_name) {
-                            instruction.operand = Some(Operand::Literal(target_addr as i32));
-                        } else {
-                            return Err(CodegenError::UnresolvedLabel(label_name.clone()));
+                        JNZ_FP_IMM => {
+                            // Conditional jump - use relative offset in physical memory
+                            if let Some(&target_addr) = label_map.get(label_name) {
+                                let relative_offset = (target_addr as i32) - (physical_pc as i32);
+                                *operand = Operand::Literal(relative_offset);
+                            } else {
+                                return Err(CodegenError::UnresolvedLabel(label_name.clone()));
+                            }
                         }
-                    }
 
-                    _ => {
-                        // Other opcodes with label operands - this shouldn't happen with current implementation
-                        let opcode_name = Opcode::from_u32(instruction.opcode)
-                            .map(|op| format!("{op:?}"))
-                            .unwrap_or_else(|| format!("Unknown({})", instruction.opcode));
-                        return Err(CodegenError::UnresolvedLabel(format!(
-                            "Unexpected label operand for opcode {opcode_name}: {label_name}"
-                        )));
+                        CALL_ABS_IMM => {
+                            // Function call - use direct physical address
+                            if let Some(&target_addr) = label_map.get(label_name) {
+                                *operand = Operand::Literal(target_addr as i32);
+                            } else {
+                                return Err(CodegenError::UnresolvedLabel(label_name.clone()));
+                            }
+                        }
+
+                        _ => {
+                            // Other opcodes with label operands - this shouldn't happen with current implementation
+                            return Err(CodegenError::UnresolvedLabel(format!(
+                                "Unexpected label operand for opcode {}: {}",
+                                instruction.opcode, label_name
+                            )));
+                        }
                     }
                 }
             }
@@ -609,7 +665,6 @@ impl Default for CodeGenerator {
 #[cfg(test)]
 mod tests {
     use cairo_m_compiler_mir::{BasicBlock, MirFunction, MirModule, Terminator, Value, ValueId};
-    use num_traits::Zero;
     use stwo_prover::core::fields::m31::M31;
 
     use super::*;
@@ -675,10 +730,13 @@ mod tests {
         // With the direct return optimization, the immediate is stored directly
         // to the return slot at [fp - 3], which is offset -3
         let store_imm = &compiled.instructions[0];
-        assert_eq!(store_imm.opcode, Opcode::StoreImm);
-        assert_eq!(
-            store_imm.operands,
-            [M31::from(42), Zero::zero(), M31::from(-3)]
-        );
+
+        // Check for StoreImm opcode
+        assert_eq!(store_imm.opcode_value(), STORE_IMM);
+
+        // Check operands - StoreImm has format: [imm, dst_off]
+        let operands = store_imm.operands();
+        assert_eq!(operands[0], M31::from(42)); // immediate value
+        assert_eq!(operands[1], M31::from(-3)); // destination offset
     }
 }

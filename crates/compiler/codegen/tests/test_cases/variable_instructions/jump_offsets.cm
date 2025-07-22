@@ -1,0 +1,25 @@
+// Test case to verify jump offset calculation
+// Even though we don't generate variable-sized instructions yet,
+// this test verifies the infrastructure is in place
+
+fn test_jumps(x: felt) -> felt {
+    let a = x + 1;
+    
+    if (a == 0) {
+        // This jump should use physical addresses
+        return 1;
+    }
+    
+    let b = a + 2;
+    
+    if (b == 0) {
+        // Another jump to test multiple jumps
+        return 2;
+    }
+    
+    return b;
+}
+
+fn main() -> felt {
+    return test_jumps(5);
+}

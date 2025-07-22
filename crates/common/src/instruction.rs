@@ -60,6 +60,24 @@ macro_rules! define_instruction {
                 self.size_in_m31s().div_ceil(4) as u32
             }
 
+            /// Get the size in M31 elements for a given opcode
+            pub const fn size_in_m31s_for_opcode(opcode: u32) -> Option<usize> {
+                match opcode {
+                    $(
+                        $opcode => Some($size),
+                    )*
+                    _ => None,
+                }
+            }
+
+            /// Get the size in QM31 elements for a given opcode
+            pub const fn size_in_qm31s_for_opcode(opcode: u32) -> Option<u32> {
+                match Self::size_in_m31s_for_opcode(opcode) {
+                    Some(size) => Some(size.div_ceil(4) as u32),
+                    None => None,
+                }
+            }
+
             /// Get the number of memory accesses for this instruction
             pub const fn memory_accesses(&self) -> usize {
                 match self {
@@ -161,7 +179,7 @@ define_instruction!(
     StoreDivFpImm = 9, 2, fields: [src_off, imm, dst_off], size: 4;         // [fp + dst_off] = [fp + src_off] / imm
 
     // Call operations
-    CallAbsImm = 10, 2, fields: [ret_off_1, ret_off_2, target], size: 4;    // call abs imm
+    CallAbsImm = 10, 2, fields: [frame_off, target], size: 3;               // call abs imm
     Ret = 11, 2, fields: [], size: 1;                                       // ret
 
     // Jump operations
