@@ -213,8 +213,7 @@ use crate::components::Relations;
 // Define all opcode structures and implementations with a single macro call
 define_opcodes! {
     ([Opcode::CallAbsImm], call_abs_imm),
-    ([Opcode::JmpAbsImm], jmp_abs_imm),
-    ([Opcode::JmpRelImm], jmp_rel_imm),
+    ([Opcode::JmpAbsImm, Opcode::JmpRelImm], jmp_imm),
     ([Opcode::JnzFpImm], jnz_fp_imm),
     ([Opcode::Ret], ret),
     ([Opcode::StoreAddFpFp], store_add_fp_fp),

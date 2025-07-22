@@ -1,5 +1,5 @@
-//! This component is used to prove the JmpRelImm opcode.
-//! jmp rel imm
+//! This component is used to prove the JmpAbsImm opcode.
+//! jmp abs/rel imm
 //!
 //! # Columns
 //!
@@ -9,13 +9,16 @@
 //! - clock
 //! - inst_prev_clock
 //! - off0
+//! - is_rel
 //!
 //! # Constraints
 //!
 //! * enabler is a bool
 //!   * `enabler * (1 - enabler)`
+//! * is_rel is a bool
+//!   * `is_rel * (1 - is_rel)`
 //! * registers update is regular
-//!   * `- [pc, fp] + [pc + off0, fp]` in `Registers` relation
+//!   * `- [pc, fp] + [pc * is_rel + off0, fp]` in `Registers` relation
 //! * read instruction from memory
 //!   * `- [pc, inst_prev_clk, opcode_constant, off0] + [pc, clk, opcode_constant, off0]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
@@ -50,7 +53,7 @@ use crate::components::Relations;
 use crate::utils::enabler::Enabler;
 use crate::utils::execution_bundle::PackedExecutionBundle;
 
-const N_TRACE_COLUMNS: usize = 6;
+const N_TRACE_COLUMNS: usize = 7;
 const N_MEMORY_LOOKUPS: usize = 2;
 const N_REGISTERS_LOOKUPS: usize = 2;
 const N_RANGE_CHECK_20_LOOKUPS: usize = 1;
@@ -86,7 +89,7 @@ impl Claim {
         TreeVec::new(vec![vec![], trace, interaction_trace])
     }
 
-    /// Writes the trace for the JmpRelImm opcode.
+    /// Writes the trace for the JmpAbsImm opcode.
     ///
     /// # Important
     /// This function consumes the contents of `inputs` by clearing it after processing.
@@ -136,8 +139,9 @@ impl Claim {
                 let fp = input.fp;
                 let clock = input.clock;
                 let inst_prev_clock = input.inst_prev_clock;
-                let opcode_constant = PackedM31::from(M31::from(Opcode::JmpRelImm));
+                let opcode_id = input.inst_value_0;
                 let off0 = input.inst_value_1;
+                let is_rel = enabler * (opcode_id - PackedM31::from(M31::from(Opcode::JmpAbsImm)));
 
                 *row[0] = enabler;
                 *row[1] = pc;
@@ -145,15 +149,15 @@ impl Claim {
                 *row[3] = clock;
                 *row[4] = inst_prev_clock;
                 *row[5] = off0;
+                *row[6] = is_rel;
 
-                *lookup_data.registers[0] = [input.pc, input.fp];
-                *lookup_data.registers[1] = [pc + off0, input.fp];
-
-                *lookup_data.memory[0] =
-                    [input.pc, inst_prev_clock, opcode_constant, off0, zero, zero];
-                *lookup_data.memory[1] = [input.pc, clock, opcode_constant, off0, zero, zero];
+                *lookup_data.memory[0] = [input.pc, inst_prev_clock, opcode_id, off0, zero, zero];
+                *lookup_data.memory[1] = [input.pc, clock, opcode_id, off0, zero, zero];
 
                 *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
+
+                *lookup_data.registers[0] = [input.pc, input.fp];
+                *lookup_data.registers[1] = [off0 + pc * is_rel, input.fp];
             });
 
         (
@@ -190,27 +194,6 @@ impl InteractionClaim {
         let mut col = interaction_trace.new_col();
         (
             col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.registers[0],
-            &interaction_claim_data.lookup_data.registers[1],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(i, (writer, registers_prev, registers_new))| {
-                let num_prev = -PackedQM31::from(enabler_col.packed_at(i));
-                let num_new = PackedQM31::from(enabler_col.packed_at(i));
-                let denom_prev: PackedQM31 = relations.registers.combine(registers_prev);
-                let denom_new: PackedQM31 = relations.registers.combine(registers_new);
-
-                let numerator = num_prev * denom_new + num_new * denom_prev;
-                let denom = denom_prev * denom_new;
-
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
-
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
             &interaction_claim_data.lookup_data.memory[0],
             &interaction_claim_data.lookup_data.memory[1],
         )
@@ -233,14 +216,35 @@ impl InteractionClaim {
         (
             col.par_iter_mut(),
             &interaction_claim_data.lookup_data.range_check_20[0],
+            &interaction_claim_data.lookup_data.registers[0],
         )
             .into_par_iter()
             .enumerate()
-            .for_each(|(_i, (writer, range_check_20_0))| {
-                let num = -PackedQM31::one();
+            .for_each(|(i, (writer, range_check_20_0, registers_prev))| {
+                let num_0 = -PackedQM31::one();
+                let num_1 = -PackedQM31::from(enabler_col.packed_at(i));
                 let denom_0: PackedQM31 = relations.range_check_20.combine(&[*range_check_20_0]);
+                let denom_1: PackedQM31 = relations.registers.combine(registers_prev);
 
-                writer.write_frac(num, denom_0);
+                let num = num_0 * denom_1 + num_1 * denom_0;
+                let denom = denom_0 * denom_1;
+
+                writer.write_frac(num, denom);
+            });
+        col.finalize_col();
+
+        let mut col = interaction_trace.new_col();
+        (
+            col.par_iter_mut(),
+            &interaction_claim_data.lookup_data.registers[1],
+        )
+            .into_par_iter()
+            .enumerate()
+            .for_each(|(i, (writer, registers_new))| {
+                let num_new = PackedQM31::from(enabler_col.packed_at(i));
+                let denom_new: PackedQM31 = relations.registers.combine(registers_new);
+
+                writer.write_frac(num_new, denom_new);
             });
         col.finalize_col();
 
@@ -265,7 +269,6 @@ impl FrameworkEval for Eval {
 
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         let one = E::F::from(M31::one());
-        let opcode_constant = E::F::from(M31::from(Opcode::JmpRelImm));
 
         let enabler = eval.next_trace_mask();
         let pc = eval.next_trace_mask();
@@ -273,9 +276,38 @@ impl FrameworkEval for Eval {
         let clock = eval.next_trace_mask();
         let inst_prev_clock = eval.next_trace_mask();
         let off0 = eval.next_trace_mask();
+        let is_rel = eval.next_trace_mask();
+        let opcode_id = E::F::from(M31::from(Opcode::JmpAbsImm)) + is_rel.clone();
 
         // Enabler is 1 or 0
-        eval.add_constraint(enabler.clone() * (one - enabler.clone()));
+        eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
+
+        // is_rel is 1 or 0
+        eval.add_constraint(is_rel.clone() * (one - is_rel.clone()));
+
+        // Read instruction from memory
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.memory,
+            -E::EF::from(enabler.clone()),
+            &[
+                pc.clone(),
+                inst_prev_clock.clone(),
+                opcode_id.clone(),
+                off0.clone(),
+            ],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.memory,
+            E::EF::from(enabler.clone()),
+            &[pc.clone(), clock.clone(), opcode_id, off0.clone()],
+        ));
+
+        // Range check 20
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_20,
+            -E::EF::one(),
+            &[clock - inst_prev_clock - enabler.clone()],
+        ));
 
         // Registers update
         eval.add_to_relation(RelationEntry::new(
@@ -285,32 +317,8 @@ impl FrameworkEval for Eval {
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.registers,
-            E::EF::from(enabler.clone()),
-            &[pc.clone() + off0.clone(), fp],
-        ));
-
-        // Read instruction from memory
-        eval.add_to_relation(RelationEntry::new(
-            &self.relations.memory,
-            -E::EF::from(enabler.clone()),
-            &[
-                pc.clone(),
-                inst_prev_clock.clone(),
-                opcode_constant.clone(),
-                off0.clone(),
-            ],
-        ));
-        eval.add_to_relation(RelationEntry::new(
-            &self.relations.memory,
-            E::EF::from(enabler.clone()),
-            &[pc, clock.clone(), opcode_constant, off0],
-        ));
-
-        // Range check 20
-        eval.add_to_relation(RelationEntry::new(
-            &self.relations.range_check_20,
-            -E::EF::one(),
-            &[clock - inst_prev_clock - enabler],
+            E::EF::from(enabler),
+            &[off0 + pc * is_rel, fp],
         ));
 
         eval.finalize_logup_in_pairs();
