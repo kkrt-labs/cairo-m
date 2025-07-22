@@ -36,6 +36,7 @@ pub use db::{
 };
 pub mod delta_diagnostics;
 pub mod validation;
+pub mod visitor;
 
 // Re-export main types and functions
 pub use definition::{Definition, DefinitionKind, Definitions};
