@@ -189,10 +189,8 @@ define_instruction!(
     // Conditional jumps
     JnzFpImm = 14, 1, fields: [cond_off, offset], size: 3;                  // jmp rel imm if [fp + cond_off] != 0
 
-    // New instructions
-    // U32 instruction - stores the result of [fp + src_off] + (imm_hi << 16 | imm_lo) to [fp + dst_off]
-    // This instruction supports 32-bit immediate values split across two M31 fields
-    U32StoreAddFpImm = 15, 2, fields: [src_off, imm_hi, imm_lo, dst_off], size: 5
+    // U32 instructions
+    U32StoreAddFpImm = 15, 4, fields: [src_off, imm_hi, imm_lo, dst_off], size: 5 // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) + u32(imm_lo, imm_hi)
 );
 
 impl From<Instruction> for Vec<M31> {
@@ -207,7 +205,6 @@ impl From<&Instruction> for Vec<M31> {
     }
 }
 
-// Conversion to QM31 for storage (pads to multiple of 4)
 impl Instruction {
     /// Convert instruction to QM31 values for memory storage
     /// Instructions are padded with zeros to align to QM31 boundaries
