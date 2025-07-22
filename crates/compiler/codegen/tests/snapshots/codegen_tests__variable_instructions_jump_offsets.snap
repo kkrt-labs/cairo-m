@@ -6,7 +6,7 @@ expression: snapshot_content
 source: crates/compiler/codegen/tests/codegen_tests.rs
 expression: codegen_output
 ---
-Fixture: test_jump_offsets.cm
+Fixture: jump_offsets.cm
 ============================================================
 Source code:
 // Test case to verify jump offset calculation

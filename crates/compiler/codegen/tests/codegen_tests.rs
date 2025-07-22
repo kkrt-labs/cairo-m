@@ -176,4 +176,4 @@ codegen_test!(random_instructions, "random_instructions");
 codegen_test!(tuple_destructuring, "expressions");
 
 // --- Variable-sized instructions ---
-codegen_test!(test_jump_offsets, "variable_instructions");
+codegen_test!(jump_offsets, "variable_instructions");
