@@ -2,3 +2,5 @@
 **/test_data/*.json
 .DS_Store
 .kiro
+tmp
+tmp.out

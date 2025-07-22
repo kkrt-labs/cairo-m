@@ -34,7 +34,7 @@ pub enum Opcode {
     CallAbsImm, // call abs imm
     Ret,        // ret
 
-    // Jump operations
+    // Jump operations: order matters for the prover, see jmp_imm.rs
     JmpAbsImm, // jmp abs imm
     JmpRelImm, // jmp rel imm
 
