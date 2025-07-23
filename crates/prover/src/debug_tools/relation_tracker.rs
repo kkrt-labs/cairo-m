@@ -1,6 +1,5 @@
 // Adapted from https://github.com/starkware-libs/stwo-cairo/blob/main/stwo_cairo_prover/crates/prover/src/debug_tools/relation_tracker.rs
 
-use itertools::chain;
 use num_traits::{One, Zero};
 use stwo_constraint_framework::relation_tracker::{
     RelationSummary, RelationTrackerEntry, add_to_relation_entries,
@@ -99,27 +98,25 @@ fn relation_entries(
         opcodes,
     } = components;
 
-    let entries: Vec<RelationTrackerEntry> = chain!(
-        add_to_relation_entries(&opcodes.call_abs_imm, trace),
-        add_to_relation_entries(&opcodes.jmp_abs_imm, trace),
-        add_to_relation_entries(&opcodes.jmp_rel_imm, trace),
-        add_to_relation_entries(&opcodes.jnz_fp_imm, trace),
-        add_to_relation_entries(&opcodes.ret, trace),
-        add_to_relation_entries(&opcodes.store_add_fp_fp, trace),
-        add_to_relation_entries(&opcodes.store_add_fp_imm, trace),
-        add_to_relation_entries(&opcodes.store_div_fp_fp, trace),
-        add_to_relation_entries(&opcodes.store_div_fp_imm, trace),
-        add_to_relation_entries(&opcodes.store_double_deref_fp, trace),
-        add_to_relation_entries(&opcodes.store_imm, trace),
-        add_to_relation_entries(&opcodes.store_mul_fp_fp, trace),
-        add_to_relation_entries(&opcodes.store_mul_fp_imm, trace),
-        add_to_relation_entries(&opcodes.store_sub_fp_fp, trace),
-        add_to_relation_entries(&opcodes.store_sub_fp_imm, trace),
-        add_to_relation_entries(memory, trace),
-        add_to_relation_entries(merkle, trace),
-        add_to_relation_entries(range_check_20, trace),
-    )
-    .collect();
+    let entries: Vec<RelationTrackerEntry> = add_to_relation_entries(&opcodes.call_abs_imm, trace)
+        .chain(add_to_relation_entries(&opcodes.jmp_abs_imm, trace))
+        .chain(add_to_relation_entries(&opcodes.jmp_rel_imm, trace))
+        .chain(add_to_relation_entries(&opcodes.jnz_fp_imm, trace))
+        .chain(add_to_relation_entries(&opcodes.ret, trace))
+        .chain(add_to_relation_entries(&opcodes.store_add_fp_fp, trace))
+        .chain(add_to_relation_entries(&opcodes.store_add_fp_imm, trace))
+        .chain(add_to_relation_entries(&opcodes.store_div_fp_fp, trace))
+        .chain(add_to_relation_entries(&opcodes.store_div_fp_imm, trace))
+        .chain(add_to_relation_entries(&opcodes.store_double_deref_fp, trace))
+        .chain(add_to_relation_entries(&opcodes.store_imm, trace))
+        .chain(add_to_relation_entries(&opcodes.store_mul_fp_fp, trace))
+        .chain(add_to_relation_entries(&opcodes.store_mul_fp_imm, trace))
+        .chain(add_to_relation_entries(&opcodes.store_sub_fp_fp, trace))
+        .chain(add_to_relation_entries(&opcodes.store_sub_fp_imm, trace))
+        .chain(add_to_relation_entries(memory, trace))
+        .chain(add_to_relation_entries(merkle, trace))
+        .chain(add_to_relation_entries(range_check_20, trace))
+        .collect();
 
     entries
 }
