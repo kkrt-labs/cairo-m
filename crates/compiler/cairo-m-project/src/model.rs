@@ -1,29 +1,29 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use super::ProjectManifest;
+
 /// Unique identifier for a crate within a workspace
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct CrateId(pub usize);
+pub struct ProjectId(pub usize);
 
 /// Represents a Cairo-M project structure
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Project {
-    /// Path to the project manifest (cairom.toml)
-    pub manifest_path: PathBuf,
-    /// Root directory of the project
+    /// Project configuration
+    pub config: ProjectManifest,
+    /// Root file of the project (main.cm or lib.cm)
     pub root_directory: PathBuf,
     /// Name of the project
     pub name: String,
     /// Source layout configuration
     pub source_layout: SourceLayout,
-    /// Entry point file (if specified)
-    pub entry_point: Option<PathBuf>,
 }
 
 impl Project {
-    /// Get the absolute path to the source directory
+    /// Get the absolute path to the source directory. The `root_directory` is the file path to the `.cm` file that is the project root.
     pub fn source_directory(&self) -> PathBuf {
-        self.root_directory.join(&self.source_layout.src_dir)
+        self.root_directory.parent().unwrap().to_owned()
     }
 
     /// Check if a path belongs to this project
@@ -33,11 +33,25 @@ impl Project {
 
     /// Get all source files in the project
     pub fn source_files(&self) -> anyhow::Result<Vec<PathBuf>> {
-        let src_dir = self.source_directory();
+        let src_dir = self.root_directory.parent().unwrap();
+        let src_dir_name = src_dir.file_name().unwrap().to_str().unwrap();
+
+        // TODO: refactor with a stronger mechanism regarding standalone file detection
+        //1. If it's not an `src` dir we're in the standalone file case and there's only one file, the crate root.
+        if src_dir_name != "src" {
+            tracing::info!(
+                "Compiling standalone file: {}",
+                self.root_directory.display()
+            );
+            return Ok(vec![self.root_directory.clone()]);
+        }
+        tracing::info!("Compiling project: {}", self.root_directory.display());
+
+        //2. if it's a `src` dir, walk the files
         let mut files = Vec::new();
 
         use ignore::WalkBuilder;
-        let walker = WalkBuilder::new(&src_dir).follow_links(false).build();
+        let walker = WalkBuilder::new(src_dir).follow_links(false).build();
 
         for entry in walker {
             let entry = entry?;
@@ -46,6 +60,11 @@ impl Project {
             if path.extension().and_then(|s| s.to_str()) == Some("cm") {
                 files.push(path.to_owned());
             }
+        }
+
+        // If no files found in directory walk, it might be a standalone file
+        if files.is_empty() {
+            return Ok(vec![self.root_directory.clone()]);
         }
 
         Ok(files)
@@ -130,10 +149,10 @@ impl Default for SourceLayout {
 pub struct Workspace {
     /// Root directory of the workspace
     pub root_directory: PathBuf,
-    /// Projects in the workspace, indexed by crate ID
-    pub projects: HashMap<CrateId, Project>,
-    /// Mapping from project name to crate ID
-    pub name_to_id: HashMap<String, CrateId>,
+    /// Projects in the workspace, indexed by project ID
+    pub projects: HashMap<ProjectId, Project>,
+    /// Mapping from project name to project ID
+    pub name_to_id: HashMap<String, ProjectId>,
 }
 
 #[cfg(test)]
@@ -143,11 +162,10 @@ mod tests {
     #[test]
     fn test_module_name_from_path() {
         let project = Project {
-            manifest_path: PathBuf::from("/test/cairom.toml"),
-            root_directory: PathBuf::from("/test"),
+            config: Default::default(),
+            root_directory: PathBuf::from("/test/src/main.cm"),
             name: "test".to_string(),
             source_layout: SourceLayout::default(),
-            entry_point: None,
         };
 
         // Test file directly in src/

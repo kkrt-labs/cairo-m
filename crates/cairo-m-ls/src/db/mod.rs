@@ -10,6 +10,7 @@ use std::path::PathBuf;
 
 use cairo_m_compiler_parser::{Db as ParserDb, SourceFile, Upcast};
 use cairo_m_compiler_semantic::SemanticDb;
+use cairo_m_project::discover_project;
 pub use swapper::AnalysisDatabaseSwapper;
 
 /// The unified project crate representation used by the language server.
@@ -93,18 +94,9 @@ impl ProjectCrateExt for ProjectCrate {
 
         let mut modules = HashMap::new();
 
-        // Create a temporary Project instance to use its module_name_from_path method
-        let project = cairo_m_project::Project {
-            manifest_path: root_dir.join("cairom.toml"),
-            root_directory: root_dir.clone(),
-            name: root_dir
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("unknown")
-                .to_string(),
-            source_layout: cairo_m_project::SourceLayout::default(),
-            entry_point: None,
-        };
+        let project = discover_project(&root_dir)
+            .expect("Error discovering project")
+            .expect("Failed to discover project");
 
         // Convert PathBuf keys to module names with proper nesting
         for (path, source_file) in files {

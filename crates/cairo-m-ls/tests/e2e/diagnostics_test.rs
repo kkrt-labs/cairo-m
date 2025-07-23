@@ -19,6 +19,7 @@ impl Transformer for DiagnosticsTransformer {
 
         // Get diagnostics
         let main_uri = client.file_url(Self::main_file()).to_string();
+
         let diagnostics = client
             .wait_for_diagnostics(&main_uri, std::time::Duration::from_secs(5))
             .await?;

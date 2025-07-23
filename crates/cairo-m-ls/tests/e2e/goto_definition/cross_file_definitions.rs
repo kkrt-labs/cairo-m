@@ -8,6 +8,7 @@ async fn goto_imported_function_definition() {
             "cairom.toml" => r#"
 name = "test_project"
 version = "0.1.0"
+entry_point = "main.cm"
 "#,
             "src/main.cm" => r#"
 use math::add;
@@ -51,6 +52,7 @@ async fn goto_module_definition() {
             "cairom.toml" => r#"
 name = "test_project"
 version = "0.1.0"
+entry_point = "main.cm"
 "#,
             "src/main.cm" => r#"
 use <caret>utils::helper;
@@ -94,6 +96,7 @@ async fn goto_external_type_definition() {
             "cairom.toml" => r#"
 name = "test_project"
 version = "0.1.0"
+entry_point = "main.cm"
 "#,
             "src/main.cm" => r#"
 use types::Point;
@@ -179,6 +182,7 @@ async fn no_definition_cross_file_unresolved() {
             "cairom.toml" => r#"
 name = "test_project"
 version = "0.1.0"
+entry_point = "main.cm"
 "#,
             "src/main.cm" => r#"
 use nonexistent::function;

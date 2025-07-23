@@ -147,6 +147,7 @@ impl Backend {
                         crate_info,
                         files,
                     } => {
+                        tracing::info!("Loading project: {:?}", crate_info);
                         // Clone crate_info so we can use it later
                         let crate_info_for_later = crate_info.clone();
 
@@ -223,7 +224,7 @@ impl Backend {
                                         crate_info,
                                         source_files_map,
                                         &db_clone,
-                                        Some(project),
+                                        Some(*project),
                                     )
                                     .await
                             }
@@ -350,7 +351,7 @@ impl Backend {
                             Ok(Some(source_file)) => {
                                 project_model_clone
                                     .load_standalone_with_prepared_file(
-                                        file_path,
+                                        &file_path,
                                         source_file,
                                         &db_clone,
                                     )
@@ -371,6 +372,21 @@ impl Backend {
                                     // Publish empty diagnostics to clear client-side
                                     for uri in moved_files {
                                         client_clone2.publish_diagnostics(uri, vec![], None).await;
+                                    }
+                                }
+
+                                // Trigger diagnostics for the loaded project
+                                if let Some(project_crate) = project_model_clone
+                                    .get_project_crate_for_root(&file_path)
+                                    .await
+                                {
+                                    if let Err(e) = diagnostics_sender_clone
+                                        .send(DiagnosticsRequest::ProjectChanged { project_crate })
+                                    {
+                                        tracing::debug!(
+                                            "Failed to send project changed diagnostics request: {}",
+                                            e
+                                        );
                                     }
                                 }
                             }
