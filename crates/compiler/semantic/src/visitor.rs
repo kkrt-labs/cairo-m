@@ -29,8 +29,8 @@
 //! ```
 
 use cairo_m_compiler_parser::parser::{
-    ConstDef, Expression, FunctionDef, Namespace, Spanned, Statement, StructDef, TopLevelItem,
-    UseStmt,
+    ConstDef, Expression, FunctionDef, Namespace, Parameter, Spanned, Statement, StructDef,
+    TopLevelItem, UseStmt,
 };
 
 /// Core visitor trait for AST traversal.
@@ -38,6 +38,12 @@ use cairo_m_compiler_parser::parser::{
 /// Each visit method has a default implementation that calls the corresponding
 /// walk function, enabling selective overriding of traversal behavior.
 pub trait Visitor<'ast> {
+    fn visit_top_level_items(&mut self, items: &'ast [TopLevelItem]) {
+        for item in items {
+            self.visit_top_level_item(item);
+        }
+    }
+
     /// Visit a top-level item (function, struct, namespace, etc.)
     fn visit_top_level_item(&mut self, item: &'ast TopLevelItem) {
         walk_top_level_item(self, item);
@@ -51,6 +57,16 @@ pub trait Visitor<'ast> {
 
     /// Visit a function definition
     fn visit_function(&mut self, func: &'ast Spanned<FunctionDef>);
+
+    /// Visit a function's parameters
+    fn visit_parameters(&mut self, params: &'ast Vec<Parameter>) {
+        for param in params {
+            self.visit_parameter(param);
+        }
+    }
+
+    /// Visit a function parameter
+    fn visit_parameter(&mut self, param: &'ast Parameter);
 
     /// Visit a struct definition
     fn visit_struct(&mut self, struct_def: &'ast Spanned<StructDef>);

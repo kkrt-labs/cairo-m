@@ -330,6 +330,24 @@ pub enum UseItems {
     List(Vec<Spanned<String>>),
 }
 
+impl UseItems {
+    /// Returns the list of names of imported items.
+    pub fn names(&self) -> Vec<&str> {
+        match self {
+            Self::Single(name) => vec![name.value().as_str()],
+            Self::List(names) => names.iter().map(|name| name.value().as_str()).collect(),
+        }
+    }
+
+    /// Returns the list of spans of imported items.
+    pub fn spans(&self) -> Vec<SimpleSpan<usize>> {
+        match self {
+            Self::Single(name) => vec![name.span()],
+            Self::List(names) => names.iter().map(|name| name.span()).collect(),
+        }
+    }
+}
+
 /// Represents a use statement for Rust-like imports.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct UseStmt {

@@ -2,19 +2,19 @@
 source: crates/compiler/semantic/tests/integration/multi_file_test.rs
 expression: diagnostic_text
 ---
-[1003] Error: Duplicate definition of 'calculate'
-   ╭─[ main.cm:3:12 ]
-   │
- 3 │ use utils::calculate;  // This should cause a conflict
-   │            ────┬────  
-   │                ╰────── Duplicate definition of 'calculate'
-───╯
-
-
 [1002] Warning: Unused variable 'calculate'
    ╭─[ main.cm:2:11 ]
    │
  2 │ use math::calculate;
    │           ────┬────  
    │               ╰────── Unused variable 'calculate'
+───╯
+
+
+[1003] Error: 'calculate' defined more than once
+   ╭─[ main.cm:3:12 ]
+   │
+ 3 │ use utils::calculate;  // This should cause a conflict
+   │            ────┬────  
+   │                ╰────── 'calculate' defined more than once
 ───╯

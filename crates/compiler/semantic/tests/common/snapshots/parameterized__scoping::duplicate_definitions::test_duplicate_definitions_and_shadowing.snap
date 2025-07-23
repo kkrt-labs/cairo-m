@@ -5,12 +5,12 @@ expression: snapshot
 --- Input 1 (ERROR) ---
 fn test(param: felt, param: felt) -> felt { return param; }
 --- Diagnostics ---
-[1003] Error: Duplicate definition of 'param'
+[1006] Error: 'param' used as parameter more than once
    ╭─[ semantic_tests::scoping::duplicate_definitions::test_duplicate_definitions_and_shadowing:1:22 ]
    │
  1 │ fn test(param: felt, param: felt) -> felt { return param; }
    │                      ──┬──  
-   │                        ╰──── Duplicate definition of 'param'
+   │                        ╰──── 'param' used as parameter more than once
 ───╯
 
 ============================================================
@@ -18,24 +18,116 @@ fn test(param: felt, param: felt) -> felt { return param; }
 --- Input 2 (ERROR) ---
 fn duplicate_func() {} fn duplicate_func() {}
 --- Diagnostics ---
-[1003] Error: Duplicate definition of 'duplicate_func'
+[3002] Error: Function 'duplicate_func' doesn't return on all paths
+   ╭─[ semantic_tests::scoping::duplicate_definitions::test_duplicate_definitions_and_shadowing:1:4 ]
+   │
+ 1 │ fn duplicate_func() {} fn duplicate_func() {}
+   │    ───────┬──────  
+   │           ╰──────── Function 'duplicate_func' doesn't return on all paths
+───╯
+[3002] Error: Function 'duplicate_func' doesn't return on all paths
+   ╭─[ semantic_tests::scoping::duplicate_definitions::test_duplicate_definitions_and_shadowing:1:4 ]
+   │
+ 1 │ fn duplicate_func() {} fn duplicate_func() {}
+   │    ───────┬──────  
+   │           ╰──────── Function 'duplicate_func' doesn't return on all paths
+───╯
+[1003] Error: 'duplicate_func' defined more than once
    ╭─[ semantic_tests::scoping::duplicate_definitions::test_duplicate_definitions_and_shadowing:1:27 ]
    │
  1 │ fn duplicate_func() {} fn duplicate_func() {}
    │                           ───────┬──────  
-   │                                  ╰──────── Duplicate definition of 'duplicate_func'
+   │                                  ╰──────── 'duplicate_func' defined more than once
 ───╯
-[3002] Error: Function 'duplicate_func' doesn't return on all paths
-   ╭─[ semantic_tests::scoping::duplicate_definitions::test_duplicate_definitions_and_shadowing:1:4 ]
+
+============================================================
+
+--- Input 3 (ERROR) ---
+use std::math; use bar::math;
+--- Diagnostics ---
+[1005] Error: Module 'std' not found
+   ╭─[ semantic_tests::scoping::duplicate_definitions::test_duplicate_definitions_and_shadowing:1:10 ]
    │
- 1 │ fn duplicate_func() {} fn duplicate_func() {}
-   │    ───────┬──────  
-   │           ╰──────── Function 'duplicate_func' doesn't return on all paths
+ 1 │ use std::math; use bar::math;
+   │          ──┬─  
+   │            ╰─── Module 'std' not found
 ───╯
-[3002] Error: Function 'duplicate_func' doesn't return on all paths
-   ╭─[ semantic_tests::scoping::duplicate_definitions::test_duplicate_definitions_and_shadowing:1:4 ]
+[1005] Error: Module 'bar' not found
+   ╭─[ semantic_tests::scoping::duplicate_definitions::test_duplicate_definitions_and_shadowing:1:25 ]
    │
- 1 │ fn duplicate_func() {} fn duplicate_func() {}
-   │    ───────┬──────  
-   │           ╰──────── Function 'duplicate_func' doesn't return on all paths
+ 1 │ use std::math; use bar::math;
+   │                         ──┬─  
+   │                           ╰─── Module 'bar' not found
+───╯
+[1003] Error: 'math' defined more than once
+   ╭─[ semantic_tests::scoping::duplicate_definitions::test_duplicate_definitions_and_shadowing:1:25 ]
+   │
+ 1 │ use std::math; use bar::math;
+   │                         ──┬─  
+   │                           ╰─── 'math' defined more than once
+───╯
+
+============================================================
+
+--- Input 4 (ERROR) ---
+const duplicate_const = 1; const duplicate_const = 2;
+--- Diagnostics ---
+[1003] Error: 'duplicate_const' defined more than once
+   ╭─[ semantic_tests::scoping::duplicate_definitions::test_duplicate_definitions_and_shadowing:1:34 ]
+   │
+ 1 │ const duplicate_const = 1; const duplicate_const = 2;
+   │                                  ───────┬───────  
+   │                                         ╰───────── 'duplicate_const' defined more than once
+───╯
+
+============================================================
+
+--- Input 5 (ERROR) ---
+struct foo {x: felt} struct foo {x: felt}
+--- Diagnostics ---
+[1003] Error: 'foo' defined more than once
+   ╭─[ semantic_tests::scoping::duplicate_definitions::test_duplicate_definitions_and_shadowing:1:29 ]
+   │
+ 1 │ struct foo {x: felt} struct foo {x: felt}
+   │                             ─┬─  
+   │                              ╰─── 'foo' defined more than once
+───╯
+
+============================================================
+
+--- Input 6 (ERROR) ---
+fn foo() {return;} const foo = 1;
+--- Diagnostics ---
+[1003] Error: 'foo' defined more than once
+   ╭─[ semantic_tests::scoping::duplicate_definitions::test_duplicate_definitions_and_shadowing:1:26 ]
+   │
+ 1 │ fn foo() {return;} const foo = 1;
+   │                          ─┬─  
+   │                           ╰─── 'foo' defined more than once
+───╯
+
+============================================================
+
+--- Input 7 (ERROR) ---
+struct foo {} fn foo(){return;}
+--- Diagnostics ---
+[1003] Error: 'foo' defined more than once
+   ╭─[ semantic_tests::scoping::duplicate_definitions::test_duplicate_definitions_and_shadowing:1:18 ]
+   │
+ 1 │ struct foo {} fn foo(){return;}
+   │                  ─┬─  
+   │                   ╰─── 'foo' defined more than once
+───╯
+
+============================================================
+
+--- Input 8 (ERROR) ---
+fn foo(){return;} namespace foo {}
+--- Diagnostics ---
+[1003] Error: 'foo' defined more than once
+   ╭─[ semantic_tests::scoping::duplicate_definitions::test_duplicate_definitions_and_shadowing:1:29 ]
+   │
+ 1 │ fn foo(){return;} namespace foo {}
+   │                             ─┬─  
+   │                              ╰─── 'foo' defined more than once
 ───╯

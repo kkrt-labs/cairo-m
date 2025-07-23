@@ -30,6 +30,8 @@ pub mod semantic_index;
 pub mod type_resolution;
 pub mod types;
 
+mod semantic_errors;
+
 pub mod db;
 pub use db::{
     Crate, SemanticDatabaseImpl, SemanticDb, module_semantic_index, project_semantic_index,

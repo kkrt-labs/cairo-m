@@ -67,8 +67,9 @@ impl Validator for ScopeValidator {
 impl ScopeValidator {
     /// Check a single scope for violations
     ///
-    /// This analyzes a single scope for scope-specific issues like duplicate
-    /// definitions and unused variables.
+    /// This analyzes a single scope for scope-specific issues like unused variables.
+    ///
+    /// Note: most duplicate definitions are detected during AST traversal.
     ///
     /// TODO: Add more sophisticated scope-level validation:
     /// - Check for variable shadowing within the same scope
@@ -85,90 +86,8 @@ impl ScopeValidator {
     ) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
 
-        // Check for duplicate definitions within this scope
-        diagnostics.extend(self.check_duplicate_definitions(
-            scope_id,
-            place_table,
-            file,
-            db,
-            index,
-        ));
-
         // Check for unused variables (but not in the global scope for functions/structs)
         diagnostics.extend(self.check_unused_variables(scope_id, place_table, file, db, index));
-
-        diagnostics
-    }
-
-    /// Check for duplicate definitions within a scope
-    ///
-    /// Variable shadowing is allowed for let bindings, but duplicate
-    /// function names and duplicate parameter names are still errors.
-    fn check_duplicate_definitions(
-        &self,
-        scope_id: crate::FileScopeId,
-        place_table: &crate::PlaceTable,
-        file: File,
-        db: &dyn SemanticDb,
-        index: &SemanticIndex,
-    ) -> Vec<Diagnostic> {
-        let mut diagnostics = Vec::new();
-        let mut seen_functions = HashSet::new();
-        let mut seen_parameters = HashSet::new();
-        let mut seen_imports = HashSet::new();
-
-        for (place_id, place) in place_table.places() {
-            if place.flags.contains(PlaceFlags::DEFINED) {
-                // Check for duplicate function names
-                if place.flags.contains(PlaceFlags::FUNCTION) {
-                    if !seen_functions.insert(&place.name) {
-                        let span = if let Some((_, definition)) =
-                            index.definition_for_place(scope_id, place_id)
-                        {
-                            definition.name_span
-                        } else {
-                            panic!("No definition found for function {}", place.name);
-                        };
-                        diagnostics.push(Diagnostic::duplicate_definition(
-                            file.file_path(db).to_string(),
-                            &place.name,
-                            span,
-                        ));
-                    }
-                }
-                // Check for duplicate parameter names
-                else if place.flags.contains(PlaceFlags::PARAMETER)
-                    && !seen_parameters.insert(&place.name)
-                {
-                    let span = if let Some((_, definition)) =
-                        index.definition_for_place(scope_id, place_id)
-                    {
-                        definition.name_span
-                    } else {
-                        panic!("No definition found for parameter {}", place.name);
-                    };
-                    diagnostics.push(Diagnostic::duplicate_definition(
-                        file.file_path(db).to_string(),
-                        &place.name,
-                        span,
-                    ));
-                }
-                // Check for duplicate import names
-                else if let Some((_, definition)) = index.definition_for_place(scope_id, place_id)
-                {
-                    if matches!(definition.kind, crate::definition::DefinitionKind::Use(_))
-                        && !seen_imports.insert(&place.name)
-                    {
-                        diagnostics.push(Diagnostic::duplicate_definition(
-                            file.file_path(db).to_string(),
-                            &place.name,
-                            definition.name_span,
-                        ));
-                    }
-                }
-                // Allow shadowing for regular variables (let/local)
-            }
-        }
 
         diagnostics
     }

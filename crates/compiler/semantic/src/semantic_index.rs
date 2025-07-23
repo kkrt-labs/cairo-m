@@ -45,21 +45,24 @@
 //! - Salsa integration for incremental compilation
 //! - Memory-efficient indexed data structures
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 
+use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCollection};
 use cairo_m_compiler_parser::ParsedModule;
 use cairo_m_compiler_parser::parser::{
-    ConstDef, Expression, FunctionDef, Namespace, Pattern, Spanned, Statement, StructDef,
-    TopLevelItem, UseItems, UseStmt,
+    ConstDef, Expression, FunctionDef, Namespace, Parameter, Pattern, Spanned, Statement,
+    StructDef, TopLevelItem, UseItems, UseStmt,
 };
 use chumsky::span::SimpleSpan;
 use index_vec::IndexVec;
 use rustc_hash::FxHashMap;
 
-use crate::definition::{DefinitionKind, UseDefRef};
+use crate::definition::{DefinitionKind, ParameterDefRef, UseDefRef};
 use crate::place::{FileScopeId, PlaceTable, Scope};
+use crate::semantic_errors::{SemanticSyntaxChecker, SemanticSyntaxContext};
 use crate::visitor::Visitor;
-use crate::{Crate, Definition, File, SemanticDb, project_semantic_index};
+use crate::{Crate, Definition, File, PlaceFlags, SemanticDb, project_semantic_index};
 
 // Define DefinitionIndex as an index type for definitions within a single file.
 index_vec::define_index_type! {
@@ -232,6 +235,9 @@ pub struct SemanticIndex {
     /// **Used by**: Cross-module name resolution, import validation
     /// **Key**: Scope where the use statement appears, **Value**: The imported item info
     pub imports: Vec<(FileScopeId, crate::definition::UseDefRef)>,
+
+    /// **Semantic errors**: All semantic errors collected while building the index.
+    pub semantic_syntax_errors: DiagnosticCollection,
 }
 
 impl SemanticIndex {
@@ -246,6 +252,7 @@ impl SemanticIndex {
             expressions: IndexVec::new(),
             span_to_expression_id: FxHashMap::default(),
             imports: Vec::new(),
+            semantic_syntax_errors: Default::default(),
         }
     }
 
@@ -552,8 +559,12 @@ impl Default for SemanticIndex {
 ///
 /// This function performs the actual semantic analysis work by building
 /// scope trees, symbol tables, and use-def chains.
-pub fn semantic_index_from_module(module: &ParsedModule, file: File) -> SemanticIndex {
-    let builder = SemanticIndexBuilder::new(file, module);
+pub fn semantic_index_from_module(
+    db: &dyn SemanticDb,
+    module: &ParsedModule,
+    file: File,
+) -> SemanticIndex {
+    let builder = SemanticIndexBuilder::new(db, file, module);
     builder.build()
 }
 
@@ -569,6 +580,7 @@ pub fn semantic_index_from_module(module: &ParsedModule, file: File) -> Semantic
 /// The builder uses a stack-based approach to track nested scopes,
 /// which simplifies the implementation of scope-aware analysis.
 pub(crate) struct SemanticIndexBuilder<'db> {
+    db: &'db dyn SemanticDb,
     file: File,
     module: &'db ParsedModule,
 
@@ -579,16 +591,32 @@ pub(crate) struct SemanticIndexBuilder<'db> {
     scope_stack: Vec<FileScopeId>,
     /// Current loop nesting depth for tracking break/continue validity
     loop_depth: usize,
+
+    /// Errors collected while building the semantic index.
+    semantic_syntax_errors: RefCell<DiagnosticCollection>,
+    semantic_syntax_checker: SemanticSyntaxChecker,
+}
+
+impl<'db> SemanticSyntaxContext for SemanticIndexBuilder<'db> {
+    fn path(&self) -> &str {
+        self.file.file_path(self.db)
+    }
+    fn report_semantic_error(&self, error: Diagnostic) {
+        self.semantic_syntax_errors.borrow_mut().add(error);
+    }
 }
 
 impl<'db> SemanticIndexBuilder<'db> {
-    pub fn new(file: File, module: &'db ParsedModule) -> Self {
+    pub fn new(db: &'db dyn SemanticDb, file: File, module: &'db ParsedModule) -> Self {
         let mut builder = Self {
+            db,
             file,
             module,
             index: SemanticIndex::new(),
             scope_stack: Vec::new(),
             loop_depth: 0,
+            semantic_syntax_errors: RefCell::new(Default::default()),
+            semantic_syntax_checker: SemanticSyntaxChecker::default(),
         };
 
         // Create the root module scope
@@ -616,13 +644,14 @@ impl<'db> SemanticIndexBuilder<'db> {
         }
 
         // Pass 2: Process function bodies and other content
-        for item in self.module.items() {
-            self.visit_top_level_item(item);
-        }
+        self.visit_top_level_items(self.module.items());
 
         // Pop the root scope
         self.scope_stack.pop();
 
+        // TODO: Eventually, we should get rid of `index` inside the builder!
+        // Propagate errors to the index
+        self.index.semantic_syntax_errors = self.semantic_syntax_errors.take();
         self.index
     }
 
@@ -737,6 +766,15 @@ impl<'db> SemanticIndexBuilder<'db> {
             namespace_span,
         );
     }
+
+    fn with_semantic_checker<F>(&mut self, f: F)
+    where
+        F: FnOnce(&mut SemanticSyntaxChecker, &mut Self),
+    {
+        let mut checker = std::mem::take(&mut self.semantic_syntax_checker);
+        f(&mut checker, self);
+        self.semantic_syntax_checker = checker;
+    }
 }
 
 /// Implement the Visitor trait for SemanticIndexBuilder
@@ -744,6 +782,15 @@ impl<'db, 'ast> Visitor<'ast> for SemanticIndexBuilder<'db>
 where
     'ast: 'db,
 {
+    fn visit_top_level_items(&mut self, items: &'ast [TopLevelItem]) {
+        self.with_semantic_checker(|checker, builder| {
+            checker.check_top_level_items(builder, items);
+        });
+        for item in items {
+            self.visit_top_level_item(item);
+        }
+    }
+
     fn visit_stmt(&mut self, stmt: &'ast Spanned<Statement>) {
         // Map statement span to scope for IDE features
         let current_scope = self.current_scope();
@@ -764,6 +811,10 @@ where
                     .index
                     .expression_id_by_span(value.span())
                     .expect("expression should have been registered");
+
+                self.with_semantic_checker(|checker, builder| {
+                    checker.check_pattern(builder, pattern);
+                });
 
                 // Then handle the pattern binding
                 match pattern {
@@ -878,7 +929,9 @@ where
                 self.visit_stmt(body);
             }
             Statement::Break | Statement::Continue => {
-                // No sub-nodes to visit
+                self.with_semantic_checker(|checker, builder| {
+                    checker.check_loop_control_flow(builder, stmt, builder.loop_depth);
+                });
             }
             Statement::Const(const_def) => {
                 use crate::definition::{ConstDefRef, DefinitionKind};
@@ -1002,34 +1055,37 @@ where
     }
 
     fn visit_function(&mut self, func: &'ast Spanned<FunctionDef>) {
-        use crate::definition::{DefinitionKind, ParameterDefRef};
-        use crate::place::PlaceFlags;
-
         let func_def = func.value();
 
         // Note: Function declaration already handled in pass 1
         // Here we process the body
 
         // Create a new scope for the function body
-        self.with_new_scope(crate::place::ScopeKind::Function, |builder| {
-            let current_scope = builder.current_scope();
-            builder.index.set_scope_for_span(func.span(), current_scope);
+        self.push_scope(crate::place::ScopeKind::Function);
+        let current_scope = self.current_scope();
+        self.index.set_scope_for_span(func.span(), current_scope);
 
-            // Define parameters in the function scope
-            for param in &func_def.params {
-                let def_kind = DefinitionKind::Parameter(ParameterDefRef::from_ast(param));
-                builder.add_place_with_definition(
-                    param.name.value(),
-                    PlaceFlags::DEFINED | PlaceFlags::PARAMETER,
-                    def_kind,
-                    param.name.span(),
-                    param.name.span(),
-                );
-            }
-
-            // Visit function body statements
-            builder.visit_body(&func_def.body);
+        self.with_semantic_checker(|checker, builder| {
+            checker.check_parameters(builder, &func_def.params);
         });
+
+        self.visit_parameters(&func_def.params);
+
+        // Visit function body statements
+        self.visit_body(&func_def.body);
+
+        self.pop_scope();
+    }
+
+    fn visit_parameter(&mut self, param: &'ast Parameter) {
+        let def_kind = DefinitionKind::Parameter(ParameterDefRef::from_ast(param));
+        self.add_place_with_definition(
+            param.name.value(),
+            PlaceFlags::DEFINED | PlaceFlags::PARAMETER,
+            def_kind,
+            param.name.span(),
+            param.name.span(),
+        );
     }
 
     fn visit_namespace(&mut self, namespace: &'ast Spanned<Namespace>) {
@@ -1058,10 +1114,7 @@ where
                 }
             }
 
-            // Second pass: process bodies within namespace
-            for item in &namespace_inner.body {
-                builder.visit_top_level_item(item);
-            }
+            builder.visit_top_level_items(&namespace_inner.body);
         });
     }
 
@@ -1070,6 +1123,11 @@ where
         use crate::place::PlaceFlags;
 
         let struct_def_inner = struct_def.value();
+
+        self.with_semantic_checker(|checker, builder| {
+            checker.check_struct(builder, struct_def);
+        });
+
         let struct_span = struct_def.span();
 
         // Define the struct in the current scope

@@ -482,6 +482,48 @@ fn test() -> felt {
 }
 
 #[test]
+fn test_different_imports_from_same_module() {
+    let db = test_db();
+
+    let utils_source = r#"
+fn foo() -> felt {
+    return 100;
+}
+
+fn bar() -> felt {
+    return 200;
+}
+"#;
+
+    // Create main module that tries to import from both
+    let main_source = r#"
+use utils::foo;
+use utils::bar;
+
+fn test() -> felt {
+    return foo() + bar();
+}
+"#;
+
+    let utils_file = SourceFile::new(&db, utils_source.to_string(), "utils.cm".to_string());
+    let main_file = SourceFile::new(&db, main_source.to_string(), "main.cm".to_string());
+
+    let mut modules = HashMap::new();
+    modules.insert("utils".to_string(), utils_file);
+    modules.insert("main".to_string(), main_file);
+
+    let crate_id = Crate::new(
+        &db,
+        modules,
+        "main".to_string(),
+        PathBuf::from("."),
+        "crate_test".to_string(),
+    );
+    let diagnostics = project_validate_semantics(&db, crate_id);
+    assert!(diagnostics.is_empty());
+}
+
+#[test]
 fn test_braced_import_conflicts() {
     let db = test_db();
 
@@ -983,7 +1025,7 @@ fn test() {
     // The error should mention 'add' being duplicated
     let has_duplicate_add = duplicate_errors
         .iter()
-        .any(|d| d.message.contains("Duplicate definition of 'add'"));
+        .any(|d| d.message.contains("'add' defined more than once"));
     assert!(
         has_duplicate_add,
         "Expected error message to mention duplicate definition of 'add'"
