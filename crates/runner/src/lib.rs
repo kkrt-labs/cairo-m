@@ -114,7 +114,7 @@ pub fn run_cairo_program(
     }
 
     // For now the public memory addresses enables the verifier to know the end-of-execution content of given addresses
-    let end_addr = vm.state.fp + M31::from(2);
+    let end_addr = vm.state.fp - M31::from(2);
     let public_addresses = (0..end_addr.0).map(M31::from).collect();
 
     Ok(RunnerOutput {
