@@ -50,6 +50,8 @@ pub struct RunnerOutput {
     pub return_values: Vec<M31>,
     /// The final VM
     pub vm: VM,
+    /// The public memory addresses (verifier will know the end of execution content of these addresses)
+    pub public_addresses: Vec<M31>,
 }
 
 /// Runs a compiled Cairo-M program
@@ -99,7 +101,7 @@ pub fn run_cairo_program(
         fp_offset as u32,
         args,
         num_return_values,
-        options,
+        &options,
     )?;
 
     // Retrieve return values from memory
@@ -111,5 +113,13 @@ pub fn run_cairo_program(
         return_values.push(value);
     }
 
-    Ok(RunnerOutput { return_values, vm })
+    // For now the public memory addresses enables the verifier to know the end-of-execution content of given addresses
+    let end_addr = vm.state.fp + M31::from(2);
+    let public_addresses = (0..end_addr.0).map(M31::from).collect();
+
+    Ok(RunnerOutput {
+        return_values,
+        vm,
+        public_addresses,
+    })
 }
