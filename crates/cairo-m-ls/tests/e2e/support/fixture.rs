@@ -37,22 +37,14 @@ impl Fixture {
 
     /// Add a cairom.toml file with default project configuration
     pub fn add_cairom_toml(&self, project_name: &str) {
-        self.add_cairom_toml_with_entry_point(project_name, None);
-    }
-
-    /// Add a cairom.toml file with project configuration and optional entry point
-    pub fn add_cairom_toml_with_entry_point(&self, project_name: &str, entry_point: Option<&str>) {
-        let mut content = format!(
+        let content = format!(
             r#"
 name = "{}"
 version = "0.1.0"
+entry_point = "main.cm"
 "#,
             project_name
         );
-
-        if let Some(entry_point) = entry_point {
-            content.push_str(&format!("entry_point = \"{}\"\n", entry_point));
-        }
 
         self.add_file("cairom.toml", content);
 

@@ -3,13 +3,12 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use cairo_m_project::{Project, discover_project};
+use cairo_m_project::{Project, discover_project, find_project_manifest};
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
 use tracing::{debug, error, warn};
 
-use super::manifest::ProjectManifestPath;
 use super::model::CrateInfo;
 
 #[derive(Debug)]
@@ -22,7 +21,7 @@ pub enum ProjectUpdateRequest {
 pub enum ProjectUpdate {
     /// A project with manifest was found
     Project {
-        project: Project,
+        project: Box<Project>,
         crate_info: CrateInfo,
         files: Vec<PathBuf>,
     },
@@ -206,10 +205,10 @@ impl ProjectController {
     ) {
         match request {
             ProjectUpdateRequest::UpdateForFile { file_path } => {
-                match ProjectManifestPath::discover(&file_path) {
-                    Some(manifest) => {
+                match find_project_manifest(&file_path) {
+                    Ok(Some(manifest)) => {
                         // Check cache first
-                        let manifest_path = manifest.path().to_path_buf();
+                        let manifest_path = manifest.clone();
                         const CACHE_EXPIRY: Duration = Duration::from_secs(300);
                         let cache_hit = {
                             let cache = manifest_cache.lock().unwrap();
@@ -284,7 +283,7 @@ impl ProjectController {
                                 };
 
                                 if let Err(e) = response_sender.send(ProjectUpdate::Project {
-                                    project,
+                                    project: Box::new(project),
                                     crate_info,
                                     files,
                                 }) {
@@ -302,8 +301,15 @@ impl ProjectController {
                             }
                         }
                     }
-                    None => {
+                    Ok(None) => {
                         debug!("No project manifest found, treating as standalone file");
+                        if let Err(e) = response_sender.send(ProjectUpdate::Standalone(file_path)) {
+                            error!("Failed to send standalone update: {}", e);
+                        }
+                    }
+                    Err(e) => {
+                        error!("Failed to find project manifest: {}", e);
+                        // Treat as standalone on error
                         if let Err(e) = response_sender.send(ProjectUpdate::Standalone(file_path)) {
                             error!("Failed to send standalone update: {}", e);
                         }
@@ -313,26 +319,22 @@ impl ProjectController {
         }
     }
 
-    fn load_project(manifest: ProjectManifestPath) -> Result<(Project, Vec<PathBuf>), String> {
-        match manifest {
-            ProjectManifestPath::CairoM(manifest_path) => {
-                // Use cairo-m-project's discovery to load project from manifest
-                let project_root = manifest_path
-                    .parent()
-                    .ok_or_else(|| "Invalid manifest path".to_string())?;
+    fn load_project(manifest_path: PathBuf) -> Result<(Project, Vec<PathBuf>), String> {
+        // Use cairo-m-project's discovery to load project from manifest
+        let project_root = manifest_path
+            .parent()
+            .ok_or_else(|| "Invalid manifest path".to_string())?;
 
-                let project = discover_project(project_root)
-                    .map_err(|e| format!("Failed to discover project: {}", e))?
-                    .ok_or_else(|| "Project discovery returned None".to_string())?;
+        let project = discover_project(project_root)
+            .map_err(|e| format!("Failed to discover project: {}", e))?
+            .ok_or_else(|| "Project discovery returned None".to_string())?;
 
-                // Get project files using cairo-m-project
-                let files = project
-                    .source_files()
-                    .map_err(|e| format!("Failed to get source files: {}", e))?;
+        // Get project files using cairo-m-project
+        let files = project
+            .source_files()
+            .map_err(|e| format!("Failed to get source files: {}", e))?;
 
-                Ok((project, files))
-            }
-        }
+        Ok((project, files))
     }
 }
 

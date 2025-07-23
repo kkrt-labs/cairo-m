@@ -1,11 +1,10 @@
 use std::collections::HashMap;
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
-use tracing::{debug, trace};
+use tracing::debug;
 
-use crate::{CairoMToml, CrateId, Project, SourceLayout, Workspace};
+use crate::{Project, ProjectId, ProjectManifest, SourceLayout, Workspace};
 
 /// Discovers a Cairo-M project from a given path
 ///
@@ -31,7 +30,7 @@ pub fn discover_project(start_path: &Path) -> Result<Option<Project>> {
             Ok(Some(project))
         }
         None => {
-            trace!(
+            debug!(
                 "No project manifest found starting from: {}, treating as standalone file",
                 start_path.display()
             );
@@ -48,37 +47,30 @@ pub fn discover_project(start_path: &Path) -> Result<Option<Project>> {
 /// 2. Create a src directory
 /// 3. Copy the file to the src directory
 /// 4. Create a manifest file in the root directory
-fn setup_as_standalone_file(start_path: &Path) -> Result<Project> {
-    let filename = start_path.file_name().unwrap().to_str().unwrap();
+fn setup_as_standalone_file(file_path: &Path) -> Result<Project> {
+    let canonical_file_path = file_path
+        .canonicalize()
+        .unwrap_or_else(|_| file_path.to_path_buf());
+    let file_stem = canonical_file_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("main");
 
-    // Create temporary directory structure
-    let temp_dir = tempfile::tempdir().expect("Failed to create temporary directory");
-    let temp_dir_path = temp_dir.keep();
-
-    // Write manifest file
+    // For standalone files, the entry point is just the file name
     let manifest_content = format!(
-        r#"name = "{filename}"
+        r#"name = "{file_stem}"
 version = "0.1.0"
-entry_point = "src/{filename}.cm"
+entry_point = "{file_stem}.cm"
 "#
     );
-    let manifest_path = temp_dir_path.join(crate::MANIFEST_FILE_NAME);
-    fs::write(&manifest_path, manifest_content).expect("Failed to write manifest file");
-
-    // Create src directory and copy file
-    let src_dir = temp_dir_path.join("src");
-    fs::create_dir(&src_dir).expect("Failed to create src directory");
-
-    let file_content = fs::read_to_string(start_path).expect("Failed to read file");
-    let file_path = src_dir.join(filename);
-    fs::write(file_path, file_content).expect("Failed to write file");
+    let project_manifest =
+        ProjectManifest::from_file_content(&manifest_content).expect("Failed to parse manifest");
 
     let project = Project {
-        manifest_path,
-        root_directory: temp_dir_path,
-        name: filename.to_string(),
+        config: project_manifest,
+        root_directory: canonical_file_path.clone(),
+        name: file_stem.to_string(),
         source_layout: SourceLayout::default(),
-        entry_point: Some(start_path.to_owned()),
     };
 
     Ok(project)
@@ -107,7 +99,7 @@ pub fn discover_workspace(workspace_root: &Path) -> Result<Workspace> {
         if path.file_name() == Some(std::ffi::OsStr::new(crate::MANIFEST_FILE_NAME)) {
             match load_project_from_manifest(path) {
                 Ok(project) => {
-                    let crate_id = CrateId(next_id);
+                    let crate_id = ProjectId(next_id);
                     next_id += 1;
 
                     name_to_id.insert(project.name.clone(), crate_id);
@@ -129,7 +121,7 @@ pub fn discover_workspace(workspace_root: &Path) -> Result<Workspace> {
 }
 
 /// Find the project manifest (cairom.toml) starting from a given path
-fn find_project_manifest(start_path: &Path) -> Result<Option<PathBuf>> {
+pub fn find_project_manifest(start_path: &Path) -> Result<Option<PathBuf>> {
     let start_dir = if start_path.is_file() {
         start_path
             .parent()
@@ -155,51 +147,39 @@ fn find_project_manifest(start_path: &Path) -> Result<Option<PathBuf>> {
 
 /// Load a project from its manifest file
 fn load_project_from_manifest(manifest_path: &Path) -> Result<Project> {
-    let manifest = CairoMToml::from_path(manifest_path)
+    let manifest = ProjectManifest::from_path(manifest_path)
         .with_context(|| format!("Failed to parse manifest at {}", manifest_path.display()))?;
 
-    let root_directory = manifest_path
+    let project_folder = manifest_path
         .parent()
         .ok_or_else(|| anyhow::anyhow!("Manifest has no parent directory"))?
         .to_owned();
 
     let source_layout = SourceLayout::default();
 
-    let entry_point = manifest
-        .crate_manifest
-        .entry_point
-        .map(|ep| source_layout.src_dir.join(ep));
+    // The entry_point in the manifest is relative to the project root
+    // It might include "src/" prefix or not, so we need to handle both cases
+    let entry_point_path = Path::new(&manifest.entry_point);
+    let project_root_file = if entry_point_path.is_absolute() {
+        entry_point_path.to_path_buf()
+    } else if entry_point_path.starts_with(&source_layout.src_dir) {
+        // Entry point already includes src/ prefix
+        project_folder.join(&manifest.entry_point)
+    } else {
+        // Entry point doesn't include src/ prefix, add it
+        project_folder
+            .join(&source_layout.src_dir)
+            .join(&manifest.entry_point)
+    };
+
+    let manifest_name = manifest.name.clone();
 
     Ok(Project {
-        manifest_path: manifest_path.to_owned(),
-        root_directory,
-        name: manifest.crate_manifest.name,
+        config: manifest,
+        root_directory: project_root_file,
+        name: manifest_name,
         source_layout,
-        entry_point,
     })
-}
-
-/// Find the entry point file for a project
-///
-/// Looks for main.cm or lib.cm in the source directory
-pub fn find_entry_point(project: &Project) -> Option<PathBuf> {
-    if let Some(ref entry_point) = project.entry_point {
-        let full_path = project.root_directory.join(entry_point);
-        if full_path.exists() {
-            return Some(full_path);
-        }
-    }
-
-    // Check for default entry points
-    let src_dir = project.source_directory();
-    for entry_name in ["main.cm", "lib.cm"] {
-        let entry_path = src_dir.join(entry_name);
-        if entry_path.exists() {
-            return Some(entry_path);
-        }
-    }
-
-    None
 }
 
 #[cfg(test)]
@@ -220,6 +200,7 @@ mod tests {
         let manifest_content = r#"
             name = "test_project"
             version = "0.1.0"
+            entry_point = "main.cm"
         "#;
         fs::write(
             project_dir.join(crate::MANIFEST_FILE_NAME),
@@ -233,7 +214,7 @@ mod tests {
         // Test discovery from project root
         let project = discover_project(&project_dir).unwrap().unwrap();
         assert_eq!(project.name, "test_project");
-        assert_eq!(project.root_directory, project_dir);
+        assert_eq!(project.root_directory, project_dir.join("src/main.cm"));
 
         // Test discovery from subdirectory
         let sub_dir = project_dir.join("src");

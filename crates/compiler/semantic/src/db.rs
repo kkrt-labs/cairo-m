@@ -187,8 +187,13 @@ pub fn crate_from_project(
         return Err(diagnostics);
     }
 
-    // Determine entry point
-    let entry_point = determine_entry_point(&modules, &project);
+    // Determine entry point module name from the entry file
+    let entry_point = project
+        .root_directory
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("main")
+        .to_string();
 
     Ok(Crate::new(
         db,
@@ -197,31 +202,6 @@ pub fn crate_from_project(
         project.root_directory.clone(),
         project.name,
     ))
-}
-
-/// Determine the entry point module name
-fn determine_entry_point(
-    modules: &HashMap<String, File>,
-    project: &cairo_m_project::Project,
-) -> String {
-    // If project specifies an entry point, use it
-    if let Some(ref entry_point_path) = project.entry_point {
-        if let Ok(module_name) = project.module_name_from_path(entry_point_path) {
-            if modules.contains_key(&module_name) {
-                return module_name;
-            }
-        }
-    }
-
-    // Otherwise, look for common entry points
-    for candidate in ["main", "lib"] {
-        if modules.contains_key(candidate) {
-            return candidate.to_string();
-        }
-    }
-
-    // Default to "main" even if not found
-    "main".to_string()
 }
 
 #[salsa::tracked]

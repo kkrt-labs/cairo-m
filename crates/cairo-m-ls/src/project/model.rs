@@ -207,25 +207,24 @@ impl ProjectModel {
     /// This avoids the need for nested async-blocking patterns
     pub async fn load_standalone_with_prepared_file(
         &self,
-        file_path: PathBuf,
+        file_path: &PathBuf,
         source_file: SourceFile,
         db: &Arc<Mutex<AnalysisDatabase>>,
     ) -> Result<Vec<Url>, String> {
         info!("Loading standalone file: {}", file_path.display());
 
-        let uri = Url::from_file_path(&file_path)
+        let uri = Url::from_file_path(file_path)
             .map_err(|_| format!("Invalid file path: {}", file_path.display()))?;
 
         // For standalone files, create a minimal crate with unique root
         // Use the file path itself with a ".standalone" extension to ensure uniqueness
-        let unique_root = file_path.with_extension("standalone");
         let crate_info = CrateInfo {
             name: file_path
                 .file_stem()
                 .and_then(|s| s.to_str())
-                .unwrap_or("standalone")
+                .expect("File stem should be a string")
                 .to_string(),
-            root: unique_root,
+            root: file_path.clone(),
         };
 
         let mut files = HashMap::new();
@@ -233,7 +232,7 @@ impl ProjectModel {
 
         let crate_obj = Crate {
             info: crate_info.clone(),
-            main_file: Some(file_path),
+            main_file: Some(file_path.clone()),
             files,
         };
 
@@ -334,36 +333,39 @@ impl ProjectModel {
         files: &HashMap<PathBuf, SourceFile>,
         project: Option<&Project>,
     ) -> Option<PathBuf> {
-        // If we have a project, try to use its entry point
+        // If we have a project, use its root_directory which now points to the entry file
         if let Some(project) = project {
-            // Check if project has a specific entry point
-            if let Some(entry_point) = &project.entry_point {
-                let full_entry_path = project.root_directory.join(entry_point);
-                if files.contains_key(&full_entry_path) {
-                    return Some(full_entry_path);
+            let entry_file = &project.root_directory;
+            if files.contains_key(entry_file) {
+                return Some(entry_file.clone());
+            }
+            // If the exact path isn't found, it might be due to path normalization issues
+            // Try to find a file with the same name in the files map
+            if let Some(file_name) = entry_file.file_name() {
+                for path in files.keys() {
+                    if path.file_name() == Some(file_name) {
+                        return Some(path.clone());
+                    }
                 }
             }
+        }
 
-            // Try to find the entry point using cairo-m-project's find_entry_point
-            if let Some(entry_point) = cairo_m_project::find_entry_point(project) {
-                if files.contains_key(&entry_point) {
-                    return Some(entry_point);
-                }
+        // Fallback: Look for common entry points in the crate
+        let common_entries = ["main.cm", "lib.cm"];
+        for entry in &common_entries {
+            // Check in src directory
+            let src_path = crate_info.root.join("src").join(entry);
+            if files.contains_key(&src_path) {
+                return Some(src_path);
+            }
+            // Check in root directory
+            let root_path = crate_info.root.join(entry);
+            if files.contains_key(&root_path) {
+                return Some(root_path);
             }
         }
 
-        // Look for main.cm or lib.cm
-        let main_path = crate_info.root.join("src/main.cm");
-        if files.contains_key(&main_path) {
-            return Some(main_path);
-        }
-
-        let lib_path = crate_info.root.join("src/lib.cm");
-        if files.contains_key(&lib_path) {
-            return Some(lib_path);
-        }
-
-        // Fallback to first file (sorted alphabetically for determinism)
+        // Ultimate fallback: first file (sorted alphabetically for determinism)
         let mut keys: Vec<_> = files.keys().cloned().collect();
         keys.sort();
         keys.into_iter().next()

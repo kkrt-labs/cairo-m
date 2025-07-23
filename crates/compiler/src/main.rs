@@ -6,6 +6,7 @@ use cairo_m_compiler::{
 };
 use cairo_m_project::discover_project;
 use clap::Parser;
+use tracing::Level;
 
 /// Cairo-M compiler
 #[derive(Parser, Debug)]
@@ -26,6 +27,10 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
+
+    if args.verbose {
+        tracing_subscriber::fmt().with_max_level(Level::INFO).init();
+    }
 
     let db = cairo_m_compiler::create_compiler_database();
 

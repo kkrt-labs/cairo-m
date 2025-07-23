@@ -222,6 +222,4 @@ fn test() -> felt {
         file_id1, file_id2,
         "Same file should produce consistent file IDs"
     );
-
-    println!("✅ Same file produces consistent file IDs");
 }
