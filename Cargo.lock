@@ -377,6 +377,7 @@ dependencies = [
  "paste",
  "serde",
  "serde_json",
+ "smallvec",
  "stwo-prover",
  "thiserror",
 ]

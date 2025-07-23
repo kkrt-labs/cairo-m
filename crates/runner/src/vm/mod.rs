@@ -107,7 +107,7 @@ impl VM {
         // Get the complete instruction from memory
         let instruction_m31s = self.memory.get_instruction(self.state.pc)?;
 
-        let instruction: Instruction = instruction_m31s.as_slice().try_into()?;
+        let instruction: Instruction = instruction_m31s.try_into()?;
 
         // Get opcode from the instruction for dispatch
         let instruction_fn = opcode_to_instruction_fn(instruction.opcode_value().into())?;

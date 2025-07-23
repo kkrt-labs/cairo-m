@@ -80,7 +80,8 @@ impl Memory {
             .get(address)
             .copied()
             .ok_or(MemoryError::UninitializedMemoryCell { addr })?;
-        self.trace.borrow_mut().push(MemoryEntry {
+        let mut trace = self.trace.borrow_mut();
+        trace.push(MemoryEntry {
             addr,
             value: first_qm31,
         });
@@ -97,21 +98,17 @@ impl Memory {
                 None => {
                     // Invalid opcode - return just the first QM31's M31 values
                     // The VM will validate and return the proper error
-                    let mut result = SmallVec::new();
-                    result.extend_from_slice(&first_qm31_array);
+                    let result = SmallVec::from_slice(&first_qm31_array);
                     return Ok(result);
                 }
             }
         } else {
             // Opcode out of bounds
-            let mut result = SmallVec::new();
-            result.extend_from_slice(&first_qm31_array);
+            let result = SmallVec::from_slice(&first_qm31_array);
             return Ok(result);
         };
         let size_in_qm31s = size_in_m31s.div_ceil(4);
-
-        let mut instruction_m31s = SmallVec::with_capacity(size_in_m31s);
-        instruction_m31s.extend_from_slice(&first_qm31_array);
+        let mut instruction_m31s = SmallVec::from_slice(&first_qm31_array);
 
         // Fetch additional QM31 words if needed
         for i in 1..size_in_qm31s {
@@ -122,7 +119,7 @@ impl Memory {
                 .get(current_address)
                 .copied()
                 .ok_or(MemoryError::UninitializedMemoryCell { addr: current_addr })?;
-            self.trace.borrow_mut().push(MemoryEntry {
+            trace.push(MemoryEntry {
                 addr: current_addr,
                 value: qm31_word,
             });

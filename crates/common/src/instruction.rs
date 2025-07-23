@@ -1,5 +1,6 @@
 use paste::paste;
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 
@@ -134,6 +135,37 @@ macro_rules! define_instruction {
                 let (opcode_m31, operands) = values.split_first()
                     .ok_or(InstructionError::SizeMismatch { expected: 1, found: 0 })?;
 
+                let opcode_u32 = opcode_m31.0;
+
+                match opcode_u32 {
+                    $(
+                        $opcode => {
+                            if let [$($field),*] = operands {
+                                Ok(Self::$variant {
+                                    $(
+                                        $field: *$field,
+                                    )*
+                                })
+                            } else {
+                                Err(InstructionError::SizeMismatch {
+                                    expected: $size - 1,
+                                    found: operands.len(),
+                                })
+                            }
+                        }
+                    )*
+                    _ => Err(InstructionError::InvalidOpcode(*opcode_m31)),
+                }
+            }
+        }
+
+        impl TryFrom<SmallVec<[M31; 5]>> for Instruction {
+            type Error = InstructionError;
+
+            #[inline(always)]
+            fn try_from(values: SmallVec<[M31; 5]>) -> Result<Self, Self::Error> {
+                let (opcode_m31, operands) = values.split_first()
+                    .ok_or(InstructionError::SizeMismatch { expected: 1, found: 0 })?;
                 let opcode_u32 = opcode_m31.0;
 
                 match opcode_u32 {
