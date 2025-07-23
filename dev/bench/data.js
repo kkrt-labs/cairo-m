@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1753178132639,
+  "lastUpdate": 1753284412195,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -1333,6 +1333,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 238056180,
             "range": "± 1718119",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antoine.fondeur@gmail.com",
+            "name": "Antoine Fondeur",
+            "username": "AntoineFONDEUR"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "eee15dbe986c752264990425790bd3af8ba3e96d",
+          "message": "feat(prover): add public addresses (#185)\n\n* add public addresses\n\n* fixed typo for public addresses\n\n* added comment",
+          "timestamp": "2025-07-23T17:23:39+02:00",
+          "tree_id": "59434d35afa0605359ef9f30681aa9f159a72ab0",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/eee15dbe986c752264990425790bd3af8ba3e96d"
+        },
+        "date": 1753284411091,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 237156243,
+            "range": "± 2050344",
             "unit": "ns/iter"
           }
         ]
