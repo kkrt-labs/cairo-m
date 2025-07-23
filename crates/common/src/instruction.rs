@@ -274,15 +274,22 @@ impl<'de> Deserialize<'de> for Instruction {
         use serde::de;
 
         let hex_strings: Vec<String> = Deserialize::deserialize(deserializer)?;
-        let m31_values: Vec<M31> = hex_strings
-            .iter()
-            .map(|s| {
-                u32::from_str_radix(s.trim_start_matches("0x"), 16)
-                    .map(M31::from)
-                    .map_err(de::Error::custom)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
 
-        Self::try_from(m31_values.as_slice()).map_err(de::Error::custom)
+        // Validate instruction size and convert to M31 array
+        match hex_strings.len() {
+            0 => Err(de::Error::custom("Instruction cannot be empty")),
+            1..=5 => {
+                let mut m31_array = [M31::from(0); 5];
+                for (i, s) in hex_strings.iter().enumerate() {
+                    m31_array[i] = u32::from_str_radix(s.trim_start_matches("0x"), 16)
+                        .map(M31::from)
+                        .map_err(de::Error::custom)?;
+                }
+                Self::try_from(&m31_array[..hex_strings.len()]).map_err(de::Error::custom)
+            }
+            _ => Err(de::Error::custom(
+                "Instruction too large (max 5 M31 elements)",
+            )),
+        }
     }
 }

@@ -85,8 +85,9 @@ impl Memory {
             value: first_qm31,
         });
 
-        // Get opcode from first M31
-        let opcode = first_qm31.to_m31_array()[0].0;
+        // Decompose QM31 once and reuse
+        let first_qm31_array = first_qm31.to_m31_array();
+        let opcode = first_qm31_array[0].0;
 
         // Determine instruction size using const lookup table
         // If opcode is invalid, just return the first QM31's M31s
@@ -97,20 +98,20 @@ impl Memory {
                     // Invalid opcode - return just the first QM31's M31 values
                     // The VM will validate and return the proper error
                     let mut result = SmallVec::new();
-                    result.extend_from_slice(&first_qm31.to_m31_array());
+                    result.extend_from_slice(&first_qm31_array);
                     return Ok(result);
                 }
             }
         } else {
             // Opcode out of bounds
             let mut result = SmallVec::new();
-            result.extend_from_slice(&first_qm31.to_m31_array());
+            result.extend_from_slice(&first_qm31_array);
             return Ok(result);
         };
         let size_in_qm31s = size_in_m31s.div_ceil(4);
 
         let mut instruction_m31s = SmallVec::with_capacity(size_in_m31s);
-        instruction_m31s.extend_from_slice(&first_qm31.to_m31_array());
+        instruction_m31s.extend_from_slice(&first_qm31_array);
 
         // Fetch additional QM31 words if needed
         for i in 1..size_in_qm31s {
