@@ -651,7 +651,7 @@ impl<'db> SemanticIndexBuilder<'db> {
 
         // TODO: Eventually, we should get rid of `index` inside the builder!
         // Propagate errors to the index
-        self.index.semantic_syntax_errors = std::mem::take(&mut self.semantic_syntax_errors).take();
+        self.index.semantic_syntax_errors = self.semantic_syntax_errors.take();
         self.index
     }
 
@@ -1055,9 +1055,6 @@ where
     }
 
     fn visit_function(&mut self, func: &'ast Spanned<FunctionDef>) {
-        use crate::definition::{DefinitionKind, ParameterDefRef};
-        use crate::place::PlaceFlags;
-
         let func_def = func.value();
 
         // Note: Function declaration already handled in pass 1
