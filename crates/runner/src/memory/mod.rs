@@ -1,9 +1,10 @@
 use std::cell::RefCell;
 
-use cairo_m_common::Instruction;
+use cairo_m_common::instruction::OPCODE_SIZE_TABLE;
 use cairo_m_common::state::MemoryEntry;
 use num_traits::One;
 use num_traits::identities::Zero;
+use smallvec::SmallVec;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 use thiserror::Error;
@@ -71,7 +72,7 @@ impl Memory {
     /// # Errors
     ///
     /// Returns [`MemoryError::UninitializedMemoryCell`] if any required memory cell is not initialized.
-    pub fn get_instruction(&self, addr: M31) -> Result<Vec<M31>, MemoryError> {
+    pub fn get_instruction(&self, addr: M31) -> Result<SmallVec<[M31; 5]>, MemoryError> {
         // Fetch first QM31 word
         let address = addr.0 as usize;
         let first_qm31 = self
@@ -87,20 +88,28 @@ impl Memory {
         // Get opcode from first M31
         let opcode = first_qm31.to_m31_array()[0].0;
 
-        // Determine instruction size - if opcode is invalid, just return the first QM31's M31s
-        // The VM will handle the invalid opcode error
-        let size_in_m31s = match Instruction::size_in_m31s_for_opcode(opcode) {
-            Some(size) => size,
-            None => {
-                // Invalid opcode - return just the first QM31's M31 values
-                // The VM will validate and return the proper error
-                return Ok(first_qm31.to_m31_array().to_vec());
+        // Determine instruction size using const lookup table
+        // If opcode is invalid, just return the first QM31's M31s
+        let size_in_m31s = if opcode < OPCODE_SIZE_TABLE.len() as u32 {
+            match OPCODE_SIZE_TABLE[opcode as usize] {
+                Some(size) => size,
+                None => {
+                    // Invalid opcode - return just the first QM31's M31 values
+                    // The VM will validate and return the proper error
+                    let mut result = SmallVec::new();
+                    result.extend_from_slice(&first_qm31.to_m31_array());
+                    return Ok(result);
+                }
             }
+        } else {
+            // Opcode out of bounds
+            let mut result = SmallVec::new();
+            result.extend_from_slice(&first_qm31.to_m31_array());
+            return Ok(result);
         };
         let size_in_qm31s = size_in_m31s.div_ceil(4);
 
-        // Pre-allocate with exact capacity
-        let mut instruction_m31s = Vec::with_capacity(size_in_m31s);
+        let mut instruction_m31s = SmallVec::with_capacity(size_in_m31s);
         instruction_m31s.extend_from_slice(&first_qm31.to_m31_array());
 
         // Fetch additional QM31 words if needed
@@ -542,7 +551,7 @@ mod tests {
 
         // Get U32StoreAddFpImm instruction (5 M31s, spans 2 QM31s)
         let inst = memory.get_instruction(start_addr).unwrap();
-        assert_eq!(inst, vec![M31(15), M31(1), M31(2), M31(3), M31(4)]);
+        assert_eq!(inst.as_slice(), &[M31(15), M31(1), M31(2), M31(3), M31(4)]);
 
         // Verify trace contains both QM31 accesses
         assert_eq!(memory.trace.borrow().len(), 2);

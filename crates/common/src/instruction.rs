@@ -127,10 +127,10 @@ macro_rules! define_instruction {
             }
         }
 
-        impl TryFrom<Vec<M31>> for Instruction {
+        impl TryFrom<&[M31]> for Instruction {
             type Error = InstructionError;
 
-            fn try_from(values: Vec<M31>) -> Result<Self, Self::Error> {
+            fn try_from(values: &[M31]) -> Result<Self, Self::Error> {
                 let (opcode_m31, operands) = values.split_first()
                     .ok_or(InstructionError::SizeMismatch { expected: 1, found: 0 })?;
 
@@ -157,6 +157,31 @@ macro_rules! define_instruction {
                 }
             }
         }
+
+        // Generate the maximum opcode value
+        const MAX_OPCODE: u32 = {
+            let opcodes = [$($opcode),*];
+            let mut max = 0;
+            let mut i = 0;
+            while i < opcodes.len() {
+                if opcodes[i] > max {
+                    max = opcodes[i];
+                }
+                i += 1;
+            }
+            max
+        };
+
+        /// Const lookup table for instruction sizes by opcode.
+        /// This avoids the overhead of match statements in hot paths.
+        /// Automatically generated from the instruction definitions.
+        pub const OPCODE_SIZE_TABLE: [Option<usize>; (MAX_OPCODE + 1) as usize] = {
+            let mut table = [None; (MAX_OPCODE + 1) as usize];
+            $(
+                table[$opcode as usize] = Some($size);
+            )*
+            table
+        };
     };
 }
 
@@ -249,15 +274,15 @@ impl<'de> Deserialize<'de> for Instruction {
         use serde::de;
 
         let hex_strings: Vec<String> = Deserialize::deserialize(deserializer)?;
-        let m31_values: Result<Vec<M31>, _> = hex_strings
+        let m31_values: Vec<M31> = hex_strings
             .iter()
             .map(|s| {
                 u32::from_str_radix(s.trim_start_matches("0x"), 16)
                     .map(M31::from)
                     .map_err(de::Error::custom)
             })
-            .collect();
+            .collect::<Result<Vec<_>, _>>()?;
 
-        Self::try_from(m31_values?).map_err(de::Error::custom)
+        Self::try_from(m31_values.as_slice()).map_err(de::Error::custom)
     }
 }

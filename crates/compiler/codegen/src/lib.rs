@@ -101,7 +101,7 @@ impl InstructionBuilder {
         let mut values = vec![stwo_prover::core::fields::m31::M31::from(self.opcode)];
         values.extend(m31_operands);
 
-        Instruction::try_from(values).unwrap_or_else(|e| {
+        Instruction::try_from(values.as_slice()).unwrap_or_else(|e| {
             panic!(
                 "Failed to build instruction: {:?}. Opcode: {}, Operands: {:?}",
                 e, self.opcode, self.operands
