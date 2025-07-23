@@ -85,6 +85,24 @@ where
         .to_vec(),
     });
 
+    // Add memory relation entries for public addresses
+    for (addr, value, clock) in public_data.public_entries.iter().flatten() {
+        let value_array = value.to_m31_array();
+        entries.push(RelationTrackerEntry {
+            relation: "Memory".to_string(),
+            mult: -M31::one(),
+            values: [
+                *addr,
+                *clock,
+                value_array[0],
+                value_array[1],
+                value_array[2],
+                value_array[3],
+            ]
+            .to_vec(),
+        });
+    }
+
     entries
 }
 

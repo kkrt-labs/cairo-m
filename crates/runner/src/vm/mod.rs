@@ -213,7 +213,7 @@ impl VM {
         fp_offset: u32,
         args: &[M31],
         num_return_values: usize,
-        options: RunnerOptions,
+        options: &RunnerOptions,
     ) -> Result<(), VmError> {
         // Write arguments to memory before the frame pointer
         // Arguments should be at [new_fp - M - K - 2 + i] for arg i

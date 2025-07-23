@@ -224,7 +224,7 @@ fn test_run_from_entrypoint() {
 
     // Initial FP is 2 in the default case, we add an offset of 2.
     // We run the program from PC = 1, so the first instruction should be ignored.
-    vm.run_from_entrypoint(1, 2, &[], 0, RunnerOptions::default())
+    vm.run_from_entrypoint(1, 2, &[], 0, &RunnerOptions::default())
         .unwrap();
     assert_vm_state!(vm.state, 2, 4);
     assert_eq!(
@@ -427,7 +427,7 @@ fn run_exponential_recursive_fib_test(n: u32) {
     let mut vm = VM::try_from(&program).unwrap();
 
     let fp_offset = 3;
-    vm.run_from_entrypoint(0, fp_offset, &[], 0, RunnerOptions::default())
+    vm.run_from_entrypoint(0, fp_offset, &[], 0, &RunnerOptions::default())
         .unwrap();
     // Verify that FP is still at the end of the program
     assert_eq!(vm.state.fp, M31(instructions_len + fp_offset));
@@ -450,7 +450,7 @@ fn test_write_binary_trace_per_segment() {
     let mut vm = VM::try_from(&program).unwrap();
 
     // Execute with segments - this will hit step limit and create segments
-    let _ = vm.run_from_entrypoint(0, 3, &[], 0, RunnerOptions { max_steps: 2 });
+    let _ = vm.run_from_entrypoint(0, 3, &[], 0, &RunnerOptions { max_steps: 2 });
 
     // Create a temporary directory for the trace files
     let temp_dir = tempfile::tempdir().unwrap();
@@ -490,7 +490,7 @@ fn test_write_binary_memory_trace_per_segment() {
     let mut vm = VM::try_from(&program).unwrap();
 
     // Execute with segments (limit steps to create multiple segments)
-    let _ = vm.run_from_entrypoint(0, 3, &[], 0, RunnerOptions { max_steps: 2 });
+    let _ = vm.run_from_entrypoint(0, 3, &[], 0, &RunnerOptions { max_steps: 2 });
 
     // Create a temporary directory for the memory trace files
     let temp_dir = tempfile::tempdir().unwrap();

@@ -65,6 +65,7 @@ fn test_prove_and_verify_unchanged_memory() {
             initial_root,
             final_root,
         },
+        public_addresses: vec![],
         memory,
         instructions: Instructions::default(),
     };
@@ -100,8 +101,11 @@ fn test_prove_and_verify_fibonacci_program() {
     )
     .unwrap();
 
-    let mut prover_input =
-        import_from_runner_output(runner_output.vm.segments.into_iter().next().unwrap()).unwrap();
+    let mut prover_input = import_from_runner_output(
+        runner_output.vm.segments.into_iter().next().unwrap(),
+        runner_output.public_addresses,
+    )
+    .unwrap();
     let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
 
     verify_cairo_m::<Blake2sMerkleChannel>(proof, None).unwrap();
@@ -129,8 +133,11 @@ fn test_prove_and_verify_recursive_fibonacci_program() {
     )
     .unwrap();
 
-    let mut prover_input =
-        import_from_runner_output(runner_output.vm.segments.into_iter().next().unwrap()).unwrap();
+    let mut prover_input = import_from_runner_output(
+        runner_output.vm.segments.into_iter().next().unwrap(),
+        runner_output.public_addresses,
+    )
+    .unwrap();
     let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
 
     verify_cairo_m::<Blake2sMerkleChannel>(proof, None).unwrap();
@@ -160,10 +167,13 @@ fn test_hash_continuity_fibonacci() {
     )
     .unwrap();
 
+    let public_addresses = runner_output.public_addresses.clone();
+
     let mut previous_final_root: Option<M31> = None;
 
     for segment in runner_output.vm.segments {
-        let mut prover_input = import_from_runner_output(segment).unwrap();
+        let mut prover_input =
+            import_from_runner_output(segment, public_addresses.clone()).unwrap();
 
         let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
 
@@ -196,8 +206,11 @@ fn test_prove_and_verify_all_opcodes() {
     let runner_output =
         run_cairo_program(&compiled_fib.program, "main", &[], Default::default()).unwrap();
 
-    let mut prover_input =
-        import_from_runner_output(runner_output.vm.segments.into_iter().next().unwrap()).unwrap();
+    let mut prover_input = import_from_runner_output(
+        runner_output.vm.segments.into_iter().next().unwrap(),
+        runner_output.public_addresses,
+    )
+    .unwrap();
     let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
 
     verify_cairo_m::<Blake2sMerkleChannel>(proof, None).unwrap();
@@ -220,8 +233,11 @@ fn test_all_opcodes_constraints() {
     let runner_output =
         run_cairo_program(&compiled_fib.program, "main", &[], Default::default()).unwrap();
 
-    let mut prover_input =
-        import_from_runner_output(runner_output.vm.segments.into_iter().next().unwrap()).unwrap();
+    let mut prover_input = import_from_runner_output(
+        runner_output.vm.segments.into_iter().next().unwrap(),
+        runner_output.public_addresses,
+    )
+    .unwrap();
     assert_constraints(&mut prover_input);
 }
 
@@ -250,8 +266,11 @@ fn test_memory_profile_fibonacci_prover() {
 
     let _profiler = dhat::Profiler::new_heap();
 
-    let mut prover_input =
-        import_from_runner_output(runner_output.segments.into_iter().next().unwrap()).unwrap();
+    let mut prover_input = import_from_runner_output(
+        runner_output.segments.into_iter().next().unwrap(),
+        runner_output.public_addresses,
+    )
+    .unwrap();
     let _proof: cairo_m_prover::Proof<stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleHasher> =
         prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
 }

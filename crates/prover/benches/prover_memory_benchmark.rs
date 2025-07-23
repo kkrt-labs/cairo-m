@@ -49,8 +49,8 @@ fn main() {
     // Reset peak memory tracking before proving
     PEAK_ALLOC.reset_peak_usage();
 
-    let mut prover_input =
-        import_from_runner_output(segment).expect("Failed to import runner output");
+    let mut prover_input = import_from_runner_output(segment, runner_output.public_addresses)
+        .expect("Failed to import runner output");
 
     let _proof =
         prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).expect("Proving failed");
