@@ -6,6 +6,12 @@ use std::path::Path;
 // Include the shared parameters
 include!("src/utils/poseidon/poseidon_params.rs");
 
+/// Build script entry point that generates Poseidon constants at compile time.
+///
+/// This function generates the round constants and MDS matrix required for the Poseidon hash
+/// function and writes them to a generated Rust file. The constants are computed using the
+/// parameters defined in poseidon_params.rs and stored as raw u32 values to avoid runtime
+/// dependencies on field types.
 fn main() {
     // Generate constants as raw u32 values (no M31 dependency)
     let round_constants =
@@ -76,7 +82,22 @@ fn main() {
     println!("cargo:rerun-if-changed=src/utils/poseidon/poseidon_params.rs");
 }
 
-/// Generate round constants using Grain LFSR in self-shrinking mode (u32 version)
+/// Generate round constants using Grain LFSR in self-shrinking mode.
+///
+/// This function implements the Grain Linear Feedback Shift Register (LFSR) in self-shrinking
+/// mode as specified in the Poseidon paper to generate cryptographically secure round constants.
+/// The generated constants are used to break symmetry in the Poseidon permutation.
+///
+/// ## Arguments
+/// * `t` - State size (number of field elements in the state)
+/// * `full_rounds` - Number of full rounds in the permutation
+/// * `partial_rounds` - Number of partial rounds in the permutation
+/// * `p` - Prime field modulus (2^31 - 1 for M31)
+/// * `alpha` - S-box exponent (5 for x^5 S-box)
+/// * `prime_bit_len` - Bit length of the prime field (31 for M31)
+///
+/// ## Returns
+/// Vector of u32 round constants, one for each round and state element
 fn generate_round_constants_u32(
     t: usize,
     full_rounds: usize,
@@ -114,7 +135,19 @@ fn generate_round_constants_u32(
     rc_field
 }
 
-/// Generate MDS matrix using Cauchy construction (u32 version)
+/// Generate Maximum Distance Separable (MDS) matrix using Cauchy construction.
+///
+/// This function generates an MDS matrix that provides optimal diffusion in the Poseidon
+/// linear layer. The Cauchy construction ensures that the matrix has the MDS property,
+/// meaning any t×t submatrix is non-singular, providing maximum branch number.
+///
+/// The matrix elements are computed as: mds[i][j] = 1 / (x_i + y_j) where x_i = i and y_j = t + j.
+///
+/// ## Arguments
+/// * `t` - State size (dimensions of the t×t matrix)
+///
+/// ## Returns
+/// Two-dimensional vector representing the t×t MDS matrix with u32 elements
 fn generate_mds_matrix_u32(t: usize) -> Vec<Vec<u32>> {
     // x_i = i for i in 0..t
     // y_j = t + j for j in 0..t
@@ -132,7 +165,22 @@ fn generate_mds_matrix_u32(t: usize) -> Vec<Vec<u32>> {
     matrix
 }
 
-/// Calculate modular inverse using extended Euclidean algorithm
+/// Calculate modular inverse using the extended Euclidean algorithm.
+///
+/// This function computes the modular multiplicative inverse of `a` modulo `m`, i.e.,
+/// finds x such that (a * x) ≡ 1 (mod m). The extended Euclidean algorithm is used
+/// to find the Bézout coefficients.
+///
+/// ## Arguments
+/// * `a` - The value to find the inverse of
+/// * `m` - The modulus
+///
+/// ## Returns
+/// The modular inverse of `a` modulo `m`
+///
+/// ## Panics
+/// This function assumes that `gcd(a, m) = 1` (i.e., `a` and `m` are coprime).
+/// If they are not coprime, the behavior is undefined.
 fn mod_inverse(a: u32, m: u32) -> u32 {
     fn extended_gcd(a: i64, b: i64) -> (i64, i64, i64) {
         if a == 0 {
@@ -148,7 +196,31 @@ fn mod_inverse(a: u32, m: u32) -> u32 {
     ((x % m as i64 + m as i64) % m as i64) as u32
 }
 
-/// Initialize Grain LFSR state according to Poseidon spec
+/// Initialize Grain LFSR state according to the Poseidon specification.
+///
+/// This function sets up the initial 80-bit state for the Grain LFSR used to generate
+/// round constants. The state encodes the Poseidon parameters to ensure that different
+/// parameter sets produce independent sequences of constants.
+///
+/// The 80-bit state is structured as:
+/// - Field specification (2 bits)
+/// - S-box specification (4 bits)
+/// - Field size (12 bits)
+/// - State size (12 bits)
+/// - Full rounds (10 bits)
+/// - Partial rounds (10 bits)
+/// - Padding with 1s (30 bits)
+///
+/// ## Arguments
+/// * `alpha` - S-box exponent
+/// * `p` - Prime field modulus
+/// * `prime_bit_len` - Bit length of the prime field
+/// * `t` - State size
+/// * `full_rounds` - Number of full rounds
+/// * `partial_rounds` - Number of partial rounds
+///
+/// ## Returns
+/// 80-element boolean vector representing the initial LFSR state
 fn init_grain_state(
     alpha: u32,
     p: u32,
@@ -190,7 +262,13 @@ fn init_grain_state(
     state
 }
 
-/// Update Grain LFSR state
+/// Update Grain LFSR state by one step.
+///
+/// This function implements the Grain LFSR feedback function as specified in the Poseidon paper.
+/// The feedback polynomial is: b_{i+80} = b_{i+62} ⊕ b_{i+51} ⊕ b_{i+38} ⊕ b_{i+23} ⊕ b_{i+13} ⊕ b_i
+///
+/// ## Arguments
+/// * `state` - Mutable reference to the 80-bit LFSR state, updated in place
 fn update_grain_state(state: &mut Vec<bool>) {
     // bi+80 = bi+62 ⊕ bi+51 ⊕ bi+38 ⊕ bi+23 ⊕ bi+13 ⊕ bi
     let new_bit = state[62] ^ state[51] ^ state[38] ^ state[23] ^ state[13] ^ state[0];
@@ -198,7 +276,18 @@ fn update_grain_state(state: &mut Vec<bool>) {
     state.push(new_bit);
 }
 
-/// Generate field element bits using self-shrinking generator
+/// Generate field element bits using self-shrinking generator.
+///
+/// This function implements the self-shrinking generator pattern on the Grain LFSR output
+/// to produce bits for field elements. For each desired output bit, it generates two LFSR
+/// bits and only outputs the second bit if the first bit is 1 (self-shrinking).
+///
+/// ## Arguments
+/// * `state` - Current LFSR state (consumed and updated)
+/// * `prime_bit_len` - Number of bits needed for the field element
+///
+/// ## Returns
+/// Tuple of (updated_state, generated_bits) where generated_bits has length prime_bit_len
 fn generate_field_element_bits(
     mut state: Vec<bool>,
     prime_bit_len: usize,
@@ -225,12 +314,33 @@ fn generate_field_element_bits(
     (state, bits)
 }
 
-/// Convert integer to bits (big-endian, matching Python's bin() representation)
+/// Convert integer to bit vector in big-endian format.
+///
+/// This function converts a u32 integer to a vector of boolean values representing
+/// its binary representation, with the most significant bit first (big-endian).
+/// The output is padded or truncated to the specified length.
+///
+/// ## Arguments
+/// * `n` - The integer to convert
+/// * `len` - The desired length of the output bit vector
+///
+/// ## Returns
+/// Boolean vector of length `len` representing `n` in big-endian binary
 fn to_bits(n: u32, len: usize) -> Vec<bool> {
     (0..len).rev().map(|i| (n >> i) & 1 == 1).collect()
 }
 
-/// Convert bits to u32 (big-endian, matching Python's binary string conversion)
+/// Convert bit vector to u32 integer in big-endian format.
+///
+/// This function converts a slice of boolean values representing a binary number
+/// (most significant bit first) into a u32 integer. This is the inverse operation
+/// of `to_bits`.
+///
+/// ## Arguments
+/// * `bits` - Slice of boolean values representing binary digits (MSB first)
+///
+/// ## Returns
+/// The u32 integer represented by the bit vector
 fn bits_to_u32(bits: &[bool]) -> u32 {
     bits.iter()
         .fold(0u32, |acc, &bit| (acc << 1) | (bit as u32))

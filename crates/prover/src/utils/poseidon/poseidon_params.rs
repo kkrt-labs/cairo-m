@@ -1,7 +1,11 @@
 // Poseidon hash parameters shared between the implementation and build script
 // This is the single source of truth for all Poseidon constants
 
-/// ALPHA: power in the S-Box. The paper suggest x**5 as S-Box so we will use alpha=5. Note that stwo-cairo uses alpha=3.
+/// ALPHA: power in the S-Box. The paper suggest x**5 as S-Box.
+///
+/// Note that stwo-cairo uses alpha=3.
+/// We pick 5 so that gcd(PRIME-1, 5) = 1 holds, indeed gcd(PRIME-1, 3) = 3.
+/// This const is exclusively used in the build script not for the hash computation nor the AIR (where x**5 s-box is hardcoded)
 pub const ALPHA: u32 = 5;
 
 /// P: The prime field modulus (2^31 - 1)
@@ -14,13 +18,15 @@ pub const PRIME_BIT_LEN: usize = 31;
 pub const M: usize = 96;
 
 /// INPUT_SIZE: number of inputs here 2 for hash(M31::from, M31::from)
-pub const INPUT_RATE: usize = 2;
+pub const INPUT_SIZE: usize = 2;
 
-/// CAPACITY_SIZE: number of capacity elements, the paper uses 2*M.
-pub const CAPACITY_SIZE: usize = 2 * M;
+/// CAPACITY_SIZE: number of capacity elements, the paper uses 2*M bits.
+///
+/// We use the div_ceil to ensure that the capacity size is at least 2*M bits.
+pub const CAPACITY_SIZE: usize = (2 * M).div_ceil(PRIME_BIT_LEN);
 
 /// T: State size
-pub const T: usize = INPUT_RATE + CAPACITY_SIZE;
+pub const T: usize = INPUT_SIZE + CAPACITY_SIZE;
 
 /// FULL_ROUNDS
 /// The poseidon paper uses 8 full rounds as the minimum number of RF + 2.
