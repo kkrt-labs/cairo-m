@@ -24,6 +24,9 @@ fn test_struct_literals() {
             "#,
         ],
         err: [
+            // Duplicated field names
+            "struct Point {x: felt, x: felt}",
+
             // TODO: This errors because we cant infer u32 type from struct literals (yet). TODO: fix
             r#"
             struct Point { x: felt, y: felt }

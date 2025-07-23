@@ -62,7 +62,6 @@ impl fmt::Display for DiagnosticSeverity {
         }
     }
 }
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DiagnosticCode {
     // Parse-related errors (0-999)
@@ -78,6 +77,9 @@ pub enum DiagnosticCode {
     DuplicateDefinition,
     UseBeforeDefinition,
     UnresolvedImport,
+    DuplicateParameter,
+    DuplicateStructField,
+    DuplicatePatternIdentifier,
 
     // Type-related errors (2000-2999)
     TypeMismatch,
@@ -130,6 +132,9 @@ impl From<DiagnosticCode> for u32 {
             DiagnosticCode::DuplicateDefinition => 1003,
             DiagnosticCode::UseBeforeDefinition => 1004,
             DiagnosticCode::UnresolvedImport => 1005,
+            DiagnosticCode::DuplicateParameter => 1006,
+            DiagnosticCode::DuplicateStructField => 1007,
+            DiagnosticCode::DuplicatePatternIdentifier => 1008,
             DiagnosticCode::TypeMismatch => 2001,
             DiagnosticCode::InvalidFieldAccess => 2002,
             DiagnosticCode::InvalidIndexAccess => 2003,

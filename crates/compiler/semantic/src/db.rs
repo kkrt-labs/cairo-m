@@ -86,6 +86,7 @@ pub fn project_validate_semantics(db: &dyn SemanticDb, crate_id: Crate) -> Diagn
                     .unwrap_or_else(|| panic!("Module file should exist: {}", module_name));
                 let module_diagnostics = registry.validate_all(db, crate_id, module_file, index);
                 coll.extend(module_diagnostics);
+                coll.extend(index.semantic_syntax_errors.clone());
             }
             coll
         }
@@ -428,7 +429,7 @@ pub fn module_semantic_index(
         )
     });
 
-    semantic_index_from_module(&parsed_module, file)
+    semantic_index_from_module(db, &parsed_module, file)
 }
 
 /// Get parse diagnostics for a specific module
@@ -467,7 +468,9 @@ pub fn module_semantic_diagnostics(
         let index = module_semantic_index(db, crate_id, module_name.clone());
         let registry = create_default_registry();
 
-        registry.validate_all(db, crate_id, *file, &index)
+        let mut validate_diags = registry.validate_all(db, crate_id, *file, &index);
+        validate_diags.extend(index.semantic_syntax_errors);
+        validate_diags
     } else {
         DiagnosticCollection::default()
     }

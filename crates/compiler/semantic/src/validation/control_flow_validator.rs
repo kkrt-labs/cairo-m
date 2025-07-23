@@ -98,15 +98,6 @@ impl ControlFlowValidator {
                     function_def.name.span(),
                 ));
             }
-
-            // Pass 3: Break/continue validation
-            Self::analyze_break_continue_in_sequence(
-                db,
-                file,
-                &function_def.body,
-                0, // Start with loop depth 0
-                diagnostics,
-            );
         }
     }
 
@@ -383,105 +374,6 @@ impl ControlFlowValidator {
             Statement::For { .. } => "for loop",
             Statement::Break => "break statement",
             Statement::Continue => "continue statement",
-        }
-    }
-
-    // ---------------------------------------------------------------------
-    // Break/continue validation
-    // ---------------------------------------------------------------------
-
-    /// Analyze a sequence of statements for break/continue outside of loops.
-    fn analyze_break_continue_in_sequence(
-        db: &dyn SemanticDb,
-        file: File,
-        statements: &[Spanned<Statement>],
-        loop_depth: usize,
-        diagnostics: &mut Vec<Diagnostic>,
-    ) {
-        for stmt in statements {
-            Self::analyze_break_continue_in_statement(db, file, stmt, loop_depth, diagnostics);
-        }
-    }
-
-    /// Analyze a single statement for break/continue validation.
-    fn analyze_break_continue_in_statement(
-        db: &dyn SemanticDb,
-        file: File,
-        stmt: &Spanned<Statement>,
-        loop_depth: usize,
-        diagnostics: &mut Vec<Diagnostic>,
-    ) {
-        match stmt.value() {
-            Statement::Break => {
-                if loop_depth == 0 {
-                    diagnostics.push(Diagnostic::break_outside_loop(
-                        file.file_path(db).to_string(),
-                        stmt.span(),
-                    ));
-                }
-            }
-            Statement::Continue => {
-                if loop_depth == 0 {
-                    diagnostics.push(Diagnostic::continue_outside_loop(
-                        file.file_path(db).to_string(),
-                        stmt.span(),
-                    ));
-                }
-            }
-            Statement::Loop { body } => {
-                Self::analyze_break_continue_in_statement(
-                    db,
-                    file,
-                    body,
-                    loop_depth + 1,
-                    diagnostics,
-                );
-            }
-            Statement::While { body, .. } => {
-                Self::analyze_break_continue_in_statement(
-                    db,
-                    file,
-                    body,
-                    loop_depth + 1,
-                    diagnostics,
-                );
-            }
-            Statement::For { .. } => {
-                // TODO: For loops not yet supported
-                panic!("For loops are not yet supported - need iterator/range types");
-            }
-            Statement::If {
-                then_block,
-                else_block,
-                ..
-            } => {
-                Self::analyze_break_continue_in_statement(
-                    db,
-                    file,
-                    then_block,
-                    loop_depth,
-                    diagnostics,
-                );
-                if let Some(else_block) = else_block {
-                    Self::analyze_break_continue_in_statement(
-                        db,
-                        file,
-                        else_block,
-                        loop_depth,
-                        diagnostics,
-                    );
-                }
-            }
-            Statement::Block(statements) => {
-                Self::analyze_break_continue_in_sequence(
-                    db,
-                    file,
-                    statements,
-                    loop_depth,
-                    diagnostics,
-                );
-            }
-            _ => {} // Other statements don't contain nested statements
         }
     }
 }

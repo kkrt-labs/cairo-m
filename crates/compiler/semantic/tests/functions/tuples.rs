@@ -11,10 +11,11 @@ fn test_tuple_destructuring() {
             in_function("let (x, y) = (1, 2); { let (x, y) = (10, 20); let sum = x + y; } let sum = x + y;"),
         ],
         err: [
-            "fn test() { let (x, y) = 42; }", // Error: Cannot destructure non-tuple
-            "fn test() { let (x, y) = (1, 2, 3); }", // Error: Pattern has 2 elements but value has 3
-            "fn test() { let (x, y): felt = (1, 2); }", // Error: Expected felt, found tuple
-        ]
+            in_function("let (x, y) = 42;"), // Error: Cannot destructure non-tuple
+            in_function("let (x, y) = (1, 2, 3);"), // Error: Pattern has 2 elements but value has 3
+            in_function("let (x, y): felt = (1, 2);"), // Error: Expected felt, found tuple
+            in_function("let (x, x) = (1, 2);"), // Error: Duplicate pattern identifier
+            ]
     }
 }
 

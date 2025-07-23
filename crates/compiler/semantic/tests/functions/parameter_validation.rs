@@ -16,9 +16,9 @@ fn test_function_parameters() {
             "fn test(param: felt) -> felt { let param = 42; return param; }",
             "fn test(param: felt) -> felt { { let param = 100; return param; } }",
             "fn helper(x: felt) -> felt { return x * 2; } fn test(param: felt) -> felt { return helper(param); }",
-        ],
-        err: [
-            // Duplicate parameter names
+            ],
+            err: [
+                // Duplicate parameter names
             "fn test(x: felt, x: felt) -> felt { return x; }",
             // Incompatible types
             "fn foo(x: felt){return;} \n fn test(){foo(true); return;}"
