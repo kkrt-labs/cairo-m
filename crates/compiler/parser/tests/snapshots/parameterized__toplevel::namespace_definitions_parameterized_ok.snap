@@ -59,8 +59,14 @@ namespace Utils { fn helper() -> felt { return 1; } }
                                     21..27,
                                 ),
                                 params: [],
-                                return_type: Named(
-                                    Felt,
+                                return_type: Spanned(
+                                    Named(
+                                        Spanned(
+                                            Felt,
+                                            33..37,
+                                        ),
+                                    ),
+                                    33..37,
                                 ),
                                 body: [
                                     Spanned(

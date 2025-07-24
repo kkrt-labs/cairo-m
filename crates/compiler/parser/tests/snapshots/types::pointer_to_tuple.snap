@@ -19,22 +19,43 @@ fn test(x: (felt, felt)*) { }
                             "x",
                             8..9,
                         ),
-                        type_expr: Pointer(
-                            Tuple(
-                                [
-                                    Named(
-                                        Felt,
+                        type_expr: Spanned(
+                            Pointer(
+                                Spanned(
+                                    Tuple(
+                                        [
+                                            Spanned(
+                                                Named(
+                                                    Spanned(
+                                                        Felt,
+                                                        12..16,
+                                                    ),
+                                                ),
+                                                12..16,
+                                            ),
+                                            Spanned(
+                                                Named(
+                                                    Spanned(
+                                                        Felt,
+                                                        18..22,
+                                                    ),
+                                                ),
+                                                18..22,
+                                            ),
+                                        ],
                                     ),
-                                    Named(
-                                        Felt,
-                                    ),
-                                ],
+                                    11..23,
+                                ),
                             ),
+                            11..24,
                         ),
                     },
                 ],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [],
             },

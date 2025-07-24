@@ -19,17 +19,29 @@ fn test(x: MyStruct*) { }
                             "x",
                             8..9,
                         ),
-                        type_expr: Pointer(
-                            Named(
-                                Custom(
-                                    "MyStruct",
+                        type_expr: Spanned(
+                            Pointer(
+                                Spanned(
+                                    Named(
+                                        Spanned(
+                                            Custom(
+                                                "MyStruct",
+                                            ),
+                                            11..19,
+                                        ),
+                                    ),
+                                    11..19,
                                 ),
                             ),
+                            11..20,
                         ),
                     },
                 ],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [],
             },

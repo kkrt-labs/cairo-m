@@ -19,20 +19,38 @@ fn test(x: (felt, felt)) { }
                             "x",
                             8..9,
                         ),
-                        type_expr: Tuple(
-                            [
-                                Named(
-                                    Felt,
-                                ),
-                                Named(
-                                    Felt,
-                                ),
-                            ],
+                        type_expr: Spanned(
+                            Tuple(
+                                [
+                                    Spanned(
+                                        Named(
+                                            Spanned(
+                                                Felt,
+                                                12..16,
+                                            ),
+                                        ),
+                                        12..16,
+                                    ),
+                                    Spanned(
+                                        Named(
+                                            Spanned(
+                                                Felt,
+                                                18..22,
+                                            ),
+                                        ),
+                                        18..22,
+                                    ),
+                                ],
+                            ),
+                            11..23,
                         ),
                     },
                 ],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [],
             },
