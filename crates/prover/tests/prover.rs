@@ -69,7 +69,6 @@ fn test_prove_and_verify_unchanged_memory() {
         public_addresses: vec![],
         memory,
         instructions: Instructions::default(),
-        clock_update_data: vec![],
     };
 
     let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
@@ -108,6 +107,41 @@ fn test_prove_and_verify_fibonacci_program() {
         runner_output.public_addresses,
     )
     .unwrap();
+    let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
+
+    verify_cairo_m::<Blake2sMerkleChannel>(proof, None).unwrap();
+}
+
+#[test]
+fn test_prove_and_verify_large_fibonacci_program() {
+    let source_path = format!(
+        "{}/tests/test_data/{}",
+        env!("CARGO_MANIFEST_DIR"),
+        "fibonacci.cm"
+    );
+    let compiled_fib = compile_cairo(
+        fs::read_to_string(&source_path).unwrap(),
+        source_path,
+        CompilerOptions::default(),
+    )
+    .unwrap();
+
+    let runner_output = run_cairo_program(
+        &compiled_fib.program,
+        "fib",
+        &[M31::from(1_000_000)],
+        RunnerOptions {
+            max_steps: 2_usize.pow(30),
+        },
+    )
+    .unwrap();
+
+    let mut prover_input = import_from_runner_output(
+        runner_output.vm.segments.into_iter().next().unwrap(),
+        runner_output.public_addresses,
+    )
+    .unwrap();
+
     let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
 
     verify_cairo_m::<Blake2sMerkleChannel>(proof, None).unwrap();

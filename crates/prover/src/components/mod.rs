@@ -103,7 +103,7 @@ impl Claim {
 
         // Write clock update trace
         let (clock_update_claim, clock_update_trace, clock_update_interaction_claim_data) =
-            clock_update::Claim::write_trace(&input.clock_update_data);
+            clock_update::Claim::write_trace(&input.memory.clock_update_data);
 
         // Write range_check components
         let opcodes_range_check_data = opcodes_interaction_claim_data.range_check_20();

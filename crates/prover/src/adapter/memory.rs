@@ -227,40 +227,13 @@ impl Memory {
                 (memory_entry.value, memory_entry.clock, -M31::one()),
             )
             .unwrap_or_else(|| (memory_entry.value, M31::zero(), -M31::one()));
-
-        // Check for large clock deltas and generate clock update data if needed
-        let prev_clk = prev_memory_entry.1;
+        let mut prev_clk = prev_memory_entry.1;
         let current_clk = memory_entry.clock;
-        if current_clk.0 > prev_clk.0 {
-            let delta = current_clk.0 - prev_clk.0;
-            if delta >= RC20_LIMIT {
-                // Generate clock update entries for this large delta
-                let num_steps = delta / RC20_LIMIT;
-
-                for i in 0..num_steps {
-                    let step_clk = prev_clk + M31::from((i + 1) * RC20_LIMIT);
-
-                    // Add intermediate memory entry for the clock update component to read
-                    // This ensures the memory component can verify the clock transition
-                    self.final_memory.insert(
-                        (memory_entry.address, M31::from(TREE_HEIGHT)),
-                        (memory_entry.value, step_clk, -M31::one()),
-                    );
-
-                    self.clock_update_data.push((
-                        memory_entry.address,
-                        prev_clk + M31::from(i * RC20_LIMIT),
-                        step_clk,
-                        memory_entry.value,
-                    ));
-                }
-            }
-        }
 
         // If it's the first time we use a memory cell,
         // We insert it in the initial memory with multiplicity 1.
         // Thus we extend the initial memory (initial from the VM point of view) with first accesses.
-        if prev_memory_entry.1 == M31::zero() {
+        if prev_clk == M31::zero() {
             if let Some(initial_memory_cell) = self
                 .initial_memory
                 .get_mut(&(memory_entry.address, M31::from(TREE_HEIGHT)))
@@ -276,12 +249,36 @@ impl Memory {
             }
         };
 
+        // Because of sparse memory cases, we need to use the initial memory entry updated as above
+        let initial_memory_entry = self
+            .initial_memory
+            .get(&(memory_entry.address, M31::from(TREE_HEIGHT)));
+        // Check for large clock deltas and generate clock update data if needed
+        if current_clk.0 > prev_clk.0 {
+            let delta = current_clk.0 - prev_clk.0;
+            if delta > RC20_LIMIT {
+                // Generate clock update entries for this large delta
+                let num_steps = delta / RC20_LIMIT;
+
+                for _ in 0..num_steps {
+                    let step_clk = prev_clk + M31::from(RC20_LIMIT);
+                    self.clock_update_data.push((
+                        memory_entry.address,
+                        prev_clk,
+                        step_clk,
+                        initial_memory_entry.unwrap().0,
+                    ));
+                    prev_clk = step_clk;
+                }
+            }
+        }
+
         MemoryArg {
             address: memory_entry.address,
             prev_val: prev_memory_entry.0,
             value: memory_entry.value,
-            prev_clock: prev_memory_entry.1,
-            clock: memory_entry.clock,
+            prev_clock: prev_clk, // prev_clk is the last step_clock if intermediate steps there are
+            clock: current_clk,
         }
     }
 }
@@ -446,42 +443,6 @@ mod tests {
                 M31::one(),
             )
         );
-    }
-
-    #[test]
-    fn test_memory_push_large_clock_delta() {
-        let mut memory = Memory::default();
-
-        // First entry
-        let first_entry = MemoryEntry {
-            address: M31::from(100),
-            value: QM31::from_u32_unchecked(1, 2, 3, 4),
-            clock: M31::from(10),
-        };
-        memory.push(first_entry);
-
-        // Second entry with large clock delta > 2^20
-        let large_delta = RC20_LIMIT + 1000;
-        let second_entry = MemoryEntry {
-            address: M31::from(100),
-            value: QM31::from_u32_unchecked(5, 6, 7, 8),
-            clock: M31::from(10 + large_delta),
-        };
-
-        let result = memory.push(second_entry);
-
-        // Verify the result
-        assert_eq!(result.address, M31::from(100));
-        assert_eq!(result.prev_clock, M31::from(10));
-        assert_eq!(result.clock, M31::from(10 + large_delta));
-
-        // Verify clock update data was generated
-        assert_eq!(memory.clock_update_data.len(), 1);
-        let clock_update = &memory.clock_update_data[0];
-        assert_eq!(clock_update.0, M31::from(100)); // address
-        assert_eq!(clock_update.1, M31::from(10)); // prev_clk
-        assert_eq!(clock_update.2, M31::from(10 + RC20_LIMIT)); // clk
-        assert_eq!(clock_update.3, QM31::from_u32_unchecked(5, 6, 7, 8)); // value
     }
 
     #[test]

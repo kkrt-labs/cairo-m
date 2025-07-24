@@ -27,7 +27,6 @@ pub struct ProverInput {
     pub memory: Memory,
     pub instructions: Instructions,
     pub public_addresses: Vec<M31>,
-    pub clock_update_data: Vec<(M31, M31, M31, QM31)>,
 }
 
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
@@ -93,9 +92,6 @@ where
         "Initial and final memory keys do not match"
     );
 
-    // Extract clock update data
-    let clock_update_data = memory.clock_update_data.clone();
-
     // Set multiplicities to 0 for **USED** public addresses in final memory so that they can be consumed seperately in the PublicData.
     // Set them to 1 for **UNUSED** public addresses (as the public data consumes them no matter what)
     for &addr in &public_addresses {
@@ -136,7 +132,6 @@ where
             final_registers,
             states_by_opcodes,
         },
-        clock_update_data,
     })
 }
 
