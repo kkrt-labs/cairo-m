@@ -20,3 +20,19 @@ fn test_let_statements() {
         ]
     }
 }
+
+#[test]
+fn test_let_statements_with_type_annotation() {
+    assert_semantic_parameterized! {
+        ok: [
+            in_function("let x: felt = 42;"),
+            in_function("let x: u32 = 42;"),
+            in_function("let x: u32 = 42u32;"),
+            in_function("let x: felt = 42felt;"),
+        ],
+        err: [
+            in_function("let x: felt = 32u32;"),
+            in_function("let x: u32 = 32felt;"),
+        ]
+    }
+}

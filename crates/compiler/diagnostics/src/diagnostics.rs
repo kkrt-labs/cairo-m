@@ -62,6 +62,7 @@ impl fmt::Display for DiagnosticSeverity {
         }
     }
 }
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DiagnosticCode {
     // Parse-related errors (0-999)
