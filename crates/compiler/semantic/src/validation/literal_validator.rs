@@ -100,7 +100,7 @@ impl LiteralValidator {
         diagnostics: &mut Vec<Diagnostic>,
     ) {
         match expr {
-            Expression::Literal(value) => {
+            Expression::Literal(value, _) => {
                 if *value as u64 > u32::MAX as u64 {
                     diagnostics.push(
                         Diagnostic::error(

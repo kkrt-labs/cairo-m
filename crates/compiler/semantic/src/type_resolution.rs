@@ -312,7 +312,7 @@ pub fn expression_semantic_type<'db>(
 
     // Access the AST node directly from ExpressionInfo - no lookup needed!
     match &expr_info.ast_node {
-        Expression::Literal(_) => {
+        Expression::Literal(_, literal_suffix) => {
             // TODO: make this more efficient.
             if let Some(type_ast) =
                 find_explicit_type_for_let_initializer(semantic_index, expression_id)
@@ -323,10 +323,21 @@ pub fn expression_semantic_type<'db>(
 
                 // If the context expects a u32, infer the literal as u32.
                 // This can be extended for other integer types in the future.
-                if matches!(expected_type.data(db), TypeData::U32) {
+                if matches!(expected_type.data(db), TypeData::U32)
+                    || matches!(expected_type.data(db), TypeData::Felt)
+                {
                     return expected_type;
                 }
             }
+
+            if let Some(literal_suffix) = literal_suffix {
+                let expected_type = TypeData::from(literal_suffix);
+                if matches!(expected_type, TypeData::U32) || matches!(expected_type, TypeData::Felt)
+                {
+                    return TypeId::new(db, expected_type);
+                }
+            }
+
             // If no specific context is found, default to `felt`.
             TypeId::new(db, TypeData::Felt)
         }
@@ -872,7 +883,7 @@ mod tests {
         for (expr_id, expr_info) in all_expressions {
             // Verify that we can access the AST node directly without lookup
             match &expr_info.ast_node {
-                Expression::Literal(value) => {
+                Expression::Literal(value, _) => {
                     // Test that we can access literal values directly
                     assert_eq!(*value, 42);
 
@@ -927,7 +938,7 @@ mod tests {
 
             // Record the expression variant we found
             let variant_name = match &expr_info.ast_node {
-                Expression::Literal(_) => "Literal",
+                Expression::Literal(_, _) => "Literal",
                 Expression::BooleanLiteral(_) => "BooleanLiteral",
                 Expression::Identifier(_) => "Identifier",
                 Expression::UnaryOp { .. } => "UnaryOp",
@@ -945,7 +956,7 @@ mod tests {
 
             // Basic sanity checks
             match &expr_info.ast_node {
-                Expression::Literal(_) => {
+                Expression::Literal(_, _) => {
                     assert!(matches!(expr_type.data(&db), TypeData::Felt));
                 }
                 Expression::BinaryOp {

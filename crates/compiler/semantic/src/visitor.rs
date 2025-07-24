@@ -116,7 +116,7 @@ pub fn walk_type_expr<'ast, V: Visitor<'ast> + ?Sized>(
             }
         }
         TypeExpr::Named(_) => {
-            // Leaf node for traversal, will be handled by the implementation
+            // Specific to implementing visitors.
         }
     }
 }

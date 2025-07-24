@@ -29,18 +29,21 @@ fn test() { (1, 2, 3); }
                                         Spanned(
                                             Literal(
                                                 1,
+                                                None,
                                             ),
                                             13..14,
                                         ),
                                         Spanned(
                                             Literal(
                                                 2,
+                                                None,
                                             ),
                                             16..17,
                                         ),
                                         Spanned(
                                             Literal(
                                                 3,
+                                                None,
                                             ),
                                             19..20,
                                         ),
@@ -89,12 +92,14 @@ fn test() { ((1, 2), (3, 4)); }
                                                     Spanned(
                                                         Literal(
                                                             1,
+                                                            None,
                                                         ),
                                                         14..15,
                                                     ),
                                                     Spanned(
                                                         Literal(
                                                             2,
+                                                            None,
                                                         ),
                                                         17..18,
                                                     ),
@@ -108,12 +113,14 @@ fn test() { ((1, 2), (3, 4)); }
                                                     Spanned(
                                                         Literal(
                                                             3,
+                                                            None,
                                                         ),
                                                         22..23,
                                                     ),
                                                     Spanned(
                                                         Literal(
                                                             4,
+                                                            None,
                                                         ),
                                                         25..26,
                                                     ),

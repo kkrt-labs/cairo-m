@@ -1505,7 +1505,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 Ok(Value::operand(dest))
             }
 
-            Expression::Literal(_)
+            Expression::Literal(_, _)
             | Expression::BooleanLiteral(_)
             | Expression::FunctionCall { .. }
             | Expression::UnaryOp { .. }
@@ -1535,7 +1535,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         // Use expr_info.ast_node instead of expr.value()
         match &expr_info.ast_node {
-            Expression::Literal(n) => Ok(Value::integer(*n as i32)),
+            Expression::Literal(n, _) => Ok(Value::integer(*n as i32)),
 
             Expression::BooleanLiteral(b) => Ok(Value::boolean(*b)),
 

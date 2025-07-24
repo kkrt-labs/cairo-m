@@ -870,6 +870,12 @@ where
                     self.visit_type_expr(ty);
                 }
 
+                if let Some(ty) = statement_type {
+                    self.with_semantic_checker(|checker, builder| {
+                        checker.check_let_stmt_type_cohesion(builder, value, ty);
+                    });
+                }
+
                 self.with_semantic_checker(|checker, builder| {
                     checker.check_pattern(builder, pattern);
                 });
@@ -1112,7 +1118,7 @@ where
                     self.visit_expr(expr);
                 }
             }
-            Expression::Literal(_) | Expression::BooleanLiteral(_) => {
+            Expression::Literal(_, _) | Expression::BooleanLiteral(_) => {
                 // Leaf nodes - no sub-expressions
             }
         }

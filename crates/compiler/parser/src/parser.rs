@@ -36,7 +36,7 @@ use chumsky::input::ValueInput;
 use chumsky::prelude::*;
 
 use crate::SourceFile;
-use crate::lexer::TokenType;
+use crate::lexer::{TokenType, VALID_SUFFIXES};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum NamedType {
@@ -120,7 +120,8 @@ pub enum BinaryOp {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Expression {
     /// Integer literal (e.g., `42`, `0`, `1337`)
-    Literal(u32),
+    /// The optional string represents a type suffix (e.g., "u32" in `42u32`)
+    Literal(u32, Option<String>),
     /// Boolean literal (e.g., `true`, `false`)
     BooleanLiteral(bool),
     /// Variable identifier (e.g., `x`, `my_var`, `result`)
@@ -560,8 +561,23 @@ where
         // Atomic expressions (cannot be broken down further)
 
         // Integer literals (e.g., 42, 0, 1337)
-        let literal = select! { TokenType::LiteralNumber(n) => Expression::Literal(n) }
-            .map_with(|lit, extra| Spanned::new(lit, extra.span()));
+        let literal = select! {
+            TokenType::LiteralNumber(lit) => Expression::Literal(lit.value, lit.suffix.map(|s| s.to_string()))
+        }
+            .map_with(|lit, extra| Spanned::new(lit, extra.span()))
+            .validate(|expr, _span, emitter| {
+                // Validate suffix if present
+                if let Expression::Literal(_, Some(ref suffix)) = expr.value() {
+                    // For now, only allow known type suffixes
+                    if !VALID_SUFFIXES.contains(&suffix.as_str()) {
+                        emitter.emit(Rich::custom(
+                            expr.span(),
+                            format!("Unknown type suffix '{}'", suffix),
+                        ));
+                    }
+                }
+                expr
+            });
 
         // Boolean literals (e.g., true, false)
         let boolean_literal = select! {

@@ -58,6 +58,7 @@ fn test_loops() {
                                                 value: Spanned(
                                                     Literal(
                                                         1,
+                                                        None,
                                                     ),
                                                     66..67,
                                                 ),
@@ -81,6 +82,7 @@ fn test_loops() {
                                                         right: Spanned(
                                                             Literal(
                                                                 1,
+                                                                None,
                                                             ),
                                                             86..87,
                                                         ),
@@ -121,6 +123,7 @@ fn test_loops() {
                             value: Spanned(
                                 Literal(
                                     0,
+                                    None,
                                 ),
                                 163..164,
                             ),
@@ -144,6 +147,7 @@ fn test_loops() {
                                     right: Spanned(
                                         Literal(
                                             10,
+                                            None,
                                         ),
                                         188..190,
                                     ),
@@ -179,6 +183,7 @@ fn test_loops() {
                                                         right: Spanned(
                                                             Literal(
                                                                 1,
+                                                                None,
                                                             ),
                                                             222..223,
                                                         ),

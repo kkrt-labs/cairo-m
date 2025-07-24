@@ -3,6 +3,15 @@ use std::fmt;
 
 use logos::Logos;
 
+pub const VALID_SUFFIXES: &[&str] = &["felt", "u32"];
+
+/// A numeric literal with an optional type suffix
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NumberLiteral<'a> {
+    pub value: u32,
+    pub suffix: Option<&'a str>,
+}
+
 /// Custom error type for lexing errors in the Cairo-M language.
 ///
 /// This enum represents different types of errors that can occur during lexical analysis,
@@ -28,6 +37,8 @@ pub enum NumberParseError {
     Overflow,
     /// The number format is invalid (e.g., invalid characters for the base)
     InvalidFormat,
+    /// The suffix is invalid (e.g., not a valid type)
+    InvalidSuffix,
     /// An unknown parsing error occurred
     Unknown(String),
 }
@@ -51,6 +62,7 @@ impl fmt::Display for NumberParseError {
             Self::Overflow => write!(f, "Value is higher than u32::max"),
             Self::InvalidFormat => write!(f, "Invalid number format"),
             Self::Unknown(s) => write!(f, "{s}"),
+            Self::InvalidSuffix => write!(f, "Invalid suffix"),
         }
     }
 }
@@ -58,12 +70,14 @@ impl fmt::Display for NumberParseError {
 /// Helper function to parse numeric literals with proper error reporting.
 ///
 /// This function handles different numeric bases (decimal, hexadecimal, octal, binary)
-/// and provides detailed error information when parsing fails.
-fn parse_number_literal<'a>(lex: &logos::Lexer<'a, TokenType<'a>>) -> Result<u32, LexingError> {
+/// and optional type suffixes, providing detailed error information when parsing fails.
+fn parse_number_literal<'a>(
+    lex: &logos::Lexer<'a, TokenType<'a>>,
+) -> Result<NumberLiteral<'a>, LexingError> {
     let slice = lex.slice();
 
     // Parse based on prefix to determine the base
-    let (number_str, base) = if slice.starts_with("0x") || slice.starts_with("0X") {
+    let (remaining, base) = if slice.starts_with("0x") || slice.starts_with("0X") {
         (&slice[2..], 16)
     } else if slice.starts_with("0o") || slice.starts_with("0O") {
         (&slice[2..], 8)
@@ -73,9 +87,55 @@ fn parse_number_literal<'a>(lex: &logos::Lexer<'a, TokenType<'a>>) -> Result<u32
         (slice, 10)
     };
 
+    // Find where the number ends and the suffix begins
+    // Check for known suffixes first to handle ambiguous cases like "0xFFfelt"
+    let digit_end = VALID_SUFFIXES
+        .iter()
+        .filter_map(|&suffix| {
+            remaining.rfind(suffix).map(|pos| {
+                // Make sure the suffix is at a valid position (after at least one digit)
+                if pos > 0 && remaining[pos..] == *suffix {
+                    pos
+                } else {
+                    remaining.len()
+                }
+            })
+        })
+        .min()
+        .unwrap_or_else(|| {
+            // Fallback to the standard approach
+            remaining
+                .find(|c: char| !c.is_digit(base))
+                .unwrap_or(remaining.len())
+        });
+
+    let (number_str, suffix_str) = remaining.split_at(digit_end);
+
+    // Check for empty number string (e.g., "0x" followed by non-hex chars)
+    if number_str.is_empty() {
+        return Err(LexingError::InvalidNumber {
+            value: slice.to_string(),
+            reason: NumberParseError::InvalidFormat,
+        });
+    }
+
+    // Parse suffix if present
+    let suffix = if suffix_str.is_empty() {
+        None
+    } else {
+        // Validate that suffix starts with a letter or underscore (not a digit)
+        if suffix_str.chars().next().unwrap().is_numeric() {
+            return Err(LexingError::InvalidNumber {
+                value: slice.to_string(),
+                reason: NumberParseError::InvalidFormat,
+            });
+        }
+        Some(suffix_str)
+    };
+
     // Parse the number string as u32
     match u32::from_str_radix(number_str, base) {
-        Ok(n) => Ok(n),
+        Ok(n) => Ok(NumberLiteral { value: n, suffix }),
         Err(err) => {
             let reason = match err.kind() {
                 std::num::IntErrorKind::PosOverflow | std::num::IntErrorKind::NegOverflow => {
@@ -100,10 +160,10 @@ fn parse_number_literal<'a>(lex: &logos::Lexer<'a, TokenType<'a>>) -> Result<u32
 pub enum TokenType<'a> {
     // Literals
     #[regex(
-        r"[0-9]+|0[xX][0-9a-fA-F]*[a-zA-Z]*|0[oO][0-7]*[a-zA-Z0-9]*|0[bB][01]*[a-zA-Z0-9]*",
+        r"(0[xX][0-9a-fA-F]+|0[oO][0-7]+|0[bB][01]+|[0-9]+)([a-zA-Z_][a-zA-Z0-9_]*)?",
         parse_number_literal
     )]
-    LiteralNumber(u32),
+    LiteralNumber(NumberLiteral<'a>),
     // Keywords
     #[token("as")]
     As,
@@ -203,7 +263,13 @@ pub enum TokenType<'a> {
 impl<'a> fmt::Display for TokenType<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TokenType::LiteralNumber(n) => write!(f, "{n}"),
+            TokenType::LiteralNumber(literal) => {
+                if let Some(s) = literal.suffix {
+                    write!(f, "{}{s}", literal.value)
+                } else {
+                    write!(f, "{}", literal.value)
+                }
+            }
             TokenType::Identifier(s) => write!(f, "{s}"),
             TokenType::As => write!(f, "as"),
             TokenType::Const => write!(f, "const"),
@@ -325,7 +391,10 @@ mod tests {
             TokenType::If,
             TokenType::Identifier("result"),
             TokenType::EqEq,
-            TokenType::LiteralNumber(0),
+            TokenType::LiteralNumber(NumberLiteral {
+                value: 0,
+                suffix: None,
+            }),
             TokenType::LBrace,
             TokenType::Return,
             TokenType::Identifier("result"),
@@ -334,7 +403,10 @@ mod tests {
             TokenType::Else,
             TokenType::LBrace,
             TokenType::Return,
-            TokenType::LiteralNumber(0),
+            TokenType::LiteralNumber(NumberLiteral {
+                value: 0,
+                suffix: None,
+            }),
             TokenType::Semicolon,
             TokenType::RBrace,
             TokenType::RBrace,
@@ -343,15 +415,24 @@ mod tests {
             TokenType::Eq,
             TokenType::Identifier("add"),
             TokenType::LParen,
-            TokenType::LiteralNumber(10),
+            TokenType::LiteralNumber(NumberLiteral {
+                value: 10,
+                suffix: None,
+            }),
             TokenType::Comma,
-            TokenType::LiteralNumber(20),
+            TokenType::LiteralNumber(NumberLiteral {
+                value: 20,
+                suffix: None,
+            }),
             TokenType::RParen,
             TokenType::Semicolon,
             TokenType::Const,
             TokenType::Identifier("MAX_SIZE"),
             TokenType::Eq,
-            TokenType::LiteralNumber(100),
+            TokenType::LiteralNumber(NumberLiteral {
+                value: 100,
+                suffix: None,
+            }),
             TokenType::Semicolon,
             TokenType::Let,
             TokenType::Identifier("array"),
@@ -362,7 +443,10 @@ mod tests {
             TokenType::Semicolon,
             TokenType::Identifier("array"),
             TokenType::LBrack,
-            TokenType::LiteralNumber(1),
+            TokenType::LiteralNumber(NumberLiteral {
+                value: 1,
+                suffix: None,
+            }),
             TokenType::RBrack,
             TokenType::Semicolon,
         ];
@@ -467,8 +551,34 @@ mod tests {
             let tokens: Vec<_> = lexer.spanned().collect();
             assert_eq!(tokens.len(), 1, "Input: {input}");
             match &tokens[0].0 {
-                Ok(TokenType::LiteralNumber(n)) => {
-                    assert_eq!(*n, expected, "Input: {input}");
+                Ok(TokenType::LiteralNumber(literal)) => {
+                    assert_eq!(literal.value, expected, "Input: {input}");
+                    assert_eq!(literal.suffix, None, "Input: {input}");
+                }
+                other => panic!("Expected LiteralNumber for input '{input}', got: {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_number_suffixes() {
+        // Test numbers with type suffixes
+        let test_cases = vec![
+            ("42felt", 42, Some("felt")),
+            ("100u32", 100, Some("u32")),
+            ("0xFFfelt", 255, Some("felt")),
+            ("0b1010u32", 10, Some("u32")),
+            ("0o77felt", 63, Some("felt")),
+        ];
+
+        for (input, expected_value, expected_suffix) in test_cases {
+            let lexer = TokenType::lexer(input);
+            let tokens: Vec<_> = lexer.spanned().collect();
+            assert_eq!(tokens.len(), 1, "Input: {input}");
+            match &tokens[0].0 {
+                Ok(TokenType::LiteralNumber(literal)) => {
+                    assert_eq!(literal.value, expected_value, "Input: {input}");
+                    assert_eq!(literal.suffix, expected_suffix, "Input: {input}");
                 }
                 other => panic!("Expected LiteralNumber for input '{input}', got: {other:?}"),
             }

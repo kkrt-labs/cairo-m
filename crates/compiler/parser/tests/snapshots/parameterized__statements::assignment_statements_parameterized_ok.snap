@@ -35,6 +35,7 @@ fn test() { x = 5; }
                             rhs: Spanned(
                                 Literal(
                                     5,
+                                    None,
                                 ),
                                 16..17,
                             ),
@@ -143,6 +144,7 @@ fn test() { arr[0] = item; }
                                     index: Spanned(
                                         Literal(
                                             0,
+                                            None,
                                         ),
                                         16..17,
                                     ),

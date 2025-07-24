@@ -69,6 +69,7 @@ fn nested_loops() {
                             value: Spanned(
                                 Literal(
                                     0,
+                                    None,
                                 ),
                                 58..59,
                             ),
@@ -92,6 +93,7 @@ fn nested_loops() {
                                     right: Spanned(
                                         Literal(
                                             5,
+                                            None,
                                         ),
                                         77..78,
                                     ),
@@ -113,6 +115,7 @@ fn nested_loops() {
                                                 value: Spanned(
                                                     Literal(
                                                         0,
+                                                        None,
                                                     ),
                                                     98..99,
                                                 ),
@@ -136,6 +139,7 @@ fn nested_loops() {
                                                         right: Spanned(
                                                             Literal(
                                                                 3,
+                                                                None,
                                                             ),
                                                             121..122,
                                                         ),
@@ -165,6 +169,7 @@ fn nested_loops() {
                                                                                     right: Spanned(
                                                                                         Literal(
                                                                                             2,
+                                                                                            None,
                                                                                         ),
                                                                                         147..148,
                                                                                     ),
@@ -186,6 +191,7 @@ fn nested_loops() {
                                                                                     right: Spanned(
                                                                                         Literal(
                                                                                             1,
+                                                                                            None,
                                                                                         ),
                                                                                         157..158,
                                                                                     ),
@@ -236,6 +242,7 @@ fn nested_loops() {
                                                                             right: Spanned(
                                                                                 Literal(
                                                                                     1,
+                                                                                    None,
                                                                                 ),
                                                                                 219..220,
                                                                             ),
@@ -278,6 +285,7 @@ fn nested_loops() {
                                                         right: Spanned(
                                                             Literal(
                                                                 1,
+                                                                None,
                                                             ),
                                                             248..249,
                                                         ),
@@ -329,6 +337,7 @@ fn nested_loops() {
                                                         right: Spanned(
                                                             Literal(
                                                                 0,
+                                                                None,
                                                             ),
                                                             322..323,
                                                         ),
@@ -446,6 +455,7 @@ fn nested_loops() {
                                                                 expr: Spanned(
                                                                     Literal(
                                                                         1,
+                                                                        None,
                                                                     ),
                                                                     506..507,
                                                                 ),
@@ -487,6 +497,7 @@ fn nested_loops() {
                                                         right: Spanned(
                                                             Literal(
                                                                 0,
+                                                                None,
                                                             ),
                                                             564..565,
                                                         ),
@@ -522,6 +533,7 @@ fn nested_loops() {
                                                                             right: Spanned(
                                                                                 Literal(
                                                                                     1,
+                                                                                    None,
                                                                                 ),
                                                                                 597..598,
                                                                             ),
@@ -548,6 +560,7 @@ fn nested_loops() {
                                                                             right: Spanned(
                                                                                 Literal(
                                                                                     5,
+                                                                                    None,
                                                                                 ),
                                                                                 625..626,
                                                                             ),

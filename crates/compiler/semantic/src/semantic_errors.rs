@@ -1,6 +1,6 @@
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
 use cairo_m_compiler_parser::parser::{
-    Parameter, Pattern, Spanned, Statement, StructDef, TopLevelItem,
+    Expression, Parameter, Pattern, Spanned, Statement, StructDef, TopLevelItem, TypeExpr,
 };
 use rustc_hash::{FxBuildHasher, FxHashSet};
 
@@ -42,6 +42,43 @@ impl SemanticSyntaxChecker {
         struct_def: &Spanned<StructDef>,
     ) {
         Self::duplicate_struct_fields(context, struct_def);
+    }
+
+    /// Verifies coherency between the type annotation and a literal value's suffix, if any.
+    pub fn check_let_stmt_type_cohesion<Ctx: SemanticSyntaxContext>(
+        &self,
+        context: &Ctx,
+        expr: &Spanned<Expression>,
+        type_ast: &Spanned<TypeExpr>,
+    ) {
+        let typed_name = match type_ast.value() {
+            TypeExpr::Named(named) => named.value().to_string(),
+            // Nothing to check if it's not one of the primitive types.
+            _ => return,
+        };
+
+        if let Expression::Literal(_, Some(suffix)) = expr.value() {
+            // TODO: string comparison is not the cleanest.
+            if suffix != &typed_name {
+                Self::add_error(
+                    context,
+                    Diagnostic {
+                        severity: DiagnosticSeverity::Error,
+                        code: DiagnosticCode::TypeMismatch,
+                        message: format!("expected `{typed_name}`, got `{suffix}`"),
+                        file_path: context.path().to_string(),
+                        span: expr.span(),
+                        related_spans: vec![(
+                            expr.span(),
+                            format!(
+                                "change the type of the numeric literal from `{}` to `{}`",
+                                suffix, typed_name
+                            ),
+                        )],
+                    },
+                );
+            }
+        }
     }
 
     pub fn check_pattern<Ctx: SemanticSyntaxContext>(&self, context: &Ctx, pattern: &Pattern) {

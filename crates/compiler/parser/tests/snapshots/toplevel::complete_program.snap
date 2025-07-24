@@ -269,6 +269,7 @@ expression: snapshot
                                                     right: Spanned(
                                                         Literal(
                                                             0,
+                                                            None,
                                                         ),
                                                         280..281,
                                                     ),
@@ -284,6 +285,7 @@ expression: snapshot
                                                                     Spanned(
                                                                         Literal(
                                                                             0,
+                                                                            None,
                                                                         ),
                                                                         312..313,
                                                                     ),
@@ -316,6 +318,7 @@ expression: snapshot
                                                     right: Spanned(
                                                         Literal(
                                                             1,
+                                                            None,
                                                         ),
                                                         358..359,
                                                     ),
@@ -331,6 +334,7 @@ expression: snapshot
                                                                     Spanned(
                                                                         Literal(
                                                                             1,
+                                                                            None,
                                                                         ),
                                                                         390..391,
                                                                     ),
@@ -379,6 +383,7 @@ expression: snapshot
                                                                             right: Spanned(
                                                                                 Literal(
                                                                                     1,
+                                                                                    None,
                                                                                 ),
                                                                                 443..444,
                                                                             ),
@@ -416,6 +421,7 @@ expression: snapshot
                                                                             right: Spanned(
                                                                                 Literal(
                                                                                     2,
+                                                                                    None,
                                                                                 ),
                                                                                 457..458,
                                                                             ),
@@ -453,6 +459,7 @@ expression: snapshot
                 value: Spanned(
                     Literal(
                         100,
+                        None,
                     ),
                     518..521,
                 ),

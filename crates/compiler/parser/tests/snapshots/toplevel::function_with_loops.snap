@@ -56,6 +56,7 @@ expression: snapshot
                                                 value: Spanned(
                                                     Literal(
                                                         1,
+                                                        None,
                                                     ),
                                                     70..71,
                                                 ),
@@ -79,6 +80,7 @@ expression: snapshot
                                                         right: Spanned(
                                                             Literal(
                                                                 1,
+                                                                None,
                                                             ),
                                                             98..99,
                                                         ),
@@ -119,6 +121,7 @@ expression: snapshot
                             value: Spanned(
                                 Literal(
                                     0,
+                                    None,
                                 ),
                                 189..190,
                             ),
@@ -142,6 +145,7 @@ expression: snapshot
                                     right: Spanned(
                                         Literal(
                                             10,
+                                            None,
                                         ),
                                         222..224,
                                     ),
@@ -177,6 +181,7 @@ expression: snapshot
                                                         right: Spanned(
                                                             Literal(
                                                                 1,
+                                                                None,
                                                             ),
                                                             264..265,
                                                         ),

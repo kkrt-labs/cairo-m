@@ -187,6 +187,7 @@ fn test() { obj.method().field.method2()[0].final_field; }
                                             index: Spanned(
                                                 Literal(
                                                     0,
+                                                    None,
                                                 ),
                                                 41..42,
                                             ),

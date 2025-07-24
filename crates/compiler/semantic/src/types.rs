@@ -94,6 +94,19 @@ pub enum TypeData<'db> {
     Error,
 }
 
+/// Create a TypeData from a string.
+/// Will return an error type if the string cannot be trivially converted to a TypeData.
+impl From<&String> for TypeData<'_> {
+    fn from(s: &String) -> Self {
+        match s.as_str() {
+            "felt" => TypeData::Felt,
+            "bool" => TypeData::Bool,
+            "u32" => TypeData::U32,
+            _ => TypeData::Error,
+        }
+    }
+}
+
 /// Interned struct type definition
 ///
 /// This contains all the semantic information about a struct type,

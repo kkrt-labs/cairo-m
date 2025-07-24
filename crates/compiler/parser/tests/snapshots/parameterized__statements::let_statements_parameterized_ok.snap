@@ -33,6 +33,7 @@ fn test() { let x = 5; }
                             value: Spanned(
                                 Literal(
                                     5,
+                                    None,
                                 ),
                                 20..21,
                             ),
@@ -88,6 +89,7 @@ fn test() { let x: felt = 5; }
                             value: Spanned(
                                 Literal(
                                     5,
+                                    None,
                                 ),
                                 26..27,
                             ),
@@ -143,6 +145,7 @@ fn test() { let x: u32 = 5; }
                             value: Spanned(
                                 Literal(
                                     5,
+                                    None,
                                 ),
                                 25..26,
                             ),
@@ -264,6 +267,7 @@ fn test() { const PI = 314; }
                                 value: Spanned(
                                     Literal(
                                         314,
+                                        None,
                                     ),
                                     23..26,
                                 ),

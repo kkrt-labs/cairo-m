@@ -31,12 +31,12 @@ fn test() { 0xGG; }
 --- Input 3 (ERROR) ---
 fn test() { 0x; }
 --- Diagnostics ---
-[01] Error: Invalid number '0x': cannot parse integer from empty string
+[01] Error: Invalid number '0x': Invalid number format
    ╭─[ test.cairo:1:13 ]
    │
  1 │ fn test() { 0x; }
    │             ─┬  
-   │              ╰── Invalid number '0x': cannot parse integer from empty string
+   │              ╰── Invalid number '0x': Invalid number format
 ───╯
 
 ============================================================
@@ -44,12 +44,12 @@ fn test() { 0x; }
 --- Input 4 (ERROR) ---
 fn test() { 123abc; }
 --- Diagnostics ---
-[02] Error: found 'abc' expected '(', '.', '[', '*', '/', '+', '-', '==', '!=', '<', '>', '<=', '>=', '&&', '||', '=', or ';'
-   ╭─[ test.cairo:1:16 ]
+[02] Error: Unknown type suffix 'abc'
+   ╭─[ test.cairo:1:13 ]
    │
  1 │ fn test() { 123abc; }
-   │                ─┬─  
-   │                 ╰─── found 'abc' expected '(', '.', '[', '*', '/', '+', '-', '==', '!=', '<', '>', '<=', '>=', '&&', '||', '=', or ';'
+   │             ───┬──  
+   │                ╰──── Unknown type suffix 'abc'
 ───╯
 
 ============================================================

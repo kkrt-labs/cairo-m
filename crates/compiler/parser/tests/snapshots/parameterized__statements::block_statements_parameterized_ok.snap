@@ -36,6 +36,7 @@ fn test() { { let x = 1; let y = 2; } }
                                         value: Spanned(
                                             Literal(
                                                 1,
+                                                None,
                                             ),
                                             22..23,
                                         ),
@@ -54,6 +55,7 @@ fn test() { { let x = 1; let y = 2; } }
                                         value: Spanned(
                                             Literal(
                                                 2,
+                                                None,
                                             ),
                                             33..34,
                                         ),
@@ -109,6 +111,7 @@ fn test() { { { let inner = 1; } let outer = 2; } }
                                                     value: Spanned(
                                                         Literal(
                                                             1,
+                                                            None,
                                                         ),
                                                         28..29,
                                                     ),
@@ -131,6 +134,7 @@ fn test() { { { let inner = 1; } let outer = 2; } }
                                         value: Spanned(
                                             Literal(
                                                 2,
+                                                None,
                                             ),
                                             45..46,
                                         ),
@@ -235,6 +239,7 @@ fn test() { if (true) { if (false) { if (true) { if (true) { if (true) { let x =
                                                                                                                                 value: Spanned(
                                                                                                                                     Literal(
                                                                                                                                         1,
+                                                                                                                                        None,
                                                                                                                                     ),
                                                                                                                                     81..82,
                                                                                                                                 ),
