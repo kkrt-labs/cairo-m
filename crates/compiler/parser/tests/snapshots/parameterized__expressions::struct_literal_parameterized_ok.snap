@@ -38,6 +38,7 @@ fn test() { Point { x: 1, y: 2 }; }
                                             Spanned(
                                                 Literal(
                                                     1,
+                                                    None,
                                                 ),
                                                 23..24,
                                             ),
@@ -50,6 +51,7 @@ fn test() { Point { x: 1, y: 2 }; }
                                             Spanned(
                                                 Literal(
                                                     2,
+                                                    None,
                                                 ),
                                                 29..30,
                                             ),
@@ -105,6 +107,7 @@ fn test() { Point { x: 1, y: 2, }; }
                                             Spanned(
                                                 Literal(
                                                     1,
+                                                    None,
                                                 ),
                                                 23..24,
                                             ),
@@ -117,6 +120,7 @@ fn test() { Point { x: 1, y: 2, }; }
                                             Spanned(
                                                 Literal(
                                                     2,
+                                                    None,
                                                 ),
                                                 29..30,
                                             ),
@@ -184,6 +188,7 @@ fn test() { Rectangle { top_left: Point { x: 0, y: 0 }, width: 10 }; }
                                                             Spanned(
                                                                 Literal(
                                                                     0,
+                                                                    None,
                                                                 ),
                                                                 45..46,
                                                             ),
@@ -196,6 +201,7 @@ fn test() { Rectangle { top_left: Point { x: 0, y: 0 }, width: 10 }; }
                                                             Spanned(
                                                                 Literal(
                                                                     0,
+                                                                    None,
                                                                 ),
                                                                 51..52,
                                                             ),
@@ -213,6 +219,7 @@ fn test() { Rectangle { top_left: Point { x: 0, y: 0 }, width: 10 }; }
                                             Spanned(
                                                 Literal(
                                                     10,
+                                                    None,
                                                 ),
                                                 63..65,
                                             ),

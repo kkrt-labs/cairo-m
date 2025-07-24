@@ -24,6 +24,7 @@ namespace Math { const PI = 314; }
                                 value: Spanned(
                                     Literal(
                                         314,
+                                        None,
                                     ),
                                     28..31,
                                 ),
@@ -75,6 +76,7 @@ namespace Utils { fn helper() -> felt { return 1; } }
                                                 Spanned(
                                                     Literal(
                                                         1,
+                                                        None,
                                                     ),
                                                     47..48,
                                                 ),
@@ -125,6 +127,7 @@ namespace Outer { namespace Inner { const VALUE = 42; } }
                                                 value: Spanned(
                                                     Literal(
                                                         42,
+                                                        None,
                                                     ),
                                                     50..52,
                                                 ),

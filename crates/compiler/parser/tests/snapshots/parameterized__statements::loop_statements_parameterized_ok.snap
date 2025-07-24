@@ -38,6 +38,7 @@ fn test() { loop { let x = 1; } }
                                                 value: Spanned(
                                                     Literal(
                                                         1,
+                                                        None,
                                                     ),
                                                     27..28,
                                                 ),
@@ -181,6 +182,7 @@ fn test() { while (x != 10) { x = x + 1; } }
                                     right: Spanned(
                                         Literal(
                                             10,
+                                            None,
                                         ),
                                         24..26,
                                     ),
@@ -216,6 +218,7 @@ fn test() { while (x != 10) { x = x + 1; } }
                                                         right: Spanned(
                                                             Literal(
                                                                 1,
+                                                                None,
                                                             ),
                                                             38..39,
                                                         ),

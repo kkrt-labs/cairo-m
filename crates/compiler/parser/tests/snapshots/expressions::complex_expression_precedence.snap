@@ -61,6 +61,7 @@ fn test() { result = a.field[0].method(b + c * d, e && f || g).value; }
                                                             index: Spanned(
                                                                 Literal(
                                                                     0,
+                                                                    None,
                                                                 ),
                                                                 29..30,
                                                             ),

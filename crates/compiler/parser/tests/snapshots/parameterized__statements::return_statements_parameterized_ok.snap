@@ -27,6 +27,7 @@ fn test() { return 42; }
                                 Spanned(
                                     Literal(
                                         42,
+                                        None,
                                     ),
                                     19..21,
                                 ),

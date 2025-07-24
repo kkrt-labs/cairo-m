@@ -42,12 +42,14 @@ fn test() { let (x, y) = (1, 2); }
                                         Spanned(
                                             Literal(
                                                 1,
+                                                None,
                                             ),
                                             26..27,
                                         ),
                                         Spanned(
                                             Literal(
                                                 2,
+                                                None,
                                             ),
                                             29..30,
                                         ),
@@ -132,12 +134,14 @@ fn test() { let (x, y): (felt, felt) = (1, 2); }
                                         Spanned(
                                             Literal(
                                                 1,
+                                                None,
                                             ),
                                             40..41,
                                         ),
                                         Spanned(
                                             Literal(
                                                 2,
+                                                None,
                                             ),
                                             43..44,
                                         ),
@@ -360,18 +364,21 @@ fn test() { let (x, y, z) = (1, 2, 3); }
                                         Spanned(
                                             Literal(
                                                 1,
+                                                None,
                                             ),
                                             29..30,
                                         ),
                                         Spanned(
                                             Literal(
                                                 2,
+                                                None,
                                             ),
                                             32..33,
                                         ),
                                         Spanned(
                                             Literal(
                                                 3,
+                                                None,
                                             ),
                                             35..36,
                                         ),
@@ -456,12 +463,14 @@ fn test() { let (x, y): (felt, felt) = (42, 84); }
                                         Spanned(
                                             Literal(
                                                 42,
+                                                None,
                                             ),
                                             40..42,
                                         ),
                                         Spanned(
                                             Literal(
                                                 84,
+                                                None,
                                             ),
                                             44..46,
                                         ),
@@ -546,12 +555,14 @@ fn test() { let (a, b): (felt, felt) = (1, 2); }
                                         Spanned(
                                             Literal(
                                                 1,
+                                                None,
                                             ),
                                             40..41,
                                         ),
                                         Spanned(
                                             Literal(
                                                 2,
+                                                None,
                                             ),
                                             43..44,
                                         ),

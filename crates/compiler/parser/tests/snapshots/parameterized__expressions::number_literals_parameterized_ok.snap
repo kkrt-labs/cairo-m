@@ -26,6 +26,7 @@ fn test() { 0; }
                             Spanned(
                                 Literal(
                                     0,
+                                    None,
                                 ),
                                 12..13,
                             ),
@@ -64,6 +65,7 @@ fn test() { 1; }
                             Spanned(
                                 Literal(
                                     1,
+                                    None,
                                 ),
                                 12..13,
                             ),
@@ -102,6 +104,7 @@ fn test() { 42; }
                             Spanned(
                                 Literal(
                                     42,
+                                    None,
                                 ),
                                 12..14,
                             ),
@@ -140,6 +143,7 @@ fn test() { 1234567890; }
                             Spanned(
                                 Literal(
                                     1234567890,
+                                    None,
                                 ),
                                 12..22,
                             ),
@@ -178,6 +182,7 @@ fn test() { 4294967295; }
                             Spanned(
                                 Literal(
                                     4294967295,
+                                    None,
                                 ),
                                 12..22,
                             ),
@@ -216,6 +221,7 @@ fn test() { 0x0; }
                             Spanned(
                                 Literal(
                                     0,
+                                    None,
                                 ),
                                 12..15,
                             ),
@@ -254,6 +260,7 @@ fn test() { 0xFF; }
                             Spanned(
                                 Literal(
                                     255,
+                                    None,
                                 ),
                                 12..16,
                             ),
@@ -292,6 +299,7 @@ fn test() { 0xABCDEF; }
                             Spanned(
                                 Literal(
                                     11259375,
+                                    None,
                                 ),
                                 12..20,
                             ),

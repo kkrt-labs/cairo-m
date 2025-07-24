@@ -122,6 +122,7 @@ fn get_constant() -> felt { return 42; }
                                 Spanned(
                                     Literal(
                                         42,
+                                        None,
                                     ),
                                     35..37,
                                 ),

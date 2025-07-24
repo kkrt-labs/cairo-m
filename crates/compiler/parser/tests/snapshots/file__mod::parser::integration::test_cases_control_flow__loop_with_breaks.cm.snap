@@ -236,6 +236,7 @@ fn loop_control_flow() {
                             value: Spanned(
                                 Literal(
                                     0,
+                                    None,
                                 ),
                                 349..350,
                             ),
@@ -277,6 +278,7 @@ fn loop_control_flow() {
                                                         right: Spanned(
                                                             Literal(
                                                                 0,
+                                                                None,
                                                             ),
                                                             392..393,
                                                         ),
@@ -392,6 +394,7 @@ fn loop_control_flow() {
                                                         right: Spanned(
                                                             Literal(
                                                                 0,
+                                                                None,
                                                             ),
                                                             554..555,
                                                         ),
@@ -430,6 +433,7 @@ fn loop_control_flow() {
                                                         right: Spanned(
                                                             Literal(
                                                                 0,
+                                                                None,
                                                             ),
                                                             605..606,
                                                         ),

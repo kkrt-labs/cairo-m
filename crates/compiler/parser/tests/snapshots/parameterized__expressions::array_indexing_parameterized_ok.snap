@@ -37,6 +37,7 @@ fn test() { arr[0]; }
                                     index: Spanned(
                                         Literal(
                                             0,
+                                            None,
                                         ),
                                         16..17,
                                     ),

@@ -49,6 +49,7 @@ fn test() { if (condition) { x = 1; } }
                                                 rhs: Spanned(
                                                     Literal(
                                                         1,
+                                                        None,
                                                     ),
                                                     33..34,
                                                 ),
@@ -236,6 +237,7 @@ fn test() { if (a) { if (b) { c = 1; } else { c = 2; } } }
                                                                     rhs: Spanned(
                                                                         Literal(
                                                                             1,
+                                                                            None,
                                                                         ),
                                                                         34..35,
                                                                     ),
@@ -264,6 +266,7 @@ fn test() { if (a) { if (b) { c = 1; } else { c = 2; } } }
                                                                         rhs: Spanned(
                                                                             Literal(
                                                                                 2,
+                                                                                None,
                                                                             ),
                                                                             50..51,
                                                                         ),
