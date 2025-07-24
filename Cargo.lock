@@ -377,6 +377,7 @@ dependencies = [
  "paste",
  "serde",
  "serde_json",
+ "smallvec",
  "stwo-prover",
  "thiserror",
 ]
@@ -426,6 +427,7 @@ dependencies = [
  "salsa-macros",
  "serde",
  "serde_json",
+ "smallvec",
  "sonic-rs 0.3.17",
  "stwo-prover",
 ]
@@ -596,6 +598,7 @@ dependencies = [
  "clap",
  "criterion",
  "num-traits",
+ "smallvec",
  "sonic-rs 0.5.1",
  "stwo-prover",
  "tempfile",

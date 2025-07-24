@@ -1,9 +1,8 @@
 use cairo_m_common::State;
-use num_traits::One;
 use stwo_prover::core::fields::m31::M31;
 
 pub trait VmState {
-    fn advance(self) -> Self;
+    fn advance_by(self, offset: u32) -> Self;
     fn jump_abs(self, offset: M31) -> Self;
     fn jump_rel(self, offset: M31) -> Self;
     fn call_abs(self, pc: M31, fp_offset: M31) -> Self;
@@ -13,10 +12,10 @@ pub trait VmState {
 
 impl VmState for State {
     /// Regular register update.
-    /// Advance the program counter by 1.
-    fn advance(self) -> Self {
+    /// Advance the program counter by the given offset (in QM31 memory units).
+    fn advance_by(self, offset: u32) -> Self {
         Self {
-            pc: self.pc + M31::one(),
+            pc: self.pc + M31::from(offset),
             fp: self.fp,
         }
     }
@@ -94,14 +93,14 @@ mod tests {
     }
 
     #[test]
-    fn test_state_advance() {
+    fn test_state_advance_by() {
         let state = State::default();
         let expected_state = State {
             pc: M31::one(),
             fp: M31::zero(),
         };
 
-        let new_state = state.advance();
+        let new_state = state.advance_by(1);
 
         assert_eq!(new_state, expected_state);
     }
