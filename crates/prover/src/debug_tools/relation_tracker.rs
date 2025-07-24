@@ -9,9 +9,11 @@ use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::backend::{BackendForChannel, Column};
 use stwo_prover::core::channel::MerkleChannel;
 use stwo_prover::core::fields::m31::M31;
+use stwo_prover::core::fields::qm31::QM31;
 use stwo_prover::core::pcs::{CommitmentSchemeProver, TreeVec};
 use stwo_prover::core::poly::circle::CanonicCoset;
 
+use crate::adapter::merkle::TREE_HEIGHT;
 use crate::components::Components;
 use crate::public_data::PublicData;
 
@@ -73,7 +75,7 @@ where
     });
     entries.push(RelationTrackerEntry {
         relation: "Merkle".to_string(),
-        mult: -M31::one(),
+        mult: M31::one(),
         values: [
             M31::zero(),
             M31::zero(),
@@ -84,7 +86,7 @@ where
     });
     entries.push(RelationTrackerEntry {
         relation: "Merkle".to_string(),
-        mult: -M31::one(),
+        mult: M31::one(),
         values: [
             M31::zero(),
             M31::zero(),
@@ -94,24 +96,84 @@ where
         .to_vec(),
     });
 
-    // Add memory relation entries for public addresses
-    for (addr, value, clock) in public_data.public_entries.iter().flatten() {
-        let value_array = value.to_m31_array();
-        entries.push(RelationTrackerEntry {
-            relation: "Memory".to_string(),
-            mult: -M31::one(),
-            values: [
-                *addr,
-                *clock,
-                value_array[0],
-                value_array[1],
-                value_array[2],
-                value_array[3],
-            ]
-            .to_vec(),
-        });
-    }
+    // Add memory relation entries for all public addresses (program, input, output)
+    let mut add_memory_entries = |public_entries: &[Option<(M31, QM31, M31)>],
+                                  multiplicity: M31| {
+        let one = M31::one();
+        let m31_2 = M31::from(2);
+        let m31_3 = M31::from(3);
+        let m31_4 = M31::from(4);
+        let root = if multiplicity == M31::one() {
+            public_data.initial_root
+        } else {
+            public_data.final_root
+        };
 
+        for (addr, value, clock) in public_entries.iter().flatten() {
+            let value_array = value.to_m31_array();
+
+            // Add memory relation entry
+            entries.push(RelationTrackerEntry {
+                relation: "Memory".to_string(),
+                mult: multiplicity,
+                values: [
+                    *addr,
+                    *clock,
+                    value_array[0],
+                    value_array[1],
+                    value_array[2],
+                    value_array[3],
+                ]
+                .to_vec(),
+            });
+
+            // Add 4 merkle relation entries for each QM31 component
+            entries.push(RelationTrackerEntry {
+                relation: "Merkle".to_string(),
+                mult: -M31::one(),
+                values: [m31_4 * *addr, M31::from(TREE_HEIGHT), value_array[0], root].to_vec(),
+            });
+            entries.push(RelationTrackerEntry {
+                relation: "Merkle".to_string(),
+                mult: -M31::one(),
+                values: [
+                    m31_4 * *addr + one,
+                    M31::from(TREE_HEIGHT),
+                    value_array[1],
+                    root,
+                ]
+                .to_vec(),
+            });
+            entries.push(RelationTrackerEntry {
+                relation: "Merkle".to_string(),
+                mult: -M31::one(),
+                values: [
+                    m31_4 * *addr + m31_2,
+                    M31::from(TREE_HEIGHT),
+                    value_array[2],
+                    root,
+                ]
+                .to_vec(),
+            });
+            entries.push(RelationTrackerEntry {
+                relation: "Merkle".to_string(),
+                mult: -M31::one(),
+                values: [
+                    m31_4 * *addr + m31_3,
+                    M31::from(TREE_HEIGHT),
+                    value_array[3],
+                    root,
+                ]
+                .to_vec(),
+            });
+        }
+    };
+
+    // Emit the initial program and input values
+    add_memory_entries(&public_data.public_memory.program, M31::one());
+    add_memory_entries(&public_data.public_memory.input, M31::one());
+    // Use the final output values
+    add_memory_entries(&public_data.public_memory.output, -M31::one());
     entries
 }
 

@@ -70,7 +70,7 @@ pub mod fibonacci {
                 .expect("Failed to import from vm output");
             let from_runner_output = import_from_runner_output(
                 cairo_result.vm.segments.into_iter().next().unwrap(),
-                cairo_result.public_addresses,
+                cairo_result.public_address_ranges,
             )
             .expect("Failed to import from runner output");
 

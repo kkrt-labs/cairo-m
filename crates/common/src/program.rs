@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::ops::Range;
 
 use serde::{Deserialize, Serialize};
 
@@ -22,6 +23,32 @@ pub struct EntrypointInfo {
     pub params: Vec<AbiSlot>,
     /// Information about each return value
     pub returns: Vec<AbiSlot>,
+}
+
+/// Public address ranges for structured access to program, input, and output data
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct PublicAddressRanges {
+    /// Program addresses (instructions)
+    pub program: Range<u32>,
+    /// Input addresses (function arguments)
+    pub input: Range<u32>,
+    /// Output addresses (function return values)
+    pub output: Range<u32>,
+}
+
+impl PublicAddressRanges {
+    /// Creates public address ranges from program length and function signature
+    pub const fn new(program_length: u32, num_args: usize, num_return_values: usize) -> Self {
+        let program_end = program_length;
+        let input_end = program_end + num_args as u32;
+        let output_end = input_end + num_return_values as u32;
+
+        Self {
+            program: 0..program_end,
+            input: program_end..input_end,
+            output: input_end..output_end,
+        }
+    }
 }
 
 /// Metadata about the compiled program
