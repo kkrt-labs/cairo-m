@@ -9,6 +9,8 @@ use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 use thiserror::Error;
 
+/// The number of M31 values that make up a single QM31.
+const M31S_IN_QM31: usize = 4;
 /// The maximum number of bits for a memory address, set to 30.
 /// This limits the memory size to 2^30 elements.
 /// TODO: check with Starkware
@@ -109,7 +111,7 @@ impl Memory {
 
         // Calculate how many QM31 words the instruction occupies.
         // For sizes 1-4, this is 1. For size 5, this is 2.
-        let size_in_qm31s = size_in_m31s.div_ceil(4);
+        let size_in_qm31s = size_in_m31s.div_ceil(M31S_IN_QM31);
 
         // Loop to fetch any additional words.
         // This loop is highly predictable: it runs 0 times for most instructions
@@ -376,10 +378,7 @@ mod tests {
         };
 
         let instruction_m31s = memory.get_instruction(addr).unwrap();
-        assert_eq!(instruction_m31s.len(), 3); // store_imm has 3 M31s
-        assert_eq!(instruction_m31s[0], M31(5)); // opcode
-        assert_eq!(instruction_m31s[1], M31(123)); // imm value
-        assert_eq!(instruction_m31s[2], M31(0)); // dst_off
+        assert_eq!(instruction_m31s.as_slice(), &[M31(5), M31(123), M31(0)]);
         assert_eq!(memory.trace.borrow().len(), 1);
         assert_eq!(memory.trace.borrow()[0], MemoryEntry { addr, value });
     }
