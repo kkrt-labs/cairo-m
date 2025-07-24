@@ -51,6 +51,7 @@ fn test_prove_and_verify_unchanged_memory() {
     let mut memory = Memory {
         initial_memory: initial_memory.clone(),
         final_memory: initial_memory,
+        clock_update_data: vec![],
     };
 
     let (initial_tree, initial_root) =
@@ -68,6 +69,7 @@ fn test_prove_and_verify_unchanged_memory() {
         public_addresses: vec![],
         memory,
         instructions: Instructions::default(),
+        clock_update_data: vec![],
     };
 
     let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
