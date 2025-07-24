@@ -91,43 +91,40 @@ impl Memory {
         let opcode = first_qm31_array[0].0;
 
         // Determine instruction size using const lookup table
-        // If opcode is invalid, just return the first QM31's M31s
-        let size_in_m31s = if opcode < OPCODE_SIZE_TABLE.len() as u32 {
-            match OPCODE_SIZE_TABLE[opcode as usize] {
-                Some(size) => size,
-                None => {
-                    // Invalid opcode - return just the first QM31's M31 values
-                    // The VM will validate and return the proper error
-                    let result = SmallVec::from_slice(&first_qm31_array);
-                    return Ok(result);
-                }
+        let size_in_m31s = match OPCODE_SIZE_TABLE
+            .get(opcode as usize)
+            .and_then(|&size| size)
+        {
+            Some(size) => size,
+            None => {
+                // Invalid opcode - return just the first QM31's M31 values
+                // The VM will validate and return the proper error
+                return Ok(SmallVec::from_slice(&first_qm31_array));
             }
-        } else {
-            // Opcode out of bounds
-            let result = SmallVec::from_slice(&first_qm31_array);
-            return Ok(result);
         };
-        let size_in_qm31s = size_in_m31s.div_ceil(4);
-        let mut instruction_m31s = SmallVec::from_slice(&first_qm31_array);
 
-        // Fetch additional QM31 words if needed
-        for i in 1..size_in_qm31s {
-            let current_addr = addr + M31::from(i);
-            let current_address = current_addr.0 as usize;
-            let qm31_word = self
-                .data
-                .get(current_address)
-                .copied()
-                .ok_or(MemoryError::UninitializedMemoryCell { addr: current_addr })?;
-            trace.push(MemoryEntry {
-                addr: current_addr,
-                value: qm31_word,
-            });
-            instruction_m31s.extend_from_slice(&qm31_word.to_m31_array());
+        // For instructions that fit in a single QM31 word.
+        if size_in_m31s <= 4 {
+            return Ok(SmallVec::from_slice(&first_qm31_array[..size_in_m31s]));
         }
 
-        // Truncate to exact size (in case last QM31 had padding)
-        instruction_m31s.truncate(size_in_m31s);
+        // Handle instructions that span 2 QM31 words.
+        let mut instruction_m31s = SmallVec::from_slice(&first_qm31_array);
+
+        let second_addr = addr + M31::one();
+        let second_qm31 = self
+            .data
+            .get(second_addr.0 as usize)
+            .copied()
+            .ok_or(MemoryError::UninitializedMemoryCell { addr: second_addr })?;
+        trace.push(MemoryEntry {
+            addr: second_addr,
+            value: second_qm31,
+        });
+
+        // The only instruction with size > 4 is size 5. Its 5th M31 is in the next word.
+        instruction_m31s.push(second_qm31.0.0);
+
         Ok(instruction_m31s)
     }
 
