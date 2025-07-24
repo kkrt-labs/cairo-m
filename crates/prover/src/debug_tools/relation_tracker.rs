@@ -107,15 +107,11 @@ where
         }
     };
 
-    // Emit the initial public memory
-    add_memory_entries(&public_data.initial_public_entries.program, M31::one());
-    add_memory_entries(&public_data.initial_public_entries.input, M31::one());
-    add_memory_entries(&public_data.initial_public_entries.output, M31::one());
-
-    // Use the final public memory
-    add_memory_entries(&public_data.final_public_entries.program, -M31::one());
-    add_memory_entries(&public_data.final_public_entries.input, -M31::one());
-    add_memory_entries(&public_data.final_public_entries.output, -M31::one());
+    // Emit the initial program and input values
+    add_memory_entries(&public_data.public_memory.program, M31::one());
+    add_memory_entries(&public_data.public_memory.input, M31::one());
+    // Use the final output values
+    add_memory_entries(&public_data.public_memory.output, -M31::one());
 
     entries
 }

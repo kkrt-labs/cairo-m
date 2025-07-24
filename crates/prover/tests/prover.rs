@@ -280,34 +280,26 @@ fn test_fibonacci_public_memory_contents() {
     let public_data = &proof.public_data;
 
     // Test 1: Verify return value in final public memory output
-    let final_output_values = public_data.final_public_entries.get_output_values();
-    assert_eq!(final_output_values.len(), 1, "Expected 1 return value");
+    let output_values = public_data.public_memory.get_output_values();
+    assert_eq!(output_values.len(), 1, "Expected 1 return value");
     assert_eq!(
-        final_output_values[0].unwrap(),
+        output_values[0].unwrap(),
         expected_return_value.into(),
-        "Final output should match runner output"
+        "Output should match runner output"
     );
 
     // Test 2: Verify input argument in initial and final public memory
-    let initial_input_values = public_data.initial_public_entries.get_input_values();
-    let final_input_values = public_data.final_public_entries.get_input_values();
+    let input_values = public_data.public_memory.get_input_values();
 
-    assert_eq!(initial_input_values.len(), 1, "Expected 1 initial input");
-    assert_eq!(final_input_values.len(), 1, "Expected 1 final input");
+    assert_eq!(input_values.len(), 1, "Expected 1 initial input");
     assert_eq!(
-        initial_input_values[0].unwrap(),
+        input_values[0].unwrap(),
         input_arg.into(),
-        "Initial input should be 5"
-    );
-    assert_eq!(
-        final_input_values[0].unwrap(),
-        input_arg.into(),
-        "Final input should be 5"
+        "Input should be 5"
     );
 
     // Test 3: Compare program in public memory to compiled program
-    let initial_program_values = public_data.initial_public_entries.get_program_values();
-    let final_program_values = public_data.final_public_entries.get_program_values();
+    let program_values = public_data.public_memory.get_program_values();
 
     // Convert compiled program instructions to QM31 for comparison
     let compiled_instructions: Vec<QM31> = compiled_fib
@@ -318,28 +310,17 @@ fn test_fibonacci_public_memory_contents() {
         .collect();
 
     assert_eq!(
-        initial_program_values.len(),
+        program_values.len(),
         compiled_instructions.len(),
-        "Initial program length should match compiled program"
-    );
-    assert_eq!(
-        final_program_values.len(),
-        compiled_instructions.len(),
-        "Final program length should match compiled program"
+        "Program length should match compiled program"
     );
 
     // Verify each instruction matches
     for (i, &expected_instruction) in compiled_instructions.iter().enumerate() {
         assert_eq!(
-            initial_program_values[i].unwrap(),
+            program_values[i].unwrap(),
             expected_instruction,
-            "Initial program instruction {} should match compiled program",
-            i
-        );
-        assert_eq!(
-            final_program_values[i].unwrap(),
-            expected_instruction,
-            "Final program instruction {} should match compiled program",
+            "Program instruction {} should match compiled program",
             i
         );
     }

@@ -83,7 +83,7 @@ where
 
     // Get the memory state from the iterator
     let mut memory = bundle_iter.into_memory();
-    memory.set_multiplicities_to_zero(&public_address_ranges);
+    memory.update_multiplicities(&public_address_ranges);
 
     // Assert that the keys are the same for both initial_memory and final_memory
     // This is a sanity check that uses memory so it's desactivated in release builds.

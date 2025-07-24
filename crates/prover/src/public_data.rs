@@ -10,6 +10,7 @@ use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::{QM31, SecureField};
 
 use crate::adapter::ProverInput;
+use crate::adapter::memory::Memory;
 use crate::adapter::merkle::TREE_HEIGHT;
 use crate::components::Relations;
 use crate::relations;
@@ -32,14 +33,16 @@ pub struct PublicEntries {
 }
 
 impl PublicEntries {
-    pub fn new(
-        memory: &HashMap<(M31, M31), (QM31, M31, M31)>,
-        public_address_ranges: &PublicAddressRanges,
-    ) -> Self {
+    pub fn new(memory: &Memory, public_address_ranges: &PublicAddressRanges) -> Self {
         // Pre-allocate with known sizes for better memory efficiency
-        let program = Self::extract_range_with_capacity(memory, &public_address_ranges.program);
-        let input = Self::extract_range_with_capacity(memory, &public_address_ranges.input);
-        let output = Self::extract_range_with_capacity(memory, &public_address_ranges.output);
+        let program = Self::extract_range_with_capacity(
+            &memory.initial_memory,
+            &public_address_ranges.program,
+        );
+        let input =
+            Self::extract_range_with_capacity(&memory.initial_memory, &public_address_ranges.input);
+        let output =
+            Self::extract_range_with_capacity(&memory.final_memory, &public_address_ranges.output);
 
         Self {
             program,
@@ -97,8 +100,7 @@ pub struct PublicData {
     pub final_registers: VmRegisters,
     pub initial_root: M31,
     pub final_root: M31,
-    pub initial_public_entries: PublicEntries,
-    pub final_public_entries: PublicEntries,
+    pub public_memory: PublicEntries,
 }
 
 impl PublicData {
@@ -114,14 +116,7 @@ impl PublicData {
                 .merkle_trees
                 .final_root
                 .expect("Final memory root is required"),
-            initial_public_entries: PublicEntries::new(
-                &input.memory.initial_memory,
-                &input.public_address_ranges,
-            ),
-            final_public_entries: PublicEntries::new(
-                &input.memory.final_memory,
-                &input.public_address_ranges,
-            ),
+            public_memory: PublicEntries::new(&input.memory, &input.public_address_ranges),
         }
     }
 
@@ -171,15 +166,11 @@ impl PublicData {
                 }
             };
 
-        // Emit the initial public memory
-        add_to_memory_relation(&self.initial_public_entries.program, QM31::one());
-        add_to_memory_relation(&self.initial_public_entries.input, QM31::one());
-        add_to_memory_relation(&self.initial_public_entries.output, QM31::one());
-
-        // Use the final public memory
-        add_to_memory_relation(&self.final_public_entries.program, -QM31::one());
-        add_to_memory_relation(&self.final_public_entries.input, -QM31::one());
-        add_to_memory_relation(&self.final_public_entries.output, -QM31::one());
+        // Emit the initial program and input values
+        add_to_memory_relation(&self.public_memory.program, QM31::one());
+        add_to_memory_relation(&self.public_memory.input, QM31::one());
+        // Use the final output values
+        add_to_memory_relation(&self.public_memory.output, -QM31::one());
 
         let inverted_values = QM31::batch_inverse(&values_to_inverse);
         inverted_values.iter().sum::<QM31>()

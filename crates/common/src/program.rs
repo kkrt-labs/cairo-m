@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::ops::Range;
 
 use serde::{Deserialize, Serialize};
-use stwo_prover::core::fields::m31::M31;
 
 use crate::Instruction;
 
@@ -40,15 +39,6 @@ impl PublicAddressRanges {
             input: program_end..input_end,
             output: input_end..output_end,
         }
-    }
-
-    /// Converts ranges to flat address vector for compatibility
-    pub fn to_flat_addresses(&self) -> Vec<M31> {
-        let mut addresses = Vec::new();
-        addresses.extend(self.program.clone().map(M31::from));
-        addresses.extend(self.input.clone().map(M31::from));
-        addresses.extend(self.output.clone().map(M31::from));
-        addresses
     }
 }
 
