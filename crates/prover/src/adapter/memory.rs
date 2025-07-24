@@ -10,7 +10,6 @@ use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 
 use crate::adapter::io::VmImportError;
-use crate::adapter::merkle::TREE_HEIGHT;
 use crate::preprocessed::range_check::range_check_20::LOG_SIZE_RC_20;
 
 pub const RC20_LIMIT: u32 = (1 << LOG_SIZE_RC_20) - 1;
@@ -92,9 +91,9 @@ struct MemoryArg {
 // TODO: Memory Value can take a value enum(M31, QM31) instead of QM31 to save space
 #[derive(Debug, Default, Eq, PartialEq, Clone)]
 pub struct Memory {
-    // (addr, depth) => (value, clock, multiplicity which is -1, 0 or 1)
-    pub initial_memory: HashMap<(M31, M31), (QM31, M31, M31)>,
-    pub final_memory: HashMap<(M31, M31), (QM31, M31, M31)>,
+    // addr => (value, clock, multiplicity which is -1, 0 or 1)
+    pub initial_memory: HashMap<M31, (QM31, M31, M31)>,
+    pub final_memory: HashMap<M31, (QM31, M31, M31)>,
     pub clock_update_data: Vec<(M31, M31, QM31)>,
 }
 
@@ -332,15 +331,10 @@ where
 
 impl Memory {
     pub fn new(initial_memory: Vec<QM31>) -> Self {
-        let initial_memory_hashmap: HashMap<(M31, M31), (QM31, M31, M31)> = initial_memory
+        let initial_memory_hashmap: HashMap<M31, (QM31, M31, M31)> = initial_memory
             .iter()
             .enumerate()
-            .map(|(i, value)| {
-                (
-                    (M31::from(i as u32), M31::from(TREE_HEIGHT)),
-                    (*value, M31::zero(), M31::zero()),
-                )
-            })
+            .map(|(i, value)| (M31::from(i as u32), (*value, M31::zero(), M31::zero())))
             .collect();
         Self {
             initial_memory: initial_memory_hashmap.clone(),
@@ -348,11 +342,49 @@ impl Memory {
             clock_update_data: Vec::new(),
         }
     }
+
+    /// Updates multiplicities for public address ranges based on their usage patterns
+    pub fn update_multiplicities(&mut self, ranges: &cairo_m_common::PublicAddressRanges) {
+        // For program and input addresses
+        for addr in ranges.program.clone().chain(ranges.input.clone()) {
+            let key = M31::from(addr);
+
+            // Set initial memory multiplicity to 0
+            if let Some((value, clock, _)) = self.initial_memory.get(&key).cloned() {
+                self.initial_memory.insert(key, (value, clock, M31::zero()));
+            }
+
+            // If final memory has multiplicity 0, switch it to -1
+            if let Some((value, clock, multiplicity)) = self.final_memory.get(&key).cloned() {
+                if multiplicity == M31::zero() {
+                    self.final_memory.insert(key, (value, clock, -M31::one()));
+                }
+            }
+        }
+
+        // For output addresses
+        for addr in ranges.output.clone() {
+            let key = M31::from(addr);
+
+            // Set final memory multiplicity to 0
+            if let Some((value, clock, _)) = self.final_memory.get(&key).cloned() {
+                self.final_memory.insert(key, (value, clock, M31::zero()));
+            }
+
+            // If final memory has multiplicity 0 (which it now does), set initial memory multiplicity to 1
+            if let Some((initial_value, initial_clock, _)) = self.initial_memory.get(&key).cloned()
+            {
+                self.initial_memory
+                    .insert(key, (initial_value, initial_clock, M31::one()));
+            }
+        }
+    }
+
     fn push(&mut self, memory_entry: MemoryEntry) -> MemoryArg {
         let prev_memory_entry = self
             .final_memory
             .insert(
-                (memory_entry.address, M31::from(TREE_HEIGHT)),
+                memory_entry.address,
                 (memory_entry.value, memory_entry.clock, -M31::one()),
             )
             .unwrap_or_else(|| (memory_entry.value, M31::zero(), -M31::one()));
@@ -363,25 +395,18 @@ impl Memory {
         // We insert it in the initial memory with multiplicity 1.
         // Thus we extend the initial memory (initial from the VM point of view) with first accesses.
         if prev_clk == M31::zero() {
-            if let Some(initial_memory_cell) = self
-                .initial_memory
-                .get_mut(&(memory_entry.address, M31::from(TREE_HEIGHT)))
-            {
+            if let Some(initial_memory_cell) = self.initial_memory.get_mut(&memory_entry.address) {
                 // Update the multiplicity to 1
                 initial_memory_cell.2 = M31::one();
             } else {
                 let initial_memory_entry = (memory_entry.value, M31::zero(), M31::one());
-                self.initial_memory.insert(
-                    (memory_entry.address, M31::from(TREE_HEIGHT)),
-                    initial_memory_entry,
-                );
+                self.initial_memory
+                    .insert(memory_entry.address, initial_memory_entry);
             }
         };
 
         // Because of sparse memory cases, we need to use the initial memory entry updated as above
-        let initial_memory_entry = self
-            .initial_memory
-            .get(&(memory_entry.address, M31::from(TREE_HEIGHT)));
+        let initial_memory_entry = self.initial_memory.get(&memory_entry.address);
         // Check for large clock deltas and generate clock update data if needed
         if current_clk.0 > prev_clk.0 {
             let delta = current_clk.0 - prev_clk.0;
@@ -440,7 +465,7 @@ mod tests {
 
         // Verify final_memory was updated
         assert_eq!(
-            memory.final_memory[&(M31::from(100), M31::from(TREE_HEIGHT))],
+            memory.final_memory[&M31::from(100)],
             (
                 QM31::from_u32_unchecked(1, 2, 3, 4),
                 M31::from(10),
@@ -449,7 +474,7 @@ mod tests {
         );
         // initial_memory should now contain the first access with multiplicity 1
         assert_eq!(
-            memory.initial_memory[&(M31::from(100), M31::from(TREE_HEIGHT))],
+            memory.initial_memory[&M31::from(100)],
             (
                 QM31::from_u32_unchecked(1, 2, 3, 4),
                 M31::zero(),
@@ -488,7 +513,7 @@ mod tests {
 
         // Verify final_memory was updated
         assert_eq!(
-            memory.final_memory[&(M31::from(100), M31::from(TREE_HEIGHT))],
+            memory.final_memory[&M31::from(100)],
             (
                 QM31::from_u32_unchecked(5, 6, 7, 8),
                 M31::from(20),
@@ -497,7 +522,7 @@ mod tests {
         );
         // initial_memory should still contain the first access
         assert_eq!(
-            memory.initial_memory[&(M31::from(100), M31::from(TREE_HEIGHT))],
+            memory.initial_memory[&M31::from(100)],
             (
                 QM31::from_u32_unchecked(1, 2, 3, 4),
                 M31::zero(),
@@ -537,7 +562,7 @@ mod tests {
         // Verify final_memory contains both addresses
         assert_eq!(memory.final_memory.len(), 2);
         assert_eq!(
-            memory.final_memory[&(M31::from(100), M31::from(TREE_HEIGHT))],
+            memory.final_memory[&M31::from(100)],
             (
                 QM31::from_u32_unchecked(1, 2, 3, 4),
                 M31::from(10),
@@ -545,7 +570,7 @@ mod tests {
             )
         );
         assert_eq!(
-            memory.final_memory[&(M31::from(200), M31::from(TREE_HEIGHT))],
+            memory.final_memory[&M31::from(200)],
             (
                 QM31::from_u32_unchecked(9, 10, 11, 12),
                 M31::from(30),
@@ -555,7 +580,7 @@ mod tests {
         // initial_memory should contain both addresses
         assert_eq!(memory.initial_memory.len(), 2);
         assert_eq!(
-            memory.initial_memory[&(M31::from(100), M31::from(TREE_HEIGHT))],
+            memory.initial_memory[&M31::from(100)],
             (
                 QM31::from_u32_unchecked(1, 2, 3, 4),
                 M31::zero(),
@@ -563,7 +588,7 @@ mod tests {
             )
         );
         assert_eq!(
-            memory.initial_memory[&(M31::from(200), M31::from(TREE_HEIGHT))],
+            memory.initial_memory[&M31::from(200)],
             (
                 QM31::from_u32_unchecked(9, 10, 11, 12),
                 M31::zero(),
@@ -649,7 +674,7 @@ mod tests {
         assert_eq!(memory.initial_memory.len(), 2);
         assert_eq!(memory.final_memory.len(), 2);
         assert_eq!(
-            memory.initial_memory[&(M31::from(0), M31::from(TREE_HEIGHT))],
+            memory.initial_memory[&M31::from(0)],
             (
                 QM31::from_u32_unchecked(10, 20, 30, 40),
                 M31::zero(),
@@ -657,7 +682,7 @@ mod tests {
             )
         );
         assert_eq!(
-            memory.initial_memory[&(M31::from(1), M31::from(TREE_HEIGHT))],
+            memory.initial_memory[&M31::from(1)],
             (
                 QM31::from_u32_unchecked(50, 60, 70, 80),
                 M31::zero(),
@@ -682,7 +707,7 @@ mod tests {
 
         // Initial memory multiplicity is updated to 1 on first access
         assert_eq!(
-            memory.initial_memory[&(M31::from(0), M31::from(TREE_HEIGHT))],
+            memory.initial_memory[&M31::from(0)],
             (
                 QM31::from_u32_unchecked(10, 20, 30, 40),
                 M31::zero(),
@@ -691,7 +716,7 @@ mod tests {
         );
         // Verify final_memory was updated
         assert_eq!(
-            memory.final_memory[&(M31::from(0), M31::from(TREE_HEIGHT))],
+            memory.final_memory[&M31::from(0)],
             (
                 QM31::from_u32_unchecked(10, 20, 30, 40),
                 M31::from(5),
@@ -716,7 +741,7 @@ mod tests {
 
         // Verify final_memory was updated again
         assert_eq!(
-            memory.final_memory[&(M31::from(0), M31::from(TREE_HEIGHT))],
+            memory.final_memory[&M31::from(0)],
             (
                 QM31::from_u32_unchecked(100, 200, 300, 400),
                 M31::from(10),

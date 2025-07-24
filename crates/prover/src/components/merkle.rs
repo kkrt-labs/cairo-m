@@ -8,6 +8,9 @@
 //! - left_value
 //! - right_value
 //! - parent_value
+//! - left_multiplicity
+//! - right_multiplicity
+//! - parent_multiplicity
 //! - root
 //!
 //! # Constraints
@@ -48,7 +51,7 @@ use crate::adapter::MerkleTrees;
 use crate::components::Relations;
 use crate::utils::enabler::Enabler;
 
-const N_TRACE_COLUMNS: usize = 7;
+const N_TRACE_COLUMNS: usize = 10;
 const N_MERKLE_LOOKUPS: usize = 3;
 const N_POSEIDON2_LOOKUPS: usize = 2;
 const N_INTERACTION_COLUMNS: usize =
@@ -71,7 +74,7 @@ pub struct InteractionClaimData {
 
 #[derive(Uninitialized, IterMut, ParIterMut)]
 pub struct LookupData {
-    pub merkle: [Vec<[PackedM31; 4]>; N_MERKLE_LOOKUPS],
+    pub merkle: [Vec<[PackedM31; 5]>; N_MERKLE_LOOKUPS],
     pub poseidon2: [Vec<[PackedM31; 2]>; N_POSEIDON2_LOOKUPS],
 }
 
@@ -115,6 +118,9 @@ impl Claim {
                     node_data_array[2],
                     node_data_array[3],
                     node_data_array[4],
+                    node_data_array[5],
+                    node_data_array[6],
+                    node_data_array[7],
                     root,
                 ]
             })
@@ -152,7 +158,10 @@ impl Claim {
                 let left_value = input[2];
                 let right_value = input[3];
                 let parent_value = input[4];
-                let root = input[5];
+                let left_multiplicity = input[5];
+                let right_multiplicity = input[6];
+                let parent_multiplicity = input[7];
+                let root = input[8];
 
                 *row[0] = enabler;
                 *row[1] = index;
@@ -160,11 +169,21 @@ impl Claim {
                 *row[3] = left_value;
                 *row[4] = right_value;
                 *row[5] = parent_value;
-                *row[6] = root;
+                *row[6] = left_multiplicity;
+                *row[7] = right_multiplicity;
+                *row[8] = parent_multiplicity;
+                *row[9] = root;
 
-                *lookup_data.merkle[0] = [index, depth, left_value, root];
-                *lookup_data.merkle[1] = [index + one, depth, right_value, root];
-                *lookup_data.merkle[2] = [index * m31_2_inv, depth - one, parent_value, root];
+                *lookup_data.merkle[0] = [index, depth, left_value, root, left_multiplicity];
+                *lookup_data.merkle[1] =
+                    [index + one, depth, right_value, root, right_multiplicity];
+                *lookup_data.merkle[2] = [
+                    index * m31_2_inv,
+                    depth - one,
+                    parent_value,
+                    root,
+                    parent_multiplicity,
+                ];
 
                 *lookup_data.poseidon2[0] = [left_value, right_value];
                 *lookup_data.poseidon2[1] = [parent_value, zero];
@@ -205,12 +224,11 @@ impl InteractionClaim {
             &interaction_claim_data.lookup_data.merkle[1],
         )
             .into_par_iter()
-            .enumerate()
-            .for_each(|(i, (writer, value0, value1))| {
-                let num0: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
-                let denom0: PackedQM31 = relations.merkle.combine(value0);
-                let num1: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
-                let denom1: PackedQM31 = relations.merkle.combine(value1);
+            .for_each(|(writer, value0, value1)| {
+                let num0: PackedQM31 = PackedQM31::from(value0[4]);
+                let denom0: PackedQM31 = relations.merkle.combine(&value0[..4]);
+                let num1: PackedQM31 = PackedQM31::from(value1[4]);
+                let denom1: PackedQM31 = relations.merkle.combine(&value1[..4]);
 
                 let numerator = num0 * denom1 + num1 * denom0;
                 let denom = denom0 * denom1;
@@ -228,8 +246,8 @@ impl InteractionClaim {
             .into_par_iter()
             .enumerate()
             .for_each(|(i, (writer, value0, value1))| {
-                let num0: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
-                let denom0: PackedQM31 = relations.merkle.combine(value0);
+                let num0: PackedQM31 = -PackedQM31::from(value0[4]);
+                let denom0: PackedQM31 = relations.merkle.combine(&value0[..4]);
                 let num1: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
                 let denom1: PackedQM31 = relations.poseidon2.combine(value1);
 
@@ -286,15 +304,37 @@ impl FrameworkEval for Eval {
         let left_value = eval.next_trace_mask();
         let right_value = eval.next_trace_mask();
         let parent_value = eval.next_trace_mask();
+        let left_multiplicity = eval.next_trace_mask();
+        let right_multiplicity = eval.next_trace_mask();
+        let parent_multiplicity = eval.next_trace_mask();
         let root = eval.next_trace_mask();
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
 
-        // Use current depth node
+        // left multiplicity is 0, 1 or 2
+        eval.add_constraint(
+            left_multiplicity.clone()
+                * (left_multiplicity.clone() - one.clone())
+                * (left_multiplicity.clone() - one.clone() * E::F::from(m31_2)),
+        );
+        // right multiplicity is 0, 1 or 2
+        eval.add_constraint(
+            right_multiplicity.clone()
+                * (right_multiplicity.clone() - one.clone())
+                * (right_multiplicity.clone() - one.clone() * E::F::from(m31_2)),
+        );
+        // parent multiplicity is 0, 1 or 2
+        eval.add_constraint(
+            parent_multiplicity.clone()
+                * (parent_multiplicity.clone() - one.clone())
+                * (parent_multiplicity.clone() - one.clone() * E::F::from(m31_2)),
+        );
+
+        // Emit current depth node
         eval.add_to_relation(RelationEntry::new(
             &self.relations.merkle,
-            -E::EF::from(enabler.clone()),
+            E::EF::from(left_multiplicity),
             &[
                 index.clone(),
                 depth.clone(),
@@ -304,7 +344,7 @@ impl FrameworkEval for Eval {
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.merkle,
-            -E::EF::from(enabler.clone()),
+            E::EF::from(right_multiplicity),
             &[
                 index.clone() + one.clone(),
                 depth.clone(),
@@ -313,10 +353,10 @@ impl FrameworkEval for Eval {
             ],
         ));
 
-        // Emit next layer
+        // Use next layer
         eval.add_to_relation(RelationEntry::new(
             &self.relations.merkle,
-            E::EF::from(enabler.clone()),
+            -E::EF::from(parent_multiplicity),
             &[index * m31_2_inv, depth - one, parent_value.clone(), root],
         ));
 
