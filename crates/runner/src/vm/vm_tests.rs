@@ -56,14 +56,14 @@ fn test_vm_try_from() {
     assert_vm_state!(vm.state, 0, 2);
 
     // Check that the first instruction is in memory at address 0
-    let loaded_m31_vec = vm.memory.get_instruction(M31::zero()).unwrap();
-    let loaded_instruction: Instruction = loaded_m31_vec.as_slice().try_into().unwrap();
+    let loaded_smallvec = vm.memory.get_instruction(M31::zero()).unwrap();
+    let loaded_instruction: Instruction = loaded_smallvec.try_into().unwrap();
     assert_eq!(loaded_instruction.opcode_value(), 1); // StoreAddFpImm
     assert_eq!(loaded_instruction, instructions[0]);
 
     // Check that the second instruction is in memory at address 1
-    let loaded_m31_vec_2 = vm.memory.get_instruction(M31::one()).unwrap();
-    let loaded_instruction_2: Instruction = loaded_m31_vec_2.as_slice().try_into().unwrap();
+    let loaded_smallvec_2 = vm.memory.get_instruction(M31::one()).unwrap();
+    let loaded_instruction_2: Instruction = loaded_smallvec_2.try_into().unwrap();
     assert_eq!(loaded_instruction_2.opcode_value(), 4); // StoreDoubleDerefFp
     assert_eq!(loaded_instruction_2, instructions[1]);
 }

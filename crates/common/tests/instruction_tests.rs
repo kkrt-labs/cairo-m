@@ -1,4 +1,5 @@
 use cairo_m_common::{Instruction, InstructionError};
+use smallvec::{SmallVec, smallvec};
 use stwo_prover::core::fields::m31::M31;
 
 #[test]
@@ -315,15 +316,15 @@ fn test_operands() {
 }
 
 #[test]
-fn test_try_from_slice() {
+fn test_try_from_smallvec() {
     // Test Ret instruction
-    let slice = &[M31::from(11)];
-    let instruction = Instruction::try_from(slice.as_ref()).unwrap();
+    let values: SmallVec<[M31; 5]> = smallvec![M31::from(11)];
+    let instruction = Instruction::try_from(values).unwrap();
     assert!(matches!(instruction, Instruction::Ret {}));
 
     // Test StoreImm instruction
-    let slice = &[M31::from(5), M31::from(42), M31::from(3)];
-    let instruction = Instruction::try_from(slice.as_ref()).unwrap();
+    let values: SmallVec<[M31; 5]> = smallvec![M31::from(5), M31::from(42), M31::from(3)];
+    let instruction = Instruction::try_from(values).unwrap();
     match instruction {
         Instruction::StoreImm { imm, dst_off } => {
             assert_eq!(imm, M31::from(42));
@@ -333,8 +334,9 @@ fn test_try_from_slice() {
     }
 
     // Test StoreAddFpFp instruction
-    let slice = &[M31::from(0), M31::from(1), M31::from(2), M31::from(3)];
-    let instruction = Instruction::try_from(slice.as_ref()).unwrap();
+    let values: SmallVec<[M31; 5]> =
+        smallvec![M31::from(0), M31::from(1), M31::from(2), M31::from(3)];
+    let instruction = Instruction::try_from(values).unwrap();
     match instruction {
         Instruction::StoreAddFpFp {
             src0_off,
@@ -349,14 +351,14 @@ fn test_try_from_slice() {
     }
 
     // Test U32StoreAddFpImm instruction
-    let slice = &[
+    let values: SmallVec<[M31; 5]> = smallvec![
         M31::from(15),
         M31::from(1),
         M31::from(0x1234),
         M31::from(0x5678),
         M31::from(4),
     ];
-    let instruction = Instruction::try_from(slice.as_ref()).unwrap();
+    let instruction = Instruction::try_from(values).unwrap();
     match instruction {
         Instruction::U32StoreAddFpImm {
             src_off,
@@ -374,10 +376,10 @@ fn test_try_from_slice() {
 }
 
 #[test]
-fn test_try_from_slice_errors() {
-    // Test empty slice
-    let slice: &[M31] = &[];
-    let result = Instruction::try_from(slice);
+fn test_try_from_smallvec_errors() {
+    // Test empty smallvec
+    let values: SmallVec<[M31; 5]> = SmallVec::new();
+    let result = Instruction::try_from(values);
     assert!(matches!(
         result,
         Err(InstructionError::SizeMismatch {
@@ -387,13 +389,13 @@ fn test_try_from_slice_errors() {
     ));
 
     // Test invalid opcode
-    let slice = &[M31::from(999)];
-    let result = Instruction::try_from(slice.as_ref());
+    let values: SmallVec<[M31; 5]> = smallvec![M31::from(999)];
+    let result = Instruction::try_from(values);
     assert!(matches!(result, Err(InstructionError::InvalidOpcode(_))));
 
     // Test size mismatch - too few operands
-    let slice = &[M31::from(0), M31::from(1)]; // StoreAddFpFp needs 3 operands
-    let result = Instruction::try_from(slice.as_ref());
+    let values: SmallVec<[M31; 5]> = smallvec![M31::from(0), M31::from(1)]; // StoreAddFpFp needs 3 operands
+    let result = Instruction::try_from(values);
     assert!(matches!(
         result,
         Err(InstructionError::SizeMismatch {
@@ -403,8 +405,8 @@ fn test_try_from_slice_errors() {
     ));
 
     // Test size mismatch - too many operands
-    let slice = &[M31::from(11), M31::from(1)]; // Ret needs 0 operands
-    let result = Instruction::try_from(slice.as_ref());
+    let values: SmallVec<[M31; 5]> = smallvec![M31::from(11), M31::from(1)]; // Ret needs 0 operands
+    let result = Instruction::try_from(values);
     assert!(matches!(
         result,
         Err(InstructionError::SizeMismatch {
@@ -415,7 +417,7 @@ fn test_try_from_slice_errors() {
 }
 
 #[test]
-fn test_from_instruction_to_vec() {
+fn test_from_instruction_to_smallvec() {
     let instruction = Instruction::StoreAddFpFp {
         src0_off: M31::from(1),
         src1_off: M31::from(2),
@@ -423,10 +425,10 @@ fn test_from_instruction_to_vec() {
     };
 
     // Test From<Instruction>
-    let vec: Vec<M31> = instruction.into();
+    let smallvec: SmallVec<[M31; 5]> = instruction.into();
     assert_eq!(
-        vec,
-        vec![M31::from(0), M31::from(1), M31::from(2), M31::from(3)]
+        smallvec.as_slice(),
+        &[M31::from(0), M31::from(1), M31::from(2), M31::from(3)]
     );
 
     // Test From<&Instruction>
@@ -434,8 +436,11 @@ fn test_from_instruction_to_vec() {
         imm: M31::from(42),
         dst_off: M31::from(3),
     };
-    let vec: Vec<M31> = (&instruction).into();
-    assert_eq!(vec, vec![M31::from(5), M31::from(42), M31::from(3)]);
+    let smallvec: SmallVec<[M31; 5]> = (&instruction).into();
+    assert_eq!(
+        smallvec.as_slice(),
+        &[M31::from(5), M31::from(42), M31::from(3)]
+    );
 }
 
 #[test]
@@ -594,9 +599,10 @@ fn test_roundtrip_all_instructions() {
     ];
 
     for instruction in instructions {
-        // Test slice roundtrip
+        // Test smallvec roundtrip
         let vec = instruction.to_m31_vec();
-        let reconstructed = Instruction::try_from(vec.as_slice()).unwrap();
+        let smallvec = SmallVec::from_vec(vec);
+        let reconstructed = Instruction::try_from(smallvec).unwrap();
         assert_eq!(instruction, reconstructed);
 
         // Test JSON roundtrip

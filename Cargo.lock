@@ -427,6 +427,7 @@ dependencies = [
  "salsa-macros",
  "serde",
  "serde_json",
+ "smallvec",
  "sonic-rs 0.3.17",
  "stwo-prover",
 ]
