@@ -103,27 +103,34 @@ impl Memory {
             }
         };
 
-        // For instructions that fit in a single QM31 word.
-        if size_in_m31s <= 4 {
-            return Ok(SmallVec::from_slice(&first_qm31_array[..size_in_m31s]));
-        }
-
-        // Handle instructions that span 2 QM31 words.
+        // Pre-allocate a SmallVec with the first QM31 word.
+        // This is the most common path.
         let mut instruction_m31s = SmallVec::from_slice(&first_qm31_array);
 
-        let second_addr = addr + M31::one();
-        let second_qm31 = self
-            .data
-            .get(second_addr.0 as usize)
-            .copied()
-            .ok_or(MemoryError::UninitializedMemoryCell { addr: second_addr })?;
-        trace.push(MemoryEntry {
-            addr: second_addr,
-            value: second_qm31,
-        });
+        // Calculate how many QM31 words the instruction occupies.
+        // For sizes 1-4, this is 1. For size 5, this is 2.
+        let size_in_qm31s = size_in_m31s.div_ceil(4);
 
-        // The only instruction with size > 4 is size 5. Its 5th M31 is in the next word.
-        instruction_m31s.push(second_qm31.0.0);
+        // Loop to fetch any additional words.
+        // This loop is highly predictable: it runs 0 times for most instructions
+        // and 1 time for the single 5-M31 instruction.
+        for i in 1..size_in_qm31s {
+            let next_addr = addr + M31::from(i as u32);
+            let qm31_word = self
+                .data
+                .get(next_addr.0 as usize)
+                .copied()
+                .ok_or(MemoryError::UninitializedMemoryCell { addr: next_addr })?;
+
+            trace.push(MemoryEntry {
+                addr: next_addr,
+                value: qm31_word,
+            });
+            instruction_m31s.extend_from_slice(&qm31_word.to_m31_array());
+        }
+
+        // Ensure the final vector has the exact size.
+        instruction_m31s.truncate(size_in_m31s);
 
         Ok(instruction_m31s)
     }
