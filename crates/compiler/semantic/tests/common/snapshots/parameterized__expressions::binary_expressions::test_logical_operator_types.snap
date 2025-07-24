@@ -5,19 +5,12 @@ expression: snapshot
 --- Input 1 (ERROR) ---
 fn test() { let x: felt = 42; let y: felt = 100; let and1 = x && y; return; }
 --- Diagnostics ---
-[2001] Error: Logical operator 'And' requires operands of type 'bool', found 'felt'
+[2001] Error: Operator `&&` is not supported for type `felt`
    ╭─[ semantic_tests::expressions::binary_expressions::test_logical_operator_types:1:61 ]
    │
  1 │ fn test() { let x: felt = 42; let y: felt = 100; let and1 = x && y; return; }
    │                                                             ┬  
-   │                                                             ╰── Logical operator 'And' requires operands of type 'bool', found 'felt'
-───╯
-[2001] Error: Logical operator 'And' requires operands of type 'bool', found 'felt'
-   ╭─[ semantic_tests::expressions::binary_expressions::test_logical_operator_types:1:66 ]
-   │
- 1 │ fn test() { let x: felt = 42; let y: felt = 100; let and1 = x && y; return; }
-   │                                                                  ┬  
-   │                                                                  ╰── Logical operator 'And' requires operands of type 'bool', found 'felt'
+   │                                                             ╰── Operator `&&` is not supported for type `felt`
 ───╯
 
 ============================================================
@@ -25,19 +18,12 @@ fn test() { let x: felt = 42; let y: felt = 100; let and1 = x && y; return; }
 --- Input 2 (ERROR) ---
 fn test() { let x: felt = 42; let y: felt = 100; let or1 = x || y; return; }
 --- Diagnostics ---
-[2001] Error: Logical operator 'Or' requires operands of type 'bool', found 'felt'
+[2001] Error: Operator `||` is not supported for type `felt`
    ╭─[ semantic_tests::expressions::binary_expressions::test_logical_operator_types:1:60 ]
    │
  1 │ fn test() { let x: felt = 42; let y: felt = 100; let or1 = x || y; return; }
    │                                                            ┬  
-   │                                                            ╰── Logical operator 'Or' requires operands of type 'bool', found 'felt'
-───╯
-[2001] Error: Logical operator 'Or' requires operands of type 'bool', found 'felt'
-   ╭─[ semantic_tests::expressions::binary_expressions::test_logical_operator_types:1:65 ]
-   │
- 1 │ fn test() { let x: felt = 42; let y: felt = 100; let or1 = x || y; return; }
-   │                                                                 ┬  
-   │                                                                 ╰── Logical operator 'Or' requires operands of type 'bool', found 'felt'
+   │                                                            ╰── Operator `||` is not supported for type `felt`
 ───╯
 
 ============================================================
@@ -45,19 +31,12 @@ fn test() { let x: felt = 42; let y: felt = 100; let or1 = x || y; return; }
 --- Input 3 (ERROR) ---
 fn test() { let a: u32 = 1; let b: u32 = 0; let and2 = a && b; return; }
 --- Diagnostics ---
-[2001] Error: Logical operator 'And' requires operands of type 'bool', found 'u32'
+[2001] Error: Operator `&&` is not supported for type `u32`
    ╭─[ semantic_tests::expressions::binary_expressions::test_logical_operator_types:1:56 ]
    │
  1 │ fn test() { let a: u32 = 1; let b: u32 = 0; let and2 = a && b; return; }
    │                                                        ┬  
-   │                                                        ╰── Logical operator 'And' requires operands of type 'bool', found 'u32'
-───╯
-[2001] Error: Logical operator 'And' requires operands of type 'bool', found 'u32'
-   ╭─[ semantic_tests::expressions::binary_expressions::test_logical_operator_types:1:61 ]
-   │
- 1 │ fn test() { let a: u32 = 1; let b: u32 = 0; let and2 = a && b; return; }
-   │                                                             ┬  
-   │                                                             ╰── Logical operator 'And' requires operands of type 'bool', found 'u32'
+   │                                                        ╰── Operator `&&` is not supported for type `u32`
 ───╯
 
 ============================================================
@@ -65,71 +44,36 @@ fn test() { let a: u32 = 1; let b: u32 = 0; let and2 = a && b; return; }
 --- Input 4 (ERROR) ---
 fn test() { let a: u32 = 1; let b: u32 = 0; let or2 = a || b; return; }
 --- Diagnostics ---
-[2001] Error: Logical operator 'Or' requires operands of type 'bool', found 'u32'
+[2001] Error: Operator `||` is not supported for type `u32`
    ╭─[ semantic_tests::expressions::binary_expressions::test_logical_operator_types:1:55 ]
    │
  1 │ fn test() { let a: u32 = 1; let b: u32 = 0; let or2 = a || b; return; }
    │                                                       ┬  
-   │                                                       ╰── Logical operator 'Or' requires operands of type 'bool', found 'u32'
-───╯
-[2001] Error: Logical operator 'Or' requires operands of type 'bool', found 'u32'
-   ╭─[ semantic_tests::expressions::binary_expressions::test_logical_operator_types:1:60 ]
-   │
- 1 │ fn test() { let a: u32 = 1; let b: u32 = 0; let or2 = a || b; return; }
-   │                                                            ┬  
-   │                                                            ╰── Logical operator 'Or' requires operands of type 'bool', found 'u32'
+   │                                                       ╰── Operator `||` is not supported for type `u32`
 ───╯
 
 ============================================================
 
 --- Input 5 (ERROR) ---
-struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = Point { x: 30, y: 40 }; let p1_and_p2 = p1 && p2; }
+struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = Point { x: 30, y: 40 }; let p1_and_p2 = p1 && p2; return;}
 --- Diagnostics ---
-[2001] Error: Logical operator 'And' requires operands of type 'bool', found 'Point'
+[2001] Error: Operator `&&` is not supported for type `Point`
    ╭─[ semantic_tests::expressions::binary_expressions::test_logical_operator_types:1:129 ]
    │
- 1 │ struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = Point { x: 30, y: 40 }; let p1_and_p2 = p1 && p2; }
+ 1 │ struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = Point { x: 30, y: 40 }; let p1_and_p2 = p1 && p2; return;}
    │                                                                                                                                 ─┬  
-   │                                                                                                                                  ╰── Logical operator 'And' requires operands of type 'bool', found 'Point'
-───╯
-[2001] Error: Logical operator 'And' requires operands of type 'bool', found 'Point'
-   ╭─[ semantic_tests::expressions::binary_expressions::test_logical_operator_types:1:135 ]
-   │
- 1 │ struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = Point { x: 30, y: 40 }; let p1_and_p2 = p1 && p2; }
-   │                                                                                                                                       ─┬  
-   │                                                                                                                                        ╰── Logical operator 'And' requires operands of type 'bool', found 'Point'
-───╯
-[3002] Error: Function 'test' doesn't return on all paths
-   ╭─[ semantic_tests::expressions::binary_expressions::test_logical_operator_types:1:38 ]
-   │
- 1 │ struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = Point { x: 30, y: 40 }; let p1_and_p2 = p1 && p2; }
-   │                                      ──┬─  
-   │                                        ╰─── Function 'test' doesn't return on all paths
+   │                                                                                                                                  ╰── Operator `&&` is not supported for type `Point`
 ───╯
 
 ============================================================
 
 --- Input 6 (ERROR) ---
-struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = p1; let p1_or_p2 = p1 || p2; }
+struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = p1; let p1_or_p2 = p1 || p2; return;}
 --- Diagnostics ---
-[2001] Error: Logical operator 'Or' requires operands of type 'bool', found 'Point'
+[2001] Error: Operator `||` is not supported for type `Point`
    ╭─[ semantic_tests::expressions::binary_expressions::test_logical_operator_types:1:108 ]
    │
- 1 │ struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = p1; let p1_or_p2 = p1 || p2; }
+ 1 │ struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = p1; let p1_or_p2 = p1 || p2; return;}
    │                                                                                                            ─┬  
-   │                                                                                                             ╰── Logical operator 'Or' requires operands of type 'bool', found 'Point'
-───╯
-[2001] Error: Logical operator 'Or' requires operands of type 'bool', found 'Point'
-   ╭─[ semantic_tests::expressions::binary_expressions::test_logical_operator_types:1:114 ]
-   │
- 1 │ struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = p1; let p1_or_p2 = p1 || p2; }
-   │                                                                                                                  ─┬  
-   │                                                                                                                   ╰── Logical operator 'Or' requires operands of type 'bool', found 'Point'
-───╯
-[3002] Error: Function 'test' doesn't return on all paths
-   ╭─[ semantic_tests::expressions::binary_expressions::test_logical_operator_types:1:38 ]
-   │
- 1 │ struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = p1; let p1_or_p2 = p1 || p2; }
-   │                                      ──┬─  
-   │                                        ╰─── Function 'test' doesn't return on all paths
+   │                                                                                                             ╰── Operator `||` is not supported for type `Point`
 ───╯

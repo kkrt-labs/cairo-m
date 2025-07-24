@@ -19,14 +19,14 @@ Source code:
 Found 1 diagnostic(s):
 
 --- Diagnostic 1 ---
-[2001] Error: Type mismatch in assignment. Cannot assign 'Point' to variable of type 'felt'
+[2001] Error: Type mismatch in assignment. Cannot assign `Point` to variable of type `felt`
    ╭─[ semantic_tests::expressions::type_errors::test_assignment_type_mismatch_with_context:7:17 ]
    │
  7 │             x = p;  // Should show variable type context
    │             ┬   ┬  
-   │             ╰────── Variable has type 'felt'
+   │             ╰────── Variable has type `felt`
    │                 │  
-   │                 ╰── Type mismatch in assignment. Cannot assign 'Point' to variable of type 'felt'
+   │                 ╰── Type mismatch in assignment. Cannot assign `Point` to variable of type `felt`
    │                 │  
    │                 ╰── This struct has numeric fields that could be accessed
 ───╯

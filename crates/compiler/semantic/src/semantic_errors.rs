@@ -102,7 +102,7 @@ impl SemanticSyntaxChecker {
                 Diagnostic {
                     severity: DiagnosticSeverity::Error,
                     code: diag_code,
-                    message: format!("'{}' outside of loop", statement_name),
+                    message: format!("`{}` outside of loop", statement_name),
                     file_path: context.path().to_string(),
                     span: stmt.span(),
                     related_spans: vec![],
@@ -157,7 +157,7 @@ impl SemanticSyntaxChecker {
                     Diagnostic {
                         severity: DiagnosticSeverity::Error,
                         code: DiagnosticCode::DuplicateStructField,
-                        message: format!("field '{}' is already declared", field.value()),
+                        message: format!("field `{}` is already declared", field.value()),
                         file_path: ctx.path().to_string(),
                         span: field.span(),
                         related_spans: vec![],

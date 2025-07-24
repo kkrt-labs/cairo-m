@@ -21,12 +21,12 @@ Source code:
 Found 2 diagnostic(s):
 
 --- Diagnostic 1 ---
-[2001] Error: Argument type mismatch for parameter 'p2': expected 'Point', found 'felt'
+[2001] Error: Argument type mismatch for parameter `p2`: expected `Point`, found `felt`
     ╭─[ semantic_tests::expressions::type_errors::test_function_argument_type_mismatch_with_param_name:10:33 ]
     │
  10 │             let d = distance(p, 42);  // Should show parameter name 'p2'
     │                                 ─┬  
-    │                                  ╰── Argument type mismatch for parameter 'p2': expected 'Point', found 'felt'
+    │                                  ╰── Argument type mismatch for parameter `p2`: expected `Point`, found `felt`
 ────╯
 
 --- Diagnostic 2 ---

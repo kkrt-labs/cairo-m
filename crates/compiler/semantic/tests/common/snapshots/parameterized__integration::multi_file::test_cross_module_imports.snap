@@ -8,12 +8,12 @@ fn test() { nonexistent(); return; }
 // --- utils.cm ---
 fn add(a: felt, b: felt) -> felt { return a + b; }
 --- Diagnostics ---
-[1005] Error: unresolved import 'nonexistent' from module 'utils'
+[1005] Error: unresolved import `nonexistent` from module `utils`
    ╭─[ main.cm:1:12 ]
    │
  1 │ use utils::nonexistent;
    │            ─────┬─────  
-   │                 ╰─────── unresolved import 'nonexistent' from module 'utils'
+   │                 ╰─────── unresolved import `nonexistent` from module `utils`
 ───╯
 
 ============================================================
@@ -24,10 +24,10 @@ fn test() { add(1, 2); return; }
 // --- utils.cm ---
 fn add(a: felt, b: felt) -> felt { return a + b; }
 --- Diagnostics ---
-[1010] Error: unresolved module 'missing'
+[1010] Error: unresolved module `missing`
    ╭─[ main.cm:1:1 ]
    │
  1 │ use missing::add;
    │ ────────┬────────  
-   │         ╰────────── unresolved module 'missing'
+   │         ╰────────── unresolved module `missing`
 ───╯

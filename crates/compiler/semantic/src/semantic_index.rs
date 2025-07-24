@@ -114,6 +114,9 @@ pub struct ExpressionInfo {
     pub ast_span: SimpleSpan<usize>,
     /// Scope in which this expression occurs
     pub scope_id: FileScopeId,
+    /// The expected type of the expression, if any
+    pub expected_type_ast: Option<Spanned<TypeExpr>>,
+    // TODO: add inferred type?
 }
 
 /// The main semantic analysis result for a source file
@@ -585,6 +588,10 @@ impl SemanticIndex {
         self.expressions.get(id)
     }
 
+    pub fn expression_mut(&mut self, id: ExpressionId) -> Option<&mut ExpressionInfo> {
+        self.expressions.get_mut(id)
+    }
+
     /// Get expression ID by span
     pub fn expression_id_by_span(&self, span: SimpleSpan<usize>) -> Option<ExpressionId> {
         self.span_to_expression_id.get(&span).copied()
@@ -860,10 +867,14 @@ where
 
                 // Visit the value expression first (evaluation order)
                 self.visit_expr(value);
+
+                // Add type info, if present
                 let value_expr_id = self
                     .index
                     .expression_id_by_span(value.span())
                     .expect("expression should have been registered");
+                let expr_info = self.index.expression_mut(value_expr_id).unwrap();
+                expr_info.expected_type_ast = statement_type.clone();
 
                 // Visit the type expression if present
                 if let Some(ty) = statement_type {
@@ -1049,6 +1060,7 @@ where
             ast_node: expr.value().clone(),
             ast_span: expr.span(),
             scope_id: self.current_scope(),
+            expected_type_ast: None,
         };
         let _expr_id = self.index.add_expression(expr_info);
 

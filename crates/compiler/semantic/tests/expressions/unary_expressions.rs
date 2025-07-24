@@ -11,14 +11,11 @@ fn test_unary_operator_types() {
             // felt
             in_function("let x: felt = 42; let neg_felt = -x;"),
 
-            ],
-            err: [
-            //TODO this currently fails as unary operators are not supported for u32 yet. TODO: fix
             // u32
             in_function("let y: u32 = 100; let neg_u32 = -y;"),
-
-
-                // bool
+            ],
+            err: [
+            // bool
             in_function("let b: bool = true; let neg_bool = -b;"),
 
             // felt

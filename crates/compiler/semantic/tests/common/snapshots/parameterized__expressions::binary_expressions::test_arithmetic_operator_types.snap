@@ -3,227 +3,90 @@ source: crates/compiler/semantic/tests/common/mod.rs
 expression: snapshot
 ---
 --- Input 1 (ERROR) ---
-fn test() { let a: u32 = 1; let b: u32 = 2; let sum = a + b; return; }
+fn test() { let a: bool = true; let b: bool = false; let sum = a + b; return; }
 --- Diagnostics ---
-[2001] Error: Invalid left operand for arithmetic operator 'Add'. Expected 'felt', found 'u32'
-   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:55 ]
+[2001] Error: Operator `+` is not supported for type `bool`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:64 ]
    │
- 1 │ fn test() { let a: u32 = 1; let b: u32 = 2; let sum = a + b; return; }
-   │                                                       ┬  
-   │                                                       ╰── Invalid left operand for arithmetic operator 'Add'. Expected 'felt', found 'u32'
-───╯
-[2001] Error: Invalid right operand for arithmetic operator 'Add'. Expected 'felt', found 'u32'
-   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:59 ]
-   │
- 1 │ fn test() { let a: u32 = 1; let b: u32 = 2; let sum = a + b; return; }
-   │                                                           ┬  
-   │                                                           ╰── Invalid right operand for arithmetic operator 'Add'. Expected 'felt', found 'u32'
+ 1 │ fn test() { let a: bool = true; let b: bool = false; let sum = a + b; return; }
+   │                                                                ┬  
+   │                                                                ╰── Operator `+` is not supported for type `bool`
 ───╯
 
 ============================================================
 
 --- Input 2 (ERROR) ---
-fn test() { let a: u32 = 1; let b: u32 = 2; let diff = a - b; return; }
+fn test() { let a: bool = true; let b: bool = false; let diff = a - b; return; }
 --- Diagnostics ---
-[2001] Error: Invalid left operand for arithmetic operator 'Sub'. Expected 'felt', found 'u32'
-   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:56 ]
+[2001] Error: Operator `-` is not supported for type `bool`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:65 ]
    │
- 1 │ fn test() { let a: u32 = 1; let b: u32 = 2; let diff = a - b; return; }
-   │                                                        ┬  
-   │                                                        ╰── Invalid left operand for arithmetic operator 'Sub'. Expected 'felt', found 'u32'
-───╯
-[2001] Error: Invalid right operand for arithmetic operator 'Sub'. Expected 'felt', found 'u32'
-   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:60 ]
-   │
- 1 │ fn test() { let a: u32 = 1; let b: u32 = 2; let diff = a - b; return; }
-   │                                                            ┬  
-   │                                                            ╰── Invalid right operand for arithmetic operator 'Sub'. Expected 'felt', found 'u32'
+ 1 │ fn test() { let a: bool = true; let b: bool = false; let diff = a - b; return; }
+   │                                                                 ┬  
+   │                                                                 ╰── Operator `-` is not supported for type `bool`
 ───╯
 
 ============================================================
 
 --- Input 3 (ERROR) ---
-fn test() { let a: u32 = 1; let b: u32 = 2; let prod = a * b; return; }
+fn test() { let a: bool = true; let b: bool = false; let prod = a * b; return; }
 --- Diagnostics ---
-[2001] Error: Invalid left operand for arithmetic operator 'Mul'. Expected 'felt', found 'u32'
-   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:56 ]
+[2001] Error: Operator `*` is not supported for type `bool`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:65 ]
    │
- 1 │ fn test() { let a: u32 = 1; let b: u32 = 2; let prod = a * b; return; }
-   │                                                        ┬  
-   │                                                        ╰── Invalid left operand for arithmetic operator 'Mul'. Expected 'felt', found 'u32'
-───╯
-[2001] Error: Invalid right operand for arithmetic operator 'Mul'. Expected 'felt', found 'u32'
-   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:60 ]
-   │
- 1 │ fn test() { let a: u32 = 1; let b: u32 = 2; let prod = a * b; return; }
-   │                                                            ┬  
-   │                                                            ╰── Invalid right operand for arithmetic operator 'Mul'. Expected 'felt', found 'u32'
+ 1 │ fn test() { let a: bool = true; let b: bool = false; let prod = a * b; return; }
+   │                                                                 ┬  
+   │                                                                 ╰── Operator `*` is not supported for type `bool`
 ───╯
 
 ============================================================
 
 --- Input 4 (ERROR) ---
-fn test() { let a: u32 = 1; let b: u32 = 2; let quot = a / b; return; }
+fn test() { let a: bool = true; let b: bool = false; let quot = a / b; return; }
 --- Diagnostics ---
-[2001] Error: Invalid left operand for arithmetic operator 'Div'. Expected 'felt', found 'u32'
-   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:56 ]
+[2001] Error: Operator `/` is not supported for type `bool`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:65 ]
    │
- 1 │ fn test() { let a: u32 = 1; let b: u32 = 2; let quot = a / b; return; }
-   │                                                        ┬  
-   │                                                        ╰── Invalid left operand for arithmetic operator 'Div'. Expected 'felt', found 'u32'
-───╯
-[2001] Error: Invalid right operand for arithmetic operator 'Div'. Expected 'felt', found 'u32'
-   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:60 ]
-   │
- 1 │ fn test() { let a: u32 = 1; let b: u32 = 2; let quot = a / b; return; }
-   │                                                            ┬  
-   │                                                            ╰── Invalid right operand for arithmetic operator 'Div'. Expected 'felt', found 'u32'
+ 1 │ fn test() { let a: bool = true; let b: bool = false; let quot = a / b; return; }
+   │                                                                 ┬  
+   │                                                                 ╰── Operator `/` is not supported for type `bool`
 ───╯
 
 ============================================================
 
 --- Input 5 (ERROR) ---
-fn test() { let a: bool = true; let b: bool = false; let sum = a + b; return; }
+fn test() { let x: felt = 42; let y: u32 = 100; let result = x + y; return; }
 --- Diagnostics ---
-[2001] Error: Invalid left operand for arithmetic operator 'Add'. Expected 'felt', found 'bool'
-   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:64 ]
+[2001] Error: Invalid right operand for arithmetic operator `+`. Expected `felt`, found `u32`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:66 ]
    │
- 1 │ fn test() { let a: bool = true; let b: bool = false; let sum = a + b; return; }
-   │                                                                ┬  
-   │                                                                ╰── Invalid left operand for arithmetic operator 'Add'. Expected 'felt', found 'bool'
-   │                                                                │  
-   │                                                                ╰── Cannot use bool in arithmetic operations. Consider using logical operators (&&, ||) instead.
-───╯
-[2001] Error: Invalid right operand for arithmetic operator 'Add'. Expected 'felt', found 'bool'
-   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:68 ]
-   │
- 1 │ fn test() { let a: bool = true; let b: bool = false; let sum = a + b; return; }
-   │                                                                    ┬  
-   │                                                                    ╰── Invalid right operand for arithmetic operator 'Add'. Expected 'felt', found 'bool'
-   │                                                                    │  
-   │                                                                    ╰── Cannot use bool in arithmetic operations. Consider using logical operators (&&, ||) instead.
+ 1 │ fn test() { let x: felt = 42; let y: u32 = 100; let result = x + y; return; }
+   │                                                                  ┬  
+   │                                                                  ╰── Invalid right operand for arithmetic operator `+`. Expected `felt`, found `u32`
 ───╯
 
 ============================================================
 
 --- Input 6 (ERROR) ---
-fn test() { let a: bool = true; let b: bool = false; let diff = a - b; return; }
+struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = Point { x: 30, y: 40 }; let p3 = p1 + p2; return; }
 --- Diagnostics ---
-[2001] Error: Invalid left operand for arithmetic operator 'Sub'. Expected 'felt', found 'bool'
-   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:65 ]
+[2001] Error: Operator `+` is not supported for type `Point`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:122 ]
    │
- 1 │ fn test() { let a: bool = true; let b: bool = false; let diff = a - b; return; }
-   │                                                                 ┬  
-   │                                                                 ╰── Invalid left operand for arithmetic operator 'Sub'. Expected 'felt', found 'bool'
-   │                                                                 │  
-   │                                                                 ╰── Cannot use bool in arithmetic operations. Consider using logical operators (&&, ||) instead.
-───╯
-[2001] Error: Invalid right operand for arithmetic operator 'Sub'. Expected 'felt', found 'bool'
-   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:69 ]
-   │
- 1 │ fn test() { let a: bool = true; let b: bool = false; let diff = a - b; return; }
-   │                                                                     ┬  
-   │                                                                     ╰── Invalid right operand for arithmetic operator 'Sub'. Expected 'felt', found 'bool'
-   │                                                                     │  
-   │                                                                     ╰── Cannot use bool in arithmetic operations. Consider using logical operators (&&, ||) instead.
+ 1 │ struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = Point { x: 30, y: 40 }; let p3 = p1 + p2; return; }
+   │                                                                                                                          ─┬  
+   │                                                                                                                           ╰── Operator `+` is not supported for type `Point`
 ───╯
 
 ============================================================
 
 --- Input 7 (ERROR) ---
-fn test() { let a: bool = true; let b: bool = false; let prod = a * b; return; }
---- Diagnostics ---
-[2001] Error: Invalid left operand for arithmetic operator 'Mul'. Expected 'felt', found 'bool'
-   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:65 ]
-   │
- 1 │ fn test() { let a: bool = true; let b: bool = false; let prod = a * b; return; }
-   │                                                                 ┬  
-   │                                                                 ╰── Invalid left operand for arithmetic operator 'Mul'. Expected 'felt', found 'bool'
-   │                                                                 │  
-   │                                                                 ╰── Cannot use bool in arithmetic operations. Consider using logical operators (&&, ||) instead.
-───╯
-[2001] Error: Invalid right operand for arithmetic operator 'Mul'. Expected 'felt', found 'bool'
-   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:69 ]
-   │
- 1 │ fn test() { let a: bool = true; let b: bool = false; let prod = a * b; return; }
-   │                                                                     ┬  
-   │                                                                     ╰── Invalid right operand for arithmetic operator 'Mul'. Expected 'felt', found 'bool'
-   │                                                                     │  
-   │                                                                     ╰── Cannot use bool in arithmetic operations. Consider using logical operators (&&, ||) instead.
-───╯
-
-============================================================
-
---- Input 8 (ERROR) ---
-fn test() { let a: bool = true; let b: bool = false; let quot = a / b; return; }
---- Diagnostics ---
-[2001] Error: Invalid left operand for arithmetic operator 'Div'. Expected 'felt', found 'bool'
-   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:65 ]
-   │
- 1 │ fn test() { let a: bool = true; let b: bool = false; let quot = a / b; return; }
-   │                                                                 ┬  
-   │                                                                 ╰── Invalid left operand for arithmetic operator 'Div'. Expected 'felt', found 'bool'
-   │                                                                 │  
-   │                                                                 ╰── Cannot use bool in arithmetic operations. Consider using logical operators (&&, ||) instead.
-───╯
-[2001] Error: Invalid right operand for arithmetic operator 'Div'. Expected 'felt', found 'bool'
-   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:69 ]
-   │
- 1 │ fn test() { let a: bool = true; let b: bool = false; let quot = a / b; return; }
-   │                                                                     ┬  
-   │                                                                     ╰── Invalid right operand for arithmetic operator 'Div'. Expected 'felt', found 'bool'
-   │                                                                     │  
-   │                                                                     ╰── Cannot use bool in arithmetic operations. Consider using logical operators (&&, ||) instead.
-───╯
-
-============================================================
-
---- Input 9 (ERROR) ---
-fn test() { let x: felt = 42; let y: u32 = 100; let result = x + y; return; }
---- Diagnostics ---
-[2001] Error: Invalid right operand for arithmetic operator 'Add'. Expected 'felt', found 'u32'
-   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:66 ]
-   │
- 1 │ fn test() { let x: felt = 42; let y: u32 = 100; let result = x + y; return; }
-   │                                                                  ┬  
-   │                                                                  ╰── Invalid right operand for arithmetic operator 'Add'. Expected 'felt', found 'u32'
-───╯
-
-============================================================
-
---- Input 10 (ERROR) ---
-struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = Point { x: 30, y: 40 }; let p3 = p1 + p2; return; }
---- Diagnostics ---
-[2001] Error: Invalid left operand for arithmetic operator 'Add'. Expected 'felt', found 'Point'
-   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:122 ]
-   │
- 1 │ struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = Point { x: 30, y: 40 }; let p3 = p1 + p2; return; }
-   │                                                                                                                          ─┬  
-   │                                                                                                                           ╰── Invalid left operand for arithmetic operator 'Add'. Expected 'felt', found 'Point'
-   │                                                                                                                           │  
-   │                                                                                                                           ╰── This struct has numeric fields that could be accessed
-───╯
-[2001] Error: Invalid right operand for arithmetic operator 'Add'. Expected 'felt', found 'Point'
-   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:127 ]
-   │
- 1 │ struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = Point { x: 30, y: 40 }; let p3 = p1 + p2; return; }
-   │                                                                                                                               ─┬  
-   │                                                                                                                                ╰── Invalid right operand for arithmetic operator 'Add'. Expected 'felt', found 'Point'
-   │                                                                                                                                │  
-   │                                                                                                                                ╰── This struct has numeric fields that could be accessed
-───╯
-
-============================================================
-
---- Input 11 (ERROR) ---
 struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p4 = p1 * 2; return; }
 --- Diagnostics ---
-[2001] Error: Invalid left operand for arithmetic operator 'Mul'. Expected 'felt', found 'Point'
+[2001] Error: Operator `*` is not supported for type `Point`
    ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:89 ]
    │
  1 │ struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p4 = p1 * 2; return; }
    │                                                                                         ─┬  
-   │                                                                                          ╰── Invalid left operand for arithmetic operator 'Mul'. Expected 'felt', found 'Point'
-   │                                                                                          │  
-   │                                                                                          ╰── This struct has numeric fields that could be accessed
+   │                                                                                          ╰── Operator `*` is not supported for type `Point`
 ───╯

@@ -17,14 +17,12 @@ Source code:
 Found 2 diagnostic(s):
 
 --- Diagnostic 1 ---
-[2001] Error: Invalid left operand for arithmetic operator 'Mul'. Expected 'felt', found 'Counter'
+[2001] Error: Operator `*` is not supported for type `Counter`
    ╭─[ semantic_tests::expressions::type_errors::test_struct_with_numeric_field_suggestion:6:26 ]
    │
  6 │             let result = c * 2;  // Should suggest accessing 'value' field
    │                          ┬  
-   │                          ╰── Invalid left operand for arithmetic operator 'Mul'. Expected 'felt', found 'Counter'
-   │                          │  
-   │                          ╰── Did you mean to access the 'value' field?
+   │                          ╰── Operator `*` is not supported for type `Counter`
 ───╯
 
 --- Diagnostic 2 ---

@@ -5,12 +5,12 @@ expression: snapshot
 --- Input 1 (ERROR) ---
 fn test() { let (x, y) = 42; return; }
 --- Diagnostics ---
-[2001] Error: Cannot destructure non-tuple type 'felt' in tuple pattern
+[2001] Error: Cannot destructure non-tuple type `felt` in tuple pattern
    ╭─[ semantic_tests::functions::tuples::test_tuple_destructuring:1:26 ]
    │
  1 │ fn test() { let (x, y) = 42; return; }
    │                          ─┬  
-   │                           ╰── Cannot destructure non-tuple type 'felt' in tuple pattern
+   │                           ╰── Cannot destructure non-tuple type `felt` in tuple pattern
 ───╯
 
 ============================================================
@@ -31,12 +31,12 @@ fn test() { let (x, y) = (1, 2, 3); return; }
 --- Input 3 (ERROR) ---
 fn test() { let (x, y): felt = (1, 2); return; }
 --- Diagnostics ---
-[2001] Error: Type mismatch for tuple destructuring. Expected 'felt', found '(felt, felt)'
+[2001] Error: Type mismatch for tuple destructuring. Expected `felt`, found `(felt, felt)`
    ╭─[ semantic_tests::functions::tuples::test_tuple_destructuring:1:32 ]
    │
  1 │ fn test() { let (x, y): felt = (1, 2); return; }
    │                                ───┬──  
-   │                                   ╰──── Type mismatch for tuple destructuring. Expected 'felt', found '(felt, felt)'
+   │                                   ╰──── Type mismatch for tuple destructuring. Expected `felt`, found `(felt, felt)`
 ───╯
 
 ============================================================
