@@ -461,9 +461,7 @@ mod tests {
 
         memory.insert(addr, value).unwrap();
         let instruction_m31s = memory.get_instruction(addr).unwrap();
-        assert_eq!(instruction_m31s.len(), 3); // store_imm has 3 M31s
-        assert_eq!(instruction_m31s[0], M31(5)); // opcode
-        assert_eq!(instruction_m31s[1], M31(123)); // imm value
+        assert_eq!(instruction_m31s.as_slice(), &[M31(5), M31(123), M31(0)]);
         assert_eq!(memory.data.len(), 43);
         assert_eq!(memory.trace.borrow().len(), 2);
         assert_eq!(memory.trace.borrow()[0], MemoryEntry { addr, value });
