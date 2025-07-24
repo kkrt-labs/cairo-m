@@ -1,6 +1,8 @@
 use std::collections::HashMap;
+use std::ops::Range;
 
 use serde::{Deserialize, Serialize};
+use stwo_prover::core::fields::m31::M31;
 
 use crate::Instruction;
 
@@ -13,6 +15,41 @@ pub struct EntrypointInfo {
     pub args: Vec<String>,
     /// Number of return values
     pub num_return_values: usize,
+}
+
+/// Public address ranges for structured access to program, input, and output data
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct PublicAddressRanges {
+    /// Program addresses (instructions)
+    pub program: Range<u32>,
+    /// Input addresses (function arguments)
+    pub input: Range<u32>,
+    /// Output addresses (function return values)
+    pub output: Range<u32>,
+}
+
+impl PublicAddressRanges {
+    /// Creates public address ranges from program length and function signature
+    pub const fn new(program_length: u32, num_args: usize, num_return_values: usize) -> Self {
+        let program_end = program_length;
+        let input_end = program_end + num_args as u32;
+        let output_end = input_end + num_return_values as u32;
+
+        Self {
+            program: 0..program_end,
+            input: program_end..input_end,
+            output: input_end..output_end,
+        }
+    }
+
+    /// Converts ranges to flat address vector for compatibility
+    pub fn to_flat_addresses(&self) -> Vec<M31> {
+        let mut addresses = Vec::new();
+        addresses.extend(self.program.clone().map(M31::from));
+        addresses.extend(self.input.clone().map(M31::from));
+        addresses.extend(self.output.clone().map(M31::from));
+        addresses
+    }
 }
 
 /// Metadata about the compiled program

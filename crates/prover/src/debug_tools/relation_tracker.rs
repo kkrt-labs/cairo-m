@@ -9,6 +9,7 @@ use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::backend::{BackendForChannel, Column};
 use stwo_prover::core::channel::MerkleChannel;
 use stwo_prover::core::fields::m31::M31;
+use stwo_prover::core::fields::qm31::QM31;
 use stwo_prover::core::pcs::{CommitmentSchemeProver, TreeVec};
 use stwo_prover::core::poly::circle::CanonicCoset;
 
@@ -85,23 +86,36 @@ where
         .to_vec(),
     });
 
-    // Add memory relation entries for public addresses
-    for (addr, value, clock) in public_data.public_entries.iter().flatten() {
-        let value_array = value.to_m31_array();
-        entries.push(RelationTrackerEntry {
-            relation: "Memory".to_string(),
-            mult: -M31::one(),
-            values: [
-                *addr,
-                *clock,
-                value_array[0],
-                value_array[1],
-                value_array[2],
-                value_array[3],
-            ]
-            .to_vec(),
-        });
-    }
+    // Add memory relation entries for all public addresses (program, input, output)
+    let mut add_memory_entries = |public_entries: &[Option<(M31, QM31, M31)>],
+                                  multiplicity: M31| {
+        for (addr, value, clock) in public_entries.iter().flatten() {
+            let value_array = value.to_m31_array();
+            entries.push(RelationTrackerEntry {
+                relation: "Memory".to_string(),
+                mult: multiplicity,
+                values: [
+                    *addr,
+                    *clock,
+                    value_array[0],
+                    value_array[1],
+                    value_array[2],
+                    value_array[3],
+                ]
+                .to_vec(),
+            });
+        }
+    };
+
+    // Emit the initial public memory
+    add_memory_entries(&public_data.initial_public_entries.program, M31::one());
+    add_memory_entries(&public_data.initial_public_entries.input, M31::one());
+    add_memory_entries(&public_data.initial_public_entries.output, M31::one());
+
+    // Use the final public memory
+    add_memory_entries(&public_data.final_public_entries.program, -M31::one());
+    add_memory_entries(&public_data.final_public_entries.input, -M31::one());
+    add_memory_entries(&public_data.final_public_entries.output, -M31::one());
 
     entries
 }

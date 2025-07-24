@@ -214,6 +214,24 @@ impl Memory {
             final_memory: initial_memory_hashmap,
         }
     }
+
+    /// Sets multiplicities to zero for the given address ranges in both initial and final memory
+    pub fn set_multiplicities_to_zero(&mut self, ranges: &cairo_m_common::PublicAddressRanges) {
+        let addresses = ranges.to_flat_addresses();
+
+        for addr in addresses {
+            let key = (addr, M31::from(TREE_HEIGHT));
+
+            if let Some((value, clock, _)) = self.initial_memory.get(&key).cloned() {
+                self.initial_memory.insert(key, (value, clock, M31::zero()));
+            }
+
+            if let Some((value, clock, _)) = self.final_memory.get(&key).cloned() {
+                self.final_memory.insert(key, (value, clock, M31::zero()));
+            }
+        }
+    }
+
     fn push(&mut self, memory_entry: MemoryEntry) -> MemoryArg {
         let prev_memory_entry = self
             .final_memory
