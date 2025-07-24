@@ -30,7 +30,7 @@
 
 use cairo_m_compiler_parser::parser::{
     ConstDef, Expression, FunctionDef, Namespace, Parameter, Spanned, Statement, StructDef,
-    TopLevelItem, UseStmt,
+    TopLevelItem, TypeExpr, UseStmt,
 };
 
 /// Core visitor trait for AST traversal.
@@ -86,6 +86,11 @@ pub trait Visitor<'ast> {
             self.visit_stmt(stmt);
         }
     }
+
+    /// Visit a type expression node
+    fn visit_type_expr(&mut self, type_expr: &'ast Spanned<TypeExpr>) {
+        walk_type_expr(self, type_expr);
+    }
 }
 
 fn walk_top_level_item<'ast, V: Visitor<'ast> + ?Sized>(visitor: &mut V, item: &'ast TopLevelItem) {
@@ -95,5 +100,23 @@ fn walk_top_level_item<'ast, V: Visitor<'ast> + ?Sized>(visitor: &mut V, item: &
         TopLevelItem::Namespace(namespace) => visitor.visit_namespace(namespace),
         TopLevelItem::Const(const_def) => visitor.visit_const(const_def),
         TopLevelItem::Use(use_stmt) => visitor.visit_use(use_stmt),
+    }
+}
+
+/// Walk a type expression, visiting nested type expressions
+pub fn walk_type_expr<'ast, V: Visitor<'ast> + ?Sized>(
+    visitor: &mut V,
+    type_expr: &'ast Spanned<TypeExpr>,
+) {
+    match type_expr.value() {
+        TypeExpr::Pointer(inner) => visitor.visit_type_expr(inner),
+        TypeExpr::Tuple(elements) => {
+            for element in elements {
+                visitor.visit_type_expr(element);
+            }
+        }
+        TypeExpr::Named(_) => {
+            // Leaf node for traversal, will be handled by the implementation
+        }
     }
 }

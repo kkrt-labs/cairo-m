@@ -24,6 +24,8 @@
 
 // Import all common test utilities
 pub mod common;
+use cairo_m_compiler_parser::parser::{NamedType, Spanned, TypeExpr};
+use chumsky::span::SimpleSpan;
 pub use common::*;
 
 /// Macro to assert that inline code validates successfully
@@ -135,6 +137,18 @@ macro_rules! assert_semantic_parameterized {
     }};
 }
 
+// Helper functions to create test AST nodes with dummy spans
+pub(crate) fn spanned<T>(value: T) -> Spanned<T> {
+    Spanned::new(value, SimpleSpan::from(0..0))
+}
+
+pub(crate) fn named_type(name: NamedType) -> Spanned<TypeExpr> {
+    spanned(TypeExpr::Named(spanned(name)))
+}
+
+pub(crate) fn pointer_type(inner: Spanned<TypeExpr>) -> Spanned<TypeExpr> {
+    spanned(TypeExpr::Pointer(Box::new(inner)))
+}
 // Test modules organized by concern
 pub mod control_flow;
 pub mod expressions;

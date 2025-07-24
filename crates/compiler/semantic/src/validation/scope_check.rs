@@ -168,6 +168,17 @@ impl ScopeValidator {
             }
         }
 
+        // Check each type usage to see if it was resolved to a definition
+        for (usage_index, usage) in index.type_usages().iter().enumerate() {
+            if !index.is_type_usage_resolved(usage_index) {
+                diagnostics.push(Diagnostic::undeclared_type(
+                    file.file_path(db).to_string(),
+                    &usage.name,
+                    usage.span,
+                ));
+            }
+        }
+
         diagnostics
     }
 

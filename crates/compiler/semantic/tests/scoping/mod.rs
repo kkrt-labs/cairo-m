@@ -12,5 +12,6 @@
 
 pub mod duplicate_definitions;
 pub mod nested_scopes;
+pub mod undeclared_types;
 pub mod undeclared_variables;
 pub mod unused_variables;

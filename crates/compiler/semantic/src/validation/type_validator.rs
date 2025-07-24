@@ -935,7 +935,7 @@ impl TypeValidator {
         index: &SemanticIndex,
         pattern: &Pattern,
         value: &Spanned<Expression>,
-        statement_type: &Option<TypeExpr>,
+        statement_type: &Option<Spanned<TypeExpr>>,
         diagnostics: &mut Vec<Diagnostic>,
     ) {
         let Some(value_expr_id) = index.expression_id_by_span(value.span()) else {

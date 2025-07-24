@@ -2,7 +2,7 @@
 //!
 //! These tests verify that the type system actually works end-to-end
 
-use cairo_m_compiler_parser::parser::{NamedType, TypeExpr as AstTypeExpr};
+use cairo_m_compiler_parser::parser::NamedType;
 use cairo_m_compiler_semantic::db::Crate;
 use cairo_m_compiler_semantic::place::ScopeKind;
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
@@ -17,6 +17,7 @@ use cairo_m_compiler_semantic::{
 };
 
 use crate::common::*;
+use crate::{named_type, pointer_type};
 
 fn get_root_scope(db: &dyn SemanticDb, crate_id: Crate) -> FileScopeId {
     let semantic_index = project_semantic_index(db, crate_id).unwrap();
@@ -35,20 +36,14 @@ fn test_resolve_primitive_types() {
     let crate_id = single_file_crate(&db, file);
     let root_scope = get_root_scope(&db, crate_id);
 
-    let felt_type = resolve_ast_type(
-        &db,
-        crate_id,
-        file,
-        AstTypeExpr::Named(NamedType::Felt),
-        root_scope,
-    );
+    let felt_type = resolve_ast_type(&db, crate_id, file, named_type(NamedType::Felt), root_scope);
     assert!(matches!(felt_type.data(&db), TypeData::Felt));
 
     let pointer_felt_type = resolve_ast_type(
         &db,
         crate_id,
         file,
-        AstTypeExpr::Pointer(Box::new(AstTypeExpr::Named(NamedType::Felt))),
+        pointer_type(named_type(NamedType::Felt)),
         root_scope,
     );
     assert!(
@@ -75,7 +70,7 @@ fn test_struct_type_resolution() {
         &db,
         crate_id,
         file,
-        AstTypeExpr::Named(NamedType::Custom("Point".to_string())),
+        named_type(NamedType::Custom("Point".to_string())),
         root_scope,
     );
     let point_type_data = point_type_id.data(&db);
@@ -141,7 +136,7 @@ fn test_function_signature_resolution() {
         &db,
         crate_id,
         file,
-        AstTypeExpr::Named(NamedType::Custom("Point".to_string())),
+        named_type(NamedType::Custom("Point".to_string())),
         root_scope,
     );
     assert_eq!(return_type, point_type_id);

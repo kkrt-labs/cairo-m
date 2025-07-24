@@ -80,6 +80,7 @@ pub enum DiagnosticCode {
     DuplicateParameter,
     DuplicateStructField,
     DuplicatePatternIdentifier,
+    UndeclaredType,
 
     // Type-related errors (2000-2999)
     TypeMismatch,
@@ -135,6 +136,7 @@ impl From<DiagnosticCode> for u32 {
             DiagnosticCode::DuplicateParameter => 1006,
             DiagnosticCode::DuplicateStructField => 1007,
             DiagnosticCode::DuplicatePatternIdentifier => 1008,
+            DiagnosticCode::UndeclaredType => 1009,
             DiagnosticCode::TypeMismatch => 2001,
             DiagnosticCode::InvalidFieldAccess => 2002,
             DiagnosticCode::InvalidIndexAccess => 2003,
@@ -217,6 +219,14 @@ impl Diagnostic {
         Self::error(
             DiagnosticCode::UndeclaredVariable,
             format!("Undeclared variable '{name}'"),
+        )
+        .with_location(file_path, span)
+    }
+
+    pub fn undeclared_type(file_path: String, name: &str, span: SimpleSpan<usize>) -> Self {
+        Self::error(
+            DiagnosticCode::UndeclaredType,
+            format!("Cannot find type '{name}' in this scope"),
         )
         .with_location(file_path, span)
     }

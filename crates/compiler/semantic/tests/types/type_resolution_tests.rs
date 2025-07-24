@@ -3,11 +3,11 @@
 //! These tests verify that `resolve_ast_type` correctly resolves AST type expressions
 //! to semantic type IDs, including primitive types, pointers, and user-defined types.
 
-use cairo_m_compiler_parser::parser::{NamedType, TypeExpr as AstTypeExpr};
+use cairo_m_compiler_parser::parser::NamedType;
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
 
 use super::*;
-use crate::{crate_from_program, get_main_semantic_index};
+use crate::{crate_from_program, get_main_semantic_index, named_type, pointer_type};
 
 #[test]
 fn test_resolve_primitive_types() {
@@ -17,20 +17,14 @@ fn test_resolve_primitive_types() {
     let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
-    let felt_type = resolve_ast_type(
-        &db,
-        crate_id,
-        file,
-        AstTypeExpr::Named(NamedType::Felt),
-        root_scope,
-    );
+    let felt_type = resolve_ast_type(&db, crate_id, file, named_type(NamedType::Felt), root_scope);
     assert!(matches!(felt_type.data(&db), TypeData::Felt));
 
     let pointer_felt_type = resolve_ast_type(
         &db,
         crate_id,
         file,
-        AstTypeExpr::Pointer(Box::new(AstTypeExpr::Named(NamedType::Felt))),
+        pointer_type(named_type(NamedType::Felt)),
         root_scope,
     );
     assert!(
@@ -51,9 +45,7 @@ fn test_resolve_nested_pointer_types() {
         &db,
         crate_id,
         file,
-        AstTypeExpr::Pointer(Box::new(AstTypeExpr::Pointer(Box::new(
-            AstTypeExpr::Named(NamedType::Felt),
-        )))),
+        pointer_type(pointer_type(named_type(NamedType::Felt))),
         root_scope,
     );
 
@@ -87,7 +79,7 @@ fn test_struct_type_resolution() {
         &db,
         crate_id,
         file,
-        AstTypeExpr::Named(NamedType::Custom("Point".to_string())),
+        named_type(NamedType::Custom("Point".to_string())),
         root_scope,
     );
     let point_type_data = point_type_id.data(&db);
@@ -175,7 +167,7 @@ fn test_resolve_unknown_type_name() {
         &db,
         crate_id,
         file,
-        AstTypeExpr::Named(NamedType::Custom("UnknownType".to_string())),
+        named_type(NamedType::Custom("UnknownType".to_string())),
         root_scope,
     );
 
@@ -229,7 +221,7 @@ fn test_resolve_types_in_nested_scopes() {
         &db,
         crate_id,
         file,
-        AstTypeExpr::Named(NamedType::Custom("GlobalStruct".to_string())),
+        named_type(NamedType::Custom("GlobalStruct".to_string())),
         namespace_scope,
     );
     assert!(matches!(global_type.data(&db), TypeData::Struct(_)));
@@ -239,7 +231,7 @@ fn test_resolve_types_in_nested_scopes() {
         &db,
         crate_id,
         file,
-        AstTypeExpr::Named(NamedType::Custom("LocalStruct".to_string())),
+        named_type(NamedType::Custom("LocalStruct".to_string())),
         namespace_scope,
     );
     assert!(matches!(local_type.data(&db), TypeData::Struct(_)));
@@ -249,7 +241,7 @@ fn test_resolve_types_in_nested_scopes() {
         &db,
         crate_id,
         file,
-        AstTypeExpr::Named(NamedType::Custom("LocalStruct".to_string())),
+        named_type(NamedType::Custom("LocalStruct".to_string())),
         root_scope,
     );
     // This should be an unknown/error type since LocalStruct is not in root scope

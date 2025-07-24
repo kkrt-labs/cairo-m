@@ -81,9 +81,9 @@ impl fmt::Display for DefinitionKind {
 pub struct FunctionDefRef {
     pub name: String,
     /// Parameter information with names and AST type expressions
-    pub params_ast: Vec<(String, TypeExpr)>,
+    pub params_ast: Vec<(String, Spanned<TypeExpr>)>,
     /// Return type AST expression (defaults to unit type)
-    pub return_type_ast: TypeExpr,
+    pub return_type_ast: Spanned<TypeExpr>,
 }
 
 impl FunctionDefRef {
@@ -106,7 +106,7 @@ impl FunctionDefRef {
 pub struct StructDefRef {
     pub name: String,
     /// Field information with names and AST type expressions
-    pub fields_ast: Vec<(String, TypeExpr)>,
+    pub fields_ast: Vec<(String, Spanned<TypeExpr>)>,
 }
 
 impl StructDefRef {
@@ -147,7 +147,7 @@ pub struct LetDefRef {
     /// The expression ID for the let's value (to be assigned during semantic analysis)
     pub value_expr_id: Option<ExpressionId>,
     /// Explicit type annotation, if provided
-    pub explicit_type_ast: Option<TypeExpr>,
+    pub explicit_type_ast: Option<Spanned<TypeExpr>>,
     /// Destructuring information: (RHS expression ID, index in tuple pattern)
     pub destructuring_info: Option<(ExpressionId, usize)>,
 }
@@ -155,7 +155,7 @@ pub struct LetDefRef {
 impl LetDefRef {
     pub fn from_let_statement(
         name: &str,
-        explicit_type_ast: Option<TypeExpr>,
+        explicit_type_ast: Option<Spanned<TypeExpr>>,
         value_expr_id: Option<ExpressionId>,
     ) -> Self {
         Self {
@@ -168,7 +168,7 @@ impl LetDefRef {
 
     pub fn from_destructuring(
         name: &str,
-        explicit_type_ast: Option<TypeExpr>,
+        explicit_type_ast: Option<Spanned<TypeExpr>>,
         value_expr_id: ExpressionId,
         index: usize,
     ) -> Self {
@@ -186,7 +186,7 @@ impl LetDefRef {
 pub struct ParameterDefRef {
     pub name: String,
     /// The AST type expression for this parameter
-    pub type_ast: TypeExpr,
+    pub type_ast: Spanned<TypeExpr>,
 }
 
 impl ParameterDefRef {
@@ -289,9 +289,22 @@ impl Definitions {
 
 #[cfg(test)]
 mod tests {
-    use cairo_m_compiler_parser::parser::{Expression, NamedType, TypeExpr};
+    use cairo_m_compiler_parser::parser::{Expression, NamedType, Spanned, TypeExpr};
 
     use super::*;
+
+    // Helper functions for tests
+    fn spanned<T>(value: T) -> Spanned<T> {
+        Spanned::new(value, SimpleSpan::from(0..0))
+    }
+
+    fn named_type(name: NamedType) -> Spanned<TypeExpr> {
+        spanned(TypeExpr::Named(spanned(name)))
+    }
+
+    fn tuple_type(elements: Vec<Spanned<TypeExpr>>) -> Spanned<TypeExpr> {
+        spanned(TypeExpr::Tuple(elements))
+    }
 
     #[test]
     fn test_definition_kinds() {
@@ -301,13 +314,13 @@ mod tests {
         let func_def = FunctionDef {
             name: Spanned::new("test_func".to_string(), SimpleSpan::from(0..5)),
             params: vec![],
-            return_type: TypeExpr::Named(NamedType::Felt),
+            return_type: named_type(NamedType::Felt),
             body: vec![],
         };
         let spanned_func = Spanned::new(func_def, SimpleSpan::from(0..10));
         let func_ref = FunctionDefRef::from_ast(&spanned_func);
         assert_eq!(func_ref.name, "test_func");
-        assert_eq!(func_ref.return_type_ast, TypeExpr::Named(NamedType::Felt));
+        assert_eq!(func_ref.return_type_ast, named_type(NamedType::Felt));
         assert_eq!(func_ref.params_ast.len(), 0);
 
         let struct_def = StructDef {
@@ -315,11 +328,11 @@ mod tests {
             fields: vec![
                 (
                     Spanned::new("x".to_string(), SimpleSpan::from(6..7)),
-                    TypeExpr::Named(NamedType::Felt),
+                    named_type(NamedType::Felt),
                 ),
                 (
                     Spanned::new("y".to_string(), SimpleSpan::from(8..9)),
-                    TypeExpr::Named(NamedType::Felt),
+                    named_type(NamedType::Felt),
                 ),
             ],
         };
@@ -346,7 +359,7 @@ mod tests {
         let def1_kind = DefinitionKind::Function(FunctionDefRef {
             name: "func1".to_string(),
             params_ast: vec![],
-            return_type_ast: TypeExpr::Tuple(vec![]), // Unit type
+            return_type_ast: tuple_type(vec![]), // Unit type
         });
 
         let def2_kind = DefinitionKind::Const(ConstDefRef {
@@ -376,8 +389,8 @@ mod tests {
 
         let def_kind = DefinitionKind::Function(FunctionDefRef {
             name: "test".to_string(),
-            params_ast: vec![("param".to_string(), TypeExpr::Named(NamedType::Felt))],
-            return_type_ast: TypeExpr::Named(NamedType::Felt),
+            params_ast: vec![("param".to_string(), named_type(NamedType::Felt))],
+            return_type_ast: named_type(NamedType::Felt),
         });
 
         let definitions = Definitions::single(scope_id, place_id, def_kind);

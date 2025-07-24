@@ -51,8 +51,8 @@ use std::collections::HashMap;
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCollection};
 use cairo_m_compiler_parser::ParsedModule;
 use cairo_m_compiler_parser::parser::{
-    ConstDef, Expression, FunctionDef, Namespace, Parameter, Pattern, Spanned, Statement,
-    StructDef, TopLevelItem, UseItems, UseStmt,
+    ConstDef, Expression, FunctionDef, NamedType, Namespace, Parameter, Pattern, Spanned,
+    Statement, StructDef, TopLevelItem, TypeExpr, UseItems, UseStmt,
 };
 use chumsky::span::SimpleSpan;
 use index_vec::IndexVec;
@@ -61,7 +61,7 @@ use rustc_hash::FxHashMap;
 use crate::definition::{DefinitionKind, ParameterDefRef, UseDefRef};
 use crate::place::{FileScopeId, PlaceTable, Scope};
 use crate::semantic_errors::{SemanticSyntaxChecker, SemanticSyntaxContext};
-use crate::visitor::Visitor;
+use crate::visitor::{Visitor, walk_type_expr};
 use crate::{Crate, Definition, File, PlaceFlags, SemanticDb, project_semantic_index};
 
 // Define DefinitionIndex as an index type for definitions within a single file.
@@ -93,6 +93,13 @@ pub struct IdentifierUsage {
     /// The span of the identifier in the source
     pub span: SimpleSpan<usize>,
     /// The scope where this identifier is used
+    pub scope_id: FileScopeId,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TypeUsage {
+    pub name: String,
+    pub span: SimpleSpan<usize>,
     pub scope_id: FileScopeId,
 }
 
@@ -206,6 +213,20 @@ pub struct SemanticIndex {
     /// **Indexed by**: Vector index (used as key in `uses` map)
     identifier_usages: Vec<IdentifierUsage>,
 
+    /// **Type usage tracking**: All type usage sites with location and scope context.
+    ///
+    /// Records every place a type is used (not defined), with its exact source
+    /// location and the scope it appears in. Combined with `uses`, this provides complete
+    /// use-def information. Unresolved usages (not in `uses` map) are undeclared types.
+    ///
+    /// **Used by**: Undeclared type detection, unused type analysis, find references
+    /// **Indexed by**: Vector index (used as key in `uses` map)
+    type_usages: Vec<TypeUsage>,
+
+    // TODO: is this the optimal approach?
+    /// Type usage lookup: Maps a type usage index to its definition index
+    type_usage_to_definition: FxHashMap<usize, DefinitionIndex>,
+
     /// **Type inference support**: Information about each expression node for type checking.
     ///
     /// Every expression in the AST gets an entry here with its AST node, scope context,
@@ -249,6 +270,8 @@ impl SemanticIndex {
             definitions: IndexVec::new(),
             uses: FxHashMap::default(),
             identifier_usages: Vec::new(),
+            type_usages: Vec::new(),
+            type_usage_to_definition: FxHashMap::default(),
             expressions: IndexVec::new(),
             span_to_expression_id: FxHashMap::default(),
             imports: Vec::new(),
@@ -497,9 +520,26 @@ impl SemanticIndex {
         index
     }
 
+    /// Add a type usage
+    pub fn add_type_usage(&mut self, usage: TypeUsage) -> usize {
+        let index = self.type_usages.len();
+        self.type_usages.push(usage);
+        index
+    }
+
     /// Add a use-def relationship
     pub fn add_use(&mut self, usage_index: usize, definition_id: DefinitionIndex) {
         self.uses.insert(usage_index, definition_id);
+    }
+
+    /// Add a type usage to definition relationship
+    pub fn add_type_usage_to_definition(
+        &mut self,
+        usage_index: usize,
+        definition_id: DefinitionIndex,
+    ) {
+        self.type_usage_to_definition
+            .insert(usage_index, definition_id);
     }
 
     /// Get all identifier usages
@@ -507,9 +547,19 @@ impl SemanticIndex {
         &self.identifier_usages
     }
 
+    /// Get all type usages
+    pub fn type_usages(&self) -> &[TypeUsage] {
+        &self.type_usages
+    }
+
     /// Check if an identifier usage has a corresponding definition
     pub fn is_usage_resolved(&self, usage_index: usize) -> bool {
         self.uses.contains_key(&usage_index)
+    }
+
+    /// Check if a type usage has a corresponding definition
+    pub fn is_type_usage_resolved(&self, usage_index: usize) -> bool {
+        self.type_usage_to_definition.contains_key(&usage_index)
     }
 
     /// Get the definition for a specific identifier usage
@@ -812,6 +862,11 @@ where
                     .expression_id_by_span(value.span())
                     .expect("expression should have been registered");
 
+                // Visit the type expression if present
+                if let Some(ty) = statement_type {
+                    self.visit_type_expr(ty);
+                }
+
                 self.with_semantic_checker(|checker, builder| {
                     checker.check_pattern(builder, pattern);
                 });
@@ -1069,6 +1124,9 @@ where
             checker.check_parameters(builder, &func_def.params);
         });
 
+        // Visit the return type
+        self.visit_type_expr(&func_def.return_type);
+
         self.visit_parameters(&func_def.params);
 
         // Visit function body statements
@@ -1078,6 +1136,9 @@ where
     }
 
     fn visit_parameter(&mut self, param: &'ast Parameter) {
+        // Visit the parameter type
+        self.visit_type_expr(&param.type_expr);
+
         let def_kind = DefinitionKind::Parameter(ParameterDefRef::from_ast(param));
         self.add_place_with_definition(
             param.name.value(),
@@ -1127,6 +1188,11 @@ where
         self.with_semantic_checker(|checker, builder| {
             checker.check_struct(builder, struct_def);
         });
+
+        // Visit type expressions for all fields
+        for (_, type_expr) in &struct_def_inner.fields {
+            self.visit_type_expr(type_expr);
+        }
 
         let struct_span = struct_def.span();
 
@@ -1236,6 +1302,37 @@ where
             const_def_inner.name.span(),
             const_span,
         );
+    }
+
+    fn visit_type_expr(&mut self, type_expr: &'ast Spanned<TypeExpr>) {
+        match type_expr.value() {
+            TypeExpr::Named(named_type_spanned) => {
+                if let NamedType::Custom(name) = named_type_spanned.value() {
+                    let current_scope = self.current_scope();
+                    let usage = TypeUsage {
+                        name: name.clone(),
+                        span: named_type_spanned.span(),
+                        scope_id: current_scope,
+                    };
+
+                    let usage_index = self.index.add_type_usage(usage);
+
+                    if let Some((def_scope_id, place_id)) =
+                        self.index.resolve_name(name, current_scope)
+                    {
+                        if let Some(place_table) = self.index.place_table_mut(def_scope_id) {
+                            place_table.mark_as_used(place_id);
+                            if let Some((def_id, _)) =
+                                self.index.definition_for_place(def_scope_id, place_id)
+                            {
+                                self.index.add_type_usage_to_definition(usage_index, def_id);
+                            }
+                        }
+                    }
+                }
+            }
+            _ => walk_type_expr(self, type_expr), // Default traversal for Pointer/Tuple
+        }
     }
 }
 

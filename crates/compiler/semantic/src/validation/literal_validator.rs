@@ -36,20 +36,22 @@ impl Validator for LiteralValidator {
             match &definition.kind {
                 DefinitionKind::Let(let_ref) => {
                     // Check if this is explicitly typed as u32
-                    if let Some(cairo_m_compiler_parser::parser::TypeExpr::Named(type_name)) =
-                        &let_ref.explicit_type_ast
-                    {
-                        if matches!(type_name, NamedType::U32) {
-                            // Check if there's a value expression to validate
-                            if let Some(value_expr_id) = let_ref.value_expr_id {
-                                if let Some(expr_info) = index.expression(value_expr_id) {
-                                    self.check_u32_literal(
-                                        db,
-                                        &expr_info.ast_node,
-                                        expr_info.ast_span,
-                                        file,
-                                        &mut diagnostics,
-                                    );
+                    if let Some(type_expr) = &let_ref.explicit_type_ast {
+                        if let cairo_m_compiler_parser::parser::TypeExpr::Named(type_name) =
+                            type_expr.value()
+                        {
+                            if matches!(type_name.value(), NamedType::U32) {
+                                // Check if there's a value expression to validate
+                                if let Some(value_expr_id) = let_ref.value_expr_id {
+                                    if let Some(expr_info) = index.expression(value_expr_id) {
+                                        self.check_u32_literal(
+                                            db,
+                                            &expr_info.ast_node,
+                                            expr_info.ast_span,
+                                            file,
+                                            &mut diagnostics,
+                                        );
+                                    }
                                 }
                             }
                         }

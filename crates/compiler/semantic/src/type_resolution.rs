@@ -13,7 +13,7 @@
 //! - `are_types_compatible`: Checks type compatibility
 
 use cairo_m_compiler_parser::parser::{
-    BinaryOp, Expression, NamedType, TypeExpr as AstTypeExpr, UnaryOp,
+    BinaryOp, Expression, NamedType, Spanned, TypeExpr as AstTypeExpr, UnaryOp,
 };
 
 use crate::File;
@@ -29,7 +29,7 @@ use crate::types::{FunctionSignatureId, StructTypeId, TypeData, TypeId};
 fn find_explicit_type_for_let_initializer(
     semantic_index: &crate::SemanticIndex,
     expression_id: ExpressionId,
-) -> Option<AstTypeExpr> {
+) -> Option<Spanned<AstTypeExpr>> {
     // TODO: this should be O(1) ideally?
     // This is not very performant, but it's okay for now as it will be cached by Salsa.
     // A better approach might be to have a back-pointer from ExpressionInfo to its "parent" statement.
@@ -54,7 +54,7 @@ pub fn resolve_ast_type<'db>(
     db: &'db dyn SemanticDb,
     crate_id: Crate,
     file: File,
-    ast_type_expr: AstTypeExpr,
+    ast_type_expr: Spanned<AstTypeExpr>,
     context_scope_id: FileScopeId,
 ) -> TypeId<'db> {
     let module_name = match module_name_for_file(db, crate_id, file) {
@@ -78,9 +78,9 @@ pub fn resolve_ast_type<'db>(
         .get(&module_name)
         .expect("Module index should exist for module name");
 
-    match ast_type_expr {
+    match ast_type_expr.value() {
         AstTypeExpr::Named(name) => {
-            let name_str = match name {
+            let name_str = match name.value() {
                 NamedType::Felt => return TypeId::new(db, TypeData::Felt),
                 NamedType::Bool => return TypeId::new(db, TypeData::Bool),
                 NamedType::U32 => return TypeId::new(db, TypeData::U32),
@@ -89,7 +89,7 @@ pub fn resolve_ast_type<'db>(
 
             // Try to resolve as a struct type
             if let Some((def_idx, _)) =
-                semantic_index.resolve_name_to_definition(&name_str, context_scope_id)
+                semantic_index.resolve_name_to_definition(name_str, context_scope_id)
             {
                 let def_id = DefinitionId::new(db, file, def_idx);
                 let def_type = definition_semantic_type(db, crate_id, def_id);
@@ -105,14 +105,19 @@ pub fn resolve_ast_type<'db>(
             }
         }
         AstTypeExpr::Pointer(inner_ast_expr) => {
-            let inner_type_id =
-                resolve_ast_type(db, crate_id, file, *inner_ast_expr, context_scope_id);
+            let inner_type_id = resolve_ast_type(
+                db,
+                crate_id,
+                file,
+                (**inner_ast_expr).clone(),
+                context_scope_id,
+            );
             TypeId::new(db, TypeData::Pointer(inner_type_id))
         }
         AstTypeExpr::Tuple(inner_ast_exprs) => {
             let collected_type_ids: Vec<TypeId> = inner_ast_exprs
-                .into_iter()
-                .map(|expr| resolve_ast_type(db, crate_id, file, expr, context_scope_id))
+                .iter()
+                .map(|expr| resolve_ast_type(db, crate_id, file, expr.clone(), context_scope_id))
                 .collect();
             TypeId::new(db, TypeData::Tuple(collected_type_ids))
         }
@@ -124,7 +129,7 @@ fn resolve_variable_type<'db>(
     db: &'db dyn SemanticDb,
     crate_id: Crate,
     file: File,
-    explicit_type_ast: &Option<AstTypeExpr>,
+    explicit_type_ast: &Option<Spanned<AstTypeExpr>>,
     value_expr_id: Option<ExpressionId>,
     scope_id: FileScopeId,
 ) -> TypeId<'db> {
@@ -670,11 +675,30 @@ pub fn are_types_compatible<'db>(
 
 #[cfg(test)]
 mod tests {
+    use chumsky::span::SimpleSpan;
+
     use super::*;
     use crate::db::tests::{crate_from_program, test_db};
     use crate::module_semantic_index;
     use crate::place::FileScopeId;
     use crate::semantic_index::DefinitionIndex;
+
+    // Helper functions for tests
+    fn spanned<T>(value: T) -> Spanned<T> {
+        Spanned::new(value, SimpleSpan::from(0..0))
+    }
+
+    fn named_type(name: NamedType) -> Spanned<AstTypeExpr> {
+        spanned(AstTypeExpr::Named(spanned(name)))
+    }
+
+    fn pointer_type(inner: Spanned<AstTypeExpr>) -> Spanned<AstTypeExpr> {
+        spanned(AstTypeExpr::Pointer(Box::new(inner)))
+    }
+
+    fn tuple_type(elements: Vec<Spanned<AstTypeExpr>>) -> Spanned<AstTypeExpr> {
+        spanned(AstTypeExpr::Tuple(elements))
+    }
 
     #[test]
     fn test_resolve_felt_type() {
@@ -683,13 +707,8 @@ mod tests {
         let file = *crate_id.modules(&db).values().next().unwrap();
         let scope_id = FileScopeId::new(0);
 
-        let felt_type = resolve_ast_type(
-            &db,
-            crate_id,
-            file,
-            AstTypeExpr::Named(NamedType::Felt),
-            scope_id,
-        );
+        let felt_type =
+            resolve_ast_type(&db, crate_id, file, named_type(NamedType::Felt), scope_id);
         let felt_data = felt_type.data(&db);
 
         assert!(matches!(felt_data, TypeData::Felt));
@@ -702,13 +721,7 @@ mod tests {
         let file = *crate_id.modules(&db).values().next().unwrap();
         let scope_id = FileScopeId::new(0);
 
-        let u32_type = resolve_ast_type(
-            &db,
-            crate_id,
-            file,
-            AstTypeExpr::Named(NamedType::U32),
-            scope_id,
-        );
+        let u32_type = resolve_ast_type(&db, crate_id, file, named_type(NamedType::U32), scope_id);
         let u32_data = u32_type.data(&db);
 
         assert!(matches!(u32_data, TypeData::U32));
@@ -725,7 +738,7 @@ mod tests {
             &db,
             crate_id,
             file,
-            AstTypeExpr::Pointer(Box::new(AstTypeExpr::Named(NamedType::Felt))),
+            pointer_type(named_type(NamedType::Felt)),
             scope_id,
         );
         let pointer_data = pointer_type.data(&db);
@@ -750,9 +763,9 @@ mod tests {
             &db,
             crate_id,
             file,
-            AstTypeExpr::Tuple(vec![
-                AstTypeExpr::Named(NamedType::Felt),
-                AstTypeExpr::Named(NamedType::Felt),
+            tuple_type(vec![
+                named_type(NamedType::Felt),
+                named_type(NamedType::Felt),
             ]),
             scope_id,
         );
