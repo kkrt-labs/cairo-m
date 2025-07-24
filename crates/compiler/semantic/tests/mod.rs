@@ -94,46 +94,46 @@ macro_rules! test_fixture_clean {
 #[macro_export]
 macro_rules! assert_semantic_parameterized {
     (ok: [$($ok:expr),* $(,)?], err: [$($err:expr),* $(,)?]) => {{
-        let inputs: Vec<(String, bool)> = vec![
-            $(($ok.to_string(), true),)*
-            $(($err.to_string(), false),)*
+        // Convert all test case expressions into `TestProject`
+        let inputs: Vec<($crate::TestProject, bool)> = vec![
+            $(($ok.into(), true),)*
+            $(($err.into(), false),)*
         ];
 
-        let inputs_ref: Vec<(&str, bool)> = inputs.iter().map(|(s, b)| (s.as_str(), *b)).collect();
-
         let function_name = stdext::function_name!();
-        $crate::assert_semantic_parameterized_impl(&inputs_ref, function_name, false)
+        // The implementation function will now receive `&[(TestProject, bool)]`
+        $crate::assert_semantic_parameterized_impl(&inputs, function_name, false)
     }};
     (ok: [$($ok:expr),* $(,)?], err: [$($err:expr),* $(,)?], show_unused) => {{
-        let inputs: Vec<(String, bool)> = vec![
-            $(($ok.to_string(), true),)*
-            $(($err.to_string(), false),)*
+        // Convert all test case expressions into `TestProject`
+        let inputs: Vec<($crate::TestProject, bool)> = vec![
+            $(($ok.into(), true),)*
+            $(($err.into(), false),)*
         ];
 
-        let inputs_ref: Vec<(&str, bool)> = inputs.iter().map(|(s, b)| (s.as_str(), *b)).collect();
-
         let function_name = stdext::function_name!();
-        $crate::assert_semantic_parameterized_impl(&inputs_ref, function_name, true)
+        // The implementation function will now receive `&[(TestProject, bool)]`
+        $crate::assert_semantic_parameterized_impl(&inputs, function_name, true)
     }};
     (ok: [$($ok:expr),* $(,)?]) => {{
-        let inputs: Vec<(String, bool)> = vec![
-            $(($ok.to_string(), true),)*
+        // Convert all test case expressions into `TestProject`
+        let inputs: Vec<($crate::TestProject, bool)> = vec![
+            $(($ok.into(), true),)*
         ];
 
-        let inputs_ref: Vec<(&str, bool)> = inputs.iter().map(|(s, b)| (s.as_str(), *b)).collect();
-
         let function_name = stdext::function_name!();
-        $crate::assert_semantic_parameterized_impl(&inputs_ref, function_name, false)
+        // The implementation function will now receive `&[(TestProject, bool)]`
+        $crate::assert_semantic_parameterized_impl(&inputs, function_name, false)
     }};
     (err: [$($err:expr),* $(,)?]) => {{
-        let inputs: Vec<(String, bool)> = vec![
-            $(($err.to_string(), false),)*
+        // Convert all test case expressions into `TestProject`
+        let inputs: Vec<($crate::TestProject, bool)> = vec![
+            $(($err.into(), false),)*
         ];
 
-        let inputs_ref: Vec<(&str, bool)> = inputs.iter().map(|(s, b)| (s.as_str(), *b)).collect();
-
         let function_name = stdext::function_name!();
-        $crate::assert_semantic_parameterized_impl(&inputs_ref, function_name, false)
+        // The implementation function will now receive `&[(TestProject, bool)]`
+        $crate::assert_semantic_parameterized_impl(&inputs, function_name, false)
     }};
 }
 

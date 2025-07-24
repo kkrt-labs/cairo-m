@@ -45,19 +45,19 @@ fn duplicate_func() {} fn duplicate_func() {}
 --- Input 3 (ERROR) ---
 use std::math; use bar::math;
 --- Diagnostics ---
-[1005] Error: Module 'std' not found
-   ╭─[ semantic_tests::scoping::duplicate_definitions::test_duplicate_definitions_and_shadowing:1:10 ]
+[1010] Error: unresolved module 'std'
+   ╭─[ semantic_tests::scoping::duplicate_definitions::test_duplicate_definitions_and_shadowing:1:1 ]
    │
  1 │ use std::math; use bar::math;
-   │          ──┬─  
-   │            ╰─── Module 'std' not found
+   │ ───────┬──────  
+   │        ╰──────── unresolved module 'std'
 ───╯
-[1005] Error: Module 'bar' not found
-   ╭─[ semantic_tests::scoping::duplicate_definitions::test_duplicate_definitions_and_shadowing:1:25 ]
+[1010] Error: unresolved module 'bar'
+   ╭─[ semantic_tests::scoping::duplicate_definitions::test_duplicate_definitions_and_shadowing:1:16 ]
    │
  1 │ use std::math; use bar::math;
-   │                         ──┬─  
-   │                           ╰─── Module 'bar' not found
+   │                ───────┬──────  
+   │                       ╰──────── unresolved module 'bar'
 ───╯
 [1003] Error: 'math' defined more than once
    ╭─[ semantic_tests::scoping::duplicate_definitions::test_duplicate_definitions_and_shadowing:1:25 ]

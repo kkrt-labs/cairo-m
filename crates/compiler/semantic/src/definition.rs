@@ -201,8 +201,8 @@ impl ParameterDefRef {
 /// Reference to an import definition
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct UseDefRef {
-    pub imported_module: String,
-    pub item: String,
+    pub imported_module: Spanned<String>,
+    pub item: Spanned<String>,
 }
 
 /// Reference to a namespace definition

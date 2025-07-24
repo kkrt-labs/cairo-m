@@ -426,19 +426,22 @@ impl SemanticIndex {
         // If not found locally, check imports
         let imports = self.get_imports_in_scope(starting_scope);
         for use_def_ref in imports {
-            if use_def_ref.item == name {
+            if use_def_ref.item.value() == name {
                 // Get the project semantic index to resolve in imported modules
                 if let Ok(project_index) = project_semantic_index(db, crate_id) {
                     let modules = project_index.modules();
 
                     // Resolve in the imported module
-                    if let Some(imported_module_index) = modules.get(&use_def_ref.imported_module) {
+                    if let Some(imported_module_index) =
+                        modules.get(use_def_ref.imported_module.value())
+                    {
                         if let Some(imported_root) = imported_module_index.root_scope() {
                             if let Some((imported_def_idx, imported_def)) = imported_module_index
                                 .resolve_name_to_definition(name, imported_root)
                             {
-                                if let Some(imported_file) =
-                                    crate_id.modules(db).get(&use_def_ref.imported_module)
+                                if let Some(imported_file) = crate_id
+                                    .modules(db)
+                                    .get(use_def_ref.imported_module.value())
                                 {
                                     return Some((
                                         imported_def_idx,
@@ -1093,7 +1096,13 @@ where
                 self.visit_expr(array);
                 self.visit_expr(index);
             }
-            Expression::StructLiteral { fields, .. } => {
+            Expression::StructLiteral { name, fields, .. } => {
+                let type_usage = TypeUsage {
+                    name: name.value().to_string(),
+                    span: name.span(),
+                    scope_id: self.current_scope(),
+                };
+                self.index.add_type_usage(type_usage);
                 for (_, value) in fields {
                     self.visit_expr(value);
                 }
@@ -1220,12 +1229,15 @@ where
         }
 
         // Get the module name from the path
-        let imported_module = use_inner
-            .path
-            .iter()
-            .map(|s| s.value().clone())
-            .collect::<Vec<_>>()
-            .join("::");
+        let imported_module = Spanned::new(
+            use_inner
+                .path
+                .iter()
+                .map(|s| s.value().clone())
+                .collect::<Vec<_>>()
+                .join("::"),
+            use_span,
+        );
 
         // Process the imported items
         match &use_inner.items {
@@ -1235,7 +1247,7 @@ where
 
                 let use_def_ref = UseDefRef {
                     imported_module,
-                    item: item.clone(),
+                    item: item_spanned.clone(),
                 };
                 let def_kind = DefinitionKind::Use(use_def_ref.clone());
                 let current_scope = self.current_scope();
@@ -1257,7 +1269,7 @@ where
 
                     let use_def_ref = UseDefRef {
                         imported_module: imported_module.clone(),
-                        item: item.clone(),
+                        item: item_spanned.clone(),
                     };
                     let def_kind = DefinitionKind::Use(use_def_ref.clone());
                     let current_scope = self.current_scope();

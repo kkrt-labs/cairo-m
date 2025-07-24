@@ -5,8 +5,7 @@
 
 use crate::*;
 
-// Multi-file tests
-pub mod multi_file_test;
+mod multi_file;
 
 #[test]
 fn test_complete_program_with_multiple_functions() {

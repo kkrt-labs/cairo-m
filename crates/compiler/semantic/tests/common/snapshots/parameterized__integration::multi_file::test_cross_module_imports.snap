@@ -1,0 +1,33 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+use utils::nonexistent;
+fn test() { nonexistent(); return; }
+// --- utils.cm ---
+fn add(a: felt, b: felt) -> felt { return a + b; }
+--- Diagnostics ---
+[1005] Error: unresolved import 'nonexistent' from module 'utils'
+   ╭─[ main.cm:1:12 ]
+   │
+ 1 │ use utils::nonexistent;
+   │            ─────┬─────  
+   │                 ╰─────── unresolved import 'nonexistent' from module 'utils'
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+use missing::add;
+fn test() { add(1, 2); return; }
+// --- utils.cm ---
+fn add(a: felt, b: felt) -> felt { return a + b; }
+--- Diagnostics ---
+[1010] Error: unresolved module 'missing'
+   ╭─[ main.cm:1:1 ]
+   │
+ 1 │ use missing::add;
+   │ ────────┬────────  
+   │         ╰────────── unresolved module 'missing'
+───╯

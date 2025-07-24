@@ -505,7 +505,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         DefinitionKind::Use(use_ref) => {
                             // Imported function - follow the import chain
                             match self.resolve_imported_function(
-                                &use_ref.imported_module,
+                                use_ref.imported_module.value(),
                                 func_name.value(),
                             ) {
                                 Some(func_id) => func_id,
@@ -1084,7 +1084,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         DefinitionKind::Use(use_ref) => {
                             // Imported function - follow the import chain
                             match self.resolve_imported_function(
-                                &use_ref.imported_module,
+                                use_ref.imported_module.value(),
                                 func_name.value(),
                             ) {
                                 Some(func_id) => func_id,
@@ -1626,7 +1626,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                             DefinitionKind::Use(use_ref) => {
                                 // Imported function - follow the import chain
                                 match self.resolve_imported_function(
-                                    &use_ref.imported_module,
+                                    use_ref.imported_module.value(),
                                     func_name.value(),
                                 ) {
                                     Some(func_id) => func_id,

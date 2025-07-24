@@ -46,6 +46,52 @@ pub fn test_db() -> TestDb {
     TestDb::default()
 }
 
+// ===== Test Project Utilities =====
+
+/// Represents a test project that can be either a single file or multiple files
+#[derive(Debug, Clone)]
+pub enum TestProject {
+    /// A test case with a single source file.
+    Single(String),
+    /// A test case representing a multi-file crate.
+    Multi {
+        /// The name of the entry-point module (e.g., "main.cm").
+        main_module: String,
+        /// A vector of (file_name, file_content) tuples.
+        modules: Vec<(String, String)>,
+    },
+}
+
+/// A helper to conveniently create a multi-file test project.
+pub fn multi_file<'a>(main_module: &'a str, modules: &'a [(&'a str, &'a str)]) -> TestProject {
+    TestProject::Multi {
+        main_module: main_module.to_string(),
+        modules: modules
+            .iter()
+            .map(|(name, content)| {
+                (
+                    name.split("/").collect::<Vec<&str>>().join("::"),
+                    content.to_string(),
+                )
+            })
+            .collect(),
+    }
+}
+
+/// Allows existing `&str` test cases to be converted automatically.
+impl<'a> From<&'a str> for TestProject {
+    fn from(code: &'a str) -> Self {
+        Self::Single(code.to_string())
+    }
+}
+
+/// Allows existing String test cases to be converted automatically.
+impl From<String> for TestProject {
+    fn from(code: String) -> Self {
+        Self::Single(code)
+    }
+}
+
 // ===== Crate Creation Utilities =====
 
 pub fn single_file_crate(db: &dyn SemanticDb, file: File) -> Crate {
@@ -246,14 +292,57 @@ impl std::fmt::Display for ParameterizedSemanticResults {
 /// Assert that multiple code snippets validate with expected results
 #[track_caller]
 pub fn assert_semantic_parameterized_impl(
-    inputs: &[(&str, bool)], // (code, should_succeed)
+    inputs: &[(TestProject, bool)], // (project, should_succeed)
     test_name: &str,
     show_unused_warnings: bool,
 ) {
     let mut results = Vec::new();
 
-    for (code, should_succeed) in inputs {
-        let diagnostics = run_validation(code, test_name);
+    for (index, (project, should_succeed)) in inputs.iter().enumerate() {
+        let db = test_db();
+
+        let (diagnostics, input_str) = match project {
+            TestProject::Single(code) => {
+                // Create a single-file crate and validate.
+                let source_file = SourceFile::new(&db, code.clone(), test_name.to_string());
+                let crate_id = single_file_crate(&db, source_file);
+                let diagnostics = project_validate_semantics(&db, crate_id);
+                (diagnostics, code.clone())
+            }
+            TestProject::Multi {
+                main_module,
+                modules,
+            } => {
+                let mut module_map = HashMap::new();
+                let mut all_content = String::new();
+
+                for (name, content) in modules {
+                    let module_name = name.strip_suffix(".cm").unwrap_or(name);
+                    let source_file = SourceFile::new(&db, content.clone(), name.clone());
+                    module_map.insert(module_name.to_string(), source_file);
+
+                    // Collect content for error display
+                    if !all_content.is_empty() {
+                        all_content.push_str("\n// --- ");
+                        all_content.push_str(name);
+                        all_content.push_str(" ---\n");
+                    }
+                    all_content.push_str(content);
+                }
+
+                let main_module_name = main_module.strip_suffix(".cm").unwrap_or(main_module);
+                let crate_id = Crate::new(
+                    &db,
+                    module_map,
+                    main_module_name.to_string(),
+                    PathBuf::from("."),
+                    "test_crate".to_string(),
+                );
+                let diagnostics = project_validate_semantics(&db, crate_id);
+                (diagnostics, all_content)
+            }
+        };
+
         let filtered_diagnostics = if show_unused_warnings {
             diagnostics
         } else {
@@ -263,21 +352,32 @@ pub fn assert_semantic_parameterized_impl(
         if *should_succeed {
             if !filtered_diagnostics.is_empty() {
                 let report =
-                    format_diagnostics_for_snapshot(&filtered_diagnostics, code, test_name);
+                    format_diagnostics_for_snapshot(&filtered_diagnostics, &input_str, test_name);
                 panic!(
-                    "Expected successful semantic validation for input '{}', but got diagnostics:\n{}",
-                    code, report
+                    "Expected successful semantic validation for input {} (index {}), but got diagnostics:\n{}",
+                    match project {
+                        TestProject::Single(_) => "single file".to_string(),
+                        TestProject::Multi { main_module, .. } =>
+                            format!("multi-file with main '{}'", main_module),
+                    },
+                    index,
+                    report
                 );
             }
         } else {
             if filtered_diagnostics.is_empty() {
                 panic!(
-                    "Expected semantic validation to fail for input '{}', but it succeeded",
-                    code
+                    "Expected semantic validation to fail for input {} (index {}), but it succeeded",
+                    match project {
+                        TestProject::Single(_) => "single file".to_string(),
+                        TestProject::Multi { main_module, .. } =>
+                            format!("multi-file with main '{}'", main_module),
+                    },
+                    index
                 );
             }
             results.push(ParameterizedSemanticResult::Error {
-                input: code.to_string(),
+                input: input_str,
                 diagnostics: filtered_diagnostics,
             });
         }

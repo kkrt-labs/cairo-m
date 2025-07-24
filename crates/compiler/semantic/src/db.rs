@@ -78,11 +78,13 @@ pub fn project_validate_semantics(db: &dyn SemanticDb, crate_id: Crate) -> Diagn
         Ok(sem) => {
             let mut coll = DiagnosticCollection::default();
             let registry = create_default_registry();
-            for (module_name, index) in sem.modules().iter() {
+            let mut sorted_modules = sem.modules().iter().collect::<Vec<_>>();
+            sorted_modules.sort_by(|a, b| a.0.cmp(b.0));
+            for (module_name, index) in sorted_modules.iter() {
                 tracing::info!("[SEMANTIC] Validating module: {}", module_name);
                 let module_file = *crate_id
                     .modules(db)
-                    .get(module_name)
+                    .get(*module_name)
                     .unwrap_or_else(|| panic!("Module file should exist: {}", module_name));
                 let module_diagnostics = registry.validate_all(db, crate_id, module_file, index);
                 coll.extend(module_diagnostics);
@@ -207,8 +209,11 @@ pub fn crate_from_project(
 #[salsa::tracked]
 pub fn project_parse_diagnostics(db: &dyn SemanticDb, crate_id: Crate) -> DiagnosticCollection {
     let mut coll = DiagnosticCollection::default();
-    for file in crate_id.modules(db).values() {
-        let parsed = parse_file(db.upcast(), *file);
+    let modules = crate_id.modules(db);
+    let mut modules_vec = modules.iter().collect::<Vec<_>>();
+    modules_vec.sort_by(|a, b| a.0.cmp(b.0));
+    for (_name, file) in modules_vec.iter() {
+        let parsed = parse_file(db.upcast(), **file);
         coll.extend(parsed.diagnostics);
     }
     coll
@@ -294,7 +299,9 @@ fn detect_import_cycle(graph: &HashMap<String, Vec<String>>) -> Option<Vec<Strin
         visited.insert(node.clone(), 2);
     }
 
-    for node in graph.keys() {
+    let mut sorted_keys = graph.keys().collect::<Vec<_>>();
+    sorted_keys.sort();
+    for node in sorted_keys {
         if !visited.contains_key(node) {
             dfs(graph, &mut visited, &mut path, node, &mut cycle);
             if cycle.is_some() {
@@ -372,10 +379,13 @@ pub fn project_semantic_index(
 
     // Then process any remaining modules that weren't in the topological sort
     // (e.g., modules with no imports and that aren't imported by anything)
-    for (module_name, _) in crate_id.modules(db).iter() {
-        if !module_indices.contains_key(module_name) && parsed_modules.contains_key(module_name) {
-            let module_index = module_semantic_index(db, crate_id, module_name.clone());
-            module_indices.insert(module_name.clone(), module_index);
+    let modules = crate_id.modules(db);
+    let mut modules_vec = modules.iter().collect::<Vec<_>>();
+    modules_vec.sort_by(|a, b| a.0.cmp(b.0));
+    for (module_name, _) in modules_vec.iter() {
+        if !module_indices.contains_key(*module_name) && parsed_modules.contains_key(*module_name) {
+            let module_index = module_semantic_index(db, crate_id, (*module_name).clone());
+            module_indices.insert((*module_name).clone(), module_index);
         }
     }
 

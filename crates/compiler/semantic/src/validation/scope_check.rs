@@ -21,7 +21,7 @@
 
 use std::collections::HashSet;
 
-use cairo_m_compiler_diagnostics::Diagnostic;
+use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode};
 
 use crate::db::{Crate, SemanticDb};
 use crate::validation::Validator;
@@ -171,11 +171,17 @@ impl ScopeValidator {
         // Check each type usage to see if it was resolved to a definition
         for (usage_index, usage) in index.type_usages().iter().enumerate() {
             if !index.is_type_usage_resolved(usage_index) {
-                diagnostics.push(Diagnostic::undeclared_type(
-                    file.file_path(db).to_string(),
-                    &usage.name,
-                    usage.span,
-                ));
+                // If not resolved, try to resolve with imports using the centralized method
+                if index
+                    .resolve_name_with_imports(db, crate_id, file, &usage.name, usage.scope_id)
+                    .is_none()
+                {
+                    diagnostics.push(Diagnostic::undeclared_type(
+                        file.file_path(db).to_string(),
+                        &usage.name,
+                        usage.span,
+                    ));
+                }
             }
         }
 
@@ -208,11 +214,11 @@ impl ScopeValidator {
             let imported_item = &use_def_ref.item;
 
             // Check if the target module exists
-            if let Some(imported_module_index) = modules.get(imported_module_name) {
+            if let Some(imported_module_index) = modules.get(imported_module_name.value()) {
                 // Check if the imported item exists in the target module
                 if let Some(imported_root) = imported_module_index.root_scope() {
                     if imported_module_index
-                        .resolve_name_to_definition(imported_item, imported_root)
+                        .resolve_name_to_definition(imported_item.value(), imported_root)
                         .is_none()
                     {
                         // The imported item doesn't exist in the target module
@@ -224,11 +230,20 @@ impl ScopeValidator {
                                 if use_def.imported_module == *imported_module_name
                                     && use_def.item == *imported_item
                                 {
-                                    diagnostics.push(Diagnostic::undeclared_variable(
-                                        file.file_path(db).to_string(),
-                                        imported_item,
-                                        def.name_span,
-                                    ));
+                                    diagnostics.push(
+                                        Diagnostic::error(
+                                            DiagnosticCode::UnresolvedImport,
+                                            format!(
+                                                "unresolved import '{}' from module '{}'",
+                                                imported_item.value(),
+                                                imported_module_name.value()
+                                            ),
+                                        )
+                                        .with_location(
+                                            file.file_path(db).to_string(),
+                                            imported_item.span(),
+                                        ),
+                                    );
                                     break;
                                 }
                             }
@@ -241,11 +256,16 @@ impl ScopeValidator {
                 for (_def_idx, def) in index.all_definitions() {
                     if let crate::definition::DefinitionKind::Use(use_def) = &def.kind {
                         if use_def.imported_module == *imported_module_name {
-                            diagnostics.push(Diagnostic::unresolved_import(
-                                file.file_path(db).to_string(),
-                                imported_module_name,
-                                def.name_span,
-                            ));
+                            diagnostics.push(
+                                Diagnostic::error(
+                                    DiagnosticCode::UnresolvedModule,
+                                    format!("unresolved module '{}'", imported_module_name.value()),
+                                )
+                                .with_location(
+                                    file.file_path(db).to_string(),
+                                    imported_module_name.span(),
+                                ),
+                            );
                             break;
                         }
                     }

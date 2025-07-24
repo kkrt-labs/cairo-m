@@ -81,6 +81,7 @@ pub enum DiagnosticCode {
     DuplicateStructField,
     DuplicatePatternIdentifier,
     UndeclaredType,
+    UnresolvedModule,
 
     // Type-related errors (2000-2999)
     TypeMismatch,
@@ -137,6 +138,7 @@ impl From<DiagnosticCode> for u32 {
             DiagnosticCode::DuplicateStructField => 1007,
             DiagnosticCode::DuplicatePatternIdentifier => 1008,
             DiagnosticCode::UndeclaredType => 1009,
+            DiagnosticCode::UnresolvedModule => 1010,
             DiagnosticCode::TypeMismatch => 2001,
             DiagnosticCode::InvalidFieldAccess => 2002,
             DiagnosticCode::InvalidIndexAccess => 2003,

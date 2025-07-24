@@ -29,7 +29,6 @@ fn test_compile_project() {
 
 #[test]
 fn test_compile_standalone() {
-    tracing_subscriber::fmt::init();
     let crate_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let file_to_test = crate_root.join("codegen/tests/test_cases/functions/fib.cm");
     env::set_var("RUST_LOG", "info");

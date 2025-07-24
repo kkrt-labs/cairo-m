@@ -7,6 +7,13 @@ use crate::*;
 fn test_undeclared_variables_parameterized() {
     assert_semantic_parameterized! {
         ok: [
+            multi_file(
+                "main.cm",
+                &[
+                    ("main.cm", "use module::MyType; fn test() { let x: MyType = MyType { field: 5 }; return; }"),
+                    ("module.cm", "struct MyType { field: felt }"),
+                ]
+            ),
             "struct Test { field: felt } fn test(x: Test) -> felt { return x.field; }"
         ],
         err: [

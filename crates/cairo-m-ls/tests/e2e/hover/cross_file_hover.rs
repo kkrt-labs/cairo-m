@@ -4,8 +4,6 @@ use crate::support::insta::test_transform;
 
 #[tokio::test]
 async fn test_hover_on_imported_function() {
-    tracing_subscriber::fmt::init();
-
     let fixture = Fixture::new();
     fixture.add_cairom_toml("test_project");
     fixture.add_file(

@@ -238,22 +238,26 @@ pub fn definition_semantic_type<'db>(
         }
         DefinitionKind::Use(use_ref) => {
             // Check if the imported module exists in the project
-            if !crate_id.modules(db).contains_key(&use_ref.imported_module) {
+            if !crate_id
+                .modules(db)
+                .contains_key(use_ref.imported_module.value())
+            {
                 return TypeId::new(db, TypeData::Error);
             }
 
             let imported_module = use_ref.imported_module.clone();
-            let imported_index = module_semantic_index(db, crate_id, imported_module);
+            let imported_index =
+                module_semantic_index(db, crate_id, imported_module.value().clone());
             let imported_root = imported_index
                 .root_scope()
                 .expect("Imported module should have root scope");
 
             if let Some((imported_def_idx, _)) =
-                imported_index.resolve_name_to_definition(&use_ref.item, imported_root)
+                imported_index.resolve_name_to_definition(use_ref.item.value(), imported_root)
             {
                 let imported_file = *crate_id
                     .modules(db)
-                    .get(&use_ref.imported_module)
+                    .get(use_ref.imported_module.value())
                     .expect("Imported file should exist");
                 let imported_def_id = DefinitionId::new(db, imported_file, imported_def_idx);
                 definition_semantic_type(db, crate_id, imported_def_id)
