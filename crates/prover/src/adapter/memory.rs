@@ -239,6 +239,14 @@ impl Memory {
 
                 for i in 0..num_steps {
                     let step_clk = prev_clk + M31::from((i + 1) * RC20_LIMIT);
+
+                    // Add intermediate memory entry for the clock update component to read
+                    // This ensures the memory component can verify the clock transition
+                    self.final_memory.insert(
+                        (memory_entry.address, M31::from(TREE_HEIGHT)),
+                        (memory_entry.value, step_clk, -M31::one()),
+                    );
+
                     self.clock_update_data.push((
                         memory_entry.address,
                         prev_clk + M31::from(i * RC20_LIMIT),

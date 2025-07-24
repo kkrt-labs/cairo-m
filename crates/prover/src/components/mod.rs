@@ -1,8 +1,10 @@
 pub mod chips;
+pub mod clock_update;
 pub mod memory;
 pub mod merkle;
 pub mod opcodes;
 use num_traits::Zero;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 pub use stwo_air_utils::trace::component_trace::ComponentTrace;
 pub use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
@@ -28,6 +30,7 @@ pub struct Claim {
     pub opcodes: opcodes::Claim,
     pub memory: memory::Claim,
     pub merkle: merkle::Claim,
+    pub clock_update: clock_update::Claim,
     pub range_check_20: range_check_20::Claim,
 }
 
@@ -43,6 +46,7 @@ pub struct InteractionClaimData {
     pub opcodes: opcodes::InteractionClaimData,
     pub memory: memory::InteractionClaimData,
     pub merkle: merkle::InteractionClaimData,
+    pub clock_update: clock_update::InteractionClaimData,
     pub range_check_20: range_check_20::InteractionClaimData,
 }
 
@@ -51,6 +55,7 @@ pub struct InteractionClaim {
     pub opcodes: opcodes::InteractionClaim,
     pub memory: memory::InteractionClaim,
     pub merkle: merkle::InteractionClaim,
+    pub clock_update: clock_update::InteractionClaim,
     pub range_check_20: range_check_20::InteractionClaim,
 }
 
@@ -60,6 +65,7 @@ impl Claim {
             self.opcodes.log_sizes(),
             self.memory.log_sizes(),
             self.merkle.log_sizes(),
+            self.clock_update.log_sizes(),
             self.range_check_20.log_sizes(),
         ];
         TreeVec::concat_cols(trees.into_iter())
@@ -69,6 +75,7 @@ impl Claim {
         self.opcodes.mix_into(channel);
         self.memory.mix_into(channel);
         self.merkle.mix_into(channel);
+        self.clock_update.mix_into(channel);
         self.range_check_20.mix_into(channel);
     }
 
@@ -94,8 +101,17 @@ impl Claim {
         let (merkle_claim, merkle_trace, merkle_interaction_claim_data) =
             merkle::Claim::write_trace::<MC, MockHasher>(&input.merkle_trees);
 
+        // Write clock update trace
+        let (clock_update_claim, clock_update_trace, clock_update_interaction_claim_data) =
+            clock_update::Claim::write_trace(&input.clock_update_data);
+
         // Write range_check components
-        let range_check_data = opcodes_interaction_claim_data.range_check_20();
+        let opcodes_range_check_data = opcodes_interaction_claim_data.range_check_20();
+        let clock_update_range_check_data = clock_update_interaction_claim_data
+            .lookup_data
+            .range_check_20[0]
+            .par_iter();
+        let range_check_data = opcodes_range_check_data.chain(clock_update_range_check_data);
         let (range_check_20_claim, range_check_20_trace, range_check_20_interaction_claim_data) =
             range_check_20::Claim::write_trace(range_check_data);
 
@@ -104,6 +120,7 @@ impl Claim {
             opcodes: opcodes_interaction_claim_data,
             memory: memory_interaction_claim_data,
             merkle: merkle_interaction_claim_data,
+            clock_update: clock_update_interaction_claim_data,
             range_check_20: range_check_20_interaction_claim_data,
         };
 
@@ -112,6 +129,7 @@ impl Claim {
             .into_iter()
             .chain(memory_trace.to_evals())
             .chain(merkle_trace.to_evals())
+            .chain(clock_update_trace.to_evals())
             .chain(range_check_20_trace);
 
         (
@@ -119,6 +137,7 @@ impl Claim {
                 opcodes: opcodes_claim,
                 memory: memory_claim,
                 merkle: merkle_claim,
+                clock_update: clock_update_claim,
                 range_check_20: range_check_20_claim,
             },
             trace,
@@ -153,6 +172,12 @@ impl InteractionClaim {
                 &interaction_claim_data.merkle,
             );
 
+        let (clock_update_interaction_claim, clock_update_interaction_trace) =
+            clock_update::InteractionClaim::write_interaction_trace(
+                relations,
+                &interaction_claim_data.clock_update,
+            );
+
         let (range_check_20_interaction_claim, range_check_20_interaction_trace) =
             range_check_20::InteractionClaim::write_interaction_trace(
                 &relations.range_check_20,
@@ -164,11 +189,13 @@ impl InteractionClaim {
                 .into_iter()
                 .chain(memory_interaction_trace)
                 .chain(merkle_interaction_trace)
+                .chain(clock_update_interaction_trace)
                 .chain(range_check_20_interaction_trace),
             Self {
                 opcodes: opcodes_interaction_claim,
                 memory: memory_interaction_claim,
                 merkle: merkle_interaction_claim,
+                clock_update: clock_update_interaction_claim,
                 range_check_20: range_check_20_interaction_claim,
             },
         )
@@ -180,6 +207,7 @@ impl InteractionClaim {
         sum += self.opcodes.claimed_sum();
         sum += self.memory.claimed_sum;
         sum += self.merkle.claimed_sum;
+        sum += self.clock_update.claimed_sum;
         sum += self.range_check_20.claimed_sum;
         sum
     }
@@ -188,6 +216,7 @@ impl InteractionClaim {
         self.opcodes.mix_into(channel);
         self.memory.mix_into(channel);
         self.merkle.mix_into(channel);
+        self.clock_update.mix_into(channel);
         self.range_check_20.mix_into(channel);
     }
 }
@@ -207,6 +236,7 @@ pub struct Components {
     pub opcodes: opcodes::Component,
     pub memory: memory::Component,
     pub merkle: merkle::Component,
+    pub clock_update: clock_update::Component,
     pub range_check_20: range_check_20::Component,
 }
 
@@ -240,6 +270,14 @@ impl Components {
                 },
                 interaction_claim.merkle.claimed_sum,
             ),
+            clock_update: clock_update::Component::new(
+                location_allocator,
+                clock_update::Eval {
+                    claim: claim.clock_update.clone(),
+                    relations: relations.clone(),
+                },
+                interaction_claim.clock_update.claimed_sum,
+            ),
             range_check_20: range_check_20::Component::new(
                 location_allocator,
                 range_check_20::Eval {
@@ -255,6 +293,7 @@ impl Components {
         let mut provers = self.opcodes.provers();
         provers.push(&self.memory);
         provers.push(&self.merkle);
+        provers.push(&self.clock_update);
         provers.push(&self.range_check_20);
         provers
     }
@@ -263,6 +302,7 @@ impl Components {
         let mut verifiers = self.opcodes.verifiers();
         verifiers.push(&self.memory);
         verifiers.push(&self.merkle);
+        verifiers.push(&self.clock_update);
         verifiers.push(&self.range_check_20);
         verifiers
     }
