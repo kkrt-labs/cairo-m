@@ -1,15 +1,18 @@
-use cairo_m_common::Opcode;
 use num_traits::{One, Zero};
 use stwo_prover::core::fields::m31::M31;
 
-use super::*;
+use super::{InstructionExecutionError, *};
 use crate::vm::test_utils::*;
 
 #[test]
-fn test_store_add_fp_fp() -> Result<(), MemoryError> {
+fn test_store_add_fp_fp() -> Result<(), InstructionExecutionError> {
     let mut memory = Memory::from_iter([0, 4, 7].map(Into::into));
     let state = State::default();
-    let instruction = instr!(Opcode::StoreAddFpFp, 1, 2, 3);
+    let instruction = Instruction::StoreAddFpFp {
+        src0_off: M31(1),
+        src1_off: M31(2),
+        dst_off: M31(3),
+    };
 
     let new_state = store_add_fp_fp(&mut memory, state, &instruction)?;
 
@@ -23,11 +26,15 @@ fn test_store_add_fp_fp() -> Result<(), MemoryError> {
 }
 
 #[test]
-fn test_store_add_fp_imm() -> Result<(), MemoryError> {
+fn test_store_add_fp_imm() -> Result<(), InstructionExecutionError> {
     let mut memory = Memory::from_iter([0, 4, 7].map(Into::into));
     let expected_memory = Memory::from_iter([0, 4, 7, 6].map(Into::into));
     let state = State::default();
-    let instruction = instr!(Opcode::StoreAddFpImm, 1, 2, 3);
+    let instruction = Instruction::StoreAddFpImm {
+        src_off: M31(1),
+        imm: M31(2),
+        dst_off: M31(3),
+    };
 
     let new_state = store_add_fp_imm(&mut memory, state, &instruction)?;
 
@@ -38,10 +45,14 @@ fn test_store_add_fp_imm() -> Result<(), MemoryError> {
 }
 
 #[test]
-fn test_store_sub_fp_fp() -> Result<(), MemoryError> {
+fn test_store_sub_fp_fp() -> Result<(), InstructionExecutionError> {
     let mut memory = Memory::from_iter([0, 7, 4].map(Into::into));
     let state = State::default();
-    let instruction = instr!(Opcode::StoreSubFpFp, 1, 2, 3);
+    let instruction = Instruction::StoreSubFpFp {
+        src0_off: M31(1),
+        src1_off: M31(2),
+        dst_off: M31(3),
+    };
 
     let new_state = store_sub_fp_fp(&mut memory, state, &instruction)?;
 
@@ -53,10 +64,14 @@ fn test_store_sub_fp_fp() -> Result<(), MemoryError> {
 }
 
 #[test]
-fn test_store_sub_fp_imm() -> Result<(), MemoryError> {
+fn test_store_sub_fp_imm() -> Result<(), InstructionExecutionError> {
     let mut memory = Memory::from_iter([0, 4, 7].map(Into::into));
     let state = State::default();
-    let instruction = instr!(Opcode::StoreSubFpImm, 1, 2, 3);
+    let instruction = Instruction::StoreSubFpImm {
+        src_off: M31(1),
+        imm: M31(2),
+        dst_off: M31(3),
+    };
 
     let new_state = store_sub_fp_imm(&mut memory, state, &instruction)?;
 
@@ -68,10 +83,14 @@ fn test_store_sub_fp_imm() -> Result<(), MemoryError> {
 }
 
 #[test]
-fn test_store_double_deref_fp() -> Result<(), MemoryError> {
+fn test_store_double_deref_fp() -> Result<(), InstructionExecutionError> {
     let mut memory = Memory::from_iter([0, 1, 7, 9].map(Into::into));
     let state = State::default();
-    let instruction = instr!(Opcode::StoreDoubleDerefFp, 1, 2, 2);
+    let instruction = Instruction::StoreDoubleDerefFp {
+        base_off: M31(1),
+        offset: M31(2),
+        dst_off: M31(2),
+    };
 
     let new_state = store_double_deref_fp(&mut memory, state, &instruction)?;
 
@@ -83,10 +102,13 @@ fn test_store_double_deref_fp() -> Result<(), MemoryError> {
 }
 
 #[test]
-fn test_store_imm() -> Result<(), MemoryError> {
+fn test_store_imm() -> Result<(), InstructionExecutionError> {
     let mut memory = Memory::from_iter([0, 4].map(Into::into));
     let state = State::default();
-    let instruction = store_imm!(1, 2);
+    let instruction = Instruction::StoreImm {
+        imm: M31(1),
+        dst_off: M31(2),
+    };
 
     let new_state = store_imm(&mut memory, state, &instruction)?;
 
@@ -100,10 +122,14 @@ fn test_store_imm() -> Result<(), MemoryError> {
 }
 
 #[test]
-fn test_store_mul_fp_fp() -> Result<(), MemoryError> {
+fn test_store_mul_fp_fp() -> Result<(), InstructionExecutionError> {
     let mut memory = Memory::from_iter([0, 4, 7].map(Into::into));
     let state = State::default();
-    let instruction = instr!(Opcode::StoreMulFpFp, 1, 2, 3);
+    let instruction = Instruction::StoreMulFpFp {
+        src0_off: M31(1),
+        src1_off: M31(2),
+        dst_off: M31(3),
+    };
 
     let new_state = store_mul_fp_fp(&mut memory, state, &instruction)?;
 
@@ -115,10 +141,14 @@ fn test_store_mul_fp_fp() -> Result<(), MemoryError> {
 }
 
 #[test]
-fn test_store_mul_fp_imm() -> Result<(), MemoryError> {
+fn test_store_mul_fp_imm() -> Result<(), InstructionExecutionError> {
     let mut memory = Memory::from_iter([0, 4].map(Into::into));
     let state = State::default();
-    let instruction = instr!(Opcode::StoreMulFpImm, 1, 2, 2);
+    let instruction = Instruction::StoreMulFpImm {
+        src_off: M31(1),
+        imm: M31(2),
+        dst_off: M31(2),
+    };
 
     let new_state = store_mul_fp_imm(&mut memory, state, &instruction)?;
 
@@ -130,10 +160,14 @@ fn test_store_mul_fp_imm() -> Result<(), MemoryError> {
 }
 
 #[test]
-fn test_store_div_fp_fp() -> Result<(), MemoryError> {
+fn test_store_div_fp_fp() -> Result<(), InstructionExecutionError> {
     let mut memory = Memory::from_iter([0, 4, 7].map(Into::into));
     let state = State::default();
-    let instruction = instr!(Opcode::StoreDivFpFp, 1, 2, 3);
+    let instruction = Instruction::StoreDivFpFp {
+        src0_off: M31(1),
+        src1_off: M31(2),
+        dst_off: M31(3),
+    };
 
     let new_state = store_div_fp_fp(&mut memory, state, &instruction)?;
 
@@ -150,16 +184,24 @@ fn test_store_div_fp_fp() -> Result<(), MemoryError> {
 fn test_store_div_fp_fp_by_zero() {
     let mut memory = Memory::from_iter([0, 4, 0].map(Into::into));
     let state = State::default();
-    let instruction = instr!(Opcode::StoreDivFpFp, 1, 2, 3);
+    let instruction = Instruction::StoreDivFpFp {
+        src0_off: M31(1),
+        src1_off: M31(2),
+        dst_off: M31(3),
+    };
 
     let _ = store_div_fp_fp(&mut memory, state, &instruction);
 }
 
 #[test]
-fn test_store_div_fp_imm() -> Result<(), MemoryError> {
+fn test_store_div_fp_imm() -> Result<(), InstructionExecutionError> {
     let mut memory = Memory::from_iter([0, 4].map(Into::into));
     let state = State::default();
-    let instruction = instr!(Opcode::StoreDivFpImm, 1, 2, 2);
+    let instruction = Instruction::StoreDivFpImm {
+        src_off: M31(1),
+        imm: M31(2),
+        dst_off: M31(2),
+    };
 
     let new_state = store_div_fp_imm(&mut memory, state, &instruction)?;
 
@@ -175,7 +217,169 @@ fn test_store_div_fp_imm() -> Result<(), MemoryError> {
 fn test_store_div_fp_imm_by_zero() {
     let mut memory = Memory::from_iter([0, 4].map(Into::into));
     let state = State::default();
-    let instruction = instr!(Opcode::StoreDivFpImm, 1, 0, 2);
+    let instruction = Instruction::StoreDivFpImm {
+        src_off: M31(1),
+        imm: M31(0),
+        dst_off: M31(2),
+    };
 
     let _ = store_div_fp_imm(&mut memory, state, &instruction);
+}
+
+#[test]
+fn test_u32_store_add_fp_imm() -> Result<(), InstructionExecutionError> {
+    let mut memory = Memory::default();
+    // Set up 32-bit value in memory stored as two limbs
+    // Value: 0x12345678 stored as [0x5678, 0x1234] at [fp+0] and [fp+1]
+    let initial_fp = M31(10); // Use non-zero FP to avoid confusion with addresses
+    memory.insert(initial_fp, M31(0x5678).into())?;
+    memory.insert(initial_fp + M31(1), M31(0x1234).into())?;
+
+    let state = State {
+        pc: M31(0),
+        fp: initial_fp,
+    };
+    let instruction = Instruction::U32StoreAddFpImm {
+        src_off: M31(0),
+        imm_hi: M31(0x9876),
+        imm_lo: M31(0xABCD),
+        dst_off: M31(2),
+    };
+
+    let new_state = u32_store_add_fp_imm(&mut memory, state, &instruction)?;
+
+    // Expected: 0x12345678 + 0x9876ABCD = 0xAAAB0245
+    // Low limb: 0x0245, High limb: 0xAAAB
+    assert_eq!(memory.get_data(initial_fp + M31(2))?, M31(0x0245));
+    assert_eq!(memory.get_data(initial_fp + M31(3))?, M31(0xAAAB));
+
+    // Check state advancement (instruction size is 5 M31s = 2 QM31s)
+    assert_eq!(new_state.pc, M31(2));
+    assert_eq!(new_state.fp, initial_fp);
+
+    Ok(())
+}
+
+#[test]
+fn test_u32_store_add_fp_imm_overflow() -> Result<(), InstructionExecutionError> {
+    let mut memory = Memory::default();
+    let initial_fp = M31(10);
+    // Set up maximum 32-bit value: 0xFFFFFFFF
+    memory.insert(initial_fp, M31(U32_LIMB_MASK).into())?;
+    memory.insert(initial_fp + M31(1), M31(U32_LIMB_MASK).into())?;
+
+    let state = State {
+        pc: M31(0),
+        fp: initial_fp,
+    };
+    let instruction = Instruction::U32StoreAddFpImm {
+        src_off: M31(0),
+        imm_hi: M31(0),
+        imm_lo: M31(1),
+        dst_off: M31(2),
+    };
+
+    let new_state = u32_store_add_fp_imm(&mut memory, state, &instruction)?;
+
+    // Expected: 0xFFFFFFFF + 0x00000001 = 0x00000000 (wrapping)
+    assert_eq!(memory.get_data(initial_fp + M31(2))?, M31(0));
+    assert_eq!(memory.get_data(initial_fp + M31(3))?, M31(0));
+
+    assert_eq!(new_state.pc, M31(2));
+
+    Ok(())
+}
+
+#[test]
+fn test_u32_store_add_fp_imm_partial_overflow() -> Result<(), InstructionExecutionError> {
+    let mut memory = Memory::default();
+    let initial_fp = M31(10);
+    // Set up value that will overflow low limb: 0x0000FFFF
+    memory.insert(initial_fp, M31(U32_LIMB_MASK).into())?;
+    memory.insert(initial_fp + M31(1), M31(0x0000).into())?;
+
+    let state = State {
+        pc: M31(0),
+        fp: initial_fp,
+    };
+    let instruction = Instruction::U32StoreAddFpImm {
+        src_off: M31(0),
+        imm_hi: M31(0),
+        imm_lo: M31(1),
+        dst_off: M31(2),
+    };
+
+    let new_state = u32_store_add_fp_imm(&mut memory, state, &instruction)?;
+
+    // Expected: 0x0000FFFF + 0x00000001 = 0x00010000
+    assert_eq!(memory.get_data(initial_fp + M31(2))?, M31(0));
+    assert_eq!(memory.get_data(initial_fp + M31(3))?, M31(1));
+
+    assert_eq!(new_state.pc, M31(2));
+
+    Ok(())
+}
+
+#[test]
+fn test_u32_store_add_fp_imm_invalid_immediate_limbs() {
+    let mut memory = Memory::default();
+    memory.insert(M31::zero(), M31(0).into()).unwrap();
+    memory.insert(M31::one(), M31(0).into()).unwrap();
+
+    let state = State::default();
+    let instruction = Instruction::U32StoreAddFpImm {
+        src_off: M31(0),
+        imm_hi: M31(0x10000), // Exceeds 16-bit limit
+        imm_lo: M31(0x10000), // Exceeds 16-bit limit
+        dst_off: M31(2),
+    };
+
+    assert!(matches!(
+        u32_store_add_fp_imm(&mut memory, state, &instruction),
+        Err(InstructionExecutionError::InvalidOperand(_))
+    ));
+}
+
+#[test]
+fn test_u32_store_add_fp_imm_invalid_source_limbs() {
+    let mut memory = Memory::default();
+    memory.insert(M31::zero(), M31(0x10000).into()).unwrap(); // Exceeds 16-bit limit
+    memory.insert(M31::one(), M31(0x10000).into()).unwrap();
+
+    let state = State::default();
+    let instruction = Instruction::U32StoreAddFpImm {
+        src_off: M31(0),
+        imm_hi: M31(0),
+        imm_lo: M31(0),
+        dst_off: M31(2),
+    };
+
+    assert!(matches!(
+        u32_store_add_fp_imm(&mut memory, state, &instruction),
+        Err(InstructionExecutionError::InvalidOperand(_))
+    ));
+}
+
+#[test]
+fn test_u32_store_add_fp_imm_max_valid_values() -> Result<(), InstructionExecutionError> {
+    let mut memory = Memory::default();
+    memory.insert(M31::zero(), M31(0xFFFF).into())?;
+    memory.insert(M31::one(), M31(0xFFFF).into())?;
+
+    let state = State::default();
+    let instruction = Instruction::U32StoreAddFpImm {
+        src_off: M31(0),
+        imm_hi: M31(0xFFFF),
+        imm_lo: M31(0xFFFF),
+        dst_off: M31(2),
+    };
+
+    let new_state = u32_store_add_fp_imm(&mut memory, state, &instruction)?;
+
+    // 0xFFFFFFFF + 0xFFFFFFFF = 0xFFFFFFFE (with wrapping)
+    assert_eq!(memory.get_data(M31(2))?, M31(0xFFFE));
+    assert_eq!(memory.get_data(M31(3))?, M31(0xFFFF));
+    assert_eq!(new_state.pc, M31(2));
+
+    Ok(())
 }

@@ -17,6 +17,8 @@
 
 use cairo_m_common::{Instruction, Program};
 use cairo_m_compiler_mir::{BasicBlockId, MirModule};
+use smallvec::SmallVec;
+use stwo_prover::core::fields::m31::M31;
 
 pub mod builder;
 pub mod db;
@@ -86,18 +88,15 @@ impl InstructionBuilder {
     pub fn build(&self) -> Instruction {
         // For now, we'll panic if we can't convert operands to literals
         // This should only happen for unresolved labels, which should be resolved by this point
-        let m31_operands: Vec<stwo_prover::core::fields::m31::M31> = self
-            .operands
-            .iter()
-            .map(|op| match op {
-                Operand::Literal(val) => stwo_prover::core::fields::m31::M31::from(*val),
-                Operand::Label(label) => panic!("Unresolved label in build(): {}", label),
-            })
-            .collect();
+        let mut values = SmallVec::<[M31; 5]>::new();
+        values.push(M31::from(self.opcode));
 
-        // Create the instruction from opcode and operands
-        let mut values = vec![stwo_prover::core::fields::m31::M31::from(self.opcode)];
-        values.extend(m31_operands);
+        for op in &self.operands {
+            match op {
+                Operand::Literal(val) => values.push(M31::from(*val)),
+                Operand::Label(label) => panic!("Unresolved label in build(): {}", label),
+            }
+        }
 
         Instruction::try_from(values).unwrap_or_else(|e| {
             panic!(
