@@ -36,22 +36,34 @@ impl PublicEntries {
         memory: &HashMap<(M31, M31), (QM31, M31, M31)>,
         public_address_ranges: &PublicAddressRanges,
     ) -> Self {
-        let extract_range = |range: &Range<u32>| {
-            (range.start..range.end)
-                .map(M31::from)
-                .map(|addr| {
-                    memory
-                        .get(&(addr, M31::from(TREE_HEIGHT)))
-                        .map(|&(value, clock, _)| (addr, value, clock))
-                })
-                .collect()
-        };
+        // Pre-allocate with known sizes for better memory efficiency
+        let program = Self::extract_range_with_capacity(memory, &public_address_ranges.program);
+        let input = Self::extract_range_with_capacity(memory, &public_address_ranges.input);
+        let output = Self::extract_range_with_capacity(memory, &public_address_ranges.output);
 
         Self {
-            program: extract_range(&public_address_ranges.program),
-            input: extract_range(&public_address_ranges.input),
-            output: extract_range(&public_address_ranges.output),
+            program,
+            input,
+            output,
         }
+    }
+
+    fn extract_range_with_capacity(
+        memory: &HashMap<(M31, M31), (QM31, M31, M31)>,
+        range: &Range<u32>,
+    ) -> Vec<Option<(M31, QM31, M31)>> {
+        let capacity = (range.end - range.start) as usize;
+        let mut result = Vec::with_capacity(capacity);
+
+        for addr_u32 in range.start..range.end {
+            let addr = M31::from(addr_u32);
+            let entry = memory
+                .get(&(addr, M31::from(TREE_HEIGHT)))
+                .map(|&(value, clock, _)| (addr, value, clock));
+            result.push(entry);
+        }
+
+        result
     }
 
     /// Returns the program output values
