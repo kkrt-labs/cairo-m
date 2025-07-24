@@ -32,8 +32,11 @@ expression: snapshot
                     12..22,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(

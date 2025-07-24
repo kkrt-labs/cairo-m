@@ -1,0 +1,45 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+use types::Point;
+fn test() -> Rectangle { return Rectangle { width: 10, height: 20 }; }
+// --- types.cm ---
+struct Point { x: felt, y: felt }
+--- Diagnostics ---
+[1009] Error: Cannot find type 'Rectangle' in this scope
+   ╭─[ main.cm:2:14 ]
+   │
+ 2 │ fn test() -> Rectangle { return Rectangle { width: 10, height: 20 }; }
+   │              ────┬────  
+   │                  ╰────── Cannot find type 'Rectangle' in this scope
+───╯
+[1009] Error: Cannot find type 'Rectangle' in this scope
+   ╭─[ main.cm:2:33 ]
+   │
+ 2 │ fn test() -> Rectangle { return Rectangle { width: 10, height: 20 }; }
+   │                                 ────┬────  
+   │                                     ╰────── Cannot find type 'Rectangle' in this scope
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+use types::Point;
+use ops::process;
+fn test() { let p = Point { x: 1, y: 2 }; return process(p); }
+// --- types.cm ---
+struct Point { x: felt, y: felt }
+struct Vector { x: felt, y: felt }
+// --- ops.cm ---
+use types::Vector;
+fn process(v: Vector) { return; }
+--- Diagnostics ---
+[2001] Error: Argument type mismatch for parameter 'v': expected 'Vector', found 'Point'
+   ╭─[ main.cm:3:58 ]
+   │
+ 3 │ fn test() { let p = Point { x: 1, y: 2 }; return process(p); }
+   │                                                          ┬  
+   │                                                          ╰── Argument type mismatch for parameter 'v': expected 'Vector', found 'Point'
+───╯

@@ -54,8 +54,11 @@ fn loop_control_flow() {
                     3..20,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(

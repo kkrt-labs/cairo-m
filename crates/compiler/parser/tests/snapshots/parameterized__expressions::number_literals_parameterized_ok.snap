@@ -14,8 +14,11 @@ fn test() { 0; }
                     3..7,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(
@@ -49,8 +52,11 @@ fn test() { 1; }
                     3..7,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(
@@ -84,8 +90,11 @@ fn test() { 42; }
                     3..7,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(
@@ -119,8 +128,11 @@ fn test() { 1234567890; }
                     3..7,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(
@@ -154,8 +166,11 @@ fn test() { 4294967295; }
                     3..7,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(
@@ -189,8 +204,11 @@ fn test() { 0x0; }
                     3..7,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(
@@ -224,8 +242,11 @@ fn test() { 0xFF; }
                     3..7,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(
@@ -259,8 +280,11 @@ fn test() { 0xABCDEF; }
                     3..7,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(

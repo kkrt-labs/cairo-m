@@ -3,13 +3,13 @@
 //! These tests verify that the u32 type is properly integrated into the type system,
 //! including type resolution, type inference, compatibility checks, and literal validation.
 
-use cairo_m_compiler_parser::parser::{NamedType, TypeExpr as AstTypeExpr};
+use cairo_m_compiler_parser::parser::NamedType;
 use cairo_m_compiler_semantic::module_semantic_index;
 use cairo_m_compiler_semantic::type_resolution::{are_types_compatible, expression_semantic_type};
 use cairo_m_compiler_semantic::types::{TypeData, TypeId};
 
 use super::*;
-use crate::{crate_from_program, get_main_semantic_index};
+use crate::{crate_from_program, get_main_semantic_index, named_type, pointer_type};
 
 #[test]
 fn test_u32_type_resolution() {
@@ -20,13 +20,7 @@ fn test_u32_type_resolution() {
     let root_scope = semantic_index.root_scope().unwrap();
 
     // Test resolving "u32" as a type name
-    let u32_type = resolve_ast_type(
-        &db,
-        crate_id,
-        file,
-        AstTypeExpr::Named(NamedType::U32),
-        root_scope,
-    );
+    let u32_type = resolve_ast_type(&db, crate_id, file, named_type(NamedType::U32), root_scope);
     assert!(matches!(u32_type.data(&db), TypeData::U32));
 
     // Test resolving "u32*" (pointer to u32)
@@ -34,7 +28,7 @@ fn test_u32_type_resolution() {
         &db,
         crate_id,
         file,
-        AstTypeExpr::Pointer(Box::new(AstTypeExpr::Named(NamedType::U32))),
+        pointer_type(named_type(NamedType::U32)),
         root_scope,
     );
     match u32_pointer_type.data(&db) {

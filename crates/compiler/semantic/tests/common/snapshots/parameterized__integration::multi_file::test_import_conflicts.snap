@@ -1,0 +1,37 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+use math::calculate;
+use utils::calculate;
+fn test() { return calculate(); }
+// --- math.cm ---
+fn calculate() { return; }
+// --- utils.cm ---
+fn calculate() { return; }
+--- Diagnostics ---
+[1003] Error: 'calculate' defined more than once
+   ╭─[ main.cm:2:12 ]
+   │
+ 2 │ use utils::calculate;
+   │            ────┬────  
+   │                ╰────── 'calculate' defined more than once
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+use math::add;
+use math::add;
+fn test() { add(1, 2); return; }
+// --- math.cm ---
+fn add(a: felt, b: felt) { return; }
+--- Diagnostics ---
+[1003] Error: 'add' defined more than once
+   ╭─[ main.cm:2:11 ]
+   │
+ 2 │ use math::add;
+   │           ─┬─  
+   │            ╰─── 'add' defined more than once
+───╯

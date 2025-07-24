@@ -14,8 +14,11 @@ fn test() { result = a.field[0].method(b + c * d, e && f || g).value; }
                     3..7,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(

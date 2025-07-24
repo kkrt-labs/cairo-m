@@ -832,11 +832,11 @@ impl LanguageServer for Backend {
                     if def.full_span.start <= offset && offset <= def.full_span.end {
                         if let DefinitionKind::Use(use_ref) = &def.kind {
                             // Try to find the module file
-                            let _module_path = format!("{}.cm", use_ref.imported_module);
+                            let _module_path = format!("{}.cm", use_ref.imported_module.value());
 
                             // Search for the module file in the crate
                             for (mod_name, mod_file) in crate_id.modules(db).iter() {
-                                if mod_name == &use_ref.imported_module {
+                                if mod_name == use_ref.imported_module.value() {
                                     let mod_path = mod_file.file_path(db);
                                     if let Ok(mod_uri) = self.get_uri_from_path_str(mod_path) {
                                         // Navigate to the beginning of the module file

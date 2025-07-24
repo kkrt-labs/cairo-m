@@ -14,8 +14,11 @@ fn test() { { let x = 1; let y = 2; } }
                     3..7,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(
@@ -81,8 +84,11 @@ fn test() { { { let inner = 1; } let outer = 2; } }
                     3..7,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(
@@ -155,8 +161,11 @@ fn test() { if (true) { if (false) { if (true) { if (true) { if (true) { let x =
                     3..7,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(

@@ -24,6 +24,8 @@
 
 // Import all common test utilities
 pub mod common;
+use cairo_m_compiler_parser::parser::{NamedType, Spanned, TypeExpr};
+use chumsky::span::SimpleSpan;
 pub use common::*;
 
 /// Macro to assert that inline code validates successfully
@@ -92,49 +94,61 @@ macro_rules! test_fixture_clean {
 #[macro_export]
 macro_rules! assert_semantic_parameterized {
     (ok: [$($ok:expr),* $(,)?], err: [$($err:expr),* $(,)?]) => {{
-        let inputs: Vec<(String, bool)> = vec![
-            $(($ok.to_string(), true),)*
-            $(($err.to_string(), false),)*
+        // Convert all test case expressions into `TestProject`
+        let inputs: Vec<($crate::TestProject, bool)> = vec![
+            $(($ok.into(), true),)*
+            $(($err.into(), false),)*
         ];
 
-        let inputs_ref: Vec<(&str, bool)> = inputs.iter().map(|(s, b)| (s.as_str(), *b)).collect();
-
         let function_name = stdext::function_name!();
-        $crate::assert_semantic_parameterized_impl(&inputs_ref, function_name, false)
+        // The implementation function will now receive `&[(TestProject, bool)]`
+        $crate::assert_semantic_parameterized_impl(&inputs, function_name, false)
     }};
     (ok: [$($ok:expr),* $(,)?], err: [$($err:expr),* $(,)?], show_unused) => {{
-        let inputs: Vec<(String, bool)> = vec![
-            $(($ok.to_string(), true),)*
-            $(($err.to_string(), false),)*
+        // Convert all test case expressions into `TestProject`
+        let inputs: Vec<($crate::TestProject, bool)> = vec![
+            $(($ok.into(), true),)*
+            $(($err.into(), false),)*
         ];
 
-        let inputs_ref: Vec<(&str, bool)> = inputs.iter().map(|(s, b)| (s.as_str(), *b)).collect();
-
         let function_name = stdext::function_name!();
-        $crate::assert_semantic_parameterized_impl(&inputs_ref, function_name, true)
+        // The implementation function will now receive `&[(TestProject, bool)]`
+        $crate::assert_semantic_parameterized_impl(&inputs, function_name, true)
     }};
     (ok: [$($ok:expr),* $(,)?]) => {{
-        let inputs: Vec<(String, bool)> = vec![
-            $(($ok.to_string(), true),)*
+        // Convert all test case expressions into `TestProject`
+        let inputs: Vec<($crate::TestProject, bool)> = vec![
+            $(($ok.into(), true),)*
         ];
 
-        let inputs_ref: Vec<(&str, bool)> = inputs.iter().map(|(s, b)| (s.as_str(), *b)).collect();
-
         let function_name = stdext::function_name!();
-        $crate::assert_semantic_parameterized_impl(&inputs_ref, function_name, false)
+        // The implementation function will now receive `&[(TestProject, bool)]`
+        $crate::assert_semantic_parameterized_impl(&inputs, function_name, false)
     }};
     (err: [$($err:expr),* $(,)?]) => {{
-        let inputs: Vec<(String, bool)> = vec![
-            $(($err.to_string(), false),)*
+        // Convert all test case expressions into `TestProject`
+        let inputs: Vec<($crate::TestProject, bool)> = vec![
+            $(($err.into(), false),)*
         ];
 
-        let inputs_ref: Vec<(&str, bool)> = inputs.iter().map(|(s, b)| (s.as_str(), *b)).collect();
-
         let function_name = stdext::function_name!();
-        $crate::assert_semantic_parameterized_impl(&inputs_ref, function_name, false)
+        // The implementation function will now receive `&[(TestProject, bool)]`
+        $crate::assert_semantic_parameterized_impl(&inputs, function_name, false)
     }};
 }
 
+// Helper functions to create test AST nodes with dummy spans
+pub(crate) fn spanned<T>(value: T) -> Spanned<T> {
+    Spanned::new(value, SimpleSpan::from(0..0))
+}
+
+pub(crate) fn named_type(name: NamedType) -> Spanned<TypeExpr> {
+    spanned(TypeExpr::Named(spanned(name)))
+}
+
+pub(crate) fn pointer_type(inner: Spanned<TypeExpr>) -> Spanned<TypeExpr> {
+    spanned(TypeExpr::Pointer(Box::new(inner)))
+}
 // Test modules organized by concern
 pub mod control_flow;
 pub mod expressions;

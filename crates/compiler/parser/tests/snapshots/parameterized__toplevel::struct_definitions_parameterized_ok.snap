@@ -19,8 +19,14 @@ struct Point { x: felt, y: felt }
                             "x",
                             15..16,
                         ),
-                        Named(
-                            Felt,
+                        Spanned(
+                            Named(
+                                Spanned(
+                                    Felt,
+                                    18..22,
+                                ),
+                            ),
+                            18..22,
                         ),
                     ),
                     (
@@ -28,8 +34,14 @@ struct Point { x: felt, y: felt }
                             "y",
                             24..25,
                         ),
-                        Named(
-                            Felt,
+                        Spanned(
+                            Named(
+                                Spanned(
+                                    Felt,
+                                    27..31,
+                                ),
+                            ),
+                            27..31,
                         ),
                     ),
                 ],
@@ -76,8 +88,14 @@ struct Node { data: felt, next: Node* }
                             "data",
                             14..18,
                         ),
-                        Named(
-                            Felt,
+                        Spanned(
+                            Named(
+                                Spanned(
+                                    Felt,
+                                    20..24,
+                                ),
+                            ),
+                            20..24,
                         ),
                     ),
                     (
@@ -85,12 +103,21 @@ struct Node { data: felt, next: Node* }
                             "next",
                             26..30,
                         ),
-                        Pointer(
-                            Named(
-                                Custom(
-                                    "Node",
+                        Spanned(
+                            Pointer(
+                                Spanned(
+                                    Named(
+                                        Spanned(
+                                            Custom(
+                                                "Node",
+                                            ),
+                                            32..36,
+                                        ),
+                                    ),
+                                    32..36,
                                 ),
                             ),
+                            32..37,
                         ),
                     ),
                 ],
@@ -126,8 +153,14 @@ struct Node { data: felt, next: Node* }
                             "field1",
                             44..50,
                         ),
-                        Named(
-                            Felt,
+                        Spanned(
+                            Named(
+                                Spanned(
+                                    Felt,
+                                    52..56,
+                                ),
+                            ),
+                            52..56,
                         ),
                     ),
                     (
@@ -135,10 +168,19 @@ struct Node { data: felt, next: Node* }
                             "field2",
                             70..76,
                         ),
-                        Pointer(
-                            Named(
-                                Felt,
+                        Spanned(
+                            Pointer(
+                                Spanned(
+                                    Named(
+                                        Spanned(
+                                            Felt,
+                                            78..82,
+                                        ),
+                                    ),
+                                    78..82,
+                                ),
                             ),
+                            78..83,
                         ),
                     ),
                     (
@@ -146,15 +188,30 @@ struct Node { data: felt, next: Node* }
                             "field3",
                             97..103,
                         ),
-                        Tuple(
-                            [
-                                Named(
-                                    Felt,
-                                ),
-                                Named(
-                                    Felt,
-                                ),
-                            ],
+                        Spanned(
+                            Tuple(
+                                [
+                                    Spanned(
+                                        Named(
+                                            Spanned(
+                                                Felt,
+                                                106..110,
+                                            ),
+                                        ),
+                                        106..110,
+                                    ),
+                                    Spanned(
+                                        Named(
+                                            Spanned(
+                                                Felt,
+                                                112..116,
+                                            ),
+                                        ),
+                                        112..116,
+                                    ),
+                                ],
+                            ),
+                            105..117,
                         ),
                     ),
                     (
@@ -162,10 +219,16 @@ struct Node { data: felt, next: Node* }
                             "field4",
                             131..137,
                         ),
-                        Named(
-                            Custom(
-                                "AnotherStruct",
+                        Spanned(
+                            Named(
+                                Spanned(
+                                    Custom(
+                                        "AnotherStruct",
+                                    ),
+                                    139..152,
+                                ),
                             ),
+                            139..152,
                         ),
                     ),
                     (
@@ -173,12 +236,21 @@ struct Node { data: felt, next: Node* }
                             "field5",
                             166..172,
                         ),
-                        Pointer(
-                            Named(
-                                Custom(
-                                    "AnotherStruct",
+                        Spanned(
+                            Pointer(
+                                Spanned(
+                                    Named(
+                                        Spanned(
+                                            Custom(
+                                                "AnotherStruct",
+                                            ),
+                                            174..187,
+                                        ),
+                                    ),
+                                    174..187,
                                 ),
                             ),
+                            174..188,
                         ),
                     ),
                 ],

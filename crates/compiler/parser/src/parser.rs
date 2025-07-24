@@ -65,11 +65,11 @@ impl std::fmt::Display for NamedType {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeExpr {
     /// A named type (e.g., `felt`, `Vector`)
-    Named(NamedType),
+    Named(Spanned<NamedType>),
     /// A pointer type (e.g., `felt*`, `Vector*`)
-    Pointer(Box<TypeExpr>),
+    Pointer(Box<Spanned<TypeExpr>>),
     /// A tuple type (e.g., `(felt, felt)`, `(Vector, felt, bool)`)
-    Tuple(Vec<TypeExpr>),
+    Tuple(Vec<Spanned<TypeExpr>>),
 }
 
 /// Unary operators supported in expressions.
@@ -168,7 +168,7 @@ pub struct Parameter {
     /// The parameter name
     pub name: Spanned<String>,
     /// The parameter's type
-    pub type_expr: TypeExpr,
+    pub type_expr: Spanned<TypeExpr>,
 }
 
 /// Represents a pattern in let bindings.
@@ -191,7 +191,7 @@ pub enum Statement {
     /// Global variable declaration (e.g., `let x = 5;` or `let (x, y) = (1, 2);`)
     Let {
         pattern: Pattern,
-        statement_type: Option<TypeExpr>,
+        statement_type: Option<Spanned<TypeExpr>>,
         value: Spanned<Expression>,
     },
     /// Constant declaration (e.g., `const PI = 314;`)
@@ -295,7 +295,7 @@ pub struct FunctionDef {
     /// The function's parameters
     pub params: Vec<Parameter>,
     /// The function's return type (defaults to unit type if not specified)
-    pub return_type: TypeExpr,
+    pub return_type: Spanned<TypeExpr>,
     /// The function's body (list of statements)
     pub body: Vec<Spanned<Statement>>,
 }
@@ -306,7 +306,7 @@ pub struct StructDef {
     /// The struct's name
     pub name: Spanned<String>,
     /// The struct's fields (name and type pairs)
-    pub fields: Vec<(Spanned<String>, TypeExpr)>,
+    pub fields: Vec<(Spanned<String>, Spanned<TypeExpr>)>,
 }
 
 /// Represents a namespace definition.
@@ -493,7 +493,7 @@ where
 
 /// Creates a parser for type expressions (named types, pointers, tuples)
 fn type_expr_parser<'tokens, 'src: 'tokens, I>()
--> impl Parser<'tokens, I, TypeExpr, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
+-> impl Parser<'tokens, I, Spanned<TypeExpr>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
@@ -501,35 +501,50 @@ where
 
     recursive(|type_expr| {
         // Named types: felt, Vector, MyStruct, etc.
-        let named_type = ident.map(|name| match name.as_str() {
-            "felt" => TypeExpr::Named(NamedType::Felt),
-            "bool" => TypeExpr::Named(NamedType::Bool),
-            "u32" => TypeExpr::Named(NamedType::U32),
-            _ => TypeExpr::Named(NamedType::Custom(name)),
+        let named_type = ident.clone().map_with(|name, extra| {
+            let named_type = match name.as_str() {
+                "felt" => NamedType::Felt,
+                "bool" => NamedType::Bool,
+                "u32" => NamedType::U32,
+                _ => NamedType::Custom(name),
+            };
+            let span = extra.span();
+            Spanned::new(TypeExpr::Named(Spanned::new(named_type, span)), span)
         });
 
         // Tuple types: (felt, felt), (Vector, bool, felt), etc.
         let tuple_type = type_expr
+            .clone()
             .separated_by(just(TokenType::Comma))
             .allow_trailing()
             .collect::<Vec<_>>()
             .delimited_by(just(TokenType::LParen), just(TokenType::RParen))
-            .map(|types| {
+            .map_with(|types, extra| {
+                let span = extra.span();
                 // Single type in parens is just a parenthesized type
                 if types.len() == 1 {
+                    // Extract the inner type but use the parentheses span
                     types.into_iter().next().unwrap()
                 } else {
                     // Multiple types form a tuple type
-                    TypeExpr::Tuple(types)
+                    Spanned::new(TypeExpr::Tuple(types), span)
                 }
             });
 
         let base_type = named_type.or(tuple_type);
 
         // Handle pointer types: felt*, Vector**, etc. (right-associative via foldl)
-        base_type.foldl(just(TokenType::Mul).repeated(), |ty, _| {
-            TypeExpr::Pointer(Box::new(ty))
-        })
+        base_type.foldl(
+            just(TokenType::Mul)
+                .map_with(|_, extra| extra.span())
+                .repeated(),
+            |ty, star_span: SimpleSpan| {
+                let start = ty.span().start;
+                let end = star_span.end;
+                let span = SimpleSpan::from(start..end);
+                Spanned::new(TypeExpr::Pointer(Box::new(ty)), span)
+            },
+        )
     })
 }
 
@@ -1027,7 +1042,10 @@ where
         )
         .map_with(|(((name, params), return_type), body), extra| {
             // If no return type is specified, default to unit type ()
-            let return_type = return_type.unwrap_or(TypeExpr::Tuple(vec![]));
+            let return_type = return_type.unwrap_or_else(|| {
+                let span = SimpleSpan::from(0..0); // Default span for unit type
+                Spanned::new(TypeExpr::Tuple(vec![]), span)
+            });
             Spanned(
                 FunctionDef {
                     name,

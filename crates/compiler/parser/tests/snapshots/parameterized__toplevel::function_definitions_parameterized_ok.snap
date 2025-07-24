@@ -19,8 +19,14 @@ fn add(a: felt, b: felt) -> felt { return a + b; }
                             "a",
                             7..8,
                         ),
-                        type_expr: Named(
-                            Felt,
+                        type_expr: Spanned(
+                            Named(
+                                Spanned(
+                                    Felt,
+                                    10..14,
+                                ),
+                            ),
+                            10..14,
                         ),
                     },
                     Parameter {
@@ -28,13 +34,25 @@ fn add(a: felt, b: felt) -> felt { return a + b; }
                             "b",
                             16..17,
                         ),
-                        type_expr: Named(
-                            Felt,
+                        type_expr: Spanned(
+                            Named(
+                                Spanned(
+                                    Felt,
+                                    19..23,
+                                ),
+                            ),
+                            19..23,
                         ),
                     },
                 ],
-                return_type: Named(
-                    Felt,
+                return_type: Spanned(
+                    Named(
+                        Spanned(
+                            Felt,
+                            28..32,
+                        ),
+                    ),
+                    28..32,
                 ),
                 body: [
                     Spanned(
@@ -88,8 +106,14 @@ fn get_constant() -> felt { return 42; }
                     3..15,
                 ),
                 params: [],
-                return_type: Named(
-                    Felt,
+                return_type: Spanned(
+                    Named(
+                        Spanned(
+                            Felt,
+                            21..25,
+                        ),
+                    ),
+                    21..25,
                 ),
                 body: [
                     Spanned(
@@ -125,8 +149,11 @@ fn print_hello() { let msg = hello; }
                     3..14,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(
@@ -175,8 +202,14 @@ fn complex(a: felt, b: felt*, c: (felt, felt)) { }
                             "a",
                             11..12,
                         ),
-                        type_expr: Named(
-                            Felt,
+                        type_expr: Spanned(
+                            Named(
+                                Spanned(
+                                    Felt,
+                                    14..18,
+                                ),
+                            ),
+                            14..18,
                         ),
                     },
                     Parameter {
@@ -184,10 +217,19 @@ fn complex(a: felt, b: felt*, c: (felt, felt)) { }
                             "b",
                             20..21,
                         ),
-                        type_expr: Pointer(
-                            Named(
-                                Felt,
+                        type_expr: Spanned(
+                            Pointer(
+                                Spanned(
+                                    Named(
+                                        Spanned(
+                                            Felt,
+                                            23..27,
+                                        ),
+                                    ),
+                                    23..27,
+                                ),
                             ),
+                            23..28,
                         ),
                     },
                     Parameter {
@@ -195,20 +237,38 @@ fn complex(a: felt, b: felt*, c: (felt, felt)) { }
                             "c",
                             30..31,
                         ),
-                        type_expr: Tuple(
-                            [
-                                Named(
-                                    Felt,
-                                ),
-                                Named(
-                                    Felt,
-                                ),
-                            ],
+                        type_expr: Spanned(
+                            Tuple(
+                                [
+                                    Spanned(
+                                        Named(
+                                            Spanned(
+                                                Felt,
+                                                34..38,
+                                            ),
+                                        ),
+                                        34..38,
+                                    ),
+                                    Spanned(
+                                        Named(
+                                            Spanned(
+                                                Felt,
+                                                40..44,
+                                            ),
+                                        ),
+                                        40..44,
+                                    ),
+                                ],
+                            ),
+                            33..45,
                         ),
                     },
                 ],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [],
             },
@@ -235,8 +295,14 @@ fn complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStruct
                             "a",
                             20..21,
                         ),
-                        type_expr: Named(
-                            Felt,
+                        type_expr: Spanned(
+                            Named(
+                                Spanned(
+                                    Felt,
+                                    23..27,
+                                ),
+                            ),
+                            23..27,
                         ),
                     },
                     Parameter {
@@ -244,10 +310,19 @@ fn complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStruct
                             "b",
                             29..30,
                         ),
-                        type_expr: Pointer(
-                            Named(
-                                Felt,
+                        type_expr: Spanned(
+                            Pointer(
+                                Spanned(
+                                    Named(
+                                        Spanned(
+                                            Felt,
+                                            32..36,
+                                        ),
+                                    ),
+                                    32..36,
+                                ),
                             ),
+                            32..37,
                         ),
                     },
                     Parameter {
@@ -255,15 +330,30 @@ fn complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStruct
                             "c",
                             39..40,
                         ),
-                        type_expr: Tuple(
-                            [
-                                Named(
-                                    Felt,
-                                ),
-                                Named(
-                                    Felt,
-                                ),
-                            ],
+                        type_expr: Spanned(
+                            Tuple(
+                                [
+                                    Spanned(
+                                        Named(
+                                            Spanned(
+                                                Felt,
+                                                43..47,
+                                            ),
+                                        ),
+                                        43..47,
+                                    ),
+                                    Spanned(
+                                        Named(
+                                            Spanned(
+                                                Felt,
+                                                49..53,
+                                            ),
+                                        ),
+                                        49..53,
+                                    ),
+                                ],
+                            ),
+                            42..54,
                         ),
                     },
                     Parameter {
@@ -271,10 +361,16 @@ fn complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStruct
                             "d",
                             56..57,
                         ),
-                        type_expr: Named(
-                            Custom(
-                                "MyStruct",
+                        type_expr: Spanned(
+                            Named(
+                                Spanned(
+                                    Custom(
+                                        "MyStruct",
+                                    ),
+                                    59..67,
+                                ),
                             ),
+                            59..67,
                         ),
                     },
                     Parameter {
@@ -282,24 +378,48 @@ fn complex_function(a: felt, b: felt*, c: (felt, felt), d: MyStruct, e: MyStruct
                             "e",
                             69..70,
                         ),
-                        type_expr: Pointer(
-                            Named(
-                                Custom(
-                                    "MyStruct",
+                        type_expr: Spanned(
+                            Pointer(
+                                Spanned(
+                                    Named(
+                                        Spanned(
+                                            Custom(
+                                                "MyStruct",
+                                            ),
+                                            72..80,
+                                        ),
+                                    ),
+                                    72..80,
                                 ),
                             ),
+                            72..81,
                         ),
                     },
                 ],
-                return_type: Tuple(
-                    [
-                        Named(
-                            Felt,
-                        ),
-                        Named(
-                            Felt,
-                        ),
-                    ],
+                return_type: Spanned(
+                    Tuple(
+                        [
+                            Spanned(
+                                Named(
+                                    Spanned(
+                                        Felt,
+                                        87..91,
+                                    ),
+                                ),
+                                87..91,
+                            ),
+                            Spanned(
+                                Named(
+                                    Spanned(
+                                        Felt,
+                                        93..97,
+                                    ),
+                                ),
+                                93..97,
+                            ),
+                        ],
+                    ),
+                    86..98,
                 ),
                 body: [
                     Spanned(
@@ -359,8 +479,14 @@ fn test(a: felt, b: felt,) { }
                             "a",
                             8..9,
                         ),
-                        type_expr: Named(
-                            Felt,
+                        type_expr: Spanned(
+                            Named(
+                                Spanned(
+                                    Felt,
+                                    11..15,
+                                ),
+                            ),
+                            11..15,
                         ),
                     },
                     Parameter {
@@ -368,13 +494,22 @@ fn test(a: felt, b: felt,) { }
                             "b",
                             17..18,
                         ),
-                        type_expr: Named(
-                            Felt,
+                        type_expr: Spanned(
+                            Named(
+                                Spanned(
+                                    Felt,
+                                    20..24,
+                                ),
+                            ),
+                            20..24,
                         ),
                     },
                 ],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [],
             },

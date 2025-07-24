@@ -21,9 +21,9 @@ fn test_type_compatibility() {
         err: [
             // TODO: fix these cases
             // // Error type propagation, should still produce diagnostics
-            // in_function("let x: BadType = 1; let y = x; let z = y + 1;"),
+            in_function("let x: BadType = 1; let y = x; let z = y + 1;"),
             // // Invalid type in expression
-            // "fn test() -> felt { let x: UnknownType = 42; let y: felt = 10; return x + y; }",
+            "fn test() -> felt { let x: UnknownType = 42; let y: felt = 10; return x + y; }",
 
             // Direct self-referential struct should be an error
             // TODO: fix this case

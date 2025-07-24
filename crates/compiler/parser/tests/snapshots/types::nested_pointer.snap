@@ -19,17 +19,32 @@ fn test(x: felt**) { }
                             "x",
                             8..9,
                         ),
-                        type_expr: Pointer(
+                        type_expr: Spanned(
                             Pointer(
-                                Named(
-                                    Felt,
+                                Spanned(
+                                    Pointer(
+                                        Spanned(
+                                            Named(
+                                                Spanned(
+                                                    Felt,
+                                                    11..15,
+                                                ),
+                                            ),
+                                            11..15,
+                                        ),
+                                    ),
+                                    11..16,
                                 ),
                             ),
+                            11..17,
                         ),
                     },
                 ],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [],
             },

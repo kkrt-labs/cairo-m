@@ -52,8 +52,6 @@ fn main() {
 
 #[tokio::test]
 async fn test_simple_diagnostics_standalone() {
-    tracing_subscriber::fmt::init();
-
     // Create a fixture with a simple Cairo-M file
     let fixture = Fixture::new();
     fixture.add_file(

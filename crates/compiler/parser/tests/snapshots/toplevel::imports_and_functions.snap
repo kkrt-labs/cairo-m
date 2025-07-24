@@ -79,8 +79,14 @@ expression: snapshot
                             "x",
                             94..95,
                         ),
-                        Named(
-                            Felt,
+                        Spanned(
+                            Named(
+                                Spanned(
+                                    Felt,
+                                    97..101,
+                                ),
+                            ),
+                            97..101,
                         ),
                     ),
                     (
@@ -88,8 +94,14 @@ expression: snapshot
                             "y",
                             115..116,
                         ),
-                        Named(
-                            Felt,
+                        Spanned(
+                            Named(
+                                Spanned(
+                                    Felt,
+                                    118..122,
+                                ),
+                            ),
+                            118..122,
                         ),
                     ),
                 ],
@@ -110,10 +122,16 @@ expression: snapshot
                             "p1",
                             154..156,
                         ),
-                        type_expr: Named(
-                            Custom(
-                                "Point",
+                        type_expr: Spanned(
+                            Named(
+                                Spanned(
+                                    Custom(
+                                        "Point",
+                                    ),
+                                    158..163,
+                                ),
                             ),
+                            158..163,
                         ),
                     },
                     Parameter {
@@ -121,15 +139,27 @@ expression: snapshot
                             "p2",
                             165..167,
                         ),
-                        type_expr: Named(
-                            Custom(
-                                "Point",
+                        type_expr: Spanned(
+                            Named(
+                                Spanned(
+                                    Custom(
+                                        "Point",
+                                    ),
+                                    169..174,
+                                ),
                             ),
+                            169..174,
                         ),
                     },
                 ],
-                return_type: Named(
-                    Felt,
+                return_type: Spanned(
+                    Named(
+                        Spanned(
+                            Felt,
+                            179..183,
+                        ),
+                    ),
+                    179..183,
                 ),
                 body: [
                     Spanned(
@@ -141,8 +171,14 @@ expression: snapshot
                                 ),
                             ),
                             statement_type: Some(
-                                Named(
-                                    Felt,
+                                Spanned(
+                                    Named(
+                                        Spanned(
+                                            Felt,
+                                            206..210,
+                                        ),
+                                    ),
+                                    206..210,
                                 ),
                             ),
                             value: Spanned(
@@ -199,8 +235,14 @@ expression: snapshot
                                 ),
                             ),
                             statement_type: Some(
-                                Named(
-                                    Felt,
+                                Spanned(
+                                    Named(
+                                        Spanned(
+                                            Felt,
+                                            246..250,
+                                        ),
+                                    ),
+                                    246..250,
                                 ),
                             ),
                             value: Spanned(

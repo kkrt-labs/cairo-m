@@ -1,0 +1,52 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+use module_b::func_b;
+fn func_a() { func_b(); }
+// --- module_b.cm ---
+use module_a::func_a;
+fn func_b() { func_a(); }
+--- Diagnostics ---
+[02] Error: Cyclic import: module_a -> module_b -> module_a
+   ╭─[ :1:1 ]
+   │
+ 1 │ use module_b::func_b;
+   │ │ 
+   │ ╰─ Cyclic import: module_a -> module_b -> module_a
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+use module_b::func_b;
+fn func_a() { func_b(); }
+// --- module_b.cm ---
+use module_c::func_c;
+fn func_b() { func_c(); }
+// --- module_c.cm ---
+use module_a::func_a;
+fn func_c() { func_a(); }
+--- Diagnostics ---
+[02] Error: Cyclic import: module_a -> module_b -> module_c -> module_a
+   ╭─[ :1:1 ]
+   │
+ 1 │ use module_b::func_b;
+   │ │ 
+   │ ╰─ Cyclic import: module_a -> module_b -> module_c -> module_a
+───╯
+
+============================================================
+
+--- Input 3 (ERROR) ---
+use main::foo;
+fn foo() {}
+--- Diagnostics ---
+[02] Error: Cyclic import: main -> main
+   ╭─[ :1:1 ]
+   │
+ 1 │ use main::foo;
+   │ │ 
+   │ ╰─ Cyclic import: main -> main
+───╯

@@ -14,8 +14,11 @@ fn test() { my_var; }
                     3..7,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(
@@ -52,8 +55,11 @@ fn test() { very_long_variable_name_that_tests_identifier_parsing; }
                     3..7,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(

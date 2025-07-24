@@ -14,8 +14,11 @@ fn test() { let (x, y) = (1, 2); }
                     3..7,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(
@@ -75,8 +78,11 @@ fn test() { let (x, y): (felt, felt) = (1, 2); }
                     3..7,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(
@@ -94,15 +100,30 @@ fn test() { let (x, y): (felt, felt) = (1, 2); }
                                 ],
                             ),
                             statement_type: Some(
-                                Tuple(
-                                    [
-                                        Named(
-                                            Felt,
-                                        ),
-                                        Named(
-                                            Felt,
-                                        ),
-                                    ],
+                                Spanned(
+                                    Tuple(
+                                        [
+                                            Spanned(
+                                                Named(
+                                                    Spanned(
+                                                        Felt,
+                                                        25..29,
+                                                    ),
+                                                ),
+                                                25..29,
+                                            ),
+                                            Spanned(
+                                                Named(
+                                                    Spanned(
+                                                        Felt,
+                                                        31..35,
+                                                    ),
+                                                ),
+                                                31..35,
+                                            ),
+                                        ],
+                                    ),
+                                    24..36,
                                 ),
                             ),
                             value: Spanned(
@@ -147,8 +168,11 @@ fn test() { let (x, y) = get_pair(); }
                     3..7,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(
@@ -204,8 +228,11 @@ fn test() { let (sum, diff) = (a + b, a - b); }
                     3..7,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(
@@ -301,8 +328,11 @@ fn test() { let (x, y, z) = (1, 2, 3); }
                     3..7,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(
@@ -372,8 +402,11 @@ fn test() { let (x, y): (felt, felt) = (42, 84); }
                     3..7,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(
@@ -391,15 +424,30 @@ fn test() { let (x, y): (felt, felt) = (42, 84); }
                                 ],
                             ),
                             statement_type: Some(
-                                Tuple(
-                                    [
-                                        Named(
-                                            Felt,
-                                        ),
-                                        Named(
-                                            Felt,
-                                        ),
-                                    ],
+                                Spanned(
+                                    Tuple(
+                                        [
+                                            Spanned(
+                                                Named(
+                                                    Spanned(
+                                                        Felt,
+                                                        25..29,
+                                                    ),
+                                                ),
+                                                25..29,
+                                            ),
+                                            Spanned(
+                                                Named(
+                                                    Spanned(
+                                                        Felt,
+                                                        31..35,
+                                                    ),
+                                                ),
+                                                31..35,
+                                            ),
+                                        ],
+                                    ),
+                                    24..36,
                                 ),
                             ),
                             value: Spanned(
@@ -444,8 +492,11 @@ fn test() { let (a, b): (felt, felt) = (1, 2); }
                     3..7,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(
@@ -463,15 +514,30 @@ fn test() { let (a, b): (felt, felt) = (1, 2); }
                                 ],
                             ),
                             statement_type: Some(
-                                Tuple(
-                                    [
-                                        Named(
-                                            Felt,
-                                        ),
-                                        Named(
-                                            Felt,
-                                        ),
-                                    ],
+                                Spanned(
+                                    Tuple(
+                                        [
+                                            Spanned(
+                                                Named(
+                                                    Spanned(
+                                                        Felt,
+                                                        25..29,
+                                                    ),
+                                                ),
+                                                25..29,
+                                            ),
+                                            Spanned(
+                                                Named(
+                                                    Spanned(
+                                                        Felt,
+                                                        31..35,
+                                                    ),
+                                                ),
+                                                31..35,
+                                            ),
+                                        ],
+                                    ),
+                                    24..36,
                                 ),
                             ),
                             value: Spanned(

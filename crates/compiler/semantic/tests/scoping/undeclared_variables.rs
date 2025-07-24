@@ -6,6 +6,24 @@ use crate::*;
 #[test]
 fn test_undeclared_variables_parameterized() {
     assert_semantic_parameterized! {
+        ok: [
+            // Declared variable usage
+            r#"
+            fn test() -> felt {
+                let x = 5;
+                let y = x + 10;
+                return y;
+            }
+            "#,
+
+            // Parameter usage
+            r#"
+            fn test(param: felt) -> felt {
+                let variable = param + 1;
+                return variable;
+            }
+            "#,
+        ],
         err: [
             // Simple undeclared variable
             in_function("let x = undefined_var;"),
@@ -35,31 +53,6 @@ fn test_undeclared_variables_parameterized() {
 
             // Undeclared in assignment
             in_function("let x = 5; x = undefined_var;"),
-        ]
-    }
-}
-
-// Parameterized test for valid variable usage cases
-#[test]
-fn test_declared_variables_ok_parameterized() {
-    assert_semantic_parameterized! {
-        ok: [
-            // Declared variable usage
-            r#"
-            fn test() -> felt {
-                let x = 5;
-                let y = x + 10;
-                return y;
-            }
-            "#,
-
-            // Parameter usage
-            r#"
-            fn test(param: felt) -> felt {
-                let variable = param + 1;
-                return variable;
-            }
-            "#,
         ]
     }
 }

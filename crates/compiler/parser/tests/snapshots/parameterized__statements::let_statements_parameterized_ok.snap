@@ -14,8 +14,11 @@ fn test() { let x = 5; }
                     3..7,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(
@@ -56,8 +59,11 @@ fn test() { let x: felt = 5; }
                     3..7,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(
@@ -69,8 +75,14 @@ fn test() { let x: felt = 5; }
                                 ),
                             ),
                             statement_type: Some(
-                                Named(
-                                    Felt,
+                                Spanned(
+                                    Named(
+                                        Spanned(
+                                            Felt,
+                                            19..23,
+                                        ),
+                                    ),
+                                    19..23,
                                 ),
                             ),
                             value: Spanned(
@@ -102,8 +114,11 @@ fn test() { let x: u32 = 5; }
                     3..7,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(
@@ -115,8 +130,14 @@ fn test() { let x: u32 = 5; }
                                 ),
                             ),
                             statement_type: Some(
-                                Named(
-                                    U32,
+                                Spanned(
+                                    Named(
+                                        Spanned(
+                                            U32,
+                                            19..22,
+                                        ),
+                                    ),
+                                    19..22,
                                 ),
                             ),
                             value: Spanned(
@@ -148,8 +169,11 @@ fn test() { let result = a + b * c; }
                     3..7,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(
@@ -223,8 +247,11 @@ fn test() { const PI = 314; }
                     3..7,
                 ),
                 params: [],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [
                     Spanned(

@@ -1,0 +1,41 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+use utils::add;
+fn test() -> felt { return add(1); }
+// --- utils.cm ---
+fn add(a: felt, b: felt) -> felt { return a + b; }
+--- Diagnostics ---
+[2005] Error: Function expects 2 argument(s), but 1 were provided
+   ╭─[ main.cm:2:28 ]
+   │
+ 2 │ fn test() -> felt { return add(1); }
+   │                            ─┬─  
+   │                             ╰─── Function expects 2 argument(s), but 1 were provided
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+use utils::process;
+fn test() { let x: felt = 5; return process(x); }
+// --- utils.cm ---
+struct Point { x: felt, y: felt }
+fn process(p: Point) { }
+--- Diagnostics ---
+[2001] Error: Argument type mismatch for parameter 'p': expected 'Point', found 'felt'
+   ╭─[ main.cm:2:45 ]
+   │
+ 2 │ fn test() { let x: felt = 5; return process(x); }
+   │                                             ┬  
+   │                                             ╰── Argument type mismatch for parameter 'p': expected 'Point', found 'felt'
+───╯
+[3002] Error: Function 'process' doesn't return on all paths
+   ╭─[ utils.cm:2:18 ]
+   │
+ 2 │ fn test() { let x: felt = 5; return process(x); }
+   │                  ───┬───  
+   │                     ╰───── Function 'process' doesn't return on all paths
+───╯

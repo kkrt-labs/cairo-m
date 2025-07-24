@@ -42,8 +42,14 @@ expression: snapshot
                             "x",
                             37..38,
                         ),
-                        Named(
-                            Felt,
+                        Spanned(
+                            Named(
+                                Spanned(
+                                    Felt,
+                                    40..44,
+                                ),
+                            ),
+                            40..44,
                         ),
                     ),
                     (
@@ -51,8 +57,14 @@ expression: snapshot
                             "y",
                             58..59,
                         ),
-                        Named(
-                            Felt,
+                        Spanned(
+                            Named(
+                                Spanned(
+                                    Felt,
+                                    61..65,
+                                ),
+                            ),
+                            61..65,
                         ),
                     ),
                 ],
@@ -81,15 +93,27 @@ expression: snapshot
                                             "v",
                                             132..133,
                                         ),
-                                        type_expr: Named(
-                                            Custom(
-                                                "Vector",
+                                        type_expr: Spanned(
+                                            Named(
+                                                Spanned(
+                                                    Custom(
+                                                        "Vector",
+                                                    ),
+                                                    135..141,
+                                                ),
                                             ),
+                                            135..141,
                                         ),
                                     },
                                 ],
-                                return_type: Named(
-                                    Felt,
+                                return_type: Spanned(
+                                    Named(
+                                        Spanned(
+                                            Felt,
+                                            146..150,
+                                        ),
+                                    ),
+                                    146..150,
                                 ),
                                 body: [
                                     Spanned(
@@ -207,13 +231,25 @@ expression: snapshot
                                             "n",
                                             236..237,
                                         ),
-                                        type_expr: Named(
-                                            Felt,
+                                        type_expr: Spanned(
+                                            Named(
+                                                Spanned(
+                                                    Felt,
+                                                    239..243,
+                                                ),
+                                            ),
+                                            239..243,
                                         ),
                                     },
                                 ],
-                                return_type: Named(
-                                    Felt,
+                                return_type: Spanned(
+                                    Named(
+                                        Spanned(
+                                            Felt,
+                                            248..252,
+                                        ),
+                                    ),
+                                    248..252,
                                 ),
                                 body: [
                                     Spanned(

@@ -19,40 +19,85 @@ fn test(x: ((felt*, felt), (felt, felt*))*) { }
                             "x",
                             8..9,
                         ),
-                        type_expr: Pointer(
-                            Tuple(
-                                [
+                        type_expr: Spanned(
+                            Pointer(
+                                Spanned(
                                     Tuple(
                                         [
-                                            Pointer(
-                                                Named(
-                                                    Felt,
+                                            Spanned(
+                                                Tuple(
+                                                    [
+                                                        Spanned(
+                                                            Pointer(
+                                                                Spanned(
+                                                                    Named(
+                                                                        Spanned(
+                                                                            Felt,
+                                                                            13..17,
+                                                                        ),
+                                                                    ),
+                                                                    13..17,
+                                                                ),
+                                                            ),
+                                                            13..18,
+                                                        ),
+                                                        Spanned(
+                                                            Named(
+                                                                Spanned(
+                                                                    Felt,
+                                                                    20..24,
+                                                                ),
+                                                            ),
+                                                            20..24,
+                                                        ),
+                                                    ],
                                                 ),
+                                                12..25,
                                             ),
-                                            Named(
-                                                Felt,
+                                            Spanned(
+                                                Tuple(
+                                                    [
+                                                        Spanned(
+                                                            Named(
+                                                                Spanned(
+                                                                    Felt,
+                                                                    28..32,
+                                                                ),
+                                                            ),
+                                                            28..32,
+                                                        ),
+                                                        Spanned(
+                                                            Pointer(
+                                                                Spanned(
+                                                                    Named(
+                                                                        Spanned(
+                                                                            Felt,
+                                                                            34..38,
+                                                                        ),
+                                                                    ),
+                                                                    34..38,
+                                                                ),
+                                                            ),
+                                                            34..39,
+                                                        ),
+                                                    ],
+                                                ),
+                                                27..40,
                                             ),
                                         ],
                                     ),
-                                    Tuple(
-                                        [
-                                            Named(
-                                                Felt,
-                                            ),
-                                            Pointer(
-                                                Named(
-                                                    Felt,
-                                                ),
-                                            ),
-                                        ],
-                                    ),
-                                ],
+                                    11..41,
+                                ),
                             ),
+                            11..42,
                         ),
                     },
                 ],
-                return_type: Tuple(
-                    [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
                 ),
                 body: [],
             },
