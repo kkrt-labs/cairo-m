@@ -31,14 +31,14 @@ fn test() { let mut z: felt = 50; let x: u32 = 100; z = x; return; }
 --- Input 3 (ERROR) ---
 struct Point { x: felt, y: felt } fn test() { let x: felt = 42; let p = Point { x: 10, y: 20 }; x = p; return; }
 --- Diagnostics ---
-[2001] Error: Type mismatch in assignment. Cannot assign 'Point' to variable of type 'felt'
+[2001] Error: Type mismatch in assignment. Cannot assign `Point` to variable of type `felt`
    ╭─[ semantic_tests::statements::assignments::test_assignments:1:101 ]
    │
  1 │ struct Point { x: felt, y: felt } fn test() { let x: felt = 42; let p = Point { x: 10, y: 20 }; x = p; return; }
    │                                                                                                 ┬   ┬  
-   │                                                                                                 ╰────── Variable has type 'felt'
+   │                                                                                                 ╰────── Variable has type `felt`
    │                                                                                                     │  
-   │                                                                                                     ╰── Type mismatch in assignment. Cannot assign 'Point' to variable of type 'felt'
+   │                                                                                                     ╰── Type mismatch in assignment. Cannot assign `Point` to variable of type `felt`
    │                                                                                                     │  
    │                                                                                                     ╰── This struct has numeric fields that could be accessed
 ───╯
@@ -113,14 +113,14 @@ fn get_tuple() -> (felt, u32, bool) { return (42, 100, true); } fn test() { let 
 --- Input 9 (ERROR) ---
 fn get_tuple() -> (felt, u32, bool) { return (42, 100, true); } fn test() { let (x, y) = get_tuple(); return; }
 --- Diagnostics ---
-[2001] Error: Type mismatch in return statement. Function expects '(felt, u32, bool)', but returning '(felt, felt, bool)'
+[2001] Error: Type mismatch in return statement. Function expects `(felt, u32, bool)`, but returning `(felt, felt, bool)`
    ╭─[ semantic_tests::statements::assignments::test_assignments:1:39 ]
    │
  1 │ fn get_tuple() -> (felt, u32, bool) { return (42, 100, true); } fn test() { let (x, y) = get_tuple(); return; }
    │    ────┬────                          ───────────┬───────────  
-   │        ╰─────────────────────────────────────────────────────── Function 'get_tuple' declared here with return type '(felt, u32, bool)'
+   │        ╰─────────────────────────────────────────────────────── Function `get_tuple` declared here with return type `(felt, u32, bool)`
    │                                                  │             
-   │                                                  ╰───────────── Type mismatch in return statement. Function expects '(felt, u32, bool)', but returning '(felt, felt, bool)'
+   │                                                  ╰───────────── Type mismatch in return statement. Function expects `(felt, u32, bool)`, but returning `(felt, felt, bool)`
 ───╯
 [2001] Error: Tuple pattern has 2 elements but value has 3 elements
    ╭─[ semantic_tests::statements::assignments::test_assignments:1:90 ]
@@ -135,14 +135,14 @@ fn get_tuple() -> (felt, u32, bool) { return (42, 100, true); } fn test() { let 
 --- Input 10 (ERROR) ---
 fn get_tuple() -> (felt, u32, bool) { return (42, 100, true); } fn test() { let (p, q, r, s) = get_tuple(); return; }
 --- Diagnostics ---
-[2001] Error: Type mismatch in return statement. Function expects '(felt, u32, bool)', but returning '(felt, felt, bool)'
+[2001] Error: Type mismatch in return statement. Function expects `(felt, u32, bool)`, but returning `(felt, felt, bool)`
    ╭─[ semantic_tests::statements::assignments::test_assignments:1:39 ]
    │
  1 │ fn get_tuple() -> (felt, u32, bool) { return (42, 100, true); } fn test() { let (p, q, r, s) = get_tuple(); return; }
    │    ────┬────                          ───────────┬───────────  
-   │        ╰─────────────────────────────────────────────────────── Function 'get_tuple' declared here with return type '(felt, u32, bool)'
+   │        ╰─────────────────────────────────────────────────────── Function `get_tuple` declared here with return type `(felt, u32, bool)`
    │                                                  │             
-   │                                                  ╰───────────── Type mismatch in return statement. Function expects '(felt, u32, bool)', but returning '(felt, felt, bool)'
+   │                                                  ╰───────────── Type mismatch in return statement. Function expects `(felt, u32, bool)`, but returning `(felt, felt, bool)`
 ───╯
 [2001] Error: Tuple pattern has 4 elements but value has 3 elements
    ╭─[ semantic_tests::statements::assignments::test_assignments:1:96 ]
@@ -157,12 +157,12 @@ fn get_tuple() -> (felt, u32, bool) { return (42, 100, true); } fn test() { let 
 --- Input 11 (ERROR) ---
 fn test() { let x: felt = 42; let y: felt = 100; let z: felt = (x == y); return; }
 --- Diagnostics ---
-[2001] Error: Type mismatch for let statement 'z'. Expected 'felt', found 'bool'
+[2001] Error: Type mismatch for let statement `z`. Expected `felt`, found `bool`
    ╭─[ semantic_tests::statements::assignments::test_assignments:1:64 ]
    │
  1 │ fn test() { let x: felt = 42; let y: felt = 100; let z: felt = (x == y); return; }
    │                                                                ────┬───  
-   │                                                                    ╰───── Type mismatch for let statement 'z'. Expected 'felt', found 'bool'
+   │                                                                    ╰───── Type mismatch for let statement `z`. Expected `felt`, found `bool`
 ───╯
 
 ============================================================
@@ -170,10 +170,10 @@ fn test() { let x: felt = 42; let y: felt = 100; let z: felt = (x == y); return;
 --- Input 12 (ERROR) ---
 fn test() { let x: felt = 42; let y: felt = 100; let z: felt = (x != y); return; }
 --- Diagnostics ---
-[2001] Error: Type mismatch for let statement 'z'. Expected 'felt', found 'bool'
+[2001] Error: Type mismatch for let statement `z`. Expected `felt`, found `bool`
    ╭─[ semantic_tests::statements::assignments::test_assignments:1:64 ]
    │
  1 │ fn test() { let x: felt = 42; let y: felt = 100; let z: felt = (x != y); return; }
    │                                                                ────┬───  
-   │                                                                    ╰───── Type mismatch for let statement 'z'. Expected 'felt', found 'bool'
+   │                                                                    ╰───── Type mismatch for let statement `z`. Expected `felt`, found `bool`
 ───╯

@@ -3,7 +3,7 @@
 //! These tests verify that the u32 type is properly integrated into the type system,
 //! including type resolution, type inference, compatibility checks, and literal validation.
 
-use cairo_m_compiler_parser::parser::NamedType;
+use cairo_m_compiler_parser::parser::{NamedType, UnaryOp};
 use cairo_m_compiler_semantic::module_semantic_index;
 use cairo_m_compiler_semantic::type_resolution::{are_types_compatible, expression_semantic_type};
 use cairo_m_compiler_semantic::types::{TypeData, TypeId};
@@ -144,42 +144,28 @@ fn test_u32_unary_operations() {
     let program = r#"
         fn test() {
             let a: u32 = 10;
-            let neg = -a;
-            let not = !a;
+            let neg = -a; // Ok: can use `neg` on u32.
             return;
         }
     "#;
+
     let crate_id = crate_from_program(&db, program);
     let file = *crate_id.modules(&db).values().next().unwrap();
     let index = module_semantic_index(&db, crate_id, "main".to_string());
 
     let mut found_neg_u32 = false;
-    let mut found_not_bool = false;
 
     for (expr_id, expr_info) in index.all_expressions() {
         if let cairo_m_compiler_parser::parser::Expression::UnaryOp { op, .. } = &expr_info.ast_node
         {
             let expr_type = expression_semantic_type(&db, crate_id, file, expr_id);
-            match op {
-                cairo_m_compiler_parser::parser::UnaryOp::Neg => {
-                    if matches!(expr_type.data(&db), TypeData::U32) {
-                        found_neg_u32 = true;
-                    }
-                }
-                cairo_m_compiler_parser::parser::UnaryOp::Not => {
-                    if matches!(expr_type.data(&db), TypeData::Bool) {
-                        found_not_bool = true;
-                    }
-                }
+            if matches!(op, UnaryOp::Neg) && matches!(expr_type.data(&db), TypeData::U32) {
+                found_neg_u32 = true;
             }
         }
     }
 
     assert!(found_neg_u32, "Should have found negation returning u32");
-    assert!(
-        found_not_bool,
-        "Should have found logical not returning bool"
-    );
 }
 
 #[test]

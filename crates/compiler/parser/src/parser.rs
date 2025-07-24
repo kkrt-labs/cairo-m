@@ -81,6 +81,15 @@ pub enum UnaryOp {
     Neg,
 }
 
+impl std::fmt::Display for UnaryOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Not => write!(f, "!"),
+            Self::Neg => write!(f, "-"),
+        }
+    }
+}
+
 /// Binary operators supported in expressions.
 ///
 /// These operators have different precedence levels that are handled
@@ -111,6 +120,25 @@ pub enum BinaryOp {
     And,
     /// Logical OR operator `||`
     Or,
+}
+
+impl std::fmt::Display for BinaryOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Add => write!(f, "+"),
+            Self::Sub => write!(f, "-"),
+            Self::Mul => write!(f, "*"),
+            Self::Div => write!(f, "/"),
+            Self::Eq => write!(f, "=="),
+            Self::Neq => write!(f, "!="),
+            Self::Less => write!(f, "<"),
+            Self::Greater => write!(f, ">"),
+            Self::LessEqual => write!(f, "<="),
+            Self::GreaterEqual => write!(f, ">="),
+            Self::And => write!(f, "&&"),
+            Self::Or => write!(f, "||"),
+        }
+    }
 }
 
 /// Represents an expression in the Cairo-M language.

@@ -14,7 +14,7 @@ fn test_expression_statements() {
             // Return value ignored is OK
             "fn get_value() -> felt { return 42; } fn test() { get_value(); return (); }",
             // Recursive call as statement
-            "fn recursive(n: felt) { if (n > 0) { recursive(n - 1); } return (); } fn test() { recursive(5); return (); }",
+            "fn recursive(n: u32) { if (n > 0u32) { recursive(n - 1u32); } return (); } fn test() { recursive(5u32); return (); }",
         ],
         err: [
             in_function("undefined_function();"),

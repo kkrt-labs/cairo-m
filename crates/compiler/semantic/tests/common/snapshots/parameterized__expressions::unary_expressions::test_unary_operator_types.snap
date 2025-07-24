@@ -3,81 +3,64 @@ source: crates/compiler/semantic/tests/common/mod.rs
 expression: snapshot
 ---
 --- Input 1 (ERROR) ---
-fn test() { let y: u32 = 100; let neg_u32 = -y; return; }
+fn test() { let b: bool = true; let neg_bool = -b; return; }
 --- Diagnostics ---
-[2001] Error: Invalid operand for negation operator '-'. Expected 'felt', found 'u32'
-   ╭─[ semantic_tests::expressions::unary_expressions::test_unary_operator_types:1:46 ]
+[2001] Error: Operator `-` is not supported for type `bool`
+   ╭─[ semantic_tests::expressions::unary_expressions::test_unary_operator_types:1:49 ]
    │
- 1 │ fn test() { let y: u32 = 100; let neg_u32 = -y; return; }
-   │                                              ┬  
-   │                                              ╰── Invalid operand for negation operator '-'. Expected 'felt', found 'u32'
+ 1 │ fn test() { let b: bool = true; let neg_bool = -b; return; }
+   │                                                 ┬  
+   │                                                 ╰── Operator `-` is not supported for type `bool`
 ───╯
 
 ============================================================
 
 --- Input 2 (ERROR) ---
-fn test() { let b: bool = true; let neg_bool = -b; return; }
+fn test() { let x: felt = 42; let neg_felt = !x; return; }
 --- Diagnostics ---
-[2001] Error: Invalid operand for negation operator '-'. Expected 'felt', found 'bool'
-   ╭─[ semantic_tests::expressions::unary_expressions::test_unary_operator_types:1:49 ]
+[2001] Error: Operator `!` is not supported for type `felt`
+   ╭─[ semantic_tests::expressions::unary_expressions::test_unary_operator_types:1:47 ]
    │
- 1 │ fn test() { let b: bool = true; let neg_bool = -b; return; }
-   │                                                 ┬  
-   │                                                 ╰── Invalid operand for negation operator '-'. Expected 'felt', found 'bool'
-   │                                                 │  
-   │                                                 ╰── Cannot use bool in arithmetic operations. Consider using logical operators (&&, ||) instead.
+ 1 │ fn test() { let x: felt = 42; let neg_felt = !x; return; }
+   │                                               ┬  
+   │                                               ╰── Operator `!` is not supported for type `felt`
 ───╯
 
 ============================================================
 
 --- Input 3 (ERROR) ---
-fn test() { let x: felt = 42; let neg_felt = !x; return; }
+fn test() { let y: u32 = 100; let neg_u32 = !y; return; }
 --- Diagnostics ---
-[2001] Error: Logical not operator '!' requires operand of type 'bool', found 'felt'
-   ╭─[ semantic_tests::expressions::unary_expressions::test_unary_operator_types:1:47 ]
+[2001] Error: Operator `!` is not supported for type `u32`
+   ╭─[ semantic_tests::expressions::unary_expressions::test_unary_operator_types:1:46 ]
    │
- 1 │ fn test() { let x: felt = 42; let neg_felt = !x; return; }
-   │                                               ┬  
-   │                                               ╰── Logical not operator '!' requires operand of type 'bool', found 'felt'
+ 1 │ fn test() { let y: u32 = 100; let neg_u32 = !y; return; }
+   │                                              ┬  
+   │                                              ╰── Operator `!` is not supported for type `u32`
 ───╯
 
 ============================================================
 
 --- Input 4 (ERROR) ---
-fn test() { let y: u32 = 100; let neg_u32 = !y; return; }
+struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10, y: 20 }; let neg_struct = -p; return; }
 --- Diagnostics ---
-[2001] Error: Logical not operator '!' requires operand of type 'bool', found 'u32'
-   ╭─[ semantic_tests::expressions::unary_expressions::test_unary_operator_types:1:46 ]
+[2001] Error: Operator `-` is not supported for type `Point`
+   ╭─[ semantic_tests::expressions::unary_expressions::test_unary_operator_types:1:97 ]
    │
- 1 │ fn test() { let y: u32 = 100; let neg_u32 = !y; return; }
-   │                                              ┬  
-   │                                              ╰── Logical not operator '!' requires operand of type 'bool', found 'u32'
+ 1 │ struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10, y: 20 }; let neg_struct = -p; return; }
+   │                                                                                                 ┬  
+   │                                                                                                 ╰── Operator `-` is not supported for type `Point`
 ───╯
 
 ============================================================
 
 --- Input 5 (ERROR) ---
-struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10, y: 20 }; let neg_struct = -p; return; }
---- Diagnostics ---
-[2001] Error: Invalid operand for negation operator '-'. Expected 'felt', found 'Point'
-   ╭─[ semantic_tests::expressions::unary_expressions::test_unary_operator_types:1:97 ]
-   │
- 1 │ struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10, y: 20 }; let neg_struct = -p; return; }
-   │                                                                                                 ┬  
-   │                                                                                                 ╰── Invalid operand for negation operator '-'. Expected 'felt', found 'Point'
-   │                                                                                                 │  
-   │                                                                                                 ╰── This struct has numeric fields that could be accessed
-───╯
-
-============================================================
-
---- Input 6 (ERROR) ---
 struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10, y: 20 }; let not_struct = !p; return; }
 --- Diagnostics ---
-[2001] Error: Logical not operator '!' requires operand of type 'bool', found 'Point'
+[2001] Error: Operator `!` is not supported for type `Point`
    ╭─[ semantic_tests::expressions::unary_expressions::test_unary_operator_types:1:97 ]
    │
  1 │ struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10, y: 20 }; let not_struct = !p; return; }
    │                                                                                                 ┬  
-   │                                                                                                 ╰── Logical not operator '!' requires operand of type 'bool', found 'Point'
+   │                                                                                                 ╰── Operator `!` is not supported for type `Point`
 ───╯

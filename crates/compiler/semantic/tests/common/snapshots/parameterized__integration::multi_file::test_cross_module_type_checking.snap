@@ -25,12 +25,12 @@ fn test() { let x: felt = 5; return process(x); }
 struct Point { x: felt, y: felt }
 fn process(p: Point) { }
 --- Diagnostics ---
-[2001] Error: Argument type mismatch for parameter 'p': expected 'Point', found 'felt'
+[2001] Error: Argument type mismatch for parameter `p`: expected `Point`, found `felt`
    ╭─[ main.cm:2:45 ]
    │
  2 │ fn test() { let x: felt = 5; return process(x); }
    │                                             ┬  
-   │                                             ╰── Argument type mismatch for parameter 'p': expected 'Point', found 'felt'
+   │                                             ╰── Argument type mismatch for parameter `p`: expected `Point`, found `felt`
 ───╯
 [3002] Error: Function 'process' doesn't return on all paths
    ╭─[ utils.cm:2:18 ]

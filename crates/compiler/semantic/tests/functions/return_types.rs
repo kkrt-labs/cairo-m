@@ -15,7 +15,7 @@ fn test_return_type_validation() {
             "fn test() -> felt { { { return 42; } } }",
             "fn test(param: felt) -> felt { return param; }",
             "fn test(x: bool) -> felt { if (x) { return 0; } return 1; }",
-            "fn test(x: felt, y: felt) -> felt { if (x > 0) { if (y > 0) { return 1; } else { return 2; } } else { return 3; } }",
+            "fn test(x: u32, y: u32) -> felt { if (x > 0u32) { if (y > 0u32) { return 1; } else { return 2; } } else { return 3; } }",
         ],
         err: [
             // Wrong return type

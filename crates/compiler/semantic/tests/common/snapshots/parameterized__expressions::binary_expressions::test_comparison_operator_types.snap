@@ -1,0 +1,105 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test() { let a: felt = 1; let b: u32 = 2; let c = a > b; return; }
+--- Diagnostics ---
+[2001] Error: Operator `>` is not supported for type `felt`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_types:1:54 ]
+   │
+ 1 │ fn test() { let a: felt = 1; let b: u32 = 2; let c = a > b; return; }
+   │                                                      ┬  
+   │                                                      ╰── Operator `>` is not supported for type `felt`
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+fn test() { let a: felt = 1; let b: u32 = 2; let c = a < b; return; }
+--- Diagnostics ---
+[2001] Error: Operator `<` is not supported for type `felt`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_types:1:54 ]
+   │
+ 1 │ fn test() { let a: felt = 1; let b: u32 = 2; let c = a < b; return; }
+   │                                                      ┬  
+   │                                                      ╰── Operator `<` is not supported for type `felt`
+───╯
+
+============================================================
+
+--- Input 3 (ERROR) ---
+fn test() { let a: felt = 1; let b: u32 = 2; let c = a <= b; return; }
+--- Diagnostics ---
+[2001] Error: Operator `<=` is not supported for type `felt`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_types:1:54 ]
+   │
+ 1 │ fn test() { let a: felt = 1; let b: u32 = 2; let c = a <= b; return; }
+   │                                                      ┬  
+   │                                                      ╰── Operator `<=` is not supported for type `felt`
+───╯
+
+============================================================
+
+--- Input 4 (ERROR) ---
+fn test() { let a: felt = 1; let b: u32 = 2; let c = a >= b; return; }
+--- Diagnostics ---
+[2001] Error: Operator `>=` is not supported for type `felt`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_types:1:54 ]
+   │
+ 1 │ fn test() { let a: felt = 1; let b: u32 = 2; let c = a >= b; return; }
+   │                                                      ┬  
+   │                                                      ╰── Operator `>=` is not supported for type `felt`
+───╯
+
+============================================================
+
+--- Input 5 (ERROR) ---
+fn test() { let a: bool = true; let b: bool = false; let c = a > b; return; }
+--- Diagnostics ---
+[2001] Error: Operator `>` is not supported for type `bool`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_types:1:62 ]
+   │
+ 1 │ fn test() { let a: bool = true; let b: bool = false; let c = a > b; return; }
+   │                                                              ┬  
+   │                                                              ╰── Operator `>` is not supported for type `bool`
+───╯
+
+============================================================
+
+--- Input 6 (ERROR) ---
+fn test() { let a: bool = true; let b: bool = false; let c = a < b; return; }
+--- Diagnostics ---
+[2001] Error: Operator `<` is not supported for type `bool`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_types:1:62 ]
+   │
+ 1 │ fn test() { let a: bool = true; let b: bool = false; let c = a < b; return; }
+   │                                                              ┬  
+   │                                                              ╰── Operator `<` is not supported for type `bool`
+───╯
+
+============================================================
+
+--- Input 7 (ERROR) ---
+fn test() { let a: bool = true; let b: bool = false; let c = a <= b; return; }
+--- Diagnostics ---
+[2001] Error: Operator `<=` is not supported for type `bool`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_types:1:62 ]
+   │
+ 1 │ fn test() { let a: bool = true; let b: bool = false; let c = a <= b; return; }
+   │                                                              ┬  
+   │                                                              ╰── Operator `<=` is not supported for type `bool`
+───╯
+
+============================================================
+
+--- Input 8 (ERROR) ---
+fn test() { let a: bool = true; let b: bool = false; let c = a >= b; return; }
+--- Diagnostics ---
+[2001] Error: Operator `>=` is not supported for type `bool`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_comparison_operator_types:1:62 ]
+   │
+ 1 │ fn test() { let a: bool = true; let b: bool = false; let c = a >= b; return; }
+   │                                                              ┬  
+   │                                                              ╰── Operator `>=` is not supported for type `bool`
+───╯

@@ -234,7 +234,7 @@ impl ScopeValidator {
                                         Diagnostic::error(
                                             DiagnosticCode::UnresolvedImport,
                                             format!(
-                                                "unresolved import '{}' from module '{}'",
+                                                "unresolved import `{}` from module `{}`",
                                                 imported_item.value(),
                                                 imported_module_name.value()
                                             ),
@@ -259,7 +259,7 @@ impl ScopeValidator {
                             diagnostics.push(
                                 Diagnostic::error(
                                     DiagnosticCode::UnresolvedModule,
-                                    format!("unresolved module '{}'", imported_module_name.value()),
+                                    format!("unresolved module `{}`", imported_module_name.value()),
                                 )
                                 .with_location(
                                     file.file_path(db).to_string(),

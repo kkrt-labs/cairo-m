@@ -20,33 +20,10 @@ use crate::File;
 use crate::db::{
     Crate, SemanticDb, module_name_for_file, module_semantic_index, project_semantic_index,
 };
-use crate::definition::{DefinitionKind, FunctionDefRef, LetDefRef, ParameterDefRef, StructDefRef};
+use crate::definition::{DefinitionKind, FunctionDefRef, ParameterDefRef, StructDefRef};
 use crate::place::FileScopeId;
 use crate::semantic_index::{DefinitionId, ExpressionId};
 use crate::types::{FunctionSignatureId, StructTypeId, TypeData, TypeId};
-
-/// Helper function to find the explicit type for an expression that is a `let` initializer.
-fn find_explicit_type_for_let_initializer(
-    semantic_index: &crate::SemanticIndex,
-    expression_id: ExpressionId,
-) -> Option<Spanned<AstTypeExpr>> {
-    // TODO: this should be O(1) ideally?
-    // This is not very performant, but it's okay for now as it will be cached by Salsa.
-    // A better approach might be to have a back-pointer from ExpressionInfo to its "parent" statement.
-    for (_def_idx, def) in semantic_index.all_definitions() {
-        if let DefinitionKind::Let(LetDefRef {
-            value_expr_id: Some(val_id),
-            explicit_type_ast: Some(type_ast),
-            ..
-        }) = &def.kind
-        {
-            if *val_id == expression_id {
-                return Some(type_ast.clone());
-            }
-        }
-    }
-    None
-}
 
 /// Resolves an AST type expression to a `TypeId`
 #[salsa::tracked]
@@ -314,9 +291,7 @@ pub fn expression_semantic_type<'db>(
     match &expr_info.ast_node {
         Expression::Literal(_, literal_suffix) => {
             // TODO: make this more efficient.
-            if let Some(type_ast) =
-                find_explicit_type_for_let_initializer(semantic_index, expression_id)
-            {
+            if let Some(type_ast) = expr_info.expected_type_ast.clone() {
                 // We found an explicit type annotation. Resolve it.
                 let expected_type =
                     resolve_ast_type(db, crate_id, file, type_ast, expr_info.scope_id);
@@ -328,6 +303,8 @@ pub fn expression_semantic_type<'db>(
                 {
                     return expected_type;
                 }
+
+                return TypeId::new(db, TypeData::Error);
             }
 
             if let Some(literal_suffix) = literal_suffix {
@@ -356,36 +333,13 @@ pub fn expression_semantic_type<'db>(
             let expr_id = semantic_index.expression_id_by_span(expr.span()).unwrap();
             let expr_type = expression_semantic_type(db, crate_id, file, expr_id);
 
-            match op {
-                UnaryOp::Neg => {
-                    // TODO: This is going to grow big as we add types - find a smarter way.
-                    // Negation requires numeric operand (felt or u32) and returns the same type
-                    let felt_type = TypeId::new(db, TypeData::Felt);
-                    let u32_type = TypeId::new(db, TypeData::U32);
-
-                    if are_types_compatible(db, expr_type, felt_type) {
-                        felt_type
-                    } else if are_types_compatible(db, expr_type, u32_type) {
-                        u32_type
-                    } else {
-                        TypeId::new(db, TypeData::Error)
-                    }
-                }
-                UnaryOp::Not => {
-                    // Logical not can take felt, u32, or bool operand and returns bool
-                    let felt_type = TypeId::new(db, TypeData::Felt);
-                    let u32_type = TypeId::new(db, TypeData::U32);
-                    let bool_type = TypeId::new(db, TypeData::Bool);
-                    if are_types_compatible(db, expr_type, felt_type)
-                        || are_types_compatible(db, expr_type, u32_type)
-                        || are_types_compatible(db, expr_type, bool_type)
-                    {
-                        TypeId::new(db, TypeData::Bool)
-                    } else {
-                        TypeId::new(db, TypeData::Error)
-                    }
+            for signature in get_unary_op_signatures(db) {
+                if signature.op == *op && are_types_compatible(db, expr_type, signature.operand) {
+                    return signature.result;
                 }
             }
+
+            TypeId::new(db, TypeData::Error)
         }
         Expression::BinaryOp { left, op, right } => {
             let left_id = semantic_index.expression_id_by_span(left.span()).unwrap();
@@ -394,61 +348,16 @@ pub fn expression_semantic_type<'db>(
             let left_type = expression_semantic_type(db, crate_id, file, left_id);
             let right_type = expression_semantic_type(db, crate_id, file, right_id);
 
-            // Check operand types based on the operator
-            match op {
-                // Arithmetic operations require matching numeric operands (felt or u32) and return the same type
-                BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div => {
-                    let felt_type = TypeId::new(db, TypeData::Felt);
-                    let u32_type = TypeId::new(db, TypeData::U32);
-
-                    // Both operands must be felt
-                    if are_types_compatible(db, left_type, felt_type)
-                        && are_types_compatible(db, right_type, felt_type)
-                    {
-                        felt_type
-                    }
-                    // Both operands must be u32
-                    else if are_types_compatible(db, left_type, u32_type)
-                        && are_types_compatible(db, right_type, u32_type)
-                    {
-                        u32_type
-                    } else {
-                        TypeId::new(db, TypeData::Error)
-                    }
-                }
-                // Comparison operations require matching numeric operands (felt or u32) and return bool
-                BinaryOp::Eq
-                | BinaryOp::Neq
-                | BinaryOp::Less
-                | BinaryOp::Greater
-                | BinaryOp::LessEqual
-                | BinaryOp::GreaterEqual => {
-                    let felt_type = TypeId::new(db, TypeData::Felt);
-                    let u32_type = TypeId::new(db, TypeData::U32);
-
-                    // Both operands must be felt or both must be u32
-                    if (are_types_compatible(db, left_type, felt_type)
-                        && are_types_compatible(db, right_type, felt_type))
-                        || (are_types_compatible(db, left_type, u32_type)
-                            && are_types_compatible(db, right_type, u32_type))
-                    {
-                        TypeId::new(db, TypeData::Bool)
-                    } else {
-                        TypeId::new(db, TypeData::Error)
-                    }
-                }
-                // Logical operations require bool operands and return bool
-                BinaryOp::And | BinaryOp::Or => {
-                    let bool_type = TypeId::new(db, TypeData::Bool);
-                    if are_types_compatible(db, left_type, bool_type)
-                        && are_types_compatible(db, right_type, bool_type)
-                    {
-                        TypeId::new(db, TypeData::Bool)
-                    } else {
-                        TypeId::new(db, TypeData::Error)
-                    }
+            for signature in get_binary_op_signatures(db) {
+                if signature.op == *op
+                    && are_types_compatible(db, left_type, signature.left)
+                    && are_types_compatible(db, right_type, signature.right)
+                {
+                    return signature.result;
                 }
             }
+
+            TypeId::new(db, TypeData::Error)
         }
         Expression::MemberAccess { object, field } => {
             // Handle potential missing expression ID gracefully
@@ -686,6 +595,192 @@ pub fn are_types_compatible<'db>(
         // All other combinations are incompatible if not caught by direct equality
         _ => false,
     }
+}
+
+#[derive(Debug)]
+pub struct UnaryOpSignature<'db> {
+    pub op: UnaryOp,
+    pub operand: TypeId<'db>,
+    pub result: TypeId<'db>,
+}
+
+pub fn get_unary_op_signatures<'db>(db: &'db dyn SemanticDb) -> Vec<UnaryOpSignature<'db>> {
+    let felt = TypeId::new(db, TypeData::Felt);
+    let u32 = TypeId::new(db, TypeData::U32);
+    let bool = TypeId::new(db, TypeData::Bool);
+
+    vec![
+        // Neg
+        UnaryOpSignature {
+            op: UnaryOp::Neg,
+            operand: felt,
+            result: felt,
+        },
+        UnaryOpSignature {
+            op: UnaryOp::Neg,
+            operand: u32,
+            result: u32,
+        },
+        // Not
+        UnaryOpSignature {
+            op: UnaryOp::Not,
+            operand: bool,
+            result: bool,
+        },
+    ]
+}
+
+// A simple representation of a valid operation
+#[derive(Debug)]
+pub struct OperatorSignature<'db> {
+    pub op: BinaryOp,
+    pub left: TypeId<'db>,
+    pub right: TypeId<'db>,
+    pub result: TypeId<'db>,
+}
+
+// A function to get all valid signatures
+pub fn get_binary_op_signatures<'db>(db: &'db dyn SemanticDb) -> Vec<OperatorSignature<'db>> {
+    let felt = TypeId::new(db, TypeData::Felt);
+    let u32 = TypeId::new(db, TypeData::U32);
+    let bool = TypeId::new(db, TypeData::Bool);
+
+    vec![
+        // Arithmetic
+
+        // Add
+        OperatorSignature {
+            op: BinaryOp::Add,
+            left: felt,
+            right: felt,
+            result: felt,
+        },
+        OperatorSignature {
+            op: BinaryOp::Add,
+            left: u32,
+            right: u32,
+            result: u32,
+        },
+        // Sub
+        OperatorSignature {
+            op: BinaryOp::Sub,
+            left: felt,
+            right: felt,
+            result: felt,
+        },
+        OperatorSignature {
+            op: BinaryOp::Sub,
+            left: u32,
+            right: u32,
+            result: u32,
+        },
+        // Mul
+        OperatorSignature {
+            op: BinaryOp::Mul,
+            left: felt,
+            right: felt,
+            result: felt,
+        },
+        OperatorSignature {
+            op: BinaryOp::Mul,
+            left: u32,
+            right: u32,
+            result: u32,
+        },
+        // Div
+        OperatorSignature {
+            op: BinaryOp::Div,
+            left: felt,
+            right: felt,
+            result: felt,
+        },
+        OperatorSignature {
+            op: BinaryOp::Div,
+            left: u32,
+            right: u32,
+            result: u32,
+        },
+        // Eq
+        OperatorSignature {
+            op: BinaryOp::Eq,
+            left: felt,
+            right: felt,
+            result: bool,
+        },
+        OperatorSignature {
+            op: BinaryOp::Eq,
+            left: u32,
+            right: u32,
+            result: bool,
+        },
+        OperatorSignature {
+            op: BinaryOp::Eq,
+            left: bool,
+            right: bool,
+            result: bool,
+        },
+        // Neq
+        OperatorSignature {
+            op: BinaryOp::Neq,
+            left: felt,
+            right: felt,
+            result: bool,
+        },
+        OperatorSignature {
+            op: BinaryOp::Neq,
+            left: u32,
+            right: u32,
+            result: bool,
+        },
+        OperatorSignature {
+            op: BinaryOp::Neq,
+            left: bool,
+            right: bool,
+            result: bool,
+        },
+        // Less
+        OperatorSignature {
+            op: BinaryOp::Less,
+            left: u32,
+            right: u32,
+            result: bool,
+        },
+        // Greater
+        OperatorSignature {
+            op: BinaryOp::Greater,
+            left: u32,
+            right: u32,
+            result: bool,
+        },
+        // LessEqual
+        OperatorSignature {
+            op: BinaryOp::LessEqual,
+            left: u32,
+            right: u32,
+            result: bool,
+        },
+        // GreaterEqual
+        OperatorSignature {
+            op: BinaryOp::GreaterEqual,
+            left: u32,
+            right: u32,
+            result: bool,
+        },
+        // And
+        OperatorSignature {
+            op: BinaryOp::And,
+            left: bool,
+            right: bool,
+            result: bool,
+        },
+        // Or
+        OperatorSignature {
+            op: BinaryOp::Or,
+            left: bool,
+            right: bool,
+            result: bool,
+        },
+    ]
 }
 
 #[cfg(test)]

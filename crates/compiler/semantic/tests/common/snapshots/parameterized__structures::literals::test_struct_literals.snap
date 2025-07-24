@@ -5,12 +5,12 @@ expression: snapshot
 --- Input 1 (ERROR) ---
 struct Point {x: felt, x: felt}
 --- Diagnostics ---
-[1007] Error: field 'x' is already declared
+[1007] Error: field `x` is already declared
    ╭─[ semantic_tests::structures::literals::test_struct_literals:1:24 ]
    │
  1 │ struct Point {x: felt, x: felt}
    │                        ┬  
-   │                        ╰── field 'x' is already declared
+   │                        ╰── field `x` is already declared
 ───╯
 
 ============================================================
@@ -34,19 +34,19 @@ struct Point {x: felt, x: felt}
             }
         
 --- Diagnostics ---
-[2001] Error: Type mismatch for field 'width'. Expected 'u32', found 'felt'
+[2001] Error: Type mismatch for field `width`. Expected `u32`, found `felt`
     ╭─[ semantic_tests::structures::literals::test_struct_literals:12:28 ]
     │
  12 │                     width: 100,
     │                            ─┬─  
-    │                             ╰─── Type mismatch for field 'width'. Expected 'u32', found 'felt'
+    │                             ╰─── Type mismatch for field `width`. Expected `u32`, found `felt`
 ────╯
-[2001] Error: Type mismatch for field 'height'. Expected 'u32', found 'felt'
+[2001] Error: Type mismatch for field `height`. Expected `u32`, found `felt`
     ╭─[ semantic_tests::structures::literals::test_struct_literals:13:29 ]
     │
  13 │                     height: 200,
     │                             ─┬─  
-    │                              ╰─── Type mismatch for field 'height'. Expected 'u32', found 'felt'
+    │                              ╰─── Type mismatch for field `height`. Expected `u32`, found `felt`
 ────╯
 
 ============================================================
@@ -54,12 +54,12 @@ struct Point {x: felt, x: felt}
 --- Input 3 (ERROR) ---
 struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10, y: 20, z: 30 }; return; }
 --- Diagnostics ---
-[2002] Error: Field 'z' does not exist in struct 'Point'
+[2002] Error: Field `z` does not exist in struct `Point`
    ╭─[ semantic_tests::structures::literals::test_struct_literals:1:77 ]
    │
  1 │ struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10, y: 20, z: 30 }; return; }
    │                                                                             ┬  
-   │                                                                             ╰── Field 'z' does not exist in struct 'Point'
+   │                                                                             ╰── Field `z` does not exist in struct `Point`
 ───╯
 
 ============================================================
@@ -80,12 +80,12 @@ struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10 }; } return;
 --- Input 5 (ERROR) ---
 struct Point { x: felt, y: felt } fn test() { let p = Point { x: true, y: 20 }; return;}
 --- Diagnostics ---
-[2001] Error: Type mismatch for field 'x'. Expected 'felt', found 'bool'
+[2001] Error: Type mismatch for field `x`. Expected `felt`, found `bool`
    ╭─[ semantic_tests::structures::literals::test_struct_literals:1:66 ]
    │
  1 │ struct Point { x: felt, y: felt } fn test() { let p = Point { x: true, y: 20 }; return;}
    │                                                                  ──┬─  
-   │                                                                    ╰─── Type mismatch for field 'x'. Expected 'felt', found 'bool'
+   │                                                                    ╰─── Type mismatch for field `x`. Expected `felt`, found `bool`
 ───╯
 
 ============================================================
@@ -93,17 +93,17 @@ struct Point { x: felt, y: felt } fn test() { let p = Point { x: true, y: 20 }; 
 --- Input 6 (ERROR) ---
 struct Rectangle { width: u32, height: u32 } fn test() { let r = Rectangle { width: 100, height: 200 }; return;}
 --- Diagnostics ---
-[2001] Error: Type mismatch for field 'width'. Expected 'u32', found 'felt'
+[2001] Error: Type mismatch for field `width`. Expected `u32`, found `felt`
    ╭─[ semantic_tests::structures::literals::test_struct_literals:1:85 ]
    │
  1 │ struct Rectangle { width: u32, height: u32 } fn test() { let r = Rectangle { width: 100, height: 200 }; return;}
    │                                                                                     ─┬─  
-   │                                                                                      ╰─── Type mismatch for field 'width'. Expected 'u32', found 'felt'
+   │                                                                                      ╰─── Type mismatch for field `width`. Expected `u32`, found `felt`
 ───╯
-[2001] Error: Type mismatch for field 'height'. Expected 'u32', found 'felt'
+[2001] Error: Type mismatch for field `height`. Expected `u32`, found `felt`
    ╭─[ semantic_tests::structures::literals::test_struct_literals:1:98 ]
    │
  1 │ struct Rectangle { width: u32, height: u32 } fn test() { let r = Rectangle { width: 100, height: 200 }; return;}
    │                                                                                                  ─┬─  
-   │                                                                                                   ╰─── Type mismatch for field 'height'. Expected 'u32', found 'felt'
+   │                                                                                                   ╰─── Type mismatch for field `height`. Expected `u32`, found `felt`
 ───╯

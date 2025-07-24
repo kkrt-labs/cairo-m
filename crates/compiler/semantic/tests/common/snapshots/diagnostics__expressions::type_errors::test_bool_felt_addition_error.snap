@@ -17,12 +17,10 @@ Source code:
 Found 1 diagnostic(s):
 
 --- Diagnostic 1 ---
-[2001] Error: Invalid left operand for arithmetic operator 'Add'. Expected 'felt', found 'bool'
+[2001] Error: Operator `+` is not supported for type `bool`
    ╭─[ semantic_tests::expressions::type_errors::test_bool_felt_addition_error:5:24 ]
    │
  5 │             let resx = ybool + x;  // Expected type mismatch error
    │                        ──┬──  
-   │                          ╰──── Invalid left operand for arithmetic operator 'Add'. Expected 'felt', found 'bool'
-   │                          │    
-   │                          ╰──── Cannot use bool in arithmetic operations. Consider using logical operators (&&, ||) instead.
+   │                          ╰──── Operator `+` is not supported for type `bool`
 ───╯

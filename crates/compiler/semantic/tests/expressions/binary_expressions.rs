@@ -12,17 +12,12 @@ fn test_arithmetic_operator_types() {
             in_function("let a: felt = 10; let b: felt = 20; let quot = a / b;"),
 
             // u32
-            ],
-
-            err: [
-
-            //TODO this currently fails as we dont support u32 yet. TODO: fix
             in_function("let a: u32 = 1; let b: u32 = 2; let sum = a + b;"),
             in_function("let a: u32 = 1; let b: u32 = 2; let diff = a - b;"),
             in_function("let a: u32 = 1; let b: u32 = 2; let prod = a * b;"),
             in_function("let a: u32 = 1; let b: u32 = 2; let quot = a / b;"),
-
-
+            ],
+            err: [
             // bool
             in_function("let a: bool = true; let b: bool = false; let sum = a + b;"),
             in_function("let a: bool = true; let b: bool = false; let diff = a - b;"),
@@ -40,6 +35,42 @@ fn test_arithmetic_operator_types() {
 }
 
 #[test]
+fn test_comparison_operator_types() {
+    assert_semantic_parameterized! {
+        ok: [
+            // felt
+            in_function("let a: felt = 1; let b: felt = 2; let c = a == b;"),
+            in_function("let a: felt = 1; let b: felt = 2; let c = a != b;"),
+
+            // u32
+            in_function("let a: u32 = 1; let b: u32 = 2; let c = a < b;"),
+            in_function("let a: u32 = 1; let b: u32 = 2; let c = a > b;"),
+            in_function("let a: u32 = 1; let b: u32 = 2; let c = a <= b;"),
+            in_function("let a: u32 = 1; let b: u32 = 2; let c = a >= b;"),
+            in_function("let a: u32 = 1; let b: u32 = 2; let c = a == b;"),
+            in_function("let a: u32 = 1; let b: u32 = 2; let c = a != b;"),
+
+            // bool
+            in_function("let a: bool = true; let b: bool = false; let c = a == b;"),
+            in_function("let a: bool = true; let b: bool = false; let c = a != b;"),
+        ],
+        err: [
+            // felt
+            in_function("let a: felt = 1; let b: u32 = 2; let c = a > b;"),
+            in_function("let a: felt = 1; let b: u32 = 2; let c = a < b;"),
+            in_function("let a: felt = 1; let b: u32 = 2; let c = a <= b;"),
+            in_function("let a: felt = 1; let b: u32 = 2; let c = a >= b;"),
+
+            // bool
+            in_function("let a: bool = true; let b: bool = false; let c = a > b;"),
+            in_function("let a: bool = true; let b: bool = false; let c = a < b;"),
+            in_function("let a: bool = true; let b: bool = false; let c = a <= b;"),
+            in_function("let a: bool = true; let b: bool = false; let c = a >= b;"),
+        ]
+    }
+}
+
+#[test]
 fn test_logical_operator_types() {
     assert_semantic_parameterized! {
         ok: [
@@ -51,13 +82,13 @@ fn test_logical_operator_types() {
             in_function("let x: felt = 42; let y: felt = 100; let and1 = x && y;"),
             in_function("let x: felt = 42; let y: felt = 100; let or1 = x || y;"),
 
-            // u32
+            // // u32
             in_function("let a: u32 = 1; let b: u32 = 0; let and2 = a && b;"),
             in_function("let a: u32 = 1; let b: u32 = 0; let or2 = a || b;"),
 
-            // Custom type
-            "struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = Point { x: 30, y: 40 }; let p1_and_p2 = p1 && p2; }",
-            "struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = p1; let p1_or_p2 = p1 || p2; }",
+            // // Custom type
+            "struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = Point { x: 30, y: 40 }; let p1_and_p2 = p1 && p2; return;}",
+            "struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = p1; let p1_or_p2 = p1 || p2; return;}",
         ]
     }
 }

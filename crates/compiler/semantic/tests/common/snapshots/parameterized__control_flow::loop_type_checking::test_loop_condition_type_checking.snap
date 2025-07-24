@@ -5,12 +5,12 @@ expression: snapshot
 --- Input 1 (ERROR) ---
 fn test() { let x: felt = 1; while (x) { break; } return; }
 --- Diagnostics ---
-[2001] Error: While loop condition must be of type 'bool', found 'felt'
+[2001] Error: While loop condition must be of type 'bool', found `felt`
    ╭─[ semantic_tests::control_flow::loop_type_checking::test_loop_condition_type_checking:1:37 ]
    │
  1 │ fn test() { let x: felt = 1; while (x) { break; } return; }
    │                                     ┬  
-   │                                     ╰── While loop condition must be of type 'bool', found 'felt'
+   │                                     ╰── While loop condition must be of type 'bool', found `felt`
 ───╯
 
 ============================================================
@@ -18,12 +18,12 @@ fn test() { let x: felt = 1; while (x) { break; } return; }
 --- Input 2 (ERROR) ---
 struct Point { x: felt, y: felt } fn test() { let p = Point { x: 1, y: 2 }; while (p) { break; } return (); }
 --- Diagnostics ---
-[2001] Error: While loop condition must be of type 'bool', found 'Point'
+[2001] Error: While loop condition must be of type 'bool', found `Point`
    ╭─[ semantic_tests::control_flow::loop_type_checking::test_loop_condition_type_checking:1:84 ]
    │
  1 │ struct Point { x: felt, y: felt } fn test() { let p = Point { x: 1, y: 2 }; while (p) { break; } return (); }
    │                                                                                    ┬  
-   │                                                                                    ╰── While loop condition must be of type 'bool', found 'Point'
+   │                                                                                    ╰── While loop condition must be of type 'bool', found `Point`
 ───╯
 
 ============================================================
@@ -31,12 +31,12 @@ struct Point { x: felt, y: felt } fn test() { let p = Point { x: 1, y: 2 }; whil
 --- Input 3 (ERROR) ---
 fn test() { let t: (felt, felt) = (1, 2); while (t) { break; } return; }
 --- Diagnostics ---
-[2001] Error: While loop condition must be of type 'bool', found '(felt, felt)'
+[2001] Error: While loop condition must be of type 'bool', found `(felt, felt)`
    ╭─[ semantic_tests::control_flow::loop_type_checking::test_loop_condition_type_checking:1:50 ]
    │
  1 │ fn test() { let t: (felt, felt) = (1, 2); while (t) { break; } return; }
    │                                                  ┬  
-   │                                                  ╰── While loop condition must be of type 'bool', found '(felt, felt)'
+   │                                                  ╰── While loop condition must be of type 'bool', found `(felt, felt)`
 ───╯
 
 ============================================================
@@ -44,12 +44,12 @@ fn test() { let t: (felt, felt) = (1, 2); while (t) { break; } return; }
 --- Input 4 (ERROR) ---
 struct Config { enabled: bool } fn test() { let config: Config = Config { enabled: true }; while (config) { break; } return (); }
 --- Diagnostics ---
-[2001] Error: While loop condition must be of type 'bool', found 'Config'
+[2001] Error: While loop condition must be of type 'bool', found `Config`
    ╭─[ semantic_tests::control_flow::loop_type_checking::test_loop_condition_type_checking:1:99 ]
    │
  1 │ struct Config { enabled: bool } fn test() { let config: Config = Config { enabled: true }; while (config) { break; } return (); }
    │                                                                                                   ───┬──  
-   │                                                                                                      ╰──── While loop condition must be of type 'bool', found 'Config'
+   │                                                                                                      ╰──── While loop condition must be of type 'bool', found `Config`
 ───╯
 
 ============================================================
@@ -57,17 +57,17 @@ struct Config { enabled: bool } fn test() { let config: Config = Config { enable
 --- Input 5 (ERROR) ---
 fn test() { let a: felt = 1; let b: felt = 0; while (a) { while (b) { break; } break; } return; }
 --- Diagnostics ---
-[2001] Error: While loop condition must be of type 'bool', found 'felt'
+[2001] Error: While loop condition must be of type 'bool', found `felt`
    ╭─[ semantic_tests::control_flow::loop_type_checking::test_loop_condition_type_checking:1:54 ]
    │
  1 │ fn test() { let a: felt = 1; let b: felt = 0; while (a) { while (b) { break; } break; } return; }
    │                                                      ┬  
-   │                                                      ╰── While loop condition must be of type 'bool', found 'felt'
+   │                                                      ╰── While loop condition must be of type 'bool', found `felt`
 ───╯
-[2001] Error: While loop condition must be of type 'bool', found 'felt'
+[2001] Error: While loop condition must be of type 'bool', found `felt`
    ╭─[ semantic_tests::control_flow::loop_type_checking::test_loop_condition_type_checking:1:66 ]
    │
  1 │ fn test() { let a: felt = 1; let b: felt = 0; while (a) { while (b) { break; } break; } return; }
    │                                                                  ┬  
-   │                                                                  ╰── While loop condition must be of type 'bool', found 'felt'
+   │                                                                  ╰── While loop condition must be of type 'bool', found `felt`
 ───╯

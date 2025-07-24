@@ -36,10 +36,10 @@ struct Vector { x: felt, y: felt }
 use types::Vector;
 fn process(v: Vector) { return; }
 --- Diagnostics ---
-[2001] Error: Argument type mismatch for parameter 'v': expected 'Vector', found 'Point'
+[2001] Error: Argument type mismatch for parameter `v`: expected `Vector`, found `Point`
    ╭─[ main.cm:3:58 ]
    │
  3 │ fn test() { let p = Point { x: 1, y: 2 }; return process(p); }
    │                                                          ┬  
-   │                                                          ╰── Argument type mismatch for parameter 'v': expected 'Vector', found 'Point'
+   │                                                          ╰── Argument type mismatch for parameter `v`: expected `Vector`, found `Point`
 ───╯

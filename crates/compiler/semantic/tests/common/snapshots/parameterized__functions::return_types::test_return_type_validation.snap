@@ -5,14 +5,14 @@ expression: snapshot
 --- Input 1 (ERROR) ---
 fn test() -> felt { return (); }
 --- Diagnostics ---
-[2001] Error: Type mismatch in return statement. Function expects 'felt', but returning '()'
+[2001] Error: Type mismatch in return statement. Function expects `felt`, but returning `()`
    ╭─[ semantic_tests::functions::return_types::test_return_type_validation:1:21 ]
    │
  1 │ fn test() -> felt { return (); }
    │    ──┬─             ─────┬──┬─  
-   │      ╰────────────────────────── Function 'test' declared here with return type 'felt'
+   │      ╰────────────────────────── Function `test` declared here with return type `felt`
    │                          │  │   
-   │                          ╰────── Type mismatch in return statement. Function expects 'felt', but returning '()'
+   │                          ╰────── Type mismatch in return statement. Function expects `felt`, but returning `()`
    │                             │   
    │                             ╰─── Tuples cannot be used directly in arithmetic operations
 ───╯
@@ -22,14 +22,14 @@ fn test() -> felt { return (); }
 --- Input 2 (ERROR) ---
 fn test() { return 42; }
 --- Diagnostics ---
-[2001] Error: Function 'test' returns no value (unit type), but found return statement with type 'felt'
+[2001] Error: Function `test` returns no value (unit type), but found return statement with type `felt`
    ╭─[ semantic_tests::functions::return_types::test_return_type_validation:1:13 ]
    │
  1 │ fn test() { return 42; }
    │    ──┬─     ─────┬────  
-   │      ╰────────────────── Function 'test' declared here without explicit return type (implicitly returns unit)
+   │      ╰────────────────── Function `test` declared here without explicit return type (implicitly returns unit)
    │                  │      
-   │                  ╰────── Function 'test' returns no value (unit type), but found return statement with type 'felt'
+   │                  ╰────── Function `test` returns no value (unit type), but found return statement with type `felt`
 ───╯
 
 ============================================================
@@ -37,14 +37,14 @@ fn test() { return 42; }
 --- Input 3 (ERROR) ---
 fn test() -> () { return 42; }
 --- Diagnostics ---
-[2001] Error: Function 'test' returns no value (unit type), but found return statement with type 'felt'
+[2001] Error: Function `test` returns no value (unit type), but found return statement with type `felt`
    ╭─[ semantic_tests::functions::return_types::test_return_type_validation:1:19 ]
    │
  1 │ fn test() -> () { return 42; }
    │    ──┬─           ─────┬────  
-   │      ╰──────────────────────── Function 'test' declared here without explicit return type (implicitly returns unit)
+   │      ╰──────────────────────── Function `test` declared here without explicit return type (implicitly returns unit)
    │                        │      
-   │                        ╰────── Function 'test' returns no value (unit type), but found return statement with type 'felt'
+   │                        ╰────── Function `test` returns no value (unit type), but found return statement with type `felt`
 ───╯
 
 ============================================================
@@ -52,16 +52,16 @@ fn test() -> () { return 42; }
 --- Input 4 (ERROR) ---
 struct Point {x:felt} fn test() -> felt { return Point { x: 1 }; }
 --- Diagnostics ---
-[2001] Error: Type mismatch in return statement. Function expects 'felt', but returning 'Point'
+[2001] Error: Type mismatch in return statement. Function expects `felt`, but returning `Point`
    ╭─[ semantic_tests::functions::return_types::test_return_type_validation:1:43 ]
    │
  1 │ struct Point {x:felt} fn test() -> felt { return Point { x: 1 }; }
    │                          ──┬─             ───────────┬──┬───────  
-   │                            ╰────────────────────────────────────── Function 'test' declared here with return type 'felt'
+   │                            ╰────────────────────────────────────── Function `test` declared here with return type `felt`
    │                                                      │  │         
-   │                                                      ╰──────────── Type mismatch in return statement. Function expects 'felt', but returning 'Point'
+   │                                                      ╰──────────── Type mismatch in return statement. Function expects `felt`, but returning `Point`
    │                                                         │         
-   │                                                         ╰───────── Did you mean to access the 'x' field?
+   │                                                         ╰───────── Did you mean to access the `x` field?
 ───╯
 
 ============================================================

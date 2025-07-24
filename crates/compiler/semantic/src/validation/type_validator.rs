@@ -23,7 +23,10 @@ use chumsky::span::SimpleSpan;
 
 use crate::db::{Crate, SemanticDb};
 use crate::semantic_index::ExpressionInfo;
-use crate::type_resolution::{are_types_compatible, expression_semantic_type, resolve_ast_type};
+use crate::type_resolution::{
+    are_types_compatible, expression_semantic_type, get_binary_op_signatures,
+    get_unary_op_signatures, resolve_ast_type,
+};
 use crate::types::{TypeData, TypeId};
 use crate::validation::Validator;
 use crate::{DefinitionKind, ExpressionId, File, SemanticIndex};
@@ -117,7 +120,7 @@ impl TypeValidator {
 
                 if numeric_fields.len() == 1 {
                     Some(format!(
-                        "Did you mean to access the '{}' field?",
+                        "Did you mean to access the `{}` field?",
                         numeric_fields[0]
                     ))
                 } else if !numeric_fields.is_empty() {
@@ -239,141 +242,49 @@ impl TypeValidator {
 
         let left_type = expression_semantic_type(db, crate_id, file, left_id);
         let right_type = expression_semantic_type(db, crate_id, file, right_id);
-        let felt_type = TypeId::new(db, TypeData::Felt);
 
-        // For now, all binary operations require felt (or bool) operands
-        // TODO: Expand this when more numeric types are added
-        match op {
-            BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div => {
-                // Arithmetic operations - only on felt type.
-                if !are_types_compatible(db, left_type, felt_type) {
-                    let suggestion = self.suggest_type_conversion(db, left_type, felt_type);
-                    let mut diag = Diagnostic::error(
-                        DiagnosticCode::TypeMismatch,
-                        format!(
-                            "Invalid left operand for arithmetic operator '{:?}'. Expected 'felt', found '{}'",
-                            op,
-                            left_type.data(db).display_name(db)
-                        ),
-                    )
-                    .with_location(file.file_path(db).to_string(), left.span());
+        // Any un-resolved type must not trigger a type mismatch error here.
+        if left_type.data(db) == TypeData::Error || right_type.data(db) == TypeData::Error {
+            return;
+        }
 
-                    if let Some(suggestion) = suggestion {
-                        diag = diag.with_related_span(
-                            file.file_path(db).to_string(),
-                            left.span(),
-                            suggestion,
-                        );
-                    }
+        let op_signatures = get_binary_op_signatures(db);
+        let mut binary_op_on_left_type = op_signatures
+            .iter()
+            .filter(|op_signature| op_signature.op == *op && op_signature.left == left_type);
+        if binary_op_on_left_type.clone().count() == 0 {
+            let diag = Diagnostic::error(
+                DiagnosticCode::TypeMismatch,
+                format!(
+                    "Operator `{}` is not supported for type `{}`",
+                    op,
+                    left_type.data(db).display_name(db)
+                ),
+            )
+            .with_location(file.file_path(db).to_string(), left.span());
+            diagnostics.push(diag);
+            return;
+        }
 
-                    diagnostics.push(diag);
-                }
-                if !are_types_compatible(db, right_type, felt_type) {
-                    let suggestion = self.suggest_type_conversion(db, right_type, felt_type);
-                    let mut diag = Diagnostic::error(
-                        DiagnosticCode::TypeMismatch,
-                        format!(
-                            "Invalid right operand for arithmetic operator '{:?}'. Expected 'felt', found '{}'",
-                            op,
-                            right_type.data(db).display_name(db)
-                        ),
-                    )
-                    .with_location(file.file_path(db).to_string(), right.span());
-
-                    if let Some(suggestion) = suggestion {
-                        diag = diag.with_related_span(
-                            file.file_path(db).to_string(),
-                            right.span(),
-                            suggestion,
-                        );
-                    }
-
-                    diagnostics.push(diag);
-                }
+        let valid_signature =
+            binary_op_on_left_type.find(|op_signature| op_signature.right == right_type);
+        if valid_signature.is_none() {
+            let suggestion = self.suggest_type_conversion(db, right_type, left_type);
+            let mut diag = Diagnostic::error(
+                DiagnosticCode::TypeMismatch,
+                format!(
+                    "Invalid right operand for arithmetic operator `{}`. Expected `{}`, found `{}`",
+                    op,
+                    left_type.data(db).display_name(db),
+                    right_type.data(db).display_name(db)
+                ),
+            )
+            .with_location(file.file_path(db).to_string(), right.span());
+            if let Some(suggestion) = suggestion {
+                diag =
+                    diag.with_related_span(file.file_path(db).to_string(), left.span(), suggestion);
             }
-            // TODO: we should be able to call `==` and `!=` on bool and felt.
-            BinaryOp::Eq
-            | BinaryOp::Neq
-            | BinaryOp::Less
-            | BinaryOp::Greater
-            | BinaryOp::LessEqual
-            | BinaryOp::GreaterEqual => {
-                // Relational comparison operations - both operands must be felt
-                if !are_types_compatible(db, left_type, felt_type) {
-                    let suggestion = self.suggest_type_conversion(db, left_type, felt_type);
-                    let mut diag = Diagnostic::error(
-                        DiagnosticCode::TypeMismatch,
-                        format!(
-                            "Invalid left operand for comparison operator '{:?}'. Expected 'felt', found '{}'",
-                            op,
-                            left_type.data(db).display_name(db)
-                        ),
-                    )
-                    .with_location(file.file_path(db).to_string(), left.span());
-
-                    if let Some(suggestion) = suggestion {
-                        diag = diag.with_related_span(
-                            file.file_path(db).to_string(),
-                            left.span(),
-                            suggestion,
-                        );
-                    }
-
-                    diagnostics.push(diag);
-                }
-                if !are_types_compatible(db, right_type, felt_type) {
-                    let suggestion = self.suggest_type_conversion(db, right_type, felt_type);
-                    let mut diag = Diagnostic::error(
-                        DiagnosticCode::TypeMismatch,
-                        format!(
-                            "Invalid right operand for comparison operator '{:?}'. Expected 'felt', found '{}'",
-                            op,
-                            right_type.data(db).display_name(db)
-                        ),
-                    )
-                    .with_location(file.file_path(db).to_string(), right.span());
-
-                    if let Some(suggestion) = suggestion {
-                        diag = diag.with_related_span(
-                            file.file_path(db).to_string(),
-                            right.span(),
-                            suggestion,
-                        );
-                    }
-
-                    diagnostics.push(diag);
-                }
-            }
-            BinaryOp::And | BinaryOp::Or => {
-                // Logical operations - both operands must be bool
-                let bool_type = TypeId::new(db, TypeData::Bool);
-                if !are_types_compatible(db, left_type, bool_type) {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            DiagnosticCode::TypeMismatch,
-                            format!(
-                                "Logical operator '{:?}' requires operands of type 'bool', found '{}'",
-                                op,
-                                left_type.data(db).display_name(db)
-                            ),
-                        )
-                        .with_location(file.file_path(db).to_string(), left.span()),
-                    );
-                }
-                if !are_types_compatible(db, right_type, bool_type) {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            DiagnosticCode::TypeMismatch,
-                            format!(
-                                "Logical operator '{:?}' requires operands of type 'bool', found '{}'",
-                                op,
-                                right_type.data(db).display_name(db)
-                            ),
-                        )
-                        .with_location(file.file_path(db).to_string(), right.span()),
-                    );
-                }
-            }
+            diagnostics.push(diag);
         }
     }
 
@@ -393,50 +304,23 @@ impl TypeValidator {
         };
 
         let expr_type = expression_semantic_type(db, crate_id, file, expr_id);
-        let felt_type = TypeId::new(db, TypeData::Felt);
 
-        // For now, all unary operations require felt operands
-        match op {
-            UnaryOp::Neg => {
-                // Arithmetic negation
-                if !are_types_compatible(db, expr_type, felt_type) {
-                    let suggestion = self.suggest_type_conversion(db, expr_type, felt_type);
-                    let mut diag = Diagnostic::error(
-                        DiagnosticCode::TypeMismatch,
-                        format!(
-                            "Invalid operand for negation operator '-'. Expected 'felt', found '{}'",
-                            expr_type.data(db).display_name(db)
-                        ),
-                    )
-                    .with_location(file.file_path(db).to_string(), expr.span());
+        let unary_op_signatures = get_unary_op_signatures(db);
+        let unary_op_on_expr_type = unary_op_signatures
+            .iter()
+            .find(|op_signature| op_signature.op == *op && op_signature.operand == expr_type);
 
-                    if let Some(suggestion) = suggestion {
-                        diag = diag.with_related_span(
-                            file.file_path(db).to_string(),
-                            expr.span(),
-                            suggestion,
-                        );
-                    }
-
-                    diagnostics.push(diag);
-                }
-            }
-            UnaryOp::Not => {
-                // Logical not - operand must be bool
-                let bool_type = TypeId::new(db, TypeData::Bool);
-                if !are_types_compatible(db, expr_type, bool_type) {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            DiagnosticCode::TypeMismatch,
-                            format!(
-                                "Logical not operator '!' requires operand of type 'bool', found '{}'",
-                                expr_type.data(db).display_name(db)
-                            ),
-                        )
-                        .with_location(file.file_path(db).to_string(), expr.span()),
-                    );
-                }
-            }
+        if unary_op_on_expr_type.is_none() {
+            let diag = Diagnostic::error(
+                DiagnosticCode::TypeMismatch,
+                format!(
+                    "Operator `{}` is not supported for type `{}`",
+                    op,
+                    expr_type.data(db).display_name(db)
+                ),
+            )
+            .with_location(file.file_path(db).to_string(), expr.span());
+            diagnostics.push(diag);
         }
     }
 
@@ -487,7 +371,7 @@ impl TypeValidator {
                             let mut diag = Diagnostic::error(
                                 DiagnosticCode::TypeMismatch,
                                 format!(
-                                    "Argument type mismatch for parameter '{}': expected '{}', found '{}'",
+                                    "Argument type mismatch for parameter `{}`: expected `{}`, found `{}`",
                                     _param_name,
                                     param_type.data(db).display_name(db),
                                     arg_type.data(db).display_name(db)
@@ -566,7 +450,7 @@ impl TypeValidator {
                         Diagnostic::error(
                             DiagnosticCode::InvalidFieldAccess,
                             format!(
-                                "Field '{}' does not exist in struct {}",
+                                "Field `{}` does not exist in struct `{}`",
                                 field.value(),
                                 struct_type.name(db)
                             ),
@@ -583,7 +467,7 @@ impl TypeValidator {
                     Diagnostic::error(
                         DiagnosticCode::InvalidFieldAccess,
                         format!(
-                            "Expected struct type, found {}",
+                            "Expected struct type, found `{}`",
                             object_type_id.data(db).display_name(db)
                         ),
                     )
@@ -625,7 +509,7 @@ impl TypeValidator {
                         Diagnostic::error(
                             DiagnosticCode::InvalidIndexType,
                             format!(
-                                "Index expression must be of type felt, found {}",
+                                "Index expression must be of type felt, found `{}`",
                                 index_type_id.data(db).display_name(db)
                             ),
                         )
@@ -641,7 +525,7 @@ impl TypeValidator {
                     Diagnostic::error(
                         DiagnosticCode::InvalidIndexAccess,
                         format!(
-                            "Type '{}' cannot be indexed",
+                            "Type `{}` cannot be indexed",
                             array_type_id.data(db).display_name(db)
                         ),
                     )
@@ -680,7 +564,7 @@ impl TypeValidator {
             diagnostics.push(
                 Diagnostic::error(
                     DiagnosticCode::InvalidStructLiteral,
-                    format!("'{}' is not a struct type", name.value()),
+                    format!("`{}` is not a struct type", name.value()),
                 )
                 .with_location(file.file_path(db).to_string(), name.span()),
             );
@@ -700,7 +584,7 @@ impl TypeValidator {
                     Diagnostic::error(
                         DiagnosticCode::InvalidStructLiteral,
                         format!(
-                            "Missing field '{}' in struct literal for '{}'",
+                            "Missing field `{}` in struct literal for `{}`",
                             field_name,
                             struct_type.name(db)
                         ),
@@ -725,7 +609,7 @@ impl TypeValidator {
                             Diagnostic::error(
                                 DiagnosticCode::TypeMismatch,
                                 format!(
-                                    "Type mismatch for field '{}'. Expected '{}', found '{}'",
+                                    "Type mismatch for field `{}`. Expected `{}`, found `{}`",
                                     field_name.value(),
                                     expected_type.data(db).display_name(db),
                                     actual_type.data(db).display_name(db)
@@ -740,7 +624,7 @@ impl TypeValidator {
                     Diagnostic::error(
                         DiagnosticCode::InvalidFieldAccess,
                         format!(
-                            "Field '{}' does not exist in struct '{}'",
+                            "Field `{}` does not exist in struct `{}`",
                             field_name.value(),
                             struct_type.name(db)
                         ),
@@ -896,7 +780,7 @@ impl TypeValidator {
                             Diagnostic::error(
                                 DiagnosticCode::TypeMismatch,
                                 format!(
-                                    "While loop condition must be of type 'bool', found '{}'",
+                                    "While loop condition must be of type 'bool', found `{}`",
                                     condition_type.data(db).display_name(db)
                                 ),
                             )
@@ -957,7 +841,7 @@ impl TypeValidator {
                             Diagnostic::error(
                                 DiagnosticCode::TypeMismatch,
                                 format!(
-                                    "Type mismatch for let statement '{}'. Expected '{}', found '{}'",
+                                    "Type mismatch for let statement `{}`. Expected `{}`, found `{}`",
                                     name.value(),
                                     expected_type.data(db).display_name(db),
                                     value_type.data(db).display_name(db)
@@ -999,7 +883,7 @@ impl TypeValidator {
                                     Diagnostic::error(
                                         DiagnosticCode::TypeMismatch,
                                         format!(
-                                            "Type mismatch for tuple destructuring. Expected '{}', found '{}'",
+                                            "Type mismatch for tuple destructuring. Expected `{}`, found `{}`",
                                             expected_type.data(db).display_name(db),
                                             value_type.data(db).display_name(db)
                                         ),
@@ -1014,7 +898,7 @@ impl TypeValidator {
                             Diagnostic::error(
                                 DiagnosticCode::TypeMismatch,
                                 format!(
-                                    "Cannot destructure non-tuple type '{}' in tuple pattern",
+                                    "Cannot destructure non-tuple type `{}` in tuple pattern",
                                     value_type.data(db).display_name(db)
                                 ),
                             )
@@ -1091,7 +975,7 @@ impl TypeValidator {
             let mut diag = Diagnostic::error(
                 DiagnosticCode::TypeMismatch,
                 format!(
-                    "Type mismatch in assignment. Cannot assign '{}' to variable of type '{}'",
+                    "Type mismatch in assignment. Cannot assign `{}` to variable of type `{}`",
                     rhs_type.data(db).display_name(db),
                     lhs_type.data(db).display_name(db)
                 ),
@@ -1107,7 +991,7 @@ impl TypeValidator {
             diag = diag.with_related_span(
                 file.file_path(db).to_string(),
                 lhs.span(),
-                format!("Variable has type '{}'", lhs_type.data(db).display_name(db)),
+                format!("Variable has type `{}`", lhs_type.data(db).display_name(db)),
             );
 
             diagnostics.push(diag);
@@ -1167,13 +1051,13 @@ impl TypeValidator {
 
                     let error_message = if expects_value {
                         format!(
-                            "Type mismatch in return statement. Function expects '{}', but returning '{}'",
+                            "Type mismatch in return statement. Function expects `{}`, but returning `{}`",
                             expected_return_type.data(db).display_name(db),
                             return_type.data(db).display_name(db)
                         )
                     } else {
                         format!(
-                            "Function '{}' returns no value (unit type), but found return statement with type '{}'",
+                            "Function `{}` returns no value (unit type), but found return statement with type `{}`",
                             function_def.name.value(),
                             return_type.data(db).display_name(db)
                         )
@@ -1193,13 +1077,13 @@ impl TypeValidator {
                     // Add context about the function signature
                     let context_message = if expects_value {
                         format!(
-                            "Function '{}' declared here with return type '{}'",
+                            "Function `{}` declared here with return type `{}`",
                             function_def.name.value(),
                             expected_return_type.data(db).display_name(db)
                         )
                     } else {
                         format!(
-                            "Function '{}' declared here without explicit return type (implicitly returns unit)",
+                            "Function `{}` declared here without explicit return type (implicitly returns unit)",
                             function_def.name.value()
                         )
                     };
@@ -1245,7 +1129,7 @@ impl TypeValidator {
                 Diagnostic::error(
                     DiagnosticCode::TypeMismatch,
                     format!(
-                        "If condition must be of type 'bool', found '{}'",
+                        "If condition must be of type 'bool', found `{}`",
                         condition_type.data(db).display_name(db)
                     ),
                 )
@@ -1360,9 +1244,7 @@ mod tests {
             .collect();
 
         assert_eq!(type_errors.len(), 1, "Should have one type mismatch error");
-        assert!(type_errors[0].message.contains(
-            "Invalid left operand for arithmetic operator 'Add'. Expected 'felt', found 'Point'"
-        ));
+        assert!(type_errors[0].message.contains("`+`"));
     }
 
     #[test]
@@ -1441,43 +1323,6 @@ mod tests {
 
         assert!(field_errors > 0, "Should have field access errors");
         assert!(index_errors > 0, "Should have indexing errors");
-    }
-
-    #[test]
-    fn test_let_statement_validation() {
-        let db = test_db();
-        let program = r#"
-            struct Point { x: felt, y: felt }
-            fn test() {
-                // Let statement tests
-                let a: felt = 1;              // OK: correct type
-                let b: Point = Point { x: 1, y: 2 }; // OK: correct type
-                let c = 42;                   // OK: type inference
-                let d = Point { x: 1, y: 2 }; // OK: type inference
-
-                // Invalid let statements
-                let e: felt = Point { x: 1, y: 2 }; // Error: type mismatch
-                let f: Point = 42;            // Error: type mismatch
-                let h: Point = (1, 2);        // Error: type mismatch
-            }
-        "#;
-        let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
-        let crate_id = single_file_crate(&db, file);
-        let semantic_index = get_main_semantic_index(&db, crate_id);
-
-        let validator = TypeValidator;
-        let diagnostics = validator.validate(&db, crate_id, file, &semantic_index);
-
-        // Count type mismatch errors
-        let type_mismatch_errors = diagnostics
-            .iter()
-            .filter(|d| d.code == DiagnosticCode::TypeMismatch)
-            .count();
-
-        assert_eq!(
-            type_mismatch_errors, 3,
-            "Should have 3 type mismatch errors"
-        );
     }
 
     #[test]
@@ -1603,112 +1448,46 @@ mod tests {
     }
 
     #[test]
-    fn test_comparison_operators_validation() {
-        let db = test_db();
-        let program = r#"
-            struct Point { x: felt, y: felt }
-            fn test() {
-                // Valid comparisons - all with felt operands
-                let a = 1 < 2;                // OK: felt < felt
-                let b = 3 > 1;                // OK: felt > felt
-                let c = 5 <= 5;               // OK: felt <= felt
-                let d = 10 >= 8;              // OK: felt >= felt
-                let e = 1 == 1;               // OK: felt == felt
-                let f = 2 != 3;               // OK: felt != felt
-
-                // Invalid comparisons - struct with felt
-                let point = Point { x: 1, y: 2 };
-                let invalid_1 = point < 1;     // Error: struct < felt
-                let invalid_2 = 1 > point;     // Error: felt > struct
-                let invalid_3 = point <= 5;    // Error: struct <= felt
-                let invalid_4 = 10 >= point;   // Error: felt >= struct
-
-                // Invalid comparisons - tuple with felt
-                let tuple = (1, 2);
-                let invalid_5 = tuple < 3;     // Error: tuple < felt
-                let invalid_6 = 4 > tuple;     // Error: felt > tuple
-
-                // Invalid equality/inequality with non-felt types
-                let eq_1 = point == Point { x: 1, y: 2 }; // Error: struct == struct
-                let neq_1 = tuple != (3, 4);   // Error: tuple != tuple
-
-                // Valid equality/inequality with felt types
-                let eq_2 = 5 == 5;             // OK: felt == felt
-                let neq_2 = 3 != 4;            // OK: felt != felt
-            }
-        "#;
-        let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
-        let crate_id = single_file_crate(&db, file);
-        let semantic_index = get_main_semantic_index(&db, crate_id);
-
-        let validator = TypeValidator;
-        let diagnostics = validator.validate(&db, crate_id, file, &semantic_index);
-
-        // Count type mismatch errors
-        let type_errors: Vec<_> = diagnostics
-            .iter()
-            .filter(|d| d.code == DiagnosticCode::TypeMismatch)
-            .collect();
-
-        assert_eq!(
-            type_errors.len(),
-            10,
-            "Should have 10 type mismatch errors for invalid comparisons"
-        );
-
-        // Check that errors mention comparison operators
-        let comparison_errors = type_errors
-            .iter()
-            .filter(|e| e.message.contains("comparison operator"))
-            .count();
-
-        assert_eq!(
-            comparison_errors, 10,
-            "All 10 errors should be for comparison operators"
-        );
-    }
-
-    #[test]
     fn test_comparison_in_conditionals() {
         let db = test_db();
         let program = r#"
-            struct Point { x: felt, y: felt }
+            struct Point { x: u32, y: u32 }
             fn test() {
-                let a = 5;
-                let b = 10;
+                let a = 5u32;
+                let b = 10u32;
 
                 // Valid comparisons in if conditions
                 if (a < b) {                  // OK: felt < felt
-                    let x = 1;
+                    let x = 1u32;
                 }
 
                 if (a > b) {                  // OK: felt > felt
-                    let y = 2;
+                    let y = 2u32;
                 } else if (a <= b) {          // OK: felt <= felt
-                    let z = 3;
+                    let z = 3u32;
                 }
 
-                while (a >= 0) {              // OK: felt >= felt
-                    let w = 4;
+                while (a >= 0u32) {              // OK: felt >= felt
+                    let w = 4u32;
                 }
 
                 // Invalid comparisons in conditions
-                let point = Point { x: 1, y: 2 };
-                if (point < 5) {              // Error: struct < felt
-                    let invalid = 1;
+                let point = Point { x: 1u32, y: 2u32 };
+                if (point < 5u32) {              // Error: struct < felt
+                    let invalid = 1u32;
                 }
 
-                if (point > 3) {              // Error: struct > felt
-                    let invalid2 = 2;
+                if (point > 3u32) {              // Error: struct > felt
+                    let invalid2 = 2u32;
                 }
 
                 // Complex valid expressions
-                if (a + 1 < b - 1) {          // OK: arithmetic results are felt
-                    let valid = 1;
+                if (a + 1u32 < b - 1u32) {          // OK: arithmetic results are felt
+                    let valid = 1u32;
                 }
 
-                if ((a < b) && (b > 0)) {     // OK: comparison results used in logical ops
-                    let valid2 = 2;
+                if ((a < b) && (b > 0u32)) {     // OK: comparison results used in logical ops
+                    let valid2 = 2u32;
                 }
             }
         "#;
@@ -1729,60 +1508,9 @@ mod tests {
         assert_eq!(type_errors.len(), 2, "Should have 2 type mismatch errors");
 
         // All errors should be about comparison operators with structs
-        assert!(type_errors.iter().all(|e|
-            e.message.contains("comparison operator") &&
-            e.message.contains("'Point'")
-        ), "All errors should be about comparing structs");
-    }
-
-    #[test]
-    fn test_mixed_operators_with_comparisons() {
-        let db = test_db();
-        let program = r#"
-            fn test() {
-                let a = 5;
-                let b = 10;
-                let c = 15;
-
-                // Valid: arithmetic with comparison
-                let result1 = (a + b) < c;           // OK: (felt + felt) < felt
-                let result2 = a < (b * 2);           // OK: felt < (felt * felt)
-                let result3 = (a - 1) <= (b + 1);    // OK: (felt - felt) <= (felt + felt)
-
-                // Valid: comparison results in logical operations
-                let result4 = (a < b) && (b < c);    // OK: comparison results are bool
-                let result5 = (a > 0) || (b >= 20);  // OK: comparison results are bool
-
-                // Valid: nested comparisons and arithmetic
-                let result6 = ((a + b) > c) && ((c - a) < b); // OK
-
-                // Invalid: trying to do arithmetic on comparison results (which return felt but semantically are booleans)
-                // This actually passes type checking since comparisons return felt,
-                // but it's semantically questionable
-                let weird_but_valid = (a < b) + 1;   // Error: bool + felt
-
-                // Test equality/inequality mixed with other comparisons
-                let result7 = (a == b) || (a < b);   // Ok: both return bool
-                let result8 = (a != b) && (a > 0);   // OK: both return bool
-            }
-        "#;
-        let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
-        let crate_id = single_file_crate(&db, file);
-        let semantic_index = get_main_semantic_index(&db, crate_id);
-
-        let validator = TypeValidator;
-        let diagnostics = validator.validate(&db, crate_id, file, &semantic_index);
-
-        // Should have no type errors - all operations are valid
-        let type_errors = diagnostics
-            .iter()
-            .filter(|d| d.code == DiagnosticCode::TypeMismatch)
-            .count();
-
-        assert_eq!(
-            type_errors, 1,
-            "Should have 1 type mismatch error, got: {:?}",
-            diagnostics
+        assert!(
+            type_errors.iter().all(|e| e.message.contains("`Point`")),
+            "All errors should be about comparing structs"
         );
     }
 

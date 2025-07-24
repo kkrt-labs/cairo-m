@@ -21,12 +21,10 @@ Source code:
 Found 1 diagnostic(s):
 
 --- Diagnostic 1 ---
-[2001] Error: Invalid left operand for comparison operator 'Eq'. Expected 'felt', found 'Point'
+[2001] Error: Operator `==` is not supported for type `Point`
    ╭─[ semantic_tests::expressions::type_errors::test_comparison_type_mismatch_with_context:7:17 ]
    │
  7 │             if (p == num) {  // Type mismatch with context
    │                 ┬  
-   │                 ╰── Invalid left operand for comparison operator 'Eq'. Expected 'felt', found 'Point'
-   │                 │  
-   │                 ╰── This struct has numeric fields that could be accessed
+   │                 ╰── Operator `==` is not supported for type `Point`
 ───╯

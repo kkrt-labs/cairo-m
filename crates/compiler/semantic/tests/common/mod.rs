@@ -11,11 +11,14 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use cairo_m_compiler_diagnostics::{
-    DiagnosticCode, DiagnosticCollection, build_diagnostic_message,
+    Diagnostic, DiagnosticCode, DiagnosticCollection, build_diagnostic_message,
 };
 use cairo_m_compiler_parser::{Db as ParserDb, SourceFile, Upcast};
 use cairo_m_compiler_semantic::db::{Crate, project_validate_semantics};
-use cairo_m_compiler_semantic::{File, SemanticDb, SemanticIndex, project_semantic_index};
+use cairo_m_compiler_semantic::type_resolution::expression_semantic_type;
+use cairo_m_compiler_semantic::{
+    File, SemanticDb, SemanticIndex, TypeData, project_semantic_index,
+};
 use insta::assert_snapshot;
 
 // ===== Test Database Setup =====
@@ -301,13 +304,13 @@ pub fn assert_semantic_parameterized_impl(
     for (index, (project, should_succeed)) in inputs.iter().enumerate() {
         let db = test_db();
 
-        let (diagnostics, input_str) = match project {
+        let (diagnostics, input_str, crate_id) = match project {
             TestProject::Single(code) => {
                 // Create a single-file crate and validate.
                 let source_file = SourceFile::new(&db, code.clone(), test_name.to_string());
                 let crate_id = single_file_crate(&db, source_file);
                 let diagnostics = project_validate_semantics(&db, crate_id);
-                (diagnostics, code.clone())
+                (diagnostics, code.clone(), crate_id)
             }
             TestProject::Multi {
                 main_module,
@@ -339,17 +342,38 @@ pub fn assert_semantic_parameterized_impl(
                     "test_crate".to_string(),
                 );
                 let diagnostics = project_validate_semantics(&db, crate_id);
-                (diagnostics, all_content)
+                (diagnostics, all_content, crate_id)
             }
         };
 
-        let filtered_diagnostics = if show_unused_warnings {
+        let mut filtered_diagnostics = if show_unused_warnings {
             diagnostics
         } else {
             filter_unused_variable_warnings(&diagnostics)
         };
 
         if *should_succeed {
+            // TODO: if the semantic validation passes THEN we should not have any TypeError.
+            let project_index = project_semantic_index(&db, crate_id).unwrap();
+            for index in project_index.modules().values() {
+                for (expr_id, expr_info) in index.all_expressions() {
+                    let expr_type =
+                        expression_semantic_type(&db, crate_id, expr_info.file, expr_id);
+                    if matches!(expr_type.data(&db), TypeData::Error) {
+                        filtered_diagnostics.add(
+                            Diagnostic::error(
+                                DiagnosticCode::TypeMismatch,
+                                format!("Expression {:?} has type error", expr_info),
+                            )
+                            .with_location(
+                                expr_info.file.file_path(&db).to_string(),
+                                expr_info.ast_span,
+                            ),
+                        );
+                    }
+                }
+            }
+
             if !filtered_diagnostics.is_empty() {
                 let report =
                     format_diagnostics_for_snapshot(&filtered_diagnostics, &input_str, test_name);
