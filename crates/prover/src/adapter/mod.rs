@@ -7,7 +7,7 @@ use std::path::Path;
 
 use cairo_m_common::State as VmRegisters;
 use cairo_m_common::execution::Segment;
-use cairo_m_common::opcode::Opcode;
+use cairo_m_common::instruction::*;
 use cairo_m_common::state::MemoryEntry as RunnerMemoryEntry;
 use io::VmImportError;
 pub use memory::ExecutionBundle;
@@ -41,7 +41,7 @@ pub struct MerkleTrees {
 pub struct Instructions {
     pub initial_registers: VmRegisters,
     pub final_registers: VmRegisters,
-    pub states_by_opcodes: HashMap<Opcode, Vec<ExecutionBundle>>,
+    pub states_by_opcodes: HashMap<u32, Vec<ExecutionBundle>>,
 }
 
 fn import_internal<TraceIter, MemoryIter>(
@@ -55,7 +55,7 @@ where
     MemoryIter: Iterator<Item = RunnerMemoryEntry>,
 {
     let mut bundle_iter = ExecutionBundleIterator::new(trace_iter, memory_iter, initial_memory);
-    let mut states_by_opcodes = HashMap::<Opcode, Vec<ExecutionBundle>>::default();
+    let mut states_by_opcodes = HashMap::<u32, Vec<ExecutionBundle>>::default();
 
     // Get initial registers by peeking at the trace
     let initial_registers = bundle_iter
@@ -73,10 +73,33 @@ where
         final_registers = bundle.registers;
 
         // Extract opcode from instruction
-        let opcode = Opcode::try_from(bundle.instruction.value)?;
+        let opcode = bundle.instruction.instruction.opcode_value();
 
-        // Store bundle by opcode
-        states_by_opcodes.entry(opcode).or_default().push(bundle);
+        // Only store bundle if opcode is implemented in the prover
+        // The prover only implements a subset of opcodes
+        const IMPLEMENTED_OPCODES: &[u32] = &[
+            STORE_ADD_FP_FP,
+            STORE_ADD_FP_IMM,
+            STORE_SUB_FP_FP,
+            STORE_SUB_FP_IMM,
+            STORE_DOUBLE_DEREF_FP,
+            STORE_IMM,
+            STORE_MUL_FP_FP,
+            STORE_MUL_FP_IMM,
+            STORE_DIV_FP_FP,
+            STORE_DIV_FP_IMM,
+            CALL_ABS_IMM,
+            RET,
+            JMP_ABS_IMM,
+            JMP_REL_IMM,
+            JNZ_FP_IMM,
+        ];
+
+        if IMPLEMENTED_OPCODES.contains(&opcode) {
+            states_by_opcodes.entry(opcode).or_default().push(bundle);
+        } else {
+            return Err(VmImportError::UnimplementedOpcode(opcode));
+        }
     }
 
     // Get the final registers from the last trace entry that wasn't processed

@@ -23,6 +23,16 @@ pub enum VmImportError {
     EmptyTrace,
     #[error("Failed to read metadata header")]
     MetadataError,
+    #[error("Unexpected end of trace while reading multi-word instruction or operand")]
+    UnexpectedEndOfTrace,
+    #[error("Invalid opcode: {0}")]
+    InvalidOpcode(M31),
+    #[error("Invalid instruction: {0}")]
+    InvalidInstruction(InstructionError),
+    #[error("Unimplemented opcode: {0}")]
+    UnimplementedOpcode(u32),
+    #[error("Unexpected memory access: expected PC {expected}, found address {found}")]
+    UnexpectedMemoryAccess { expected: M31, found: M31 },
 }
 
 #[repr(C)]
