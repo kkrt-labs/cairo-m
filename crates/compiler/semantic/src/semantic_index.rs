@@ -48,7 +48,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCollection};
+use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode, DiagnosticCollection};
 use cairo_m_compiler_parser::ParsedModule;
 use cairo_m_compiler_parser::parser::{
     ConstDef, Expression, FunctionDef, NamedType, Namespace, Parameter, Pattern, Spanned,
@@ -62,7 +62,7 @@ use crate::definition::{DefinitionKind, ParameterDefRef, UseDefRef};
 use crate::place::{FileScopeId, PlaceTable, Scope};
 use crate::semantic_errors::{SemanticSyntaxChecker, SemanticSyntaxContext};
 use crate::visitor::{Visitor, walk_type_expr};
-use crate::{Crate, Definition, File, PlaceFlags, SemanticDb, project_semantic_index};
+use crate::{Crate, Definition, File, PlaceFlags, SemanticDb, module_semantic_index};
 
 // Define DefinitionIndex as an index type for definitions within a single file.
 index_vec::define_index_type! {
@@ -423,36 +423,31 @@ impl SemanticIndex {
     ) -> Option<(DefinitionIndex, crate::Definition, File)> {
         // First try local resolution
         if let Some((def_idx, def)) = self.resolve_name_to_definition(name, starting_scope) {
-            return Some((def_idx, def.clone(), file));
+            if !matches!(def.kind, DefinitionKind::Use(_)) {
+                return Some((def_idx, def.clone(), file));
+            }
+            // We found a definition, but it's an import - resolve the import.
         }
 
         // If not found locally, check imports
         let imports = self.get_imports_in_scope(starting_scope);
         for use_def_ref in imports {
             if use_def_ref.item.value() == name {
-                // Get the project semantic index to resolve in imported modules
-                if let Ok(project_index) = project_semantic_index(db, crate_id) {
-                    let modules = project_index.modules();
-
-                    // Resolve in the imported module
-                    if let Some(imported_module_index) =
-                        modules.get(use_def_ref.imported_module.value())
+                // Resolve in the imported module
+                let imported_module_index = module_semantic_index(
+                    db,
+                    crate_id,
+                    use_def_ref.imported_module.value().clone(),
+                );
+                if let Some(imported_root) = imported_module_index.root_scope() {
+                    if let Some((imported_def_idx, imported_def)) =
+                        imported_module_index.resolve_name_to_definition(name, imported_root)
                     {
-                        if let Some(imported_root) = imported_module_index.root_scope() {
-                            if let Some((imported_def_idx, imported_def)) = imported_module_index
-                                .resolve_name_to_definition(name, imported_root)
-                            {
-                                if let Some(imported_file) = crate_id
-                                    .modules(db)
-                                    .get(use_def_ref.imported_module.value())
-                                {
-                                    return Some((
-                                        imported_def_idx,
-                                        imported_def.clone(),
-                                        *imported_file,
-                                    ));
-                                }
-                            }
+                        if let Some(imported_file) = crate_id
+                            .modules(db)
+                            .get(use_def_ref.imported_module.value())
+                        {
+                            return Some((imported_def_idx, imported_def.clone(), *imported_file));
                         }
                     }
                 }
@@ -623,8 +618,9 @@ pub fn semantic_index_from_module(
     db: &dyn SemanticDb,
     module: &ParsedModule,
     file: File,
+    crate_id: Crate,
 ) -> SemanticIndex {
-    let builder = SemanticIndexBuilder::new(db, file, module);
+    let builder = SemanticIndexBuilder::new(db, file, module, crate_id);
     builder.build()
 }
 
@@ -643,6 +639,7 @@ pub(crate) struct SemanticIndexBuilder<'db> {
     db: &'db dyn SemanticDb,
     file: File,
     module: &'db ParsedModule,
+    crate_id: Crate,
 
     // Current building state
     index: SemanticIndex,
@@ -667,11 +664,17 @@ impl<'db> SemanticSyntaxContext for SemanticIndexBuilder<'db> {
 }
 
 impl<'db> SemanticIndexBuilder<'db> {
-    pub fn new(db: &'db dyn SemanticDb, file: File, module: &'db ParsedModule) -> Self {
+    pub fn new(
+        db: &'db dyn SemanticDb,
+        file: File,
+        module: &'db ParsedModule,
+        crate_id: Crate,
+    ) -> Self {
         let mut builder = Self {
             db,
             file,
             module,
+            crate_id,
             index: SemanticIndex::new(),
             scope_stack: Vec::new(),
             loop_depth: 0,
@@ -697,6 +700,8 @@ impl<'db> SemanticIndexBuilder<'db> {
                 match item {
                     TopLevelItem::Function(func) => self.declare_function(func),
                     TopLevelItem::Namespace(namespace) => self.declare_namespace(namespace),
+                    TopLevelItem::Struct(struct_def) => self.declare_struct(struct_def),
+                    TopLevelItem::Use(use_stmt) => self.declare_use(use_stmt),
                     // Structs, use statements, and consts will be handled in pass 2
                     _ => {}
                 }
@@ -827,6 +832,95 @@ impl<'db> SemanticIndexBuilder<'db> {
         );
     }
 
+    fn declare_struct(&mut self, struct_def: &Spanned<StructDef>) {
+        use crate::definition::{DefinitionKind, StructDefRef};
+        use crate::place::PlaceFlags;
+
+        let struct_def_inner = struct_def.value();
+        let struct_span = struct_def.span();
+
+        // Define the struct in the current scope
+        let def_kind = DefinitionKind::Struct(StructDefRef::from_ast(struct_def));
+        self.add_place_with_definition(
+            struct_def_inner.name.value(),
+            PlaceFlags::DEFINED | PlaceFlags::STRUCT,
+            def_kind,
+            struct_def_inner.name.span(),
+            struct_span,
+        );
+    }
+
+    fn declare_use(&mut self, use_stmt: &Spanned<UseStmt>) {
+        use crate::definition::{DefinitionKind, UseDefRef};
+        use crate::place::PlaceFlags;
+
+        let use_inner = use_stmt.value();
+        let use_span = use_stmt.span();
+
+        let path_len = use_inner.path.len();
+        if path_len < 1 {
+            return;
+        }
+
+        // Get the module name from the path
+        let imported_module = Spanned::new(
+            use_inner
+                .path
+                .iter()
+                .map(|s| s.value().clone())
+                .collect::<Vec<_>>()
+                .join("::"),
+            use_span,
+        );
+
+        // Process the imported items
+        match &use_inner.items {
+            UseItems::Single(item_spanned) => {
+                let item = item_spanned.value().clone();
+                let item_span = item_spanned.span();
+
+                let use_def_ref = UseDefRef {
+                    imported_module,
+                    item: item_spanned.clone(),
+                };
+                let def_kind = DefinitionKind::Use(use_def_ref.clone());
+                let current_scope = self.current_scope();
+                self.add_place_with_definition(
+                    &item,
+                    PlaceFlags::DEFINED,
+                    def_kind,
+                    item_span,
+                    use_span,
+                );
+
+                // Store the import for cross-module resolution
+                self.index.imports.push((current_scope, use_def_ref));
+            }
+            UseItems::List(items) => {
+                for item_spanned in items {
+                    let item = item_spanned.value().clone();
+                    let item_span = item_spanned.span();
+
+                    let use_def_ref = UseDefRef {
+                        imported_module: imported_module.clone(),
+                        item: item_spanned.clone(),
+                    };
+                    let def_kind = DefinitionKind::Use(use_def_ref.clone());
+                    let current_scope = self.current_scope();
+                    self.add_place_with_definition(
+                        &item,
+                        PlaceFlags::DEFINED,
+                        def_kind,
+                        item_span,
+                        use_span,
+                    );
+
+                    self.index.imports.push((current_scope, use_def_ref));
+                }
+            }
+        }
+    }
+
     fn with_semantic_checker<F>(&mut self, f: F)
     where
         F: FnOnce(&mut SemanticSyntaxChecker, &mut Self),
@@ -843,6 +937,17 @@ where
     'ast: 'db,
 {
     fn visit_top_level_items(&mut self, items: &'ast [TopLevelItem]) {
+        // Order the items by priority: `use`,  `namespace`, `const`, `struct`, `function`,
+        // TODO: might be inefficient - can we do this in a more efficient way?
+        // let mut ordered_items = items.to_vec();
+        // ordered_items.sort_by_key(|item| match item {
+        //     TopLevelItem::Use(_) => 0,
+        //     TopLevelItem::Namespace(_) => 1,
+        //     TopLevelItem::Const(_) => 2,
+        //     TopLevelItem::Struct(_) => 3,
+        //     TopLevelItem::Function(_) => 4,
+        // });
+
         self.with_semantic_checker(|checker, builder| {
             checker.check_top_level_items(builder, items);
         });
@@ -883,7 +988,7 @@ where
 
                 if let Some(ty) = statement_type {
                     self.with_semantic_checker(|checker, builder| {
-                        checker.check_let_stmt_type_cohesion(builder, value, ty);
+                        checker.check_expr_type_cohesion(builder, value, ty);
                     });
                 }
 
@@ -1121,8 +1226,97 @@ where
                     scope_id: self.current_scope(),
                 };
                 self.index.add_type_usage(type_usage);
-                for (_, value) in fields {
+
+                // Get struct def to get the types of the fields.
+                let maybe_def = self.index.resolve_name_with_imports(
+                    self.db,
+                    self.crate_id,
+                    self.file,
+                    name.value(),
+                    self.current_scope(),
+                );
+
+                let error = Diagnostic::error(
+                    DiagnosticCode::UndeclaredType,
+                    format!("cannot find struct `{}` in this scope", name.value()),
+                )
+                .with_location(self.file.file_path(self.db).to_string(), name.span());
+
+                let struct_def = if let Some((_, def, _)) = maybe_def {
+                    if let Some(struct_def) = def.kind.struct_def() {
+                        struct_def.clone()
+                    } else {
+                        self.semantic_syntax_errors.borrow_mut().add(error);
+                        return;
+                    }
+                } else {
+                    self.semantic_syntax_errors.borrow_mut().add(error);
+                    return;
+                };
+
+                // Create lookup map from field names to types for flexible matching
+                let struct_fields: std::collections::HashMap<String, Spanned<TypeExpr>> =
+                    struct_def
+                        .fields_ast
+                        .iter()
+                        .map(|(name, type_expr)| (name.clone(), type_expr.clone()))
+                        .collect();
+
+                // TODO: this would need to be recursive to actually be useful...
+                for (literal_val_name, value) in fields.iter() {
                     self.visit_expr(value);
+
+                    // Attach the type of the field to the expression.
+                    if let Some(field_type) = struct_fields.get(literal_val_name.value()) {
+                        let field_expr_id = self
+                            .index
+                            .expression_id_by_span(value.span())
+                            .expect("field expression should have been registered");
+                        let field_expr_info = self
+                            .index
+                            .expression_mut(field_expr_id)
+                            .expect("field expression info should have been registered");
+                        field_expr_info.expected_type_ast = Some((*field_type).clone());
+
+                        // Handle case where the expr is a tuple - just iterate over the elements.
+                        if let Expression::Tuple(elements) = value.value()
+                            && let TypeExpr::Tuple(tuple_types) = field_type.value()
+                        {
+                            for (element, tuple_type) in elements.iter().zip(tuple_types) {
+                                let element_expr_id = self
+                                    .index
+                                    .expression_id_by_span(element.span())
+                                    .expect("element expression should have been registered");
+                                let element_expr_info = self
+                                    .index
+                                    .expression_mut(element_expr_id)
+                                    .expect("element expression info should have been registered");
+                                element_expr_info.expected_type_ast = Some((*tuple_type).clone());
+                            }
+                        }
+
+                        // Add explicit type annotation to the field expressions
+
+                        // Ensure the field type matches the literal suffix, if any
+                        self.with_semantic_checker(|checker, builder| {
+                            checker.check_expr_type_cohesion(builder, value, field_type);
+                        });
+                    } else {
+                        self.semantic_syntax_errors.borrow_mut().add(
+                            Diagnostic::error(
+                                DiagnosticCode::TypeMismatch,
+                                format!(
+                                    "Field `{}` not found in struct `{}`",
+                                    literal_val_name.value(),
+                                    name.value()
+                                ),
+                            )
+                            .with_location(
+                                self.file.file_path(self.db).to_string(),
+                                literal_val_name.span(),
+                            ),
+                        );
+                    }
                 }
             }
             Expression::Tuple(exprs) => {
@@ -1189,7 +1383,7 @@ where
                 .index
                 .set_scope_for_span(namespace.span(), current_scope);
 
-            // First pass: declare functions and namespaces within namespace for forward references
+            // First pass: declare functions, structs, and namespaces within namespace for forward references
             let namespace_items: Vec<_> = namespace_inner.body.iter().collect();
             for item in &namespace_items {
                 match item {
@@ -1197,6 +1391,7 @@ where
                     TopLevelItem::Namespace(inner_namespace) => {
                         builder.declare_namespace(inner_namespace)
                     }
+                    TopLevelItem::Struct(struct_def) => builder.declare_struct(struct_def),
                     // Structs, use statements, and consts will be handled in pass 2
                     _ => {}
                 }
@@ -1207,9 +1402,7 @@ where
     }
 
     fn visit_struct(&mut self, struct_def: &'ast Spanned<StructDef>) {
-        use crate::definition::{DefinitionKind, StructDefRef};
-        use crate::place::PlaceFlags;
-
+        // The struct is forward-declared - so we dont need to add it to definitions.
         let struct_def_inner = struct_def.value();
 
         self.with_semantic_checker(|checker, builder| {
@@ -1220,90 +1413,11 @@ where
         for (_, type_expr) in &struct_def_inner.fields {
             self.visit_type_expr(type_expr);
         }
-
-        let struct_span = struct_def.span();
-
-        // Define the struct in the current scope
-        let def_kind = DefinitionKind::Struct(StructDefRef::from_ast(struct_def));
-        self.add_place_with_definition(
-            struct_def_inner.name.value(),
-            PlaceFlags::DEFINED | PlaceFlags::STRUCT,
-            def_kind,
-            struct_def_inner.name.span(),
-            struct_span,
-        );
     }
 
-    fn visit_use(&mut self, use_stmt: &'ast Spanned<UseStmt>) {
-        use crate::definition::{DefinitionKind, UseDefRef};
-        use crate::place::PlaceFlags;
-
-        let use_inner = use_stmt.value();
-        let use_span = use_stmt.span();
-
-        let path_len = use_inner.path.len();
-        if path_len < 1 {
-            return;
-        }
-
-        // Get the module name from the path
-        let imported_module = Spanned::new(
-            use_inner
-                .path
-                .iter()
-                .map(|s| s.value().clone())
-                .collect::<Vec<_>>()
-                .join("::"),
-            use_span,
-        );
-
-        // Process the imported items
-        match &use_inner.items {
-            UseItems::Single(item_spanned) => {
-                let item = item_spanned.value().clone();
-                let item_span = item_spanned.span();
-
-                let use_def_ref = UseDefRef {
-                    imported_module,
-                    item: item_spanned.clone(),
-                };
-                let def_kind = DefinitionKind::Use(use_def_ref.clone());
-                let current_scope = self.current_scope();
-                self.add_place_with_definition(
-                    &item,
-                    PlaceFlags::DEFINED,
-                    def_kind,
-                    item_span,
-                    use_span,
-                );
-
-                // Store the import for cross-module resolution
-                self.index.imports.push((current_scope, use_def_ref));
-            }
-            UseItems::List(items) => {
-                for item_spanned in items {
-                    let item = item_spanned.value().clone();
-                    let item_span = item_spanned.span();
-
-                    let use_def_ref = UseDefRef {
-                        imported_module: imported_module.clone(),
-                        item: item_spanned.clone(),
-                    };
-                    let def_kind = DefinitionKind::Use(use_def_ref.clone());
-                    let current_scope = self.current_scope();
-                    self.add_place_with_definition(
-                        &item,
-                        PlaceFlags::DEFINED,
-                        def_kind,
-                        item_span,
-                        use_span,
-                    );
-
-                    self.index.imports.push((current_scope, use_def_ref));
-                }
-            }
-        }
-    }
+    // TODO: not ideal design?
+    // Empty impl as the use statements must be processed in pass 1.
+    fn visit_use(&mut self, _use_stmt: &'ast Spanned<UseStmt>) {}
 
     fn visit_const(&mut self, const_def: &'ast Spanned<ConstDef>) {
         use crate::definition::{ConstDefRef, DefinitionKind};

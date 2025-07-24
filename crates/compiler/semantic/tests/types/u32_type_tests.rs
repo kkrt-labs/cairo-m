@@ -284,7 +284,7 @@ fn test_u32_in_function_signature() {
 }
 
 #[test]
-fn test_u32_default_literal_inference() {
+fn test_untyped_let_should_be_felt() {
     let db = test_db();
     // Without explicit type, literals should default to felt
     let program = r#"
@@ -309,6 +309,30 @@ fn test_u32_default_literal_inference() {
     }
 }
 
+#[test]
+fn test_typed_let_should_be_u32() {
+    let db = test_db();
+    let program = r#"
+        fn test() {
+            let x: u32 = 42;  // Should be u32
+            return;
+        }
+    "#;
+    let crate_id = crate_from_program(&db, program);
+    let file = *crate_id.modules(&db).values().next().unwrap();
+    let index = module_semantic_index(&db, crate_id, "main".to_string());
+
+    // Find the identifier 'x' and verify its type
+    for (expr_id, expr_info) in index.all_expressions() {
+        if let cairo_m_compiler_parser::parser::Expression::Identifier(name) = &expr_info.ast_node {
+            if name.value() == "x" {
+                let expr_type = expression_semantic_type(&db, crate_id, file, expr_id);
+                assert!(matches!(expr_type.data(&db), TypeData::U32));
+            }
+        }
+    }
+}
+
 // Integration tests using assert_semantic_ok! and assert_semantic_err! macros
 #[test]
 fn test_u32_type_checking() {
@@ -316,6 +340,8 @@ fn test_u32_type_checking() {
         ok: [
             // u32 literals can be assigned to u32 variables
             "fn test() -> u32 { let x: u32 = 10; return x; }",
+            // Struct field assignment from literal works
+            "struct Config { port: u32 } fn create_config() -> Config { return Config { port: 8080 }; }",
         ],
         err: [
             // u32 and felt are not compatible
@@ -323,8 +349,6 @@ fn test_u32_type_checking() {
             in_function("let z:felt = 3; let u: u32 = z;"),
             // Mismatch in binary op
             in_function("let x: u32 = 10; let y: felt = 20; let z = x + y;"),
-            // Struct field assignment from felt literal
-            "struct Config { port: u32 } fn create_config() -> Config { return Config { port: 8080 }; }",
         ]
     }
 }

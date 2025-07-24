@@ -1,0 +1,53 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test() { let x: MyType = 5; return; }
+--- Diagnostics ---
+[1009] Error: Cannot find type 'MyType' in this scope
+   ╭─[ semantic_tests::scoping::undeclared_types::test_undeclared_types_parameterized:1:20 ]
+   │
+ 1 │ fn test() { let x: MyType = 5; return; }
+   │                    ───┬──  
+   │                       ╰──── Cannot find type 'MyType' in this scope
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+fn test(x: UndefinedType) -> felt { return 42; }
+--- Diagnostics ---
+[1009] Error: Cannot find type 'UndefinedType' in this scope
+   ╭─[ semantic_tests::scoping::undeclared_types::test_undeclared_types_parameterized:1:12 ]
+   │
+ 1 │ fn test(x: UndefinedType) -> felt { return 42; }
+   │            ──────┬──────  
+   │                  ╰──────── Cannot find type 'UndefinedType' in this scope
+───╯
+
+============================================================
+
+--- Input 3 (ERROR) ---
+fn test() -> UndefinedReturnType { return 42; }
+--- Diagnostics ---
+[1009] Error: Cannot find type 'UndefinedReturnType' in this scope
+   ╭─[ semantic_tests::scoping::undeclared_types::test_undeclared_types_parameterized:1:14 ]
+   │
+ 1 │ fn test() -> UndefinedReturnType { return 42; }
+   │              ─────────┬─────────  
+   │                       ╰─────────── Cannot find type 'UndefinedReturnType' in this scope
+───╯
+
+============================================================
+
+--- Input 4 (ERROR) ---
+struct Test { field: NonExistentType }
+--- Diagnostics ---
+[1009] Error: Cannot find type 'NonExistentType' in this scope
+   ╭─[ semantic_tests::scoping::undeclared_types::test_undeclared_types_parameterized:1:22 ]
+   │
+ 1 │ struct Test { field: NonExistentType }
+   │                      ───────┬───────  
+   │                             ╰───────── Cannot find type 'NonExistentType' in this scope
+───╯

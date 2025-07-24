@@ -1,6 +1,7 @@
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
 use cairo_m_compiler_parser::parser::{
-    Expression, Parameter, Pattern, Spanned, Statement, StructDef, TopLevelItem, TypeExpr,
+    Expression, NamedType, Parameter, Pattern, Spanned, Statement, StructDef, TopLevelItem,
+    TypeExpr,
 };
 use rustc_hash::{FxBuildHasher, FxHashSet};
 
@@ -44,40 +45,80 @@ impl SemanticSyntaxChecker {
         Self::duplicate_struct_fields(context, struct_def);
     }
 
-    /// Verifies coherency between the type annotation and a literal value's suffix, if any.
-    pub fn check_let_stmt_type_cohesion<Ctx: SemanticSyntaxContext>(
+    /// Verifies coherency between an expression's type and a type annotation.
+    pub fn check_expr_type_cohesion<Ctx: SemanticSyntaxContext>(
         &self,
         context: &Ctx,
         expr: &Spanned<Expression>,
         type_ast: &Spanned<TypeExpr>,
     ) {
-        let typed_name = match type_ast.value() {
-            TypeExpr::Named(named) => named.value().to_string(),
-            // Nothing to check if it's not one of the primitive types.
-            _ => return,
-        };
-
-        if let Expression::Literal(_, Some(suffix)) = expr.value() {
-            // TODO: string comparison is not the cleanest.
-            if suffix != &typed_name {
+        match (expr.value(), type_ast.value()) {
+            (Expression::Tuple(elements), TypeExpr::Tuple(tuple_types)) => {
+                for (element, tuple_type) in elements.iter().zip(tuple_types) {
+                    self.check_expr_type_cohesion(context, element, tuple_type);
+                }
+                return;
+            }
+            (Expression::Tuple(_), _) => {
                 Self::add_error(
                     context,
                     Diagnostic {
                         severity: DiagnosticSeverity::Error,
                         code: DiagnosticCode::TypeMismatch,
-                        message: format!("expected `{typed_name}`, got `{suffix}`"),
+                        message: "type mismatch: expected tuple".to_string(),
                         file_path: context.path().to_string(),
-                        span: expr.span(),
-                        related_spans: vec![(
-                            expr.span(),
-                            format!(
-                                "change the type of the numeric literal from `{}` to `{}`",
-                                suffix, typed_name
-                            ),
-                        )],
+                        span: type_ast.span(),
+                        related_spans: vec![],
                     },
                 );
+                return;
             }
+            _ => {}
+        }
+        // TODO: handle pointers once implemented.
+
+        let res: Option<(String, String)> = match (type_ast.value(), expr.value()) {
+            (TypeExpr::Named(named), Expression::Literal(_, None)) => match named.value() {
+                NamedType::Felt => Some((named.value().to_string(), named.value().to_string())),
+                NamedType::Bool => Some((named.value().to_string(), "felt".to_string())),
+                NamedType::U32 => Some((named.value().to_string(), named.value().to_string())),
+                NamedType::Custom(name) => Some((named.value().to_string(), name.to_string())),
+            },
+            (TypeExpr::Named(named), Expression::Literal(_, Some(suffix))) => match named.value() {
+                NamedType::Felt => Some((named.value().to_string(), suffix.clone())),
+                NamedType::Bool => Some((named.value().to_string(), suffix.clone())),
+                NamedType::U32 => Some((named.value().to_string(), suffix.clone())),
+                NamedType::Custom(name) => Some((name.to_string(), suffix.clone())),
+            },
+            (TypeExpr::Named(named), Expression::BooleanLiteral(_)) => match named.value() {
+                NamedType::Felt => Some((named.value().to_string(), "bool".to_string())),
+                NamedType::Bool => Some((named.value().to_string(), named.value().to_string())),
+                NamedType::U32 => Some((named.value().to_string(), "bool".to_string())),
+                NamedType::Custom(name) => Some((name.to_string(), "bool".to_string())),
+            },
+            _ => None,
+        };
+
+        if let Some((typed_name, actual_type)) = res
+            && actual_type != typed_name
+        {
+            Self::add_error(
+                context,
+                Diagnostic {
+                    severity: DiagnosticSeverity::Error,
+                    code: DiagnosticCode::TypeMismatch,
+                    message: format!("expected `{typed_name}`, got `{actual_type}`"),
+                    file_path: context.path().to_string(),
+                    span: expr.span(),
+                    related_spans: vec![(
+                        expr.span(),
+                        format!(
+                            "change the type of the numeric literal from `{}` to `{}`",
+                            actual_type, typed_name
+                        ),
+                    )],
+                },
+            );
         }
     }
 

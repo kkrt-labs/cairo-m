@@ -4,7 +4,7 @@ use crate::*;
 
 // Parameterized test for all undeclared variable error cases
 #[test]
-fn test_undeclared_variables_parameterized() {
+fn test_undeclared_types_parameterized() {
     assert_semantic_parameterized! {
         ok: [
             multi_file(

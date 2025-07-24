@@ -419,7 +419,7 @@ pub fn module_semantic_index(
         )
     });
 
-    semantic_index_from_module(db, &parsed_module, file)
+    semantic_index_from_module(db, &parsed_module, file, crate_id)
 }
 
 /// Get parse diagnostics for a specific module
