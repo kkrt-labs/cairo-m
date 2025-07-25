@@ -17,9 +17,7 @@ use cairo_m_compiler_parser::parser::{
 };
 
 use crate::File;
-use crate::db::{
-    Crate, SemanticDb, module_name_for_file, module_semantic_index, project_semantic_index,
-};
+use crate::db::{Crate, SemanticDb, module_name_for_file, module_semantic_index};
 use crate::definition::{DefinitionKind, FunctionDefRef, ParameterDefRef, StructDefRef};
 use crate::place::FileScopeId;
 use crate::semantic_index::{DefinitionId, ExpressionId};
@@ -46,39 +44,31 @@ pub fn resolve_ast_type<'db>(
             return TypeId::new(db, TypeData::Error);
         }
     };
-    let project_index = match project_semantic_index(db, crate_id) {
-        Ok(index) => index,
-        Err(_) => return TypeId::new(db, TypeData::Error),
-    };
-    let modules = project_index.modules();
-    let semantic_index = modules
-        .get(&module_name)
-        .expect("Module index should exist for module name");
+    let semantic_index = module_semantic_index(db, crate_id, module_name)
+        .expect("Failed to resolve index for module");
 
     match ast_type_expr.value() {
         AstTypeExpr::Named(name) => {
-            let name_str = match name.value() {
-                NamedType::Felt => return TypeId::new(db, TypeData::Felt),
-                NamedType::Bool => return TypeId::new(db, TypeData::Bool),
-                NamedType::U32 => return TypeId::new(db, TypeData::U32),
-                NamedType::Custom(name) => name,
-            };
+            match name.value() {
+                NamedType::Felt => TypeId::new(db, TypeData::Felt),
+                NamedType::Bool => TypeId::new(db, TypeData::Bool),
+                NamedType::U32 => TypeId::new(db, TypeData::U32),
+                NamedType::Custom(name_str) => {
+                    // Try to resolve as a struct type
+                    semantic_index
+                        .resolve_name_to_definition(name_str, context_scope_id)
+                        .map(|(def_idx, _)| {
+                            let def_id = DefinitionId::new(db, file, def_idx);
+                            let def_type = definition_semantic_type(db, crate_id, def_id);
 
-            // Try to resolve as a struct type
-            if let Some((def_idx, _)) =
-                semantic_index.resolve_name_to_definition(name_str, context_scope_id)
-            {
-                let def_id = DefinitionId::new(db, file, def_idx);
-                let def_type = definition_semantic_type(db, crate_id, def_id);
-
-                // Ensure it's a struct type, not just any definition
-                if let TypeData::Struct(_) = def_type.data(db) {
-                    def_type
-                } else {
-                    TypeId::new(db, TypeData::Error) // Found a name, but it's not a type
+                            // Ensure it's a struct type, not just any definition
+                            match def_type.data(db) {
+                                TypeData::Struct(_) => def_type,
+                                _ => TypeId::new(db, TypeData::Error), // Found a name, but it's not a type
+                            }
+                        })
+                        .unwrap_or_else(|| TypeId::new(db, TypeData::Error)) // Type not found
                 }
-            } else {
-                TypeId::new(db, TypeData::Error) // Type not found
             }
         }
         AstTypeExpr::Pointer(inner_ast_expr) => {
@@ -115,7 +105,7 @@ fn resolve_variable_type<'db>(
         resolve_ast_type(db, crate_id, file, type_ast.clone(), scope_id)
     } else if let Some(value_expr_id) = value_expr_id {
         // Infer from the stored value expression ID
-        expression_semantic_type(db, crate_id, file, value_expr_id)
+        expression_semantic_type(db, crate_id, file, value_expr_id, None)
     } else {
         // No type annotation and no value to infer from
         TypeId::new(db, TypeData::Unknown)
@@ -144,14 +134,8 @@ pub fn definition_semantic_type<'db>(
             return TypeId::new(db, TypeData::Error);
         }
     };
-    let project_index = match project_semantic_index(db, crate_id) {
-        Ok(index) => index,
-        Err(_) => return TypeId::new(db, TypeData::Error),
-    };
-    let modules = project_index.modules();
-    let semantic_index = modules
-        .get(&module_name)
-        .expect("Module index should exist for module name");
+    let semantic_index = module_semantic_index(db, crate_id, module_name)
+        .expect("Failed to resolve index for module");
 
     let Some(definition) = semantic_index.definition(def_index) else {
         return TypeId::new(db, TypeData::Error);
@@ -180,7 +164,7 @@ pub fn definition_semantic_type<'db>(
             // Check if this is from tuple destructuring
             if let Some((value_expr_id, index)) = let_ref.destructuring_info {
                 // Get the type of the RHS tuple expression
-                let tuple_type = expression_semantic_type(db, crate_id, file, value_expr_id);
+                let tuple_type = expression_semantic_type(db, crate_id, file, value_expr_id, None);
                 // Extract the type of the element at the given index
                 match tuple_type.data(db) {
                     TypeData::Tuple(element_types) => {
@@ -207,7 +191,7 @@ pub fn definition_semantic_type<'db>(
         DefinitionKind::Const(const_ref) => {
             // Constants must be initialized, so we infer from the value expression
             if let Some(value_expr_id) = const_ref.value_expr_id {
-                expression_semantic_type(db, crate_id, file, value_expr_id)
+                expression_semantic_type(db, crate_id, file, value_expr_id, None)
             } else {
                 // Constants without initialization is an error in the language
                 TypeId::new(db, TypeData::Error)
@@ -224,7 +208,8 @@ pub fn definition_semantic_type<'db>(
 
             let imported_module = use_ref.imported_module.clone();
             let imported_index =
-                module_semantic_index(db, crate_id, imported_module.value().clone());
+                module_semantic_index(db, crate_id, imported_module.value().clone())
+                    .expect("Failed to resolve index for imported module");
             let imported_root = imported_index
                 .root_scope()
                 .expect("Imported module should have root scope");
@@ -261,6 +246,7 @@ pub fn expression_semantic_type<'db>(
     crate_id: Crate,
     file: File,
     expression_id: ExpressionId,
+    context_expected: Option<TypeId<'db>>,
 ) -> TypeId<'db> {
     let module_name = match module_name_for_file(db, crate_id, file) {
         Some(name) => name,
@@ -274,14 +260,8 @@ pub fn expression_semantic_type<'db>(
             return TypeId::new(db, TypeData::Error);
         }
     };
-    let project_index = match project_semantic_index(db, crate_id) {
-        Ok(index) => index,
-        Err(_) => return TypeId::new(db, TypeData::Error),
-    };
-    let modules = project_index.modules();
-    let semantic_index = modules
-        .get(&module_name)
-        .expect("Module index should exist for module name");
+    let semantic_index = module_semantic_index(db, crate_id, module_name)
+        .expect("Failed to resolve index for module");
 
     let Some(expr_info) = semantic_index.expression(expression_id) else {
         return TypeId::new(db, TypeData::Error);
@@ -289,24 +269,8 @@ pub fn expression_semantic_type<'db>(
 
     // Access the AST node directly from ExpressionInfo - no lookup needed!
     match &expr_info.ast_node {
-        Expression::Literal(_, literal_suffix) => {
-            // TODO: make this more efficient.
-            if let Some(type_ast) = expr_info.expected_type_ast.clone() {
-                // We found an explicit type annotation. Resolve it.
-                let expected_type =
-                    resolve_ast_type(db, crate_id, file, type_ast, expr_info.scope_id);
-
-                // If the context expects a u32, infer the literal as u32.
-                // This can be extended for other integer types in the future.
-                if matches!(expected_type.data(db), TypeData::U32)
-                    || matches!(expected_type.data(db), TypeData::Felt)
-                {
-                    return expected_type;
-                }
-
-                return TypeId::new(db, TypeData::Error);
-            }
-
+        Expression::Literal(_value, literal_suffix) => {
+            // Priority 1: Check for explicit suffix (e.g., 42u32)
             if let Some(literal_suffix) = literal_suffix {
                 let expected_type = TypeData::from(literal_suffix);
                 if matches!(expected_type, TypeData::U32) || matches!(expected_type, TypeData::Felt)
@@ -315,8 +279,32 @@ pub fn expression_semantic_type<'db>(
                 }
             }
 
-            // TODO: develop a proper methodology for type inference.
-            // If no specific context is found, default to `felt`.
+            // Priority 2: Check for expected type from AST (e.g., let x: u32 = 42)
+            if let Some(type_ast) = expr_info.expected_type_ast.clone() {
+                // We found an explicit type annotation. Resolve it.
+                let expected_type =
+                    resolve_ast_type(db, crate_id, file, type_ast, expr_info.scope_id);
+
+                // If the context expects a numeric type, infer the literal as that type.
+                if matches!(expected_type.data(db), TypeData::U32)
+                    || matches!(expected_type.data(db), TypeData::Felt)
+                {
+                    return expected_type;
+                }
+            }
+
+            // Priority 3: Check for context from propagated type (e.g., in x + 1 where x is u32)
+            if let Some(context_type) = context_expected {
+                // If the context expects a numeric primitive, use it
+                match context_type.data(db) {
+                    TypeData::U32 | TypeData::Felt => {
+                        return context_type;
+                    }
+                    _ => {}
+                }
+            }
+
+            // Default: If no specific context is found, default to `felt`.
             TypeId::new(db, TypeData::Felt)
         }
         Expression::BooleanLiteral(_) => TypeId::new(db, TypeData::Bool),
@@ -332,7 +320,8 @@ pub fn expression_semantic_type<'db>(
         }
         Expression::UnaryOp { expr, op } => {
             let expr_id = semantic_index.expression_id_by_span(expr.span()).unwrap();
-            let expr_type = expression_semantic_type(db, crate_id, file, expr_id);
+            // Propagate the context_expected to the operand
+            let expr_type = expression_semantic_type(db, crate_id, file, expr_id, context_expected);
 
             for signature in get_unary_op_signatures(db) {
                 if signature.op == *op && are_types_compatible(db, expr_type, signature.operand) {
@@ -346,8 +335,45 @@ pub fn expression_semantic_type<'db>(
             let left_id = semantic_index.expression_id_by_span(left.span()).unwrap();
             let right_id = semantic_index.expression_id_by_span(right.span()).unwrap();
 
-            let left_type = expression_semantic_type(db, crate_id, file, left_id);
-            let right_type = expression_semantic_type(db, crate_id, file, right_id);
+            // For commutative operators, we need to be smarter about type inference
+            // First, check if either operand is a literal - if so, we want to infer its type from the other operand
+            let is_commutative = matches!(
+                op,
+                BinaryOp::Add | BinaryOp::Mul | BinaryOp::Eq | BinaryOp::Neq
+            );
+
+            let (left_type, right_type) = if is_commutative {
+                // Check if left is a literal and right has a concrete type
+                let left_expr = &semantic_index.expression(left_id).unwrap().ast_node;
+                let right_expr = &semantic_index.expression(right_id).unwrap().ast_node;
+
+                let left_is_unsuffixed_literal = matches!(left_expr, Expression::Literal(_, None));
+                let right_is_unsuffixed_literal =
+                    matches!(right_expr, Expression::Literal(_, None));
+
+                if left_is_unsuffixed_literal && !right_is_unsuffixed_literal {
+                    // Infer right first, then use it as context for left
+                    let right_type =
+                        expression_semantic_type(db, crate_id, file, right_id, context_expected);
+                    let left_type =
+                        expression_semantic_type(db, crate_id, file, left_id, Some(right_type));
+                    (left_type, right_type)
+                } else {
+                    // Default behavior: left first, then right with left as context
+                    let left_type =
+                        expression_semantic_type(db, crate_id, file, left_id, context_expected);
+                    let right_type =
+                        expression_semantic_type(db, crate_id, file, right_id, Some(left_type));
+                    (left_type, right_type)
+                }
+            } else {
+                // Non-commutative operators: always left first, then right
+                let left_type =
+                    expression_semantic_type(db, crate_id, file, left_id, context_expected);
+                let right_type =
+                    expression_semantic_type(db, crate_id, file, right_id, Some(left_type));
+                (left_type, right_type)
+            };
 
             for signature in get_binary_op_signatures(db) {
                 if signature.op == *op
@@ -367,7 +393,7 @@ pub fn expression_semantic_type<'db>(
                 None => return TypeId::new(db, TypeData::Error),
             };
 
-            let object_type = expression_semantic_type(db, crate_id, file, object_id);
+            let object_type = expression_semantic_type(db, crate_id, file, object_id, None);
 
             match object_type.data(db) {
                 TypeData::Struct(struct_id) => {
@@ -397,7 +423,8 @@ pub fn expression_semantic_type<'db>(
             // Get ExpressionId for the callee
             if let Some(callee_expr_id) = semantic_index.expression_id_by_span(callee.span()) {
                 // Infer callee's type recursively
-                let callee_type = expression_semantic_type(db, crate_id, file, callee_expr_id);
+                let callee_type =
+                    expression_semantic_type(db, crate_id, file, callee_expr_id, None);
                 // If it's a function type, return the return type
                 match callee_type.data(db) {
                     TypeData::Function(signature_id) => signature_id.return_type(db),
@@ -428,7 +455,7 @@ pub fn expression_semantic_type<'db>(
         Expression::IndexAccess { array, index: _ } => {
             // Infer the array/pointer type
             if let Some(array_expr_id) = semantic_index.expression_id_by_span(array.span()) {
-                let array_type = expression_semantic_type(db, crate_id, file, array_expr_id);
+                let array_type = expression_semantic_type(db, crate_id, file, array_expr_id, None);
 
                 match array_type.data(db) {
                     // For pointer types, return the dereferenced type
@@ -442,11 +469,34 @@ pub fn expression_semantic_type<'db>(
             }
         }
         Expression::Tuple(elements) => {
-            // Infer types of all elements
+            // If we have a context expected type that's a tuple, use it to infer element types
+            let element_contexts: Vec<Option<TypeId>> = if let Some(context_type) = context_expected
+            {
+                match context_type.data(db) {
+                    TypeData::Tuple(expected_element_types)
+                        if expected_element_types.len() == elements.len() =>
+                    {
+                        // We have a matching tuple type, use element types as context
+                        expected_element_types.iter().map(|&t| Some(t)).collect()
+                    }
+                    _ => vec![None; elements.len()],
+                }
+            } else {
+                vec![None; elements.len()]
+            };
+
+            // Infer types of all elements with their respective contexts
             let element_types: Vec<TypeId> = elements
                 .iter()
-                .filter_map(|element| semantic_index.expression_id_by_span(element.span()))
-                .map(|element_id| expression_semantic_type(db, crate_id, file, element_id))
+                .enumerate()
+                .filter_map(|(i, element)| {
+                    semantic_index
+                        .expression_id_by_span(element.span())
+                        .map(|element_id| {
+                            let context = element_contexts.get(i).copied().flatten();
+                            expression_semantic_type(db, crate_id, file, element_id, context)
+                        })
+                })
                 .collect();
 
             // If we successfully resolved all element types, create a tuple type
@@ -471,9 +521,8 @@ pub fn struct_semantic_data<'db>(
     let def_index = struct_definition_id.id_in_file(db);
 
     let module_name = module_name_for_file(db, crate_id, file)?;
-    let project_index = project_semantic_index(db, crate_id).ok()?;
-    let modules = project_index.modules();
-    let semantic_index = modules.get(&module_name)?;
+    let semantic_index = module_semantic_index(db, crate_id, module_name)
+        .expect("Failed to resolve index for module");
 
     let definition = semantic_index.definition(def_index)?;
 
@@ -508,9 +557,8 @@ pub fn function_semantic_signature<'db>(
     let def_index = func_definition_id.id_in_file(db);
 
     let module_name = module_name_for_file(db, crate_id, file)?;
-    let project_index = project_semantic_index(db, crate_id).ok()?;
-    let modules = project_index.modules();
-    let semantic_index = modules.get(&module_name)?;
+    let semantic_index = module_semantic_index(db, crate_id, module_name)
+        .expect("Failed to resolve index for module");
 
     let definition = semantic_index.definition(def_index)?;
 
@@ -967,7 +1015,7 @@ mod tests {
         let db = test_db();
         let crate_id = crate_from_program(&db, "fn test() { let x = 42; }");
         let file = *crate_id.modules(&db).values().next().unwrap();
-        let semantic_index = module_semantic_index(&db, crate_id, "main".to_string());
+        let semantic_index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
         // Find any expression in the index
         let all_expressions: Vec<_> = semantic_index.all_expressions().collect();
@@ -984,7 +1032,7 @@ mod tests {
                     assert_eq!(*value, 42);
 
                     // Verify the expression type can be resolved efficiently
-                    let expr_type = expression_semantic_type(&db, crate_id, file, expr_id);
+                    let expr_type = expression_semantic_type(&db, crate_id, file, expr_id, None);
                     assert!(matches!(expr_type.data(&db), TypeData::Felt));
                 }
                 Expression::Identifier(name) => {
@@ -1017,7 +1065,7 @@ mod tests {
         "#;
         let crate_id = crate_from_program(&db, program);
         let file = *crate_id.modules(&db).values().next().unwrap();
-        let semantic_index = module_semantic_index(&db, crate_id, "main".to_string());
+        let semantic_index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
         // Count how many different expression types we find
         let mut expression_types_found = std::collections::HashSet::new();
@@ -1030,7 +1078,7 @@ mod tests {
         );
 
         for (expr_id, expr_info) in semantic_index.all_expressions() {
-            let expr_type = expression_semantic_type(&db, crate_id, file, expr_id);
+            let expr_type = expression_semantic_type(&db, crate_id, file, expr_id, None);
 
             // Record the expression variant we found
             let variant_name = match &expr_info.ast_node {
@@ -1105,14 +1153,14 @@ mod tests {
         "#;
         let crate_id = crate_from_program(&db, program);
         let file = *crate_id.modules(&db).values().next().unwrap();
-        let semantic_index = module_semantic_index(&db, crate_id, "main".to_string());
+        let semantic_index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
         // Find member access expressions and verify their types
         for expr_id in semantic_index.span_to_expression_id.values() {
             let expr_info = semantic_index.expression(*expr_id).unwrap();
 
             if let Expression::MemberAccess { object: _, field } = &expr_info.ast_node {
-                let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id);
+                let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id, None);
 
                 match field.value().as_str() {
                     "x" | "value" => {
@@ -1150,7 +1198,7 @@ mod tests {
         "#;
         let crate_id = crate_from_program(&db, program);
         let file = *crate_id.modules(&db).values().next().unwrap();
-        let semantic_index = module_semantic_index(&db, crate_id, "main".to_string());
+        let semantic_index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
         // Find the ptr.x expression
         let mut found_ptr_access = false;
@@ -1162,7 +1210,7 @@ mod tests {
                 && ident.value() == "ptr"
                 && field.value() == "x"
             {
-                let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id);
+                let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id, None);
                 assert!(
                     matches!(expr_type.data(&db), TypeData::Felt),
                     "ptr.x should have felt type through automatic dereference"

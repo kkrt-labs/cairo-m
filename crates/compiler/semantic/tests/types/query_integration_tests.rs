@@ -12,18 +12,13 @@ use cairo_m_compiler_semantic::type_resolution::{
 };
 use cairo_m_compiler_semantic::types::{TypeData, TypeId};
 use cairo_m_compiler_semantic::validation::validator::Validator;
-use cairo_m_compiler_semantic::{
-    File, FileScopeId, SemanticDb, project_semantic_index, validation,
-};
+use cairo_m_compiler_semantic::{File, FileScopeId, SemanticDb, module_semantic_index, validation};
 
 use crate::common::*;
 use crate::{named_type, pointer_type};
 
 fn get_root_scope(db: &dyn SemanticDb, crate_id: Crate) -> FileScopeId {
-    let semantic_index = project_semantic_index(db, crate_id).unwrap();
-    semantic_index
-        .modules()
-        .get("main")
+    module_semantic_index(db, crate_id, "main".to_string())
         .unwrap()
         .root_scope()
         .unwrap()
@@ -225,28 +220,28 @@ fn test_expression_type_inference() {
 
     // Test literal
     let expr_id = find_expr_id("42");
-    let expr_type = expression_semantic_type(&db, crate_id, file, expr_id);
+    let expr_type = expression_semantic_type(&db, crate_id, file, expr_id, None);
     assert_eq!(expr_type, felt_type);
 
     // Test identifier `a` (inferred from literal)
     let a_expr_id = find_expr_id("a");
-    let a_expr_type = expression_semantic_type(&db, crate_id, file, a_expr_id);
+    let a_expr_type = expression_semantic_type(&db, crate_id, file, a_expr_id, None);
     assert_eq!(a_expr_type, felt_type);
 
     // Test binary operation
     let expr_id = find_expr_id("a + 1");
-    let expr_type = expression_semantic_type(&db, crate_id, file, expr_id);
+    let expr_type = expression_semantic_type(&db, crate_id, file, expr_id, None);
     assert_eq!(expr_type, felt_type);
 
     // Test member access
     let expr_id = find_expr_id("p.x");
-    let expr_type = expression_semantic_type(&db, crate_id, file, expr_id);
+    let expr_type = expression_semantic_type(&db, crate_id, file, expr_id, None);
     assert_eq!(expr_type, felt_type);
 
     // Test identifier `c` (inferred from member access)
     // Find the identifier 'c' in the return statement
     let c_expr_id = find_expr_id("c");
-    let c_expr_type = expression_semantic_type(&db, crate_id, file, c_expr_id);
+    let c_expr_type = expression_semantic_type(&db, crate_id, file, c_expr_id, None);
     assert_eq!(c_expr_type, felt_type);
 }
 
@@ -572,7 +567,7 @@ fn test_literal_inference_with_explicit_type() {
         for (span, expr_id) in &semantic_index.span_to_expression_id {
             let source_text = &program[span.start..span.end];
             if source_text == target_text {
-                return expression_semantic_type(&db, crate_id, file, *expr_id);
+                return expression_semantic_type(&db, crate_id, file, *expr_id, None);
             }
         }
         panic!(

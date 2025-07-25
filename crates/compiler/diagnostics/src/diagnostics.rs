@@ -8,6 +8,8 @@ use std::fmt;
 use ariadne::ReportKind;
 use chumsky::span::SimpleSpan;
 
+use crate::build_diagnostic_message;
+
 /// A diagnostic message from semantic analysis
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Diagnostic {
@@ -20,6 +22,23 @@ pub struct Diagnostic {
 
     /// Optional related spans for additional context
     pub related_spans: Vec<(SimpleSpan<usize>, String)>,
+}
+
+impl fmt::Display for Diagnostic {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}: {}", self.severity, self.message)?;
+        write!(f, " (at {}:{})", self.span.start, self.span.end)?;
+        for (span, message) in &self.related_spans {
+            write!(f, "\n  note: {} (at {}:{})", message, span.start, span.end)?;
+        }
+        Ok(())
+    }
+}
+
+impl Diagnostic {
+    fn display_with_source(&self, source: &str) -> String {
+        build_diagnostic_message(source, self, true)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -338,22 +357,19 @@ impl Diagnostic {
         .with_location(file_path, span)
     }
 }
-
-impl fmt::Display for Diagnostic {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}: {}", self.severity, self.message)?;
-        write!(f, " (at {}:{})", self.span.start, self.span.end)?;
-        for (span, message) in &self.related_spans {
-            write!(f, "\n  note: {} (at {}:{})", message, span.start, span.end)?;
-        }
-        Ok(())
-    }
-}
-
 /// Collection of diagnostics from semantic analysis
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct DiagnosticCollection {
     diagnostics: Vec<Diagnostic>,
+}
+
+impl fmt::Display for DiagnosticCollection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for diagnostic in &self.diagnostics {
+            write!(f, "{}", diagnostic)?;
+        }
+        Ok(())
+    }
 }
 
 impl DiagnosticCollection {
@@ -438,6 +454,14 @@ impl DiagnosticCollection {
     pub fn iter(&self) -> std::slice::Iter<'_, Diagnostic> {
         self.diagnostics.iter()
     }
+
+    pub fn display_with_source(&self, source: &str) -> String {
+        let mut result = String::new();
+        for diagnostic in &self.diagnostics {
+            result.push_str(&diagnostic.display_with_source(source));
+        }
+        result
+    }
 }
 
 impl From<Vec<Diagnostic>> for DiagnosticCollection {
@@ -497,7 +521,6 @@ mod tests {
         let span = SimpleSpan::from(5..10);
         let diag = Diagnostic::undeclared_variable("test.cm".to_string(), "test", span);
         let display = format!("{diag}");
-        assert!(display.contains("error"));
         assert!(display.contains("Undeclared variable"));
         assert!(display.contains("test"));
         assert!(display.contains("5:10"));

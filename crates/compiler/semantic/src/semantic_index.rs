@@ -438,7 +438,8 @@ impl SemanticIndex {
                     db,
                     crate_id,
                     use_def_ref.imported_module.value().clone(),
-                );
+                )
+                .expect("Failed to resolve index for imported module");
                 if let Some(imported_root) = imported_module_index.root_scope() {
                     if let Some((imported_def_idx, imported_def)) =
                         imported_module_index.resolve_name_to_definition(name, imported_root)
@@ -648,6 +649,8 @@ pub(crate) struct SemanticIndexBuilder<'db> {
     scope_stack: Vec<FileScopeId>,
     /// Current loop nesting depth for tracking break/continue validity
     loop_depth: usize,
+    /// Current expected type hint for expression inference
+    expected_type_hint: Option<Spanned<TypeExpr>>,
 
     /// Errors collected while building the semantic index.
     semantic_syntax_errors: RefCell<DiagnosticCollection>,
@@ -678,6 +681,7 @@ impl<'db> SemanticIndexBuilder<'db> {
             index: SemanticIndex::new(),
             scope_stack: Vec::new(),
             loop_depth: 0,
+            expected_type_hint: None,
             semantic_syntax_errors: RefCell::new(Default::default()),
             semantic_syntax_checker: SemanticSyntaxChecker::default(),
         };
@@ -742,6 +746,17 @@ impl<'db> SemanticIndexBuilder<'db> {
         self.scope_stack
             .pop()
             .expect("tried to pop from empty scope stack");
+    }
+
+    /// Execute a function with a specific expected type hint
+    fn with_expected_type<F>(&mut self, hint: Option<Spanned<TypeExpr>>, f: F)
+    where
+        F: FnOnce(&mut Self),
+    {
+        let old_hint = self.expected_type_hint.clone();
+        self.expected_type_hint = hint;
+        f(self);
+        self.expected_type_hint = old_hint;
     }
 
     /// Create a new scope and execute the given function within it.
@@ -921,89 +936,6 @@ impl<'db> SemanticIndexBuilder<'db> {
         }
     }
 
-    /// Proceses the field of a struct by attaching the type of the field to the associated expression, if applicable.
-    fn process_struct_literal_fields(
-        &mut self,
-        name: &Spanned<String>,
-        maybe_def: Option<(DefinitionIndex, crate::Definition, File)>,
-        fields: &'db [(Spanned<String>, Spanned<Expression>)],
-    ) {
-        let error = Diagnostic::error(
-            DiagnosticCode::UndeclaredType,
-            format!("cannot find struct `{}` in this scope", name.value()),
-        )
-        .with_location(self.file.file_path(self.db).to_string(), name.span());
-
-        let Some((_, def, _)) = maybe_def else {
-            self.semantic_syntax_errors.borrow_mut().add(error);
-            return;
-        };
-
-        let Some(struct_def) = def.kind.struct_def() else {
-            self.semantic_syntax_errors.borrow_mut().add(error);
-            return;
-        };
-
-        // Create lookup map from field names to types for flexible matching
-        let struct_fields: HashMap<String, Spanned<TypeExpr>> = struct_def
-            .fields_ast
-            .iter()
-            .map(|(name, type_expr)| (name.clone(), type_expr.clone()))
-            .collect();
-
-        // TODO: Would this need to be recursive to apply to all situations?
-        for (field_name, value) in fields.iter() {
-            self.visit_expr(value);
-
-            // Attach the type of the field to the expression.
-            if let Some(field_type) = struct_fields.get(field_name.value()) {
-                let field_expr_id = self
-                    .index
-                    .expression_id_by_span(value.span())
-                    .expect("field expression should have been registered");
-                let field_expr_info = self
-                    .index
-                    .expression_mut(field_expr_id)
-                    .expect("field expression info should have been registered");
-                field_expr_info.expected_type_ast = Some((*field_type).clone());
-
-                // Handle case where the expr is a tuple - just iterate over the elements.
-                if let Expression::Tuple(elements) = value.value()
-                    && let TypeExpr::Tuple(tuple_types) = field_type.value()
-                {
-                    for (element, tuple_type) in elements.iter().zip(tuple_types) {
-                        let element_expr_id = self
-                            .index
-                            .expression_id_by_span(element.span())
-                            .expect("element expression should have been registered");
-                        let element_expr_info = self
-                            .index
-                            .expression_mut(element_expr_id)
-                            .expect("element expression info should have been registered");
-                        element_expr_info.expected_type_ast = Some((*tuple_type).clone());
-                    }
-                }
-
-                // Ensure the field type matches the literal suffix, if any
-                self.with_semantic_checker(|checker, builder| {
-                    checker.check_expr_type_cohesion(builder, value, field_type);
-                });
-            } else {
-                self.semantic_syntax_errors.borrow_mut().add(
-                    Diagnostic::error(
-                        DiagnosticCode::TypeMismatch,
-                        format!(
-                            "Field `{}` not found in struct `{}`",
-                            field_name.value(),
-                            name.value()
-                        ),
-                    )
-                    .with_location(self.file.file_path(self.db).to_string(), field_name.span()),
-                );
-            }
-        }
-    }
-
     fn with_semantic_checker<F>(&mut self, f: F)
     where
         F: FnOnce(&mut SemanticSyntaxChecker, &mut Self),
@@ -1053,16 +985,16 @@ where
                 use crate::definition::{DefinitionKind, LetDefRef};
                 use crate::place::PlaceFlags;
 
-                // Visit the value expression first (evaluation order)
-                self.visit_expr(value);
+                // Visit the value expression with expected type hint
+                self.with_expected_type(statement_type.clone(), |builder| {
+                    builder.visit_expr(value);
+                });
 
                 // Add type info, if present
                 let value_expr_id = self
                     .index
                     .expression_id_by_span(value.span())
                     .expect("expression should have been registered");
-                let expr_info = self.index.expression_mut(value_expr_id).unwrap();
-                expr_info.expected_type_ast = statement_type.clone();
 
                 // Visit the type expression if present
                 if let Some(ty) = statement_type {
@@ -1248,7 +1180,7 @@ where
             ast_node: expr.value().clone(),
             ast_span: expr.span(),
             scope_id: self.current_scope(),
-            expected_type_ast: None,
+            expected_type_ast: self.expected_type_hint.clone(),
         };
         let _expr_id = self.index.add_expression(expr_info);
 
@@ -1319,11 +1251,104 @@ where
                     self.current_scope(),
                 );
 
-                self.process_struct_literal_fields(name, maybe_def, fields);
+                // Process fields with proper type context
+                if let Some((_, def, _)) = maybe_def {
+                    if let Some(struct_def) = def.kind.struct_def() {
+                        // Create lookup map from field names to types
+                        let struct_fields: HashMap<String, Spanned<TypeExpr>> = struct_def
+                            .fields_ast
+                            .iter()
+                            .map(|(name, type_expr)| (name.clone(), type_expr.clone()))
+                            .collect();
+
+                        // Visit each field with its expected type
+                        for (field_name, value) in fields.iter() {
+                            if let Some(field_type) = struct_fields.get(field_name.value()) {
+                                // Use with_expected_type to propagate the field type
+                                self.with_expected_type(Some(field_type.clone()), |builder| {
+                                    builder.visit_expr(value);
+                                });
+
+                                // Check type cohesion
+                                self.with_semantic_checker(|checker, builder| {
+                                    checker.check_expr_type_cohesion(builder, value, field_type);
+                                });
+                            } else {
+                                // Field not found in struct - just visit without type hint
+                                self.visit_expr(value);
+
+                                // Report field not found error
+                                self.semantic_syntax_errors.borrow_mut().add(
+                                    Diagnostic::error(
+                                        DiagnosticCode::TypeMismatch,
+                                        format!(
+                                            "Field `{}` not found in struct `{}`",
+                                            field_name.value(),
+                                            name.value()
+                                        ),
+                                    )
+                                    .with_location(
+                                        self.file.file_path(self.db).to_string(),
+                                        field_name.span(),
+                                    ),
+                                );
+                            }
+                        }
+                    } else {
+                        // Not a struct definition - visit fields without type hints
+                        for (_, value) in fields.iter() {
+                            self.visit_expr(value);
+                        }
+
+                        // Report error
+                        let error = Diagnostic::error(
+                            DiagnosticCode::UndeclaredType,
+                            format!("cannot find struct `{}` in this scope", name.value()),
+                        )
+                        .with_location(self.file.file_path(self.db).to_string(), name.span());
+                        self.semantic_syntax_errors.borrow_mut().add(error);
+                    }
+                } else {
+                    // Definition not found - visit fields without type hints
+                    for (_, value) in fields.iter() {
+                        self.visit_expr(value);
+                    }
+
+                    // Report error
+                    let error = Diagnostic::error(
+                        DiagnosticCode::UndeclaredType,
+                        format!("cannot find struct `{}` in this scope", name.value()),
+                    )
+                    .with_location(self.file.file_path(self.db).to_string(), name.span());
+                    self.semantic_syntax_errors.borrow_mut().add(error);
+                }
             }
             Expression::Tuple(exprs) => {
-                for expr in exprs {
-                    self.visit_expr(expr);
+                // If we have a tuple type hint, propagate individual element types
+                let has_matching_hint =
+                    self.expected_type_hint
+                        .as_ref()
+                        .and_then(|hint| match hint.value() {
+                            TypeExpr::Tuple(element_types)
+                                if element_types.len() == exprs.len() =>
+                            {
+                                Some(element_types.clone())
+                            }
+                            _ => None,
+                        });
+
+                if let Some(element_types) = has_matching_hint {
+                    // Visit each element with its specific type hint
+                    for (expr, element_type) in exprs.iter().zip(element_types.iter()) {
+                        self.with_expected_type(Some(element_type.clone()), |builder| {
+                            builder.visit_expr(expr);
+                        });
+                    }
+                } else {
+                    // No matching tuple hint or mismatched lengths - visit without hints
+                    for expr in exprs {
+                        self.visit_expr(expr);
+                    }
                 }
             }
             Expression::Literal(_, _) | Expression::BooleanLiteral(_) => {
@@ -1332,6 +1357,9 @@ where
         }
     }
 
+    /// When visiting function bodies, the builder propagates the function's
+    /// return type as an expected type hint, enabling literals in return
+    /// statements to infer their type from the function signature.
     fn visit_function(&mut self, func: &'ast Spanned<FunctionDef>) {
         let func_def = func.value();
 
@@ -1350,10 +1378,14 @@ where
         // Visit the return type
         self.visit_type_expr(&func_def.return_type);
 
+        // Visit parameters (they don't need the return type hint)
         self.visit_parameters(&func_def.params);
 
-        // Visit function body statements
-        self.visit_body(&func_def.body);
+        // Visit function body with return type hint for literal inference
+        let return_hint = Some(func_def.return_type.clone());
+        self.with_expected_type(return_hint, |builder| {
+            builder.visit_body(&func_def.body);
+        });
 
         self.pop_scope();
     }
@@ -1520,7 +1552,7 @@ mod tests {
     fn test_empty_program() {
         let TestCase { db, source } = test_case("");
         let crate_id = single_file_crate(&db, source);
-        let index = module_semantic_index(&db, crate_id, "main".to_string());
+        let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
         let root = index.root_scope().expect("should have root scope");
         let scope = index.scope(root).unwrap();
@@ -1532,7 +1564,7 @@ mod tests {
     fn test_simple_function() {
         let TestCase { db, source } = test_case("fn test() { }");
         let crate_id = single_file_crate(&db, source);
-        let index = module_semantic_index(&db, crate_id, "main".to_string());
+        let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
         // Should have root scope and function scope
         let root = index.root_scope().unwrap();
@@ -1562,7 +1594,7 @@ mod tests {
     fn test_function_with_parameters() {
         let TestCase { db, source } = test_case("fn add(a: felt, b: felt) { }");
         let crate_id = single_file_crate(&db, source);
-        let index = module_semantic_index(&db, crate_id, "main".to_string());
+        let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
         let root = index.root_scope().unwrap();
         let child_scopes: Vec<_> = index.child_scopes(root).collect();
@@ -1587,7 +1619,7 @@ mod tests {
     fn test_variable_resolution() {
         let TestCase { db, source } = test_case("fn test(param: felt) { let local_var = param; }");
         let crate_id = single_file_crate(&db, source);
-        let index = module_semantic_index(&db, crate_id, "main".to_string());
+        let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
         let root = index.root_scope().unwrap();
         let child_scopes: Vec<_> = index.child_scopes(root).collect();
@@ -1631,7 +1663,7 @@ mod tests {
         );
 
         let crate_id = single_file_crate(&db, source);
-        let index = module_semantic_index(&db, crate_id, "main".to_string());
+        let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
         // Should have root scope plus function scope and namespace scope
         let root = index.root_scope().unwrap();
@@ -1719,7 +1751,7 @@ mod tests {
     fn test_real_spans_are_used() {
         let TestCase { db, source } = test_case("fn test(x: felt) { let y = x; }");
         let crate_id = single_file_crate(&db, source);
-        let index = module_semantic_index(&db, crate_id, "main".to_string());
+        let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
         // Get all identifier usages
         let usages = index.identifier_usages();
@@ -1780,7 +1812,7 @@ mod tests {
             "#,
         );
         let crate_id = single_file_crate(&db, source);
-        let index = module_semantic_index(&db, crate_id, "main".to_string());
+        let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
         // Find the let definition
         let let_definitions: Vec<_> = index

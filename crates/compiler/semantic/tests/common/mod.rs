@@ -358,7 +358,7 @@ pub fn assert_semantic_parameterized_impl(
             for index in project_index.modules().values() {
                 for (expr_id, expr_info) in index.all_expressions() {
                     let expr_type =
-                        expression_semantic_type(&db, crate_id, expr_info.file, expr_id);
+                        expression_semantic_type(&db, crate_id, expr_info.file, expr_id, None);
                     if matches!(expr_type.data(&db), TypeData::Error) {
                         filtered_diagnostics.add(
                             Diagnostic::error(

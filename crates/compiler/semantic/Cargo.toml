@@ -23,6 +23,7 @@ cairo-m-compiler-diagnostics.workspace = true
 cairo-m-project.workspace = true
 index_vec = "0.1.4"
 tracing = "0.1"
+tracing-subscriber = "0.3"
 anyhow.workspace = true
 
 [dev-dependencies]

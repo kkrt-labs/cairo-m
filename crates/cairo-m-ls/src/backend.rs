@@ -759,7 +759,7 @@ impl LanguageServer for Backend {
                 .map(|s| s.to_string())?;
 
             // Run semantic analysis query. Salsa will compute it incrementally.
-            let index = module_semantic_index(db.upcast(), crate_id, module_name);
+            let index = module_semantic_index(db.upcast(), crate_id, module_name).ok()?;
 
             // First, check if we're clicking on an identifier usage
             let identifier_usage = index
@@ -899,7 +899,7 @@ impl LanguageServer for Backend {
                 .map(|s| s.to_string())?;
 
             // Run semantic analysis query incrementally.
-            let index = module_semantic_index(db.upcast(), crate_id, module_name);
+            let index = module_semantic_index(db.upcast(), crate_id, module_name).ok()?;
 
             let identifier_usage = index
                 .identifier_usages()
@@ -982,7 +982,7 @@ impl LanguageServer for Backend {
                 .and_then(|stem| stem.to_str())
                 .map(|s| s.to_string())?;
 
-            let index = module_semantic_index(db.upcast(), crate_id, module_name);
+            let index = module_semantic_index(db.upcast(), crate_id, module_name).ok()?;
 
             // Find the scope at the cursor position.
             // TODO: This is inefficient. A better approach would be to have a query

@@ -5,6 +5,13 @@ expression: snapshot
 --- Input 1 (ERROR) ---
 fn test() { let x: felt = 32u32; return; }
 --- Diagnostics ---
+[2001] Error: Type mismatch for let statement `x`. Expected `felt`, found `u32`
+   ╭─[ semantic_tests::statements::let_local_statements::test_let_statements_with_type_annotation:1:27 ]
+   │
+ 1 │ fn test() { let x: felt = 32u32; return; }
+   │                           ──┬──  
+   │                             ╰──── Type mismatch for let statement `x`. Expected `felt`, found `u32`
+───╯
 [2001] Error: expected `felt`, got `u32`
    ╭─[ semantic_tests::statements::let_local_statements::test_let_statements_with_type_annotation:1:27 ]
    │
@@ -20,6 +27,13 @@ fn test() { let x: felt = 32u32; return; }
 --- Input 2 (ERROR) ---
 fn test() { let x: u32 = 32felt; return; }
 --- Diagnostics ---
+[2001] Error: Type mismatch for let statement `x`. Expected `u32`, found `felt`
+   ╭─[ semantic_tests::statements::let_local_statements::test_let_statements_with_type_annotation:1:26 ]
+   │
+ 1 │ fn test() { let x: u32 = 32felt; return; }
+   │                          ───┬──  
+   │                             ╰──── Type mismatch for let statement `x`. Expected `u32`, found `felt`
+───╯
 [2001] Error: expected `u32`, got `felt`
    ╭─[ semantic_tests::statements::let_local_statements::test_let_statements_with_type_annotation:1:26 ]
    │
