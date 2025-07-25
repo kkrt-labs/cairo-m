@@ -45,6 +45,7 @@ impl SemanticSyntaxChecker {
         Self::duplicate_struct_fields(context, struct_def);
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     /// Verifies coherency between an expression's type and a type annotation.
     pub fn check_expr_type_cohesion<Ctx: SemanticSyntaxContext>(
         &self,
@@ -52,6 +53,7 @@ impl SemanticSyntaxChecker {
         expr: &Spanned<Expression>,
         type_ast: &Spanned<TypeExpr>,
     ) {
+        // Recursively handle tuples.
         match (expr.value(), type_ast.value()) {
             (Expression::Tuple(elements), TypeExpr::Tuple(tuple_types)) => {
                 for (element, tuple_type) in elements.iter().zip(tuple_types) {
@@ -75,30 +77,29 @@ impl SemanticSyntaxChecker {
             }
             _ => {}
         }
-        // TODO: handle pointers once implemented.
 
+        // TODO: handle pointers once implemented.
         let res: Option<(String, String)> = match (type_ast.value(), expr.value()) {
-            (TypeExpr::Named(named), Expression::Literal(_, None)) => match named.value() {
-                NamedType::Felt => Some((named.value().to_string(), named.value().to_string())),
-                NamedType::Bool => Some((named.value().to_string(), "felt".to_string())),
-                NamedType::U32 => Some((named.value().to_string(), named.value().to_string())),
-                NamedType::Custom(name) => Some((named.value().to_string(), name.to_string())),
-            },
-            (TypeExpr::Named(named), Expression::Literal(_, Some(suffix))) => match named.value() {
-                NamedType::Felt => Some((named.value().to_string(), suffix.clone())),
-                NamedType::Bool => Some((named.value().to_string(), suffix.clone())),
-                NamedType::U32 => Some((named.value().to_string(), suffix.clone())),
-                NamedType::Custom(name) => Some((name.to_string(), suffix.clone())),
-            },
-            (TypeExpr::Named(named), Expression::BooleanLiteral(_)) => match named.value() {
-                NamedType::Felt => Some((named.value().to_string(), "bool".to_string())),
-                NamedType::Bool => Some((named.value().to_string(), named.value().to_string())),
-                NamedType::U32 => Some((named.value().to_string(), "bool".to_string())),
-                NamedType::Custom(name) => Some((name.to_string(), "bool".to_string())),
-            },
+            (TypeExpr::Named(named), expr) => {
+                let expected_type = format!("{}", named.value());
+
+                let actual_type = match expr {
+                    // If no suffix, we use the type from the TypeExpr.
+                    Expression::Literal(_, None) => match named.value() {
+                        NamedType::Bool => "felt", // Default literal type when no suffix
+                        _ => expected_type.as_str(),
+                    },
+                    Expression::Literal(_, Some(suffix)) => suffix,
+                    Expression::BooleanLiteral(_) => "bool",
+                    _ => return,
+                };
+
+                Some((expected_type.to_string(), actual_type.to_string()))
+            }
             _ => None,
         };
 
+        // If both types are different, report an error.
         if let Some((typed_name, actual_type)) = res
             && actual_type != typed_name
         {
