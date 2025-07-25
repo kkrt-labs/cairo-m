@@ -88,7 +88,11 @@ impl Claim {
 
         // Write memory trace
         let (memory_claim, memory_trace, memory_interaction_claim_data) =
-            memory::Claim::write_trace(&input.memory, &input.merkle_trees);
+            memory::Claim::write_trace(
+                &input.memory,
+                &input.merkle_trees,
+                &input.public_address_ranges,
+            );
 
         // Write merkle trace
         let (merkle_claim, merkle_trace, merkle_interaction_claim_data) =

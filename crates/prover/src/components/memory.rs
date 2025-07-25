@@ -1,3 +1,6 @@
+use std::collections::HashSet;
+
+use cairo_m_common::PublicAddressRanges;
 use num_traits::{One, Zero};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
@@ -66,28 +69,53 @@ impl Claim {
     pub fn write_trace<MC: MerkleChannel>(
         inputs: &Memory,
         merkle_trees: &MerkleTrees,
+        public_address_ranges: &PublicAddressRanges,
     ) -> (Self, ComponentTrace<N_TRACE_COLUMNS>, InteractionClaimData)
     where
         SimdBackend: BackendForChannel<MC>,
     {
         let initial_memory_len = inputs.initial_memory.len();
-        let non_padded_length = initial_memory_len + inputs.final_memory.len();
-        let log_size = std::cmp::max(non_padded_length.next_power_of_two(), N_LANES).ilog2();
 
-        // Pack memory entries from the prover input
-        let packed_inputs: Vec<[PackedM31; N_INPUT_COLUMNS]> = inputs
+        // Create HashSets for efficient O(1) lookups of public addresses
+        let public_program_addrs: HashSet<u32> =
+            HashSet::from_iter(public_address_ranges.program.clone());
+        let public_input_addrs: HashSet<u32> =
+            HashSet::from_iter(public_address_ranges.input.clone());
+        let public_output_addrs: HashSet<u32> =
+            HashSet::from_iter(public_address_ranges.output.clone());
+
+        // Pack memory entries from the prover input, filtering out public addresses
+        let packed_inputs_vec: Vec<[M31; N_INPUT_COLUMNS]> = inputs
             .initial_memory
             .iter()
             .chain(inputs.final_memory.iter())
             .enumerate()
-            .map(|(i, ((address, depth), (value, clock, multiplicity)))| {
-                let root = if i < initial_memory_len {
+            .filter_map(|(i, ((address, depth), (value, clock, multiplicity)))| {
+                // Skip entries that have addresses in public_address_ranges and depth is TREE_HEIGHT
+                let address_u32 = address.0;
+                let depth_u32 = depth.0;
+                let is_initial_memory = i < initial_memory_len;
+
+                if depth_u32 == TREE_HEIGHT {
+                    let is_public = if is_initial_memory {
+                        public_program_addrs.contains(&address_u32)
+                            || public_input_addrs.contains(&address_u32)
+                    } else {
+                        public_output_addrs.contains(&address_u32)
+                    };
+
+                    if is_public {
+                        return None;
+                    }
+                }
+
+                let root = if is_initial_memory {
                     merkle_trees.initial_root.unwrap()
                 } else {
                     merkle_trees.final_root.unwrap()
                 };
                 let value_array = value.to_m31_array();
-                [
+                Some([
                     *address,
                     *clock,
                     value_array[0],
@@ -102,8 +130,15 @@ impl Claim {
                     } else {
                         M31::from(1)
                     },
-                ]
+                ])
             })
+            .collect();
+
+        let non_padded_length = packed_inputs_vec.len();
+        let log_size = std::cmp::max(non_padded_length.next_power_of_two(), N_LANES).ilog2();
+
+        let packed_inputs: Vec<[PackedM31; N_INPUT_COLUMNS]> = packed_inputs_vec
+            .into_iter()
             .chain(std::iter::repeat([M31::zero(); N_INPUT_COLUMNS]))
             .take(1 << log_size)
             .array_chunks::<N_LANES>()

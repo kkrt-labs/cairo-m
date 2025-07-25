@@ -214,6 +214,44 @@ impl Memory {
             final_memory: initial_memory_hashmap,
         }
     }
+
+    /// Updates multiplicities for public address ranges based on their usage patterns
+    pub fn update_multiplicities(&mut self, ranges: &cairo_m_common::PublicAddressRanges) {
+        // For program and input addresses
+        for addr in ranges.program.clone().chain(ranges.input.clone()) {
+            let key = (M31::from(addr), M31::from(TREE_HEIGHT));
+
+            // Set initial memory multiplicity to 0
+            if let Some((value, clock, _)) = self.initial_memory.get(&key).cloned() {
+                self.initial_memory.insert(key, (value, clock, M31::zero()));
+            }
+
+            // If final memory has multiplicity 0, switch it to -1
+            if let Some((value, clock, multiplicity)) = self.final_memory.get(&key).cloned() {
+                if multiplicity == M31::zero() {
+                    self.final_memory.insert(key, (value, clock, -M31::one()));
+                }
+            }
+        }
+
+        // For output addresses
+        for addr in ranges.output.clone() {
+            let key = (M31::from(addr), M31::from(TREE_HEIGHT));
+
+            // Set final memory multiplicity to 0
+            if let Some((value, clock, _)) = self.final_memory.get(&key).cloned() {
+                self.final_memory.insert(key, (value, clock, M31::zero()));
+            }
+
+            // If final memory has multiplicity 0 (which it now does), set initial memory multiplicity to 1
+            if let Some((initial_value, initial_clock, _)) = self.initial_memory.get(&key).cloned()
+            {
+                self.initial_memory
+                    .insert(key, (initial_value, initial_clock, M31::one()));
+            }
+        }
+    }
+
     fn push(&mut self, memory_entry: MemoryEntry) -> MemoryArg {
         let prev_memory_entry = self
             .final_memory

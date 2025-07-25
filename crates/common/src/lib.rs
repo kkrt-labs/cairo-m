@@ -6,5 +6,5 @@ pub mod state;
 
 pub use instruction::Instruction;
 pub use opcode::Opcode;
-pub use program::{Program, ProgramMetadata};
+pub use program::{Program, ProgramMetadata, PublicAddressRanges};
 pub use state::State;

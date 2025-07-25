@@ -5,28 +5,27 @@ pub mod merkle;
 use std::collections::HashMap;
 use std::path::Path;
 
-use cairo_m_common::State as VmRegisters;
 use cairo_m_common::execution::Segment;
 use cairo_m_common::opcode::Opcode;
 use cairo_m_common::state::MemoryEntry as RunnerMemoryEntry;
+use cairo_m_common::{PublicAddressRanges, State as VmRegisters};
 use io::VmImportError;
 pub use memory::ExecutionBundle;
 pub use merkle::MockHasher;
-use num_traits::{One, Zero};
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 use tracing::{Level, span};
 
 use crate::adapter::io::{MemoryEntryFileIter, TraceFileIter};
 use crate::adapter::memory::{ExecutionBundleIterator, Memory};
-use crate::adapter::merkle::{NodeData, TREE_HEIGHT, build_partial_merkle_tree};
+use crate::adapter::merkle::{NodeData, build_partial_merkle_tree};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ProverInput {
     pub merkle_trees: MerkleTrees,
     pub memory: Memory,
     pub instructions: Instructions,
-    pub public_addresses: Vec<M31>,
+    pub public_address_ranges: PublicAddressRanges,
 }
 
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
@@ -48,7 +47,7 @@ fn import_internal<TraceIter, MemoryIter>(
     trace_iter: TraceIter,
     memory_iter: MemoryIter,
     initial_memory: Vec<QM31>,
-    public_addresses: Vec<M31>,
+    public_address_ranges: PublicAddressRanges,
 ) -> Result<ProverInput, VmImportError>
 where
     TraceIter: Iterator<Item = VmRegisters>,
@@ -84,32 +83,18 @@ where
 
     // Get the memory state from the iterator
     let mut memory = bundle_iter.into_memory();
-    // Assert that the keys are the same for both initial_memory and final_memory
-    let initial_keys: std::collections::HashSet<_> = memory.initial_memory.keys().collect();
-    let final_keys: std::collections::HashSet<_> = memory.final_memory.keys().collect();
-    debug_assert_eq!(
-        initial_keys, final_keys,
-        "Initial and final memory keys do not match"
-    );
+    memory.update_multiplicities(&public_address_ranges);
 
-    // Set multiplicities to 0 for **USED** public addresses in final memory so that they can be consumed seperately in the PublicData.
-    // Set them to 1 for **UNUSED** public addresses (as the public data consumes them no matter what)
-    for &addr in &public_addresses {
-        if let Some((value, clock, previous_multiplicity)) = memory
-            .final_memory
-            .get(&(addr, M31::from(TREE_HEIGHT)))
-            .cloned()
-        {
-            let new_multiplicity = if previous_multiplicity == M31::zero() {
-                M31::one()
-            } else {
-                M31::zero()
-            };
-            memory.final_memory.insert(
-                (addr, M31::from(TREE_HEIGHT)),
-                (value, clock, new_multiplicity),
-            );
-        }
+    // Assert that the keys are the same for both initial_memory and final_memory
+    // This is a sanity check that uses memory so it's desactivated in release builds.
+    #[cfg(debug_assertions)]
+    {
+        let initial_keys: std::collections::HashSet<_> = memory.initial_memory.keys().collect();
+        let final_keys: std::collections::HashSet<_> = memory.final_memory.keys().collect();
+        assert_eq!(
+            initial_keys, final_keys,
+            "Initial and final memory keys do not match"
+        );
     }
 
     // Build the partial merkle trees and add to the memory the intermediate nodes
@@ -126,7 +111,7 @@ where
             final_root,
         },
         memory,
-        public_addresses,
+        public_address_ranges,
         instructions: Instructions {
             initial_registers,
             final_registers,
@@ -149,12 +134,17 @@ pub fn import_from_runner_artifacts(
     let memory_iter = memory_file_iter.map(Into::into);
 
     unimplemented!("serialize the initial memory and public addresses");
-    import_internal(trace_iter, memory_iter, vec![], vec![])
+    import_internal(
+        trace_iter,
+        memory_iter,
+        vec![],
+        PublicAddressRanges::default(),
+    )
 }
 
 pub fn import_from_runner_output(
     segment: Segment,
-    public_addresses: Vec<M31>,
+    public_address_ranges: PublicAddressRanges,
 ) -> Result<ProverInput, VmImportError> {
     let _span = span!(Level::INFO, "import_from_runner_output").entered();
 
@@ -165,6 +155,6 @@ pub fn import_from_runner_output(
         trace_iter,
         memory_iter,
         segment.initial_memory,
-        public_addresses,
+        public_address_ranges,
     )
 }
