@@ -61,6 +61,15 @@ pub enum DefinitionKind {
     LoopVariable(LoopVariableDefRef),
 }
 
+impl DefinitionKind {
+    pub const fn struct_def(&self) -> Option<&StructDefRef> {
+        match self {
+            Self::Struct(def) => Some(def),
+            _ => None,
+        }
+    }
+}
+
 impl fmt::Display for DefinitionKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

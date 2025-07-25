@@ -38,6 +38,13 @@ fn test() { let (x, y): felt = (1, 2); return; }
    │                                ───┬──  
    │                                   ╰──── Type mismatch for tuple destructuring. Expected `felt`, found `(felt, felt)`
 ───╯
+[2001] Error: type mismatch: expected tuple
+   ╭─[ semantic_tests::functions::tuples::test_tuple_destructuring:1:25 ]
+   │
+ 1 │ fn test() { let (x, y): felt = (1, 2); return; }
+   │                         ──┬─  
+   │                           ╰─── type mismatch: expected tuple
+───╯
 
 ============================================================
 

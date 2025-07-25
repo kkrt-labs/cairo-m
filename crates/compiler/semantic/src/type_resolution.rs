@@ -315,6 +315,7 @@ pub fn expression_semantic_type<'db>(
                 }
             }
 
+            // TODO: develop a proper methodology for type inference.
             // If no specific context is found, default to `felt`.
             TypeId::new(db, TypeData::Felt)
         }
