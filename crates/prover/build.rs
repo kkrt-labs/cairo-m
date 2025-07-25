@@ -115,13 +115,12 @@ fn generate_round_constants_u32(
 
     // Discard first 160 output bits as per spec
     for _ in 0..160 {
-        update_grain_state(&mut state);
+        let _ = update_grain_state(&mut state);
     }
 
     // Generate constants
     while rc_field.len() < rc_number {
-        let (new_state, bits) = generate_field_element_bits(state, prime_bit_len);
-        state = new_state;
+        let bits = generate_field_element_bits(&mut state, prime_bit_len);
 
         // Convert bits to integer
         let rc_int = bits_to_u32(&bits);
@@ -267,43 +266,40 @@ fn init_grain_state(
 /// This function implements the Grain LFSR feedback function as specified in the Poseidon paper.
 /// The feedback polynomial is: b_{i+80} = b_{i+62} ⊕ b_{i+51} ⊕ b_{i+38} ⊕ b_{i+23} ⊕ b_{i+13} ⊕ b_i
 ///
+/// Updates the Grain state and returns the newly generated bit
+///
 /// ## Arguments
 /// * `state` - Mutable reference to the 80-bit LFSR state, updated in place
-fn update_grain_state(state: &mut Vec<bool>) {
+///
+/// ## Returns
+/// The newly generated bit after updating the state
+fn update_grain_state(state: &mut Vec<bool>) -> bool {
     // bi+80 = bi+62 ⊕ bi+51 ⊕ bi+38 ⊕ bi+23 ⊕ bi+13 ⊕ bi
     let new_bit = state[62] ^ state[51] ^ state[38] ^ state[23] ^ state[13] ^ state[0];
     state.remove(0);
     state.push(new_bit);
+    new_bit
 }
 
-/// Generate field element bits using self-shrinking generator.
-///
 /// This function implements the self-shrinking generator pattern on the Grain LFSR output
 /// to produce bits for field elements. For each desired output bit, it generates two LFSR
 /// bits and only outputs the second bit if the first bit is 1 (self-shrinking).
 ///
 /// ## Arguments
-/// * `state` - Current LFSR state (consumed and updated)
+/// * `state` - Mutable reference to the LFSR state (updated in place)
 /// * `prime_bit_len` - Number of bits needed for the field element
 ///
 /// ## Returns
-/// Tuple of (updated_state, generated_bits) where generated_bits has length prime_bit_len
-fn generate_field_element_bits(
-    mut state: Vec<bool>,
-    prime_bit_len: usize,
-) -> (Vec<bool>, Vec<bool>) {
+/// Generated bits vector with length prime_bit_len
+fn generate_field_element_bits(state: &mut Vec<bool>, prime_bit_len: usize) -> Vec<bool> {
     let mut bits = Vec::with_capacity(prime_bit_len);
 
     while bits.len() < prime_bit_len {
-        // Generate first bit - the new bit is what was just calculated
-        let new_bit_1 = state[62] ^ state[51] ^ state[38] ^ state[23] ^ state[13] ^ state[0];
-        state.remove(0);
-        state.push(new_bit_1);
+        // Generate first bit
+        let new_bit_1 = update_grain_state(state);
 
         // Generate second bit
-        let new_bit_2 = state[62] ^ state[51] ^ state[38] ^ state[23] ^ state[13] ^ state[0];
-        state.remove(0);
-        state.push(new_bit_2);
+        let new_bit_2 = update_grain_state(state);
 
         // Self-shrinking: output bit2 only if bit1 is 1
         if new_bit_1 {
@@ -311,7 +307,7 @@ fn generate_field_element_bits(
         }
     }
 
-    (state, bits)
+    bits
 }
 
 /// Convert integer to bit vector in big-endian format.
