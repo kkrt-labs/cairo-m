@@ -936,89 +936,6 @@ impl<'db> SemanticIndexBuilder<'db> {
         }
     }
 
-    /// Proceses the field of a struct by attaching the type of the field to the associated expression, if applicable.
-    fn process_struct_literal_fields(
-        &mut self,
-        name: &Spanned<String>,
-        maybe_def: Option<(DefinitionIndex, crate::Definition, File)>,
-        fields: &'db [(Spanned<String>, Spanned<Expression>)],
-    ) {
-        let error = Diagnostic::error(
-            DiagnosticCode::UndeclaredType,
-            format!("cannot find struct `{}` in this scope", name.value()),
-        )
-        .with_location(self.file.file_path(self.db).to_string(), name.span());
-
-        let Some((_, def, _)) = maybe_def else {
-            self.semantic_syntax_errors.borrow_mut().add(error);
-            return;
-        };
-
-        let Some(struct_def) = def.kind.struct_def() else {
-            self.semantic_syntax_errors.borrow_mut().add(error);
-            return;
-        };
-
-        // Create lookup map from field names to types for flexible matching
-        let struct_fields: HashMap<String, Spanned<TypeExpr>> = struct_def
-            .fields_ast
-            .iter()
-            .map(|(name, type_expr)| (name.clone(), type_expr.clone()))
-            .collect();
-
-        // TODO: Would this need to be recursive to apply to all situations?
-        for (field_name, value) in fields.iter() {
-            self.visit_expr(value);
-
-            // Attach the type of the field to the expression.
-            if let Some(field_type) = struct_fields.get(field_name.value()) {
-                let field_expr_id = self
-                    .index
-                    .expression_id_by_span(value.span())
-                    .expect("field expression should have been registered");
-                let field_expr_info = self
-                    .index
-                    .expression_mut(field_expr_id)
-                    .expect("field expression info should have been registered");
-                field_expr_info.expected_type_ast = Some((*field_type).clone());
-
-                // Handle case where the expr is a tuple - just iterate over the elements.
-                if let Expression::Tuple(elements) = value.value()
-                    && let TypeExpr::Tuple(tuple_types) = field_type.value()
-                {
-                    for (element, tuple_type) in elements.iter().zip(tuple_types) {
-                        let element_expr_id = self
-                            .index
-                            .expression_id_by_span(element.span())
-                            .expect("element expression should have been registered");
-                        let element_expr_info = self
-                            .index
-                            .expression_mut(element_expr_id)
-                            .expect("element expression info should have been registered");
-                        element_expr_info.expected_type_ast = Some((*tuple_type).clone());
-                    }
-                }
-
-                // Ensure the field type matches the literal suffix, if any
-                self.with_semantic_checker(|checker, builder| {
-                    checker.check_expr_type_cohesion(builder, value, field_type);
-                });
-            } else {
-                self.semantic_syntax_errors.borrow_mut().add(
-                    Diagnostic::error(
-                        DiagnosticCode::TypeMismatch,
-                        format!(
-                            "Field `{}` not found in struct `{}`",
-                            field_name.value(),
-                            name.value()
-                        ),
-                    )
-                    .with_location(self.file.file_path(self.db).to_string(), field_name.span()),
-                );
-            }
-        }
-    }
-
     fn with_semantic_checker<F>(&mut self, f: F)
     where
         F: FnOnce(&mut SemanticSyntaxChecker, &mut Self),
@@ -1078,28 +995,6 @@ where
                     .index
                     .expression_id_by_span(value.span())
                     .expect("expression should have been registered");
-                let expr_info = self.index.expression_mut(value_expr_id).unwrap();
-                expr_info.expected_type_ast = statement_type.clone();
-
-                // Special handling for tuple expressions: propagate individual element types
-                if let Expression::Tuple(elements) = value.value() {
-                    if let Some(TypeExpr::Tuple(tuple_types)) =
-                        statement_type.as_ref().map(|t| t.value())
-                    {
-                        if elements.len() == tuple_types.len() {
-                            for (element, element_type) in elements.iter().zip(tuple_types.iter()) {
-                                if let Some(element_expr_id) =
-                                    self.index.expression_id_by_span(element.span())
-                                {
-                                    let element_expr_info =
-                                        self.index.expression_mut(element_expr_id).unwrap();
-                                    element_expr_info.expected_type_ast =
-                                        Some(element_type.clone());
-                                }
-                            }
-                        }
-                    }
-                }
 
                 // Visit the type expression if present
                 if let Some(ty) = statement_type {
@@ -1356,11 +1251,104 @@ where
                     self.current_scope(),
                 );
 
-                self.process_struct_literal_fields(name, maybe_def, fields);
+                // Process fields with proper type context
+                if let Some((_, def, _)) = maybe_def {
+                    if let Some(struct_def) = def.kind.struct_def() {
+                        // Create lookup map from field names to types
+                        let struct_fields: HashMap<String, Spanned<TypeExpr>> = struct_def
+                            .fields_ast
+                            .iter()
+                            .map(|(name, type_expr)| (name.clone(), type_expr.clone()))
+                            .collect();
+
+                        // Visit each field with its expected type
+                        for (field_name, value) in fields.iter() {
+                            if let Some(field_type) = struct_fields.get(field_name.value()) {
+                                // Use with_expected_type to propagate the field type
+                                self.with_expected_type(Some(field_type.clone()), |builder| {
+                                    builder.visit_expr(value);
+                                });
+
+                                // Check type cohesion
+                                self.with_semantic_checker(|checker, builder| {
+                                    checker.check_expr_type_cohesion(builder, value, field_type);
+                                });
+                            } else {
+                                // Field not found in struct - just visit without type hint
+                                self.visit_expr(value);
+
+                                // Report field not found error
+                                self.semantic_syntax_errors.borrow_mut().add(
+                                    Diagnostic::error(
+                                        DiagnosticCode::TypeMismatch,
+                                        format!(
+                                            "Field `{}` not found in struct `{}`",
+                                            field_name.value(),
+                                            name.value()
+                                        ),
+                                    )
+                                    .with_location(
+                                        self.file.file_path(self.db).to_string(),
+                                        field_name.span(),
+                                    ),
+                                );
+                            }
+                        }
+                    } else {
+                        // Not a struct definition - visit fields without type hints
+                        for (_, value) in fields.iter() {
+                            self.visit_expr(value);
+                        }
+
+                        // Report error
+                        let error = Diagnostic::error(
+                            DiagnosticCode::UndeclaredType,
+                            format!("cannot find struct `{}` in this scope", name.value()),
+                        )
+                        .with_location(self.file.file_path(self.db).to_string(), name.span());
+                        self.semantic_syntax_errors.borrow_mut().add(error);
+                    }
+                } else {
+                    // Definition not found - visit fields without type hints
+                    for (_, value) in fields.iter() {
+                        self.visit_expr(value);
+                    }
+
+                    // Report error
+                    let error = Diagnostic::error(
+                        DiagnosticCode::UndeclaredType,
+                        format!("cannot find struct `{}` in this scope", name.value()),
+                    )
+                    .with_location(self.file.file_path(self.db).to_string(), name.span());
+                    self.semantic_syntax_errors.borrow_mut().add(error);
+                }
             }
             Expression::Tuple(exprs) => {
-                for expr in exprs {
-                    self.visit_expr(expr);
+                // If we have a tuple type hint, propagate individual element types
+                let has_matching_hint =
+                    self.expected_type_hint
+                        .as_ref()
+                        .and_then(|hint| match hint.value() {
+                            TypeExpr::Tuple(element_types)
+                                if element_types.len() == exprs.len() =>
+                            {
+                                Some(element_types.clone())
+                            }
+                            _ => None,
+                        });
+
+                if let Some(element_types) = has_matching_hint {
+                    // Visit each element with its specific type hint
+                    for (expr, element_type) in exprs.iter().zip(element_types.iter()) {
+                        self.with_expected_type(Some(element_type.clone()), |builder| {
+                            builder.visit_expr(expr);
+                        });
+                    }
+                } else {
+                    // No matching tuple hint or mismatched lengths - visit without hints
+                    for expr in exprs {
+                        self.visit_expr(expr);
+                    }
                 }
             }
             Expression::Literal(_, _) | Expression::BooleanLiteral(_) => {

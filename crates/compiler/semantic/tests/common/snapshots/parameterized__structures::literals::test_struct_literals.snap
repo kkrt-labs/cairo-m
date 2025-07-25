@@ -90,13 +90,6 @@ struct Point { fields: (felt, bool) } fn test() { let p = Point { fields: (10, 2
                 struct Foo { bar: (u32, (bool, felt)) }
                 fn test() { let f = Foo { bar: (10, (1, 20)) }; return; }
 --- Diagnostics ---
-[2001] Error: Type mismatch for field `bar`. Expected `(u32, (bool, felt))`, found `(u32, (felt, felt))`
-   ╭─[ semantic_tests::structures::literals::test_struct_literals:3:48 ]
-   │
- 3 │                 fn test() { let f = Foo { bar: (10, (1, 20)) }; return; }
-   │                                                ──────┬──────  
-   │                                                      ╰──────── Type mismatch for field `bar`. Expected `(u32, (bool, felt))`, found `(u32, (felt, felt))`
-───╯
 [2001] Error: expected `bool`, got `felt`
    ╭─[ semantic_tests::structures::literals::test_struct_literals:3:54 ]
    │
