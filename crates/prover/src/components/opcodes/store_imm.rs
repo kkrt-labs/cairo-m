@@ -20,7 +20,7 @@
 //! * registers update is regular
 //!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
 //! * read instruction from memory
-//!   * `- [pc, inst_prev_clk, opcode_constant, off0, zero, off2] + [pc, clk, opcode_constant, off0, zero, off2]` in `Memory` relation
+//!   * `- [pc, inst_prev_clk, opcode_constant, off0, off2] + [pc, clk, opcode_constant, off0, off2]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
 //! * write dst in [fp + off2]
 //!   * `- [fp + off2, dst_prev_clk, dst_prev_val] + [fp + off2, clk, off0]` in `Memory` Relation
