@@ -162,7 +162,7 @@ macro_rules! define_opcodes {
     };
 }
 
-use cairo_m_common::Opcode;
+use cairo_m_common::instruction::*;
 use num_traits::Zero;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
@@ -185,19 +185,19 @@ use crate::components::Relations;
 
 // Define all opcode structures and implementations with a single macro call
 define_opcodes! {
-    (Opcode::CallAbsImm, call_abs_imm),
-    (Opcode::JmpAbsImm, jmp_abs_imm),
-    (Opcode::JmpRelImm, jmp_rel_imm),
-    (Opcode::JnzFpImm, jnz_fp_imm),
-    (Opcode::Ret, ret),
-    (Opcode::StoreAddFpFp, store_add_fp_fp),
-    (Opcode::StoreAddFpImm, store_add_fp_imm),
-    (Opcode::StoreDivFpFp, store_div_fp_fp),
-    (Opcode::StoreDivFpImm, store_div_fp_imm),
-    (Opcode::StoreDoubleDerefFp, store_double_deref_fp),
-    (Opcode::StoreImm, store_imm),
-    (Opcode::StoreMulFpFp, store_mul_fp_fp),
-    (Opcode::StoreMulFpImm, store_mul_fp_imm),
-    (Opcode::StoreSubFpFp, store_sub_fp_fp),
-    (Opcode::StoreSubFpImm, store_sub_fp_imm),
+    (CALL_ABS_IMM, call_abs_imm),
+    (JMP_ABS_IMM, jmp_abs_imm),
+    (JMP_REL_IMM, jmp_rel_imm),
+    (JNZ_FP_IMM, jnz_fp_imm),
+    (RET, ret),
+    (STORE_ADD_FP_FP, store_add_fp_fp),
+    (STORE_ADD_FP_IMM, store_add_fp_imm),
+    (STORE_DIV_FP_FP, store_div_fp_fp),
+    (STORE_DIV_FP_IMM, store_div_fp_imm),
+    (STORE_DOUBLE_DEREF_FP, store_double_deref_fp),
+    (STORE_IMM, store_imm),
+    (STORE_MUL_FP_FP, store_mul_fp_fp),
+    (STORE_MUL_FP_IMM, store_mul_fp_imm),
+    (STORE_SUB_FP_FP, store_sub_fp_fp),
+    (STORE_SUB_FP_IMM, store_sub_fp_imm),
 }
