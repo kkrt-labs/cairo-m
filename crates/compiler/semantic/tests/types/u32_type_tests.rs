@@ -52,7 +52,7 @@ fn test_u32_explicit_declaration() {
     for (expr_id, expr_info) in index.all_expressions() {
         if let cairo_m_compiler_parser::parser::Expression::Identifier(name) = &expr_info.ast_node {
             if name.value() == "x" {
-                let expr_type = expression_semantic_type(&db, crate_id, file, expr_id);
+                let expr_type = expression_semantic_type(&db, crate_id, file, expr_id, None);
                 assert!(matches!(expr_type.data(&db), TypeData::U32));
                 found_u32_var = true;
             }
@@ -83,7 +83,7 @@ fn test_u32_arithmetic_operations() {
     let mut u32_operations = 0;
     for (expr_id, expr_info) in index.all_expressions() {
         if let cairo_m_compiler_parser::parser::Expression::BinaryOp { .. } = &expr_info.ast_node {
-            let expr_type = expression_semantic_type(&db, crate_id, file, expr_id);
+            let expr_type = expression_semantic_type(&db, crate_id, file, expr_id, None);
             if matches!(expr_type.data(&db), TypeData::U32) {
                 u32_operations += 1;
             }
@@ -126,7 +126,7 @@ fn test_u32_comparison_operations() {
             ..
         } = &expr_info.ast_node
         {
-            let expr_type = expression_semantic_type(&db, crate_id, file, expr_id);
+            let expr_type = expression_semantic_type(&db, crate_id, file, expr_id, None);
             if matches!(expr_type.data(&db), TypeData::Bool) {
                 bool_operations += 1;
             }
@@ -158,7 +158,7 @@ fn test_u32_unary_operations() {
     for (expr_id, expr_info) in index.all_expressions() {
         if let cairo_m_compiler_parser::parser::Expression::UnaryOp { op, .. } = &expr_info.ast_node
         {
-            let expr_type = expression_semantic_type(&db, crate_id, file, expr_id);
+            let expr_type = expression_semantic_type(&db, crate_id, file, expr_id, None);
             if matches!(op, UnaryOp::Neg) && matches!(expr_type.data(&db), TypeData::U32) {
                 found_neg_u32 = true;
             }
@@ -200,7 +200,7 @@ fn test_u32_tuple_type() {
     for (expr_id, expr_info) in index.all_expressions() {
         if let cairo_m_compiler_parser::parser::Expression::Identifier(name) = &expr_info.ast_node {
             if name.value() == "pair" {
-                let expr_type = expression_semantic_type(&db, crate_id, file, expr_id);
+                let expr_type = expression_semantic_type(&db, crate_id, file, expr_id, None);
                 if let TypeData::Tuple(types) = expr_type.data(&db) {
                     assert_eq!(types.len(), 2);
                     assert!(matches!(types[0].data(&db), TypeData::U32));
@@ -239,7 +239,7 @@ fn test_u32_in_struct() {
             &expr_info.ast_node
         {
             if field.value() == "value" {
-                let expr_type = expression_semantic_type(&db, crate_id, file, expr_id);
+                let expr_type = expression_semantic_type(&db, crate_id, file, expr_id, None);
                 assert!(matches!(expr_type.data(&db), TypeData::U32));
                 found_u32_field = true;
             }
@@ -271,7 +271,7 @@ fn test_u32_in_function_signature() {
         if let cairo_m_compiler_parser::parser::Expression::FunctionCall { .. } =
             &expr_info.ast_node
         {
-            let expr_type = expression_semantic_type(&db, crate_id, file, expr_id);
+            let expr_type = expression_semantic_type(&db, crate_id, file, expr_id, None);
             if matches!(expr_type.data(&db), TypeData::U32) {
                 found_u32_call = true;
             }
@@ -301,7 +301,7 @@ fn test_untyped_let_should_be_felt() {
     for (expr_id, expr_info) in index.all_expressions() {
         if let cairo_m_compiler_parser::parser::Expression::Identifier(name) = &expr_info.ast_node {
             if name.value() == "x" {
-                let expr_type = expression_semantic_type(&db, crate_id, file, expr_id);
+                let expr_type = expression_semantic_type(&db, crate_id, file, expr_id, None);
                 assert!(matches!(expr_type.data(&db), TypeData::Felt));
                 assert!(!matches!(expr_type.data(&db), TypeData::U32));
             }
@@ -326,7 +326,7 @@ fn test_typed_let_should_be_u32() {
     for (expr_id, expr_info) in index.all_expressions() {
         if let cairo_m_compiler_parser::parser::Expression::Identifier(name) = &expr_info.ast_node {
             if name.value() == "x" {
-                let expr_type = expression_semantic_type(&db, crate_id, file, expr_id);
+                let expr_type = expression_semantic_type(&db, crate_id, file, expr_id, None);
                 assert!(matches!(expr_type.data(&db), TypeData::U32));
             }
         }

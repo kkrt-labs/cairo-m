@@ -240,8 +240,40 @@ impl TypeValidator {
             return;
         };
 
-        let left_type = expression_semantic_type(db, crate_id, file, left_id);
-        let right_type = expression_semantic_type(db, crate_id, file, right_id);
+        // For commutative operators with literal operands, we need special handling
+        let is_commutative = matches!(
+            op,
+            BinaryOp::Add | BinaryOp::Mul | BinaryOp::Eq | BinaryOp::Neq
+        );
+
+        let (left_type, right_type) = if is_commutative {
+            // Check if operands are literals
+            let left_expr = &index.expression(left_id).unwrap().ast_node;
+            let right_expr = &index.expression(right_id).unwrap().ast_node;
+
+            let left_is_unsuffixed_literal = matches!(left_expr, Expression::Literal(_, None));
+            let right_is_unsuffixed_literal = matches!(right_expr, Expression::Literal(_, None));
+
+            if left_is_unsuffixed_literal && !right_is_unsuffixed_literal {
+                // Infer right first, then use it as context for left
+                let right_type = expression_semantic_type(db, crate_id, file, right_id, None);
+                let left_type =
+                    expression_semantic_type(db, crate_id, file, left_id, Some(right_type));
+                (left_type, right_type)
+            } else {
+                // Default: left first, then right with left as context
+                let left_type = expression_semantic_type(db, crate_id, file, left_id, None);
+                let right_type =
+                    expression_semantic_type(db, crate_id, file, right_id, Some(left_type));
+                (left_type, right_type)
+            }
+        } else {
+            // Non-commutative operators
+            let left_type = expression_semantic_type(db, crate_id, file, left_id, None);
+            let right_type =
+                expression_semantic_type(db, crate_id, file, right_id, Some(left_type));
+            (left_type, right_type)
+        };
 
         // Any un-resolved type must not trigger a type mismatch error here.
         if left_type.data(db) == TypeData::Error || right_type.data(db) == TypeData::Error {
@@ -303,7 +335,7 @@ impl TypeValidator {
             return;
         };
 
-        let expr_type = expression_semantic_type(db, crate_id, file, expr_id);
+        let expr_type = expression_semantic_type(db, crate_id, file, expr_id, None);
 
         let unary_op_signatures = get_unary_op_signatures(db);
         let unary_op_on_expr_type = unary_op_signatures
@@ -338,7 +370,7 @@ impl TypeValidator {
         let Some(callee_expr_id) = index.expression_id_by_span(callee.span()) else {
             return;
         };
-        let callee_type = expression_semantic_type(db, crate_id, file, callee_expr_id);
+        let callee_type = expression_semantic_type(db, crate_id, file, callee_expr_id, None);
 
         match callee_type.data(db) {
             TypeData::Function(signature_id) => {
@@ -363,7 +395,14 @@ impl TypeValidator {
                 // Check argument types
                 for (arg, (_param_name, param_type)) in args.iter().zip(params.iter()) {
                     if let Some(arg_expr_id) = index.expression_id_by_span(arg.span()) {
-                        let arg_type = expression_semantic_type(db, crate_id, file, arg_expr_id);
+                        // Pass the expected parameter type as context for literal inference
+                        let arg_type = expression_semantic_type(
+                            db,
+                            crate_id,
+                            file,
+                            arg_expr_id,
+                            Some(*param_type),
+                        );
 
                         if !are_types_compatible(db, arg_type, *param_type) {
                             let suggestion =
@@ -439,7 +478,7 @@ impl TypeValidator {
         let Some(object_id) = index.expression_id_by_span(object.span()) else {
             return;
         };
-        let object_type_id = expression_semantic_type(db, crate_id, file, object_id);
+        let object_type_id = expression_semantic_type(db, crate_id, file, object_id, None);
         let object_type = object_type_id.data(db);
 
         match object_type {
@@ -491,7 +530,7 @@ impl TypeValidator {
         let Some(array_id) = index.expression_id_by_span(array.span()) else {
             return;
         };
-        let array_type_id = expression_semantic_type(db, crate_id, file, array_id);
+        let array_type_id = expression_semantic_type(db, crate_id, file, array_id, None);
         let array_type = array_type_id.data(db);
 
         // Check if the array expression is indexable
@@ -501,7 +540,7 @@ impl TypeValidator {
                 let Some(index_id) = index.expression_id_by_span(index_expr.span()) else {
                     return;
                 };
-                let index_type_id = expression_semantic_type(db, crate_id, file, index_id);
+                let index_type_id = expression_semantic_type(db, crate_id, file, index_id, None);
                 let index_type = index_type_id.data(db);
 
                 if !matches!(index_type, TypeData::Felt) {
@@ -602,7 +641,8 @@ impl TypeValidator {
             {
                 // Check field value type compatibility
                 if let Some(value_expr_id) = index.expression_id_by_span(field_value.span()) {
-                    let actual_type = expression_semantic_type(db, crate_id, file, value_expr_id);
+                    let actual_type =
+                        expression_semantic_type(db, crate_id, file, value_expr_id, None);
 
                     if !are_types_compatible(db, actual_type, *expected_type) {
                         diagnostics.push(
@@ -772,7 +812,7 @@ impl TypeValidator {
 
                     // Check that condition is boolean type
                     let condition_type =
-                        expression_semantic_type(db, crate_id, file, condition_expr_id);
+                        expression_semantic_type(db, crate_id, file, condition_expr_id, None);
                     let bool_type = TypeId::new(db, TypeData::Bool);
 
                     if !are_types_compatible(db, condition_type, bool_type) {
@@ -825,7 +865,7 @@ impl TypeValidator {
         let Some(value_expr_id) = index.expression_id_by_span(value.span()) else {
             return;
         };
-        let value_type = expression_semantic_type(db, crate_id, file, value_expr_id);
+        let value_type = expression_semantic_type(db, crate_id, file, value_expr_id, None);
 
         match pattern {
             Pattern::Identifier(name) => {
@@ -928,8 +968,8 @@ impl TypeValidator {
             return;
         };
 
-        let lhs_type = expression_semantic_type(db, crate_id, file, lhs_expr_id);
-        let rhs_type = expression_semantic_type(db, crate_id, file, rhs_expr_id);
+        let lhs_type = expression_semantic_type(db, crate_id, file, lhs_expr_id, None);
+        let rhs_type = expression_semantic_type(db, crate_id, file, rhs_expr_id, None);
 
         // Check if LHS is assignable
         match lhs.value() {
@@ -1043,7 +1083,8 @@ impl TypeValidator {
                 let return_expr_id = index
                     .expression_id_by_span(return_expr.span())
                     .expect("Return expression not found");
-                let return_type = expression_semantic_type(db, crate_id, file, return_expr_id);
+                let return_type =
+                    expression_semantic_type(db, crate_id, file, return_expr_id, None);
 
                 if !are_types_compatible(db, return_type, expected_return_type) {
                     let suggestion =
@@ -1121,7 +1162,7 @@ impl TypeValidator {
         let Some(condition_expr_id) = index.expression_id_by_span(condition.span()) else {
             return;
         };
-        let condition_type = expression_semantic_type(db, crate_id, file, condition_expr_id);
+        let condition_type = expression_semantic_type(db, crate_id, file, condition_expr_id, None);
         let bool_type = TypeId::new(db, TypeData::Bool);
 
         if !are_types_compatible(db, condition_type, bool_type) {

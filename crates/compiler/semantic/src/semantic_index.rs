@@ -649,6 +649,8 @@ pub(crate) struct SemanticIndexBuilder<'db> {
     scope_stack: Vec<FileScopeId>,
     /// Current loop nesting depth for tracking break/continue validity
     loop_depth: usize,
+    /// Current expected type hint for expression inference
+    expected_type_hint: Option<Spanned<TypeExpr>>,
 
     /// Errors collected while building the semantic index.
     semantic_syntax_errors: RefCell<DiagnosticCollection>,
@@ -679,6 +681,7 @@ impl<'db> SemanticIndexBuilder<'db> {
             index: SemanticIndex::new(),
             scope_stack: Vec::new(),
             loop_depth: 0,
+            expected_type_hint: None,
             semantic_syntax_errors: RefCell::new(Default::default()),
             semantic_syntax_checker: SemanticSyntaxChecker::default(),
         };
@@ -743,6 +746,17 @@ impl<'db> SemanticIndexBuilder<'db> {
         self.scope_stack
             .pop()
             .expect("tried to pop from empty scope stack");
+    }
+
+    /// Execute a function with a specific expected type hint
+    fn with_expected_type<F>(&mut self, hint: Option<Spanned<TypeExpr>>, f: F)
+    where
+        F: FnOnce(&mut Self),
+    {
+        let old_hint = self.expected_type_hint.clone();
+        self.expected_type_hint = hint;
+        f(self);
+        self.expected_type_hint = old_hint;
     }
 
     /// Create a new scope and execute the given function within it.
@@ -1054,8 +1068,10 @@ where
                 use crate::definition::{DefinitionKind, LetDefRef};
                 use crate::place::PlaceFlags;
 
-                // Visit the value expression first (evaluation order)
-                self.visit_expr(value);
+                // Visit the value expression with expected type hint
+                self.with_expected_type(statement_type.clone(), |builder| {
+                    builder.visit_expr(value);
+                });
 
                 // Add type info, if present
                 let value_expr_id = self
@@ -1064,6 +1080,26 @@ where
                     .expect("expression should have been registered");
                 let expr_info = self.index.expression_mut(value_expr_id).unwrap();
                 expr_info.expected_type_ast = statement_type.clone();
+
+                // Special handling for tuple expressions: propagate individual element types
+                if let Expression::Tuple(elements) = value.value() {
+                    if let Some(TypeExpr::Tuple(tuple_types)) =
+                        statement_type.as_ref().map(|t| t.value())
+                    {
+                        if elements.len() == tuple_types.len() {
+                            for (element, element_type) in elements.iter().zip(tuple_types.iter()) {
+                                if let Some(element_expr_id) =
+                                    self.index.expression_id_by_span(element.span())
+                                {
+                                    let element_expr_info =
+                                        self.index.expression_mut(element_expr_id).unwrap();
+                                    element_expr_info.expected_type_ast =
+                                        Some(element_type.clone());
+                                }
+                            }
+                        }
+                    }
+                }
 
                 // Visit the type expression if present
                 if let Some(ty) = statement_type {
@@ -1249,7 +1285,7 @@ where
             ast_node: expr.value().clone(),
             ast_span: expr.span(),
             scope_id: self.current_scope(),
-            expected_type_ast: None,
+            expected_type_ast: self.expected_type_hint.clone(),
         };
         let _expr_id = self.index.add_expression(expr_info);
 

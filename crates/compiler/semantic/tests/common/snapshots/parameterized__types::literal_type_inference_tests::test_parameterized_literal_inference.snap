@@ -1,0 +1,42 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test() { let x: u32 = 10; let y: felt = 20; let z = x + y; return; }
+--- Diagnostics ---
+[2001] Error: Invalid right operand for arithmetic operator `+`. Expected `u32`, found `felt`
+   ╭─[ semantic_tests::types::literal_type_inference_tests::test_parameterized_literal_inference:1:60 ]
+   │
+ 1 │ fn test() { let x: u32 = 10; let y: felt = 20; let z = x + y; return; }
+   │                                                            ┬  
+   │                                                            ╰── Invalid right operand for arithmetic operator `+`. Expected `u32`, found `felt`
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+fn test() { let x: u32 = 10; let y: felt = x; return; }
+--- Diagnostics ---
+[2001] Error: Type mismatch for let statement `y`. Expected `felt`, found `u32`
+   ╭─[ semantic_tests::types::literal_type_inference_tests::test_parameterized_literal_inference:1:44 ]
+   │
+ 1 │ fn test() { let x: u32 = 10; let y: felt = x; return; }
+   │                                            ┬  
+   │                                            ╰── Type mismatch for let statement `y`. Expected `felt`, found `u32`
+───╯
+
+============================================================
+
+--- Input 3 (ERROR) ---
+fn test() { let x: bool = 42; return; }
+--- Diagnostics ---
+[2001] Error: expected `bool`, got `felt`
+   ╭─[ semantic_tests::types::literal_type_inference_tests::test_parameterized_literal_inference:1:27 ]
+   │
+ 1 │ fn test() { let x: bool = 42; return; }
+   │                           ─┬  
+   │                            ╰── expected `bool`, got `felt`
+   │                            │  
+   │                            ╰── change the type of the numeric literal from `felt` to `bool`
+───╯

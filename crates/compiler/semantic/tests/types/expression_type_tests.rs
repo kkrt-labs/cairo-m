@@ -34,13 +34,13 @@ fn test_literal_expression_types() {
 
     // Test literal 42
     if let Some(expr_id) = find_expr_id("42") {
-        let expr_type = expression_semantic_type(&db, crate_id, file, expr_id);
+        let expr_type = expression_semantic_type(&db, crate_id, file, expr_id, None);
         assert!(matches!(expr_type.data(&db), TypeData::Felt));
     }
 
     // Test literal 0
     if let Some(expr_id) = find_expr_id("0") {
-        let expr_type = expression_semantic_type(&db, crate_id, file, expr_id);
+        let expr_type = expression_semantic_type(&db, crate_id, file, expr_id, None);
         assert!(matches!(expr_type.data(&db), TypeData::Felt));
     }
 }
@@ -70,7 +70,7 @@ fn test_identifier_expression_types() {
             let expr_info = semantic_index.expression(*expr_id).unwrap();
             // Check if this is an identifier expression (not a definition)
             if matches!(expr_info.ast_node, Expression::Identifier(_)) {
-                let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id);
+                let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id, None);
                 assert!(matches!(expr_type.data(&db), TypeData::Felt));
                 break;
             }
@@ -104,7 +104,7 @@ fn test_binary_expression_types() {
             expr_info.ast_node,
             cairo_m_compiler_parser::parser::Expression::BinaryOp { .. }
         ) {
-            let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id);
+            let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id, None);
             // Binary operations on felt should result in felt
             assert!(
                 matches!(expr_type.data(&db), TypeData::Felt),
@@ -139,7 +139,7 @@ fn test_member_access_expression_types() {
             expr_info.ast_node,
             cairo_m_compiler_parser::parser::Expression::MemberAccess { .. }
         ) {
-            let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id);
+            let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id, None);
             // Member access to felt fields should result in felt
             assert!(
                 matches!(expr_type.data(&db), TypeData::Felt),
@@ -180,7 +180,7 @@ fn test_function_call_expression_types() {
             cairo_m_compiler_parser::parser::Expression::FunctionCall { .. }
         ) && source_text.contains("make_point")
         {
-            let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id);
+            let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id, None);
             // Function call should return Point
             assert!(
                 matches!(expr_type.data(&db), TypeData::Struct(_)),
@@ -217,7 +217,7 @@ fn test_struct_literal_expression_types() {
             expr_info.ast_node,
             cairo_m_compiler_parser::parser::Expression::StructLiteral { .. }
         ) {
-            let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id);
+            let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id, None);
             // Struct literal should have the struct type
             match expr_type.data(&db) {
                 TypeData::Struct(struct_id) => {
@@ -260,7 +260,7 @@ fn test_complex_expression_type_inference() {
         if matches!(expr_info.ast_node, Expression::BinaryOp { .. })
             && source_text.contains("dx * dx + dy * dy")
         {
-            let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id);
+            let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id, None);
             // Complex arithmetic expression should result in felt
             assert!(
                 matches!(expr_type.data(&db), TypeData::Felt),
@@ -299,7 +299,7 @@ fn test_unary_expression_types() {
             expr_info.ast_node,
             cairo_m_compiler_parser::parser::Expression::UnaryOp { .. }
         ) {
-            let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id);
+            let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id, None);
 
             // Check type based on the operation
             if source_text.starts_with('-') {

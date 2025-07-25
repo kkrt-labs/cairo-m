@@ -1,0 +1,129 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test() { let x: u32 = 10; let y: felt = 20; let z = x + y; return; }
+--- Diagnostics ---
+[2001] Error: Invalid right operand for arithmetic operator `+`. Expected `u32`, found `felt`
+   ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:60 ]
+   │
+ 1 │ fn test() { let x: u32 = 10; let y: felt = 20; let z = x + y; return; }
+   │                                                            ┬  
+   │                                                            ╰── Invalid right operand for arithmetic operator `+`. Expected `u32`, found `felt`
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+fn test() { let x: u32 = 10; let y: felt = x; return; }
+--- Diagnostics ---
+[2001] Error: Type mismatch for let statement `y`. Expected `felt`, found `u32`
+   ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:44 ]
+   │
+ 1 │ fn test() { let x: u32 = 10; let y: felt = x; return; }
+   │                                            ┬  
+   │                                            ╰── Type mismatch for let statement `y`. Expected `felt`, found `u32`
+───╯
+
+============================================================
+
+--- Input 3 (ERROR) ---
+fn test() { let b: bool = 42; return; }
+--- Diagnostics ---
+[2001] Error: expected `bool`, got `felt`
+   ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:27 ]
+   │
+ 1 │ fn test() { let b: bool = 42; return; }
+   │                           ─┬  
+   │                            ╰── expected `bool`, got `felt`
+   │                            │  
+   │                            ╰── change the type of the numeric literal from `felt` to `bool`
+───╯
+
+============================================================
+
+--- Input 4 (ERROR) ---
+fn test() { let x: felt = 32u32; return; }
+--- Diagnostics ---
+[2001] Error: Type mismatch for let statement `x`. Expected `felt`, found `u32`
+   ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:27 ]
+   │
+ 1 │ fn test() { let x: felt = 32u32; return; }
+   │                           ──┬──  
+   │                             ╰──── Type mismatch for let statement `x`. Expected `felt`, found `u32`
+───╯
+[2001] Error: expected `felt`, got `u32`
+   ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:27 ]
+   │
+ 1 │ fn test() { let x: felt = 32u32; return; }
+   │                           ──┬──  
+   │                             ╰──── expected `felt`, got `u32`
+   │                             │    
+   │                             ╰──── change the type of the numeric literal from `u32` to `felt`
+───╯
+
+============================================================
+
+--- Input 5 (ERROR) ---
+fn test() { let x: u32 = -5; return; }
+--- Diagnostics ---
+[2001] Error: negative literal values are not allowed for type u32
+   ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:26 ]
+   │
+ 1 │ fn test() { let x: u32 = -5; return; }
+   │                          ─┬  
+   │                           ╰── negative literal values are not allowed for type u32
+   │                           │  
+   │                           ╰── u32 can only hold values from 0 to 4294967295
+───╯
+
+============================================================
+
+--- Input 6 (ERROR) ---
+struct P { x: felt, y: felt } fn test() { let _p = P { x: 10, y: 20u32 }; return; }
+--- Diagnostics ---
+[2001] Error: Type mismatch for field `y`. Expected `felt`, found `u32`
+   ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:66 ]
+   │
+ 1 │ struct P { x: felt, y: felt } fn test() { let _p = P { x: 10, y: 20u32 }; return; }
+   │                                                                  ──┬──  
+   │                                                                    ╰──── Type mismatch for field `y`. Expected `felt`, found `u32`
+───╯
+[2001] Error: expected `felt`, got `u32`
+   ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:66 ]
+   │
+ 1 │ struct P { x: felt, y: felt } fn test() { let _p = P { x: 10, y: 20u32 }; return; }
+   │                                                                  ──┬──  
+   │                                                                    ╰──── expected `felt`, got `u32`
+   │                                                                    │    
+   │                                                                    ╰──── change the type of the numeric literal from `u32` to `felt`
+───╯
+
+============================================================
+
+--- Input 7 (ERROR) ---
+struct S { f: (felt, bool) } fn test() { let _s = S { f: (10, 20) }; return; }
+--- Diagnostics ---
+[2001] Error: expected `bool`, got `felt`
+   ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:63 ]
+   │
+ 1 │ struct S { f: (felt, bool) } fn test() { let _s = S { f: (10, 20) }; return; }
+   │                                                               ─┬  
+   │                                                                ╰── expected `bool`, got `felt`
+   │                                                                │  
+   │                                                                ╰── change the type of the numeric literal from `felt` to `bool`
+───╯
+
+============================================================
+
+--- Input 8 (ERROR) ---
+fn test() { let pair: (felt, u32) = (10, 20); let (x, y) = pair; let sum = x + y; return; }
+--- Diagnostics ---
+[2001] Error: Invalid right operand for arithmetic operator `+`. Expected `felt`, found `u32`
+   ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:80 ]
+   │
+ 1 │ fn test() { let pair: (felt, u32) = (10, 20); let (x, y) = pair; let sum = x + y; return; }
+   │                                                                                ┬  
+   │                                                                                ╰── Invalid right operand for arithmetic operator `+`. Expected `felt`, found `u32`
+───╯
