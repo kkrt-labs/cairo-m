@@ -9,6 +9,8 @@ use stwo_prover::core::fields::m31::M31;
 use crate::adapter::merkle::MerkleHasher;
 
 /// PoseidonHash implementation for M31 field.
+///
+/// All documentation on Poseidon : https://www.poseidon-hash.info
 /// Poseidon paper: https://eprint.iacr.org/2019/458.pdf
 /// Ingonyama Python implementation: https://github.com/ingonyama-zk/poseidon-hash
 #[derive(Clone)]
@@ -162,7 +164,23 @@ mod tests {
         // Apply Poseidon permutation
         let output = PoseidonHash::permutation(input);
 
-        // Expected output state from the reference implementation
+        // Expected output state from the reference implementation, run with Python implementation
+        //
+        // poseidon.Poseidon(
+        //     p=2**31 - 1,
+        //     security_level=96,
+        //     alpha=5,
+        //     input_rate=2,
+        //     t=2+7,
+        //     full_round=8,
+        //     partial_round=56,
+        // )
+        //
+        // input_vec = [0 for _ in range(0, t)]
+        // input_vec[0] = 1
+        // input_vec[1] = 1
+        //
+        // poseidon_output = poseidon_new.run_hash(input_vec)
         let expected = [
             281984366, 1639677230, 1668030855, 1789277404, 369911947, 1865901295, 1243316563,
             1172538544, 151553736,

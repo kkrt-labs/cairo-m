@@ -6,6 +6,8 @@ use std::path::Path;
 // Include the shared parameters
 include!("src/utils/poseidon/poseidon_params.rs");
 
+/// All documentation on Poseidon : https://www.poseidon-hash.info
+/// Sage implementation for round constants and MDS matrix generation: https://extgit.isec.tugraz.at/krypto/hadeshash/-/blob/master/code/generate_parameters_grain.sage
 /// Build script entry point that generates Poseidon constants at compile time.
 ///
 /// This function generates the round constants and MDS matrix required for the Poseidon hash
