@@ -4,6 +4,10 @@ use num_traits::Zero;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 
+// Re-export PoseidonHash for convenience
+pub use crate::utils::poseidon::PoseidonHash as DefaultHasher;
+use crate::utils::poseidon::{PoseidonHash, PoseidonRoundData};
+
 /// NodeData represents a node in the partial Merkle tree
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NodeData {
@@ -11,15 +15,17 @@ pub struct NodeData {
     pub depth: u8,
     pub value_left: M31,
     pub value_right: M31,
+    pub value_parent: M31,
 }
 
 impl NodeData {
-    pub fn to_m31_array(&self) -> [M31; 4] {
+    pub fn to_m31_array(&self) -> [M31; 5] {
         [
             self.index,
             M31::from(self.depth as u32),
             self.value_left,
             self.value_right,
+            self.value_parent,
         ]
     }
 }
@@ -37,46 +43,18 @@ pub const MAX_MEMORY_LOG_SIZE: u32 = 28;
 pub const QM31_LOG_SIZE: u32 = 2; // a QM31 is 4 M31 so 4 leaves
 pub const TREE_HEIGHT: u32 = MAX_MEMORY_LOG_SIZE + QM31_LOG_SIZE; // tree height is 30, with depth 0 (root) to depth 30 (leaves)
 
-/// Mock hash implementation for testing
-#[derive(Clone)]
-pub struct MockHasher;
-
-impl MerkleHasher for MockHasher {
-    fn hash(left: M31, right: M31) -> M31 {
-        left + right
-    }
-
-    fn default_hashes() -> &'static [M31] {
-        use std::sync::OnceLock;
-        static DEFAULT_HASHES: OnceLock<Vec<M31>> = OnceLock::new();
-
-        DEFAULT_HASHES.get_or_init(|| {
-            let mut defaults = vec![M31::zero(); (TREE_HEIGHT + 1) as usize];
-
-            // Depth 30 (leaves): zero values
-            defaults[TREE_HEIGHT as usize] = M31::zero();
-
-            // Compute default hashes for each depth from leaves to root
-            for depth in (0..TREE_HEIGHT).rev() {
-                let child_default = defaults[(depth + 1) as usize];
-                defaults[depth as usize] = Self::hash(child_default, child_default);
-            }
-
-            defaults
-        })
-    }
-}
-
 /// Build a partial Merkle tree from a memory state
 /// Each QM31 value is split into 4 M31 leaves
 /// The tree has depth 0 to 30:
 /// - Depth 0: Root with a single hash value
 /// - Depth 30: Leaves with up to 2^30 M31 values (from 2^28 QM31 memory cells)
-pub fn build_partial_merkle_tree<H: MerkleHasher>(
+///
+/// Returns (node data, root hash, round input data) for all hash computations
+pub fn build_partial_merkle_tree<H: MerkleHasher + 'static>(
     memory: &mut HashMap<(M31, M31), (QM31, M31, M31)>,
-) -> (Vec<NodeData>, Option<M31>) {
+) -> (Vec<NodeData>, Option<M31>, Vec<PoseidonRoundData>) {
     if memory.is_empty() {
-        return (vec![], None);
+        return (vec![], None, vec![]);
     }
 
     // Assert memory size is within bounds
@@ -87,6 +65,7 @@ pub fn build_partial_merkle_tree<H: MerkleHasher>(
     );
 
     let mut nodes = Vec::new();
+    let mut all_round_data = Vec::new();
 
     // Depth 30 (leaves): convert each QM31 to 4 M31 leaves
     let mut current_depth_nodes: HashMap<u32, M31> = HashMap::new();
@@ -149,16 +128,20 @@ pub fn build_partial_merkle_tree<H: MerkleHasher>(
                 .copied()
                 .unwrap_or_else(|| add_intermediate_node(right_index));
 
+            // Calculate parent hash and collect trace data if using PoseidonHash
+            let (round_data, parent_value) = PoseidonHash::hash_with_trace(left_value, right_value);
+            all_round_data.extend_from_slice(&round_data);
+
             // Store node data
             nodes.push(NodeData {
                 index: M31::from(left_index),
                 depth: depth as u8,
                 value_left: left_value,
                 value_right: right_value,
+                value_parent: parent_value,
             });
 
-            // Compute parent value
-            let parent_value = H::hash(left_value, right_value);
+            // Store parent value for next depth
             parent_depth_nodes.insert(parent_index, parent_value);
 
             // Mark both indices as processed
@@ -171,7 +154,7 @@ pub fn build_partial_merkle_tree<H: MerkleHasher>(
     assert_eq!(current_depth_nodes.len(), 1);
     let root_value = current_depth_nodes[&0];
 
-    (nodes, Some(root_value))
+    (nodes, Some(root_value), all_round_data)
 }
 
 #[cfg(test)]
@@ -181,9 +164,10 @@ mod tests {
     #[test]
     fn test_empty_tree() {
         let mut memory = HashMap::new();
-        let (tree, root) = build_partial_merkle_tree::<MockHasher>(&mut memory);
+        let (tree, root, round_data) = build_partial_merkle_tree::<PoseidonHash>(&mut memory);
         assert!(tree.is_empty());
         assert!(root.is_none());
+        assert!(round_data.is_empty());
     }
 
     #[test]
@@ -194,7 +178,7 @@ mod tests {
             (QM31::from(42), M31::zero(), M31::zero()),
         );
 
-        let (tree, root) = build_partial_merkle_tree::<MockHasher>(&mut memory);
+        let (tree, root, _round_data) = build_partial_merkle_tree::<PoseidonHash>(&mut memory);
         // Should have nodes up to the root
         assert!(!tree.is_empty());
         assert!(root.is_some());
@@ -221,7 +205,7 @@ mod tests {
             ),
         );
 
-        let (tree, root) = build_partial_merkle_tree::<MockHasher>(&mut memory);
+        let (tree, root, _round_data) = build_partial_merkle_tree::<PoseidonHash>(&mut memory);
 
         // Verify the tree exists
         assert!(!tree.is_empty());
@@ -270,7 +254,7 @@ mod tests {
             (QM31::from(2), M31::zero(), M31::zero()),
         );
 
-        let (tree, root) = build_partial_merkle_tree::<MockHasher>(&mut memory);
+        let (tree, root, _round_data) = build_partial_merkle_tree::<PoseidonHash>(&mut memory);
         assert!(root.is_some());
 
         let min_depth = tree.iter().map(|node| node.depth).min().unwrap_or(1);

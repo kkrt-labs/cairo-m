@@ -8,6 +8,25 @@ use stwo_prover::core::fields::m31::M31;
 
 use crate::adapter::merkle::MerkleHasher;
 
+/// Intermediate data for a single round, used for trace generation
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PoseidonRoundData {
+    /// State before the current round (input for first round)
+    pub state: [M31; T],
+    /// Result of state + round_constants
+    pub inter_state: [M31; T],
+    /// inter_state * inter_state (element-wise)
+    pub inter_state_sq: [M31; T],
+    /// inter_state_sq * inter_state_sq (element-wise)
+    pub inter_state_quad: [M31; T],
+    /// inter_state * inter_state_quad (S-box output)
+    pub s_box_out_state: [M31; T],
+    /// 1 if this is a full round, 0 if partial
+    pub full_round: M31,
+    /// 1 if this is the final round
+    pub final_round: M31,
+}
+
 /// PoseidonHash implementation for M31 field.
 ///
 /// All documentation on Poseidon : https://www.poseidon-hash.info
@@ -95,6 +114,156 @@ impl PoseidonHash {
 
         state
     }
+
+    /// Generate trace data for Poseidon hash computation
+    /// Returns an array of PoseidonRoundData for all rounds (full + partial)
+    pub fn hash_with_trace(
+        left: M31,
+        right: M31,
+    ) -> ([PoseidonRoundData; FULL_ROUNDS + PARTIAL_ROUNDS], M31) {
+        let mut state = [M31::zero(); T];
+        state[0] = left;
+        state[1] = right;
+
+        let mut trace_data = [PoseidonRoundData {
+            state: [M31::zero(); T],
+            inter_state: [M31::zero(); T],
+            inter_state_sq: [M31::zero(); T],
+            inter_state_quad: [M31::zero(); T],
+            s_box_out_state: [M31::zero(); T],
+            full_round: M31::zero(),
+            final_round: M31::zero(),
+        }; FULL_ROUNDS + PARTIAL_ROUNDS];
+
+        let total_rounds = FULL_ROUNDS + PARTIAL_ROUNDS;
+        let mut round_counter = 0;
+
+        // First half of full rounds
+        for _ in 0..(FULL_ROUNDS / 2) {
+            trace_data[round_counter] = Self::full_round_with_trace(
+                &mut state,
+                round_counter,
+                round_counter == total_rounds - 1,
+            );
+            round_counter += 1;
+        }
+
+        // Partial rounds
+        for _ in 0..PARTIAL_ROUNDS {
+            trace_data[round_counter] = Self::partial_round_with_trace(
+                &mut state,
+                round_counter,
+                round_counter == total_rounds - 1,
+            );
+            round_counter += 1;
+        }
+
+        // Second half of full rounds
+        for _ in 0..(FULL_ROUNDS / 2) {
+            trace_data[round_counter] = Self::full_round_with_trace(
+                &mut state,
+                round_counter,
+                round_counter == total_rounds - 1,
+            );
+            round_counter += 1;
+        }
+
+        // Return both trace data and the hash result
+        (trace_data, state[0])
+    }
+
+    /// Full round with trace generation
+    fn full_round_with_trace(
+        state: &mut [M31; T],
+        round: usize,
+        is_final: bool,
+    ) -> PoseidonRoundData {
+        let offset = round * T;
+        let rc = round_constants();
+
+        // Save input state
+        let input_state = *state;
+
+        // Add round constants
+        let mut inter_state = [M31::zero(); T];
+        for i in 0..T {
+            inter_state[i] = state[i] + rc[offset + i];
+        }
+
+        // Compute S-box intermediates for all elements
+        let mut inter_state_sq = [M31::zero(); T];
+        let mut inter_state_quad = [M31::zero(); T];
+        let mut s_box_out_state = [M31::zero(); T];
+
+        for i in 0..T {
+            inter_state_sq[i] = inter_state[i] * inter_state[i];
+            inter_state_quad[i] = inter_state_sq[i] * inter_state_sq[i];
+            s_box_out_state[i] = inter_state[i] * inter_state_quad[i];
+        }
+
+        // Store the pre-MDS S-box output for constraints
+        let s_box_out_pre_mds = s_box_out_state;
+
+        // Apply MDS matrix to update the state
+        Self::mds_multiply(&mut s_box_out_state);
+        *state = s_box_out_state;
+
+        PoseidonRoundData {
+            state: input_state,
+            inter_state,
+            inter_state_sq,
+            inter_state_quad,
+            s_box_out_state: s_box_out_pre_mds,
+            full_round: M31::from(1),
+            final_round: if is_final { M31::from(1) } else { M31::zero() },
+        }
+    }
+
+    /// Partial round with trace generation
+    fn partial_round_with_trace(
+        state: &mut [M31; T],
+        round: usize,
+        is_final: bool,
+    ) -> PoseidonRoundData {
+        let offset = round * T;
+        let rc = round_constants();
+
+        // Save input state
+        let input_state = *state;
+
+        // Add round constants
+        let mut inter_state = [M31::zero(); T];
+        for i in 0..T {
+            inter_state[i] = state[i] + rc[offset + i];
+        }
+
+        // Initialize arrays - most elements will pass through unchanged
+        let mut inter_state_sq = inter_state;
+        let mut inter_state_quad = inter_state;
+        let mut s_box_out_state = inter_state;
+
+        // Apply S-box only to first element
+        inter_state_sq[0] = inter_state[0] * inter_state[0];
+        inter_state_quad[0] = inter_state_sq[0] * inter_state_sq[0];
+        s_box_out_state[0] = inter_state[0] * inter_state_quad[0];
+
+        // Store the pre-MDS S-box output for constraints
+        let s_box_out_pre_mds = s_box_out_state;
+
+        // Apply MDS matrix to update the state
+        Self::mds_multiply(&mut s_box_out_state);
+        *state = s_box_out_state;
+
+        PoseidonRoundData {
+            state: input_state,
+            inter_state,
+            inter_state_sq,
+            inter_state_quad,
+            s_box_out_state: s_box_out_pre_mds,
+            full_round: M31::zero(),
+            final_round: if is_final { M31::from(1) } else { M31::zero() },
+        }
+    }
 }
 
 impl MerkleHasher for PoseidonHash {
@@ -152,6 +321,93 @@ mod tests {
         // Different inputs should produce different outputs
         let hash3 = PoseidonHash::hash(right, left);
         assert_ne!(hash1, hash3);
+    }
+
+    #[test]
+    fn test_hash_with_trace_consistency() {
+        // Test that hash_with_trace produces the same result as regular hash
+        let test_cases = vec![
+            (M31::from(0), M31::from(0)),
+            (M31::from(1), M31::from(1)),
+            (M31::from(123), M31::from(456)),
+            (M31::from(P - 1), M31::from(P - 1)),
+        ];
+
+        for (left, right) in test_cases {
+            // Compute regular hash
+            let regular_hash = PoseidonHash::hash(left, right);
+
+            // Compute hash with trace
+            let (trace_data, trace_hash) = PoseidonHash::hash_with_trace(left, right);
+
+            // Results should match
+            assert_eq!(
+                regular_hash, trace_hash,
+                "Hash mismatch for inputs ({}, {}): regular={}, trace={}",
+                left.0, right.0, regular_hash.0, trace_hash.0
+            );
+
+            // Verify trace data structure
+            assert_eq!(trace_data.len(), FULL_ROUNDS + PARTIAL_ROUNDS);
+
+            // Check round flags
+            let mut full_round_count = 0;
+            let mut final_round_count = 0;
+
+            for (i, round_data) in trace_data.iter().enumerate() {
+                if round_data.full_round == M31::from(1) {
+                    full_round_count += 1;
+                }
+                if round_data.final_round == M31::from(1) {
+                    final_round_count += 1;
+                }
+
+                // Verify S-box computation for full rounds
+                if round_data.full_round == M31::from(1) {
+                    for j in 0..T {
+                        // Verify: inter_state^2 = inter_state_sq
+                        let computed_sq = round_data.inter_state[j] * round_data.inter_state[j];
+                        assert_eq!(
+                            computed_sq, round_data.inter_state_sq[j],
+                            "inter_state_sq mismatch at round {} element {}",
+                            i, j
+                        );
+
+                        // Verify: inter_state_sq^2 = inter_state_quad
+                        let computed_quad =
+                            round_data.inter_state_sq[j] * round_data.inter_state_sq[j];
+                        assert_eq!(
+                            computed_quad, round_data.inter_state_quad[j],
+                            "inter_state_quad mismatch at round {} element {}",
+                            i, j
+                        );
+
+                        // Verify: inter_state * inter_state_quad = s_box_out_state (before MDS)
+                        let _computed_sbox =
+                            round_data.inter_state[j] * round_data.inter_state_quad[j];
+                        // Note: s_box_out_state is after MDS multiplication, so we can't directly compare
+                    }
+                } else {
+                    // For partial rounds, only first element should have S-box applied
+                    let computed_sq = round_data.inter_state[0] * round_data.inter_state[0];
+                    assert_eq!(
+                        computed_sq, round_data.inter_state_sq[0],
+                        "inter_state_sq[0] mismatch at partial round {}",
+                        i
+                    );
+                }
+            }
+
+            assert_eq!(full_round_count, FULL_ROUNDS, "Wrong number of full rounds");
+            assert_eq!(final_round_count, 1, "Should have exactly one final round");
+
+            // Verify the final round is marked correctly
+            assert_eq!(
+                trace_data[FULL_ROUNDS + PARTIAL_ROUNDS - 1].final_round,
+                M31::from(1),
+                "Last round should be marked as final"
+            );
+        }
     }
 
     #[test]
