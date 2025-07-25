@@ -113,15 +113,6 @@ fn get_tuple() -> (felt, u32, bool) { return (42, 100, true); } fn test() { let 
 --- Input 9 (ERROR) ---
 fn get_tuple() -> (felt, u32, bool) { return (42, 100, true); } fn test() { let (x, y) = get_tuple(); return; }
 --- Diagnostics ---
-[2001] Error: Type mismatch in return statement. Function expects `(felt, u32, bool)`, but returning `(felt, felt, bool)`
-   ╭─[ semantic_tests::statements::assignments::test_assignments:1:39 ]
-   │
- 1 │ fn get_tuple() -> (felt, u32, bool) { return (42, 100, true); } fn test() { let (x, y) = get_tuple(); return; }
-   │    ────┬────                          ───────────┬───────────  
-   │        ╰─────────────────────────────────────────────────────── Function `get_tuple` declared here with return type `(felt, u32, bool)`
-   │                                                  │             
-   │                                                  ╰───────────── Type mismatch in return statement. Function expects `(felt, u32, bool)`, but returning `(felt, felt, bool)`
-───╯
 [2001] Error: Tuple pattern has 2 elements but value has 3 elements
    ╭─[ semantic_tests::statements::assignments::test_assignments:1:90 ]
    │
@@ -135,15 +126,6 @@ fn get_tuple() -> (felt, u32, bool) { return (42, 100, true); } fn test() { let 
 --- Input 10 (ERROR) ---
 fn get_tuple() -> (felt, u32, bool) { return (42, 100, true); } fn test() { let (p, q, r, s) = get_tuple(); return; }
 --- Diagnostics ---
-[2001] Error: Type mismatch in return statement. Function expects `(felt, u32, bool)`, but returning `(felt, felt, bool)`
-   ╭─[ semantic_tests::statements::assignments::test_assignments:1:39 ]
-   │
- 1 │ fn get_tuple() -> (felt, u32, bool) { return (42, 100, true); } fn test() { let (p, q, r, s) = get_tuple(); return; }
-   │    ────┬────                          ───────────┬───────────  
-   │        ╰─────────────────────────────────────────────────────── Function `get_tuple` declared here with return type `(felt, u32, bool)`
-   │                                                  │             
-   │                                                  ╰───────────── Type mismatch in return statement. Function expects `(felt, u32, bool)`, but returning `(felt, felt, bool)`
-───╯
 [2001] Error: Tuple pattern has 4 elements but value has 3 elements
    ╭─[ semantic_tests::statements::assignments::test_assignments:1:96 ]
    │

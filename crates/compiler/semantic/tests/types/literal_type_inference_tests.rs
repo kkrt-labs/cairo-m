@@ -62,6 +62,22 @@ fn literal_type_inference_suite() {
 
             // Explicit literal suffix still compiles
             in_function("let x: u32 = 10u32; let y: felt = 10felt;"),
+
+            // -------- Return type inference ---------------------------------
+            "fn f() -> u32 { return 0; }",
+            "fn g() -> felt { return 42; }",
+            "fn h() -> bool { return true; }",
+            "fn test() -> u32 { if (true) { return 1; } return 0; }",
+            "fn fib(n: u32) -> u32 { if (n <= 1) { return n; } return fib(n - 1) + fib(n - 2); }",
+
+            // Early returns with inference
+            "fn factorial(n: u32) -> u32 { if (n == 0) { return 1; } return n * factorial(n - 1); }",
+
+            // Multiple return paths
+            "fn max(a: u32, b: u32) -> u32 { if (a > b) { return a; } else { return b; } }",
+
+            // Nested block returns
+            "fn test(x: u32) -> u32 { { { if (x == 0) { return 1; } } return 2; } }",
         ],
 
         // ------------------------------------------------------------------
@@ -86,6 +102,11 @@ fn literal_type_inference_suite() {
 
             // Wrong addition of types
             in_function("let pair: (felt, u32) = (10, 20); let (x, y) = pair; let sum = x + y;"),
+
+            // Return type mismatches with explicit suffix
+            "fn g() -> u32 { return 42felt; }",
+            "fn h() -> bool { return 42; }",
+            "fn multiple_paths() -> felt { if (true) { return 1; } else { return 2u32; } }",
         ]
     }
 }

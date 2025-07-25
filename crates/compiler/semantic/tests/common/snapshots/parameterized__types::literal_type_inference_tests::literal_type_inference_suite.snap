@@ -31,6 +31,13 @@ fn test() { let x: u32 = 10; let y: felt = x; return; }
 --- Input 3 (ERROR) ---
 fn test() { let b: bool = 42; return; }
 --- Diagnostics ---
+[2001] Error: Type mismatch for let statement `b`. Expected `bool`, found `felt`
+   ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:27 ]
+   │
+ 1 │ fn test() { let b: bool = 42; return; }
+   │                           ─┬  
+   │                            ╰── Type mismatch for let statement `b`. Expected `bool`, found `felt`
+───╯
 [2001] Error: expected `bool`, got `felt`
    ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:27 ]
    │
@@ -105,6 +112,13 @@ struct P { x: felt, y: felt } fn test() { let _p = P { x: 10, y: 20u32 }; return
 --- Input 7 (ERROR) ---
 struct S { f: (felt, bool) } fn test() { let _s = S { f: (10, 20) }; return; }
 --- Diagnostics ---
+[2001] Error: Type mismatch for field `f`. Expected `(felt, bool)`, found `(felt, felt)`
+   ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:58 ]
+   │
+ 1 │ struct S { f: (felt, bool) } fn test() { let _s = S { f: (10, 20) }; return; }
+   │                                                          ────┬───  
+   │                                                              ╰───── Type mismatch for field `f`. Expected `(felt, bool)`, found `(felt, felt)`
+───╯
 [2001] Error: expected `bool`, got `felt`
    ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:63 ]
    │
@@ -126,4 +140,49 @@ fn test() { let pair: (felt, u32) = (10, 20); let (x, y) = pair; let sum = x + y
  1 │ fn test() { let pair: (felt, u32) = (10, 20); let (x, y) = pair; let sum = x + y; return; }
    │                                                                                ┬  
    │                                                                                ╰── Invalid right operand for arithmetic operator `+`. Expected `felt`, found `u32`
+───╯
+
+============================================================
+
+--- Input 9 (ERROR) ---
+fn g() -> u32 { return 42felt; }
+--- Diagnostics ---
+[2001] Error: Type mismatch in return statement. Function expects `u32`, but returning `felt`
+   ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:17 ]
+   │
+ 1 │ fn g() -> u32 { return 42felt; }
+   │    ┬            ───────┬──────  
+   │    ╰──────────────────────────── Function `g` declared here with return type `u32`
+   │                        │        
+   │                        ╰──────── Type mismatch in return statement. Function expects `u32`, but returning `felt`
+───╯
+
+============================================================
+
+--- Input 10 (ERROR) ---
+fn h() -> bool { return 42; }
+--- Diagnostics ---
+[2001] Error: Type mismatch in return statement. Function expects `bool`, but returning `felt`
+   ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:18 ]
+   │
+ 1 │ fn h() -> bool { return 42; }
+   │    ┬             ─────┬────  
+   │    ╰───────────────────────── Function `h` declared here with return type `bool`
+   │                       │      
+   │                       ╰────── Type mismatch in return statement. Function expects `bool`, but returning `felt`
+───╯
+
+============================================================
+
+--- Input 11 (ERROR) ---
+fn multiple_paths() -> felt { if (true) { return 1; } else { return 2u32; } }
+--- Diagnostics ---
+[2001] Error: Type mismatch in return statement. Function expects `felt`, but returning `u32`
+   ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:62 ]
+   │
+ 1 │ fn multiple_paths() -> felt { if (true) { return 1; } else { return 2u32; } }
+   │    ───────┬──────                                            ──────┬─────  
+   │           ╰──────────────────────────────────────────────────────────────── Function `multiple_paths` declared here with return type `felt`
+   │                                                                    │       
+   │                                                                    ╰─────── Type mismatch in return statement. Function expects `felt`, but returning `u32`
 ───╯

@@ -1,0 +1,23 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+description: "Inline semantic validation error test: types::bool_return_error_test::test_numeric_literal_in_bool_function_errors"
+---
+Fixture: semantic_tests::types::bool_return_error_test::test_numeric_literal_in_bool_function_errors
+============================================================
+Source code:
+
+        fn test() -> bool {
+            return 42;
+        }
+        
+============================================================
+Found 1 diagnostic(s):
+
+--- Diagnostic 1 ---
+[2001] Error: Numeric literal cannot be inferred as type `bool`. Consider using a boolean literal instead
+   ╭─[ semantic_tests::types::bool_return_error_test::test_numeric_literal_in_bool_function_errors:3:20 ]
+   │
+ 3 │             return 42;
+   │                    ─┬  
+   │                     ╰── Numeric literal cannot be inferred as type `bool`. Consider using a boolean literal instead
+───╯

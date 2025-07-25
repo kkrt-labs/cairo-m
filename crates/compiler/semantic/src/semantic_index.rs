@@ -1357,6 +1357,9 @@ where
         }
     }
 
+    /// When visiting function bodies, the builder propagates the function's
+    /// return type as an expected type hint, enabling literals in return
+    /// statements to infer their type from the function signature.
     fn visit_function(&mut self, func: &'ast Spanned<FunctionDef>) {
         let func_def = func.value();
 
@@ -1375,10 +1378,14 @@ where
         // Visit the return type
         self.visit_type_expr(&func_def.return_type);
 
+        // Visit parameters (they don't need the return type hint)
         self.visit_parameters(&func_def.params);
 
-        // Visit function body statements
-        self.visit_body(&func_def.body);
+        // Visit function body with return type hint for literal inference
+        let return_hint = Some(func_def.return_type.clone());
+        self.with_expected_type(return_hint, |builder| {
+            builder.visit_body(&func_def.body);
+        });
 
         self.pop_scope();
     }

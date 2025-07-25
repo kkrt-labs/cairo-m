@@ -811,9 +811,14 @@ impl TypeValidator {
                     }
 
                     // Check that condition is boolean type
-                    let condition_type =
-                        expression_semantic_type(db, crate_id, file, condition_expr_id, None);
                     let bool_type = TypeId::new(db, TypeData::Bool);
+                    let condition_type = expression_semantic_type(
+                        db,
+                        crate_id,
+                        file,
+                        condition_expr_id,
+                        Some(bool_type),
+                    );
 
                     if !are_types_compatible(db, condition_type, bool_type) {
                         diagnostics.push(
@@ -969,7 +974,8 @@ impl TypeValidator {
         };
 
         let lhs_type = expression_semantic_type(db, crate_id, file, lhs_expr_id, None);
-        let rhs_type = expression_semantic_type(db, crate_id, file, rhs_expr_id, None);
+        // Pass LHS type as context for RHS to support literal type inference
+        let rhs_type = expression_semantic_type(db, crate_id, file, rhs_expr_id, Some(lhs_type));
 
         // Check if LHS is assignable
         match lhs.value() {
@@ -1162,8 +1168,9 @@ impl TypeValidator {
         let Some(condition_expr_id) = index.expression_id_by_span(condition.span()) else {
             return;
         };
-        let condition_type = expression_semantic_type(db, crate_id, file, condition_expr_id, None);
         let bool_type = TypeId::new(db, TypeData::Bool);
+        let condition_type =
+            expression_semantic_type(db, crate_id, file, condition_expr_id, Some(bool_type));
 
         if !are_types_compatible(db, condition_type, bool_type) {
             diagnostics.push(
@@ -1236,6 +1243,8 @@ impl TypeValidator {
 mod tests {
     use std::collections::HashMap;
     use std::path::PathBuf;
+
+    use cairo_m_compiler_diagnostics::DiagnosticCollection;
 
     use super::*;
     use crate::db::tests::test_db;
@@ -1368,6 +1377,8 @@ mod tests {
 
     #[test]
     fn test_return_type_validation() {
+        tracing_subscriber::fmt::init();
+
         let db = test_db();
         let program = r#"
             struct Point { x: felt, y: felt }
@@ -1467,6 +1478,7 @@ mod tests {
                         let g = 42;
                     }
                 }
+                return;
             }
         "#;
         let file = crate::File::new(&db, program.to_string(), "test.cm".to_string());
@@ -1474,7 +1486,8 @@ mod tests {
         let semantic_index = get_main_semantic_index(&db, crate_id);
 
         let validator = TypeValidator;
-        let diagnostics = validator.validate(&db, crate_id, file, &semantic_index);
+        let diagnostics =
+            DiagnosticCollection::new(validator.validate(&db, crate_id, file, &semantic_index));
 
         // Count type mismatch errors
         let type_mismatch_errors = diagnostics
@@ -1592,7 +1605,8 @@ mod tests {
         let semantic_index = get_main_semantic_index(&db, crate_id);
 
         let validator = TypeValidator;
-        let diagnostics = validator.validate(&db, crate_id, file, &semantic_index);
+        let diagnostics =
+            DiagnosticCollection::new(validator.validate(&db, crate_id, file, &semantic_index));
 
         // Count different types of errors
         let type_mismatch_errors = diagnostics

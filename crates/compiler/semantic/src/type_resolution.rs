@@ -269,7 +269,7 @@ pub fn expression_semantic_type<'db>(
 
     // Access the AST node directly from ExpressionInfo - no lookup needed!
     match &expr_info.ast_node {
-        Expression::Literal(value, literal_suffix) => {
+        Expression::Literal(_value, literal_suffix) => {
             // Priority 1: Check for explicit suffix (e.g., 42u32)
             if let Some(literal_suffix) = literal_suffix {
                 let expected_type = TypeData::from(literal_suffix);
@@ -291,8 +291,6 @@ pub fn expression_semantic_type<'db>(
                 {
                     return expected_type;
                 }
-
-                return TypeId::new(db, TypeData::Error);
             }
 
             // Priority 3: Check for context from propagated type (e.g., in x + 1 where x is u32)
@@ -300,11 +298,6 @@ pub fn expression_semantic_type<'db>(
                 // If the context expects a numeric primitive, use it
                 match context_type.data(db) {
                     TypeData::U32 | TypeData::Felt => {
-                        tracing::debug!(
-                            "Literal {} inferred as {:?} from context",
-                            value,
-                            context_type.data(db)
-                        );
                         return context_type;
                     }
                     _ => {}
@@ -312,7 +305,6 @@ pub fn expression_semantic_type<'db>(
             }
 
             // Default: If no specific context is found, default to `felt`.
-            tracing::debug!("Literal {} defaulting to felt", value);
             TypeId::new(db, TypeData::Felt)
         }
         Expression::BooleanLiteral(_) => TypeId::new(db, TypeData::Bool),
@@ -382,12 +374,6 @@ pub fn expression_semantic_type<'db>(
                     expression_semantic_type(db, crate_id, file, right_id, Some(left_type));
                 (left_type, right_type)
             };
-
-            tracing::debug!(
-                "BinaryOp: left_type = {:?}, right_type = {:?}",
-                left_type.data(db),
-                right_type.data(db)
-            );
 
             for signature in get_binary_op_signatures(db) {
                 if signature.op == *op
