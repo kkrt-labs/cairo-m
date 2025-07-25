@@ -358,7 +358,9 @@ impl TypeValidator {
                 }
 
                 // Check argument types
-                for (arg, (_param_name, param_type)) in args.iter().zip(params.iter()) {
+                for (arg_idx, (arg, (param_name, param_type))) in
+                    args.iter().zip(params.iter()).enumerate()
+                {
                     if let Some(arg_expr_id) = index.expression_id_by_span(arg.span()) {
                         // Pass the expected parameter type as context for literal inference
                         let arg_type = expression_semantic_type(
@@ -370,24 +372,36 @@ impl TypeValidator {
                         );
 
                         if !are_types_compatible(db, arg_type, *param_type) {
-                            let suggestion =
-                                self.suggest_type_conversion(db, arg_type, *param_type);
+                            // Find the parameter's AST to get its span
+                            let func_def_id = signature_id.definition_id(db);
+                            let func_def = index.definition(func_def_id.id_in_file(db)).unwrap();
+                            let param_type_span =
+                                if let DefinitionKind::Function(func_ref) = &func_def.kind {
+                                    func_ref.params_ast.get(arg_idx).map(|p| p.1.span())
+                                } else {
+                                    None
+                                };
+
                             let mut diag = Diagnostic::error(
                                 DiagnosticCode::TypeMismatch,
                                 format!(
-                                    "Argument type mismatch for parameter `{}`: expected `{}`, found `{}`",
-                                    _param_name,
+                                    "argument type mismatch for parameter `{}`: expected `{}`, got `{}`",
+                                    param_name,
                                     param_type.data(db).display_name(db),
                                     arg_type.data(db).display_name(db)
                                 ),
                             )
                             .with_location(file.file_path(db).to_string(), arg.span());
 
-                            if let Some(suggestion) = suggestion {
+                            if let Some(span) = param_type_span {
                                 diag = diag.with_related_span(
                                     file.file_path(db).to_string(),
-                                    arg.span(),
-                                    suggestion,
+                                    span,
+                                    format!(
+                                        "parameter `{}` declared here with type `{}`",
+                                        param_name,
+                                        param_type.data(db).display_name(db)
+                                    ),
                                 );
                             }
 
@@ -692,6 +706,35 @@ impl TypeValidator {
                         format!(
                             "type mismatch for tuple element #{}: expected `{}`, got `{}`",
                             index, expected_type, actual_type
+                        ),
+                    )
+                    .with_location(file.file_path(db).to_string(), expr_info.ast_span),
+                );
+            }
+            Origin::Arg { .. } => {
+                // Function argument type mismatches are handled by check_function_call_types
+                // with more detailed context, so we can skip here
+            }
+            Origin::AssignmentRhs { .. } => {
+                // Assignment type mismatches are handled by check_assignment_types
+                // with more detailed context, so we can skip here
+            }
+            Origin::ReturnExpr => {
+                // Return type mismatches are handled by check_return_types
+                // with more detailed context, so we can skip here
+            }
+            Origin::Condition { kind } => {
+                let condition_name = match kind {
+                    crate::semantic_index::ConditionKind::If => "if",
+                    crate::semantic_index::ConditionKind::While => "while",
+                };
+
+                sink.push(
+                    Diagnostic::error(
+                        DiagnosticCode::TypeMismatch,
+                        format!(
+                            "`{}` condition must be of type `bool`, but found `{}`",
+                            condition_name, actual_type
                         ),
                     )
                     .with_location(file.file_path(db).to_string(), expr_info.ast_span),
@@ -1023,27 +1066,27 @@ impl TypeValidator {
 
         // Check type compatibility
         if !are_types_compatible(db, lhs_type, rhs_type) {
-            let suggestion = self.suggest_type_conversion(db, rhs_type, lhs_type);
-            let mut diag = Diagnostic::error(
-                DiagnosticCode::TypeMismatch,
-                format!(
-                    "Type mismatch in assignment. Cannot assign `{}` to variable of type `{}`",
-                    rhs_type.data(db).display_name(db),
-                    lhs_type.data(db).display_name(db)
-                ),
-            )
-            .with_location(file.file_path(db).to_string(), rhs.span());
+            let error_message = format!(
+                "type mismatch in assignment: expected `{}`, got `{}`",
+                lhs_type.data(db).display_name(db),
+                rhs_type.data(db).display_name(db)
+            );
 
-            if let Some(suggestion) = suggestion {
+            let mut diag = Diagnostic::error(DiagnosticCode::TypeMismatch, error_message)
+                .with_location(file.file_path(db).to_string(), rhs.span());
+
+            if let Some(suggestion) = self.suggest_type_conversion(db, rhs_type, lhs_type) {
                 diag =
                     diag.with_related_span(file.file_path(db).to_string(), rhs.span(), suggestion);
             }
 
-            // Add context about the target variable type
             diag = diag.with_related_span(
                 file.file_path(db).to_string(),
                 lhs.span(),
-                format!("Variable has type `{}`", lhs_type.data(db).display_name(db)),
+                format!(
+                    "variable declared with type `{}`",
+                    lhs_type.data(db).display_name(db)
+                ),
             );
 
             sink.push(diag);
@@ -1102,22 +1145,14 @@ impl TypeValidator {
                     let suggestion =
                         self.suggest_type_conversion(db, return_type, expected_return_type);
 
-                    let error_message = if expects_value {
-                        format!(
-                            "Type mismatch in return statement. Function expects `{}`, but returning `{}`",
-                            expected_return_type.data(db).display_name(db),
-                            return_type.data(db).display_name(db)
-                        )
-                    } else {
-                        format!(
-                            "Function `{}` returns no value (unit type), but found return statement with type `{}`",
-                            function_def.name.value(),
-                            return_type.data(db).display_name(db)
-                        )
-                    };
+                    let error_message = format!(
+                        "type mismatch in return statement: expected `{}`, got `{}`",
+                        expected_return_type.data(db).display_name(db),
+                        return_type.data(db).display_name(db)
+                    );
 
                     let mut diag = Diagnostic::error(DiagnosticCode::TypeMismatch, error_message)
-                        .with_location(file.file_path(db).to_string(), span);
+                        .with_location(file.file_path(db).to_string(), return_expr.span());
 
                     if let Some(suggestion) = suggestion {
                         diag = diag.with_related_span(
@@ -1127,24 +1162,15 @@ impl TypeValidator {
                         );
                     }
 
-                    // Add context about the function signature
-                    let context_message = if expects_value {
-                        format!(
-                            "Function `{}` declared here with return type `{}`",
-                            function_def.name.value(),
-                            expected_return_type.data(db).display_name(db)
-                        )
-                    } else {
-                        format!(
-                            "Function `{}` declared here without explicit return type (implicitly returns unit)",
-                            function_def.name.value()
-                        )
-                    };
-
+                    // Add context about the function signature with return type span
                     diag = diag.with_related_span(
                         file.file_path(db).to_string(),
-                        function_def.name.span(),
-                        context_message,
+                        function_def.return_type.span(),
+                        format!(
+                            "function `{}` declared here to return `{}`",
+                            function_def.name.value(),
+                            expected_return_type.data(db).display_name(db)
+                        ),
                     );
 
                     sink.push(diag);
@@ -1308,15 +1334,12 @@ mod tests {
         let validator = TypeValidator;
         let sink = cairo_m_compiler_diagnostics::VecSink::new();
         validator.validate(&db, crate_id, file, &semantic_index, &sink);
-        let diagnostics = sink.into_diagnostics();
+        let diagnostics = DiagnosticCollection::new(sink.into_diagnostics());
 
         // Should have one error for the invalid argument type
         let type_errors = diagnostics
             .iter()
-            .filter(|d| {
-                d.code == DiagnosticCode::TypeMismatch
-                    && d.message.contains("Argument type mismatch")
-            })
+            .filter(|d| d.code == DiagnosticCode::TypeMismatch)
             .count();
 
         assert_eq!(type_errors, 1, "Should have argument type mismatch errors");

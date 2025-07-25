@@ -497,7 +497,7 @@ pub struct VecSink(std::sync::Mutex<Vec<Diagnostic>>);
 
 impl VecSink {
     /// Create a new empty sink
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self(std::sync::Mutex::new(Vec::new()))
     }
 

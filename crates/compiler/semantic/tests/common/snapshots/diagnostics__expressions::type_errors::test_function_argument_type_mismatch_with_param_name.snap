@@ -30,10 +30,14 @@ Found 2 diagnostic(s):
 ───╯
 
 --- Diagnostic 2 ---
-[2001] Error: Argument type mismatch for parameter `p2`: expected `Point`, found `felt`
+[2001] Error: argument type mismatch for parameter `p2`: expected `Point`, got `felt`
     ╭─[ semantic_tests::expressions::type_errors::test_function_argument_type_mismatch_with_param_name:10:33 ]
     │
+  4 │         fn distance(p1: Point, p2: Point) -> felt {
+    │                                    ──┬──  
+    │                                      ╰──── parameter `p2` declared here with type `Point`
+    │ 
  10 │             let d = distance(p, 42);  // Should show parameter name 'p2'
     │                                 ─┬  
-    │                                  ╰── Argument type mismatch for parameter `p2`: expected `Point`, found `felt`
+    │                                  ╰── argument type mismatch for parameter `p2`: expected `Point`, got `felt`
 ────╯

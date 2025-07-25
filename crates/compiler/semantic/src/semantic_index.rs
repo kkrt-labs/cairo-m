@@ -104,6 +104,13 @@ pub struct TypeUsage {
     pub scope_id: FileScopeId,
 }
 
+/// Kind of condition in control flow statements
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ConditionKind {
+    If,
+    While,
+}
+
 /// Origin information tracking where an expression comes from within its parent context
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Origin {
@@ -117,6 +124,14 @@ pub enum Origin {
     },
     /// Expression is an element within a tuple literal
     TupleElem { parent: ExpressionId, index: usize },
+    /// Expression is a function argument.
+    Arg { callee: ExpressionId, index: usize },
+    /// Expression is the RHS of an assignment.
+    AssignmentRhs { lhs: ExpressionId },
+    /// Expression is in a return statement.
+    ReturnExpr,
+    /// Expression is a condition in a control-flow statement.
+    Condition { kind: ConditionKind },
 }
 
 /// Information about an expression node in the AST
@@ -1027,8 +1042,20 @@ impl<'db, 'sink> SemanticIndexBuilder<'db, 'sink> {
             }
             Expression::FunctionCall { callee, args } => {
                 self.visit_expr(callee);
-                for arg in args {
-                    self.visit_expr(arg);
+                // Get the callee expression ID for context
+                if let Some(callee_expr_id) = self.index.expression_id_by_span(callee.span()) {
+                    for (index, arg) in args.iter().enumerate() {
+                        let arg_origin = Origin::Arg {
+                            callee: callee_expr_id,
+                            index,
+                        };
+                        self.visit_expr_with_origin(arg, arg_origin);
+                    }
+                } else {
+                    // Fallback: visit arguments without special origin if callee not found
+                    for arg in args {
+                        self.visit_expr(arg);
+                    }
                 }
             }
             Expression::MemberAccess { object, .. } => {
@@ -1256,7 +1283,12 @@ where
                 else_block,
             } => {
                 // Handle control flow analysis
-                self.visit_expr(condition);
+                self.visit_expr_with_origin(
+                    condition,
+                    Origin::Condition {
+                        kind: ConditionKind::If,
+                    },
+                );
 
                 // Visit then branch in a new scope
                 self.with_new_scope(crate::place::ScopeKind::Block, |builder| {
@@ -1299,7 +1331,12 @@ where
             }
             Statement::While { condition, body } => {
                 // Visit the condition expression
-                self.visit_expr(condition);
+                self.visit_expr_with_origin(
+                    condition,
+                    Origin::Condition {
+                        kind: ConditionKind::While,
+                    },
+                );
 
                 // Create a new scope for the while loop body
                 self.with_new_scope(
@@ -1360,13 +1397,12 @@ where
                 );
             }
             Statement::Assignment { lhs, rhs } => {
-                // Visit in evaluation order: RHS first, then LHS
-                self.visit_expr(rhs);
                 self.visit_expr(lhs);
+                self.visit_expr(rhs);
             }
             Statement::Return { value } => {
                 if let Some(expr) = value {
-                    self.visit_expr(expr);
+                    self.visit_expr_with_origin(expr, Origin::ReturnExpr);
                 }
             }
             Statement::Expression(spanned) => {

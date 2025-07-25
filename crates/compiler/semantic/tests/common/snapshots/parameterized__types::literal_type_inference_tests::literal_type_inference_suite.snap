@@ -133,14 +133,14 @@ fn test() { let pair: (felt, u32) = (10, 20); let (x, y) = pair; let sum = x + y
 --- Input 9 (ERROR) ---
 fn g() -> u32 { return 42felt; }
 --- Diagnostics ---
-[2001] Error: Type mismatch in return statement. Function expects `u32`, but returning `felt`
-   ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:17 ]
+[2001] Error: type mismatch in return statement: expected `u32`, got `felt`
+   ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:24 ]
    │
  1 │ fn g() -> u32 { return 42felt; }
-   │    ┬            ───────┬──────  
-   │    ╰──────────────────────────── Function `g` declared here with return type `u32`
-   │                        │        
-   │                        ╰──────── Type mismatch in return statement. Function expects `u32`, but returning `felt`
+   │           ─┬─          ───┬──  
+   │            ╰─────────────────── function `g` declared here to return `u32`
+   │                           │    
+   │                           ╰──── type mismatch in return statement: expected `u32`, got `felt`
 ───╯
 
 ============================================================
@@ -148,14 +148,14 @@ fn g() -> u32 { return 42felt; }
 --- Input 10 (ERROR) ---
 fn h() -> bool { return 42; }
 --- Diagnostics ---
-[2001] Error: Type mismatch in return statement. Function expects `bool`, but returning `felt`
-   ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:18 ]
+[2001] Error: type mismatch in return statement: expected `bool`, got `felt`
+   ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:25 ]
    │
  1 │ fn h() -> bool { return 42; }
-   │    ┬             ─────┬────  
-   │    ╰───────────────────────── Function `h` declared here with return type `bool`
-   │                       │      
-   │                       ╰────── Type mismatch in return statement. Function expects `bool`, but returning `felt`
+   │           ──┬─          ─┬  
+   │             ╰─────────────── function `h` declared here to return `bool`
+   │                          │  
+   │                          ╰── type mismatch in return statement: expected `bool`, got `felt`
 ───╯
 
 ============================================================
@@ -163,12 +163,12 @@ fn h() -> bool { return 42; }
 --- Input 11 (ERROR) ---
 fn multiple_paths() -> felt { if (true) { return 1; } else { return 2u32; } }
 --- Diagnostics ---
-[2001] Error: Type mismatch in return statement. Function expects `felt`, but returning `u32`
-   ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:62 ]
+[2001] Error: type mismatch in return statement: expected `felt`, got `u32`
+   ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:69 ]
    │
  1 │ fn multiple_paths() -> felt { if (true) { return 1; } else { return 2u32; } }
-   │    ───────┬──────                                            ──────┬─────  
-   │           ╰──────────────────────────────────────────────────────────────── Function `multiple_paths` declared here with return type `felt`
-   │                                                                    │       
-   │                                                                    ╰─────── Type mismatch in return statement. Function expects `felt`, but returning `u32`
+   │                        ──┬─                                         ──┬─  
+   │                          ╰──────────────────────────────────────────────── function `multiple_paths` declared here to return `felt`
+   │                                                                       │   
+   │                                                                       ╰─── type mismatch in return statement: expected `felt`, got `u32`
 ───╯

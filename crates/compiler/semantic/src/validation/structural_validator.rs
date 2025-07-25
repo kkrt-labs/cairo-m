@@ -3,7 +3,7 @@
 //! This validator handles structural semantic checks that were previously done
 //! during index building but don't affect the validity of the index itself:
 //! - Duplicate parameter names in functions
-//! - Duplicate field names in struct definitions  
+//! - Duplicate field names in struct definitions
 //! - Duplicate identifiers in pattern destructuring
 //! - Type cohesion between expressions and type annotations
 
@@ -88,9 +88,9 @@ impl StructuralValidator {
         })
     }
 
-    fn find_struct_in_module<'a>(
+    fn find_struct_in_module(
         &self,
-        module: &'a cairo_m_compiler_parser::parser::ParsedModule,
+        module: &cairo_m_compiler_parser::parser::ParsedModule,
         name: &str,
     ) -> Option<Spanned<StructDef>> {
         module.items().iter().find_map(|item| match item {
@@ -114,6 +114,7 @@ impl StructuralValidator {
         }
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn check_patterns_in_statements(
         &self,
         statements: &[Spanned<Statement>],
@@ -208,6 +209,7 @@ impl StructuralValidator {
     }
 
     /// Verifies coherency between an expression's type and a type annotation.
+    #[allow(clippy::only_used_in_recursion)]
     fn check_expr_type_cohesion(
         &self,
         expr: &Spanned<Expression>,
