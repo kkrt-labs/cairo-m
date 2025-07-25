@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use cairo_m_common::PublicAddressRanges;
 use num_traits::{One, Zero};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
@@ -74,6 +76,14 @@ impl Claim {
     {
         let initial_memory_len = inputs.initial_memory.len();
 
+        // Create HashSets for efficient O(1) lookups of public addresses
+        let public_program_addrs: HashSet<u32> =
+            HashSet::from_iter(public_address_ranges.program.clone());
+        let public_input_addrs: HashSet<u32> =
+            HashSet::from_iter(public_address_ranges.input.clone());
+        let public_output_addrs: HashSet<u32> =
+            HashSet::from_iter(public_address_ranges.output.clone());
+
         // Pack memory entries from the prover input, filtering out public addresses
         let packed_inputs_vec: Vec<[M31; N_INPUT_COLUMNS]> = inputs
             .initial_memory
@@ -81,19 +91,22 @@ impl Claim {
             .chain(inputs.final_memory.iter())
             .enumerate()
             .filter_map(|(i, ((address, depth), (value, clock, multiplicity)))| {
-                // Skip entries that have addresses in public_address_ranges and depth is TREE_HEIGHT in initial or final memory
+                // Skip entries that have addresses in public_address_ranges and depth is TREE_HEIGHT
                 let address_u32 = address.0;
                 let depth_u32 = depth.0;
                 let is_initial_memory = i < initial_memory_len;
 
-                if depth_u32 == TREE_HEIGHT
-                    && (is_initial_memory
-                        && (public_address_ranges.program.contains(&address_u32)
-                            || public_address_ranges.input.contains(&address_u32))
-                        || !is_initial_memory
-                            && public_address_ranges.output.contains(&address_u32))
-                {
-                    return None;
+                if depth_u32 == TREE_HEIGHT {
+                    let is_public = if is_initial_memory {
+                        public_program_addrs.contains(&address_u32)
+                            || public_input_addrs.contains(&address_u32)
+                    } else {
+                        public_output_addrs.contains(&address_u32)
+                    };
+
+                    if is_public {
+                        return None;
+                    }
                 }
 
                 let root = if is_initial_memory {
