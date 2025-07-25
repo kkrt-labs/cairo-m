@@ -306,7 +306,7 @@ impl Diagnostic {
     pub fn break_outside_loop(file_path: String, span: SimpleSpan<usize>) -> Self {
         Self::error(
             DiagnosticCode::BreakOutsideLoop,
-            "Break statement outside of loop".to_string(),
+            "`break` outside of loop".to_string(),
         )
         .with_location(file_path, span)
     }
@@ -315,7 +315,7 @@ impl Diagnostic {
     pub fn continue_outside_loop(file_path: String, span: SimpleSpan<usize>) -> Self {
         Self::error(
             DiagnosticCode::ContinueOutsideLoop,
-            "Continue statement outside of loop".to_string(),
+            "`continue` outside of loop".to_string(),
         )
         .with_location(file_path, span)
     }
@@ -476,6 +476,51 @@ impl IntoIterator for DiagnosticCollection {
 
     fn into_iter(self) -> Self::IntoIter {
         self.diagnostics.into_iter()
+    }
+}
+
+/// Thread-safe trait for collecting diagnostics
+///
+/// This trait allows different parts of the compiler to push diagnostics
+/// into a shared collection without needing to know the underlying implementation.
+/// It enables decoupling of diagnostic emission from collection management.
+pub trait DiagnosticSink: Send + Sync {
+    /// Push a diagnostic into the sink
+    fn push(&self, diagnostic: Diagnostic);
+}
+
+/// Thread-safe implementation of DiagnosticSink backed by a Vec
+///
+/// This is the primary implementation used for collecting diagnostics
+/// from multiple compiler passes running potentially in parallel.
+pub struct VecSink(std::sync::Mutex<Vec<Diagnostic>>);
+
+impl VecSink {
+    /// Create a new empty sink
+    pub fn new() -> Self {
+        Self(std::sync::Mutex::new(Vec::new()))
+    }
+
+    /// Extract all collected diagnostics, consuming the sink
+    pub fn into_diagnostics(self) -> Vec<Diagnostic> {
+        self.0.into_inner().unwrap()
+    }
+
+    /// Get a copy of all collected diagnostics without consuming the sink
+    pub fn diagnostics(&self) -> Vec<Diagnostic> {
+        self.0.lock().unwrap().clone()
+    }
+}
+
+impl Default for VecSink {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl DiagnosticSink for VecSink {
+    fn push(&self, diagnostic: Diagnostic) {
+        self.0.lock().unwrap().push(diagnostic);
     }
 }
 

@@ -90,21 +90,14 @@ fn test() { let x: u32 = -5; return; }
 --- Input 6 (ERROR) ---
 struct P { x: felt, y: felt } fn test() { let _p = P { x: 10, y: 20u32 }; return; }
 --- Diagnostics ---
-[2001] Error: Type mismatch for field `y`. Expected `felt`, found `u32`
+[2001] Error: type mismatch for field `y`: expected `felt`, got `u32`
    ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:66 ]
    │
  1 │ struct P { x: felt, y: felt } fn test() { let _p = P { x: 10, y: 20u32 }; return; }
-   │                                                                  ──┬──  
-   │                                                                    ╰──── Type mismatch for field `y`. Expected `felt`, found `u32`
-───╯
-[2001] Error: expected `felt`, got `u32`
-   ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:66 ]
-   │
- 1 │ struct P { x: felt, y: felt } fn test() { let _p = P { x: 10, y: 20u32 }; return; }
-   │                                                                  ──┬──  
-   │                                                                    ╰──── expected `felt`, got `u32`
+   │                                                               ┬  ──┬──  
+   │                                                               ╰───────── field declared here
    │                                                                    │    
-   │                                                                    ╰──── change the type of the numeric literal from `u32` to `felt`
+   │                                                                    ╰──── type mismatch for field `y`: expected `felt`, got `u32`
 ───╯
 
 ============================================================
@@ -112,21 +105,14 @@ struct P { x: felt, y: felt } fn test() { let _p = P { x: 10, y: 20u32 }; return
 --- Input 7 (ERROR) ---
 struct S { f: (felt, bool) } fn test() { let _s = S { f: (10, 20) }; return; }
 --- Diagnostics ---
-[2001] Error: Type mismatch for field `f`. Expected `(felt, bool)`, found `(felt, felt)`
+[2001] Error: type mismatch for field `f`: expected `(felt, bool)`, got `(felt, felt)`
    ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:58 ]
    │
  1 │ struct S { f: (felt, bool) } fn test() { let _s = S { f: (10, 20) }; return; }
-   │                                                          ────┬───  
-   │                                                              ╰───── Type mismatch for field `f`. Expected `(felt, bool)`, found `(felt, felt)`
-───╯
-[2001] Error: expected `bool`, got `felt`
-   ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:63 ]
-   │
- 1 │ struct S { f: (felt, bool) } fn test() { let _s = S { f: (10, 20) }; return; }
-   │                                                               ─┬  
-   │                                                                ╰── expected `bool`, got `felt`
-   │                                                                │  
-   │                                                                ╰── change the type of the numeric literal from `felt` to `bool`
+   │                                                       ┬  ────┬───  
+   │                                                       ╰──────────── field declared here
+   │                                                              │     
+   │                                                              ╰───── type mismatch for field `f`: expected `(felt, bool)`, got `(felt, felt)`
 ───╯
 
 ============================================================

@@ -21,7 +21,7 @@
 
 use std::collections::HashSet;
 
-use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode};
+use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSink};
 
 use crate::db::{Crate, SemanticDb};
 use crate::validation::Validator;
@@ -40,23 +40,21 @@ impl Validator for ScopeValidator {
         crate_id: Crate,
         file: File,
         index: &SemanticIndex,
-    ) -> Vec<Diagnostic> {
-        let mut diagnostics = Vec::new();
-
+        sink: &dyn DiagnosticSink,
+    ) {
         // Only validate the specific module/file we were asked to validate
         // Check for undeclared variables globally for this module
-        diagnostics.extend(self.check_undeclared_variables_global(index, file, db, crate_id));
+        self.check_undeclared_variables_global(index, file, db, crate_id, sink);
 
         // Check import validity - ensure imported items actually exist in target modules
-        diagnostics.extend(self.check_import_validity(index, file, db, crate_id));
+        self.check_import_validity(index, file, db, crate_id, sink);
 
         // Check each scope in this module
         for (scope_id, scope) in index.scopes() {
             if let Some(place_table) = index.place_table(scope_id) {
-                diagnostics.extend(self.check_scope(scope_id, scope, place_table, file, db, index));
+                self.check_scope(scope_id, scope, place_table, file, db, index, sink);
             }
         }
-        diagnostics
     }
 
     fn name(&self) -> &'static str {
@@ -83,13 +81,10 @@ impl ScopeValidator {
         file: File,
         db: &dyn SemanticDb,
         index: &SemanticIndex,
-    ) -> Vec<Diagnostic> {
-        let mut diagnostics = Vec::new();
-
+        sink: &dyn DiagnosticSink,
+    ) {
         // Check for unused variables (but not in the global scope for functions/structs)
-        diagnostics.extend(self.check_unused_variables(scope_id, place_table, file, db, index));
-
-        diagnostics
+        self.check_unused_variables(scope_id, place_table, file, db, index, sink);
     }
 
     /// Check for unused variables (warnings for local variables)
@@ -105,9 +100,8 @@ impl ScopeValidator {
         file: File,
         db: &dyn SemanticDb,
         index: &SemanticIndex,
-    ) -> Vec<Diagnostic> {
-        let mut diagnostics = Vec::new();
-
+        sink: &dyn DiagnosticSink,
+    ) {
         for (place_id, place) in place_table.places() {
             // Only check local variables and parameters, not functions or structs
             let is_local_or_param = !place.flags.contains(PlaceFlags::FUNCTION)
@@ -121,15 +115,13 @@ impl ScopeValidator {
                     } else {
                         chumsky::span::SimpleSpan::from(0..0)
                     };
-                diagnostics.push(Diagnostic::unused_variable(
+                sink.push(Diagnostic::unused_variable(
                     file.file_path(db).to_string(),
                     &place.name,
                     span,
                 ));
             }
         }
-
-        diagnostics
     }
 
     /// Check for undeclared variables globally by looking at all use-def chains
@@ -144,8 +136,8 @@ impl ScopeValidator {
         file: File,
         db: &dyn SemanticDb,
         crate_id: Crate,
-    ) -> Vec<Diagnostic> {
-        let mut diagnostics = Vec::new();
+        sink: &dyn DiagnosticSink,
+    ) {
         let mut seen_undeclared = HashSet::new();
 
         // Check each identifier usage to see if it was resolved to a definition
@@ -158,7 +150,7 @@ impl ScopeValidator {
                 {
                     // Only report each undeclared variable once
                     if seen_undeclared.insert(usage.name.clone()) {
-                        diagnostics.push(Diagnostic::undeclared_variable(
+                        sink.push(Diagnostic::undeclared_variable(
                             file.file_path(db).to_string(),
                             &usage.name,
                             usage.span,
@@ -176,7 +168,7 @@ impl ScopeValidator {
                     .resolve_name_with_imports(db, crate_id, file, &usage.name, usage.scope_id)
                     .is_none()
                 {
-                    diagnostics.push(Diagnostic::undeclared_type(
+                    sink.push(Diagnostic::undeclared_type(
                         file.file_path(db).to_string(),
                         &usage.name,
                         usage.span,
@@ -184,8 +176,6 @@ impl ScopeValidator {
                 }
             }
         }
-
-        diagnostics
     }
 
     /// Check that all imported items actually exist in their target modules
@@ -198,13 +188,12 @@ impl ScopeValidator {
         file: File,
         db: &dyn SemanticDb,
         crate_id: Crate,
-    ) -> Vec<Diagnostic> {
-        let mut diagnostics = Vec::new();
-
+        sink: &dyn DiagnosticSink,
+    ) {
         // Get the project's semantic index to access all modules
         let project_index = match crate::db::project_semantic_index(db, crate_id) {
             Ok(project_index) => project_index,
-            Err(_) => return diagnostics, // If project index fails, skip validation
+            Err(_) => return, // If project index fails, skip validation
         };
         let modules = project_index.modules();
 
@@ -230,7 +219,7 @@ impl ScopeValidator {
                                 if use_def.imported_module == *imported_module_name
                                     && use_def.item == *imported_item
                                 {
-                                    diagnostics.push(
+                                    sink.push(
                                         Diagnostic::error(
                                             DiagnosticCode::UnresolvedImport,
                                             format!(
@@ -256,7 +245,7 @@ impl ScopeValidator {
                 for (_def_idx, def) in index.all_definitions() {
                     if let crate::definition::DefinitionKind::Use(use_def) = &def.kind {
                         if use_def.imported_module == *imported_module_name {
-                            diagnostics.push(
+                            sink.push(
                                 Diagnostic::error(
                                     DiagnosticCode::UnresolvedModule,
                                     format!("unresolved module `{}`", imported_module_name.value()),
@@ -272,8 +261,6 @@ impl ScopeValidator {
                 }
             }
         }
-
-        diagnostics
     }
 
     /// Helper method to resolve a name in the scope chain

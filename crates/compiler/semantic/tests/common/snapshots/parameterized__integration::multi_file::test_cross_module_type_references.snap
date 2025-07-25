@@ -22,13 +22,6 @@ struct Point { x: felt, y: felt }
    │                                 ────┬────  
    │                                     ╰────── Cannot find type 'Rectangle' in this scope
 ───╯
-[1009] Error: cannot find struct `Rectangle` in this scope
-   ╭─[ main.cm:2:33 ]
-   │
- 2 │ fn test() -> Rectangle { return Rectangle { width: 10, height: 20 }; }
-   │                                 ────┬────  
-   │                                     ╰────── cannot find struct `Rectangle` in this scope
-───╯
 
 ============================================================
 

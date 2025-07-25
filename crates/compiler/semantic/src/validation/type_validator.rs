@@ -13,7 +13,7 @@
 
 use std::collections::HashSet;
 
-use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode};
+use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSink};
 use cairo_m_compiler_parser::ParsedModule;
 use cairo_m_compiler_parser::parser::{
     BinaryOp, Expression, FunctionDef, Pattern, Spanned, Statement, TopLevelItem, TypeExpr,
@@ -53,9 +53,8 @@ impl Validator for TypeValidator {
         crate_id: Crate,
         file: File,
         index: &SemanticIndex,
-    ) -> Vec<Diagnostic> {
-        let mut diagnostics = Vec::new();
-
+        sink: &dyn cairo_m_compiler_diagnostics::DiagnosticSink,
+    ) {
         let parsed_program = parse_file(db, file);
         if !parsed_program.diagnostics.is_empty() {
             panic!("Got unexpected parse errors");
@@ -64,15 +63,7 @@ impl Validator for TypeValidator {
 
         // Single pass through all expressions for type checking in this module only
         for (expr_id, expr_info) in index.all_expressions() {
-            self.check_expression_types(
-                db,
-                crate_id,
-                file,
-                index,
-                expr_id,
-                expr_info,
-                &mut diagnostics,
-            );
+            self.check_expression_types(db, crate_id, file, index, expr_id, expr_info, sink);
         }
 
         for (_def_idx, definition) in index.all_definitions() {
@@ -84,12 +75,10 @@ impl Validator for TypeValidator {
                     index,
                     &parsed_module,
                     &definition.name,
-                    &mut diagnostics,
+                    sink,
                 )
             }
         }
-
-        diagnostics
     }
 
     fn name(&self) -> &'static str {
@@ -157,50 +146,26 @@ impl TypeValidator {
         index: &SemanticIndex,
         _expr_id: ExpressionId,
         expr_info: &ExpressionInfo,
-        diagnostics: &mut Vec<Diagnostic>,
+        sink: &dyn DiagnosticSink,
     ) {
         match &expr_info.ast_node {
             Expression::UnaryOp { expr, op } => {
-                self.check_unary_op_types(db, crate_id, file, index, expr, op, diagnostics);
+                self.check_unary_op_types(db, crate_id, file, index, expr, op, sink);
             }
             Expression::BinaryOp { left, op, right } => {
-                self.check_binary_op_types(db, crate_id, file, index, left, op, right, diagnostics);
+                self.check_binary_op_types(db, crate_id, file, index, left, op, right, sink);
             }
             Expression::FunctionCall { callee, args } => {
-                self.check_function_call_types(
-                    db,
-                    crate_id,
-                    file,
-                    index,
-                    callee,
-                    args,
-                    diagnostics,
-                );
+                self.check_function_call_types(db, crate_id, file, index, callee, args, sink);
             }
             Expression::MemberAccess { object, field } => {
-                self.check_member_access_types(
-                    db,
-                    crate_id,
-                    file,
-                    index,
-                    object,
-                    field,
-                    diagnostics,
-                );
+                self.check_member_access_types(db, crate_id, file, index, object, field, sink);
             }
             Expression::IndexAccess {
                 array,
                 index: index_expr,
             } => {
-                self.check_index_access_types(
-                    db,
-                    crate_id,
-                    file,
-                    index,
-                    array,
-                    index_expr,
-                    diagnostics,
-                );
+                self.check_index_access_types(db, crate_id, file, index, array, index_expr, sink);
             }
             Expression::StructLiteral { name, fields } => {
                 self.check_struct_literal_types(
@@ -211,7 +176,7 @@ impl TypeValidator {
                     expr_info.scope_id,
                     name,
                     fields,
-                    diagnostics,
+                    sink,
                 );
             }
             // Literals, identifiers, and tuples don't need additional type validation
@@ -231,7 +196,7 @@ impl TypeValidator {
         left: &Spanned<Expression>,
         op: &BinaryOp,
         right: &Spanned<Expression>,
-        diagnostics: &mut Vec<Diagnostic>,
+        sink: &dyn DiagnosticSink,
     ) {
         let Some(left_id) = index.expression_id_by_span(left.span()) else {
             return;
@@ -294,7 +259,7 @@ impl TypeValidator {
                 ),
             )
             .with_location(file.file_path(db).to_string(), left.span());
-            diagnostics.push(diag);
+            sink.push(diag);
             return;
         }
 
@@ -316,7 +281,7 @@ impl TypeValidator {
                 diag =
                     diag.with_related_span(file.file_path(db).to_string(), left.span(), suggestion);
             }
-            diagnostics.push(diag);
+            sink.push(diag);
         }
     }
 
@@ -329,7 +294,7 @@ impl TypeValidator {
         index: &SemanticIndex,
         expr: &Spanned<Expression>,
         op: &UnaryOp,
-        diagnostics: &mut Vec<Diagnostic>,
+        sink: &dyn DiagnosticSink,
     ) {
         let Some(expr_id) = index.expression_id_by_span(expr.span()) else {
             return;
@@ -352,7 +317,7 @@ impl TypeValidator {
                 ),
             )
             .with_location(file.file_path(db).to_string(), expr.span());
-            diagnostics.push(diag);
+            sink.push(diag);
         }
     }
 
@@ -365,7 +330,7 @@ impl TypeValidator {
         index: &SemanticIndex,
         callee: &Spanned<Expression>,
         args: &[Spanned<Expression>],
-        diagnostics: &mut Vec<Diagnostic>,
+        sink: &dyn DiagnosticSink,
     ) {
         let Some(callee_expr_id) = index.expression_id_by_span(callee.span()) else {
             return;
@@ -378,7 +343,7 @@ impl TypeValidator {
 
                 // Check arity
                 if args.len() != params.len() {
-                    diagnostics.push(
+                    sink.push(
                         Diagnostic::error(
                             DiagnosticCode::InvalidFunctionCall,
                             format!(
@@ -426,7 +391,7 @@ impl TypeValidator {
                                 );
                             }
 
-                            diagnostics.push(diag);
+                            sink.push(diag);
                         }
                     }
                 }
@@ -450,7 +415,7 @@ impl TypeValidator {
                     return;
                 }
 
-                diagnostics.push(
+                sink.push(
                     Diagnostic::error(
                         DiagnosticCode::InvalidFunctionCall,
                         format!(
@@ -473,7 +438,7 @@ impl TypeValidator {
         index: &SemanticIndex,
         object: &Spanned<Expression>,
         field: &Spanned<String>,
-        diagnostics: &mut Vec<Diagnostic>,
+        sink: &dyn DiagnosticSink,
     ) {
         let Some(object_id) = index.expression_id_by_span(object.span()) else {
             return;
@@ -485,7 +450,7 @@ impl TypeValidator {
             TypeData::Struct(struct_type) => {
                 let fields = struct_type.fields(db);
                 if !fields.iter().any(|(name, _)| name == field.value()) {
-                    diagnostics.push(
+                    sink.push(
                         Diagnostic::error(
                             DiagnosticCode::InvalidFieldAccess,
                             format!(
@@ -502,7 +467,7 @@ impl TypeValidator {
                 // Skip validation for error types
             }
             _ => {
-                diagnostics.push(
+                sink.push(
                     Diagnostic::error(
                         DiagnosticCode::InvalidFieldAccess,
                         format!(
@@ -525,7 +490,7 @@ impl TypeValidator {
         index: &SemanticIndex,
         array: &Spanned<Expression>,
         index_expr: &Spanned<Expression>,
-        diagnostics: &mut Vec<Diagnostic>,
+        sink: &dyn DiagnosticSink,
     ) {
         let Some(array_id) = index.expression_id_by_span(array.span()) else {
             return;
@@ -544,7 +509,7 @@ impl TypeValidator {
                 let index_type = index_type_id.data(db);
 
                 if !matches!(index_type, TypeData::Felt) {
-                    diagnostics.push(
+                    sink.push(
                         Diagnostic::error(
                             DiagnosticCode::InvalidIndexType,
                             format!(
@@ -560,7 +525,7 @@ impl TypeValidator {
                 // Skip validation for error types
             }
             _ => {
-                diagnostics.push(
+                sink.push(
                     Diagnostic::error(
                         DiagnosticCode::InvalidIndexAccess,
                         format!(
@@ -585,7 +550,7 @@ impl TypeValidator {
         scope_id: crate::place::FileScopeId,
         name: &Spanned<String>,
         fields: &[(Spanned<String>, Spanned<Expression>)],
-        diagnostics: &mut Vec<Diagnostic>,
+        sink: &dyn DiagnosticSink,
     ) {
         // Resolve the struct type
         let Some((def_idx, _)) = index.resolve_name_to_definition(name.value(), scope_id) else {
@@ -600,7 +565,7 @@ impl TypeValidator {
         let def_type = definition_semantic_type(db, crate_id, def_id);
 
         let TypeData::Struct(struct_type) = def_type.data(db) else {
-            diagnostics.push(
+            sink.push(
                 Diagnostic::error(
                     DiagnosticCode::InvalidStructLiteral,
                     format!("`{}` is not a struct type", name.value()),
@@ -619,7 +584,7 @@ impl TypeValidator {
         // Check for missing fields
         for (field_name, _field_type) in &struct_fields {
             if !provided_fields.contains(field_name) {
-                diagnostics.push(
+                sink.push(
                     Diagnostic::error(
                         DiagnosticCode::InvalidStructLiteral,
                         format!(
@@ -645,22 +610,35 @@ impl TypeValidator {
                         expression_semantic_type(db, crate_id, file, value_expr_id, None);
 
                     if !are_types_compatible(db, actual_type, *expected_type) {
-                        diagnostics.push(
-                            Diagnostic::error(
-                                DiagnosticCode::TypeMismatch,
-                                format!(
-                                    "Type mismatch for field `{}`. Expected `{}`, found `{}`",
-                                    field_name.value(),
-                                    expected_type.data(db).display_name(db),
-                                    actual_type.data(db).display_name(db)
-                                ),
-                            )
-                            .with_location(file.file_path(db).to_string(), field_value.span()),
-                        );
+                        // Get the expression info to check the origin
+                        if let Some(expr_info) = index.expression(value_expr_id) {
+                            self.emit_type_mismatch_diagnostic(
+                                db,
+                                file,
+                                expr_info,
+                                expected_type.data(db).display_name(db),
+                                actual_type.data(db).display_name(db),
+                                sink,
+                            );
+                        } else {
+                            // Fallback to the original diagnostic
+                            sink.push(
+                                Diagnostic::error(
+                                    DiagnosticCode::TypeMismatch,
+                                    format!(
+                                        "Type mismatch for field `{}`. Expected `{}`, found `{}`",
+                                        field_name.value(),
+                                        expected_type.data(db).display_name(db),
+                                        actual_type.data(db).display_name(db)
+                                    ),
+                                )
+                                .with_location(file.file_path(db).to_string(), field_value.span()),
+                            );
+                        }
                     }
                 }
             } else {
-                diagnostics.push(
+                sink.push(
                     Diagnostic::error(
                         DiagnosticCode::InvalidFieldAccess,
                         format!(
@@ -675,6 +653,66 @@ impl TypeValidator {
         }
     }
 
+    /// Emit a type mismatch diagnostic with context-aware messaging based on expression origin
+    fn emit_type_mismatch_diagnostic(
+        &self,
+        db: &dyn SemanticDb,
+        file: File,
+        expr_info: &ExpressionInfo,
+        expected_type: String,
+        actual_type: String,
+        sink: &dyn DiagnosticSink,
+    ) {
+        use crate::semantic_index::Origin;
+
+        match &expr_info.origin {
+            Origin::StructField {
+                field, field_span, ..
+            } => {
+                let diagnostic = Diagnostic::error(
+                    DiagnosticCode::TypeMismatch,
+                    format!(
+                        "type mismatch for field `{}`: expected `{}`, got `{}`",
+                        field, expected_type, actual_type
+                    ),
+                )
+                .with_location(file.file_path(db).to_string(), expr_info.ast_span)
+                .with_related_span(
+                    file.file_path(db).to_string(),
+                    *field_span,
+                    "field declared here".to_string(),
+                );
+
+                sink.push(diagnostic);
+            }
+            Origin::TupleElem { index, .. } => {
+                sink.push(
+                    Diagnostic::error(
+                        DiagnosticCode::TypeMismatch,
+                        format!(
+                            "type mismatch for tuple element #{}: expected `{}`, got `{}`",
+                            index, expected_type, actual_type
+                        ),
+                    )
+                    .with_location(file.file_path(db).to_string(), expr_info.ast_span),
+                );
+            }
+            Origin::Plain => {
+                // Fallback to generic type mismatch message
+                sink.push(
+                    Diagnostic::error(
+                        DiagnosticCode::TypeMismatch,
+                        format!(
+                            "type mismatch: expected `{}`, got `{}`",
+                            expected_type, actual_type
+                        ),
+                    )
+                    .with_location(file.file_path(db).to_string(), expr_info.ast_span),
+                );
+            }
+        }
+    }
+
     /// Analyze statement types in a specific function
     fn analyze_function_statement_types(
         &self,
@@ -684,21 +722,13 @@ impl TypeValidator {
         index: &SemanticIndex,
         parsed_module: &ParsedModule,
         function_name: &str,
-        diagnostics: &mut Vec<Diagnostic>,
+        sink: &dyn DiagnosticSink,
     ) {
         // Find the function definition in the AST
         if let Some(function_def) = self.find_function_in_module(parsed_module, function_name) {
             // Analyze each statement in the function body
             for stmt in &function_def.body {
-                self.check_statement_type(
-                    db,
-                    crate_id,
-                    file,
-                    index,
-                    function_def,
-                    stmt,
-                    diagnostics,
-                );
+                self.check_statement_type(db, crate_id, file, index, function_def, stmt, sink);
             }
         }
     }
@@ -712,7 +742,7 @@ impl TypeValidator {
         index: &SemanticIndex,
         function_def: &FunctionDef,
         stmt: &Spanned<Statement>,
-        diagnostics: &mut Vec<Diagnostic>,
+        sink: &dyn DiagnosticSink,
     ) {
         match stmt.value() {
             Statement::Let {
@@ -728,11 +758,11 @@ impl TypeValidator {
                     pattern,
                     value,
                     statement_type,
-                    diagnostics,
+                    sink,
                 );
             }
             Statement::Assignment { lhs, rhs } => {
-                self.check_assignment_types(db, crate_id, file, index, lhs, rhs, diagnostics);
+                self.check_assignment_types(db, crate_id, file, index, lhs, rhs, sink);
             }
             Statement::Return { value } => {
                 self.check_return_types(
@@ -743,7 +773,7 @@ impl TypeValidator {
                     function_def,
                     value,
                     stmt.span(),
-                    diagnostics,
+                    sink,
                 );
             }
             Statement::If {
@@ -760,21 +790,13 @@ impl TypeValidator {
                     condition,
                     then_block,
                     else_block,
-                    diagnostics,
+                    sink,
                 );
             }
             Statement::Block(statements) => {
                 // Recursively check statements in the block
                 for stmt in statements {
-                    self.check_statement_type(
-                        db,
-                        crate_id,
-                        file,
-                        index,
-                        function_def,
-                        stmt,
-                        diagnostics,
-                    );
+                    self.check_statement_type(db, crate_id, file, index, function_def, stmt, sink);
                 }
             }
             Statement::Expression(expr) => {
@@ -785,15 +807,7 @@ impl TypeValidator {
                 // Const statements are handled during definition processing
             }
             Statement::Loop { body } => {
-                self.check_statement_type(
-                    db,
-                    crate_id,
-                    file,
-                    index,
-                    function_def,
-                    body,
-                    diagnostics,
-                );
+                self.check_statement_type(db, crate_id, file, index, function_def, body, sink);
             }
             Statement::While { condition, body } => {
                 // Check condition expression
@@ -806,7 +820,7 @@ impl TypeValidator {
                             index,
                             condition_expr_id,
                             condition_info,
-                            diagnostics,
+                            sink,
                         );
                     }
 
@@ -821,7 +835,7 @@ impl TypeValidator {
                     );
 
                     if !are_types_compatible(db, condition_type, bool_type) {
-                        diagnostics.push(
+                        sink.push(
                             Diagnostic::error(
                                 DiagnosticCode::TypeMismatch,
                                 format!(
@@ -834,15 +848,7 @@ impl TypeValidator {
                     }
                 }
 
-                self.check_statement_type(
-                    db,
-                    crate_id,
-                    file,
-                    index,
-                    function_def,
-                    body,
-                    diagnostics,
-                );
+                self.check_statement_type(db, crate_id, file, index, function_def, body, sink);
             }
             Statement::For { .. } => {
                 // TODO: For loops not yet supported - we need iterator/range types first
@@ -865,7 +871,7 @@ impl TypeValidator {
         pattern: &Pattern,
         value: &Spanned<Expression>,
         statement_type: &Option<Spanned<TypeExpr>>,
-        diagnostics: &mut Vec<Diagnostic>,
+        sink: &dyn DiagnosticSink,
     ) {
         let Some(value_expr_id) = index.expression_id_by_span(value.span()) else {
             return;
@@ -882,7 +888,7 @@ impl TypeValidator {
                         .scope_id;
                     let expected_type = resolve_ast_type(db, crate_id, file, ty.clone(), scope_id);
                     if !are_types_compatible(db, value_type, expected_type) {
-                        diagnostics.push(
+                        sink.push(
                             Diagnostic::error(
                                 DiagnosticCode::TypeMismatch,
                                 format!(
@@ -902,7 +908,7 @@ impl TypeValidator {
                 match value_type.data(db) {
                     TypeData::Tuple(element_types) => {
                         if element_types.len() != names.len() {
-                            diagnostics.push(
+                            sink.push(
                                 Diagnostic::error(
                                     DiagnosticCode::TypeMismatch,
                                     format!(
@@ -924,7 +930,7 @@ impl TypeValidator {
                             let expected_type =
                                 resolve_ast_type(db, crate_id, file, ty.clone(), scope_id);
                             if !are_types_compatible(db, value_type, expected_type) {
-                                diagnostics.push(
+                                sink.push(
                                     Diagnostic::error(
                                         DiagnosticCode::TypeMismatch,
                                         format!(
@@ -939,7 +945,7 @@ impl TypeValidator {
                         }
                     }
                     _ => {
-                        diagnostics.push(
+                        sink.push(
                             Diagnostic::error(
                                 DiagnosticCode::TypeMismatch,
                                 format!(
@@ -964,7 +970,7 @@ impl TypeValidator {
         index: &SemanticIndex,
         lhs: &Spanned<Expression>,
         rhs: &Spanned<Expression>,
-        diagnostics: &mut Vec<Diagnostic>,
+        sink: &dyn DiagnosticSink,
     ) {
         let Some(lhs_expr_id) = index.expression_id_by_span(lhs.span()) else {
             return;
@@ -1003,7 +1009,7 @@ impl TypeValidator {
                 // TODO: Check if the array element is mutable
             }
             _ => {
-                diagnostics.push(
+                sink.push(
                     Diagnostic::error(
                         DiagnosticCode::InvalidAssignmentTarget,
                         "Invalid assignment target - must be a variable, field, or array element"
@@ -1040,7 +1046,7 @@ impl TypeValidator {
                 format!("Variable has type `{}`", lhs_type.data(db).display_name(db)),
             );
 
-            diagnostics.push(diag);
+            sink.push(diag);
         }
     }
 
@@ -1055,7 +1061,7 @@ impl TypeValidator {
         function_def: &FunctionDef,
         value: &Option<Spanned<Expression>>,
         span: SimpleSpan<usize>,
-        diagnostics: &mut Vec<Diagnostic>,
+        sink: &dyn DiagnosticSink,
     ) {
         let scope_id = index.root_scope().expect("No root scope found");
         let expected_return_type = resolve_ast_type(
@@ -1076,7 +1082,7 @@ impl TypeValidator {
         match (value, expects_value) {
             (None, true) => {
                 // Missing return value when one is expected
-                diagnostics.push(
+                sink.push(
                     Diagnostic::error(
                         DiagnosticCode::MissingReturnValue,
                         "Function with return type must return a value".to_string(),
@@ -1141,7 +1147,7 @@ impl TypeValidator {
                         context_message,
                     );
 
-                    diagnostics.push(diag);
+                    sink.push(diag);
                 }
             }
             (None, false) => {
@@ -1162,7 +1168,7 @@ impl TypeValidator {
         condition: &Spanned<Expression>,
         then_block: &Spanned<Statement>,
         else_block: &Option<Box<Spanned<Statement>>>,
-        diagnostics: &mut Vec<Diagnostic>,
+        sink: &dyn DiagnosticSink,
     ) {
         // Check condition type
         let Some(condition_expr_id) = index.expression_id_by_span(condition.span()) else {
@@ -1173,7 +1179,7 @@ impl TypeValidator {
             expression_semantic_type(db, crate_id, file, condition_expr_id, Some(bool_type));
 
         if !are_types_compatible(db, condition_type, bool_type) {
-            diagnostics.push(
+            sink.push(
                 Diagnostic::error(
                     DiagnosticCode::TypeMismatch,
                     format!(
@@ -1186,25 +1192,9 @@ impl TypeValidator {
         }
 
         // Check then and else block types
-        self.check_statement_type(
-            db,
-            crate_id,
-            file,
-            index,
-            function_def,
-            then_block,
-            diagnostics,
-        );
+        self.check_statement_type(db, crate_id, file, index, function_def, then_block, sink);
         if let Some(else_stmt) = else_block {
-            self.check_statement_type(
-                db,
-                crate_id,
-                file,
-                index,
-                function_def,
-                else_stmt,
-                diagnostics,
-            );
+            self.check_statement_type(db, crate_id, file, index, function_def, else_stmt, sink);
         }
     }
 
@@ -1285,7 +1275,9 @@ mod tests {
         let semantic_index = get_main_semantic_index(&db, crate_id);
 
         let validator = TypeValidator;
-        let diagnostics = validator.validate(&db, crate_id, file, &semantic_index);
+        let sink = cairo_m_compiler_diagnostics::VecSink::new();
+        validator.validate(&db, crate_id, file, &semantic_index, &sink);
+        let diagnostics = sink.into_diagnostics();
 
         // Should have one error for the invalid binary operation
         let type_errors: Vec<_> = diagnostics
@@ -1314,7 +1306,9 @@ mod tests {
         let semantic_index = get_main_semantic_index(&db, crate_id);
 
         let validator = TypeValidator;
-        let diagnostics = validator.validate(&db, crate_id, file, &semantic_index);
+        let sink = cairo_m_compiler_diagnostics::VecSink::new();
+        validator.validate(&db, crate_id, file, &semantic_index, &sink);
+        let diagnostics = sink.into_diagnostics();
 
         // Should have one error for the invalid argument type
         let type_errors = diagnostics
@@ -1350,7 +1344,9 @@ mod tests {
         let semantic_index = get_main_semantic_index(&db, crate_id);
 
         let validator = TypeValidator;
-        let diagnostics = validator.validate(&db, crate_id, file, &semantic_index);
+        let sink = cairo_m_compiler_diagnostics::VecSink::new();
+        validator.validate(&db, crate_id, file, &semantic_index, &sink);
+        let diagnostics = sink.into_diagnostics();
 
         // Should catch multiple type errors
         assert!(
@@ -1422,7 +1418,9 @@ mod tests {
         let semantic_index = get_main_semantic_index(&db, crate_id);
 
         let validator = TypeValidator;
-        let diagnostics = validator.validate(&db, crate_id, file, &semantic_index);
+        let sink = cairo_m_compiler_diagnostics::VecSink::new();
+        validator.validate(&db, crate_id, file, &semantic_index, &sink);
+        let diagnostics = sink.into_diagnostics();
 
         // Count type mismatch errors
         let type_mismatch_errors = diagnostics
@@ -1486,8 +1484,9 @@ mod tests {
         let semantic_index = get_main_semantic_index(&db, crate_id);
 
         let validator = TypeValidator;
-        let diagnostics =
-            DiagnosticCollection::new(validator.validate(&db, crate_id, file, &semantic_index));
+        let sink = cairo_m_compiler_diagnostics::VecSink::new();
+        validator.validate(&db, crate_id, file, &semantic_index, &sink);
+        let diagnostics = DiagnosticCollection::new(sink.into_diagnostics());
 
         // Count type mismatch errors
         let type_mismatch_errors = diagnostics
@@ -1550,7 +1549,9 @@ mod tests {
         let semantic_index = get_main_semantic_index(&db, crate_id);
 
         let validator = TypeValidator;
-        let diagnostics = validator.validate(&db, crate_id, file, &semantic_index);
+        let sink = cairo_m_compiler_diagnostics::VecSink::new();
+        validator.validate(&db, crate_id, file, &semantic_index, &sink);
+        let diagnostics = sink.into_diagnostics();
 
         // Count type mismatch errors
         let type_errors: Vec<_> = diagnostics
@@ -1605,8 +1606,9 @@ mod tests {
         let semantic_index = get_main_semantic_index(&db, crate_id);
 
         let validator = TypeValidator;
-        let diagnostics =
-            DiagnosticCollection::new(validator.validate(&db, crate_id, file, &semantic_index));
+        let sink = cairo_m_compiler_diagnostics::VecSink::new();
+        validator.validate(&db, crate_id, file, &semantic_index, &sink);
+        let diagnostics = DiagnosticCollection::new(sink.into_diagnostics());
 
         // Count different types of errors
         let type_mismatch_errors = diagnostics

@@ -31,19 +31,19 @@ fn test() { let (x, y) = (1, 2, 3); return; }
 --- Input 3 (ERROR) ---
 fn test() { let (x, y): felt = (1, 2); return; }
 --- Diagnostics ---
-[2001] Error: Type mismatch for tuple destructuring. Expected `felt`, found `(felt, felt)`
-   ╭─[ semantic_tests::functions::tuples::test_tuple_destructuring:1:32 ]
-   │
- 1 │ fn test() { let (x, y): felt = (1, 2); return; }
-   │                                ───┬──  
-   │                                   ╰──── Type mismatch for tuple destructuring. Expected `felt`, found `(felt, felt)`
-───╯
 [2001] Error: type mismatch: expected tuple
    ╭─[ semantic_tests::functions::tuples::test_tuple_destructuring:1:25 ]
    │
  1 │ fn test() { let (x, y): felt = (1, 2); return; }
    │                         ──┬─  
    │                           ╰─── type mismatch: expected tuple
+───╯
+[2001] Error: Type mismatch for tuple destructuring. Expected `felt`, found `(felt, felt)`
+   ╭─[ semantic_tests::functions::tuples::test_tuple_destructuring:1:32 ]
+   │
+ 1 │ fn test() { let (x, y): felt = (1, 2); return; }
+   │                                ───┬──  
+   │                                   ╰──── Type mismatch for tuple destructuring. Expected `felt`, found `(felt, felt)`
 ───╯
 
 ============================================================
