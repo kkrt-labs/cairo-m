@@ -6,8 +6,6 @@ use poseidon_constants::{mds_matrix, round_constants};
 pub use poseidon_params::*;
 use stwo_prover::core::fields::m31::M31;
 
-use crate::adapter::merkle::MerkleHasher;
-
 /// Intermediate data for a single round, used for trace generation
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PoseidonRoundData {
@@ -117,14 +115,10 @@ impl PoseidonHash {
 
     /// Generate trace data for Poseidon hash computation
     /// Returns an array of PoseidonRoundData for all rounds (full + partial)
-    pub fn hash_with_trace(
-        left: M31,
-        right: M31,
-    ) -> ([PoseidonRoundData; FULL_ROUNDS + PARTIAL_ROUNDS], M31) {
-        let mut state = [M31::zero(); T];
-        state[0] = left;
-        state[1] = right;
-
+    pub fn permutation_with_trace(
+        input: [M31; T],
+    ) -> ([PoseidonRoundData; FULL_ROUNDS + PARTIAL_ROUNDS], [M31; T]) {
+        let mut state = input;
         let mut trace_data = [PoseidonRoundData {
             state: [M31::zero(); T],
             inter_state: [M31::zero(); T],
@@ -169,7 +163,7 @@ impl PoseidonHash {
         }
 
         // Return both trace data and the hash result
-        (trace_data, state[0])
+        (trace_data, state)
     }
 
     /// Full round with trace generation
@@ -264,10 +258,8 @@ impl PoseidonHash {
             final_round: if is_final { M31::from(1) } else { M31::zero() },
         }
     }
-}
 
-impl MerkleHasher for PoseidonHash {
-    fn hash(left: M31, right: M31) -> M31 {
+    pub fn hash(left: M31, right: M31) -> M31 {
         let mut input = [M31::zero(); T];
         input[0] = left;
         input[1] = right;
@@ -279,7 +271,19 @@ impl MerkleHasher for PoseidonHash {
         output[0]
     }
 
-    fn default_hashes() -> &'static [M31] {
+    pub fn hash_with_trace(
+        left: M31,
+        right: M31,
+    ) -> ([PoseidonRoundData; FULL_ROUNDS + PARTIAL_ROUNDS], M31) {
+        let mut state = [M31::zero(); T];
+        state[0] = left;
+        state[1] = right;
+
+        let (trace_data, output) = Self::permutation_with_trace(state);
+        (trace_data, output[0])
+    }
+
+    pub fn default_hashes() -> &'static [M31] {
         use std::sync::OnceLock;
 
         use crate::adapter::merkle::TREE_HEIGHT;

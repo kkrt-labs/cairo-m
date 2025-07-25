@@ -18,7 +18,7 @@ use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::BitReversedOrder;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 
-use crate::adapter::{DefaultHasher, ProverInput};
+use crate::adapter::ProverInput;
 use crate::preprocessed::range_check::range_check_20;
 use crate::public_data::PublicData;
 use crate::relations;
@@ -98,7 +98,7 @@ impl Claim {
 
         // Write merkle trace
         let (merkle_claim, merkle_trace, merkle_interaction_claim_data) =
-            merkle::Claim::write_trace::<MC, DefaultHasher>(&input.merkle_trees);
+            merkle::Claim::write_trace::<MC>(&input.merkle_trees);
 
         // Write poseidon trace
         let (poseidon_claim, poseidon_trace, poseidon_interaction_claim_data) =

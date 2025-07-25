@@ -20,7 +20,7 @@ use tracing::{Level, span};
 use crate::adapter::io::{MemoryEntryFileIter, TraceFileIter};
 use crate::adapter::memory::{ExecutionBundleIterator, Memory};
 use crate::adapter::merkle::{NodeData, TREE_HEIGHT, build_partial_merkle_tree};
-use crate::utils::poseidon::{PoseidonHash, PoseidonRoundData};
+use crate::utils::poseidon::PoseidonRoundData;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ProverInput {
@@ -116,9 +116,9 @@ where
 
     // Build the partial merkle trees and add to the memory the intermediate nodes
     let (initial_tree, initial_root, initial_round_data) =
-        build_partial_merkle_tree::<PoseidonHash>(&mut memory.initial_memory);
+        build_partial_merkle_tree(&mut memory.initial_memory);
     let (final_tree, final_root, final_round_data) =
-        build_partial_merkle_tree::<PoseidonHash>(&mut memory.final_memory);
+        build_partial_merkle_tree(&mut memory.final_memory);
 
     // Concatenate all round data
     let mut poseidon_round_data = initial_round_data;

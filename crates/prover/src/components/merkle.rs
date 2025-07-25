@@ -19,7 +19,6 @@ use stwo_prover::core::poly::BitReversedOrder;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 
 use crate::adapter::MerkleTrees;
-use crate::adapter::merkle::MerkleHasher;
 use crate::components::Relations;
 use crate::utils::enabler::Enabler;
 
@@ -61,7 +60,7 @@ impl Claim {
         channel.mix_u64(self.log_size as u64);
     }
 
-    pub fn write_trace<MC: MerkleChannel, H: MerkleHasher>(
+    pub fn write_trace<MC: MerkleChannel>(
         merkle_trees: &MerkleTrees,
     ) -> (Self, ComponentTrace<N_TRACE_COLUMNS>, InteractionClaimData)
     where

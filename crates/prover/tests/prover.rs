@@ -8,7 +8,6 @@ use cairo_m_prover::adapter::merkle::{TREE_HEIGHT, build_partial_merkle_tree};
 use cairo_m_prover::adapter::{Instructions, MerkleTrees, ProverInput, import_from_runner_output};
 use cairo_m_prover::debug_tools::assert_constraints::assert_constraints;
 use cairo_m_prover::prover::prove_cairo_m;
-use cairo_m_prover::utils::poseidon::PoseidonHash;
 use cairo_m_prover::verifier::verify_cairo_m;
 use cairo_m_runner::{RunnerOptions, run_cairo_program};
 use stwo_prover::core::fields::m31::M31;
@@ -55,9 +54,9 @@ fn test_prove_and_verify_unchanged_memory() {
     };
 
     let (initial_tree, initial_root, initial_round_data) =
-        build_partial_merkle_tree::<PoseidonHash>(&mut memory.initial_memory);
+        build_partial_merkle_tree(&mut memory.initial_memory);
     let (final_tree, final_root, final_round_data) =
-        build_partial_merkle_tree::<PoseidonHash>(&mut memory.final_memory);
+        build_partial_merkle_tree(&mut memory.final_memory);
 
     let mut poseidon_round_data = initial_round_data;
     poseidon_round_data.extend(final_round_data);
