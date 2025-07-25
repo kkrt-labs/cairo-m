@@ -34,5 +34,4 @@ pub const FULL_ROUNDS: usize = 8;
 
 /// PARTIAL_ROUNDS
 /// The paper exposes different critieras for different attacks. The tests use 35 (M=80), 60 (M=128), 120 (M=256).
-/// Stwo-cairo uses 31.
-pub const PARTIAL_ROUNDS: usize = 31;
+pub const PARTIAL_ROUNDS: usize = 56;
