@@ -1,70 +1,37 @@
-use cairo_m_common::Opcode;
-use num_traits::Zero;
+use cairo_m_common::Instruction;
 use stwo_prover::core::fields::m31::M31;
 
-use super::*;
+use super::{InstructionExecutionError, *};
 
-const JMP_REL_INITIAL_STATE: State = State {
-    pc: M31(3),
-    fp: M31(0),
-};
-
-/// Macro for absolute jump tests with empty memory
-macro_rules! test_jmp_abs_no_memory {
-    ($test_name:ident, $opcode:expr, $fn:ident, $operands:expr, $expected_pc:expr) => {
-        #[test]
-        fn $test_name() -> Result<(), MemoryError> {
-            let mut memory = Memory::default();
-            let state = State::default();
-            let instruction = Instruction::new($opcode, $operands);
-
-            let new_state = $fn(&mut memory, state, &instruction)?;
-
-            let expected_state = State {
-                pc: M31($expected_pc),
-                fp: M31::zero(),
-            };
-            assert_eq!(new_state, expected_state);
-
-            Ok(())
-        }
+#[test]
+fn test_jmp_abs_imm() -> Result<(), InstructionExecutionError> {
+    let mut memory = Memory::default();
+    let state = State::default();
+    let instruction = Instruction::JmpAbsImm {
+        target: M31::from(4),
     };
+
+    let new_state = jmp_abs_imm(&mut memory, state, &instruction)?;
+
+    assert_eq!(new_state.pc, M31(4));
+    assert_eq!(new_state.fp, M31(0));
+    Ok(())
 }
 
-/// Macro for relative jump tests with empty memory
-macro_rules! test_jmp_rel_no_memory {
-    ($test_name:ident, $opcode:expr, $fn:ident, $operands:expr, $expected_pc:expr) => {
-        #[test]
-        fn $test_name() -> Result<(), MemoryError> {
-            let mut memory = Memory::default();
-            let instruction = Instruction::new($opcode, $operands);
-
-            let new_state = $fn(&mut memory, JMP_REL_INITIAL_STATE, &instruction)?;
-
-            let expected_state = State {
-                pc: M31($expected_pc),
-                fp: M31::zero(),
-            };
-            assert_eq!(new_state, expected_state);
-
-            Ok(())
-        }
+#[test]
+fn test_jmp_rel_imm() -> Result<(), InstructionExecutionError> {
+    let mut memory = Memory::default();
+    let state = State {
+        pc: M31(3),
+        fp: M31(0),
     };
+    let instruction = Instruction::JmpRelImm {
+        offset: M31::from(4),
+    };
+
+    let new_state = jmp_rel_imm(&mut memory, state, &instruction)?;
+
+    assert_eq!(new_state.pc, M31(7)); // 3 + 4 = 7
+    assert_eq!(new_state.fp, M31(0));
+    Ok(())
 }
-
-// Absolute jump tests using macros
-test_jmp_abs_no_memory!(
-    test_jmp_abs_imm,
-    Opcode::JmpAbsImm,
-    jmp_abs_imm,
-    [M31::from(4), Zero::zero(), Zero::zero()],
-    4
-);
-
-test_jmp_rel_no_memory!(
-    test_jmp_rel_imm,
-    Opcode::JmpRelImm,
-    jmp_rel_imm,
-    [M31::from(4), Zero::zero(), Zero::zero()],
-    7
-);

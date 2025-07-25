@@ -90,7 +90,7 @@ VM with minimal register architecture:
 
 - Two registers: PC (program counter) and FP (frame pointer)
 - Flat memory model storing QM31 values
-- Fixed instruction encoding: [opcode, arg0, arg1, arg2]
+- Variable-size instruction encoding: 1-5 M31 elements per instruction
 - Generates execution traces for proof generation
 
 ### 3. Prover (`crates/prover/`)
@@ -132,6 +132,7 @@ Uses Salsa for incremental compilation with queries:
 ### Memory and Instruction Model
 
 - Instructions loaded at address 0
+- Variable-size instruction encoding: 1-5 M31 elements per instruction
 - Frame layout: [args, return_values, old_fp, return_pc]
 - 32 opcodes including arithmetic, memory, control flow, and immediate
   operations
