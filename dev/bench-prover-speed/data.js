@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1753285009034,
+  "lastUpdate": 1753439150335,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -809,6 +809,36 @@ window.BENCHMARK_DATA = {
             "name": "prover_fibonacci/prove",
             "value": 5770279312,
             "range": "± 22680872",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antoine.fondeur@gmail.com",
+            "name": "Antoine Fondeur",
+            "username": "AntoineFONDEUR"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "81a4c011c9ddd434d2078b9828e90f8d28022c27",
+          "message": "feat(prover): implement the poseidon hash (#183)\n\n* implement poseison hash\n\n* remove snapshots\n\n* review modifications\n\n* review modifications\n\n* review modifications\n\n* fixes\n\n* Update crates/prover/src/utils/poseidon/poseidon_params.rs\n\nCo-authored-by: Antoine Fondeur <antoine.fondeur@gmail.com>\n\n* Update crates/prover/src/utils/poseidon/poseidon_params.rs\n\n---------\n\nCo-authored-by: Clément Walter <clement0walter@gmail.com>",
+          "timestamp": "2025-07-25T12:13:16+02:00",
+          "tree_id": "d557c8c14b2f54f4ef0d8659ddba2538a84dddec",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/81a4c011c9ddd434d2078b9828e90f8d28022c27"
+        },
+        "date": 1753439149354,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 5645822206,
+            "range": "± 16102694",
             "unit": "ns/iter"
           }
         ]
