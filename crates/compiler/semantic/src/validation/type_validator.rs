@@ -1198,6 +1198,7 @@ mod tests {
 
     use super::*;
     use crate::db::tests::test_db;
+    use crate::module_semantic_index;
 
     // TODO For tests only - ideally not present there
     fn single_file_crate(db: &dyn SemanticDb, file: File) -> Crate {
@@ -1213,8 +1214,7 @@ mod tests {
     }
 
     fn get_main_semantic_index(db: &dyn SemanticDb, crate_id: Crate) -> SemanticIndex {
-        let semantic_index = crate::db::project_semantic_index(db, crate_id).unwrap();
-        semantic_index.modules().get("main").unwrap().clone()
+        module_semantic_index(db, crate_id, "main".to_string()).unwrap()
     }
 
     #[test]

@@ -45,7 +45,7 @@ fn test_u32_explicit_declaration() {
     let program = "fn test() { let x: u32 = 42; let y = x; return;}"; // Use x so we get an identifier expression
     let crate_id = crate_from_program(&db, program);
     let file = *crate_id.modules(&db).values().next().unwrap();
-    let index = module_semantic_index(&db, crate_id, "main".to_string());
+    let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
     // Find the identifier 'x' and verify its type
     let mut found_u32_var = false;
@@ -77,7 +77,7 @@ fn test_u32_arithmetic_operations() {
     "#;
     let crate_id = crate_from_program(&db, program);
     let file = *crate_id.modules(&db).values().next().unwrap();
-    let index = module_semantic_index(&db, crate_id, "main".to_string());
+    let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
     // Count binary operations and verify they return u32
     let mut u32_operations = 0;
@@ -110,7 +110,7 @@ fn test_u32_comparison_operations() {
     "#;
     let crate_id = crate_from_program(&db, program);
     let file = *crate_id.modules(&db).values().next().unwrap();
-    let index = module_semantic_index(&db, crate_id, "main".to_string());
+    let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
     // Count comparison operations and verify they return bool
     let mut bool_operations = 0;
@@ -151,7 +151,7 @@ fn test_u32_unary_operations() {
 
     let crate_id = crate_from_program(&db, program);
     let file = *crate_id.modules(&db).values().next().unwrap();
-    let index = module_semantic_index(&db, crate_id, "main".to_string());
+    let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
     let mut found_neg_u32 = false;
 
@@ -193,7 +193,7 @@ fn test_u32_tuple_type() {
     "#;
     let crate_id = crate_from_program(&db, program);
     let file = *crate_id.modules(&db).values().next().unwrap();
-    let index = module_semantic_index(&db, crate_id, "main".to_string());
+    let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
     // Find the tuple variable and verify its type
     let mut found_u32_tuple = false;
@@ -230,7 +230,7 @@ fn test_u32_in_struct() {
     "#;
     let crate_id = crate_from_program(&db, program);
     let file = *crate_id.modules(&db).values().next().unwrap();
-    let index = module_semantic_index(&db, crate_id, "main".to_string());
+    let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
     // Find member access and verify it returns u32
     let mut found_u32_field = false;
@@ -263,7 +263,7 @@ fn test_u32_in_function_signature() {
     "#;
     let crate_id = crate_from_program(&db, program);
     let file = *crate_id.modules(&db).values().next().unwrap();
-    let index = module_semantic_index(&db, crate_id, "main".to_string());
+    let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
     // Find the function call and verify its return type
     let mut found_u32_call = false;
@@ -295,7 +295,7 @@ fn test_untyped_let_should_be_felt() {
     "#;
     let crate_id = crate_from_program(&db, program);
     let file = *crate_id.modules(&db).values().next().unwrap();
-    let index = module_semantic_index(&db, crate_id, "main".to_string());
+    let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
     // Find the identifier 'x' and verify its type
     for (expr_id, expr_info) in index.all_expressions() {
@@ -320,7 +320,7 @@ fn test_typed_let_should_be_u32() {
     "#;
     let crate_id = crate_from_program(&db, program);
     let file = *crate_id.modules(&db).values().next().unwrap();
-    let index = module_semantic_index(&db, crate_id, "main".to_string());
+    let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
     // Find the identifier 'x' and verify its type
     for (expr_id, expr_info) in index.all_expressions() {

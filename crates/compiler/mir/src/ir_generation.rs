@@ -37,7 +37,7 @@ use cairo_m_compiler_semantic::type_resolution::{
     definition_semantic_type, expression_semantic_type,
 };
 use cairo_m_compiler_semantic::types::TypeData;
-use cairo_m_compiler_semantic::{File, SemanticDb};
+use cairo_m_compiler_semantic::{File, SemanticDb, module_semantic_index};
 use rustc_hash::FxHashMap;
 
 use crate::db::MirDb;
@@ -244,10 +244,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         function_name: &str,
     ) -> Option<FunctionId> {
         // Get the crate's semantic index
-        let crate_index = project_semantic_index(self.db, self.crate_id).ok()?;
-
-        // Get imported module's semantic index
-        let imported_index = crate_index.modules().get(imported_module_name)?;
+        let imported_index =
+            module_semantic_index(self.db, self.crate_id, imported_module_name.to_string()).ok()?;
 
         // Get imported module's root scope
         let imported_root = imported_index.root_scope()?;

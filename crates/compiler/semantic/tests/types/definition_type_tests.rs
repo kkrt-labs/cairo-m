@@ -5,14 +5,13 @@
 
 use cairo_m_compiler_semantic::db::Crate;
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
-use cairo_m_compiler_semantic::{SemanticIndex, project_semantic_index};
+use cairo_m_compiler_semantic::{SemanticIndex, module_semantic_index};
 
 use super::*;
 use crate::crate_from_program;
 
 fn get_main_semantic_index(db: &dyn SemanticDb, crate_id: Crate) -> SemanticIndex {
-    let semantic_index = project_semantic_index(db, crate_id).unwrap();
-    semantic_index.modules().values().next().unwrap().clone()
+    module_semantic_index(db, crate_id, "main".to_string()).unwrap()
 }
 
 #[test]

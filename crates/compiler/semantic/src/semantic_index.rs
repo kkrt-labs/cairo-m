@@ -438,7 +438,8 @@ impl SemanticIndex {
                     db,
                     crate_id,
                     use_def_ref.imported_module.value().clone(),
-                );
+                )
+                .expect("Failed to resolve index for imported module");
                 if let Some(imported_root) = imported_module_index.root_scope() {
                     if let Some((imported_def_idx, imported_def)) =
                         imported_module_index.resolve_name_to_definition(name, imported_root)
@@ -1520,7 +1521,7 @@ mod tests {
     fn test_empty_program() {
         let TestCase { db, source } = test_case("");
         let crate_id = single_file_crate(&db, source);
-        let index = module_semantic_index(&db, crate_id, "main".to_string());
+        let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
         let root = index.root_scope().expect("should have root scope");
         let scope = index.scope(root).unwrap();
@@ -1532,7 +1533,7 @@ mod tests {
     fn test_simple_function() {
         let TestCase { db, source } = test_case("fn test() { }");
         let crate_id = single_file_crate(&db, source);
-        let index = module_semantic_index(&db, crate_id, "main".to_string());
+        let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
         // Should have root scope and function scope
         let root = index.root_scope().unwrap();
@@ -1562,7 +1563,7 @@ mod tests {
     fn test_function_with_parameters() {
         let TestCase { db, source } = test_case("fn add(a: felt, b: felt) { }");
         let crate_id = single_file_crate(&db, source);
-        let index = module_semantic_index(&db, crate_id, "main".to_string());
+        let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
         let root = index.root_scope().unwrap();
         let child_scopes: Vec<_> = index.child_scopes(root).collect();
@@ -1587,7 +1588,7 @@ mod tests {
     fn test_variable_resolution() {
         let TestCase { db, source } = test_case("fn test(param: felt) { let local_var = param; }");
         let crate_id = single_file_crate(&db, source);
-        let index = module_semantic_index(&db, crate_id, "main".to_string());
+        let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
         let root = index.root_scope().unwrap();
         let child_scopes: Vec<_> = index.child_scopes(root).collect();
@@ -1631,7 +1632,7 @@ mod tests {
         );
 
         let crate_id = single_file_crate(&db, source);
-        let index = module_semantic_index(&db, crate_id, "main".to_string());
+        let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
         // Should have root scope plus function scope and namespace scope
         let root = index.root_scope().unwrap();
@@ -1719,7 +1720,7 @@ mod tests {
     fn test_real_spans_are_used() {
         let TestCase { db, source } = test_case("fn test(x: felt) { let y = x; }");
         let crate_id = single_file_crate(&db, source);
-        let index = module_semantic_index(&db, crate_id, "main".to_string());
+        let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
         // Get all identifier usages
         let usages = index.identifier_usages();
@@ -1780,7 +1781,7 @@ mod tests {
             "#,
         );
         let crate_id = single_file_crate(&db, source);
-        let index = module_semantic_index(&db, crate_id, "main".to_string());
+        let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
         // Find the let definition
         let let_definitions: Vec<_> = index

@@ -159,7 +159,7 @@ mod tests {
         let negative_program = "fn test() { let x: u32 = -42; }";
         let crate_id = crate_from_program(&db, negative_program);
         let file = *crate_id.modules(&db).values().next().unwrap();
-        let index = module_semantic_index(&db, crate_id, "main".to_string());
+        let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
         let validator = LiteralValidator;
         let diagnostics = validator.validate(&db, crate_id, file, &index);
@@ -178,7 +178,7 @@ mod tests {
         let zero_program = "fn test() { let x: u32 = -0; }";
         let crate_id = crate_from_program(&db, zero_program);
         let file = *crate_id.modules(&db).values().next().unwrap();
-        let index = module_semantic_index(&db, crate_id, "main".to_string());
+        let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
         let diagnostics = validator.validate(&db, crate_id, file, &index);
         assert_eq!(

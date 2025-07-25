@@ -352,8 +352,8 @@ pub fn project_semantic_index(
 ) -> Result<std::sync::Arc<ProjectSemanticIndex>, DiagnosticCollection> {
     let graph = project_import_graph(db, crate_id);
 
+    let mut coll = DiagnosticCollection::default();
     if let Some(cycle) = detect_import_cycle(&graph) {
-        let mut coll = DiagnosticCollection::default();
         coll.add(Diagnostic::error(
             DiagnosticCode::SyntaxError,
             format!("Cyclic import: {}", cycle.join(" -> ")),
@@ -362,7 +362,7 @@ pub fn project_semantic_index(
     }
 
     let topo = topological_sort(&graph);
-    let mut module_indices = HashMap::new();
+    let mut module_indices: HashMap<String, SemanticIndex> = HashMap::new();
 
     // Pre-fetch parsed modules to avoid repeated queries
     let parsed_modules = project_parsed_modules(db, crate_id);
@@ -372,8 +372,14 @@ pub fn project_semantic_index(
         if crate_id.modules(db).contains_key(module_name)
             && parsed_modules.contains_key(module_name)
         {
-            let module_index = module_semantic_index(db, crate_id, module_name.clone());
-            module_indices.insert(module_name.clone(), module_index);
+            match module_semantic_index(db, crate_id, module_name.clone()) {
+                Ok(module_index) => {
+                    module_indices.insert(module_name.clone(), module_index);
+                }
+                Err(diagnostic) => {
+                    coll.add(diagnostic);
+                }
+            }
         }
     }
 
@@ -384,9 +390,19 @@ pub fn project_semantic_index(
     modules_vec.sort_by(|a, b| a.0.cmp(b.0));
     for (module_name, _) in modules_vec.iter() {
         if !module_indices.contains_key(*module_name) && parsed_modules.contains_key(*module_name) {
-            let module_index = module_semantic_index(db, crate_id, (*module_name).clone());
-            module_indices.insert((*module_name).clone(), module_index);
+            match module_semantic_index(db, crate_id, (*module_name).clone()) {
+                Ok(module_index) => {
+                    module_indices.insert((*module_name).clone(), module_index);
+                }
+                Err(diagnostic) => {
+                    coll.add(diagnostic);
+                }
+            }
         }
+    }
+
+    if !coll.is_empty() {
+        return Err(coll);
     }
 
     Ok(std::sync::Arc::new(ProjectSemanticIndex::new(
@@ -399,27 +415,35 @@ pub fn module_semantic_index(
     db: &dyn SemanticDb,
     crate_id: Crate,
     module_name: String,
-) -> SemanticIndex {
+) -> Result<SemanticIndex, Diagnostic> {
     let parsed_modules = project_parsed_modules(db, crate_id);
-    let parsed_module = parsed_modules
-        .get(&module_name)
-        .cloned()
-        .unwrap_or_else(|| {
-            panic!(
+    let parsed_module = parsed_modules.get(&module_name).cloned().ok_or_else(|| {
+        Diagnostic::error(
+            DiagnosticCode::InternalError,
+            format!(
                 "Module '{}' should exist in parsed modules. Available modules: {:?}",
                 module_name,
                 parsed_modules.keys().collect::<Vec<_>>()
-            )
-        });
-    let file = *crate_id.modules(db).get(&module_name).unwrap_or_else(|| {
-        panic!(
-            "File for module '{}' should exist in crate. Available modules: {:?}",
-            module_name,
-            crate_id.modules(db).keys().collect::<Vec<_>>()
+            ),
         )
-    });
+    })?;
+    let file = *crate_id.modules(db).get(&module_name).ok_or_else(|| {
+        Diagnostic::error(
+            DiagnosticCode::InternalError,
+            format!(
+                "File for module '{}' should exist in crate. Available modules: {:?}",
+                module_name,
+                crate_id.modules(db).keys().collect::<Vec<_>>()
+            ),
+        )
+    })?;
 
-    semantic_index_from_module(db, &parsed_module, file, crate_id)
+    Ok(semantic_index_from_module(
+        db,
+        &parsed_module,
+        file,
+        crate_id,
+    ))
 }
 
 /// Get parse diagnostics for a specific module
@@ -454,8 +478,16 @@ pub fn module_semantic_diagnostics(
         return parse_diag;
     }
 
+    let mut semantic_diag = DiagnosticCollection::default();
+
     if let Some(file) = crate_id.modules(db).get(&module_name) {
-        let index = module_semantic_index(db, crate_id, module_name.clone());
+        let index = match module_semantic_index(db, crate_id, module_name.clone()) {
+            Ok(index) => index,
+            Err(diagnostic) => {
+                semantic_diag.add(diagnostic);
+                return semantic_diag;
+            }
+        };
         let registry = create_default_registry();
 
         let mut validate_diags = registry.validate_all(db, crate_id, *file, &index);

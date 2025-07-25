@@ -28,7 +28,7 @@ where
     let db = test_db();
     let crate_id = crate_from_program(&db, source);
     let file = *crate_id.modules(&db).values().next().unwrap();
-    let index = module_semantic_index(&db, crate_id, "main".to_string());
+    let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
     test_fn(&db, file, &index);
 }
 

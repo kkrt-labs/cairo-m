@@ -17,9 +17,7 @@ use cairo_m_compiler_parser::parser::{
 };
 
 use crate::File;
-use crate::db::{
-    Crate, SemanticDb, module_name_for_file, module_semantic_index, project_semantic_index,
-};
+use crate::db::{Crate, SemanticDb, module_name_for_file, module_semantic_index};
 use crate::definition::{DefinitionKind, FunctionDefRef, ParameterDefRef, StructDefRef};
 use crate::place::FileScopeId;
 use crate::semantic_index::{DefinitionId, ExpressionId};
@@ -46,39 +44,31 @@ pub fn resolve_ast_type<'db>(
             return TypeId::new(db, TypeData::Error);
         }
     };
-    let project_index = match project_semantic_index(db, crate_id) {
-        Ok(index) => index,
-        Err(_) => return TypeId::new(db, TypeData::Error),
-    };
-    let modules = project_index.modules();
-    let semantic_index = modules
-        .get(&module_name)
-        .expect("Module index should exist for module name");
+    let semantic_index = module_semantic_index(db, crate_id, module_name)
+        .expect("Failed to resolve index for module");
 
     match ast_type_expr.value() {
         AstTypeExpr::Named(name) => {
-            let name_str = match name.value() {
-                NamedType::Felt => return TypeId::new(db, TypeData::Felt),
-                NamedType::Bool => return TypeId::new(db, TypeData::Bool),
-                NamedType::U32 => return TypeId::new(db, TypeData::U32),
-                NamedType::Custom(name) => name,
-            };
+            match name.value() {
+                NamedType::Felt => TypeId::new(db, TypeData::Felt),
+                NamedType::Bool => TypeId::new(db, TypeData::Bool),
+                NamedType::U32 => TypeId::new(db, TypeData::U32),
+                NamedType::Custom(name_str) => {
+                    // Try to resolve as a struct type
+                    semantic_index
+                        .resolve_name_to_definition(name_str, context_scope_id)
+                        .map(|(def_idx, _)| {
+                            let def_id = DefinitionId::new(db, file, def_idx);
+                            let def_type = definition_semantic_type(db, crate_id, def_id);
 
-            // Try to resolve as a struct type
-            if let Some((def_idx, _)) =
-                semantic_index.resolve_name_to_definition(name_str, context_scope_id)
-            {
-                let def_id = DefinitionId::new(db, file, def_idx);
-                let def_type = definition_semantic_type(db, crate_id, def_id);
-
-                // Ensure it's a struct type, not just any definition
-                if let TypeData::Struct(_) = def_type.data(db) {
-                    def_type
-                } else {
-                    TypeId::new(db, TypeData::Error) // Found a name, but it's not a type
+                            // Ensure it's a struct type, not just any definition
+                            match def_type.data(db) {
+                                TypeData::Struct(_) => def_type,
+                                _ => TypeId::new(db, TypeData::Error), // Found a name, but it's not a type
+                            }
+                        })
+                        .unwrap_or_else(|| TypeId::new(db, TypeData::Error)) // Type not found
                 }
-            } else {
-                TypeId::new(db, TypeData::Error) // Type not found
             }
         }
         AstTypeExpr::Pointer(inner_ast_expr) => {
@@ -144,14 +134,8 @@ pub fn definition_semantic_type<'db>(
             return TypeId::new(db, TypeData::Error);
         }
     };
-    let project_index = match project_semantic_index(db, crate_id) {
-        Ok(index) => index,
-        Err(_) => return TypeId::new(db, TypeData::Error),
-    };
-    let modules = project_index.modules();
-    let semantic_index = modules
-        .get(&module_name)
-        .expect("Module index should exist for module name");
+    let semantic_index = module_semantic_index(db, crate_id, module_name)
+        .expect("Failed to resolve index for module");
 
     let Some(definition) = semantic_index.definition(def_index) else {
         return TypeId::new(db, TypeData::Error);
@@ -224,7 +208,8 @@ pub fn definition_semantic_type<'db>(
 
             let imported_module = use_ref.imported_module.clone();
             let imported_index =
-                module_semantic_index(db, crate_id, imported_module.value().clone());
+                module_semantic_index(db, crate_id, imported_module.value().clone())
+                    .expect("Failed to resolve index for imported module");
             let imported_root = imported_index
                 .root_scope()
                 .expect("Imported module should have root scope");
@@ -274,14 +259,8 @@ pub fn expression_semantic_type<'db>(
             return TypeId::new(db, TypeData::Error);
         }
     };
-    let project_index = match project_semantic_index(db, crate_id) {
-        Ok(index) => index,
-        Err(_) => return TypeId::new(db, TypeData::Error),
-    };
-    let modules = project_index.modules();
-    let semantic_index = modules
-        .get(&module_name)
-        .expect("Module index should exist for module name");
+    let semantic_index = module_semantic_index(db, crate_id, module_name)
+        .expect("Failed to resolve index for module");
 
     let Some(expr_info) = semantic_index.expression(expression_id) else {
         return TypeId::new(db, TypeData::Error);
@@ -471,9 +450,8 @@ pub fn struct_semantic_data<'db>(
     let def_index = struct_definition_id.id_in_file(db);
 
     let module_name = module_name_for_file(db, crate_id, file)?;
-    let project_index = project_semantic_index(db, crate_id).ok()?;
-    let modules = project_index.modules();
-    let semantic_index = modules.get(&module_name)?;
+    let semantic_index = module_semantic_index(db, crate_id, module_name)
+        .expect("Failed to resolve index for module");
 
     let definition = semantic_index.definition(def_index)?;
 
@@ -508,9 +486,8 @@ pub fn function_semantic_signature<'db>(
     let def_index = func_definition_id.id_in_file(db);
 
     let module_name = module_name_for_file(db, crate_id, file)?;
-    let project_index = project_semantic_index(db, crate_id).ok()?;
-    let modules = project_index.modules();
-    let semantic_index = modules.get(&module_name)?;
+    let semantic_index = module_semantic_index(db, crate_id, module_name)
+        .expect("Failed to resolve index for module");
 
     let definition = semantic_index.definition(def_index)?;
 
@@ -967,7 +944,7 @@ mod tests {
         let db = test_db();
         let crate_id = crate_from_program(&db, "fn test() { let x = 42; }");
         let file = *crate_id.modules(&db).values().next().unwrap();
-        let semantic_index = module_semantic_index(&db, crate_id, "main".to_string());
+        let semantic_index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
         // Find any expression in the index
         let all_expressions: Vec<_> = semantic_index.all_expressions().collect();
@@ -1017,7 +994,7 @@ mod tests {
         "#;
         let crate_id = crate_from_program(&db, program);
         let file = *crate_id.modules(&db).values().next().unwrap();
-        let semantic_index = module_semantic_index(&db, crate_id, "main".to_string());
+        let semantic_index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
         // Count how many different expression types we find
         let mut expression_types_found = std::collections::HashSet::new();
@@ -1105,7 +1082,7 @@ mod tests {
         "#;
         let crate_id = crate_from_program(&db, program);
         let file = *crate_id.modules(&db).values().next().unwrap();
-        let semantic_index = module_semantic_index(&db, crate_id, "main".to_string());
+        let semantic_index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
         // Find member access expressions and verify their types
         for expr_id in semantic_index.span_to_expression_id.values() {
@@ -1150,7 +1127,7 @@ mod tests {
         "#;
         let crate_id = crate_from_program(&db, program);
         let file = *crate_id.modules(&db).values().next().unwrap();
-        let semantic_index = module_semantic_index(&db, crate_id, "main".to_string());
+        let semantic_index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
         // Find the ptr.x expression
         let mut found_ptr_access = false;
