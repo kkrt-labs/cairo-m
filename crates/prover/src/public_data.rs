@@ -145,32 +145,71 @@ impl PublicData {
             ),
         ];
 
-        let mut add_to_memory_relation =
-            |entries: &[Option<(M31, QM31, M31)>], multiplicity: QM31| {
-                for (addr, value, clock) in entries.iter().flatten() {
-                    let value_array = value.to_m31_array();
-                    values_to_inverse.push(
-                        multiplicity
-                            * <relations::Memory as Relation<M31, QM31>>::combine(
-                                &relations.memory,
-                                &[
-                                    *addr,
-                                    *clock,
-                                    value_array[0],
-                                    value_array[1],
-                                    value_array[2],
-                                    value_array[3],
-                                ],
-                            ),
-                    );
-                }
+        let mut add_to_relation = |entries: &[Option<(M31, QM31, M31)>], multiplicity: QM31| {
+            let one = M31::one();
+            let m31_2 = M31::from(2);
+            let m31_3 = M31::from(3);
+            let m31_4 = M31::from(4);
+            let root = if multiplicity == QM31::one() {
+                self.initial_root
+            } else {
+                self.final_root
             };
+            for (addr, value, clock) in entries.iter().flatten() {
+                let value_array = value.to_m31_array();
+                values_to_inverse.push(
+                    multiplicity
+                        * <relations::Memory as Relation<M31, QM31>>::combine(
+                            &relations.memory,
+                            &[
+                                *addr,
+                                *clock,
+                                value_array[0],
+                                value_array[1],
+                                value_array[2],
+                                value_array[3],
+                            ],
+                        ),
+                );
+                values_to_inverse.push(<relations::Merkle as Relation<M31, QM31>>::combine(
+                    &relations.merkle,
+                    &[m31_4 * *addr, M31::from(TREE_HEIGHT), value_array[0], root],
+                ));
+                values_to_inverse.push(<relations::Merkle as Relation<M31, QM31>>::combine(
+                    &relations.merkle,
+                    &[
+                        m31_4 * *addr + one,
+                        M31::from(TREE_HEIGHT),
+                        value_array[1],
+                        root,
+                    ],
+                ));
+                values_to_inverse.push(<relations::Merkle as Relation<M31, QM31>>::combine(
+                    &relations.merkle,
+                    &[
+                        m31_4 * *addr + m31_2,
+                        M31::from(TREE_HEIGHT),
+                        value_array[2],
+                        root,
+                    ],
+                ));
+                values_to_inverse.push(<relations::Merkle as Relation<M31, QM31>>::combine(
+                    &relations.merkle,
+                    &[
+                        m31_4 * *addr + m31_3,
+                        M31::from(TREE_HEIGHT),
+                        value_array[3],
+                        root,
+                    ],
+                ));
+            }
+        };
 
         // Emit the initial program and input values
-        add_to_memory_relation(&self.public_memory.program, QM31::one());
-        add_to_memory_relation(&self.public_memory.input, QM31::one());
+        add_to_relation(&self.public_memory.program, QM31::one());
+        add_to_relation(&self.public_memory.input, QM31::one());
         // Use the final output values
-        add_to_memory_relation(&self.public_memory.output, -QM31::one());
+        add_to_relation(&self.public_memory.output, -QM31::one());
 
         let inverted_values = QM31::batch_inverse(&values_to_inverse);
         inverted_values.iter().sum::<QM31>()
