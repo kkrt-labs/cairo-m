@@ -7,7 +7,6 @@ use std::path::Path;
 
 use cairo_m_common::State as VmRegisters;
 use cairo_m_common::execution::Segment;
-use cairo_m_common::instruction::*;
 use cairo_m_common::state::MemoryEntry as RunnerMemoryEntry;
 use io::VmImportError;
 pub use memory::ExecutionBundle;
@@ -75,31 +74,8 @@ where
         // Extract opcode from instruction
         let opcode = bundle.instruction.instruction.opcode_value();
 
-        // Only store bundle if opcode is implemented in the prover
-        // The prover only implements a subset of opcodes
-        const IMPLEMENTED_OPCODES: &[u32] = &[
-            STORE_ADD_FP_FP,
-            STORE_ADD_FP_IMM,
-            STORE_SUB_FP_FP,
-            STORE_SUB_FP_IMM,
-            STORE_DOUBLE_DEREF_FP,
-            STORE_IMM,
-            STORE_MUL_FP_FP,
-            STORE_MUL_FP_IMM,
-            STORE_DIV_FP_FP,
-            STORE_DIV_FP_IMM,
-            CALL_ABS_IMM,
-            RET,
-            JMP_ABS_IMM,
-            JMP_REL_IMM,
-            JNZ_FP_IMM,
-        ];
-
-        if IMPLEMENTED_OPCODES.contains(&opcode) {
-            states_by_opcodes.entry(opcode).or_default().push(bundle);
-        } else {
-            return Err(VmImportError::UnimplementedOpcode(opcode));
-        }
+        // Store bundle by opcode
+        states_by_opcodes.entry(opcode).or_default().push(bundle);
     }
 
     // Get the final registers from the last trace entry that wasn't processed
