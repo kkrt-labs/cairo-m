@@ -30,7 +30,6 @@ pub const T: usize = INPUT_SIZE + CAPACITY_SIZE;
 
 /// FULL_ROUNDS
 /// The poseidon paper tests use 8 full rounds.
-/// Stwo-cairo uses 4.
 pub const FULL_ROUNDS: usize = 8;
 
 /// PARTIAL_ROUNDS
