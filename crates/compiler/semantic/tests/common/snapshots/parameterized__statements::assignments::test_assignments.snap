@@ -31,14 +31,14 @@ fn test() { let mut z: felt = 50; let x: u32 = 100; z = x; return; }
 --- Input 3 (ERROR) ---
 struct Point { x: felt, y: felt } fn test() { let x: felt = 42; let p = Point { x: 10, y: 20 }; x = p; return; }
 --- Diagnostics ---
-[2001] Error: Type mismatch in assignment. Cannot assign `Point` to variable of type `felt`
+[2001] Error: type mismatch in assignment: expected `felt`, got `Point`
    ╭─[ semantic_tests::statements::assignments::test_assignments:1:101 ]
    │
  1 │ struct Point { x: felt, y: felt } fn test() { let x: felt = 42; let p = Point { x: 10, y: 20 }; x = p; return; }
    │                                                                                                 ┬   ┬  
-   │                                                                                                 ╰────── Variable has type `felt`
+   │                                                                                                 ╰────── variable declared with type `felt`
    │                                                                                                     │  
-   │                                                                                                     ╰── Type mismatch in assignment. Cannot assign `Point` to variable of type `felt`
+   │                                                                                                     ╰── type mismatch in assignment: expected `felt`, got `Point`
    │                                                                                                     │  
    │                                                                                                     ╰── This struct has numeric fields that could be accessed
 ───╯

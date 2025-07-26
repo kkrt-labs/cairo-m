@@ -597,7 +597,9 @@ fn test_literal_inference_with_explicit_type() {
 
     // 3. Run the TypeValidator to ensure no errors are produced
     let validator = validation::TypeValidator;
-    let diagnostics = validator.validate(&db, crate_id, file, &semantic_index);
+    let sink = cairo_m_compiler_diagnostics::VecSink::new();
+    validator.validate(&db, crate_id, file, &semantic_index, &sink);
+    let diagnostics = sink.into_diagnostics();
     let type_mismatch_errors: Vec<_> = diagnostics
         .iter()
         .filter(|d| d.code == cairo_m_compiler_diagnostics::DiagnosticCode::TypeMismatch)

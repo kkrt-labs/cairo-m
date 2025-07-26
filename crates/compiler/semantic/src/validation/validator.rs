@@ -28,7 +28,9 @@
 //! let diagnostics = registry.validate_all(&db, file, &index);
 //! ```
 
-use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCollection};
+#[cfg(test)]
+use cairo_m_compiler_diagnostics::Diagnostic;
+use cairo_m_compiler_diagnostics::{DiagnosticCollection, DiagnosticSink, VecSink};
 
 use crate::db::{Crate, SemanticDb};
 use crate::{File, SemanticIndex};
@@ -45,11 +47,11 @@ use crate::{File, SemanticIndex};
 /// - Validators should not modify the semantic index
 /// - Return diagnostics in order of source location when possible
 pub trait Validator {
-    /// Validate the semantic index and return diagnostics
+    /// Validate the semantic index and push diagnostics to the sink
     ///
     /// This is the main entry point for validation logic. Implementers
-    /// should analyze the provided semantic index and return any issues
-    /// found as a vector of diagnostics.
+    /// should analyze the provided semantic index and push any issues
+    /// found to the diagnostic sink.
     ///
     /// # Parameters
     ///
@@ -57,17 +59,15 @@ pub trait Validator {
     /// - `crate_id`: The crate for cross-module resolution
     /// - `file`: The file being validated (for context)
     /// - `index`: The semantic index containing all semantic information
-    ///
-    /// # Returns
-    ///
-    /// A vector of diagnostics representing any issues found during validation.
+    /// - `sink`: The diagnostic sink to push errors to
     fn validate(
         &self,
         db: &dyn SemanticDb,
         crate_id: Crate,
         file: File,
         index: &SemanticIndex,
-    ) -> Vec<Diagnostic>;
+        sink: &dyn DiagnosticSink,
+    );
 
     /// Get the name of this validator (for debugging/logging)
     ///
@@ -109,7 +109,7 @@ impl ValidatorRegistry {
         self
     }
 
-    /// Run all validators and collect diagnostics
+    /// Run all validators and returns all diagnostics collected by the validators and semantic index builder.
     pub fn validate_all(
         &self,
         db: &dyn SemanticDb,
@@ -117,14 +117,31 @@ impl ValidatorRegistry {
         file: File,
         index: &SemanticIndex,
     ) -> DiagnosticCollection {
-        let mut collection: DiagnosticCollection = Default::default();
+        let sink = VecSink::new();
 
-        for validator in &self.validators {
-            let diagnostics = validator.validate(db, crate_id, file, index);
-            collection.extend(diagnostics);
+        // Run the semantic index builder to collect its diagnostics
+        // The builder already ran during index creation, so we just transfer its diagnostics
+        for diagnostic in index.semantic_syntax_errors.iter() {
+            sink.push(diagnostic.clone());
         }
 
-        collection
+        // Run all validators with the same sink
+        for validator in &self.validators {
+            validator.validate(db, crate_id, file, index, &sink);
+        }
+
+        // Sort and dedup diagnostics
+        let mut diagnostics = sink.into_diagnostics();
+        diagnostics.sort_by(|a, b| {
+            a.span
+                .start
+                .cmp(&b.span.start)
+                .then(a.span.end.cmp(&b.span.end))
+                .then(a.message.cmp(&b.message))
+        });
+        diagnostics.dedup();
+
+        DiagnosticCollection::new(diagnostics)
     }
 
     /// Get the number of registered validators
@@ -143,8 +160,9 @@ impl ValidatorRegistry {
 /// This provides a sensible default set of validators for most use cases.
 /// Currently includes:
 /// - **ScopeValidator**: Undeclared variables, unused variables, duplicate definitions
+/// - **StructuralValidator**: Parameter/field/pattern duplicates, type cohesion
 /// - **TypeValidator**: Comprehensive type checking for all expressions and operations
-/// - **ControlFlowValidator**: Reachability analysis, dead code detection
+/// - **ControlFlowValidator**: Reachability analysis, dead code detection, break/continue validation
 /// - **LiteralValidator**: Range checking for bounded types (e.g., u16)
 ///
 /// TODO: Expand default registry with additional validators:
@@ -160,6 +178,7 @@ pub fn create_default_registry() -> ValidatorRegistry {
     ValidatorRegistry::new()
         .add_validator(crate::validation::scope_check::ScopeValidator)
         .add_validator(crate::validation::type_validator::TypeValidator)
+        .add_validator(crate::validation::structural_validator::StructuralValidator)
         .add_validator(crate::validation::control_flow_validator::ControlFlowValidator)
         .add_validator(crate::validation::literal_validator::LiteralValidator)
 }
@@ -187,8 +206,11 @@ mod tests {
             _crate_id: Crate,
             _file: File,
             _index: &SemanticIndex,
-        ) -> Vec<Diagnostic> {
-            self.diagnostics.clone()
+            sink: &dyn DiagnosticSink,
+        ) {
+            for diagnostic in &self.diagnostics {
+                sink.push(diagnostic.clone());
+            }
         }
 
         fn name(&self) -> &'static str {

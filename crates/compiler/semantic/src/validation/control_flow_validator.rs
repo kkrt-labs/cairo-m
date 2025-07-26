@@ -38,9 +38,8 @@ impl Validator for ControlFlowValidator {
         _crate_id: Crate,
         file: File,
         index: &SemanticIndex,
-    ) -> Vec<Diagnostic> {
-        let mut diagnostics = Vec::new();
-
+        sink: &dyn cairo_m_compiler_diagnostics::DiagnosticSink,
+    ) {
         let parsed_program = parse_file(db, file);
         if !parsed_program.diagnostics.is_empty() {
             panic!("Got unexpected parse errors");
@@ -55,12 +54,10 @@ impl Validator for ControlFlowValidator {
                     file,
                     &parsed_module,
                     &definition.name,
-                    &mut diagnostics,
+                    sink,
                 );
             }
         }
-
-        diagnostics
     }
 
     fn name(&self) -> &'static str {
@@ -76,7 +73,7 @@ impl ControlFlowValidator {
         file: File,
         parsed_module: &cairo_m_compiler_parser::parser::ParsedModule,
         function_name: &str,
-        diagnostics: &mut Vec<Diagnostic>,
+        sink: &dyn cairo_m_compiler_diagnostics::DiagnosticSink,
     ) {
         // Find the function definition in the AST.
         if let Some(function_def) = self.find_function_in_module(parsed_module, function_name) {
@@ -86,13 +83,13 @@ impl ControlFlowValidator {
                 file,
                 &function_def.body,
                 0, // Start with loop depth 0
-                diagnostics,
+                sink,
             );
 
             // Pass 2: Missing-return analysis.
             // Cairo-M requires explicit returns for all functions, including unit-type functions.
             if !Self::body_returns_on_all_paths(&function_def.body) {
-                diagnostics.push(Diagnostic::missing_return(
+                sink.push(Diagnostic::missing_return(
                     file.file_path(db).to_string(),
                     function_name,
                     function_def.name.span(),
@@ -142,13 +139,13 @@ impl ControlFlowValidator {
         file: File,
         statements: &[Spanned<Statement>],
         loop_depth: usize,
-        diagnostics: &mut Vec<Diagnostic>,
+        sink: &dyn cairo_m_compiler_diagnostics::DiagnosticSink,
     ) -> bool {
         let mut path_has_terminated = false;
         for stmt_spanned in statements {
             if path_has_terminated {
                 let statement_type = Self::statement_type_name(stmt_spanned.value());
-                diagnostics.push(Diagnostic::unreachable_code(
+                sink.push(Diagnostic::unreachable_code(
                     file.file_path(db).to_string(),
                     statement_type,
                     stmt_spanned.span(),
@@ -161,7 +158,7 @@ impl ControlFlowValidator {
                 file,
                 stmt_spanned,
                 loop_depth,
-                diagnostics,
+                sink,
             );
 
             if !path_has_terminated {
@@ -177,37 +174,23 @@ impl ControlFlowValidator {
         file: File,
         stmt: &Spanned<Statement>,
         loop_depth: usize,
-        diagnostics: &mut Vec<Diagnostic>,
+        sink: &dyn cairo_m_compiler_diagnostics::DiagnosticSink,
     ) -> bool {
         match stmt.value() {
             Statement::Return { .. } => true,
-            Statement::Block(body) => Self::analyze_for_unreachable_code_in_sequence(
-                db,
-                file,
-                body,
-                loop_depth,
-                diagnostics,
-            ),
+            Statement::Block(body) => {
+                Self::analyze_for_unreachable_code_in_sequence(db, file, body, loop_depth, sink)
+            }
             Statement::If {
                 then_block,
                 else_block,
                 ..
             } => {
                 let then_terminates = Self::analyze_for_unreachable_code_in_statement(
-                    db,
-                    file,
-                    then_block,
-                    loop_depth,
-                    diagnostics,
+                    db, file, then_block, loop_depth, sink,
                 );
                 let else_terminates = else_block.as_ref().is_some_and(|eb| {
-                    Self::analyze_for_unreachable_code_in_statement(
-                        db,
-                        file,
-                        eb,
-                        loop_depth,
-                        diagnostics,
-                    )
+                    Self::analyze_for_unreachable_code_in_statement(db, file, eb, loop_depth, sink)
                 });
                 then_terminates && else_terminates
             }
@@ -218,7 +201,7 @@ impl ControlFlowValidator {
                     file,
                     body,
                     loop_depth + 1,
-                    diagnostics,
+                    sink,
                 );
                 // An infinite loop only terminates control flow if it has no break statements
                 !Self::contains_break(body)
@@ -230,7 +213,7 @@ impl ControlFlowValidator {
                     file,
                     body,
                     loop_depth + 1,
-                    diagnostics,
+                    sink,
                 );
                 // While loops might not execute at all, so they don't guarantee termination
                 false
@@ -239,9 +222,26 @@ impl ControlFlowValidator {
                 // TODO: For loops not yet supported
                 panic!("For loops are not yet supported - need iterator/range types");
             }
-            Statement::Break | Statement::Continue => {
-                // Break and continue terminate the current control flow only when inside a loop
-                // If they're outside a loop (invalid), they don't affect control flow
+            Statement::Break => {
+                // Check if break is inside a loop
+                if loop_depth == 0 {
+                    sink.push(Diagnostic::break_outside_loop(
+                        file.file_path(db).to_string(),
+                        stmt.span(),
+                    ));
+                }
+                // Break terminates the current control flow only when inside a loop
+                loop_depth > 0
+            }
+            Statement::Continue => {
+                // Check if continue is inside a loop
+                if loop_depth == 0 {
+                    sink.push(Diagnostic::continue_outside_loop(
+                        file.file_path(db).to_string(),
+                        stmt.span(),
+                    ));
+                }
+                // Continue terminates the current control flow only when inside a loop
                 loop_depth > 0
             }
             // Other statements do not terminate control flow for this analysis.

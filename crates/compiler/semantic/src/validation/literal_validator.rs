@@ -5,7 +5,7 @@
 //! - Detects negative literals (unary negation on literals)
 //! - Future: other bounded integer types
 
-use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode};
+use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSink};
 use cairo_m_compiler_parser::parser::{Expression, NamedType, UnaryOp};
 
 use crate::db::{Crate, SemanticDb};
@@ -28,9 +28,8 @@ impl Validator for LiteralValidator {
         crate_id: Crate,
         file: File,
         index: &SemanticIndex,
-    ) -> Vec<Diagnostic> {
-        let mut diagnostics = Vec::new();
-
+        sink: &dyn DiagnosticSink,
+    ) {
         // Check all let/const definitions with explicit u32 type
         for (def_idx, definition) in index.all_definitions() {
             match &definition.kind {
@@ -49,7 +48,7 @@ impl Validator for LiteralValidator {
                                             &expr_info.ast_node,
                                             expr_info.ast_span,
                                             file,
-                                            &mut diagnostics,
+                                            sink,
                                         );
                                     }
                                 }
@@ -71,7 +70,7 @@ impl Validator for LiteralValidator {
                                     &expr_info.ast_node,
                                     expr_info.ast_span,
                                     file,
-                                    &mut diagnostics,
+                                    sink,
                                 );
                             }
                         }
@@ -80,8 +79,6 @@ impl Validator for LiteralValidator {
                 _ => {}
             }
         }
-
-        diagnostics
     }
 
     fn name(&self) -> &'static str {
@@ -97,12 +94,12 @@ impl LiteralValidator {
         expr: &Expression,
         span: chumsky::span::SimpleSpan,
         file: File,
-        diagnostics: &mut Vec<Diagnostic>,
+        sink: &dyn DiagnosticSink,
     ) {
         match expr {
             Expression::Literal(value, _) => {
                 if *value as u64 > u32::MAX as u64 {
-                    diagnostics.push(
+                    sink.push(
                         Diagnostic::error(
                             DiagnosticCode::TypeMismatch,
                             format!(
@@ -125,7 +122,7 @@ impl LiteralValidator {
                 expr: _,
             } => {
                 // Negative values are not allowed for u32
-                diagnostics.push(
+                sink.push(
                     Diagnostic::error(
                         DiagnosticCode::TypeMismatch,
                         "negative literal values are not allowed for type u32".to_string(),
@@ -162,7 +159,9 @@ mod tests {
         let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
         let validator = LiteralValidator;
-        let diagnostics = validator.validate(&db, crate_id, file, &index);
+        let sink = cairo_m_compiler_diagnostics::VecSink::new();
+        validator.validate(&db, crate_id, file, &index, &sink);
+        let diagnostics = sink.into_diagnostics();
         assert_eq!(
             diagnostics.len(),
             1,
@@ -180,7 +179,9 @@ mod tests {
         let file = *crate_id.modules(&db).values().next().unwrap();
         let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
-        let diagnostics = validator.validate(&db, crate_id, file, &index);
+        let sink = cairo_m_compiler_diagnostics::VecSink::new();
+        validator.validate(&db, crate_id, file, &index, &sink);
+        let diagnostics = sink.into_diagnostics();
         assert_eq!(
             diagnostics.len(),
             1,

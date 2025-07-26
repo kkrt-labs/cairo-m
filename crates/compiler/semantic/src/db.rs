@@ -88,7 +88,6 @@ pub fn project_validate_semantics(db: &dyn SemanticDb, crate_id: Crate) -> Diagn
                     .unwrap_or_else(|| panic!("Module file should exist: {}", module_name));
                 let module_diagnostics = registry.validate_all(db, crate_id, module_file, index);
                 coll.extend(module_diagnostics);
-                coll.extend(index.semantic_syntax_errors.clone());
             }
             coll
         }

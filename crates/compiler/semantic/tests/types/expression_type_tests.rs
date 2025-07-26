@@ -343,7 +343,9 @@ fn test_unary_operation_type_errors() {
     use cairo_m_compiler_semantic::validation::type_validator::TypeValidator;
 
     let validator = TypeValidator;
-    let diagnostics = validator.validate(&db, crate_id, file, &semantic_index);
+    let sink = cairo_m_compiler_diagnostics::VecSink::new();
+    validator.validate(&db, crate_id, file, &semantic_index, &sink);
+    let diagnostics = sink.into_diagnostics();
 
     // Should have type mismatch errors for invalid unary operations
     let type_errors = diagnostics
