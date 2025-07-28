@@ -232,12 +232,11 @@ fn find_best_attachment(
 
     // Return the closest candidate
     candidates.into_iter().min_by_key(|&span| {
-        let distance = if comment.span.start < span.start {
+        if comment.span.start < span.start {
             span.start - comment.span.start
         } else {
             comment.span.start - span.end
-        };
-        distance
+        }
     })
 }
 
@@ -249,12 +248,11 @@ fn find_nearest_node(
     node_spans
         .iter()
         .min_by_key(|&&span| {
-            let distance = if comment.span.start < span.start {
+            if comment.span.start < span.start {
                 span.start - comment.span.start
             } else {
                 comment.span.start - span.end
-            };
-            distance
+            }
         })
         .copied()
 }

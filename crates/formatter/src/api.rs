@@ -16,6 +16,10 @@ pub fn format_source_file(
     let source_text = source.text(db);
     let parsed = cairo_m_compiler_parser::parse_file(db, source);
 
+    if !parsed.diagnostics.is_empty() {
+        return source_text.to_string();
+    }
+
     format_parsed_module(db, &parsed.module, source_text, cfg)
 }
 

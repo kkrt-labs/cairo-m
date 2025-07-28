@@ -94,6 +94,27 @@ export async function activate(context: vscode.ExtensionContext) {
       vscode.commands.registerCommand("cairo-m.restartServer", async () => {
         await restartServer(context);
       }),
+      vscode.commands.registerCommand("cairo-m.formatDocument", async () => {
+        await vscode.commands.executeCommand("editor.action.formatDocument");
+      }),
+      vscode.commands.registerCommand("cairo-m.formatSelection", async () => {
+        await vscode.commands.executeCommand("editor.action.formatSelection");
+      }),
+      vscode.commands.registerCommand(
+        "cairo-m.toggleFormatOnSave",
+        async () => {
+          const config = vscode.workspace.getConfiguration();
+          const current = config.get<boolean>("editor.formatOnSave", false);
+          await config.update(
+            "editor.formatOnSave",
+            !current,
+            vscode.ConfigurationTarget.Workspace,
+          );
+          vscode.window.showInformationMessage(
+            `Format on Save: ${!current ? "Enabled" : "Disabled"}`,
+          );
+        },
+      ),
     );
 
     outputChannel.appendLine("Extension activation complete!");

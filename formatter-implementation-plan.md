@@ -82,16 +82,20 @@
 - [x] Add CommentBuckets attachment system
 - [x] Update statement and top-level item formatters
 
-## Phase 4: Configuration & Polish
+## Phase 4: VSCode Integration ✅
 
-### 4.1 VSCode settings
+### 4.1 VSCode settings ✅
 
-- [ ] Add formatter settings to package.json
-- [ ] Map VSCode settings to FormatterConfig
-- [ ] Test configuration changes
+- [x] Add formatter settings to package.json
+- [x] Add formatter commands (Format Document, Format Selection, Toggle Format
+      on Save)
+- [x] Add keybindings (Shift+Alt+F)
+- [x] Set Cairo-M as default formatter for .cm files
+- [x] Test VSCode extension builds successfully
+- [ ] Map VSCode settings to FormatterConfig in LSP server (future enhancement)
 
 ### 4.2 Documentation
 
 - [ ] Create README for formatter crate
 - [ ] Add developer documentation
-- [ ] Update main project docs
+- [ ] Update VSCode extension docs on setting up formatter

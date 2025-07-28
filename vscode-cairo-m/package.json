@@ -55,7 +55,53 @@
           ],
           "default": "info",
           "description": "Traces the communication between VS Code and the Cairo-M language server."
+        },
+        "cairo-m.format.maxWidth": {
+          "type": "number",
+          "default": 100,
+          "description": "Maximum line width before wrapping."
+        },
+        "cairo-m.format.indentWidth": {
+          "type": "number",
+          "default": 4,
+          "description": "Indent width (spaces)."
+        },
+        "cairo-m.format.trailingComma": {
+          "type": "string",
+          "enum": [
+            "never",
+            "always",
+            "multiline"
+          ],
+          "default": "multiline",
+          "description": "Trailing comma policy."
         }
+      }
+    },
+    "commands": [
+      {
+        "command": "cairo-m.formatDocument",
+        "title": "Cairo-M: Format Document"
+      },
+      {
+        "command": "cairo-m.formatSelection",
+        "title": "Cairo-M: Format Selection"
+      },
+      {
+        "command": "cairo-m.toggleFormatOnSave",
+        "title": "Cairo-M: Toggle Format On Save"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "cairo-m.formatDocument",
+        "key": "shift+alt+f",
+        "when": "editorLangId == cairo-m"
+      }
+    ],
+    "configurationDefaults": {
+      "[cairo-m]": {
+        "editor.defaultFormatter": "cairo-m.cairo-m"
       }
     }
   },

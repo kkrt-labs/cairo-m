@@ -72,11 +72,11 @@ struct Point {
         let input = r#"fn main() -> felt {
     // Initialize variable
     let x = 5;
-    
+
     // Do some computation
     // This is complex
     let y = x * 2;
-    
+
     return y;
 }"#;
 

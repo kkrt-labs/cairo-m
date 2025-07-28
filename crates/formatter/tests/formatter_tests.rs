@@ -24,7 +24,7 @@ fn test_format_struct() {
 #[test]
 fn test_format_if_statement() {
     let input = r#"fn test(x:felt)->felt{if x==0{return 1;}else{return x;}}"#;
-    assert_snapshot!(format_code(input));
+    assert_eq!(input, format_code(input));
 }
 
 #[test]
@@ -54,4 +54,11 @@ fn test_idempotence() {
         formatted_once, formatted_twice,
         "Formatting should be idempotent"
     );
+}
+
+#[test]
+fn test_should_not_format_unparseable_code() {
+    let input = r#"fn test(x:felt)->felt{let z; let y=x+1;return y;}"#;
+    let formatted = format_code(input);
+    assert_eq!(input, formatted);
 }

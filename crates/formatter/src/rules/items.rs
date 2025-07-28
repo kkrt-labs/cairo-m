@@ -1,10 +1,9 @@
 use cairo_m_compiler_parser::parser::{
-    ConstDef, FunctionDef, Namespace, Parameter, ParsedModule, Spanned, StructDef, TopLevelItem,
-    UseItems, UseStmt,
+    ConstDef, FunctionDef, Namespace, Parameter, ParsedModule, StructDef, TopLevelItem, UseItems,
+    UseStmt,
 };
 
 use crate::Format;
-use crate::comment_attachment::HasSpan;
 use crate::context::FormatterCtx;
 use crate::doc::Doc;
 use crate::utils::*;

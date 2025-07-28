@@ -158,25 +158,29 @@ impl Renderer {
                 self.render_doc(inner, inner_mode);
             }
             Doc::Indent(width, inner) => {
-                let old_pos = self.pos;
-                self.render_doc(inner, mode);
-                // Add indentation after newlines
-                let mut new_output = String::new();
-                let mut at_line_start = old_pos == 0;
-                for ch in self.output[old_pos..].chars() {
-                    new_output.push(ch);
-                    if ch == '\n' {
-                        at_line_start = true;
-                    } else if at_line_start && !ch.is_whitespace() {
-                        // Insert indentation before this character
-                        let indent = " ".repeat(*width as usize);
-                        let insert_pos = new_output.len() - 1;
-                        new_output.insert_str(insert_pos, &indent);
+                // Render inner content to a separate string first
+                let mut inner_renderer = Self::new(self.max_width);
+                inner_renderer.render_doc(inner, mode);
+
+                // Apply indentation to the rendered content
+                let indent_str = " ".repeat(*width as usize);
+                let mut at_line_start = self.pos == 0;
+
+                for ch in inner_renderer.output.chars() {
+                    if at_line_start && !ch.is_whitespace() {
+                        self.output.push_str(&indent_str);
+                        self.pos += *width as usize;
                         at_line_start = false;
                     }
+
+                    self.output.push(ch);
+                    if ch == '\n' {
+                        self.pos = 0;
+                        at_line_start = true;
+                    } else {
+                        self.pos += 1;
+                    }
                 }
-                self.output.truncate(old_pos);
-                self.output.push_str(&new_output);
             }
             Doc::Concat(docs) => {
                 for doc in docs {

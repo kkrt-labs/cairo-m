@@ -1,7 +1,6 @@
 use cairo_m_compiler_parser::parser::{Pattern, Spanned, Statement};
 
 use crate::Format;
-use crate::comment_attachment::HasSpan;
 use crate::context::FormatterCtx;
 use crate::doc::Doc;
 

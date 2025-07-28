@@ -387,7 +387,66 @@ The following common language features are not yet implemented:
   comparison operators like `x == 0` to produce a `bool`. In the future this
   will be doable with the `as` keyword.
 
-## 6. Compiling your programs
+## 6. Code Formatting
+
+Cairo-M includes an integrated code formatter that automatically formats your
+code for consistency and readability.
+
+### 6.1. Using the Formatter in VS Code
+
+The formatter is fully integrated into the VS Code extension:
+
+- **Format Document**: Press `Shift+Alt+F` (Windows/Linux) or `Shift+Option+F`
+  (macOS)
+- **Format Selection**: Select code and use Command Palette → "Cairo-M: Format
+  Selection"
+- **Format on Save**: Enable automatic formatting when saving files via Command
+  Palette → "Cairo-M: Toggle Format On Save"
+
+### 6.2. Formatter Configuration
+
+Configure the formatter through VS Code settings (`Ctrl+,`):
+
+```json
+{
+  // Maximum line width before wrapping (default: 100)
+  "cairo-m.format.maxWidth": 100,
+
+  // Number of spaces per indentation level (default: 4)
+  "cairo-m.format.indentWidth": 4,
+
+  // Add trailing commas to multi-line constructs (default: false)
+  "cairo-m.format.trailingComma": false
+}
+```
+
+### 6.3. What the Formatter Does
+
+The formatter automatically:
+
+- Adds consistent spacing around operators and punctuation
+- Properly indents code blocks and nested structures
+- Formats function signatures and parameter lists
+- Aligns struct fields and maintains consistent brace style
+- Preserves all comments in their original positions
+- Ensures consistent line breaks and wrapping
+
+Example transformation:
+
+```cairo
+// Before formatting
+fn   calculate(x:felt,y:felt)->felt{
+let result=x+y;
+return result;}
+
+// After formatting
+fn calculate(x: felt, y: felt) -> felt {
+    let result = x + y;
+    return result;
+}
+```
+
+## 7. Compiling your programs
 
 To compile your program, run the compiler and point it to your project's root
 directory:

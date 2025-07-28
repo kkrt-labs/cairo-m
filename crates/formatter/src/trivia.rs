@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use chumsky::span::{SimpleSpan, Span};
+use chumsky::span::SimpleSpan;
 
 #[derive(Debug, Clone)]
 pub struct Comment {
@@ -143,10 +143,10 @@ fn main() {
         // Node spans from "fn" to "}"
         let node_start = source.find("fn").unwrap();
         let node_end = source.find("}").unwrap() + 1;
-        let node_span = SimpleSpan::<usize>::new((), node_start..node_end);
+        let node_span = SimpleSpan::<usize>::from(node_start..node_end);
 
         // Test before comment
-        let before_span = SimpleSpan::<usize>::new((), 0..9);
+        let before_span = SimpleSpan::<usize>::from(0..9);
         assert_eq!(
             determine_comment_position(before_span, node_span, source),
             Some(CommentPosition::Before)
@@ -154,7 +154,7 @@ fn main() {
 
         // Test end-of-line comment
         let eol_start = source.find("// end").unwrap();
-        let eol_span = SimpleSpan::<usize>::new((), eol_start..eol_start + 14);
+        let eol_span = SimpleSpan::<usize>::from(eol_start..eol_start + 14);
         assert_eq!(
             determine_comment_position(eol_span, node_span, source),
             Some(CommentPosition::EndOfLine)
@@ -162,7 +162,7 @@ fn main() {
 
         // Test after comment
         let after_start = source.rfind("//").unwrap();
-        let after_span = SimpleSpan::<usize>::new((), after_start..source.len());
+        let after_span = SimpleSpan::<usize>::from(after_start..source.len());
         assert_eq!(
             determine_comment_position(after_span, node_span, source),
             Some(CommentPosition::After)
