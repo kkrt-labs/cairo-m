@@ -18,7 +18,7 @@
 //! * is_rel is a bool
 //!   * `is_rel * (1 - is_rel)`
 //! * registers update is regular
-//!   * `- [pc, fp] + [pc * is_rel + off0, fp]` in `Registers` relation
+//!   * `- [pc, fp] + [off0 + pc * is_rel, fp]` in `Registers` relation
 //! * read instruction from memory
 //!   * `- [pc, inst_prev_clk, opcode_constant, off0] + [pc, clk, opcode_constant, off0]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation

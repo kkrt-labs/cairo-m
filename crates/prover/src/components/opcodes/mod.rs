@@ -211,19 +211,24 @@ use crate::adapter::Instructions;
 use crate::components::Relations;
 
 // Define all opcode structures and implementations with a single macro call
-define_opcodes! {
+define_opcodes!(
     ([Opcode::CallAbsImm], call_abs_imm),
     ([Opcode::JmpAbsImm, Opcode::JmpRelImm], jmp_imm),
     ([Opcode::JnzFpImm], jnz_fp_imm),
     ([Opcode::Ret], ret),
-    ([Opcode::StoreAddFpFp], store_add_fp_fp),
-    ([Opcode::StoreAddFpImm], store_add_fp_imm),
-    ([Opcode::StoreDivFpFp], store_div_fp_fp),
-    ([Opcode::StoreDivFpImm], store_div_fp_imm),
-    ([Opcode::StoreDoubleDerefFp], store_double_deref_fp),
     ([Opcode::StoreImm], store_imm),
-    ([Opcode::StoreMulFpFp], store_mul_fp_fp),
-    ([Opcode::StoreMulFpImm], store_mul_fp_imm),
-    ([Opcode::StoreSubFpFp], store_sub_fp_fp),
+    (
+        [
+            Opcode::StoreAddFpFp,
+            Opcode::StoreSubFpFp,
+            Opcode::StoreMulFpFp,
+            Opcode::StoreDivFpFp,
+        ],
+        store_fp_fp
+    ),
+    ([Opcode::StoreAddFpImm], store_add_fp_imm),
     ([Opcode::StoreSubFpImm], store_sub_fp_imm),
-}
+    ([Opcode::StoreMulFpImm], store_mul_fp_imm),
+    ([Opcode::StoreDivFpImm], store_div_fp_imm),
+    ([Opcode::StoreDoubleDerefFp], store_double_deref_fp)
+);

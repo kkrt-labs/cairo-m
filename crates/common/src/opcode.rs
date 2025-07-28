@@ -14,21 +14,21 @@ pub struct OpcodeInfo {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[repr(u32)]
 pub enum Opcode {
-    // Arithmetic operations
-    StoreAddFpFp,  // [fp + off2] = [fp + off0] + [fp + off1]
+    // Arithmetic operations: order matters for the prover, see store_fp_fp.rs
+    StoreAddFpFp, // [fp + off2] = [fp + off0] + [fp + off1]
+    StoreSubFpFp, // [fp + off2] = [fp + off0] - [fp + off1]
+    StoreMulFpFp, // [fp + off2] = [fp + off0] * [fp + off1]
+    StoreDivFpFp, // [fp + off2] = [fp + off0] / [fp + off1]
+
+    // Arithmetic operations with immediate: order matters for the prover, see store_fp_imm.rs
     StoreAddFpImm, // [fp + off2] = [fp + off0] + imm
-    StoreSubFpFp,  // [fp + off2] = [fp + off0] - [fp + off1]
     StoreSubFpImm, // [fp + off2] = [fp + off0] - imm
+    StoreMulFpImm, // [fp + off2] = [fp + off0] * imm
+    StoreDivFpImm, // [fp + off2] = [fp + off0] / imm
 
     // Memory operations
     StoreDoubleDerefFp, // [fp + off2] = [[fp + off0] + off1]
     StoreImm,           // [fp + off2] = imm
-
-    // Multiplication/Division
-    StoreMulFpFp,  // [fp + off2] = [fp + off0] * [fp + off1]
-    StoreMulFpImm, // [fp + off2] = [fp + off0] * imm
-    StoreDivFpFp,  // [fp + off2] = [fp + off0] / [fp + off1]
-    StoreDivFpImm, // [fp + off2] = [fp + off0] / imm
 
     // Call operations
     CallAbsImm, // call abs imm
@@ -90,15 +90,15 @@ impl Opcode {
     pub const fn from_u32(value: u32) -> Option<Self> {
         match value {
             0 => Some(Self::StoreAddFpFp),
-            1 => Some(Self::StoreAddFpImm),
-            2 => Some(Self::StoreSubFpFp),
-            3 => Some(Self::StoreSubFpImm),
-            4 => Some(Self::StoreDoubleDerefFp),
-            5 => Some(Self::StoreImm),
-            6 => Some(Self::StoreMulFpFp),
-            7 => Some(Self::StoreMulFpImm),
-            8 => Some(Self::StoreDivFpFp),
-            9 => Some(Self::StoreDivFpImm),
+            1 => Some(Self::StoreSubFpFp),
+            2 => Some(Self::StoreMulFpFp),
+            3 => Some(Self::StoreDivFpFp),
+            4 => Some(Self::StoreAddFpImm),
+            5 => Some(Self::StoreSubFpImm),
+            6 => Some(Self::StoreMulFpImm),
+            7 => Some(Self::StoreDivFpImm),
+            8 => Some(Self::StoreDoubleDerefFp),
+            9 => Some(Self::StoreImm),
             10 => Some(Self::CallAbsImm),
             11 => Some(Self::Ret),
             12 => Some(Self::JmpAbsImm),
