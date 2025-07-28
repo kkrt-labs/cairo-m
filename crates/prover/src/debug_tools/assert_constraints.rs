@@ -153,12 +153,9 @@ fn assert_components(trace: TreeVec<Vec<&Vec<M31>>>, components: &Components) {
     assert_component(&opcodes.jnz_fp_imm, &trace);
     assert_component(&opcodes.ret, &trace);
     assert_component(&opcodes.store_fp_fp, &trace);
-    assert_component(&opcodes.store_add_fp_imm, &trace);
-    assert_component(&opcodes.store_div_fp_imm, &trace);
+    assert_component(&opcodes.store_fp_imm, &trace);
     assert_component(&opcodes.store_double_deref_fp, &trace);
     assert_component(&opcodes.store_imm, &trace);
-    assert_component(&opcodes.store_mul_fp_imm, &trace);
-    assert_component(&opcodes.store_sub_fp_imm, &trace);
     assert_component(memory, &trace);
     assert_component(merkle, &trace);
     assert_component(range_check_20, &trace);

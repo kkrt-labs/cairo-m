@@ -226,9 +226,14 @@ define_opcodes!(
         ],
         store_fp_fp
     ),
-    ([Opcode::StoreAddFpImm], store_add_fp_imm),
-    ([Opcode::StoreSubFpImm], store_sub_fp_imm),
-    ([Opcode::StoreMulFpImm], store_mul_fp_imm),
-    ([Opcode::StoreDivFpImm], store_div_fp_imm),
+    (
+        [
+            Opcode::StoreAddFpImm,
+            Opcode::StoreSubFpImm,
+            Opcode::StoreMulFpImm,
+            Opcode::StoreDivFpImm,
+        ],
+        store_fp_imm
+    ),
     ([Opcode::StoreDoubleDerefFp], store_double_deref_fp)
 );

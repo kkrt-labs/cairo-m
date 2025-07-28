@@ -19,7 +19,7 @@
 //! - op0_val
 //! - op1_prev_clock
 //! - op1_val
-//! - op1_inverse
+//! - op1_inv
 //! - dst_prev_clock
 //! - dst_prev_val
 //! - dst_val
