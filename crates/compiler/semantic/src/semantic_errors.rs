@@ -1,8 +1,5 @@
-use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
-use cairo_m_compiler_parser::parser::{
-    Expression, NamedType, Parameter, Pattern, Spanned, Statement, StructDef, TopLevelItem,
-    TypeExpr,
-};
+use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode};
+use cairo_m_compiler_parser::parser::TopLevelItem;
 use rustc_hash::{FxBuildHasher, FxHashSet};
 
 pub trait SemanticSyntaxContext {
@@ -13,6 +10,11 @@ pub trait SemanticSyntaxContext {
     fn report_semantic_error(&self, error: Diagnostic);
 }
 
+/// Minimal semantic syntax checker for index building
+///
+/// This checker only performs validations that are absolutely necessary
+/// during index building to ensure the index remains valid. All other
+/// validations are deferred to the validation passes.
 #[derive(Default)]
 pub struct SemanticSyntaxChecker {}
 
@@ -21,192 +23,14 @@ impl SemanticSyntaxChecker {
         context.report_semantic_error(error);
     }
 
+    /// Check for duplicate top-level items - this is a must-have check
+    /// because duplicate definitions in the same scope would corrupt the index
     pub fn check_top_level_items<Ctx: SemanticSyntaxContext>(
         &self,
         context: &Ctx,
         items: &[TopLevelItem],
     ) {
         Self::duplicate_top_level_items(context, items);
-    }
-
-    pub fn check_parameters<Ctx: SemanticSyntaxContext>(
-        &self,
-        context: &Ctx,
-        params: &[Parameter],
-    ) {
-        Self::duplicate_parameter_name(context, params);
-    }
-
-    pub fn check_struct<Ctx: SemanticSyntaxContext>(
-        &self,
-        context: &Ctx,
-        struct_def: &Spanned<StructDef>,
-    ) {
-        Self::duplicate_struct_fields(context, struct_def);
-    }
-
-    #[allow(clippy::only_used_in_recursion)]
-    /// Verifies coherency between an expression's type and a type annotation.
-    pub fn check_expr_type_cohesion<Ctx: SemanticSyntaxContext>(
-        &self,
-        context: &Ctx,
-        expr: &Spanned<Expression>,
-        type_ast: &Spanned<TypeExpr>,
-    ) {
-        // Recursively handle tuples.
-        match (expr.value(), type_ast.value()) {
-            (Expression::Tuple(elements), TypeExpr::Tuple(tuple_types)) => {
-                for (element, tuple_type) in elements.iter().zip(tuple_types) {
-                    self.check_expr_type_cohesion(context, element, tuple_type);
-                }
-                return;
-            }
-            (Expression::Tuple(_), _) => {
-                Self::add_error(
-                    context,
-                    Diagnostic {
-                        severity: DiagnosticSeverity::Error,
-                        code: DiagnosticCode::TypeMismatch,
-                        message: "type mismatch: expected tuple".to_string(),
-                        file_path: context.path().to_string(),
-                        span: type_ast.span(),
-                        related_spans: vec![],
-                    },
-                );
-                return;
-            }
-            _ => {}
-        }
-
-        // TODO: handle pointers once implemented.
-        let res: Option<(String, String)> = match (type_ast.value(), expr.value()) {
-            (TypeExpr::Named(named), expr) => {
-                let expected_type = format!("{}", named.value());
-
-                let actual_type = match expr {
-                    // If no suffix, we use the type from the TypeExpr.
-                    Expression::Literal(_, None) => match named.value() {
-                        NamedType::Bool => "felt", // Default literal type when no suffix
-                        _ => expected_type.as_str(),
-                    },
-                    Expression::Literal(_, Some(suffix)) => suffix,
-                    Expression::BooleanLiteral(_) => "bool",
-                    _ => return,
-                };
-
-                Some((expected_type.to_string(), actual_type.to_string()))
-            }
-            _ => None,
-        };
-
-        // If both types are different, report an error.
-        if let Some((typed_name, actual_type)) = res
-            && actual_type != typed_name
-        {
-            Self::add_error(
-                context,
-                Diagnostic {
-                    severity: DiagnosticSeverity::Error,
-                    code: DiagnosticCode::TypeMismatch,
-                    message: format!("expected `{typed_name}`, got `{actual_type}`"),
-                    file_path: context.path().to_string(),
-                    span: expr.span(),
-                    related_spans: vec![(
-                        expr.span(),
-                        format!(
-                            "change the type of the numeric literal from `{}` to `{}`",
-                            actual_type, typed_name
-                        ),
-                    )],
-                },
-            );
-        }
-    }
-
-    pub fn check_pattern<Ctx: SemanticSyntaxContext>(&self, context: &Ctx, pattern: &Pattern) {
-        Self::duplicate_pattern_identifier(context, pattern);
-    }
-
-    pub fn check_loop_control_flow<Ctx: SemanticSyntaxContext>(
-        &self,
-        context: &Ctx,
-        stmt: &Spanned<Statement>,
-        loop_depth: usize,
-    ) {
-        let (statement_name, diag_code) = match stmt.value() {
-            Statement::Break => ("break", DiagnosticCode::BreakOutsideLoop),
-            Statement::Continue => ("continue", DiagnosticCode::ContinueOutsideLoop),
-            _ => return,
-        };
-        if loop_depth == 0 {
-            Self::add_error(
-                context,
-                Diagnostic {
-                    severity: DiagnosticSeverity::Error,
-                    code: diag_code,
-                    message: format!("`{}` outside of loop", statement_name),
-                    file_path: context.path().to_string(),
-                    span: stmt.span(),
-                    related_spans: vec![],
-                },
-            );
-        }
-    }
-
-    fn duplicate_pattern_identifier<Ctx: SemanticSyntaxContext>(ctx: &Ctx, pattern: &Pattern) {
-        match pattern {
-            Pattern::Tuple(names) => {
-                let mut all_arg_names =
-                    FxHashSet::with_capacity_and_hasher(names.len(), FxBuildHasher);
-                for name in names {
-                    if !all_arg_names.insert(name.value().as_str()) {
-                        Self::add_error(
-                            ctx,
-                            Diagnostic {
-                                severity: DiagnosticSeverity::Error,
-                                code: DiagnosticCode::DuplicatePatternIdentifier,
-                                message: format!(
-                                    "identifier `{}` is bound more than once in the same pattern",
-                                    name.value()
-                                ),
-                                file_path: ctx.path().to_string(),
-                                span: name.span(),
-                                related_spans: vec![],
-                            },
-                        );
-                    }
-                }
-            }
-            Pattern::Identifier(_) => {}
-        }
-    }
-
-    fn duplicate_struct_fields<Ctx: SemanticSyntaxContext>(
-        ctx: &Ctx,
-        struct_def: &Spanned<StructDef>,
-    ) {
-        let fields = struct_def
-            .value()
-            .fields
-            .iter()
-            .map(|(name, _)| name)
-            .collect::<Vec<_>>();
-        let mut all_field_names = FxHashSet::with_capacity_and_hasher(fields.len(), FxBuildHasher);
-        for field in fields {
-            if !all_field_names.insert(field.value().as_str()) {
-                Self::add_error(
-                    ctx,
-                    Diagnostic {
-                        severity: DiagnosticSeverity::Error,
-                        code: DiagnosticCode::DuplicateStructField,
-                        message: format!("field `{}` is already declared", field.value()),
-                        file_path: ctx.path().to_string(),
-                        span: field.span(),
-                        related_spans: vec![],
-                    },
-                );
-            }
-        }
     }
 
     fn duplicate_top_level_items<Ctx: SemanticSyntaxContext>(ctx: &Ctx, items: &[TopLevelItem]) {
@@ -233,43 +57,15 @@ impl SemanticSyntaxChecker {
                     Self::add_error(
                         ctx,
                         Diagnostic {
-                            severity: DiagnosticSeverity::Error,
+                            severity: cairo_m_compiler_diagnostics::DiagnosticSeverity::Error,
                             code: DiagnosticCode::DuplicateDefinition,
-                            message: format!("'{item_name}' defined more than once"),
+                            message: format!("`{item_name}` defined more than once"),
                             file_path: ctx.path().to_string(),
                             span,
                             related_spans: vec![],
                         },
                     );
                 }
-            }
-        }
-    }
-
-    // Taken from ruff
-    fn duplicate_parameter_name<Ctx: SemanticSyntaxContext>(ctx: &Ctx, parameters: &[Parameter]) {
-        if parameters.len() < 2 {
-            return;
-        }
-
-        let mut all_arg_names =
-            FxHashSet::with_capacity_and_hasher(parameters.len(), FxBuildHasher);
-
-        for parameter in parameters {
-            let range = parameter.name.span();
-            let param_name = parameter.name.value();
-            if !all_arg_names.insert(param_name) {
-                Self::add_error(
-                    ctx,
-                    Diagnostic {
-                        severity: DiagnosticSeverity::Error,
-                        code: DiagnosticCode::DuplicateParameter,
-                        message: format!("'{param_name}' used as parameter more than once"),
-                        file_path: ctx.path().to_string(),
-                        span: range,
-                        related_spans: vec![],
-                    },
-                );
             }
         }
     }

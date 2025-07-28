@@ -51,21 +51,14 @@ struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10 }; } return;
 --- Input 4 (ERROR) ---
 struct Point { x: felt, y: felt } fn test() { let p = Point { x: true, y: 20 }; return;}
 --- Diagnostics ---
-[2001] Error: Type mismatch for field `x`. Expected `felt`, found `bool`
+[2001] Error: type mismatch for field `x`: expected `felt`, got `bool`
    ╭─[ semantic_tests::structures::literals::test_struct_literals:1:66 ]
    │
  1 │ struct Point { x: felt, y: felt } fn test() { let p = Point { x: true, y: 20 }; return;}
-   │                                                                  ──┬─  
-   │                                                                    ╰─── Type mismatch for field `x`. Expected `felt`, found `bool`
-───╯
-[2001] Error: expected `felt`, got `bool`
-   ╭─[ semantic_tests::structures::literals::test_struct_literals:1:66 ]
-   │
- 1 │ struct Point { x: felt, y: felt } fn test() { let p = Point { x: true, y: 20 }; return;}
-   │                                                                  ──┬─  
-   │                                                                    ╰─── expected `felt`, got `bool`
+   │                                                               ┬  ──┬─  
+   │                                                               ╰──────── field declared here
    │                                                                    │   
-   │                                                                    ╰─── change the type of the numeric literal from `bool` to `felt`
+   │                                                                    ╰─── type mismatch for field `x`: expected `felt`, got `bool`
 ───╯
 
 ============================================================
@@ -73,21 +66,14 @@ struct Point { x: felt, y: felt } fn test() { let p = Point { x: true, y: 20 }; 
 --- Input 5 (ERROR) ---
 struct Point { fields: (felt, bool) } fn test() { let p = Point { fields: (10, 20) }; return; }
 --- Diagnostics ---
-[2001] Error: Type mismatch for field `fields`. Expected `(felt, bool)`, found `(felt, felt)`
+[2001] Error: type mismatch for field `fields`: expected `(felt, bool)`, got `(felt, felt)`
    ╭─[ semantic_tests::structures::literals::test_struct_literals:1:75 ]
    │
  1 │ struct Point { fields: (felt, bool) } fn test() { let p = Point { fields: (10, 20) }; return; }
-   │                                                                           ────┬───  
-   │                                                                               ╰───── Type mismatch for field `fields`. Expected `(felt, bool)`, found `(felt, felt)`
-───╯
-[2001] Error: expected `bool`, got `felt`
-   ╭─[ semantic_tests::structures::literals::test_struct_literals:1:80 ]
-   │
- 1 │ struct Point { fields: (felt, bool) } fn test() { let p = Point { fields: (10, 20) }; return; }
-   │                                                                                ─┬  
-   │                                                                                 ╰── expected `bool`, got `felt`
-   │                                                                                 │  
-   │                                                                                 ╰── change the type of the numeric literal from `felt` to `bool`
+   │                                                                   ───┬──  ────┬───  
+   │                                                                      ╰────────────── field declared here
+   │                                                                               │     
+   │                                                                               ╰───── type mismatch for field `fields`: expected `(felt, bool)`, got `(felt, felt)`
 ───╯
 
 ============================================================
@@ -97,21 +83,14 @@ struct Point { fields: (felt, bool) } fn test() { let p = Point { fields: (10, 2
                 struct Foo { bar: (u32, (bool, felt)) }
                 fn test() { let f = Foo { bar: (10, (1, 20)) }; return; }
 --- Diagnostics ---
-[2001] Error: Type mismatch for field `bar`. Expected `(u32, (bool, felt))`, found `(u32, (felt, felt))`
+[2001] Error: type mismatch for field `bar`: expected `(u32, (bool, felt))`, got `(u32, (felt, felt))`
    ╭─[ semantic_tests::structures::literals::test_struct_literals:3:48 ]
    │
  3 │                 fn test() { let f = Foo { bar: (10, (1, 20)) }; return; }
-   │                                                ──────┬──────  
-   │                                                      ╰──────── Type mismatch for field `bar`. Expected `(u32, (bool, felt))`, found `(u32, (felt, felt))`
-───╯
-[2001] Error: expected `bool`, got `felt`
-   ╭─[ semantic_tests::structures::literals::test_struct_literals:3:54 ]
-   │
- 3 │                 fn test() { let f = Foo { bar: (10, (1, 20)) }; return; }
-   │                                                      ┬  
-   │                                                      ╰── expected `bool`, got `felt`
-   │                                                      │  
-   │                                                      ╰── change the type of the numeric literal from `felt` to `bool`
+   │                                           ─┬─  ──────┬──────  
+   │                                            ╰────────────────── field declared here
+   │                                                      │        
+   │                                                      ╰──────── type mismatch for field `bar`: expected `(u32, (bool, felt))`, got `(u32, (felt, felt))`
 ───╯
 
 ============================================================
@@ -119,19 +98,12 @@ struct Point { fields: (felt, bool) } fn test() { let p = Point { fields: (10, 2
 --- Input 7 (ERROR) ---
 struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10, y: 20u32 }; return; }
 --- Diagnostics ---
-[2001] Error: Type mismatch for field `y`. Expected `felt`, found `u32`
+[2001] Error: type mismatch for field `y`: expected `felt`, got `u32`
    ╭─[ semantic_tests::structures::literals::test_struct_literals:1:73 ]
    │
  1 │ struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10, y: 20u32 }; return; }
-   │                                                                         ──┬──  
-   │                                                                           ╰──── Type mismatch for field `y`. Expected `felt`, found `u32`
-───╯
-[2001] Error: expected `felt`, got `u32`
-   ╭─[ semantic_tests::structures::literals::test_struct_literals:1:73 ]
-   │
- 1 │ struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10, y: 20u32 }; return; }
-   │                                                                         ──┬──  
-   │                                                                           ╰──── expected `felt`, got `u32`
+   │                                                                      ┬  ──┬──  
+   │                                                                      ╰───────── field declared here
    │                                                                           │    
-   │                                                                           ╰──── change the type of the numeric literal from `u32` to `felt`
+   │                                                                           ╰──── type mismatch for field `y`: expected `felt`, got `u32`
 ───╯

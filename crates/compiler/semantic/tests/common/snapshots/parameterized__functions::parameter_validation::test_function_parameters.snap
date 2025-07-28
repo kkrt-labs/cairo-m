@@ -19,12 +19,13 @@ fn test(x: felt, x: felt) -> felt { return x; }
 fn foo(x: felt){return;} 
  fn test(){foo(true); return;}
 --- Diagnostics ---
-[2001] Error: Argument type mismatch for parameter `x`: expected `felt`, found `bool`
+[2001] Error: argument type mismatch for parameter `x`: expected `felt`, got `bool`
    ╭─[ semantic_tests::functions::parameter_validation::test_function_parameters:2:16 ]
    │
+ 1 │ fn foo(x: felt){return;}
+   │           ──┬─  
+   │             ╰─── parameter `x` declared here with type `felt`
  2 │  fn test(){foo(true); return;}
    │                ──┬─  
-   │                  ╰─── Argument type mismatch for parameter `x`: expected `felt`, found `bool`
-   │                  │   
-   │                  ╰─── Cannot use bool in arithmetic operations. Consider using logical operators (&&, ||) instead.
+   │                  ╰─── argument type mismatch for parameter `x`: expected `felt`, got `bool`
 ───╯

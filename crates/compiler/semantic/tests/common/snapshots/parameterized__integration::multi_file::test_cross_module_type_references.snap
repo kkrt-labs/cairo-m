@@ -22,13 +22,6 @@ struct Point { x: felt, y: felt }
    │                                 ────┬────  
    │                                     ╰────── Cannot find type 'Rectangle' in this scope
 ───╯
-[1009] Error: cannot find struct `Rectangle` in this scope
-   ╭─[ main.cm:2:33 ]
-   │
- 2 │ fn test() -> Rectangle { return Rectangle { width: 10, height: 20 }; }
-   │                                 ────┬────  
-   │                                     ╰────── cannot find struct `Rectangle` in this scope
-───╯
 
 ============================================================
 
@@ -43,10 +36,10 @@ struct Vector { x: felt, y: felt }
 use types::Vector;
 fn process(v: Vector) { return; }
 --- Diagnostics ---
-[2001] Error: Argument type mismatch for parameter `v`: expected `Vector`, found `Point`
+[2001] Error: argument type mismatch for parameter `v`: expected `Vector`, got `Point`
    ╭─[ main.cm:3:58 ]
    │
  3 │ fn test() { let p = Point { x: 1, y: 2 }; return process(p); }
    │                                                          ┬  
-   │                                                          ╰── Argument type mismatch for parameter `v`: expected `Vector`, found `Point`
+   │                                                          ╰── argument type mismatch for parameter `v`: expected `Vector`, got `Point`
 ───╯

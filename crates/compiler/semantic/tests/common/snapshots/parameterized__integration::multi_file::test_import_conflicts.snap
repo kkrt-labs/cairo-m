@@ -11,12 +11,12 @@ fn calculate() { return; }
 // --- utils.cm ---
 fn calculate() { return; }
 --- Diagnostics ---
-[1003] Error: 'calculate' defined more than once
+[1003] Error: `calculate` defined more than once
    ╭─[ main.cm:2:12 ]
    │
  2 │ use utils::calculate;
    │            ────┬────  
-   │                ╰────── 'calculate' defined more than once
+   │                ╰────── `calculate` defined more than once
 ───╯
 
 ============================================================
@@ -28,10 +28,10 @@ fn test() { add(1, 2); return; }
 // --- math.cm ---
 fn add(a: felt, b: felt) { return; }
 --- Diagnostics ---
-[1003] Error: 'add' defined more than once
+[1003] Error: `add` defined more than once
    ╭─[ main.cm:2:11 ]
    │
  2 │ use math::add;
    │           ─┬─  
-   │            ╰─── 'add' defined more than once
+   │            ╰─── `add` defined more than once
 ───╯
