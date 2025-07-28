@@ -98,14 +98,14 @@ fn test() { let x = first_undefined; let y = second_undefined; let z = x + y + t
 ============================================================
 
 --- Input 7 (ERROR) ---
-fn test() { if (undefined_condition) { let x = 1; } return; }
+fn test() { if undefined_condition { let x = 1; } return; }
 --- Diagnostics ---
 [1001] Error: Undeclared variable 'undefined_condition'
-   ╭─[ semantic_tests::scoping::undeclared_variables::test_undeclared_variables_parameterized:1:17 ]
+   ╭─[ semantic_tests::scoping::undeclared_variables::test_undeclared_variables_parameterized:1:16 ]
    │
- 1 │ fn test() { if (undefined_condition) { let x = 1; } return; }
-   │                 ─────────┬─────────  
-   │                          ╰─────────── Undeclared variable 'undefined_condition'
+ 1 │ fn test() { if undefined_condition { let x = 1; } return; }
+   │                ─────────┬─────────  
+   │                         ╰─────────── Undeclared variable 'undefined_condition'
 ───╯
 
 ============================================================

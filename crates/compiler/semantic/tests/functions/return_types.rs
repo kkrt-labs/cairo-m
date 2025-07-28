@@ -11,11 +11,11 @@ fn test_return_type_validation() {
             "fn test() -> felt { let x = 42; return x; }",
             "fn test() -> felt { let x = 10; let y = 20; return x + y; }",
             "fn helper() -> felt { return 42; } fn test() -> felt { return helper(); }",
-            "fn test(x: bool) -> felt { if (x) { return 1; } else { return 0; } }",
+            "fn test(x: bool) -> felt { if x { return 1; } else { return 0; } }",
             "fn test() -> felt { { { return 42; } } }",
             "fn test(param: felt) -> felt { return param; }",
-            "fn test(x: bool) -> felt { if (x) { return 0; } return 1; }",
-            "fn test(x: u32, y: u32) -> felt { if (x > 0u32) { if (y > 0u32) { return 1; } else { return 2; } } else { return 3; } }",
+            "fn test(x: bool) -> felt { if x { return 0; } return 1; }",
+            "fn test(x: u32, y: u32) -> felt { if x > 0u32 { if y > 0u32 { return 1; } else { return 2; } } else { return 3; } }",
         ],
         err: [
             // Wrong return type

@@ -161,14 +161,14 @@ fn h() -> bool { return 42; }
 ============================================================
 
 --- Input 11 (ERROR) ---
-fn multiple_paths() -> felt { if (true) { return 1; } else { return 2u32; } }
+fn multiple_paths() -> felt { if true { return 1; } else { return 2u32; } }
 --- Diagnostics ---
 [2001] Error: type mismatch in return statement: expected `felt`, got `u32`
-   ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:69 ]
+   ╭─[ semantic_tests::types::literal_type_inference_tests::literal_type_inference_suite:1:67 ]
    │
- 1 │ fn multiple_paths() -> felt { if (true) { return 1; } else { return 2u32; } }
-   │                        ──┬─                                         ──┬─  
-   │                          ╰──────────────────────────────────────────────── function `multiple_paths` declared here to return `felt`
-   │                                                                       │   
-   │                                                                       ╰─── type mismatch in return statement: expected `felt`, got `u32`
+ 1 │ fn multiple_paths() -> felt { if true { return 1; } else { return 2u32; } }
+   │                        ──┬─                                       ──┬─  
+   │                          ╰────────────────────────────────────────────── function `multiple_paths` declared here to return `felt`
+   │                                                                     │   
+   │                                                                     ╰─── type mismatch in return statement: expected `felt`, got `u32`
 ───╯

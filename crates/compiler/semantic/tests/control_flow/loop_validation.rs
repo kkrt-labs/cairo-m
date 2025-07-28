@@ -13,23 +13,23 @@ fn test_break_continue_validation() {
             in_function("while(true) { if(true) {continue;} }"),
             // in nested loops
             in_function("loop { loop { break; } break; }"),
-            in_function("loop { loop { if (true) {continue;} else {break;} } break; }"),
+            in_function("loop { loop { if true {continue;} else {break;} } break; }"),
             // in block inside loop
-            in_function("loop { { if (true) { break; } continue; } }"),
+            in_function("loop { { if true { break; } continue; } }"),
         ],
         err: [
             // break/continue outside loop
             in_function("break;"),
             in_function("continue;"),
             // in if outside loop
-            in_function("if (true) { break; }"),
-            in_function("if (true) { continue; }"),
+            in_function("if true { break; }"),
+            in_function("if true { continue; }"),
             // in block outside loop
             in_function("{ break; }"),
             // multiple errors
-            in_function("break; if (true) { continue; } { break; }"),
+            in_function("break; if true { continue; } { break; }"),
             // mix of valid and invalid
-            in_function("break; loop { break; } continue; while (true) { if (true) { break; } else { continue; } }"),
+            in_function("break; loop { break; } continue; while (true) { if true { break; } else { continue; } }"),
         ]
     }
 }

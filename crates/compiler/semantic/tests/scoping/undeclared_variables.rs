@@ -49,7 +49,7 @@ fn test_undeclared_variables_parameterized() {
             ),
 
             // Undeclared in if condition
-            in_function("if (undefined_condition) { let x = 1; }"),
+            in_function("if undefined_condition { let x = 1; }"),
 
             // Undeclared in assignment
             in_function("let x = 5; x = undefined_var;"),

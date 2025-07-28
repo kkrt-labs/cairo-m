@@ -62,7 +62,7 @@ fn test_complex_control_flow_integration() {
     assert_semantic_ok!(
         r#"
         fn process_number(n: felt) -> felt {
-            if (n == 0) {
+            if n == 0 {
                 return n / 2;
             } else {
                 return 0;
@@ -111,7 +111,7 @@ fn test_nested_scopes_with_function_calls() {
                 let middle = helper(outer);
                 {
                     let inner = helper(middle);
-                    if (inner == 100) {
+                    if inner == 100 {
                         return inner;
                     } else {
                         return helper(inner);

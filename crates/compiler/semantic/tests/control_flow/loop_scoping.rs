@@ -6,7 +6,7 @@ fn test_loop_scoping() {
     assert_semantic_parameterized! {
         ok: [
             // Variables in loop can shadow outer variables
-            in_function("let x = 1; loop { let x = 2; if (x == 2) { break; } } let y = x;"),
+            in_function("let x = 1; loop { let x = 2; if x == 2 { break; } } let y = x;"),
         ],
         err: [
             // Variables declared in loop body should not be visible outside

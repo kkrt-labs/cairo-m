@@ -14,9 +14,9 @@ fn test_function_calls() {
             // Call in expression
             "fn get_value() -> felt { return 42; } fn test() -> felt { let result = get_value() + 10; return result; }",
             // Call as condition
-            "fn is_null(x: felt) -> bool { return x == 0; } fn test(x: felt) -> felt { if (is_null(x)) { return 1; } else { return 0; } }",
+            "fn is_null(x: felt) -> bool { return x == 0; } fn test(x: felt) -> felt { if is_null(x) { return 1; } else { return 0; } }",
             // Recursive call
-            "fn factorial(n: felt) -> felt { if (n == 1) { return 1; } else { return n * factorial(n - 1); } } fn test() -> felt { return factorial(5); }",
+            "fn factorial(n: felt) -> felt { if n == 1 { return 1; } else { return n * factorial(n - 1); } } fn test() -> felt { return factorial(5); }",
         ],
         err: [
             // Undeclared function

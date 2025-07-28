@@ -319,7 +319,7 @@ fn test_complex_recursive_scenario() {
         }
 
         fn traverse(node: TreeNode*) -> felt {
-            if (node == null) {
+            if node == null {
                 return 0;
             }
             return node.value + traverse(node.left) + traverse(node.right);

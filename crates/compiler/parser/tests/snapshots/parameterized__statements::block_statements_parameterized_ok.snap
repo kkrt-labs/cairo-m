@@ -154,7 +154,7 @@ fn test() { { { let inner = 1; } let outer = 2; } }
 ============================================================
 
 --- Input 3 ---
-fn test() { if (true) { if (false) { if (true) { if (true) { if (true) { let x = 1; } } } } } }
+fn test() { if true { if false { if true { if true { if true { let x = 1; } } } } } }
 --- AST ---
 [
     Function(
@@ -178,7 +178,7 @@ fn test() { if (true) { if (false) { if (true) { if (true) { if (true) { let x =
                                 BooleanLiteral(
                                     true,
                                 ),
-                                16..20,
+                                15..19,
                             ),
                             then_block: Spanned(
                                 Block(
@@ -189,7 +189,7 @@ fn test() { if (true) { if (false) { if (true) { if (true) { if (true) { let x =
                                                     BooleanLiteral(
                                                         false,
                                                     ),
-                                                    28..33,
+                                                    25..30,
                                                 ),
                                                 then_block: Spanned(
                                                     Block(
@@ -200,7 +200,7 @@ fn test() { if (true) { if (false) { if (true) { if (true) { if (true) { let x =
                                                                         BooleanLiteral(
                                                                             true,
                                                                         ),
-                                                                        41..45,
+                                                                        36..40,
                                                                     ),
                                                                     then_block: Spanned(
                                                                         Block(
@@ -211,7 +211,7 @@ fn test() { if (true) { if (false) { if (true) { if (true) { if (true) { let x =
                                                                                             BooleanLiteral(
                                                                                                 true,
                                                                                             ),
-                                                                                            53..57,
+                                                                                            46..50,
                                                                                         ),
                                                                                         then_block: Spanned(
                                                                                             Block(
@@ -222,7 +222,7 @@ fn test() { if (true) { if (false) { if (true) { if (true) { if (true) { let x =
                                                                                                                 BooleanLiteral(
                                                                                                                     true,
                                                                                                                 ),
-                                                                                                                65..69,
+                                                                                                                56..60,
                                                                                                             ),
                                                                                                             then_block: Spanned(
                                                                                                                 Block(
@@ -232,7 +232,7 @@ fn test() { if (true) { if (false) { if (true) { if (true) { if (true) { let x =
                                                                                                                                 pattern: Identifier(
                                                                                                                                     Spanned(
                                                                                                                                         "x",
-                                                                                                                                        77..78,
+                                                                                                                                        67..68,
                                                                                                                                     ),
                                                                                                                                 ),
                                                                                                                                 statement_type: None,
@@ -241,54 +241,54 @@ fn test() { if (true) { if (false) { if (true) { if (true) { if (true) { let x =
                                                                                                                                         1,
                                                                                                                                         None,
                                                                                                                                     ),
-                                                                                                                                    81..82,
+                                                                                                                                    71..72,
                                                                                                                                 ),
                                                                                                                             },
-                                                                                                                            73..83,
+                                                                                                                            63..73,
                                                                                                                         ),
                                                                                                                     ],
                                                                                                                 ),
-                                                                                                                71..85,
+                                                                                                                61..75,
                                                                                                             ),
                                                                                                             else_block: None,
                                                                                                         },
-                                                                                                        61..85,
+                                                                                                        53..75,
                                                                                                     ),
                                                                                                 ],
                                                                                             ),
-                                                                                            59..87,
+                                                                                            51..77,
                                                                                         ),
                                                                                         else_block: None,
                                                                                     },
-                                                                                    49..87,
+                                                                                    43..77,
                                                                                 ),
                                                                             ],
                                                                         ),
-                                                                        47..89,
+                                                                        41..79,
                                                                     ),
                                                                     else_block: None,
                                                                 },
-                                                                37..89,
+                                                                33..79,
                                                             ),
                                                         ],
                                                     ),
-                                                    35..91,
+                                                    31..81,
                                                 ),
                                                 else_block: None,
                                             },
-                                            24..91,
+                                            22..81,
                                         ),
                                     ],
                                 ),
-                                22..93,
+                                20..83,
                             ),
                             else_block: None,
                         },
-                        12..93,
+                        12..83,
                     ),
                 ],
             },
-            0..95,
+            0..85,
         ),
     ),
 ]
