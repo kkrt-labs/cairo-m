@@ -25,7 +25,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use cairo_m_compiler_diagnostics::Diagnostic;
+use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode};
 use cairo_m_compiler_parser::parse_file;
 use cairo_m_compiler_parser::parser::{
     Expression, FunctionDef, Pattern, Spanned, Statement, TopLevelItem,
@@ -161,6 +161,18 @@ pub fn generate_mir(db: &dyn MirDb, crate_id: Crate) -> Result<Arc<MirModule>, V
     let mut pass_manager = crate::passes::PassManager::standard_pipeline();
     for function in mir_module.functions.iter_mut() {
         pass_manager.run(function);
+    }
+
+    // Validate we dont have any unreachable blocks
+    for function in mir_module.functions.iter() {
+        for block in function.basic_blocks.iter() {
+            if block.terminator == Terminator::Unreachable {
+                return Err(vec![Diagnostic::error(
+                    DiagnosticCode::InternalError,
+                    "Unreachable blocks found in MIR".to_string(),
+                )]);
+            }
+        }
     }
 
     Ok(Arc::new(mir_module))

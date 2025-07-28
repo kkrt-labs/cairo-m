@@ -33,4 +33,6 @@ Found 2 diagnostic(s):
  7 │             let x = get_value + 5;  // Should suggest adding parentheses
    │                     ────┬────  
    │                         ╰────── Operator `+` is not supported for type `function`
+   │                         │      
+   │                         ╰────── Did you forget to call the function with parentheses?
 ───╯

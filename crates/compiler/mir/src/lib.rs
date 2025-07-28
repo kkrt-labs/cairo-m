@@ -1,4 +1,4 @@
-//! # Cairo-M Intermediate Representation (MIR)
+//a # Cairo-M Intermediate Representation (MIR)
 //!
 //! This crate defines the data structures for the Mid-level Intermediate Representation
 //! of the Cairo-M compiler. The MIR is a high-level, platform-independent representation

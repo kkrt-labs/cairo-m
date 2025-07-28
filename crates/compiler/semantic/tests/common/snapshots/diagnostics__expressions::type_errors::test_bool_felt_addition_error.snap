@@ -23,4 +23,6 @@ Found 1 diagnostic(s):
  5 │             let resx = ybool + x;  // Expected type mismatch error
    │                        ──┬──  
    │                          ╰──── Operator `+` is not supported for type `bool`
+   │                          │    
+   │                          ╰──── Cannot use bool in arithmetic operations. Consider using logical operators (&&, ||) instead.
 ───╯

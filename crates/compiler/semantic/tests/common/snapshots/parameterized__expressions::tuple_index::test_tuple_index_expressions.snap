@@ -1,0 +1,144 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test() { let t = (10, 20, 30); let x = t.3; return; }
+--- Diagnostics ---
+[2012] Error: no field `3` on type `(felt, felt, felt)`
+   ╭─[ semantic_tests::expressions::tuple_index::test_tuple_index_expressions:1:43 ]
+   │
+ 1 │ fn test() { let t = (10, 20, 30); let x = t.3; return; }
+   │                                           ┬  
+   │                                           ╰── no field `3` on type `(felt, felt, felt)`
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+fn test() { let t = (10, 20, 30); let x = t.4; return; }
+--- Diagnostics ---
+[2012] Error: no field `4` on type `(felt, felt, felt)`
+   ╭─[ semantic_tests::expressions::tuple_index::test_tuple_index_expressions:1:43 ]
+   │
+ 1 │ fn test() { let t = (10, 20, 30); let x = t.4; return; }
+   │                                           ┬  
+   │                                           ╰── no field `4` on type `(felt, felt, felt)`
+───╯
+
+============================================================
+
+--- Input 3 (ERROR) ---
+fn test() { let t = (10, 20, 30); let x = t[3]; return; }
+--- Diagnostics ---
+[2013] Error: tuples must be accessed using `.index` syntax (e.g., `tup.0`), not `[]`
+   ╭─[ semantic_tests::expressions::tuple_index::test_tuple_index_expressions:1:43 ]
+   │
+ 1 │ fn test() { let t = (10, 20, 30); let x = t[3]; return; }
+   │                                           ┬  
+   │                                           ╰── tuples must be accessed using `.index` syntax (e.g., `tup.0`), not `[]`
+───╯
+
+============================================================
+
+--- Input 4 (ERROR) ---
+fn test() { let t = (42,); let x = t.1; return; }
+--- Diagnostics ---
+[2012] Error: no field `1` on type `(felt,)`
+   ╭─[ semantic_tests::expressions::tuple_index::test_tuple_index_expressions:1:36 ]
+   │
+ 1 │ fn test() { let t = (42,); let x = t.1; return; }
+   │                                    ┬  
+   │                                    ╰── no field `1` on type `(felt,)`
+───╯
+
+============================================================
+
+--- Input 5 (ERROR) ---
+fn test() { let t = (); let x = t.0; return; }
+--- Diagnostics ---
+[2012] Error: no field `0` on type `()`
+   ╭─[ semantic_tests::expressions::tuple_index::test_tuple_index_expressions:1:33 ]
+   │
+ 1 │ fn test() { let t = (); let x = t.0; return; }
+   │                                 ┬  
+   │                                 ╰── no field `0` on type `()`
+───╯
+
+============================================================
+
+--- Input 6 (ERROR) ---
+fn test() { let t = (10, 20, 30); let x = t[0]; return; }
+--- Diagnostics ---
+[2013] Error: tuples must be accessed using `.index` syntax (e.g., `tup.0`), not `[]`
+   ╭─[ semantic_tests::expressions::tuple_index::test_tuple_index_expressions:1:43 ]
+   │
+ 1 │ fn test() { let t = (10, 20, 30); let x = t[0]; return; }
+   │                                           ┬  
+   │                                           ╰── tuples must be accessed using `.index` syntax (e.g., `tup.0`), not `[]`
+───╯
+
+============================================================
+
+--- Input 7 (ERROR) ---
+fn test() { let t = (10, 20, 30); let x = t.-1; return; }
+--- Diagnostics ---
+[02] Error: found '-' expected something else, or identifier
+   ╭─[ semantic_tests::expressions::tuple_index::test_tuple_index_expressions:1:45 ]
+   │
+ 1 │ fn test() { let t = (10, 20, 30); let x = t.-1; return; }
+   │                                             ┬  
+   │                                             ╰── found '-' expected something else, or identifier
+───╯
+
+============================================================
+
+--- Input 8 (ERROR) ---
+fn test() { let x = 42; let y = x.0; return; }
+--- Diagnostics ---
+[2013] Error: Cannot use tuple index on type `felt`
+   ╭─[ semantic_tests::expressions::tuple_index::test_tuple_index_expressions:1:33 ]
+   │
+ 1 │ fn test() { let x = 42; let y = x.0; return; }
+   │                                 ┬  
+   │                                 ╰── Cannot use tuple index on type `felt`
+───╯
+
+============================================================
+
+--- Input 9 (ERROR) ---
+fn test() { let x = true; let y = x.0; return; }
+--- Diagnostics ---
+[2013] Error: Cannot use tuple index on type `bool`
+   ╭─[ semantic_tests::expressions::tuple_index::test_tuple_index_expressions:1:35 ]
+   │
+ 1 │ fn test() { let x = true; let y = x.0; return; }
+   │                                   ┬  
+   │                                   ╰── Cannot use tuple index on type `bool`
+───╯
+
+============================================================
+
+--- Input 10 (ERROR) ---
+fn test() { let t = ((1, 2), (3, 4)); let x = t.0.2; return; }
+--- Diagnostics ---
+[2012] Error: no field `2` on type `(felt, felt)`
+   ╭─[ semantic_tests::expressions::tuple_index::test_tuple_index_expressions:1:47 ]
+   │
+ 1 │ fn test() { let t = ((1, 2), (3, 4)); let x = t.0.2; return; }
+   │                                               ─┬─  
+   │                                                ╰─── no field `2` on type `(felt, felt)`
+───╯
+
+============================================================
+
+--- Input 11 (ERROR) ---
+fn test() { let t = ((1, 2), (3, 4)); let x = t.2; return; }
+--- Diagnostics ---
+[2012] Error: no field `2` on type `((felt, felt), (felt, felt))`
+   ╭─[ semantic_tests::expressions::tuple_index::test_tuple_index_expressions:1:47 ]
+   │
+ 1 │ fn test() { let t = ((1, 2), (3, 4)); let x = t.2; return; }
+   │                                               ┬  
+   │                                               ╰── no field `2` on type `((felt, felt), (felt, felt))`
+───╯

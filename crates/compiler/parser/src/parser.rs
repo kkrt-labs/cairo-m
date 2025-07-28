@@ -556,22 +556,26 @@ where
             Spanned::new(TypeExpr::Named(Spanned::new(named_type, span)), span)
         });
 
-        // Tuple types: (felt, felt), (Vector, bool, felt), etc.
-        let tuple_type = type_expr
-            .clone()
-            .separated_by(just(TokenType::Comma))
-            .allow_trailing()
-            .collect::<Vec<_>>()
-            .delimited_by(just(TokenType::LParen), just(TokenType::RParen))
-            .map_with(|types, extra| {
+        // Tuple types: (felt,), (felt, felt), (Vector, bool, felt), etc.
+        let tuple_type = just(TokenType::LParen)
+            .ignore_then(
+                type_expr
+                    .clone()
+                    .separated_by(just(TokenType::Comma))
+                    .collect::<Vec<_>>()
+                    .then(just(TokenType::Comma).or_not()), // Check for trailing comma
+            )
+            .then_ignore(just(TokenType::RParen))
+            .map_with(|(types, trailing_comma), extra| {
                 let span = extra.span();
-                // Single type in parens is just a parenthesized type
-                if types.len() == 1 {
-                    // Extract the inner type but use the parentheses span
-                    types.into_iter().next().unwrap()
-                } else {
-                    // Multiple types form a tuple type
-                    Spanned::new(TypeExpr::Tuple(types), span)
+
+                match (types.len(), trailing_comma.is_some()) {
+                    // Single element with trailing comma -> tuple
+                    (1, true) => Spanned::new(TypeExpr::Tuple(types), span),
+                    // Single element without trailing comma -> parenthesized type
+                    (1, false) => types.into_iter().next().unwrap(),
+                    // Multiple elements -> always a tuple (regardless of trailing comma)
+                    (_, _) => Spanned::new(TypeExpr::Tuple(types), span),
                 }
             });
 
@@ -653,19 +657,22 @@ where
             .map_with(|expr, extra| Spanned::new(expr, extra.span()));
 
         // Tuple expressions and parenthesized expressions: "(a, b, c)" or "(expr)"
-        let tuple_expr = expr
-            .clone()
-            .separated_by(just(TokenType::Comma))
-            .allow_trailing()
-            .collect::<Vec<_>>()
-            .delimited_by(just(TokenType::LParen), just(TokenType::RParen))
-            .map(|exprs| {
-                // Single element in parens is just a parenthesized expression
-                if exprs.len() == 1 {
-                    exprs.into_iter().next().unwrap().value().clone()
-                } else {
-                    // Multiple elements form a tuple
-                    Expression::Tuple(exprs)
+        let tuple_expr = just(TokenType::LParen)
+            .ignore_then(
+                expr.clone()
+                    .separated_by(just(TokenType::Comma))
+                    .collect::<Vec<_>>()
+                    .then(just(TokenType::Comma).or_not()), // Check for trailing comma
+            )
+            .then_ignore(just(TokenType::RParen))
+            .map(|(exprs, trailing_comma)| {
+                match (exprs.len(), trailing_comma.is_some()) {
+                    // Single element with trailing comma -> tuple
+                    (1, true) => Expression::Tuple(exprs),
+                    // Single element without trailing comma -> parenthesized expression
+                    (1, false) => exprs.into_iter().next().unwrap().value().clone(),
+                    // Multiple elements -> always a tuple (regardless of trailing comma)
+                    (_, _) => Expression::Tuple(exprs),
                 }
             })
             .map_with(|expr, extra| Spanned::new(expr, extra.span()));

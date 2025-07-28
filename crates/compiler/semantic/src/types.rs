@@ -171,6 +171,11 @@ impl<'db> TypeData<'db> {
         !self.is_error() && !self.is_unknown()
     }
 
+    /// Check if this type is a numeric type
+    pub const fn is_numeric(&self) -> bool {
+        matches!(self, TypeData::Felt | TypeData::U32)
+    }
+
     /// Get a human-readable display name for this type
     pub fn display_name(&self, db: &dyn SemanticDb) -> String {
         match self {
@@ -181,7 +186,11 @@ impl<'db> TypeData<'db> {
             TypeData::Tuple(types) => {
                 let type_names: Vec<String> =
                     types.iter().map(|t| t.data(db).display_name(db)).collect();
-                format!("({})", type_names.join(", "))
+                if types.len() == 1 {
+                    format!("({},)", type_names.join(", "))
+                } else {
+                    format!("({})", type_names.join(", "))
+                }
             }
             TypeData::Pointer(inner) => {
                 format!("{}*", inner.data(db).display_name(db))

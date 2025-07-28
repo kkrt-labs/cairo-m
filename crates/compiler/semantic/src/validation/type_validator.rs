@@ -119,8 +119,8 @@ impl TypeValidator {
                 }
             }
             (TypeData::Tuple(elements), TypeData::Felt) => {
-                if elements.len() == 1 && matches!(elements[0].data(db), TypeData::Felt) {
-                    Some("Did you mean to access the tuple element with [0]?".to_string())
+                if elements.len() == 1 && elements[0].data(db).is_numeric() {
+                    Some("Did you mean to access the tuple element with `.0`?".to_string())
                 } else {
                     Some("Tuples cannot be used directly in arithmetic operations".to_string())
                 }
@@ -256,7 +256,8 @@ impl TypeValidator {
             .iter()
             .filter(|op_signature| op_signature.op == *op && op_signature.left == left_type);
         if binary_op_on_left_type.clone().count() == 0 {
-            let diag = Diagnostic::error(
+            let suggestion = self.suggest_type_conversion(db, left_type, right_type);
+            let mut diag = Diagnostic::error(
                 DiagnosticCode::TypeMismatch,
                 format!(
                     "Operator `{}` is not supported for type `{}`",
@@ -265,6 +266,10 @@ impl TypeValidator {
                 ),
             )
             .with_location(file.file_path(db).to_string(), left.span());
+            if let Some(suggestion) = suggestion {
+                diag =
+                    diag.with_related_span(file.file_path(db).to_string(), left.span(), suggestion);
+            }
             sink.push(diag);
             return;
         }
@@ -314,7 +319,9 @@ impl TypeValidator {
             .find(|op_signature| op_signature.op == *op && op_signature.operand == expr_type);
 
         if unary_op_on_expr_type.is_none() {
-            let diag = Diagnostic::error(
+            let suggestion =
+                self.suggest_type_conversion(db, expr_type, TypeId::new(db, TypeData::Felt));
+            let mut diag = Diagnostic::error(
                 DiagnosticCode::TypeMismatch,
                 format!(
                     "Operator `{}` is not supported for type `{}`",
@@ -323,6 +330,10 @@ impl TypeValidator {
                 ),
             )
             .with_location(file.file_path(db).to_string(), expr.span());
+            if let Some(suggestion) = suggestion {
+                diag =
+                    diag.with_related_span(file.file_path(db).to_string(), expr.span(), suggestion);
+            }
             sink.push(diag);
         }
     }
@@ -520,7 +531,18 @@ impl TypeValidator {
 
         // Check if the array expression is indexable
         match array_type {
-            TypeData::Tuple(_) | TypeData::Pointer(_) => {
+            TypeData::Tuple(_) => {
+                sink.push(
+                    Diagnostic::error(
+                        DiagnosticCode::InvalidTupleIndexAccess,
+                        "tuples must be accessed using `.index` syntax (e.g., `tup.0`), not `[]`"
+                            .to_string(),
+                    )
+                    .with_location(file.file_path(db).to_string(), array.span()),
+                );
+            }
+            // Pointer indexing is still allowed, keep previous checks
+            TypeData::Pointer(_) => {
                 // Check if the index expression is an integer type
                 let Some(index_id) = index.expression_id_by_span(index_expr.span()) else {
                     return;

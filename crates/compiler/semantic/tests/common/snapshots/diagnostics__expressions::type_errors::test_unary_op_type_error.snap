@@ -24,4 +24,6 @@ Found 1 diagnostic(s):
  6 │             let x = -p;  // Should show type error for negation on struct
    │                      ┬  
    │                      ╰── Operator `-` is not supported for type `Point`
+   │                      │  
+   │                      ╰── This struct has numeric fields that could be accessed
 ───╯
