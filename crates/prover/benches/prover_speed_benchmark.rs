@@ -5,13 +5,13 @@ use cairo_m_common::Program;
 use cairo_m_compiler::{CompilerOptions, compile_cairo};
 use cairo_m_prover::adapter::import_from_runner_output;
 use cairo_m_prover::prover::prove_cairo_m;
-use cairo_m_runner::{RunnerOptions, run_cairo_program};
+use cairo_m_runner::run_cairo_program;
 use criterion::{Criterion, Throughput, black_box, criterion_group, criterion_main};
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
 
 const BENCHMARK_DURATION_SECS: u64 = 30;
-const N_ITERATIONS: u32 = 1_000_000;
+const N_ITERATIONS: u32 = 100_000;
 
 /// Compiles the fibonacci.cm file from the test data directory
 fn compile_fibonacci() -> Program {
@@ -33,9 +33,7 @@ fn fibonacci_prove_benchmark(c: &mut Criterion) {
         &program,
         "fib",
         &[M31::from(N_ITERATIONS)],
-        RunnerOptions {
-            max_steps: 2_usize.pow(30),
-        },
+        Default::default(),
     )
     .expect("Failed to run fibonacci program");
 
@@ -49,7 +47,6 @@ fn fibonacci_prove_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("prover_fibonacci");
     group.throughput(Throughput::Elements(trace_length as u64));
     group.measurement_time(Duration::from_secs(BENCHMARK_DURATION_SECS));
-    group.sample_size(10); // Limit to max 10 iterations to avoid long wait times
 
     let prover_input = import_from_runner_output(segment, runner_output.public_addresses)
         .expect("Failed to import runner output");

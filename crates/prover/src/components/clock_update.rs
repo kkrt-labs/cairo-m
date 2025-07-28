@@ -1,5 +1,27 @@
+//! Component to add intermediate values for large clock diffs.
+//!
+//! # Columns
+//!
+//! - enabler
+//! - addr
+//! - prev_clk
+//! - inter_clk
+//! - QM31 value
+//!
+//! # Constraints
+//!
+//! * enabler is a bool
+//!   * `enabler * (1 - enabler)`
+//! * update the clock
+//!   * `- [addr, prev_clk, value]` in `Memory` relation
+//!   * `+ [addr, inter_clk, value]` in `Memory` relation
+//! * range check the clock difference
+//!   * `- [inter_clk - prev_clk - enabler]` in `RangeCheck20` relation
+
 use num_traits::{One, Zero};
-use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
+use rayon::iter::{
+    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
+};
 use serde::{Deserialize, Serialize};
 use stwo_air_utils::trace::component_trace::ComponentTrace;
 use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
@@ -21,7 +43,7 @@ use stwo_prover::core::poly::circle::CircleEvaluation;
 use crate::components::Relations;
 use crate::utils::enabler::Enabler;
 
-const N_TRACE_COLUMNS: usize = 8; // enabler, addr, prev_clk, inter_clock, QM31 value,
+const N_TRACE_COLUMNS: usize = 8;
 const N_MEMORY_LOOKUPS: usize = 2;
 const N_RANGE_CHECK_20_LOOKUPS: usize = 1;
 const N_INTERACTION_COLUMNS: usize =
@@ -40,6 +62,12 @@ pub struct InteractionClaim {
 pub struct InteractionClaimData {
     pub lookup_data: LookupData,
     pub non_padded_length: usize,
+}
+
+impl InteractionClaimData {
+    pub fn range_check_20(&self) -> impl ParallelIterator<Item = &PackedM31> {
+        self.lookup_data.range_check_20[0].par_iter()
+    }
 }
 
 #[derive(Uninitialized, IterMut, ParIterMut)]
