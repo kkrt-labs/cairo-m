@@ -1,9 +1,10 @@
 use cairo_m_compiler_parser::parser::{
-    ConstDef, FunctionDef, Namespace, Parameter, ParsedModule, StructDef, TopLevelItem, UseItems,
-    UseStmt,
+    ConstDef, FunctionDef, Namespace, Parameter, ParsedModule, Spanned, StructDef, TopLevelItem,
+    UseItems, UseStmt,
 };
 
 use crate::Format;
+use crate::comment_attachment::HasSpan;
 use crate::context::FormatterCtx;
 use crate::doc::Doc;
 use crate::utils::*;
@@ -32,13 +33,28 @@ impl Format for ParsedModule {
 
 impl Format for TopLevelItem {
     fn format(&self, ctx: &mut FormatterCtx) -> Doc {
-        match self {
-            Self::Function(f) => f.value().format(ctx),
-            Self::Struct(s) => s.value().format(ctx),
-            Self::Namespace(n) => n.value().format(ctx),
-            Self::Const(c) => c.value().format(ctx),
-            Self::Use(u) => u.value().format(ctx),
+        let (span, inner_doc) = match self {
+            Self::Function(f) => (f.span(), f.value().format(ctx)),
+            Self::Struct(s) => (s.span(), s.value().format(ctx)),
+            Self::Namespace(n) => (n.span(), n.value().format(ctx)),
+            Self::Const(c) => (c.span(), c.value().format(ctx)),
+            Self::Use(u) => (u.span(), u.value().format(ctx)),
+        };
+
+        // Add leading comments
+        let mut doc = inner_doc;
+        if let Some(leading) = ctx.get_leading_comments(span) {
+            let comments: Vec<String> = leading.iter().map(|c| c.text.clone()).collect();
+            doc = Doc::with_leading_comments(comments, doc);
         }
+
+        // Add trailing comments
+        if let Some(trailing) = ctx.get_trailing_comments(span) {
+            let comments: Vec<String> = trailing.iter().map(|c| c.text.clone()).collect();
+            doc = Doc::with_trailing_comments(doc, comments);
+        }
+
+        doc
     }
 }
 
@@ -69,7 +85,7 @@ impl Format for FunctionDef {
             let stmts = self
                 .body
                 .iter()
-                .map(|s| Doc::concat(vec![Doc::line(), s.value().format(ctx)]))
+                .map(|s| Doc::concat(vec![Doc::line(), s.format(ctx)]))
                 .collect::<Vec<_>>();
 
             parts.push(Doc::indent(ctx.cfg.indent_width, Doc::concat(stmts)));

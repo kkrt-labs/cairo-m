@@ -64,37 +64,33 @@
 - [x] Test struct formatting
 - [x] Test empty file handling
 
-## Phase 3: Comment Support
+## Phase 3: Comment Support ✅
 
-### 3.1 Capture comments
+### 3.1 Capture comments ✅
 
-- [ ] Decide on lexer extension vs second-pass
-- [ ] Implement comment capture
-- [ ] Create comment attachment logic
+- [x] Decide on lexer extension vs second-pass (chose second-pass)
+- [x] Implement comment capture (scan_comments function)
+- [x] Create comment attachment logic (CommentPreserver + comment_attachment)
 
-### 3.2 Update formatting rules
+### 3.2 Update formatting rules ✅
 
-- [ ] Add comment emission to all rules
-- [ ] Test comment preservation
-- [ ] Add comment-specific tests
+- [x] Add basic comment emission (file-level comments)
+- [x] Test comment preservation
+- [x] Add comment-specific tests
+- [x] Full inline/end-of-line comment support using AST spans
+- [x] Implement HasSpan trait for Spanned<T> types
+- [x] Add CommentBuckets attachment system
+- [x] Update statement and top-level item formatters
 
-## Phase 4: Range Formatting
+## Phase 4: Configuration & Polish
 
-### 4.1 Implement range formatting
-
-- [ ] Add format_range API
-- [ ] Implement minimal diff computation
-- [ ] Add LSP rangeFormatting handler
-
-## Phase 5: Configuration & Polish
-
-### 5.1 VSCode settings
+### 4.1 VSCode settings
 
 - [ ] Add formatter settings to package.json
 - [ ] Map VSCode settings to FormatterConfig
 - [ ] Test configuration changes
 
-### 5.2 Documentation
+### 4.2 Documentation
 
 - [ ] Create README for formatter crate
 - [ ] Add developer documentation

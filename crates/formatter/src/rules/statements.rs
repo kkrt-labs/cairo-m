@@ -1,8 +1,32 @@
-use cairo_m_compiler_parser::parser::{Pattern, Statement};
+use cairo_m_compiler_parser::parser::{Pattern, Spanned, Statement};
 
 use crate::Format;
+use crate::comment_attachment::HasSpan;
 use crate::context::FormatterCtx;
 use crate::doc::Doc;
+
+// Implement Format for Spanned<Statement> to handle comments
+impl Format for Spanned<Statement> {
+    fn format(&self, ctx: &mut FormatterCtx) -> Doc {
+        let span = self.span();
+        let mut doc = self.value().format(ctx);
+
+        // Add leading comments
+        if let Some(leading) = ctx.get_leading_comments(span) {
+            let comments: Vec<String> = leading.iter().map(|c| c.text.clone()).collect();
+            doc = Doc::with_leading_comments(comments, doc);
+        }
+
+        // Add trailing comments (end-of-line)
+        if let Some(trailing) = ctx.get_trailing_comments(span) {
+            if let Some(first_trailing) = trailing.first() {
+                doc = doc.with_eol_comment(Some(&first_trailing.text));
+            }
+        }
+
+        doc
+    }
+}
 
 impl Format for Statement {
     fn format(&self, ctx: &mut FormatterCtx) -> Doc {

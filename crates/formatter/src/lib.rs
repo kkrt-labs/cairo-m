@@ -1,8 +1,11 @@
 pub mod api;
+pub mod comment_attachment;
+pub mod comment_preserver;
 pub mod config;
 pub mod context;
 pub mod doc;
 pub mod rules;
+pub mod simple_comment_preserver;
 pub mod trivia;
 pub mod utils;
 

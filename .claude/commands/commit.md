@@ -51,6 +51,9 @@ Based on the analysis, I'll create a conventional commit message:
 
 I will not add myself as co-author of the commit.
 
+Before committing, I'll run the `trunk check --fix` command to ensure that the code is
+formatted correctly. If there are any errors, I'll ask the you to fix them manually.
+
 ```bash
 # I'll create the commit with the analyzed message
 # Example: git commit -m "fix(compiler): fix missing edge case in parser"

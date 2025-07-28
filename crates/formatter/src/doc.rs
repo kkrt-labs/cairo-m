@@ -62,6 +62,46 @@ impl Doc {
         Self::Concat(result)
     }
 
+    /// Create a comment document
+    pub fn comment(text: &str) -> Self {
+        Self::text(text)
+    }
+
+    /// Append an end-of-line comment to a document
+    pub fn with_eol_comment(self, comment: Option<&str>) -> Self {
+        match comment {
+            Some(text) => Self::concat(vec![self, Self::text(" "), Self::comment(text)]),
+            None => self,
+        }
+    }
+
+    /// Create a document with leading comments
+    pub fn with_leading_comments<I>(comments: I, doc: Self) -> Self
+    where
+        I: IntoIterator<Item = String>,
+    {
+        let mut parts = Vec::new();
+        for comment in comments {
+            parts.push(Self::comment(&comment));
+            parts.push(Self::line());
+        }
+        parts.push(doc);
+        Self::concat(parts)
+    }
+
+    /// Create a document with trailing comments
+    pub fn with_trailing_comments<I>(doc: Self, comments: I) -> Self
+    where
+        I: IntoIterator<Item = String>,
+    {
+        let mut parts = vec![doc];
+        for comment in comments {
+            parts.push(Self::text(" "));
+            parts.push(Self::comment(&comment));
+        }
+        Self::concat(parts)
+    }
+
     /// Render the document to a string with a given max width
     pub fn render(&self, max_width: usize) -> String {
         let mut renderer = Renderer::new(max_width);

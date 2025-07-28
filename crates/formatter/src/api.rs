@@ -2,8 +2,10 @@ use cairo_m_compiler_parser::SourceFile;
 use cairo_m_compiler_parser::parser::ParsedModule;
 
 use crate::Format;
+use crate::comment_attachment::attach_comments_to_ast;
 use crate::config::FormatterConfig;
 use crate::context::FormatterCtx;
+use crate::simple_comment_preserver::format_with_comments;
 
 /// Format a source file
 pub fn format_source_file(
@@ -26,11 +28,15 @@ pub fn format_parsed_module(
 ) -> String {
     let mut ctx = FormatterCtx::new(cfg, original_text);
 
-    // TODO: Scan for comments
-    // For MVP, we'll skip comment handling
+    // Attach comments to AST nodes (excludes file-level comments)
+    let comment_buckets = attach_comments_to_ast(module, original_text);
+    ctx.set_comments(comment_buckets);
 
     let doc = module.format(&mut ctx);
-    doc.render(cfg.max_width)
+    let formatted = doc.render(cfg.max_width);
+
+    // Apply file-level comment preservation
+    format_with_comments(&formatted, original_text)
 }
 
 /// Format a range within a source file
