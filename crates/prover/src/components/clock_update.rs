@@ -14,8 +14,6 @@
 //! * update the clock
 //!   * `- [addr, prev_clk, value]` in `Memory` relation
 //!   * `+ [addr, inter_clk, value]` in `Memory` relation
-//! * range check the clock difference
-//!   * `- [inter_clk - prev_clk - enabler]` in `RangeCheck20` relation
 
 use num_traits::{One, Zero};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
