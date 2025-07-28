@@ -24,7 +24,7 @@ cairo-m-compiler-diagnostics.workspace = true
 cairo-m-compiler-mir.workspace = true
 
 # Chumsky types
-chumsky = "0.10.1"
+chumsky.workspace = true
 
 # Field arithmetic for M31
 num-traits.workspace = true

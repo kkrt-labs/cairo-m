@@ -9,7 +9,7 @@ async fn test_simple_diagnostics__() {
         "src/main.cm",
         r#"
 fn main() {
-    let _x = undefined_var; // This should produce an error
+    let _x = undefined_var; // This should produce an error AND a warning.
     return;
 }
 "#,
@@ -35,7 +35,7 @@ fn main() {
     // Now get the diagnostics
     let main_uri = client.file_url("src/main.cm").to_string();
     let diagnostics = client
-        .wait_for_diagnostics(&main_uri, std::time::Duration::from_secs(5))
+        .wait_for_diagnostics_default(&main_uri)
         .await
         .unwrap();
 
@@ -78,7 +78,7 @@ fn main() {
     // Now get the diagnostics
     let main_uri = client.file_url("test.cm").to_string();
     let diagnostics = client
-        .wait_for_diagnostics(&main_uri, std::time::Duration::from_secs(5))
+        .wait_for_diagnostics_default(&main_uri)
         .await
         .unwrap();
 

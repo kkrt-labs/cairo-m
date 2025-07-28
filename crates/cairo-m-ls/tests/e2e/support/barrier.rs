@@ -68,6 +68,8 @@ impl AnalysisBarrier {
         &self,
         timeout_duration: Duration,
     ) -> Result<(), tokio::time::error::Elapsed> {
+        let start_time = Instant::now();
+
         // Check if analysis has already completed
         if self.has_completed_analysis() {
             return Ok(());
@@ -77,7 +79,8 @@ impl AnalysisBarrier {
         self.wait_for_start(timeout_duration).await?;
 
         // Then wait for finish
-        self.wait_for_finish(timeout_duration).await?;
+        let remaining = timeout_duration.saturating_sub(start_time.elapsed());
+        self.wait_for_finish(remaining).await?;
 
         Ok(())
     }

@@ -1,13 +1,14 @@
 [workspace]
 members = [
   "crates/common",
-  "crates/compiler/cairo-m-project",
+  "crates/compiler",
   "crates/compiler/parser",
   "crates/compiler/semantic",
   "crates/compiler/mir",
   "crates/compiler/codegen",
   "crates/compiler/diagnostics",
-  "crates/compiler",
+  "crates/compiler/formatter",
+  "crates/compiler/cairo-m-project",
   "crates/runner",
   "crates/prover",
   "crates/cairo-m-ls",
@@ -31,6 +32,7 @@ cairo-m-project = { path = "crates/compiler/cairo-m-project" }
 cairo-m-compiler = { path = "crates/compiler" }
 cairo-m-runner = { path = "crates/runner" }
 cairo-m-prover = { path = "crates/prover" }
+cairo-m-formatter = { path = "crates/compiler/formatter" }
 
 # Starkware dependencies
 stwo-prover = { git = "https://github.com/starkware-libs/stwo", features = [
@@ -63,6 +65,7 @@ serde_json = "1.0.140"
 dhat = "0.3.3"
 rand = { version = "0.8.5", default-features = false, features = ["small_rng"] }
 rayon = { version = "1.10.0", optional = false }
+chumsky = "0.10.1"
 
 # Patching stwo to use local version
 [patch."https://github.com/starkware-libs/stwo"]

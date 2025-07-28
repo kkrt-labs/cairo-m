@@ -5,4 +5,4 @@ edition.workspace = true
 
 [dependencies]
 ariadne = "0.5.1"
-chumsky = "0.10.1"
+chumsky.workspace = true

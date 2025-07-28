@@ -1,0 +1,9 @@
+---
+source: crates/compiler/formatter//tests/formatter_tests.rs
+expression: format_code(input)
+---
+namespace math {
+    fn square(x: felt) -> felt {
+        return x * x;
+    }
+}

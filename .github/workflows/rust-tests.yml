@@ -29,6 +29,8 @@ jobs:
             cairo-m-compiler-diagnostics,
             cairo-m-compiler-mir,
             cairo-m-compiler-codegen,
+            cairo-m-formatter,
+            cairo-m-ls,
             cairo-m-common,
             cairo-m-runner,
             cairo-m-prover,
