@@ -35,7 +35,7 @@ fn main() {
     // Now get the diagnostics
     let main_uri = client.file_url("src/main.cm").to_string();
     let diagnostics = client
-        .wait_for_diagnostics(&main_uri, std::time::Duration::from_secs(5))
+        .wait_for_diagnostics_default(&main_uri)
         .await
         .unwrap();
 
@@ -78,7 +78,7 @@ fn main() {
     // Now get the diagnostics
     let main_uri = client.file_url("test.cm").to_string();
     let diagnostics = client
-        .wait_for_diagnostics(&main_uri, std::time::Duration::from_secs(5))
+        .wait_for_diagnostics_default(&main_uri)
         .await
         .unwrap();
 

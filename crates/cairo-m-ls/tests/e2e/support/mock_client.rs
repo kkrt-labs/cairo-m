@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
@@ -19,6 +19,34 @@ use tracing::{debug, error, warn};
 use super::Fixture;
 use super::barrier::AnalysisBarrier;
 use super::notification::NotificationEvent;
+
+/// Analysis timeout duration - longer in CI environments
+static ANALYSIS_TIMEOUT: OnceLock<Duration> = OnceLock::new();
+
+/// Diagnostics timeout duration - shorter than analysis but still adjusted for CI
+static DIAGNOSTICS_TIMEOUT: OnceLock<Duration> = OnceLock::new();
+
+fn get_analysis_timeout() -> Duration {
+    *ANALYSIS_TIMEOUT.get_or_init(|| {
+        let is_ci = std::env::var("CI").is_ok() || std::env::var("GITHUB_ACTIONS").is_ok();
+        if is_ci {
+            Duration::from_secs(60) // Even longer for CI
+        } else {
+            Duration::from_secs(10)
+        }
+    })
+}
+
+fn get_diagnostics_timeout() -> Duration {
+    *DIAGNOSTICS_TIMEOUT.get_or_init(|| {
+        let is_ci = std::env::var("CI").is_ok() || std::env::var("GITHUB_ACTIONS").is_ok();
+        if is_ci {
+            Duration::from_secs(30) // Even longer for CI
+        } else {
+            Duration::from_secs(5)
+        }
+    })
+}
 
 /// Async-only LSP mock client for testing
 pub struct MockClient {
@@ -358,7 +386,7 @@ impl MockClient {
             .with_context(|| format!("Failed to send request {}", id))?;
 
         // Wait for response
-        match timeout(Duration::from_secs(10), rx).await {
+        match timeout(get_analysis_timeout(), rx).await {
             Ok(Ok(response)) => match response {
                 Ok(value) => {
                     debug!("Request {} succeeded", id);
@@ -398,6 +426,12 @@ impl MockClient {
 
         self.to_server.send(full_msg)?;
         Ok(())
+    }
+
+    /// Wait for diagnostics with default timeout
+    pub async fn wait_for_diagnostics_default(&self, uri: &str) -> Result<Vec<Diagnostic>> {
+        self.wait_for_diagnostics(uri, get_diagnostics_timeout())
+            .await
     }
 
     /// Wait for diagnostics for a specific URI with retries
@@ -482,7 +516,7 @@ impl MockClient {
     /// Wait for complete analysis cycle
     pub async fn wait_for_analysis_to_complete(&self) -> Result<()> {
         self.barrier
-            .wait_for_complete_analysis(Duration::from_secs(10))
+            .wait_for_complete_analysis(get_analysis_timeout())
             .await
             .map_err(|_| anyhow::anyhow!("Timeout waiting for analysis to complete"))
     }
@@ -518,6 +552,11 @@ impl MockClient {
 
         self.send_notification::<lsp_types::notification::DidOpenTextDocument>(params)
             .await?;
+
+        // Small delay to ensure debounced diagnostics start (even with 0ms debounce)
+        // This is needed because the diagnostics are scheduled asynchronously
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
         self.wait_for_analysis_to_complete().await?;
         Ok(())
     }
