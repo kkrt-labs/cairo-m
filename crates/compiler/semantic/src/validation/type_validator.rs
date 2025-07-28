@@ -724,17 +724,12 @@ impl TypeValidator {
                 // with more detailed context, so we can skip here
             }
             Origin::Condition { kind } => {
-                let condition_name = match kind {
-                    crate::semantic_index::ConditionKind::If => "if",
-                    crate::semantic_index::ConditionKind::While => "while",
-                };
-
                 sink.push(
                     Diagnostic::error(
                         DiagnosticCode::TypeMismatch,
                         format!(
                             "`{}` condition must be of type `bool`, but found `{}`",
-                            condition_name, actual_type
+                            kind, actual_type
                         ),
                     )
                     .with_location(file.file_path(db).to_string(), expr_info.ast_span),
@@ -893,9 +888,52 @@ impl TypeValidator {
 
                 self.check_statement_type(db, crate_id, file, index, function_def, body, sink);
             }
-            Statement::For { .. } => {
-                // TODO: For loops not yet supported - we need iterator/range types first
-                panic!("For loops are not yet supported - need iterator/range types");
+            Statement::For {
+                init,
+                condition,
+                step,
+                body,
+            } => {
+                // 1. Check the init statement
+                self.check_statement_type(db, crate_id, file, index, function_def, init, sink);
+
+                // 2. Condition must be bool
+                if let Some(cond_expr_id) = index.expression_id_by_span(condition.span()) {
+                    // Re-run expression-level checks for good diagnostics
+                    if let Some(cond_info) = index.expression(cond_expr_id) {
+                        self.check_expression_types(
+                            db,
+                            crate_id,
+                            file,
+                            index,
+                            cond_expr_id,
+                            cond_info,
+                            sink,
+                        );
+                    }
+
+                    let bool_ty = TypeId::new(db, TypeData::Bool);
+                    let cond_ty =
+                        expression_semantic_type(db, crate_id, file, cond_expr_id, Some(bool_ty));
+                    if !are_types_compatible(db, cond_ty, bool_ty) {
+                        sink.push(
+                            Diagnostic::error(
+                                DiagnosticCode::TypeMismatch,
+                                format!(
+                                    "for loop condition must be of type 'bool', found `{}`",
+                                    cond_ty.data(db).display_name(db)
+                                ),
+                            )
+                            .with_location(file.file_path(db).to_string(), condition.span()),
+                        );
+                    }
+                }
+
+                // 3. Body
+                self.check_statement_type(db, crate_id, file, index, function_def, body, sink);
+
+                // 4. Step statement
+                self.check_statement_type(db, crate_id, file, index, function_def, step, sink);
             }
             Statement::Break | Statement::Continue => {
                 // No types to check for break/continue

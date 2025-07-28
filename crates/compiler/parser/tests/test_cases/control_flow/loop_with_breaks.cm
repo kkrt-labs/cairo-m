@@ -10,7 +10,7 @@ fn loop_control_flow() {
         }
     }
 
-    for item in collection {
+    for (let item = 0; item < collection_len; item = item + 1) {
         if (is_invalid(item)) {
             break;
         }
@@ -19,7 +19,7 @@ fn loop_control_flow() {
 
     // Continue in different contexts
     let sum = 0;
-    for i in numbers {
+    for (let i = 0; i < numbers_len; i = i + 1) {
         if (i != 0) {
             continue;
         }

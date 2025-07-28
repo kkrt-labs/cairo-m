@@ -109,6 +109,17 @@ pub struct TypeUsage {
 pub enum ConditionKind {
     If,
     While,
+    For,
+}
+
+impl std::fmt::Display for ConditionKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::If => write!(f, "if"),
+            Self::While => write!(f, "while"),
+            Self::For => write!(f, "for"),
+        }
+    }
 }
 
 /// Origin information tracking where an expression comes from within its parent context
@@ -1354,15 +1365,40 @@ where
                 );
             }
             Statement::For {
-                variable: _,
-                iterable,
+                init,
+                condition,
+                step,
                 body,
             } => {
-                // Visit the iterable expression
-                self.visit_expr(iterable);
-                // The variable binding happens inside the loop scope,
-                // so it will be handled by the semantic visitor
-                self.visit_stmt(body);
+                // Create a new loop scope, just like for `loop` / `while`
+                self.with_new_scope(
+                    crate::place::ScopeKind::Loop {
+                        depth: self.loop_depth,
+                    },
+                    |builder| {
+                        let current_scope = builder.current_scope();
+                        builder.index.set_scope_for_span(stmt.span(), current_scope);
+
+                        // 1. Initialization part (executes once, vars live in loop scope)
+                        builder.visit_stmt(init);
+
+                        // 2. Condition expression, tracked as a control-flow condition
+                        builder.visit_expr_with_origin(
+                            condition,
+                            Origin::Condition {
+                                kind: ConditionKind::For,
+                            },
+                        );
+
+                        // 3. Body (inside loop, so break/continue are valid)
+                        builder.loop_depth += 1;
+                        builder.visit_stmt(body);
+
+                        // 4. Step statement (runs after each iteration, still in loop scope)
+                        builder.visit_stmt(step);
+                        builder.loop_depth -= 1;
+                    },
+                );
             }
             Statement::Break | Statement::Continue => {
                 // Loop control flow validation moved to control flow validator

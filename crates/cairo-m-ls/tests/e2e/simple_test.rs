@@ -10,6 +10,7 @@ async fn test_simple_diagnostics__() {
         r#"
 fn main() {
     let _x = undefined_var; // This should produce an error
+    return;
 }
 "#,
     );
@@ -38,13 +39,9 @@ fn main() {
         .await
         .unwrap();
 
-    // We should have at least one diagnostic for the undefined variable
-    assert!(!diagnostics.is_empty(), "Expected diagnostics but got none");
-
-    let first_diag = &diagnostics[0];
-    assert!(
-        first_diag.message.contains("undefined_var") || first_diag.message.contains("Undeclared")
-    );
+    // We should have two diagnostics, one for the unused variable and one for the undeclared variable
+    assert!(diagnostics[0].message.contains("Unused variable '_x"));
+    assert!(diagnostics[1].message.contains("Undeclared variable"));
 
     // Graceful shutdown
     client.shutdown().await.unwrap();
@@ -59,6 +56,7 @@ async fn test_simple_diagnostics_standalone() {
         r#"
 fn main() {
     let _x = undefined_var; // This should produce an error
+    return;
 }
 "#,
     );
@@ -84,13 +82,9 @@ fn main() {
         .await
         .unwrap();
 
-    // We should have at least one diagnostic for the undefined variable
-    assert!(!diagnostics.is_empty(), "Expected diagnostics but got none");
-
-    let first_diag = &diagnostics[0];
-    assert!(
-        first_diag.message.contains("undefined_var") || first_diag.message.contains("Undeclared")
-    );
+    // We should have two diagnostics, one for the unused variable and one for the undeclared variable
+    assert!(diagnostics[0].message.contains("Unused variable '_x"));
+    assert!(diagnostics[1].message.contains("Undeclared variable"));
 
     // Graceful shutdown
     client.shutdown().await.unwrap();

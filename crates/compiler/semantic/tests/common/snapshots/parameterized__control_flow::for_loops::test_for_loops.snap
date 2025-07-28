@@ -1,0 +1,40 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test() { for (let i: u32 = 0; i < 3; i = i + 1) { } let y = i; return; }
+--- Diagnostics ---
+[1001] Error: Undeclared variable 'i'
+   ╭─[ semantic_tests::control_flow::for_loops::test_for_loops:1:64 ]
+   │
+ 1 │ fn test() { for (let i: u32 = 0; i < 3; i = i + 1) { } let y = i; return; }
+   │                                                                ┬  
+   │                                                                ╰── Undeclared variable 'i'
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+fn test() { let x: u32 = 1; for (let i: u32 = 0; x; i = i + 1) { break; } return; }
+--- Diagnostics ---
+[2001] Error: for loop condition must be of type 'bool', found `u32`
+   ╭─[ semantic_tests::control_flow::for_loops::test_for_loops:1:50 ]
+   │
+ 1 │ fn test() { let x: u32 = 1; for (let i: u32 = 0; x; i = i + 1) { break; } return; }
+   │                                                  ┬  
+   │                                                  ╰── for loop condition must be of type 'bool', found `u32`
+───╯
+
+============================================================
+
+--- Input 3 (ERROR) ---
+fn test() { for (let i: u32 = 0; i < 1; 42 = i) { } return; }
+--- Diagnostics ---
+[2010] Error: Invalid assignment target - must be a variable, field, or array element
+   ╭─[ semantic_tests::control_flow::for_loops::test_for_loops:1:41 ]
+   │
+ 1 │ fn test() { for (let i: u32 = 0; i < 1; 42 = i) { } return; }
+   │                                         ─┬  
+   │                                          ╰── Invalid assignment target - must be a variable, field, or array element
+───╯

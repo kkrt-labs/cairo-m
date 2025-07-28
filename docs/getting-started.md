@@ -309,6 +309,7 @@ fn use_structs() {
   }
   ```
 - **`while`**: Loops as long as a `bool` condition is `true`.
+
   ```rust
   fn while_loop() {
       let x = 0;
@@ -316,6 +317,17 @@ fn use_structs() {
           x = x + 1;
       }
       return ();
+  }
+  ```
+
+- **`for`**: Loops with a C-style for loop syntax.
+  ```rust
+  fn for_loop() {
+      for (let i: u32 = 0; i < 10; i = i + 1) {
+          // Loop body executes while i < 10
+          // i is incremented by 1 each iteration
+      }
+      return;
   }
   ```
 

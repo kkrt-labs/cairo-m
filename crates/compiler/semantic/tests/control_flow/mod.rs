@@ -9,6 +9,7 @@
 //! - Loop scoping
 //! - Loop type checking
 
+pub mod for_loops;
 pub mod loop_scoping;
 pub mod loop_type_checking;
 pub mod loop_validation;

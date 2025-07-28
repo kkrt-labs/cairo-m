@@ -315,7 +315,7 @@ fn test() { while (true) { if (done) { break; } } }
 ============================================================
 
 --- Input 6 ---
-fn test() { for i in range { let x = i; } }
+fn test() { for (let i = 0; i < 10; i = i + 1) { let x = i; } }
 --- AST ---
 [
     Function(
@@ -335,18 +335,82 @@ fn test() { for i in range { let x = i; } }
                 body: [
                     Spanned(
                         For {
-                            variable: Spanned(
-                                "i",
-                                16..17,
-                            ),
-                            iterable: Spanned(
-                                Identifier(
-                                    Spanned(
-                                        "range",
-                                        21..26,
+                            init: Spanned(
+                                Let {
+                                    pattern: Identifier(
+                                        Spanned(
+                                            "i",
+                                            21..22,
+                                        ),
                                     ),
-                                ),
-                                21..26,
+                                    statement_type: None,
+                                    value: Spanned(
+                                        Literal(
+                                            0,
+                                            None,
+                                        ),
+                                        25..26,
+                                    ),
+                                },
+                                17..27,
+                            ),
+                            condition: Spanned(
+                                BinaryOp {
+                                    op: Less,
+                                    left: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "i",
+                                                28..29,
+                                            ),
+                                        ),
+                                        28..29,
+                                    ),
+                                    right: Spanned(
+                                        Literal(
+                                            10,
+                                            None,
+                                        ),
+                                        32..34,
+                                    ),
+                                },
+                                28..34,
+                            ),
+                            step: Spanned(
+                                Assignment {
+                                    lhs: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "i",
+                                                36..37,
+                                            ),
+                                        ),
+                                        36..37,
+                                    ),
+                                    rhs: Spanned(
+                                        BinaryOp {
+                                            op: Add,
+                                            left: Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "i",
+                                                        40..41,
+                                                    ),
+                                                ),
+                                                40..41,
+                                            ),
+                                            right: Spanned(
+                                                Literal(
+                                                    1,
+                                                    None,
+                                                ),
+                                                44..45,
+                                            ),
+                                        },
+                                        40..45,
+                                    ),
+                                },
+                                36..45,
                             ),
                             body: Spanned(
                                 Block(
@@ -356,7 +420,7 @@ fn test() { for i in range { let x = i; } }
                                                 pattern: Identifier(
                                                     Spanned(
                                                         "x",
-                                                        33..34,
+                                                        53..54,
                                                     ),
                                                 ),
                                                 statement_type: None,
@@ -364,31 +428,31 @@ fn test() { for i in range { let x = i; } }
                                                     Identifier(
                                                         Spanned(
                                                             "i",
-                                                            37..38,
+                                                            57..58,
                                                         ),
                                                     ),
-                                                    37..38,
+                                                    57..58,
                                                 ),
                                             },
-                                            29..39,
+                                            49..59,
                                         ),
                                     ],
                                 ),
-                                27..41,
+                                47..61,
                             ),
                         },
-                        12..41,
+                        12..61,
                     ),
                 ],
             },
-            0..43,
+            0..63,
         ),
     ),
 ]
 ============================================================
 
 --- Input 7 ---
-fn test() { for item in items { if (skip) { continue; } process(item); } }
+fn test() { for (let item = 0; item < items_len; item = item + 1) { if (skip) { continue; } process(item); } }
 --- AST ---
 [
     Function(
@@ -408,18 +472,84 @@ fn test() { for item in items { if (skip) { continue; } process(item); } }
                 body: [
                     Spanned(
                         For {
-                            variable: Spanned(
-                                "item",
-                                16..20,
-                            ),
-                            iterable: Spanned(
-                                Identifier(
-                                    Spanned(
-                                        "items",
-                                        24..29,
+                            init: Spanned(
+                                Let {
+                                    pattern: Identifier(
+                                        Spanned(
+                                            "item",
+                                            21..25,
+                                        ),
                                     ),
-                                ),
-                                24..29,
+                                    statement_type: None,
+                                    value: Spanned(
+                                        Literal(
+                                            0,
+                                            None,
+                                        ),
+                                        28..29,
+                                    ),
+                                },
+                                17..30,
+                            ),
+                            condition: Spanned(
+                                BinaryOp {
+                                    op: Less,
+                                    left: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "item",
+                                                31..35,
+                                            ),
+                                        ),
+                                        31..35,
+                                    ),
+                                    right: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "items_len",
+                                                38..47,
+                                            ),
+                                        ),
+                                        38..47,
+                                    ),
+                                },
+                                31..47,
+                            ),
+                            step: Spanned(
+                                Assignment {
+                                    lhs: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "item",
+                                                49..53,
+                                            ),
+                                        ),
+                                        49..53,
+                                    ),
+                                    rhs: Spanned(
+                                        BinaryOp {
+                                            op: Add,
+                                            left: Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "item",
+                                                        56..60,
+                                                    ),
+                                                ),
+                                                56..60,
+                                            ),
+                                            right: Spanned(
+                                                Literal(
+                                                    1,
+                                                    None,
+                                                ),
+                                                63..64,
+                                            ),
+                                        },
+                                        56..64,
+                                    ),
+                                },
+                                49..64,
                             ),
                             body: Spanned(
                                 Block(
@@ -430,25 +560,25 @@ fn test() { for item in items { if (skip) { continue; } process(item); } }
                                                     Identifier(
                                                         Spanned(
                                                             "skip",
-                                                            36..40,
+                                                            72..76,
                                                         ),
                                                     ),
-                                                    36..40,
+                                                    72..76,
                                                 ),
                                                 then_block: Spanned(
                                                     Block(
                                                         [
                                                             Spanned(
                                                                 Continue,
-                                                                44..53,
+                                                                80..89,
                                                             ),
                                                         ],
                                                     ),
-                                                    42..55,
+                                                    78..91,
                                                 ),
                                                 else_block: None,
                                             },
-                                            32..55,
+                                            68..91,
                                         ),
                                         Spanned(
                                             Expression(
@@ -458,45 +588,45 @@ fn test() { for item in items { if (skip) { continue; } process(item); } }
                                                             Identifier(
                                                                 Spanned(
                                                                     "process",
-                                                                    56..63,
+                                                                    92..99,
                                                                 ),
                                                             ),
-                                                            56..63,
+                                                            92..99,
                                                         ),
                                                         args: [
                                                             Spanned(
                                                                 Identifier(
                                                                     Spanned(
                                                                         "item",
-                                                                        64..68,
+                                                                        100..104,
                                                                     ),
                                                                 ),
-                                                                64..68,
+                                                                100..104,
                                                             ),
                                                         ],
                                                     },
-                                                    56..68,
+                                                    92..104,
                                                 ),
                                             ),
-                                            56..70,
+                                            92..106,
                                         ),
                                     ],
                                 ),
-                                30..72,
+                                66..108,
                             ),
                         },
-                        12..72,
+                        12..108,
                     ),
                 ],
             },
-            0..74,
+            0..110,
         ),
     ),
 ]
 ============================================================
 
 --- Input 8 ---
-fn test() { while (outer) { for inner in items { if (found) { break; } } } }
+fn test() { while (outer) { for (let inner = 0; inner < items_len; inner = inner + 1) { if (found) { break; } } } }
 --- AST ---
 [
     Function(
@@ -530,18 +660,84 @@ fn test() { while (outer) { for inner in items { if (found) { break; } } } }
                                     [
                                         Spanned(
                                             For {
-                                                variable: Spanned(
-                                                    "inner",
-                                                    32..37,
-                                                ),
-                                                iterable: Spanned(
-                                                    Identifier(
-                                                        Spanned(
-                                                            "items",
-                                                            41..46,
+                                                init: Spanned(
+                                                    Let {
+                                                        pattern: Identifier(
+                                                            Spanned(
+                                                                "inner",
+                                                                37..42,
+                                                            ),
                                                         ),
-                                                    ),
-                                                    41..46,
+                                                        statement_type: None,
+                                                        value: Spanned(
+                                                            Literal(
+                                                                0,
+                                                                None,
+                                                            ),
+                                                            45..46,
+                                                        ),
+                                                    },
+                                                    33..47,
+                                                ),
+                                                condition: Spanned(
+                                                    BinaryOp {
+                                                        op: Less,
+                                                        left: Spanned(
+                                                            Identifier(
+                                                                Spanned(
+                                                                    "inner",
+                                                                    48..53,
+                                                                ),
+                                                            ),
+                                                            48..53,
+                                                        ),
+                                                        right: Spanned(
+                                                            Identifier(
+                                                                Spanned(
+                                                                    "items_len",
+                                                                    56..65,
+                                                                ),
+                                                            ),
+                                                            56..65,
+                                                        ),
+                                                    },
+                                                    48..65,
+                                                ),
+                                                step: Spanned(
+                                                    Assignment {
+                                                        lhs: Spanned(
+                                                            Identifier(
+                                                                Spanned(
+                                                                    "inner",
+                                                                    67..72,
+                                                                ),
+                                                            ),
+                                                            67..72,
+                                                        ),
+                                                        rhs: Spanned(
+                                                            BinaryOp {
+                                                                op: Add,
+                                                                left: Spanned(
+                                                                    Identifier(
+                                                                        Spanned(
+                                                                            "inner",
+                                                                            75..80,
+                                                                        ),
+                                                                    ),
+                                                                    75..80,
+                                                                ),
+                                                                right: Spanned(
+                                                                    Literal(
+                                                                        1,
+                                                                        None,
+                                                                    ),
+                                                                    83..84,
+                                                                ),
+                                                            },
+                                                            75..84,
+                                                        ),
+                                                    },
+                                                    67..84,
                                                 ),
                                                 body: Spanned(
                                                     Block(
@@ -552,43 +748,43 @@ fn test() { while (outer) { for inner in items { if (found) { break; } } } }
                                                                         Identifier(
                                                                             Spanned(
                                                                                 "found",
-                                                                                53..58,
+                                                                                92..97,
                                                                             ),
                                                                         ),
-                                                                        53..58,
+                                                                        92..97,
                                                                     ),
                                                                     then_block: Spanned(
                                                                         Block(
                                                                             [
                                                                                 Spanned(
                                                                                     Break,
-                                                                                    62..68,
+                                                                                    101..107,
                                                                                 ),
                                                                             ],
                                                                         ),
-                                                                        60..70,
+                                                                        99..109,
                                                                     ),
                                                                     else_block: None,
                                                                 },
-                                                                49..70,
+                                                                88..109,
                                                             ),
                                                         ],
                                                     ),
-                                                    47..72,
+                                                    86..111,
                                                 ),
                                             },
-                                            28..72,
+                                            28..111,
                                         ),
                                     ],
                                 ),
-                                26..74,
+                                26..113,
                             ),
                         },
-                        12..74,
+                        12..113,
                     ),
                 ],
             },
-            0..76,
+            0..115,
         ),
     ),
 ]
