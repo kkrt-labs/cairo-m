@@ -161,11 +161,23 @@ impl Claim {
                     }
                 }));
                 let opcode_flag_0 = PackedM31::from_array(array.map(|x| {
-                    let flag = x.instruction.value.0.0.0 - Opcode::StoreAddFpImm.to_u32();
+                    let flag = x
+                        .instruction
+                        .value
+                        .0
+                        .0
+                        .0
+                        .saturating_sub(Opcode::StoreAddFpImm.to_u32());
                     M31(flag / 2)
                 }));
                 let opcode_flag_1 = PackedM31::from_array(array.map(|x| {
-                    let flag = x.instruction.value.0.0.0 - Opcode::StoreAddFpImm.to_u32();
+                    let flag = x
+                        .instruction
+                        .value
+                        .0
+                        .0
+                        .0
+                        .saturating_sub(Opcode::StoreAddFpImm.to_u32());
                     M31(flag % 2)
                 }));
                 (
