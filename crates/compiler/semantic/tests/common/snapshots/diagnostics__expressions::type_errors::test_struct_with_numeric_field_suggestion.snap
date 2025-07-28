@@ -32,4 +32,6 @@ Found 2 diagnostic(s):
  6 │             let result = c * 2;  // Should suggest accessing 'value' field
    │                          ┬  
    │                          ╰── Operator `*` is not supported for type `Counter`
+   │                          │  
+   │                          ╰── Did you mean to access the `value` field?
 ───╯

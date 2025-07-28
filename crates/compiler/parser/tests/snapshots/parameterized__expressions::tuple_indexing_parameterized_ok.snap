@@ -1,0 +1,418 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Input 1 ---
+fn test() { tt.0; }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
+                ),
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                TupleIndex {
+                                    tuple: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "tt",
+                                                12..14,
+                                            ),
+                                        ),
+                                        12..14,
+                                    ),
+                                    index: 0,
+                                },
+                                12..16,
+                            ),
+                        ),
+                        12..17,
+                    ),
+                ],
+            },
+            0..19,
+        ),
+    ),
+]
+============================================================
+
+--- Input 2 ---
+fn test() { my_tuple.1; }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
+                ),
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                TupleIndex {
+                                    tuple: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "my_tuple",
+                                                12..20,
+                                            ),
+                                        ),
+                                        12..20,
+                                    ),
+                                    index: 1,
+                                },
+                                12..22,
+                            ),
+                        ),
+                        12..23,
+                    ),
+                ],
+            },
+            0..25,
+        ),
+    ),
+]
+============================================================
+
+--- Input 3 ---
+fn test() { (1, 2, 3).0; }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
+                ),
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                TupleIndex {
+                                    tuple: Spanned(
+                                        Tuple(
+                                            [
+                                                Spanned(
+                                                    Literal(
+                                                        1,
+                                                        None,
+                                                    ),
+                                                    13..14,
+                                                ),
+                                                Spanned(
+                                                    Literal(
+                                                        2,
+                                                        None,
+                                                    ),
+                                                    16..17,
+                                                ),
+                                                Spanned(
+                                                    Literal(
+                                                        3,
+                                                        None,
+                                                    ),
+                                                    19..20,
+                                                ),
+                                            ],
+                                        ),
+                                        12..21,
+                                    ),
+                                    index: 0,
+                                },
+                                12..23,
+                            ),
+                        ),
+                        12..24,
+                    ),
+                ],
+            },
+            0..26,
+        ),
+    ),
+]
+============================================================
+
+--- Input 4 ---
+fn test() { foo(bar).2; }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
+                ),
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                TupleIndex {
+                                    tuple: Spanned(
+                                        FunctionCall {
+                                            callee: Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "foo",
+                                                        12..15,
+                                                    ),
+                                                ),
+                                                12..15,
+                                            ),
+                                            args: [
+                                                Spanned(
+                                                    Identifier(
+                                                        Spanned(
+                                                            "bar",
+                                                            16..19,
+                                                        ),
+                                                    ),
+                                                    16..19,
+                                                ),
+                                            ],
+                                        },
+                                        12..19,
+                                    ),
+                                    index: 2,
+                                },
+                                12..22,
+                            ),
+                        ),
+                        12..23,
+                    ),
+                ],
+            },
+            0..25,
+        ),
+    ),
+]
+============================================================
+
+--- Input 5 ---
+fn test() { ((1, 2), (3, 4)).0.1; }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
+                ),
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                TupleIndex {
+                                    tuple: Spanned(
+                                        TupleIndex {
+                                            tuple: Spanned(
+                                                Tuple(
+                                                    [
+                                                        Spanned(
+                                                            Tuple(
+                                                                [
+                                                                    Spanned(
+                                                                        Literal(
+                                                                            1,
+                                                                            None,
+                                                                        ),
+                                                                        14..15,
+                                                                    ),
+                                                                    Spanned(
+                                                                        Literal(
+                                                                            2,
+                                                                            None,
+                                                                        ),
+                                                                        17..18,
+                                                                    ),
+                                                                ],
+                                                            ),
+                                                            13..19,
+                                                        ),
+                                                        Spanned(
+                                                            Tuple(
+                                                                [
+                                                                    Spanned(
+                                                                        Literal(
+                                                                            3,
+                                                                            None,
+                                                                        ),
+                                                                        22..23,
+                                                                    ),
+                                                                    Spanned(
+                                                                        Literal(
+                                                                            4,
+                                                                            None,
+                                                                        ),
+                                                                        25..26,
+                                                                    ),
+                                                                ],
+                                                            ),
+                                                            21..27,
+                                                        ),
+                                                    ],
+                                                ),
+                                                12..28,
+                                            ),
+                                            index: 0,
+                                        },
+                                        12..30,
+                                    ),
+                                    index: 1,
+                                },
+                                12..32,
+                            ),
+                        ),
+                        12..33,
+                    ),
+                ],
+            },
+            0..35,
+        ),
+    ),
+]
+============================================================
+
+--- Input 6 ---
+fn test() { get_tuple().0; }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
+                ),
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                TupleIndex {
+                                    tuple: Spanned(
+                                        FunctionCall {
+                                            callee: Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "get_tuple",
+                                                        12..21,
+                                                    ),
+                                                ),
+                                                12..21,
+                                            ),
+                                            args: [],
+                                        },
+                                        12..23,
+                                    ),
+                                    index: 0,
+                                },
+                                12..25,
+                            ),
+                        ),
+                        12..26,
+                    ),
+                ],
+            },
+            0..28,
+        ),
+    ),
+]
+============================================================
+
+--- Input 7 ---
+fn test() { tuple_ptr.3; }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
+                ),
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                TupleIndex {
+                                    tuple: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "tuple_ptr",
+                                                12..21,
+                                            ),
+                                        ),
+                                        12..21,
+                                    ),
+                                    index: 3,
+                                },
+                                12..23,
+                            ),
+                        ),
+                        12..24,
+                    ),
+                ],
+            },
+            0..26,
+        ),
+    ),
+]

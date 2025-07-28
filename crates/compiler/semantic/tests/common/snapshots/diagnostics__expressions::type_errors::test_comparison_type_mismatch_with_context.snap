@@ -27,4 +27,6 @@ Found 1 diagnostic(s):
  7 │             if p == num {  // Type mismatch with context
    │                ┬  
    │                ╰── Operator `==` is not supported for type `Point`
+   │                │  
+   │                ╰── This struct has numeric fields that could be accessed
 ───╯

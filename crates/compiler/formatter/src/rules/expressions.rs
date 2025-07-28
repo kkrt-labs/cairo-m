@@ -74,6 +74,11 @@ impl Format for Expression {
                     braces(comma_separated(field_docs)),
                 ])
             }
+            Self::TupleIndex { tuple, index } => Doc::concat(vec![
+                tuple.value().format(ctx),
+                Doc::text("."),
+                Doc::text(index.to_string()),
+            ]),
         }
     }
 }

@@ -1,0 +1,42 @@
+// Tests tuple indexing syntax (expr.N)
+fn test_basic_tuple_index() -> felt {
+    let tt = (10, 20, 30);
+    return tt.1;
+}
+
+// TODO: Add u32 test on accessing tuple index.
+// fn test_u32_tuple_index() -> u32 {
+//     let tt = (10u32, 20u32, 30u32);
+//     return tt.1;
+// }
+
+fn test_tuple_index_lvalue() -> felt {
+    let tt = (100, 200, 300);
+    tt.1 = 250;
+    return tt.1;
+}
+
+fn test_nested_tuple_index() -> felt {
+    let nested = ((1, 2), (3, 4));
+    return nested.0.1 + nested.1.0;
+}
+
+fn get_tuple() -> (felt, felt) {
+    return (42, 99);
+}
+
+fn test_function_return_tuple_index() -> felt {
+    return get_tuple().1;
+}
+
+fn test_simple_function_call_index() -> felt {
+    let result = get_tuple().1;
+    return result;
+}
+
+fn test_chain_tuple_operations() -> felt {
+    let tt = (1, 2, 3);
+    let x = tt.0;
+    tt.2 = x + tt.1;
+    return tt.2;
+}

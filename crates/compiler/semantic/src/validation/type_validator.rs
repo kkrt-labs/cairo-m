@@ -119,8 +119,8 @@ impl TypeValidator {
                 }
             }
             (TypeData::Tuple(elements), TypeData::Felt) => {
-                if elements.len() == 1 && matches!(elements[0].data(db), TypeData::Felt) {
-                    Some("Did you mean to access the tuple element with [0]?".to_string())
+                if elements.len() == 1 && elements[0].data(db).is_numeric() {
+                    Some("Did you mean to access the tuple element with `.0`?".to_string())
                 } else {
                     Some("Tuples cannot be used directly in arithmetic operations".to_string())
                 }
@@ -178,6 +178,12 @@ impl TypeValidator {
                     fields,
                     sink,
                 );
+            }
+            Expression::TupleIndex {
+                tuple,
+                index: tuple_index,
+            } => {
+                self.check_tuple_index_types(db, crate_id, file, index, tuple, *tuple_index, sink);
             }
             // Literals, identifiers, and tuples don't need additional type validation
             // beyond what's already done in type_resolution.rs
@@ -250,7 +256,8 @@ impl TypeValidator {
             .iter()
             .filter(|op_signature| op_signature.op == *op && op_signature.left == left_type);
         if binary_op_on_left_type.clone().count() == 0 {
-            let diag = Diagnostic::error(
+            let suggestion = self.suggest_type_conversion(db, left_type, right_type);
+            let mut diag = Diagnostic::error(
                 DiagnosticCode::TypeMismatch,
                 format!(
                     "Operator `{}` is not supported for type `{}`",
@@ -259,6 +266,10 @@ impl TypeValidator {
                 ),
             )
             .with_location(file.file_path(db).to_string(), left.span());
+            if let Some(suggestion) = suggestion {
+                diag =
+                    diag.with_related_span(file.file_path(db).to_string(), left.span(), suggestion);
+            }
             sink.push(diag);
             return;
         }
@@ -308,7 +319,9 @@ impl TypeValidator {
             .find(|op_signature| op_signature.op == *op && op_signature.operand == expr_type);
 
         if unary_op_on_expr_type.is_none() {
-            let diag = Diagnostic::error(
+            let suggestion =
+                self.suggest_type_conversion(db, expr_type, TypeId::new(db, TypeData::Felt));
+            let mut diag = Diagnostic::error(
                 DiagnosticCode::TypeMismatch,
                 format!(
                     "Operator `{}` is not supported for type `{}`",
@@ -317,6 +330,10 @@ impl TypeValidator {
                 ),
             )
             .with_location(file.file_path(db).to_string(), expr.span());
+            if let Some(suggestion) = suggestion {
+                diag =
+                    diag.with_related_span(file.file_path(db).to_string(), expr.span(), suggestion);
+            }
             sink.push(diag);
         }
     }
@@ -514,7 +531,18 @@ impl TypeValidator {
 
         // Check if the array expression is indexable
         match array_type {
-            TypeData::Tuple(_) | TypeData::Pointer(_) => {
+            TypeData::Tuple(_) => {
+                sink.push(
+                    Diagnostic::error(
+                        DiagnosticCode::InvalidTupleIndexAccess,
+                        "tuples must be accessed using `.index` syntax (e.g., `tup.0`), not `[]`"
+                            .to_string(),
+                    )
+                    .with_location(file.file_path(db).to_string(), array.span()),
+                );
+            }
+            // Pointer indexing is still allowed, keep previous checks
+            TypeData::Pointer(_) => {
                 // Check if the index expression is an integer type
                 let Some(index_id) = index.expression_id_by_span(index_expr.span()) else {
                     return;
@@ -548,6 +576,84 @@ impl TypeValidator {
                         ),
                     )
                     .with_location(file.file_path(db).to_string(), array.span()),
+                );
+            }
+        }
+    }
+
+    /// Validate tuple index access
+    fn check_tuple_index_types(
+        &self,
+        db: &dyn SemanticDb,
+        crate_id: Crate,
+        file: File,
+        index: &SemanticIndex,
+        tuple: &Spanned<Expression>,
+        tuple_index: usize,
+        sink: &dyn DiagnosticSink,
+    ) {
+        let Some(tuple_id) = index.expression_id_by_span(tuple.span()) else {
+            return;
+        };
+        let tuple_type_id = expression_semantic_type(db, crate_id, file, tuple_id, None);
+
+        match tuple_type_id.data(db) {
+            TypeData::Tuple(elements) => {
+                if tuple_index >= elements.len() {
+                    sink.push(
+                        Diagnostic::error(
+                            DiagnosticCode::TupleIndexOutOfBounds,
+                            format!(
+                                "no field `{}` on type `{}`",
+                                tuple_index,
+                                tuple_type_id.data(db).display_name(db)
+                            ),
+                        )
+                        .with_location(file.file_path(db).to_string(), tuple.span()),
+                    );
+                }
+            }
+            TypeData::Pointer(inner) => {
+                if let TypeData::Tuple(elements) = inner.data(db) {
+                    if tuple_index >= elements.len() {
+                        sink.push(
+                            Diagnostic::error(
+                                DiagnosticCode::TupleIndexOutOfBounds,
+                                format!(
+                                    "no field `{}` on type `{}`",
+                                    tuple_index,
+                                    tuple_type_id.data(db).display_name(db)
+                                ),
+                            )
+                            .with_location(file.file_path(db).to_string(), tuple.span()),
+                        );
+                    }
+                } else {
+                    sink.push(
+                        Diagnostic::error(
+                            DiagnosticCode::InvalidTupleIndexAccess,
+                            format!(
+                                "Cannot index into pointer to non-tuple type `{}`",
+                                inner.data(db).display_name(db)
+                            ),
+                        )
+                        .with_location(file.file_path(db).to_string(), tuple.span()),
+                    );
+                }
+            }
+            TypeData::Error => {
+                // Skip validation for error types
+            }
+            _ => {
+                sink.push(
+                    Diagnostic::error(
+                        DiagnosticCode::InvalidTupleIndexAccess,
+                        format!(
+                            "Cannot use tuple index on type `{}`",
+                            tuple_type_id.data(db).display_name(db)
+                        ),
+                    )
+                    .with_location(file.file_path(db).to_string(), tuple.span()),
                 );
             }
         }

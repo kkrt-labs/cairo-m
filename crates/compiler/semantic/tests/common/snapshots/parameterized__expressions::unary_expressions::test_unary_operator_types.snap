@@ -11,6 +11,8 @@ fn test() { let b: bool = true; let neg_bool = -b; return; }
  1 │ fn test() { let b: bool = true; let neg_bool = -b; return; }
    │                                                 ┬  
    │                                                 ╰── Operator `-` is not supported for type `bool`
+   │                                                 │  
+   │                                                 ╰── Cannot use bool in arithmetic operations. Consider using logical operators (&&, ||) instead.
 ───╯
 
 ============================================================
@@ -50,6 +52,8 @@ struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10, y: 20 }; le
  1 │ struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10, y: 20 }; let neg_struct = -p; return; }
    │                                                                                                 ┬  
    │                                                                                                 ╰── Operator `-` is not supported for type `Point`
+   │                                                                                                 │  
+   │                                                                                                 ╰── This struct has numeric fields that could be accessed
 ───╯
 
 ============================================================
@@ -63,4 +67,6 @@ struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10, y: 20 }; le
  1 │ struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10, y: 20 }; let not_struct = !p; return; }
    │                                                                                                 ┬  
    │                                                                                                 ╰── Operator `!` is not supported for type `Point`
+   │                                                                                                 │  
+   │                                                                                                 ╰── This struct has numeric fields that could be accessed
 ───╯

@@ -165,11 +165,18 @@ fn test() { (single_element,); }
                     Spanned(
                         Expression(
                             Spanned(
-                                Identifier(
-                                    Spanned(
-                                        "single_element",
-                                        13..27,
-                                    ),
+                                Tuple(
+                                    [
+                                        Spanned(
+                                            Identifier(
+                                                Spanned(
+                                                    "single_element",
+                                                    13..27,
+                                                ),
+                                            ),
+                                            13..27,
+                                        ),
+                                    ],
                                 ),
                                 12..29,
                             ),

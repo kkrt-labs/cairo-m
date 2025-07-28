@@ -22,7 +22,7 @@ fn test_tuple_in_arithmetic_operation() {
         r#"
         fn test() {
             let t = (42,);
-            let result = t + 10;  // Should suggest accessing with [0]
+            let result = t + 10;  // Should suggest accessing with `.0`
         }
     "#
     );

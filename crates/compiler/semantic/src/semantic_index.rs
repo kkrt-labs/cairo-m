@@ -1200,6 +1200,9 @@ impl<'db, 'sink> SemanticIndexBuilder<'db, 'sink> {
                     }
                 }
             }
+            Expression::TupleIndex { tuple, .. } => {
+                self.visit_expr(tuple);
+            }
             Expression::Literal(_, _) | Expression::BooleanLiteral(_) => {
                 // Leaf nodes - no sub-expressions
             }

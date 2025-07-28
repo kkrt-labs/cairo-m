@@ -8,11 +8,11 @@ Source code:
 
         fn test() {
             let t = (42,);
-            let result = t + 10;  // Should suggest accessing with [0]
+            let result = t + 10;  // Should suggest accessing with `.0`
         }
     
 ============================================================
-Found 1 diagnostic(s):
+Found 2 diagnostic(s):
 
 --- Diagnostic 1 ---
 [3002] Error: Function 'test' doesn't return on all paths
@@ -21,4 +21,15 @@ Found 1 diagnostic(s):
  2 │         fn test() {
    │            ──┬─  
    │              ╰─── Function 'test' doesn't return on all paths
+───╯
+
+--- Diagnostic 2 ---
+[2001] Error: Operator `+` is not supported for type `(felt,)`
+   ╭─[ semantic_tests::expressions::type_errors::test_tuple_in_arithmetic_operation:4:26 ]
+   │
+ 4 │             let result = t + 10;  // Should suggest accessing with `.0`
+   │                          ┬  
+   │                          ╰── Operator `+` is not supported for type `(felt,)`
+   │                          │  
+   │                          ╰── Did you mean to access the tuple element with `.0`?
 ───╯
