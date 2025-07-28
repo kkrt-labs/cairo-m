@@ -54,7 +54,7 @@ fn test_comparison_type_mismatch_with_context() {
         fn test() {
             let p = Point { x: 1, y: 2 };
             let num = 42;
-            if (p == num) {  // Type mismatch with context
+            if p == num {  // Type mismatch with context
                 return ();
             }
             return ();
@@ -123,7 +123,7 @@ fn test_if_condition_type_error() {
 
         fn test() {
             let p = Point { x: 1, y: 2 };
-            if (p) {  // Non-felt condition
+            if p {  // Non-felt condition
                 return ();
             }
             return ();

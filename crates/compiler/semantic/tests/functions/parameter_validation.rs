@@ -10,7 +10,7 @@ fn test_function_parameters() {
             "fn test() -> felt { return 42; }",
             "fn test(param: felt) -> felt { let var = param + 1; return var; }",
             "fn test(param: felt) -> felt { { let inner = param * 2; return inner; } }",
-            "fn test(param: bool) -> felt { if (param) { return 1; } else { return 0; } }",
+            "fn test(param: bool) -> felt { if param { return 1; } else { return 0; } }",
             "fn test(param: felt) -> felt { param = param + 1; return param; }",
             // Shadowing is ok
             "fn test(param: felt) -> felt { let param = 42; return param; }",

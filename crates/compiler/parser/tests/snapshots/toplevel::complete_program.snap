@@ -15,10 +15,10 @@ expression: snapshot
             }
 
             fn rfib(n: felt) -> felt {
-                if (n == 0) {
+                if n == 0 {
                     return 0;
                 }
-                if (n == 1) {
+                if n == 1 {
                     return 1;
                 }
                 return rfib(n - 1) + rfib(n - 2);
@@ -261,20 +261,20 @@ expression: snapshot
                                                         Identifier(
                                                             Spanned(
                                                                 "n",
-                                                                275..276,
+                                                                274..275,
                                                             ),
                                                         ),
-                                                        275..276,
+                                                        274..275,
                                                     ),
                                                     right: Spanned(
                                                         Literal(
                                                             0,
                                                             None,
                                                         ),
-                                                        280..281,
+                                                        279..280,
                                                     ),
                                                 },
-                                                275..281,
+                                                274..280,
                                             ),
                                             then_block: Spanned(
                                                 Block(
@@ -287,19 +287,19 @@ expression: snapshot
                                                                             0,
                                                                             None,
                                                                         ),
-                                                                        312..313,
+                                                                        310..311,
                                                                     ),
                                                                 ),
                                                             },
-                                                            305..314,
+                                                            303..312,
                                                         ),
                                                     ],
                                                 ),
-                                                283..332,
+                                                281..330,
                                             ),
                                             else_block: None,
                                         },
-                                        271..332,
+                                        271..330,
                                     ),
                                     Spanned(
                                         If {
@@ -310,20 +310,20 @@ expression: snapshot
                                                         Identifier(
                                                             Spanned(
                                                                 "n",
-                                                                353..354,
+                                                                350..351,
                                                             ),
                                                         ),
-                                                        353..354,
+                                                        350..351,
                                                     ),
                                                     right: Spanned(
                                                         Literal(
                                                             1,
                                                             None,
                                                         ),
-                                                        358..359,
+                                                        355..356,
                                                     ),
                                                 },
-                                                353..359,
+                                                350..356,
                                             ),
                                             then_block: Spanned(
                                                 Block(
@@ -336,19 +336,19 @@ expression: snapshot
                                                                             1,
                                                                             None,
                                                                         ),
-                                                                        390..391,
+                                                                        386..387,
                                                                     ),
                                                                 ),
                                                             },
-                                                            383..392,
+                                                            379..388,
                                                         ),
                                                     ],
                                                 ),
-                                                361..410,
+                                                357..406,
                                             ),
                                             else_block: None,
                                         },
-                                        349..410,
+                                        347..406,
                                     ),
                                     Spanned(
                                         Return {
@@ -362,10 +362,10 @@ expression: snapshot
                                                                     Identifier(
                                                                         Spanned(
                                                                             "rfib",
-                                                                            434..438,
+                                                                            430..434,
                                                                         ),
                                                                     ),
-                                                                    434..438,
+                                                                    430..434,
                                                                 ),
                                                                 args: [
                                                                     Spanned(
@@ -375,24 +375,24 @@ expression: snapshot
                                                                                 Identifier(
                                                                                     Spanned(
                                                                                         "n",
-                                                                                        439..440,
+                                                                                        435..436,
                                                                                     ),
                                                                                 ),
-                                                                                439..440,
+                                                                                435..436,
                                                                             ),
                                                                             right: Spanned(
                                                                                 Literal(
                                                                                     1,
                                                                                     None,
                                                                                 ),
-                                                                                443..444,
+                                                                                439..440,
                                                                             ),
                                                                         },
-                                                                        439..444,
+                                                                        435..440,
                                                                     ),
                                                                 ],
                                                             },
-                                                            434..444,
+                                                            430..440,
                                                         ),
                                                         right: Spanned(
                                                             FunctionCall {
@@ -400,10 +400,10 @@ expression: snapshot
                                                                     Identifier(
                                                                         Spanned(
                                                                             "rfib",
-                                                                            448..452,
+                                                                            444..448,
                                                                         ),
                                                                     ),
-                                                                    448..452,
+                                                                    444..448,
                                                                 ),
                                                                 args: [
                                                                     Spanned(
@@ -413,40 +413,40 @@ expression: snapshot
                                                                                 Identifier(
                                                                                     Spanned(
                                                                                         "n",
-                                                                                        453..454,
+                                                                                        449..450,
                                                                                     ),
                                                                                 ),
-                                                                                453..454,
+                                                                                449..450,
                                                                             ),
                                                                             right: Spanned(
                                                                                 Literal(
                                                                                     2,
                                                                                     None,
                                                                                 ),
-                                                                                457..458,
+                                                                                453..454,
                                                                             ),
                                                                         },
-                                                                        453..458,
+                                                                        449..454,
                                                                     ),
                                                                 ],
                                                             },
-                                                            448..458,
+                                                            444..454,
                                                         ),
                                                     },
-                                                    434..458,
+                                                    430..454,
                                                 ),
                                             ),
                                         },
-                                        427..460,
+                                        423..456,
                                     ),
                                 ],
                             },
-                            228..474,
+                            228..470,
                         ),
                     ),
                 ],
             },
-            85..484,
+            85..480,
         ),
     ),
     Const(
@@ -454,17 +454,17 @@ expression: snapshot
             ConstDef {
                 name: Spanned(
                     "TOP_LEVEL_CONST",
-                    500..515,
+                    496..511,
                 ),
                 value: Spanned(
                     Literal(
                         100,
                         None,
                     ),
-                    518..521,
+                    514..517,
                 ),
             },
-            494..522,
+            490..518,
         ),
     ),
 ]

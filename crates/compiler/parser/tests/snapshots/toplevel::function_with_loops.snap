@@ -7,7 +7,7 @@ expression: snapshot
         fn test_loops() {
             loop {
                 let x = 1;
-                if (x == 1) {
+                if x == 1 {
                     break;
                 }
             }
@@ -72,49 +72,49 @@ expression: snapshot
                                                             Identifier(
                                                                 Spanned(
                                                                     "x",
-                                                                    93..94,
+                                                                    92..93,
                                                                 ),
                                                             ),
-                                                            93..94,
+                                                            92..93,
                                                         ),
                                                         right: Spanned(
                                                             Literal(
                                                                 1,
                                                                 None,
                                                             ),
-                                                            98..99,
+                                                            97..98,
                                                         ),
                                                     },
-                                                    93..99,
+                                                    92..98,
                                                 ),
                                                 then_block: Spanned(
                                                     Block(
                                                         [
                                                             Spanned(
                                                                 Break,
-                                                                123..129,
+                                                                121..127,
                                                             ),
                                                         ],
                                                     ),
-                                                    101..147,
+                                                    99..145,
                                                 ),
                                                 else_block: None,
                                             },
-                                            89..147,
+                                            89..145,
                                         ),
                                     ],
                                 ),
-                                44..161,
+                                44..159,
                             ),
                         },
-                        39..161,
+                        39..159,
                     ),
                     Spanned(
                         Let {
                             pattern: Identifier(
                                 Spanned(
                                     "counter",
-                                    179..186,
+                                    177..184,
                                 ),
                             ),
                             statement_type: None,
@@ -123,10 +123,10 @@ expression: snapshot
                                     0,
                                     None,
                                 ),
-                                189..190,
+                                187..188,
                             ),
                         },
-                        175..191,
+                        173..189,
                     ),
                     Spanned(
                         While {
@@ -137,20 +137,20 @@ expression: snapshot
                                         Identifier(
                                             Spanned(
                                                 "counter",
-                                                211..218,
+                                                209..216,
                                             ),
                                         ),
-                                        211..218,
+                                        209..216,
                                     ),
                                     right: Spanned(
                                         Literal(
                                             10,
                                             None,
                                         ),
-                                        222..224,
+                                        220..222,
                                     ),
                                 },
-                                211..224,
+                                209..222,
                             ),
                             body: Spanned(
                                 Block(
@@ -161,10 +161,10 @@ expression: snapshot
                                                     Identifier(
                                                         Spanned(
                                                             "counter",
-                                                            244..251,
+                                                            242..249,
                                                         ),
                                                     ),
-                                                    244..251,
+                                                    242..249,
                                                 ),
                                                 rhs: Spanned(
                                                     BinaryOp {
@@ -173,30 +173,30 @@ expression: snapshot
                                                             Identifier(
                                                                 Spanned(
                                                                     "counter",
-                                                                    254..261,
+                                                                    252..259,
                                                                 ),
                                                             ),
-                                                            254..261,
+                                                            252..259,
                                                         ),
                                                         right: Spanned(
                                                             Literal(
                                                                 1,
                                                                 None,
                                                             ),
-                                                            264..265,
+                                                            262..263,
                                                         ),
                                                     },
-                                                    254..265,
+                                                    252..263,
                                                 ),
                                             },
-                                            244..266,
+                                            242..264,
                                         ),
                                     ],
                                 ),
-                                226..280,
+                                224..278,
                             ),
                         },
-                        204..280,
+                        202..278,
                     ),
                     Spanned(
                         For {
@@ -205,7 +205,7 @@ expression: snapshot
                                     pattern: Identifier(
                                         Spanned(
                                             "i",
-                                            303..304,
+                                            301..302,
                                         ),
                                     ),
                                     statement_type: None,
@@ -214,10 +214,10 @@ expression: snapshot
                                             0,
                                             None,
                                         ),
-                                        307..308,
+                                        305..306,
                                     ),
                                 },
-                                299..309,
+                                297..307,
                             ),
                             condition: Spanned(
                                 BinaryOp {
@@ -226,20 +226,20 @@ expression: snapshot
                                         Identifier(
                                             Spanned(
                                                 "i",
-                                                310..311,
+                                                308..309,
                                             ),
                                         ),
-                                        310..311,
+                                        308..309,
                                     ),
                                     right: Spanned(
                                         Literal(
                                             10,
                                             None,
                                         ),
-                                        314..316,
+                                        312..314,
                                     ),
                                 },
-                                310..316,
+                                308..314,
                             ),
                             step: Spanned(
                                 Assignment {
@@ -247,10 +247,10 @@ expression: snapshot
                                         Identifier(
                                             Spanned(
                                                 "i",
-                                                318..319,
+                                                316..317,
                                             ),
                                         ),
-                                        318..319,
+                                        316..317,
                                     ),
                                     rhs: Spanned(
                                         BinaryOp {
@@ -259,23 +259,23 @@ expression: snapshot
                                                 Identifier(
                                                     Spanned(
                                                         "i",
-                                                        322..323,
+                                                        320..321,
                                                     ),
                                                 ),
-                                                322..323,
+                                                320..321,
                                             ),
                                             right: Spanned(
                                                 Literal(
                                                     1,
                                                     None,
                                                 ),
-                                                326..327,
+                                                324..325,
                                             ),
                                         },
-                                        322..327,
+                                        320..325,
                                     ),
                                 },
-                                318..327,
+                                316..325,
                             ),
                             body: Spanned(
                                 Block(
@@ -285,7 +285,7 @@ expression: snapshot
                                                 pattern: Identifier(
                                                     Spanned(
                                                         "squared",
-                                                        351..358,
+                                                        349..356,
                                                     ),
                                                 ),
                                                 statement_type: None,
@@ -296,36 +296,36 @@ expression: snapshot
                                                             Identifier(
                                                                 Spanned(
                                                                     "i",
-                                                                    361..362,
+                                                                    359..360,
                                                                 ),
                                                             ),
-                                                            361..362,
+                                                            359..360,
                                                         ),
                                                         right: Spanned(
                                                             Identifier(
                                                                 Spanned(
                                                                     "i",
-                                                                    365..366,
+                                                                    363..364,
                                                                 ),
                                                             ),
-                                                            365..366,
+                                                            363..364,
                                                         ),
                                                     },
-                                                    361..366,
+                                                    359..364,
                                                 ),
                                             },
-                                            347..367,
+                                            345..365,
                                         ),
                                     ],
                                 ),
-                                329..381,
+                                327..379,
                             ),
                         },
-                        294..381,
+                        292..379,
                     ),
                 ],
             },
-            9..391,
+            9..389,
         ),
     ),
 ]

@@ -959,12 +959,15 @@ where
             .map(|(name, value)| Statement::Const(ConstDef { name, value }))
             .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
 
-        // If statement: if (condition) then_stmt else else_stmt
+        // If statement: supports both `if (cond) { ... }` and `if cond { ... }`
+        let if_condition = choice((
+            expr.clone()
+                .delimited_by(just(TokenType::LParen), just(TokenType::RParen)), // condition in parens
+            expr.clone(), // bare condition
+        ));
+
         let if_stmt = just(TokenType::If)
-            .ignore_then(
-                expr.clone()
-                    .delimited_by(just(TokenType::LParen), just(TokenType::RParen)), // condition in parens
-            )
+            .ignore_then(if_condition)
             .then(statement.clone()) // then block
             .then(
                 just(TokenType::Else)

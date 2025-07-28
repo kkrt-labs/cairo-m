@@ -16,12 +16,12 @@ fn test() -> felt { let x = 42; }
 ============================================================
 
 --- Input 2 (ERROR) ---
-fn test(x: bool) -> felt { if (x) { return 1; } }
+fn test(x: bool) -> felt { if x { return 1; } }
 --- Diagnostics ---
 [3002] Error: Function 'test' doesn't return on all paths
    ╭─[ semantic_tests::control_flow::missing_returns::test_return_path_analysis:1:4 ]
    │
- 1 │ fn test(x: bool) -> felt { if (x) { return 1; } }
+ 1 │ fn test(x: bool) -> felt { if x { return 1; } }
    │    ──┬─  
    │      ╰─── Function 'test' doesn't return on all paths
 ───╯
@@ -29,12 +29,12 @@ fn test(x: bool) -> felt { if (x) { return 1; } }
 ============================================================
 
 --- Input 3 (ERROR) ---
-fn test(x: bool) -> felt { if (x) { return 1; } else { let y = 1; } }
+fn test(x: bool) -> felt { if x { return 1; } else { let y = 1; } }
 --- Diagnostics ---
 [3002] Error: Function 'test' doesn't return on all paths
    ╭─[ semantic_tests::control_flow::missing_returns::test_return_path_analysis:1:4 ]
    │
- 1 │ fn test(x: bool) -> felt { if (x) { return 1; } else { let y = 1; } }
+ 1 │ fn test(x: bool) -> felt { if x { return 1; } else { let y = 1; } }
    │    ──┬─  
    │      ╰─── Function 'test' doesn't return on all paths
 ───╯
@@ -42,12 +42,12 @@ fn test(x: bool) -> felt { if (x) { return 1; } else { let y = 1; } }
 ============================================================
 
 --- Input 4 (ERROR) ---
-fn test(x: bool, y: bool) -> felt { if (x) { if (y) { return 1; } } else { return 3; } }
+fn test(x: bool, y: bool) -> felt { if x { if y { return 1; } } else { return 3; } }
 --- Diagnostics ---
 [3002] Error: Function 'test' doesn't return on all paths
    ╭─[ semantic_tests::control_flow::missing_returns::test_return_path_analysis:1:4 ]
    │
- 1 │ fn test(x: bool, y: bool) -> felt { if (x) { if (y) { return 1; } } else { return 3; } }
+ 1 │ fn test(x: bool, y: bool) -> felt { if x { if y { return 1; } } else { return 3; } }
    │    ──┬─  
    │      ╰─── Function 'test' doesn't return on all paths
 ───╯

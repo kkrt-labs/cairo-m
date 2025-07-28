@@ -29,14 +29,14 @@ fn test() -> felt { { return 42; let unreachable = 1; } }
 ============================================================
 
 --- Input 3 (ERROR) ---
-fn test(x: bool) -> felt { if (x) { return 1; } else { return 2; } let unreachable = 3; }
+fn test(x: bool) -> felt { if x { return 1; } else { return 2; } let unreachable = 3; }
 --- Diagnostics ---
 [3001] Warning: Unreachable variable declaration
-   ╭─[ semantic_tests::control_flow::unreachable_code::test_unreachable_code_detection:1:68 ]
+   ╭─[ semantic_tests::control_flow::unreachable_code::test_unreachable_code_detection:1:66 ]
    │
- 1 │ fn test(x: bool) -> felt { if (x) { return 1; } else { return 2; } let unreachable = 3; }
-   │                                                                    ──────────┬─────────  
-   │                                                                              ╰─────────── Unreachable variable declaration
+ 1 │ fn test(x: bool) -> felt { if x { return 1; } else { return 2; } let unreachable = 3; }
+   │                                                                  ──────────┬─────────  
+   │                                                                            ╰─────────── Unreachable variable declaration
 ───╯
 
 ============================================================

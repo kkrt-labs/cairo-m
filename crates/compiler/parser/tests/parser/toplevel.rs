@@ -86,7 +86,7 @@ fn invalid_toplevel_parameterized() {
             "x = 10;",
             "42;",
             "return 5;",
-            "if (true) { x = 1; }",
+            "if true { x = 1; }",
             "{ let x = 1; }",
         ]
     }
@@ -107,10 +107,10 @@ fn complete_program() {
             }
 
             fn rfib(n: felt) -> felt {
-                if (n == 0) {
+                if n == 0 {
                     return 0;
                 }
-                if (n == 1) {
+                if n == 1 {
                     return 1;
                 }
                 return rfib(n - 1) + rfib(n - 2);
@@ -187,7 +187,7 @@ fn function_with_loops() {
         fn test_loops() {
             loop {
                 let x = 1;
-                if (x == 1) {
+                if x == 1 {
                     break;
                 }
             }

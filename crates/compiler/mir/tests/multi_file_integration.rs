@@ -228,7 +228,7 @@ fn test_cyclic_import_detection() {
 use module_b::even;
 
 fn odd(n: felt) -> felt {
-    if (n == 0) {
+    if n == 0 {
         return 0;
     } else {
         return even(n - 1);
@@ -240,7 +240,7 @@ fn odd(n: felt) -> felt {
 use module_a::odd;
 
 fn even(n: felt) -> felt {
-    if (n == 0) {
+    if n == 0 {
         return 1;
     } else {
         return odd(n - 1);

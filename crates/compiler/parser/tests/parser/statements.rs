@@ -60,9 +60,9 @@ fn return_statements_parameterized() {
 fn if_statements_parameterized() {
     assert_parses_parameterized! {
         ok: [
-            in_function("if (condition) { x = 1; }"),
-            in_function("if (a == b) { return a; } else { return b; }"),
-            in_function("if (a) { if (b) { c = 1; } else { c = 2; } }"),
+            in_function("if condition { x = 1; }"),
+            in_function("if a == b { return a; } else { return b; }"),
+            in_function("if a { if b { c = 1; } else { c = 2; } }"),
         ],
         err: [
             in_function("if { x = 1; }"),
@@ -76,7 +76,7 @@ fn block_statements_parameterized() {
         ok: [
             in_function("{ let x = 1; let y = 2; }"),
             in_function("{ { let inner = 1; } let outer = 2; }"),
-            in_function("if (true) { if (false) { if (true) { if (true) { if (true) { let x = 1; } } } } }"),
+            in_function("if true { if false { if true { if true { if true { let x = 1; } } } } }"),
         ]
     }
 }
@@ -99,11 +99,11 @@ fn loop_statements_parameterized() {
             in_function("loop { break; }"),
             in_function("loop { continue; }"),
             in_function("while (x != 10) { x = x + 1; }"),
-            in_function("while (true) { if (done) { break; } }"),
+            in_function("while (true) { if done { break; } }"),
             in_function("for (let i = 0; i < 10; i = i + 1) { let x = i; }"),
-            in_function("for (let item = 0; item < items_len; item = item + 1) { if (skip) { continue; } process(item); }"),
-            in_function("while (outer) { for (let inner = 0; inner < items_len; inner = inner + 1) { if (found) { break; } } }"),
-            in_function("if (condition) { loop { work(); if (done) { break; } } }"),
+            in_function("for (let item = 0; item < items_len; item = item + 1) { if skip { continue; } process(item); }"),
+            in_function("while (outer) { for (let inner = 0; inner < items_len; inner = inner + 1) { if found { break; } } }"),
+            in_function("if condition { loop { work(); if done { break; } } }"),
             in_function("break;"),
             in_function("continue;"),
         ]

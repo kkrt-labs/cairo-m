@@ -62,12 +62,12 @@ fn test() { { let first = 1; } { let second = first; } return; }
 ============================================================
 
 --- Input 5 (ERROR) ---
-fn test() { if (true) { let if_var = 42; } let bad = if_var; return; }
+fn test() { if true { let if_var = 42; } let bad = if_var; return; }
 --- Diagnostics ---
 [1001] Error: Undeclared variable 'if_var'
-   ╭─[ semantic_tests::scoping::nested_scopes::test_nested_scopes_and_visibility:1:54 ]
+   ╭─[ semantic_tests::scoping::nested_scopes::test_nested_scopes_and_visibility:1:52 ]
    │
- 1 │ fn test() { if (true) { let if_var = 42; } let bad = if_var; return; }
-   │                                                      ───┬──  
-   │                                                         ╰──── Undeclared variable 'if_var'
+ 1 │ fn test() { if true { let if_var = 42; } let bad = if_var; return; }
+   │                                                    ───┬──  
+   │                                                       ╰──── Undeclared variable 'if_var'
 ───╯
