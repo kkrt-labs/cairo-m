@@ -4,7 +4,6 @@ pub mod memory;
 pub mod merkle;
 pub mod opcodes;
 use num_traits::Zero;
-use rayon::iter::ParallelIterator;
 use serde::{Deserialize, Serialize};
 pub use stwo_air_utils::trace::component_trace::ComponentTrace;
 pub use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
@@ -106,9 +105,7 @@ impl Claim {
             clock_update::Claim::write_trace(&input.memory.clock_update_data);
 
         // Write range_check components
-        let opcodes_range_check_data = opcodes_interaction_claim_data.range_check_20();
-        let clock_update_range_check_data = clock_update_interaction_claim_data.range_check_20();
-        let range_check_data = opcodes_range_check_data.chain(clock_update_range_check_data);
+        let range_check_data = opcodes_interaction_claim_data.range_check_20();
         let (range_check_20_claim, range_check_20_trace, range_check_20_interaction_claim_data) =
             range_check_20::Claim::write_trace(range_check_data);
 

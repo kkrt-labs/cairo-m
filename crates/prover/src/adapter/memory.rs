@@ -12,7 +12,7 @@ use crate::adapter::io::VmImportError;
 use crate::adapter::merkle::TREE_HEIGHT;
 use crate::preprocessed::range_check::range_check_20::LOG_SIZE_RC_20;
 
-const RC20_LIMIT: u32 = (1 << LOG_SIZE_RC_20) - 1;
+pub const RC20_LIMIT: u32 = (1 << LOG_SIZE_RC_20) - 1;
 
 #[derive(Copy, Clone, Default, Debug, Eq, PartialEq)]
 pub struct MemoryEntry {
@@ -74,7 +74,7 @@ pub struct Memory {
     // (addr, depth) => (value, clock, multiplicity which is -1, 0 or 1)
     pub initial_memory: HashMap<(M31, M31), (QM31, M31, M31)>,
     pub final_memory: HashMap<(M31, M31), (QM31, M31, M31)>,
-    pub clock_update_data: Vec<(M31, M31, M31, QM31)>,
+    pub clock_update_data: Vec<(M31, M31, QM31)>,
 }
 
 pub struct ExecutionBundleIterator<T, M>
@@ -261,14 +261,12 @@ impl Memory {
                 let num_steps = delta / RC20_LIMIT;
 
                 for _ in 0..num_steps {
-                    let step_clk = prev_clk + M31::from(RC20_LIMIT);
                     self.clock_update_data.push((
                         memory_entry.address,
                         prev_clk,
-                        step_clk,
                         initial_memory_entry.unwrap().0,
                     ));
-                    prev_clk = step_clk;
+                    prev_clk += M31::from(RC20_LIMIT);
                 }
             }
         }
@@ -473,17 +471,14 @@ mod tests {
         // Check first update
         let update1 = &memory.clock_update_data[0];
         assert_eq!(update1.1, M31::from(10)); // prev_clk
-        assert_eq!(update1.2, M31::from(10 + RC20_LIMIT)); // clk
 
         // Check second update
         let update2 = &memory.clock_update_data[1];
         assert_eq!(update2.1, M31::from(10 + RC20_LIMIT)); // prev_clk
-        assert_eq!(update2.2, M31::from(10 + 2 * RC20_LIMIT)); // clk
 
         // Check third update
         let update3 = &memory.clock_update_data[2];
         assert_eq!(update3.1, M31::from(10 + 2 * RC20_LIMIT)); // prev_clk
-        assert_eq!(update3.2, M31::from(10 + 3 * RC20_LIMIT)); // clk
     }
 
     #[test]

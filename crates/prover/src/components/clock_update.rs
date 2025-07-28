@@ -5,7 +5,6 @@
 //! - enabler
 //! - addr
 //! - prev_clk
-//! - inter_clk
 //! - QM31 value
 //!
 //! # Constraints
@@ -19,9 +18,7 @@
 //!   * `- [inter_clk - prev_clk - enabler]` in `RangeCheck20` relation
 
 use num_traits::{One, Zero};
-use rayon::iter::{
-    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
-};
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 use stwo_air_utils::trace::component_trace::ComponentTrace;
 use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
@@ -40,14 +37,13 @@ use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::BitReversedOrder;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 
+use crate::adapter::memory::RC20_LIMIT;
 use crate::components::Relations;
 use crate::utils::enabler::Enabler;
 
-const N_TRACE_COLUMNS: usize = 8;
+const N_TRACE_COLUMNS: usize = 7;
 const N_MEMORY_LOOKUPS: usize = 2;
-const N_RANGE_CHECK_20_LOOKUPS: usize = 1;
-const N_INTERACTION_COLUMNS: usize =
-    SECURE_EXTENSION_DEGREE * (N_MEMORY_LOOKUPS + N_RANGE_CHECK_20_LOOKUPS).div_ceil(2);
+const N_INTERACTION_COLUMNS: usize = SECURE_EXTENSION_DEGREE * N_MEMORY_LOOKUPS.div_ceil(2);
 
 #[derive(Clone, Default, Serialize, Deserialize, Debug)]
 pub struct Claim {
@@ -64,16 +60,9 @@ pub struct InteractionClaimData {
     pub non_padded_length: usize,
 }
 
-impl InteractionClaimData {
-    pub fn range_check_20(&self) -> impl ParallelIterator<Item = &PackedM31> {
-        self.lookup_data.range_check_20[0].par_iter()
-    }
-}
-
 #[derive(Uninitialized, IterMut, ParIterMut)]
 pub struct LookupData {
     pub memory: [Vec<[PackedM31; 6]>; N_MEMORY_LOOKUPS],
-    pub range_check_20: [Vec<PackedM31>; N_RANGE_CHECK_20_LOOKUPS],
 }
 
 impl Claim {
@@ -88,7 +77,7 @@ impl Claim {
     }
 
     pub fn write_trace<MC: MerkleChannel>(
-        clock_update_data: &[(M31, M31, M31, QM31)],
+        clock_update_data: &[(M31, M31, QM31)],
     ) -> (Self, ComponentTrace<N_TRACE_COLUMNS>, InteractionClaimData)
     where
         SimdBackend: BackendForChannel<MC>,
@@ -99,12 +88,11 @@ impl Claim {
         // Pack entries from the prover input
         let packed_inputs: Vec<[PackedM31; N_TRACE_COLUMNS - 1]> = clock_update_data
             .iter()
-            .map(|&(addr, prev_clk, step_clk, value)| {
+            .map(|&(addr, prev_clk, value)| {
                 let value_array = value.to_m31_array();
                 [
                     addr,
                     prev_clk,
-                    step_clk,
                     value_array[0],
                     value_array[1],
                     value_array[2],
@@ -138,25 +126,28 @@ impl Claim {
                 let enabler = enabler_col.packed_at(row_index);
                 let address = input[0];
                 let prev_clk = input[1];
-                let step_clk = input[2];
-                let value0 = input[3];
-                let value1 = input[4];
-                let value2 = input[5];
-                let value3 = input[6];
+                let value0 = input[2];
+                let value1 = input[3];
+                let value2 = input[4];
+                let value3 = input[5];
 
                 *row[0] = enabler;
                 *row[1] = address;
                 *row[2] = prev_clk;
-                *row[3] = step_clk;
-                *row[4] = value0;
-                *row[5] = value1;
-                *row[6] = value2;
-                *row[7] = value3;
+                *row[3] = value0;
+                *row[4] = value1;
+                *row[5] = value2;
+                *row[6] = value3;
 
                 *lookup_data.memory[0] = [address, prev_clk, value0, value1, value2, value3];
-                *lookup_data.memory[1] = [address, step_clk, value0, value1, value2, value3];
-
-                *lookup_data.range_check_20[0] = step_clk - prev_clk - enabler;
+                *lookup_data.memory[1] = [
+                    address,
+                    prev_clk + PackedM31::broadcast(M31::from(RC20_LIMIT)),
+                    value0,
+                    value1,
+                    value2,
+                    value3,
+                ];
             });
 
         // Return the trace and lookup data
@@ -208,20 +199,6 @@ impl InteractionClaim {
             });
         col.finalize_col();
 
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.range_check_20[0],
-        )
-            .into_par_iter()
-            .for_each(|(writer, value)| {
-                let numerator: PackedQM31 = -PackedQM31::one();
-                let denom: PackedQM31 = relations.range_check_20.combine(&[*value]);
-
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
-
         let (trace, claimed_sum) = interaction_trace.finalize_last();
         let interaction_claim = Self { claimed_sum };
         (interaction_claim, trace)
@@ -246,7 +223,6 @@ impl FrameworkEval for Eval {
         let enabler = eval.next_trace_mask();
         let address = eval.next_trace_mask();
         let prev_clk = eval.next_trace_mask();
-        let step_clk = eval.next_trace_mask();
         let value0 = eval.next_trace_mask();
         let value1 = eval.next_trace_mask();
         let value2 = eval.next_trace_mask();
@@ -255,7 +231,7 @@ impl FrameworkEval for Eval {
         let one = E::F::one();
 
         // Enabler is 1 or 0
-        eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
+        eval.add_constraint(enabler.clone() * (one - enabler.clone()));
 
         // Update the clock
         eval.add_to_relation(RelationEntry::new(
@@ -272,16 +248,17 @@ impl FrameworkEval for Eval {
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
-            E::EF::from(enabler.clone()),
-            &[address, step_clk.clone(), value0, value1, value2, value3],
+            E::EF::from(enabler),
+            &[
+                address,
+                prev_clk + E::F::from(M31::from(RC20_LIMIT)),
+                value0,
+                value1,
+                value2,
+                value3,
+            ],
         ));
 
-        // Range check the clock difference
-        eval.add_to_relation(RelationEntry::new(
-            &self.relations.range_check_20,
-            -E::EF::from(one),
-            &[step_clk - prev_clk - enabler],
-        ));
         eval.finalize_logup_in_pairs();
 
         eval
