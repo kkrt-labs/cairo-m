@@ -203,7 +203,9 @@ struct MirBuilder<'a, 'db> {
     /// Becomes true when a terminator like `return` is encountered.
     is_terminated: bool,
     /// Stack of loop contexts for break/continue handling
-    /// Each entry contains (loop_header_block, loop_exit_block)
+    /// Each entry contains (continue_target_block, loop_exit_block)
+    /// - continue_target: where 'continue' jumps (header for while/loop, step for for)
+    /// - loop_exit: where 'break' jumps
     loop_stack: Vec<(BasicBlockId, BasicBlockId)>,
 }
 
@@ -1392,7 +1394,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         let loop_step = self.mir_function.add_basic_block(); // step statement
         let loop_exit = self.mir_function.add_basic_block(); // code after the loop
 
-        // Jump from current block to condition header
+        // Jump from current block to conditiofor_loopsn header
         self.terminate_current_block(Terminator::jump(loop_header));
 
         // Push loop context: for `continue`, jump to step; for `break`, jump to exit
@@ -1438,9 +1440,11 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
     /// Lowers a `continue` statement.
     fn lower_continue_statement(&mut self) -> Result<(), String> {
-        if let Some((loop_header, _)) = self.loop_stack.last() {
-            // Jump to the header block of the current loop
-            self.terminate_current_block(Terminator::jump(*loop_header));
+        if let Some((continue_target, _)) = self.loop_stack.last() {
+            // Jump to the continue target of the current loop
+            // For while/infinite loops: this is the loop header (condition check)
+            // For for-loops: this is the step block (increment statement)
+            self.terminate_current_block(Terminator::jump(*continue_target));
             self.is_terminated = true;
             Ok(())
         } else {
