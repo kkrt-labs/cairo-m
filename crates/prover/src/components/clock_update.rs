@@ -13,7 +13,7 @@
 //!   * `enabler * (1 - enabler)`
 //! * update the clock
 //!   * `- [addr, prev_clk, value]` in `Memory` relation
-//!   * `+ [addr, inter_clk, value]` in `Memory` relation
+//!   * `+ [addr, prev_clk + RC_20, value]` in `Memory` relation
 
 use num_traits::{One, Zero};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
