@@ -24,7 +24,7 @@ fn test_format_struct() {
 #[test]
 fn test_format_if_statement() {
     let input = r#"fn test(x:felt)->felt{if x==0{return 1;}else{return x;}}"#;
-    assert_eq!(input, format_code(input));
+    assert_snapshot!(input, format_code(input));
 }
 
 #[test]
