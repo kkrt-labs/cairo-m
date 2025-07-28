@@ -115,6 +115,8 @@ pub enum DiagnosticCode {
     InvalidTypeDefinition,
     InvalidAssignmentTarget,
     MissingReturnValue,
+    TupleIndexOutOfBounds,
+    InvalidTupleIndexAccess,
     // TODO: Add more type-related diagnostic codes:
     // - InvalidTypeAnnotation
     // - TypeArgumentMismatch
@@ -174,6 +176,8 @@ impl From<DiagnosticCode> for u32 {
             DiagnosticCode::ContinueOutsideLoop => 3004,
             DiagnosticCode::InvalidAssignmentTarget => 2010,
             DiagnosticCode::MissingReturnValue => 2011,
+            DiagnosticCode::TupleIndexOutOfBounds => 2012,
+            DiagnosticCode::InvalidTupleIndexAccess => 2013,
             DiagnosticCode::InternalError => 9001,
         }
     }

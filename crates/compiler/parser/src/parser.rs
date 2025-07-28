@@ -187,6 +187,11 @@ pub enum Expression {
     },
     /// Tuple literal (e.g., `(1, 2, 3)`, `(x, y)`)
     Tuple(Vec<Spanned<Expression>>),
+    /// Tuple index access (e.g., `tt.0`, `foo(bar).2`)
+    TupleIndex {
+        tuple: Box<Spanned<Expression>>,
+        index: usize,
+    },
 }
 
 /// Represents a function parameter with its name and type.
@@ -499,6 +504,11 @@ enum PostfixOp {
     Member(Spanned<String>),
     /// Index access with index expression
     Index(Spanned<Expression>),
+    /// Tuple index access with numeric index
+    TupleIndex {
+        index: usize,
+        span: SimpleSpan<usize>,
+    },
 }
 
 // ===================
@@ -679,6 +689,22 @@ where
                 .collect::<Vec<_>>()
                 .delimited_by(just(TokenType::LParen), just(TokenType::RParen))
                 .map(PostfixOp::Call),
+            // Tuple index: "expr.0", "expr.1", etc.
+            just(TokenType::Dot)
+                .ignore_then(select! { TokenType::LiteralNumber(lit) => lit })
+                .try_map_with(|lit, extra| {
+                    if lit.suffix.is_some() {
+                        Err(Rich::custom(
+                            extra.span(),
+                            "tuple indices cannot have a suffix",
+                        ))
+                    } else {
+                        Ok(PostfixOp::TupleIndex {
+                            index: lit.value as usize,
+                            span: extra.span(),
+                        })
+                    }
+                }),
             // Member access: "expr.field"
             just(TokenType::Dot)
                 .ignore_then(spanned_ident.clone())
@@ -731,6 +757,20 @@ where
                     Expression::IndexAccess {
                         array: Box::new(expr),
                         index: Box::new(index),
+                    },
+                    span,
+                )
+            }
+            PostfixOp::TupleIndex {
+                index,
+                span: index_span,
+            } => {
+                let span_obj = expr.span();
+                let span = SimpleSpan::from(span_obj.start..index_span.end);
+                Spanned::new(
+                    Expression::TupleIndex {
+                        tuple: Box::new(expr),
+                        index,
                     },
                     span,
                 )

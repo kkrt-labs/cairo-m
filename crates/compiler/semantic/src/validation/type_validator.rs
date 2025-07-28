@@ -179,6 +179,12 @@ impl TypeValidator {
                     sink,
                 );
             }
+            Expression::TupleIndex {
+                tuple,
+                index: tuple_index,
+            } => {
+                self.check_tuple_index_types(db, crate_id, file, index, tuple, *tuple_index, sink);
+            }
             // Literals, identifiers, and tuples don't need additional type validation
             // beyond what's already done in type_resolution.rs
             _ => {}
@@ -548,6 +554,84 @@ impl TypeValidator {
                         ),
                     )
                     .with_location(file.file_path(db).to_string(), array.span()),
+                );
+            }
+        }
+    }
+
+    /// Validate tuple index access
+    fn check_tuple_index_types(
+        &self,
+        db: &dyn SemanticDb,
+        crate_id: Crate,
+        file: File,
+        index: &SemanticIndex,
+        tuple: &Spanned<Expression>,
+        tuple_index: usize,
+        sink: &dyn DiagnosticSink,
+    ) {
+        let Some(tuple_id) = index.expression_id_by_span(tuple.span()) else {
+            return;
+        };
+        let tuple_type_id = expression_semantic_type(db, crate_id, file, tuple_id, None);
+
+        match tuple_type_id.data(db) {
+            TypeData::Tuple(elements) => {
+                if tuple_index >= elements.len() {
+                    sink.push(
+                        Diagnostic::error(
+                            DiagnosticCode::TupleIndexOutOfBounds,
+                            format!(
+                                "no field `{}` on type `{}`",
+                                tuple_index,
+                                tuple_type_id.data(db).display_name(db)
+                            ),
+                        )
+                        .with_location(file.file_path(db).to_string(), tuple.span()),
+                    );
+                }
+            }
+            TypeData::Pointer(inner) => {
+                if let TypeData::Tuple(elements) = inner.data(db) {
+                    if tuple_index >= elements.len() {
+                        sink.push(
+                            Diagnostic::error(
+                                DiagnosticCode::TupleIndexOutOfBounds,
+                                format!(
+                                    "no field `{}` on type `{}`",
+                                    tuple_index,
+                                    tuple_type_id.data(db).display_name(db)
+                                ),
+                            )
+                            .with_location(file.file_path(db).to_string(), tuple.span()),
+                        );
+                    }
+                } else {
+                    sink.push(
+                        Diagnostic::error(
+                            DiagnosticCode::InvalidTupleIndexAccess,
+                            format!(
+                                "Cannot index into pointer to non-tuple type `{}`",
+                                inner.data(db).display_name(db)
+                            ),
+                        )
+                        .with_location(file.file_path(db).to_string(), tuple.span()),
+                    );
+                }
+            }
+            TypeData::Error => {
+                // Skip validation for error types
+            }
+            _ => {
+                sink.push(
+                    Diagnostic::error(
+                        DiagnosticCode::InvalidTupleIndexAccess,
+                        format!(
+                            "Cannot use tuple index on type `{}`",
+                            tuple_type_id.data(db).display_name(db)
+                        ),
+                    )
+                    .with_location(file.file_path(db).to_string(), tuple.span()),
                 );
             }
         }

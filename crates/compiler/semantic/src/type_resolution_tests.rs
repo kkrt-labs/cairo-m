@@ -253,6 +253,7 @@ fn test_expression_type_coverage() {
             Expression::IndexAccess { .. } => "IndexAccess",
             Expression::StructLiteral { .. } => "StructLiteral",
             Expression::Tuple(_) => "Tuple",
+            Expression::TupleIndex { .. } => "TupleIndex",
         };
         expression_types_found.insert(variant_name);
 

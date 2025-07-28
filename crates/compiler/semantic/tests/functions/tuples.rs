@@ -29,3 +29,37 @@ fn test_tuple_destructuring_unused_variable() {
         ]
     }
 }
+
+#[test]
+fn test_tuple_indexing() {
+    assert_semantic_parameterized! {
+        ok: [
+            // Basic tuple indexing
+            in_function("let tt = (1, 2, 3); let x = tt.0;"),
+            in_function("let tt = (1, 2, 3); let y = tt.1; let z = tt.2;"),
+
+            // Tuple indexing with expressions
+            in_function("let x = (10, 20, 30).0;"),
+            in_function("let sum = (10, 20).0 + (30, 40).1;"),
+
+            // Nested tuple indexing
+            in_function("let nested = ((1, 2), (3, 4)); let x = nested.0.1;"),
+            in_function("let nested = ((1, 2), (3, 4)); let y = nested.1.0;"),
+
+            // Function returning tuple
+            "fn get_tuple() -> (felt, felt) { return (10, 20); } fn test() -> felt { return get_tuple().0; }",
+            "fn get_tuple() -> (felt, felt) { return (10, 20); } fn test() -> felt { let x = get_tuple().1; return x; }",
+        ],
+        err: [
+            // Out of bounds access
+            in_function("let tt = (1, 2); let x = tt.2;"),
+            in_function("let tt = (1, 2, 3); let x = tt.3;"),
+
+            // Indexing non-tuple
+            in_function("let x = 42; let y = x.0;"),
+
+            // Type mismatch
+            in_function("let tt: (felt, felt) = (1, 2); let x: (felt, felt) = tt.0;"),
+        ]
+    }
+}

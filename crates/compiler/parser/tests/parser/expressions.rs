@@ -205,6 +205,30 @@ fn tuple_parameterized() {
 }
 
 // ===================
+// Tuple Indexing
+// ===================
+
+#[test]
+fn tuple_indexing_parameterized() {
+    assert_parses_parameterized! {
+        ok: [
+            in_function("tt.0;"),
+            in_function("my_tuple.1;"),
+            in_function("(1, 2, 3).0;"),
+            in_function("foo(bar).2;"),
+            in_function("((1, 2), (3, 4)).0.1;"),
+            in_function("get_tuple().0;"),
+            in_function("tuple_ptr.3;"),
+        ],
+        err: [
+            in_function("tt.0u32;"),  // suffix not allowed
+            in_function("tt.0felt;"), // suffix not allowed
+            in_function("tt.;"),      // missing index
+        ]
+    }
+}
+
+// ===================
 // Parenthesized Expressions
 // ===================
 

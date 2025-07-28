@@ -507,6 +507,24 @@ pub fn expression_semantic_type<'db>(
                 TypeId::new(db, TypeData::Error)
             }
         }
+        Expression::TupleIndex { tuple, index } => {
+            let tuple_id = semantic_index.expression_id_by_span(tuple.span()).unwrap();
+            let tuple_ty = expression_semantic_type(db, crate_id, file, tuple_id, None);
+            match tuple_ty.data(db) {
+                TypeData::Tuple(elems) => elems
+                    .get(*index)
+                    .copied()
+                    .unwrap_or_else(|| TypeId::new(db, TypeData::Error)),
+                TypeData::Pointer(inner) => match inner.data(db) {
+                    TypeData::Tuple(elems) => elems
+                        .get(*index)
+                        .copied()
+                        .unwrap_or_else(|| TypeId::new(db, TypeData::Error)),
+                    _ => TypeId::new(db, TypeData::Error),
+                },
+                _ => TypeId::new(db, TypeData::Error),
+            }
+        }
     }
 }
 
