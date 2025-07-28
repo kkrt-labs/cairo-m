@@ -1,0 +1,13 @@
+fn test_nested_for_loops() -> felt {
+    //!ASSERT FUNCTION_COUNT: 1
+
+    let result = 0;
+
+    for (let i = 0; i < 3; i = i + 1) {
+        for (let j = 0; j < 4; j = j + 1) {
+            result = result + 1;
+        }
+    }
+
+    return result;
+}

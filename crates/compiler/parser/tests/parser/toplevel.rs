@@ -197,7 +197,7 @@ fn function_with_loops() {
                 counter = counter + 1;
             }
 
-            for i in range {
+            for (let i = 0; i < 10; i = i + 1) {
                 let squared = i * i;
             }
         }

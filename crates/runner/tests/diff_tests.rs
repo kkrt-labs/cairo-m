@@ -303,7 +303,7 @@ diff_test!(
 );
 
 // Testing a combination of language constructs
-const fn combination() -> u32 {
+fn combination() -> u32 {
     let x = 3;
     let y = 13;
     let even_number = 16;
@@ -319,6 +319,10 @@ const fn combination() -> u32 {
 
     let compound1 = (x != 0) || (((y == 3) as u32 + 2) != 0);
     let compound2 = ((eq as u32) != 2) && (3 != 0);
+
+    for i in 0..3 {
+        mut_val += i;
+    }
 
     let (a, b) = random_elements_foo();
     mut_val + (eq2 as u32) + a + random_elements_bar() + b + (compound1 as u32) + (compound2 as u32)

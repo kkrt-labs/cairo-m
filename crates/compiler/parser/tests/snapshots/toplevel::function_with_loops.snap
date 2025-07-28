@@ -17,7 +17,7 @@ expression: snapshot
                 counter = counter + 1;
             }
 
-            for i in range {
+            for (let i = 0; i < 10; i = i + 1) {
                 let squared = i * i;
             }
         }
@@ -200,18 +200,82 @@ expression: snapshot
                     ),
                     Spanned(
                         For {
-                            variable: Spanned(
-                                "i",
-                                298..299,
-                            ),
-                            iterable: Spanned(
-                                Identifier(
-                                    Spanned(
-                                        "range",
-                                        303..308,
+                            init: Spanned(
+                                Let {
+                                    pattern: Identifier(
+                                        Spanned(
+                                            "i",
+                                            303..304,
+                                        ),
                                     ),
-                                ),
-                                303..308,
+                                    statement_type: None,
+                                    value: Spanned(
+                                        Literal(
+                                            0,
+                                            None,
+                                        ),
+                                        307..308,
+                                    ),
+                                },
+                                299..309,
+                            ),
+                            condition: Spanned(
+                                BinaryOp {
+                                    op: Less,
+                                    left: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "i",
+                                                310..311,
+                                            ),
+                                        ),
+                                        310..311,
+                                    ),
+                                    right: Spanned(
+                                        Literal(
+                                            10,
+                                            None,
+                                        ),
+                                        314..316,
+                                    ),
+                                },
+                                310..316,
+                            ),
+                            step: Spanned(
+                                Assignment {
+                                    lhs: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "i",
+                                                318..319,
+                                            ),
+                                        ),
+                                        318..319,
+                                    ),
+                                    rhs: Spanned(
+                                        BinaryOp {
+                                            op: Add,
+                                            left: Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "i",
+                                                        322..323,
+                                                    ),
+                                                ),
+                                                322..323,
+                                            ),
+                                            right: Spanned(
+                                                Literal(
+                                                    1,
+                                                    None,
+                                                ),
+                                                326..327,
+                                            ),
+                                        },
+                                        322..327,
+                                    ),
+                                },
+                                318..327,
                             ),
                             body: Spanned(
                                 Block(
@@ -221,7 +285,7 @@ expression: snapshot
                                                 pattern: Identifier(
                                                     Spanned(
                                                         "squared",
-                                                        331..338,
+                                                        351..358,
                                                     ),
                                                 ),
                                                 statement_type: None,
@@ -232,36 +296,36 @@ expression: snapshot
                                                             Identifier(
                                                                 Spanned(
                                                                     "i",
-                                                                    341..342,
+                                                                    361..362,
                                                                 ),
                                                             ),
-                                                            341..342,
+                                                            361..362,
                                                         ),
                                                         right: Spanned(
                                                             Identifier(
                                                                 Spanned(
                                                                     "i",
-                                                                    345..346,
+                                                                    365..366,
                                                                 ),
                                                             ),
-                                                            345..346,
+                                                            365..366,
                                                         ),
                                                     },
-                                                    341..346,
+                                                    361..366,
                                                 ),
                                             },
-                                            327..347,
+                                            347..367,
                                         ),
                                     ],
                                 ),
-                                309..361,
+                                329..381,
                             ),
                         },
-                        294..361,
+                        294..381,
                     ),
                 ],
             },
-            9..371,
+            9..391,
         ),
     ),
 ]

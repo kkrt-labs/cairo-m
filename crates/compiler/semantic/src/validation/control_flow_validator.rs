@@ -218,9 +218,29 @@ impl ControlFlowValidator {
                 // While loops might not execute at all, so they don't guarantee termination
                 false
             }
-            Statement::For { .. } => {
-                // TODO: For loops not yet supported
-                panic!("For loops are not yet supported - need iterator/range types");
+            Statement::For {
+                init,
+                condition: _,
+                step,
+                body,
+            } => {
+                // 1. Initialization part (may contain returns, etc.)
+                Self::analyze_for_unreachable_code_in_statement(db, file, init, loop_depth, sink);
+
+                // 2. Body (inside the loop, so break/continue are valid)
+                Self::analyze_for_unreachable_code_in_statement(
+                    db,
+                    file,
+                    body,
+                    loop_depth + 1,
+                    sink,
+                );
+
+                // 3. Step statement (runs after each iteration)
+                Self::analyze_for_unreachable_code_in_statement(db, file, step, loop_depth, sink);
+
+                // For loops might not execute at all, so they don't guarantee termination
+                false
             }
             Statement::Break => {
                 // Check if break is inside a loop
@@ -351,7 +371,9 @@ impl ControlFlowValidator {
                         .as_ref()
                         .is_some_and(|eb| Self::contains_break(eb))
             }
-            Statement::Loop { body: _ } | Statement::While { body: _, .. } => {
+            Statement::Loop { body: _ }
+            | Statement::While { body: _, .. }
+            | Statement::For { body: _, .. } => {
                 // Don't look inside nested loops - their breaks don't affect the outer loop
                 false
             }

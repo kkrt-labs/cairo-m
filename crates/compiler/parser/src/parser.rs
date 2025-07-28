@@ -249,10 +249,15 @@ pub enum Statement {
         condition: Spanned<Expression>,
         body: Box<Spanned<Statement>>,
     },
-    /// For loop (e.g., `for i in 0..10 { ... }`)
+    /// C-style for loop (e.g., `for (let i = 0; i < 9; i = i + 1) { ... }`)
     For {
-        variable: Spanned<String>,
-        iterable: Spanned<Expression>,
+        /// Initialization part executed once before the loop starts (typically a `let` or assignment statement)
+        init: Box<Spanned<Statement>>,
+        /// Loop condition checked before each iteration
+        condition: Spanned<Expression>,
+        /// Step part executed after each iteration (usually an assignment or expression statement)
+        step: Box<Spanned<Statement>>,
+        /// Loop body
         body: Box<Spanned<Statement>>,
     },
     /// Break statement (e.g., `break;`)
@@ -1001,15 +1006,63 @@ where
             })
             .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
 
-        // For statement: for variable in iterable { ... }
+        // --- Helpers for C-style `for` loop parts ---
+        // init: either a `let` declaration or an assignment/expression, and MUST end with ';'
+        let for_init = choice((
+            // let pattern (: type)? = expr;
+            just(TokenType::Let)
+                .ignore_then(pattern.clone())
+                .then(
+                    just(TokenType::Colon)
+                        .ignore_then(type_expr.clone())
+                        .or_not(),
+                )
+                .then_ignore(just(TokenType::Eq))
+                .then(expr.clone())
+                .then_ignore(just(TokenType::Semicolon))
+                .map(|((pattern, statement_type), value)| Statement::Let {
+                    pattern,
+                    statement_type,
+                    value,
+                })
+                .map_with(|stmt, extra| Spanned::new(stmt, extra.span())),
+            // assignment or expression followed by ';'
+            expr.clone()
+                .then(just(TokenType::Eq).ignore_then(expr.clone()).or_not())
+                .then_ignore(just(TokenType::Semicolon))
+                .map(|(lhs, rhs)| match rhs {
+                    Some(rhs) => Statement::Assignment { lhs, rhs },
+                    None => Statement::Expression(lhs),
+                })
+                .map_with(|stmt, extra| Spanned::new(stmt, extra.span())),
+        ));
+
+        // condition: expression followed by ';'
+        let for_condition = expr.clone().then_ignore(just(TokenType::Semicolon));
+
+        // step: assignment or expression WITHOUT a trailing ';'
+        let for_step = expr
+            .clone()
+            .then(just(TokenType::Eq).ignore_then(expr.clone()).or_not())
+            .map(|(lhs, rhs)| match rhs {
+                Some(rhs) => Statement::Assignment { lhs, rhs },
+                None => Statement::Expression(lhs),
+            })
+            .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
+
+        // For statement (C-style): for (init; condition; step) body
         let for_stmt = just(TokenType::For)
-            .ignore_then(spanned_ident.clone()) // loop variable
-            .then_ignore(just(TokenType::In)) // ignore 'in'
-            .then(expr.clone()) // iterable expression
+            .ignore_then(
+                for_init
+                    .then(for_condition)
+                    .then(for_step)
+                    .delimited_by(just(TokenType::LParen), just(TokenType::RParen)),
+            )
             .then(statement.clone()) // body
-            .map(|((variable, iterable), body)| Statement::For {
-                variable,
-                iterable,
+            .map(|(((init, condition), step), body)| Statement::For {
+                init: Box::new(init),
+                condition,
+                step: Box::new(step),
                 body: Box::new(body),
             })
             .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));

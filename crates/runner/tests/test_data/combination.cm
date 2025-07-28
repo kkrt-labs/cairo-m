@@ -34,6 +34,10 @@ fn main() -> felt {
         compound2_felt = 1;
     }
 
+    for (let i = 0; i != 3; i = i + 1) {
+        mut_val = mut_val + i;
+    }
+
     let (a, b) = foo();
     return mut_val + eq2_felt + a + bar() + b + compound1_felt + compound2_felt;
 }

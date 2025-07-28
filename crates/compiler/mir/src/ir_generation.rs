@@ -203,7 +203,9 @@ struct MirBuilder<'a, 'db> {
     /// Becomes true when a terminator like `return` is encountered.
     is_terminated: bool,
     /// Stack of loop contexts for break/continue handling
-    /// Each entry contains (loop_header_block, loop_exit_block)
+    /// Each entry contains (continue_target_block, loop_exit_block)
+    /// - continue_target: where 'continue' jumps (header for while/loop, step for for)
+    /// - loop_exit: where 'break' jumps
     loop_stack: Vec<(BasicBlockId, BasicBlockId)>,
 }
 
@@ -346,7 +348,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             Statement::Block(statements) => self.lower_block_statement(statements),
             Statement::While { condition, body } => self.lower_while_statement(condition, body),
             Statement::Loop { body } => self.lower_loop_statement(body),
-            Statement::For { .. } => self.lower_for_statement(),
+            Statement::For {
+                init,
+                condition,
+                step,
+                body,
+            } => self.lower_for_statement(init, condition, step, body),
             Statement::Break => self.lower_break_statement(),
             Statement::Continue => self.lower_continue_statement(),
             Statement::Const(_) => self.lower_const_statement(),
@@ -1358,11 +1365,65 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         Ok(())
     }
 
-    /// Lowers a `for` loop (currently unimplemented).
-    fn lower_for_statement(&self) -> Result<(), String> {
-        // TODO: Implement for loop support
-        // For now, panic as requested
-        panic!("For loops are not yet implemented in MIR generation");
+    /// Lowers a classic C-style `for` loop:
+    /// `for (init; condition; step) body`
+    ///
+    /// CFG shape:
+    /// current -> init -> jump header
+    /// header: cond ? body : exit
+    /// body -> (if not terminated) jump step
+    /// step -> (if not terminated) jump header
+    /// exit: continues after loop
+    fn lower_for_statement(
+        &mut self,
+        init: &Spanned<Statement>,
+        condition: &Spanned<Expression>,
+        step: &Spanned<Statement>,
+        body: &Spanned<Statement>,
+    ) -> Result<(), String> {
+        // 1. Initialization runs once in the current block
+        self.lower_statement(init)?;
+        if self.current_block().is_terminated() {
+            // Init somehow terminated control flow — nothing more to do.
+            return Ok(());
+        }
+
+        // 2. Create loop blocks
+        let loop_header = self.mir_function.add_basic_block(); // evaluates condition
+        let loop_body = self.mir_function.add_basic_block(); // body of the loop
+        let loop_step = self.mir_function.add_basic_block(); // step statement
+        let loop_exit = self.mir_function.add_basic_block(); // code after the loop
+
+        // Jump from current block to conditiofor_loopsn header
+        self.terminate_current_block(Terminator::jump(loop_header));
+
+        // Push loop context: for `continue`, jump to step; for `break`, jump to exit
+        self.loop_stack.push((loop_step, loop_exit));
+
+        // 3. Header: evaluate condition and branch
+        self.current_block_id = loop_header;
+        let cond_val = self.lower_expression(condition)?;
+        self.terminate_current_block(Terminator::branch(cond_val, loop_body, loop_exit));
+
+        // 4. Body: generate code, then jump to step if not terminated
+        self.current_block_id = loop_body;
+        self.lower_statement(body)?;
+        if !self.current_block().is_terminated() {
+            self.terminate_current_block(Terminator::jump(loop_step));
+        }
+
+        // 5. Step: execute step statement, then jump back to header
+        self.current_block_id = loop_step;
+        self.lower_statement(step)?;
+        if !self.current_block().is_terminated() {
+            self.terminate_current_block(Terminator::jump(loop_header));
+        }
+
+        // 6. Pop loop context and continue in exit block
+        self.loop_stack.pop();
+        self.current_block_id = loop_exit;
+
+        Ok(())
     }
 
     /// Lowers a `break` statement.
@@ -1379,9 +1440,11 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
     /// Lowers a `continue` statement.
     fn lower_continue_statement(&mut self) -> Result<(), String> {
-        if let Some((loop_header, _)) = self.loop_stack.last() {
-            // Jump to the header block of the current loop
-            self.terminate_current_block(Terminator::jump(*loop_header));
+        if let Some((continue_target, _)) = self.loop_stack.last() {
+            // Jump to the continue target of the current loop
+            // For while/infinite loops: this is the loop header (condition check)
+            // For for-loops: this is the step block (increment statement)
+            self.terminate_current_block(Terminator::jump(*continue_target));
             self.is_terminated = true;
             Ok(())
         } else {
