@@ -79,7 +79,7 @@ mod tests {
 
     #[test]
     fn test_instruction_from_qm31() {
-        let instruction = QM31::from_m31_array([1, 2, 3, 4].map(Into::into));
+        let instruction = QM31::from_m31_array([4, 2, 3, 4].map(Into::into));
         let instruction: Instruction = instruction.try_into().unwrap();
         assert_eq!(instruction.opcode, Opcode::StoreAddFpImm);
         assert_eq!(instruction.operands, [M31(2), M31(3), M31(4)]);

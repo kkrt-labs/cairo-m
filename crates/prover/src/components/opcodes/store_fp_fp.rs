@@ -42,15 +42,16 @@
 //!   * `div - op0 * op1_inv`
 //! * op1_inv is the inverse of op1 or op1 is 0
 //!   * `op1 * (op1_inv * op1 - 1)`
+//!   * `op1_inv * (op1_inv * op1 - 1)`
 //! * dst_val is the result of the operation
 //!   * `dst_val - (1 - opcode_flag_0) * (1 - opcode_flag_1) * (op0 + op1) // (0, 0) => StoreAddFpFp
-//!   * `    + (1 - opcode_flag_0) * opcode_flag_1 * (op0 - op1) // (0, 1) => StoreSubFpFp
-//!   * `    + opcode_flag_0 * (1 - opcode_flag_1) * prod // (1, 0) => StoreMulFpFp
-//!   * `    + opcode_flag_0 * opcode_flag_1 * div // (1, 1) => StoreDivFpFp
+//!   * `    - (1 - opcode_flag_0) * opcode_flag_1 * (op0 - op1) // (0, 1) => StoreSubFpFp
+//!   * `    - opcode_flag_0 * (1 - opcode_flag_1) * prod // (1, 0) => StoreMulFpFp
+//!   * `    - opcode_flag_0 * opcode_flag_1 * div // (1, 1) => StoreDivFpFp
 //! * registers update is regular
 //!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
 //! * read instruction from memory
-//!   * `opcode_id - base_opcode + opcode_flag_0 * 2 + opcode_flag_1`
+//!   * `opcode_id - (base_opcode + opcode_flag_0 * 2 + opcode_flag_1)`
 //!   * `- [pc, inst_prev_clk, opcode_id, off0, off1, off2] + [pc, clk, opcode_id, off0, off1, off2]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
 //! * read op0
@@ -467,7 +468,7 @@ impl FrameworkEval for Eval {
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         let one = E::F::from(M31::one());
 
-        // 19 columns
+        // 20 columns
         let enabler = eval.next_trace_mask();
         let pc = eval.next_trace_mask();
         let fp = eval.next_trace_mask();

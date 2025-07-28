@@ -156,7 +156,7 @@ fn test_execute_with_error() {
     // Create a program with an invalid instructions
 
     let instructions = [
-        QM31::from_m31_array([M31::from(5), M31::from(10), Zero::zero(), Zero::zero()]), // Valid: [fp + 0] = 10
+        QM31::from_m31_array([M31::from(9), M31::from(10), Zero::zero(), Zero::zero()]), // Valid: [fp + 0] = 10
         QM31::from_m31_array([M31::from(99), Zero::zero(), Zero::zero(), Zero::zero()]), // Invalid: opcode 99
     ];
     let initial_memory = Memory::from_iter(instructions);
