@@ -32,7 +32,7 @@ use cairo_m_compiler_parser::parser::{
 };
 use cairo_m_compiler_semantic::db::Crate;
 use cairo_m_compiler_semantic::definition::{Definition, DefinitionKind};
-use cairo_m_compiler_semantic::semantic_index::{DefinitionId, SemanticIndex};
+use cairo_m_compiler_semantic::semantic_index::{DefinitionId, ExpressionId, SemanticIndex};
 use cairo_m_compiler_semantic::type_resolution::{
     definition_semantic_type, expression_semantic_type,
 };
@@ -207,6 +207,14 @@ struct MirBuilder<'a, 'db> {
     /// - continue_target: where 'continue' jumps (header for while/loop, step for for)
     /// - loop_exit: where 'break' jumps
     loop_stack: Vec<(BasicBlockId, BasicBlockId)>,
+}
+
+/// Represents the result of lowering a function call
+enum CallResult {
+    /// Single return value
+    Single(Value),
+    /// Multiple return values (tuple)
+    Tuple(Vec<Value>),
 }
 
 impl<'a, 'db> MirBuilder<'a, 'db> {
@@ -1594,13 +1602,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 // Convert to MIR type to get offset calculation
                 let tuple_mir_type = MirType::from_semantic_type(self.db, tuple_semantic_type);
 
-                // TODO: This assumes the tuple expression is an lvalue (like a variable or field access),
-                // but it could be an rvalue expression that produces a tuple (like a function call).
-                // For example, get_tuple().1 where get_tuple() returns a tuple. In this case, we need
-                // to first evaluate the tuple expression to get a temporary tuple value, then index it.
-                // Currently this causes the function to generate unreachable code.
-
-                // Get the tuple base address
+                // For non-function-call tuples, use the existing lvalue approach
                 let tuple_addr = self.lower_lvalue_expression(tuple)?;
 
                 // Calculate the offset for the element
@@ -1664,6 +1666,37 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         let current_scope_id = expr_info.scope_id;
 
+        // Special case: For TupleIndex on function calls, we need to use expr.value()
+        // because expr_info.ast_node doesn't preserve the nested structure
+        if let Expression::TupleIndex { tuple, index } = expr.value() {
+            if let Expression::FunctionCall { callee, args } = tuple.value() {
+                // Get the expression ID for the function call
+                let func_expr_id = self
+                    .semantic_index
+                    .expression_id_by_span(tuple.span())
+                    .ok_or_else(|| "No ExpressionId for function call in TupleIndex".to_string())?;
+
+                // Lower the function call
+                match self.lower_function_call(callee, args, func_expr_id)? {
+                    CallResult::Single(value) => {
+                        // Check if it's an error value - if so, return it for graceful recovery
+                        if matches!(value, Value::Error) {
+                            return Ok(value);
+                        }
+                        return Err("Cannot index a non-tuple value".to_string());
+                    }
+                    CallResult::Tuple(values) => {
+                        // Directly return the indexed value
+                        if let Some(value) = values.get(*index) {
+                            return Ok(*value);
+                        } else {
+                            return Err(format!("Tuple index {} out of bounds", index));
+                        }
+                    }
+                }
+            }
+        }
+
         // Use expr_info.ast_node instead of expr.value()
         match &expr_info.ast_node {
             Expression::Literal(n, _) => Ok(Value::integer(*n as i32)),
@@ -1717,157 +1750,50 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             }
 
             Expression::FunctionCall { callee, args } => {
-                // For now, assume direct function calls (not through variables)
-                if let Expression::Identifier(func_name) = callee.value() {
-                    // Get the scope for the callee from its expression info
-                    let callee_expr_id = self
-                        .semantic_index
-                        .expression_id_by_span(callee.span())
-                        .ok_or_else(|| {
-                        format!(
-                            "MIR: No ExpressionId found for callee span {:?}",
-                            callee.span()
-                        )
-                    })?;
-                    let callee_expr_info = self
-                        .semantic_index
-                        .expression(callee_expr_id)
-                        .ok_or_else(|| {
-                            format!("MIR: No ExpressionInfo for callee ID {callee_expr_id:?}")
-                        })?;
+                match self.lower_function_call(callee, args, expr_id)? {
+                    CallResult::Single(value) => Ok(value),
+                    CallResult::Tuple(values) => {
+                        // For expression context, we need to return a single value
+                        // Create a tuple to hold the values
+                        let semantic_type = expression_semantic_type(
+                            self.db,
+                            self.crate_id,
+                            self.file,
+                            expr_id,
+                            None,
+                        );
+                        let tuple_type = MirType::from_semantic_type(self.db, semantic_type);
+                        let tuple_addr = self
+                            .mir_function
+                            .new_typed_value_id(MirType::pointer(tuple_type.clone()));
+                        self.add_instruction(
+                            Instruction::stack_alloc(tuple_addr, tuple_type.size_units())
+                                .with_comment("Allocate space for tuple return value".to_string()),
+                        );
 
-                    if let Some((local_def_idx, local_def)) = self
-                        .semantic_index
-                        .resolve_name_to_definition(func_name.value(), callee_expr_info.scope_id)
-                    {
-                        // Handle function resolution: local functions vs imported functions
-                        let func_id = match &local_def.kind {
-                            DefinitionKind::Function(_) => {
-                                // Local function - use current file
-                                let func_def_id =
-                                    DefinitionId::new(self.db, self.file, local_def_idx);
-                                if let Some((_, func_id)) = self.function_mapping.get(&func_def_id)
-                                {
-                                    *func_id
-                                } else {
-                                    // Local function not found in mapping, return error
-                                    return Ok(Value::error());
-                                }
-                            }
-                            DefinitionKind::Use(use_ref) => {
-                                // Imported function - follow the import chain
-                                match self.resolve_imported_function(
-                                    use_ref.imported_module.value(),
-                                    func_name.value(),
-                                ) {
-                                    Some(func_id) => func_id,
-                                    None => {
-                                        // Import resolution failed, return error
-                                        return Ok(Value::error());
-                                    }
-                                }
-                            }
-                            _ => {
-                                // Neither function nor import, return error
-                                return Ok(Value::error());
-                            }
-                        };
-
-                        {
-                            // Lower arguments
-                            let mut arg_values = Vec::new();
-                            for arg in args {
-                                arg_values.push(self.lower_expression(arg)?);
-                            }
-
-                            // Query semantic type system for function return type
-                            let semantic_type = expression_semantic_type(
-                                self.db,
-                                self.crate_id,
-                                self.file,
-                                expr_id,
-                                None,
+                        // Store each returned value into the tuple
+                        for (i, value) in values.iter().enumerate() {
+                            // TODO: get real type here
+                            let elem_ptr = self.mir_function.new_typed_value_id(
+                                MirType::pointer(MirType::felt()), // TODO: Get proper element type
                             );
-
-                            // Check if the return type is a tuple
-                            if let cairo_m_compiler_semantic::types::TypeData::Tuple(
-                                element_types,
-                            ) = semantic_type.data(self.db)
-                            {
-                                // Function returns a tuple - create multiple destination values
-                                let mut dests = Vec::new();
-                                for elem_type in element_types {
-                                    let mir_type = MirType::from_semantic_type(self.db, elem_type);
-                                    dests.push(self.mir_function.new_typed_value_id(mir_type));
-                                }
-
-                                self.add_instruction(Instruction::call(
-                                    dests.clone(),
-                                    func_id,
-                                    arg_values,
-                                ));
-
-                                // For expression context, we need to return a single value
-                                // Create a tuple to hold the values
-                                let tuple_type =
-                                    MirType::from_semantic_type(self.db, semantic_type);
-                                let tuple_addr = self
-                                    .mir_function
-                                    .new_typed_value_id(MirType::pointer(tuple_type.clone()));
-                                self.add_instruction(
-                                    Instruction::stack_alloc(tuple_addr, tuple_type.size_units())
-                                        .with_comment(
-                                            "Allocate space for tuple return value".to_string(),
-                                        ),
-                                );
-
-                                // Store each returned value into the tuple
-                                for (i, dest) in dests.iter().enumerate() {
-                                    let elem_ptr = self.mir_function.new_typed_value_id(
-                                        MirType::pointer(MirType::felt()), // Simplified for now
-                                    );
-                                    self.add_instruction(
-                                        Instruction::get_element_ptr(
-                                            elem_ptr,
-                                            Value::operand(tuple_addr),
-                                            Value::integer(i as i32),
-                                        )
-                                        .with_comment(
-                                            format!("Get address of tuple element {}", i),
-                                        ),
-                                    );
-                                    self.add_instruction(Instruction::store(
-                                        Value::operand(elem_ptr),
-                                        Value::operand(*dest),
-                                    ));
-                                }
-
-                                return Ok(Value::operand(tuple_addr));
-                            } else {
-                                // Single return value
-                                let return_type =
-                                    MirType::from_semantic_type(self.db, semantic_type);
-                                let dest = self.mir_function.new_typed_value_id(return_type);
-                                self.add_instruction(Instruction::call(
-                                    vec![dest],
-                                    func_id,
-                                    arg_values,
-                                ));
-                                return Ok(Value::operand(dest));
-                            }
+                            self.add_instruction(
+                                Instruction::get_element_ptr(
+                                    elem_ptr,
+                                    Value::operand(tuple_addr),
+                                    Value::integer(i as i32),
+                                )
+                                .with_comment(format!("Get address of tuple element {}", i)),
+                            );
+                            self.add_instruction(Instruction::store(
+                                Value::operand(elem_ptr),
+                                *value,
+                            ));
                         }
+
+                        Ok(Value::operand(tuple_addr))
                     }
                 }
-
-                // TODO: Function calls returning tuples with immediate indexing (e.g., get_tuple().1)
-                // currently fail to resolve and return Value::error(), which leads to unreachable
-                // terminators in MIR. This happens because the function call expression is not
-                // handled when it's not a direct identifier. Need to support complex callee
-                // expressions beyond simple identifiers.
-                // See: https://github.com/kkrt-labs/cairo-m-2/issues/[TBD]
-
-                // If we can't resolve the function call, return an error value
-                Ok(Value::error())
             }
 
             Expression::MemberAccess { object, field } => {
@@ -2161,6 +2087,135 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     }
 
     // --- MIR Construction Helpers ---
+
+    /// Lowers a function call expression to MIR, returning either a single value or multiple values
+    fn lower_function_call(
+        &mut self,
+        callee: &Spanned<Expression>,
+        args: &[Spanned<Expression>],
+        expr_id: ExpressionId,
+    ) -> Result<CallResult, String> {
+        // First, resolve the callee to a FunctionId
+        let func_id = match self.resolve_callee_expression(callee) {
+            Ok(id) => id,
+            Err(_) => {
+                // Function not found - return error value for graceful recovery
+                return Ok(CallResult::Single(Value::error()));
+            }
+        };
+
+        // Lower the arguments
+        let mut arg_values = Vec::new();
+        for arg in args {
+            arg_values.push(self.lower_expression(arg)?);
+        }
+
+        // Get the return type of the function
+        let semantic_type =
+            expression_semantic_type(self.db, self.crate_id, self.file, expr_id, None);
+
+        // Check if the return type is a tuple
+        match semantic_type.data(self.db) {
+            cairo_m_compiler_semantic::types::TypeData::Tuple(element_types) => {
+                // Function returns a tuple - create multiple destination values
+                let mut dests = Vec::new();
+                for elem_type in element_types {
+                    let mir_type = MirType::from_semantic_type(self.db, elem_type);
+                    dests.push(self.mir_function.new_typed_value_id(mir_type));
+                }
+
+                self.add_instruction(Instruction::call(dests.clone(), func_id, arg_values));
+
+                // Return the tuple values directly
+                Ok(CallResult::Tuple(
+                    dests.into_iter().map(Value::operand).collect(),
+                ))
+            }
+            _ => {
+                // Single return value
+                let return_type = MirType::from_semantic_type(self.db, semantic_type);
+                let dest = self.mir_function.new_typed_value_id(return_type);
+                self.add_instruction(Instruction::call(vec![dest], func_id, arg_values));
+                Ok(CallResult::Single(Value::operand(dest)))
+            }
+        }
+    }
+
+    /// Resolves a callee expression to a FunctionId
+    /// Supports:
+    /// - Simple identifiers (foo)
+    /// - Member access for imports (module.foo)
+    fn resolve_callee_expression(
+        &self,
+        callee: &Spanned<Expression>,
+    ) -> Result<FunctionId, String> {
+        match callee.value() {
+            Expression::Identifier(func_name) => {
+                // Get the scope for the callee from its expression info
+                let callee_expr_id = self
+                    .semantic_index
+                    .expression_id_by_span(callee.span())
+                    .ok_or_else(|| "No ExpressionId found for callee".to_string())?;
+                let callee_expr_info = self
+                    .semantic_index
+                    .expression(callee_expr_id)
+                    .ok_or_else(|| "No ExpressionInfo for callee".to_string())?;
+
+                if let Some((local_def_idx, local_def)) = self
+                    .semantic_index
+                    .resolve_name_to_definition(func_name.value(), callee_expr_info.scope_id)
+                {
+                    match &local_def.kind {
+                        DefinitionKind::Function(_) => {
+                            // Local function
+                            let func_def_id = DefinitionId::new(self.db, self.file, local_def_idx);
+                            if let Some((_, func_id)) = self.function_mapping.get(&func_def_id) {
+                                Ok(*func_id)
+                            } else {
+                                Err(format!(
+                                    "Function '{}' not found in mapping",
+                                    func_name.value()
+                                ))
+                            }
+                        }
+                        DefinitionKind::Use(use_ref) => {
+                            // Imported function
+                            self.resolve_imported_function(
+                                use_ref.imported_module.value(),
+                                func_name.value(),
+                            )
+                            .ok_or_else(|| {
+                                format!(
+                                    "Failed to resolve imported function '{}'",
+                                    func_name.value()
+                                )
+                            })
+                        }
+                        _ => Err(format!("'{}' is not a function", func_name.value())),
+                    }
+                } else {
+                    Err(format!("Function '{}' not found", func_name.value()))
+                }
+            }
+            Expression::MemberAccess { object, field } => {
+                // Handle module.function pattern
+                if let Expression::Identifier(module_name) = object.value() {
+                    // This could be an imported module function
+                    self.resolve_imported_function(module_name.value(), field.value())
+                        .ok_or_else(|| {
+                            format!(
+                                "Failed to resolve {}.{}",
+                                module_name.value(),
+                                field.value()
+                            )
+                        })
+                } else {
+                    Err("Complex member access callees not yet supported".to_string())
+                }
+            }
+            _ => Err("Unsupported callee expression type".to_string()),
+        }
+    }
 
     /// Gets the current basic block (mutable)
     fn current_block_mut(&mut self) -> &mut BasicBlock {

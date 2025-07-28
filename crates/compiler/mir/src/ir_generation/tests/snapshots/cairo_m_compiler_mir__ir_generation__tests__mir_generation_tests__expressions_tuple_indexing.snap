@@ -32,12 +32,17 @@ fn test_nested_tuple_index() -> felt {
     return nested.0.1 + nested.1.0;
 }
 
+fn get_tuple() -> (felt, felt) {
+    return (42, 99);
+}
+
 fn test_function_return_tuple_index() -> felt {
     return get_tuple().1;
 }
 
-fn get_tuple() -> (felt, felt) {
-    return (42, 99);
+fn test_simple_function_call_index() -> felt {
+    let result = get_tuple().1;
+    return result;
 }
 
 fn test_chain_tuple_operations() -> felt {
@@ -148,15 +153,6 @@ module {
   }
 
   // Function 3
-  fn test_function_return_tuple_index {
-    entry: 0
-
-    0:
-      unreachable
-
-  }
-
-  // Function 4
   fn get_tuple {
     entry: 0
 
@@ -165,7 +161,29 @@ module {
 
   }
 
+  // Function 4
+  fn test_function_return_tuple_index {
+    entry: 0
+
+    0:
+      %0, %1 = call 3()
+      return %1
+
+  }
+
   // Function 5
+  fn test_simple_function_call_index {
+    entry: 0
+
+    0:
+      %0, %1 = call 3()
+      %2 = stackalloc 1
+      store %2, %1
+      return %2
+
+  }
+
+  // Function 6
   fn test_chain_tuple_operations {
     entry: 0
 
