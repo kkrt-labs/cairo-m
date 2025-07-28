@@ -1576,6 +1576,66 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 Ok(Value::operand(dest))
             }
 
+            Expression::TupleIndex { tuple, index } => {
+                // Get the semantic type of the tuple to determine element types and offsets
+                let tuple_expr_id = self
+                    .semantic_index
+                    .expression_id_by_span(tuple.span())
+                    .ok_or_else(|| "No ExpressionId for tuple in TupleIndex".to_string())?;
+
+                let tuple_semantic_type = expression_semantic_type(
+                    self.db,
+                    self.crate_id,
+                    self.file,
+                    tuple_expr_id,
+                    None,
+                );
+
+                // Convert to MIR type to get offset calculation
+                let tuple_mir_type = MirType::from_semantic_type(self.db, tuple_semantic_type);
+
+                // TODO: This assumes the tuple expression is an lvalue (like a variable or field access),
+                // but it could be an rvalue expression that produces a tuple (like a function call).
+                // For example, get_tuple().1 where get_tuple() returns a tuple. In this case, we need
+                // to first evaluate the tuple expression to get a temporary tuple value, then index it.
+                // Currently this causes the function to generate unreachable code.
+
+                // Get the tuple base address
+                let tuple_addr = self.lower_lvalue_expression(tuple)?;
+
+                // Calculate the offset for the element
+                let offset = tuple_mir_type
+                    .tuple_element_offset(*index)
+                    .ok_or_else(|| format!("Invalid tuple index {} for type", index))?;
+
+                // Get element type
+                let element_mir_type = match &tuple_mir_type {
+                    MirType::Tuple(types) => types
+                        .get(*index)
+                        .ok_or_else(|| format!("Tuple index {} out of bounds", index))?
+                        .clone(),
+                    _ => return Err("TupleIndex on non-tuple type".to_string()),
+                };
+
+                // Calculate element address using get_element_ptr
+                let element_addr = self
+                    .mir_function
+                    .new_typed_value_id(MirType::pointer(element_mir_type));
+                self.add_instruction(
+                    Instruction::get_element_ptr(
+                        element_addr,
+                        tuple_addr,
+                        Value::integer(offset as i32),
+                    )
+                    .with_comment(format!(
+                        "Get address of tuple element {} for assignment",
+                        index
+                    )),
+                );
+
+                Ok(Value::operand(element_addr))
+            }
+
             Expression::Literal(_, _)
             | Expression::BooleanLiteral(_)
             | Expression::FunctionCall { .. }
@@ -1798,6 +1858,13 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         }
                     }
                 }
+
+                // TODO: Function calls returning tuples with immediate indexing (e.g., get_tuple().1)
+                // currently fail to resolve and return Value::error(), which leads to unreachable
+                // terminators in MIR. This happens because the function call expression is not
+                // handled when it's not a direct identifier. Need to support complex callee
+                // expressions beyond simple identifiers.
+                // See: https://github.com/kkrt-labs/cairo-m-2/issues/[TBD]
 
                 // If we can't resolve the function call, return an error value
                 Ok(Value::error())
@@ -2032,6 +2099,63 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                 // Return the tuple address
                 Ok(Value::operand(tuple_addr))
+            }
+            Expression::TupleIndex { tuple, index } => {
+                // Get the semantic type of the tuple to determine element types and offsets
+                let tuple_expr_id = self
+                    .semantic_index
+                    .expression_id_by_span(tuple.span())
+                    .ok_or_else(|| "No ExpressionId for tuple in TupleIndex".to_string())?;
+
+                let tuple_semantic_type = expression_semantic_type(
+                    self.db,
+                    self.crate_id,
+                    self.file,
+                    tuple_expr_id,
+                    None,
+                );
+
+                // Convert to MIR type to get offset calculation
+                let tuple_mir_type = MirType::from_semantic_type(self.db, tuple_semantic_type);
+
+                // Get the tuple base address
+                let tuple_addr = self.lower_lvalue_expression(tuple)?;
+
+                // Calculate the offset for the element
+                let offset = tuple_mir_type
+                    .tuple_element_offset(*index)
+                    .ok_or_else(|| format!("Invalid tuple index {} for type", index))?;
+
+                // Get element type
+                let element_mir_type = match &tuple_mir_type {
+                    MirType::Tuple(types) => types
+                        .get(*index)
+                        .ok_or_else(|| format!("Tuple index {} out of bounds", index))?
+                        .clone(),
+                    _ => return Err("TupleIndex on non-tuple type".to_string()),
+                };
+
+                // Calculate element address using get_element_ptr
+                let element_addr = self
+                    .mir_function
+                    .new_typed_value_id(MirType::pointer(element_mir_type.clone()));
+                self.add_instruction(
+                    Instruction::get_element_ptr(
+                        element_addr,
+                        tuple_addr,
+                        Value::integer(offset as i32),
+                    )
+                    .with_comment(format!("Get address of tuple element {}", index)),
+                );
+
+                // Load the value at the element address
+                let loaded_value = self.mir_function.new_typed_value_id(element_mir_type);
+                self.add_instruction(
+                    Instruction::load(loaded_value, Value::operand(element_addr))
+                        .with_comment(format!("Load tuple element {}", index)),
+                );
+
+                Ok(Value::operand(loaded_value))
             }
         }
     }
