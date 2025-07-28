@@ -18,7 +18,7 @@ cairo-m-compiler-semantic.workspace = true
 cairo-m-compiler-diagnostics.workspace = true
 
 # Chumsky types
-chumsky = "0.10.1"
+chumsky.workspace = true
 
 # Testing dependencies
 [dev-dependencies]

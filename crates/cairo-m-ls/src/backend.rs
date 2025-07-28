@@ -629,6 +629,8 @@ impl LanguageServer for Backend {
                 completion_provider: Some(CompletionOptions::default()),
                 hover_provider: Some(HoverProviderCapability::Simple(true)),
                 definition_provider: Some(OneOf::Left(true)),
+                document_formatting_provider: Some(OneOf::Left(true)),
+                document_range_formatting_provider: Some(OneOf::Left(true)),
                 ..Default::default()
             },
             ..Default::default()
@@ -1085,5 +1087,67 @@ impl LanguageServer for Backend {
         };
 
         Ok(Some(CompletionResponse::Array(completion_items)))
+    }
+
+    async fn formatting(&self, params: DocumentFormattingParams) -> Result<Option<Vec<TextEdit>>> {
+        let uri = params.text_document.uri;
+
+        // Get the source file
+        let source = match self.source_files.get(&uri) {
+            Some(entry) => *entry.value(),
+            None => return Ok(None),
+        };
+
+        // Format the file using the formatter
+        let formatted_text = self.safe_db_access_sync(|db| {
+            let config = cairo_m_formatter::FormatterConfig::default();
+            cairo_m_formatter::format_source_file(db.upcast(), source, &config)
+        });
+
+        let formatted = match formatted_text {
+            Some(text) => text,
+            None => return Ok(None),
+        };
+
+        // Get the current text to calculate the full range
+        let current_text = self.safe_db_access_sync(|db| source.text(db).to_string());
+        let current = match current_text {
+            Some(text) => text,
+            None => return Ok(None),
+        };
+
+        // Calculate the range that covers the entire document
+        let line_count = current.lines().count();
+        let last_line_len = current.lines().last().map(|l| l.len()).unwrap_or(0);
+
+        let range = Range {
+            start: Position {
+                line: 0,
+                character: 0,
+            },
+            end: Position {
+                line: (line_count.saturating_sub(1)) as u32,
+                character: last_line_len as u32,
+            },
+        };
+
+        // Return a single text edit that replaces the entire document
+        Ok(Some(vec![TextEdit {
+            range,
+            new_text: formatted,
+        }]))
+    }
+
+    async fn range_formatting(
+        &self,
+        params: DocumentRangeFormattingParams,
+    ) -> Result<Option<Vec<TextEdit>>> {
+        // For MVP, format the entire document
+        let formatting_params = DocumentFormattingParams {
+            text_document: params.text_document,
+            options: params.options,
+            work_done_progress_params: WorkDoneProgressParams::default(),
+        };
+        self.formatting(formatting_params).await
     }
 }

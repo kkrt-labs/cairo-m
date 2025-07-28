@@ -6,7 +6,7 @@ edition.workspace = true
 [dependencies]
 logos = "0.15"
 ariadne = "0.5.1"
-chumsky = "0.10.1"
+chumsky.workspace = true
 smol_str = "0.3.2"
 insta = "1.43.1"
 rowan = "0.16.1"

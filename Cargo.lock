@@ -499,6 +499,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "cairo-m-formatter"
+version = "0.1.0"
+dependencies = [
+ "ariadne",
+ "cairo-m-compiler-parser",
+ "chumsky",
+ "insta",
+ "pretty_assertions",
+ "salsa",
+ "salsa-macros",
+ "smol_str",
+ "thiserror",
+]
+
+[[package]]
 name = "cairo-m-ls"
 version = "0.1.0"
 dependencies = [
@@ -508,6 +523,7 @@ dependencies = [
  "cairo-m-compiler-diagnostics",
  "cairo-m-compiler-parser",
  "cairo-m-compiler-semantic",
+ "cairo-m-formatter",
  "cairo-m-project",
  "crossbeam-channel",
  "dashmap 5.5.3",
@@ -912,6 +928,12 @@ dependencies = [
  "serde_json",
  "thousands",
 ]
+
+[[package]]
+name = "diff"
+version = "0.1.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56254986775e3233ffa9c4d7d3faaf6d36a2c09d30b20687e9f88bc8bafc16c8"
 
 [[package]]
 name = "digest"
@@ -1936,6 +1958,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "85eae3c4ed2f50dcfe72643da4befc30deadb458a9b590d720cde2f2b1e97da9"
 dependencies = [
  "zerocopy",
+]
+
+[[package]]
+name = "pretty_assertions"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ae130e2f271fbc2ac3a40fb1d07180839cdbbe443c7a27e1e3c13c5cac0116d"
+dependencies = [
+ "diff",
+ "yansi",
 ]
 
 [[package]]

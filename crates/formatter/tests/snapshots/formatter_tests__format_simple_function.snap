@@ -1,0 +1,8 @@
+---
+source: crates/formatter/tests/formatter_tests.rs
+expression: format_code(input)
+---
+fn add(x: felt, y: felt) -> felt {
+    let result = x + y;
+    return result;
+}

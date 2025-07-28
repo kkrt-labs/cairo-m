@@ -1,0 +1,148 @@
+use cairo_m_compiler_parser::parser::{Pattern, Statement};
+
+use crate::Format;
+use crate::context::FormatterCtx;
+use crate::doc::Doc;
+
+impl Format for Statement {
+    fn format(&self, ctx: &mut FormatterCtx) -> Doc {
+        match self {
+            Self::Let {
+                pattern,
+                statement_type,
+                value,
+            } => {
+                let mut parts = vec![Doc::text("let"), Doc::text(" ")];
+                parts.push(pattern.format(ctx));
+
+                if let Some(ty) = statement_type {
+                    parts.push(Doc::text(": "));
+                    parts.push(ty.value().format(ctx));
+                }
+
+                parts.push(Doc::text(" = "));
+                parts.push(value.value().format(ctx));
+                parts.push(Doc::text(";"));
+
+                Doc::concat(parts)
+            }
+            Self::Const(const_def) => const_def.format(ctx),
+            Self::Assignment { lhs, rhs } => Doc::concat(vec![
+                lhs.value().format(ctx),
+                Doc::text(" = "),
+                rhs.value().format(ctx),
+                Doc::text(";"),
+            ]),
+            Self::Return { value } => {
+                let mut parts = vec![Doc::text("return")];
+                if let Some(expr) = value {
+                    parts.push(Doc::text(" "));
+                    parts.push(expr.value().format(ctx));
+                }
+                parts.push(Doc::text(";"));
+                Doc::concat(parts)
+            }
+            Self::Expression(expr) => Doc::concat(vec![expr.value().format(ctx), Doc::text(";")]),
+            Self::If {
+                condition,
+                then_block,
+                else_block,
+            } => {
+                let mut parts = vec![
+                    Doc::text("if"),
+                    Doc::text(" "),
+                    condition.value().format(ctx),
+                    Doc::text(" "),
+                    then_block.value().format(ctx),
+                ];
+
+                if let Some(else_stmt) = else_block {
+                    parts.push(Doc::text(" "));
+                    parts.push(Doc::text("else"));
+                    parts.push(Doc::text(" "));
+                    parts.push(else_stmt.value().format(ctx));
+                }
+
+                Doc::concat(parts)
+            }
+            Self::Block(statements) => {
+                let mut parts = vec![Doc::text("{")];
+
+                if !statements.is_empty() {
+                    let stmts = statements
+                        .iter()
+                        .map(|s| Doc::concat(vec![Doc::line(), s.value().format(ctx)]))
+                        .collect::<Vec<_>>();
+
+                    parts.push(Doc::indent(ctx.cfg.indent_width, Doc::concat(stmts)));
+                    parts.push(Doc::line());
+                }
+
+                parts.push(Doc::text("}"));
+                Doc::concat(parts)
+            }
+            Self::Loop { body } => Doc::concat(vec![
+                Doc::text("loop"),
+                Doc::text(" "),
+                body.value().format(ctx),
+            ]),
+            Self::While { condition, body } => Doc::concat(vec![
+                Doc::text("while"),
+                Doc::text(" "),
+                condition.value().format(ctx),
+                Doc::text(" "),
+                body.value().format(ctx),
+            ]),
+            Self::For {
+                init,
+                condition,
+                step,
+                body,
+            } => {
+                let mut parts = vec![Doc::text("for"), Doc::text(" "), Doc::text("(")];
+
+                // Format init without semicolon (we'll add it manually)
+                let init_formatted = init.value().format(ctx);
+                parts.push(init_formatted);
+                parts.push(Doc::text(" "));
+
+                parts.push(condition.value().format(ctx));
+                parts.push(Doc::text(";"));
+                parts.push(Doc::text(" "));
+
+                // Format step - if it's an expression statement, don't include the semicolon
+                match step.value() {
+                    Self::Expression(expr) => parts.push(expr.value().format(ctx)),
+                    _ => parts.push(step.value().format(ctx)),
+                }
+
+                parts.push(Doc::text(")"));
+                parts.push(Doc::text(" "));
+                parts.push(body.value().format(ctx));
+
+                Doc::concat(parts)
+            }
+            Self::Break => Doc::text("break;"),
+            Self::Continue => Doc::text("continue;"),
+        }
+    }
+}
+
+impl Format for Pattern {
+    fn format(&self, _ctx: &mut FormatterCtx) -> Doc {
+        match self {
+            Self::Identifier(name) => Doc::text(name.value()),
+            Self::Tuple(names) => {
+                let name_docs = names
+                    .iter()
+                    .map(|n| Doc::text(n.value()))
+                    .collect::<Vec<_>>();
+                Doc::concat(vec![
+                    Doc::text("("),
+                    Doc::join(Doc::text(", "), name_docs),
+                    Doc::text(")"),
+                ])
+            }
+        }
+    }
+}
