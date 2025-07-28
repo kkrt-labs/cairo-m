@@ -161,11 +161,10 @@ fn collect_statement_spans(
             collect_expression_spans(lhs, spans);
             collect_expression_spans(rhs, spans);
         }
-        Statement::Return { value } => {
-            if let Some(expr) = value {
-                collect_expression_spans(expr, spans);
-            }
+        Statement::Return { value: Some(expr) } => {
+            collect_expression_spans(expr, spans);
         }
+        Statement::Return { value: None } => {}
         Statement::Expression(expr) => {
             collect_expression_spans(expr, spans);
         }

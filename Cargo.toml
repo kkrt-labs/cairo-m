@@ -1,17 +1,17 @@
 [workspace]
 members = [
   "crates/common",
-  "crates/compiler/cairo-m-project",
+  "crates/compiler",
   "crates/compiler/parser",
   "crates/compiler/semantic",
   "crates/compiler/mir",
   "crates/compiler/codegen",
   "crates/compiler/diagnostics",
-  "crates/compiler",
+  "crates/compiler/formatter",
+  "crates/compiler/cairo-m-project",
   "crates/runner",
   "crates/prover",
   "crates/cairo-m-ls",
-  "crates/formatter",
 ]
 resolver = "2"
 
@@ -32,6 +32,7 @@ cairo-m-project = { path = "crates/compiler/cairo-m-project" }
 cairo-m-compiler = { path = "crates/compiler" }
 cairo-m-runner = { path = "crates/runner" }
 cairo-m-prover = { path = "crates/prover" }
+cairo-m-formatter = { path = "crates/compiler/formatter" }
 
 # Starkware dependencies
 stwo-prover = { git = "https://github.com/starkware-libs/stwo", features = [

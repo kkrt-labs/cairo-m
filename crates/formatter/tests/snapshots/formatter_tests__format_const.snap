@@ -1,5 +1,0 @@
----
-source: crates/formatter/tests/formatter_tests.rs
-expression: format_code(input)
----
-const PI = 314;

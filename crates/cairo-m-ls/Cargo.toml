@@ -26,12 +26,12 @@ notify = "6.1"
 salsa = "0.22"
 
 # Cairo-M compiler dependencies
-cairo-m-compiler = { path = "../compiler" }
-cairo-m-compiler-diagnostics = { path = "../compiler/diagnostics" }
-cairo-m-compiler-parser = { path = "../compiler/parser" }
-cairo-m-compiler-semantic = { path = "../compiler/semantic" }
-cairo-m-project = { path = "../compiler/cairo-m-project" }
-cairo-m-formatter = { path = "../formatter" }
+cairo-m-compiler.workspace = true
+cairo-m-compiler-diagnostics.workspace = true
+cairo-m-compiler-parser.workspace = true
+cairo-m-compiler-semantic.workspace = true
+cairo-m-project.workspace = true
+cairo-m-formatter.workspace = true
 
 [dev-dependencies]
 tempfile = "3.8"
