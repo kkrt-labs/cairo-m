@@ -6,7 +6,7 @@ use stwo_prover::core::fields::qm31::QM31;
 
 // Re-export PoseidonHash for convenience
 pub use crate::utils::poseidon::PoseidonHash as DefaultHasher;
-use crate::utils::poseidon::{FULL_ROUNDS, PARTIAL_ROUNDS, PoseidonHash, PoseidonRoundData, T};
+use crate::utils::poseidon::{PoseidonHash, PoseidonRoundData};
 
 /// NodeData represents a node in the partial Merkle tree
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -28,21 +28,6 @@ impl NodeData {
             self.value_parent,
         ]
     }
-}
-
-/// Trait for hash functions used in the Merkle tree
-pub trait MerkleHasher: Clone {
-    /// Hash two M31 values into a single M31
-    fn hash(left: M31, right: M31) -> M31;
-
-    /// Hash two M31 values into a single M31 with trace
-    fn hash_with_trace(
-        left: M31,
-        right: M31,
-    ) -> ([PoseidonRoundData; FULL_ROUNDS + PARTIAL_ROUNDS], [M31; T]);
-
-    /// Get precomputed default hashes for each depth
-    fn default_hashes() -> &'static [M31];
 }
 
 pub const MAX_MEMORY_LOG_SIZE: u32 = 28;

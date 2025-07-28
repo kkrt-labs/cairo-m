@@ -1,11 +1,13 @@
 #![allow(non_camel_case_types)]
 use stwo_constraint_framework::relation;
 
+use crate::utils::poseidon::T;
+
 relation!(RangeCheck20, 1); // value
 relation!(Memory, 6); // addr, clock, value0, value1, value2, value3
 relation!(Registers, 2); // pc, fp
 relation!(Merkle, 4); // index, layer, value, root
-relation!(PoseidonRound, 194); // T=194 values for Poseidon state
+relation!(PoseidonRound, T); // T values for Poseidon state
 
 /// Logup security is defined by the `QM31` space:
 /// (~124 bits) + `INTERACTION_POW_BITS` - log2(number of relation terms).

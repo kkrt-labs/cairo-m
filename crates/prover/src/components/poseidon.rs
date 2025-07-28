@@ -1,3 +1,37 @@
+//! Component for Poseidon permutation rounds.
+//!
+//! # Columns
+//!
+//! - enabler
+//! - index
+//! - state (input)
+//! - inter_state (input + round constant)
+//! - inter_state_sq (inter_state * inter_state)
+//! - inter_state_quad (inter_state_sq * inter_state_sq)
+//! - s_box_out_state (inter_state * inter_state_quad)
+//! - full_round
+//! - final_round
+//!
+//! # Constraints
+//!
+//! * enabler is a bool
+//!   * `enabler * (1 - enabler)`
+//! * full_round is a bool
+//!   * `full_round * (1 - full_round)`
+//! * final_round is a bool
+//!   * `final_round * (1 - final_round)`
+//! * round constant addition
+//!   * `inter_state[i] = state[i] + round_constant[i]`
+//! * s-box computation (x^5)
+//!   * `inter_state_sq[i] = inter_state[i] * inter_state[i]`
+//!   * `inter_state_quad[i] = inter_state_sq[i] * inter_state_sq[i]`
+//!   * `s_box_out_state[i] = inter_state[i] * inter_state_quad[i]`
+//! * mds matrix multiplication
+//!   * `next_state = MDS * s_box_out_state`
+//! * poseidon round relation
+//!   * `+ [state[0], state[1]]` in `PoseidonRound` relation (input)
+//!   * `- [final_state[0]]` in `PoseidonRound` relation (output)
+
 use num_traits::{One, Zero};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
@@ -23,7 +57,7 @@ use crate::utils::enabler::Enabler;
 use crate::utils::poseidon::poseidon_constants::mds_matrix;
 use crate::utils::poseidon::{PoseidonRoundData, T};
 
-const N_TRACE_COLUMNS: usize = T * 5 + 3; // enabler, state, inter_state, inter_state_sq, inter_state_quad, s_box_out_state, full_round, final_round
+const N_TRACE_COLUMNS: usize = T * 5 + 3;
 const INPUT_SIZE: usize = T * 5 + 2; // same but without the enabler
 const N_POSEIDON_LOOKUPS: usize = 2;
 const N_INTERACTION_COLUMNS: usize = SECURE_EXTENSION_DEGREE * N_POSEIDON_LOOKUPS;

@@ -7,7 +7,7 @@ pub use poseidon_params::*;
 use stwo_prover::core::fields::m31::M31;
 
 /// Intermediate data for a single round, used for trace generation
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct PoseidonRoundData {
     /// State before the current round (input for first round)
     pub state: [M31; T],
@@ -119,15 +119,7 @@ impl PoseidonHash {
         input: [M31; T],
     ) -> ([PoseidonRoundData; FULL_ROUNDS + PARTIAL_ROUNDS], [M31; T]) {
         let mut state = input;
-        let mut trace_data = [PoseidonRoundData {
-            state: [M31::zero(); T],
-            inter_state: [M31::zero(); T],
-            inter_state_sq: [M31::zero(); T],
-            inter_state_quad: [M31::zero(); T],
-            s_box_out_state: [M31::zero(); T],
-            full_round: M31::zero(),
-            final_round: M31::zero(),
-        }; FULL_ROUNDS + PARTIAL_ROUNDS];
+        let mut trace_data = [PoseidonRoundData::default(); FULL_ROUNDS + PARTIAL_ROUNDS];
 
         let total_rounds = FULL_ROUNDS + PARTIAL_ROUNDS;
         let mut round_counter = 0;

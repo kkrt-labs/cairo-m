@@ -28,8 +28,8 @@ pub struct Claim {
     pub opcodes: opcodes::Claim,
     pub memory: memory::Claim,
     pub merkle: merkle::Claim,
-    pub range_check_20: range_check_20::Claim,
     pub poseidon: poseidon::Claim,
+    pub range_check_20: range_check_20::Claim,
 }
 
 #[derive(Debug, Clone)]
@@ -37,16 +37,16 @@ pub struct Relations {
     pub registers: relations::Registers,
     pub memory: relations::Memory,
     pub merkle: relations::Merkle,
-    pub range_check_20: relations::RangeCheck20,
     pub poseidon_round: relations::PoseidonRound,
+    pub range_check_20: relations::RangeCheck20,
 }
 
 pub struct InteractionClaimData {
     pub opcodes: opcodes::InteractionClaimData,
     pub memory: memory::InteractionClaimData,
     pub merkle: merkle::InteractionClaimData,
-    pub range_check_20: range_check_20::InteractionClaimData,
     pub poseidon: poseidon::InteractionClaimData,
+    pub range_check_20: range_check_20::InteractionClaimData,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -54,8 +54,8 @@ pub struct InteractionClaim {
     pub opcodes: opcodes::InteractionClaim,
     pub memory: memory::InteractionClaim,
     pub merkle: merkle::InteractionClaim,
-    pub range_check_20: range_check_20::InteractionClaim,
     pub poseidon: poseidon::InteractionClaim,
+    pub range_check_20: range_check_20::InteractionClaim,
 }
 
 impl Claim {
@@ -166,16 +166,16 @@ impl InteractionClaim {
                 &interaction_claim_data.merkle,
             );
 
-        let (range_check_20_interaction_claim, range_check_20_interaction_trace) =
-            range_check_20::InteractionClaim::write_interaction_trace(
-                &relations.range_check_20,
-                &interaction_claim_data.range_check_20,
-            );
-
         let (poseidon_interaction_claim, poseidon_interaction_trace) =
             poseidon::InteractionClaim::write_interaction_trace(
                 relations,
                 &interaction_claim_data.poseidon,
+            );
+
+        let (range_check_20_interaction_claim, range_check_20_interaction_trace) =
+            range_check_20::InteractionClaim::write_interaction_trace(
+                &relations.range_check_20,
+                &interaction_claim_data.range_check_20,
             );
 
         (

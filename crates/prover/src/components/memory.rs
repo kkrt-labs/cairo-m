@@ -1,3 +1,34 @@
+//! Component for private memory management (emit and use boundary memory values).
+//! Emits intermediate nodes and leaves of merkle trees.
+//!
+//! # Columns
+//!
+//! - enabler
+//! - address
+//! - clock
+//! - value0
+//! - value1
+//! - value2
+//! - value3
+//! - multiplicity
+//! - depth
+//! - root
+//! - intermediate_node_flag
+//!
+//! # Constraints
+//!
+//! * enabler is a bool
+//!   * `enabler * (1 - enabler)`
+//! * intermediate_node_flag is a bool
+//!   * `intermediate_node_flag * (1 - intermediate_node_flag)`
+//! * emit or use boundary memory values
+//!   * `+ or - [address, prev_clock, prev_value]` in `Memory` relation
+//! * emit leaves and intermediate nodes of merkle trees
+//!   * `[ address * (4 - 3 * intermediate_node_flag), depth, value, root]` in `Merkle` relation
+//!   * `(1 - intermediate_node_flag) * enabler * [ 4 * address + 1, depth, value, root]` in `Merkle` relation
+//!   * `(1 - intermediate_node_flag) * enabler * [ 4 * address + 2, depth, value, root]` in `Merkle` relation
+//!   * `(1 - intermediate_node_flag) * enabler * [ 4 * address + 3, depth, value, root]` in `Merkle` relation
+
 use num_traits::{One, Zero};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
@@ -24,8 +55,8 @@ use crate::adapter::merkle::TREE_HEIGHT;
 use crate::components::Relations;
 use crate::utils::enabler::Enabler;
 
-const N_TRACE_COLUMNS: usize = 11; // enabler, address, clock, value0, value1, value2, value3, multiplicity, depth, root, intermediate_node_flag
-const N_INPUT_COLUMNS: usize = 10; // address, clock, value0, value1, value2, value3, mulitplicity, depth, root, intermediate_node_flag
+const N_TRACE_COLUMNS: usize = 11;
+const N_INPUT_COLUMNS: usize = 10; // same as trace but without the enabler
 const N_MEMORY_LOOKUPS: usize = 1;
 const N_MERKLE_LOOKUPS: usize = 4;
 const N_INTERACTION_COLUMNS: usize =

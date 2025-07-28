@@ -1,3 +1,29 @@
+//! Builds partial Merkle trees from memory for Poseidon.
+//!
+//! # Columns
+//!
+//! - enabler
+//! - index
+//! - depth
+//! - value_left
+//! - value_right
+//! - parent_value
+//! - root
+//!
+//! # Constraints
+//!
+//! * enabler is a bool
+//!   * `enabler * (1 - enabler)`
+//! * use left node
+//!   * `- [index, depth, value_left, root]` in `Memory` relation
+//! * use right node
+//!   * `- [index + 1, depth, value_right, root]` in `Memory` relation
+//! * emit parent node
+//!   * `+ [index / 2, depth - 1, parent_value, root]` in `Memory` relation
+//! * poseidon hash computation
+//!   * `+ [value_left, value_right]` in `PoseidonRound` relation (emit hash input)
+//!   * `- [parent_value]` in `PoseidonRound` relation (use hash output)
+
 use num_traits::{One, Zero};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
@@ -22,7 +48,7 @@ use crate::adapter::MerkleTrees;
 use crate::components::Relations;
 use crate::utils::enabler::Enabler;
 
-const N_TRACE_COLUMNS: usize = 7; // enabler, index, depth, value_left, value_right, parent_value, root
+const N_TRACE_COLUMNS: usize = 7;
 const N_MERKLE_LOOKUPS: usize = 3;
 const N_POSEIDON_ROUND_LOOKUPS: usize = 2;
 const N_INTERACTION_COLUMNS: usize =
