@@ -9,7 +9,7 @@ async fn test_simple_diagnostics__() {
         "src/main.cm",
         r#"
 fn main() {
-    let _x = undefined_var; // This should produce an error
+    let _x = undefined_var; // This should produce an error AND a warning.
     return;
 }
 "#,
