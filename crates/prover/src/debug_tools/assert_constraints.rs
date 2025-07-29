@@ -146,6 +146,7 @@ fn assert_components(trace: TreeVec<Vec<&Vec<M31>>>, components: &Components) {
         opcodes,
         memory,
         merkle,
+        poseidon2,
         range_check_20,
         clock_update,
     } = components;
@@ -160,6 +161,7 @@ fn assert_components(trace: TreeVec<Vec<&Vec<M31>>>, components: &Components) {
     assert_component(memory, &trace);
     assert_component(merkle, &trace);
     assert_component(clock_update, &trace);
+    assert_component(poseidon2, &trace);
     assert_component(range_check_20, &trace);
 }
 
