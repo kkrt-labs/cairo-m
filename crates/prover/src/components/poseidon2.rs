@@ -208,10 +208,11 @@ impl Claim {
             .into_par_iter()
             .enumerate()
             .for_each(|(row_index, (mut row, mut state, lookup_data))| {
+                let mut col_index = 0;
                 let enabler = enabler_col.packed_at(row_index);
-                let mut col_index = 1;
 
-                *row[0] = enabler;
+                *row[col_index] = enabler;
+                col_index += 1;
 
                 // Add initial state to the trace and lookup data
                 state.iter().for_each(|s| {
