@@ -154,7 +154,6 @@ The formatter handles all Cairo-M language constructs:
 
 - **Functions**: Parameter lists, return types, bodies with proper indentation
 - **Structs**: Field formatting with optional trailing commas
-- **Namespaces**: Nested module formatting
 - **Constants**: Value alignment and type annotations
 - **Use statements**: Import path formatting
 

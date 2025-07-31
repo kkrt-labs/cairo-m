@@ -111,16 +111,3 @@ struct foo {} fn foo(){return;}
    │                  ─┬─  
    │                   ╰─── `foo` defined more than once
 ───╯
-
-============================================================
-
---- Input 8 (ERROR) ---
-fn foo(){return;} namespace foo {}
---- Diagnostics ---
-[1003] Error: `foo` defined more than once
-   ╭─[ semantic_tests::scoping::duplicate_definitions::test_duplicate_definitions_and_shadowing:1:29 ]
-   │
- 1 │ fn foo(){return;} namespace foo {}
-   │                             ─┬─  
-   │                              ╰─── `foo` defined more than once
-───╯

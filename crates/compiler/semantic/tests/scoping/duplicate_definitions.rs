@@ -34,8 +34,6 @@ fn test_duplicate_definitions_and_shadowing() {
             // duplicate combination of top-level items
             "fn foo() {return;} const foo = 1;",
             "struct foo {} fn foo(){return;}",
-            "fn foo(){return;} namespace foo {}",
-
         ]
     }
 }

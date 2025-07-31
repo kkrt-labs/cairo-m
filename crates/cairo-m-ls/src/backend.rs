@@ -1034,7 +1034,6 @@ impl LanguageServer for Backend {
                                     DefinitionKind::Const(_) => CompletionItemKind::CONSTANT,
                                     DefinitionKind::Struct(_) => CompletionItemKind::STRUCT,
                                     DefinitionKind::Use(_) => CompletionItemKind::MODULE,
-                                    DefinitionKind::Namespace(_) => CompletionItemKind::MODULE,
                                     DefinitionKind::LoopVariable(_) => CompletionItemKind::VARIABLE,
                                 };
 

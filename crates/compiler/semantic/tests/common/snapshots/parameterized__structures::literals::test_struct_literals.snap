@@ -38,12 +38,12 @@ struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10, y: 20, z: 3
 --- Input 3 (ERROR) ---
 struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10 }; } return;
 --- Diagnostics ---
-[02] Error: found 'return' expected 'fn', 'struct', 'const', 'namespace', 'use', or end of input
+[02] Error: found 'return' expected 'fn', 'struct', 'const', 'use', or end of input
    ╭─[ semantic_tests::structures::literals::test_struct_literals:1:74 ]
    │
  1 │ struct Point { x: felt, y: felt } fn test() { let p = Point { x: 10 }; } return;
    │                                                                          ───┬──  
-   │                                                                             ╰──── found 'return' expected 'fn', 'struct', 'const', 'namespace', 'use', or end of input
+   │                                                                             ╰──── found 'return' expected 'fn', 'struct', 'const', 'use', or end of input
 ───╯
 
 ============================================================

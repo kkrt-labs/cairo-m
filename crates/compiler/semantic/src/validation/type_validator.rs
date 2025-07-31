@@ -1381,17 +1381,6 @@ impl TypeValidator {
                         return Some(func_spanned.value());
                     }
                 }
-                TopLevelItem::Namespace(namespace_spanned) => {
-                    // Recursively search namespaces.
-                    let namespace = namespace_spanned.value();
-                    for namespace_item in &namespace.body {
-                        if let TopLevelItem::Function(func_spanned) = namespace_item
-                            && func_spanned.value().name.value() == function_name
-                        {
-                            return Some(func_spanned.value());
-                        }
-                    }
-                }
                 _ => {} // Ignore other top-level items.
             }
         }

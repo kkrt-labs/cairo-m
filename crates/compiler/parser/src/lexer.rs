@@ -179,8 +179,6 @@ pub enum TokenType<'a> {
     If,
     #[token("let")]
     Let,
-    #[token("namespace")]
-    Namespace,
     #[token("return")]
     Return,
     #[token("struct")]
@@ -278,7 +276,6 @@ impl<'a> fmt::Display for TokenType<'a> {
             TokenType::Function => write!(f, "fn"),
             TokenType::If => write!(f, "if"),
             TokenType::Let => write!(f, "let"),
-            TokenType::Namespace => write!(f, "namespace"),
             TokenType::Return => write!(f, "return"),
             TokenType::Struct => write!(f, "struct"),
             TokenType::True => write!(f, "true"),
