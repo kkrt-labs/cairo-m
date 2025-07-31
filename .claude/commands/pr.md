@@ -13,5 +13,5 @@ Linear MCP to fetch the corresponding $ARGUMENTS issue and make sure that the PR
 content matches the issue description.
 
 Wait for few minutes after the PR has been created to find a comment from Claude
-making a detailed review of the PR. If the recommandation is not to approve,
+making a detailed review of the PR. If the recommendation is not to approve,
 work on the suggested improvements.
