@@ -152,7 +152,10 @@ where
     });
 }
 
+#[inline(always)]
 fn square<F: FieldExpOps>(x: F) -> F {
+    x.clone() * x
+}
     x.clone() * x
 }
 
