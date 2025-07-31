@@ -25,7 +25,7 @@ use crate::components::Relations;
 use crate::utils::enabler::Enabler;
 
 const N_TRACE_COLUMNS: usize = 11; // enabler, address, clock, value0, value1, value2, value3, multiplicity, depth, root, intermediate_node_flag
-const N_INPUT_COLUMNS: usize = 10; // address, clock, value0, value1, value2, value3, mulitplicity, depth, root, intermediate_node_flag
+const N_INPUT_COLUMNS: usize = 10; // address, clock, value0, value1, value2, value3, multiplicity, depth, root, intermediate_node_flag
 const N_MEMORY_LOOKUPS: usize = 1;
 const N_MERKLE_LOOKUPS: usize = 4;
 const N_INTERACTION_COLUMNS: usize =

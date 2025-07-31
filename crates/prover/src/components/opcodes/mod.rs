@@ -1,7 +1,12 @@
 macro_rules! define_opcodes {
-    ($(($opcode_enum:expr, $opcode:ident)),* $(,)?) => {
+    // Single pattern: all opcodes use [opcodes...] syntax
+    ($(([$(Opcode::$opcode_enum:ident),+ $(,)?], $opcode:ident)),* $(,)?) => {
+        // Check that all Opcode enum variants are used
+        define_opcodes!(@check_all_opcodes_used [$($($opcode_enum),+),*]);
+
         // Generate pub mod declarations for all opcodes
         $(pub mod $opcode;)*
+
         // Define all structures
         #[derive(Serialize, Deserialize, Clone, Debug)]
         pub struct Claim {
@@ -45,9 +50,15 @@ macro_rules! define_opcodes {
                 SimdBackend: BackendForChannel<MC>,
             {
                 $(
-                    let state_data = instructions.states_by_opcodes.entry($opcode_enum).or_default();
+                    // Collect states for all opcodes in this group
+                    let mut grouped_states = Vec::new();
+                    $(
+                        let state_data = instructions.states_by_opcodes.entry(Opcode::$opcode_enum).or_default();
+                        grouped_states.extend(state_data.drain(..));
+                    )+
+
                     let (paste::paste! { [<$opcode _claim>] }, paste::paste! { [<$opcode _trace_raw>] }, paste::paste! { [<$opcode _interaction_claim_data>] }) =
-                        $opcode::Claim::write_trace(state_data);
+                        $opcode::Claim::write_trace(&mut grouped_states);
                     let paste::paste! { [<$opcode _trace>] } = Box::new(paste::paste! { [<$opcode _trace_raw>] }.to_evals().into_iter());
                 )*
 
@@ -145,6 +156,22 @@ macro_rules! define_opcodes {
         }
     };
 
+    // Helper rule to check that all Opcode variants are used
+    (@check_all_opcodes_used [$($opcode_enum:ident),* $(,)?]) => {
+        // This will be checked at compile time - if any opcode is missing,
+        // the match will be non-exhaustive and compilation will fail
+        const _: fn() = || {
+            use cairo_m_common::Opcode;
+            let _check_all_opcodes = |opcode: Opcode| {
+                match opcode {
+                    $(
+                        Opcode::$opcode_enum => {},
+                    )*
+                }
+            };
+        };
+    };
+
     // Helper rule for range_check_20 chaining
     (@range_check_20 $self:ident, $first:ident $(, $rest:ident)*) => {
         $self.$first
@@ -184,20 +211,29 @@ use crate::adapter::Instructions;
 use crate::components::Relations;
 
 // Define all opcode structures and implementations with a single macro call
-define_opcodes! {
-    (Opcode::CallAbsImm, call_abs_imm),
-    (Opcode::JmpAbsImm, jmp_abs_imm),
-    (Opcode::JmpRelImm, jmp_rel_imm),
-    (Opcode::JnzFpImm, jnz_fp_imm),
-    (Opcode::Ret, ret),
-    (Opcode::StoreAddFpFp, store_add_fp_fp),
-    (Opcode::StoreAddFpImm, store_add_fp_imm),
-    (Opcode::StoreDivFpFp, store_div_fp_fp),
-    (Opcode::StoreDivFpImm, store_div_fp_imm),
-    (Opcode::StoreDoubleDerefFp, store_double_deref_fp),
-    (Opcode::StoreImm, store_imm),
-    (Opcode::StoreMulFpFp, store_mul_fp_fp),
-    (Opcode::StoreMulFpImm, store_mul_fp_imm),
-    (Opcode::StoreSubFpFp, store_sub_fp_fp),
-    (Opcode::StoreSubFpImm, store_sub_fp_imm),
-}
+define_opcodes!(
+    ([Opcode::CallAbsImm], call_abs_imm),
+    ([Opcode::JmpAbsImm, Opcode::JmpRelImm], jmp_imm),
+    ([Opcode::JnzFpImm], jnz_fp_imm),
+    ([Opcode::Ret], ret),
+    ([Opcode::StoreImm], store_imm),
+    (
+        [
+            Opcode::StoreAddFpFp,
+            Opcode::StoreSubFpFp,
+            Opcode::StoreMulFpFp,
+            Opcode::StoreDivFpFp,
+        ],
+        store_fp_fp
+    ),
+    (
+        [
+            Opcode::StoreAddFpImm,
+            Opcode::StoreSubFpImm,
+            Opcode::StoreMulFpImm,
+            Opcode::StoreDivFpImm,
+        ],
+        store_fp_imm
+    ),
+    ([Opcode::StoreDoubleDerefFp], store_double_deref_fp)
+);
