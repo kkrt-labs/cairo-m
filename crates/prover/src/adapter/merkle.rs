@@ -141,9 +141,9 @@ pub fn build_partial_merkle_tree<H: MerkleHasher>(
             nodes.push(NodeData {
                 index: M31::from(left_index),
                 depth: depth as u8,
-                left_value: left_value,
-                right_value: right_value,
-                parent_value: parent_value,
+                left_value,
+                right_value,
+                parent_value,
             });
 
             // Store parent value for next depth
