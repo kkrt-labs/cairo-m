@@ -70,9 +70,8 @@ pub fn call_abs_imm(
 pub fn ret(
     memory: &mut Memory,
     state: State,
-    instruction: &Instruction,
+    _instruction: &Instruction,
 ) -> Result<State, InstructionExecutionError> {
-    extract_as!(instruction, Ret);
     let pc = memory.get_data(state.fp - M31::one())?;
     let fp = memory.get_data(state.fp - M31(2))?;
 
