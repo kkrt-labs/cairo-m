@@ -4,9 +4,12 @@ use std::fs;
 
 use cairo_m_compiler::{CompilerOptions, compile_cairo};
 use cairo_m_prover::adapter::memory::Memory;
-use cairo_m_prover::adapter::merkle::{MockHasher, TREE_HEIGHT, build_partial_merkle_tree};
-use cairo_m_prover::adapter::{Instructions, MerkleTrees, ProverInput, import_from_runner_output};
+use cairo_m_prover::adapter::merkle::{TREE_HEIGHT, build_partial_merkle_tree};
+use cairo_m_prover::adapter::{
+    HashInput, Instructions, MerkleTrees, ProverInput, import_from_runner_output,
+};
 use cairo_m_prover::debug_tools::assert_constraints::assert_constraints;
+use cairo_m_prover::poseidon2::Poseidon2Hash;
 use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_prover::verifier::verify_cairo_m;
 use cairo_m_runner::{RunnerOptions, run_cairo_program};
@@ -55,9 +58,18 @@ fn test_prove_and_verify_unchanged_memory() {
     };
 
     let (initial_tree, initial_root) =
-        build_partial_merkle_tree::<MockHasher>(&mut memory.initial_memory);
+        build_partial_merkle_tree::<Poseidon2Hash>(&mut memory.initial_memory);
     let (final_tree, final_root) =
-        build_partial_merkle_tree::<MockHasher>(&mut memory.final_memory);
+        build_partial_merkle_tree::<Poseidon2Hash>(&mut memory.final_memory);
+
+    let mut poseidon2_inputs =
+        Vec::<HashInput>::with_capacity(initial_tree.len() + final_tree.len());
+    initial_tree.iter().for_each(|node| {
+        poseidon2_inputs.push(node.to_hash_input());
+    });
+    final_tree.iter().for_each(|node| {
+        poseidon2_inputs.push(node.to_hash_input());
+    });
 
     let mut prover_input = ProverInput {
         merkle_trees: MerkleTrees {
@@ -69,6 +81,7 @@ fn test_prove_and_verify_unchanged_memory() {
         public_addresses: vec![],
         memory,
         instructions: Instructions::default(),
+        poseidon2_inputs,
     };
 
     let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();

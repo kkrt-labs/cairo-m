@@ -7,6 +7,7 @@ pub mod adapter;
 pub mod components;
 pub mod debug_tools;
 pub mod errors;
+pub mod poseidon2;
 pub mod preprocessed;
 pub mod prover;
 pub mod prover_config;

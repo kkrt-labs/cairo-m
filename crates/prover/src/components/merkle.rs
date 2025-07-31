@@ -1,3 +1,29 @@
+//! Builds partial Merkle trees from memory for Poseidon2.
+//!
+//! # Columns
+//!
+//! - enabler
+//! - index
+//! - depth
+//! - left_value
+//! - right_value
+//! - parent_value
+//! - root
+//!
+//! # Constraints
+//!
+//! * enabler is a bool
+//!   * `enabler * (1 - enabler)`
+//! * use left node
+//!   * `- [index, depth, left_value, root]` in `Memory` relation
+//! * use right node
+//!   * `- [index + 1, depth, right_value, root]` in `Memory` relation
+//! * emit parent node
+//!   * `+ [index / 2, depth - 1, parent_value, root]` in `Memory` relation
+//! * poseidon2 hash computation
+//!   * `+ [left_value, right_value]` in `Poseidon2` relation (emit hash input)
+//!   * `- [parent_value]` in `Poseidon2` relation (use hash output)
+
 use num_traits::{One, Zero};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
@@ -19,14 +45,14 @@ use stwo_prover::core::poly::BitReversedOrder;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 
 use crate::adapter::MerkleTrees;
-use crate::adapter::merkle::MerkleHasher;
 use crate::components::Relations;
-use crate::components::chips::hash::Hash;
 use crate::utils::enabler::Enabler;
 
-const N_TRACE_COLUMNS: usize = 6; // enabler, index, depth, value_left, value_right, root
+const N_TRACE_COLUMNS: usize = 7;
 const N_MERKLE_LOOKUPS: usize = 3;
-const N_INTERACTION_COLUMNS: usize = SECURE_EXTENSION_DEGREE * N_MERKLE_LOOKUPS.div_ceil(2);
+const N_POSEIDON2_LOOKUPS: usize = 2;
+const N_INTERACTION_COLUMNS: usize =
+    SECURE_EXTENSION_DEGREE * (N_MERKLE_LOOKUPS + N_POSEIDON2_LOOKUPS).div_ceil(2);
 
 #[derive(Clone, Default, Serialize, Deserialize, Debug)]
 pub struct Claim {
@@ -46,6 +72,7 @@ pub struct InteractionClaimData {
 #[derive(Uninitialized, IterMut, ParIterMut)]
 pub struct LookupData {
     pub merkle: [Vec<[PackedM31; 4]>; N_MERKLE_LOOKUPS],
+    pub poseidon2: [Vec<[PackedM31; 2]>; N_POSEIDON2_LOOKUPS],
 }
 
 impl Claim {
@@ -59,7 +86,7 @@ impl Claim {
         channel.mix_u64(self.log_size as u64);
     }
 
-    pub fn write_trace<MC: MerkleChannel, H: MerkleHasher>(
+    pub fn write_trace<MC: MerkleChannel>(
         merkle_trees: &MerkleTrees,
     ) -> (Self, ComponentTrace<N_TRACE_COLUMNS>, InteractionClaimData)
     where
@@ -87,6 +114,7 @@ impl Claim {
                     node_data_array[1],
                     node_data_array[2],
                     node_data_array[3],
+                    node_data_array[4],
                     root,
                 ]
             })
@@ -98,6 +126,7 @@ impl Claim {
             })
             .collect();
 
+        let zero = PackedM31::zero();
         let one = PackedM31::from(M31::one());
         let m31_2 = M31::from(2);
         let m31_2_inv = PackedM31::from(M31::inverse(&m31_2));
@@ -122,28 +151,23 @@ impl Claim {
                 let depth = input[1];
                 let left_value = input[2];
                 let right_value = input[3];
-                let root = input[4];
+                let parent_value = input[4];
+                let root = input[5];
 
                 *row[0] = enabler;
                 *row[1] = index;
                 *row[2] = depth;
                 *row[3] = left_value;
                 *row[4] = right_value;
-                *row[5] = root;
+                *row[5] = parent_value;
+                *row[6] = root;
 
                 *lookup_data.merkle[0] = [index, depth, left_value, root];
                 *lookup_data.merkle[1] = [index + one, depth, right_value, root];
-                // Extract M31 values from PackedM31 for hashing
-                let hash_values: Vec<M31> = (0..N_LANES)
-                    .map(|i| {
-                        let left = left_value.to_array()[i];
-                        let right = right_value.to_array()[i];
-                        H::hash(left, right)
-                    })
-                    .collect();
-                let hashed = PackedM31::from_array(hash_values.try_into().unwrap());
+                *lookup_data.merkle[2] = [index * m31_2_inv, depth - one, parent_value, root];
 
-                *lookup_data.merkle[2] = [index * m31_2_inv, depth - one, hashed, root];
+                *lookup_data.poseidon2[0] = [left_value, right_value];
+                *lookup_data.poseidon2[1] = [parent_value, zero];
             });
 
         // Return the trace and lookup data
@@ -199,14 +223,35 @@ impl InteractionClaim {
         (
             col.par_iter_mut(),
             &interaction_claim_data.lookup_data.merkle[2],
+            &interaction_claim_data.lookup_data.poseidon2[0],
+        )
+            .into_par_iter()
+            .enumerate()
+            .for_each(|(i, (writer, value0, value1))| {
+                let num0: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
+                let denom0: PackedQM31 = relations.merkle.combine(value0);
+                let num1: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
+                let denom1: PackedQM31 = relations.poseidon2.combine(value1);
+
+                let numerator = num0 * denom1 + num1 * denom0;
+                let denom = denom0 * denom1;
+
+                writer.write_frac(numerator, denom);
+            });
+        col.finalize_col();
+
+        let mut col = interaction_trace.new_col();
+        (
+            col.par_iter_mut(),
+            &interaction_claim_data.lookup_data.poseidon2[1],
         )
             .into_par_iter()
             .enumerate()
             .for_each(|(i, (writer, value))| {
-                let numerator: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
-                let denom: PackedQM31 = relations.merkle.combine(value);
+                let num: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
+                let denom: PackedQM31 = relations.poseidon2.combine(value);
 
-                writer.write_frac(numerator, denom);
+                writer.write_frac(num, denom);
             });
         col.finalize_col();
 
@@ -240,6 +285,7 @@ impl FrameworkEval for Eval {
         let depth = eval.next_trace_mask();
         let left_value = eval.next_trace_mask();
         let right_value = eval.next_trace_mask();
+        let parent_value = eval.next_trace_mask();
         let root = eval.next_trace_mask();
 
         // Enabler is 1 or 0
@@ -267,15 +313,26 @@ impl FrameworkEval for Eval {
             ],
         ));
 
-        // Compute hash
-        let parent_hash = Hash::evaluate([left_value, right_value], &mut eval);
-
         // Emit next layer
         eval.add_to_relation(RelationEntry::new(
             &self.relations.merkle,
-            E::EF::from(enabler),
-            &[index * m31_2_inv, depth - one, parent_hash, root],
+            E::EF::from(enabler.clone()),
+            &[index * m31_2_inv, depth - one, parent_value.clone(), root],
         ));
+
+        // Emit initial state of permutation
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.poseidon2,
+            E::EF::from(enabler.clone()),
+            &[left_value, right_value],
+        ));
+        // Use first element of last state (hash)
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.poseidon2,
+            -E::EF::from(enabler),
+            &[parent_value],
+        ));
+
         eval.finalize_logup_in_pairs();
 
         eval
