@@ -14,16 +14,16 @@ pub const TREE_HEIGHT: u32 = MAX_MEMORY_LOG_SIZE + QM31_LOG_SIZE; // tree height
 ///
 /// - index: the index of the node (left node index)
 /// - depth: the depth of this left node
-/// - value_left: the value of this same left node
-/// - value_right: the value of the node to the right
-/// - value_parent: the value of the parent node
+/// - left_value: the value of this same left node
+/// - right_value: the value of the node to the right
+/// - parent_value: the value of the parent node
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NodeData {
     pub index: M31,
     pub depth: u8,
-    pub value_left: M31,
-    pub value_right: M31,
-    pub value_parent: M31,
+    pub left_value: M31,
+    pub right_value: M31,
+    pub parent_value: M31,
 }
 
 impl NodeData {
@@ -31,16 +31,16 @@ impl NodeData {
         [
             self.index,
             M31::from(self.depth as u32),
-            self.value_left,
-            self.value_right,
-            self.value_parent,
+            self.left_value,
+            self.right_value,
+            self.parent_value,
         ]
     }
 
     pub fn to_hash_input(&self) -> HashInput {
         let mut input: HashInput = Default::default();
-        input[0] = self.value_left;
-        input[1] = self.value_right;
+        input[0] = self.left_value;
+        input[1] = self.right_value;
         input
     }
 }
@@ -141,9 +141,9 @@ pub fn build_partial_merkle_tree<H: MerkleHasher>(
             nodes.push(NodeData {
                 index: M31::from(left_index),
                 depth: depth as u8,
-                value_left: left_value,
-                value_right: right_value,
-                value_parent: parent_value,
+                left_value: left_value,
+                right_value: right_value,
+                parent_value: parent_value,
             });
 
             // Store parent value for next depth
@@ -228,18 +228,18 @@ mod tests {
 
         // First pair of M31 values from address 0
         let node = find_node(&tree, 0, 30).expect("Should find node at index 0, depth 30");
-        assert_eq!(node.value_left, M31::from(10));
-        assert_eq!(node.value_right, M31::from(11));
+        assert_eq!(node.left_value, M31::from(10));
+        assert_eq!(node.right_value, M31::from(11));
 
         // Second pair of M31 values from address 0
         let node = find_node(&tree, 2, 30).expect("Should find node at index 2, depth 30");
-        assert_eq!(node.value_left, M31::from(12));
-        assert_eq!(node.value_right, M31::from(13));
+        assert_eq!(node.left_value, M31::from(12));
+        assert_eq!(node.right_value, M31::from(13));
 
         // First pair of M31 values from address 1
         let node = find_node(&tree, 4, 30).expect("Should find node at index 4, depth 30");
-        assert_eq!(node.value_left, M31::from(20));
-        assert_eq!(node.value_right, M31::from(21));
+        assert_eq!(node.left_value, M31::from(20));
+        assert_eq!(node.right_value, M31::from(21));
     }
 
     #[test]

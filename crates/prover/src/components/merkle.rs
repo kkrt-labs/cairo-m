@@ -5,9 +5,9 @@
 //! - enabler
 //! - index
 //! - depth
-//! - value_left
-//! - value_right
-//! - value_parent
+//! - left_value
+//! - right_value
+//! - parent_value
 //! - root
 //!
 //! # Constraints
@@ -15,14 +15,14 @@
 //! * enabler is a bool
 //!   * `enabler * (1 - enabler)`
 //! * use left node
-//!   * `- [index, depth, value_left, root]` in `Memory` relation
+//!   * `- [index, depth, left_value, root]` in `Memory` relation
 //! * use right node
-//!   * `- [index + 1, depth, value_right, root]` in `Memory` relation
+//!   * `- [index + 1, depth, right_value, root]` in `Memory` relation
 //! * emit parent node
 //!   * `+ [index / 2, depth - 1, parent_value, root]` in `Memory` relation
 //! * poseidon2 hash computation
-//!   * `+ [value_left, value_right]` in `Poseidon2` relation (emit hash input)
-//!   * `- [value_parent]` in `Poseidon2` relation (use hash output)
+//!   * `+ [left_value, right_value]` in `Poseidon2` relation (emit hash input)
+//!   * `- [parent_value]` in `Poseidon2` relation (use hash output)
 
 use num_traits::{One, Zero};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
