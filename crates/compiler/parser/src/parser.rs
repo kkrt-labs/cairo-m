@@ -1296,7 +1296,7 @@ fn top_level_item_parser<'tokens, 'src: 'tokens, I>()
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
-    recursive(|top_level_item| {
+    recursive(|_top_level_item| {
         let func_def = function_def_parser().map(TopLevelItem::Function);
         let struct_def = struct_def_parser().map(TopLevelItem::Struct);
         let const_def = const_def_parser().map(TopLevelItem::Const);
