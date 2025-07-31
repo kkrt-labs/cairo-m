@@ -27,7 +27,7 @@
 //! * partial rounds:
 //!   - `enabler * (state[0]^2 - squared_state_1)`
 //!   - `enabler * (state[0]^2 - squared_state_2)`
-//!   - `enabler * (initial_state[0] * state[0] - sbox_result)`
+//!   - `enabler * (state[0] * initial_state[0] - sbox_result)`
 //! * second half full rounds:
 //!   - `enabler * (state[i]^2 - squared_state_1)`
 //!   - `enabler * (state[i]^2 - squared_state_2)`
