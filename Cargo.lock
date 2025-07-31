@@ -578,6 +578,7 @@ dependencies = [
  "rand",
  "rayon",
  "serde",
+ "smallvec",
  "sonic-rs 0.5.1",
  "stwo-air-utils",
  "stwo-air-utils-derive",

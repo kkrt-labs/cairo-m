@@ -4,6 +4,12 @@ use smallvec::SmallVec;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DataType {
+    Felt,
+    U32,
+}
+
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum InstructionError {
     #[error("Invalid opcode: {0}")]
@@ -12,13 +18,16 @@ pub enum InstructionError {
     SizeMismatch { expected: usize, found: usize },
 }
 
+pub const INSTRUCTION_MAX_SIZE: usize = 5;
+
 // Macro to define the Instruction enum with all variants and their implementations
 macro_rules! define_instruction {
     (
         $(
             $variant:ident = $opcode:literal, $mem_access:literal,
             fields: [$($field:ident),*],
-            size: $size:literal
+            size: $size:literal,
+            operands: [$($operand_type:ident),*]
         );*
     ) => {
         /// Cairo M instruction enum where each variant represents a specific opcode
@@ -104,7 +113,7 @@ macro_rules! define_instruction {
             }
 
             /// Convert instruction to a SmallVec of M31 values
-            pub fn to_smallvec(&self) -> SmallVec<[M31; 5]> {
+            pub fn to_smallvec(&self) -> SmallVec<[M31; INSTRUCTION_MAX_SIZE]> {
                 let mut vec = SmallVec::new();
                 vec.push(M31::from(self.opcode_value()));
                 match self {
@@ -142,13 +151,23 @@ macro_rules! define_instruction {
                 }
                 vec
             }
+
+            /// Get the data types for each memory operand of this instruction
+            pub const fn operand_types(&self) -> &'static [DataType] {
+                use DataType::*;
+                match self {
+                    $(
+                        Self::$variant { .. } => &[$($operand_type),*],
+                    )*
+                }
+            }
         }
 
-        impl TryFrom<SmallVec<[M31; 5]>> for Instruction {
+        impl TryFrom<SmallVec<[M31; INSTRUCTION_MAX_SIZE]>> for Instruction {
             type Error = InstructionError;
 
             #[inline(always)]
-            fn try_from(values: SmallVec<[M31; 5]>) -> Result<Self, Self::Error> {
+            fn try_from(values: SmallVec<[M31; INSTRUCTION_MAX_SIZE]>) -> Result<Self, Self::Error> {
                 let (opcode_m31, operands) = values.split_first()
                     .ok_or(InstructionError::SizeMismatch { expected: 1, found: 0 })?;
                 let opcode_u32 = opcode_m31.0;
@@ -205,43 +224,43 @@ macro_rules! define_instruction {
 // Define all instructions with their opcodes, memory accesses, fields, and sizes
 define_instruction!(
     // Arithmetic operations
-    StoreAddFpFp = 0, 3, fields: [src0_off, src1_off, dst_off], size: 4;     // [fp + dst_off] = [fp + src0_off] + [fp + src1_off]
-    StoreAddFpImm = 1, 2, fields: [src_off, imm, dst_off], size: 4;          // [fp + dst_off] = [fp + src_off] + imm
-    StoreSubFpFp = 2, 3, fields: [src0_off, src1_off, dst_off], size: 4;     // [fp + dst_off] = [fp + src0_off] - [fp + src1_off]
-    StoreSubFpImm = 3, 2, fields: [src_off, imm, dst_off], size: 4;          // [fp + dst_off] = [fp + src_off] - imm
+    StoreAddFpFp = 0, 3, fields: [src0_off, src1_off, dst_off], size: 4, operands: [Felt, Felt, Felt];     // [fp + dst_off] = [fp + src0_off] + [fp + src1_off]
+    StoreAddFpImm = 1, 2, fields: [src_off, imm, dst_off], size: 4, operands: [Felt, Felt];                // [fp + dst_off] = [fp + src_off] + imm
+    StoreSubFpFp = 2, 3, fields: [src0_off, src1_off, dst_off], size: 4, operands: [Felt, Felt, Felt];     // [fp + dst_off] = [fp + src0_off] - [fp + src1_off]
+    StoreSubFpImm = 3, 2, fields: [src_off, imm, dst_off], size: 4, operands: [Felt, Felt];                // [fp + dst_off] = [fp + src_off] - imm
 
     // Memory operations
-    StoreDoubleDerefFp = 4, 3, fields: [base_off, offset, dst_off], size: 4; // [fp + dst_off] = [[fp + base_off] + offset]
-    StoreImm = 5, 1, fields: [imm, dst_off], size: 3;                        // [fp + dst_off] = imm
+    StoreDoubleDerefFp = 4, 3, fields: [base_off, offset, dst_off], size: 4, operands: [Felt, Felt, Felt]; // [fp + dst_off] = [[fp + base_off] + offset]
+    StoreImm = 5, 1, fields: [imm, dst_off], size: 3, operands: [Felt];                                    // [fp + dst_off] = imm
 
     // Multiplication/Division
-    StoreMulFpFp = 6, 3, fields: [src0_off, src1_off, dst_off], size: 4;    // [fp + dst_off] = [fp + src0_off] * [fp + src1_off]
-    StoreMulFpImm = 7, 2, fields: [src_off, imm, dst_off], size: 4;         // [fp + dst_off] = [fp + src_off] * imm
-    StoreDivFpFp = 8, 3, fields: [src0_off, src1_off, dst_off], size: 4;    // [fp + dst_off] = [fp + src0_off] / [fp + src1_off]
-    StoreDivFpImm = 9, 2, fields: [src_off, imm, dst_off], size: 4;         // [fp + dst_off] = [fp + src_off] / imm
+    StoreMulFpFp = 6, 3, fields: [src0_off, src1_off, dst_off], size: 4, operands: [Felt, Felt, Felt];     // [fp + dst_off] = [fp + src0_off] * [fp + src1_off]
+    StoreMulFpImm = 7, 2, fields: [src_off, imm, dst_off], size: 4, operands: [Felt, Felt];                // [fp + dst_off] = [fp + src_off] * imm
+    StoreDivFpFp = 8, 3, fields: [src0_off, src1_off, dst_off], size: 4, operands: [Felt, Felt, Felt];     // [fp + dst_off] = [fp + src0_off] / [fp + src1_off]
+    StoreDivFpImm = 9, 2, fields: [src_off, imm, dst_off], size: 4, operands: [Felt, Felt];                // [fp + dst_off] = [fp + src_off] / imm
 
     // Call operations
-    CallAbsImm = 10, 2, fields: [frame_off, target], size: 3;               // call abs imm
-    Ret = 11, 2, fields: [], size: 1;                                       // ret
+    CallAbsImm = 10, 2, fields: [frame_off, target], size: 3, operands: [Felt, Felt];                      // call abs imm
+    Ret = 11, 2, fields: [], size: 1, operands: [Felt, Felt];                                              // ret
 
     // Jump operations
-    JmpAbsImm = 12, 0, fields: [target], size: 2;                           // jmp abs imm
-    JmpRelImm = 13, 0, fields: [offset], size: 2;                           // jmp rel imm
+    JmpAbsImm = 12, 0, fields: [target], size: 2, operands: [];                                           // jmp abs imm
+    JmpRelImm = 13, 0, fields: [offset], size: 2, operands: [];                                           // jmp rel imm
 
     // Conditional jumps
-    JnzFpImm = 14, 1, fields: [cond_off, offset], size: 3;                  // jmp rel imm if [fp + cond_off] != 0
+    JnzFpImm = 14, 1, fields: [cond_off, offset], size: 3, operands: [Felt];                              // jmp rel imm if [fp + cond_off] != 0
 
-    // U32 instructions
-    U32StoreAddFpImm = 15, 4, fields: [src_off, imm_hi, imm_lo, dst_off], size: 5 // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) + u32(imm_lo, imm_hi)
+    // U32 operations
+    U32StoreAddFpImm = 15, 4, fields: [src_off, imm_hi, imm_lo, dst_off], size: 5, operands: [U32, U32]   // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) + u32(imm_lo, imm_hi)
 );
 
-impl From<Instruction> for SmallVec<[M31; 5]> {
+impl From<Instruction> for SmallVec<[M31; INSTRUCTION_MAX_SIZE]> {
     fn from(instruction: Instruction) -> Self {
         instruction.to_smallvec()
     }
 }
 
-impl From<&Instruction> for SmallVec<[M31; 5]> {
+impl From<&Instruction> for SmallVec<[M31; INSTRUCTION_MAX_SIZE]> {
     fn from(instruction: &Instruction) -> Self {
         instruction.to_smallvec()
     }
@@ -295,8 +314,8 @@ impl<'de> Deserialize<'de> for Instruction {
         // Validate instruction size and convert to M31 array
         match hex_strings.len() {
             0 => Err(de::Error::custom("Instruction cannot be empty")),
-            1..=5 => {
-                let mut values = SmallVec::<[M31; 5]>::new();
+            1..=INSTRUCTION_MAX_SIZE => {
+                let mut values = SmallVec::<[M31; INSTRUCTION_MAX_SIZE]>::new();
                 for s in hex_strings {
                     let m31 = u32::from_str_radix(s.trim_start_matches("0x"), 16)
                         .map(M31::from)
@@ -305,9 +324,10 @@ impl<'de> Deserialize<'de> for Instruction {
                 }
                 Self::try_from(values).map_err(de::Error::custom)
             }
-            _ => Err(de::Error::custom(
-                "Instruction too large (max 5 M31 elements)",
-            )),
+            _ => Err(de::Error::custom(format!(
+                "Instruction too large (max {} M31 elements)",
+                INSTRUCTION_MAX_SIZE
+            ))),
         }
     }
 }

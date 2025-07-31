@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use cairo_m_common::instruction::OPCODE_SIZE_TABLE;
+use cairo_m_common::instruction::{INSTRUCTION_MAX_SIZE, OPCODE_SIZE_TABLE};
 use cairo_m_common::state::MemoryEntry;
 use num_traits::One;
 use num_traits::identities::Zero;
@@ -74,7 +74,10 @@ impl Memory {
     /// # Errors
     ///
     /// Returns [`MemoryError::UninitializedMemoryCell`] if any required memory cell is not initialized.
-    pub fn get_instruction(&self, addr: M31) -> Result<SmallVec<[M31; 5]>, MemoryError> {
+    pub fn get_instruction(
+        &self,
+        addr: M31,
+    ) -> Result<SmallVec<[M31; INSTRUCTION_MAX_SIZE]>, MemoryError> {
         // Fetch first QM31 word
         let address = addr.0 as usize;
         let first_qm31 = self

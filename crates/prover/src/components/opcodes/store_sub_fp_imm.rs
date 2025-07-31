@@ -32,7 +32,7 @@
 //!   * `- [fp + off2, dst_prev_clk, dst_prev_val] + [fp + off2, clk, op0_val - off1]` in `Memory` Relation
 //!   * `- [clk - dst_prev_clk - 1]` in `RangeCheck20` relation
 
-use cairo_m_common::Opcode;
+use cairo_m_common::instruction::STORE_SUB_FP_IMM;
 use num_traits::{One, Zero};
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
@@ -149,13 +149,13 @@ impl Claim {
                 let fp = input.fp;
                 let clock = input.clock;
                 let inst_prev_clock = input.inst_prev_clock;
-                let opcode_constant = PackedM31::from(M31::from(Opcode::StoreSubFpImm));
+                let opcode_constant = PackedM31::from(M31::from(STORE_SUB_FP_IMM));
                 let off0 = input.inst_value_1;
                 let off1 = input.inst_value_2;
                 let off2 = input.inst_value_3;
                 let op0_prev_clock = input.mem1_prev_clock;
-                let op0_val = input.mem1_value;
-                let dst_prev_val = input.mem2_prev_value;
+                let op0_val = input.mem1_value_limb0;
+                let dst_prev_val = input.mem2_prev_value_limb0;
                 let dst_prev_clock = input.mem2_prev_clock;
 
                 *row[0] = enabler;
@@ -362,7 +362,7 @@ impl FrameworkEval for Eval {
 
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         let one = E::F::from(M31::one());
-        let opcode_constant = E::F::from(M31::from(Opcode::StoreSubFpImm));
+        let opcode_constant = E::F::from(M31::from(STORE_SUB_FP_IMM));
 
         // 12 columns
         let enabler = eval.next_trace_mask();

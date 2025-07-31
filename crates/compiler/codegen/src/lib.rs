@@ -15,6 +15,7 @@
 #![feature(let_chains)]
 #![allow(clippy::option_if_let_else)]
 
+use cairo_m_common::instruction::INSTRUCTION_MAX_SIZE;
 use cairo_m_common::{Instruction, Program};
 use cairo_m_compiler_mir::{BasicBlockId, MirModule};
 use smallvec::SmallVec;
@@ -88,7 +89,7 @@ impl InstructionBuilder {
     pub fn build(&self) -> Instruction {
         // For now, we'll panic if we can't convert operands to literals
         // This should only happen for unresolved labels, which should be resolved by this point
-        let mut values = SmallVec::<[M31; 5]>::new();
+        let mut values = SmallVec::<[M31; INSTRUCTION_MAX_SIZE]>::new();
         values.push(M31::from(self.opcode));
 
         for op in &self.operands {

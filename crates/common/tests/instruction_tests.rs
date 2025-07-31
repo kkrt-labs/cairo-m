@@ -1,3 +1,4 @@
+use cairo_m_common::instruction::INSTRUCTION_MAX_SIZE;
 use cairo_m_common::{Instruction, InstructionError};
 use smallvec::{SmallVec, smallvec};
 use stwo_prover::core::fields::m31::M31;
@@ -318,12 +319,13 @@ fn test_operands() {
 #[test]
 fn test_try_from_smallvec() {
     // Test Ret instruction
-    let values: SmallVec<[M31; 5]> = smallvec![M31::from(11)];
+    let values: SmallVec<[M31; INSTRUCTION_MAX_SIZE]> = smallvec![M31::from(11)];
     let instruction = Instruction::try_from(values).unwrap();
     assert!(matches!(instruction, Instruction::Ret {}));
 
     // Test StoreImm instruction
-    let values: SmallVec<[M31; 5]> = smallvec![M31::from(5), M31::from(42), M31::from(3)];
+    let values: SmallVec<[M31; INSTRUCTION_MAX_SIZE]> =
+        smallvec![M31::from(5), M31::from(42), M31::from(3)];
     let instruction = Instruction::try_from(values).unwrap();
     match instruction {
         Instruction::StoreImm { imm, dst_off } => {
@@ -334,7 +336,7 @@ fn test_try_from_smallvec() {
     }
 
     // Test StoreAddFpFp instruction
-    let values: SmallVec<[M31; 5]> =
+    let values: SmallVec<[M31; INSTRUCTION_MAX_SIZE]> =
         smallvec![M31::from(0), M31::from(1), M31::from(2), M31::from(3)];
     let instruction = Instruction::try_from(values).unwrap();
     match instruction {
@@ -351,7 +353,7 @@ fn test_try_from_smallvec() {
     }
 
     // Test U32StoreAddFpImm instruction
-    let values: SmallVec<[M31; 5]> = smallvec![
+    let values: SmallVec<[M31; INSTRUCTION_MAX_SIZE]> = smallvec![
         M31::from(15),
         M31::from(1),
         M31::from(0x1234),
@@ -378,7 +380,7 @@ fn test_try_from_smallvec() {
 #[test]
 fn test_try_from_smallvec_errors() {
     // Test empty smallvec
-    let values: SmallVec<[M31; 5]> = SmallVec::new();
+    let values: SmallVec<[M31; INSTRUCTION_MAX_SIZE]> = SmallVec::new();
     let result = Instruction::try_from(values);
     assert!(matches!(
         result,
@@ -389,12 +391,12 @@ fn test_try_from_smallvec_errors() {
     ));
 
     // Test invalid opcode
-    let values: SmallVec<[M31; 5]> = smallvec![M31::from(999)];
+    let values: SmallVec<[M31; INSTRUCTION_MAX_SIZE]> = smallvec![M31::from(999)];
     let result = Instruction::try_from(values);
     assert!(matches!(result, Err(InstructionError::InvalidOpcode(_))));
 
     // Test size mismatch - too few operands
-    let values: SmallVec<[M31; 5]> = smallvec![M31::from(0), M31::from(1)]; // StoreAddFpFp needs 3 operands
+    let values: SmallVec<[M31; INSTRUCTION_MAX_SIZE]> = smallvec![M31::from(0), M31::from(1)]; // StoreAddFpFp needs 3 operands
     let result = Instruction::try_from(values);
     assert!(matches!(
         result,
@@ -405,7 +407,7 @@ fn test_try_from_smallvec_errors() {
     ));
 
     // Test size mismatch - too many operands
-    let values: SmallVec<[M31; 5]> = smallvec![M31::from(11), M31::from(1)]; // Ret needs 0 operands
+    let values: SmallVec<[M31; INSTRUCTION_MAX_SIZE]> = smallvec![M31::from(11), M31::from(1)]; // Ret needs 0 operands
     let result = Instruction::try_from(values);
     assert!(matches!(
         result,
@@ -425,7 +427,7 @@ fn test_from_instruction_to_smallvec() {
     };
 
     // Test From<Instruction>
-    let smallvec: SmallVec<[M31; 5]> = instruction.into();
+    let smallvec: SmallVec<[M31; INSTRUCTION_MAX_SIZE]> = instruction.into();
     assert_eq!(
         smallvec.as_slice(),
         &[M31::from(0), M31::from(1), M31::from(2), M31::from(3)]
@@ -436,7 +438,7 @@ fn test_from_instruction_to_smallvec() {
         imm: M31::from(42),
         dst_off: M31::from(3),
     };
-    let smallvec: SmallVec<[M31; 5]> = (&instruction).into();
+    let smallvec: SmallVec<[M31; INSTRUCTION_MAX_SIZE]> = (&instruction).into();
     assert_eq!(
         smallvec.as_slice(),
         &[M31::from(5), M31::from(42), M31::from(3)]
