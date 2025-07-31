@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::iter::Peekable;
 
 use cairo_m_common::State as VmRegisters;
-use cairo_m_common::instruction::{DataType, Instruction};
+use cairo_m_common::instruction::{DataType, INSTRUCTION_MAX_SIZE, Instruction};
 use cairo_m_common::state::MemoryEntry as RunnerMemoryEntry;
 use num_traits::{One, Zero};
 use smallvec::SmallVec;
@@ -180,7 +180,7 @@ where
         let instruction_size_qm31 = instruction_size_m31.div_ceil(4);
 
         // Collect M31 values for the instruction
-        let mut instruction_values = SmallVec::<[M31; 5]>::new();
+        let mut instruction_values = SmallVec::<[M31; INSTRUCTION_MAX_SIZE]>::new();
 
         // Extract M31s from the first QM31
         let first_qm31 = instruction_entry.value;
@@ -229,7 +229,7 @@ where
 
         for (idx, operand_slot) in operands.iter_mut().take(num_operands).enumerate() {
             // Get the data type for this operand based on the instruction's opcode
-            let data_type = operand_types.get(idx).copied().unwrap_or(DataType::Felt);
+            let data_type = operand_types.get(idx).copied()?;
 
             match data_type {
                 DataType::Felt => {

@@ -18,6 +18,8 @@ pub enum InstructionError {
     SizeMismatch { expected: usize, found: usize },
 }
 
+pub const INSTRUCTION_MAX_SIZE: usize = 5;
+
 // Macro to define the Instruction enum with all variants and their implementations
 macro_rules! define_instruction {
     (
@@ -111,7 +113,7 @@ macro_rules! define_instruction {
             }
 
             /// Convert instruction to a SmallVec of M31 values
-            pub fn to_smallvec(&self) -> SmallVec<[M31; 5]> {
+            pub fn to_smallvec(&self) -> SmallVec<[M31; INSTRUCTION_MAX_SIZE]> {
                 let mut vec = SmallVec::new();
                 vec.push(M31::from(self.opcode_value()));
                 match self {
@@ -161,11 +163,11 @@ macro_rules! define_instruction {
             }
         }
 
-        impl TryFrom<SmallVec<[M31; 5]>> for Instruction {
+        impl TryFrom<SmallVec<[M31; INSTRUCTION_MAX_SIZE]>> for Instruction {
             type Error = InstructionError;
 
             #[inline(always)]
-            fn try_from(values: SmallVec<[M31; 5]>) -> Result<Self, Self::Error> {
+            fn try_from(values: SmallVec<[M31; INSTRUCTION_MAX_SIZE]>) -> Result<Self, Self::Error> {
                 let (opcode_m31, operands) = values.split_first()
                     .ok_or(InstructionError::SizeMismatch { expected: 1, found: 0 })?;
                 let opcode_u32 = opcode_m31.0;
@@ -252,13 +254,13 @@ define_instruction!(
     U32StoreAddFpImm = 15, 4, fields: [src_off, imm_hi, imm_lo, dst_off], size: 5, operands: [U32, U32]   // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) + u32(imm_lo, imm_hi)
 );
 
-impl From<Instruction> for SmallVec<[M31; 5]> {
+impl From<Instruction> for SmallVec<[M31; INSTRUCTION_MAX_SIZE]> {
     fn from(instruction: Instruction) -> Self {
         instruction.to_smallvec()
     }
 }
 
-impl From<&Instruction> for SmallVec<[M31; 5]> {
+impl From<&Instruction> for SmallVec<[M31; INSTRUCTION_MAX_SIZE]> {
     fn from(instruction: &Instruction) -> Self {
         instruction.to_smallvec()
     }
@@ -312,8 +314,8 @@ impl<'de> Deserialize<'de> for Instruction {
         // Validate instruction size and convert to M31 array
         match hex_strings.len() {
             0 => Err(de::Error::custom("Instruction cannot be empty")),
-            1..=5 => {
-                let mut values = SmallVec::<[M31; 5]>::new();
+            1..=INSTRUCTION_MAX_SIZE => {
+                let mut values = SmallVec::<[M31; INSTRUCTION_MAX_SIZE]>::new();
                 for s in hex_strings {
                     let m31 = u32::from_str_radix(s.trim_start_matches("0x"), 16)
                         .map(M31::from)
@@ -322,9 +324,10 @@ impl<'de> Deserialize<'de> for Instruction {
                 }
                 Self::try_from(values).map_err(de::Error::custom)
             }
-            _ => Err(de::Error::custom(
-                "Instruction too large (max 5 M31 elements)",
-            )),
+            _ => Err(de::Error::custom(format!(
+                "Instruction too large (max {} M31 elements)",
+                INSTRUCTION_MAX_SIZE
+            ))),
         }
     }
 }
