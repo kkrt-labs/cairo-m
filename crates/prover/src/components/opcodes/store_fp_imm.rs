@@ -1,5 +1,9 @@
-//! This component is used to prove the StoreAddFpFp opcode.
-//! [fp + off2] = [fp + off0] + [fp + off1]
+//! This component is used to prove the StoreXFpImm opcodes.
+//!
+//! [fp + off2] = [fp + off0] + imm : StoreAddFpImm
+//! [fp + off2] = [fp + off0] - imm : StoreSubFpImm
+//! [fp + off2] = [fp + off0] * imm : StoreMulFpImm
+//! [fp + off2] = [fp + off0] / imm : StoreDivFpImm
 //!
 //! # Columns
 //!
@@ -13,31 +17,49 @@
 //! - off2
 //! - op0_prev_clock
 //! - op0_val
-//! - op1_prev_clock
-//! - op1_val
+//! - off1_inv
 //! - dst_prev_clock
 //! - dst_prev_val
+//! - dst_val
+//! - opcode_flag_0
+//! - opcode_flag_1
+//! - prod
+//! - div
 //!
 //! # Constraints
 //!
 //! * enabler is a bool
 //!   * `enabler * (1 - enabler)`
+//! * opcode_flag_0 is a bool
+//!   * `opcode_flag_0 * (1 - opcode_flag_0)`
+//! * opcode_flag_1 is a bool
+//!   * `opcode_flag_1 * (1 - opcode_flag_1)`
+//! * prod is the product of op0 and off1
+//!   * `prod - op0 * off1`
+//! * div is the division of op0 and off1
+//!   * `div - op0 * off1_inv`
+//! * off1_inv is the inverse of off1 or off1 is 0
+//!   * `off1 * (off1_inv * off1 - 1)`
+//!   * `off1_inv * (off1_inv * off1 - 1)`
+//! * dst_val is the result of the operation
+//!   * `dst_val - (1 - opcode_flag_0) * (1 - opcode_flag_1) * (op0 + off1) // (0, 0) => StoreAddFpImm
+//!   * `    - (1 - opcode_flag_0) * opcode_flag_1 * (op0 - off1) // (0, 1) => StoreSubFpImm
+//!   * `    - opcode_flag_0 * (1 - opcode_flag_1) * prod // (1, 0) => StoreMulFpImm
+//!   * `    - opcode_flag_0 * opcode_flag_1 * div // (1, 1) => StoreDivFpImm
 //! * registers update is regular
 //!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
 //! * read instruction from memory
-//!   * `- [pc, inst_prev_clk, opcode_constant, off0, off1, off2] + [pc, clk, opcode_constant, off0, off1, off2]` in `Memory` relation
+//!   * `opcode_id - (base_opcode + opcode_flag_0 * 2 + opcode_flag_1)`
+//!   * `- [pc, inst_prev_clk, opcode_id, off0, off1, off2] + [pc, clk, opcode_id, off0, off1, off2]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
 //! * read op0
 //!   * `- [fp + off0, op0_prev_clk, op0_val] + [fp + off0, clk, op0_val]` in `Memory` relation
 //!   * `- [clk - op0_prev_clk - 1]` in `RangeCheck20` relation
-//! * read op1
-//!   * `- [fp + off1, op1_prev_clk, op1_val] + [fp + off1, clk, op1_val]` in `Memory` relation
-//!   * `- [clk - op1_prev_clk - 1]` in `RangeCheck20` relation
 //! * write dst in [fp + off2]
-//!   * `- [fp + off2, dst_prev_clk, dst_prev_val] + [fp + off2, clk, op0_val + op1_val]` in `Memory` relation
+//!   * `- [fp + off2, dst_prev_clk, dst_prev_val] + [fp + off2, clk, dst_val]` in `Memory` relation
 //!   * `- [clk - dst_prev_clk - 1]` in `RangeCheck20` relation
 
-use cairo_m_common::instruction::STORE_ADD_FP_FP;
+use cairo_m_common::instruction::STORE_ADD_FP_IMM;
 use num_traits::{One, Zero};
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
@@ -67,10 +89,10 @@ use crate::components::Relations;
 use crate::utils::enabler::Enabler;
 use crate::utils::execution_bundle::PackedExecutionBundle;
 
-const N_TRACE_COLUMNS: usize = 14;
-const N_MEMORY_LOOKUPS: usize = 8;
+const N_TRACE_COLUMNS: usize = 18;
+const N_MEMORY_LOOKUPS: usize = 6;
 const N_REGISTERS_LOOKUPS: usize = 2;
-const N_RANGE_CHECK_20_LOOKUPS: usize = 4;
+const N_RANGE_CHECK_20_LOOKUPS: usize = 3;
 
 const N_LOOKUPS_COLUMNS: usize = SECURE_EXTENSION_DEGREE
     * (N_MEMORY_LOOKUPS + N_REGISTERS_LOOKUPS + N_RANGE_CHECK_20_LOOKUPS).div_ceil(2);
@@ -103,7 +125,7 @@ impl Claim {
         TreeVec::new(vec![vec![], trace, interaction_trace])
     }
 
-    /// Writes the trace for the StoreAddFpFp opcode.
+    /// Writes the trace for the StoreXFpImm opcodes.
     ///
     /// # Important
     /// This function filters the inputs and creates a local vector which is cleared after processing.
@@ -126,11 +148,40 @@ impl Claim {
             )
         };
         inputs.resize(1 << log_size, ExecutionBundle::default());
-        let packed_inputs: Vec<PackedExecutionBundle> = inputs
+        let packed_inputs: Vec<(PackedExecutionBundle, PackedM31, PackedM31, PackedM31)> = inputs
             .par_chunks_exact(N_LANES)
             .map(|chunk| {
                 let array: [ExecutionBundle; N_LANES] = chunk.try_into().unwrap();
-                Pack::pack(array)
+                let off1_inverses = PackedM31::from_array(array.map(|x| {
+                    let off1 = x.instruction.instruction.operands()[1];
+                    if off1 != M31::zero() {
+                        off1.inverse()
+                    } else {
+                        M31::zero()
+                    }
+                }));
+                let opcode_flag_0 = PackedM31::from_array(array.map(|x| {
+                    let flag = x
+                        .instruction
+                        .instruction
+                        .opcode_value()
+                        .saturating_sub(STORE_ADD_FP_IMM);
+                    M31(flag / 2)
+                }));
+                let opcode_flag_1 = PackedM31::from_array(array.map(|x| {
+                    let flag = x
+                        .instruction
+                        .instruction
+                        .opcode_value()
+                        .saturating_sub(STORE_ADD_FP_IMM);
+                    M31(flag % 2)
+                }));
+                (
+                    Pack::pack(array),
+                    off1_inverses,
+                    opcode_flag_0,
+                    opcode_flag_1,
+                )
             })
             .collect();
         // Clear the inputs to free memory early. The data has been packed into SIMD format
@@ -149,60 +200,67 @@ impl Claim {
         )
             .into_par_iter()
             .enumerate()
-            .for_each(|(row_index, (mut row, input, lookup_data))| {
-                let enabler = enabler_col.packed_at(row_index);
-                let pc = input.pc;
-                let fp = input.fp;
-                let clock = input.clock;
-                let inst_prev_clock = input.inst_prev_clock;
-                let opcode_constant = PackedM31::from(M31::from(STORE_ADD_FP_FP));
-                let off0 = input.inst_value_1;
-                let off1 = input.inst_value_2;
-                let off2 = input.inst_value_3;
-                let op0_prev_clock = input.mem1_prev_clock;
-                let op0_val = input.mem1_value_limb0;
-                let op1_prev_clock = input.mem2_prev_clock;
-                let op1_val = input.mem2_value_limb0;
-                let dst_prev_val = input.mem3_prev_value_limb0;
-                let dst_prev_clock = input.mem3_prev_clock;
+            .for_each(
+                |(
+                    row_index,
+                    (mut row, (input, off1_inverses, opcode_flag_0, opcode_flag_1), lookup_data),
+                )| {
+                    let enabler = enabler_col.packed_at(row_index);
+                    let pc = input.pc;
+                    let fp = input.fp;
+                    let clock = input.clock;
+                    let inst_prev_clock = input.inst_prev_clock;
+                    let opcode_id = input.inst_value_0;
+                    let off0 = input.inst_value_1;
+                    let off1 = input.inst_value_2;
+                    let off2 = input.inst_value_3;
+                    let op0_prev_clock = input.mem1_prev_clock;
+                    let op0_val = input.mem1_value_limb0;
+                    let off1_inv = *off1_inverses;
+                    let dst_prev_clock = input.mem2_prev_clock;
+                    let dst_prev_val = input.mem2_prev_value_limb0;
+                    let dst_val = input.mem2_value_limb0;
+                    let prod = op0_val * off1;
+                    let div = op0_val * *off1_inverses;
 
-                *row[0] = enabler;
-                *row[1] = pc;
-                *row[2] = fp;
-                *row[3] = clock;
-                *row[4] = inst_prev_clock;
-                *row[5] = off0;
-                *row[6] = off1;
-                *row[7] = off2;
-                *row[8] = op0_prev_clock;
-                *row[9] = op0_val;
-                *row[10] = op1_prev_clock;
-                *row[11] = op1_val;
-                *row[12] = dst_prev_clock;
-                *row[13] = dst_prev_val;
+                    *row[0] = enabler;
+                    *row[1] = pc;
+                    *row[2] = fp;
+                    *row[3] = clock;
+                    *row[4] = inst_prev_clock;
+                    *row[5] = off0;
+                    *row[6] = off1;
+                    *row[7] = off2;
+                    *row[8] = op0_prev_clock;
+                    *row[9] = op0_val;
+                    *row[10] = off1_inv;
+                    *row[11] = dst_prev_clock;
+                    *row[12] = dst_prev_val;
+                    *row[13] = dst_val;
+                    *row[14] = *opcode_flag_0 * enabler;
+                    *row[15] = *opcode_flag_1 * enabler;
+                    *row[16] = prod;
+                    *row[17] = div;
 
-                *lookup_data.registers[0] = [input.pc, input.fp];
-                *lookup_data.registers[1] = [input.pc + one, input.fp];
+                    *lookup_data.registers[0] = [input.pc, input.fp];
+                    *lookup_data.registers[1] = [input.pc + one, input.fp];
 
-                *lookup_data.memory[0] =
-                    [input.pc, inst_prev_clock, opcode_constant, off0, off1, off2];
-                *lookup_data.memory[1] = [input.pc, clock, opcode_constant, off0, off1, off2];
+                    *lookup_data.memory[0] =
+                        [input.pc, inst_prev_clock, opcode_id, off0, off1, off2];
+                    *lookup_data.memory[1] = [input.pc, clock, opcode_id, off0, off1, off2];
 
-                *lookup_data.memory[2] = [fp + off0, op0_prev_clock, op0_val, zero, zero, zero];
-                *lookup_data.memory[3] = [fp + off0, clock, op0_val, zero, zero, zero];
+                    *lookup_data.memory[2] = [fp + off0, op0_prev_clock, op0_val, zero, zero, zero];
+                    *lookup_data.memory[3] = [fp + off0, clock, op0_val, zero, zero, zero];
 
-                *lookup_data.memory[4] = [fp + off1, op1_prev_clock, op1_val, zero, zero, zero];
-                *lookup_data.memory[5] = [fp + off1, clock, op1_val, zero, zero, zero];
+                    *lookup_data.memory[4] =
+                        [fp + off2, dst_prev_clock, dst_prev_val, zero, zero, zero];
+                    *lookup_data.memory[5] = [fp + off2, clock, dst_val, zero, zero, zero];
 
-                *lookup_data.memory[6] =
-                    [fp + off2, dst_prev_clock, dst_prev_val, zero, zero, zero];
-                *lookup_data.memory[7] = [fp + off2, clock, op0_val + op1_val, zero, zero, zero];
-
-                *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
-                *lookup_data.range_check_20[1] = clock - op0_prev_clock - enabler;
-                *lookup_data.range_check_20[2] = clock - op1_prev_clock - enabler;
-                *lookup_data.range_check_20[3] = clock - dst_prev_clock - enabler;
-            });
+                    *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
+                    *lookup_data.range_check_20[1] = clock - op0_prev_clock - enabler;
+                    *lookup_data.range_check_20[2] = clock - dst_prev_clock - enabler;
+                },
+            );
 
         (
             Self { log_size },
@@ -322,27 +380,6 @@ impl InteractionClaim {
         let mut col = interaction_trace.new_col();
         (
             col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.memory[6],
-            &interaction_claim_data.lookup_data.memory[7],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(i, (writer, memory_prev, memory_new))| {
-                let num_prev = -PackedQM31::from(enabler_col.packed_at(i));
-                let num_new = PackedQM31::from(enabler_col.packed_at(i));
-                let denom_prev: PackedQM31 = relations.memory.combine(memory_prev);
-                let denom_new: PackedQM31 = relations.memory.combine(memory_new);
-
-                let numerator = num_prev * denom_new + num_new * denom_prev;
-                let denom = denom_prev * denom_new;
-
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
-
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
             &interaction_claim_data.lookup_data.range_check_20[0],
             &interaction_claim_data.lookup_data.range_check_20[1],
         )
@@ -364,19 +401,14 @@ impl InteractionClaim {
         (
             col.par_iter_mut(),
             &interaction_claim_data.lookup_data.range_check_20[2],
-            &interaction_claim_data.lookup_data.range_check_20[3],
         )
             .into_par_iter()
             .enumerate()
-            .for_each(|(_i, (writer, range_check_20_2, range_check_20_3))| {
+            .for_each(|(_i, (writer, range_check_20_2))| {
                 let num = -PackedQM31::one();
-                let denom_2: PackedQM31 = relations.range_check_20.combine(&[*range_check_20_2]);
-                let denom_3: PackedQM31 = relations.range_check_20.combine(&[*range_check_20_3]);
+                let denom: PackedQM31 = relations.range_check_20.combine(&[*range_check_20_2]);
 
-                let numerator = num * denom_3 + num * denom_2;
-                let denom = denom_2 * denom_3;
-
-                writer.write_frac(numerator, denom);
+                writer.write_frac(num, denom);
             });
         col.finalize_col();
 
@@ -401,9 +433,8 @@ impl FrameworkEval for Eval {
 
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         let one = E::F::from(M31::one());
-        let opcode_constant = E::F::from(M31::from(STORE_ADD_FP_FP));
 
-        // 14 columns
+        // 18 columns
         let enabler = eval.next_trace_mask();
         let pc = eval.next_trace_mask();
         let fp = eval.next_trace_mask();
@@ -414,13 +445,61 @@ impl FrameworkEval for Eval {
         let off2 = eval.next_trace_mask();
         let op0_prev_clock = eval.next_trace_mask();
         let op0_val = eval.next_trace_mask();
-        let op1_prev_clock = eval.next_trace_mask();
-        let op1_val = eval.next_trace_mask();
+        let off1_inv = eval.next_trace_mask();
         let dst_prev_clock = eval.next_trace_mask();
         let dst_prev_val = eval.next_trace_mask();
+        let dst_val = eval.next_trace_mask();
+        let opcode_flag_0 = eval.next_trace_mask();
+        let opcode_flag_1 = eval.next_trace_mask();
+        let prod = eval.next_trace_mask();
+        let div = eval.next_trace_mask();
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
+
+        // opcode_flag_0 is 0 or 1
+        eval.add_constraint(opcode_flag_0.clone() * (one.clone() - opcode_flag_0.clone()));
+
+        // opcode_flag_1 is 0 or 1
+        eval.add_constraint(opcode_flag_1.clone() * (one.clone() - opcode_flag_1.clone()));
+
+        // prod is op0 * off1
+        eval.add_constraint(prod.clone() - op0_val.clone() * off1.clone());
+
+        // off1_inv is the inverse of off1 or off1 is 0
+        eval.add_constraint(off1.clone() * (off1_inv.clone() * off1.clone() - one.clone()));
+
+        // off1_inv is the inverse of off1 or off1_inv is 0
+        eval.add_constraint(off1_inv.clone() * (off1_inv.clone() * off1.clone() - one.clone()));
+
+        // div is op0 / off1
+        eval.add_constraint(div.clone() - op0_val.clone() * off1_inv);
+
+        // dst_val is
+        // Add: (1 - opcode_flag_0) * (1 - opcode_flag_1) * (op0 + off1)
+        // Sub: (1 - opcode_flag_0) * opcode_flag_1 * (op0 - off1)
+        // Mul: opcode_flag_0 * (1 - opcode_flag_1) * prod
+        // Div: opcode_flag_0 * opcode_flag_1 * div
+        let is_add = eval.add_intermediate(
+            (one.clone() - opcode_flag_0.clone()) * (one.clone() - opcode_flag_1.clone()),
+        );
+        let is_sub =
+            eval.add_intermediate((one.clone() - opcode_flag_0.clone()) * opcode_flag_1.clone());
+        let is_mul =
+            eval.add_intermediate(opcode_flag_0.clone() * (one.clone() - opcode_flag_1.clone()));
+        let is_div = eval.add_intermediate(opcode_flag_0.clone() * opcode_flag_1.clone());
+        let opcode_id = eval.add_intermediate(
+            E::F::from(M31::from(STORE_ADD_FP_IMM))
+                + E::F::from(M31::from_u32_unchecked(2)) * opcode_flag_0
+                + opcode_flag_1,
+        );
+        let res = eval.add_intermediate(
+            is_add * (op0_val.clone() + off1.clone())
+                + is_sub * (op0_val.clone() - off1.clone())
+                + is_mul * prod
+                + is_div * div,
+        );
+        eval.add_constraint(dst_val.clone() - res);
 
         // Registers update
         eval.add_to_relation(RelationEntry::new(
@@ -441,7 +520,7 @@ impl FrameworkEval for Eval {
             &[
                 pc.clone(),
                 inst_prev_clock.clone(),
-                opcode_constant.clone(),
+                opcode_id.clone(),
                 off0.clone(),
                 off1.clone(),
                 off2.clone(),
@@ -453,9 +532,9 @@ impl FrameworkEval for Eval {
             &[
                 pc,
                 clock.clone(),
-                opcode_constant,
+                opcode_id,
                 off0.clone(),
-                off1.clone(),
+                off1,
                 off2.clone(),
             ],
         ));
@@ -473,23 +552,7 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[fp.clone() + off0, clock.clone(), op0_val.clone()],
-        ));
-
-        // Read op1
-        eval.add_to_relation(RelationEntry::new(
-            &self.relations.memory,
-            -E::EF::from(enabler.clone()),
-            &[
-                fp.clone() + off1.clone(),
-                op1_prev_clock.clone(),
-                op1_val.clone(),
-            ],
-        ));
-        eval.add_to_relation(RelationEntry::new(
-            &self.relations.memory,
-            E::EF::from(enabler.clone()),
-            &[fp.clone() + off1, clock.clone(), op1_val.clone()],
+            &[fp.clone() + off0, clock.clone(), op0_val],
         ));
 
         // Write dst
@@ -505,7 +568,7 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[fp + off2, clock.clone(), op0_val + op1_val],
+            &[fp + off2, clock.clone(), dst_val],
         ));
 
         // Range check 20
@@ -518,11 +581,6 @@ impl FrameworkEval for Eval {
             &self.relations.range_check_20,
             -E::EF::one(),
             &[clock.clone() - op0_prev_clock - enabler.clone()],
-        ));
-        eval.add_to_relation(RelationEntry::new(
-            &self.relations.range_check_20,
-            -E::EF::one(),
-            &[clock.clone() - op1_prev_clock - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,

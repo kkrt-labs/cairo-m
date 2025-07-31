@@ -58,13 +58,13 @@ fn test_vm_try_from() {
     // Check that the first instruction is in memory at address 0
     let loaded_smallvec = vm.memory.get_instruction(M31::zero()).unwrap();
     let loaded_instruction: Instruction = loaded_smallvec.try_into().unwrap();
-    assert_eq!(loaded_instruction.opcode_value(), 1); // StoreAddFpImm
+    assert_eq!(loaded_instruction.opcode_value(), 4); // StoreAddFpImm
     assert_eq!(loaded_instruction, instructions[0]);
 
     // Check that the second instruction is in memory at address 1
     let loaded_smallvec_2 = vm.memory.get_instruction(M31::one()).unwrap();
     let loaded_instruction_2: Instruction = loaded_smallvec_2.try_into().unwrap();
-    assert_eq!(loaded_instruction_2.opcode_value(), 4); // StoreDoubleDerefFp
+    assert_eq!(loaded_instruction_2.opcode_value(), 8); // StoreDoubleDerefFp
     assert_eq!(loaded_instruction_2, instructions[1]);
 }
 
@@ -188,7 +188,7 @@ fn test_execute_with_error() {
     // Create a program with an invalid instructions
 
     let instructions = [
-        QM31::from_m31_array([M31::from(5), M31::from(10), Zero::zero(), Zero::zero()]), // Valid: [fp + 0] = 10
+        QM31::from_m31_array([M31::from(9), M31::from(10), Zero::zero(), Zero::zero()]), // Valid: [fp + 0] = 10
         QM31::from_m31_array([M31::from(99), Zero::zero(), Zero::zero(), Zero::zero()]), // Invalid: opcode 99
     ];
     let initial_memory = Memory::from_iter(instructions);

@@ -1,7 +1,9 @@
 macro_rules! define_opcodes {
-    ($(($opcode_enum:expr, $opcode:ident)),* $(,)?) => {
+    // Single pattern: all opcodes use [opcodes...] syntax
+    ($(([$(const $opcode_const:ident),+ $(,)?], $opcode:ident)),* $(,)?) => {
         // Generate pub mod declarations for all opcodes
         $(pub mod $opcode;)*
+
         // Define all structures
         #[derive(Serialize, Deserialize, Clone, Debug)]
         pub struct Claim {
@@ -45,9 +47,15 @@ macro_rules! define_opcodes {
                 SimdBackend: BackendForChannel<MC>,
             {
                 $(
-                    let state_data = instructions.states_by_opcodes.entry($opcode_enum).or_default();
+                    // Collect states for all opcodes in this group
+                    let mut grouped_states = Vec::new();
+                    $(
+                        let state_data = instructions.states_by_opcodes.entry($opcode_const).or_default();
+                        grouped_states.extend(state_data.drain(..));
+                    )+
+
                     let (paste::paste! { [<$opcode _claim>] }, paste::paste! { [<$opcode _trace_raw>] }, paste::paste! { [<$opcode _interaction_claim_data>] }) =
-                        $opcode::Claim::write_trace(state_data);
+                        $opcode::Claim::write_trace(&mut grouped_states);
                     let paste::paste! { [<$opcode _trace>] } = Box::new(paste::paste! { [<$opcode _trace_raw>] }.to_evals().into_iter());
                 )*
 
@@ -184,20 +192,29 @@ use crate::adapter::Instructions;
 use crate::components::Relations;
 
 // Define all opcode structures and implementations with a single macro call
-define_opcodes! {
-    (CALL_ABS_IMM, call_abs_imm),
-    (JMP_ABS_IMM, jmp_abs_imm),
-    (JMP_REL_IMM, jmp_rel_imm),
-    (JNZ_FP_IMM, jnz_fp_imm),
-    (RET, ret),
-    (STORE_ADD_FP_FP, store_add_fp_fp),
-    (STORE_ADD_FP_IMM, store_add_fp_imm),
-    (STORE_DIV_FP_FP, store_div_fp_fp),
-    (STORE_DIV_FP_IMM, store_div_fp_imm),
-    (STORE_DOUBLE_DEREF_FP, store_double_deref_fp),
-    (STORE_IMM, store_imm),
-    (STORE_MUL_FP_FP, store_mul_fp_fp),
-    (STORE_MUL_FP_IMM, store_mul_fp_imm),
-    (STORE_SUB_FP_FP, store_sub_fp_fp),
-    (STORE_SUB_FP_IMM, store_sub_fp_imm),
-}
+define_opcodes!(
+    ([const CALL_ABS_IMM], call_abs_imm),
+    ([const JMP_ABS_IMM, const JMP_REL_IMM], jmp_imm),
+    ([const JNZ_FP_IMM], jnz_fp_imm),
+    ([const RET], ret),
+    ([const STORE_IMM], store_imm),
+    (
+        [
+            const STORE_ADD_FP_FP,
+            const STORE_SUB_FP_FP,
+            const STORE_MUL_FP_FP,
+            const STORE_DIV_FP_FP,
+        ],
+        store_fp_fp
+    ),
+    (
+        [
+            const STORE_ADD_FP_IMM,
+            const STORE_SUB_FP_IMM,
+            const STORE_MUL_FP_IMM,
+            const STORE_DIV_FP_IMM,
+        ],
+        store_fp_imm
+    ),
+    ([const STORE_DOUBLE_DEREF_FP], store_double_deref_fp)
+);

@@ -223,21 +223,21 @@ macro_rules! define_instruction {
 
 // Define all instructions with their opcodes, memory accesses, fields, and sizes
 define_instruction!(
-    // Arithmetic operations
+    // Arithmetic operations: order matters for the prover, see store_fp_fp.rs
     StoreAddFpFp = 0, 3, fields: [src0_off, src1_off, dst_off], size: 4, operands: [Felt, Felt, Felt];     // [fp + dst_off] = [fp + src0_off] + [fp + src1_off]
-    StoreAddFpImm = 1, 2, fields: [src_off, imm, dst_off], size: 4, operands: [Felt, Felt];                // [fp + dst_off] = [fp + src_off] + imm
-    StoreSubFpFp = 2, 3, fields: [src0_off, src1_off, dst_off], size: 4, operands: [Felt, Felt, Felt];     // [fp + dst_off] = [fp + src0_off] - [fp + src1_off]
-    StoreSubFpImm = 3, 2, fields: [src_off, imm, dst_off], size: 4, operands: [Felt, Felt];                // [fp + dst_off] = [fp + src_off] - imm
+    StoreSubFpFp = 1, 3, fields: [src0_off, src1_off, dst_off], size: 4, operands: [Felt, Felt, Felt];     // [fp + dst_off] = [fp + src0_off] - [fp + src1_off]
+    StoreMulFpFp = 2, 3, fields: [src0_off, src1_off, dst_off], size: 4, operands: [Felt, Felt, Felt];     // [fp + dst_off] = [fp + src0_off] * [fp + src1_off]
+    StoreDivFpFp = 3, 3, fields: [src0_off, src1_off, dst_off], size: 4, operands: [Felt, Felt, Felt];     // [fp + dst_off] = [fp + src0_off] / [fp + src1_off]
+
+    // Arithmetic operations with immediate: order matters for the prover, see store_fp_imm.rs
+    StoreAddFpImm = 4, 2, fields: [src_off, imm, dst_off], size: 4, operands: [Felt, Felt];                // [fp + dst_off] = [fp + src_off] + imm
+    StoreSubFpImm = 5, 2, fields: [src_off, imm, dst_off], size: 4, operands: [Felt, Felt];                // [fp + dst_off] = [fp + src_off] - imm
+    StoreMulFpImm = 6, 2, fields: [src_off, imm, dst_off], size: 4, operands: [Felt, Felt];                // [fp + dst_off] = [fp + src_off] * imm
+    StoreDivFpImm = 7, 2, fields: [src_off, imm, dst_off], size: 4, operands: [Felt, Felt];                // [fp + dst_off] = [fp + src_off] / imm
 
     // Memory operations
-    StoreDoubleDerefFp = 4, 3, fields: [base_off, offset, dst_off], size: 4, operands: [Felt, Felt, Felt]; // [fp + dst_off] = [[fp + base_off] + offset]
-    StoreImm = 5, 1, fields: [imm, dst_off], size: 3, operands: [Felt];                                    // [fp + dst_off] = imm
-
-    // Multiplication/Division
-    StoreMulFpFp = 6, 3, fields: [src0_off, src1_off, dst_off], size: 4, operands: [Felt, Felt, Felt];     // [fp + dst_off] = [fp + src0_off] * [fp + src1_off]
-    StoreMulFpImm = 7, 2, fields: [src_off, imm, dst_off], size: 4, operands: [Felt, Felt];                // [fp + dst_off] = [fp + src_off] * imm
-    StoreDivFpFp = 8, 3, fields: [src0_off, src1_off, dst_off], size: 4, operands: [Felt, Felt, Felt];     // [fp + dst_off] = [fp + src0_off] / [fp + src1_off]
-    StoreDivFpImm = 9, 2, fields: [src_off, imm, dst_off], size: 4, operands: [Felt, Felt];                // [fp + dst_off] = [fp + src_off] / imm
+    StoreDoubleDerefFp = 8, 3, fields: [base_off, offset, dst_off], size: 4, operands: [Felt, Felt, Felt]; // [fp + dst_off] = [[fp + base_off] + offset]
+    StoreImm = 9, 1, fields: [imm, dst_off], size: 3, operands: [Felt];                                    // [fp + dst_off] = imm
 
     // Call operations
     CallAbsImm = 10, 2, fields: [frame_off, target], size: 3, operands: [Felt, Felt];                      // call abs imm

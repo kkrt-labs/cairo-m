@@ -180,7 +180,7 @@ mod tests {
     fn test_store_add_fp_imm_from_smallvec() {
         // Test StoreAddFpImm (4 M31s)
         let instruction_m31s =
-            SmallVec::<[M31; INSTRUCTION_MAX_SIZE]>::from_slice(&[M31(1), M31(2), M31(3), M31(4)]);
+            SmallVec::<[M31; INSTRUCTION_MAX_SIZE]>::from_slice(&[M31(4), M31(2), M31(3), M31(4)]);
         let instruction: Instruction = instruction_m31s.try_into().unwrap();
         assert_eq!(instruction.opcode_value(), STORE_ADD_FP_IMM);
         assert_eq!(instruction.operands(), vec![M31(2), M31(3), M31(4)]);

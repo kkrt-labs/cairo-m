@@ -371,7 +371,7 @@ mod tests {
     fn test_get_instruction() {
         let addr = M31(42);
         // Create a valid store_imm instruction (opcode 5)
-        let value = QM31::from_m31_array([5, 123, 0, 0].map(Into::into));
+        let value = QM31::from_m31_array([9, 123, 0, 0].map(Into::into));
         let mut data = vec![QM31::zero(); 43];
         data[42] = value;
 
@@ -381,7 +381,7 @@ mod tests {
         };
 
         let instruction_m31s = memory.get_instruction(addr).unwrap();
-        assert_eq!(instruction_m31s.as_slice(), &[M31(5), M31(123), M31(0)]);
+        assert_eq!(instruction_m31s.as_slice(), &[M31(9), M31(123), M31(0)]);
         assert_eq!(memory.trace.borrow().len(), 1);
         assert_eq!(memory.trace.borrow()[0], MemoryEntry { addr, value });
     }
@@ -460,11 +460,11 @@ mod tests {
         let mut memory = Memory::default();
         let addr = M31(42);
         // Create a valid store_imm instruction (opcode 5)
-        let value = QM31::from_m31_array([5, 123, 0, 0].map(Into::into));
+        let value = QM31::from_m31_array([9, 123, 0, 0].map(Into::into));
 
         memory.insert(addr, value).unwrap();
         let instruction_m31s = memory.get_instruction(addr).unwrap();
-        assert_eq!(instruction_m31s.as_slice(), &[M31(5), M31(123), M31(0)]);
+        assert_eq!(instruction_m31s.as_slice(), &[M31(9), M31(123), M31(0)]);
         assert_eq!(memory.data.len(), 43);
         assert_eq!(memory.trace.borrow().len(), 2);
         assert_eq!(memory.trace.borrow()[0], MemoryEntry { addr, value });

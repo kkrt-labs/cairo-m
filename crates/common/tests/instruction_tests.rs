@@ -69,15 +69,7 @@ fn test_opcode_values() {
         .opcode_value(),
         0
     );
-    assert_eq!(
-        Instruction::StoreAddFpImm {
-            src_off: M31::from(0),
-            imm: M31::from(0),
-            dst_off: M31::from(0)
-        }
-        .opcode_value(),
-        1
-    );
+
     assert_eq!(
         Instruction::StoreSubFpFp {
             src0_off: M31::from(0),
@@ -85,33 +77,7 @@ fn test_opcode_values() {
             dst_off: M31::from(0)
         }
         .opcode_value(),
-        2
-    );
-    assert_eq!(
-        Instruction::StoreSubFpImm {
-            src_off: M31::from(0),
-            imm: M31::from(0),
-            dst_off: M31::from(0)
-        }
-        .opcode_value(),
-        3
-    );
-    assert_eq!(
-        Instruction::StoreDoubleDerefFp {
-            base_off: M31::from(0),
-            offset: M31::from(0),
-            dst_off: M31::from(0)
-        }
-        .opcode_value(),
-        4
-    );
-    assert_eq!(
-        Instruction::StoreImm {
-            imm: M31::from(0),
-            dst_off: M31::from(0)
-        }
-        .opcode_value(),
-        5
+        1
     );
     assert_eq!(
         Instruction::StoreMulFpFp {
@@ -120,16 +86,7 @@ fn test_opcode_values() {
             dst_off: M31::from(0)
         }
         .opcode_value(),
-        6
-    );
-    assert_eq!(
-        Instruction::StoreMulFpImm {
-            src_off: M31::from(0),
-            imm: M31::from(0),
-            dst_off: M31::from(0)
-        }
-        .opcode_value(),
-        7
+        2
     );
     assert_eq!(
         Instruction::StoreDivFpFp {
@@ -138,11 +95,55 @@ fn test_opcode_values() {
             dst_off: M31::from(0)
         }
         .opcode_value(),
-        8
+        3
+    );
+    assert_eq!(
+        Instruction::StoreAddFpImm {
+            src_off: M31::from(0),
+            imm: M31::from(0),
+            dst_off: M31::from(0)
+        }
+        .opcode_value(),
+        4
+    );
+    assert_eq!(
+        Instruction::StoreSubFpImm {
+            src_off: M31::from(0),
+            imm: M31::from(0),
+            dst_off: M31::from(0)
+        }
+        .opcode_value(),
+        5
+    );
+    assert_eq!(
+        Instruction::StoreMulFpImm {
+            src_off: M31::from(0),
+            imm: M31::from(0),
+            dst_off: M31::from(0)
+        }
+        .opcode_value(),
+        6
     );
     assert_eq!(
         Instruction::StoreDivFpImm {
             src_off: M31::from(0),
+            imm: M31::from(0),
+            dst_off: M31::from(0)
+        }
+        .opcode_value(),
+        7
+    );
+    assert_eq!(
+        Instruction::StoreDoubleDerefFp {
+            base_off: M31::from(0),
+            offset: M31::from(0),
+            dst_off: M31::from(0)
+        }
+        .opcode_value(),
+        8
+    );
+    assert_eq!(
+        Instruction::StoreImm {
             imm: M31::from(0),
             dst_off: M31::from(0)
         }
@@ -277,7 +278,7 @@ fn test_to_m31_vec() {
     };
     let vec = store_imm.to_m31_vec();
     assert_eq!(vec.len(), 3);
-    assert_eq!(vec[0], M31::from(5)); // opcode
+    assert_eq!(vec[0], M31::from(9)); // opcode
     assert_eq!(vec[1], M31::from(42)); // imm
     assert_eq!(vec[2], M31::from(3)); // dst_off
 
@@ -325,7 +326,7 @@ fn test_try_from_smallvec() {
 
     // Test StoreImm instruction
     let values: SmallVec<[M31; INSTRUCTION_MAX_SIZE]> =
-        smallvec![M31::from(5), M31::from(42), M31::from(3)];
+        smallvec![M31::from(9), M31::from(42), M31::from(3)];
     let instruction = Instruction::try_from(values).unwrap();
     match instruction {
         Instruction::StoreImm { imm, dst_off } => {
@@ -441,7 +442,7 @@ fn test_from_instruction_to_smallvec() {
     let smallvec: SmallVec<[M31; INSTRUCTION_MAX_SIZE]> = (&instruction).into();
     assert_eq!(
         smallvec.as_slice(),
-        &[M31::from(5), M31::from(42), M31::from(3)]
+        &[M31::from(9), M31::from(42), M31::from(3)]
     );
 }
 
@@ -518,7 +519,7 @@ fn test_serialization() {
         dst_off: M31::from(0xcafe),
     };
     let json = serde_json::to_string(&instruction).unwrap();
-    assert_eq!(json, r#"["0x5","0x1234567","0xcafe"]"#);
+    assert_eq!(json, r#"["0x9","0x1234567","0xcafe"]"#);
 
     let deserialized: Instruction = serde_json::from_str(&json).unwrap();
     assert_eq!(instruction, deserialized);
