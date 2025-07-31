@@ -14,12 +14,6 @@ use crate::adapter::merkle::MerkleHasher;
 /// This const is exclusively used in the build script not for the hash computation nor the AIR (where x**5 s-box is hardcoded)
 pub const ALPHA: u32 = 5;
 
-/// P: The prime field modulus (2^31 - 1)
-pub const P: u32 = 2_147_483_647;
-
-/// Prime bit length
-pub const PRIME_BIT_LEN: usize = 31;
-
 /// T: State size
 pub const T: usize = 16;
 
