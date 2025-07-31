@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1753953623474,
+  "lastUpdate": 1753956801379,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -840,6 +840,35 @@ window.BENCHMARK_DATA = {
           {
             "name": "fibonacci_prove_peak_mem",
             "value": 2382901023,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antoine.fondeur@gmail.com",
+            "name": "Antoine Fondeur",
+            "username": "AntoineFONDEUR"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7a3e6806ebd7c46b1d640754526eedcad75e3317",
+          "message": "feat(prover): add clock update component (#199)\n\n* added update clock data to prover input\n\n* added update clock component\n\n* fixes\n\n* review modifs\n\n* remove useless rangecheck lookup\n\n* update cli for release mode\n\n* Update crates/prover/src/components/clock_update.rs\n\nCo-authored-by: Clément Walter <clement0walter@gmail.com>\n\n* Update crates/prover/src/components/clock_update.rs\n\nCo-authored-by: Clément Walter <clement0walter@gmail.com>\n\n* Delete crates/prover/src/preprocessed/poseidon_rc.rs\n\n---------\n\nCo-authored-by: Clément Walter <clement0walter@gmail.com>",
+          "timestamp": "2025-07-31T12:00:11+02:00",
+          "tree_id": "ad991379b797cc24f50b25af3c63c1eb3d503b35",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/7a3e6806ebd7c46b1d640754526eedcad75e3317"
+        },
+        "date": 1753956801335,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2382911113,
             "unit": "bytes"
           }
         ]
