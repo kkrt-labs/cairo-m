@@ -50,6 +50,13 @@ git submodule update --init --recursive
 
 to pull the correct pinned version.
 
+Note also that `.worktrees` is added to `.gitignore` so that you can start
+working with work tress from the root of the project
+
+```bash
+git worktree add .worktrees/<branch-name>
+```
+
 **Note for MacOS users**: You need to have `lld` installed, which can be done
 easily with `brew install lld`. Also, make sure that your `clang` is the
 Homebrew one (`brew install llvm`), not the Xcode one.
