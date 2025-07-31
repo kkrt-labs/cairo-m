@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1753956800507,
+  "lastUpdate": 1753976070785,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -899,6 +899,36 @@ window.BENCHMARK_DATA = {
             "name": "prover_fibonacci/prove",
             "value": 5981556430,
             "range": "± 31419878",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antoine.fondeur@gmail.com",
+            "name": "Antoine Fondeur",
+            "username": "AntoineFONDEUR"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f04c147ad2842ed89f467cb4939d7d86d499c8cf",
+          "message": "feat(prover): poseidon2 component (#205)\n\n* add poseidon2 component\n\n* review modifs\n\n* patch thing\n\n* fix naming inconsistency between X_value and value_X\n\n* trunk\n\n* delete unused P and P_MODULULS_BIT\n\n* Apply suggestion from @AntoineFONDEUR\n\nCo-authored-by: Antoine Fondeur <antoine.fondeur@gmail.com>\n\n* Update crates/prover/src/components/poseidon2.rs\n\nCo-authored-by: Clément Walter <clement0walter@gmail.com>\n\n* Update crates/prover/src/components/poseidon2.rs\n\nCo-authored-by: Clément Walter <clement0walter@gmail.com>\n\n* Update crates/prover/src/components/poseidon2.rs\n\nCo-authored-by: Clément Walter <clement0walter@gmail.com>\n\n* review\n\n---------\n\nCo-authored-by: Clément Walter <clement0walter@gmail.com>",
+          "timestamp": "2025-07-31T17:19:59+02:00",
+          "tree_id": "a3a664e8ab9197d95afd10f41c3cd15b2d099a9d",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/f04c147ad2842ed89f467cb4939d7d86d499c8cf"
+        },
+        "date": 1753976069795,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 6010325125,
+            "range": "± 36400531",
             "unit": "ns/iter"
           }
         ]
