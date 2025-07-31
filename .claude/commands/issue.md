@@ -21,13 +21,6 @@ Then
    - create a branch with $ARGUMENTS as name
    - create simple commit for each part of the implementation
    - make sure to have `cargo b` and `cargo t` pass at each commit
+   - use the [commit](./commit.md) command for your commits
 5. run `trunk fmt` for linter
-6. use the git and gh cli tools to fetch the diff between origin/main and the
-   current branch, and create a PR
-7. generate a concise summary of the content and purpose of these changes based
-   on the observed diff. Add to the summary "Close $ARGUMENTS".
-8. the title of the PR should start with feat(prover/runner/vm) (pick the one
-   corresponding to the current task)
-9. Wait for few minutes after the Pr has been created to find a comment from
-   Claude making a detailed review of the PR. If the recommandation is not to
-   approve, work on the suggested improvements.
+6. use the [pr](./pr.md) command for creating the PR
