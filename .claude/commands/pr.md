@@ -1,6 +1,8 @@
 # PR workflow
 
-Use the [commit](./commit.md) command if there are any pending changes.
+Make sure you are not on the main branch. If so, then start by creating a
+dedicated new one. Use the [commit](./commit.md) command if there are any
+pending changes.
 
 Use the git and gh cli tools to fetch the diff between origin/main and the
 current branch. Generate a concise summary of the content and purpose of these
