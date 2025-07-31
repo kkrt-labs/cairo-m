@@ -156,8 +156,6 @@ where
 fn square<F: FieldExpOps>(x: F) -> F {
     x.clone() * x
 }
-    x.clone() * x
-}
 
 impl Claim {
     pub fn log_sizes(&self) -> TreeVec<Vec<u32>> {
