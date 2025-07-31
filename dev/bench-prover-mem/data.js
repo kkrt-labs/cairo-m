@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1753439151469,
+  "lastUpdate": 1753953623474,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -811,6 +811,35 @@ window.BENCHMARK_DATA = {
           {
             "name": "fibonacci_prove_peak_mem",
             "value": 2220055736,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "clement0walter@gmail.com",
+            "name": "Clément Walter",
+            "username": "ClementWalter"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1d34c87b6e87b3472299b1349963fa3ebca94d80",
+          "message": "feat(prover): factor components with equal lookup operations (#200)\n\n* Update macro to support list of opcodes\n\n* Merge jmp imm opcodes\n\n* merge store_fp_fp\n\n* Fix tests\n\n* merge store_fp_imm\n\n* Use saturatin_sub",
+          "timestamp": "2025-07-31T11:06:40+02:00",
+          "tree_id": "8e1efe189c59ba8094b0f865e90e2fa5315de6d8",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/1d34c87b6e87b3472299b1349963fa3ebca94d80"
+        },
+        "date": 1753953623429,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2382901023,
             "unit": "bytes"
           }
         ]
