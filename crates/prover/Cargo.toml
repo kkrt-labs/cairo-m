@@ -31,10 +31,10 @@ itertools.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 paste = "1.0"
-zkhash = { git = "https://github.com/HorizenLabs/poseidon2.git", branch = "main" }
+zkhash.workspace = true
 
 [build-dependencies]
-zkhash = { git = "https://github.com/HorizenLabs/poseidon2.git", branch = "main" }
+zkhash.workspace = true
 
 [dev-dependencies]
 tempfile = "3.0"
