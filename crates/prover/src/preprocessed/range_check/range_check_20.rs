@@ -23,7 +23,7 @@ use crate::preprocessed::PreProcessedColumn;
 use crate::preprocessed::range_check::RangeCheck;
 use crate::relations::RangeCheck20;
 
-const LOG_SIZE_RC_20: u32 = 20;
+pub const LOG_SIZE_RC_20: u32 = 20;
 
 pub struct InteractionClaimData {
     pub range_check_20: Vec<[PackedM31; 2]>,
