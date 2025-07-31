@@ -229,7 +229,10 @@ where
 
         for (idx, operand_slot) in operands.iter_mut().take(num_operands).enumerate() {
             // Get the data type for this operand based on the instruction's opcode
-            let data_type = operand_types.get(idx).copied()?;
+            let data_type = operand_types
+                .get(idx)
+                .copied()
+                .expect("Operand type not found - The instruction is not defined properly.");
 
             match data_type {
                 DataType::Felt => {
