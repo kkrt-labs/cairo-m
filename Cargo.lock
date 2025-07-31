@@ -3868,7 +3868,7 @@ dependencies = [
 [[package]]
 name = "zkhash"
 version = "0.2.0"
-source = "git+https://github.com/AntoineFONDEUR/poseidon2.git?branch=poseidon2-M31#5fa500c87efc37ee5b316cfb44788a136e29d185"
+source = "git+https://github.com/AntoineFONDEUR/poseidon2.git?branch=poseidon2-M31#5f715d0c9b34f427f8b6b05ddbafc82379e73b20"
 dependencies = [
  "ark-ff",
  "ark-std",

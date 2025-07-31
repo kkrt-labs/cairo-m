@@ -165,7 +165,7 @@ pub fn build_partial_merkle_tree<H: MerkleHasher>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::poseidon2::Poseidon2Hash;
+    use crate::poseidon2::Poseidon2Hash;
 
     #[test]
     fn test_empty_tree() {

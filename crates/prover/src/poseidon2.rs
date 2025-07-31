@@ -1,6 +1,3 @@
-// Poseidon2 hash parameters shared between the implementation and build script
-// This is the single source of truth for all Poseidon2 constants
-
 use num_traits::Zero;
 use stwo_prover::core::fields::m31::M31;
 use zkhash::ark_ff::PrimeField;
@@ -9,7 +6,6 @@ use zkhash::poseidon2::poseidon2::Poseidon2;
 use zkhash::poseidon2::poseidon2_instance_m31::POSEIDON2_M31_16_PARAMS;
 
 use crate::adapter::merkle::MerkleHasher;
-type Scalar = FpM31;
 
 /// ALPHA: power in the S-Box. The paper suggest x**5 as S-Box.
 ///
@@ -45,9 +41,9 @@ pub struct Poseidon2Hash;
 impl MerkleHasher for Poseidon2Hash {
     fn hash(left: M31, right: M31) -> M31 {
         let poseidon2 = Poseidon2::new(&POSEIDON2_M31_16_PARAMS);
-        let mut input: Vec<Scalar> = vec![Scalar::zero(); T];
-        input[0] = Scalar::from(left.0);
-        input[1] = Scalar::from(right.0);
+        let mut input: Vec<FpM31> = vec![FpM31::zero(); T];
+        input[0] = FpM31::from(left.0);
+        input[1] = FpM31::from(right.0);
         let perm = poseidon2.permutation(&input);
         M31::from(perm[0].into_bigint().0[0] as u32)
     }

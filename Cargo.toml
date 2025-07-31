@@ -73,3 +73,7 @@ stwo-prover = { path = "external/stwo/crates/prover" }
 stwo-air-utils = { path = "external/stwo/crates/air_utils" }
 stwo-air-utils-derive = { path = "external/stwo/crates/air_utils_derive" }
 stwo-constraint-framework = { path = "external/stwo/crates/constraint_framework" }
+
+# Patching zkhash to use custom version
+[patch."https://github.com/HorizenLabs/poseidon2.git"]
+zkhash = { git = "https://github.com/AntoineFONDEUR/poseidon2.git", branch = "poseidon2-M31" }

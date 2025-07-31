@@ -9,8 +9,8 @@ use cairo_m_prover::adapter::{
     HashInput, Instructions, MerkleTrees, ProverInput, import_from_runner_output,
 };
 use cairo_m_prover::debug_tools::assert_constraints::assert_constraints;
+use cairo_m_prover::poseidon2::Poseidon2Hash;
 use cairo_m_prover::prover::prove_cairo_m;
-use cairo_m_prover::utils::poseidon2::Poseidon2Hash;
 use cairo_m_prover::verifier::verify_cairo_m;
 use cairo_m_runner::{RunnerOptions, run_cairo_program};
 use stwo_prover::core::fields::m31::M31;

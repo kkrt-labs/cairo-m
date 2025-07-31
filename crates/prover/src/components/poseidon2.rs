@@ -60,10 +60,10 @@ use stwo_prover::core::poly::BitReversedOrder;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 
 use crate::components::Relations;
-use crate::utils::enabler::Enabler;
-use crate::utils::poseidon2::{
+use crate::poseidon2::{
     EXTERNAL_ROUND_CONSTS, FULL_ROUNDS, INTERNAL_MATRIX, INTERNAL_ROUND_CONSTS, PARTIAL_ROUNDS, T,
 };
+use crate::utils::enabler::Enabler;
 
 const N_TRACE_COLUMNS: usize = 1 + T * (1 + FULL_ROUNDS * 3) + 3 * PARTIAL_ROUNDS;
 const N_POSEIDON2_LOOKUPS: usize = 2;

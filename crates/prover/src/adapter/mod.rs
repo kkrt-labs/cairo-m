@@ -19,7 +19,7 @@ use tracing::{Level, span};
 use crate::adapter::io::{MemoryEntryFileIter, TraceFileIter};
 use crate::adapter::memory::{ExecutionBundleIterator, Memory};
 use crate::adapter::merkle::{NodeData, TREE_HEIGHT, build_partial_merkle_tree};
-use crate::utils::poseidon2::{Poseidon2Hash, T};
+use crate::poseidon2::{Poseidon2Hash, T};
 
 pub type HashInput = [M31; T];
 
