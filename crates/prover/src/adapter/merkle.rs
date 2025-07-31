@@ -134,7 +134,7 @@ pub fn build_partial_merkle_tree<H: MerkleHasher>(
                 .copied()
                 .unwrap_or_else(|| add_intermediate_node(right_index));
 
-            // Calculate parent hash and collect trace data if using Poseidon2Hash
+            // Calculate parent hash
             let parent_value = H::hash(left_value, right_value);
 
             // Store node data
