@@ -1179,10 +1179,32 @@ impl TypeValidator {
                         .expression(lhs_expr_id)
                         .expect("No expression info found")
                         .scope_id;
-                    if let Some((_def_idx, _def)) =
+                    if let Some((_def_idx, def)) =
                         index.resolve_name_to_definition(ident.value(), scope_id)
                     {
-                        // TODO: Check if the definition is mutable
+                        // Check if the variable is const
+                        if let Some(place_table) = index.place_table(def.scope_id) {
+                            if let Some(place) = place_table.place(def.place_id) {
+                                if place.flags.contains(crate::place::PlaceFlags::CONSTANT) {
+                                    sink.push(
+                                        Diagnostic::error(
+                                            DiagnosticCode::AssignmentToConst,
+                                            format!(
+                                                "cannot assign to const variable `{}`",
+                                                ident.value()
+                                            ),
+                                        )
+                                        .with_location(file.file_path(db).to_string(), lhs.span())
+                                        .with_related_span(
+                                            file.file_path(db).to_string(),
+                                            def.name_span,
+                                            "const variable defined here".to_string(),
+                                        ),
+                                    );
+                                    return;
+                                }
+                            }
+                        }
                     }
                 }
             }
