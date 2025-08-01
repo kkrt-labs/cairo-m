@@ -232,6 +232,69 @@ pub fn u32_store_add_fp_imm(
     Ok(state.advance_by(instruction.size_in_qm31s()))
 }
 
+/// TODO: Implement U32 store add fp fp instruction
+pub fn u32_store_add_fp_fp(
+    _memory: &mut Memory,
+    _state: State,
+    _instruction: &Instruction,
+) -> Result<State, InstructionExecutionError> {
+    todo!("u32_store_add_fp_fp not implemented")
+}
+
+/// TODO: Implement U32 store sub fp fp instruction
+pub fn u32_store_sub_fp_fp(
+    _memory: &mut Memory,
+    _state: State,
+    _instruction: &Instruction,
+) -> Result<State, InstructionExecutionError> {
+    todo!("u32_store_sub_fp_fp not implemented")
+}
+
+/// TODO: Implement U32 store mul fp fp instruction
+pub fn u32_store_mul_fp_fp(
+    _memory: &mut Memory,
+    _state: State,
+    _instruction: &Instruction,
+) -> Result<State, InstructionExecutionError> {
+    todo!("u32_store_mul_fp_fp not implemented")
+}
+
+/// TODO: Implement U32 store div fp fp instruction
+pub fn u32_store_div_fp_fp(
+    _memory: &mut Memory,
+    _state: State,
+    _instruction: &Instruction,
+) -> Result<State, InstructionExecutionError> {
+    todo!("u32_store_div_fp_fp not implemented")
+}
+
+/// TODO: Implement U32 store sub fp imm instruction
+pub fn u32_store_sub_fp_imm(
+    _memory: &mut Memory,
+    _state: State,
+    _instruction: &Instruction,
+) -> Result<State, InstructionExecutionError> {
+    todo!("u32_store_sub_fp_imm not implemented")
+}
+
+/// TODO: Implement U32 store mul fp imm instruction
+pub fn u32_store_mul_fp_imm(
+    _memory: &mut Memory,
+    _state: State,
+    _instruction: &Instruction,
+) -> Result<State, InstructionExecutionError> {
+    todo!("u32_store_mul_fp_imm not implemented")
+}
+
+/// TODO: Implement U32 store div fp imm instruction
+pub fn u32_store_div_fp_imm(
+    _memory: &mut Memory,
+    _state: State,
+    _instruction: &Instruction,
+) -> Result<State, InstructionExecutionError> {
+    todo!("u32_store_div_fp_imm not implemented")
+}
+
 #[cfg(test)]
 #[path = "./store_tests.rs"]
 mod store_tests;

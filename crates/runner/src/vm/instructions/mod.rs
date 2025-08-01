@@ -157,7 +157,14 @@ pub fn opcode_to_instruction_fn(op: M31) -> Result<InstructionFn, InstructionErr
         JMP_ABS_IMM => jmp_abs_imm,
         JMP_REL_IMM => jmp_rel_imm,
         JNZ_FP_IMM => jnz_fp_imm,
+        U32_STORE_ADD_FP_FP => u32_store_add_fp_fp,
+        U32_STORE_SUB_FP_FP => u32_store_sub_fp_fp,
+        U32_STORE_MUL_FP_FP => u32_store_mul_fp_fp,
+        U32_STORE_DIV_FP_FP => u32_store_div_fp_fp,
         U32_STORE_ADD_FP_IMM => u32_store_add_fp_imm,
+        U32_STORE_SUB_FP_IMM => u32_store_sub_fp_imm,
+        U32_STORE_MUL_FP_IMM => u32_store_mul_fp_imm,
+        U32_STORE_DIV_FP_IMM => u32_store_div_fp_imm,
         _ => return Err(InstructionError::InvalidOpcode(op)),
     };
     Ok(f)
@@ -174,7 +181,7 @@ mod tests {
 
     use super::opcode_to_instruction_fn;
 
-    const LAST_VALID_OPCODE_ID: u32 = 15;
+    const LAST_VALID_OPCODE_ID: u32 = 22;
 
     #[test]
     fn test_store_add_fp_imm_from_smallvec() {
@@ -199,7 +206,7 @@ mod tests {
     fn test_u32_store_add_fp_imm_from_smallvec() {
         // Test U32StoreAddFpImm (5 M31s)
         let u32_m31s = SmallVec::<[M31; INSTRUCTION_MAX_SIZE]>::from_slice(&[
-            M31(15),
+            M31(19),
             M31(1),
             M31(2),
             M31(3),

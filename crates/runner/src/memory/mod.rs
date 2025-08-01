@@ -539,10 +539,10 @@ mod tests {
         let mut memory = Memory::default();
         let start_addr = M31(0);
 
-        // Insert a U32StoreAddFpImm instruction (opcode 15, size 5 M31s = 2 QM31s)
+        // Insert a U32StoreAddFpImm instruction (opcode 19, size 5 M31s = 2 QM31s)
         // Fields: src_off=1, imm_hi=2, imm_lo=3, dst_off=4
         let values = vec![
-            QM31::from_m31_array([15, 1, 2, 3].map(Into::into)), // First 4 M31s
+            QM31::from_m31_array([19, 1, 2, 3].map(Into::into)), // First 4 M31s
             QM31::from_m31_array([4, 0, 0, 0].map(Into::into)),  // Last M31 + padding
         ];
 
@@ -553,7 +553,7 @@ mod tests {
 
         // Get U32StoreAddFpImm instruction (5 M31s, spans 2 QM31s)
         let inst = memory.get_instruction(start_addr).unwrap();
-        assert_eq!(inst.as_slice(), &[M31(15), M31(1), M31(2), M31(3), M31(4)]);
+        assert_eq!(inst.as_slice(), &[M31(19), M31(1), M31(2), M31(3), M31(4)]);
 
         // Verify trace contains both QM31 accesses
         assert_eq!(memory.trace.borrow().len(), 2);
