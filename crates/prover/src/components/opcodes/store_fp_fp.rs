@@ -64,7 +64,7 @@
 //!   * `- [fp + off2, dst_prev_clk, dst_prev_val] + [fp + off2, clk, dst_val]` in `Memory` relation
 //!   * `- [clk - dst_prev_clk - 1]` in `RangeCheck20` relation
 
-use cairo_m_common::instruction::STORE_ADD_FP_FP;
+use cairo_m_common::instruction::{RET, STORE_ADD_FP_FP};
 use num_traits::{One, Zero};
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
@@ -169,11 +169,21 @@ impl Claim {
                         .unwrap_or_else(M31::zero)
                 }));
                 let opcode_flag_0 = PackedM31::from_array(array.map(|x| {
-                    let flag = x.instruction.instruction.opcode_value() - STORE_ADD_FP_FP;
+                    let opcode = x.instruction.instruction.opcode_value();
+                    let flag = if opcode == RET {
+                        0
+                    } else {
+                        opcode - STORE_ADD_FP_FP
+                    };
                     M31(flag / 2)
                 }));
                 let opcode_flag_1 = PackedM31::from_array(array.map(|x| {
-                    let flag = x.instruction.instruction.opcode_value() - STORE_ADD_FP_FP;
+                    let opcode = x.instruction.instruction.opcode_value();
+                    let flag = if opcode == RET {
+                        0
+                    } else {
+                        opcode - STORE_ADD_FP_FP
+                    };
                     M31(flag % 2)
                 }));
                 (

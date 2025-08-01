@@ -59,7 +59,7 @@
 //!   * `- [fp + off2, dst_prev_clk, dst_prev_val] + [fp + off2, clk, dst_val]` in `Memory` relation
 //!   * `- [clk - dst_prev_clk - 1]` in `RangeCheck20` relation
 
-use cairo_m_common::instruction::STORE_ADD_FP_IMM;
+use cairo_m_common::instruction::{RET, STORE_ADD_FP_IMM};
 use num_traits::{One, Zero};
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
@@ -153,7 +153,11 @@ impl Claim {
             .map(|chunk| {
                 let array: [ExecutionBundle; N_LANES] = chunk.try_into().unwrap();
                 let off1_inverses = PackedM31::from_array(array.map(|x| {
-                    let off1 = x.instruction.instruction.operands()[1];
+                    let off1 = if x.instruction.instruction.opcode_value() == RET {
+                        M31::zero()
+                    } else {
+                        x.instruction.instruction.operands()[1]
+                    };
                     if off1 != M31::zero() {
                         off1.inverse()
                     } else {
