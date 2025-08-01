@@ -4,5 +4,5 @@ pub mod program;
 pub mod state;
 
 pub use instruction::{Instruction, InstructionError};
-pub use program::{Program, ProgramMetadata};
+pub use program::{Program, ProgramMetadata, PublicAddressRanges};
 pub use state::State;

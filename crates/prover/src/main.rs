@@ -64,7 +64,7 @@ fn main() -> Result<(), Error> {
 
     let mut prover_input = import_from_runner_output(
         output.vm.segments.into_iter().next().unwrap(),
-        output.public_addresses,
+        output.public_address_ranges,
     )
     .context("Failed to import from runner output")?;
     let proof: cairo_m_prover::Proof<stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleHasher> =
