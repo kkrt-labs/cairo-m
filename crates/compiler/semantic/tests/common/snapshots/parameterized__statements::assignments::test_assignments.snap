@@ -159,3 +159,18 @@ fn test() { let x: felt = 42; let y: felt = 100; let z: felt = (x != y); return;
    │                                                                ────┬───  
    │                                                                    ╰───── Type mismatch for let statement `z`. Expected `felt`, found `bool`
 ───╯
+
+============================================================
+
+--- Input 13 (ERROR) ---
+fn test() { const x = 42; x = 100; return; }
+--- Diagnostics ---
+[2014] Error: cannot assign to const variable `x`
+   ╭─[ semantic_tests::statements::assignments::test_assignments:1:27 ]
+   │
+ 1 │ fn test() { const x = 42; x = 100; return; }
+   │                   ┬       ┬  
+   │                   ╰────────── const variable defined here
+   │                           │  
+   │                           ╰── cannot assign to const variable `x`
+───╯
