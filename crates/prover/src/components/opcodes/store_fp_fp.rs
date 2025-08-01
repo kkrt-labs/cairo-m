@@ -64,7 +64,7 @@
 //!   * `- [fp + off2, dst_prev_clk, dst_prev_val] + [fp + off2, clk, dst_val]` in `Memory` relation
 //!   * `- [clk - dst_prev_clk - 1]` in `RangeCheck20` relation
 
-use cairo_m_common::Opcode;
+use cairo_m_common::instruction::{RET, STORE_ADD_FP_FP};
 use num_traits::{One, Zero};
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
@@ -160,8 +160,8 @@ impl Claim {
                 let op1_inverses = PackedM31::from_array(array.map(|x| {
                     x.operands[1]
                         .and_then(|operand| {
-                            if operand.value != M31::zero() {
-                                Some(operand.value.inverse())
+                            if operand.value.limb0 != M31::zero() {
+                                Some(operand.value.limb0.inverse())
                             } else {
                                 None
                             }
@@ -169,11 +169,21 @@ impl Claim {
                         .unwrap_or_else(M31::zero)
                 }));
                 let opcode_flag_0 = PackedM31::from_array(array.map(|x| {
-                    let flag = x.instruction.value.0.0.0 - Opcode::StoreAddFpFp.to_u32();
+                    let opcode = x.instruction.instruction.opcode_value();
+                    let flag = if opcode == RET {
+                        0
+                    } else {
+                        opcode - STORE_ADD_FP_FP
+                    };
                     M31(flag / 2)
                 }));
                 let opcode_flag_1 = PackedM31::from_array(array.map(|x| {
-                    let flag = x.instruction.value.0.0.0 - Opcode::StoreAddFpFp.to_u32();
+                    let opcode = x.instruction.instruction.opcode_value();
+                    let flag = if opcode == RET {
+                        0
+                    } else {
+                        opcode - STORE_ADD_FP_FP
+                    };
                     M31(flag % 2)
                 }));
                 (
@@ -215,13 +225,13 @@ impl Claim {
                     let off1 = input.inst_value_2;
                     let off2 = input.inst_value_3;
                     let op0_prev_clock = input.mem1_prev_clock;
-                    let op0_val = input.mem1_value;
+                    let op0_val = input.mem1_value_limb0;
                     let op1_prev_clock = input.mem2_prev_clock;
-                    let op1_val = input.mem2_value;
+                    let op1_val = input.mem2_value_limb0;
                     let op1_inv = *op1_inverses;
                     let dst_prev_clock = input.mem3_prev_clock;
-                    let dst_prev_val = input.mem3_prev_value;
-                    let dst_val = input.mem3_value;
+                    let dst_prev_val = input.mem3_prev_value_limb0;
+                    let dst_val = input.mem3_value_limb0;
                     let prod = op0_val * op1_val;
                     let div = op0_val * *op1_inverses;
 
@@ -525,7 +535,7 @@ impl FrameworkEval for Eval {
             eval.add_intermediate(opcode_flag_0.clone() * (one.clone() - opcode_flag_1.clone()));
         let is_div = eval.add_intermediate(opcode_flag_0.clone() * opcode_flag_1.clone());
         let opcode_id = eval.add_intermediate(
-            E::F::from(M31::from(Opcode::StoreAddFpFp))
+            E::F::from(M31::from(STORE_ADD_FP_FP))
                 + E::F::from(M31::from_u32_unchecked(2)) * opcode_flag_0
                 + opcode_flag_1,
         );

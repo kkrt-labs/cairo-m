@@ -7,24 +7,26 @@
 use cairo_m_common::{Instruction, State};
 use num_traits::Zero;
 
-use crate::memory::{Memory, MemoryError};
+use super::InstructionExecutionError;
+use crate::extract_as;
+use crate::memory::Memory;
 use crate::vm::state::VmState;
 
 /// CASM equivalent:
 /// ```casm
-/// jmp rel imm if [fp + off0] != 0
+/// jmp rel offset if [fp + cond_off] != 0
 /// ```
 pub fn jnz_fp_imm(
     memory: &mut Memory,
     state: State,
     instruction: &Instruction,
-) -> Result<State, MemoryError> {
-    let [off0, imm, _] = instruction.operands;
-    let condition = memory.get_data(state.fp + off0)?;
+) -> Result<State, InstructionExecutionError> {
+    let (cond_off, offset) = extract_as!(instruction, JnzFpImm, (cond_off, offset));
+    let condition = memory.get_data(state.fp + cond_off)?;
     let new_state = if !condition.is_zero() {
-        state.jump_rel(imm)
+        state.jump_rel(offset)
     } else {
-        state.advance()
+        state.advance_by(instruction.size_in_qm31s())
     };
 
     Ok(new_state)

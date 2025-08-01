@@ -33,7 +33,7 @@
 //!   * `- [fp + off0, op0_prev_clk, op0_val] + [fp + off0, clk, op0_val]` in `Memory` relation
 //!   * `- [clk - op0_prev_clk - 1]` in `RangeCheck20` relation
 
-use cairo_m_common::Opcode;
+use cairo_m_common::instruction::JNZ_FP_IMM;
 use num_traits::{One, Zero};
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
@@ -150,11 +150,11 @@ impl Claim {
                 let fp = input.fp;
                 let clock = input.clock;
                 let inst_prev_clock = input.inst_prev_clock;
-                let opcode_constant = PackedM31::from(M31::from(Opcode::JnzFpImm));
+                let opcode_constant = PackedM31::from(M31::from(JNZ_FP_IMM));
                 let off0 = input.inst_value_1;
                 let imm = input.inst_value_2;
                 let op0_prev_clock = input.mem1_prev_clock;
-                let op0_val = input.mem1_value;
+                let op0_val = input.mem1_value_limb0;
                 let op0_val_inv = PackedM31::from(op0_val.to_array().map(|m| {
                     if m == M31::zero() {
                         M31::zero()
@@ -335,7 +335,7 @@ impl FrameworkEval for Eval {
 
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         let one = E::F::from(M31::one());
-        let opcode_constant = E::F::from(M31::from(Opcode::JnzFpImm));
+        let opcode_constant = E::F::from(M31::from(JNZ_FP_IMM));
 
         let enabler = eval.next_trace_mask();
         let pc = eval.next_trace_mask();

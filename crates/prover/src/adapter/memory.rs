@@ -2,9 +2,10 @@ use std::collections::HashMap;
 use std::iter::Peekable;
 
 use cairo_m_common::State as VmRegisters;
-use cairo_m_common::opcode::Opcode;
+use cairo_m_common::instruction::{DataType, INSTRUCTION_MAX_SIZE, Instruction};
 use cairo_m_common::state::MemoryEntry as RunnerMemoryEntry;
 use num_traits::{One, Zero};
+use smallvec::SmallVec;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 
@@ -37,25 +38,45 @@ impl From<crate::adapter::io::IoMemoryEntry> for MemoryEntry {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct MemoryValue {
+    pub limb0: M31,
+    pub limb1: M31, // Always zero for felt values
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct DataAccess {
     pub address: M31,
     pub prev_clock: M31,
-    pub prev_value: M31,
-    pub value: M31,
+    pub prev_value: MemoryValue,
+    pub value: MemoryValue,
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InstructionAccess {
+    pub instruction: Instruction,
     pub prev_clock: M31,
-    pub value: QM31,
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ExecutionBundle {
     pub registers: VmRegisters,
     pub clock: M31,
     pub instruction: InstructionAccess,
     pub operands: [Option<DataAccess>; 3],
+}
+
+impl Default for ExecutionBundle {
+    fn default() -> Self {
+        Self {
+            registers: VmRegisters::default(),
+            clock: M31::zero(),
+            instruction: InstructionAccess {
+                instruction: Instruction::Ret {},
+                prev_clock: M31::zero(),
+            },
+            operands: [None, None, None],
+        }
+    }
 }
 
 /// Intermediary struct to iterate over the VM memory output and construct the ExecutionBundle.
@@ -134,7 +155,8 @@ where
             return None;
         }
 
-        // Process instruction memory access
+        // Process instruction memory access.
+        // Step 1: Read one entry for the instruction's first QM31
         let instruction_memory = match self.memory_iter.next() {
             Some(entry) => entry,
             None => return Some(Err(VmImportError::EmptyTrace)),
@@ -148,50 +170,157 @@ where
 
         let instruction_arg = self.memory.push(instruction_entry);
 
-        // Parse opcode
-        let opcode = match Opcode::try_from(instruction_entry.value) {
-            Ok(op) => op,
-            Err(e) => return Some(Err(e.into())),
+        // Step 2: Parse opcode from first M31 to determine instruction size
+        let opcode_m31 = instruction_entry.value.0.0;
+        let opcode_value = opcode_m31.0;
+
+        // Get instruction size from opcode
+        let instruction_size_m31 = match Instruction::size_in_m31s_for_opcode(opcode_value) {
+            Some(size) => size,
+            None => return Some(Err(VmImportError::InvalidOpcode(opcode_value.into()))),
         };
 
-        // Create InstructionAccess
-        let instruction = InstructionAccess {
-            prev_clock: instruction_arg.prev_clock,
-            value: instruction_arg.value,
-        };
+        // Calculate how many QM31 words we need to read
+        let instruction_size_qm31 = instruction_size_m31.div_ceil(4);
 
-        // Process operand memory accesses
-        let num_operands = opcode.info().memory_accesses;
-        let mut operands: [Option<DataAccess>; 3] = [None, None, None];
+        // Collect M31 values for the instruction
+        let mut instruction_values = SmallVec::<[M31; INSTRUCTION_MAX_SIZE]>::new();
 
-        for operand_slot in operands.iter_mut().take(num_operands) {
-            let operand_memory = match self.memory_iter.next() {
+        // Extract M31s from the first QM31
+        let first_qm31 = instruction_entry.value;
+        let m31_array = first_qm31.to_m31_array();
+        instruction_values.extend(m31_array.iter().take(instruction_size_m31).copied());
+
+        // Step 3: Read additional QM31 words if instruction spans multiple QM31s
+        if instruction_size_qm31 > 1 {
+            let mem_entry = match self.memory_iter.next() {
                 Some(entry) => entry,
-                None => return Some(Err(VmImportError::EmptyTrace)),
+                None => return Some(Err(VmImportError::UnexpectedEndOfTrace)),
             };
 
-            let operand_entry = MemoryEntry {
-                address: operand_memory.addr,
-                value: operand_memory.value,
+            let entry = MemoryEntry {
+                address: mem_entry.addr,
+                value: mem_entry.value,
                 clock: self.clock.into(),
             };
 
-            let operand_arg = self.memory.push(operand_entry);
+            // Push to memory
+            self.memory.push(entry);
 
-            let data_access = DataAccess {
-                address: operand_arg.address,
-                prev_clock: operand_arg.prev_clock,
-                prev_value: operand_arg.prev_val.0.0,
-                value: operand_arg.value.0.0,
-            };
+            // Extract the 5th M31 for U32StoreAddFpImm (which has size 5)
+            if instruction_size_m31 > 4 {
+                instruction_values.push(entry.value.0.0);
+            }
+        }
 
-            *operand_slot = Some(data_access);
+        // Parse the complete instruction
+        let instruction = match Instruction::try_from(instruction_values) {
+            Ok(inst) => inst,
+            Err(e) => return Some(Err(VmImportError::InvalidInstruction(e))),
+        };
+
+        // Create InstructionAccess
+        let instruction_access = InstructionAccess {
+            instruction,
+            prev_clock: instruction_arg.prev_clock,
+        };
+
+        // Step 4: Process operand memory accesses based on instruction's opcode
+        // The number and type of memory accesses depends on the instruction
+        let num_operands = instruction.memory_accesses();
+        let operand_types = instruction.operand_types();
+        let mut operands: [Option<DataAccess>; 3] = [None, None, None];
+
+        for (idx, operand_slot) in operands.iter_mut().take(num_operands).enumerate() {
+            // Get the data type for this operand based on the instruction's opcode
+            let data_type = operand_types
+                .get(idx)
+                .copied()
+                .expect("Operand type not found - The instruction is not defined properly.");
+
+            match data_type {
+                DataType::Felt => {
+                    // Single M31 value for Felt operands
+                    let operand_memory = match self.memory_iter.next() {
+                        Some(entry) => entry,
+                        None => return Some(Err(VmImportError::UnexpectedEndOfTrace)),
+                    };
+
+                    let operand_entry = MemoryEntry {
+                        address: operand_memory.addr,
+                        value: operand_memory.value,
+                        clock: self.clock.into(),
+                    };
+
+                    let operand_arg = self.memory.push(operand_entry);
+
+                    let data_access = DataAccess {
+                        address: operand_arg.address,
+                        prev_clock: operand_arg.prev_clock,
+                        prev_value: MemoryValue {
+                            limb0: operand_arg.prev_val.0.0,
+                            limb1: M31::zero(),
+                        },
+                        value: MemoryValue {
+                            limb0: operand_arg.value.0.0,
+                            limb1: M31::zero(),
+                        },
+                    };
+
+                    *operand_slot = Some(data_access);
+                }
+                DataType::U32 => {
+                    // Two consecutive M31 values for U32 operands
+                    // First limb (low part)
+                    let operand_memory_low = match self.memory_iter.next() {
+                        Some(entry) => entry,
+                        None => return Some(Err(VmImportError::UnexpectedEndOfTrace)),
+                    };
+
+                    let operand_entry_low = MemoryEntry {
+                        address: operand_memory_low.addr,
+                        value: operand_memory_low.value,
+                        clock: self.clock.into(),
+                    };
+
+                    let operand_arg_low = self.memory.push(operand_entry_low);
+
+                    // Second limb (high part)
+                    let operand_memory_high = match self.memory_iter.next() {
+                        Some(entry) => entry,
+                        None => return Some(Err(VmImportError::UnexpectedEndOfTrace)),
+                    };
+
+                    let operand_entry_high = MemoryEntry {
+                        address: operand_memory_high.addr,
+                        value: operand_memory_high.value,
+                        clock: self.clock.into(),
+                    };
+
+                    let operand_arg_high = self.memory.push(operand_entry_high);
+
+                    let data_access = DataAccess {
+                        address: operand_arg_low.address, // Use the base address
+                        prev_clock: operand_arg_low.prev_clock,
+                        prev_value: MemoryValue {
+                            limb0: operand_arg_low.prev_val.0.0,
+                            limb1: operand_arg_high.prev_val.0.0,
+                        },
+                        value: MemoryValue {
+                            limb0: operand_arg_low.value.0.0,
+                            limb1: operand_arg_high.value.0.0,
+                        },
+                    };
+
+                    *operand_slot = Some(data_access);
+                }
+            }
         }
 
         let bundle = ExecutionBundle {
             registers,
             clock: self.clock.into(),
-            instruction,
+            instruction: instruction_access,
             operands,
         };
 

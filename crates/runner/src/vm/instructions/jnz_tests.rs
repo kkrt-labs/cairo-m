@@ -1,8 +1,6 @@
-use cairo_m_common::Opcode;
 use stwo_prover::core::fields::m31::M31;
 
-use super::*;
-use crate::vm::test_utils::*;
+use super::{InstructionExecutionError, *};
 
 const JNZ_INITIAL_STATE: State = State {
     pc: M31(3),
@@ -10,9 +8,12 @@ const JNZ_INITIAL_STATE: State = State {
 };
 
 #[test]
-fn test_jnz_fp_imm_zero() -> Result<(), MemoryError> {
+fn test_jnz_fp_imm_zero() -> Result<(), InstructionExecutionError> {
     let mut memory = Memory::from_iter([0].map(Into::into));
-    let instruction = instr!(Opcode::JnzFpImm, 0, 8, 0);
+    let instruction = Instruction::JnzFpImm {
+        cond_off: M31(0),
+        offset: M31(8),
+    };
 
     let new_state = jnz_fp_imm(&mut memory, JNZ_INITIAL_STATE, &instruction)?;
 
@@ -26,9 +27,12 @@ fn test_jnz_fp_imm_zero() -> Result<(), MemoryError> {
 }
 
 #[test]
-fn test_jnz_fp_imm_not_zero() -> Result<(), MemoryError> {
+fn test_jnz_fp_imm_not_zero() -> Result<(), InstructionExecutionError> {
     let mut memory = Memory::from_iter([7].map(Into::into));
-    let instruction = instr!(Opcode::JnzFpImm, 0, 8, 0);
+    let instruction = Instruction::JnzFpImm {
+        cond_off: M31(0),
+        offset: M31(8),
+    };
 
     let new_state = jnz_fp_imm(&mut memory, JNZ_INITIAL_STATE, &instruction)?;
 

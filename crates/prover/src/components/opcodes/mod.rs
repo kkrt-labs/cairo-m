@@ -1,9 +1,6 @@
 macro_rules! define_opcodes {
     // Single pattern: all opcodes use [opcodes...] syntax
-    ($(([$(Opcode::$opcode_enum:ident),+ $(,)?], $opcode:ident)),* $(,)?) => {
-        // Check that all Opcode enum variants are used
-        define_opcodes!(@check_all_opcodes_used [$($($opcode_enum),+),*]);
-
+    ($(([$(const $opcode_const:ident),+ $(,)?], $opcode:ident)),* $(,)?) => {
         // Generate pub mod declarations for all opcodes
         $(pub mod $opcode;)*
 
@@ -53,7 +50,7 @@ macro_rules! define_opcodes {
                     // Collect states for all opcodes in this group
                     let mut grouped_states = Vec::new();
                     $(
-                        let state_data = instructions.states_by_opcodes.entry(Opcode::$opcode_enum).or_default();
+                        let state_data = instructions.states_by_opcodes.entry($opcode_const).or_default();
                         grouped_states.extend(state_data.drain(..));
                     )+
 
@@ -156,22 +153,6 @@ macro_rules! define_opcodes {
         }
     };
 
-    // Helper rule to check that all Opcode variants are used
-    (@check_all_opcodes_used [$($opcode_enum:ident),* $(,)?]) => {
-        // This will be checked at compile time - if any opcode is missing,
-        // the match will be non-exhaustive and compilation will fail
-        const _: fn() = || {
-            use cairo_m_common::Opcode;
-            let _check_all_opcodes = |opcode: Opcode| {
-                match opcode {
-                    $(
-                        Opcode::$opcode_enum => {},
-                    )*
-                }
-            };
-        };
-    };
-
     // Helper rule for range_check_20 chaining
     (@range_check_20 $self:ident, $first:ident $(, $rest:ident)*) => {
         $self.$first
@@ -189,7 +170,7 @@ macro_rules! define_opcodes {
     };
 }
 
-use cairo_m_common::Opcode;
+use cairo_m_common::instruction::*;
 use num_traits::Zero;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
@@ -212,28 +193,28 @@ use crate::components::Relations;
 
 // Define all opcode structures and implementations with a single macro call
 define_opcodes!(
-    ([Opcode::CallAbsImm], call_abs_imm),
-    ([Opcode::JmpAbsImm, Opcode::JmpRelImm], jmp_imm),
-    ([Opcode::JnzFpImm], jnz_fp_imm),
-    ([Opcode::Ret], ret),
-    ([Opcode::StoreImm], store_imm),
+    ([const CALL_ABS_IMM], call_abs_imm),
+    ([const JMP_ABS_IMM, const JMP_REL_IMM], jmp_imm),
+    ([const JNZ_FP_IMM], jnz_fp_imm),
+    ([const RET], ret),
+    ([const STORE_IMM], store_imm),
     (
         [
-            Opcode::StoreAddFpFp,
-            Opcode::StoreSubFpFp,
-            Opcode::StoreMulFpFp,
-            Opcode::StoreDivFpFp,
+            const STORE_ADD_FP_FP,
+            const STORE_SUB_FP_FP,
+            const STORE_MUL_FP_FP,
+            const STORE_DIV_FP_FP,
         ],
         store_fp_fp
     ),
     (
         [
-            Opcode::StoreAddFpImm,
-            Opcode::StoreSubFpImm,
-            Opcode::StoreMulFpImm,
-            Opcode::StoreDivFpImm,
+            const STORE_ADD_FP_IMM,
+            const STORE_SUB_FP_IMM,
+            const STORE_MUL_FP_IMM,
+            const STORE_DIV_FP_IMM,
         ],
         store_fp_imm
     ),
-    ([Opcode::StoreDoubleDerefFp], store_double_deref_fp)
+    ([const STORE_DOUBLE_DEREF_FP], store_double_deref_fp)
 );

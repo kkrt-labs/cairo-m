@@ -11,6 +11,7 @@ serde_json.workspace = true
 serde.workspace = true
 sonic-rs = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
+smallvec.workspace = true
 
 # Salsa for incremental compilation
 salsa = "0.22.0"

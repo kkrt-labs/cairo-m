@@ -1,14 +1,16 @@
-use cairo_m_common::{Opcode, State};
+use cairo_m_common::State;
 
 use super::*;
 use crate::vm::state::VmState;
-use crate::vm::test_utils::*;
 
 #[test]
 fn test_call_abs_imm_2_args() {
     let mut memory = Memory::from_iter([10, 11, 12].map(Into::into));
     let state = State::default();
-    let instruction = instr!(Opcode::CallAbsImm, 3, 7, 0);
+    let instruction = Instruction::CallAbsImm {
+        frame_off: M31(3),
+        target: M31(7),
+    };
 
     let next_state = call_abs_imm(&mut memory, state, &instruction).unwrap();
 
@@ -29,7 +31,7 @@ fn test_ret() {
         pc: M31(7),
         fp: M31(3),
     };
-    let instruction = instr!(Opcode::Ret, 0, 0, 0);
+    let instruction = Instruction::Ret {};
 
     let next_state = ret(&mut memory, state, &instruction).unwrap();
 
@@ -47,8 +49,11 @@ fn test_ret() {
 fn test_ret_call_abs_imm_2_args() {
     let mut memory = Memory::from_iter([10, 11, 12].map(Into::into));
     let initial_state = State::default();
-    let call_instruction = instr!(Opcode::CallAbsImm, 3, 7, 0);
-    let ret_instruction = instr!(Opcode::Ret, 0, 0, 0);
+    let call_instruction = Instruction::CallAbsImm {
+        frame_off: M31(3),
+        target: M31(7),
+    };
+    let ret_instruction = Instruction::Ret {};
 
     let call_state = call_abs_imm(&mut memory, initial_state, &call_instruction).unwrap();
     let ret_state = ret(&mut memory, call_state, &ret_instruction).unwrap();
@@ -56,5 +61,5 @@ fn test_ret_call_abs_imm_2_args() {
     let expected_memory = Memory::from_iter([10, 11, 12, 0, 1].map(Into::into));
 
     assert_eq!(memory.data, expected_memory.data);
-    assert_eq!(ret_state, initial_state.advance());
+    assert_eq!(ret_state, initial_state.advance_by(1));
 }

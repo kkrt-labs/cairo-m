@@ -66,6 +66,7 @@ dhat = "0.3.3"
 rand = { version = "0.8.5", default-features = false, features = ["small_rng"] }
 rayon = { version = "1.10.0", optional = false }
 chumsky = "0.10.1"
+smallvec = "1.15"
 
 # Poseidon2 hash function implementation
 # TODO: Remove patch once https://github.com/HorizenLabs/poseidon2/pull/8 is merged

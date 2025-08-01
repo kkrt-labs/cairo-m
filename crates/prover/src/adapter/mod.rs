@@ -7,7 +7,6 @@ use std::path::Path;
 
 use cairo_m_common::State as VmRegisters;
 use cairo_m_common::execution::Segment;
-use cairo_m_common::opcode::Opcode;
 use cairo_m_common::state::MemoryEntry as RunnerMemoryEntry;
 use io::VmImportError;
 pub use memory::ExecutionBundle;
@@ -44,7 +43,7 @@ pub struct MerkleTrees {
 pub struct Instructions {
     pub initial_registers: VmRegisters,
     pub final_registers: VmRegisters,
-    pub states_by_opcodes: HashMap<Opcode, Vec<ExecutionBundle>>,
+    pub states_by_opcodes: HashMap<u32, Vec<ExecutionBundle>>,
 }
 
 fn import_internal<TraceIter, MemoryIter>(
@@ -58,7 +57,7 @@ where
     MemoryIter: Iterator<Item = RunnerMemoryEntry>,
 {
     let mut bundle_iter = ExecutionBundleIterator::new(trace_iter, memory_iter, initial_memory);
-    let mut states_by_opcodes = HashMap::<Opcode, Vec<ExecutionBundle>>::default();
+    let mut states_by_opcodes = HashMap::<u32, Vec<ExecutionBundle>>::default();
 
     // Get initial registers by peeking at the trace
     let initial_registers = bundle_iter
@@ -76,7 +75,7 @@ where
         final_registers = bundle.registers;
 
         // Extract opcode from instruction
-        let opcode = Opcode::try_from(bundle.instruction.value)?;
+        let opcode = bundle.instruction.instruction.opcode_value();
 
         // Store bundle by opcode
         states_by_opcodes.entry(opcode).or_default().push(bundle);

@@ -5,9 +5,11 @@ edition.workspace = true
 
 [dependencies]
 num-traits.workspace = true
+paste = "1.0"
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+smallvec.workspace = true
 
 # Using workspace dependency for stwo
 stwo-prover.workspace = true

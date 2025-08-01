@@ -33,6 +33,8 @@ pub enum VmError {
     Memory(#[from] MemoryError),
     #[error("VM instruction error: {0}")]
     Instruction(#[from] InstructionError),
+    #[error("VM instruction execution error: {0}")]
+    InstructionExecution(#[from] instructions::InstructionExecutionError),
     #[error("VM I/O error: {0}")]
     Io(#[from] io::Error),
 }
@@ -69,7 +71,8 @@ impl TryFrom<&Program> for VM {
     /// 2. It sets the Program Counter (`pc`) to `0` to begin at the program's entrypoint.
     /// 3. It sets the Frame Pointer (`fp`) to the address immediately following the loaded bytecode.
     ///
-    /// Instructions are encoded as [`QM31`] values and stored sequentially in memory.
+    /// Instructions are variable-sized (1-5 M31 elements) and are packed into QM31 values
+    /// (4 M31 elements each) with zero padding as needed.
     ///
     /// ## Arguments
     ///
@@ -79,17 +82,16 @@ impl TryFrom<&Program> for VM {
     ///
     /// Returns a [`VmError::Memory`] if memory insertion fails.
     fn try_from(program: &Program) -> Result<Self, Self::Error> {
-        // Convert all instructions to QM31 values
-        let qm31_instructions: Vec<QM31> = program
-            .instructions
-            .iter()
-            .map(|instruction| instruction.into())
-            .collect();
+        // Flatten variable-sized instructions into memory words
+        let mut memory_words = Vec::new();
+        for instruction in &program.instructions {
+            memory_words.extend(instruction.to_qm31_vec());
+        }
 
         // Create memory and load instructions starting at address 0
-        let program_length = M31(qm31_instructions.len() as u32);
+        let program_length = M31(memory_words.len() as u32);
         let final_pc = program_length;
-        let memory = Memory::from_iter(qm31_instructions);
+        let memory = Memory::from_iter(memory_words);
 
         // Create state with PC at entrypoint and FP just after the bytecode
         let state = State {
@@ -118,8 +120,13 @@ impl VM {
     /// - The opcode is invalid ([`VmError::Instruction`])
     /// - The instruction execution fails due to memory operations ([`VmError::Memory`])
     fn step(&mut self) -> Result<(), VmError> {
-        let instruction: Instruction = self.memory.get_instruction(self.state.pc)?.try_into()?;
-        let instruction_fn = opcode_to_instruction_fn(M31::from(instruction.opcode))?;
+        // Get the complete instruction from memory
+        let instruction_m31s = self.memory.get_instruction(self.state.pc)?;
+
+        let instruction: Instruction = instruction_m31s.try_into()?;
+
+        // Get opcode from the instruction for dispatch
+        let instruction_fn = opcode_to_instruction_fn(instruction.opcode_value().into())?;
         self.trace.push(self.state);
         self.state = instruction_fn(&mut self.memory, self.state, &instruction)?;
         Ok(())
@@ -339,25 +346,6 @@ mod vm_tests;
 
 #[cfg(test)]
 pub mod test_utils {
-    // Helper macros for common patterns in tests
-    macro_rules! instr {
-        ($opcode:expr, $a:expr, $b:expr, $c:expr) => {
-            cairo_m_common::Instruction::new(
-                $opcode,
-                [
-                    stwo_prover::core::fields::m31::M31::from($a),
-                    stwo_prover::core::fields::m31::M31::from($b),
-                    stwo_prover::core::fields::m31::M31::from($c),
-                ],
-            )
-        };
-    }
-
-    macro_rules! store_imm {
-        ($val:expr, $offset:expr) => {
-            instr!(cairo_m_common::Opcode::StoreImm, $val, 0, $offset)
-        };
-    }
 
     macro_rules! assert_memory_value {
         ($vm:expr, addr = $addr:expr, value = $val:expr) => {
@@ -378,5 +366,5 @@ pub mod test_utils {
     }
 
     // Export macros
-    pub(crate) use {assert_memory_value, assert_vm_state, instr, store_imm};
+    pub(crate) use {assert_memory_value, assert_vm_state};
 }

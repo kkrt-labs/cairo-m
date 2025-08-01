@@ -1,5 +1,5 @@
-//! This component is used to prove the StoreImm opcode.
-//! [fp + off2] = imm
+//! This component is used to prove the JmpRelImm opcode.
+//! jmp rel imm
 //!
 //! # Columns
 //!
@@ -9,24 +9,18 @@
 //! - clock
 //! - inst_prev_clock
 //! - off0
-//! - off2
-//! - dst_prev_clock
-//! - dst_prev_val
 //!
 //! # Constraints
 //!
 //! * enabler is a bool
 //!   * `enabler * (1 - enabler)`
 //! * registers update is regular
-//!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
+//!   * `- [pc, fp] + [pc + off0, fp]` in `Registers` relation
 //! * read instruction from memory
-//!   * `- [pc, inst_prev_clk, opcode_constant, off0, off2] + [pc, clk, opcode_constant, off0, off2]` in `Memory` relation
+//!   * `- [pc, inst_prev_clk, opcode_constant, off0] + [pc, clk, opcode_constant, off0]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
-//! * write dst in [fp + off2]
-//!   * `- [fp + off2, dst_prev_clk, dst_prev_val] + [fp + off2, clk, off0]` in `Memory` Relation
-//!   * `- [clk - dst_prev_clk - 1]` in `RangeCheck20` relation
 
-use cairo_m_common::instruction::STORE_IMM;
+use cairo_m_common::instruction::JMP_REL_IMM;
 use num_traits::{One, Zero};
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
@@ -56,10 +50,10 @@ use crate::components::Relations;
 use crate::utils::enabler::Enabler;
 use crate::utils::execution_bundle::PackedExecutionBundle;
 
-const N_TRACE_COLUMNS: usize = 9;
-const N_MEMORY_LOOKUPS: usize = 4;
+const N_TRACE_COLUMNS: usize = 6;
+const N_MEMORY_LOOKUPS: usize = 2;
 const N_REGISTERS_LOOKUPS: usize = 2;
-const N_RANGE_CHECK_20_LOOKUPS: usize = 2;
+const N_RANGE_CHECK_20_LOOKUPS: usize = 1;
 
 const N_LOOKUPS_COLUMNS: usize = SECURE_EXTENSION_DEGREE
     * (N_MEMORY_LOOKUPS + N_REGISTERS_LOOKUPS + N_RANGE_CHECK_20_LOOKUPS).div_ceil(2);
@@ -92,7 +86,7 @@ impl Claim {
         TreeVec::new(vec![vec![], trace, interaction_trace])
     }
 
-    /// Writes the trace for the StoreImm opcode.
+    /// Writes the trace for the JmpRelImm opcode.
     ///
     /// # Important
     /// This function consumes the contents of `inputs` by clearing it after processing.
@@ -128,7 +122,6 @@ impl Claim {
         inputs.shrink_to_fit();
 
         let zero = PackedM31::from(M31::zero());
-        let one = PackedM31::from(M31::one());
         let enabler_col = Enabler::new(non_padded_length);
         (
             trace.par_iter_mut(),
@@ -143,11 +136,8 @@ impl Claim {
                 let fp = input.fp;
                 let clock = input.clock;
                 let inst_prev_clock = input.inst_prev_clock;
-                let opcode_constant = PackedM31::from(M31::from(STORE_IMM));
+                let opcode_constant = PackedM31::from(M31::from(JMP_REL_IMM));
                 let off0 = input.inst_value_1;
-                let off2 = input.inst_value_2;
-                let dst_prev_val = input.mem1_prev_value_limb0;
-                let dst_prev_clock = input.mem1_prev_clock;
 
                 *row[0] = enabler;
                 *row[1] = pc;
@@ -155,23 +145,15 @@ impl Claim {
                 *row[3] = clock;
                 *row[4] = inst_prev_clock;
                 *row[5] = off0;
-                *row[6] = off2;
-                *row[7] = dst_prev_clock;
-                *row[8] = dst_prev_val;
 
                 *lookup_data.registers[0] = [input.pc, input.fp];
-                *lookup_data.registers[1] = [input.pc + one, input.fp];
+                *lookup_data.registers[1] = [pc + off0, input.fp];
 
                 *lookup_data.memory[0] =
-                    [input.pc, inst_prev_clock, opcode_constant, off0, off2, zero];
-                *lookup_data.memory[1] = [input.pc, clock, opcode_constant, off0, off2, zero];
-
-                *lookup_data.memory[2] =
-                    [fp + off2, dst_prev_clock, dst_prev_val, zero, zero, zero];
-                *lookup_data.memory[3] = [fp + off2, clock, off0, zero, zero, zero];
+                    [input.pc, inst_prev_clock, opcode_constant, off0, zero, zero];
+                *lookup_data.memory[1] = [input.pc, clock, opcode_constant, off0, zero, zero];
 
                 *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
-                *lookup_data.range_check_20[1] = clock - dst_prev_clock - enabler;
             });
 
         (
@@ -250,41 +232,15 @@ impl InteractionClaim {
         let mut col = interaction_trace.new_col();
         (
             col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.memory[2],
-            &interaction_claim_data.lookup_data.memory[3],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(i, (writer, memory_prev, memory_new))| {
-                let num_prev = -PackedQM31::from(enabler_col.packed_at(i));
-                let num_new = PackedQM31::from(enabler_col.packed_at(i));
-                let denom_prev: PackedQM31 = relations.memory.combine(memory_prev);
-                let denom_new: PackedQM31 = relations.memory.combine(memory_new);
-
-                let numerator = num_prev * denom_new + num_new * denom_prev;
-                let denom = denom_prev * denom_new;
-
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
-
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
             &interaction_claim_data.lookup_data.range_check_20[0],
-            &interaction_claim_data.lookup_data.range_check_20[1],
         )
             .into_par_iter()
             .enumerate()
-            .for_each(|(_i, (writer, range_check_20_0, range_check_20_1))| {
+            .for_each(|(_i, (writer, range_check_20_0))| {
                 let num = -PackedQM31::one();
                 let denom_0: PackedQM31 = relations.range_check_20.combine(&[*range_check_20_0]);
-                let denom_1: PackedQM31 = relations.range_check_20.combine(&[*range_check_20_1]);
 
-                let numerator = num * denom_1 + num * denom_0;
-                let denom = denom_0 * denom_1;
-
-                writer.write_frac(numerator, denom);
+                writer.write_frac(num, denom_0);
             });
         col.finalize_col();
 
@@ -309,8 +265,7 @@ impl FrameworkEval for Eval {
 
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         let one = E::F::from(M31::one());
-        let zero = E::F::from(M31::zero());
-        let opcode_constant = E::F::from(M31::from(STORE_IMM));
+        let opcode_constant = E::F::from(M31::from(JMP_REL_IMM));
 
         let enabler = eval.next_trace_mask();
         let pc = eval.next_trace_mask();
@@ -318,12 +273,9 @@ impl FrameworkEval for Eval {
         let clock = eval.next_trace_mask();
         let inst_prev_clock = eval.next_trace_mask();
         let off0 = eval.next_trace_mask();
-        let off2 = eval.next_trace_mask();
-        let dst_prev_clock = eval.next_trace_mask();
-        let dst_prev_val = eval.next_trace_mask();
 
         // Enabler is 1 or 0
-        eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
+        eval.add_constraint(enabler.clone() * (one - enabler.clone()));
 
         // Registers update
         eval.add_to_relation(RelationEntry::new(
@@ -334,7 +286,7 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.registers,
             E::EF::from(enabler.clone()),
-            &[pc.clone() + one, fp.clone()],
+            &[pc.clone() + off0.clone(), fp],
         ));
 
         // Read instruction from memory
@@ -346,54 +298,19 @@ impl FrameworkEval for Eval {
                 inst_prev_clock.clone(),
                 opcode_constant.clone(),
                 off0.clone(),
-                off2.clone(),
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[
-                pc,
-                clock.clone(),
-                opcode_constant,
-                off0.clone(),
-                off2.clone(),
-            ],
-        ));
-
-        // Write dst
-        eval.add_to_relation(RelationEntry::new(
-            &self.relations.memory,
-            -E::EF::from(enabler.clone()),
-            &[
-                fp.clone() + off2.clone(),
-                dst_prev_clock.clone(),
-                dst_prev_val,
-            ],
-        ));
-        eval.add_to_relation(RelationEntry::new(
-            &self.relations.memory,
-            E::EF::from(enabler.clone()),
-            &[
-                fp + off2,
-                clock.clone(),
-                off0,
-                zero.clone(),
-                zero.clone(),
-                zero,
-            ],
+            &[pc, clock.clone(), opcode_constant, off0],
         ));
 
         // Range check 20
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - inst_prev_clock - enabler.clone()],
-        ));
-        eval.add_to_relation(RelationEntry::new(
-            &self.relations.range_check_20,
-            -E::EF::one(),
-            &[clock - dst_prev_clock - enabler],
+            &[clock - inst_prev_clock - enabler],
         ));
 
         eval.finalize_logup_in_pairs();

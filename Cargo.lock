@@ -416,8 +416,10 @@ name = "cairo-m-common"
 version = "0.1.0"
 dependencies = [
  "num-traits",
+ "paste",
  "serde",
  "serde_json",
+ "smallvec",
  "stwo-prover",
  "thiserror",
 ]
@@ -467,6 +469,7 @@ dependencies = [
  "salsa-macros",
  "serde",
  "serde_json",
+ "smallvec",
  "sonic-rs 0.3.17",
  "stwo-prover",
 ]
@@ -617,6 +620,7 @@ dependencies = [
  "rand",
  "rayon",
  "serde",
+ "smallvec",
  "sonic-rs 0.5.1",
  "stwo-air-utils",
  "stwo-air-utils-derive",
@@ -638,6 +642,7 @@ dependencies = [
  "clap",
  "criterion",
  "num-traits",
+ "smallvec",
  "sonic-rs 0.5.1",
  "stwo-prover",
  "tempfile",

@@ -23,7 +23,7 @@
 //!   * `- [pc, inst_prev_clk, opcode_constant, off0] + [pc, clk, opcode_constant, off0]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
 
-use cairo_m_common::Opcode;
+use cairo_m_common::instruction::JMP_ABS_IMM;
 use num_traits::{One, Zero};
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
@@ -139,9 +139,10 @@ impl Claim {
                 let fp = input.fp;
                 let clock = input.clock;
                 let inst_prev_clock = input.inst_prev_clock;
+                let opcode_constant = PackedM31::from(M31::from(JMP_ABS_IMM));
                 let opcode_id = input.inst_value_0;
                 let off0 = input.inst_value_1;
-                let is_rel = enabler * (opcode_id - PackedM31::from(M31::from(Opcode::JmpAbsImm)));
+                let is_rel = enabler * (opcode_id - opcode_constant);
 
                 *row[0] = enabler;
                 *row[1] = pc;
@@ -269,6 +270,7 @@ impl FrameworkEval for Eval {
 
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         let one = E::F::from(M31::one());
+        let opcode_constant = E::F::from(M31::from(JMP_ABS_IMM));
 
         let enabler = eval.next_trace_mask();
         let pc = eval.next_trace_mask();
@@ -277,7 +279,7 @@ impl FrameworkEval for Eval {
         let inst_prev_clock = eval.next_trace_mask();
         let off0 = eval.next_trace_mask();
         let is_rel = eval.next_trace_mask();
-        let opcode_id = E::F::from(M31::from(Opcode::JmpAbsImm)) + is_rel.clone();
+        let opcode_id = opcode_constant + is_rel.clone();
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));

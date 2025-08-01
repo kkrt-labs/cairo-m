@@ -1,12 +1,16 @@
 use std::cell::RefCell;
 
+use cairo_m_common::instruction::{INSTRUCTION_MAX_SIZE, OPCODE_SIZE_TABLE};
 use cairo_m_common::state::MemoryEntry;
 use num_traits::One;
 use num_traits::identities::Zero;
+use smallvec::SmallVec;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 use thiserror::Error;
 
+/// The number of M31 values that make up a single QM31.
+const M31S_IN_QM31: usize = 4;
 /// The maximum number of bits for a memory address, set to 30.
 /// This limits the memory size to 2^30 elements.
 /// TODO: check with Starkware
@@ -58,28 +62,82 @@ impl Memory {
         Ok(())
     }
 
-    /// Retrieves a `QM31` value from the specified memory address.
+    /// Retrieves a complete instruction from memory, handling both single and multi-word instructions.
     ///
-    /// This is used to fetch instructions of the program, which are represented as
-    /// `QM31` values. Returns an error if the address points to an uninitialized
-    /// memory cell.
+    /// This method fetches the first QM31 word to determine the opcode, then fetches
+    /// additional QM31 words if needed for multi-word instructions.
     ///
     /// # Arguments
     ///
-    /// * `addr` - The `M31` memory address to read from.
+    /// * `addr` - The `M31` memory address of the instruction's first word.
     ///
     /// # Errors
     ///
-    /// Returns [`MemoryError::UninitializedMemoryCell`] if the memory cell at the address is not initialized.
-    pub fn get_instruction(&self, addr: M31) -> Result<QM31, MemoryError> {
+    /// Returns [`MemoryError::UninitializedMemoryCell`] if any required memory cell is not initialized.
+    pub fn get_instruction(
+        &self,
+        addr: M31,
+    ) -> Result<SmallVec<[M31; INSTRUCTION_MAX_SIZE]>, MemoryError> {
+        // Fetch first QM31 word
         let address = addr.0 as usize;
-        let value = self
+        let first_qm31 = self
             .data
             .get(address)
             .copied()
             .ok_or(MemoryError::UninitializedMemoryCell { addr })?;
-        self.trace.borrow_mut().push(MemoryEntry { addr, value });
-        Ok(value)
+        let mut trace = self.trace.borrow_mut();
+        trace.push(MemoryEntry {
+            addr,
+            value: first_qm31,
+        });
+
+        // Decompose QM31 once and reuse
+        let first_qm31_array = first_qm31.to_m31_array();
+        let opcode = first_qm31_array[0].0;
+
+        // Determine instruction size using const lookup table
+        let size_in_m31s = match OPCODE_SIZE_TABLE
+            .get(opcode as usize)
+            .and_then(|&size| size)
+        {
+            Some(size) => size,
+            None => {
+                // Invalid opcode - return just the first QM31's M31 values
+                // The VM will validate and return the proper error
+                return Ok(SmallVec::from_slice(&first_qm31_array));
+            }
+        };
+
+        // Pre-allocate a SmallVec with the first QM31 word.
+        // This is the most common path.
+        let mut instruction_m31s = SmallVec::from_slice(&first_qm31_array);
+
+        // Calculate how many QM31 words the instruction occupies.
+        // For sizes 1-4, this is 1. For size 5, this is 2.
+        let size_in_qm31s = size_in_m31s.div_ceil(M31S_IN_QM31);
+
+        // Loop to fetch any additional words.
+        // This loop is highly predictable: it runs 0 times for most instructions
+        // and 1 time for the single 5-M31 instruction.
+        for i in 1..size_in_qm31s {
+            let next_addr = addr + M31::from(i as u32);
+            let qm31_word = self
+                .data
+                .get(next_addr.0 as usize)
+                .copied()
+                .ok_or(MemoryError::UninitializedMemoryCell { addr: next_addr })?;
+
+            trace.push(MemoryEntry {
+                addr: next_addr,
+                value: qm31_word,
+            });
+            instruction_m31s.extend_from_slice(&qm31_word.to_m31_array());
+        }
+
+        // Ensure the final vector has the exact size.
+        instruction_m31s.truncate(size_in_m31s);
+
+        Ok(instruction_m31s)
     }
 
     /// Retrieves a value from memory and projects it to a base field element `M31`.
@@ -300,8 +358,6 @@ impl FromIterator<QM31> for Memory {
 mod tests {
     use std::cell::RefCell;
 
-    use num_traits::One;
-
     use super::*;
 
     #[test]
@@ -314,7 +370,8 @@ mod tests {
     #[test]
     fn test_get_instruction() {
         let addr = M31(42);
-        let value = QM31::from_m31_array([123, 0, 0, 0].map(Into::into));
+        // Create a valid store_imm instruction (opcode 5)
+        let value = QM31::from_m31_array([9, 123, 0, 0].map(Into::into));
         let mut data = vec![QM31::zero(); 43];
         data[42] = value;
 
@@ -323,7 +380,8 @@ mod tests {
             trace: RefCell::new(Vec::new()),
         };
 
-        assert_eq!(memory.get_instruction(addr).unwrap(), value);
+        let instruction_m31s = memory.get_instruction(addr).unwrap();
+        assert_eq!(instruction_m31s.as_slice(), &[M31(9), M31(123), M31(0)]);
         assert_eq!(memory.trace.borrow().len(), 1);
         assert_eq!(memory.trace.borrow()[0], MemoryEntry { addr, value });
     }
@@ -401,10 +459,12 @@ mod tests {
     fn test_insert_then_get_instruction() {
         let mut memory = Memory::default();
         let addr = M31(42);
-        let value = QM31::from_m31_array([123, 0, 0, 0].map(Into::into));
+        // Create a valid store_imm instruction (opcode 5)
+        let value = QM31::from_m31_array([9, 123, 0, 0].map(Into::into));
 
         memory.insert(addr, value).unwrap();
-        assert_eq!(memory.get_instruction(addr).unwrap(), value);
+        let instruction_m31s = memory.get_instruction(addr).unwrap();
+        assert_eq!(instruction_m31s.as_slice(), &[M31(9), M31(123), M31(0)]);
         assert_eq!(memory.data.len(), 43);
         assert_eq!(memory.trace.borrow().len(), 2);
         assert_eq!(memory.trace.borrow()[0], MemoryEntry { addr, value });
@@ -446,19 +506,22 @@ mod tests {
     fn test_insert_slice() {
         let mut memory = Memory::default();
         let start_addr = M31(10);
+
+        // Insert valid instructions in QM31 words:
+        // QM31[0]: store_imm (opcode 5, size 3): imm=100, dst_off=0
+        // QM31[1]: jmp_abs_imm (opcode 12, size 2): target=42
         let values = vec![
-            QM31::from_m31_array([1, 0, 0, 0].map(Into::into)),
-            QM31::from_m31_array([2, 0, 0, 0].map(Into::into)),
-            QM31::from_m31_array([3, 0, 0, 0].map(Into::into)),
+            QM31::from_m31_array([5, 100, 0, 0].map(Into::into)), // store_imm
+            QM31::from_m31_array([12, 42, 11, 0].map(Into::into)), // jmp_abs_imm
         ];
 
         memory.insert_slice(start_addr, &values).unwrap();
 
-        assert_eq!(memory.get_instruction(10.into()).unwrap(), values[0]);
-        assert_eq!(memory.get_instruction(11.into()).unwrap(), values[1]);
-        assert_eq!(memory.get_instruction(12.into()).unwrap(), values[2]);
+        // Verify data is stored correctly by checking raw data
+        assert_eq!(memory.data[10], values[0]);
+        assert_eq!(memory.data[11], values[1]);
 
-        assert_eq!(memory.trace.borrow().len(), 6);
+        assert_eq!(memory.trace.borrow().len(), 2);
         // Trace entries from `insert_slice`
         for (i, value) in values.iter().enumerate() {
             assert_eq!(
@@ -469,16 +532,45 @@ mod tests {
                 }
             );
         }
-        // Trace entries from `get_instruction`
-        for (i, value) in values.iter().enumerate() {
-            assert_eq!(
-                memory.trace.borrow()[i + values.len()],
-                MemoryEntry {
-                    addr: start_addr + M31(i as u32),
-                    value: *value
-                }
-            );
-        }
+    }
+
+    #[test]
+    fn test_get_instruction_multi_qm31() {
+        let mut memory = Memory::default();
+        let start_addr = M31(0);
+
+        // Insert a U32StoreAddFpImm instruction (opcode 15, size 5 M31s = 2 QM31s)
+        // Fields: src_off=1, imm_hi=2, imm_lo=3, dst_off=4
+        let values = vec![
+            QM31::from_m31_array([15, 1, 2, 3].map(Into::into)), // First 4 M31s
+            QM31::from_m31_array([4, 0, 0, 0].map(Into::into)),  // Last M31 + padding
+        ];
+
+        memory.insert_slice(start_addr, &values).unwrap();
+
+        // Clear trace to test get_instruction operations
+        memory.trace.borrow_mut().clear();
+
+        // Get U32StoreAddFpImm instruction (5 M31s, spans 2 QM31s)
+        let inst = memory.get_instruction(start_addr).unwrap();
+        assert_eq!(inst.as_slice(), &[M31(15), M31(1), M31(2), M31(3), M31(4)]);
+
+        // Verify trace contains both QM31 accesses
+        assert_eq!(memory.trace.borrow().len(), 2);
+        assert_eq!(
+            memory.trace.borrow()[0],
+            MemoryEntry {
+                addr: start_addr,
+                value: values[0]
+            }
+        );
+        assert_eq!(
+            memory.trace.borrow()[1],
+            MemoryEntry {
+                addr: start_addr + M31(1),
+                value: values[1]
+            }
+        );
     }
 
     #[test]
@@ -529,12 +621,13 @@ mod tests {
         ];
         let memory: Memory = values.into_iter().collect();
         assert_eq!(memory.data.len(), 2);
+        // Verify data is stored correctly by checking raw data
         assert_eq!(
-            memory.get_instruction(M31::zero()).unwrap(),
+            memory.data[0],
             QM31::from_m31_array([100, 0, 0, 0].map(Into::into))
         );
         assert_eq!(
-            memory.get_instruction(M31::one()).unwrap(),
+            memory.data[1],
             QM31::from_m31_array([200, 0, 0, 0].map(Into::into))
         );
     }
