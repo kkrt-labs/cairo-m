@@ -182,10 +182,9 @@ fn test_opcode_values() {
         14
     );
     assert_eq!(
-        Instruction::U32StoreAddFpImm {
-            src_off: M31::from(0),
-            imm_hi: M31::from(0),
-            imm_lo: M31::from(0),
+        Instruction::U32StoreAddFpFp {
+            src0_off: M31::from(0),
+            src1_off: M31::from(0),
             dst_off: M31::from(0)
         }
         .opcode_value(),
@@ -199,7 +198,7 @@ fn test_opcode_values() {
             dst_off: M31::from(0)
         }
         .opcode_value(),
-        15
+        19
     );
 }
 
@@ -353,9 +352,26 @@ fn test_try_from_smallvec() {
         _ => panic!("Wrong instruction type"),
     }
 
+    // Test U32StoreAddFpFp instruction
+    let values: SmallVec<[M31; INSTRUCTION_MAX_SIZE]> =
+        smallvec![M31::from(15), M31::from(1), M31::from(2), M31::from(3),];
+    let instruction = Instruction::try_from(values).unwrap();
+    match instruction {
+        Instruction::U32StoreAddFpFp {
+            src0_off,
+            src1_off,
+            dst_off,
+        } => {
+            assert_eq!(src0_off, M31::from(1));
+            assert_eq!(src1_off, M31::from(2));
+            assert_eq!(dst_off, M31::from(3));
+        }
+        _ => panic!("Wrong instruction type"),
+    }
+
     // Test U32StoreAddFpImm instruction
     let values: SmallVec<[M31; INSTRUCTION_MAX_SIZE]> = smallvec![
-        M31::from(15),
+        M31::from(19),
         M31::from(1),
         M31::from(0x1234),
         M31::from(0x5678),
@@ -483,7 +499,7 @@ fn test_to_qm31_vec() {
     assert_eq!(qm31_vec.len(), 2);
 
     let m31_array = qm31_vec[0].to_m31_array();
-    assert_eq!(m31_array[0], M31::from(15)); // opcode
+    assert_eq!(m31_array[0], M31::from(19)); // opcode
     assert_eq!(m31_array[1], M31::from(1)); // src_off
     assert_eq!(m31_array[2], M31::from(0x1234)); // imm_hi
     assert_eq!(m31_array[3], M31::from(0x5678)); // imm_lo
