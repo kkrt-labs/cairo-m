@@ -202,6 +202,18 @@ impl CasmBuilder {
             BinaryOp::Less | BinaryOp::Greater | BinaryOp::LessEqual | BinaryOp::GreaterEqual => {
                 todo!("Comparison opcodes not yet implemented");
             }
+            BinaryOp::U32Add
+            | BinaryOp::U32Sub
+            | BinaryOp::U32Mul
+            | BinaryOp::U32Div
+            | BinaryOp::U32Eq
+            | BinaryOp::U32Neq
+            | BinaryOp::U32Less
+            | BinaryOp::U32Greater
+            | BinaryOp::U32LessEqual
+            | BinaryOp::U32GreaterEqual => {
+                todo!("U32 opcodes not yet implemented in codegen");
+            }
         }
 
         Ok(())
