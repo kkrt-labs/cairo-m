@@ -6,7 +6,7 @@
 use index_vec::IndexVec;
 use rustc_hash::FxHashMap;
 
-use crate::{indent_str, FunctionId, MirFunction, PrettyPrint};
+use crate::{FunctionId, MirFunction, PrettyPrint, indent_str};
 
 /// The MIR for an entire program module (compilation unit)
 ///

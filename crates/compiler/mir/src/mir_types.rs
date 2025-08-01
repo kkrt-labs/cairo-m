@@ -20,7 +20,7 @@ pub enum MirType {
     /// Boolean type (represented as felt internally)
     Bool,
 
-    /// 16-bit unsigned integer type
+    /// 32-bit unsigned integer type
     U32,
 
     /// Pointer to another type
