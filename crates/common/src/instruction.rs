@@ -195,7 +195,7 @@ macro_rules! define_instruction {
         }
 
         // Generate the maximum opcode value
-        const MAX_OPCODE: u32 = {
+        pub const MAX_OPCODE: u32 = {
             let opcodes = [$($opcode),*];
             let mut max = 0;
             let mut i = 0;
@@ -250,8 +250,17 @@ define_instruction!(
     // Conditional jumps
     JnzFpImm = 14, 1, fields: [cond_off, offset], size: 3, operands: [Felt];                              // jmp rel imm if [fp + cond_off] != 0
 
-    // U32 operations
-    U32StoreAddFpImm = 15, 4, fields: [src_off, imm_hi, imm_lo, dst_off], size: 5, operands: [U32, U32]   // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) + u32(imm_lo, imm_hi)
+    // U32 operations with FP operands
+    U32StoreAddFpFp = 15, 6, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, U32];   // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) + u32([fp + src1_off], [fp + src1_off + 1])
+    U32StoreSubFpFp = 16, 6, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, U32];   // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) - u32([fp + src1_off], [fp + src1_off + 1])
+    U32StoreMulFpFp = 17, 6, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, U32];   // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) * u32([fp + src1_off], [fp + src1_off + 1])
+    U32StoreDivFpFp = 18, 6, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, U32];   // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) / u32([fp + src1_off], [fp + src1_off + 1])
+
+    // U32 operations with immediate
+    U32StoreAddFpImm = 19, 4, fields: [src_off, imm_hi, imm_lo, dst_off], size: 5, operands: [U32, U32];  // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) + u32(imm_lo, imm_hi)
+    U32StoreSubFpImm = 20, 4, fields: [src_off, imm_hi, imm_lo, dst_off], size: 5, operands: [U32, U32];  // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) - u32(imm_lo, imm_hi)
+    U32StoreMulFpImm = 21, 4, fields: [src_off, imm_hi, imm_lo, dst_off], size: 5, operands: [U32, U32];  // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) * u32(imm_lo, imm_hi)
+    U32StoreDivFpImm = 22, 4, fields: [src_off, imm_hi, imm_lo, dst_off], size: 5, operands: [U32, U32]   // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) / u32(imm_lo, imm_hi)
 );
 
 impl From<Instruction> for SmallVec<[M31; INSTRUCTION_MAX_SIZE]> {

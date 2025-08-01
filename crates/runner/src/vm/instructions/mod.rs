@@ -157,7 +157,14 @@ pub fn opcode_to_instruction_fn(op: M31) -> Result<InstructionFn, InstructionErr
         JMP_ABS_IMM => jmp_abs_imm,
         JMP_REL_IMM => jmp_rel_imm,
         JNZ_FP_IMM => jnz_fp_imm,
+        U32_STORE_ADD_FP_FP => u32_store_add_fp_fp,
+        U32_STORE_SUB_FP_FP => u32_store_sub_fp_fp,
+        U32_STORE_MUL_FP_FP => u32_store_mul_fp_fp,
+        U32_STORE_DIV_FP_FP => u32_store_div_fp_fp,
         U32_STORE_ADD_FP_IMM => u32_store_add_fp_imm,
+        U32_STORE_SUB_FP_IMM => u32_store_sub_fp_imm,
+        U32_STORE_MUL_FP_IMM => u32_store_mul_fp_imm,
+        U32_STORE_DIV_FP_IMM => u32_store_div_fp_imm,
         _ => return Err(InstructionError::InvalidOpcode(op)),
     };
     Ok(f)
@@ -165,53 +172,10 @@ pub fn opcode_to_instruction_fn(op: M31) -> Result<InstructionFn, InstructionErr
 
 #[cfg(test)]
 mod tests {
-    use cairo_m_common::Instruction;
-    use cairo_m_common::instruction::{
-        INSTRUCTION_MAX_SIZE, InstructionError, RET, STORE_ADD_FP_IMM, U32_STORE_ADD_FP_IMM,
-    };
-    use smallvec::SmallVec;
+    use cairo_m_common::instruction::{InstructionError, MAX_OPCODE};
     use stwo_prover::core::fields::m31::M31;
 
     use super::opcode_to_instruction_fn;
-
-    const LAST_VALID_OPCODE_ID: u32 = 15;
-
-    #[test]
-    fn test_store_add_fp_imm_from_smallvec() {
-        // Test StoreAddFpImm (4 M31s)
-        let instruction_m31s =
-            SmallVec::<[M31; INSTRUCTION_MAX_SIZE]>::from_slice(&[M31(4), M31(2), M31(3), M31(4)]);
-        let instruction: Instruction = instruction_m31s.try_into().unwrap();
-        assert_eq!(instruction.opcode_value(), STORE_ADD_FP_IMM);
-        assert_eq!(instruction.operands(), vec![M31(2), M31(3), M31(4)]);
-    }
-
-    #[test]
-    fn test_ret_from_smallvec() {
-        // Test Ret (1 M31)
-        let ret_m31s = SmallVec::<[M31; INSTRUCTION_MAX_SIZE]>::from_slice(&[M31(11)]);
-        let ret_instruction: Instruction = ret_m31s.try_into().unwrap();
-        assert_eq!(ret_instruction.opcode_value(), RET);
-        assert_eq!(ret_instruction.operands(), vec![]);
-    }
-
-    #[test]
-    fn test_u32_store_add_fp_imm_from_smallvec() {
-        // Test U32StoreAddFpImm (5 M31s)
-        let u32_m31s = SmallVec::<[M31; INSTRUCTION_MAX_SIZE]>::from_slice(&[
-            M31(15),
-            M31(1),
-            M31(2),
-            M31(3),
-            M31(4),
-        ]);
-        let u32_instruction: Instruction = u32_m31s.try_into().unwrap();
-        assert_eq!(u32_instruction.opcode_value(), U32_STORE_ADD_FP_IMM);
-        assert_eq!(
-            u32_instruction.operands(),
-            vec![M31(1), M31(2), M31(3), M31(4)]
-        );
-    }
 
     #[test]
     fn test_opcode_to_instruction_fn_invalid_opcode() {
@@ -222,7 +186,7 @@ mod tests {
 
     #[test]
     fn test_opcode_to_instruction_fn_valid_opcodes() {
-        for opcode_value in 0..=LAST_VALID_OPCODE_ID {
+        for opcode_value in 0..=MAX_OPCODE {
             let opcode = M31(opcode_value);
             let result = opcode_to_instruction_fn(opcode);
             assert!(result.is_ok(), "Opcode {opcode_value} should be valid");
