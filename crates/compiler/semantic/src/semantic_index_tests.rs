@@ -136,10 +136,8 @@ fn test_comprehensive_semantic_analysis() {
                 return dx * dx + dy * dy;
             }
 
-            namespace Math {
-                fn square(x: felt) -> felt {
-                    return x * x;
-                }
+            fn square(x: felt) -> felt {
+                return x * x;
             }
         "#,
     );
@@ -147,14 +145,10 @@ fn test_comprehensive_semantic_analysis() {
     let crate_id = single_file_crate(&db, source);
     let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
-    // Should have root scope plus function scope and namespace scope
+    // Should have root scope plus function scope
     let root = index.root_scope().unwrap();
     let child_scopes: Vec<_> = index.child_scopes(root).collect();
-    assert_eq!(
-        child_scopes.len(),
-        2,
-        "Should have function and namespace scopes"
-    );
+    assert_eq!(child_scopes.len(), 2, "Should have function scopes");
 
     // Check root scope has the expected symbols
     let root_table = index.place_table(root).unwrap();
@@ -171,14 +165,14 @@ fn test_comprehensive_semantic_analysis() {
         "distance function should be defined"
     );
     assert!(
-        root_table.place_id_by_name("Math").is_some(),
-        "Math namespace should be defined"
+        root_table.place_id_by_name("square").is_some(),
+        "square function should be defined"
     );
 
     // Check definitions are tracked
     let all_definitions = index.all_definitions().count();
-    // 1 const, 1 struct, 2 functions, 1 namespace, 3 function params, 2 inner fn variables
-    assert_eq!(all_definitions, 10);
+    // 1 const, 1 struct, 2 functions, 3 function params, 2 inner fn variables
+    assert_eq!(all_definitions, 9);
 
     // Find function definition
     let distance_def =
@@ -210,20 +204,6 @@ fn test_comprehensive_semantic_analysis() {
     assert!(
         func_table.place_id_by_name("dy").is_some(),
         "dy local should be defined"
-    );
-
-    // Check namespace scope
-    let namespace_scope = child_scopes
-        .iter()
-        .find(|&scope_id| {
-            index.scope(*scope_id).unwrap().kind == crate::place::ScopeKind::Namespace
-        })
-        .unwrap();
-
-    let namespace_table = index.place_table(*namespace_scope).unwrap();
-    assert!(
-        namespace_table.place_id_by_name("square").is_some(),
-        "square function should be defined in Math namespace"
     );
 }
 

@@ -28,12 +28,6 @@ fn test_format_if_statement() {
 }
 
 #[test]
-fn test_format_namespace() {
-    let input = r#"namespace math{fn square(x:felt)->felt{return x*x;}}"#;
-    assert_snapshot!(format_code(input));
-}
-
-#[test]
 fn test_format_const() {
     let input = r#"const PI=314;"#;
     assert_snapshot!(format_code(input));

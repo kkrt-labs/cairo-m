@@ -62,7 +62,7 @@ Salsa-based type representation:
 
 #### **Scope & Symbol Management** (`place.rs`, `definition.rs`)
 
-- `Scope`: Hierarchical containers (Module, Function, Namespace, Block)
+- `Scope`: Hierarchical containers (Module, Function, Block)
 - `Place`: Named entities that can hold values
 - `Definition`: Links symbols to their AST nodes and metadata
 - Two-pass analysis enables forward references

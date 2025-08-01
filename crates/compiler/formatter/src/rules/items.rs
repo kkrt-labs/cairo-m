@@ -1,6 +1,5 @@
 use cairo_m_compiler_parser::parser::{
-    ConstDef, FunctionDef, Namespace, Parameter, ParsedModule, StructDef, TopLevelItem, UseItems,
-    UseStmt,
+    ConstDef, FunctionDef, Parameter, ParsedModule, StructDef, TopLevelItem, UseItems, UseStmt,
 };
 
 use crate::Format;
@@ -35,7 +34,6 @@ impl Format for TopLevelItem {
         let (span, inner_doc) = match self {
             Self::Function(f) => (f.span(), f.value().format(ctx)),
             Self::Struct(s) => (s.span(), s.value().format(ctx)),
-            Self::Namespace(n) => (n.span(), n.value().format(ctx)),
             Self::Const(c) => (c.span(), c.value().format(ctx)),
             Self::Use(u) => (u.span(), u.value().format(ctx)),
         };
@@ -132,42 +130,6 @@ impl Format for StructDef {
                 .collect::<Vec<_>>();
 
             parts.push(Doc::indent(ctx.cfg.indent_width, Doc::concat(fields)));
-            parts.push(Doc::line());
-        }
-
-        parts.push(Doc::text("}"));
-
-        Doc::concat(parts)
-    }
-}
-
-impl Format for Namespace {
-    fn format(&self, ctx: &mut FormatterCtx) -> Doc {
-        let mut parts = vec![
-            Doc::text("namespace"),
-            Doc::text(" "),
-            Doc::text(self.name.value()),
-        ];
-
-        parts.push(Doc::text(" {"));
-
-        if !self.body.is_empty() {
-            let items = self
-                .body
-                .iter()
-                .enumerate()
-                .flat_map(|(i, item)| {
-                    let mut item_docs = vec![];
-                    if i > 0 {
-                        item_docs.push(Doc::line());
-                    }
-                    item_docs.push(Doc::line());
-                    item_docs.push(item.format(ctx));
-                    item_docs
-                })
-                .collect::<Vec<_>>();
-
-            parts.push(Doc::indent(ctx.cfg.indent_width, Doc::concat(items)));
             parts.push(Doc::line());
         }
 

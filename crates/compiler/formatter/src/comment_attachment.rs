@@ -96,9 +96,6 @@ fn collect_item_spans(item: &TopLevelItem, spans: &mut Vec<SimpleSpan<usize>>) {
         TopLevelItem::Struct(s) => {
             spans.push(s.span());
         }
-        TopLevelItem::Namespace(n) => {
-            spans.push(n.span());
-        }
         TopLevelItem::Const(c) => {
             spans.push(c.span());
         }

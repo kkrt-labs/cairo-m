@@ -52,8 +52,8 @@ use cairo_m_compiler_diagnostics::{
 };
 use cairo_m_compiler_parser::ParsedModule;
 use cairo_m_compiler_parser::parser::{
-    ConstDef, Expression, FunctionDef, NamedType, Namespace, Parameter, Pattern, Spanned,
-    Statement, StructDef, TopLevelItem, TypeExpr, UseItems, UseStmt,
+    ConstDef, Expression, FunctionDef, NamedType, Parameter, Pattern, Spanned, Statement,
+    StructDef, TopLevelItem, TypeExpr, UseItems, UseStmt,
 };
 use chumsky::span::SimpleSpan;
 use index_vec::IndexVec;
@@ -211,7 +211,7 @@ pub struct SemanticIndex {
 
     /// **Scope hierarchy**: List of all scopes in this file with parent-child relationships.
     ///
-    /// Defines the hierarchical structure of scopes (module -> namespace -> function -> block).
+    /// Defines the hierarchical structure of scopes (module -> function -> block).
     /// Each scope knows its parent, enabling scope chain traversal for symbol resolution.
     /// The root (module) scope has `parent: None`.
     ///
@@ -745,13 +745,12 @@ impl<'db, 'sink> SemanticIndexBuilder<'db, 'sink> {
     /// Build the semantic index from the module.
     /// Processes recursively all items from the root scope.
     pub fn build(mut self) -> SemanticIndex {
-        // Pass 1: Declare functions and namespaces for forward references
-        // Only functions and namespaces need forward declarations
+        // Pass 1: Declare functions and structs for forward references
+        // Only functions and structs need forward declarations
         {
             for item in self.module.items() {
                 match item {
                     TopLevelItem::Function(func) => self.declare_function(func),
-                    TopLevelItem::Namespace(namespace) => self.declare_namespace(namespace),
                     TopLevelItem::Struct(struct_def) => self.declare_struct(struct_def),
                     TopLevelItem::Use(use_stmt) => self.declare_use(use_stmt),
                     // Structs, use statements, and consts will be handled in pass 2
@@ -870,25 +869,6 @@ impl<'db, 'sink> SemanticIndexBuilder<'db, 'sink> {
             def_kind,
             func_def.name.span(),
             func_span,
-        );
-    }
-
-    /// Declare a namespace without processing its contents (for forward references)
-    fn declare_namespace(&mut self, namespace: &Spanned<Namespace>) {
-        use crate::definition::{DefinitionKind, NamespaceDefRef};
-        use crate::place::PlaceFlags;
-
-        let namespace_inner = namespace.value();
-        let namespace_span = namespace.span();
-
-        // Define the namespace in the current scope
-        let def_kind = DefinitionKind::Namespace(NamespaceDefRef::from_ast(namespace));
-        self.add_place_with_definition(
-            namespace_inner.name.value(),
-            PlaceFlags::DEFINED,
-            def_kind,
-            namespace_inner.name.span(),
-            namespace_span,
         );
     }
 
@@ -1497,37 +1477,6 @@ where
             param.name.span(),
             param.name.span(),
         );
-    }
-
-    fn visit_namespace(&mut self, namespace: &'ast Spanned<Namespace>) {
-        let namespace_inner = namespace.value();
-
-        // Note: Namespace declaration already handled in pass 1
-        // Here we process the contents
-
-        // Create a new scope for the namespace contents
-        self.with_new_scope(crate::place::ScopeKind::Namespace, |builder| {
-            let current_scope = builder.current_scope();
-            builder
-                .index
-                .set_scope_for_span(namespace.span(), current_scope);
-
-            // First pass: declare functions, structs, and namespaces within namespace for forward references
-            let namespace_items: Vec<_> = namespace_inner.body.iter().collect();
-            for item in &namespace_items {
-                match item {
-                    TopLevelItem::Function(func) => builder.declare_function(func),
-                    TopLevelItem::Namespace(inner_namespace) => {
-                        builder.declare_namespace(inner_namespace)
-                    }
-                    TopLevelItem::Struct(struct_def) => builder.declare_struct(struct_def),
-                    // Structs, use statements, and consts will be handled in pass 2
-                    _ => {}
-                }
-            }
-
-            builder.visit_top_level_items(&namespace_inner.body);
-        });
     }
 
     fn visit_struct(&mut self, struct_def: &'ast Spanned<StructDef>) {

@@ -29,8 +29,8 @@
 //! ```
 
 use cairo_m_compiler_parser::parser::{
-    ConstDef, Expression, FunctionDef, Namespace, Parameter, Spanned, Statement, StructDef,
-    TopLevelItem, TypeExpr, UseStmt,
+    ConstDef, Expression, FunctionDef, Parameter, Spanned, Statement, StructDef, TopLevelItem,
+    TypeExpr, UseStmt,
 };
 
 /// Core visitor trait for AST traversal.
@@ -44,7 +44,7 @@ pub trait Visitor<'ast> {
         }
     }
 
-    /// Visit a top-level item (function, struct, namespace, etc.)
+    /// Visit a top-level item (function, struct, etc.)
     fn visit_top_level_item(&mut self, item: &'ast TopLevelItem) {
         walk_top_level_item(self, item);
     }
@@ -71,9 +71,6 @@ pub trait Visitor<'ast> {
     /// Visit a struct definition
     fn visit_struct(&mut self, struct_def: &'ast Spanned<StructDef>);
 
-    /// Visit a namespace definition
-    fn visit_namespace(&mut self, namespace: &'ast Spanned<Namespace>);
-
     /// Visit a const definition
     fn visit_const(&mut self, const_def: &'ast Spanned<ConstDef>);
 
@@ -97,7 +94,6 @@ fn walk_top_level_item<'ast, V: Visitor<'ast> + ?Sized>(visitor: &mut V, item: &
     match item {
         TopLevelItem::Function(func) => visitor.visit_function(func),
         TopLevelItem::Struct(struct_def) => visitor.visit_struct(struct_def),
-        TopLevelItem::Namespace(namespace) => visitor.visit_namespace(namespace),
         TopLevelItem::Const(const_def) => visitor.visit_const(const_def),
         TopLevelItem::Use(use_stmt) => visitor.visit_use(use_stmt),
     }
