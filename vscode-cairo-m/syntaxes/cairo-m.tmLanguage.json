@@ -71,7 +71,7 @@
         },
         {
           "match": "::",
-          "name": "punctuation.separator.namespace.cairo-m"
+          "name": "punctuation.separator.module.cairo-m"
         }
       ]
     },
@@ -96,7 +96,7 @@
         },
         {
           "name": "keyword.other.cairo-m",
-          "match": "\\b(fn|let|local|const|struct|namespace|use|as)\\b"
+          "match": "\\b(fn|let|local|const|struct|use|as)\\b"
         },
         {
           "name": "constant.language.boolean.cairo-m",

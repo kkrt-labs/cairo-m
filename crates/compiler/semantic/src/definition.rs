@@ -6,7 +6,7 @@
 use std::fmt;
 
 use cairo_m_compiler_parser::parser::{
-    ConstDef, FunctionDef, Namespace, Parameter, Spanned, StructDef, TypeExpr,
+    ConstDef, FunctionDef, Parameter, Spanned, StructDef, TypeExpr,
 };
 use chumsky::span::SimpleSpan;
 
@@ -55,8 +55,6 @@ pub enum DefinitionKind {
     Parameter(ParameterDefRef),
     /// Import definition (imported symbol)
     Use(UseDefRef),
-    /// Namespace definition
-    Namespace(NamespaceDefRef),
     /// Loop variable definition (from for loops)
     LoopVariable(LoopVariableDefRef),
 }
@@ -79,7 +77,6 @@ impl fmt::Display for DefinitionKind {
             Self::Let(_) => write!(f, "variable"),
             Self::Parameter(_) => write!(f, "parameter"),
             Self::Use(_) => write!(f, "use"),
-            Self::Namespace(_) => write!(f, "namespace"),
             Self::LoopVariable(_) => write!(f, "loop variable"),
         }
     }
@@ -212,23 +209,6 @@ impl ParameterDefRef {
 pub struct UseDefRef {
     pub imported_module: Spanned<String>,
     pub item: Spanned<String>,
-}
-
-/// Reference to a namespace definition
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct NamespaceDefRef {
-    pub name: String,
-    // TODO: is this field needed?
-    pub item_count: usize,
-}
-
-impl NamespaceDefRef {
-    pub fn from_ast(namespace: &Spanned<Namespace>) -> Self {
-        Self {
-            name: namespace.value().name.value().clone(),
-            item_count: namespace.value().body.len(),
-        }
-    }
 }
 
 /// Reference to a loop variable definition

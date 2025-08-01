@@ -2,6 +2,8 @@
 
 I'll analyze your changes and create a meaningful commit message.
 
+First, make sure the linter pass by running `trunk fmt`.
+
 First, let me check what's changed:
 
 ```bash
@@ -51,9 +53,9 @@ Based on the analysis, I'll create a conventional commit message:
 
 I will not add myself as co-author of the commit.
 
-Before committing, I'll run the `trunk check --fix` command to ensure that the
-code is formatted correctly. If there are any errors, I'll ask the you to fix
-them manually.
+Before committing, I'll run the `trunk check --ci --fix` command to ensure that
+the code is formatted correctly. If there are any errors, I'll ask the you to
+fix them manually.
 
 ```bash
 # I'll create the commit with the analyzed message

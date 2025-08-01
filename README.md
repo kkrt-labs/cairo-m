@@ -50,14 +50,46 @@ git submodule update --init --recursive
 
 to pull the correct pinned version.
 
-**Note for MacOS users**: You need to have `lld` installed, which can be done
-easily with `brew install lld`. Also, make sure that your `clang` is the
-Homebrew one (`brew install llvm`), not the Xcode one.
+Note also that `.worktrees` is added to `.gitignore` so that you can start
+working with work tress from the root of the project
+
+```bash
+git worktree add .worktrees/<branch-name>
+```
 
 The project uses [trunk.io](https://trunk.io/) for managing all the linters, so
 make sure to install both the CLI and the VScode extension.
 
+### Note for MacOS users
+
+You need to have LLVM and their LLD linker installed.
+
+```bash
+brew install llvm
+brew install lld
+```
+
+#### Troubleshooting
+
+Make sure that you are using the Homebrew version of `clang` and `llvm`, not the
+Xcode (Apple) one.
+
+```bash
+echo 'export CC=/opt/homebrew/opt/llvm/bin/clang' >> ~/.zshrc
+echo 'export CXX=/opt/homebrew/opt/llvm/bin/clang++' >> ~/.zshrc
+echo 'export AR=/opt/homebrew/opt/llvm/bin/llvm-ar' >> ~/.zshrc
+echo 'export RANLIB=/opt/homebrew/opt/llvm/bin/llvm-ranlib' >> ~/.zshrc
+```
+
 ## Benchmark VM
+
+### MacOS
+
+```bash
+RUSTFLAGS="-C link-arg=-fuse-ld=/opt/homebrew/bin/ld64.lld -C target-cpu=native" cargo bench --bench vm_benchmark -- --verbose
+```
+
+### Other Platforms
 
 ```bash
 RUSTFLAGS="-C target-cpu=native" cargo bench --bench vm_benchmark -- --verbose

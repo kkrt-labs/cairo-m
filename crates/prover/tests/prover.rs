@@ -4,9 +4,12 @@ use std::fs;
 
 use cairo_m_compiler::{CompilerOptions, compile_cairo};
 use cairo_m_prover::adapter::memory::Memory;
-use cairo_m_prover::adapter::merkle::{MockHasher, TREE_HEIGHT, build_partial_merkle_tree};
-use cairo_m_prover::adapter::{Instructions, MerkleTrees, ProverInput, import_from_runner_output};
+use cairo_m_prover::adapter::merkle::{TREE_HEIGHT, build_partial_merkle_tree};
+use cairo_m_prover::adapter::{
+    HashInput, Instructions, MerkleTrees, ProverInput, import_from_runner_output,
+};
 use cairo_m_prover::debug_tools::assert_constraints::assert_constraints;
+use cairo_m_prover::poseidon2::Poseidon2Hash;
 use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_prover::verifier::verify_cairo_m;
 use cairo_m_runner::{RunnerOptions, run_cairo_program};
@@ -51,12 +54,22 @@ fn test_prove_and_verify_unchanged_memory() {
     let mut memory = Memory {
         initial_memory: initial_memory.clone(),
         final_memory: initial_memory,
+        clock_update_data: vec![],
     };
 
     let (initial_tree, initial_root) =
-        build_partial_merkle_tree::<MockHasher>(&mut memory.initial_memory);
+        build_partial_merkle_tree::<Poseidon2Hash>(&mut memory.initial_memory);
     let (final_tree, final_root) =
-        build_partial_merkle_tree::<MockHasher>(&mut memory.final_memory);
+        build_partial_merkle_tree::<Poseidon2Hash>(&mut memory.final_memory);
+
+    let mut poseidon2_inputs =
+        Vec::<HashInput>::with_capacity(initial_tree.len() + final_tree.len());
+    initial_tree.iter().for_each(|node| {
+        poseidon2_inputs.push(node.to_hash_input());
+    });
+    final_tree.iter().for_each(|node| {
+        poseidon2_inputs.push(node.to_hash_input());
+    });
 
     let mut prover_input = ProverInput {
         merkle_trees: MerkleTrees {
@@ -68,6 +81,7 @@ fn test_prove_and_verify_unchanged_memory() {
         public_addresses: vec![],
         memory,
         instructions: Instructions::default(),
+        poseidon2_inputs,
     };
 
     let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
@@ -106,6 +120,41 @@ fn test_prove_and_verify_fibonacci_program() {
         runner_output.public_addresses,
     )
     .unwrap();
+    let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
+
+    verify_cairo_m::<Blake2sMerkleChannel>(proof, None).unwrap();
+}
+
+#[test]
+fn test_prove_and_verify_large_fibonacci_program() {
+    let source_path = format!(
+        "{}/tests/test_data/{}",
+        env!("CARGO_MANIFEST_DIR"),
+        "fibonacci.cm"
+    );
+    let compiled_fib = compile_cairo(
+        fs::read_to_string(&source_path).unwrap(),
+        source_path,
+        CompilerOptions::default(),
+    )
+    .unwrap();
+
+    let runner_output = run_cairo_program(
+        &compiled_fib.program,
+        "fib",
+        &[M31::from(1_000_000)],
+        RunnerOptions {
+            max_steps: 2_usize.pow(30),
+        },
+    )
+    .unwrap();
+
+    let mut prover_input = import_from_runner_output(
+        runner_output.vm.segments.into_iter().next().unwrap(),
+        runner_output.public_addresses,
+    )
+    .unwrap();
+
     let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
 
     verify_cairo_m::<Blake2sMerkleChannel>(proof, None).unwrap();

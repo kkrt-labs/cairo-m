@@ -63,8 +63,6 @@ pub enum ScopeKind {
     Module,
     /// Function body scope
     Function,
-    /// Namespace scope
-    Namespace,
     /// Block scope (for future block scoping support)
     Block,
     /// Loop scope with nesting depth
@@ -76,7 +74,6 @@ impl fmt::Display for ScopeKind {
         match self {
             Self::Module => write!(f, "module"),
             Self::Function => write!(f, "function"),
-            Self::Namespace => write!(f, "namespace"),
             Self::Block => write!(f, "block"),
             Self::Loop { depth } => write!(f, "loop (depth: {})", depth),
         }

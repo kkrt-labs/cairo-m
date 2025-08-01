@@ -113,8 +113,10 @@ fn relation_entries(
     let Components {
         memory,
         merkle,
+        poseidon2,
         range_check_20,
         opcodes,
+        clock_update,
     } = components;
 
     let entries: Vec<RelationTrackerEntry> = chain!(
@@ -128,6 +130,8 @@ fn relation_entries(
         add_to_relation_entries(&opcodes.store_imm, trace),
         add_to_relation_entries(memory, trace),
         add_to_relation_entries(merkle, trace),
+        add_to_relation_entries(clock_update, trace),
+        add_to_relation_entries(poseidon2, trace),
         add_to_relation_entries(range_check_20, trace),
     )
     .collect();

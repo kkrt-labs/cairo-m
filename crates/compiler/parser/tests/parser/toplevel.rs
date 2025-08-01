@@ -44,17 +44,6 @@ fn struct_definitions_parameterized() {
 }
 
 #[test]
-fn namespace_definitions_parameterized() {
-    assert_parses_parameterized! {
-        ok: [
-            "namespace Math { const PI = 314; }",
-            "namespace Utils { fn helper() -> felt { return 1; } }",
-            "namespace Outer { namespace Inner { const VALUE = 42; } }",
-        ]
-    }
-}
-
-#[test]
 fn use_statements_parameterized() {
     assert_parses_parameterized! {
         ok: [
@@ -101,20 +90,18 @@ fn complete_program() {
             y: felt
         }
 
-        namespace MathUtils {
-            fn magnitude(v: Vector) -> felt {
-                return (v.x * v.x + v.y * v.y);
-            }
+        fn magnitude(v: Vector) -> felt {
+            return (v.x * v.x + v.y * v.y);
+        }
 
-            fn rfib(n: felt) -> felt {
-                if n == 0 {
-                    return 0;
-                }
-                if n == 1 {
-                    return 1;
-                }
-                return rfib(n - 1) + rfib(n - 2);
+        fn rfib(n: felt) -> felt {
+            if n == 0 {
+                return 0;
             }
+            if n == 1 {
+                return 1;
+            }
+            return rfib(n - 1) + rfib(n - 2);
         }
 
         const TOP_LEVEL_CONST = 100;

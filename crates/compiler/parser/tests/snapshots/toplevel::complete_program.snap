@@ -9,20 +9,18 @@ expression: snapshot
             y: felt
         }
 
-        namespace MathUtils {
-            fn magnitude(v: Vector) -> felt {
-                return (v.x * v.x + v.y * v.y);
-            }
+        fn magnitude(v: Vector) -> felt {
+            return (v.x * v.x + v.y * v.y);
+        }
 
-            fn rfib(n: felt) -> felt {
-                if n == 0 {
-                    return 0;
-                }
-                if n == 1 {
-                    return 1;
-                }
-                return rfib(n - 1) + rfib(n - 2);
+        fn rfib(n: felt) -> felt {
+            if n == 0 {
+                return 0;
             }
+            if n == 1 {
+                return 1;
+            }
+            return rfib(n - 1) + rfib(n - 2);
         }
 
         const TOP_LEVEL_CONST = 100;
@@ -72,381 +70,368 @@ expression: snapshot
             9..75,
         ),
     ),
-    Namespace(
+    Function(
         Spanned(
-            Namespace {
+            FunctionDef {
                 name: Spanned(
-                    "MathUtils",
-                    95..104,
+                    "magnitude",
+                    88..97,
                 ),
-                body: [
-                    Function(
+                params: [
+                    Parameter {
+                        name: Spanned(
+                            "v",
+                            98..99,
+                        ),
+                        type_expr: Spanned(
+                            Named(
+                                Spanned(
+                                    Custom(
+                                        "Vector",
+                                    ),
+                                    101..107,
+                                ),
+                            ),
+                            101..107,
+                        ),
+                    },
+                ],
+                return_type: Spanned(
+                    Named(
                         Spanned(
-                            FunctionDef {
-                                name: Spanned(
-                                    "magnitude",
-                                    122..131,
-                                ),
-                                params: [
-                                    Parameter {
-                                        name: Spanned(
-                                            "v",
-                                            132..133,
-                                        ),
-                                        type_expr: Spanned(
-                                            Named(
-                                                Spanned(
-                                                    Custom(
-                                                        "Vector",
-                                                    ),
-                                                    135..141,
-                                                ),
-                                            ),
-                                            135..141,
-                                        ),
-                                    },
-                                ],
-                                return_type: Spanned(
-                                    Named(
-                                        Spanned(
-                                            Felt,
-                                            146..150,
-                                        ),
-                                    ),
-                                    146..150,
-                                ),
-                                body: [
-                                    Spanned(
-                                        Return {
-                                            value: Some(
-                                                Spanned(
-                                                    BinaryOp {
-                                                        op: Add,
-                                                        left: Spanned(
-                                                            BinaryOp {
-                                                                op: Mul,
-                                                                left: Spanned(
-                                                                    MemberAccess {
-                                                                        object: Spanned(
-                                                                            Identifier(
-                                                                                Spanned(
-                                                                                    "v",
-                                                                                    177..178,
-                                                                                ),
-                                                                            ),
-                                                                            177..178,
-                                                                        ),
-                                                                        field: Spanned(
-                                                                            "x",
-                                                                            179..180,
-                                                                        ),
-                                                                    },
-                                                                    177..180,
-                                                                ),
-                                                                right: Spanned(
-                                                                    MemberAccess {
-                                                                        object: Spanned(
-                                                                            Identifier(
-                                                                                Spanned(
-                                                                                    "v",
-                                                                                    183..184,
-                                                                                ),
-                                                                            ),
-                                                                            183..184,
-                                                                        ),
-                                                                        field: Spanned(
-                                                                            "x",
-                                                                            185..186,
-                                                                        ),
-                                                                    },
-                                                                    183..186,
-                                                                ),
-                                                            },
-                                                            177..186,
-                                                        ),
-                                                        right: Spanned(
-                                                            BinaryOp {
-                                                                op: Mul,
-                                                                left: Spanned(
-                                                                    MemberAccess {
-                                                                        object: Spanned(
-                                                                            Identifier(
-                                                                                Spanned(
-                                                                                    "v",
-                                                                                    189..190,
-                                                                                ),
-                                                                            ),
-                                                                            189..190,
-                                                                        ),
-                                                                        field: Spanned(
-                                                                            "y",
-                                                                            191..192,
-                                                                        ),
-                                                                    },
-                                                                    189..192,
-                                                                ),
-                                                                right: Spanned(
-                                                                    MemberAccess {
-                                                                        object: Spanned(
-                                                                            Identifier(
-                                                                                Spanned(
-                                                                                    "v",
-                                                                                    195..196,
-                                                                                ),
-                                                                            ),
-                                                                            195..196,
-                                                                        ),
-                                                                        field: Spanned(
-                                                                            "y",
-                                                                            197..198,
-                                                                        ),
-                                                                    },
-                                                                    195..198,
-                                                                ),
-                                                            },
-                                                            189..198,
-                                                        ),
-                                                    },
-                                                    176..199,
-                                                ),
-                                            ),
-                                        },
-                                        169..200,
-                                    ),
-                                ],
-                            },
-                            119..214,
+                            Felt,
+                            112..116,
                         ),
                     ),
-                    Function(
-                        Spanned(
-                            FunctionDef {
-                                name: Spanned(
-                                    "rfib",
-                                    231..235,
-                                ),
-                                params: [
-                                    Parameter {
-                                        name: Spanned(
-                                            "n",
-                                            236..237,
-                                        ),
-                                        type_expr: Spanned(
-                                            Named(
-                                                Spanned(
-                                                    Felt,
-                                                    239..243,
+                    112..116,
+                ),
+                body: [
+                    Spanned(
+                        Return {
+                            value: Some(
+                                Spanned(
+                                    BinaryOp {
+                                        op: Add,
+                                        left: Spanned(
+                                            BinaryOp {
+                                                op: Mul,
+                                                left: Spanned(
+                                                    MemberAccess {
+                                                        object: Spanned(
+                                                            Identifier(
+                                                                Spanned(
+                                                                    "v",
+                                                                    139..140,
+                                                                ),
+                                                            ),
+                                                            139..140,
+                                                        ),
+                                                        field: Spanned(
+                                                            "x",
+                                                            141..142,
+                                                        ),
+                                                    },
+                                                    139..142,
                                                 ),
-                                            ),
-                                            239..243,
+                                                right: Spanned(
+                                                    MemberAccess {
+                                                        object: Spanned(
+                                                            Identifier(
+                                                                Spanned(
+                                                                    "v",
+                                                                    145..146,
+                                                                ),
+                                                            ),
+                                                            145..146,
+                                                        ),
+                                                        field: Spanned(
+                                                            "x",
+                                                            147..148,
+                                                        ),
+                                                    },
+                                                    145..148,
+                                                ),
+                                            },
+                                            139..148,
+                                        ),
+                                        right: Spanned(
+                                            BinaryOp {
+                                                op: Mul,
+                                                left: Spanned(
+                                                    MemberAccess {
+                                                        object: Spanned(
+                                                            Identifier(
+                                                                Spanned(
+                                                                    "v",
+                                                                    151..152,
+                                                                ),
+                                                            ),
+                                                            151..152,
+                                                        ),
+                                                        field: Spanned(
+                                                            "y",
+                                                            153..154,
+                                                        ),
+                                                    },
+                                                    151..154,
+                                                ),
+                                                right: Spanned(
+                                                    MemberAccess {
+                                                        object: Spanned(
+                                                            Identifier(
+                                                                Spanned(
+                                                                    "v",
+                                                                    157..158,
+                                                                ),
+                                                            ),
+                                                            157..158,
+                                                        ),
+                                                        field: Spanned(
+                                                            "y",
+                                                            159..160,
+                                                        ),
+                                                    },
+                                                    157..160,
+                                                ),
+                                            },
+                                            151..160,
                                         ),
                                     },
-                                ],
-                                return_type: Spanned(
-                                    Named(
-                                        Spanned(
-                                            Felt,
-                                            248..252,
-                                        ),
-                                    ),
-                                    248..252,
+                                    138..161,
                                 ),
-                                body: [
-                                    Spanned(
-                                        If {
-                                            condition: Spanned(
-                                                BinaryOp {
-                                                    op: Eq,
-                                                    left: Spanned(
-                                                        Identifier(
-                                                            Spanned(
-                                                                "n",
-                                                                274..275,
-                                                            ),
-                                                        ),
-                                                        274..275,
-                                                    ),
-                                                    right: Spanned(
+                            ),
+                        },
+                        131..162,
+                    ),
+                ],
+            },
+            85..172,
+        ),
+    ),
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "rfib",
+                    185..189,
+                ),
+                params: [
+                    Parameter {
+                        name: Spanned(
+                            "n",
+                            190..191,
+                        ),
+                        type_expr: Spanned(
+                            Named(
+                                Spanned(
+                                    Felt,
+                                    193..197,
+                                ),
+                            ),
+                            193..197,
+                        ),
+                    },
+                ],
+                return_type: Spanned(
+                    Named(
+                        Spanned(
+                            Felt,
+                            202..206,
+                        ),
+                    ),
+                    202..206,
+                ),
+                body: [
+                    Spanned(
+                        If {
+                            condition: Spanned(
+                                BinaryOp {
+                                    op: Eq,
+                                    left: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "n",
+                                                224..225,
+                                            ),
+                                        ),
+                                        224..225,
+                                    ),
+                                    right: Spanned(
+                                        Literal(
+                                            0,
+                                            None,
+                                        ),
+                                        229..230,
+                                    ),
+                                },
+                                224..230,
+                            ),
+                            then_block: Spanned(
+                                Block(
+                                    [
+                                        Spanned(
+                                            Return {
+                                                value: Some(
+                                                    Spanned(
                                                         Literal(
                                                             0,
                                                             None,
                                                         ),
-                                                        279..280,
+                                                        256..257,
                                                     ),
-                                                },
-                                                274..280,
-                                            ),
-                                            then_block: Spanned(
-                                                Block(
-                                                    [
-                                                        Spanned(
-                                                            Return {
-                                                                value: Some(
-                                                                    Spanned(
-                                                                        Literal(
-                                                                            0,
-                                                                            None,
-                                                                        ),
-                                                                        310..311,
-                                                                    ),
-                                                                ),
-                                                            },
-                                                            303..312,
-                                                        ),
-                                                    ],
                                                 ),
-                                                281..330,
+                                            },
+                                            249..258,
+                                        ),
+                                    ],
+                                ),
+                                231..272,
+                            ),
+                            else_block: None,
+                        },
+                        221..272,
+                    ),
+                    Spanned(
+                        If {
+                            condition: Spanned(
+                                BinaryOp {
+                                    op: Eq,
+                                    left: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "n",
+                                                288..289,
                                             ),
-                                            else_block: None,
-                                        },
-                                        271..330,
+                                        ),
+                                        288..289,
                                     ),
-                                    Spanned(
-                                        If {
-                                            condition: Spanned(
-                                                BinaryOp {
-                                                    op: Eq,
-                                                    left: Spanned(
-                                                        Identifier(
-                                                            Spanned(
-                                                                "n",
-                                                                350..351,
-                                                            ),
-                                                        ),
-                                                        350..351,
-                                                    ),
-                                                    right: Spanned(
+                                    right: Spanned(
+                                        Literal(
+                                            1,
+                                            None,
+                                        ),
+                                        293..294,
+                                    ),
+                                },
+                                288..294,
+                            ),
+                            then_block: Spanned(
+                                Block(
+                                    [
+                                        Spanned(
+                                            Return {
+                                                value: Some(
+                                                    Spanned(
                                                         Literal(
                                                             1,
                                                             None,
                                                         ),
-                                                        355..356,
+                                                        320..321,
                                                     ),
-                                                },
-                                                350..356,
-                                            ),
-                                            then_block: Spanned(
-                                                Block(
-                                                    [
+                                                ),
+                                            },
+                                            313..322,
+                                        ),
+                                    ],
+                                ),
+                                295..336,
+                            ),
+                            else_block: None,
+                        },
+                        285..336,
+                    ),
+                    Spanned(
+                        Return {
+                            value: Some(
+                                Spanned(
+                                    BinaryOp {
+                                        op: Add,
+                                        left: Spanned(
+                                            FunctionCall {
+                                                callee: Spanned(
+                                                    Identifier(
                                                         Spanned(
-                                                            Return {
-                                                                value: Some(
-                                                                    Spanned(
-                                                                        Literal(
-                                                                            1,
-                                                                            None,
-                                                                        ),
-                                                                        386..387,
-                                                                    ),
-                                                                ),
-                                                            },
-                                                            379..388,
+                                                            "rfib",
+                                                            356..360,
                                                         ),
-                                                    ],
+                                                    ),
+                                                    356..360,
                                                 ),
-                                                357..406,
-                                            ),
-                                            else_block: None,
-                                        },
-                                        347..406,
-                                    ),
-                                    Spanned(
-                                        Return {
-                                            value: Some(
-                                                Spanned(
-                                                    BinaryOp {
-                                                        op: Add,
-                                                        left: Spanned(
-                                                            FunctionCall {
-                                                                callee: Spanned(
-                                                                    Identifier(
-                                                                        Spanned(
-                                                                            "rfib",
-                                                                            430..434,
-                                                                        ),
-                                                                    ),
-                                                                    430..434,
-                                                                ),
-                                                                args: [
+                                                args: [
+                                                    Spanned(
+                                                        BinaryOp {
+                                                            op: Sub,
+                                                            left: Spanned(
+                                                                Identifier(
                                                                     Spanned(
-                                                                        BinaryOp {
-                                                                            op: Sub,
-                                                                            left: Spanned(
-                                                                                Identifier(
-                                                                                    Spanned(
-                                                                                        "n",
-                                                                                        435..436,
-                                                                                    ),
-                                                                                ),
-                                                                                435..436,
-                                                                            ),
-                                                                            right: Spanned(
-                                                                                Literal(
-                                                                                    1,
-                                                                                    None,
-                                                                                ),
-                                                                                439..440,
-                                                                            ),
-                                                                        },
-                                                                        435..440,
+                                                                        "n",
+                                                                        361..362,
                                                                     ),
-                                                                ],
-                                                            },
-                                                            430..440,
-                                                        ),
-                                                        right: Spanned(
-                                                            FunctionCall {
-                                                                callee: Spanned(
-                                                                    Identifier(
-                                                                        Spanned(
-                                                                            "rfib",
-                                                                            444..448,
-                                                                        ),
-                                                                    ),
-                                                                    444..448,
                                                                 ),
-                                                                args: [
-                                                                    Spanned(
-                                                                        BinaryOp {
-                                                                            op: Sub,
-                                                                            left: Spanned(
-                                                                                Identifier(
-                                                                                    Spanned(
-                                                                                        "n",
-                                                                                        449..450,
-                                                                                    ),
-                                                                                ),
-                                                                                449..450,
-                                                                            ),
-                                                                            right: Spanned(
-                                                                                Literal(
-                                                                                    2,
-                                                                                    None,
-                                                                                ),
-                                                                                453..454,
-                                                                            ),
-                                                                        },
-                                                                        449..454,
-                                                                    ),
-                                                                ],
-                                                            },
-                                                            444..454,
+                                                                361..362,
+                                                            ),
+                                                            right: Spanned(
+                                                                Literal(
+                                                                    1,
+                                                                    None,
+                                                                ),
+                                                                365..366,
+                                                            ),
+                                                        },
+                                                        361..366,
+                                                    ),
+                                                ],
+                                            },
+                                            356..366,
+                                        ),
+                                        right: Spanned(
+                                            FunctionCall {
+                                                callee: Spanned(
+                                                    Identifier(
+                                                        Spanned(
+                                                            "rfib",
+                                                            370..374,
                                                         ),
-                                                    },
-                                                    430..454,
+                                                    ),
+                                                    370..374,
                                                 ),
-                                            ),
-                                        },
-                                        423..456,
-                                    ),
-                                ],
-                            },
-                            228..470,
-                        ),
+                                                args: [
+                                                    Spanned(
+                                                        BinaryOp {
+                                                            op: Sub,
+                                                            left: Spanned(
+                                                                Identifier(
+                                                                    Spanned(
+                                                                        "n",
+                                                                        375..376,
+                                                                    ),
+                                                                ),
+                                                                375..376,
+                                                            ),
+                                                            right: Spanned(
+                                                                Literal(
+                                                                    2,
+                                                                    None,
+                                                                ),
+                                                                379..380,
+                                                            ),
+                                                        },
+                                                        375..380,
+                                                    ),
+                                                ],
+                                            },
+                                            370..380,
+                                        ),
+                                    },
+                                    356..380,
+                                ),
+                            ),
+                        },
+                        349..382,
                     ),
                 ],
             },
-            85..480,
+            182..392,
         ),
     ),
     Const(
@@ -454,17 +439,17 @@ expression: snapshot
             ConstDef {
                 name: Spanned(
                     "TOP_LEVEL_CONST",
-                    496..511,
+                    408..423,
                 ),
                 value: Spanned(
                     Literal(
                         100,
                         None,
                     ),
-                    514..517,
+                    426..429,
                 ),
             },
-            490..518,
+            402..430,
         ),
     ),
 ]

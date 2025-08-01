@@ -48,7 +48,7 @@ jobs:
           cache-on-failure: "true"
 
       - name: Build ${{ matrix.crate }}
-        run: cargo build -p ${{ matrix.crate }}
+        run: cargo build -p ${{ matrix.crate }} --release
 
       - name: Run tests for ${{ matrix.crate }}
-        run: cargo test -p ${{ matrix.crate }}
+        run: cargo test -p ${{ matrix.crate }} --release

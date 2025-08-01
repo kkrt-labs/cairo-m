@@ -122,58 +122,6 @@ fn test_use_def_resolution_across_scopes() {
 }
 
 #[test]
-fn test_scope_hierarchy_correctness() {
-    let source = r#"
-        namespace Math {
-            fn square(x: felt) -> felt {
-                let result = x * x;
-                return result;
-            }
-        }
-    "#;
-
-    with_semantic_index(source, |_db, _file, index| {
-        let root_scope = index.root_scope().expect("Should have root scope");
-        let root_scope_info = index.scope(root_scope).unwrap();
-        assert_eq!(root_scope_info.kind, ScopeKind::Module);
-        assert_eq!(root_scope_info.parent, None);
-
-        // Find namespace scope
-        let namespace_scope = index
-            .child_scopes(root_scope)
-            .find(|&scope_id| index.scope(scope_id).unwrap().kind == ScopeKind::Namespace)
-            .expect("Should find namespace scope");
-
-        let namespace_scope_info = index.scope(namespace_scope).unwrap();
-        assert_eq!(namespace_scope_info.kind, ScopeKind::Namespace);
-        assert_eq!(namespace_scope_info.parent, Some(root_scope));
-
-        // Find function scope
-        let function_scope = index
-            .child_scopes(namespace_scope)
-            .find(|&scope_id| index.scope(scope_id).unwrap().kind == ScopeKind::Function)
-            .expect("Should find function scope");
-
-        let function_scope_info = index.scope(function_scope).unwrap();
-        assert_eq!(function_scope_info.kind, ScopeKind::Function);
-        assert_eq!(function_scope_info.parent, Some(namespace_scope));
-
-        // Verify scope chain traversal works
-        let mut current_scope = Some(function_scope);
-        let mut depth = 0;
-        while let Some(scope_id) = current_scope {
-            let scope_info = index.scope(scope_id).unwrap();
-            current_scope = scope_info.parent;
-            depth += 1;
-            if depth > 10 {
-                panic!("Infinite loop in scope hierarchy");
-            }
-        }
-        assert_eq!(depth, 3); // function -> namespace -> module
-    });
-}
-
-#[test]
 fn test_symbol_table_flags() {
     let source = r#"
         fn test(param: felt) {

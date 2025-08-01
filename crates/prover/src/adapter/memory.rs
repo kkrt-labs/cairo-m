@@ -11,6 +11,9 @@ use stwo_prover::core::fields::qm31::QM31;
 
 use crate::adapter::io::VmImportError;
 use crate::adapter::merkle::TREE_HEIGHT;
+use crate::preprocessed::range_check::range_check_20::LOG_SIZE_RC_20;
+
+pub const RC20_LIMIT: u32 = (1 << LOG_SIZE_RC_20) - 1;
 
 #[derive(Copy, Clone, Default, Debug, Eq, PartialEq)]
 pub struct MemoryEntry {
@@ -92,6 +95,7 @@ pub struct Memory {
     // (addr, depth) => (value, clock, multiplicity which is -1, 0 or 1)
     pub initial_memory: HashMap<(M31, M31), (QM31, M31, M31)>,
     pub final_memory: HashMap<(M31, M31), (QM31, M31, M31)>,
+    pub clock_update_data: Vec<(M31, M31, QM31)>,
 }
 
 pub struct ExecutionBundleIterator<T, M>
@@ -341,6 +345,7 @@ impl Memory {
         Self {
             initial_memory: initial_memory_hashmap.clone(),
             final_memory: initial_memory_hashmap,
+            clock_update_data: Vec::new(),
         }
     }
     fn push(&mut self, memory_entry: MemoryEntry) -> MemoryArg {
@@ -351,11 +356,13 @@ impl Memory {
                 (memory_entry.value, memory_entry.clock, -M31::one()),
             )
             .unwrap_or_else(|| (memory_entry.value, M31::zero(), -M31::one()));
+        let mut prev_clk = prev_memory_entry.1;
+        let current_clk = memory_entry.clock;
 
         // If it's the first time we use a memory cell,
         // We insert it in the initial memory with multiplicity 1.
         // Thus we extend the initial memory (initial from the VM point of view) with first accesses.
-        if prev_memory_entry.1 == M31::zero() {
+        if prev_clk == M31::zero() {
             if let Some(initial_memory_cell) = self
                 .initial_memory
                 .get_mut(&(memory_entry.address, M31::from(TREE_HEIGHT)))
@@ -371,12 +378,34 @@ impl Memory {
             }
         };
 
+        // Because of sparse memory cases, we need to use the initial memory entry updated as above
+        let initial_memory_entry = self
+            .initial_memory
+            .get(&(memory_entry.address, M31::from(TREE_HEIGHT)));
+        // Check for large clock deltas and generate clock update data if needed
+        if current_clk.0 > prev_clk.0 {
+            let delta = current_clk.0 - prev_clk.0;
+            if delta > RC20_LIMIT {
+                // Generate clock update entries for this large delta
+                let num_steps = delta / RC20_LIMIT;
+
+                for _ in 0..num_steps {
+                    self.clock_update_data.push((
+                        memory_entry.address,
+                        prev_clk,
+                        initial_memory_entry.unwrap().0,
+                    ));
+                    prev_clk += M31::from(RC20_LIMIT);
+                }
+            }
+        }
+
         MemoryArg {
             address: memory_entry.address,
             prev_val: prev_memory_entry.0,
             value: memory_entry.value,
-            prev_clock: prev_memory_entry.1,
-            clock: memory_entry.clock,
+            prev_clock: prev_clk, // prev_clk is the last step_clock if intermediate steps there are
+            clock: current_clk,
         }
     }
 }
@@ -541,6 +570,70 @@ mod tests {
                 M31::one(),
             )
         );
+    }
+
+    #[test]
+    fn test_memory_push_multiple_large_clock_deltas() {
+        let mut memory = Memory::default();
+
+        // First entry
+        let first_entry = MemoryEntry {
+            address: M31::from(100),
+            value: QM31::from_u32_unchecked(1, 2, 3, 4),
+            clock: M31::from(10),
+        };
+        memory.push(first_entry);
+
+        // Second entry with very large clock delta requiring multiple steps
+        let large_delta = 3 * RC20_LIMIT + 500;
+        let second_entry = MemoryEntry {
+            address: M31::from(100),
+            value: QM31::from_u32_unchecked(5, 6, 7, 8),
+            clock: M31::from(10 + large_delta),
+        };
+
+        memory.push(second_entry);
+
+        // Verify clock update data was generated for 3 steps
+        assert_eq!(memory.clock_update_data.len(), 3);
+
+        // Check first update
+        let update1 = &memory.clock_update_data[0];
+        assert_eq!(update1.1, M31::from(10)); // prev_clk
+
+        // Check second update
+        let update2 = &memory.clock_update_data[1];
+        assert_eq!(update2.1, M31::from(10 + RC20_LIMIT)); // prev_clk
+
+        // Check third update
+        let update3 = &memory.clock_update_data[2];
+        assert_eq!(update3.1, M31::from(10 + 2 * RC20_LIMIT)); // prev_clk
+    }
+
+    #[test]
+    fn test_memory_push_no_clock_update_for_small_delta() {
+        let mut memory = Memory::default();
+
+        // First entry
+        let first_entry = MemoryEntry {
+            address: M31::from(100),
+            value: QM31::from_u32_unchecked(1, 2, 3, 4),
+            clock: M31::from(10),
+        };
+        memory.push(first_entry);
+
+        // Second entry with small clock delta
+        let small_delta = RC20_LIMIT - 1; // Just under the limit
+        let second_entry = MemoryEntry {
+            address: M31::from(100),
+            value: QM31::from_u32_unchecked(5, 6, 7, 8),
+            clock: M31::from(10 + small_delta),
+        };
+
+        memory.push(second_entry);
+
+        // Verify no clock update data was generated
+        assert!(memory.clock_update_data.is_empty());
     }
 
     #[test]

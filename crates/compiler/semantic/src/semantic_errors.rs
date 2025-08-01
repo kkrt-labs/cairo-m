@@ -39,7 +39,6 @@ impl SemanticSyntaxChecker {
             let names = match item {
                 TopLevelItem::Function(func) => vec![func.value().name.value().as_str()],
                 TopLevelItem::Struct(struct_def) => vec![struct_def.value().name.value().as_str()],
-                TopLevelItem::Namespace(namespace) => vec![namespace.value().name.value().as_str()],
                 TopLevelItem::Const(const_def) => vec![const_def.value().name.value().as_str()],
                 TopLevelItem::Use(use_stmt) => use_stmt.value().items.names(),
             };
@@ -47,7 +46,6 @@ impl SemanticSyntaxChecker {
             let spans = match item {
                 TopLevelItem::Function(func) => vec![func.value().name.span()],
                 TopLevelItem::Struct(struct_def) => vec![struct_def.value().name.span()],
-                TopLevelItem::Namespace(namespace) => vec![namespace.value().name.span()],
                 TopLevelItem::Const(const_def) => vec![const_def.value().name.span()],
                 TopLevelItem::Use(use_stmt) => use_stmt.value().items.spans(),
             };

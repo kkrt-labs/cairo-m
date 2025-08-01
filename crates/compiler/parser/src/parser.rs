@@ -3,7 +3,7 @@
 //! This module implements a recursive descent parser for the Cairo-M language using the `chumsky`
 //! parsing library with Salsa integration for incremental compilation. The parser transforms a
 //! stream of tokens into an Abstract Syntax Tree (AST) consisting of top-level items like
-//! functions, structs, namespaces, and statements.
+//! functions, structs, and statements.
 //!
 //! ## Architecture
 //!
@@ -13,7 +13,7 @@
 //! - **Expression parsing**: Handles literals, identifiers, function calls, binary operations, etc.
 //! - **Type expression parsing**: Parses type annotations like `felt`, `Vector*`, `(felt, felt)`
 //! - **Statement parsing**: Handles control flow, variable declarations, assignments
-//! - **Top-level item parsing**: Functions, structs, namespaces, imports, and constants
+//! - **Top-level item parsing**: Functions, structs, imports, and constants
 //!
 //! ## Salsa Integration & Incremental Compilation
 //!
@@ -274,15 +274,13 @@ pub enum Statement {
 /// Represents a top-level item in a Cairo-M program.
 ///
 /// These are the constructs that can appear at the module level,
-/// outside of any function or namespace body.
+/// outside of any function or body.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TopLevelItem {
     /// Function definition
     Function(Spanned<FunctionDef>),
     /// Struct definition
     Struct(Spanned<StructDef>),
-    /// Namespace definition
-    Namespace(Spanned<Namespace>),
     /// Constant definition
     Const(Spanned<ConstDef>),
     /// Use statement
@@ -346,18 +344,6 @@ pub struct StructDef {
     pub name: Spanned<String>,
     /// The struct's fields (name and type pairs)
     pub fields: Vec<(Spanned<String>, Spanned<TypeExpr>)>,
-}
-
-/// Represents a namespace definition.
-///
-/// Namespaces provide a way to organize related functions, types,
-/// and constants under a common name, preventing naming conflicts.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Namespace {
-    /// The namespace's name
-    pub name: Spanned<String>,
-    /// The items contained within the namespace
-    pub body: Vec<TopLevelItem>,
 }
 
 /// Represents items in a use statement.
@@ -1304,47 +1290,20 @@ where
         .map_with(|(name, value), extra| Spanned(ConstDef { name, value }, extra.span()))
 }
 
-/// Creates a parser for namespace definitions
-fn namespace_parser<'tokens, 'src: 'tokens, I>(
-    top_level_item: impl Parser<'tokens, I, TopLevelItem, extra::Err<Rich<'tokens, TokenType<'src>>>>
-    + Clone,
-) -> impl Parser<'tokens, I, Spanned<Namespace>, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
-where
-    I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
-{
-    let spanned_ident = spanned_ident_parser();
-
-    // Namespace definition: namespace Name { items... }
-    just(TokenType::Namespace)
-        .ignore_then(spanned_ident) // namespace name
-        .then(
-            top_level_item
-                .repeated()
-                .collect::<Vec<TopLevelItem>>()
-                .delimited_by(just(TokenType::LBrace), just(TokenType::RBrace)), // items in {}
-        )
-        .map_with(|(name, body), extra| Spanned(Namespace { name, body }, extra.span()))
-}
-
 /// Creates a parser for top-level items
 fn top_level_item_parser<'tokens, 'src: 'tokens, I>()
 -> impl Parser<'tokens, I, TopLevelItem, extra::Err<Rich<'tokens, TokenType<'src>>>> + Clone
 where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
-    recursive(|top_level_item| {
+    recursive(|_top_level_item| {
         let func_def = function_def_parser().map(TopLevelItem::Function);
         let struct_def = struct_def_parser().map(TopLevelItem::Struct);
         let const_def = const_def_parser().map(TopLevelItem::Const);
-        let namespace_def = namespace_parser(top_level_item).map(TopLevelItem::Namespace);
         let use_stmt = use_stmt_parser().map(TopLevelItem::Use);
 
         // Try top-level item alternatives in order
-        func_def
-            .or(struct_def)
-            .or(const_def)
-            .or(namespace_def)
-            .or(use_stmt)
+        func_def.or(struct_def).or(const_def).or(use_stmt)
     })
 }
 
@@ -1360,7 +1319,7 @@ where
 /// 1. **Expressions**: Built from atoms (literals, identifiers) up through binary operators
 /// 2. **Types**: Handle named types, pointers, and tuples
 /// 3. **Statements**: Control flow, declarations, and expression statements
-/// 4. **Top-level items**: Functions, structs, namespaces, imports, and constants
+/// 4. **Top-level items**: Functions, structs, imports, and constants
 ///
 /// ## Operator Precedence (lowest to highest)
 ///

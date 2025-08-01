@@ -68,9 +68,19 @@ rayon = { version = "1.10.0", optional = false }
 chumsky = "0.10.1"
 smallvec = "1.15"
 
+# Poseidon2 hash function implementation
+# TODO: Remove patch once https://github.com/HorizenLabs/poseidon2/pull/8 is merged
+zkhash = { git = "https://github.com/HorizenLabs/poseidon2.git", branch = "main" }
+
 # Patching stwo to use local version
 [patch."https://github.com/starkware-libs/stwo"]
 stwo-prover = { path = "external/stwo/crates/prover" }
 stwo-air-utils = { path = "external/stwo/crates/air_utils" }
 stwo-air-utils-derive = { path = "external/stwo/crates/air_utils_derive" }
 stwo-constraint-framework = { path = "external/stwo/crates/constraint_framework" }
+
+# Temporary patch for zkhash to support M31 field operations
+# This patches the HorizenLabs/poseidon2 repo to use our custom branch with M31 field support
+# TODO: Remove this patch once https://github.com/HorizenLabs/poseidon2/pull/XXX is merged
+[patch."https://github.com/HorizenLabs/poseidon2.git"]
+zkhash = { git = "https://github.com/AntoineFONDEUR/poseidon2.git", branch = "poseidon2-M31" }
