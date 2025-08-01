@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1753976070785,
+  "lastUpdate": 1754052442502,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -929,6 +929,36 @@ window.BENCHMARK_DATA = {
             "name": "prover_fibonacci/prove",
             "value": 6010325125,
             "range": "± 36400531",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "obatirou@gmail.com",
+            "name": "Oba",
+            "username": "obatirou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "84d59b1395dcccb3b6ed42f87408a13336746c78",
+          "message": "epic: support variable instruction size (#195)\n\n* feat(common): variable instructions size (#178)\n\n* feat(common): variable instructions size\n\n* remove StoreDerefFp\n\n* adds comments for define_instruction\n\n* feat(compiler): Adapt Compiler Codegen for Variable-Sized Instructions (#179)\n\n* feat(compiler): Adapt Compiler Codegen for Variable-Sized Instructions\n\n* refactor: remove hardcoded opcode ids\n\n* ci: run tests on feature branches\n\n* refactor\n\n* add snapshot variable instructions\n\n* feat(runner): Adapt Runner for Variable-Sized Instructions (#182)\n\n* feat(prover): Adapt Prover Adapter and Bundles for U32 Support (#196)\n\n* feat(prover): Adapt Prover Adapter and Bundles for U32 Support\n\n* refactor\n\n* update store_imm documentation\n\n* PR comments\n\n* panic on failure to get operand type\n\n---------\n\nCo-authored-by: enitrat <msaug@protonmail.com>\n\n* remove unused variable\n\n* fix rebase\n\n---------\n\nCo-authored-by: enitrat <msaug@protonmail.com>\nCo-authored-by: Antoine FONDEUR <antoine.fondeur@gmail.com>",
+          "timestamp": "2025-08-01T14:33:16+02:00",
+          "tree_id": "21bcc1fdfffdfff537d7be210e38e9cd86456a2c",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/84d59b1395dcccb3b6ed42f87408a13336746c78"
+        },
+        "date": 1754052441553,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 6046802260,
+            "range": "± 30225441",
             "unit": "ns/iter"
           }
         ]
