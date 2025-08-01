@@ -786,13 +786,19 @@ where
                 let expr_span = expr.span();
                 // Span should be from start of operator to end of expression
                 let full_span = SimpleSpan::from(op_span.start..expr_span.end);
-                Spanned::new(
-                    Expression::UnaryOp {
-                        op,
-                        expr: Box::new(expr),
-                    },
-                    full_span,
-                )
+
+                // Try to evaluate constant unary expressions
+                if let Some(result) = try_evaluate_unary_op(op, &expr) {
+                    Spanned::new(result, full_span)
+                } else {
+                    Spanned::new(
+                        Expression::UnaryOp {
+                            op,
+                            expr: Box::new(expr),
+                        },
+                        full_span,
+                    )
+                }
             },
         );
 
@@ -808,14 +814,20 @@ where
                 let span_lhs = lhs.span();
                 let span_rhs = rhs.span();
                 let span = SimpleSpan::from(span_lhs.start..span_rhs.end);
-                Spanned::new(
-                    Expression::BinaryOp {
-                        op,
-                        left: Box::new(lhs),
-                        right: Box::new(rhs),
-                    },
-                    span,
-                )
+
+                // Try to evaluate constant expressions
+                if let Some(result) = try_evaluate_binary_op(&lhs, op, &rhs) {
+                    Spanned::new(result, span)
+                } else {
+                    Spanned::new(
+                        Expression::BinaryOp {
+                            op,
+                            left: Box::new(lhs),
+                            right: Box::new(rhs),
+                        },
+                        span,
+                    )
+                }
             },
         );
 
@@ -831,14 +843,20 @@ where
                 let span_lhs = lhs.span();
                 let span_rhs = rhs.span();
                 let span = SimpleSpan::from(span_lhs.start..span_rhs.end);
-                Spanned::new(
-                    Expression::BinaryOp {
-                        op,
-                        left: Box::new(lhs),
-                        right: Box::new(rhs),
-                    },
-                    span,
-                )
+
+                // Try to evaluate constant expressions
+                if let Some(result) = try_evaluate_binary_op(&lhs, op, &rhs) {
+                    Spanned::new(result, span)
+                } else {
+                    Spanned::new(
+                        Expression::BinaryOp {
+                            op,
+                            left: Box::new(lhs),
+                            right: Box::new(rhs),
+                        },
+                        span,
+                    )
+                }
             },
         );
 
@@ -1340,6 +1358,78 @@ where
 ///
 /// A parser that produces a `Vec<TopLevelItem>` representing the complete program,
 /// or parsing errors if the input is malformed.
+
+/// Try to evaluate a unary operation on a constant expression at compile time.
+/// Returns Some(Expression) if the operand is a literal and the operation can be evaluated.
+/// Returns None if the expression cannot be evaluated at compile time.
+fn try_evaluate_unary_op(op: UnaryOp, expr: &Spanned<Expression>) -> Option<Expression> {
+    match (op, expr.value()) {
+        (UnaryOp::Neg, Expression::Literal(val, suffix)) => {
+            // For negation, we need to check that the result doesn't overflow u32
+            // Since we're using u32 for literals, we can't represent negative numbers
+            // The semantic phase will handle this properly with type information
+            if *val == 0 {
+                Some(Expression::Literal(0, suffix.clone()))
+            } else {
+                // Can't represent negative numbers in u32
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+/// Try to evaluate a binary operation on two constant expressions at compile time.
+/// Returns Some(Expression) if both operands are literals and the operation can be evaluated.
+/// Returns None if the expression cannot be evaluated at compile time.
+fn try_evaluate_binary_op(
+    left: &Spanned<Expression>,
+    op: BinaryOp,
+    right: &Spanned<Expression>,
+) -> Option<Expression> {
+    // Extract literal values from both sides
+    let (left_val, left_suffix) = match left.value() {
+        Expression::Literal(val, suffix) => (*val, suffix.as_ref()),
+        _ => return None,
+    };
+
+    let (right_val, right_suffix) = match right.value() {
+        Expression::Literal(val, suffix) => (*val, suffix.as_ref()),
+        _ => return None,
+    };
+
+    // For now, we only evaluate expressions with no suffix or matching suffixes
+    // Type checking will be done in the semantic phase
+    if left_suffix != right_suffix {
+        return None;
+    }
+
+    // Perform the operation
+    // Note: We don't check for overflow here as that will be done in the semantic phase
+    // with proper type information
+    let result = match op {
+        BinaryOp::Add => left_val.checked_add(right_val)?,
+        BinaryOp::Sub => left_val.checked_sub(right_val)?,
+        BinaryOp::Mul => left_val.checked_mul(right_val)?,
+        BinaryOp::Div => {
+            // Check for division by zero
+            if right_val == 0 {
+                return None;
+            }
+            // Check if division is exact (no remainder)
+            if left_val % right_val != 0 {
+                return None;
+            }
+            left_val / right_val
+        }
+        // Other operators don't produce numeric literals
+        _ => return None,
+    };
+
+    // Return the evaluated literal with the same suffix
+    Some(Expression::Literal(result, left_suffix.cloned()))
+}
+
 pub fn parser<'tokens, 'src: 'tokens, I>()
 -> impl Parser<'tokens, I, Vec<TopLevelItem>, extra::Err<Rich<'tokens, TokenType<'src>>>>
 where

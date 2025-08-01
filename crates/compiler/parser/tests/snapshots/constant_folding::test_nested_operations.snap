@@ -1,0 +1,72 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+
+        fn main() -> felt {
+            let x = (2 + 3) * (10 - 5);
+            return x;
+        }
+        
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "main",
+                    12..16,
+                ),
+                params: [],
+                return_type: Spanned(
+                    Named(
+                        Spanned(
+                            Felt,
+                            22..26,
+                        ),
+                    ),
+                    22..26,
+                ),
+                body: [
+                    Spanned(
+                        Let {
+                            pattern: Identifier(
+                                Spanned(
+                                    "x",
+                                    45..46,
+                                ),
+                            ),
+                            statement_type: None,
+                            value: Spanned(
+                                Literal(
+                                    25,
+                                    None,
+                                ),
+                                49..67,
+                            ),
+                        },
+                        41..68,
+                    ),
+                    Spanned(
+                        Return {
+                            value: Some(
+                                Spanned(
+                                    Identifier(
+                                        Spanned(
+                                            "x",
+                                            88..89,
+                                        ),
+                                    ),
+                                    88..89,
+                                ),
+                            ),
+                        },
+                        81..90,
+                    ),
+                ],
+            },
+            9..100,
+        ),
+    ),
+]
