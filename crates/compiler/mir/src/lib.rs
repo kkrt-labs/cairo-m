@@ -52,7 +52,7 @@
 pub use basic_block::BasicBlock;
 use chumsky::span::SimpleSpan;
 pub use function::{MirDefinitionId, MirFunction};
-pub use instruction::{Instruction, InstructionKind, MirExpressionId};
+pub use instruction::{BinaryOp, Instruction, InstructionKind, MirExpressionId};
 pub use mir_types::{MirType, StructField};
 pub use module::MirModule;
 pub use passes::{DeadCodeElimination, MirPass, PassManager, Validation};
@@ -72,7 +72,7 @@ pub mod value;
 
 // Re-export the main IR generation function
 // Re-export database traits and functions
-pub use db::{MirDb, generate_mir as db_generate_mir};
+pub use db::{generate_mir as db_generate_mir, MirDb};
 pub use ir_generation::generate_mir;
 
 #[cfg(test)]

@@ -293,48 +293,87 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             .map(|(_, func_id)| *func_id)
     }
 
-    /// Converts a BinaryOp to its U32 variant if operands are U32 types
-    fn get_typed_binary_op(
+    /// Converts a parser BinaryOp to MIR BinaryOp, selecting U32 variant if operands are U32 types
+    fn convert_binary_op(
         &self,
         op: cairo_m_compiler_parser::parser::BinaryOp,
         left_expr: &Spanned<Expression>,
         right_expr: &Spanned<Expression>,
-    ) -> cairo_m_compiler_parser::parser::BinaryOp {
+    ) -> crate::BinaryOp {
+        use crate::BinaryOp as MirOp;
+        use cairo_m_compiler_parser::parser::BinaryOp as ParserOp;
+
         // Get the expression IDs for the operands
         let left_expr_id = self.semantic_index.expression_id_by_span(left_expr.span());
         let right_expr_id = self.semantic_index.expression_id_by_span(right_expr.span());
 
         // Check if both operands have U32 type
-        if let (Some(left_id), Some(right_id)) = (left_expr_id, right_expr_id) {
+        let is_u32 = if let (Some(left_id), Some(right_id)) = (left_expr_id, right_expr_id) {
             let left_type =
                 expression_semantic_type(self.db, self.crate_id, self.file, left_id, None);
             let right_type =
                 expression_semantic_type(self.db, self.crate_id, self.file, right_id, None);
 
-            if let (TypeData::U32, TypeData::U32) =
-                (left_type.data(self.db), right_type.data(self.db))
+            // Verify operands have the same type - this should be guaranteed by semantic analysis
+            let left_type_data = left_type.data(self.db);
+            let right_type_data = right_type.data(self.db);
+
+            // Check if both are U32
+            let is_u32 = matches!(
+                (&left_type_data, &right_type_data),
+                (TypeData::U32, TypeData::U32)
+            );
+
+            // Verify they match (allowing felt/bool mixing since bool is represented as felt)
+            // Also allow Error types to pass through for graceful error handling
+            let has_error = matches!(&left_type_data, TypeData::Error)
+                || matches!(&right_type_data, TypeData::Error);
+            if !has_error
+                && !matches!(
+                    (&left_type_data, &right_type_data),
+                    (TypeData::U32, TypeData::U32)
+                        | (TypeData::Felt, TypeData::Felt)
+                        | (TypeData::Bool, TypeData::Bool)
+                        | (TypeData::Felt, TypeData::Bool)
+                        | (TypeData::Bool, TypeData::Felt)
+                )
             {
-                // Both operands are U32, use U32 variant
-                use cairo_m_compiler_parser::parser::BinaryOp;
-                match op {
-                    BinaryOp::Add => BinaryOp::U32Add,
-                    BinaryOp::Sub => BinaryOp::U32Sub,
-                    BinaryOp::Mul => BinaryOp::U32Mul,
-                    BinaryOp::Div => BinaryOp::U32Div,
-                    BinaryOp::Eq => BinaryOp::U32Eq,
-                    BinaryOp::Neq => BinaryOp::U32Neq,
-                    BinaryOp::Less => BinaryOp::U32Less,
-                    BinaryOp::Greater => BinaryOp::U32Greater,
-                    BinaryOp::LessEqual => BinaryOp::U32LessEqual,
-                    BinaryOp::GreaterEqual => BinaryOp::U32GreaterEqual,
-                    // Keep logical operators as-is
-                    _ => op,
-                }
-            } else {
-                op
+                panic!(
+                    "MIR: Binary op operands must have the same type, got {:?} and {:?}",
+                    left_type_data, right_type_data
+                );
             }
+
+            is_u32
         } else {
-            op
+            false
+        };
+
+        // Convert parser op to MIR op, selecting U32 variant if needed
+        match (op, is_u32) {
+            (ParserOp::Add, false) => MirOp::Add,
+            (ParserOp::Add, true) => MirOp::U32Add,
+            (ParserOp::Sub, false) => MirOp::Sub,
+            (ParserOp::Sub, true) => MirOp::U32Sub,
+            (ParserOp::Mul, false) => MirOp::Mul,
+            (ParserOp::Mul, true) => MirOp::U32Mul,
+            (ParserOp::Div, false) => MirOp::Div,
+            (ParserOp::Div, true) => MirOp::U32Div,
+            (ParserOp::Eq, false) => MirOp::Eq,
+            (ParserOp::Eq, true) => MirOp::U32Eq,
+            (ParserOp::Neq, false) => MirOp::Neq,
+            (ParserOp::Neq, true) => MirOp::U32Neq,
+            (ParserOp::Less, false) => MirOp::Less,
+            (ParserOp::Less, true) => MirOp::U32Less,
+            (ParserOp::Greater, false) => MirOp::Greater,
+            (ParserOp::Greater, true) => MirOp::U32Greater,
+            (ParserOp::LessEqual, false) => MirOp::LessEqual,
+            (ParserOp::LessEqual, true) => MirOp::U32LessEqual,
+            (ParserOp::GreaterEqual, false) => MirOp::GreaterEqual,
+            (ParserOp::GreaterEqual, true) => MirOp::U32GreaterEqual,
+            // Logical operators remain the same
+            (ParserOp::And, _) => MirOp::And,
+            (ParserOp::Or, _) => MirOp::Or,
         }
     }
 
@@ -710,7 +749,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         ));
 
                         // Generate single binary operation directly to allocated storage
-                        let typed_op = self.get_typed_binary_op(*op, left, right);
+                        let typed_op = self.convert_binary_op(*op, left, right);
                         self.add_instruction(Instruction::binary_op(
                             typed_op,
                             var_storage,
@@ -1087,7 +1126,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                 if let Some(dest_id) = lhs_value_id {
                     // Generate single binary operation instruction directly to LHS
-                    let typed_op = self.get_typed_binary_op(*op, left, right);
+                    let typed_op = self.convert_binary_op(*op, left, right);
                     self.add_instruction(Instruction::binary_op(
                         typed_op,
                         dest_id,
@@ -1097,7 +1136,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 } else {
                     // Fall back to two-instruction approach for complex LHS expressions
                     let dest = self.mir_function.new_typed_value_id(result_type);
-                    let typed_op = self.get_typed_binary_op(*op, left, right);
+                    let typed_op = self.convert_binary_op(*op, left, right);
                     self.add_instruction(Instruction::binary_op(
                         typed_op,
                         dest,
@@ -1805,7 +1844,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     expression_semantic_type(self.db, self.crate_id, self.file, expr_id, None);
                 let result_type = MirType::from_semantic_type(self.db, semantic_type);
                 let dest = self.mir_function.new_typed_value_id(result_type);
-                let typed_op = self.get_typed_binary_op(*op, left, right);
+                let typed_op = self.convert_binary_op(*op, left, right);
                 self.add_instruction(Instruction::binary_op(typed_op, dest, lhs_value, rhs_value));
                 Ok(Value::operand(dest))
             }

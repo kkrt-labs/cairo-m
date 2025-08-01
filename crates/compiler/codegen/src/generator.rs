@@ -8,9 +8,9 @@ use cairo_m_common::instruction::*;
 use cairo_m_common::program::EntrypointInfo;
 use cairo_m_common::{Program, ProgramMetadata};
 use cairo_m_compiler_mir::{
-    BasicBlockId, Instruction, InstructionKind, MirFunction, MirModule, Terminator, Value, ValueId,
+    BasicBlockId, BinaryOp, Instruction, InstructionKind, MirFunction, MirModule, Terminator,
+    Value, ValueId,
 };
-use cairo_m_compiler_parser::parser::BinaryOp;
 
 use crate::{
     CasmBuilder, CodegenError, CodegenResult, FunctionLayout, InstructionBuilder, Label, Operand,

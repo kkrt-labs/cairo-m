@@ -5,10 +5,79 @@
 
 use std::collections::HashSet;
 
-use cairo_m_compiler_parser::parser::{BinaryOp, UnaryOp};
+use cairo_m_compiler_parser::parser::UnaryOp;
 use chumsky::span::SimpleSpan;
 
 use crate::{PrettyPrint, Value, ValueId};
+
+/// Binary operators supported in MIR
+///
+/// This enum includes both generic operators (for felt types) and
+/// type-specific operators (for u32 types). The MIR generation phase
+/// selects the appropriate operator based on operand types.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BinaryOp {
+    // Felt arithmetic operators
+    Add,
+    Sub,
+    Mul,
+    Div,
+
+    // Felt comparison operators
+    Eq,
+    Neq,
+    Less,
+    Greater,
+    LessEqual,
+    GreaterEqual,
+
+    // Logical operators (work on felt/bool)
+    And,
+    Or,
+
+    // U32 arithmetic operators
+    U32Add,
+    U32Sub,
+    U32Mul,
+    U32Div,
+
+    // U32 comparison operators
+    U32Eq,
+    U32Neq,
+    U32Less,
+    U32Greater,
+    U32LessEqual,
+    U32GreaterEqual,
+}
+
+impl std::fmt::Display for BinaryOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Add => write!(f, "+"),
+            Self::Sub => write!(f, "-"),
+            Self::Mul => write!(f, "*"),
+            Self::Div => write!(f, "/"),
+            Self::Eq => write!(f, "=="),
+            Self::Neq => write!(f, "!="),
+            Self::Less => write!(f, "<"),
+            Self::Greater => write!(f, ">"),
+            Self::LessEqual => write!(f, "<="),
+            Self::GreaterEqual => write!(f, ">="),
+            Self::And => write!(f, "&&"),
+            Self::Or => write!(f, "||"),
+            Self::U32Add => write!(f, "U32Add"),
+            Self::U32Sub => write!(f, "U32Sub"),
+            Self::U32Mul => write!(f, "U32Mul"),
+            Self::U32Div => write!(f, "U32Div"),
+            Self::U32Eq => write!(f, "U32Eq"),
+            Self::U32Neq => write!(f, "U32Neq"),
+            Self::U32Less => write!(f, "U32Less"),
+            Self::U32Greater => write!(f, "U32Greater"),
+            Self::U32LessEqual => write!(f, "U32LessEqual"),
+            Self::U32GreaterEqual => write!(f, "U32GreaterEqual"),
+        }
+    }
+}
 
 /// Simple expression identifier for MIR that doesn't depend on Salsa lifetimes
 ///
