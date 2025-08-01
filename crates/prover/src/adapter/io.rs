@@ -1,10 +1,10 @@
 use std::io::{BufReader, Read};
 use std::path::Path;
 
-use bytemuck::{Pod, Zeroable, bytes_of_mut};
-use cairo_m_common::State;
+use bytemuck::{bytes_of_mut, Pod, Zeroable};
 use cairo_m_common::instruction::InstructionError;
 use cairo_m_common::state::MemoryEntry;
+use cairo_m_common::State;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 use thiserror::Error;

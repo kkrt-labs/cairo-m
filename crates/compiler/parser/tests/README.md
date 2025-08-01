@@ -159,7 +159,6 @@ test_cases/
    describe what's being tested.
 
 2. **Coverage**: For each parser rule, include:
-
    - Basic positive cases
    - Edge cases
    - Error cases with helpful diagnostics

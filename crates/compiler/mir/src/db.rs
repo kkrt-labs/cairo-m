@@ -1,8 +1,8 @@
 //! Database traits and implementations for MIR generation with Salsa integration.
 
 use cairo_m_compiler_parser::Upcast;
-use cairo_m_compiler_semantic::SemanticDb;
 use cairo_m_compiler_semantic::db::Crate;
+use cairo_m_compiler_semantic::SemanticDb;
 
 use crate::MirModule;
 

@@ -11,7 +11,6 @@ architecture, and identify areas for improvement.
 ### Strengths
 
 1. **Excellent Architecture**
-
    - LLVM-inspired design with CFG-based representation
    - Clear separation between instructions and terminators
    - Well-structured module hierarchy (module → function → basic block →
@@ -19,7 +18,6 @@ architecture, and identify areas for improvement.
    - Strong type safety with index-based identifiers
 
 2. **Solid Foundation**
-
    - Core language features are implemented (functions, variables, control flow,
      aggregates)
    - Robust integration with semantic analysis layer
@@ -27,7 +25,6 @@ architecture, and identify areas for improvement.
    - Good error recovery - generates partial MIR even with semantic errors
 
 3. **Outstanding Test Infrastructure**
-
    - Comprehensive test suite with snapshot testing via `insta`
    - Custom assertion system (`//!ASSERT`) for validating MIR properties
    - Well-organized test cases covering all features
@@ -69,7 +66,6 @@ architecture, and identify areas for improvement.
 ### Identified Issues
 
 1. **Critical Bug: Double Allocation**
-
    - When assigning aggregate literals to variables, memory is allocated twice
    - First allocation happens in `lower_expression` for the literal
    - Second unnecessary allocation happens in `lower_statement` for the variable
@@ -77,7 +73,6 @@ architecture, and identify areas for improvement.
      expressions
 
 2. **Missing Language Features**
-
    - No loop support (while, for)
    - Arrays are rudimentary (using placeholder `felt*` type)
    - No enum types or pattern matching
@@ -118,13 +113,11 @@ The MIR crate demonstrates excellent software engineering:
 ### Short-term Enhancements
 
 1. **Complete Type System**
-
    - Implement proper array types (fixed-size and dynamic)
    - Add proper pointer type handling
    - Support for type casts
 
 2. **Basic Optimizations**
-
    - Constant folding pass
    - Dead instruction elimination (not just blocks)
    - Simple algebraic simplifications
@@ -137,13 +130,11 @@ The MIR crate demonstrates excellent software engineering:
 ### Medium-term Goals
 
 1. **Advanced Types**
-
    - Enum types with variants
    - Pattern matching lowering
    - Closures/function pointers
 
 2. **Memory Model**
-
    - Heap allocation support
    - Reference counting or GC integration
    - Escape analysis
@@ -156,13 +147,11 @@ The MIR crate demonstrates excellent software engineering:
 ### Long-term Vision
 
 1. **Backend Integration**
-
    - Smooth lowering to CASM
    - Register allocation hints
    - Calling convention support
 
 2. **Advanced Optimizations**
-
    - Inlining
    - Loop optimizations
    - Vectorization opportunities

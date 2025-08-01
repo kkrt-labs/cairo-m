@@ -2,10 +2,10 @@ use cairo_m_compiler_parser::parser::{
     ConstDef, FunctionDef, Parameter, ParsedModule, StructDef, TopLevelItem, UseItems, UseStmt,
 };
 
-use crate::Format;
 use crate::context::FormatterCtx;
 use crate::doc::Doc;
 use crate::utils::*;
+use crate::Format;
 
 impl Format for ParsedModule {
     fn format(&self, ctx: &mut FormatterCtx) -> Doc {

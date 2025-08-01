@@ -6,10 +6,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use cairo_m_common::Program;
-use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticSeverity, build_diagnostic_message};
-use cairo_m_compiler_parser::{SourceFile, parse_file};
-use cairo_m_compiler_semantic::Crate as SemanticCrate;
+use cairo_m_compiler_diagnostics::{build_diagnostic_message, Diagnostic, DiagnosticSeverity};
+use cairo_m_compiler_parser::{parse_file, SourceFile};
 use cairo_m_compiler_semantic::db::{crate_from_project, project_validate_semantics};
+use cairo_m_compiler_semantic::Crate as SemanticCrate;
 use db::CompilerDatabase;
 use thiserror::Error;
 

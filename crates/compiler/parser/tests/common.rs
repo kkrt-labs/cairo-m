@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use cairo_m_compiler_diagnostics::build_diagnostic_message;
-use cairo_m_compiler_parser::{Db as ParserDb, ParsedModule, SourceFile, Upcast, parse_file};
+use cairo_m_compiler_parser::{parse_file, Db as ParserDb, ParsedModule, SourceFile, Upcast};
 use insta::assert_snapshot;
 
 #[salsa::db]
@@ -215,7 +215,9 @@ macro_rules! assert_parses_files {
         let path = std::path::Path::new($dir_path);
         $crate::common::assert_parses_files_impl(path, $pattern, function_name)
     }};
-    ($dir_path:expr) => {{ assert_parses_files!($dir_path, "*.cm") }};
+    ($dir_path:expr) => {{
+        assert_parses_files!($dir_path, "*.cm")
+    }};
 }
 
 /// Helper to wrap statement code inside a function, since most statements are not top-level.

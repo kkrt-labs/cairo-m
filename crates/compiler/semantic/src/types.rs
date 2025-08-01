@@ -15,9 +15,9 @@
 //! All complex types (structs, functions) are interned separately to enable efficient
 //! structural comparison and avoid deep recursion during type checking.
 
-use crate::SemanticDb;
 use crate::place::FileScopeId;
 use crate::semantic_index::DefinitionId;
+use crate::SemanticDb;
 
 /// Main type identifier that represents any type in the system
 ///

@@ -85,14 +85,12 @@ Source (.cm) → Parser → Semantic Analysis → MIR → Code Generation → CA
 ### Compilation Pipeline
 
 1. **Parser** (`cairo-m-compiler-parser`):
-
    - Lexer: Uses `logos` for fast tokenization
    - Parser: Uses `chumsky` parser combinators for error recovery
    - Produces AST with full source location information
    - Key queries: `parse_source_file(db, file) -> Module`
 
 2. **Semantic Analysis** (`cairo-m-compiler-semantic`):
-
    - Builds semantic index with scope/symbol information
    - Performs name resolution (use-def analysis)
    - Type inference and validation
@@ -100,7 +98,6 @@ Source (.cm) → Parser → Semantic Analysis → MIR → Code Generation → CA
    - Key queries: `semantic_index(db, file) -> SemanticIndex`
 
 3. **MIR Generation** (`cairo-m-compiler-mir`):
-
    - Transforms AST to Middle-Level IR (inspired by LLVM)
    - Functions as control flow graphs of basic blocks
    - Three-address code with virtual registers

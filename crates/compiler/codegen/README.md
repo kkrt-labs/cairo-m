@@ -12,14 +12,12 @@ Cairo VM.
 ### Core Components
 
 - **`generator.rs`**: Main code generation orchestration
-
   - Implements two-pass compilation: instruction generation followed by label
     resolution
   - Manages function and basic block generation
   - Handles control flow between blocks
 
 - **`builder.rs`**: Instruction building utilities
-
   - Provides high-level methods for generating CASM instructions
   - Translates MIR instructions to Cairo VM opcodes
   - Implements binary operations, assignments, function calls, and control flow

@@ -1,18 +1,18 @@
 use num_traits::Zero;
 use stwo_constraint_framework::TraceLocationAllocator;
-use stwo_prover::core::backend::BackendForChannel;
 use stwo_prover::core::backend::simd::SimdBackend;
+use stwo_prover::core::backend::BackendForChannel;
 use stwo_prover::core::channel::{Channel, MerkleChannel};
 use stwo_prover::core::fields::qm31::SecureField;
 use stwo_prover::core::pcs::{CommitmentSchemeVerifier, PcsConfig};
-use stwo_prover::core::prover::{VerificationError as StwoVerificationError, verify};
-use tracing::{Level, info, span};
+use stwo_prover::core::prover::{verify, VerificationError as StwoVerificationError};
+use tracing::{info, span, Level};
 
 use crate::components::{Components, Relations};
 use crate::errors::VerificationError;
 use crate::preprocessed::PreProcessedTraceBuilder;
 use crate::prover_config::REGULAR_96_BITS;
-use crate::{Proof, relations};
+use crate::{relations, Proof};
 
 pub fn verify_cairo_m<MC: MerkleChannel>(
     proof: Proof<MC::H>,

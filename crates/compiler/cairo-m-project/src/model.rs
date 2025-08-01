@@ -193,10 +193,8 @@ mod tests {
         );
 
         // Test file outside source directory
-        assert!(
-            project
-                .module_name_from_path(&PathBuf::from("/other/file.cm"))
-                .is_err()
-        );
+        assert!(project
+            .module_name_from_path(&PathBuf::from("/other/file.cm"))
+            .is_err());
     }
 }

@@ -1,5 +1,5 @@
 use cairo_m_compiler_parser::{ParserDatabaseImpl, SourceFile};
-use cairo_m_formatter::{FormatterConfig, format_source_file};
+use cairo_m_formatter::{format_source_file, FormatterConfig};
 use insta::assert_snapshot;
 
 fn format_code(source: &str) -> String {

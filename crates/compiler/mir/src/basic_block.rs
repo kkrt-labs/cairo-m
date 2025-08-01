@@ -4,7 +4,7 @@
 //! A basic block is a straight-line sequence of instructions with exactly one entry
 //! point and one exit point.
 
-use crate::{Instruction, PrettyPrint, Terminator, indent_str};
+use crate::{indent_str, Instruction, PrettyPrint, Terminator};
 
 /// A basic block in the Control Flow Graph
 ///

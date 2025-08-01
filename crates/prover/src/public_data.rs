@@ -2,12 +2,12 @@ use cairo_m_common::State as VmRegisters;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use stwo_constraint_framework::Relation;
-use stwo_prover::core::fields::FieldExpOps;
 use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::{QM31, SecureField};
+use stwo_prover::core::fields::qm31::{SecureField, QM31};
+use stwo_prover::core::fields::FieldExpOps;
 
-use crate::adapter::ProverInput;
 use crate::adapter::merkle::TREE_HEIGHT;
+use crate::adapter::ProverInput;
 use crate::components::Relations;
 use crate::relations;
 

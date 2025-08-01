@@ -1,6 +1,6 @@
 use cairo_m_common::instruction::{INSTRUCTION_MAX_SIZE, MAX_OPCODE};
 use cairo_m_common::{Instruction, InstructionError};
-use smallvec::{SmallVec, smallvec};
+use smallvec::{smallvec, SmallVec};
 use stwo_prover::core::fields::m31::M31;
 
 #[test]
@@ -357,6 +357,7 @@ fn test_operands() {
     );
 }
 
+#[allow(clippy::cognitive_complexity)]
 #[test]
 fn test_try_from_smallvec() {
     // Test cases: (smallvec_values, expected_instruction, description)

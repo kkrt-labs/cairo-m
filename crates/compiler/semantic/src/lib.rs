@@ -22,7 +22,7 @@
 
 use cairo_m_compiler_parser as parser;
 // Import file types from parser
-pub use parser::{ParsedModule, SourceFile, parse_file};
+pub use parser::{parse_file, ParsedModule, SourceFile};
 
 pub mod definition;
 pub mod place;
@@ -34,7 +34,7 @@ mod semantic_errors;
 
 pub mod db;
 pub use db::{
-    Crate, SemanticDatabaseImpl, SemanticDb, module_semantic_index, project_semantic_index,
+    module_semantic_index, project_semantic_index, Crate, SemanticDatabaseImpl, SemanticDb,
 };
 pub mod delta_diagnostics;
 pub mod validation;
@@ -43,7 +43,7 @@ pub mod visitor;
 // Re-export main types and functions
 pub use definition::{Definition, DefinitionKind, Definitions};
 pub use place::{FileScopeId, PlaceFlags, PlaceTable, Scope, ScopeKind, ScopedPlaceId};
-pub use semantic_index::{DefinitionId, ExpressionId, SemanticIndex, semantic_index_from_module};
+pub use semantic_index::{semantic_index_from_module, DefinitionId, ExpressionId, SemanticIndex};
 pub use types::{FunctionSignatureId, StructTypeId, TypeData, TypeId};
 
 /// A file in the semantic analysis system

@@ -8,8 +8,8 @@ use tower_lsp::lsp_types::Url;
 use tracing::debug;
 
 use crate::db::AnalysisDatabase;
-use crate::project::ProjectModel;
 use crate::project::model::Crate;
+use crate::project::ProjectModel;
 
 /// Periodically swaps the analysis database to prevent unbounded memory growth.
 ///

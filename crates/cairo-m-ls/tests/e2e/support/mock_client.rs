@@ -10,15 +10,15 @@ use lsp_types::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
-use tokio::sync::{Mutex, broadcast, mpsc, oneshot};
+use tokio::sync::{broadcast, mpsc, oneshot, Mutex};
 use tokio::task::JoinHandle;
 use tokio::time::timeout;
-use tower_lsp::{LspService, Server, jsonrpc};
+use tower_lsp::{jsonrpc, LspService, Server};
 use tracing::{debug, error, warn};
 
-use super::Fixture;
 use super::barrier::AnalysisBarrier;
 use super::notification::NotificationEvent;
+use super::Fixture;
 
 /// Analysis timeout duration - longer in CI environments
 static ANALYSIS_TIMEOUT: OnceLock<Duration> = OnceLock::new();
