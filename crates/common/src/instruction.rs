@@ -195,7 +195,7 @@ macro_rules! define_instruction {
         }
 
         // Generate the maximum opcode value
-        const MAX_OPCODE: u32 = {
+        pub const MAX_OPCODE: u32 = {
             let opcodes = [$($opcode),*];
             let mut max = 0;
             let mut i = 0;
