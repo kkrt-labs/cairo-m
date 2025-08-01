@@ -7,7 +7,7 @@ cli:
 plugins:
   sources:
     - id: trunk
-      ref: v1.7.0
+      ref: v1.7.1
       uri: https://github.com/trunk-io/plugins
 # Many linters and tools depend on runtimes - configure them here. (https://docs.trunk.io/runtimes)
 runtimes:
@@ -25,16 +25,17 @@ lint:
             --no-deps -D warnings -D unused_imports
       run_timeout: 20m
   enabled:
-    - cspell@8.19.4
-    - checkov@3.2.436
+    - actionlint@1.7.7
+    - cspell@9.0.2
+    - checkov@3.2.457
     - clippy@SYSTEM # For custom parameters
     - git-diff-check
     - markdownlint@0.45.0
-    - osv-scanner@2.0.2
-    - prettier@3.5.3
-    - rustfmt@nightly
+    - osv-scanner@2.0.3
+    - prettier@3.6.2
+    - rustfmt@1.65.0
     - taplo@0.9.3
-    - trufflehog@3.88.35
+    - trufflehog@3.90.2
     - yamllint@1.37.1
 actions:
   enabled:

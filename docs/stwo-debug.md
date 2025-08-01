@@ -120,55 +120,52 @@ The `add_to_relation` constraint won’t be satisfied for two reasons:
   `- enabler` in the AIR. Be careful to numerators that can sometimes be `one`
   (e.g for `range_checks`) or `enabler` (e.g for memory lookups).
 
-<aside>
-💡
-
-Reminder of how the `add_to_relation` enforces a constraint.
-
-For non batched lookups, the following trace is built:
-
-$$
-\begin{align}x_0 &= \frac{+\mathrm{enabler}}{\mathrm{combine}(entry_0)} \\[6pt]x_1 &= x_0 + \frac{-\mathrm{enabler}}{\mathrm{combine}(entry_1)}\end{align}
-$$
-
-where $x_0$ is in the first column and $x_1$ in the second one. Then :
-
-```rust
-add_to_relation(relation, enabler, entry_0);
-add_to_relation(relation, -enabler, entry_1);
-
-// Translates to :
-
-running_sum = 0
-prev_running_sum = 0
-// running sum is incremented from the add_to_relation values
-// on the other hand x_0 is from the interaction trace
-running_sum += enabler/relation.combine(entry_0);
-diff = running_sum - prev_running_sum;
-prev_running_sum = running_sum
-add_constraint(x_0.denom * diff - x_0.denom);
-
-running_sum += - enabler/relation.combine(entry_1);
-diff = running_sum - prev_running_sum;
-prev_running_sum = running_sum
-add_constraint(x_1.denom * diff - x_1.denom);
-
-```
-
-For batched lookups, two fractions are added per column :
-
-$$
-\begin{align}x_0 &= \frac{\mathrm{enabler} \cdot \mathrm{combine}(entry_1) - \mathrm{enabler} \cdot \mathrm{combine}(entry_0)}{\mathrm{combine}(entry_0) \cdot \mathrm{combine}(entry_1)}\end{align}
-$$
-
-</aside>
+> **💡 Note**
+>
+> Reminder of how the `add_to_relation` enforces a constraint.
+>
+> For non batched lookups, the following trace is built:
+>
+> $$
+> \begin{align}x_0 &= \frac{+\mathrm{enabler}}{\mathrm{combine}(entry_0)} \\[6pt]x_1 &= x_0 + \frac{-\mathrm{enabler}}{\mathrm{combine}(entry_1)}\end{align}
+> $$
+>
+> where $x_0$ is in the first column and $x_1$ in the second one. Then :
+>
+> ```rust
+> add_to_relation(relation, enabler, entry_0);
+> add_to_relation(relation, -enabler, entry_1);
+>
+> // Translates to :
+>
+> running_sum = 0
+> prev_running_sum = 0
+> // running sum is incremented from the add_to_relation values
+> // on the other hand x_0 is from the interaction trace
+> running_sum += enabler/relation.combine(entry_0);
+> diff = running_sum - prev_running_sum;
+> prev_running_sum = running_sum
+> add_constraint(x_0.denom * diff - x_0.denom);
+>
+> running_sum += - enabler/relation.combine(entry_1);
+> diff = running_sum - prev_running_sum;
+> prev_running_sum = running_sum
+> add_constraint(x_1.denom * diff - x_1.denom);
+>
+> ```
+>
+> For batched lookups, two fractions are added per column :
+>
+> $$
+> \begin{align}x_0 &= \frac{\mathrm{enabler} \cdot \mathrm{combine}(entry_1) - \mathrm{enabler} \cdot \mathrm{combine}(entry_0)}{\mathrm{combine}(entry_0) \cdot \mathrm{combine}(entry_1)}\end{align}
+> $$
 
 ### [CASE 3] - Incorrect logup batching
 
 Batching must be consistent accross witness generation and the AIR. So if you
 generate the trace like so (batching):
 
-```
+```rust
 let mut col = interaction_trace.new_col();
 (
     col.par_iter_mut(),
@@ -236,14 +233,11 @@ This section covers the case where you still get a
 There is no method to debug since there is no indication on what is going wrong
 exactly but here are some cases where this error occurs.
 
-<aside>
-💡
-
-Note: if you get this error on a program always run
-`test_all_opcodes_constraints` with the said program before, you need to put
-aside the trace-AIR inconsistency scenario.
-
-</aside>
+> **💡 Note**
+>
+> If you get this error on a program always run `test_all_opcodes_constraints`
+> with the said program before, you need to put aside the trace-AIR
+> inconsistency scenario.
 
 ## [CASE 1] - Incorrect multiplicity
 
@@ -294,7 +288,7 @@ eval.add_to_relation(RelationEntry::new(
 
 See section IV.
 
-# II. Beating Stwo(InvalidLogupSum)
+## II. Beating Stwo(InvalidLogupSum)
 
 You can run
 `cargo test -p cairo-m-prover test_prove_and_verify_all_opcodes -—release`
@@ -345,32 +339,23 @@ This should be interpreted as: _“a component consumed the entry (1) but no one
 produced it, there is an unbalance”_. For the second line: “_a component emited
 entry (2) but no one used it_”
 
-<aside>
-💡
+> **💡 Note**
+>
+> Trailing zeros are not shown in the `relation-tracker`, so the entry `[0]`
+> will be displayed as `[]` and `[42, 0]` will be `[42]`.
 
-Trailing zeros are not shown in the `relation-tracker` , so the entry `[0]` will
-be displayed as `[]` and `[42, 0]` will be `[42]`.
+> **💡 Note**
+>
+> Note that `2147483646 = P - 1 = -1 mod(P)`.
 
-</aside>
-
-<aside>
-💡
-
-Note that `2147483646 = P - 1 = -1 mod(P)` .
-
-</aside>
-
-<aside>
-💡
-
-In `Cairo-M`:
-
-- Consume ↔ use ↔ request : `add_to_relation(-fraction)`
-- Produce ↔ emit ↔ yield : `add_to_relation(+fraction)`
-
-In `Stwo-cairo`: + and - are the other way arround.
-
-</aside>
+> **💡 Note**
+>
+> In `Cairo-M`:
+>
+> - Consume ↔ use ↔ request : `add_to_relation(-fraction)`
+> - Produce ↔ emit ↔ yield : `add_to_relation(+fraction)`
+>
+> In `Stwo-cairo`: + and - are the other way around.
 
 ## [Tips]
 
@@ -414,7 +399,7 @@ try to find patterns.
 The main idea is to trace back the values added to the relation and check if
 these are correct.
 
-# III. "Not enough alpha powers to combine values”
+## III. "Not enough alpha powers to combine values”
 
 For each relation there is a maximum number of entries. For instance `Memory`
 lookups take at most 6 values: `[addr, clk, value0, value1, value2, value3]`.
@@ -423,41 +408,38 @@ So if one calls `combine(1, 2, 3, 4, 5, 6, 7)` , this error will be thrown. So
 verify, in the `add_to_relation` and in the `write_interaction_trace` that you
 are not combining too much values.
 
-<aside>
-💡
+> **💡 Note**
+>
+> Note that combining less than the max is equivalent to combining the same
+> entry padded with zeros. This is used all across the codebase:
+>
+> ```rust
+> eval.add_to_relation(RelationEntry::new(
+>     &self.relations.memory,
+>     E::EF::from(enabler.clone()),
+>     &[
+> 	    fp + off0 + one.clone(),
+>       clock.clone(),
+>       pc + one
+>      ],
+> ));
+>
+> // Is the same as:
+> eval.add_to_relation(RelationEntry::new(
+>     &self.relations.memory,
+>     E::EF::from(enabler.clone()),
+>     &[
+> 	    fp + off0 + one.clone(),
+>       clock.clone(),
+>       pc + one,
+>       E::EF::zero(),
+>       E::EF::zero(),
+>       E::EF::zero()
+>     ],
+> ));
+> ```
 
-Note that combining less than the max is equivalent to combining the same entry
-padded with zeros. This is used all across the codebase :
-
-```rust
-eval.add_to_relation(RelationEntry::new(
-    &self.relations.memory,
-    E::EF::from(enabler.clone()),
-    &[
-	    fp + off0 + one.clone(),
-      clock.clone(),
-      pc + one
-     ],
-));
-
-// Is the same as:
-eval.add_to_relation(RelationEntry::new(
-    &self.relations.memory,
-    E::EF::from(enabler.clone()),
-    &[
-	    fp + off0 + one.clone(),
-      clock.clone(),
-      pc + one,
-      E::EF::zero(),
-      E::EF::zero(),
-      E::EF::zero()
-    ],
-));
-```
-
-</aside>
-
-# IV. TooManyQueriedValues
+## IV. TooManyQueriedValues
 
 In the end, all traces are written next to each other and the evaluate uses a
 `TraceLocationAllocator` to associate the right columns with the right evaluate
