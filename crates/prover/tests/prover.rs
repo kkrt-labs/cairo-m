@@ -357,7 +357,7 @@ fn test_fibonacci_public_memory_contents() {
         .program
         .instructions
         .iter()
-        .map(|instruction| instruction.into())
+        .flat_map(|instruction| instruction.to_qm31_vec())
         .collect();
 
     assert_eq!(
