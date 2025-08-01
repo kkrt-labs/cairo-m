@@ -8,7 +8,7 @@ pub const VALID_SUFFIXES: &[&str] = &["felt", "u32"];
 /// A numeric literal with an optional type suffix
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NumberLiteral<'a> {
-    pub value: u32,
+    pub value: u64,
     pub suffix: Option<&'a str>,
 }
 
@@ -59,7 +59,7 @@ impl fmt::Display for LexingError {
 impl fmt::Display for NumberParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Overflow => write!(f, "Value is higher than u32::max"),
+            Self::Overflow => write!(f, "Value is higher than u64::max"),
             Self::InvalidFormat => write!(f, "Invalid number format"),
             Self::Unknown(s) => write!(f, "{s}"),
             Self::InvalidSuffix => write!(f, "Invalid suffix"),
@@ -133,8 +133,8 @@ fn parse_number_literal<'a>(
         Some(suffix_str)
     };
 
-    // Parse the number string as u32
-    match u32::from_str_radix(number_str, base) {
+    // Parse the number string as u64
+    match u64::from_str_radix(number_str, base) {
         Ok(n) => Ok(NumberLiteral { value: n, suffix }),
         Err(err) => {
             let reason = match err.kind() {
@@ -453,8 +453,8 @@ mod tests {
 
     #[test]
     fn test_should_err_on_number_too_large() {
-        let u32_max = format!("{}", (u32::MAX as u64 + 1));
-        let input = format!("let x = {};", u32_max);
+        let u64_max = format!("{}", (u64::MAX as u128 + 1));
+        let input = format!("let x = {};", u64_max);
         let lexer = TokenType::lexer(&input);
         let tokens = lexer.spanned().collect::<Vec<_>>();
         assert_eq!(tokens.len(), 5);
@@ -465,7 +465,7 @@ mod tests {
         // Check that we get a proper LexingError for the oversized number
         match &tokens[3].0 {
             Err(LexingError::InvalidNumber { value, reason }) => {
-                assert_eq!(value, &u32_max);
+                assert_eq!(value, &u64_max);
                 assert_eq!(reason, &NumberParseError::Overflow);
             }
             _ => panic!(

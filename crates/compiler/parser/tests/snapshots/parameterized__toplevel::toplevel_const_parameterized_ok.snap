@@ -39,36 +39,10 @@ const COMPUTED = 2 * 3 + 1;
                     6..14,
                 ),
                 value: Spanned(
-                    BinaryOp {
-                        op: Add,
-                        left: Spanned(
-                            BinaryOp {
-                                op: Mul,
-                                left: Spanned(
-                                    Literal(
-                                        2,
-                                        None,
-                                    ),
-                                    17..18,
-                                ),
-                                right: Spanned(
-                                    Literal(
-                                        3,
-                                        None,
-                                    ),
-                                    21..22,
-                                ),
-                            },
-                            17..22,
-                        ),
-                        right: Spanned(
-                            Literal(
-                                1,
-                                None,
-                            ),
-                            25..26,
-                        ),
-                    },
+                    Literal(
+                        7,
+                        None,
+                    ),
                     17..26,
                 ),
             },

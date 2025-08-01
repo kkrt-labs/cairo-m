@@ -1,3 +1,4 @@
+#![allow(clippy::option_if_let_else)]
 pub mod db;
 pub mod lexer;
 pub mod parser;

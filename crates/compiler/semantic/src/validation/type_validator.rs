@@ -1551,8 +1551,6 @@ mod tests {
 
     #[test]
     fn test_return_type_validation() {
-        tracing_subscriber::fmt::init();
-
         let db = test_db();
         let program = r#"
             struct Point { x: felt, y: felt }

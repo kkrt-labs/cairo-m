@@ -149,7 +149,7 @@ impl std::fmt::Display for BinaryOp {
 pub enum Expression {
     /// Integer literal (e.g., `42`, `0`, `1337`)
     /// The optional string represents a type suffix (e.g., "u32" in `42u32`)
-    Literal(u32, Option<String>),
+    Literal(u64, Option<String>),
     /// Boolean literal (e.g., `true`, `false`)
     BooleanLiteral(bool),
     /// Variable identifier (e.g., `x`, `my_var`, `result`)
@@ -786,6 +786,7 @@ where
                 let expr_span = expr.span();
                 // Span should be from start of operator to end of expression
                 let full_span = SimpleSpan::from(op_span.start..expr_span.end);
+
                 Spanned::new(
                     Expression::UnaryOp {
                         op,
@@ -808,14 +809,20 @@ where
                 let span_lhs = lhs.span();
                 let span_rhs = rhs.span();
                 let span = SimpleSpan::from(span_lhs.start..span_rhs.end);
-                Spanned::new(
-                    Expression::BinaryOp {
-                        op,
-                        left: Box::new(lhs),
-                        right: Box::new(rhs),
-                    },
-                    span,
-                )
+
+                // Try to evaluate constant expressions
+                if let Some(result) = try_evaluate_binary_op(&lhs, op, &rhs) {
+                    Spanned::new(result, span)
+                } else {
+                    Spanned::new(
+                        Expression::BinaryOp {
+                            op,
+                            left: Box::new(lhs),
+                            right: Box::new(rhs),
+                        },
+                        span,
+                    )
+                }
             },
         );
 
@@ -831,14 +838,20 @@ where
                 let span_lhs = lhs.span();
                 let span_rhs = rhs.span();
                 let span = SimpleSpan::from(span_lhs.start..span_rhs.end);
-                Spanned::new(
-                    Expression::BinaryOp {
-                        op,
-                        left: Box::new(lhs),
-                        right: Box::new(rhs),
-                    },
-                    span,
-                )
+
+                // Try to evaluate constant expressions
+                if let Some(result) = try_evaluate_binary_op(&lhs, op, &rhs) {
+                    Spanned::new(result, span)
+                } else {
+                    Spanned::new(
+                        Expression::BinaryOp {
+                            op,
+                            left: Box::new(lhs),
+                            right: Box::new(rhs),
+                        },
+                        span,
+                    )
+                }
             },
         );
 
@@ -1305,6 +1318,57 @@ where
         // Try top-level item alternatives in order
         func_def.or(struct_def).or(const_def).or(use_stmt)
     })
+}
+
+/// Try to evaluate a binary operation on two constant expressions at compile time.
+/// Returns Some(Expression) if both operands are literals and the operation can be evaluated.
+/// Returns None if the expression cannot be evaluated at compile time.
+fn try_evaluate_binary_op(
+    left: &Spanned<Expression>,
+    op: BinaryOp,
+    right: &Spanned<Expression>,
+) -> Option<Expression> {
+    // Extract literal values from both sides
+    let (left_val, left_suffix) = match left.value() {
+        Expression::Literal(val, suffix) => (*val, suffix.as_ref()),
+        _ => return None,
+    };
+
+    let (right_val, right_suffix) = match right.value() {
+        Expression::Literal(val, suffix) => (*val, suffix.as_ref()),
+        _ => return None,
+    };
+
+    // For now, we only evaluate expressions with no suffix or matching suffixes
+    // Type checking will be done in the semantic phase
+    if left_suffix != right_suffix {
+        return None;
+    }
+
+    // Perform the operation
+    // Note: We don't check for overflow here as that will be done in the semantic phase
+    // with proper type information
+    let result = match op {
+        BinaryOp::Add => left_val.checked_add(right_val)?,
+        BinaryOp::Sub => left_val.checked_sub(right_val)?,
+        BinaryOp::Mul => left_val.checked_mul(right_val)?,
+        BinaryOp::Div => {
+            // Check for division by zero
+            if right_val == 0 {
+                return None;
+            }
+            // Check if division is exact (no remainder)
+            if left_val % right_val != 0 {
+                return None;
+            }
+            left_val / right_val
+        }
+        // Other operators don't produce numeric literals
+        _ => return None,
+    };
+
+    // Return the evaluated literal with the same suffix
+    Some(Expression::Literal(result, left_suffix.cloned()))
 }
 
 /// Creates the main parser for Cairo-M source code.

@@ -1,0 +1,103 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+
+        fn main(y: felt) -> felt {
+            let x = 3 + 4 + y;
+            return x;
+        }
+        
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "main",
+                    12..16,
+                ),
+                params: [
+                    Parameter {
+                        name: Spanned(
+                            "y",
+                            17..18,
+                        ),
+                        type_expr: Spanned(
+                            Named(
+                                Spanned(
+                                    Felt,
+                                    20..24,
+                                ),
+                            ),
+                            20..24,
+                        ),
+                    },
+                ],
+                return_type: Spanned(
+                    Named(
+                        Spanned(
+                            Felt,
+                            29..33,
+                        ),
+                    ),
+                    29..33,
+                ),
+                body: [
+                    Spanned(
+                        Let {
+                            pattern: Identifier(
+                                Spanned(
+                                    "x",
+                                    52..53,
+                                ),
+                            ),
+                            statement_type: None,
+                            value: Spanned(
+                                BinaryOp {
+                                    op: Add,
+                                    left: Spanned(
+                                        Literal(
+                                            7,
+                                            None,
+                                        ),
+                                        56..61,
+                                    ),
+                                    right: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "y",
+                                                64..65,
+                                            ),
+                                        ),
+                                        64..65,
+                                    ),
+                                },
+                                56..65,
+                            ),
+                        },
+                        48..66,
+                    ),
+                    Spanned(
+                        Return {
+                            value: Some(
+                                Spanned(
+                                    Identifier(
+                                        Spanned(
+                                            "x",
+                                            86..87,
+                                        ),
+                                    ),
+                                    86..87,
+                                ),
+                            ),
+                        },
+                        79..88,
+                    ),
+                ],
+            },
+            9..98,
+        ),
+    ),
+]
