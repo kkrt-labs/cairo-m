@@ -293,6 +293,51 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             .map(|(_, func_id)| *func_id)
     }
 
+    /// Converts a BinaryOp to its U32 variant if operands are U32 types
+    fn get_typed_binary_op(
+        &self,
+        op: cairo_m_compiler_parser::parser::BinaryOp,
+        left_expr: &Spanned<Expression>,
+        right_expr: &Spanned<Expression>,
+    ) -> cairo_m_compiler_parser::parser::BinaryOp {
+        // Get the expression IDs for the operands
+        let left_expr_id = self.semantic_index.expression_id_by_span(left_expr.span());
+        let right_expr_id = self.semantic_index.expression_id_by_span(right_expr.span());
+
+        // Check if both operands have U32 type
+        if let (Some(left_id), Some(right_id)) = (left_expr_id, right_expr_id) {
+            let left_type =
+                expression_semantic_type(self.db, self.crate_id, self.file, left_id, None);
+            let right_type =
+                expression_semantic_type(self.db, self.crate_id, self.file, right_id, None);
+
+            if let (TypeData::U32, TypeData::U32) =
+                (left_type.data(self.db), right_type.data(self.db))
+            {
+                // Both operands are U32, use U32 variant
+                use cairo_m_compiler_parser::parser::BinaryOp;
+                match op {
+                    BinaryOp::Add => BinaryOp::U32Add,
+                    BinaryOp::Sub => BinaryOp::U32Sub,
+                    BinaryOp::Mul => BinaryOp::U32Mul,
+                    BinaryOp::Div => BinaryOp::U32Div,
+                    BinaryOp::Eq => BinaryOp::U32Eq,
+                    BinaryOp::Neq => BinaryOp::U32Neq,
+                    BinaryOp::Less => BinaryOp::U32Less,
+                    BinaryOp::Greater => BinaryOp::U32Greater,
+                    BinaryOp::LessEqual => BinaryOp::U32LessEqual,
+                    BinaryOp::GreaterEqual => BinaryOp::U32GreaterEqual,
+                    // Keep logical operators as-is
+                    _ => op,
+                }
+            } else {
+                op
+            }
+        } else {
+            op
+        }
+    }
+
     /// Lowers a single function from the AST into a `MirFunction`
     fn lower_function(
         mut self,
@@ -665,8 +710,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         ));
 
                         // Generate single binary operation directly to allocated storage
+                        let typed_op = self.get_typed_binary_op(*op, left, right);
                         self.add_instruction(Instruction::binary_op(
-                            *op,
+                            typed_op,
                             var_storage,
                             left_value,
                             right_value,
@@ -1041,8 +1087,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                 if let Some(dest_id) = lhs_value_id {
                     // Generate single binary operation instruction directly to LHS
+                    let typed_op = self.get_typed_binary_op(*op, left, right);
                     self.add_instruction(Instruction::binary_op(
-                        *op,
+                        typed_op,
                         dest_id,
                         left_value,
                         right_value,
@@ -1050,8 +1097,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 } else {
                     // Fall back to two-instruction approach for complex LHS expressions
                     let dest = self.mir_function.new_typed_value_id(result_type);
+                    let typed_op = self.get_typed_binary_op(*op, left, right);
                     self.add_instruction(Instruction::binary_op(
-                        *op,
+                        typed_op,
                         dest,
                         left_value,
                         right_value,
@@ -1757,7 +1805,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     expression_semantic_type(self.db, self.crate_id, self.file, expr_id, None);
                 let result_type = MirType::from_semantic_type(self.db, semantic_type);
                 let dest = self.mir_function.new_typed_value_id(result_type);
-                self.add_instruction(Instruction::binary_op(*op, dest, lhs_value, rhs_value));
+                let typed_op = self.get_typed_binary_op(*op, left, right);
+                self.add_instruction(Instruction::binary_op(typed_op, dest, lhs_value, rhs_value));
                 Ok(Value::operand(dest))
             }
 

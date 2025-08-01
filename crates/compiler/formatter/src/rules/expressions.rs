@@ -98,6 +98,16 @@ impl Format for BinaryOp {
             Self::GreaterEqual => ">=",
             Self::And => "&&",
             Self::Or => "||",
+            Self::U32Add => "+",
+            Self::U32Sub => "-",
+            Self::U32Mul => "*",
+            Self::U32Div => "/",
+            Self::U32Eq => "==",
+            Self::U32Neq => "!=",
+            Self::U32Less => "<",
+            Self::U32Greater => ">",
+            Self::U32LessEqual => "<=",
+            Self::U32GreaterEqual => ">=",
         };
         Doc::text(op_text)
     }

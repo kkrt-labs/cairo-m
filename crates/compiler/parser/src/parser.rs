@@ -120,6 +120,26 @@ pub enum BinaryOp {
     And,
     /// Logical OR operator `||`
     Or,
+    /// U32 Addition operator
+    U32Add,
+    /// U32 Subtraction operator
+    U32Sub,
+    /// U32 Multiplication operator
+    U32Mul,
+    /// U32 Division operator
+    U32Div,
+    /// U32 Equality operator
+    U32Eq,
+    /// U32 Inequality operator
+    U32Neq,
+    /// U32 Less than operator
+    U32Less,
+    /// U32 Greater than operator
+    U32Greater,
+    /// U32 Less than or equal operator
+    U32LessEqual,
+    /// U32 Greater than or equal operator
+    U32GreaterEqual,
 }
 
 impl std::fmt::Display for BinaryOp {
@@ -137,6 +157,16 @@ impl std::fmt::Display for BinaryOp {
             Self::GreaterEqual => write!(f, ">="),
             Self::And => write!(f, "&&"),
             Self::Or => write!(f, "||"),
+            Self::U32Add => write!(f, "u32+"),
+            Self::U32Sub => write!(f, "u32-"),
+            Self::U32Mul => write!(f, "u32*"),
+            Self::U32Div => write!(f, "u32/"),
+            Self::U32Eq => write!(f, "u32=="),
+            Self::U32Neq => write!(f, "u32!="),
+            Self::U32Less => write!(f, "u32<"),
+            Self::U32Greater => write!(f, "u32>"),
+            Self::U32LessEqual => write!(f, "u32<="),
+            Self::U32GreaterEqual => write!(f, "u32>="),
         }
     }
 }

@@ -126,4 +126,4 @@ mir_test!(array_access, "aggregates");
 mir_test!(tuple_destructuring, "expressions");
 
 // --- Types ---
-mir_test!(u32_type, "types", #[should_panic(expected = "not yet implemented")]);
+mir_test!(u32_type, "types");
