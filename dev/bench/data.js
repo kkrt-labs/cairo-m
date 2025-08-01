@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1754051808373,
+  "lastUpdate": 1754056067206,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -1453,6 +1453,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 330514240,
             "range": "± 1604156",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0188eb3b57bfc85189ebb9c3c1f3e86e4e295c62",
+          "message": "feat(common): define u32 opcodes (#213)\n\n* feat: define u32 opcodes in cairo-m-common\n\n- Add u32 arithmetic opcodes for FP-FP operations (opcodes 15-18)\n- Add u32 arithmetic opcodes for FP-IMM operations (opcodes 19-22)\n- Update tests to reflect new opcode values\n- Maintain consistent ordering with FP-FP before FP-IMM variants\n\n🤖 Generated with Claude Code\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* fix: update cairo-m-runner for new u32 opcodes\n\n- Update LAST_VALID_OPCODE_ID from 15 to 22\n- Fix test_u32_store_add_fp_imm_from_smallvec to use correct opcode 19\n- Fix test_get_instruction_multi_qm31 to use correct opcode 19\n- Add TODO stubs for new u32 instruction implementations\n- Map all u32 opcodes to their handler functions\n\n🤖 Generated with Claude Code\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* add missing tests\n\n* use MAX_OPCODE const\n\n* refactor: remove redundant tests from cairo-m-runner\n\nRemove tests that duplicate functionality already covered in\ncairo-m-common tests:\n- test_store_add_fp_imm_from_smallvec\n- test_ret_from_smallvec\n- test_u32_store_add_fp_imm_from_smallvec\n\nThese tests were testing SmallVec to Instruction conversion which\nis comprehensively tested in crates/common/tests/instruction_tests.rs\n\nKeep only runner-specific tests for opcode_to_instruction_fn mapping.\n\n🤖 Generated with Claude Code\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-08-01T15:44:22+02:00",
+          "tree_id": "e5f3ea85cd25ac5c2a83fd91aa2bdc3a2d46dabe",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/0188eb3b57bfc85189ebb9c3c1f3e86e4e295c62"
+        },
+        "date": 1754056066218,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 337334903,
+            "range": "± 4719247",
             "unit": "ns/iter"
           }
         ]
