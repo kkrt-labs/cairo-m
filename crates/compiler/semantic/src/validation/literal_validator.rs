@@ -22,7 +22,7 @@ use crate::{DefinitionKind, File, SemanticIndex};
 pub struct LiteralValidator;
 
 /// Maximum value for felt type (2^31 - 1)
-const FELT_MAX: u32 = (1u32 << 31) - 1;
+const FELT_MAX: u64 = (1u64 << 31) - 1;
 
 impl Validator for LiteralValidator {
     fn validate(
@@ -135,7 +135,7 @@ impl LiteralValidator {
     ) {
         match expr {
             Expression::Literal(value, _) => {
-                if *value as u64 > u32::MAX as u64 {
+                if { *value } > u32::MAX as u64 {
                     sink.push(
                         Diagnostic::error(
                             DiagnosticCode::TypeMismatch,
@@ -356,8 +356,8 @@ mod tests {
         let db = test_db();
         let validator = LiteralValidator;
 
-        // Test const with overflow
-        let overflow_program = "const X: felt = 2147483648;"; // 2^31
+        // Test const with overflow (const syntax doesn't support type annotations)
+        let overflow_program = "const X = 2147483648;"; // 2^31
         let crate_id = crate_from_program(&db, overflow_program);
         let file = *crate_id.modules(&db).values().next().unwrap();
         let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();

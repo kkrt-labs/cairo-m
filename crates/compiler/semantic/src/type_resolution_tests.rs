@@ -219,7 +219,7 @@ fn test_expression_type_coverage() {
             struct Point { x: felt, y: felt }
             fn test() {
                 let p = Point { x: 1, y: 2 };
-                let sum = 1 + 2;
+                let sum = 1 + p.y;
                 let coord = p.x;
                 return;
             }
@@ -232,7 +232,7 @@ fn test_expression_type_coverage() {
     let mut expression_types_found = std::collections::HashSet::new();
 
     // We are expecting to find that many expressions;
-    let expected_expression_count = 8;
+    let expected_expression_count = 9;
     assert_eq!(
         semantic_index.all_expressions().count(),
         expected_expression_count

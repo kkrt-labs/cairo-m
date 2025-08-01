@@ -149,7 +149,7 @@ impl std::fmt::Display for BinaryOp {
 pub enum Expression {
     /// Integer literal (e.g., `42`, `0`, `1337`)
     /// The optional string represents a type suffix (e.g., "u32" in `42u32`)
-    Literal(u32, Option<String>),
+    Literal(u64, Option<String>),
     /// Boolean literal (e.g., `true`, `false`)
     BooleanLiteral(bool),
     /// Variable identifier (e.g., `x`, `my_var`, `result`)
@@ -787,18 +787,13 @@ where
                 // Span should be from start of operator to end of expression
                 let full_span = SimpleSpan::from(op_span.start..expr_span.end);
 
-                // Try to evaluate constant unary expressions
-                if let Some(result) = try_evaluate_unary_op(op, &expr) {
-                    Spanned::new(result, full_span)
-                } else {
-                    Spanned::new(
-                        Expression::UnaryOp {
-                            op,
-                            expr: Box::new(expr),
-                        },
-                        full_span,
-                    )
-                }
+                Spanned::new(
+                    Expression::UnaryOp {
+                        op,
+                        expr: Box::new(expr),
+                    },
+                    full_span,
+                )
             },
         );
 
@@ -1325,60 +1320,6 @@ where
     })
 }
 
-/// Creates the main parser for Cairo-M source code.
-///
-/// This function constructs a parser combinator that can parse a complete Cairo-M
-/// program from a stream of tokens. The parser uses recursive descent with
-/// operator precedence handling for expressions.
-///
-/// ## Parser Structure
-///
-/// The parser is organized hierarchically:
-/// 1. **Expressions**: Built from atoms (literals, identifiers) up through binary operators
-/// 2. **Types**: Handle named types, pointers, and tuples
-/// 3. **Statements**: Control flow, declarations, and expression statements
-/// 4. **Top-level items**: Functions, structs, imports, and constants
-///
-/// ## Operator Precedence (lowest to highest)
-///
-/// 1. Logical OR (`||`)
-/// 2. Logical AND (`&&`)
-/// 3. Equality (`==`, `!=`)
-/// 4. Additive (`+`, `-`)
-/// 5. Multiplicative (`*`, `/`)
-/// 6. Postfix (function calls, member access, indexing)
-///
-/// ## Generic Parameters
-///
-/// - `'tokens`: Lifetime of the token stream
-/// - `'src`: Lifetime of the source code (must outlive tokens)
-/// - `I`: Input type that provides tokens and spans
-///
-/// ## Returns
-///
-/// A parser that produces a `Vec<TopLevelItem>` representing the complete program,
-/// or parsing errors if the input is malformed.
-
-/// Try to evaluate a unary operation on a constant expression at compile time.
-/// Returns Some(Expression) if the operand is a literal and the operation can be evaluated.
-/// Returns None if the expression cannot be evaluated at compile time.
-fn try_evaluate_unary_op(op: UnaryOp, expr: &Spanned<Expression>) -> Option<Expression> {
-    match (op, expr.value()) {
-        (UnaryOp::Neg, Expression::Literal(val, suffix)) => {
-            // For negation, we need to check that the result doesn't overflow u32
-            // Since we're using u32 for literals, we can't represent negative numbers
-            // The semantic phase will handle this properly with type information
-            if *val == 0 {
-                Some(Expression::Literal(0, suffix.clone()))
-            } else {
-                // Can't represent negative numbers in u32
-                None
-            }
-        }
-        _ => None,
-    }
-}
-
 /// Try to evaluate a binary operation on two constant expressions at compile time.
 /// Returns Some(Expression) if both operands are literals and the operation can be evaluated.
 /// Returns None if the expression cannot be evaluated at compile time.
@@ -1430,6 +1371,39 @@ fn try_evaluate_binary_op(
     Some(Expression::Literal(result, left_suffix.cloned()))
 }
 
+/// Creates the main parser for Cairo-M source code.
+///
+/// This function constructs a parser combinator that can parse a complete Cairo-M
+/// program from a stream of tokens. The parser uses recursive descent with
+/// operator precedence handling for expressions.
+///
+/// ## Parser Structure
+///
+/// The parser is organized hierarchically:
+/// 1. **Expressions**: Built from atoms (literals, identifiers) up through binary operators
+/// 2. **Types**: Handle named types, pointers, and tuples
+/// 3. **Statements**: Control flow, declarations, and expression statements
+/// 4. **Top-level items**: Functions, structs, imports, and constants
+///
+/// ## Operator Precedence (lowest to highest)
+///
+/// 1. Logical OR (`||`)
+/// 2. Logical AND (`&&`)
+/// 3. Equality (`==`, `!=`)
+/// 4. Additive (`+`, `-`)
+/// 5. Multiplicative (`*`, `/`)
+/// 6. Postfix (function calls, member access, indexing)
+///
+/// ## Generic Parameters
+///
+/// - `'tokens`: Lifetime of the token stream
+/// - `'src`: Lifetime of the source code (must outlive tokens)
+/// - `I`: Input type that provides tokens and spans
+///
+/// ## Returns
+///
+/// A parser that produces a `Vec<TopLevelItem>` representing the complete program,
+/// or parsing errors if the input is malformed.
 pub fn parser<'tokens, 'src: 'tokens, I>()
 -> impl Parser<'tokens, I, Vec<TopLevelItem>, extra::Err<Rich<'tokens, TokenType<'src>>>>
 where

@@ -119,27 +119,3 @@ fn test_partial_folding() {
         "#
     );
 }
-
-#[test]
-fn test_unary_negation() {
-    assert_parses_ok!(
-        r#"
-        fn main() -> felt {
-            let x = -0;
-            return x;
-        }
-        "#
-    );
-}
-
-#[test]
-fn test_unary_negation_non_zero() {
-    assert_parses_ok!(
-        r#"
-        fn main() -> felt {
-            let x = -5;
-            return x;
-        }
-        "#
-    );
-}

@@ -38,7 +38,6 @@ pub enum Value {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
 pub enum Literal {
     /// Integer literal (felt in Cairo-M)
-    /// We use i32 as all literals are validated to fit in M31 felt
     Integer(i32),
 
     /// Boolean literal

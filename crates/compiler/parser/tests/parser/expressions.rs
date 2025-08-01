@@ -19,7 +19,7 @@ fn number_literals_parameterized() {
             in_function("0xABCDEF;"),
         ],
         err: [
-            in_function("4294967296;"), // u32::MAX + 1
+            in_function(format!("{};", u64::MAX as u128 + 1).as_str()), // u64::MAX + 1
             in_function("0xGG;"),
             in_function("0x;"),
             in_function("123abc;"),
