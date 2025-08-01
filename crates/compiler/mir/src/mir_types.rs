@@ -4,8 +4,8 @@
 //! Salsa database lifetimes. It provides essential type information for MIR
 //! optimizations and code generation while remaining self-contained.
 
-use cairo_m_compiler_semantic::SemanticDb;
 use cairo_m_compiler_semantic::types::{TypeData, TypeId};
+use cairo_m_compiler_semantic::SemanticDb;
 
 /// A simplified type representation for MIR
 ///
@@ -20,7 +20,7 @@ pub enum MirType {
     /// Boolean type (represented as felt internally)
     Bool,
 
-    /// 16-bit unsigned integer type
+    /// 32-bit unsigned integer type
     U32,
 
     /// Pointer to another type
@@ -127,7 +127,7 @@ impl MirType {
 
     /// Returns true if this is a numeric type
     pub const fn is_numeric(&self) -> bool {
-        matches!(self, Self::Felt | Self::Bool)
+        matches!(self, Self::Felt | Self::Bool | Self::U32)
     }
 
     /// Returns true if this is a pointer type
@@ -144,8 +144,7 @@ impl MirType {
     pub fn size_units(&self) -> usize {
         match self {
             Self::Felt | Self::Bool => 1,
-            // TODO: Support U32 in MIR Types
-            Self::U32 => todo!(),
+            Self::U32 => 2,
             Self::Pointer(_) => 1, // Assuming pointer size = 1 unit
             Self::Tuple(types) => types.iter().map(|t| t.size_units()).sum(),
             Self::Struct { fields, .. } => {
@@ -226,8 +225,7 @@ impl MirType {
     pub fn from_semantic_type(db: &dyn SemanticDb, type_id: TypeId) -> Self {
         match type_id.data(db) {
             TypeData::Felt => Self::felt(),
-            // TODO: Support U32 in MIR Types
-            TypeData::U32 => todo!(),
+            TypeData::U32 => Self::u32(),
             TypeData::Bool => Self::bool(),
             TypeData::Pointer(inner_type) => {
                 let inner_mir_type = Self::from_semantic_type(db, inner_type);

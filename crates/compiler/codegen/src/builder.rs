@@ -4,8 +4,8 @@
 //! and function layouts.
 
 use cairo_m_common::instruction::*;
-use cairo_m_compiler_mir::{Literal, Value, ValueId};
-use cairo_m_compiler_parser::parser::{BinaryOp, UnaryOp};
+use cairo_m_compiler_mir::{BinaryOp, Literal, Value, ValueId};
+use cairo_m_compiler_parser::parser::UnaryOp;
 use stwo_prover::core::fields::m31::M31;
 
 use crate::{CodegenError, CodegenResult, FunctionLayout, InstructionBuilder, Label, Operand};
@@ -201,6 +201,18 @@ impl CasmBuilder {
             }
             BinaryOp::Less | BinaryOp::Greater | BinaryOp::LessEqual | BinaryOp::GreaterEqual => {
                 todo!("Comparison opcodes not yet implemented");
+            }
+            BinaryOp::U32Add
+            | BinaryOp::U32Sub
+            | BinaryOp::U32Mul
+            | BinaryOp::U32Div
+            | BinaryOp::U32Eq
+            | BinaryOp::U32Neq
+            | BinaryOp::U32Less
+            | BinaryOp::U32Greater
+            | BinaryOp::U32LessEqual
+            | BinaryOp::U32GreaterEqual => {
+                todo!("U32 opcodes not yet implemented in codegen");
             }
         }
 

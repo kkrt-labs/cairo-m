@@ -5,9 +5,7 @@
 
 use std::collections::HashSet;
 
-use cairo_m_compiler_parser::parser::BinaryOp;
-
-use crate::{BasicBlockId, PrettyPrint, Value};
+use crate::{BasicBlockId, BinaryOp, PrettyPrint, Value};
 
 /// A terminator ends a basic block and transfers control
 ///

@@ -3,10 +3,12 @@
 //! This module implements various optimization passes that can be applied to MIR functions
 //! to improve code quality and remove dead code.
 
-use cairo_m_compiler_parser::parser::{BinaryOp, UnaryOp};
+use cairo_m_compiler_parser::parser::UnaryOp;
 use rustc_hash::FxHashMap;
 
-use crate::{Instruction, InstructionKind, Literal, MirFunction, Terminator, Value, ValueId};
+use crate::{
+    BinaryOp, Instruction, InstructionKind, Literal, MirFunction, Terminator, Value, ValueId,
+};
 
 /// A trait for MIR optimization passes
 pub trait MirPass {
@@ -48,7 +50,10 @@ impl FuseCmpBranch {
     /// Returns true if an op is a comparison that can be fused.
     const fn is_fusible_comparison(op: BinaryOp) -> bool {
         // For now, only Eq is guaranteed to work. In the future we might have Le / Ge opcodes
-        matches!(op, BinaryOp::Eq | BinaryOp::Neq)
+        matches!(
+            op,
+            BinaryOp::Eq | BinaryOp::Neq | BinaryOp::U32Eq | BinaryOp::U32Neq
+        )
     }
 }
 
@@ -82,14 +87,30 @@ impl MirPass for FuseCmpBranch {
 
                                 // We first check for comparisons with 0 which can be optimized
                                 match (*op, *left, *right) {
-                                    (BinaryOp::Eq, Value::Literal(Literal::Integer(0)), cond)
-                                    | (BinaryOp::Eq, cond, Value::Literal(Literal::Integer(0))) => {
+                                    (
+                                        BinaryOp::Eq | BinaryOp::U32Eq,
+                                        Value::Literal(Literal::Integer(0)),
+                                        cond,
+                                    )
+                                    | (
+                                        BinaryOp::Eq | BinaryOp::U32Eq,
+                                        cond,
+                                        Value::Literal(Literal::Integer(0)),
+                                    ) => {
                                         // Checking x == 0 is equivalent to !x, so we switch the targets
                                         block.terminator =
                                             Terminator::branch(cond, else_target, then_target);
                                     }
-                                    (BinaryOp::Neq, Value::Literal(Literal::Integer(0)), cond)
-                                    | (BinaryOp::Neq, cond, Value::Literal(Literal::Integer(0))) => {
+                                    (
+                                        BinaryOp::Neq | BinaryOp::U32Neq,
+                                        Value::Literal(Literal::Integer(0)),
+                                        cond,
+                                    )
+                                    | (
+                                        BinaryOp::Neq | BinaryOp::U32Neq,
+                                        cond,
+                                        Value::Literal(Literal::Integer(0)),
+                                    ) => {
                                         // Checking x != 0 is equivalent to x, so we use x as the condition
                                         block.terminator =
                                             Terminator::branch(cond, then_target, else_target);
@@ -533,7 +554,7 @@ impl LoadData {
 
 /// Helper struct to hold BinaryOp instruction data
 struct BinopData {
-    op: cairo_m_compiler_parser::parser::BinaryOp,
+    op: BinaryOp,
     tmp_id: crate::ValueId,
     left: Value,
     right: Value,
@@ -672,13 +693,11 @@ mod tests {
 
         // Verify the unreachable block exists and has content before DCE
         assert_eq!(function.basic_blocks.len(), 3);
-        assert!(
-            !function
-                .get_basic_block(unreachable_block)
-                .unwrap()
-                .instructions
-                .is_empty()
-        );
+        assert!(!function
+            .get_basic_block(unreachable_block)
+            .unwrap()
+            .instructions
+            .is_empty());
 
         // Run dead code elimination
         let mut dce = DeadCodeElimination::new();
