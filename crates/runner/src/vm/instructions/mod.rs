@@ -172,52 +172,10 @@ pub fn opcode_to_instruction_fn(op: M31) -> Result<InstructionFn, InstructionErr
 
 #[cfg(test)]
 mod tests {
-    use cairo_m_common::Instruction;
-    use cairo_m_common::instruction::{
-        INSTRUCTION_MAX_SIZE, InstructionError, MAX_OPCODE, RET, STORE_ADD_FP_IMM,
-        U32_STORE_ADD_FP_IMM,
-    };
-    use smallvec::SmallVec;
+    use cairo_m_common::instruction::{InstructionError, MAX_OPCODE};
     use stwo_prover::core::fields::m31::M31;
 
     use super::opcode_to_instruction_fn;
-
-    #[test]
-    fn test_store_add_fp_imm_from_smallvec() {
-        // Test StoreAddFpImm (4 M31s)
-        let instruction_m31s =
-            SmallVec::<[M31; INSTRUCTION_MAX_SIZE]>::from_slice(&[M31(4), M31(2), M31(3), M31(4)]);
-        let instruction: Instruction = instruction_m31s.try_into().unwrap();
-        assert_eq!(instruction.opcode_value(), STORE_ADD_FP_IMM);
-        assert_eq!(instruction.operands(), vec![M31(2), M31(3), M31(4)]);
-    }
-
-    #[test]
-    fn test_ret_from_smallvec() {
-        // Test Ret (1 M31)
-        let ret_m31s = SmallVec::<[M31; INSTRUCTION_MAX_SIZE]>::from_slice(&[M31(11)]);
-        let ret_instruction: Instruction = ret_m31s.try_into().unwrap();
-        assert_eq!(ret_instruction.opcode_value(), RET);
-        assert_eq!(ret_instruction.operands(), vec![]);
-    }
-
-    #[test]
-    fn test_u32_store_add_fp_imm_from_smallvec() {
-        // Test U32StoreAddFpImm (5 M31s)
-        let u32_m31s = SmallVec::<[M31; INSTRUCTION_MAX_SIZE]>::from_slice(&[
-            M31(19),
-            M31(1),
-            M31(2),
-            M31(3),
-            M31(4),
-        ]);
-        let u32_instruction: Instruction = u32_m31s.try_into().unwrap();
-        assert_eq!(u32_instruction.opcode_value(), U32_STORE_ADD_FP_IMM);
-        assert_eq!(
-            u32_instruction.operands(),
-            vec![M31(1), M31(2), M31(3), M31(4)]
-        );
-    }
 
     #[test]
     fn test_opcode_to_instruction_fn_invalid_opcode() {

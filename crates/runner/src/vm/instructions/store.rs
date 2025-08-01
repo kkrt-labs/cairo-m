@@ -181,6 +181,42 @@ pub fn store_div_fp_imm(
     Ok(state.advance_by(instruction.size_in_qm31s()))
 }
 
+/// TODO: Implement U32 store add fp fp instruction
+pub fn u32_store_add_fp_fp(
+    _memory: &mut Memory,
+    _state: State,
+    _instruction: &Instruction,
+) -> Result<State, InstructionExecutionError> {
+    todo!("u32_store_add_fp_fp not implemented")
+}
+
+/// TODO: Implement U32 store sub fp fp instruction
+pub fn u32_store_sub_fp_fp(
+    _memory: &mut Memory,
+    _state: State,
+    _instruction: &Instruction,
+) -> Result<State, InstructionExecutionError> {
+    todo!("u32_store_sub_fp_fp not implemented")
+}
+
+/// TODO: Implement U32 store mul fp fp instruction
+pub fn u32_store_mul_fp_fp(
+    _memory: &mut Memory,
+    _state: State,
+    _instruction: &Instruction,
+) -> Result<State, InstructionExecutionError> {
+    todo!("u32_store_mul_fp_fp not implemented")
+}
+
+/// TODO: Implement U32 store div fp fp instruction
+pub fn u32_store_div_fp_fp(
+    _memory: &mut Memory,
+    _state: State,
+    _instruction: &Instruction,
+) -> Result<State, InstructionExecutionError> {
+    todo!("u32_store_div_fp_fp not implemented")
+}
+
 /// U32 store add fp imm instruction.
 ///
 /// u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) + u32(imm_lo, imm_hi)
@@ -230,42 +266,6 @@ pub fn u32_store_add_fp_imm(
     memory.insert(state.fp + dst_off + M31::one(), res_limb_1.into())?;
 
     Ok(state.advance_by(instruction.size_in_qm31s()))
-}
-
-/// TODO: Implement U32 store add fp fp instruction
-pub fn u32_store_add_fp_fp(
-    _memory: &mut Memory,
-    _state: State,
-    _instruction: &Instruction,
-) -> Result<State, InstructionExecutionError> {
-    todo!("u32_store_add_fp_fp not implemented")
-}
-
-/// TODO: Implement U32 store sub fp fp instruction
-pub fn u32_store_sub_fp_fp(
-    _memory: &mut Memory,
-    _state: State,
-    _instruction: &Instruction,
-) -> Result<State, InstructionExecutionError> {
-    todo!("u32_store_sub_fp_fp not implemented")
-}
-
-/// TODO: Implement U32 store mul fp fp instruction
-pub fn u32_store_mul_fp_fp(
-    _memory: &mut Memory,
-    _state: State,
-    _instruction: &Instruction,
-) -> Result<State, InstructionExecutionError> {
-    todo!("u32_store_mul_fp_fp not implemented")
-}
-
-/// TODO: Implement U32 store div fp fp instruction
-pub fn u32_store_div_fp_fp(
-    _memory: &mut Memory,
-    _state: State,
-    _instruction: &Instruction,
-) -> Result<State, InstructionExecutionError> {
-    todo!("u32_store_div_fp_fp not implemented")
 }
 
 /// TODO: Implement U32 store sub fp imm instruction
