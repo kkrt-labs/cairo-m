@@ -148,11 +148,7 @@ fn test_comprehensive_semantic_analysis() {
     // Should have root scope plus function scope
     let root = index.root_scope().unwrap();
     let child_scopes: Vec<_> = index.child_scopes(root).collect();
-    assert_eq!(
-        child_scopes.len(),
-        2,
-        "Should have function and namespace scopes"
-    );
+    assert_eq!(child_scopes.len(), 2, "Should have function scopes");
 
     // Check root scope has the expected symbols
     let root_table = index.place_table(root).unwrap();
