@@ -3,7 +3,7 @@
 use itertools::chain;
 use num_traits::{One, Zero};
 use stwo_constraint_framework::relation_tracker::{
-    RelationSummary, RelationTrackerEntry, add_to_relation_entries,
+    add_to_relation_entries, RelationSummary, RelationTrackerEntry,
 };
 use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::backend::{BackendForChannel, Column};

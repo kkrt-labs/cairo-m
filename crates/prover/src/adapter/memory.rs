@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::iter::Peekable;
 
-use cairo_m_common::State as VmRegisters;
-use cairo_m_common::instruction::{DataType, INSTRUCTION_MAX_SIZE, Instruction};
+use cairo_m_common::instruction::{DataType, Instruction, INSTRUCTION_MAX_SIZE};
 use cairo_m_common::state::MemoryEntry as RunnerMemoryEntry;
+use cairo_m_common::State as VmRegisters;
 use num_traits::{One, Zero};
 use smallvec::SmallVec;
 use stwo_prover::core::fields::m31::M31;
@@ -171,7 +171,7 @@ where
         let instruction_arg = self.memory.push(instruction_entry);
 
         // Step 2: Parse opcode from first M31 to determine instruction size
-        let opcode_m31 = instruction_entry.value.0.0;
+        let opcode_m31 = instruction_entry.value.0 .0;
         let opcode_value = opcode_m31.0;
 
         // Get instruction size from opcode
@@ -209,7 +209,7 @@ where
 
             // Extract the 5th M31 for U32StoreAddFpImm (which has size 5)
             if instruction_size_m31 > 4 {
-                instruction_values.push(entry.value.0.0);
+                instruction_values.push(entry.value.0 .0);
             }
         }
 
@@ -258,11 +258,11 @@ where
                         address: operand_arg.address,
                         prev_clock: operand_arg.prev_clock,
                         prev_value: MemoryValue {
-                            limb0: operand_arg.prev_val.0.0,
+                            limb0: operand_arg.prev_val.0 .0,
                             limb1: M31::zero(),
                         },
                         value: MemoryValue {
-                            limb0: operand_arg.value.0.0,
+                            limb0: operand_arg.value.0 .0,
                             limb1: M31::zero(),
                         },
                     };
@@ -303,12 +303,12 @@ where
                         address: operand_arg_low.address, // Use the base address
                         prev_clock: operand_arg_low.prev_clock,
                         prev_value: MemoryValue {
-                            limb0: operand_arg_low.prev_val.0.0,
-                            limb1: operand_arg_high.prev_val.0.0,
+                            limb0: operand_arg_low.prev_val.0 .0,
+                            limb1: operand_arg_high.prev_val.0 .0,
                         },
                         value: MemoryValue {
-                            limb0: operand_arg_low.value.0.0,
-                            limb1: operand_arg_high.value.0.0,
+                            limb0: operand_arg_low.value.0 .0,
+                            limb1: operand_arg_high.value.0 .0,
                         },
                     };
 

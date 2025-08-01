@@ -16,7 +16,6 @@ operations:
 ### Currently Used Instructions
 
 1. **Arithmetic Operations**
-
    - `STORE_ADD_FP_FP` (opcode 0): Addition between two fp-relative values
    - `STORE_ADD_FP_IMM` (opcode 1): Addition with immediate value
    - `STORE_SUB_FP_FP` (opcode 2): Subtraction between two fp-relative values
@@ -27,7 +26,6 @@ operations:
    - `STORE_DIV_FP_IMM` (opcode 10): Division with immediate value
 
 2. **Data Movement**
-
    - `STORE_IMM` (opcode 6): Store immediate value to fp location
 
 3. **Control Flow**
@@ -39,7 +37,6 @@ operations:
 ### Instructions Needed for Missing Features
 
 1. **For Load/Store Operations (TODO)**
-
    - `STORE_DOUBLE_DEREF_FP` (opcode 5): For dereferencing pointers
      `[fp + off2] = [[fp + off0] + off1]`
      - MIR: `InstructionKind::Load { dest, address }` - implements `*ptr`
@@ -49,7 +46,6 @@ operations:
      - Example: `let x = *ptr;` or `*ptr = value;`
 
 2. **For Dynamic Function Calls**
-
    - `CALL_ABS_FP` (opcode 11): Call function at address stored in fp location
      - MIR: `InstructionKind::Call` when the callee is a function pointer
        variable
@@ -60,7 +56,6 @@ operations:
      - MIR: Alternative to absolute calls for local functions
 
 3. **For Advanced Control Flow**
-
    - `JMP_ABS_DEREF_FP` (opcode 18): Jump to address stored at fp location
      - MIR: For computed gotos or jump tables (future optimization)
      - MIR: Switch statements with jump table implementation
@@ -70,7 +65,6 @@ operations:
      - MIR: Complex conditional branches with computed targets
 
 4. **For Address Computation**
-
    - `JMP_ABS_ADD_FP_FP` (opcode 16): Jump to computed address (sum of two
      values)
      - MIR: `InstructionKind::GetElementPtr { dest, base, offset }` for
@@ -110,21 +104,18 @@ The following instructions are not currently used and may not be needed:
 implementation for full language support.
 
 - [ ] **Implement Load/Store instructions**
-
   - Add support for indirect memory access through pointers
   - Update `builder.rs::generate_instruction()` to handle `MirInstruction::Load`
     and `MirInstruction::Store`
   - Test with pointer dereference scenarios
 
 - [ ] **Implement GetElementPtr**
-
   - Add struct field access support
   - Add array indexing support
   - Calculate proper offsets based on type information
   - Test with nested struct access and array operations
 
 - [ ] **Implement AddressOf operation**
-
   - Generate code to compute addresses of values
   - Handle both stack variables and heap allocations
   - Test with pointer creation scenarios
@@ -140,20 +131,17 @@ implementation for full language support.
 shows multiple optimization opportunities.
 
 - [ ] **Eliminate redundant copies**
-
   - Implement copy propagation in `generator.rs`
   - Track value movement to avoid unnecessary copies
   - Example: In fib function, eliminate the intermediate copy:
     `[fp +4] = [fp +6]` followed by `[fp -3] = [fp +4]`
 
 - [ ] **Remove dead code after returns**
-
   - Track unreachable code in basic blocks
   - Skip code generation for instructions after `return` in the same block
   - Add a reachability analysis pass
 
 - [ ] **Implement constant folding**
-
   - Reviewer note: should this instead be done at the MIR level? Doing it at the
     codegen level is not very efficient as it could be done upstream.
   - Detect compile-time constant expressions
@@ -172,7 +160,6 @@ shows multiple optimization opportunities.
 ### 3. Clean Up Generated Output
 
 - [ ] **Fix duplicate label generation**
-
   - Investigate why functions generate duplicate labels (e.g., `main:` appears
     twice)
   - Update `generator.rs` to emit each label only once
@@ -189,7 +176,6 @@ shows multiple optimization opportunities.
 code generation.
 
 - [ ] **Add MIR optimization pass**
-
   - Create new module in `mir/src/passes.rs`
   - Implement dead store elimination
   - Implement copy propagation at MIR level
@@ -204,13 +190,11 @@ code generation.
 ### 5. Advanced Features
 
 - [ ] **Function inlining**
-
   - Identify small functions suitable for inlining
   - Implement inlining transformation at MIR or codegen level
   - Add heuristics for when to inline (size threshold, call frequency)
 
 - [ ] **Tail call optimization**
-
   - Detect tail calls in MIR
   - Generate optimized code that reuses the current stack frame
   - Test with recursive functions like factorial
@@ -223,13 +207,11 @@ code generation.
 ### 6. Testing and Documentation
 
 - [ ] **Add comprehensive test coverage**
-
   - Add tests for edge cases (empty functions, no-return functions)
   - Add tests for complex control flow patterns
   - Add tests for optimization passes
 
 - [ ] **Document calling convention**
-
   - Create detailed documentation of the Cairo calling convention
   - Add diagrams showing stack layout
   - Document any deviations or compiler-specific decisions

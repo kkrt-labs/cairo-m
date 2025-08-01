@@ -1,5 +1,5 @@
 use super::{GotoDefinition, NO_DEFINITION_FOUND};
-use crate::support::{Transformer, extract_cursors, sandbox};
+use crate::support::{extract_cursors, sandbox, Transformer};
 
 #[tokio::test]
 async fn goto_imported_function_definition() {

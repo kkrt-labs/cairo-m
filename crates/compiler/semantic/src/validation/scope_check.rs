@@ -73,6 +73,7 @@ impl ScopeValidator {
     /// - Check for variable shadowing within the same scope
     /// - Validate const vs mutable usage patterns
     /// - Check initialization before use within the scope
+    #[allow(clippy::too_many_arguments)]
     fn check_scope(
         &self,
         scope_id: crate::FileScopeId,

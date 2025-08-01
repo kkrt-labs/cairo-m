@@ -34,7 +34,6 @@ I've identified a bug (marked as TODO) in the current implementation.
 
 - **Root Cause:** The issue stems from a disconnect between `lower_expression`
   and `lower_statement`:
-
   1.  `lower_expression` for `Expression::StructLiteral` and `Expression::Tuple`
       correctly performs a `stackalloc` to create the aggregate and returns its
       address (`Value::Operand(struct_addr)`).

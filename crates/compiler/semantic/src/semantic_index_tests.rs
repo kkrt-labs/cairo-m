@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use cairo_m_compiler_parser::SourceFile;
 
 use super::*;
-use crate::db::tests::{TestDb, test_db};
-use crate::{SemanticDb, module_semantic_index};
+use crate::db::tests::{test_db, TestDb};
+use crate::{module_semantic_index, SemanticDb};
 
 struct TestCase {
     db: TestDb,
@@ -57,11 +57,9 @@ fn test_simple_function() {
         .place_id_by_name("test")
         .expect("function should be defined");
     let func_place = root_table.place(func_place_id).unwrap();
-    assert!(
-        func_place
-            .flags
-            .contains(crate::place::PlaceFlags::FUNCTION)
-    );
+    assert!(func_place
+        .flags
+        .contains(crate::place::PlaceFlags::FUNCTION));
 
     // Should have one child scope (the function)
     let child_scopes: Vec<_> = index.child_scopes(root).collect();

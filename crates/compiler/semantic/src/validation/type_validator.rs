@@ -14,11 +14,11 @@
 use std::collections::HashSet;
 
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSink};
-use cairo_m_compiler_parser::ParsedModule;
 use cairo_m_compiler_parser::parser::{
-    BinaryOp, Expression, FunctionDef, Pattern, Spanned, Statement, TopLevelItem, TypeExpr,
-    UnaryOp, parse_file,
+    parse_file, BinaryOp, Expression, FunctionDef, Pattern, Spanned, Statement, TopLevelItem,
+    TypeExpr, UnaryOp,
 };
+use cairo_m_compiler_parser::ParsedModule;
 use chumsky::span::SimpleSpan;
 
 use crate::db::{Crate, SemanticDb};
@@ -1397,13 +1397,10 @@ impl TypeValidator {
         function_name: &str,
     ) -> Option<&'a FunctionDef> {
         for item in parsed_module.items() {
-            match item {
-                TopLevelItem::Function(func_spanned) => {
-                    if func_spanned.value().name.value() == function_name {
-                        return Some(func_spanned.value());
-                    }
+            if let TopLevelItem::Function(func_spanned) = item {
+                if func_spanned.value().name.value() == function_name {
+                    return Some(func_spanned.value());
                 }
-                _ => {} // Ignore other top-level items.
             }
         }
         None

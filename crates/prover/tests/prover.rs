@@ -2,17 +2,17 @@
 use std::collections::HashMap;
 use std::fs;
 
-use cairo_m_compiler::{CompilerOptions, compile_cairo};
+use cairo_m_compiler::{compile_cairo, CompilerOptions};
 use cairo_m_prover::adapter::memory::Memory;
-use cairo_m_prover::adapter::merkle::{TREE_HEIGHT, build_partial_merkle_tree};
+use cairo_m_prover::adapter::merkle::{build_partial_merkle_tree, TREE_HEIGHT};
 use cairo_m_prover::adapter::{
-    HashInput, Instructions, MerkleTrees, ProverInput, import_from_runner_output,
+    import_from_runner_output, HashInput, Instructions, MerkleTrees, ProverInput,
 };
 use cairo_m_prover::debug_tools::assert_constraints::assert_constraints;
 use cairo_m_prover::poseidon2::Poseidon2Hash;
 use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_prover::verifier::verify_cairo_m;
-use cairo_m_runner::{RunnerOptions, run_cairo_program};
+use cairo_m_runner::{run_cairo_program, RunnerOptions};
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;

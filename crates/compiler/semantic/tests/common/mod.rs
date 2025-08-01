@@ -11,13 +11,13 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use cairo_m_compiler_diagnostics::{
-    Diagnostic, DiagnosticCode, DiagnosticCollection, build_diagnostic_message,
+    build_diagnostic_message, Diagnostic, DiagnosticCode, DiagnosticCollection,
 };
 use cairo_m_compiler_parser::{Db as ParserDb, SourceFile, Upcast};
-use cairo_m_compiler_semantic::db::{Crate, project_validate_semantics};
+use cairo_m_compiler_semantic::db::{project_validate_semantics, Crate};
 use cairo_m_compiler_semantic::type_resolution::expression_semantic_type;
 use cairo_m_compiler_semantic::{
-    File, SemanticDb, SemanticIndex, TypeData, project_semantic_index,
+    project_semantic_index, File, SemanticDb, SemanticIndex, TypeData,
 };
 use insta::assert_snapshot;
 

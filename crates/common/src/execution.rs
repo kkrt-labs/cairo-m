@@ -2,8 +2,8 @@ use std::cell::RefCell;
 
 use stwo_prover::core::fields::qm31::QM31;
 
-use crate::State;
 use crate::state::MemoryEntry;
+use crate::State;
 
 #[derive(Debug, Default, Clone)]
 pub struct Segment {
@@ -54,10 +54,10 @@ impl Segment {
 
         for entry in memory_trace.iter() {
             result.extend_from_slice(&entry.addr.0.to_le_bytes());
-            result.extend_from_slice(&entry.value.0.0.0.to_le_bytes());
-            result.extend_from_slice(&entry.value.0.1.0.to_le_bytes());
-            result.extend_from_slice(&entry.value.1.0.0.to_le_bytes());
-            result.extend_from_slice(&entry.value.1.1.0.to_le_bytes());
+            result.extend_from_slice(&entry.value.0 .0 .0.to_le_bytes());
+            result.extend_from_slice(&entry.value.0 .1 .0.to_le_bytes());
+            result.extend_from_slice(&entry.value.1 .0 .0.to_le_bytes());
+            result.extend_from_slice(&entry.value.1 .1 .0.to_le_bytes());
         }
 
         result

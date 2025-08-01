@@ -5,19 +5,19 @@ pub mod merkle;
 use std::collections::HashMap;
 use std::path::Path;
 
-use cairo_m_common::State as VmRegisters;
 use cairo_m_common::execution::Segment;
 use cairo_m_common::state::MemoryEntry as RunnerMemoryEntry;
+use cairo_m_common::State as VmRegisters;
 use io::VmImportError;
 pub use memory::ExecutionBundle;
 use num_traits::{One, Zero};
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
-use tracing::{Level, span};
+use tracing::{span, Level};
 
 use crate::adapter::io::{MemoryEntryFileIter, TraceFileIter};
 use crate::adapter::memory::{ExecutionBundleIterator, Memory};
-use crate::adapter::merkle::{NodeData, TREE_HEIGHT, build_partial_merkle_tree};
+use crate::adapter::merkle::{build_partial_merkle_tree, NodeData, TREE_HEIGHT};
 use crate::poseidon2::{Poseidon2Hash, T};
 
 pub type HashInput = [M31; T];

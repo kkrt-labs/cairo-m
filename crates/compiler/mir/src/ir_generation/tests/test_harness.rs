@@ -7,11 +7,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use cairo_m_compiler_semantic::File;
 use cairo_m_compiler_semantic::db::Crate;
+use cairo_m_compiler_semantic::File;
 
 use crate::db::tests::test_db;
-use crate::{MirModule, PrettyPrint, generate_mir};
+use crate::{generate_mir, MirModule, PrettyPrint};
 
 /// The result of running MIR generation on a test source.
 pub struct MirOutput {

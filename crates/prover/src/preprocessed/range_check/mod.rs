@@ -1,9 +1,9 @@
 use stwo_constraint_framework::preprocessed_columns::PreProcessedColumnId;
-use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::backend::simd::column::BaseColumn;
+use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::fields::m31::{BaseField, M31};
-use stwo_prover::core::poly::BitReversedOrder;
 use stwo_prover::core::poly::circle::{CanonicCoset, CircleEvaluation};
+use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::preprocessed::PreProcessedColumn;
 

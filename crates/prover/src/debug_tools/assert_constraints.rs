@@ -5,17 +5,17 @@ use std::ops::Deref;
 
 use itertools::Itertools;
 use stwo_constraint_framework::{
-    FrameworkComponent, FrameworkEval, PREPROCESSED_TRACE_IDX, TraceLocationAllocator,
-    assert_constraints_on_trace,
+    assert_constraints_on_trace, FrameworkComponent, FrameworkEval, TraceLocationAllocator,
+    PREPROCESSED_TRACE_IDX,
 };
-use stwo_prover::core::ColumnVec;
 use stwo_prover::core::backend::{Backend, BackendForChannel, Column};
 use stwo_prover::core::channel::{Blake2sChannel, MerkleChannel};
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::pcs::{TreeSubspan, TreeVec};
-use stwo_prover::core::poly::BitReversedOrder;
 use stwo_prover::core::poly::circle::CircleEvaluation;
+use stwo_prover::core::poly::BitReversedOrder;
 use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
+use stwo_prover::core::ColumnVec;
 
 use crate::adapter::ProverInput;
 use crate::components::{Claim, Components, InteractionClaim, Relations};

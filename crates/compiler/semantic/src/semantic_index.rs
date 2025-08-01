@@ -50,11 +50,11 @@ use std::collections::HashMap;
 use cairo_m_compiler_diagnostics::{
     Diagnostic, DiagnosticCode, DiagnosticCollection, DiagnosticSink, VecSink,
 };
-use cairo_m_compiler_parser::ParsedModule;
 use cairo_m_compiler_parser::parser::{
     ConstDef, Expression, FunctionDef, NamedType, Parameter, Pattern, Spanned, Statement,
     StructDef, TopLevelItem, TypeExpr, UseItems, UseStmt,
 };
+use cairo_m_compiler_parser::ParsedModule;
 use chumsky::span::SimpleSpan;
 use index_vec::IndexVec;
 use rustc_hash::FxHashMap;
@@ -62,8 +62,8 @@ use rustc_hash::FxHashMap;
 use crate::definition::{DefinitionKind, ParameterDefRef, UseDefRef};
 use crate::place::{FileScopeId, PlaceTable, Scope};
 use crate::semantic_errors::{SemanticSyntaxChecker, SemanticSyntaxContext};
-use crate::visitor::{Visitor, walk_type_expr};
-use crate::{Crate, Definition, File, PlaceFlags, SemanticDb, module_semantic_index};
+use crate::visitor::{walk_type_expr, Visitor};
+use crate::{module_semantic_index, Crate, Definition, File, PlaceFlags, SemanticDb};
 
 // Define DefinitionIndex as an index type for definitions within a single file.
 index_vec::define_index_type! {

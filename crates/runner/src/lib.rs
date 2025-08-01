@@ -4,7 +4,7 @@ pub mod vm;
 use cairo_m_common::Program;
 use memory::MemoryError;
 use stwo_prover::core::fields::m31::M31;
-use vm::{VM, VmError};
+use vm::{VmError, VM};
 
 /// Result type for runner operations
 pub type Result<T> = std::result::Result<T, RunnerError>;

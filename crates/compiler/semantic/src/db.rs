@@ -6,8 +6,8 @@
 //!
 //! The database system enables incremental recompilation by caching query results
 //! and invalidating them only when their dependencies change.
-use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode, DiagnosticCollection};
@@ -17,7 +17,7 @@ use cairo_m_compiler_parser::{self as parser, parse_file};
 use parser::ParserDatabaseImpl;
 use parser::{Db as ParserDb, Upcast};
 
-use crate::semantic_index::{ProjectSemanticIndex, SemanticIndex, semantic_index_from_module};
+use crate::semantic_index::{semantic_index_from_module, ProjectSemanticIndex, SemanticIndex};
 use crate::validation::validator::create_default_registry;
 use crate::{File, ParsedModule};
 

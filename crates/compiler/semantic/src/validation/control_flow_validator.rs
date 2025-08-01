@@ -18,7 +18,7 @@
 //!     all paths are covered, a `MissingReturn` diagnostic is emitted.
 //!
 use cairo_m_compiler_diagnostics::Diagnostic;
-use cairo_m_compiler_parser::parser::{FunctionDef, Spanned, Statement, TopLevelItem, parse_file};
+use cairo_m_compiler_parser::parser::{parse_file, FunctionDef, Spanned, Statement, TopLevelItem};
 
 use crate::db::{Crate, SemanticDb};
 use crate::definition::DefinitionKind;
@@ -105,13 +105,10 @@ impl ControlFlowValidator {
         function_name: &str,
     ) -> Option<&'a FunctionDef> {
         for item in parsed_module.items() {
-            match item {
-                TopLevelItem::Function(func_spanned) => {
-                    if func_spanned.value().name.value() == function_name {
-                        return Some(func_spanned.value());
-                    }
+            if let TopLevelItem::Function(func_spanned) = item {
+                if func_spanned.value().name.value() == function_name {
+                    return Some(func_spanned.value());
                 }
-                _ => {} // Ignore other top-level items.
             }
         }
         None

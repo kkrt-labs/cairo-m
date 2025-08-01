@@ -1,7 +1,7 @@
 use tokio::sync::mpsc;
 use tracing::{Event, Level, Subscriber};
-use tracing_subscriber::Layer;
 use tracing_subscriber::layer::Context;
+use tracing_subscriber::Layer;
 
 /// A tracing layer that sends log messages to the LSP client
 pub struct LspTracingLayer {

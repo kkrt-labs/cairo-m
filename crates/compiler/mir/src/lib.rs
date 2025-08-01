@@ -72,7 +72,7 @@ pub mod value;
 
 // Re-export the main IR generation function
 // Re-export database traits and functions
-pub use db::{MirDb, generate_mir as db_generate_mir};
+pub use db::{generate_mir as db_generate_mir, MirDb};
 pub use ir_generation::generate_mir;
 
 #[cfg(test)]
