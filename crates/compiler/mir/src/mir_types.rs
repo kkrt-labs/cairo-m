@@ -144,7 +144,7 @@ impl MirType {
     pub fn size_units(&self) -> usize {
         match self {
             Self::Felt | Self::Bool => 1,
-            Self::U32 => 1,
+            Self::U32 => 2,
             Self::Pointer(_) => 1, // Assuming pointer size = 1 unit
             Self::Tuple(types) => types.iter().map(|t| t.size_units()).sum(),
             Self::Struct { fields, .. } => {
