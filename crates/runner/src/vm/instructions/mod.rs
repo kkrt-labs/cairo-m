@@ -174,14 +174,13 @@ pub fn opcode_to_instruction_fn(op: M31) -> Result<InstructionFn, InstructionErr
 mod tests {
     use cairo_m_common::Instruction;
     use cairo_m_common::instruction::{
-        INSTRUCTION_MAX_SIZE, InstructionError, RET, STORE_ADD_FP_IMM, U32_STORE_ADD_FP_IMM,
+        INSTRUCTION_MAX_SIZE, InstructionError, MAX_OPCODE, RET, STORE_ADD_FP_IMM,
+        U32_STORE_ADD_FP_IMM,
     };
     use smallvec::SmallVec;
     use stwo_prover::core::fields::m31::M31;
 
     use super::opcode_to_instruction_fn;
-
-    const LAST_VALID_OPCODE_ID: u32 = 22;
 
     #[test]
     fn test_store_add_fp_imm_from_smallvec() {
@@ -229,7 +228,7 @@ mod tests {
 
     #[test]
     fn test_opcode_to_instruction_fn_valid_opcodes() {
-        for opcode_value in 0..=LAST_VALID_OPCODE_ID {
+        for opcode_value in 0..=MAX_OPCODE {
             let opcode = M31(opcode_value);
             let result = opcode_to_instruction_fn(opcode);
             assert!(result.is_ok(), "Opcode {opcode_value} should be valid");
