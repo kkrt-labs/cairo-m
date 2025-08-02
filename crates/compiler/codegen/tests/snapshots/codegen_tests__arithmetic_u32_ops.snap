@@ -1,0 +1,73 @@
+---
+source: crates/compiler/codegen/tests/codegen_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/compiler/codegen/tests/codegen_tests.rs
+expression: codegen_output
+---
+Fixture: u32_ops.cm
+============================================================
+Source code:
+// Test U32 arithmetic operations
+
+fn add_u32(a: u32, b: u32) -> u32 {
+    return a + b;
+}
+
+fn sub_u32(a: u32, b: u32) -> u32 {
+    return a - b;
+}
+
+fn mul_u32(a: u32, b: u32) -> u32 {
+    return a * b;
+}
+
+fn div_u32(a: u32, b: u32) -> u32 {
+    return a / b;
+}
+
+// Test mixed operations
+fn complex_u32_expr(x: u32, y: u32, z: u32) -> u32 {
+    let temp = x * y;
+    let result = temp + z;
+    return result;
+}
+============================================================
+Generated CASM:
+add_u32:
+add_u32:
+add_u32_0:
+   0: 15 -8 -6 0           // [fp + 0, fp + 1] = u32_op([fp + -8, fp + -7], [fp + -6, fp + -5])
+   1: 4 0 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
+   2: 4 1 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
+   3: 11 _ _ _             // return
+sub_u32:
+sub_u32:
+sub_u32_0:
+   4: 16 -8 -6 0           // [fp + 0, fp + 1] = u32_op([fp + -8, fp + -7], [fp + -6, fp + -5])
+   5: 4 0 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
+   6: 4 1 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
+   7: 11 _ _ _             // return
+mul_u32:
+mul_u32:
+mul_u32_0:
+   8: 17 -8 -6 0           // [fp + 0, fp + 1] = u32_op([fp + -8, fp + -7], [fp + -6, fp + -5])
+   9: 4 0 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
+  10: 4 1 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
+  11: 11 _ _ _             // return
+div_u32:
+div_u32:
+div_u32_0:
+  12: 18 -8 -6 0           // [fp + 0, fp + 1] = u32_op([fp + -8, fp + -7], [fp + -6, fp + -5])
+  13: 4 0 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
+  14: 4 1 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
+  15: 11 _ _ _             // return
+complex_u32_expr:
+complex_u32_expr:
+complex_u32_expr_0:
+  16: 17 -10 -8 0          // [fp + 0, fp + 1] = u32_op([fp + -10, fp + -9], [fp + -8, fp + -7])
+  17: 15 0 -6 2            // [fp + 2, fp + 3] = u32_op([fp + 0, fp + 1], [fp + -6, fp + -5])
+  18: 4 2 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 2] + 0
+  19: 4 3 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 3] + 0
+  20: 11 _ _ _             // return

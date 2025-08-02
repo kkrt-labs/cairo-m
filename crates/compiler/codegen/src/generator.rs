@@ -361,7 +361,22 @@ impl CodeGenerator {
                 }
 
                 // Fallback to return-value optimization if no other target was found
-                if target_offset.is_none() {
+                // TODO: Currently disabled for U32 operations due to multi-slot handling
+                if target_offset.is_none()
+                    && !matches!(
+                        op,
+                        BinaryOp::U32Add
+                            | BinaryOp::U32Sub
+                            | BinaryOp::U32Mul
+                            | BinaryOp::U32Div
+                            | BinaryOp::U32Eq
+                            | BinaryOp::U32Neq
+                            | BinaryOp::U32Less
+                            | BinaryOp::U32Greater
+                            | BinaryOp::U32LessEqual
+                            | BinaryOp::U32GreaterEqual
+                    )
+                {
                     target_offset = self.get_target_offset_for_dest(*dest, terminator);
                 }
 

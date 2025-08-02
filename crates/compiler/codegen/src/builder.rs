@@ -272,7 +272,7 @@ impl CasmBuilder {
             | BinaryOp::U32Greater
             | BinaryOp::U32LessEqual
             | BinaryOp::U32GreaterEqual => {
-                todo!("U32 opcodes not yet implemented in codegen");
+                self.generate_u32_op(op, dest_off, left, right)?;
             }
         }
 
@@ -704,6 +704,113 @@ impl CasmBuilder {
         Ok(())
     }
 
+    /// Generate U32 operation
+    pub fn generate_u32_op(
+        &mut self,
+        op: BinaryOp,
+        dest_off: i32,
+        left: Value,
+        right: Value,
+    ) -> CodegenResult<()> {
+        // For comparison operations, the result is a single felt (0 or 1)
+        let is_comparison = matches!(
+            op,
+            BinaryOp::U32Eq
+                | BinaryOp::U32Neq
+                | BinaryOp::U32Less
+                | BinaryOp::U32Greater
+                | BinaryOp::U32LessEqual
+                | BinaryOp::U32GreaterEqual
+        );
+
+        // Resolve operands - U32 values occupy 2 slots
+        let (left_off, right_off) = self.resolve_u32_operands(left, right)?;
+
+        // Get the appropriate opcode
+        let opcode = self.opcode_for_u32_op(op)?;
+
+        // Emit the instruction
+        let instr = InstructionBuilder::new(opcode)
+            .with_operand(Operand::Literal(left_off))
+            .with_operand(Operand::Literal(right_off))
+            .with_operand(Operand::Literal(dest_off))
+            .with_comment(format!(
+                "[fp + {}, fp + {}] = u32_op([fp + {}, fp + {}], [fp + {}, fp + {}])",
+                dest_off,
+                dest_off + 1,
+                left_off,
+                left_off + 1,
+                right_off,
+                right_off + 1
+            ));
+        self.instructions.push(instr);
+
+        // Track memory writes
+        if is_comparison {
+            self.touch(dest_off, 1); // Comparison results are single felt
+        } else {
+            self.touch(dest_off, 2); // Arithmetic results are u32 (2 slots)
+        }
+
+        Ok(())
+    }
+
+    /// Resolve U32 operands to their base offsets
+    fn resolve_u32_operands(&mut self, left: Value, right: Value) -> CodegenResult<(i32, i32)> {
+        let left_off = self.resolve_u32_operand(left)?;
+        let right_off = self.resolve_u32_operand(right)?;
+        Ok((left_off, right_off))
+    }
+
+    /// Resolve a single U32 operand to its base offset
+    fn resolve_u32_operand(&self, operand: Value) -> CodegenResult<i32> {
+        match operand {
+            Value::Operand(id) => {
+                // Get the base offset for this U32 value
+                self.layout.get_offset(id)
+            }
+            Value::Literal(_) => {
+                // U32 literals are not yet supported in MIR
+                // When they are added, we'll need to:
+                // 1. Reserve 2 temporary slots
+                // 2. Split the u32 into low and high parts
+                // 3. Store them using store_immediate
+                // 4. Return the base offset
+                Err(CodegenError::UnsupportedInstruction(
+                    "U32 literal values are not yet supported".to_string(),
+                ))
+            }
+            _ => Err(CodegenError::UnsupportedInstruction(
+                "Unsupported U32 operand type".to_string(),
+            )),
+        }
+    }
+
+    /// Get the opcode for a U32 operation
+    fn opcode_for_u32_op(&self, op: BinaryOp) -> CodegenResult<u32> {
+        match op {
+            BinaryOp::U32Add => Ok(U32_STORE_ADD_FP_FP),
+            BinaryOp::U32Sub => Ok(U32_STORE_SUB_FP_FP),
+            BinaryOp::U32Mul => Ok(U32_STORE_MUL_FP_FP),
+            BinaryOp::U32Div => Ok(U32_STORE_DIV_FP_FP),
+            // For comparison operations, we need to implement them using the arithmetic opcodes
+            // and conditional jumps, similar to how we handle felt comparisons
+            BinaryOp::U32Eq
+            | BinaryOp::U32Neq
+            | BinaryOp::U32Less
+            | BinaryOp::U32Greater
+            | BinaryOp::U32LessEqual
+            | BinaryOp::U32GreaterEqual => Err(CodegenError::UnsupportedInstruction(
+                "U32 comparison operations need special handling".to_string(),
+            )),
+            // Non-U32 operations should not reach here
+            _ => Err(CodegenError::InvalidMir(format!(
+                "Expected U32 operation, got {:?}",
+                op
+            ))),
+        }
+    }
+
     /// Generate a function call that returns a value.
     pub fn call(
         &mut self,
@@ -990,12 +1097,13 @@ impl CasmBuilder {
 
     /// Generate `return` instruction with multiple return values.
     pub fn return_values(&mut self, values: &[Value]) -> CodegenResult<()> {
-        let k = self.layout.num_return_values() as i32;
+        let k = self.layout.num_return_slots() as i32;
 
         // Store each return value in its designated slot
+        let mut cumulative_slot_offset = 0;
         for (i, return_val) in values.iter().enumerate() {
-            // Return value i goes to [fp - K - 2 + i]
-            let return_slot_offset = -(k + 2) + i as i32;
+            // Return value starts at [fp - K - 2 + cumulative_slot_offset]
+            let return_slot_offset = -(k + 2) + cumulative_slot_offset;
 
             // Check if the value is already in the return slot (optimization for direct returns)
             let needs_copy = match return_val {
@@ -1007,35 +1115,67 @@ impl CasmBuilder {
             };
 
             if needs_copy {
-                let instr = match return_val {
-                    Value::Literal(Literal::Integer(imm)) => InstructionBuilder::new(STORE_IMM)
-                        .with_operand(Operand::Literal(*imm))
-                        .with_operand(Operand::Literal(return_slot_offset))
-                        .with_comment(format!(
-                            "Return value {}: [fp {}] = {}",
-                            i, return_slot_offset, imm
-                        )),
-                    Value::Operand(val_id) => {
-                        let src_off = self.layout.get_offset(*val_id)?;
-                        InstructionBuilder::new(STORE_ADD_FP_IMM)
-                            .with_operand(Operand::Literal(src_off))
-                            .with_operand(Operand::Literal(0))
+                match return_val {
+                    Value::Literal(Literal::Integer(imm)) => {
+                        let instr = InstructionBuilder::new(STORE_IMM)
+                            .with_operand(Operand::Literal(*imm))
                             .with_operand(Operand::Literal(return_slot_offset))
                             .with_comment(format!(
-                                "Return value {}: [fp {}] = [fp + {}] + 0",
-                                i, return_slot_offset, src_off
-                            ))
+                                "Return value {}: [fp {}] = {}",
+                                i, return_slot_offset, imm
+                            ));
+                        self.instructions.push(instr);
+                    }
+                    Value::Operand(val_id) => {
+                        let src_off = self.layout.get_offset(*val_id)?;
+                        let value_size = self.layout.get_value_size(*val_id);
+
+                        // For multi-slot values, we need to copy each slot
+                        for slot in 0..value_size {
+                            let slot_instr = InstructionBuilder::new(STORE_ADD_FP_IMM)
+                                .with_operand(Operand::Literal(src_off + slot as i32))
+                                .with_operand(Operand::Literal(0))
+                                .with_operand(Operand::Literal(return_slot_offset + slot as i32))
+                                .with_comment(if value_size > 1 {
+                                    format!(
+                                        "Return value {} slot {}: [fp {}] = [fp + {}] + 0",
+                                        i,
+                                        slot,
+                                        return_slot_offset + slot as i32,
+                                        src_off + slot as i32
+                                    )
+                                } else {
+                                    format!(
+                                        "Return value {}: [fp {}] = [fp + {}] + 0",
+                                        i, return_slot_offset, src_off
+                                    )
+                                });
+                            self.instructions.push(slot_instr);
+                        }
                     }
                     _ => {
                         return Err(CodegenError::UnsupportedInstruction(
                             "Unsupported return value type".to_string(),
                         ));
                     }
+                }
+
+                // Determine the size of this return value
+                let value_size = match return_val {
+                    Value::Operand(val_id) => self.layout.get_value_size(*val_id),
+                    _ => 1, // Literals are single-slot for now
                 };
-                self.instructions.push(instr);
-                self.touch(return_slot_offset, 1);
+
+                self.touch(return_slot_offset, value_size);
+                cumulative_slot_offset += value_size as i32;
+            } else {
+                // Value is already in place, but we still need to update the offset
+                let value_size = match return_val {
+                    Value::Operand(val_id) => self.layout.get_value_size(*val_id),
+                    _ => 1,
+                };
+                cumulative_slot_offset += value_size as i32;
             }
-            // If !needs_copy, the value is already in the return slot, so we skip the copy
         }
 
         self.instructions

@@ -9,7 +9,7 @@
 //!
 //! ## Frame Layout (Callee's Perspective)
 //!
-//! A function with `M` arguments that returns `K` values has the following layout:
+//! A function with `M` argument slots that returns `K` return value slots has the following layout:
 //!
 //! ```text
 //! | Address                    | Content                | Description                 |
@@ -58,6 +58,8 @@ pub struct FunctionLayout {
     pub num_parameters: usize,
     /// Number of values this function returns.
     num_return_values: usize,
+    /// Total number of slots required for return values (accounting for multi-slot types).
+    num_return_slots: usize,
 }
 
 impl FunctionLayout {
@@ -68,6 +70,7 @@ impl FunctionLayout {
             frame_size: 0,
             num_parameters: function.parameters.len(),
             num_return_values: function.return_values.len(),
+            num_return_slots: 0, // Will be calculated in allocate_parameters_with_sizes
         };
 
         // Phase 1: Calculate parameter layout with proper multi-slot support
@@ -102,6 +105,9 @@ impl FunctionLayout {
             };
             k_slots += size;
         }
+
+        // Store the calculated k_slots for later use
+        self.num_return_slots = k_slots;
 
         // Now allocate parameters with correct offsets
         let mut cumulative_param_size = 0;
@@ -245,9 +251,23 @@ impl FunctionLayout {
         self.num_return_values
     }
 
+    /// Gets the total number of return slots for the function (accounting for multi-slot types).
+    pub const fn num_return_slots(&self) -> usize {
+        self.num_return_slots
+    }
+
     /// Gets all allocated value layouts (for debugging).
     pub const fn all_layouts(&self) -> &FxHashMap<ValueId, ValueLayout> {
         &self.value_layouts
+    }
+
+    /// Gets the size of a value in slots.
+    pub fn get_value_size(&self, value_id: ValueId) -> usize {
+        match self.value_layouts.get(&value_id) {
+            Some(ValueLayout::Slot { .. }) => 1,
+            Some(ValueLayout::MultiSlot { size, .. }) => *size,
+            _ => 1, // Default to single slot
+        }
     }
 
     /// Gets the value layout for a specific ValueId.
@@ -295,6 +315,7 @@ impl FunctionLayout {
             frame_size: 0,
             num_parameters: 0,
             num_return_values: 0,
+            num_return_slots: 0,
         }
     }
 

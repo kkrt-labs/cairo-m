@@ -151,6 +151,7 @@ codegen_test!(and, "arithmetic");
 codegen_test!(or, "arithmetic");
 codegen_test!(left_imm, "arithmetic");
 codegen_test!(unary, "arithmetic");
+codegen_test!(u32_ops, "arithmetic");
 
 // --- Control Flow ---
 codegen_test!(simple_if, "control_flow");
@@ -164,6 +165,7 @@ codegen_test!(simple_call, "functions");
 codegen_test!(fib, "functions");
 codegen_test!(fib_loop, "functions");
 codegen_test!(return_values, "functions");
+codegen_test!(fib_u32_loop, "functions");
 
 // --- Optimization ---
 codegen_test!(in_place_update, "optimization");
