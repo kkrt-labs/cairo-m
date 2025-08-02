@@ -112,7 +112,9 @@ impl FunctionLayout {
         // Now allocate parameters with correct offsets
         let mut cumulative_param_size = 0;
         for &param_id in &function.parameters {
-            let ty = function.value_types.get(&param_id).unwrap();
+            let ty = function.value_types.get(&param_id).ok_or_else(|| {
+                CodegenError::LayoutError(format!("No type found for parameter {param_id:?}"))
+            })?;
             let size = ty.size_units();
 
             // Calculate the offset using the formula from Issue 2
