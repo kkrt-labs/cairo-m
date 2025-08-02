@@ -64,9 +64,9 @@ test_loop_optimization_3:
   17: 4 1 0 -3             // Return value 0: [fp -3] = [fp + 1] + 0
   18: 11 _ _ _             // return
 main:
-  19: 10 1 0 _             // call test_in_place_update
-  20: 4 0 0 2              // Store: [fp + 2] = [fp + 0] + 0
-  21: 10 4 7 _             // call test_loop_optimization
-  22: 4 3 0 5              // Store: [fp + 5] = [fp + 3] + 0
-  23: 0 2 5 -3             // [fp + -3] = [fp + 2] op [fp + 5]
+  19: 10 6 0 _             // call test_in_place_update
+  20: 4 5 0 1              // Store: [fp + 1] = [fp + 5] + 0
+  21: 10 8 7 _             // call test_loop_optimization
+  22: 4 7 0 3              // Store: [fp + 3] = [fp + 7] + 0
+  23: 0 1 3 -3             // [fp + -3] = [fp + 1] op [fp + 3]
   24: 11 _ _ _             // return

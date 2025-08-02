@@ -171,7 +171,6 @@ codegen_test!(args_in_order, "optimization");
 codegen_test!(single_arg_optimization, "optimization");
 
 codegen_test!(random_instructions, "random_instructions");
-
 // --- expressions ---
 codegen_test!(tuple_destructuring, "expressions");
 

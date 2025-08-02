@@ -43,6 +43,6 @@ get_pair_0:
 test_tuple_destructuring_from_function:
 test_tuple_destructuring_from_function:
 test_tuple_destructuring_from_function_0:
-   7: 10 2 4 _             // call get_pair
-   8: 0 0 1 -3             // [fp + -3] = [fp + 0] op [fp + 1]
+   7: 10 5 4 _             // call get_pair
+   8: 0 3 4 -3             // [fp + -3] = [fp + 3] op [fp + 4]
    9: 11 _ _ _             // return

@@ -23,6 +23,6 @@ helper:
    0: 9 42 -3 _            // Return value 0: [fp -3] = 42
    1: 11 _ _ _             // return
 main:
-   2: 10 1 0 _             // call helper
-   3: 4 0 0 -3             // Return value 0: [fp -3] = [fp + 0] + 0
+   2: 10 2 0 _             // call helper
+   3: 4 1 0 -3             // Return value 0: [fp -3] = [fp + 1] + 0
    4: 11 _ _ _             // return

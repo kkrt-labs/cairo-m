@@ -8,8 +8,8 @@ use cairo_m_common::instruction::*;
 use cairo_m_common::program::EntrypointInfo;
 use cairo_m_common::{Program, ProgramMetadata};
 use cairo_m_compiler_mir::{
-    BasicBlockId, BinaryOp, Instruction, InstructionKind, MirFunction, MirModule, Terminator,
-    Value, ValueId,
+    BasicBlockId, BinaryOp, Instruction, InstructionKind, Literal, MirFunction, MirModule,
+    Terminator, Value, ValueId,
 };
 
 use crate::{
@@ -140,7 +140,7 @@ impl CodeGenerator {
             .clone();
 
         // Create a builder for this function
-        let mut builder = CasmBuilder::new(self.label_counter).with_layout(layout);
+        let mut builder = CasmBuilder::new(layout, self.label_counter);
 
         // Add function label - but we'll fix the address later
         let func_label = Label::for_function(&function.name);
@@ -200,12 +200,14 @@ impl CodeGenerator {
             let block_label = Label::for_block(&function.name, block_id);
             builder.add_label(block_label);
 
-            for instruction in &block.instructions {
+            for (idx, instruction) in block.instructions.iter().enumerate() {
                 self.generate_instruction(
                     instruction,
                     function,
                     module,
                     builder,
+                    &block.instructions,
+                    idx,
                     &block.terminator,
                 )?;
             }
@@ -231,12 +233,42 @@ impl CodeGenerator {
         _function: &MirFunction,
         module: &MirModule,
         builder: &mut CasmBuilder,
+        block_instructions: &[Instruction],
+        instruction_index: usize,
         terminator: &Terminator,
     ) -> CodegenResult<()> {
         match &instruction.kind {
             InstructionKind::Assign { dest, source } => {
-                // Check if this assignment result will be immediately returned
-                let target_offset = self.get_target_offset_for_dest(*dest, terminator);
+                let mut target_offset = None;
+
+                // Direct Argument Placement Optimization
+                if let Some(next_instruction) = block_instructions.get(instruction_index + 1) {
+                    if let InstructionKind::Call {
+                        args, signature, ..
+                    } = &next_instruction.kind
+                    {
+                        if let Some(arg_index) = args
+                            .iter()
+                            .position(|arg| matches!(arg, Value::Operand(id) if *id == *dest))
+                        {
+                            let l = builder.current_frame_usage();
+                            let mut arg_offset = l;
+                            for (i, param_type) in signature.param_types.iter().enumerate() {
+                                if i == arg_index {
+                                    break;
+                                }
+                                arg_offset += param_type.size_units() as i32;
+                            }
+                            target_offset = Some(arg_offset);
+                        }
+                    }
+                }
+
+                // Fallback to return-value optimization
+                if target_offset.is_none() {
+                    target_offset = self.get_target_offset_for_dest(*dest, terminator);
+                }
+
                 builder.assign_with_target(*dest, *source, target_offset)?;
             }
 
@@ -246,15 +278,41 @@ impl CodeGenerator {
                 source,
                 in_place_target,
             } => {
-                let target_offset = if let Some(target_addr_id) = in_place_target {
-                    builder
-                        .layout_mut()
-                        .unwrap()
-                        .get_offset(*target_addr_id)
-                        .ok()
+                let mut target_offset = if let Some(target_addr_id) = in_place_target {
+                    builder.layout_mut().get_offset(*target_addr_id).ok()
                 } else {
-                    self.get_target_offset_for_dest(*dest, terminator)
+                    None
                 };
+
+                // Direct Argument Placement Optimization
+                if target_offset.is_none() {
+                    if let Some(next_instruction) = block_instructions.get(instruction_index + 1) {
+                        if let InstructionKind::Call {
+                            args, signature, ..
+                        } = &next_instruction.kind
+                        {
+                            if let Some(arg_index) = args
+                                .iter()
+                                .position(|arg| matches!(arg, Value::Operand(id) if *id == *dest))
+                            {
+                                let l = builder.current_frame_usage();
+                                let mut arg_offset = l;
+                                for (i, param_type) in signature.param_types.iter().enumerate() {
+                                    if i == arg_index {
+                                        break;
+                                    }
+                                    arg_offset += param_type.size_units() as i32;
+                                }
+                                target_offset = Some(arg_offset);
+                            }
+                        }
+                    }
+                }
+
+                // Fallback to return-value optimization
+                if target_offset.is_none() {
+                    target_offset = self.get_target_offset_for_dest(*dest, terminator);
+                }
 
                 builder.unary_op_with_target(*op, *dest, *source, target_offset)?;
             }
@@ -267,17 +325,45 @@ impl CodeGenerator {
                 in_place_target,
             } => {
                 // Check if this op can be performed in-place
-                let target_offset = if let Some(target_addr_id) = in_place_target {
+                let mut target_offset = if let Some(target_addr_id) = in_place_target {
                     // The optimization applies. Get the offset for the target address.
-                    builder
-                        .layout_mut()
-                        .unwrap()
-                        .get_offset(*target_addr_id)
-                        .ok()
+                    builder.layout_mut().get_offset(*target_addr_id).ok()
                 } else {
-                    // Check for the existing return-value optimization
-                    self.get_target_offset_for_dest(*dest, terminator)
+                    None
                 };
+
+                // NEW: Direct Argument Placement Optimization
+                if target_offset.is_none() {
+                    // Look ahead to see if `dest` is used as a call argument
+                    if let Some(next_instruction) = block_instructions.get(instruction_index + 1) {
+                        if let InstructionKind::Call {
+                            args, signature, ..
+                        } = &next_instruction.kind
+                        {
+                            // Check if dest is used as an argument
+                            if let Some(arg_index) = args
+                                .iter()
+                                .position(|arg| matches!(arg, Value::Operand(id) if *id == *dest))
+                            {
+                                // Calculate where this argument needs to be placed
+                                let l = builder.current_frame_usage();
+                                let mut arg_offset = l;
+                                for (i, param_type) in signature.param_types.iter().enumerate() {
+                                    if i == arg_index {
+                                        break;
+                                    }
+                                    arg_offset += param_type.size_units() as i32;
+                                }
+                                target_offset = Some(arg_offset);
+                            }
+                        }
+                    }
+                }
+
+                // Fallback to return-value optimization if no other target was found
+                if target_offset.is_none() {
+                    target_offset = self.get_target_offset_for_dest(*dest, terminator);
+                }
 
                 builder.binary_op_with_target(*op, *dest, *left, *right, target_offset)?;
             }
@@ -286,6 +372,7 @@ impl CodeGenerator {
                 dests,
                 callee,
                 args,
+                signature,
             } => {
                 // Look up the callee's actual function name from the module
                 let callee_function = module.functions.get(*callee).ok_or_else(|| {
@@ -293,27 +380,29 @@ impl CodeGenerator {
                 })?;
 
                 let callee_name = &callee_function.name;
-                let num_returns = callee_function.return_values.len();
+                let _num_returns = callee_function.return_values.len();
 
                 if dests.len() == 1 {
                     // Single return value
-                    builder.call(dests[0], callee_name, args, num_returns)?;
+                    builder.call(dests[0], callee_name, args, signature)?;
                 } else {
                     // Multiple return values
-                    builder.call_multiple(dests, callee_name, args)?;
+                    builder.call_multiple(dests, callee_name, args, signature)?;
                 }
             }
 
-            InstructionKind::VoidCall { callee, args } => {
+            InstructionKind::VoidCall {
+                callee,
+                args,
+                signature,
+            } => {
                 // Look up the callee's actual function name from the module
                 let callee_function = module.functions.get(*callee).ok_or_else(|| {
                     CodegenError::MissingTarget(format!("No function found for callee {callee:?}"))
                 })?;
                 let callee_name = &callee_function.name;
 
-                // Void calls have 0 return values
-                let num_returns = 0;
-                builder.void_call(callee_name, args, num_returns)?;
+                builder.void_call(callee_name, args, signature)?;
             }
 
             InstructionKind::Load { dest, address } => {
@@ -321,6 +410,57 @@ impl CodeGenerator {
             }
 
             InstructionKind::Store { address, value } => {
+                // Check if this store's destination is used as a call argument
+                if let Value::Operand(addr_id) = address {
+                    if let Some(next_instruction) = block_instructions.get(instruction_index + 1) {
+                        if let InstructionKind::Call {
+                            args, signature, ..
+                        } = &next_instruction.kind
+                        {
+                            // Check if the stored-to address is used as an argument
+                            if let Some(arg_index) = args.iter().position(
+                                |arg| matches!(arg, Value::Operand(id) if *id == *addr_id),
+                            ) {
+                                // Direct Argument Placement: store directly to argument position
+                                let l = builder.current_frame_usage();
+                                let mut arg_offset = l;
+                                for (i, param_type) in signature.param_types.iter().enumerate() {
+                                    if i == arg_index {
+                                        break;
+                                    }
+                                    arg_offset += param_type.size_units() as i32;
+                                }
+
+                                // Store the value directly at the argument offset
+                                match value {
+                                    Value::Literal(Literal::Integer(imm)) => {
+                                        builder.store_immediate_at(
+                                            *imm,
+                                            arg_offset,
+                                            format!(
+                                                "Direct arg placement: [fp + {}] = {}",
+                                                arg_offset, imm
+                                            ),
+                                        )?;
+                                        // Map the address ValueId to this offset
+                                        builder.layout_mut().map_value(*addr_id, arg_offset);
+                                    }
+                                    Value::Operand(_src_id) => {
+                                        // For operand sources, use regular store but at arg offset
+                                        builder.store_at(*addr_id, arg_offset, *value)?;
+                                    }
+                                    _ => {
+                                        // Fallback to regular store
+                                        builder.store(*address, *value)?;
+                                    }
+                                }
+                                return Ok(());
+                            }
+                        }
+                    }
+                }
+
+                // Normal store
                 builder.store(*address, *value)?;
             }
 
@@ -432,10 +572,7 @@ impl CodeGenerator {
                 // without materializing a boolean value into a named MIR variable.
 
                 // Reserve a temporary slot on the stack for the comparison result.
-                let layout = builder
-                    .layout_mut()
-                    .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
-                let temp_slot_offset = layout.reserve_stack(1);
+                let temp_slot_offset = builder.layout_mut().reserve_stack(1);
 
                 let then_label = format!("{function_name}_{then_target:?}");
                 let else_label = format!("{function_name}_{else_target:?}");
@@ -664,20 +801,20 @@ impl Default for CodeGenerator {
 
 #[cfg(test)]
 mod tests {
-    use cairo_m_compiler_mir::{BasicBlock, MirFunction, MirModule, Terminator, Value, ValueId};
+    use cairo_m_compiler_mir::{BasicBlock, MirFunction, MirModule, MirType, Terminator, Value};
     use stwo_prover::core::fields::m31::M31;
 
     use super::*;
 
     fn create_simple_function() -> MirFunction {
         let mut function = MirFunction::new("main".to_string());
-        let value_id = function.new_value_id();
+        let value_id = function.new_typed_value_id(MirType::Felt);
         function.parameters.push(value_id);
         function.return_values.push(value_id);
 
         // Create a simple basic block that returns the parameter
         let mut block = BasicBlock::new();
-        block.terminator = Terminator::return_value(Value::Operand(ValueId::from_raw(0)));
+        block.terminator = Terminator::return_value(Value::Operand(value_id));
 
         function.basic_blocks.push(block);
         function
@@ -709,7 +846,7 @@ mod tests {
         let mut block = BasicBlock::new();
 
         // Store immediate 42 to local variable
-        let dest = function.new_value_id();
+        let dest = function.new_typed_value_id(MirType::Felt);
         block
             .instructions
             .push(Instruction::assign(dest, Value::integer(42)));

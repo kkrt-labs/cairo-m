@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use cairo_m_compiler_parser::parser::UnaryOp;
 use chumsky::span::SimpleSpan;
 
-use crate::{PrettyPrint, Value, ValueId};
+use crate::{MirType, PrettyPrint, Value, ValueId};
 
 /// Binary operators supported in MIR
 ///
@@ -91,6 +91,17 @@ pub struct MirExpressionId {
     pub file_id: u64,
 }
 
+/// Represents the signature of a called function
+///
+/// This struct contains the parameter and return types of a function being called,
+/// allowing the code generator to handle argument passing and return value allocation
+/// without needing to look up the callee's information.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CalleeSignature {
+    pub param_types: Vec<MirType>,
+    pub return_types: Vec<MirType>,
+}
+
 /// An instruction performs an operation but does NOT transfer control
 ///
 /// Instructions always fall through to the next instruction in the block.
@@ -156,6 +167,7 @@ pub enum InstructionKind {
         dests: Vec<ValueId>,
         callee: crate::FunctionId,
         args: Vec<Value>,
+        signature: CalleeSignature,
     },
 
     /// Void function call: `call callee(args)`
@@ -163,6 +175,7 @@ pub enum InstructionKind {
     VoidCall {
         callee: crate::FunctionId,
         args: Vec<Value>,
+        signature: CalleeSignature,
     },
 
     /// Load from memory: `dest = load addr`
@@ -291,11 +304,18 @@ impl Instruction {
 
     /// Creates a new call instruction with multiple return values
     pub const fn call(dests: Vec<ValueId>, callee: crate::FunctionId, args: Vec<Value>) -> Self {
+        // Temporary placeholder signature - will be properly populated in Issue 4
+        let signature = CalleeSignature {
+            param_types: vec![],
+            return_types: vec![],
+        };
+
         Self {
             kind: InstructionKind::Call {
                 dests,
                 callee,
                 args,
+                signature,
             },
             source_span: None,
             source_expr_id: None,
@@ -304,9 +324,17 @@ impl Instruction {
     }
 
     /// Creates a new void call instruction
-    pub const fn void_call(callee: crate::FunctionId, args: Vec<Value>) -> Self {
+    pub const fn void_call(
+        callee: crate::FunctionId,
+        args: Vec<Value>,
+        signature: CalleeSignature,
+    ) -> Self {
         Self {
-            kind: InstructionKind::VoidCall { callee, args },
+            kind: InstructionKind::VoidCall {
+                callee,
+                args,
+                signature,
+            },
             source_span: None,
             source_expr_id: None,
             comment: None,
@@ -576,6 +604,7 @@ impl PrettyPrint for Instruction {
                 dests,
                 callee,
                 args,
+                signature: _,
             } => {
                 let args_str = args
                     .iter()
@@ -603,7 +632,7 @@ impl PrettyPrint for Instruction {
                 }
             }
 
-            InstructionKind::VoidCall { callee, args } => {
+            InstructionKind::VoidCall { callee, args, .. } => {
                 let args_str = args
                     .iter()
                     .map(|arg| arg.pretty_print(0))
