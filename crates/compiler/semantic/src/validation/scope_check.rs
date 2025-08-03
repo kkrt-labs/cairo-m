@@ -21,9 +21,9 @@
 
 use std::collections::HashSet;
 
-use cairo_m_compiler_diagnostics::Diagnostic;
+use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSink};
 
-use crate::db::SemanticDb;
+use crate::db::{Crate, SemanticDb};
 use crate::validation::Validator;
 use crate::{File, PlaceFlags, SemanticIndex};
 
@@ -34,20 +34,27 @@ use crate::{File, PlaceFlags, SemanticIndex};
 pub struct ScopeValidator;
 
 impl Validator for ScopeValidator {
-    fn validate(&self, db: &dyn SemanticDb, file: File, index: &SemanticIndex) -> Vec<Diagnostic> {
-        let mut diagnostics = Vec::new();
+    fn validate(
+        &self,
+        db: &dyn SemanticDb,
+        crate_id: Crate,
+        file: File,
+        index: &SemanticIndex,
+        sink: &dyn DiagnosticSink,
+    ) {
+        // Only validate the specific module/file we were asked to validate
+        // Check for undeclared variables globally for this module
+        self.check_undeclared_variables_global(index, file, db, crate_id, sink);
 
-        // Check for undeclared variables once globally (not per scope)
-        diagnostics.extend(self.check_undeclared_variables_global(index, file, db));
+        // Check import validity - ensure imported items actually exist in target modules
+        self.check_import_validity(index, file, db, crate_id, sink);
 
-        // Check each scope for other violations
+        // Check each scope in this module
         for (scope_id, scope) in index.scopes() {
             if let Some(place_table) = index.place_table(scope_id) {
-                diagnostics.extend(self.check_scope(scope_id, scope, place_table, file, db, index));
+                self.check_scope(scope_id, scope, place_table, file, db, index, sink);
             }
         }
-
-        diagnostics
     }
 
     fn name(&self) -> &'static str {
@@ -58,13 +65,15 @@ impl Validator for ScopeValidator {
 impl ScopeValidator {
     /// Check a single scope for violations
     ///
-    /// This analyzes a single scope for scope-specific issues like duplicate
-    /// definitions and unused variables.
+    /// This analyzes a single scope for scope-specific issues like unused variables.
+    ///
+    /// Note: most duplicate definitions are detected during AST traversal.
     ///
     /// TODO: Add more sophisticated scope-level validation:
     /// - Check for variable shadowing within the same scope
     /// - Validate const vs mutable usage patterns
     /// - Check initialization before use within the scope
+    #[allow(clippy::too_many_arguments)]
     fn check_scope(
         &self,
         scope_id: crate::FileScopeId,
@@ -73,87 +82,17 @@ impl ScopeValidator {
         file: File,
         db: &dyn SemanticDb,
         index: &SemanticIndex,
-    ) -> Vec<Diagnostic> {
-        let mut diagnostics = Vec::new();
-
-        // Check for duplicate definitions within this scope
-        diagnostics.extend(self.check_duplicate_definitions(
-            scope_id,
-            place_table,
-            file,
-            db,
-            index,
-        ));
-
+        sink: &dyn DiagnosticSink,
+    ) {
         // Check for unused variables (but not in the global scope for functions/structs)
-        diagnostics.extend(self.check_unused_variables(scope_id, place_table, file, db, index));
-
-        diagnostics
-    }
-
-    /// Check for duplicate definitions within a scope
-    ///
-    /// Variable shadowing is allowed for let bindings, but duplicate
-    /// function names and duplicate parameter names are still errors.
-    fn check_duplicate_definitions(
-        &self,
-        scope_id: crate::FileScopeId,
-        place_table: &crate::PlaceTable,
-        file: File,
-        db: &dyn SemanticDb,
-        index: &SemanticIndex,
-    ) -> Vec<Diagnostic> {
-        let mut diagnostics = Vec::new();
-        let mut seen_functions = HashSet::new();
-        let mut seen_parameters = HashSet::new();
-
-        for (place_id, place) in place_table.places() {
-            if place.flags.contains(PlaceFlags::DEFINED) {
-                // Check for duplicate function names
-                if place.flags.contains(PlaceFlags::FUNCTION) {
-                    if !seen_functions.insert(&place.name) {
-                        let span = if let Some((_, definition)) =
-                            index.definition_for_place(scope_id, place_id)
-                        {
-                            definition.name_span
-                        } else {
-                            panic!("No definition found for function {}", place.name);
-                        };
-                        diagnostics.push(Diagnostic::duplicate_definition(
-                            file.file_path(db).to_string(),
-                            &place.name,
-                            span,
-                        ));
-                    }
-                }
-                // Check for duplicate parameter names
-                else if place.flags.contains(PlaceFlags::PARAMETER)
-                    && !seen_parameters.insert(&place.name)
-                {
-                    let span = if let Some((_, definition)) =
-                        index.definition_for_place(scope_id, place_id)
-                    {
-                        definition.name_span
-                    } else {
-                        panic!("No definition found for parameter {}", place.name);
-                    };
-                    diagnostics.push(Diagnostic::duplicate_definition(
-                        file.file_path(db).to_string(),
-                        &place.name,
-                        span,
-                    ));
-                }
-                // Allow shadowing for regular variables (let/local)
-            }
-        }
-
-        diagnostics
+        self.check_unused_variables(scope_id, place_table, file, db, index, sink);
     }
 
     /// Check for unused variables (warnings for local variables)
     ///
     /// TODO: Improve unused variable detection:
     /// - Different handling for different variable types (params vs locals)
+    /// - Allow-list for common unused patterns (e.g., _unused prefix)
     /// - Consider usage in different contexts (read vs write)
     fn check_unused_variables(
         &self,
@@ -162,27 +101,14 @@ impl ScopeValidator {
         file: File,
         db: &dyn SemanticDb,
         index: &SemanticIndex,
-    ) -> Vec<Diagnostic> {
-        let mut diagnostics = Vec::new();
-
+        sink: &dyn DiagnosticSink,
+    ) {
         for (place_id, place) in place_table.places() {
             // Only check local variables and parameters, not functions or structs
             let is_local_or_param = !place.flags.contains(PlaceFlags::FUNCTION)
                 && !place.flags.contains(PlaceFlags::STRUCT);
 
-            // Check if this is an import (Use) by examining the definition kind
-            let is_import = if let Some((_, definition)) = index.definition_for_place(scope_id, place_id) {
-                matches!(definition.kind, crate::definition::DefinitionKind::Use(_))
-            } else {
-                false
-            };
-
-            // Skip variables that start with underscore (_) as they are intentionally unused,
-            // but don't skip imports even if they start with underscore
-            let is_intentionally_unused = place.name.starts_with('_') && !is_import;
-
-            if is_local_or_param && place.flags.contains(PlaceFlags::DEFINED) 
-                && !place.is_used() && !is_intentionally_unused {
+            if is_local_or_param && place.flags.contains(PlaceFlags::DEFINED) && !place.is_used() {
                 // Get the proper span from the definition
                 let span =
                     if let Some((_, definition)) = index.definition_for_place(scope_id, place_id) {
@@ -190,15 +116,13 @@ impl ScopeValidator {
                     } else {
                         chumsky::span::SimpleSpan::from(0..0)
                     };
-                diagnostics.push(Diagnostic::unused_variable(
+                sink.push(Diagnostic::unused_variable(
                     file.file_path(db).to_string(),
                     &place.name,
                     span,
                 ));
             }
         }
-
-        diagnostics
     }
 
     /// Check for undeclared variables globally by looking at all use-def chains
@@ -212,16 +136,40 @@ impl ScopeValidator {
         index: &SemanticIndex,
         file: File,
         db: &dyn SemanticDb,
-    ) -> Vec<Diagnostic> {
-        let mut diagnostics = Vec::new();
+        crate_id: Crate,
+        sink: &dyn DiagnosticSink,
+    ) {
         let mut seen_undeclared = HashSet::new();
 
         // Check each identifier usage to see if it was resolved to a definition
         for (usage_index, usage) in index.identifier_usages().iter().enumerate() {
             if !index.is_usage_resolved(usage_index) {
-                // Only report each undeclared variable once
-                if seen_undeclared.insert(usage.name.clone()) {
-                    diagnostics.push(Diagnostic::undeclared_variable(
+                // If not resolved locally, try to resolve with imports using the centralized method
+                if index
+                    .resolve_name_with_imports(db, crate_id, file, &usage.name, usage.scope_id)
+                    .is_none()
+                {
+                    // Only report each undeclared variable once
+                    if seen_undeclared.insert(usage.name.clone()) {
+                        sink.push(Diagnostic::undeclared_variable(
+                            file.file_path(db).to_string(),
+                            &usage.name,
+                            usage.span,
+                        ));
+                    }
+                }
+            }
+        }
+
+        // Check each type usage to see if it was resolved to a definition
+        for (usage_index, usage) in index.type_usages().iter().enumerate() {
+            if !index.is_type_usage_resolved(usage_index) {
+                // If not resolved, try to resolve with imports using the centralized method
+                if index
+                    .resolve_name_with_imports(db, crate_id, file, &usage.name, usage.scope_id)
+                    .is_none()
+                {
+                    sink.push(Diagnostic::undeclared_type(
                         file.file_path(db).to_string(),
                         &usage.name,
                         usage.span,
@@ -229,8 +177,91 @@ impl ScopeValidator {
                 }
             }
         }
+    }
 
-        diagnostics
+    /// Check that all imported items actually exist in their target modules
+    ///
+    /// This validates that use statements like `use lib::{a, nonexistent_b}`
+    /// only reference items that actually exist in the target module.
+    fn check_import_validity(
+        &self,
+        index: &SemanticIndex,
+        file: File,
+        db: &dyn SemanticDb,
+        crate_id: Crate,
+        sink: &dyn DiagnosticSink,
+    ) {
+        // Get the project's semantic index to access all modules
+        let project_index = match crate::db::project_semantic_index(db, crate_id) {
+            Ok(project_index) => project_index,
+            Err(_) => return, // If project index fails, skip validation
+        };
+        let modules = project_index.modules();
+
+        // Check all imports in this file
+        for (_scope_id, use_def_ref) in &index.imports {
+            let imported_module_name = &use_def_ref.imported_module;
+            let imported_item = &use_def_ref.item;
+
+            // Check if the target module exists
+            if let Some(imported_module_index) = modules.get(imported_module_name.value()) {
+                // Check if the imported item exists in the target module
+                if let Some(imported_root) = imported_module_index.root_scope() {
+                    if imported_module_index
+                        .resolve_name_to_definition(imported_item.value(), imported_root)
+                        .is_none()
+                    {
+                        // The imported item doesn't exist in the target module
+                        // We need to find the span for this specific import item to create a proper diagnostic
+
+                        // Find the definition that corresponds to this import
+                        for (_def_idx, def) in index.all_definitions() {
+                            if let crate::definition::DefinitionKind::Use(use_def) = &def.kind {
+                                if use_def.imported_module == *imported_module_name
+                                    && use_def.item == *imported_item
+                                {
+                                    sink.push(
+                                        Diagnostic::error(
+                                            DiagnosticCode::UnresolvedImport,
+                                            format!(
+                                                "unresolved import `{}` from module `{}`",
+                                                imported_item.value(),
+                                                imported_module_name.value()
+                                            ),
+                                        )
+                                        .with_location(
+                                            file.file_path(db).to_string(),
+                                            imported_item.span(),
+                                        ),
+                                    );
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                // The target module doesn't exist - report error
+                // Find the definition that corresponds to this import to get the span
+                for (_def_idx, def) in index.all_definitions() {
+                    if let crate::definition::DefinitionKind::Use(use_def) = &def.kind {
+                        if use_def.imported_module == *imported_module_name {
+                            sink.push(
+                                Diagnostic::error(
+                                    DiagnosticCode::UnresolvedModule,
+                                    format!("unresolved module `{}`", imported_module_name.value()),
+                                )
+                                .with_location(
+                                    file.file_path(db).to_string(),
+                                    imported_module_name.span(),
+                                ),
+                            );
+                            break;
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /// Helper method to resolve a name in the scope chain
