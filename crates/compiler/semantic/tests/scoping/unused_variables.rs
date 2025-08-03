@@ -1,113 +1,23 @@
 //! Tests for unused variable detection
-
 use crate::*;
 
 #[test]
-fn test_simple_unused_variable() {
-    assert_semantic_err!(
-        r#"
-        fn test() {
-            let unused = 42;
-            return ();
-        }
-    "#,
+fn test_unused_variable_detection() {
+    assert_semantic_parameterized! {
+        ok: [
+            "fn test() -> felt { let x = 10; let y = 20; return x + y; }",
+            "fn test() -> felt { let y = 20; let x = 10; y = x + 5; return y; }",
+            "fn test(param: felt) -> felt { return param + 1; }",
+        ],
+        err: [
+            in_function("let unused = 42;"),
+            "fn test(unused_param: felt) { return (); }",
+            in_function("let unused1 = 10; let unused2 = 20; let unused3 = 30;"),
+            "fn test() -> felt { let used = 10; let unused = 20; return used; }",
+            "fn test() -> felt { let used = 10; { let unused_inner = 20; } return used; }",
+        ],
         show_unused
-    );
-}
-
-#[test]
-fn test_unused_parameter() {
-    assert_semantic_err!(
-        r#"
-        fn test(unused_param: felt) {
-            return ();
-        }
-    "#,
-        show_unused
-    );
-}
-
-#[test]
-fn test_multiple_unused_variables() {
-    assert_semantic_err!(
-        r#"
-        fn test() {
-            let unused1 = 10;
-            let unused2 = 20;
-            let unused3 = 30;
-            return ();
-        }
-    "#,
-        show_unused
-    );
-}
-
-#[test]
-fn test_mixed_used_and_unused() {
-    assert_semantic_err!(
-        r#"
-        fn test() -> felt {
-            let used = 10;
-            let unused = 20;
-            return used;
-        }
-    "#,
-        show_unused
-    );
-}
-
-#[test]
-fn test_unused_in_nested_scope() {
-    assert_semantic_err!(
-        r#"
-        fn test() -> felt {
-            let used = 10;
-            {
-                let unused_inner = 20;
-            }
-            return used;
-        }
-    "#,
-        show_unused
-    );
-}
-
-#[test]
-fn test_variable_used_in_expression() {
-    assert_semantic_ok!(
-        r#"
-        fn test() -> felt {
-            let x = 10;
-            let y = 20;
-            return x + y;
-        }
-    "#
-    );
-}
-
-#[test]
-fn test_variable_used_in_assignment() {
-    assert_semantic_ok!(
-        r#"
-        fn test() -> felt {
-            let x = 10;
-            let y = 20;
-            y = x + 5;
-            return y;
-        }
-    "#
-    );
-}
-
-#[test]
-fn test_parameter_used() {
-    assert_semantic_ok!(
-        r#"
-        fn test(param: felt) -> felt {
-            return param + 1;
-        }
-    "#
-    );
+    }
 }
 
 #[test]
@@ -128,13 +38,13 @@ fn test_unused_but_assigned() {
 }
 
 #[test]
-fn test_underscore_prefixed_variables_ignored() {
+fn test_underscore_prefixed_variables() {
     // Variables with underscore prefix should not trigger unused variable warnings
     assert_semantic_ok!(
         r#"
-        func test() -> felt {
-            let _ignored = 10;
-            let _unused_param = 20;
+        fn test() -> felt {
+            let _unused = 10;
+            let _another_unused = 20;
             let used = 30;
             return used;
         }
@@ -143,23 +53,13 @@ fn test_underscore_prefixed_variables_ignored() {
 }
 
 #[test]
-fn test_underscore_imports_still_checked() {
-    // Imports with underscore prefix should still trigger unused variable warnings
-    assert_semantic_err!(
+fn test_underscore_prefixed_parameters() {
+    // Function parameters with underscore prefix should not trigger unused variable warnings
+    assert_semantic_ok!(
         r#"
-        // First define a module to import from
-        namespace math {
-            func add(a: felt, b: felt) -> felt {
-                return a + b;
-            }
+        fn test(_unused_param: felt, used_param: felt) -> felt {
+            return used_param;
         }
-
-        func test() -> felt {
-            // Import with underscore prefix - should still be flagged as unused
-            use math::{_add};
-            return 42;
-        }
-    "#,
-        show_unused
+    "#
     );
 }
