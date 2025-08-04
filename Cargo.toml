@@ -12,6 +12,7 @@ members = [
   "crates/runner",
   "crates/prover",
   "crates/cairo-m-ls",
+  "crates/wasm",
 ]
 resolver = "2"
 
