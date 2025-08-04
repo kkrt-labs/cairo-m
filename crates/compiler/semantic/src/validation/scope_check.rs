@@ -115,7 +115,11 @@ impl ScopeValidator {
             // Ignore variables that start with underscore
             let is_prefixed_with_underscore = place.name.starts_with('_');
 
-            if is_local_or_param && place.flags.contains(PlaceFlags::DEFINED) && !place.is_used() && !is_prefixed_with_underscore {
+            if is_local_or_param
+                && place.flags.contains(PlaceFlags::DEFINED)
+                && !place.is_used()
+                && !is_prefixed_with_underscore
+            {
                 // Get the proper span from the definition
                 let span =
                     if let Some((_, definition)) = index.definition_for_place(scope_id, place_id) {
