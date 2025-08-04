@@ -383,3 +383,358 @@ fn test_u32_store_add_fp_imm_max_valid_values() -> Result<(), InstructionExecuti
 
     Ok(())
 }
+
+// ==================== U32 FP-FP Operations Tests ====================
+
+#[test]
+fn test_u32_store_add_fp_fp() -> Result<(), InstructionExecutionError> {
+    let mut memory = Memory::default();
+    let initial_fp = M31(10);
+
+    // Set up first 32-bit value: 0x12345678
+    memory.insert(initial_fp, M31(0x5678).into())?;
+    memory.insert(initial_fp + M31(1), M31(0x1234).into())?;
+
+    // Set up second 32-bit value: 0x9876ABCD
+    memory.insert(initial_fp + M31(2), M31(0xABCD).into())?;
+    memory.insert(initial_fp + M31(3), M31(0x9876).into())?;
+
+    let state = State {
+        pc: M31(0),
+        fp: initial_fp,
+    };
+    let instruction = Instruction::U32StoreAddFpFp {
+        src0_off: M31(0),
+        src1_off: M31(2),
+        dst_off: M31(4),
+    };
+
+    let new_state = u32_store_add_fp_fp(&mut memory, state, &instruction)?;
+
+    // Expected: 0x12345678 + 0x9876ABCD = 0xAAAB0245
+    assert_eq!(memory.get_data(initial_fp + M31(4))?, M31(0x0245));
+    assert_eq!(memory.get_data(initial_fp + M31(5))?, M31(0xAAAB));
+    assert_eq!(new_state.pc, M31(1));
+
+    Ok(())
+}
+
+#[test]
+fn test_u32_store_sub_fp_fp() -> Result<(), InstructionExecutionError> {
+    let mut memory = Memory::default();
+    let initial_fp = M31(10);
+
+    // Set up first 32-bit value: 0x9876ABCD
+    memory.insert(initial_fp, M31(0xABCD).into())?;
+    memory.insert(initial_fp + M31(1), M31(0x9876).into())?;
+
+    // Set up second 32-bit value: 0x12345678
+    memory.insert(initial_fp + M31(2), M31(0x5678).into())?;
+    memory.insert(initial_fp + M31(3), M31(0x1234).into())?;
+
+    let state = State {
+        pc: M31(0),
+        fp: initial_fp,
+    };
+    let instruction = Instruction::U32StoreSubFpFp {
+        src0_off: M31(0),
+        src1_off: M31(2),
+        dst_off: M31(4),
+    };
+
+    let new_state = u32_store_sub_fp_fp(&mut memory, state, &instruction)?;
+
+    // Expected: 0x9876ABCD - 0x12345678 = 0x86425555
+    assert_eq!(memory.get_data(initial_fp + M31(4))?, M31(0x5555));
+    assert_eq!(memory.get_data(initial_fp + M31(5))?, M31(0x8642));
+    assert_eq!(new_state.pc, M31(1));
+
+    Ok(())
+}
+
+#[test]
+fn test_u32_store_sub_fp_fp_underflow() -> Result<(), InstructionExecutionError> {
+    let mut memory = Memory::default();
+    let initial_fp = M31(10);
+
+    // Set up first 32-bit value: 0x00000001
+    memory.insert(initial_fp, M31(0x0001).into())?;
+    memory.insert(initial_fp + M31(1), M31(0x0000).into())?;
+
+    // Set up second 32-bit value: 0x00000002
+    memory.insert(initial_fp + M31(2), M31(0x0002).into())?;
+    memory.insert(initial_fp + M31(3), M31(0x0000).into())?;
+
+    let state = State {
+        pc: M31(0),
+        fp: initial_fp,
+    };
+    let instruction = Instruction::U32StoreSubFpFp {
+        src0_off: M31(0),
+        src1_off: M31(2),
+        dst_off: M31(4),
+    };
+
+    let new_state = u32_store_sub_fp_fp(&mut memory, state, &instruction)?;
+
+    // Expected: 0x00000001 - 0x00000002 = 0xFFFFFFFF (wrapping)
+    assert_eq!(memory.get_data(initial_fp + M31(4))?, M31(0xFFFF));
+    assert_eq!(memory.get_data(initial_fp + M31(5))?, M31(0xFFFF));
+    assert_eq!(new_state.pc, M31(1));
+
+    Ok(())
+}
+
+#[test]
+fn test_u32_store_mul_fp_fp() -> Result<(), InstructionExecutionError> {
+    let mut memory = Memory::default();
+    let initial_fp = M31(10);
+
+    // Set up first 32-bit value: 0x00001234
+    memory.insert(initial_fp, M31(0x1234).into())?;
+    memory.insert(initial_fp + M31(1), M31(0x0000).into())?;
+
+    // Set up second 32-bit value: 0x00005678
+    memory.insert(initial_fp + M31(2), M31(0x5678).into())?;
+    memory.insert(initial_fp + M31(3), M31(0x0000).into())?;
+
+    let state = State {
+        pc: M31(0),
+        fp: initial_fp,
+    };
+    let instruction = Instruction::U32StoreMulFpFp {
+        src0_off: M31(0),
+        src1_off: M31(2),
+        dst_off: M31(4),
+    };
+
+    let new_state = u32_store_mul_fp_fp(&mut memory, state, &instruction)?;
+
+    // Expected: 0x00001234 * 0x00005678 = 0x06260060
+    assert_eq!(memory.get_data(initial_fp + M31(4))?, M31(0x0060));
+    assert_eq!(memory.get_data(initial_fp + M31(5))?, M31(0x0626));
+    assert_eq!(new_state.pc, M31(1));
+
+    Ok(())
+}
+
+#[test]
+fn test_u32_store_mul_fp_fp_overflow() -> Result<(), InstructionExecutionError> {
+    let mut memory = Memory::default();
+    let initial_fp = M31(10);
+
+    // Set up first 32-bit value: 0xFFFFFFFF
+    memory.insert(initial_fp, M31(0xFFFF).into())?;
+    memory.insert(initial_fp + M31(1), M31(0xFFFF).into())?;
+
+    // Set up second 32-bit value: 0x00000002
+    memory.insert(initial_fp + M31(2), M31(0x0002).into())?;
+    memory.insert(initial_fp + M31(3), M31(0x0000).into())?;
+
+    let state = State {
+        pc: M31(0),
+        fp: initial_fp,
+    };
+    let instruction = Instruction::U32StoreMulFpFp {
+        src0_off: M31(0),
+        src1_off: M31(2),
+        dst_off: M31(4),
+    };
+
+    let new_state = u32_store_mul_fp_fp(&mut memory, state, &instruction)?;
+
+    // Expected: 0xFFFFFFFF * 0x00000002 = 0xFFFFFFFE (with wrapping)
+    assert_eq!(memory.get_data(initial_fp + M31(4))?, M31(0xFFFE));
+    assert_eq!(memory.get_data(initial_fp + M31(5))?, M31(0xFFFF));
+    assert_eq!(new_state.pc, M31(1));
+
+    Ok(())
+}
+
+#[test]
+fn test_u32_store_div_fp_fp() -> Result<(), InstructionExecutionError> {
+    let mut memory = Memory::default();
+    let initial_fp = M31(10);
+
+    // Set up first 32-bit value: 0x00006260
+    memory.insert(initial_fp, M31(0x6260).into())?;
+    memory.insert(initial_fp + M31(1), M31(0x0000).into())?;
+
+    // Set up second 32-bit value: 0x00000004
+    memory.insert(initial_fp + M31(2), M31(0x0004).into())?;
+    memory.insert(initial_fp + M31(3), M31(0x0000).into())?;
+
+    let state = State {
+        pc: M31(0),
+        fp: initial_fp,
+    };
+    let instruction = Instruction::U32StoreDivFpFp {
+        src0_off: M31(0),
+        src1_off: M31(2),
+        dst_off: M31(4),
+    };
+
+    let new_state = u32_store_div_fp_fp(&mut memory, state, &instruction)?;
+
+    // Expected: 0x00006260 / 0x00000004 = 0x00001898
+    assert_eq!(memory.get_data(initial_fp + M31(4))?, M31(0x1898));
+    assert_eq!(memory.get_data(initial_fp + M31(5))?, M31(0x0000));
+    assert_eq!(new_state.pc, M31(1));
+
+    Ok(())
+}
+
+#[test]
+fn test_u32_store_div_fp_fp_by_zero() -> Result<(), InstructionExecutionError> {
+    let mut memory = Memory::default();
+    let initial_fp = M31(10);
+
+    // Set up first 32-bit value: 0x12345678
+    memory.insert(initial_fp, M31(0x5678).into())?;
+    memory.insert(initial_fp + M31(1), M31(0x1234).into())?;
+
+    // Set up second 32-bit value: 0x00000000
+    memory.insert(initial_fp + M31(2), M31(0x0000).into())?;
+    memory.insert(initial_fp + M31(3), M31(0x0000).into())?;
+
+    let state = State {
+        pc: M31(0),
+        fp: initial_fp,
+    };
+    let instruction = Instruction::U32StoreDivFpFp {
+        src0_off: M31(0),
+        src1_off: M31(2),
+        dst_off: M31(4),
+    };
+
+    let new_state = u32_store_div_fp_fp(&mut memory, state, &instruction)?;
+
+    // Expected: division by zero returns 0xFFFFFFFF
+    assert_eq!(memory.get_data(initial_fp + M31(4))?, M31(0xFFFF));
+    assert_eq!(memory.get_data(initial_fp + M31(5))?, M31(0xFFFF));
+    assert_eq!(new_state.pc, M31(1));
+
+    Ok(())
+}
+
+// ==================== U32 FP-IMM Operations Tests ====================
+
+#[test]
+fn test_u32_store_sub_fp_imm() -> Result<(), InstructionExecutionError> {
+    let mut memory = Memory::default();
+    let initial_fp = M31(10);
+
+    // Set up 32-bit value: 0x9876ABCD
+    memory.insert(initial_fp, M31(0xABCD).into())?;
+    memory.insert(initial_fp + M31(1), M31(0x9876).into())?;
+
+    let state = State {
+        pc: M31(0),
+        fp: initial_fp,
+    };
+    let instruction = Instruction::U32StoreSubFpImm {
+        src_off: M31(0),
+        imm_hi: M31(0x1234),
+        imm_lo: M31(0x5678),
+        dst_off: M31(2),
+    };
+
+    let new_state = u32_store_sub_fp_imm(&mut memory, state, &instruction)?;
+
+    // Expected: 0x9876ABCD - 0x12345678 = 0x86425555
+    assert_eq!(memory.get_data(initial_fp + M31(2))?, M31(0x5555));
+    assert_eq!(memory.get_data(initial_fp + M31(3))?, M31(0x8642));
+    assert_eq!(new_state.pc, M31(2));
+
+    Ok(())
+}
+
+#[test]
+fn test_u32_store_mul_fp_imm() -> Result<(), InstructionExecutionError> {
+    let mut memory = Memory::default();
+    let initial_fp = M31(10);
+
+    // Set up 32-bit value: 0x00001234
+    memory.insert(initial_fp, M31(0x1234).into())?;
+    memory.insert(initial_fp + M31(1), M31(0x0000).into())?;
+
+    let state = State {
+        pc: M31(0),
+        fp: initial_fp,
+    };
+    let instruction = Instruction::U32StoreMulFpImm {
+        src_off: M31(0),
+        imm_hi: M31(0x0000),
+        imm_lo: M31(0x5678),
+        dst_off: M31(2),
+    };
+
+    let new_state = u32_store_mul_fp_imm(&mut memory, state, &instruction)?;
+
+    // Expected: 0x00001234 * 0x00005678 = 0x06260060
+    assert_eq!(memory.get_data(initial_fp + M31(2))?, M31(0x0060));
+    assert_eq!(memory.get_data(initial_fp + M31(3))?, M31(0x0626));
+    assert_eq!(new_state.pc, M31(2));
+
+    Ok(())
+}
+
+#[test]
+fn test_u32_store_div_fp_imm() -> Result<(), InstructionExecutionError> {
+    let mut memory = Memory::default();
+    let initial_fp = M31(10);
+
+    // Set up 32-bit value: 0x00006260
+    memory.insert(initial_fp, M31(0x6260).into())?;
+    memory.insert(initial_fp + M31(1), M31(0x0000).into())?;
+
+    let state = State {
+        pc: M31(0),
+        fp: initial_fp,
+    };
+    let instruction = Instruction::U32StoreDivFpImm {
+        src_off: M31(0),
+        imm_hi: M31(0x0000),
+        imm_lo: M31(0x0004),
+        dst_off: M31(2),
+    };
+
+    let new_state = u32_store_div_fp_imm(&mut memory, state, &instruction)?;
+
+    // Expected: 0x00006260 / 0x00000004 = 0x00001898
+    assert_eq!(memory.get_data(initial_fp + M31(2))?, M31(0x1898));
+    assert_eq!(memory.get_data(initial_fp + M31(3))?, M31(0x0000));
+    assert_eq!(new_state.pc, M31(2));
+
+    Ok(())
+}
+
+#[test]
+fn test_u32_store_div_fp_imm_by_zero() -> Result<(), InstructionExecutionError> {
+    let mut memory = Memory::default();
+    let initial_fp = M31(10);
+
+    // Set up 32-bit value: 0x12345678
+    memory.insert(initial_fp, M31(0x5678).into())?;
+    memory.insert(initial_fp + M31(1), M31(0x1234).into())?;
+
+    let state = State {
+        pc: M31(0),
+        fp: initial_fp,
+    };
+    let instruction = Instruction::U32StoreDivFpImm {
+        src_off: M31(0),
+        imm_hi: M31(0x0000),
+        imm_lo: M31(0x0000),
+        dst_off: M31(2),
+    };
+
+    let new_state = u32_store_div_fp_imm(&mut memory, state, &instruction)?;
+
+    // Expected: division by zero returns 0xFFFFFFFF
+    assert_eq!(memory.get_data(initial_fp + M31(2))?, M31(0xFFFF));
+    assert_eq!(memory.get_data(initial_fp + M31(3))?, M31(0xFFFF));
+    assert_eq!(new_state.pc, M31(2));
+
+    Ok(())
+}
