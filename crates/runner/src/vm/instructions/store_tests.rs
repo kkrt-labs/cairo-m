@@ -67,7 +67,7 @@ fn run_u32_fp_imm_test(
 ) -> Result<(), InstructionExecutionError> {
     let mut memory = Memory::default();
     let initial_fp = M31(10);
-    memory.write_u32(initial_fp, src_value).unwrap();
+    memory.insert_u32(initial_fp, src_value).unwrap();
     let state = State {
         pc: M31(0),
         fp: initial_fp,
@@ -75,7 +75,7 @@ fn run_u32_fp_imm_test(
 
     let new_state = exec_fn(&mut memory, state, &instruction)?;
     assert_eq!(
-        memory.read_u32(initial_fp + M31(dst_off)).unwrap(),
+        memory.get_u32(initial_fp + M31(dst_off)).unwrap(),
         expected_res
     );
     assert_eq!(new_state.pc, M31(expected_pc));
@@ -95,8 +95,8 @@ fn run_u32_fp_fp_test(
 ) -> Result<(), InstructionExecutionError> {
     let mut memory = Memory::default();
     let initial_fp = M31(10);
-    memory.write_u32(initial_fp, src0).unwrap(); // fp+0 / fp+1
-    memory.write_u32(initial_fp + M31(2), src1).unwrap(); // fp+2 / fp+3
+    memory.insert_u32(initial_fp, src0).unwrap(); // fp+0 / fp+1
+    memory.insert_u32(initial_fp + M31(2), src1).unwrap(); // fp+2 / fp+3
     let state = State {
         pc: M31(0),
         fp: initial_fp,
@@ -104,7 +104,7 @@ fn run_u32_fp_fp_test(
 
     let new_state = exec_fn(&mut memory, state, &instruction)?;
     assert_eq!(
-        memory.read_u32(initial_fp + M31(dst_off)).unwrap(),
+        memory.get_u32(initial_fp + M31(dst_off)).unwrap(),
         expected_res
     );
     assert_eq!(new_state.pc, M31(expected_pc));
@@ -372,7 +372,7 @@ fn test_store_div_fp_imm_by_zero() {
 
 proptest! {
     #[test]
-    fn test_u32_store_add_fp_imm(src_value: u32, imm_val_hi in 0..=0xFFFFu32, imm_val_lo in 0..=0xFFFFu32) {
+    fn test_u32_store_add_fp_imm(src_value: u32, imm_val_hi in 0..=u16::MAX as u32, imm_val_lo in 0..=u16::MAX as u32) {
         let imm_val = (imm_val_hi << 16) | imm_val_lo;
         let expected_res = src_value.wrapping_add(imm_val);
         run_u32_fp_imm_test(
@@ -391,7 +391,7 @@ proptest! {
     }
 
     #[test]
-    fn test_u32_store_sub_fp_imm(src_value: u32, imm_val_hi in 0..=0xFFFFu32, imm_val_lo in 0..=0xFFFFu32) {
+    fn test_u32_store_sub_fp_imm(src_value: u32, imm_val_hi in 0..=u16::MAX as u32, imm_val_lo in 0..=u16::MAX as u32) {
         let imm_val = (imm_val_hi << 16) | imm_val_lo;
         let expected_res = src_value.wrapping_sub(imm_val);
         run_u32_fp_imm_test(
@@ -410,7 +410,7 @@ proptest! {
     }
 
     #[test]
-    fn test_u32_store_mul_fp_imm(src_value: u32, imm_val_hi in 0..=0xFFFFu32, imm_val_lo in 0..=0xFFFFu32) {
+    fn test_u32_store_mul_fp_imm(src_value: u32, imm_val_hi in 0..=u16::MAX as u32, imm_val_lo in 0..=u16::MAX as u32) {
         let imm_val = (imm_val_hi << 16) | imm_val_lo;
         let expected_res = src_value.wrapping_mul(imm_val);
         run_u32_fp_imm_test(
@@ -429,7 +429,7 @@ proptest! {
     }
 
     #[test]
-    fn test_u32_store_div_fp_imm(src_value: u32, imm_val_hi in 0..=0xFFFFu32, imm_val_lo in 0..=0xFFFFu32) {
+    fn test_u32_store_div_fp_imm(src_value: u32, imm_val_hi in 0..=u16::MAX as u32, imm_val_lo in 0..=u16::MAX as u32) {
         let imm_val = (imm_val_hi << 16) | imm_val_lo;
         prop_assume!(imm_val != 0, "attempt to divide by zero");
         let expected_res = src_value / imm_val;
@@ -453,7 +453,7 @@ proptest! {
 fn test_u32_store_add_fp_imm_invalid_immediate_limbs() {
     // build memory with valid 0 value so the only failure comes from immediates
     let mut memory = Memory::default();
-    memory.write_u32(M31::zero(), 0).unwrap();
+    memory.insert_u32(M31::zero(), 0).unwrap();
 
     let state = State::default();
     let instruction = Instruction::U32StoreAddFpImm {

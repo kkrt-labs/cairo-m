@@ -23,11 +23,11 @@ fn exec_u32_bin_op_fp_fp<F>(
 where
     F: Fn(u32, u32) -> u32,
 {
-    let lhs = memory.read_u32(state.fp + src0_off)?;
-    let rhs = memory.read_u32(state.fp + src1_off)?;
+    let lhs = memory.get_u32(state.fp + src0_off)?;
+    let rhs = memory.get_u32(state.fp + src1_off)?;
 
     let res = op(lhs, rhs);
-    memory.write_u32(state.fp + dst_off, res)?;
+    memory.insert_u32(state.fp + dst_off, res)?;
     Ok(state.advance_by(instruction.size_in_qm31s()))
 }
 
@@ -56,10 +56,10 @@ where
     }
 
     let imm_value: u32 = (imm_hi.0 << U32_LIMB_BITS) | imm_lo.0;
-    let src_value = memory.read_u32(state.fp + src_off)?;
+    let src_value = memory.get_u32(state.fp + src_off)?;
 
     let res = op(src_value, imm_value);
-    memory.write_u32(state.fp + dst_off, res)?;
+    memory.insert_u32(state.fp + dst_off, res)?;
     Ok(state.advance_by(instruction.size_in_qm31s()))
 }
 
