@@ -56,32 +56,6 @@ fn run_simple_store_test(
     )
 }
 
-// ---------------------------------------------------------------------------
-// U32-specific helpers
-// ---------------------------------------------------------------------------
-
-const LOW_MASK: u32 = 0xFFFF;
-
-/// Split a `u32` into (`low`, `high`) 16-bit limbs.
-fn split_u32(value: u32) -> (u32, u32) {
-    (value & LOW_MASK, value >> 16)
-}
-
-/// Insert a 32-bit value into memory as two 16-bit limbs.
-fn insert_u32(memory: &mut Memory, addr: M31, value: u32) {
-    let (lo, hi) = split_u32(value);
-    memory.insert(addr, M31(lo).into()).unwrap();
-    memory.insert(addr + M31(1), M31(hi).into()).unwrap();
-}
-
-/// Assert that the memory at `addr` holds the 32-bit `expected` (low limb
-/// first, high limb second).
-fn assert_u32(memory: &Memory, addr: M31, expected: u32) {
-    let (lo, hi) = split_u32(expected);
-    assert_eq!(memory.get_data(addr).unwrap(), M31(lo));
-    assert_eq!(memory.get_data(addr + M31(1)).unwrap(), M31(hi));
-}
-
 /// Run an FP-IMM-style U32 instruction and validate state + result.
 fn run_u32_fp_imm_test(
     src_value: u32,
@@ -93,14 +67,17 @@ fn run_u32_fp_imm_test(
 ) -> Result<(), InstructionExecutionError> {
     let mut memory = Memory::default();
     let initial_fp = M31(10);
-    insert_u32(&mut memory, initial_fp, src_value);
+    memory.write_u32(initial_fp, src_value).unwrap();
     let state = State {
         pc: M31(0),
         fp: initial_fp,
     };
 
     let new_state = exec_fn(&mut memory, state, &instruction)?;
-    assert_u32(&memory, initial_fp + M31(dst_off), expected_res);
+    assert_eq!(
+        memory.read_u32(initial_fp + M31(dst_off)).unwrap(),
+        expected_res
+    );
     assert_eq!(new_state.pc, M31(expected_pc));
     assert_eq!(new_state.fp, initial_fp);
     Ok(())
@@ -118,15 +95,18 @@ fn run_u32_fp_fp_test(
 ) -> Result<(), InstructionExecutionError> {
     let mut memory = Memory::default();
     let initial_fp = M31(10);
-    insert_u32(&mut memory, initial_fp, src0); // fp+0 / fp+1
-    insert_u32(&mut memory, initial_fp + M31(2), src1); // fp+2 / fp+3
+    memory.write_u32(initial_fp, src0).unwrap(); // fp+0 / fp+1
+    memory.write_u32(initial_fp + M31(2), src1).unwrap(); // fp+2 / fp+3
     let state = State {
         pc: M31(0),
         fp: initial_fp,
     };
 
     let new_state = exec_fn(&mut memory, state, &instruction)?;
-    assert_u32(&memory, initial_fp + M31(dst_off), expected_res);
+    assert_eq!(
+        memory.read_u32(initial_fp + M31(dst_off)).unwrap(),
+        expected_res
+    );
     assert_eq!(new_state.pc, M31(expected_pc));
     assert_eq!(new_state.fp, initial_fp);
     Ok(())
@@ -473,7 +453,7 @@ proptest! {
 fn test_u32_store_add_fp_imm_invalid_immediate_limbs() {
     // build memory with valid 0 value so the only failure comes from immediates
     let mut memory = Memory::default();
-    insert_u32(&mut memory, M31::zero(), 0);
+    memory.write_u32(M31::zero(), 0).unwrap();
 
     let state = State::default();
     let instruction = Instruction::U32StoreAddFpImm {
