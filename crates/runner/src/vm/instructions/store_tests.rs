@@ -596,6 +596,22 @@ proptest! {
             1,
         ).unwrap();
     }
+
+    #[test]
+    fn test_u32_store_imm(imm_val_hi in 0..=u16::MAX as u32, imm_val_lo in 0..=u16::MAX as u32) {
+        let imm_val = (imm_val_hi << 16) | imm_val_lo;
+        run_simple_store_test(
+            &[0, imm_val_hi, imm_val_lo],
+            Instruction::U32StoreImm {
+                imm_hi: M31(imm_val_hi),
+                imm_lo: M31(imm_val_lo),
+                dst_off: M31(2),
+            },
+            u32_store_imm,
+            &[0, imm_val_hi, imm_val_lo, imm_val],
+            1,
+        ).unwrap();
+    }
 }
 
 #[test]

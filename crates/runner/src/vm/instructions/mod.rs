@@ -165,6 +165,7 @@ pub fn opcode_to_instruction_fn(op: M31) -> Result<InstructionFn, InstructionErr
         U32_STORE_SUB_FP_IMM => u32_store_sub_fp_imm,
         U32_STORE_MUL_FP_IMM => u32_store_mul_fp_imm,
         U32_STORE_DIV_FP_IMM => u32_store_div_fp_imm,
+        U32_STORE_IMM => u32_store_imm,
         _ => return Err(InstructionError::InvalidOpcode(op)),
     };
     Ok(f)

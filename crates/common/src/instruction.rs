@@ -260,7 +260,10 @@ define_instruction!(
     U32StoreAddFpImm = 19, 4, fields: [src_off, imm_hi, imm_lo, dst_off], size: 5, operands: [U32, U32];  // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) + u32(imm_lo, imm_hi)
     U32StoreSubFpImm = 20, 4, fields: [src_off, imm_hi, imm_lo, dst_off], size: 5, operands: [U32, U32];  // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) - u32(imm_lo, imm_hi)
     U32StoreMulFpImm = 21, 4, fields: [src_off, imm_hi, imm_lo, dst_off], size: 5, operands: [U32, U32];  // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) * u32(imm_lo, imm_hi)
-    U32StoreDivFpImm = 22, 4, fields: [src_off, imm_hi, imm_lo, dst_off], size: 5, operands: [U32, U32]   // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) / u32(imm_lo, imm_hi)
+    U32StoreDivFpImm = 22, 4, fields: [src_off, imm_hi, imm_lo, dst_off], size: 5, operands: [U32, U32];   // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) / u32(imm_lo, imm_hi)
+
+    // U32 Memory operations
+    U32StoreImm = 23, 2, fields: [imm_lo, imm_hi, dst_off], size: 4, operands: [U32, U32]                              // u32([fp + dst_off], [fp + dst_off + 1]) = u32(imm_lo, imm_hi)
 );
 
 impl From<Instruction> for SmallVec<[M31; INSTRUCTION_MAX_SIZE]> {

@@ -230,6 +230,22 @@ impl_u32_store_bin_op_fp_imm!(u32_store_mul_fp_imm, U32StoreMulFpImm, |a, b| a
     .wrapping_mul(b));
 impl_u32_store_bin_op_fp_imm!(u32_store_div_fp_imm, U32StoreDivFpImm, |a, b| a / b);
 
+/// CASM equivalent:
+/// ```casm
+/// u32([fp + dst_off], [fp + dst_off + 1]) = imm
+/// ```
+pub fn u32_store_imm(
+    memory: &mut Memory,
+    state: State,
+    instruction: &Instruction,
+) -> Result<State, InstructionExecutionError> {
+    let (imm_lo, imm_hi, dst_off) =
+        extract_as!(instruction, U32StoreImm, (imm_lo, imm_hi, dst_off));
+    let imm_value: u32 = (imm_hi.0 << U32_LIMB_BITS) | imm_lo.0;
+    memory.insert_u32(state.fp + dst_off, imm_value)?;
+    Ok(state.advance_by(instruction.size_in_qm31s()))
+}
+
 #[cfg(test)]
 #[path = "./store_tests.rs"]
 mod store_tests;
