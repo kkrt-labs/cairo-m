@@ -8,20 +8,17 @@ fn test_instruction_sizes() {
     // Test size 1 instruction
     let ret = Instruction::Ret {};
     assert_eq!(ret.size_in_m31s(), 1);
-    assert_eq!(ret.size_in_qm31s(), 1);
 
     // Test size 2 instructions
     let jmp_abs = Instruction::JmpAbsImm {
         target: M31::from(100),
     };
     assert_eq!(jmp_abs.size_in_m31s(), 2);
-    assert_eq!(jmp_abs.size_in_qm31s(), 1);
 
     let jmp_rel = Instruction::JmpRelImm {
         offset: M31::from(50),
     };
     assert_eq!(jmp_rel.size_in_m31s(), 2);
-    assert_eq!(jmp_rel.size_in_qm31s(), 1);
 
     // Test size 3 instructions
     let store_imm = Instruction::StoreImm {
@@ -29,14 +26,12 @@ fn test_instruction_sizes() {
         dst_off: M31::from(3),
     };
     assert_eq!(store_imm.size_in_m31s(), 3);
-    assert_eq!(store_imm.size_in_qm31s(), 1);
 
     let jnz = Instruction::JnzFpImm {
         cond_off: M31::from(1),
         offset: M31::from(10),
     };
     assert_eq!(jnz.size_in_m31s(), 3);
-    assert_eq!(jnz.size_in_qm31s(), 1);
 
     // Test size 4 instructions
     let add_fp_fp = Instruction::StoreAddFpFp {
@@ -45,7 +40,6 @@ fn test_instruction_sizes() {
         dst_off: M31::from(3),
     };
     assert_eq!(add_fp_fp.size_in_m31s(), 4);
-    assert_eq!(add_fp_fp.size_in_qm31s(), 1);
 
     // Test size 5 instruction
     let u32_add = Instruction::U32StoreAddFpImm {
@@ -55,7 +49,6 @@ fn test_instruction_sizes() {
         dst_off: M31::from(4),
     };
     assert_eq!(u32_add.size_in_m31s(), 5);
-    assert_eq!(u32_add.size_in_qm31s(), 2);
 }
 
 #[test]
@@ -687,55 +680,6 @@ fn test_from_instruction_to_smallvec() {
         smallvec.as_slice(),
         &[M31::from(9), M31::from(42), M31::from(3)]
     );
-}
-
-#[test]
-fn test_to_qm31_vec() {
-    // Test size 1 instruction (Ret) - needs padding
-    let ret = Instruction::Ret {};
-    let qm31_vec = ret.to_qm31_vec();
-    assert_eq!(qm31_vec.len(), 1);
-    let m31_array = qm31_vec[0].to_m31_array();
-    assert_eq!(m31_array[0], M31::from(11));
-    assert_eq!(m31_array[1], M31::from(0)); // padded
-    assert_eq!(m31_array[2], M31::from(0)); // padded
-    assert_eq!(m31_array[3], M31::from(0)); // padded
-
-    // Test size 4 instruction (StoreAddFpFp) - fits exactly
-    let add_fp_fp = Instruction::StoreAddFpFp {
-        src0_off: M31::from(1),
-        src1_off: M31::from(2),
-        dst_off: M31::from(3),
-    };
-    let qm31_vec = add_fp_fp.to_qm31_vec();
-    assert_eq!(qm31_vec.len(), 1);
-    let m31_array = qm31_vec[0].to_m31_array();
-    assert_eq!(m31_array[0], M31::from(0)); // opcode
-    assert_eq!(m31_array[1], M31::from(1)); // src0_off
-    assert_eq!(m31_array[2], M31::from(2)); // src1_off
-    assert_eq!(m31_array[3], M31::from(3)); // dst_off
-
-    // Test size 5 instruction (U32StoreAddFpImm) - needs 2 QM31s
-    let u32_add = Instruction::U32StoreAddFpImm {
-        src_off: M31::from(1),
-        imm_hi: M31::from(0x1234),
-        imm_lo: M31::from(0x5678),
-        dst_off: M31::from(4),
-    };
-    let qm31_vec = u32_add.to_qm31_vec();
-    assert_eq!(qm31_vec.len(), 2);
-
-    let m31_array = qm31_vec[0].to_m31_array();
-    assert_eq!(m31_array[0], M31::from(19)); // opcode
-    assert_eq!(m31_array[1], M31::from(1)); // src_off
-    assert_eq!(m31_array[2], M31::from(0x1234)); // imm_hi
-    assert_eq!(m31_array[3], M31::from(0x5678)); // imm_lo
-
-    let m31_array = qm31_vec[1].to_m31_array();
-    assert_eq!(m31_array[0], M31::from(4)); // dst_off
-    assert_eq!(m31_array[1], M31::from(0)); // padded
-    assert_eq!(m31_array[2], M31::from(0)); // padded
-    assert_eq!(m31_array[3], M31::from(0)); // padded
 }
 
 #[test]

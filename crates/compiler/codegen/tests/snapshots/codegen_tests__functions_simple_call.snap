@@ -25,4 +25,5 @@ helper:
 main:
    2: 10 2 0 _             // call helper
    3: 4 1 0 -3             // Return value 0: [fp -3] = [fp + 1] + 0
+main:
    4: 11 _ _ _             // return

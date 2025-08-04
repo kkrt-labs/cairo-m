@@ -102,15 +102,15 @@ impl CodeGenerator {
             self.memory_layout.push(current_mem_pc);
 
             // Get the size of this instruction based on its opcode
-            let size_in_qm31s =
-                cairo_m_common::Instruction::size_in_qm31s_for_opcode(instr_builder.opcode)
+            let size_in_m31s =
+                cairo_m_common::Instruction::size_in_m31s_for_opcode(instr_builder.opcode)
                     .ok_or_else(|| {
                         CodegenError::InvalidMir(format!(
                             "Unknown opcode: {}",
                             instr_builder.opcode
                         ))
                     })?;
-            current_mem_pc += size_in_qm31s;
+            current_mem_pc += size_in_m31s;
         }
 
         Ok(())
