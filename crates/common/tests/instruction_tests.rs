@@ -556,13 +556,13 @@ fn test_try_from_smallvec() {
         (
             smallvec![
                 M31::from(23),
-                M31::from(0x1234),
                 M31::from(0x5678),
+                M31::from(0x1234),
                 M31::from(3)
             ],
             Instruction::U32StoreImm {
-                imm_hi: M31::from(0x1234),
                 imm_lo: M31::from(0x5678),
+                imm_hi: M31::from(0x1234),
                 dst_off: M31::from(3),
             },
             "U32StoreImm instruction",

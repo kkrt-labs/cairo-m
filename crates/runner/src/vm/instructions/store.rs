@@ -3,6 +3,7 @@
 //! STORE instructions are used to store values in the memory.
 
 use cairo_m_common::{Instruction, State};
+use num_traits::One;
 use stwo_prover::core::fields::m31::M31;
 
 use super::InstructionExecutionError;
@@ -241,8 +242,16 @@ pub fn u32_store_imm(
 ) -> Result<State, InstructionExecutionError> {
     let (imm_lo, imm_hi, dst_off) =
         extract_as!(instruction, U32StoreImm, (imm_lo, imm_hi, dst_off));
-    let imm_value: u32 = (imm_hi.0 << U32_LIMB_BITS) | imm_lo.0;
-    memory.insert_u32(state.fp + dst_off, imm_value)?;
+    if imm_lo.0 > U32_LIMB_MASK || imm_hi.0 > U32_LIMB_MASK {
+        return Err(InstructionExecutionError::Memory(
+            MemoryError::U32LimbOutOfRange {
+                limb_lo: imm_lo.0,
+                limb_hi: imm_hi.0,
+            },
+        ));
+    }
+    memory.insert(state.fp + dst_off, imm_lo.into())?;
+    memory.insert(state.fp + dst_off + M31::one(), imm_hi.into())?;
     Ok(state.advance_by(instruction.size_in_qm31s()))
 }
 
