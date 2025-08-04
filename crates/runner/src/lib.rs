@@ -109,7 +109,7 @@ pub fn run_cairo_program(
     let mut return_values = Vec::with_capacity(ret_slots);
     for i in 0..ret_slots {
         let return_address = vm.state.fp - M31::from((ret_slots + 2 - i) as u32);
-        let value = vm.memory.get_data(return_address)?;
+        let value = vm.memory.get_felt(return_address)?;
         return_values.push(value);
     }
 

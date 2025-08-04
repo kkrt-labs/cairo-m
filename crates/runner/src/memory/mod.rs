@@ -45,7 +45,7 @@ pub struct Memory {
     /// A trace of memory accesses.
     ///
     /// The trace is wrapped in a `RefCell` to enable interior mutability. This
-    /// allows methods with immutable `&self` receivers, like `get_data`, to
+    /// allows methods with immutable `&self` receivers, like `get_felt`, to
     /// modify the trace. This design choice separates the logical immutability
     /// of an operation from the implementation detail of tracing.
     pub trace: RefCell<Vec<MemoryEntry>>,
@@ -107,13 +107,13 @@ impl Memory {
             None => {
                 // Invalid opcode - return just the first QM31's M31 values
                 // The VM will validate and return the proper error
-                return Ok(SmallVec::from_slice(&opcode_id));
+                return Ok(SmallVec::from_elem(opcode_id, 1));
             }
         };
 
-        // Pre-allocate a SmallVec with the first QM31 word.
+        // Pre-allocate a SmallVec with the first M31 word.
         // This is the most common path.
-        let mut instruction_m31s = SmallVec::from(opcode_id);
+        let mut instruction_m31s = SmallVec::from_elem(opcode_id, 1);
 
         // Loop to fetch any additional words.
         // This loop is highly predictable: it runs 0 times for most instructions
@@ -130,7 +130,7 @@ impl Memory {
                 addr: next_addr,
                 value: m31_word,
             });
-            instruction_m31s.extend_one(&m31_word);
+            instruction_m31s.extend([m31_word]);
         }
 
         // Ensure the final vector has the exact size.
@@ -139,11 +139,7 @@ impl Memory {
         Ok(instruction_m31s)
     }
 
-    /// Retrieves a value from memory and projects it to a base field element `M31`.
-    ///
-    /// This is used for instruction arguments or other data that are expected to
-    /// be simple field elements. Returns an error if the retrieved `QM31` value cannot
-    /// be projected to the base field (i.e., its extension components are non-zero).
+    /// Retrieves a value from memory.
     ///
     /// # Arguments
     ///
@@ -153,17 +149,14 @@ impl Memory {
     ///
     /// Returns [`MemoryError::BaseFieldProjectionFailed`] if the value at the address
     /// cannot be projected to a base field element.
-    pub fn get_data(&self, addr: M31) -> Result<M31, MemoryError> {
+    pub fn get_felt(&self, addr: M31) -> Result<M31, MemoryError> {
         let address = addr.0 as usize;
         let value = self.data.get(address).copied().unwrap_or_default();
-        if !value.1.is_zero() || !value.0 .1.is_zero() {
-            return Err(MemoryError::BaseFieldProjectionFailed { addr, value });
-        }
         self.trace.borrow_mut().push(MemoryEntry { addr, value });
-        Ok(value.0 .0)
+        Ok(value)
     }
 
-    /// Inserts a `QM31` value at a specified validated memory address.
+    /// Inserts a `M31` value at a specified validated memory address.
     ///
     /// If the address is beyond the current memory size, the memory is
     /// automatically extended and padded with zeros up to the new address.
@@ -171,45 +164,45 @@ impl Memory {
     /// # Arguments
     ///
     /// * `addr` - The `M31` memory address to write to.
-    /// * `value` - The `QM31` value to insert.
+    /// * `value` - The `M31` value to insert.
     ///
     /// # Errors
     ///
     /// Returns [`MemoryError::AddressOutOfBounds`] if the address exceeds the maximum allowed size.
-    pub fn insert(&mut self, addr: M31, value: QM31) -> Result<(), MemoryError> {
+    pub fn insert(&mut self, addr: M31, value: M31) -> Result<(), MemoryError> {
         Self::validate_address(addr)?;
         let address = addr.0 as usize;
 
         // Resize vector if necessary
         if address >= self.data.len() {
-            self.data.resize(address + 1, QM31::zero());
+            self.data.resize(address + 1, M31::zero());
         }
         self.data[address] = value;
         self.trace.borrow_mut().push(MemoryEntry { addr, value });
         Ok(())
     }
 
-    /// Inserts a `QM31` value at a specified validated memory address without logging a trace entry.
+    /// Inserts a `M31` value at a specified validated memory address without logging a trace entry.
     ///
     /// # Arguments
     ///
     /// * `addr` - The `M31` memory address to write to.
-    /// * `value` - The `QM31` value to insert.
+    /// * `value` - The `M31` value to insert.
     ///
     /// # Errors
     ///
     /// Returns [`MemoryError::AddressOutOfBounds`] if the address exceeds the maximum allowed size.
-    pub(crate) fn insert_no_trace(&mut self, addr: M31, value: QM31) -> Result<(), MemoryError> {
+    pub(crate) fn insert_no_trace(&mut self, addr: M31, value: M31) -> Result<(), MemoryError> {
         Self::validate_address(addr)?;
         let address = addr.0 as usize;
         if address >= self.data.len() {
-            self.data.resize(address + 1, QM31::zero());
+            self.data.resize(address + 1, M31::zero());
         }
         self.data[address] = value;
         Ok(())
     }
 
-    /// Inserts a slice of `QM31` values starting from a given address.
+    /// Inserts a slice of `M31` values starting from a given address.
     ///
     /// It validates that both the start and end addresses of the slice are
     /// within memory limits. The memory is resized if necessary to accommodate
@@ -218,12 +211,12 @@ impl Memory {
     /// # Arguments
     ///
     /// * `start_addr` - The `M31` starting address for the slice.
-    /// * `values` - The slice of `QM31` values to insert.
+    /// * `values` - The slice of `M31` values to insert.
     ///
     /// # Errors
     ///
     /// Returns [`MemoryError::AddressOutOfBounds`] if any address in the range exceeds the maximum allowed size.
-    pub fn insert_slice(&mut self, start_addr: M31, values: &[QM31]) -> Result<(), MemoryError> {
+    pub fn insert_slice(&mut self, start_addr: M31, values: &[M31]) -> Result<(), MemoryError> {
         if values.is_empty() {
             return Ok(());
         }
@@ -244,7 +237,7 @@ impl Memory {
 
         // Resize vector if necessary
         if end_address > self.data.len() {
-            self.data.resize(end_address, QM31::zero());
+            self.data.resize(end_address, M31::zero());
         }
 
         // Copy the slice into memory
@@ -292,11 +285,11 @@ impl Memory {
         let fp_min_two_addr = fp_min_two.0 as usize;
         let fp_min_one_addr = fp_min_one.0 as usize;
         if fp_min_one_addr >= self.data.len() {
-            self.data.resize(fp_min_one_addr + 1, QM31::zero());
+            self.data.resize(fp_min_one_addr + 1, M31::zero());
         }
 
-        self.data[fp_min_two_addr] = QM31::from_m31_array([fp.0, 0, 0, 0].map(Into::into));
-        self.data[fp_min_one_addr] = QM31::from_m31_array([final_pc.0, 0, 0, 0].map(Into::into));
+        self.data[fp_min_two_addr] = M31::from(fp.0);
+        self.data[fp_min_one_addr] = M31::from(final_pc.0);
 
         Ok(())
     }
@@ -305,20 +298,20 @@ impl Memory {
     ///
     /// # Arguments
     ///
-    /// * `iter` - An iterator yielding `QM31` values.
+    /// * `iter` - An iterator yielding `M31` values.
     pub fn extend<I>(&mut self, iter: I)
     where
-        I: IntoIterator<Item = QM31>,
+        I: IntoIterator<Item = M31>,
     {
         self.data.extend(iter);
     }
 
     /// Serializes the trace to a byte vector.
     ///
-    /// Each trace entry consists of an `addr` (`M31`) and a `value` (`QM31`).
-    /// A `QM31` is composed of 4 `M31` values.
+    /// Each trace entry consists of an `addr` (`M31`) and a `value` (`M31`).
+    ///
     /// This function serializes the entire trace as a flat sequence of bytes.
-    /// For each entry, it serializes `addr` and then the 4 components of `value`
+    /// For each entry, it serializes `addr` and then the `value`
     /// into little-endian bytes.
     ///
     /// The final output is a single `Vec<u8>` concatenating the bytes for all entries.
@@ -330,15 +323,7 @@ impl Memory {
         self.trace
             .borrow()
             .iter()
-            .flat_map(|entry| {
-                [
-                    entry.addr.0,
-                    entry.value.0 .0 .0,
-                    entry.value.0 .1 .0,
-                    entry.value.1 .0 .0,
-                    entry.value.1 .1 .0,
-                ]
-            })
+            .flat_map(|entry| [entry.addr.0, entry.value.0])
             .flat_map(u32::to_le_bytes)
             .collect()
     }
@@ -369,8 +354,8 @@ impl Memory {
     }
 }
 
-impl FromIterator<QM31> for Memory {
-    fn from_iter<I: IntoIterator<Item = QM31>>(iter: I) -> Self {
+impl FromIterator<M31> for Memory {
+    fn from_iter<I: IntoIterator<Item = M31>>(iter: I) -> Self {
         Self {
             data: iter.into_iter().collect(),
             trace: RefCell::new(Vec::new()),
@@ -394,10 +379,10 @@ mod tests {
     #[test]
     fn test_get_instruction() {
         let addr = M31(42);
-        // Create a valid store_imm instruction (opcode 5)
-        let value = QM31::from_m31_array([9, 123, 0, 0].map(Into::into));
-        let mut data = vec![QM31::zero(); 43];
-        data[42] = value;
+        // Create a valid store_imm instruction (opcode 9)
+        let values = [M31::from(9), M31::from(123), M31::from(3)];
+        let mut data = vec![M31::zero(); 42];
+        data.extend(values);
 
         let memory = Memory {
             data,
@@ -405,9 +390,13 @@ mod tests {
         };
 
         let instruction_m31s = memory.get_instruction(addr).unwrap();
-        assert_eq!(instruction_m31s.as_slice(), &[M31(9), M31(123), M31(0)]);
-        assert_eq!(memory.trace.borrow().len(), 1);
-        assert_eq!(memory.trace.borrow()[0], MemoryEntry { addr, value });
+        assert_eq!(instruction_m31s.as_slice(), &values);
+        assert_eq!(memory.trace.borrow().len(), values.len());
+        values.iter().enumerate().for_each(|(i, value)| {
+            let addr = addr + M31::from(i);
+            let value = *value;
+            assert_eq!(memory.trace.borrow()[i], MemoryEntry { addr, value });
+        });
     }
 
     #[test]
@@ -422,56 +411,42 @@ mod tests {
     }
 
     #[test]
-    fn test_get_data() {
+    fn test_get_felt() {
         let addr = M31(42);
-        let value = QM31::from_m31_array([123, 0, 0, 0].map(Into::into));
+        let value = M31::from(123);
 
-        let mut data: Vec<QM31> = vec![QM31::zero(); 43];
+        let mut data: Vec<M31> = vec![M31::zero(); 43];
         data[42] = value;
         let memory = Memory {
             data,
             trace: RefCell::new(Vec::new()),
         };
 
-        assert_eq!(memory.get_data(addr).unwrap(), M31(123));
+        assert_eq!(memory.get_felt(addr).unwrap(), M31(123));
         assert_eq!(memory.trace.borrow().len(), 1);
         assert_eq!(memory.trace.borrow()[0], MemoryEntry { addr, value });
     }
 
     #[test]
-    fn test_get_data_from_empty_address() {
+    fn test_get_felt_from_empty_address() {
         let memory = Memory::default();
         let addr = M31(10);
-        assert_eq!(memory.get_data(addr).unwrap(), M31::zero());
+        assert_eq!(memory.get_felt(addr).unwrap(), M31::zero());
         assert_eq!(memory.trace.borrow().len(), 1);
         assert_eq!(
             memory.trace.borrow()[0],
             MemoryEntry {
                 addr,
-                value: QM31::zero()
+                value: M31::zero()
             }
         );
     }
 
     #[test]
-    fn test_get_data_error_on_projection_failure() {
-        let mut memory = Memory::default();
-        let addr = M31(42);
-        let value = QM31::from_m31_array([0, 0, 123, 0].map(Into::into));
-        memory.insert(addr, value).unwrap();
-        memory.trace.borrow_mut().clear();
-        assert!(matches!(
-            memory.get_data(addr),
-            Err(MemoryError::BaseFieldProjectionFailed { .. })
-        ));
-        assert!(memory.trace.borrow().is_empty());
-    }
-
-    #[test]
     fn test_insert() {
         let mut memory = Memory::default();
-        let addr = M31(100);
-        let value = QM31::from_m31_array([42, 0, 0, 0].map(Into::into));
+        let addr = M31::from(100);
+        let value = M31::from(42);
         memory.insert(addr, value).unwrap();
         assert_eq!(memory.data.len(), 101);
         assert_eq!(memory.data[100], value);
@@ -482,27 +457,31 @@ mod tests {
     #[test]
     fn test_insert_then_get_instruction() {
         let mut memory = Memory::default();
-        let addr = M31(42);
-        // Create a valid store_imm instruction (opcode 5)
-        let value = QM31::from_m31_array([9, 123, 0, 0].map(Into::into));
+        let addr = M31(0);
+        // Create a valid store_imm instruction (opcode 9)
+        let values = [M31::from(9), M31::from(123), M31::from(3)];
 
-        memory.insert(addr, value).unwrap();
+        memory.insert_slice(addr, &values).unwrap();
+
         let instruction_m31s = memory.get_instruction(addr).unwrap();
-        assert_eq!(instruction_m31s.as_slice(), &[M31(9), M31(123), M31(0)]);
-        assert_eq!(memory.data.len(), 43);
-        assert_eq!(memory.trace.borrow().len(), 2);
-        assert_eq!(memory.trace.borrow()[0], MemoryEntry { addr, value });
-        assert_eq!(memory.trace.borrow()[1], MemoryEntry { addr, value });
+        assert_eq!(instruction_m31s.as_slice(), &[M31(9), M31(123), M31(3)]);
+        assert_eq!(memory.data.len(), 3);
+        assert_eq!(memory.trace.borrow().len(), 3 * 2);
+        values.iter().enumerate().for_each(|(i, value)| {
+            let addr = addr + M31::from(i);
+            let value = *value;
+            assert_eq!(memory.trace.borrow()[i], MemoryEntry { addr, value });
+        });
     }
 
     #[test]
-    fn test_insert_then_get_data() {
+    fn test_insert_then_get_felt() {
         let mut memory = Memory::default();
         let addr = M31(42);
-        let value = QM31::from_m31_array([123, 0, 0, 0].map(Into::into));
+        let value = M31::from(123);
 
         memory.insert(addr, value).unwrap();
-        assert_eq!(memory.get_data(addr).unwrap(), value.0 .0);
+        assert_eq!(memory.get_felt(addr).unwrap(), value);
         assert_eq!(memory.data.len(), 43);
         assert_eq!(memory.trace.borrow().len(), 2);
         assert_eq!(memory.trace.borrow()[0], MemoryEntry { addr, value });
@@ -531,27 +510,24 @@ mod tests {
         let mut memory = Memory::default();
         let start_addr = M31(10);
 
-        // Insert valid instructions in QM31 words:
-        // QM31[0]: store_imm (opcode 5, size 3): imm=100, dst_off=0
-        // QM31[1]: jmp_abs_imm (opcode 12, size 2): target=42
-        let values = vec![
-            QM31::from_m31_array([5, 100, 0, 0].map(Into::into)), // store_imm
-            QM31::from_m31_array([12, 42, 11, 0].map(Into::into)), // jmp_abs_imm
-        ];
+        // Insert valid instructions in M31 words:
+        // store_imm (opcode 9, size 3): imm=100, dst_off=0
+        let values = [M31::from(9), M31::from(100), M31::zero()];
 
         memory.insert_slice(start_addr, &values).unwrap();
 
         // Verify data is stored correctly by checking raw data
         assert_eq!(memory.data[10], values[0]);
         assert_eq!(memory.data[11], values[1]);
+        assert_eq!(memory.data[12], values[2]);
 
-        assert_eq!(memory.trace.borrow().len(), 2);
+        assert_eq!(memory.trace.borrow().len(), 3);
         // Trace entries from `insert_slice`
         for (i, value) in values.iter().enumerate() {
             assert_eq!(
                 memory.trace.borrow()[i],
                 MemoryEntry {
-                    addr: start_addr + M31(i as u32),
+                    addr: start_addr + M31::from(i),
                     value: *value
                 }
             );
@@ -559,15 +535,18 @@ mod tests {
     }
 
     #[test]
-    fn test_get_instruction_multi_qm31() {
+    fn test_get_instruction_multi_m31() {
         let mut memory = Memory::default();
         let start_addr = M31(0);
 
         // Insert a U32StoreAddFpImm instruction (opcode 19, size 5 M31s = 2 QM31s)
         // Fields: src_off=1, imm_hi=2, imm_lo=3, dst_off=4
-        let values = vec![
-            QM31::from_m31_array([19, 1, 2, 3].map(Into::into)), // First 4 M31s
-            QM31::from_m31_array([4, 0, 0, 0].map(Into::into)),  // Last M31 + padding
+        let values = [
+            M31::from(19),
+            M31::one(),
+            M31::from(2),
+            M31::from(3),
+            M31::from(4),
         ];
 
         memory.insert_slice(start_addr, &values).unwrap();
@@ -577,31 +556,22 @@ mod tests {
 
         // Get U32StoreAddFpImm instruction (5 M31s, spans 2 QM31s)
         let inst = memory.get_instruction(start_addr).unwrap();
-        assert_eq!(inst.as_slice(), &[M31(19), M31(1), M31(2), M31(3), M31(4)]);
+        assert_eq!(inst.as_slice(), &values);
 
         // Verify trace contains both QM31 accesses
-        assert_eq!(memory.trace.borrow().len(), 2);
-        assert_eq!(
-            memory.trace.borrow()[0],
-            MemoryEntry {
-                addr: start_addr,
-                value: values[0]
-            }
-        );
-        assert_eq!(
-            memory.trace.borrow()[1],
-            MemoryEntry {
-                addr: start_addr + M31(1),
-                value: values[1]
-            }
-        );
+        assert_eq!(memory.trace.borrow().len(), 5);
+        values.iter().enumerate().for_each(|(i, value)| {
+            let addr = start_addr + M31::from(i);
+            let value = *value;
+            assert_eq!(memory.trace.borrow()[i], MemoryEntry { addr, value });
+        });
     }
 
     #[test]
     fn test_insert_slice_start_addr_out_of_bounds() {
         let mut memory = Memory::default();
         let invalid_addr = M31::from((1 << MAX_MEMORY_SIZE_BITS) + 1);
-        let values = vec![QM31::zero()];
+        let values = [M31::zero()];
         let result = memory.insert_slice(invalid_addr, &values);
         assert!(matches!(
             result,
@@ -613,7 +583,7 @@ mod tests {
     fn test_insert_slice_end_addr_out_of_bounds() {
         let mut memory = Memory::default();
         let start_addr = M31::from((1 << MAX_MEMORY_SIZE_BITS) - 5);
-        let values = vec![QM31::zero(); 10];
+        let values = vec![M31::zero(); 10];
         let result = memory.insert_slice(start_addr, &values);
         assert!(matches!(
             result,
@@ -624,45 +594,32 @@ mod tests {
     #[test]
     fn test_extend() {
         let mut memory = Memory::default();
-        let values = vec![
-            QM31::from_m31_array([10, 0, 0, 0].map(Into::into)),
-            QM31::from_m31_array([20, 0, 0, 0].map(Into::into)),
-            QM31::from_m31_array([30, 0, 0, 0].map(Into::into)),
-        ];
+        let values = vec![M31::from(10), M31::from(20), M31::from(30)];
         memory.extend(values);
         assert_eq!(memory.data.len(), 3);
-        assert_eq!(memory.get_data(0.into()).unwrap(), M31(10));
-        assert_eq!(memory.get_data(1.into()).unwrap(), M31(20));
-        assert_eq!(memory.get_data(2.into()).unwrap(), M31(30));
+        assert_eq!(memory.get_felt(0.into()).unwrap(), M31(10));
+        assert_eq!(memory.get_felt(1.into()).unwrap(), M31(20));
+        assert_eq!(memory.get_felt(2.into()).unwrap(), M31(30));
         assert_eq!(memory.trace.borrow().len(), 3);
     }
 
     #[test]
     fn test_from_iter() {
-        let values = vec![
-            QM31::from_m31_array([100, 0, 0, 0].map(Into::into)),
-            QM31::from_m31_array([200, 0, 0, 0].map(Into::into)),
-        ];
+        let values = vec![M31::from(100), M31::from(200)];
         let memory: Memory = values.into_iter().collect();
         assert_eq!(memory.data.len(), 2);
         // Verify data is stored correctly by checking raw data
-        assert_eq!(
-            memory.data[0],
-            QM31::from_m31_array([100, 0, 0, 0].map(Into::into))
-        );
-        assert_eq!(
-            memory.data[1],
-            QM31::from_m31_array([200, 0, 0, 0].map(Into::into))
-        );
+        assert_eq!(memory.data[0], M31::from(100));
+        assert_eq!(memory.data[1], M31::from(200));
     }
 
     #[test]
     fn test_serialize_trace() {
         let mut memory = Memory::default();
         let addr1 = M31(10);
-        let value1 = QM31::from_m31_array([1, 2, 3, 4].map(Into::into));
+        let value1 = M31::one();
         let addr2 = M31(20);
-        let value2 = QM31::from_m31_array([5, 6, 7, 8].map(Into::into));
+        let value2 = M31::from(5);
 
         memory.insert(addr1, value1).unwrap();
         memory.insert(addr2, value2).unwrap();
@@ -671,11 +628,7 @@ mod tests {
 
         // Entry 1: addr=10, value=[1, 2, 3, 4]
         // Entry 2: addr=20, value=[5, 6, 7, 8]
-        let expected_bytes = Vec::from(
-            [10, 1, 2, 3, 4, 20, 5, 6, 7, 8]
-                .map(u32::to_le_bytes)
-                .as_flattened(),
-        );
+        let expected_bytes = Vec::from([10, 1, 20, 5].map(u32::to_le_bytes).as_flattened());
         assert_eq!(serialized_trace, expected_bytes);
     }
 }

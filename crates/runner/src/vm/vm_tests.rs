@@ -5,7 +5,6 @@ use cairo_m_common::instruction::InstructionError;
 use cairo_m_common::{Instruction, Program, State};
 use num_traits::{One, Zero};
 use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::QM31;
 
 // Import test utilities
 use super::test_utils::*;
@@ -97,12 +96,7 @@ fn test_step_invalid_instruction() {
     let program = Program::from(vec![]);
     let mut vm = VM::try_from(&program).unwrap();
     // Load an invalid opcode in memory
-    let bad_instr = QM31::from_m31_array([
-        M31::from(2_u32.pow(30)),
-        Zero::zero(),
-        Zero::zero(),
-        Zero::zero(),
-    ]);
+    let bad_instr = M31::from(2_u32.pow(30));
     vm.memory.insert(M31::zero(), bad_instr).unwrap();
 
     // Step should return an error for invalid opcode
@@ -188,8 +182,9 @@ fn test_execute_with_error() {
     // Create a program with an invalid instructions
 
     let instructions = [
-        QM31::from_m31_array([M31::from(9), M31::from(10), Zero::zero(), Zero::zero()]), // Valid: [fp + 0] = 10
-        QM31::from_m31_array([M31::from(99), Zero::zero(), Zero::zero(), Zero::zero()]), // Invalid: opcode 99
+        M31::from(9),
+        M31::from(10), // Valid: [fp + 0] = 10
+        M31::from(99), // Invalid: opcode 99
     ];
     let initial_memory = Memory::from_iter(instructions);
     let mut vm = VM {
@@ -217,7 +212,7 @@ fn test_execute_with_error() {
     assert_vm_state!(vm.state, 1, 2);
 
     // First instruction should have executed successfully
-    let stored_value = vm.memory.get_data(M31(2)).unwrap();
+    let stored_value = vm.memory.get_felt(M31(2)).unwrap();
     assert_eq!(stored_value, M31(10));
 }
 
@@ -285,7 +280,7 @@ fn test_run_from_entrypoint() {
         .unwrap();
     assert_vm_state!(vm.state, 2, 4);
     assert_eq!(
-        vm.memory.get_data(vm.state.fp + M31::one()).unwrap(),
+        vm.memory.get_felt(vm.state.fp + M31::one()).unwrap(),
         M31(5)
     );
 }
@@ -433,17 +428,17 @@ fn run_fib_test(n: u32) {
     // Verify PC reached the end of the program
     assert_vm_state!(vm.state, instructions_len, instructions_len);
     // Verify counter reached zero
-    assert_eq!(vm.memory.get_data(vm.state.fp).unwrap(), M31::zero());
+    assert_eq!(vm.memory.get_felt(vm.state.fp).unwrap(), M31::zero());
 
     // After n iterations, a = F(n) and b = F(n+1).
     // F(n) is at [fp+1].
     // F(n+1) is at [fp+2].
     assert_eq!(
-        vm.memory.get_data(vm.state.fp + M31::one()).unwrap(),
+        vm.memory.get_felt(vm.state.fp + M31::one()).unwrap(),
         M31(fib(n))
     );
     assert_eq!(
-        vm.memory.get_data(vm.state.fp + M31(2)).unwrap(),
+        vm.memory.get_felt(vm.state.fp + M31(2)).unwrap(),
         M31(fib(n + 1))
     );
 }
@@ -722,11 +717,9 @@ fn test_5_m31_u32_instruction_execution_and_pc_advancement() {
     // Set up initial memory: store a 32-bit value as two limbs at fp + 0
     let initial_fp = vm.state.fp;
     // Store value 0x0000000A (10) as [0x000A, 0x0000]
+    vm.memory.insert_no_trace(initial_fp, M31(10)).unwrap();
     vm.memory
-        .insert_no_trace(initial_fp, M31(10).into())
-        .unwrap();
-    vm.memory
-        .insert_no_trace(initial_fp + M31(1), M31(0).into())
+        .insert_no_trace(initial_fp + M31(1), M31(0))
         .unwrap();
 
     // Execute one step (the U32 instruction)
@@ -742,8 +735,8 @@ fn test_5_m31_u32_instruction_execution_and_pc_advancement() {
 
     // Verify the computation: 0x0000000A + 0x00010002 = 0x0001000C
     // Result should be stored as [0x000C, 0x0001]
-    let result_lo = vm.memory.get_data(initial_fp + M31(1)).unwrap();
-    let result_hi = vm.memory.get_data(initial_fp + M31(2)).unwrap();
+    let result_lo = vm.memory.get_felt(initial_fp + M31(1)).unwrap();
+    let result_hi = vm.memory.get_felt(initial_fp + M31(2)).unwrap();
     assert_eq!(
         result_lo,
         M31(12),
@@ -766,7 +759,7 @@ fn test_5_m31_u32_instruction_execution_and_pc_advancement() {
     );
 
     // Verify the simple instruction executed correctly
-    let simple_result = vm.memory.get_data(initial_fp + M31(3)).unwrap();
+    let simple_result = vm.memory.get_felt(initial_fp + M31(3)).unwrap();
     assert_eq!(
         simple_result,
         M31(100),

@@ -2,7 +2,6 @@ use paste::paste;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::QM31;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DataType {
@@ -57,34 +56,21 @@ macro_rules! define_instruction {
             }
 
             /// Get the size of this instruction in M31 elements (including opcode)
-            pub const fn size_in_m31s(&self) -> usize {
+            pub const fn size_in_m31s(&self) -> u32 {
                 match self {
                     $(
-                        Self::$variant { .. } => $size,
+                        Self::$variant { .. } => $size as u32,
                     )*
                 }
-            }
-
-            /// Get the size of this instruction in QM31 elements
-            pub const fn size_in_qm31s(&self) -> u32 {
-                self.size_in_m31s().div_ceil(4) as u32
             }
 
             /// Get the size in M31 elements for a given opcode
-            pub const fn size_in_m31s_for_opcode(opcode: u32) -> Option<usize> {
+            pub const fn size_in_m31s_for_opcode(opcode: u32) -> Option<u32> {
                 match opcode {
                     $(
-                        $opcode => Some($size),
+                        $opcode => Some($size as u32),
                     )*
                     _ => None,
-                }
-            }
-
-            /// Get the size in QM31 elements for a given opcode
-            pub const fn size_in_qm31s_for_opcode(opcode: u32) -> Option<u32> {
-                match Self::size_in_m31s_for_opcode(opcode) {
-                    Some(size) => Some(size.div_ceil(4) as u32),
-                    None => None,
                 }
             }
 
@@ -139,7 +125,7 @@ macro_rules! define_instruction {
 
             /// Get all operands as a vector (excluding the opcode)
             pub fn operands(&self) -> Vec<M31> {
-                let mut vec = Vec::with_capacity(self.size_in_m31s() - 1);
+                let mut vec = Vec::with_capacity(self.size_in_m31s() as usize - 1);
                 match self {
                     $(
                         Self::$variant { $($field),* } => {
@@ -275,24 +261,6 @@ impl From<Instruction> for SmallVec<[M31; INSTRUCTION_MAX_SIZE]> {
 impl From<&Instruction> for SmallVec<[M31; INSTRUCTION_MAX_SIZE]> {
     fn from(instruction: &Instruction) -> Self {
         instruction.to_smallvec()
-    }
-}
-
-impl Instruction {
-    /// Convert instruction to QM31 values for memory storage
-    /// Instructions are padded with zeros to align to QM31 boundaries
-    pub fn to_qm31_vec(&self) -> Vec<QM31> {
-        self.to_m31_vec()
-            .chunks(4)
-            .map(|chunk| {
-                let mut m31_array = [M31::from(0); 4];
-                chunk
-                    .iter()
-                    .enumerate()
-                    .for_each(|(i, &val)| m31_array[i] = val);
-                QM31::from_m31_array(m31_array)
-            })
-            .collect()
     }
 }
 
