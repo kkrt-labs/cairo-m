@@ -8,79 +8,173 @@ use stwo_prover::core::fields::m31::M31;
 
 use super::InstructionExecutionError;
 use crate::extract_as;
-use crate::memory::Memory;
+use crate::memory::{Memory, MemoryError, U32_LIMB_BITS, U32_LIMB_MASK};
 use crate::vm::state::VmState;
 
-/// Number of bits in a U32 limb (16 bits per limb for 32-bit values)
-const U32_LIMB_BITS: u32 = 16;
-/// Mask for a U32 limb (0xFFFF)
-const U32_LIMB_MASK: u32 = (1 << U32_LIMB_BITS) - 1;
-
-/// CASM equivalent:
-/// ```casm
-/// [fp + dst_off] = [fp + src0_off] + [fp + src1_off]
-/// ```
-pub fn store_add_fp_fp(
+/// Execute a binary op between two U32 operands `[fp + src0_off]` and `[fp + src1_off]`.
+fn exec_u32_bin_op_fp_fp<F>(
     memory: &mut Memory,
     state: State,
     instruction: &Instruction,
-) -> Result<State, InstructionExecutionError> {
-    let (src0_off, src1_off, dst_off) =
-        extract_as!(instruction, StoreAddFpFp, (src0_off, src1_off, dst_off));
-    let value = memory.get_data(state.fp + src0_off)? + memory.get_data(state.fp + src1_off)?;
-    memory.insert(state.fp + dst_off, value.into())?;
+    src0_off: M31,
+    src1_off: M31,
+    dst_off: M31,
+    op: F,
+) -> Result<State, InstructionExecutionError>
+where
+    F: Fn(u32, u32) -> u32,
+{
+    let lhs = memory.read_u32(state.fp + src0_off)?;
+    let rhs = memory.read_u32(state.fp + src1_off)?;
 
+    let res = op(lhs, rhs);
+    memory.write_u32(state.fp + dst_off, res)?;
     Ok(state.advance_by(instruction.size_in_qm31s()))
 }
 
-/// CASM equivalent:
-/// ```casm
-/// [fp + dst_off] = [fp + src_off] + imm
-/// ```
-pub fn store_add_fp_imm(
+/// Execute a binary op between a U32 operand `[fp + src_off]` and a 32-bit immediate.
+#[allow(clippy::too_many_arguments)]
+fn exec_u32_bin_op_fp_imm<F>(
     memory: &mut Memory,
     state: State,
     instruction: &Instruction,
-) -> Result<State, InstructionExecutionError> {
-    let (src_off, imm, dst_off) = extract_as!(instruction, StoreAddFpImm, (src_off, imm, dst_off));
-    let value = memory.get_data(state.fp + src_off)? + imm;
-    memory.insert(state.fp + dst_off, value.into())?;
+    src_off: M31,
+    imm_hi: M31,
+    imm_lo: M31,
+    dst_off: M31,
+    op: F,
+) -> Result<State, InstructionExecutionError>
+where
+    F: Fn(u32, u32) -> u32,
+{
+    if imm_hi.0 > U32_LIMB_MASK || imm_lo.0 > U32_LIMB_MASK {
+        return Err(InstructionExecutionError::Memory(
+            MemoryError::U32LimbOutOfRange {
+                limb_lo: imm_lo.0,
+                limb_hi: imm_hi.0,
+            },
+        ));
+    }
 
+    let imm_value: u32 = (imm_hi.0 << U32_LIMB_BITS) | imm_lo.0;
+    let src_value = memory.read_u32(state.fp + src_off)?;
+
+    let res = op(src_value, imm_value);
+    memory.write_u32(state.fp + dst_off, res)?;
     Ok(state.advance_by(instruction.size_in_qm31s()))
 }
 
-/// CASM equivalent:
-/// ```casm
-/// [fp + dst_off] = [fp + src0_off] - [fp + src1_off]
-/// ```
-pub fn store_sub_fp_fp(
-    memory: &mut Memory,
-    state: State,
-    instruction: &Instruction,
-) -> Result<State, InstructionExecutionError> {
-    let (src0_off, src1_off, dst_off) =
-        extract_as!(instruction, StoreSubFpFp, (src0_off, src1_off, dst_off));
-    let value = memory.get_data(state.fp + src0_off)? - memory.get_data(state.fp + src1_off)?;
-    memory.insert(state.fp + dst_off, value.into())?;
-
-    Ok(state.advance_by(instruction.size_in_qm31s()))
+/// Generates U32 `*_fp_fp` store operations.
+macro_rules! impl_u32_store_bin_op_fp_fp {
+    ($func_name:ident, $variant:ident, $body:expr) => {
+        #[allow(clippy::redundant_closure_call)]
+        pub fn $func_name(
+            memory: &mut Memory,
+            state: State,
+            instruction: &Instruction,
+        ) -> Result<State, InstructionExecutionError> {
+            let (src0_off, src1_off, dst_off) =
+                extract_as!(instruction, $variant, (src0_off, src1_off, dst_off));
+            exec_u32_bin_op_fp_fp(
+                memory,
+                state,
+                instruction,
+                src0_off,
+                src1_off,
+                dst_off,
+                $body,
+            )
+        }
+    };
 }
 
-/// CASM equivalent:
-/// ```casm
-/// [fp + dst_off] = [fp + src_off] - imm
-/// ```
-pub fn store_sub_fp_imm(
-    memory: &mut Memory,
-    state: State,
-    instruction: &Instruction,
-) -> Result<State, InstructionExecutionError> {
-    let (src_off, imm, dst_off) = extract_as!(instruction, StoreSubFpImm, (src_off, imm, dst_off));
-    let value = memory.get_data(state.fp + src_off)? - imm;
-    memory.insert(state.fp + dst_off, value.into())?;
-
-    Ok(state.advance_by(instruction.size_in_qm31s()))
+/// Generates U32 `*_fp_imm` store operations.
+macro_rules! impl_u32_store_bin_op_fp_imm {
+    ($func_name:ident, $variant:ident, $body:expr) => {
+        #[allow(clippy::redundant_closure_call)]
+        pub fn $func_name(
+            memory: &mut Memory,
+            state: State,
+            instruction: &Instruction,
+        ) -> Result<State, InstructionExecutionError> {
+            let (src_off, imm_hi, imm_lo, dst_off) =
+                extract_as!(instruction, $variant, (src_off, imm_hi, imm_lo, dst_off));
+            exec_u32_bin_op_fp_imm(
+                memory,
+                state,
+                instruction,
+                src_off,
+                imm_hi,
+                imm_lo,
+                dst_off,
+                $body,
+            )
+        }
+    };
 }
+
+/// Generates the `*_fp_fp` binary-arithmetic store operations.
+macro_rules! impl_store_bin_op_fp_fp {
+    ($func_name:ident, $variant:ident, $op:tt) => {
+        #[allow(clippy::suspicious_arithmetic_impl)]
+        pub fn $func_name(
+            memory: &mut Memory,
+            state: State,
+            instruction: &Instruction,
+        ) -> Result<State, InstructionExecutionError> {
+            let (src0_off, src1_off, dst_off) =
+                extract_as!(instruction, $variant, (src0_off, src1_off, dst_off));
+
+            let value = memory.get_data(state.fp + src0_off)?
+                $op memory.get_data(state.fp + src1_off)?;
+
+            memory.insert(state.fp + dst_off, value.into())?;
+            Ok(state.advance_by(instruction.size_in_qm31s()))
+        }
+    };
+}
+
+/// Generates the `*_fp_imm` binary-arithmetic store operations.
+macro_rules! impl_store_bin_op_fp_imm {
+    ($func_name:ident, $variant:ident, $op:tt) => {
+        #[allow(clippy::suspicious_arithmetic_impl)]
+        pub fn $func_name(
+            memory: &mut Memory,
+            state: State,
+            instruction: &Instruction,
+        ) -> Result<State, InstructionExecutionError> {
+            let (src_off, imm, dst_off) =
+                extract_as!(instruction, $variant, (src_off, imm, dst_off));
+
+            let value = memory.get_data(state.fp + src_off)? $op imm;
+
+            memory.insert(state.fp + dst_off, value.into())?;
+            Ok(state.advance_by(instruction.size_in_qm31s()))
+        }
+    };
+}
+
+// -------------------------------------------------------------------------------------------------
+// Automatically-generated STORE FP-FP operations (scalar)
+// -------------------------------------------------------------------------------------------------
+
+impl_store_bin_op_fp_fp!(store_add_fp_fp, StoreAddFpFp, +);
+impl_store_bin_op_fp_fp!(store_sub_fp_fp, StoreSubFpFp, -);
+impl_store_bin_op_fp_fp!(store_mul_fp_fp, StoreMulFpFp, *);
+impl_store_bin_op_fp_fp!(store_div_fp_fp, StoreDivFpFp, /);
+
+// -------------------------------------------------------------------------------------------------
+// Automatically-generated STORE FP-IMM operations (scalar)
+// -------------------------------------------------------------------------------------------------
+
+impl_store_bin_op_fp_imm!(store_add_fp_imm, StoreAddFpImm, +);
+impl_store_bin_op_fp_imm!(store_sub_fp_imm, StoreSubFpImm, -);
+impl_store_bin_op_fp_imm!(store_mul_fp_imm, StoreMulFpImm, *);
+impl_store_bin_op_fp_imm!(store_div_fp_imm, StoreDivFpImm, /);
+
+// -------------------------------------------------------------------------------------------------
+// Singular / less-regular STORE instructions (scalar)
+// -------------------------------------------------------------------------------------------------
 
 /// CASM equivalent:
 /// ```casm
@@ -115,491 +209,27 @@ pub fn store_imm(
     Ok(state.advance_by(instruction.size_in_qm31s()))
 }
 
-/// CASM equivalent:
-/// ```casm
-/// [fp + dst_off] = [fp + src0_off] * [fp + src1_off]
-/// ```
-pub fn store_mul_fp_fp(
-    memory: &mut Memory,
-    state: State,
-    instruction: &Instruction,
-) -> Result<State, InstructionExecutionError> {
-    let (src0_off, src1_off, dst_off) =
-        extract_as!(instruction, StoreMulFpFp, (src0_off, src1_off, dst_off));
-    let value = memory.get_data(state.fp + src0_off)? * memory.get_data(state.fp + src1_off)?;
-    memory.insert(state.fp + dst_off, value.into())?;
-
-    Ok(state.advance_by(instruction.size_in_qm31s()))
-}
-
-/// CASM equivalent:
-/// ```casm
-/// [fp + dst_off] = [fp + src_off] * imm
-/// ```
-pub fn store_mul_fp_imm(
-    memory: &mut Memory,
-    state: State,
-    instruction: &Instruction,
-) -> Result<State, InstructionExecutionError> {
-    let (src_off, imm, dst_off) = extract_as!(instruction, StoreMulFpImm, (src_off, imm, dst_off));
-    let value = memory.get_data(state.fp + src_off)? * imm;
-    memory.insert(state.fp + dst_off, value.into())?;
-
-    Ok(state.advance_by(instruction.size_in_qm31s()))
-}
-
-/// CASM equivalent:
-/// ```casm
-/// [fp + dst_off] = [fp + src0_off] / [fp + src1_off]
-/// ```
-pub fn store_div_fp_fp(
-    memory: &mut Memory,
-    state: State,
-    instruction: &Instruction,
-) -> Result<State, InstructionExecutionError> {
-    let (src0_off, src1_off, dst_off) =
-        extract_as!(instruction, StoreDivFpFp, (src0_off, src1_off, dst_off));
-    let value = memory.get_data(state.fp + src0_off)? / memory.get_data(state.fp + src1_off)?;
-    memory.insert(state.fp + dst_off, value.into())?;
-
-    Ok(state.advance_by(instruction.size_in_qm31s()))
-}
-
-/// CASM equivalent:
-/// ```casm
-/// [fp + dst_off] = [fp + src_off] / imm
-/// ```
-pub fn store_div_fp_imm(
-    memory: &mut Memory,
-    state: State,
-    instruction: &Instruction,
-) -> Result<State, InstructionExecutionError> {
-    let (src_off, imm, dst_off) = extract_as!(instruction, StoreDivFpImm, (src_off, imm, dst_off));
-    let value = memory.get_data(state.fp + src_off)? / imm;
-    memory.insert(state.fp + dst_off, value.into())?;
-
-    Ok(state.advance_by(instruction.size_in_qm31s()))
-}
-
-/// U32 store add fp fp instruction.
-///
-/// u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) + u32([fp + src1_off], [fp + src1_off + 1])
-/// This instruction supports 32-bit values stored as two 16-bit M31 limbs
-pub fn u32_store_add_fp_fp(
-    memory: &mut Memory,
-    state: State,
-    instruction: &Instruction,
-) -> Result<State, InstructionExecutionError> {
-    let (src0_off, src1_off, dst_off) =
-        extract_as!(instruction, U32StoreAddFpFp, (src0_off, src1_off, dst_off));
-
-    // Read first 32-bit value from memory as two limbs
-    let src0_limb_0 = memory.get_data(state.fp + src0_off)?;
-    let src0_limb_1 = memory.get_data(state.fp + src0_off + M31::from(1))?;
-
-    // Validate that source limbs are within 16-bit range
-    if src0_limb_0.0 > U32_LIMB_MASK || src0_limb_1.0 > U32_LIMB_MASK {
-        return Err(InstructionExecutionError::InvalidOperand(format!(
-            "U32 source 0 limbs exceed 16-bit range: limb_0={}, limb_1={}",
-            src0_limb_0.0, src0_limb_1.0
-        )));
-    }
-    let src0_value = (src0_limb_1.0 << U32_LIMB_BITS) | src0_limb_0.0;
-
-    // Read second 32-bit value from memory as two limbs
-    let src1_limb_0 = memory.get_data(state.fp + src1_off)?;
-    let src1_limb_1 = memory.get_data(state.fp + src1_off + M31::from(1))?;
-
-    // Validate that source limbs are within 16-bit range
-    if src1_limb_0.0 > U32_LIMB_MASK || src1_limb_1.0 > U32_LIMB_MASK {
-        return Err(InstructionExecutionError::InvalidOperand(format!(
-            "U32 source 1 limbs exceed 16-bit range: limb_0={}, limb_1={}",
-            src1_limb_0.0, src1_limb_1.0
-        )));
-    }
-    let src1_value = (src1_limb_1.0 << U32_LIMB_BITS) | src1_limb_0.0;
-
-    // Perform 32-bit addition with wrapping
-    let result = src0_value.wrapping_add(src1_value);
-
-    // Store result as two 16-bit limbs
-    let res_limb_0 = M31::from(result & U32_LIMB_MASK);
-    let res_limb_1 = M31::from((result >> U32_LIMB_BITS) & U32_LIMB_MASK);
-
-    memory.insert(state.fp + dst_off, res_limb_0.into())?;
-    memory.insert(state.fp + dst_off + M31::one(), res_limb_1.into())?;
-
-    Ok(state.advance_by(instruction.size_in_qm31s()))
-}
-
-/// U32 store sub fp fp instruction.
-///
-/// u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) - u32([fp + src1_off], [fp + src1_off + 1])
-/// This instruction supports 32-bit values stored as two 16-bit M31 limbs
-pub fn u32_store_sub_fp_fp(
-    memory: &mut Memory,
-    state: State,
-    instruction: &Instruction,
-) -> Result<State, InstructionExecutionError> {
-    let (src0_off, src1_off, dst_off) =
-        extract_as!(instruction, U32StoreSubFpFp, (src0_off, src1_off, dst_off));
-
-    // Read first 32-bit value from memory as two limbs
-    let src0_limb_0 = memory.get_data(state.fp + src0_off)?;
-    let src0_limb_1 = memory.get_data(state.fp + src0_off + M31::from(1))?;
-
-    // Validate that source limbs are within 16-bit range
-    if src0_limb_0.0 > U32_LIMB_MASK || src0_limb_1.0 > U32_LIMB_MASK {
-        return Err(InstructionExecutionError::InvalidOperand(format!(
-            "U32 source 0 limbs exceed 16-bit range: limb_0={}, limb_1={}",
-            src0_limb_0.0, src0_limb_1.0
-        )));
-    }
-    let src0_value = (src0_limb_1.0 << U32_LIMB_BITS) | src0_limb_0.0;
-
-    // Read second 32-bit value from memory as two limbs
-    let src1_limb_0 = memory.get_data(state.fp + src1_off)?;
-    let src1_limb_1 = memory.get_data(state.fp + src1_off + M31::from(1))?;
-
-    // Validate that source limbs are within 16-bit range
-    if src1_limb_0.0 > U32_LIMB_MASK || src1_limb_1.0 > U32_LIMB_MASK {
-        return Err(InstructionExecutionError::InvalidOperand(format!(
-            "U32 source 1 limbs exceed 16-bit range: limb_0={}, limb_1={}",
-            src1_limb_0.0, src1_limb_1.0
-        )));
-    }
-    let src1_value = (src1_limb_1.0 << U32_LIMB_BITS) | src1_limb_0.0;
-
-    // Perform 32-bit subtraction with wrapping
-    let result = src0_value.wrapping_sub(src1_value);
-
-    // Store result as two 16-bit limbs
-    let res_limb_0 = M31::from(result & U32_LIMB_MASK);
-    let res_limb_1 = M31::from((result >> U32_LIMB_BITS) & U32_LIMB_MASK);
-
-    memory.insert(state.fp + dst_off, res_limb_0.into())?;
-    memory.insert(state.fp + dst_off + M31::one(), res_limb_1.into())?;
-
-    Ok(state.advance_by(instruction.size_in_qm31s()))
-}
-
-/// U32 store mul fp fp instruction.
-///
-/// u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) * u32([fp + src1_off], [fp + src1_off + 1])
-/// This instruction supports 32-bit values stored as two 16-bit M31 limbs
-pub fn u32_store_mul_fp_fp(
-    memory: &mut Memory,
-    state: State,
-    instruction: &Instruction,
-) -> Result<State, InstructionExecutionError> {
-    let (src0_off, src1_off, dst_off) =
-        extract_as!(instruction, U32StoreMulFpFp, (src0_off, src1_off, dst_off));
-
-    // Read first 32-bit value from memory as two limbs
-    let src0_limb_0 = memory.get_data(state.fp + src0_off)?;
-    let src0_limb_1 = memory.get_data(state.fp + src0_off + M31::from(1))?;
-
-    // Validate that source limbs are within 16-bit range
-    if src0_limb_0.0 > U32_LIMB_MASK || src0_limb_1.0 > U32_LIMB_MASK {
-        return Err(InstructionExecutionError::InvalidOperand(format!(
-            "U32 source 0 limbs exceed 16-bit range: limb_0={}, limb_1={}",
-            src0_limb_0.0, src0_limb_1.0
-        )));
-    }
-    let src0_value = (src0_limb_1.0 << U32_LIMB_BITS) | src0_limb_0.0;
-
-    // Read second 32-bit value from memory as two limbs
-    let src1_limb_0 = memory.get_data(state.fp + src1_off)?;
-    let src1_limb_1 = memory.get_data(state.fp + src1_off + M31::from(1))?;
-
-    // Validate that source limbs are within 16-bit range
-    if src1_limb_0.0 > U32_LIMB_MASK || src1_limb_1.0 > U32_LIMB_MASK {
-        return Err(InstructionExecutionError::InvalidOperand(format!(
-            "U32 source 1 limbs exceed 16-bit range: limb_0={}, limb_1={}",
-            src1_limb_0.0, src1_limb_1.0
-        )));
-    }
-    let src1_value = (src1_limb_1.0 << U32_LIMB_BITS) | src1_limb_0.0;
-
-    // Perform 32-bit multiplication with wrapping
-    let result = src0_value.wrapping_mul(src1_value);
-
-    // Store result as two 16-bit limbs
-    let res_limb_0 = M31::from(result & U32_LIMB_MASK);
-    let res_limb_1 = M31::from((result >> U32_LIMB_BITS) & U32_LIMB_MASK);
-
-    memory.insert(state.fp + dst_off, res_limb_0.into())?;
-    memory.insert(state.fp + dst_off + M31::one(), res_limb_1.into())?;
-
-    Ok(state.advance_by(instruction.size_in_qm31s()))
-}
-
-/// U32 store div fp fp instruction.
-///
-/// u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) / u32([fp + src1_off], [fp + src1_off + 1])
-/// This instruction supports 32-bit values stored as two 16-bit M31 limbs
-/// Division by zero returns 0xFFFFFFFF (all bits set) following RISC-V behavior
-pub fn u32_store_div_fp_fp(
-    memory: &mut Memory,
-    state: State,
-    instruction: &Instruction,
-) -> Result<State, InstructionExecutionError> {
-    let (src0_off, src1_off, dst_off) =
-        extract_as!(instruction, U32StoreDivFpFp, (src0_off, src1_off, dst_off));
-
-    // Read first 32-bit value from memory as two limbs
-    let src0_limb_0 = memory.get_data(state.fp + src0_off)?;
-    let src0_limb_1 = memory.get_data(state.fp + src0_off + M31::from(1))?;
-
-    // Validate that source limbs are within 16-bit range
-    if src0_limb_0.0 > U32_LIMB_MASK || src0_limb_1.0 > U32_LIMB_MASK {
-        return Err(InstructionExecutionError::InvalidOperand(format!(
-            "U32 source 0 limbs exceed 16-bit range: limb_0={}, limb_1={}",
-            src0_limb_0.0, src0_limb_1.0
-        )));
-    }
-    let src0_value = (src0_limb_1.0 << U32_LIMB_BITS) | src0_limb_0.0;
-
-    // Read second 32-bit value from memory as two limbs
-    let src1_limb_0 = memory.get_data(state.fp + src1_off)?;
-    let src1_limb_1 = memory.get_data(state.fp + src1_off + M31::from(1))?;
-
-    // Validate that source limbs are within 16-bit range
-    if src1_limb_0.0 > U32_LIMB_MASK || src1_limb_1.0 > U32_LIMB_MASK {
-        return Err(InstructionExecutionError::InvalidOperand(format!(
-            "U32 source 1 limbs exceed 16-bit range: limb_0={}, limb_1={}",
-            src1_limb_0.0, src1_limb_1.0
-        )));
-    }
-    let src1_value = (src1_limb_1.0 << U32_LIMB_BITS) | src1_limb_0.0;
-
-    // Perform 32-bit division
-    // Division by zero returns 0xFFFFFFFF following RISC-V specification
-    let result = if src1_value == 0 {
-        0xFFFFFFFF
-    } else {
-        src0_value / src1_value
-    };
-
-    // Store result as two 16-bit limbs
-    let res_limb_0 = M31::from(result & U32_LIMB_MASK);
-    let res_limb_1 = M31::from((result >> U32_LIMB_BITS) & U32_LIMB_MASK);
-
-    memory.insert(state.fp + dst_off, res_limb_0.into())?;
-    memory.insert(state.fp + dst_off + M31::one(), res_limb_1.into())?;
-
-    Ok(state.advance_by(instruction.size_in_qm31s()))
-}
-
-/// U32 store add fp imm instruction.
-///
-/// u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) + u32(imm_lo, imm_hi)
-/// This instruction supports 32-bit values stored as two 16-bit M31 limbs
-pub fn u32_store_add_fp_imm(
-    memory: &mut Memory,
-    state: State,
-    instruction: &Instruction,
-) -> Result<State, InstructionExecutionError> {
-    let (src_off, imm_hi, imm_lo, dst_off) = extract_as!(
-        instruction,
-        U32StoreAddFpImm,
-        (src_off, imm_hi, imm_lo, dst_off)
-    );
-
-    // Read 32-bit value from memory as two limbs
-    let src_limb_0 = memory.get_data(state.fp + src_off)?;
-    let src_limb_1 = memory.get_data(state.fp + src_off + M31::from(1))?;
-
-    // Validate that source limbs are within 16-bit range
-    if src_limb_0.0 > U32_LIMB_MASK || src_limb_1.0 > U32_LIMB_MASK {
-        return Err(InstructionExecutionError::InvalidOperand(format!(
-            "U32 source limbs exceed 16-bit range: limb_0={}, limb_1={}",
-            src_limb_0.0, src_limb_1.0
-        )));
-    }
-    let src_value = (src_limb_1.0 << U32_LIMB_BITS) | src_limb_0.0;
-
-    // Construct 32-bit immediate from two limbs
-    // Validate that immediate limbs are within 16-bit range
-    if imm_lo.0 > U32_LIMB_MASK || imm_hi.0 > U32_LIMB_MASK {
-        return Err(InstructionExecutionError::InvalidOperand(format!(
-            "U32 immediate limbs exceed 16-bit range: imm_lo={}, imm_hi={}",
-            imm_lo.0, imm_hi.0
-        )));
-    }
-    let imm_value = (imm_hi.0 << U32_LIMB_BITS) | imm_lo.0;
-
-    // Perform 32-bit addition with wrapping
-    let result = src_value.wrapping_add(imm_value);
-
-    // Store result as two 16-bit limbs
-    let res_limb_0 = M31::from(result & U32_LIMB_MASK);
-    let res_limb_1 = M31::from((result >> U32_LIMB_BITS) & U32_LIMB_MASK);
-
-    memory.insert(state.fp + dst_off, res_limb_0.into())?;
-    memory.insert(state.fp + dst_off + M31::one(), res_limb_1.into())?;
-
-    Ok(state.advance_by(instruction.size_in_qm31s()))
-}
-
-/// U32 store sub fp imm instruction.
-///
-/// u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) - u32(imm_lo, imm_hi)
-/// This instruction supports 32-bit values stored as two 16-bit M31 limbs
-pub fn u32_store_sub_fp_imm(
-    memory: &mut Memory,
-    state: State,
-    instruction: &Instruction,
-) -> Result<State, InstructionExecutionError> {
-    let (src_off, imm_hi, imm_lo, dst_off) = extract_as!(
-        instruction,
-        U32StoreSubFpImm,
-        (src_off, imm_hi, imm_lo, dst_off)
-    );
-
-    // Read 32-bit value from memory as two limbs
-    let src_limb_0 = memory.get_data(state.fp + src_off)?;
-    let src_limb_1 = memory.get_data(state.fp + src_off + M31::from(1))?;
-
-    // Validate that source limbs are within 16-bit range
-    if src_limb_0.0 > U32_LIMB_MASK || src_limb_1.0 > U32_LIMB_MASK {
-        return Err(InstructionExecutionError::InvalidOperand(format!(
-            "U32 source limbs exceed 16-bit range: limb_0={}, limb_1={}",
-            src_limb_0.0, src_limb_1.0
-        )));
-    }
-    let src_value = (src_limb_1.0 << U32_LIMB_BITS) | src_limb_0.0;
-
-    // Construct 32-bit immediate from two limbs
-    // Validate that immediate limbs are within 16-bit range
-    if imm_lo.0 > U32_LIMB_MASK || imm_hi.0 > U32_LIMB_MASK {
-        return Err(InstructionExecutionError::InvalidOperand(format!(
-            "U32 immediate limbs exceed 16-bit range: imm_lo={}, imm_hi={}",
-            imm_lo.0, imm_hi.0
-        )));
-    }
-    let imm_value = (imm_hi.0 << U32_LIMB_BITS) | imm_lo.0;
-
-    // Perform 32-bit subtraction with wrapping
-    let result = src_value.wrapping_sub(imm_value);
-
-    // Store result as two 16-bit limbs
-    let res_limb_0 = M31::from(result & U32_LIMB_MASK);
-    let res_limb_1 = M31::from((result >> U32_LIMB_BITS) & U32_LIMB_MASK);
-
-    memory.insert(state.fp + dst_off, res_limb_0.into())?;
-    memory.insert(state.fp + dst_off + M31::one(), res_limb_1.into())?;
-
-    Ok(state.advance_by(instruction.size_in_qm31s()))
-}
-
-/// U32 store mul fp imm instruction.
-///
-/// u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) * u32(imm_lo, imm_hi)
-/// This instruction supports 32-bit values stored as two 16-bit M31 limbs
-pub fn u32_store_mul_fp_imm(
-    memory: &mut Memory,
-    state: State,
-    instruction: &Instruction,
-) -> Result<State, InstructionExecutionError> {
-    let (src_off, imm_hi, imm_lo, dst_off) = extract_as!(
-        instruction,
-        U32StoreMulFpImm,
-        (src_off, imm_hi, imm_lo, dst_off)
-    );
-
-    // Read 32-bit value from memory as two limbs
-    let src_limb_0 = memory.get_data(state.fp + src_off)?;
-    let src_limb_1 = memory.get_data(state.fp + src_off + M31::from(1))?;
-
-    // Validate that source limbs are within 16-bit range
-    if src_limb_0.0 > U32_LIMB_MASK || src_limb_1.0 > U32_LIMB_MASK {
-        return Err(InstructionExecutionError::InvalidOperand(format!(
-            "U32 source limbs exceed 16-bit range: limb_0={}, limb_1={}",
-            src_limb_0.0, src_limb_1.0
-        )));
-    }
-    let src_value = (src_limb_1.0 << U32_LIMB_BITS) | src_limb_0.0;
-
-    // Construct 32-bit immediate from two limbs
-    // Validate that immediate limbs are within 16-bit range
-    if imm_lo.0 > U32_LIMB_MASK || imm_hi.0 > U32_LIMB_MASK {
-        return Err(InstructionExecutionError::InvalidOperand(format!(
-            "U32 immediate limbs exceed 16-bit range: imm_lo={}, imm_hi={}",
-            imm_lo.0, imm_hi.0
-        )));
-    }
-    let imm_value = (imm_hi.0 << U32_LIMB_BITS) | imm_lo.0;
-
-    // Perform 32-bit multiplication with wrapping
-    let result = src_value.wrapping_mul(imm_value);
-
-    // Store result as two 16-bit limbs
-    let res_limb_0 = M31::from(result & U32_LIMB_MASK);
-    let res_limb_1 = M31::from((result >> U32_LIMB_BITS) & U32_LIMB_MASK);
-
-    memory.insert(state.fp + dst_off, res_limb_0.into())?;
-    memory.insert(state.fp + dst_off + M31::one(), res_limb_1.into())?;
-
-    Ok(state.advance_by(instruction.size_in_qm31s()))
-}
-
-/// U32 store div fp imm instruction.
-///
-/// u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) / u32(imm_lo, imm_hi)
-/// This instruction supports 32-bit values stored as two 16-bit M31 limbs
-/// Division by zero returns 0xFFFFFFFF (all bits set) following RISC-V behavior
-pub fn u32_store_div_fp_imm(
-    memory: &mut Memory,
-    state: State,
-    instruction: &Instruction,
-) -> Result<State, InstructionExecutionError> {
-    let (src_off, imm_hi, imm_lo, dst_off) = extract_as!(
-        instruction,
-        U32StoreDivFpImm,
-        (src_off, imm_hi, imm_lo, dst_off)
-    );
-
-    // Read 32-bit value from memory as two limbs
-    let src_limb_0 = memory.get_data(state.fp + src_off)?;
-    let src_limb_1 = memory.get_data(state.fp + src_off + M31::from(1))?;
-
-    // Validate that source limbs are within 16-bit range
-    if src_limb_0.0 > U32_LIMB_MASK || src_limb_1.0 > U32_LIMB_MASK {
-        return Err(InstructionExecutionError::InvalidOperand(format!(
-            "U32 source limbs exceed 16-bit range: limb_0={}, limb_1={}",
-            src_limb_0.0, src_limb_1.0
-        )));
-    }
-    let src_value = (src_limb_1.0 << U32_LIMB_BITS) | src_limb_0.0;
-
-    // Construct 32-bit immediate from two limbs
-    // Validate that immediate limbs are within 16-bit range
-    if imm_lo.0 > U32_LIMB_MASK || imm_hi.0 > U32_LIMB_MASK {
-        return Err(InstructionExecutionError::InvalidOperand(format!(
-            "U32 immediate limbs exceed 16-bit range: imm_lo={}, imm_hi={}",
-            imm_lo.0, imm_hi.0
-        )));
-    }
-    let imm_value = (imm_hi.0 << U32_LIMB_BITS) | imm_lo.0;
-
-    // Perform 32-bit division
-    // Division by zero returns 0xFFFFFFFF following RISC-V specification
-    let result = if imm_value == 0 {
-        0xFFFFFFFF
-    } else {
-        src_value / imm_value
-    };
-
-    // Store result as two 16-bit limbs
-    let res_limb_0 = M31::from(result & U32_LIMB_MASK);
-    let res_limb_1 = M31::from((result >> U32_LIMB_BITS) & U32_LIMB_MASK);
-
-    memory.insert(state.fp + dst_off, res_limb_0.into())?;
-    memory.insert(state.fp + dst_off + M31::one(), res_limb_1.into())?;
-
-    Ok(state.advance_by(instruction.size_in_qm31s()))
-}
+// -------------------------------------------------------------------------------------------------
+// U32-specific instructions
+// -------------------------------------------------------------------------------------------------
+
+// -- FP-FP variants ----------------------------------------------------------
+impl_u32_store_bin_op_fp_fp!(u32_store_add_fp_fp, U32StoreAddFpFp, |a, b| a
+    .wrapping_add(b));
+impl_u32_store_bin_op_fp_fp!(u32_store_sub_fp_fp, U32StoreSubFpFp, |a, b| a
+    .wrapping_sub(b));
+impl_u32_store_bin_op_fp_fp!(u32_store_mul_fp_fp, U32StoreMulFpFp, |a, b| a
+    .wrapping_mul(b));
+impl_u32_store_bin_op_fp_fp!(u32_store_div_fp_fp, U32StoreDivFpFp, |a, b| a / b);
+
+// -- FP-IMM variants ---------------------------------------------------------
+impl_u32_store_bin_op_fp_imm!(u32_store_add_fp_imm, U32StoreAddFpImm, |a, b| a
+    .wrapping_add(b));
+impl_u32_store_bin_op_fp_imm!(u32_store_sub_fp_imm, U32StoreSubFpImm, |a, b| a
+    .wrapping_sub(b));
+impl_u32_store_bin_op_fp_imm!(u32_store_mul_fp_imm, U32StoreMulFpImm, |a, b| a
+    .wrapping_mul(b));
+impl_u32_store_bin_op_fp_imm!(u32_store_div_fp_imm, U32StoreDivFpImm, |a, b| a / b);
 
 #[cfg(test)]
 #[path = "./store_tests.rs"]
