@@ -110,7 +110,7 @@ macro_rules! extract_as {
 }
 
 /// Error type for instruction execution
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum InstructionExecutionError {
     #[error("Memory error: {0}")]
     Memory(#[from] MemoryError),

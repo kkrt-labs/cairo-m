@@ -11,13 +11,20 @@ use thiserror::Error;
 
 /// The number of M31 values that make up a single QM31.
 const M31S_IN_QM31: usize = 4;
+
 /// The maximum number of bits for a memory address, set to 30.
 /// This limits the memory size to 2^30 elements.
-/// TODO: check with Starkware
+// TODO: check with Starkware
 const MAX_MEMORY_SIZE_BITS: u8 = 30;
 
+/// Number of bits in a U32 limb (16 bits per limb for 32-bit values)
+pub const U32_LIMB_BITS: u32 = 16;
+
+/// Mask for a U32 limb (0xFFFF)
+pub const U32_LIMB_MASK: u32 = (1 << U32_LIMB_BITS) - 1;
+
 /// Custom error types for memory operations.
-#[derive(Debug, Clone, Error)]
+#[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum MemoryError {
     #[error("Address {addr} is out of bounds. Maximum allowed address is {max_addr}")]
     AddressOutOfBounds { addr: M31, max_addr: u32 },
@@ -25,6 +32,12 @@ pub enum MemoryError {
     BaseFieldProjectionFailed { addr: M31, value: QM31 },
     #[error("Memory cell at address {addr} is not initialized")]
     UninitializedMemoryCell { addr: M31 },
+    #[error(
+        "U32 source limbs exceed 16-bit range: limb_lo={}, limb_hi={}",
+        limb_lo,
+        limb_hi
+    )]
+    U32LimbOutOfRange { limb_lo: u32, limb_hi: u32 },
 }
 
 /// Represents the Cairo M VM's memory, a flat, read-write address space.
@@ -342,6 +355,31 @@ impl Memory {
             })
             .flat_map(u32::to_le_bytes)
             .collect()
+    }
+
+    /// Read a 32-bit value (little-endian) stored as two 16-bit limbs at `addr`.
+    pub fn get_u32(&self, addr: M31) -> Result<u32, MemoryError> {
+        let limb_lo = self.get_data(addr)?;
+        let limb_hi = self.get_data(addr + M31::one())?;
+
+        if limb_lo.0 > U32_LIMB_MASK || limb_hi.0 > U32_LIMB_MASK {
+            return Err(MemoryError::U32LimbOutOfRange {
+                limb_lo: limb_lo.0,
+                limb_hi: limb_hi.0,
+            });
+        }
+
+        Ok((limb_hi.0 << U32_LIMB_BITS) | limb_lo.0)
+    }
+
+    /// Write `value` as two 16-bit limbs (little-endian) at `addr`.
+    pub fn insert_u32(&mut self, addr: M31, value: u32) -> Result<(), MemoryError> {
+        let limb_lo = M31::from(value & U32_LIMB_MASK);
+        let limb_hi = M31::from((value >> U32_LIMB_BITS) & U32_LIMB_MASK);
+
+        self.insert(addr, limb_lo.into())?;
+        self.insert(addr + M31::one(), limb_hi.into())?;
+        Ok(())
     }
 }
 
