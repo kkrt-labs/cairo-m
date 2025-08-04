@@ -756,7 +756,7 @@ impl CasmBuilder {
     }
 
     /// Resolve U32 operands to their base offsets
-    fn resolve_u32_operands(&mut self, left: Value, right: Value) -> CodegenResult<(i32, i32)> {
+    fn resolve_u32_operands(&self, left: Value, right: Value) -> CodegenResult<(i32, i32)> {
         let left_off = self.resolve_u32_operand(left)?;
         let right_off = self.resolve_u32_operand(right)?;
         Ok((left_off, right_off))

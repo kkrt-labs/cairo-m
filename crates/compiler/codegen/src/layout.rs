@@ -97,12 +97,10 @@ impl FunctionLayout {
         for &return_id in &function.return_values {
             // Try to get the type, but if it's not available, assume single-slot
             // This can happen when the MIR doesn't fully populate value_types
-            let size = if let Some(ty) = function.value_types.get(&return_id) {
-                ty.size_units()
-            } else {
-                // Default to single slot for return values without type info
-                1
-            };
+            let ty = function.value_types.get(&return_id).ok_or_else(|| {
+                CodegenError::LayoutError(format!("No type found for return value {return_id:?}"))
+            })?;
+            let size = ty.size_units();
             k_slots += size;
         }
 
