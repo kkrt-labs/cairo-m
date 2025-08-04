@@ -3,7 +3,6 @@
 //! STORE instructions are used to store values in the memory.
 
 use cairo_m_common::{Instruction, State};
-use num_traits::One;
 use stwo_prover::core::fields::m31::M31;
 
 use super::InstructionExecutionError;
