@@ -6,11 +6,7 @@ use num_traits::identities::Zero;
 use num_traits::One;
 use smallvec::SmallVec;
 use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::QM31;
 use thiserror::Error;
-
-/// The number of M31 values that make up a single QM31.
-const M31S_IN_QM31: usize = 4;
 
 /// The maximum number of bits for a memory address, set to 30.
 /// This limits the memory size to 2^30 elements.
@@ -28,8 +24,6 @@ pub const U32_LIMB_MASK: u32 = (1 << U32_LIMB_BITS) - 1;
 pub enum MemoryError {
     #[error("Address {addr} is out of bounds. Maximum allowed address is {max_addr}")]
     AddressOutOfBounds { addr: M31, max_addr: u32 },
-    #[error("Cannot project value at address {addr} to base field M31: {value:?}")]
-    BaseFieldProjectionFailed { addr: M31, value: QM31 },
     #[error("Memory cell at address {addr} is not initialized")]
     UninitializedMemoryCell { addr: M31 },
     #[error(
@@ -46,8 +40,8 @@ pub enum MemoryError {
 #[derive(Debug, Clone, Default)]
 pub struct Memory {
     /// The index of the vector corresponds to the memory address.
-    /// Instructions and data are stored as `QM31` values.
-    pub data: Vec<QM31>,
+    /// Instructions and data are stored as `M31` values.
+    pub data: Vec<M31>,
     /// A trace of memory accesses.
     ///
     /// The trace is wrapped in a `RefCell` to enable interior mutability. This
@@ -93,7 +87,7 @@ impl Memory {
     ) -> Result<SmallVec<[M31; INSTRUCTION_MAX_SIZE]>, MemoryError> {
         // Fetch first QM31 word
         let address = addr.0 as usize;
-        let first_qm31 = self
+        let opcode_id = self
             .data
             .get(address)
             .copied()
@@ -101,40 +95,32 @@ impl Memory {
         let mut trace = self.trace.borrow_mut();
         trace.push(MemoryEntry {
             addr,
-            value: first_qm31,
+            value: opcode_id,
         });
 
-        // Decompose QM31 once and reuse
-        let first_qm31_array = first_qm31.to_m31_array();
-        let opcode = first_qm31_array[0].0;
-
         // Determine instruction size using const lookup table
-        let size_in_m31s = match OPCODE_SIZE_TABLE
-            .get(opcode as usize)
+        let instruction_size = match OPCODE_SIZE_TABLE
+            .get(opcode_id.0 as usize)
             .and_then(|&size| size)
         {
             Some(size) => size,
             None => {
                 // Invalid opcode - return just the first QM31's M31 values
                 // The VM will validate and return the proper error
-                return Ok(SmallVec::from_slice(&first_qm31_array));
+                return Ok(SmallVec::from_slice(&opcode_id));
             }
         };
 
         // Pre-allocate a SmallVec with the first QM31 word.
         // This is the most common path.
-        let mut instruction_m31s = SmallVec::from_slice(&first_qm31_array);
-
-        // Calculate how many QM31 words the instruction occupies.
-        // For sizes 1-4, this is 1. For size 5, this is 2.
-        let size_in_qm31s = size_in_m31s.div_ceil(M31S_IN_QM31);
+        let mut instruction_m31s = SmallVec::from(opcode_id);
 
         // Loop to fetch any additional words.
         // This loop is highly predictable: it runs 0 times for most instructions
         // and 1 time for the single 5-M31 instruction.
-        for i in 1..size_in_qm31s {
+        for i in 1..instruction_size {
             let next_addr = addr + M31::from(i as u32);
-            let qm31_word = self
+            let m31_word = self
                 .data
                 .get(next_addr.0 as usize)
                 .copied()
@@ -142,13 +128,13 @@ impl Memory {
 
             trace.push(MemoryEntry {
                 addr: next_addr,
-                value: qm31_word,
+                value: m31_word,
             });
-            instruction_m31s.extend_from_slice(&qm31_word.to_m31_array());
+            instruction_m31s.extend_one(&m31_word);
         }
 
         // Ensure the final vector has the exact size.
-        instruction_m31s.truncate(size_in_m31s);
+        instruction_m31s.truncate(instruction_size);
 
         Ok(instruction_m31s)
     }
