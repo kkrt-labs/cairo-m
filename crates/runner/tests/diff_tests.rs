@@ -510,3 +510,16 @@ diff_test!(
     rust_u32_div,
     "U32 division test"
 );
+
+// U32 literal return tests
+const fn rust_u32_literal() -> u32 {
+    42
+}
+
+diff_test!(
+    test_u32_literal_return,
+    "u32_operations.cm",
+    "get_u32_literal",
+    rust_u32_literal,
+    "U32 literal return test"
+);

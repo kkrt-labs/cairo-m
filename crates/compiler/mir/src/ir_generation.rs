@@ -207,6 +207,8 @@ struct MirBuilder<'a, 'db> {
     function_mapping: &'a FxHashMap<DefinitionId<'db>, (&'a Definition, FunctionId)>,
     /// Precomputed file ID for efficient MirDefinitionId creation
     file_id: u64,
+    /// The DefinitionId of the function being lowered (for type information)
+    function_def_id: Option<DefinitionId<'db>>,
 
     // State for the function currently being built
     mir_function: MirFunction,
@@ -253,6 +255,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             current_block_id: entry_block,
             definition_to_value: FxHashMap::default(),
             file_id,
+            function_def_id: None,
             is_terminated: false,
             loop_stack: Vec::new(),
         }
@@ -381,10 +384,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     /// Lowers a single function from the AST into a `MirFunction`
     fn lower_function(
         mut self,
-        _func_def_id: DefinitionId<'db>,
+        func_def_id: DefinitionId<'db>,
         func_def: &Definition,
         func_ast: &Spanned<FunctionDef>,
     ) -> Result<MirFunction, String> {
+        // Store the function definition ID for type resolution
+        self.function_def_id = Some(func_def_id);
         let func_data = func_ast.value();
 
         self.mir_function.name = func_def.name.clone();
@@ -539,12 +544,27 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                                 element_mir_type.size_units(),
                             ));
 
-                            // Store the element value
-                            self.add_instruction(Instruction::store(
-                                Value::operand(var_addr),
-                                element_value,
-                            ));
-
+                            match element_mir_type {
+                                MirType::U32 => {
+                                    self.add_instruction(Instruction::store_u32(
+                                        Value::operand(var_addr),
+                                        element_value,
+                                    ));
+                                }
+                                MirType::Felt | MirType::Bool => {
+                                    self.add_instruction(Instruction::store(
+                                        Value::operand(var_addr),
+                                        element_value,
+                                    ));
+                                }
+                                _ => {
+                                    // TODO: At some point this should be properly handled.
+                                    self.add_instruction(Instruction::store(
+                                        Value::operand(var_addr),
+                                        element_value,
+                                    ));
+                                }
+                            }
                             self.definition_to_value.insert(mir_def_id, var_addr);
                         } else {
                             // Unused variable - still evaluate for side effects but don't store
@@ -849,10 +869,28 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                                 var_addr,
                                 var_type.size_units(),
                             ));
-                            self.add_instruction(Instruction::store(
-                                Value::operand(var_addr),
-                                rhs_value,
-                            ));
+
+                            match var_type {
+                                MirType::U32 => {
+                                    self.add_instruction(Instruction::store_u32(
+                                        Value::operand(var_addr),
+                                        rhs_value,
+                                    ));
+                                }
+                                MirType::Felt | MirType::Bool => {
+                                    self.add_instruction(Instruction::store(
+                                        Value::operand(var_addr),
+                                        rhs_value,
+                                    ));
+                                }
+                                _ => {
+                                    // TODO: At some point this should be properly handled.
+                                    self.add_instruction(Instruction::store(
+                                        Value::operand(var_addr),
+                                        rhs_value,
+                                    ));
+                                }
+                            }
                             self.definition_to_value.insert(mir_def_id, var_addr);
                         } else {
                             // For unused variables, we still need to evaluate the RHS for side effects,
@@ -2499,21 +2537,72 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     /// If a return value is set, it will be stored in the function's return_value field
     fn terminate_current_block(&mut self, terminator: Terminator) {
         if let Terminator::Return { values } = &terminator {
+            // Get the return types of the current function
+            let return_types = self.get_function_return_types();
+
             // If returning values, track them in the function
             let return_value_ids: Vec<ValueId> = values
                 .iter()
-                .map(|val| match val {
+                .enumerate()
+                .map(|(idx, val)| match val {
                     Value::Operand(id) => *id,
-                    Value::Literal(_) | Value::Error => {
-                        // For literals and errors, we need to create a value ID
-                        // In a more complete implementation, we might emit an assignment first
-                        self.mir_function.new_value_id()
+                    Value::Literal(_) => {
+                        // For literals, use the function's return type if available
+                        let mir_type = return_types[idx].clone();
+
+                        // Create a typed value and emit an assignment
+                        self.mir_function.new_typed_value_id(mir_type)
+                    }
+                    Value::Error => {
+                        // For errors, use the function's return type if available
+                        let mir_type = if idx < return_types.len() {
+                            return_types[idx].clone()
+                        } else {
+                            MirType::error()
+                        };
+                        self.mir_function.new_typed_value_id(mir_type)
                     }
                 })
                 .collect();
             self.mir_function.return_values = return_value_ids;
         }
         self.current_block_mut().set_terminator(terminator);
+    }
+
+    /// Get the return types of the function being lowered
+    fn get_function_return_types(&self) -> Vec<MirType> {
+        if let Some(func_def_id) = self.function_def_id {
+            // Get the semantic type of the function
+            let semantic_type = definition_semantic_type(self.db, self.crate_id, func_def_id);
+
+            // Extract return type from function type
+            match semantic_type.data(self.db) {
+                TypeData::Function(sig_id) => {
+                    let return_type = sig_id.return_type(self.db);
+                    // Check if return type is a tuple
+                    match return_type.data(self.db) {
+                        TypeData::Tuple(element_types) => {
+                            // Multiple return values
+                            element_types
+                                .iter()
+                                .map(|t| MirType::from_semantic_type(self.db, *t))
+                                .collect()
+                        }
+                        _ => {
+                            // Single return value
+                            vec![MirType::from_semantic_type(self.db, return_type)]
+                        }
+                    }
+                }
+                _ => {
+                    // Not a function type - shouldn't happen
+                    vec![]
+                }
+            }
+        } else {
+            // No function def ID - shouldn't happen
+            vec![]
+        }
     }
 
     /// Converts a Salsa DefinitionId to a simple MirDefinitionId
@@ -2546,9 +2635,4 @@ fn test_return_value_field_assignment() {
     // Verify the return_values field is set
     assert!(!function.return_values.is_empty());
     assert_eq!(function.return_values[0], return_value_id);
-
-    println!(
-        "✓ Return values field correctly set: {:?}",
-        function.return_values
-    );
 }

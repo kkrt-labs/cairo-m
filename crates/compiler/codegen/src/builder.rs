@@ -93,6 +93,21 @@ impl CasmBuilder {
         self.touch(offset, 1);
     }
 
+    /// Helper to emit a u32 store immediate instruction and track the write
+    fn store_u32_immediate(&mut self, value: u32, offset: i32, comment: String) {
+        // Split the u32 value into low and high 16-bit parts
+        let lo = (value & 0xFFFF) as i32;
+        let hi = ((value >> 16) & 0xFFFF) as i32;
+
+        let instr = InstructionBuilder::new(U32_STORE_IMM)
+            .with_operand(Operand::Literal(lo))
+            .with_operand(Operand::Literal(hi))
+            .with_operand(Operand::Literal(offset))
+            .with_comment(comment);
+        self.instructions.push(instr);
+        self.touch(offset, 2); // u32 takes 2 slots
+    }
+
     /// Store immediate value at a specific offset (public version)
     pub fn store_immediate_at(
         &mut self,
@@ -101,6 +116,17 @@ impl CasmBuilder {
         comment: String,
     ) -> CodegenResult<()> {
         self.store_immediate(value, offset, comment);
+        Ok(())
+    }
+
+    /// Store u32 immediate value at a specific offset (public version)
+    pub fn store_u32_immediate_at(
+        &mut self,
+        value: u32,
+        offset: i32,
+        comment: String,
+    ) -> CodegenResult<()> {
+        self.store_u32_immediate(value, offset, comment);
         Ok(())
     }
 
@@ -129,6 +155,44 @@ impl CasmBuilder {
                 ));
             }
         }
+        Ok(())
+    }
+
+    /// Store u32 value at a specific offset
+    pub fn store_u32_at(
+        &mut self,
+        dest_id: ValueId,
+        offset: i32,
+        value: Value,
+    ) -> CodegenResult<()> {
+        self.layout.map_value(dest_id, offset);
+
+        match value {
+            Value::Literal(Literal::Integer(imm)) => {
+                let value = imm as u32;
+                self.store_u32_immediate(
+                    value,
+                    offset,
+                    format!("[fp + {}, fp + {}] = u32({})", offset, offset + 1, imm),
+                );
+            }
+            Value::Operand(src_id) => {
+                let src_off = self.layout.get_offset(src_id)?;
+                let instr = InstructionBuilder::new(U32_STORE_ADD_FP_IMM)
+                    .with_operand(Operand::Literal(src_off))
+                    .with_operand(Operand::Literal(0))
+                    .with_operand(Operand::Literal(offset))
+                    .with_comment(format!("[fp + {}] = [fp + {}] + 0", offset, src_off));
+                self.instructions.push(instr);
+                self.touch(offset, 1);
+            }
+            _ => {
+                return Err(CodegenError::UnsupportedInstruction(
+                    "Unsupported store value type".to_string(),
+                ));
+            }
+        }
+
         Ok(())
     }
 
@@ -187,6 +251,75 @@ impl CasmBuilder {
     /// Handles simple value assignments: dest = source
     pub fn assign(&mut self, dest: ValueId, source: Value) -> CodegenResult<()> {
         self.assign_with_target(dest, source, None)
+    }
+
+    /// Generate u32 assignment instruction with optional target offset
+    ///
+    /// If target_offset is provided, writes directly to that location.
+    /// Otherwise, allocates a new local variable.
+    pub fn assign_u32_with_target(
+        &mut self,
+        dest: ValueId,
+        source: Value,
+        target_offset: Option<i32>,
+    ) -> CodegenResult<()> {
+        let dest_off = if let Some(offset) = target_offset {
+            // Use the provided target offset and map the ValueId to it
+            self.layout.map_value(dest, offset);
+            offset
+        } else {
+            // Get the pre-allocated offset from the layout
+            self.layout.get_offset(dest)?
+        };
+
+        match source {
+            Value::Literal(Literal::Integer(imm)) => {
+                // Store as u32 immediate
+                let value = imm as u32;
+                self.store_u32_immediate(
+                    value,
+                    dest_off,
+                    format!("[fp + {dest_off}, fp + {dest_off} + 1] = u32({value})"),
+                );
+            }
+
+            Value::Operand(src_id) => {
+                // Copy from another value - for u32 we need to copy 2 slots
+                let src_off = self.layout.get_offset(src_id)?;
+
+                // Copy low word
+                let instr_low = InstructionBuilder::new(STORE_ADD_FP_IMM)
+                    .with_operand(Operand::Literal(src_off))
+                    .with_operand(Operand::Literal(0))
+                    .with_operand(Operand::Literal(dest_off))
+                    .with_comment(format!(
+                        "[fp + {dest_off}] = [fp + {src_off}] + 0 (u32 low)"
+                    ));
+                self.instructions.push(instr_low);
+
+                // Copy high word
+                let instr_high = InstructionBuilder::new(STORE_ADD_FP_IMM)
+                    .with_operand(Operand::Literal(src_off + 1))
+                    .with_operand(Operand::Literal(0))
+                    .with_operand(Operand::Literal(dest_off + 1))
+                    .with_comment(format!(
+                        "[fp + {}] = [fp + {}] + 0 (u32 high)",
+                        dest_off + 1,
+                        src_off + 1
+                    ));
+                self.instructions.push(instr_high);
+
+                self.touch(dest_off, 2);
+            }
+
+            _ => {
+                return Err(CodegenError::UnsupportedInstruction(
+                    "Unsupported assignment source for u32".to_string(),
+                ));
+            }
+        }
+
+        Ok(())
     }
 
     pub fn unary_op(&mut self, op: UnaryOp, dest: ValueId, source: Value) -> CodegenResult<()> {
@@ -313,6 +446,30 @@ impl CasmBuilder {
             BinaryOp::Sub => Ok(STORE_SUB_FP_IMM),
             BinaryOp::Mul => Ok(STORE_MUL_FP_IMM),
             BinaryOp::Div => Ok(STORE_DIV_FP_IMM),
+            _ => Err(CodegenError::UnsupportedInstruction(format!(
+                "Invalid binary operation: {op:?}"
+            ))),
+        }
+    }
+
+    pub fn fp_fp_opcode_for_u32_op(&mut self, op: BinaryOp) -> CodegenResult<u32> {
+        match op {
+            BinaryOp::U32Add => Ok(U32_STORE_ADD_FP_FP),
+            BinaryOp::U32Sub => Ok(U32_STORE_SUB_FP_FP),
+            BinaryOp::U32Mul => Ok(U32_STORE_MUL_FP_FP),
+            BinaryOp::U32Div => Ok(U32_STORE_DIV_FP_FP),
+            _ => Err(CodegenError::UnsupportedInstruction(format!(
+                "Invalid binary operation: {op:?}"
+            ))),
+        }
+    }
+
+    pub fn fp_imm_opcode_for_u32_op(&mut self, op: BinaryOp) -> CodegenResult<u32> {
+        match op {
+            BinaryOp::U32Add => Ok(U32_STORE_ADD_FP_IMM),
+            BinaryOp::U32Sub => Ok(U32_STORE_SUB_FP_IMM),
+            BinaryOp::U32Mul => Ok(U32_STORE_MUL_FP_IMM),
+            BinaryOp::U32Div => Ok(U32_STORE_DIV_FP_IMM),
             _ => Err(CodegenError::UnsupportedInstruction(format!(
                 "Invalid binary operation: {op:?}"
             ))),
@@ -712,103 +869,107 @@ impl CasmBuilder {
         left: Value,
         right: Value,
     ) -> CodegenResult<()> {
-        // For comparison operations, the result is a single felt (0 or 1)
-        let is_comparison = matches!(
-            op,
-            BinaryOp::U32Eq
-                | BinaryOp::U32Neq
-                | BinaryOp::U32Less
-                | BinaryOp::U32Greater
-                | BinaryOp::U32LessEqual
-                | BinaryOp::U32GreaterEqual
-        );
+        match (&left, &right) {
+            (Value::Operand(left_id), Value::Operand(right_id)) => {
+                let left_off = self.layout.get_offset(*left_id)?;
+                let right_off = self.layout.get_offset(*right_id)?;
 
-        // Resolve operands - U32 values occupy 2 slots
-        let (left_off, right_off) = self.resolve_u32_operands(left, right)?;
+                let instr = InstructionBuilder::new(self.fp_fp_opcode_for_u32_op(op)?)
+                    .with_operand(Operand::Literal(left_off))
+                    .with_operand(Operand::Literal(right_off))
+                    .with_operand(Operand::Literal(dest_off))
+                    .with_comment(format!(
+                        "u32([fp + {dest_off}], [fp + {dest_off} + 1]) = u32([fp + {left_off}], [fp + {left_off} + 1]) op u32([fp + {right_off}], [fp + {right_off} + 1])"
+                    ));
 
-        // Get the appropriate opcode
-        let opcode = self.opcode_for_u32_op(op)?;
+                self.instructions.push(instr);
+                self.touch(dest_off, 1);
+            }
 
-        // Emit the instruction
-        let instr = InstructionBuilder::new(opcode)
-            .with_operand(Operand::Literal(left_off))
-            .with_operand(Operand::Literal(right_off))
-            .with_operand(Operand::Literal(dest_off))
-            .with_comment(format!(
-                "[fp + {}, fp + {}] = u32_op([fp + {}, fp + {}], [fp + {}, fp + {}])",
-                dest_off,
-                dest_off + 1,
-                left_off,
-                left_off + 1,
-                right_off,
-                right_off + 1
-            ));
-        self.instructions.push(instr);
+            // Left is value, right is immediate: use fp_imm variant
+            (Value::Operand(left_id), Value::Literal(Literal::Integer(imm))) => {
+                let left_off = self.layout.get_offset(*left_id)?;
 
-        // Track memory writes
-        if is_comparison {
-            self.touch(dest_off, 1); // Comparison results are single felt
-        } else {
-            self.touch(dest_off, 2); // Arithmetic results are u32 (2 slots)
+                let imm_16b_low = *imm & 0xFFFF;
+                let imm_16b_high = *imm >> 16;
+
+                let instr = InstructionBuilder::new(self.fp_imm_opcode_for_u32_op(op)?)
+                    .with_operand(Operand::Literal(left_off))
+                    .with_operand(Operand::Literal(imm_16b_low))
+                    .with_operand(Operand::Literal(imm_16b_high))
+                    .with_operand(Operand::Literal(dest_off))
+                    .with_comment(format!(
+                        "u32([fp + {dest_off}], [fp + {dest_off} + 1]) = u32([fp + {left_off}], [fp + {left_off} + 1]) op u32({imm_16b_low}, {imm_16b_high})"
+                    ));
+
+                self.instructions.push(instr);
+                self.touch(dest_off, 1);
+            }
+
+            // Left is immediate, right is value: use fp_imm variant
+            (Value::Literal(Literal::Integer(imm)), Value::Operand(right_id)) => {
+                let imm_16b_low = *imm & 0xFFFF;
+                let imm_16b_high = *imm >> 16;
+
+                match op {
+                    // For addition and multiplication, we can swap the operands
+                    BinaryOp::U32Add | BinaryOp::U32Mul => {
+                        let right_off = self.layout.get_offset(*right_id)?;
+                        let instr = InstructionBuilder::new(self.fp_imm_opcode_for_u32_op(op)?)
+                            .with_operand(Operand::Literal(right_off))
+                            .with_operand(Operand::Literal(*imm))
+                            .with_operand(Operand::Literal(dest_off))
+                            .with_comment(format!(
+                                "u32([fp + {dest_off}], [fp + {dest_off} + 1]) = u32([fp + {right_off}], [fp + {right_off} + 1]) op u32({imm_16b_low}, {imm_16b_high})"
+                            ));
+                        self.instructions.push(instr);
+                        self.touch(dest_off, 1);
+                    }
+                    // For subtraction and division, we store the immediate in a temporary variable
+                    // TODO: In the future we should add opcodes imm_fp_sub and imm_fp_div
+                    BinaryOp::U32Sub | BinaryOp::U32Div => {
+                        let right_off = self.layout.get_offset(*right_id)?;
+                        // Allocate a new temporary slot for the immediate
+                        let temp_off = self.layout.reserve_stack(1);
+
+                        self.store_immediate(*imm, temp_off, format!("[fp + {temp_off}] = {imm}"));
+
+                        let instr = InstructionBuilder::new(self.fp_fp_opcode_for_u32_op(op)?)
+                            .with_operand(Operand::Literal(temp_off))
+                            .with_operand(Operand::Literal(right_off))
+                            .with_operand(Operand::Literal(dest_off))
+                            .with_comment(format!(
+                                "u32([fp + {dest_off}], [fp + {dest_off} + 1]) = u32([fp + {temp_off}], [fp + {temp_off} + 1]) op u32([fp + {right_off}], [fp + {right_off} + 1])   "
+                            ));
+                        self.instructions.push(instr);
+                        self.touch(dest_off, 1);
+                    }
+                    _ => {
+                        return Err(CodegenError::UnsupportedInstruction(format!(
+                            "Unsupported operation: {op:?}"
+                        )));
+                    }
+                }
+            }
+
+            // TODO: We should have constant folding already. This should be an unreachable case.
+            // Both operands are immediate: fold constants
+            // This is a workaround for the fact that we don't have a constant folding pass yet.
+            (Value::Literal(Literal::Integer(imm)), Value::Literal(Literal::Integer(imm2))) => {
+                panic!(
+                    "Constant folding not properly made while folding {:?} {:?} {:?}",
+                    imm, op, imm2
+                );
+            }
+
+            _ => {
+                return Err(CodegenError::UnsupportedInstruction(
+                    "Unsupported operation".to_string(),
+                ));
+            }
         }
 
         Ok(())
-    }
-
-    /// Resolve U32 operands to their base offsets
-    fn resolve_u32_operands(&self, left: Value, right: Value) -> CodegenResult<(i32, i32)> {
-        let left_off = self.resolve_u32_operand(left)?;
-        let right_off = self.resolve_u32_operand(right)?;
-        Ok((left_off, right_off))
-    }
-
-    /// Resolve a single U32 operand to its base offset
-    fn resolve_u32_operand(&self, operand: Value) -> CodegenResult<i32> {
-        match operand {
-            Value::Operand(id) => {
-                // Get the base offset for this U32 value
-                self.layout.get_offset(id)
-            }
-            Value::Literal(_) => {
-                // U32 literals are not yet supported in MIR
-                // When they are added, we'll need to:
-                // 1. Reserve 2 temporary slots
-                // 2. Split the u32 into low and high parts
-                // 3. Store them using store_immediate
-                // 4. Return the base offset
-                Err(CodegenError::UnsupportedInstruction(
-                    "U32 literal values are not yet supported".to_string(),
-                ))
-            }
-            _ => Err(CodegenError::UnsupportedInstruction(
-                "Unsupported U32 operand type".to_string(),
-            )),
-        }
-    }
-
-    /// Get the opcode for a U32 operation
-    fn opcode_for_u32_op(&self, op: BinaryOp) -> CodegenResult<u32> {
-        match op {
-            BinaryOp::U32Add => Ok(U32_STORE_ADD_FP_FP),
-            BinaryOp::U32Sub => Ok(U32_STORE_SUB_FP_FP),
-            BinaryOp::U32Mul => Ok(U32_STORE_MUL_FP_FP),
-            BinaryOp::U32Div => Ok(U32_STORE_DIV_FP_FP),
-            // For comparison operations, we need to implement them using the arithmetic opcodes
-            // and conditional jumps, similar to how we handle felt comparisons
-            BinaryOp::U32Eq
-            | BinaryOp::U32Neq
-            | BinaryOp::U32Less
-            | BinaryOp::U32Greater
-            | BinaryOp::U32LessEqual
-            | BinaryOp::U32GreaterEqual => Err(CodegenError::UnsupportedInstruction(
-                "U32 comparison operations need special handling".to_string(),
-            )),
-            // Non-U32 operations should not reach here
-            _ => Err(CodegenError::InvalidMir(format!(
-                "Expected U32 operation, got {:?}",
-                op
-            ))),
-        }
     }
 
     /// Generate a function call that returns a value.
@@ -1368,6 +1529,52 @@ impl CasmBuilder {
                 }
             }
 
+            _ => {
+                return Err(CodegenError::UnsupportedInstruction(
+                    "Store to non-operand address not supported".to_string(),
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn store_u32(&mut self, address: Value, value: Value) -> CodegenResult<()> {
+        match address {
+            Value::Operand(addr_id) => {
+                let dest_offset = self.layout.get_offset(addr_id)?;
+
+                match value {
+                    Value::Literal(Literal::Integer(imm)) => {
+                        self.store_u32_immediate(
+                            imm as u32,
+                            dest_offset,
+                            format!(
+                                "[fp + {}, fp + {}] = u32({imm})",
+                                dest_offset,
+                                dest_offset + 1
+                            ),
+                        );
+                    }
+                    Value::Operand(val_id) => {
+                        let val_offset = self.layout.get_offset(val_id)?;
+
+                        let instr = InstructionBuilder::new(U32_STORE_ADD_FP_IMM)
+                            .with_operand(Operand::Literal(val_offset))
+                            .with_operand(Operand::Literal(0))
+                            .with_operand(Operand::Literal(0))
+                            .with_operand(Operand::Literal(dest_offset))
+                            .with_comment(format!("[fp + {dest_offset}], [fp + {dest_offset} + 1] = [fp + {val_offset}], [fp + {val_offset}  +1] + 0"));
+                        self.instructions.push(instr);
+                        self.touch(dest_offset, 2);
+                    }
+                    _ => {
+                        return Err(CodegenError::UnsupportedInstruction(
+                            "Unsupported store value type".to_string(),
+                        ));
+                    }
+                }
+            }
             _ => {
                 return Err(CodegenError::UnsupportedInstruction(
                     "Store to non-operand address not supported".to_string(),

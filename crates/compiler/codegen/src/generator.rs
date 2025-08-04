@@ -293,6 +293,40 @@ impl CodeGenerator {
                 builder.assign_with_target(*dest, *source, target_offset)?;
             }
 
+            InstructionKind::AssignU32 { dest, source } => {
+                let mut target_offset = None;
+
+                // Direct Argument Placement Optimization
+                if let Some(next_instruction) = block_instructions.get(instruction_index + 1) {
+                    if let InstructionKind::Call {
+                        args, signature, ..
+                    } = &next_instruction.kind
+                    {
+                        if let Some(arg_index) = args
+                            .iter()
+                            .position(|arg| matches!(arg, Value::Operand(id) if *id == *dest))
+                        {
+                            let l = builder.current_frame_usage();
+                            let mut arg_offset = l;
+                            for (i, param_type) in signature.param_types.iter().enumerate() {
+                                if i == arg_index {
+                                    break;
+                                }
+                                arg_offset += param_type.size_units() as i32;
+                            }
+                            target_offset = Some(arg_offset);
+                        }
+                    }
+                }
+
+                // Fallback to return-value optimization
+                if target_offset.is_none() {
+                    target_offset = self.get_target_offset_for_dest(*dest, terminator);
+                }
+
+                builder.assign_u32_with_target(*dest, *source, target_offset)?;
+            }
+
             InstructionKind::UnaryOp {
                 op,
                 dest,
@@ -498,6 +532,62 @@ impl CodeGenerator {
 
                 // Normal store
                 builder.store(*address, *value)?;
+            }
+
+            // TODO: factorize this properly...
+            InstructionKind::StoreU32 { address, value } => {
+                // Check if this store's destination is used as a call argument
+                if let Value::Operand(addr_id) = address {
+                    if let Some(next_instruction) = block_instructions.get(instruction_index + 1) {
+                        if let InstructionKind::Call {
+                            args, signature, ..
+                        } = &next_instruction.kind
+                        {
+                            // Check if the stored-to address is used as an argument
+                            if let Some(arg_index) = args.iter().position(
+                                |arg| matches!(arg, Value::Operand(id) if *id == *addr_id),
+                            ) {
+                                // Direct Argument Placement: store directly to argument position
+                                let l = builder.current_frame_usage();
+                                let mut arg_offset = l;
+                                for (i, param_type) in signature.param_types.iter().enumerate() {
+                                    if i == arg_index {
+                                        break;
+                                    }
+                                    arg_offset += param_type.size_units() as i32;
+                                }
+
+                                // Store the value directly at the argument offset
+                                match value {
+                                    Value::Literal(Literal::Integer(imm)) => {
+                                        builder.store_u32_immediate_at(
+                                            *imm as u32,
+                                            arg_offset,
+                                            format!(
+                                                "Direct arg placement: [fp + {}], [fp + {}] = u32({})",
+                                                arg_offset, arg_offset + 1, imm
+                                            ),
+                                        )?;
+                                        // Map the address ValueId to this offset
+                                        builder.layout_mut().map_value(*addr_id, arg_offset);
+                                    }
+                                    Value::Operand(_src_id) => {
+                                        // For operand sources, use regular store but at arg offset
+                                        builder.store_u32_at(*addr_id, arg_offset, *value)?;
+                                    }
+                                    _ => {
+                                        // Fallback to regular store
+                                        builder.store_u32(*address, *value)?;
+                                    }
+                                }
+                                return Ok(());
+                            }
+                        }
+                    }
+                }
+
+                // Normal store
+                builder.store_u32(*address, *value)?;
             }
 
             InstructionKind::StackAlloc { dest, size } => {

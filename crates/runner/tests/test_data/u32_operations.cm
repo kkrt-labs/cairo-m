@@ -7,7 +7,7 @@ fn add(a: u32, b: u32) -> u32 {
 }
 
 fn sub(a: u32, b: u32) -> u32 {
-    // Simple u32 subtraction  
+    // Simple u32 subtraction
     let result: u32 = a - b;
     let one: u32 = 1;
     let result2: u32 = result - one;
@@ -28,4 +28,9 @@ fn div(a: u32, b: u32) -> u32 {
     let two: u32 = 2;
     let result2: u32 = result / two;
     return result2;
+}
+
+fn get_u32_literal() -> u32 {
+    // Return a literal that should be inferred as u32
+    return 42;
 }
