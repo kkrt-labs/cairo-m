@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1754308958651,
+  "lastUpdate": 1754317702212,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -1543,6 +1543,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 337531450,
             "range": "± 4526624",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ffaecc8f1a02c18621c0e8d6c78ce874f7dcaa2f",
+          "message": "feat(runner-compiler): add u32_store_imm instruction (#220)\n\n* feat: add u32_store_imm instruction\n\n* optimize",
+          "timestamp": "2025-08-04T16:24:50+02:00",
+          "tree_id": "252f13d66cbafe75d02e9b1684920497f0d4b68d",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/ffaecc8f1a02c18621c0e8d6c78ce874f7dcaa2f"
+        },
+        "date": 1754317701676,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 334957999,
+            "range": "± 3196617",
             "unit": "ns/iter"
           }
         ]
