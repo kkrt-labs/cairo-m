@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1754067882100,
+  "lastUpdate": 1754308958651,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -1513,6 +1513,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 336277049,
             "range": "± 2154136",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d7c2f4d4ec8702cc74197da0b8fde8bf9ccec8ec",
+          "message": "feat(runner): implement all U32 arithmetic operations in VM (#219)\n\n* feat(runner): implement all U32 operations in VM\n\nImplements all U32 arithmetic operations for Cairo-M VM runner with\nRISC-V-compliant behavior:\n\n- FP-FP operations: U32StoreAddFpFp, U32StoreSubFpFp, U32StoreMulFpFp, U32StoreDivFpFp\n- FP-IMM operations: U32StoreSubFpImm, U32StoreMulFpImm, U32StoreDivFpImm\n- All operations use wrapping arithmetic (no overflow traps)\n- Division by zero returns 0xFFFFFFFF following RISC-V specification\n- U32 values stored as two 16-bit M31 limbs in consecutive memory cells\n- Comprehensive tests for all operations including edge cases\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* refactor(runner): consolidate U32 operations and add property-based tests\n\n- Move U32_LIMB_BITS and U32_LIMB_MASK constants to memory module\n- Consolidate repetitive U32 binary operation implementations using generic helper functions\n- Add proptest dependency for property-based testing of U32 operations\n- Reduce code duplication by ~400 lines while maintaining functionality\n- Add .repo_ignore to gitignore for local development files\n\n* fmt\n\n* unused import\n\n* address comments\n\n---------\n\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-08-04T13:59:14+02:00",
+          "tree_id": "2daaa9bb3ccc88c8cc4aa9352bff2604c127b74a",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/d7c2f4d4ec8702cc74197da0b8fde8bf9ccec8ec"
+        },
+        "date": 1754308958083,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 337531450,
+            "range": "± 4526624",
             "unit": "ns/iter"
           }
         ]
