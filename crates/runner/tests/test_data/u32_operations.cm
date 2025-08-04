@@ -1,0 +1,31 @@
+fn add(a: u32, b: u32) -> u32 {
+    // Simple u32 addition
+    let result: u32 = a + b;
+    let one: u32 = 1;
+    let result2: u32 = result + one;
+    return result2;
+}
+
+fn sub(a: u32, b: u32) -> u32 {
+    // Simple u32 subtraction  
+    let result: u32 = a - b;
+    let one: u32 = 1;
+    let result2: u32 = result - one;
+    return result2;
+}
+
+fn mul(a: u32, b: u32) -> u32 {
+    // Simple u32 multiplication
+    let result: u32 = a * b;
+    let two: u32 = 2;
+    let result2: u32 = result * two;
+    return result2;
+}
+
+fn div(a: u32, b: u32) -> u32 {
+    // Simple u32 division
+    let result: u32 = a / b;
+    let two: u32 = 2;
+    let result2: u32 = result / two;
+    return result2;
+}

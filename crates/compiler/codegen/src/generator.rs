@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 
 use cairo_m_common::instruction::*;
-use cairo_m_common::program::EntrypointInfo;
+use cairo_m_common::program::{AbiSlot, EntrypointInfo};
 use cairo_m_common::{Program, ProgramMetadata};
 use cairo_m_compiler_mir::{
     BasicBlockId, BinaryOp, Instruction, InstructionKind, Literal, MirFunction, MirModule,
@@ -145,16 +145,37 @@ impl CodeGenerator {
         // Add function label - but we'll fix the address later
         let func_label = Label::for_function(&function.name);
 
-        // Create entrypoint info for this function
-        // TODO: this is not using the name of the argument, rather a placeholder with arg_{index}.
-        // Fix this with the proper argument names.
-        // Note: We store the logical PC here, will convert to physical address later
+        // Create entrypoint info for this function with slot information
+        let params = function
+            .parameters
+            .iter()
+            .enumerate()
+            .map(|(i, &value_id)| {
+                let slots = function.value_types[&value_id].size_units();
+                AbiSlot {
+                    name: format!("arg{}", i), // TODO: Get proper names from semantic info
+                    slots,
+                }
+            })
+            .collect();
+
+        let returns = function
+            .return_values
+            .iter()
+            .enumerate()
+            .map(|(i, &value_id)| {
+                let slots = function.value_types[&value_id].size_units();
+                AbiSlot {
+                    name: format!("ret{}", i), // TODO: Get proper names from semantic info
+                    slots,
+                }
+            })
+            .collect();
+
         let entrypoint_info = EntrypointInfo {
             pc: self.instructions.len(),
-            args: (0..function.parameters.len())
-                .map(|i| format!("arg{}", i))
-                .collect(),
-            num_return_values: function.return_values.len(),
+            params,
+            returns,
         };
         self.function_entrypoints
             .insert(function.name.clone(), entrypoint_info);
