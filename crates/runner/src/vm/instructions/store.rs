@@ -3,6 +3,7 @@
 //! STORE instructions are used to store values in the memory.
 
 use cairo_m_common::{Instruction, State};
+use num_traits::One;
 use stwo_prover::core::fields::m31::M31;
 
 use super::InstructionExecutionError;
@@ -229,6 +230,30 @@ impl_u32_store_bin_op_fp_imm!(u32_store_sub_fp_imm, U32StoreSubFpImm, |a, b| a
 impl_u32_store_bin_op_fp_imm!(u32_store_mul_fp_imm, U32StoreMulFpImm, |a, b| a
     .wrapping_mul(b));
 impl_u32_store_bin_op_fp_imm!(u32_store_div_fp_imm, U32StoreDivFpImm, |a, b| a / b);
+
+/// CASM equivalent:
+/// ```casm
+/// u32([fp + dst_off], [fp + dst_off + 1]) = imm
+/// ```
+pub fn u32_store_imm(
+    memory: &mut Memory,
+    state: State,
+    instruction: &Instruction,
+) -> Result<State, InstructionExecutionError> {
+    let (imm_lo, imm_hi, dst_off) =
+        extract_as!(instruction, U32StoreImm, (imm_lo, imm_hi, dst_off));
+    if imm_lo.0 > U32_LIMB_MASK || imm_hi.0 > U32_LIMB_MASK {
+        return Err(InstructionExecutionError::Memory(
+            MemoryError::U32LimbOutOfRange {
+                limb_lo: imm_lo.0,
+                limb_hi: imm_hi.0,
+            },
+        ));
+    }
+    memory.insert(state.fp + dst_off, imm_lo.into())?;
+    memory.insert(state.fp + dst_off + M31::one(), imm_hi.into())?;
+    Ok(state.advance_by(instruction.size_in_qm31s()))
+}
 
 #[cfg(test)]
 #[path = "./store_tests.rs"]

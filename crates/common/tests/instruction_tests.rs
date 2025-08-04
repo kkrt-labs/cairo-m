@@ -554,6 +554,20 @@ fn test_try_from_smallvec() {
         ),
         // Memory and control flow operations
         (
+            smallvec![
+                M31::from(23),
+                M31::from(0x5678),
+                M31::from(0x1234),
+                M31::from(3)
+            ],
+            Instruction::U32StoreImm {
+                imm_lo: M31::from(0x5678),
+                imm_hi: M31::from(0x1234),
+                dst_off: M31::from(3),
+            },
+            "U32StoreImm instruction",
+        ),
+        (
             smallvec![M31::from(8), M31::from(9), M31::from(10), M31::from(11)],
             Instruction::StoreDoubleDerefFp {
                 base_off: M31::from(9),

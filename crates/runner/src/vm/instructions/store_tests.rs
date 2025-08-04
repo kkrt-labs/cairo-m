@@ -1,4 +1,4 @@
-use num_traits::{One, Zero};
+use num_traits::Zero;
 use proptest::{prelude::*, proptest};
 use stwo_prover::core::fields::m31::M31;
 
@@ -391,6 +391,28 @@ proptest! {
     }
 
     #[test]
+    fn test_u32_store_add_fp_imm_invalid_limbs(imm_val_lo: u32, imm_val_hi: u32) {
+        prop_assume!(imm_val_lo > U32_LIMB_MASK || imm_val_hi > U32_LIMB_MASK);
+        let err = run_u32_fp_imm_test(
+            0,
+            Instruction::U32StoreAddFpImm {
+                src_off: M31(0),
+                imm_hi: M31(imm_val_hi),
+                imm_lo: M31(imm_val_lo),
+                dst_off: M31(2),
+            },
+            u32_store_add_fp_imm,
+            0,
+            2,
+            2,
+        );
+        assert_eq!(err.unwrap_err(), InstructionExecutionError::Memory(MemoryError::U32LimbOutOfRange {
+            limb_lo: imm_val_lo,
+            limb_hi: imm_val_hi,
+        }));
+    }
+
+    #[test]
     fn test_u32_store_sub_fp_imm(src_value: u32, imm_val_hi in 0..=u16::MAX as u32, imm_val_lo in 0..=u16::MAX as u32) {
         let imm_val = (imm_val_hi << 16) | imm_val_lo;
         let expected_res = src_value.wrapping_sub(imm_val);
@@ -407,6 +429,28 @@ proptest! {
             2,
             2,
         ).unwrap();
+    }
+
+    #[test]
+    fn test_u32_store_sub_fp_imm_invalid_limbs(src_value: u32, imm_val_lo: u32, imm_val_hi: u32) {
+        prop_assume!(imm_val_lo > U32_LIMB_MASK || imm_val_hi > U32_LIMB_MASK);
+        let err = run_u32_fp_imm_test(
+            src_value,
+            Instruction::U32StoreSubFpImm {
+                src_off: M31(0),
+                imm_hi: M31(imm_val_hi),
+                imm_lo: M31(imm_val_lo),
+                dst_off: M31(2),
+            },
+            u32_store_sub_fp_imm,
+            0,
+            2,
+            2,
+        );
+        assert_eq!(err.unwrap_err(), InstructionExecutionError::Memory(MemoryError::U32LimbOutOfRange {
+            limb_lo: imm_val_lo,
+            limb_hi: imm_val_hi,
+        }));
     }
 
     #[test]
@@ -429,6 +473,28 @@ proptest! {
     }
 
     #[test]
+    fn test_u32_store_mul_fp_imm_invalid_limbs(imm_val_lo: u32, imm_val_hi: u32) {
+        prop_assume!(imm_val_lo > U32_LIMB_MASK || imm_val_hi > U32_LIMB_MASK);
+        let err = run_u32_fp_imm_test(
+            0,
+            Instruction::U32StoreMulFpImm {
+                src_off: M31(0),
+                imm_hi: M31(imm_val_hi),
+                imm_lo: M31(imm_val_lo),
+                dst_off: M31(2),
+            },
+            u32_store_mul_fp_imm,
+            0,
+            2,
+            2,
+        );
+        assert_eq!(err.unwrap_err(), InstructionExecutionError::Memory(MemoryError::U32LimbOutOfRange {
+            limb_lo: imm_val_lo,
+            limb_hi: imm_val_hi,
+        }));
+    }
+
+    #[test]
     fn test_u32_store_div_fp_imm(src_value: u32, imm_val_hi in 0..=u16::MAX as u32, imm_val_lo in 0..=u16::MAX as u32) {
         let imm_val = (imm_val_hi << 16) | imm_val_lo;
         prop_assume!(imm_val != 0, "attempt to divide by zero");
@@ -447,76 +513,46 @@ proptest! {
             2,
         ).unwrap();
     }
-}
 
-#[test]
-fn test_u32_store_add_fp_imm_invalid_immediate_limbs() {
-    // build memory with valid 0 value so the only failure comes from immediates
-    let mut memory = Memory::default();
-    memory.insert_u32(M31::zero(), 0).unwrap();
+    #[test]
+    #[should_panic(expected = "attempt to divide by zero")]
+    fn test_u32_store_div_fp_imm_by_zero(src_value in 0..u16::MAX as u32) {
+        let _ = run_u32_fp_imm_test(
+            src_value,
+            Instruction::U32StoreDivFpImm {
+                src_off: M31(0),
+                imm_hi: M31(0x0000),
+                imm_lo: M31(0x0000),
+                dst_off: M31(2),
+            },
+            u32_store_div_fp_imm,
+            0,
+            2,
+            2,
+        );
+    }
 
-    let state = State::default();
-    let instruction = Instruction::U32StoreAddFpImm {
-        src_off: M31(0),
-        imm_hi: M31(0x1_0000), // > 16-bit
-        imm_lo: M31(0x1_0000), // > 16-bit
-        dst_off: M31(2),
-    };
 
-    assert!(
-        u32_store_add_fp_imm(&mut memory, state, &instruction)
-            == Err(InstructionExecutionError::Memory(
-                MemoryError::U32LimbOutOfRange {
-                    limb_lo: 0x1_0000,
-                    limb_hi: 0x1_0000,
-                }
-            ))
-    );
-}
-
-#[test]
-fn test_u32_store_add_fp_imm_invalid_source_limbs() {
-    let mut memory = Memory::default();
-    // Insert invalid (>16-bit) limbs into fp+0 / fp+1
-    memory.insert(M31::zero(), M31(0x1_0000).into()).unwrap();
-    memory.insert(M31::one(), M31(0x1_0000).into()).unwrap();
-
-    let state = State::default();
-    let instruction = Instruction::U32StoreAddFpImm {
-        src_off: M31(0),
-        imm_hi: M31(0),
-        imm_lo: M31(0),
-        dst_off: M31(2),
-    };
-
-    assert!(
-        u32_store_add_fp_imm(&mut memory, state, &instruction)
-            == Err(InstructionExecutionError::Memory(
-                MemoryError::U32LimbOutOfRange {
-                    limb_lo: 0x1_0000,
-                    limb_hi: 0x1_0000,
-                }
-            ))
-    );
-}
-
-#[test]
-#[should_panic(expected = "attempt to divide by zero")]
-fn test_u32_store_div_fp_imm_by_zero() {
-    let src_value = 0x1234_5678;
-    let _ = run_u32_fp_imm_test(
-        src_value,
-        Instruction::U32StoreDivFpImm {
-            src_off: M31(0),
-            imm_hi: M31(0x0000),
-            imm_lo: M31(0x0000),
-            dst_off: M31(2),
-        },
-        u32_store_div_fp_imm,
-        0,
-        2,
-        2,
-    );
+    #[test]
+    fn test_u32_store_div_fp_imm_invalid_limbs(imm_val_lo: u32, imm_val_hi: u32) {
+        prop_assume!(imm_val_lo > U32_LIMB_MASK || imm_val_hi > U32_LIMB_MASK);
+        let err = run_simple_store_test(
+            &[0, 4],
+            Instruction::U32StoreDivFpImm {
+                src_off: M31(0),
+                imm_lo: M31(imm_val_lo),
+                imm_hi: M31(imm_val_hi),
+                dst_off: M31(2),
+            },
+            u32_store_div_fp_imm,
+            &[0, 4, imm_val_lo, imm_val_hi],
+            1,
+        );
+        assert_eq!(err.unwrap_err(), InstructionExecutionError::Memory(MemoryError::U32LimbOutOfRange {
+            limb_lo: imm_val_lo,
+            limb_hi: imm_val_hi,
+        }));
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -596,24 +632,39 @@ proptest! {
             1,
         ).unwrap();
     }
-}
 
-#[test]
-#[should_panic(expected = "attempt to divide by zero")]
-fn test_u32_store_div_fp_fp_by_zero() {
-    let src0_value = 0x1234_5678;
-    let src1_value = 0x0000_0000;
-    let _ = run_u32_fp_fp_test(
-        src0_value,
-        src1_value,
-        Instruction::U32StoreDivFpFp {
-            src0_off: M31(0),
-            src1_off: M31(2),
-            dst_off: M31(4),
-        },
-        u32_store_div_fp_fp,
-        0,
-        4,
-        1,
-    );
+    #[test]
+    fn test_u32_store_imm(imm_val_lo in 0..=u16::MAX as u32, imm_val_hi in 0..=u16::MAX as u32) {
+        run_simple_store_test(
+            &[0, 4],
+            Instruction::U32StoreImm {
+                imm_lo: M31(imm_val_lo),
+                imm_hi: M31(imm_val_hi),
+                dst_off: M31(2),
+            },
+            u32_store_imm,
+            &[0, 4, imm_val_lo, imm_val_hi],
+            1,
+        ).unwrap();
+    }
+
+    #[test]
+    fn test_u32_store_imm_invalid_limbs(imm_val_lo: u32, imm_val_hi: u32) {
+        prop_assume!(imm_val_lo > U32_LIMB_MASK || imm_val_hi > U32_LIMB_MASK);
+        let err = run_simple_store_test(
+            &[0, 4],
+            Instruction::U32StoreImm {
+                imm_lo: M31(imm_val_lo),
+                imm_hi: M31(imm_val_hi),
+                dst_off: M31(2),
+            },
+            u32_store_imm,
+            &[0, 4, imm_val_lo, imm_val_hi],
+            1,
+        );
+        assert_eq!(err.unwrap_err(), InstructionExecutionError::Memory(MemoryError::U32LimbOutOfRange {
+            limb_lo: imm_val_lo,
+            limb_hi: imm_val_hi,
+        }));
+    }
 }
