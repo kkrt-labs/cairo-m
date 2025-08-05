@@ -19,16 +19,13 @@ use std::collections::HashMap;
 
 use num_traits::Zero;
 use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::QM31;
 
 pub use super::HashInput;
 
-/// Maximum memory size in QM31 values (2^28)
-pub const MAX_MEMORY_LOG_SIZE: u32 = 28;
-/// Number of M31 elements per QM31 (4 elements = 2^2)
-pub const QM31_LOG_SIZE: u32 = 2;
-/// Total Merkle tree height: memory size + QM31 decomposition (28 + 2 = 30)
-pub const TREE_HEIGHT: u32 = MAX_MEMORY_LOG_SIZE + QM31_LOG_SIZE;
+/// Maximum memory size in M31 values (2^30)
+pub const MAX_MEMORY_LOG_SIZE: u32 = 30;
+/// Total Merkle tree height: memory size
+pub const TREE_HEIGHT: u32 = MAX_MEMORY_LOG_SIZE;
 
 /// Represents a node in the Merkle tree.
 ///
@@ -123,7 +120,7 @@ pub trait MerkleHasher {
 /// nodes are filled with default hash values to maintain tree integrity.
 ///
 /// ## Process
-/// 1. **Leaf Generation**: Each QM31 memory value is split into 4 M31 leaves
+/// 1. **Leaf Generation**: Each M31 memory value is a leaf
 /// 2. **Tree Construction**: Build from leaves (depth 30) up to depth 1
 /// 3. **Missing Nodes**: Fill gaps with default hashes and add to memory map
 /// 4. **Root Computation**: Calculate single root hash at depth 0
@@ -140,7 +137,7 @@ pub trait MerkleHasher {
 /// - **Depth 1-29**: Intermediate hash computations
 /// - **Depth 30**: M31 leaf values from QM31 decomposition
 pub fn build_partial_merkle_tree<H: MerkleHasher>(
-    memory: &mut HashMap<(M31, M31), (QM31, M31, M31)>,
+    memory: &mut HashMap<(M31, M31), (M31, M31, M31)>,
 ) -> (Vec<NodeData>, Option<M31>) {
     if memory.is_empty() {
         return (vec![], None);
@@ -160,12 +157,7 @@ pub fn build_partial_merkle_tree<H: MerkleHasher>(
 
     for ((addr, _), (value, _, _)) in memory.iter() {
         // no intermediate nodes yet so depth is leaf depth
-        let m31_values = value.to_m31_array();
-        let base_address = addr.0 << QM31_LOG_SIZE;
-
-        for (i, &m31_value) in m31_values.iter().enumerate() {
-            current_depth_nodes.insert(base_address + i as u32, m31_value);
-        }
+        current_depth_nodes.insert(addr.0, *value);
     }
 
     // Build tree from leaves (depth 30) up to root excluded (depth 1)
@@ -200,7 +192,7 @@ pub fn build_partial_merkle_tree<H: MerkleHasher>(
                 memory.insert(
                     (M31::from(node_index), M31::from(depth)),
                     (
-                        QM31::from(default_hash),
+                        default_hash,
                         M31::zero(), // Clock is irrelevant for intermediate nodes
                         M31::zero(), // Zero multiplicity - not emitted in memory relation
                     ),
@@ -262,8 +254,8 @@ mod tests {
     fn test_single_element_tree() {
         let mut memory = HashMap::new();
         memory.insert(
-            (M31::from(5), M31::from(TREE_HEIGHT)),
-            (QM31::from(42), M31::zero(), M31::zero()),
+            (M31(5), M31(TREE_HEIGHT)),
+            (M31(42), M31::zero(), M31::zero()),
         );
 
         let (tree, root) = build_partial_merkle_tree::<Poseidon2Hash>(&mut memory);
@@ -275,22 +267,18 @@ mod tests {
     #[test]
     fn test_multiple_elements_tree() {
         let mut memory = HashMap::new();
-        // Create QM31 values with specific M31 components for testing
+        // Create M31 values for testing
         memory.insert(
-            (M31::from(0), M31::from(TREE_HEIGHT)),
-            (
-                QM31::from_m31_array([M31::from(10), M31::from(11), M31::from(12), M31::from(13)]),
-                M31::zero(),
-                M31::zero(),
-            ),
+            (M31(0), M31(TREE_HEIGHT)),
+            (M31(10), M31::zero(), M31::zero()),
         );
         memory.insert(
-            (M31::from(1), M31::from(TREE_HEIGHT)),
-            (
-                QM31::from_m31_array([M31::from(20), M31::from(21), M31::from(22), M31::from(23)]),
-                M31::zero(),
-                M31::zero(),
-            ),
+            (M31(1), M31(TREE_HEIGHT)),
+            (M31(11), M31::zero(), M31::zero()),
+        );
+        memory.insert(
+            (M31(2), M31(TREE_HEIGHT)),
+            (M31(20), M31::zero(), M31::zero()),
         );
 
         let (tree, root) = build_partial_merkle_tree::<Poseidon2Hash>(&mut memory);
@@ -302,27 +290,20 @@ mod tests {
         // Helper function to find a node
         fn find_node(tree: &[NodeData], index: u32, depth: u32) -> Option<&NodeData> {
             tree.iter()
-                .find(|node| node.index == M31::from(index) && node.depth == depth as u8)
+                .find(|node| node.index == M31(index) && node.depth == depth as u8)
         }
 
-        // Check depth 30 nodes (leaves) - each QM31 value creates 4 consecutive leaves
-        // Address 0 -> leaves 0,1,2,3
-        // Address 1 -> leaves 4,5,6,7
+        // Check depth 30 nodes (leaves) - each M31 value creates 1 leaf
 
-        // First pair of M31 values from address 0
+        // M31 values from address 0 and 1
         let node = find_node(&tree, 0, 30).expect("Should find node at index 0, depth 30");
-        assert_eq!(node.left_value, M31::from(10));
-        assert_eq!(node.right_value, M31::from(11));
-
-        // Second pair of M31 values from address 0
-        let node = find_node(&tree, 2, 30).expect("Should find node at index 2, depth 30");
-        assert_eq!(node.left_value, M31::from(12));
-        assert_eq!(node.right_value, M31::from(13));
+        assert_eq!(node.left_value, M31(10));
+        assert_eq!(node.right_value, M31(11));
 
         // First pair of M31 values from address 1
-        let node = find_node(&tree, 4, 30).expect("Should find node at index 4, depth 30");
-        assert_eq!(node.left_value, M31::from(20));
-        assert_eq!(node.right_value, M31::from(21));
+        let node = find_node(&tree, 2, 30).expect("Should find node at index 2, depth 30");
+        assert_eq!(node.left_value, M31(20));
+        assert_eq!(node.right_value, M31(0));
     }
 
     #[test]
@@ -330,16 +311,13 @@ mod tests {
         // Test with addresses at extremes to force full tree height
         let mut memory = HashMap::new();
         memory.insert(
-            (M31::from(0), M31::from(TREE_HEIGHT)),
-            (QM31::from(1), M31::zero(), M31::zero()),
+            (M31(0), M31(TREE_HEIGHT)),
+            (M31(1), M31::zero(), M31::zero()),
         );
         // Use a high address within bounds (2^28 - 1)
         memory.insert(
-            (
-                M31::from((1 << MAX_MEMORY_LOG_SIZE) - 1),
-                M31::from(TREE_HEIGHT),
-            ),
-            (QM31::from(2), M31::zero(), M31::zero()),
+            (M31((1 << MAX_MEMORY_LOG_SIZE) - 1), M31(TREE_HEIGHT)),
+            (M31(2), M31::zero(), M31::zero()),
         );
 
         let (tree, root) = build_partial_merkle_tree::<Poseidon2Hash>(&mut memory);

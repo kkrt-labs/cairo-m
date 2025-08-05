@@ -1,13 +1,12 @@
 use std::collections::HashMap;
 use std::iter::Peekable;
 
-use cairo_m_common::instruction::{DataType, Instruction, INSTRUCTION_MAX_SIZE};
+use cairo_m_common::instruction::{DataType, Instruction, INSTRUCTION_MAX_SIZE, OPCODE_SIZE_TABLE};
 use cairo_m_common::state::MemoryEntry as RunnerMemoryEntry;
 use cairo_m_common::State as VmRegisters;
 use num_traits::{One, Zero};
 use smallvec::SmallVec;
 use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::QM31;
 
 use crate::adapter::io::VmImportError;
 use crate::adapter::merkle::TREE_HEIGHT;
@@ -28,8 +27,8 @@ pub const RC20_LIMIT: u32 = (1 << LOG_SIZE_RC_20) - 1;
 pub struct MemoryEntry {
     /// The memory address (M31 field element)
     pub address: M31,
-    /// The QM31 value stored at this address
-    pub value: QM31,
+    /// The M31 value stored at this address
+    pub value: M31,
     /// The clock time when this access occurred
     pub clock: M31,
 }
@@ -38,12 +37,7 @@ impl From<crate::adapter::io::IoMemoryEntry> for MemoryEntry {
     fn from(io_entry: crate::adapter::io::IoMemoryEntry) -> Self {
         Self {
             address: io_entry.address.into(),
-            value: QM31::from_u32_unchecked(
-                io_entry.value[0],
-                io_entry.value[1],
-                io_entry.value[2],
-                io_entry.value[3],
-            ),
+            value: M31::from_u32_unchecked(io_entry.value),
             clock: M31::zero(),
         }
     }
@@ -136,10 +130,10 @@ impl Default for ExecutionBundle {
 struct MemoryArg {
     /// The memory address being accessed
     pub address: M31,
-    /// The previous QM31 value at this address
-    pub prev_val: QM31,
-    /// The current QM31 value at this address
-    pub value: QM31,
+    /// The previous M31 value at this address
+    pub prev_val: M31,
+    /// The current M31 value at this address
+    pub value: M31,
     /// The clock time of the previous access
     pub prev_clock: M31,
     /// The clock time of the current access
@@ -156,11 +150,8 @@ struct MemoryArg {
 ///   multiplicity can be -1 (for final memory entries), 0 (unused memory entries), 1 (initial entries).
 /// - the Merkle lookup:
 ///      + [4*addr + 0, value0, depth, root]
-///      + [4*addr + 1, value1, depth, root]
-///      + [4*addr + 2, value2, depth, root]
-///      + [4*addr + 3, value3, depth, root]
 ///
-/// Note that the merkle lookup emits the leaves no matter what the multiplicity of the entry is (ie for
+/// Note that the merkle lookup emits the leaves no matter what the multiplicity of the entry is (i.e. for
 /// used cells as much as unused cells).
 /// Also note that in reality the memory component also emits the intermediate nodes for the partial tree,
 /// this is to be patched (although currently an intermediate node flag is added to separate leaves and intermediate
@@ -184,17 +175,17 @@ struct MemoryArg {
 ///
 /// ## Memory Representation
 /// Each memory entry is keyed by (address, depth) tuple and contains:
-/// - Value: The QM31 value stored
+/// - Value: The M31 value stored
 /// - Clock: When the access occurred
 /// - Multiplicity: can be -1 (for final memory entries), 0 (unused memory entries), 1 (initial entries)
 #[derive(Debug, Default, Eq, PartialEq, Clone)]
 pub struct Memory {
     /// Initial memory state: (addr, depth) => (value, clock, multiplicity)
-    pub initial_memory: HashMap<(M31, M31), (QM31, M31, M31)>,
+    pub initial_memory: HashMap<(M31, M31), (M31, M31, M31)>,
     /// Final memory state: (addr, depth) => (value, clock, multiplicity)
-    pub final_memory: HashMap<(M31, M31), (QM31, M31, M31)>,
+    pub final_memory: HashMap<(M31, M31), (M31, M31, M31)>,
     /// Clock update data for handling large time gaps: (addr, clock, value)
-    pub clock_update_data: Vec<(M31, M31, QM31)>,
+    pub clock_update_data: Vec<(M31, M31, M31)>,
 }
 
 /// Iterator that converts runner execution traces into prover execution bundles.
@@ -232,11 +223,11 @@ where
     /// ## Arguments
     /// * `trace_iter` - Iterator over VM register states
     /// * `memory_iter` - Iterator over memory access entries
-    /// * `initial_memory` - Initial memory state as QM31 values
+    /// * `initial_memory` - Initial memory state as M31 values
     ///
     /// ## Returns
     /// A new iterator that will produce execution bundles
-    pub fn new(trace_iter: T, memory_iter: M, initial_memory: Vec<QM31>) -> Self {
+    pub fn new(trace_iter: T, memory_iter: M, initial_memory: Vec<M31>) -> Self {
         Self {
             trace_iter: trace_iter.peekable(),
             memory_iter: memory_iter.peekable(),
@@ -292,46 +283,34 @@ where
         let instruction_arg = self.memory.push(instruction_entry);
 
         // Step 2: Parse opcode from first M31 to determine instruction size
-        let opcode_m31 = instruction_entry.value.0 .0;
-        let opcode_value = opcode_m31.0;
+        let opcode_id = instruction_entry.value;
 
-        // Get instruction size from opcode
-        let instruction_size_m31 = match Instruction::size_in_m31s_for_opcode(opcode_value) {
+        // Determine instruction size using const lookup table
+        let instruction_size = match OPCODE_SIZE_TABLE
+            .get(opcode_id.0 as usize)
+            .and_then(|&size| size)
+        {
             Some(size) => size,
-            None => return Some(Err(VmImportError::InvalidOpcode(opcode_value.into()))),
+            None => return Some(Err(VmImportError::InvalidOpcode(opcode_id))),
         };
 
-        // Calculate how many QM31 words we need to read
-        let instruction_size_qm31 = instruction_size_m31.div_ceil(4);
-
-        // Collect M31 values for the instruction
-        let mut instruction_values = SmallVec::<[M31; INSTRUCTION_MAX_SIZE]>::new();
-
-        // Extract M31s from the first QM31
-        let first_qm31 = instruction_entry.value;
-        let m31_array = first_qm31.to_m31_array();
-        instruction_values.extend(m31_array.iter().take(instruction_size_m31).copied());
-
-        // Step 3: Read additional QM31 words if instruction spans multiple QM31s
-        if instruction_size_qm31 > 1 {
+        // Step 3: Collect M31 values for the instruction
+        let mut instruction_values =
+            SmallVec::<[M31; INSTRUCTION_MAX_SIZE]>::from_elem(opcode_id, 1);
+        for _ in 1..instruction_size {
             let mem_entry = match self.memory_iter.next() {
                 Some(entry) => entry,
                 None => return Some(Err(VmImportError::UnexpectedEndOfTrace)),
             };
-
             let entry = MemoryEntry {
                 address: mem_entry.addr,
                 value: mem_entry.value,
                 clock: self.clock.into(),
             };
-
             // Push to memory
             self.memory.push(entry);
 
-            // Extract the 5th M31 for U32StoreAddFpImm (which has size 5)
-            if instruction_size_m31 > 4 {
-                instruction_values.push(entry.value.0 .0);
-            }
+            instruction_values.push(entry.value);
         }
 
         // Parse the complete instruction
@@ -379,11 +358,11 @@ where
                         address: operand_arg.address,
                         prev_clock: operand_arg.prev_clock,
                         prev_value: MemoryValue {
-                            limb0: operand_arg.prev_val.0 .0,
+                            limb0: operand_arg.prev_val,
                             limb1: M31::zero(),
                         },
                         value: MemoryValue {
-                            limb0: operand_arg.value.0 .0,
+                            limb0: operand_arg.value,
                             limb1: M31::zero(),
                         },
                     };
@@ -424,12 +403,12 @@ where
                         address: operand_arg_low.address, // Use the base address
                         prev_clock: operand_arg_low.prev_clock,
                         prev_value: MemoryValue {
-                            limb0: operand_arg_low.prev_val.0 .0,
-                            limb1: operand_arg_high.prev_val.0 .0,
+                            limb0: operand_arg_low.prev_val,
+                            limb1: operand_arg_high.prev_val,
                         },
                         value: MemoryValue {
-                            limb0: operand_arg_low.value.0 .0,
-                            limb1: operand_arg_high.value.0 .0,
+                            limb0: operand_arg_low.value,
+                            limb1: operand_arg_high.value,
                         },
                     };
 
@@ -454,23 +433,23 @@ where
 impl Memory {
     /// Creates a new Memory instance with initial memory values from the VM output.
     ///
-    /// The initial memory is populated with the provided QM31 values,
+    /// The initial memory is populated with the provided M31 values,
     /// indexed starting from address 0. Each entry is initialized with:
     /// - Clock = 0 (initial state)
     /// - Multiplicity = 0 (unused until first access)
     ///
     /// ## Arguments
-    /// * `initial_memory` - Vector of QM31 values representing the initial memory state
+    /// * `initial_memory` - Vector of M31 values representing the initial memory state
     ///
     /// ## Returns
     /// A new Memory instance ready for execution trace processing
-    pub fn new(initial_memory: Vec<QM31>) -> Self {
-        let initial_memory_hashmap: HashMap<(M31, M31), (QM31, M31, M31)> = initial_memory
+    pub fn new(initial_memory: Vec<M31>) -> Self {
+        let initial_memory_hashmap: HashMap<(M31, M31), (M31, M31, M31)> = initial_memory
             .iter()
             .enumerate()
             .map(|(i, value)| {
                 (
-                    (M31::from(i as u32), M31::from(TREE_HEIGHT)),
+                    (M31::from(i), M31::from(TREE_HEIGHT)),
                     (*value, M31::zero(), M31::zero()),
                 )
             })
@@ -489,6 +468,7 @@ impl Memory {
     ///
     /// ## Returns
     /// A MemoryArg containing the complete memory transition information
+
     fn push(&mut self, memory_entry: MemoryEntry) -> MemoryArg {
         // No matter what update the final memory with the new memory entry
         // The final memory tracks the "previous data" ie the previous clock and the previous value.
@@ -566,7 +546,6 @@ impl Memory {
 #[cfg(test)]
 mod tests {
     use stwo_prover::core::fields::m31::M31;
-    use stwo_prover::core::fields::qm31::QM31;
 
     use super::*;
 
@@ -576,38 +555,30 @@ mod tests {
 
         // First memory entry - testing uninitialized cell behavior
         let first_entry = MemoryEntry {
-            address: M31::from(100),
-            value: QM31::from_u32_unchecked(1, 2, 3, 4),
-            clock: M31::from(10),
+            address: M31(100),
+            value: M31(1),
+            clock: M31(10),
         };
 
         let result = memory.push(first_entry);
 
         // Verify the result of the first push
-        assert_eq!(result.address, M31::from(100));
-        assert_eq!(result.prev_clock, M31::from(0)); // Should be 0 for first access
-        assert_eq!(result.clock, M31::from(10));
+        assert_eq!(result.address, M31(100));
+        assert_eq!(result.prev_clock, M31(0)); // Should be 0 for first access
+        assert_eq!(result.clock, M31(10));
         // For a new address, the previous value should be the same as the current value
-        assert_eq!(result.prev_val, QM31::from_u32_unchecked(1, 2, 3, 4));
-        assert_eq!(result.value, QM31::from_u32_unchecked(1, 2, 3, 4));
+        assert_eq!(result.prev_val, M31(1));
+        assert_eq!(result.value, M31(1));
 
         // Verify final_memory was updated
         assert_eq!(
-            memory.final_memory[&(M31::from(100), M31::from(TREE_HEIGHT))],
-            (
-                QM31::from_u32_unchecked(1, 2, 3, 4),
-                M31::from(10),
-                -M31::one(),
-            )
+            memory.final_memory[&(M31(100), M31(TREE_HEIGHT))],
+            (M31(1), M31(10), -M31(1),)
         );
         // initial_memory should now contain the first access with multiplicity 1
         assert_eq!(
-            memory.initial_memory[&(M31::from(100), M31::from(TREE_HEIGHT))],
-            (
-                QM31::from_u32_unchecked(1, 2, 3, 4),
-                M31::zero(),
-                M31::one(),
-            )
+            memory.initial_memory[&(M31(100), M31(TREE_HEIGHT))],
+            (M31(1), M31(0), M31(1),)
         );
     }
 
@@ -617,45 +588,37 @@ mod tests {
 
         // First entry
         let first_entry = MemoryEntry {
-            address: M31::from(100),
-            value: QM31::from_u32_unchecked(1, 2, 3, 4),
-            clock: M31::from(10),
+            address: M31(100),
+            value: M31(1),
+            clock: M31(10),
         };
         memory.push(first_entry);
 
         // Second entry to same address
         let second_entry = MemoryEntry {
-            address: M31::from(100),
-            value: QM31::from_u32_unchecked(5, 6, 7, 8),
-            clock: M31::from(20),
+            address: M31(100),
+            value: M31(5),
+            clock: M31(20),
         };
 
         let result = memory.push(second_entry);
 
         // Verify the result uses previous values
-        assert_eq!(result.address, M31::from(100));
-        assert_eq!(result.prev_clock, M31::from(10)); // Previous clock from first entry
-        assert_eq!(result.clock, M31::from(20));
-        assert_eq!(result.prev_val, QM31::from_u32_unchecked(1, 2, 3, 4)); // Previous value
-        assert_eq!(result.value, QM31::from_u32_unchecked(5, 6, 7, 8)); // New value
+        assert_eq!(result.address, M31(100));
+        assert_eq!(result.prev_clock, M31(10)); // Previous clock from first entry
+        assert_eq!(result.clock, M31(20));
+        assert_eq!(result.prev_val, M31(1)); // Previous value
+        assert_eq!(result.value, M31(5)); // New value
 
         // Verify final_memory was updated
         assert_eq!(
-            memory.final_memory[&(M31::from(100), M31::from(TREE_HEIGHT))],
-            (
-                QM31::from_u32_unchecked(5, 6, 7, 8),
-                M31::from(20),
-                -M31::one(),
-            )
+            memory.final_memory[&(M31(100), M31(TREE_HEIGHT))],
+            (M31(5), M31(20), -M31(1),)
         );
         // initial_memory should still contain the first access
         assert_eq!(
-            memory.initial_memory[&(M31::from(100), M31::from(TREE_HEIGHT))],
-            (
-                QM31::from_u32_unchecked(1, 2, 3, 4),
-                M31::zero(),
-                M31::one(),
-            )
+            memory.initial_memory[&(M31(100), M31(TREE_HEIGHT))],
+            (M31(1), M31(0), M31(1),)
         );
     }
 
@@ -665,63 +628,47 @@ mod tests {
 
         // First address
         let first_entry = MemoryEntry {
-            address: M31::from(100),
-            value: QM31::from_u32_unchecked(1, 2, 3, 4),
-            clock: M31::from(10),
+            address: M31(100),
+            value: M31(1),
+            clock: M31(10),
         };
         memory.push(first_entry);
 
         // Different address
         let second_entry = MemoryEntry {
-            address: M31::from(200),
-            value: QM31::from_u32_unchecked(9, 10, 11, 12),
-            clock: M31::from(30),
+            address: M31(200),
+            value: M31(9),
+            clock: M31(30),
         };
 
         let result = memory.push(second_entry);
 
         // Verify the result for new address
-        assert_eq!(result.address, M31::from(200));
-        assert_eq!(result.prev_clock, M31::from(0)); // Should be 0 for first access
-        assert_eq!(result.clock, M31::from(30));
-        assert_eq!(result.prev_val, QM31::from_u32_unchecked(9, 10, 11, 12)); // Should be same value for first access
-        assert_eq!(result.value, QM31::from_u32_unchecked(9, 10, 11, 12));
+        assert_eq!(result.address, M31(200));
+        assert_eq!(result.prev_clock, M31(0)); // Should be 0 for first access
+        assert_eq!(result.clock, M31(30));
+        assert_eq!(result.prev_val, M31(9)); // Should be same value for first access
+        assert_eq!(result.value, M31(9));
 
         // Verify final_memory contains both addresses
         assert_eq!(memory.final_memory.len(), 2);
         assert_eq!(
-            memory.final_memory[&(M31::from(100), M31::from(TREE_HEIGHT))],
-            (
-                QM31::from_u32_unchecked(1, 2, 3, 4),
-                M31::from(10),
-                -M31::one(),
-            )
+            memory.final_memory[&(M31(100), M31(TREE_HEIGHT))],
+            (M31(1), M31(10), -M31(1),)
         );
         assert_eq!(
-            memory.final_memory[&(M31::from(200), M31::from(TREE_HEIGHT))],
-            (
-                QM31::from_u32_unchecked(9, 10, 11, 12),
-                M31::from(30),
-                -M31::one(),
-            )
+            memory.final_memory[&(M31(200), M31(TREE_HEIGHT))],
+            (M31(9), M31(30), -M31(1),)
         );
         // initial_memory should contain both addresses
         assert_eq!(memory.initial_memory.len(), 2);
         assert_eq!(
-            memory.initial_memory[&(M31::from(100), M31::from(TREE_HEIGHT))],
-            (
-                QM31::from_u32_unchecked(1, 2, 3, 4),
-                M31::zero(),
-                M31::one(),
-            )
+            memory.initial_memory[&(M31(100), M31(TREE_HEIGHT))],
+            (M31(1), M31(0), M31(1),)
         );
         assert_eq!(
-            memory.initial_memory[&(M31::from(200), M31::from(TREE_HEIGHT))],
-            (
-                QM31::from_u32_unchecked(9, 10, 11, 12),
-                M31::zero(),
-                M31::one(),
-            )
+            memory.initial_memory[&(M31(200), M31(TREE_HEIGHT))],
+            (M31(9), M31(0), M31(1),)
         );
     }
 
@@ -731,18 +678,18 @@ mod tests {
 
         // First entry
         let first_entry = MemoryEntry {
-            address: M31::from(100),
-            value: QM31::from_u32_unchecked(1, 2, 3, 4),
-            clock: M31::from(10),
+            address: M31(100),
+            value: M31(1),
+            clock: M31(10),
         };
         memory.push(first_entry);
 
         // Second entry with very large clock delta requiring multiple steps
         let large_delta = 3 * RC20_LIMIT + 500;
         let second_entry = MemoryEntry {
-            address: M31::from(100),
-            value: QM31::from_u32_unchecked(5, 6, 7, 8),
-            clock: M31::from(10 + large_delta),
+            address: M31(100),
+            value: M31(5),
+            clock: M31(10 + large_delta),
         };
 
         memory.push(second_entry);
@@ -752,15 +699,15 @@ mod tests {
 
         // Check first update
         let update1 = &memory.clock_update_data[0];
-        assert_eq!(update1.1, M31::from(10)); // prev_clk
+        assert_eq!(update1.1, M31(10)); // prev_clk
 
         // Check second update
         let update2 = &memory.clock_update_data[1];
-        assert_eq!(update2.1, M31::from(10 + RC20_LIMIT)); // prev_clk
+        assert_eq!(update2.1, M31(10 + RC20_LIMIT)); // prev_clk
 
         // Check third update
         let update3 = &memory.clock_update_data[2];
-        assert_eq!(update3.1, M31::from(10 + 2 * RC20_LIMIT)); // prev_clk
+        assert_eq!(update3.1, M31(10 + 2 * RC20_LIMIT)); // prev_clk
     }
 
     #[test]
@@ -769,18 +716,18 @@ mod tests {
 
         // First entry
         let first_entry = MemoryEntry {
-            address: M31::from(100),
-            value: QM31::from_u32_unchecked(1, 2, 3, 4),
-            clock: M31::from(10),
+            address: M31(100),
+            value: M31(1),
+            clock: M31(10),
         };
         memory.push(first_entry);
 
         // Second entry with small clock delta
         let small_delta = RC20_LIMIT - 1; // Just under the limit
         let second_entry = MemoryEntry {
-            address: M31::from(100),
-            value: QM31::from_u32_unchecked(5, 6, 7, 8),
-            clock: M31::from(10 + small_delta),
+            address: M31(100),
+            value: M31(5),
+            clock: M31(10 + small_delta),
         };
 
         memory.push(second_entry);
@@ -792,89 +739,66 @@ mod tests {
     #[test]
     fn test_memory_push_with_preloaded_memory() {
         // Test with some preloaded memory
-        let initial_memory = vec![
-            QM31::from_u32_unchecked(10, 20, 30, 40),
-            QM31::from_u32_unchecked(50, 60, 70, 80),
-        ];
+        let initial_memory = vec![M31(10), M31(50)];
         let mut memory = Memory::new(initial_memory);
 
         // Verify initial state
         assert_eq!(memory.initial_memory.len(), 2);
         assert_eq!(memory.final_memory.len(), 2);
         assert_eq!(
-            memory.initial_memory[&(M31::from(0), M31::from(TREE_HEIGHT))],
-            (
-                QM31::from_u32_unchecked(10, 20, 30, 40),
-                M31::zero(),
-                M31::zero(),
-            )
+            memory.initial_memory[&(M31(0), M31(TREE_HEIGHT))],
+            (M31(10), M31(0), M31(0),)
         );
         assert_eq!(
-            memory.initial_memory[&(M31::from(1), M31::from(TREE_HEIGHT))],
-            (
-                QM31::from_u32_unchecked(50, 60, 70, 80),
-                M31::zero(),
-                M31::zero(),
-            )
+            memory.initial_memory[&(M31(1), M31(TREE_HEIGHT))],
+            (M31(50), M31(0), M31(0),)
         );
 
         // First push to address 0 must match the preloaded value
         let entry = MemoryEntry {
-            address: M31::from(0),
-            value: QM31::from_u32_unchecked(10, 20, 30, 40), // Must match preloaded value
-            clock: M31::from(5),
+            address: M31(0),
+            value: M31(10), // Must match preloaded value
+            clock: M31(5),
         };
         let result = memory.push(entry);
 
         // Verify the push result
-        assert_eq!(result.address, M31::from(0));
-        assert_eq!(result.prev_clock, M31::from(0));
-        assert_eq!(result.clock, M31::from(5));
-        assert_eq!(result.prev_val, QM31::from_u32_unchecked(10, 20, 30, 40));
-        assert_eq!(result.value, QM31::from_u32_unchecked(10, 20, 30, 40));
+        assert_eq!(result.address, M31(0));
+        assert_eq!(result.prev_clock, M31(0));
+        assert_eq!(result.clock, M31(5));
+        assert_eq!(result.prev_val, M31(10));
+        assert_eq!(result.value, M31(10));
 
         // Initial memory multiplicity is updated to 1 on first access
         assert_eq!(
-            memory.initial_memory[&(M31::from(0), M31::from(TREE_HEIGHT))],
-            (
-                QM31::from_u32_unchecked(10, 20, 30, 40),
-                M31::zero(),
-                M31::one(),
-            )
+            memory.initial_memory[&(M31(0), M31(TREE_HEIGHT))],
+            (M31(10), M31(0), M31(1),)
         );
         // Verify final_memory was updated
         assert_eq!(
-            memory.final_memory[&(M31::from(0), M31::from(TREE_HEIGHT))],
-            (
-                QM31::from_u32_unchecked(10, 20, 30, 40),
-                M31::from(5),
-                -M31::one(),
-            )
+            memory.final_memory[&(M31(0), M31(TREE_HEIGHT))],
+            (M31(10), M31(5), -M31(1),)
         );
 
         // Now push a different value to the same address
         let second_entry = MemoryEntry {
-            address: M31::from(0),
-            value: QM31::from_u32_unchecked(100, 200, 300, 400),
-            clock: M31::from(10),
+            address: M31(0),
+            value: M31(100),
+            clock: M31(10),
         };
         let result = memory.push(second_entry);
 
         // Verify the second push result
-        assert_eq!(result.address, M31::from(0));
-        assert_eq!(result.prev_clock, M31::from(5));
-        assert_eq!(result.clock, M31::from(10));
-        assert_eq!(result.prev_val, QM31::from_u32_unchecked(10, 20, 30, 40));
-        assert_eq!(result.value, QM31::from_u32_unchecked(100, 200, 300, 400));
+        assert_eq!(result.address, M31(0));
+        assert_eq!(result.prev_clock, M31(5));
+        assert_eq!(result.clock, M31(10));
+        assert_eq!(result.prev_val, M31(10));
+        assert_eq!(result.value, M31(100));
 
         // Verify final_memory was updated again
         assert_eq!(
-            memory.final_memory[&(M31::from(0), M31::from(TREE_HEIGHT))],
-            (
-                QM31::from_u32_unchecked(100, 200, 300, 400),
-                M31::from(10),
-                -M31::one(),
-            )
+            memory.final_memory[&(M31(0), M31(TREE_HEIGHT))],
+            (M31(100), M31(10), -M31(1),)
         );
     }
 }
