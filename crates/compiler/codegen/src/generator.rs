@@ -869,8 +869,11 @@ impl CodeGenerator {
             }
         }
 
-        for (pc, instruction) in self.instructions.iter().enumerate() {
-            if let Some(labels) = pc_to_labels.get(&pc) {
+        for (idx, instruction) in self.instructions.iter().enumerate() {
+            // Get the actual memory PC from the layout
+            let pc = self.memory_layout.get(idx).copied().unwrap_or(idx as u32);
+
+            if let Some(labels) = pc_to_labels.get(&idx) {
                 // Deduplicate labels properly:
                 // 1. If there's a function label and a corresponding block_0 label, only show the function label
                 // 2. Otherwise, show all unique labels
