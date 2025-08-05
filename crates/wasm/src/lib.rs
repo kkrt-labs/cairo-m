@@ -5,5 +5,4 @@
 
 pub mod loader;
 
-// Re-export key types and functions for convenience
 pub use loader::{format_womir_program, load_module, print_womir_program};

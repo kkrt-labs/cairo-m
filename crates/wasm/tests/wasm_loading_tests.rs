@@ -57,28 +57,3 @@ macro_rules! wasm_test {
 // --- Basic WASM Loading Tests ---
 wasm_test!(load_add_wasm, "add.wasm");
 wasm_test!(load_fib_wasm, "fib.wasm");
-
-#[cfg(test)]
-mod integration_tests {
-    use super::*;
-
-    #[test]
-    fn test_file_existence() {
-        // Test that our test files exist
-        assert!(Path::new("tests/test_cases/add.wasm").exists());
-        assert!(Path::new("tests/test_cases/fib.wasm").exists());
-    }
-
-    #[test]
-    fn test_loader_basic() {
-        // Test basic loading functionality
-        let result = load_module("tests/test_cases/add.wasm");
-        assert!(result.is_ok(), "Should load add.wasm successfully");
-
-        let program = result.unwrap();
-        assert!(
-            !program.functions.is_empty(),
-            "Should have at least one function"
-        );
-    }
-}

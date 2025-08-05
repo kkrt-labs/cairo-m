@@ -11,6 +11,7 @@ use womir::loader::{load_wasm, Program};
 
 /// Load a WASM module from a file path
 /// For now this just uses the default load_wasm function from the WOMIR loader crate
+/// and returns a WOMIR Program instance
 pub fn load_module(file_path: &str) -> Result<Program<GenericIrSetting>, String> {
     // Verify the file exists
     let path = Path::new(file_path);
