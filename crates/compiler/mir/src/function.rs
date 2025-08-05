@@ -86,6 +86,14 @@ impl MirFunction {
         self.basic_blocks.push(BasicBlock::new())
     }
 
+    /// Adds a new basic block with a name and returns its ID
+    pub fn add_basic_block_with_name(&mut self, _name: String) -> BasicBlockId {
+        let block = BasicBlock::new();
+        // Store the name as a comment or label if we want to preserve it for debugging
+        // For now, we just create the block
+        self.basic_blocks.push(block)
+    }
+
     /// Gets a basic block by ID
     pub fn get_basic_block(&self, id: BasicBlockId) -> Option<&BasicBlock> {
         self.basic_blocks.get(id)

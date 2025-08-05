@@ -62,6 +62,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     ) -> Result<(), String> {
         // Get the scope from the value expression (the let statement is in the same scope as its value)
         let expr_id = self
+            .ctx
             .semantic_index
             .expression_id_by_span(value.span())
             .ok_or_else(|| {
@@ -70,10 +71,10 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     value.span()
                 )
             })?;
-        let expr_info = self
-            .semantic_index
-            .expression(expr_id)
-            .ok_or_else(|| format!("MIR: No ExpressionInfo for value expression ID {expr_id:?}"))?;
+        let expr_info =
+            self.ctx.semantic_index.expression(expr_id).ok_or_else(|| {
+                format!("MIR: No ExpressionInfo for value expression ID {expr_id:?}")
+            })?;
         let scope_id = expr_info.scope_id;
 
         // 1. Try the "fast path" (optimized lowering) for special AST patterns
@@ -87,21 +88,22 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         {
             // Binary operation optimization for let statements
             if let Some((def_idx, _)) = self
+                .ctx
                 .semantic_index
                 .resolve_name_to_definition(name.value(), scope_id)
             {
-                let def_id = DefinitionId::new(self.db, self.file, def_idx);
+                let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
                 let mir_def_id = self.convert_definition_id(def_id);
 
                 // Check if this variable is actually used
-                let is_used = is_definition_used(self.semantic_index, def_idx);
+                let is_used = is_definition_used(self.ctx.semantic_index, def_idx);
 
                 if !is_used {
                     // For unused variables, still evaluate operands for side effects but don't store
                     let _ = self.lower_expression(left)?;
                     let _ = self.lower_expression(right)?;
-                    let dummy_addr = self.mir_function.new_value_id();
-                    self.definition_to_value.insert(mir_def_id, dummy_addr);
+                    let dummy_addr = self.state.mir_function.new_value_id();
+                    self.state.definition_to_value.insert(mir_def_id, dummy_addr);
                     return Ok(());
                 }
 
@@ -110,24 +112,19 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 let right_value = self.lower_expression(right)?;
 
                 // Get the variable type
-                let semantic_type = definition_semantic_type(self.db, self.crate_id, def_id);
-                let var_type = MirType::from_semantic_type(self.db, semantic_type);
+                let semantic_type = definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
+                let var_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
 
                 // Allocate storage for the variable
-                let var_storage = self.mir_function.new_typed_value_id(var_type.clone());
-                self.add_instruction(Instruction::stack_alloc(var_storage, var_type.size_units()));
+                let var_storage = self.state.mir_function.new_typed_value_id(var_type.clone());
+                self.instr().add_instruction(Instruction::stack_alloc(var_storage, var_type.size_units()));
 
                 // Generate single binary operation directly to allocated storage
                 let typed_op = self.convert_binary_op(*op, left, right);
-                self.add_instruction(Instruction::binary_op(
-                    typed_op,
-                    var_storage,
-                    left_value,
-                    right_value,
-                ));
+                self.instr().binary_op(typed_op, var_storage, left_value, right_value);
 
                 // Map the variable to its storage ValueId
-                self.definition_to_value.insert(mir_def_id, var_storage);
+                self.state.definition_to_value.insert(mir_def_id, var_storage);
                 return Ok(());
             }
         }
@@ -142,12 +139,13 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             if let Value::Operand(addr) = rhs_value {
                 // The RHS expression already allocated the object and returned its address
                 if let Some((def_idx, _)) = self
+                    .ctx
                     .semantic_index
                     .resolve_name_to_definition(name.value(), scope_id)
                 {
-                    let def_id = DefinitionId::new(self.db, self.file, def_idx);
+                    let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
                     let mir_def_id = self.convert_definition_id(def_id);
-                    self.definition_to_value.insert(mir_def_id, addr);
+                    self.state.definition_to_value.insert(mir_def_id, addr);
                     return Ok(());
                 } else {
                     return Err(format!(
@@ -170,7 +168,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         &mut self,
         value: &Option<Spanned<Expression>>,
     ) -> Result<(), String> {
-        let terminator = if let Some(expr) = value {
+        if let Some(expr) = value {
             // Check if we're returning a tuple literal
             if let Expression::Tuple(elements) = expr.value() {
                 // Lower each element of the tuple
@@ -178,12 +176,13 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 for element in elements {
                     return_values.push(self.lower_expression(element)?);
                 }
-                Terminator::Return {
-                    values: return_values,
-                }
+                // Return multiple values from tuple literal
+                self.terminate_with_return(return_values);
+                return Ok(());
             } else {
                 // Check if the expression type is a tuple
                 let expr_id = self
+                    .ctx
                     .semantic_index
                     .expression_id_by_span(expr.span())
                     .ok_or_else(|| {
@@ -192,27 +191,33 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                             expr.span()
                         )
                     })?;
-                let expr_semantic_type =
-                    expression_semantic_type(self.db, self.crate_id, self.file, expr_id, None);
+                let expr_semantic_type = expression_semantic_type(
+                    self.ctx.db,
+                    self.ctx.crate_id,
+                    self.ctx.file,
+                    expr_id,
+                    None,
+                );
 
                 // Check if it's a tuple type
-                if let TypeData::Tuple(element_types) = expr_semantic_type.data(self.db) {
+                if let TypeData::Tuple(element_types) = expr_semantic_type.data(self.ctx.db) {
                     // We're returning a tuple variable - need to extract each element
                     let tuple_addr = self.lower_lvalue_expression(expr)?;
                     let mut return_values = Vec::new();
 
                     // Load each element from the tuple (stored consecutively)
                     for (i, elem_type) in element_types.iter().enumerate() {
-                        let mir_type = MirType::from_semantic_type(self.db, *elem_type);
+                        let mir_type = MirType::from_semantic_type(self.ctx.db, *elem_type);
 
                         // Tuples are stored as consecutive values, so offset is just the index
                         let offset = i;
 
                         // Get element pointer
                         let elem_ptr = self
+                            .state
                             .mir_function
                             .new_typed_value_id(MirType::pointer(mir_type.clone()));
-                        self.add_instruction(
+                        self.instr().add_instruction(
                             Instruction::get_element_ptr(
                                 elem_ptr,
                                 tuple_addr,
@@ -222,8 +227,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         );
 
                         // Load the element
-                        let elem_value = self.mir_function.new_typed_value_id(mir_type);
-                        self.add_instruction(
+                        let elem_value = self.state.mir_function.new_typed_value_id(mir_type);
+                        self.instr().add_instruction(
                             Instruction::load(elem_value, Value::operand(elem_ptr))
                                 .with_comment(format!("Load tuple element {}", i)),
                         );
@@ -231,23 +236,19 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         return_values.push(Value::operand(elem_value));
                     }
 
-                    Terminator::Return {
-                        values: return_values,
-                    }
+                    // Return tuple elements
+                    self.terminate_with_return(return_values);
+                    return Ok(());
                 } else {
                     // Single value return
                     let return_value = self.lower_expression(expr)?;
-                    Terminator::Return {
-                        values: vec![return_value],
-                    }
+                    self.terminate_with_return(vec![return_value]);
+                    return Ok(());
                 }
             }
         } else {
-            Terminator::Return { values: vec![] }
-        };
-
-        self.terminate_current_block(terminator);
-        self.is_terminated = true;
+            self.terminate_with_return(vec![]);
+        }
         Ok(())
     }
 
@@ -269,6 +270,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                 // Get the expression ID for the RHS binary operation to get type information
                 let rhs_expr_id = self
+                    .ctx
                     .semantic_index
                     .expression_id_by_span(rhs.span())
                     .ok_or_else(|| {
@@ -279,34 +281,44 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     })?;
 
                 // Query semantic type system for result type
-                let semantic_type =
-                    expression_semantic_type(self.db, self.crate_id, self.file, rhs_expr_id, None);
-                let result_type = MirType::from_semantic_type(self.db, semantic_type);
+                let semantic_type = expression_semantic_type(
+                    self.ctx.db,
+                    self.ctx.crate_id,
+                    self.ctx.file,
+                    rhs_expr_id,
+                    None,
+                );
+                let result_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
 
                 // Try to get the LHS ValueId directly if it's a simple identifier
                 let lhs_value_id = if let Expression::Identifier(name) = lhs.value() {
                     // Get the expression info for the LHS to get its scope
                     let lhs_expr_id = self
+                        .ctx
                         .semantic_index
                         .expression_id_by_span(lhs.span())
                         .ok_or_else(|| {
                             format!("MIR: No ExpressionId found for LHS span {:?}", lhs.span())
                         })?;
-                    let lhs_expr_info =
-                        self.semantic_index.expression(lhs_expr_id).ok_or_else(|| {
+                    let lhs_expr_info = self
+                        .ctx
+                        .semantic_index
+                        .expression(lhs_expr_id)
+                        .ok_or_else(|| {
                             format!("MIR: No ExpressionInfo for LHS ID {lhs_expr_id:?}")
                         })?;
 
                     // Resolve the identifier to a definition
                     if let Some((def_idx, _)) = self
+                        .ctx
                         .semantic_index
                         .resolve_name_to_definition(name.value(), lhs_expr_info.scope_id)
                     {
-                        let def_id = DefinitionId::new(self.db, self.file, def_idx);
+                        let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
                         let mir_def_id = self.convert_definition_id(def_id);
 
                         // Look up the ValueId for this definition
-                        self.definition_to_value.get(&mir_def_id).copied()
+                        self.state.definition_to_value.get(&mir_def_id).copied()
                     } else {
                         None
                     }
@@ -317,31 +329,23 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 if let Some(dest_id) = lhs_value_id {
                     // Generate single binary operation instruction directly to LHS
                     let typed_op = self.convert_binary_op(*op, left, right);
-                    self.add_instruction(Instruction::binary_op(
-                        typed_op,
-                        dest_id,
-                        left_value,
-                        right_value,
-                    ));
+                    self.instr()
+                        .binary_op(typed_op, dest_id, left_value, right_value);
                 } else {
                     // Fall back to two-instruction approach for complex LHS expressions
-                    let dest = self.mir_function.new_typed_value_id(result_type);
+                    let dest = self.state.mir_function.new_typed_value_id(result_type);
                     let typed_op = self.convert_binary_op(*op, left, right);
-                    self.add_instruction(Instruction::binary_op(
-                        typed_op,
-                        dest,
-                        left_value,
-                        right_value,
-                    ));
+                    self.instr()
+                        .binary_op(typed_op, dest, left_value, right_value);
                     let lhs_address = self.lower_lvalue_expression(lhs)?;
-                    self.add_instruction(Instruction::store(lhs_address, Value::operand(dest)));
+                    self.instr().store(lhs_address, Value::operand(dest));
                 }
             }
             _ => {
                 // Standard assignment: lower RHS then store to LHS
                 let rhs_value = self.lower_expression(rhs)?;
                 let lhs_address = self.lower_lvalue_expression(lhs)?;
-                self.add_instruction(Instruction::store(lhs_address, rhs_value));
+                self.instr().store(lhs_address, rhs_value);
             }
         }
         Ok(())
@@ -355,6 +359,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         if let Expression::FunctionCall { callee, args } = expr.value() {
             // Handle function calls as statements (void calls)
             let expr_id = self
+                .ctx
                 .semantic_index
                 .expression_id_by_span(expr.span())
                 .ok_or_else(|| {
@@ -393,69 +398,61 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         let condition_value = self.lower_expression(condition)?;
 
         // Create the then block
-        let then_block_id = self.mir_function.add_basic_block();
+        let then_block_id = self.create_block();
 
         // Keep track of the final blocks from each branch that might need to be connected to the merge block
         let mut final_blocks = Vec::new();
 
         if let Some(else_stmt) = else_block {
             // There is an else block - create separate blocks for then and else
-            let else_block_id = self.mir_function.add_basic_block();
+            let else_block_id = self.create_block();
 
             // Terminate the current block with a conditional branch
-            self.terminate_current_block(Terminator::branch(
-                condition_value,
-                then_block_id,
-                else_block_id,
-            ));
+            self.terminate_with_branch(condition_value, then_block_id, else_block_id);
 
             // Lower the then block
-            self.current_block_id = then_block_id;
+            self.switch_to_block(then_block_id);
             self.lower_statement(then_block)?;
 
             // Check if the then branch terminated
             if !self.current_block().is_terminated() {
-                final_blocks.push(self.current_block_id);
+                final_blocks.push(self.state.current_block_id);
             }
 
             // Lower the else block
-            self.current_block_id = else_block_id;
+            self.switch_to_block(else_block_id);
             self.lower_statement(else_stmt)?;
 
             // Check if the else branch terminated
             if !self.current_block().is_terminated() {
-                final_blocks.push(self.current_block_id);
+                final_blocks.push(self.state.current_block_id);
             }
         } else {
             // No else block - optimize by branching directly to merge block
-            let merge_block_id = self.mir_function.add_basic_block();
+            let merge_block_id = self.create_block();
 
             // Terminate the current block with a conditional branch
             // If condition is true, go to then_block, otherwise go directly to merge_block
-            self.terminate_current_block(Terminator::branch(
-                condition_value,
-                then_block_id,
-                merge_block_id,
-            ));
+            self.terminate_with_branch(condition_value, then_block_id, merge_block_id);
 
             // Lower the then block
-            self.current_block_id = then_block_id;
+            self.switch_to_block(then_block_id);
             self.lower_statement(then_block)?;
 
             // Check if the then branch terminated
             if !self.current_block().is_terminated() {
-                final_blocks.push(self.current_block_id);
+                final_blocks.push(self.state.current_block_id);
             }
 
             // The merge block always gets control flow from the false condition
             // Continue generating code in the merge block
-            self.current_block_id = merge_block_id;
+            self.switch_to_block(merge_block_id);
 
             // Connect any non-terminated branches to the merge block
             for block_id in final_blocks {
-                // Temporarily switch to the block needing termination
-                let block_to_terminate = self.mir_function.get_basic_block_mut(block_id).unwrap();
-                block_to_terminate.set_terminator(Terminator::jump(merge_block_id));
+                // Use a fresh cfg for each terminator setting
+                let mut cfg = self.cfg();
+                cfg.set_block_terminator(block_id, Terminator::jump(merge_block_id));
             }
 
             return Ok(());
@@ -465,20 +462,20 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         if final_blocks.is_empty() {
             // All paths through the if-else ended in a terminator.
             // The current control flow path is now terminated.
-            self.is_terminated = true;
+            self.state.is_terminated = true;
         } else {
             // At least one branch needs to continue. Create the merge block.
-            let merge_block_id = self.mir_function.add_basic_block();
+            let merge_block_id = self.create_block();
 
             // Connect all non-terminated branches to the merge block
             for block_id in final_blocks {
-                // Temporarily switch to the block needing termination
-                let block_to_terminate = self.mir_function.get_basic_block_mut(block_id).unwrap();
-                block_to_terminate.set_terminator(Terminator::jump(merge_block_id));
+                // Use a fresh cfg for each terminator setting
+                let mut cfg = self.cfg();
+                cfg.set_block_terminator(block_id, Terminator::jump(merge_block_id));
             }
 
             // Continue generating code in the new merge block
-            self.current_block_id = merge_block_id;
+            self.switch_to_block(merge_block_id);
         }
 
         Ok(())
@@ -517,36 +514,34 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // exit:
         //     ... continue after loop ...
 
-        // Create the necessary blocks
-        let loop_header = self.mir_function.add_basic_block();
-        let loop_body = self.mir_function.add_basic_block();
-        let loop_exit = self.mir_function.add_basic_block();
+        // Create the necessary blocks using CfgBuilder convenience method
+        let (loop_header, loop_body, loop_exit) = self.create_loop_blocks();
 
         // Jump to the loop header from the current block
-        self.terminate_current_block(Terminator::jump(loop_header));
+        self.terminate_with_jump(loop_header);
 
         // Push loop context for break/continue
-        self.loop_stack.push((loop_header, loop_exit));
+        self.state.loop_stack.push((loop_header, loop_exit));
 
         // Generate the loop header block - evaluate condition and branch
-        self.current_block_id = loop_header;
+        self.switch_to_block(loop_header);
         let condition_value = self.lower_expression(condition)?;
-        self.terminate_current_block(Terminator::branch(condition_value, loop_body, loop_exit));
+        self.terminate_with_branch(condition_value, loop_body, loop_exit);
 
         // Generate the loop body
-        self.current_block_id = loop_body;
+        self.switch_to_block(loop_body);
         self.lower_statement(body)?;
 
         // If the body didn't terminate, jump back to the header
         if !self.current_block().is_terminated() {
-            self.terminate_current_block(Terminator::jump(loop_header));
+            self.terminate_with_jump(loop_header);
         }
 
         // Pop loop context
-        self.loop_stack.pop();
+        self.state.loop_stack.pop();
 
         // Continue in the exit block
-        self.current_block_id = loop_exit;
+        self.switch_to_block(loop_exit);
         Ok(())
     }
 
@@ -561,30 +556,30 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         //     ... continue after loop ...
 
         // Create the necessary blocks
-        let loop_body = self.mir_function.add_basic_block();
-        let loop_exit = self.mir_function.add_basic_block();
+        let loop_body = self.create_block();
+        let loop_exit = self.create_block();
 
         // Jump to the loop body from the current block
-        self.terminate_current_block(Terminator::jump(loop_body));
+        self.terminate_with_jump(loop_body);
 
         // Push loop context for break/continue
         // For infinite loops, the header is the body itself
-        self.loop_stack.push((loop_body, loop_exit));
+        self.state.loop_stack.push((loop_body, loop_exit));
 
         // Generate the loop body
-        self.current_block_id = loop_body;
+        self.switch_to_block(loop_body);
         self.lower_statement(body)?;
 
         // If the body didn't terminate, jump back to itself
         if !self.current_block().is_terminated() {
-            self.terminate_current_block(Terminator::jump(loop_body));
+            self.terminate_with_jump(loop_body);
         }
 
         // Pop loop context
-        self.loop_stack.pop();
+        self.state.loop_stack.pop();
 
         // Continue in the exit block
-        self.current_block_id = loop_exit;
+        self.switch_to_block(loop_exit);
         Ok(())
     }
 
@@ -602,49 +597,45 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             return Ok(());
         }
 
-        // 2. Create loop blocks
-        let loop_header = self.mir_function.add_basic_block(); // evaluates condition
-        let loop_body = self.mir_function.add_basic_block(); // body of the loop
-        let loop_step = self.mir_function.add_basic_block(); // step statement
-        let loop_exit = self.mir_function.add_basic_block(); // code after the loop
+        // 2. Create loop blocks using CfgBuilder convenience method
+        let (loop_header, loop_body, loop_step, loop_exit) = self.create_for_loop_blocks();
 
         // Jump from current block to condition header
-        self.terminate_current_block(Terminator::jump(loop_header));
+        self.terminate_with_jump(loop_header);
 
         // Push loop context: for `continue`, jump to step; for `break`, jump to exit
-        self.loop_stack.push((loop_step, loop_exit));
+        self.state.loop_stack.push((loop_step, loop_exit));
 
         // 3. Header: evaluate condition and branch
-        self.current_block_id = loop_header;
+        self.switch_to_block(loop_header);
         let cond_val = self.lower_expression(condition)?;
-        self.terminate_current_block(Terminator::branch(cond_val, loop_body, loop_exit));
+        self.terminate_with_branch(cond_val, loop_body, loop_exit);
 
         // 4. Body: generate code, then jump to step if not terminated
-        self.current_block_id = loop_body;
+        self.switch_to_block(loop_body);
         self.lower_statement(body)?;
         if !self.current_block().is_terminated() {
-            self.terminate_current_block(Terminator::jump(loop_step));
+            self.terminate_with_jump(loop_step);
         }
 
         // 5. Step: execute step statement, then jump back to header
-        self.current_block_id = loop_step;
+        self.switch_to_block(loop_step);
         self.lower_statement(step)?;
         if !self.current_block().is_terminated() {
-            self.terminate_current_block(Terminator::jump(loop_header));
+            self.terminate_with_jump(loop_header);
         }
 
         // 6. Pop loop context and continue in exit block
-        self.loop_stack.pop();
-        self.current_block_id = loop_exit;
+        self.state.loop_stack.pop();
+        self.switch_to_block(loop_exit);
 
         Ok(())
     }
 
     pub(super) fn lower_break_statement(&mut self) -> Result<(), String> {
-        if let Some((_, loop_exit)) = self.loop_stack.last() {
+        if let Some((_, loop_exit)) = self.state.loop_stack.last() {
             // Jump to the exit block of the current loop
-            self.terminate_current_block(Terminator::jump(*loop_exit));
-            self.is_terminated = true;
+            self.terminate_with_jump(*loop_exit);
             Ok(())
         } else {
             Err("'break' statement outside of loop".to_string())
@@ -652,12 +643,11 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     }
 
     pub(super) fn lower_continue_statement(&mut self) -> Result<(), String> {
-        if let Some((continue_target, _)) = self.loop_stack.last() {
+        if let Some((continue_target, _)) = self.state.loop_stack.last() {
             // Jump to the continue target of the current loop
             // For while/infinite loops: this is the loop header (condition check)
             // For for-loops: this is the step block (increment statement)
-            self.terminate_current_block(Terminator::jump(*continue_target));
-            self.is_terminated = true;
+            self.terminate_with_jump(*continue_target);
             Ok(())
         } else {
             Err("'continue' statement outside of loop".to_string())
@@ -706,6 +696,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                 // Check that the function call returns a tuple of the correct arity
                 let expr_id = self
+                    .ctx
                     .semantic_index
                     .expression_id_by_span(value.span())
                     .ok_or_else(|| {
@@ -715,9 +706,14 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         )
                     })?;
 
-                let func_call_semantic_type =
-                    expression_semantic_type(self.db, self.crate_id, self.file, expr_id, None);
-                let TypeData::Tuple(element_types) = func_call_semantic_type.data(self.db) else {
+                let func_call_semantic_type = expression_semantic_type(
+                    self.ctx.db,
+                    self.ctx.crate_id,
+                    self.ctx.file,
+                    expr_id,
+                    None,
+                );
+                let TypeData::Tuple(element_types) = func_call_semantic_type.data(self.ctx.db) else {
                     return Ok(false);
                 };
                 if element_types.len() != names.len() {
@@ -733,6 +729,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 let mut dests = Vec::new();
                 for (i, name) in names.iter().enumerate() {
                     let (def_idx, _) = self
+                        .ctx
                         .semantic_index
                         .resolve_name_to_definition(name.value(), scope_id)
                         .ok_or_else(|| {
@@ -743,20 +740,22 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                             )
                         })?;
 
-                    let def_id = DefinitionId::new(self.db, self.file, def_idx);
+                    let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
                     let mir_def_id = self.convert_definition_id(def_id);
 
-                    let is_used = is_definition_used(self.semantic_index, def_idx);
+                    let is_used = is_definition_used(self.ctx.semantic_index, def_idx);
                     let elem_type = element_types[i];
-                    let elem_mir_type = MirType::from_semantic_type(self.db, elem_type);
-                    let dest = self.mir_function.new_typed_value_id(elem_mir_type);
+                    let elem_mir_type = MirType::from_semantic_type(self.ctx.db, elem_type);
+                    let dest = self.state.mir_function.new_typed_value_id(elem_mir_type);
                     dests.push(dest);
 
                     if is_used {
-                        self.definition_to_value.insert(mir_def_id, dest);
+                        self.state.definition_to_value.insert(mir_def_id, dest);
                     } else {
-                        let dummy_addr = self.mir_function.new_value_id();
-                        self.definition_to_value.insert(mir_def_id, dummy_addr);
+                        let dummy_addr = self.state.mir_function.new_value_id();
+                        self.state
+                            .definition_to_value
+                            .insert(mir_def_id, dummy_addr);
                     }
                 }
 
@@ -794,6 +793,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 // Extract each element from consecutive memory locations
                 for (index, name) in names.iter().enumerate() {
                     let (def_idx, _) = self
+                        .ctx
                         .semantic_index
                         .resolve_name_to_definition(name.value(), scope_id)
                         .ok_or_else(|| {
@@ -804,25 +804,29 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                             )
                         })?;
 
-                    let def_id = DefinitionId::new(self.db, self.file, def_idx);
+                    let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
                     let mir_def_id = self.convert_definition_id(def_id);
 
-                    let is_used = is_definition_used(self.semantic_index, def_idx);
+                    let is_used = is_definition_used(self.ctx.semantic_index, def_idx);
                     if !is_used {
-                        let dummy_addr = self.mir_function.new_value_id();
-                        self.definition_to_value.insert(mir_def_id, dummy_addr);
+                        let dummy_addr = self.state.mir_function.new_value_id();
+                        self.state
+                            .definition_to_value
+                            .insert(mir_def_id, dummy_addr);
                         continue;
                     }
 
                     // Get the element type - we need to look up the tuple type
-                    let semantic_type = definition_semantic_type(self.db, self.crate_id, def_id);
-                    let element_mir_type = MirType::from_semantic_type(self.db, semantic_type);
+                    let semantic_type =
+                        definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
+                    let element_mir_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
 
                     // Get pointer to tuple element
                     let elem_ptr = self
+                        .state
                         .mir_function
                         .new_typed_value_id(MirType::pointer(element_mir_type.clone()));
-                    self.add_instruction(
+                    self.instr().add_instruction(
                         Instruction::get_element_ptr(
                             elem_ptr,
                             Value::operand(tuple_addr),
@@ -833,30 +837,32 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                     // Load the element
                     let elem_value = self
+                        .state
                         .mir_function
                         .new_typed_value_id(element_mir_type.clone());
-                    self.add_instruction(
+                    self.instr().add_instruction(
                         Instruction::load(elem_value, Value::operand(elem_ptr))
                             .with_comment(format!("Load tuple element {}", index)),
                     );
 
                     // Allocate space for the variable and store the loaded value
                     let var_addr = self
+                        .state
                         .mir_function
                         .new_typed_value_id(MirType::pointer(element_mir_type.clone()));
-                    self.add_instruction(Instruction::stack_alloc(
+                    self.instr().add_instruction(Instruction::stack_alloc(
                         var_addr,
                         element_mir_type.size_units(),
                     ));
 
                     // Store the loaded value
-                    self.add_instruction(
+                    self.instr().add_instruction(
                         element_mir_type
                             .emit_store(Value::operand(var_addr), Value::operand(elem_value))?,
                     );
 
                     // Update the definition to value mapping
-                    self.definition_to_value.insert(mir_def_id, var_addr);
+                    self.state.definition_to_value.insert(mir_def_id, var_addr);
                 }
             }
         }

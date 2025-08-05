@@ -218,3 +218,65 @@ impl From<Literal> for Value {
         Self::Literal(lit)
     }
 }
+
+/// Represents a memory location (l-value) that can be stored to
+///
+/// This type wrapper provides compile-time safety to distinguish between
+/// memory locations (Places) and values (r-values). Places are addresses
+/// that can be written to, while Values are data that can be read.
+///
+/// # Examples
+///
+/// - Local variables are Places
+/// - Struct fields are Places  
+/// - Array elements are Places
+/// - Temporary values are NOT Places (they are Values)
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Place(pub crate::ValueId);
+
+impl Place {
+    /// Creates a new place from a ValueId
+    pub const fn new(id: crate::ValueId) -> Self {
+        Self(id)
+    }
+
+    /// Returns the underlying ValueId
+    pub const fn value_id(self) -> crate::ValueId {
+        self.0
+    }
+
+    /// Convert this place to a value (performs an implicit load)
+    pub const fn to_value(self) -> Value {
+        Value::Operand(self.0)
+    }
+}
+
+impl From<crate::ValueId> for Place {
+    fn from(id: crate::ValueId) -> Self {
+        Self(id)
+    }
+}
+
+impl From<Place> for Value {
+    fn from(place: Place) -> Self {
+        Self::Operand(place.0)
+    }
+}
+
+impl From<Place> for crate::ValueId {
+    fn from(place: Place) -> Self {
+        place.0
+    }
+}
+
+impl PrettyPrint for Place {
+    fn pretty_print(&self, _indent: usize) -> String {
+        format!("%{}", self.0.index())
+    }
+}
+
+impl std::fmt::Display for Place {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.pretty_print(0))
+    }
+}

@@ -49,15 +49,17 @@
 #![allow(clippy::option_if_let_else)]
 
 pub use basic_block::BasicBlock;
+pub use builder::{CfgBuilder, CfgState, InstrBuilder};
 pub use function::{MirDefinitionId, MirFunction};
 pub use instruction::{BinaryOp, Instruction, InstructionKind, MirExpressionId};
 pub use mir_types::{MirType, StructField};
 pub use module::MirModule;
 pub use passes::{DeadCodeElimination, MirPass, PassManager, Validation};
 pub use terminator::Terminator;
-pub use value::{Literal, Value};
+pub use value::{Literal, Place, Value};
 
 pub mod basic_block;
+pub mod builder;
 pub mod db;
 pub mod function;
 pub mod instruction;

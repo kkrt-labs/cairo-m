@@ -190,11 +190,12 @@ pub(super) fn lower_function<'a, 'db>(
     func_ast: &Spanned<FunctionDef>,
 ) -> Result<MirFunction, String> {
     // Store the function definition ID for type resolution
-    builder.function_def_id = Some(func_def_id);
-    builder.mir_function.name = func_def.name.clone();
+    builder.state.function_def_id = Some(func_def_id);
+    builder.state.mir_function.name = func_def.name.clone();
 
     // Get the function's inner scope, where parameters are defined
     let func_inner_scope_id = builder
+        .ctx
         .semantic_index
         .scope_for_span(func_ast.span())
         .ok_or_else(|| format!("Could not find scope for function '{}'", func_def.name))?;
@@ -205,7 +206,7 @@ pub(super) fn lower_function<'a, 'db>(
 
     lower_return_type(&mut builder, func_def_id)?;
 
-    Ok(builder.mir_function)
+    Ok(builder.state.mir_function)
 }
 
 fn lower_parameters<'a, 'db>(
@@ -228,6 +229,7 @@ fn lower_parameter<'a, 'db>(
     func_inner_scope_id: FileScopeId,
 ) -> Result<(), String> {
     let (def_idx, _) = builder
+        .ctx
         .semantic_index
         .resolve_name_to_definition(param_ast.name.value(), func_inner_scope_id)
         .ok_or_else(|| {
@@ -237,18 +239,23 @@ fn lower_parameter<'a, 'db>(
             )
         })?;
 
-    let def_id = DefinitionId::new(builder.db, builder.file, def_idx);
+    let def_id = DefinitionId::new(builder.ctx.db, builder.ctx.file, def_idx);
     let mir_def_id = builder.convert_definition_id(def_id);
 
     // 1. Query semantic type system for actual parameter type
-    let semantic_type = definition_semantic_type(builder.db, builder.crate_id, def_id);
-    let param_type = MirType::from_semantic_type(builder.db, semantic_type);
+    let semantic_type = definition_semantic_type(builder.ctx.db, builder.ctx.crate_id, def_id);
+    let param_type = MirType::from_semantic_type(builder.ctx.db, semantic_type);
 
-    let incoming_param_val = builder.mir_function.new_typed_value_id(param_type);
-    builder.mir_function.parameters.push(incoming_param_val);
+    let incoming_param_val = builder.state.mir_function.new_typed_value_id(param_type);
+    builder
+        .state
+        .mir_function
+        .parameters
+        .push(incoming_param_val);
 
     // 2. Map the semantic definition to its stack address
     builder
+        .state
         .definition_to_value
         .insert(mir_def_id, incoming_param_val);
     Ok(())
@@ -275,8 +282,8 @@ fn lower_return_type<'a, 'db>(
     let return_types = builder.get_function_return_types(func_def_id);
     let return_value_ids: Vec<ValueId> = return_types
         .into_iter()
-        .map(|ty| builder.mir_function.new_typed_value_id(ty))
+        .map(|ty| builder.state.mir_function.new_typed_value_id(ty))
         .collect();
-    builder.mir_function.return_values = return_value_ids;
+    builder.state.mir_function.return_values = return_value_ids;
     Ok(())
 }

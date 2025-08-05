@@ -23,18 +23,18 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     /// Gets the MIR type for an expression by its ID
     pub fn get_expression_type(&self, expr_id: ExpressionId) -> MirType {
         let semantic_type =
-            expression_semantic_type(self.db, self.crate_id, self.file, expr_id, None);
-        MirType::from_semantic_type(self.db, semantic_type)
+            expression_semantic_type(self.ctx.db, self.ctx.crate_id, self.ctx.file, expr_id, None);
+        MirType::from_semantic_type(self.ctx.db, semantic_type)
     }
 
     /// Checks if we're currently in a loop context
     pub const fn in_loop(&self) -> bool {
-        !self.loop_stack.is_empty()
+        !self.state.loop_stack.is_empty()
     }
 
     /// Gets the current loop's continue and break targets
     pub fn current_loop_targets(&self) -> Option<(BasicBlockId, BasicBlockId)> {
-        self.loop_stack.last().copied()
+        self.state.loop_stack.last().copied()
     }
 
     /// Binds a value to a variable identifier with complete lifecycle management
@@ -54,6 +54,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     ) -> Result<(), String> {
         // Resolve the identifier to its definition
         let (def_idx, _) = self
+            .ctx
             .semantic_index
             .resolve_name_to_definition(name.value(), scope)
             .ok_or_else(|| {
@@ -64,31 +65,35 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 )
             })?;
 
-        let def_id = DefinitionId::new(self.db, self.file, def_idx);
+        let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
         let mir_def_id = self.convert_definition_id(def_id);
-        let is_used = is_definition_used(self.semantic_index, def_idx);
+        let is_used = is_definition_used(self.ctx.semantic_index, def_idx);
         if !is_used {
             // Map to a dummy value and return early
-            let dummy_addr = self.mir_function.new_value_id();
-            self.definition_to_value.insert(mir_def_id, dummy_addr);
+            let dummy_addr = self.state.mir_function.new_value_id();
+            self.state
+                .definition_to_value
+                .insert(mir_def_id, dummy_addr);
             return Ok(());
         }
 
         // Get the variable's semantic type and convert to MirType
-        let semantic_type = definition_semantic_type(self.db, self.crate_id, def_id);
-        let var_type = MirType::from_semantic_type(self.db, semantic_type);
+        let semantic_type = definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
+        let var_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
 
         // Allocate space for the variable
         let var_addr = self
+            .state
             .mir_function
             .new_typed_value_id(MirType::pointer(var_type.clone()));
-        self.add_instruction(Instruction::stack_alloc(var_addr, var_type.size_units()));
+        let mut instr = self.instr();
+        instr.add_instruction(Instruction::stack_alloc(var_addr, var_type.size_units()));
 
         // Emit the appropriate store instruction based on type
-        self.add_instruction(var_type.emit_store(Value::operand(var_addr), value)?);
+        instr.add_instruction(var_type.emit_store(Value::operand(var_addr), value)?);
 
         // Update the definition to value mapping
-        self.definition_to_value.insert(mir_def_id, var_addr);
+        self.state.definition_to_value.insert(mir_def_id, var_addr);
         Ok(())
     }
 
@@ -102,18 +107,21 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             Expression::Identifier(func_name) => {
                 // Get the scope for the callee from its expression info
                 let callee_expr_id = self
+                    .ctx
                     .semantic_index
                     .expression_id_by_span(callee.span())
                     .ok_or_else(|| {
                         format!("No ExpressionId found for callee span {:?}", callee.span())
                     })?;
                 let callee_expr_info = self
+                    .ctx
                     .semantic_index
                     .expression(callee_expr_id)
                     .ok_or_else(|| format!("No ExpressionInfo for callee ID {callee_expr_id:?}"))?;
 
                 // Resolve the function name in the appropriate scope
                 let (local_def_idx, local_def) = self
+                    .ctx
                     .semantic_index
                     .resolve_name_to_definition(func_name.value(), callee_expr_info.scope_id)
                     .ok_or_else(|| {
@@ -128,8 +136,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 match &local_def.kind {
                     DefinitionKind::Function(_) => {
                         // Local function - use current file
-                        let func_def_id = DefinitionId::new(self.db, self.file, local_def_idx);
-                        if let Some((_, func_id)) = self.function_mapping.get(&func_def_id) {
+                        let func_def_id =
+                            DefinitionId::new(self.ctx.db, self.ctx.file, local_def_idx);
+                        if let Some((_, func_id)) = self.ctx.function_mapping.get(&func_def_id) {
                             Ok(*func_id)
                         } else {
                             Err(format!(
@@ -194,7 +203,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         {
             *sig = signature;
         }
-        self.add_instruction(call_instr);
+        self.instr().add_instruction(call_instr);
         Ok(())
     }
 
@@ -211,9 +220,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     ) -> Result<(), String> {
         // Check the function's return type
         let func_expr_semantic_type =
-            expression_semantic_type(self.db, self.crate_id, self.file, expr_id, None);
+            expression_semantic_type(self.ctx.db, self.ctx.crate_id, self.ctx.file, expr_id, None);
 
-        match func_expr_semantic_type.data(self.db) {
+        match func_expr_semantic_type.data(self.ctx.db) {
             TypeData::Tuple(element_types) if element_types.is_empty() => {
                 // Function returns unit/void
                 let (param_types, return_types) = self.get_function_signature(func_id)?;
@@ -221,21 +230,21 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     param_types,
                     return_types,
                 };
-                self.add_instruction(Instruction::void_call(func_id, args, signature));
+                self.instr().void_call(func_id, args, signature);
             }
             TypeData::Tuple(element_types) => {
                 // Function returns a tuple - create destinations but don't use them
                 let mut dests = Vec::new();
                 for elem_type in element_types {
-                    let mir_type = MirType::from_semantic_type(self.db, elem_type);
-                    dests.push(self.mir_function.new_typed_value_id(mir_type));
+                    let mir_type = MirType::from_semantic_type(self.ctx.db, elem_type);
+                    dests.push(self.state.mir_function.new_typed_value_id(mir_type));
                 }
                 self.emit_call_with_destinations(func_id, args, dests)?;
             }
             _ => {
                 // Function returns a single value - create a destination but don't use it
-                let return_type = MirType::from_semantic_type(self.db, func_expr_semantic_type);
-                let dest = self.mir_function.new_typed_value_id(return_type);
+                let return_type = MirType::from_semantic_type(self.ctx.db, func_expr_semantic_type);
+                let dest = self.state.mir_function.new_typed_value_id(return_type);
                 self.emit_call_with_destinations(func_id, args, vec![dest])?;
             }
         }

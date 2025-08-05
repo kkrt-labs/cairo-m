@@ -24,11 +24,13 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
     fn lower_expression(&mut self, expr: &Spanned<Expression>) -> Result<Value, String> {
         // First, get the ExpressionId and its associated info
         let expr_id = self
+            .ctx
             .semantic_index
             .expression_id_by_span(expr.span())
             .ok_or_else(|| format!("MIR: No ExpressionId found for span {:?}", expr.span()))?;
 
         let expr_info = self
+            .ctx
             .semantic_index
             .expression(expr_id)
             .ok_or_else(|| format!("MIR: No ExpressionInfo for ID {expr_id:?}"))?;
@@ -72,6 +74,7 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
     fn lower_lvalue_expression(&mut self, expr: &Spanned<Expression>) -> Result<Value, String> {
         // First, get the ExpressionId and its associated info
         let expr_id = self
+            .ctx
             .semantic_index
             .expression_id_by_span(expr.span())
             .ok_or_else(|| {
@@ -81,6 +84,7 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
                 )
             })?;
         let expr_info = self
+            .ctx
             .semantic_index
             .expression(expr_id)
             .ok_or_else(|| format!("MIR: No ExpressionInfo for lvalue ID {expr_id:?}"))?;
@@ -90,14 +94,15 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
             Expression::Identifier(name) => {
                 // Use the correct scope_id from expr_info for resolution
                 if let Some((def_idx, _)) = self
+                    .ctx
                     .semantic_index
                     .resolve_name_to_definition(name.value(), current_scope_id)
                 {
-                    let def_id = DefinitionId::new(self.db, self.file, def_idx);
+                    let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
                     let mir_def_id = self.convert_definition_id(def_id);
 
                     // Look up the MIR value for this definition
-                    if let Some(value_id) = self.definition_to_value.get(&mir_def_id) {
+                    if let Some(value_id) = self.state.definition_to_value.get(&mir_def_id) {
                         // For simple variables, the value ID itself represents the address
                         // In a more sophisticated system, we might need AddressOf instruction
                         return Ok(Value::operand(*value_id));
@@ -112,6 +117,7 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
 
                 // Get the object's semantic type to calculate field offset
                 let object_expr_id = self
+                    .ctx
                     .semantic_index
                     .expression_id_by_span(object.span())
                     .ok_or_else(|| {
@@ -121,13 +127,14 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
                         )
                     })?;
                 let object_semantic_type = expression_semantic_type(
-                    self.db,
-                    self.crate_id,
-                    self.file,
+                    self.ctx.db,
+                    self.ctx.crate_id,
+                    self.ctx.file,
                     object_expr_id,
                     None,
                 );
-                let object_mir_type = MirType::from_semantic_type(self.db, object_semantic_type);
+                let object_mir_type =
+                    MirType::from_semantic_type(self.ctx.db, object_semantic_type);
 
                 // Calculate the actual field offset from the type information
                 let field_offset_val = object_mir_type.field_offset(field.value())
@@ -141,14 +148,20 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
                 let field_offset = Value::integer(field_offset_val as i32);
 
                 // Query semantic type system for field type from the member access expression
-                let field_semantic_type =
-                    expression_semantic_type(self.db, self.crate_id, self.file, expr_id, None);
-                let field_type = MirType::from_semantic_type(self.db, field_semantic_type);
+                let field_semantic_type = expression_semantic_type(
+                    self.ctx.db,
+                    self.ctx.crate_id,
+                    self.ctx.file,
+                    expr_id,
+                    None,
+                );
+                let field_type = MirType::from_semantic_type(self.ctx.db, field_semantic_type);
 
                 let dest = self
+                    .state
                     .mir_function
                     .new_typed_value_id(MirType::pointer(field_type));
-                self.add_instruction(
+                self.instr().add_instruction(
                     Instruction::get_element_ptr(dest, object_addr, field_offset)
                         .with_comment(format!("Get address of field '{}'", field.value())),
                 );
@@ -166,14 +179,20 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
                 let offset_value = index_value;
 
                 // Query semantic type system for array element type from the index access expression
-                let element_semantic_type =
-                    expression_semantic_type(self.db, self.crate_id, self.file, expr_id, None);
-                let element_type = MirType::from_semantic_type(self.db, element_semantic_type);
+                let element_semantic_type = expression_semantic_type(
+                    self.ctx.db,
+                    self.ctx.crate_id,
+                    self.ctx.file,
+                    expr_id,
+                    None,
+                );
+                let element_type = MirType::from_semantic_type(self.ctx.db, element_semantic_type);
 
                 let dest = self
+                    .state
                     .mir_function
                     .new_typed_value_id(MirType::pointer(element_type));
-                self.add_instruction(
+                self.instr().add_instruction(
                     Instruction::get_element_ptr(dest, array_addr, offset_value)
                         .with_comment("Get address of array element".to_string()),
                 );
@@ -182,19 +201,20 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
             Expression::TupleIndex { tuple, index } => {
                 // Get the semantic type of the tuple to determine element types and offsets
                 let tuple_expr_id = self
+                    .ctx
                     .semantic_index
                     .expression_id_by_span(tuple.span())
                     .ok_or_else(|| "No ExpressionId for tuple in TupleIndex".to_string())?;
                 let tuple_semantic_type = expression_semantic_type(
-                    self.db,
-                    self.crate_id,
-                    self.file,
+                    self.ctx.db,
+                    self.ctx.crate_id,
+                    self.ctx.file,
                     tuple_expr_id,
                     None,
                 );
 
                 // Convert to MIR type to get offset calculation
-                let tuple_mir_type = MirType::from_semantic_type(self.db, tuple_semantic_type);
+                let tuple_mir_type = MirType::from_semantic_type(self.ctx.db, tuple_semantic_type);
 
                 // For non-function-call tuples, use the existing lvalue approach
                 let tuple_addr = self.lower_lvalue_expression(tuple)?;
@@ -215,9 +235,10 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
 
                 // Calculate element address using get_element_ptr
                 let element_addr = self
+                    .state
                     .mir_function
                     .new_typed_value_id(MirType::pointer(element_mir_type));
-                self.add_instruction(
+                self.instr().add_instruction(
                     Instruction::get_element_ptr(
                         element_addr,
                         tuple_addr,
@@ -252,14 +273,15 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         scope_id: FileScopeId,
     ) -> Result<Value, String> {
         if let Some((def_idx, _)) = self
+            .ctx
             .semantic_index
             .resolve_name_to_definition(name.value(), scope_id)
         {
-            let def_id = DefinitionId::new(self.db, self.file, def_idx);
+            let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
             let mir_def_id = self.convert_definition_id(def_id);
 
             // Look up the MIR value for this definition
-            if let Some(var_addr) = self.definition_to_value.get(&mir_def_id) {
+            if let Some(var_addr) = self.state.definition_to_value.get(&mir_def_id) {
                 return Ok(Value::operand(*var_addr));
             }
         }
@@ -278,10 +300,10 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         // Query semantic type system for result type based on this expression
         let semantic_type =
-            expression_semantic_type(self.db, self.crate_id, self.file, expr_id, None);
-        let result_type = MirType::from_semantic_type(self.db, semantic_type);
-        let dest = self.mir_function.new_typed_value_id(result_type);
-        self.add_instruction(Instruction::unary_op(op, dest, expr_value));
+            expression_semantic_type(self.ctx.db, self.ctx.crate_id, self.ctx.file, expr_id, None);
+        let result_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
+        let dest = self.state.mir_function.new_typed_value_id(result_type);
+        self.instr().unary_op(op, dest, expr_value);
         Ok(Value::operand(dest))
     }
 
@@ -297,11 +319,11 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         // Query semantic type system for result type based on this expression
         let semantic_type =
-            expression_semantic_type(self.db, self.crate_id, self.file, expr_id, None);
-        let result_type = MirType::from_semantic_type(self.db, semantic_type);
-        let dest = self.mir_function.new_typed_value_id(result_type);
+            expression_semantic_type(self.ctx.db, self.ctx.crate_id, self.ctx.file, expr_id, None);
+        let result_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
+        let dest = self.state.mir_function.new_typed_value_id(result_type);
         let typed_op = self.convert_binary_op(op, left, right);
-        self.add_instruction(Instruction::binary_op(typed_op, dest, lhs_value, rhs_value));
+        self.instr().binary_op(typed_op, dest, lhs_value, rhs_value);
         Ok(Value::operand(dest))
     }
 
@@ -316,13 +338,19 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             CallResult::Tuple(values) => {
                 // For expression context, we need to return a single value
                 // Create a tuple to hold the values
-                let semantic_type =
-                    expression_semantic_type(self.db, self.crate_id, self.file, expr_id, None);
-                let tuple_type = MirType::from_semantic_type(self.db, semantic_type);
+                let semantic_type = expression_semantic_type(
+                    self.ctx.db,
+                    self.ctx.crate_id,
+                    self.ctx.file,
+                    expr_id,
+                    None,
+                );
+                let tuple_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
                 let tuple_addr = self
+                    .state
                     .mir_function
                     .new_typed_value_id(MirType::pointer(tuple_type.clone()));
-                self.add_instruction(
+                self.instr().add_instruction(
                     Instruction::stack_alloc(tuple_addr, tuple_type.size_units())
                         .with_comment("Allocate space for tuple return value".to_string()),
                 );
@@ -336,9 +364,10 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 // Store each returned value into the tuple
                 for (i, (value, value_type)) in values.iter().zip(elem_types).enumerate() {
                     let elem_ptr = self
+                        .state
                         .mir_function
                         .new_typed_value_id(MirType::pointer(value_type));
-                    self.add_instruction(
+                    self.instr().add_instruction(
                         Instruction::get_element_ptr(
                             elem_ptr,
                             Value::operand(tuple_addr),
@@ -346,7 +375,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         )
                         .with_comment(format!("Get address of tuple element {}", i)),
                     );
-                    self.add_instruction(Instruction::store(Value::operand(elem_ptr), *value));
+                    self.instr().store(Value::operand(elem_ptr), *value);
                 }
 
                 Ok(Value::operand(tuple_addr))
@@ -365,6 +394,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         // Get the object's semantic type to calculate field offset
         let object_expr_id = self
+            .ctx
             .semantic_index
             .expression_id_by_span(object.span())
             .ok_or_else(|| {
@@ -373,9 +403,14 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     object.span()
                 )
             })?;
-        let object_semantic_type =
-            expression_semantic_type(self.db, self.crate_id, self.file, object_expr_id, None);
-        let object_mir_type = MirType::from_semantic_type(self.db, object_semantic_type);
+        let object_semantic_type = expression_semantic_type(
+            self.ctx.db,
+            self.ctx.crate_id,
+            self.ctx.file,
+            object_expr_id,
+            None,
+        );
+        let object_mir_type = MirType::from_semantic_type(self.ctx.db, object_semantic_type);
 
         // Calculate the actual field offset from the type information
         let field_offset_val = object_mir_type.field_offset(field.value())
@@ -390,22 +425,23 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         // Query semantic type system for the field type
         let semantic_type =
-            expression_semantic_type(self.db, self.crate_id, self.file, expr_id, None);
-        let field_type = MirType::from_semantic_type(self.db, semantic_type);
+            expression_semantic_type(self.ctx.db, self.ctx.crate_id, self.ctx.file, expr_id, None);
+        let field_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
 
         // Calculate the address of the field
         let field_addr = self
+            .state
             .mir_function
             .new_typed_value_id(MirType::pointer(field_type.clone()));
-        self.add_instruction(
+        self.instr().add_instruction(
             Instruction::get_element_ptr(field_addr, object_addr, field_offset)
                 .with_comment(format!("Get address of field '{}'", field.value())),
         );
 
         // Load the value from the field address
-        let loaded_value = self.mir_function.new_typed_value_id(field_type);
+        let loaded_value = self.state.mir_function.new_typed_value_id(field_type);
         // TODO: This should emit a load with the proper type (e.g. LoadU32?)
-        self.add_instruction(Instruction::load(loaded_value, Value::operand(field_addr)));
+        self.instr().load(loaded_value, Value::operand(field_addr));
 
         Ok(Value::operand(loaded_value))
     }
@@ -426,24 +462,23 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         // Query semantic type system for the element type
         let semantic_type =
-            expression_semantic_type(self.db, self.crate_id, self.file, expr_id, None);
-        let element_type = MirType::from_semantic_type(self.db, semantic_type);
+            expression_semantic_type(self.ctx.db, self.ctx.crate_id, self.ctx.file, expr_id, None);
+        let element_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
 
         // Calculate the address of the array element
         let element_addr = self
+            .state
             .mir_function
             .new_typed_value_id(MirType::pointer(element_type.clone()));
-        self.add_instruction(
+        self.instr().add_instruction(
             Instruction::get_element_ptr(element_addr, array_addr, offset_value)
                 .with_comment("Get address of array element".to_string()),
         );
 
         // Load the value from the element address
-        let loaded_value = self.mir_function.new_typed_value_id(element_type);
-        self.add_instruction(Instruction::load(
-            loaded_value,
-            Value::operand(element_addr),
-        ));
+        let loaded_value = self.state.mir_function.new_typed_value_id(element_type);
+        self.instr()
+            .load(loaded_value, Value::operand(element_addr));
 
         Ok(Value::operand(loaded_value))
     }
@@ -474,16 +509,16 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         // Get the return type of the function
         let semantic_type =
-            expression_semantic_type(self.db, self.crate_id, self.file, expr_id, None);
+            expression_semantic_type(self.ctx.db, self.ctx.crate_id, self.ctx.file, expr_id, None);
 
         // Check if the return type is a tuple
-        match semantic_type.data(self.db) {
+        match semantic_type.data(self.ctx.db) {
             TypeData::Tuple(element_types) => {
                 // Function returns a tuple - create multiple destination values
                 let mut dests = Vec::new();
                 for elem_type in element_types {
-                    let mir_type = MirType::from_semantic_type(self.db, elem_type);
-                    dests.push(self.mir_function.new_typed_value_id(mir_type));
+                    let mir_type = MirType::from_semantic_type(self.ctx.db, elem_type);
+                    dests.push(self.state.mir_function.new_typed_value_id(mir_type));
                 }
 
                 // Create the CalleeSignature
@@ -501,7 +536,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 {
                     *sig = signature;
                 }
-                self.add_instruction(call_instr);
+                self.instr().add_instruction(call_instr);
 
                 // Return the tuple values directly
                 Ok(CallResult::Tuple(
@@ -510,8 +545,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             }
             _ => {
                 // Single return value
-                let return_type = MirType::from_semantic_type(self.db, semantic_type);
-                let dest = self.mir_function.new_typed_value_id(return_type);
+                let return_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
+                let dest = self.state.mir_function.new_typed_value_id(return_type);
 
                 // Create the CalleeSignature
                 let signature = CalleeSignature {
@@ -528,7 +563,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 {
                     *sig = signature;
                 }
-                self.add_instruction(call_instr);
+                self.instr().add_instruction(call_instr);
 
                 Ok(CallResult::Single(Value::operand(dest)))
             }
@@ -544,6 +579,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     ) -> Result<Value, String> {
         // Get the expression ID for the function call
         let func_expr_id = self
+            .ctx
             .semantic_index
             .expression_id_by_span(tuple.span())
             .ok_or_else(|| "No ExpressionId for function call in TupleIndex".to_string())?;
@@ -575,14 +611,15 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     ) -> Result<Value, String> {
         // Query semantic type system for struct type
         let semantic_type =
-            expression_semantic_type(self.db, self.crate_id, self.file, expr_id, None);
-        let struct_type = MirType::from_semantic_type(self.db, semantic_type);
+            expression_semantic_type(self.ctx.db, self.ctx.crate_id, self.ctx.file, expr_id, None);
+        let struct_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
 
         // Allocate space for the struct as consecutive values
         let struct_addr = self
+            .state
             .mir_function
             .new_typed_value_id(MirType::pointer(struct_type.clone()));
-        self.add_instruction(
+        self.instr().add_instruction(
             Instruction::stack_alloc(struct_addr, struct_type.size_units())
                 .with_comment("Allocate struct".to_string()),
         );
@@ -604,6 +641,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
             // Get the field type from the semantic analysis for the field value
             let field_val_expr_id = self
+                .ctx
                 .semantic_index
                 .expression_id_by_span(field_value.span())
                 .ok_or_else(|| {
@@ -613,24 +651,25 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     )
                 })?;
             let field_semantic_type = expression_semantic_type(
-                self.db,
-                self.crate_id,
-                self.file,
+                self.ctx.db,
+                self.ctx.crate_id,
+                self.ctx.file,
                 field_val_expr_id,
                 None,
             );
-            let field_type = MirType::from_semantic_type(self.db, field_semantic_type);
+            let field_type = MirType::from_semantic_type(self.ctx.db, field_semantic_type);
 
             let field_addr = self
+                .state
                 .mir_function
                 .new_typed_value_id(MirType::pointer(field_type));
-            self.add_instruction(
+            self.instr().add_instruction(
                 Instruction::get_element_ptr(field_addr, Value::operand(struct_addr), field_offset)
                     .with_comment(format!("Get address of field '{}'", field_name.value())),
             );
 
             // Store the field value
-            self.add_instruction(Instruction::store(Value::operand(field_addr), field_val));
+            self.instr().store(Value::operand(field_addr), field_val);
         }
 
         // Return the struct address (in a real system, this might return the struct value itself)
@@ -651,14 +690,15 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         // Query semantic type system for the tuple type
         let semantic_type =
-            expression_semantic_type(self.db, self.crate_id, self.file, expr_id, None);
-        let tuple_type = MirType::from_semantic_type(self.db, semantic_type);
+            expression_semantic_type(self.ctx.db, self.ctx.crate_id, self.ctx.file, expr_id, None);
+        let tuple_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
 
         // Allocate space for the tuple as consecutive values
         let tuple_addr = self
+            .state
             .mir_function
             .new_typed_value_id(MirType::pointer(tuple_type.clone()));
-        self.add_instruction(
+        self.instr().add_instruction(
             Instruction::stack_alloc(tuple_addr, tuple_type.size_units())
                 .with_comment(format!("Allocate tuple with {} elements", elements.len())),
         );
@@ -672,6 +712,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
             // Get the element type from semantic analysis
             let element_expr_id = self
+                .ctx
                 .semantic_index
                 .expression_id_by_span(element_expr.span())
                 .ok_or_else(|| {
@@ -680,14 +721,20 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         element_expr.span()
                     )
                 })?;
-            let element_semantic_type =
-                expression_semantic_type(self.db, self.crate_id, self.file, element_expr_id, None);
-            let element_type = MirType::from_semantic_type(self.db, element_semantic_type);
+            let element_semantic_type = expression_semantic_type(
+                self.ctx.db,
+                self.ctx.crate_id,
+                self.ctx.file,
+                element_expr_id,
+                None,
+            );
+            let element_type = MirType::from_semantic_type(self.ctx.db, element_semantic_type);
 
             let element_addr = self
+                .state
                 .mir_function
                 .new_typed_value_id(MirType::pointer(element_type));
-            self.add_instruction(
+            self.instr().add_instruction(
                 Instruction::get_element_ptr(
                     element_addr,
                     Value::operand(tuple_addr),
@@ -697,10 +744,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             );
 
             // Store the element value
-            self.add_instruction(Instruction::store(
-                Value::operand(element_addr),
-                element_val,
-            ));
+            self.instr()
+                .store(Value::operand(element_addr), element_val);
         }
 
         // Return the tuple address
@@ -714,15 +759,21 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     ) -> Result<Value, String> {
         // Get the semantic type of the tuple to determine element types and offsets
         let tuple_expr_id = self
+            .ctx
             .semantic_index
             .expression_id_by_span(tuple.span())
             .ok_or_else(|| "No ExpressionId for tuple in TupleIndex".to_string())?;
 
-        let tuple_semantic_type =
-            expression_semantic_type(self.db, self.crate_id, self.file, tuple_expr_id, None);
+        let tuple_semantic_type = expression_semantic_type(
+            self.ctx.db,
+            self.ctx.crate_id,
+            self.ctx.file,
+            tuple_expr_id,
+            None,
+        );
 
         // Convert to MIR type to get offset calculation
-        let tuple_mir_type = MirType::from_semantic_type(self.db, tuple_semantic_type);
+        let tuple_mir_type = MirType::from_semantic_type(self.ctx.db, tuple_semantic_type);
 
         // Get the tuple base address
         let tuple_addr = self.lower_lvalue_expression(tuple)?;
@@ -743,16 +794,17 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         // Calculate element address using get_element_ptr
         let element_addr = self
+            .state
             .mir_function
             .new_typed_value_id(MirType::pointer(element_mir_type.clone()));
-        self.add_instruction(
+        self.instr().add_instruction(
             Instruction::get_element_ptr(element_addr, tuple_addr, Value::integer(offset as i32))
                 .with_comment(format!("Get address of tuple element {}", index)),
         );
 
         // Load the value at the element address
-        let loaded_value = self.mir_function.new_typed_value_id(element_mir_type);
-        self.add_instruction(
+        let loaded_value = self.state.mir_function.new_typed_value_id(element_mir_type);
+        self.instr().add_instruction(
             Instruction::load(loaded_value, Value::operand(element_addr))
                 .with_comment(format!("Load tuple element {}", index)),
         );
