@@ -5,4 +5,4 @@
 
 pub mod loader;
 
-pub use loader::{format_wasm_module, load_module, print_wasm_module};
+pub use loader::WasmModule;

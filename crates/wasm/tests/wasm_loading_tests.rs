@@ -4,7 +4,7 @@ use insta::assert_snapshot;
 use std::path::Path;
 
 // Use the loader from our src module
-use cairo_m_wasm::loader::{format_wasm_module, load_module};
+use cairo_m_wasm::loader::WasmModule;
 
 /// A macro to define a WASM loading test case
 macro_rules! wasm_test {
@@ -17,13 +17,13 @@ macro_rules! wasm_test {
             assert!(Path::new(&file_path).exists(), "WASM file should exist: {}", file_path);
 
             // Load the WASM module
-            let result = load_module(&file_path);
+            let result = WasmModule::from_file(&file_path);
 
             // Create snapshot content
             let snapshot_content = match result {
                 Ok(ref module) => {
                     // Use the format function from the loader
-                    let module_output = format_wasm_module(module);
+                    let module_output = module.to_string();
 
                     // Get the program to access function count
                     let function_count = match module.program() {
@@ -78,7 +78,7 @@ mod integration_tests {
     #[test]
     fn test_loader_basic() {
         // Test basic loading functionality
-        let result = load_module("tests/test_cases/add.wasm");
+        let result = WasmModule::from_file("tests/test_cases/add.wasm");
         assert!(result.is_ok(), "Should load add.wasm successfully");
 
         let module = result.unwrap();
