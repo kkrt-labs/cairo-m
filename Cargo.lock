@@ -670,6 +670,7 @@ name = "cairo-m-wasm"
 version = "0.1.1"
 dependencies = [
  "insta",
+ "thiserror",
  "womir",
 ]
 

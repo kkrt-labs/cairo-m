@@ -11,7 +11,7 @@ WASM File: fib.wasm
 Success: true
 Functions loaded: 1
 ============================================================
-Program Output:
+Module Output:
 Function: fib (84 directives)
     0: __func_0 [21]:
     1: fib [21]:

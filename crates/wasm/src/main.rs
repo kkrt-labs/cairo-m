@@ -1,6 +1,6 @@
 mod loader;
 
-use loader::{load_module, print_womir_program};
+use loader::{load_module, print_wasm_module};
 use std::env;
 
 fn main() {
@@ -14,7 +14,7 @@ fn main() {
     let filename = &args[1];
 
     match load_module(filename) {
-        Ok(program) => print_womir_program(&program),
+        Ok(module) => print_wasm_module(&module),
         Err(e) => {
             eprintln!("Error: {}", e);
             std::process::exit(1);

@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 womir.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
 insta = "1.43.1"

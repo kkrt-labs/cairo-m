@@ -11,7 +11,7 @@ WASM File: add.wasm
 Success: true
 Functions loaded: 1
 ============================================================
-Program Output:
+Module Output:
 Function: add (5 directives)
     0: __func_0 [6]:
     1: add [6]:

@@ -5,4 +5,4 @@
 
 pub mod loader;
 
-pub use loader::{format_womir_program, load_module, print_womir_program};
+pub use loader::{format_wasm_module, load_module, print_wasm_module};

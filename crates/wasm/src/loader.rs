@@ -6,31 +6,62 @@
 use std::fs;
 use std::path::Path;
 
+use thiserror::Error;
+
 use womir::generic_ir::GenericIrSetting;
 use womir::loader::{load_wasm, Program};
 
-/// Load a WASM module from a file path
-/// For now this just uses the default load_wasm function from the WOMIR loader crate
-/// and returns a WOMIR Program instance
-pub fn load_module(file_path: &str) -> Result<Program<GenericIrSetting>, String> {
-    // Verify the file exists
-    let path = Path::new(file_path);
-    if !path.exists() {
-        return Err(format!("WASM file not found: {}", file_path));
-    }
-
-    let bytes = fs::read(path).map_err(|e| format!("Failed to read WASM file: {}", e))?;
-
-    // Leak the bytes so they live for the entire program duration (quick fix for lifetime issues)
-    let leaked_bytes: &'static [u8] = Box::leak(bytes.into_boxed_slice());
-    let program = load_wasm(GenericIrSetting, leaked_bytes)
-        .map_err(|e| format!("Failed to parse WASM file: {}", e))?;
-
-    Ok(program)
+#[derive(Error, Debug)]
+pub enum WasmLoadError {
+    #[error("WASM file not found: {path}")]
+    FileNotFound { path: String },
+    #[error("Failed to read WASM file: {source}")]
+    IoError { source: std::io::Error },
+    #[error("Failed to parse WASM file: {message}")]
+    ParseError { message: String },
 }
 
-/// Format a WOMIR program as a string
-pub fn format_womir_program(program: &Program<GenericIrSetting>) -> String {
+/// A WASM module that lazily parses when first accessed
+pub struct WasmModule {
+    bytes: Vec<u8>,
+}
+
+impl WasmModule {
+    /// Get the parsed program (parsed on first access)
+    pub fn program(&self) -> Result<Program<'_, GenericIrSetting>, WasmLoadError> {
+        load_wasm(GenericIrSetting, &self.bytes).map_err(|e| WasmLoadError::ParseError {
+            message: e.to_string(),
+        })
+    }
+}
+
+/// Load a WASM module from a file path
+/// Returns a WasmModule that parses lazily when accessed
+pub fn load_module(file_path: &str) -> Result<WasmModule, WasmLoadError> {
+    let path = Path::new(file_path);
+    if !path.exists() {
+        return Err(WasmLoadError::FileNotFound {
+            path: file_path.to_string(),
+        });
+    }
+
+    let bytes = fs::read(path).map_err(|e| WasmLoadError::IoError { source: e })?;
+
+    // Validate the bytes can be parsed (early error detection)
+    load_wasm(GenericIrSetting, &bytes).map_err(|e| WasmLoadError::ParseError {
+        message: e.to_string(),
+    })?;
+
+    Ok(WasmModule { bytes })
+}
+
+/// Format a WOMIR module as a string
+pub fn format_wasm_module(module: &WasmModule) -> String {
+    let program = match module.program() {
+        Ok(prog) => prog,
+        Err(e) => return format!("Error parsing WASM: {}", e),
+    };
+
     let mut output = String::new();
 
     for func in program.functions.iter() {
@@ -63,6 +94,6 @@ pub fn format_womir_program(program: &Program<GenericIrSetting>) -> String {
 }
 
 /// Print a WOMIR program to the console
-pub fn print_womir_program(program: &Program<GenericIrSetting>) {
-    println!("{}", format_womir_program(program));
+pub fn print_wasm_module(module: &WasmModule) {
+    println!("{}", format_wasm_module(module));
 }
