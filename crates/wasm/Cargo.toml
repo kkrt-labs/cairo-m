@@ -5,3 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+womir.workspace = true
+
+[dev-dependencies]
+insta = "1.43.1"

@@ -1,0 +1,20 @@
+---
+source: crates/wasm/tests/wasm_loading_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/wasm/tests/wasm_loading_tests.rs
+expression: wasm_load_result
+---
+WASM File: add.wasm
+============================================================
+Success: true
+Functions loaded: 1
+============================================================
+Program Output:
+Function: add (5 directives)
+    0: __func_0 [6]:
+    1: add [6]:
+    2:     I32Add $3 $2 -> $5
+    3:     Copy $5 -> $4
+    4:     Return $0 $1
