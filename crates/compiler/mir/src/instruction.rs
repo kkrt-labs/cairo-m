@@ -79,6 +79,85 @@ impl std::fmt::Display for BinaryOp {
     }
 }
 
+impl BinaryOp {
+    /// Convert from parser op based on operand type
+    pub fn from_parser(
+        op: cairo_m_compiler_parser::parser::BinaryOp,
+        operand_type: &cairo_m_compiler_semantic::types::TypeData,
+    ) -> Result<Self, String> {
+        use cairo_m_compiler_parser::parser::BinaryOp as P;
+        use cairo_m_compiler_semantic::types::TypeData as T;
+
+        let mir_op = match (op, operand_type) {
+            // Felt operations
+            (P::Add, T::Felt) => Self::Add,
+            (P::Sub, T::Felt) => Self::Sub,
+            (P::Mul, T::Felt) => Self::Mul,
+            (P::Div, T::Felt) => Self::Div,
+            (P::Eq, T::Felt) => Self::Eq,
+            (P::Neq, T::Felt) => Self::Neq,
+            (P::Less, T::Felt) => Self::Less,
+            (P::Greater, T::Felt) => Self::Greater,
+            (P::LessEqual, T::Felt) => Self::LessEqual,
+            (P::GreaterEqual, T::Felt) => Self::GreaterEqual,
+
+            // U32 operations
+            (P::Add, T::U32) => Self::U32Add,
+            (P::Sub, T::U32) => Self::U32Sub,
+            (P::Mul, T::U32) => Self::U32Mul,
+            (P::Div, T::U32) => Self::U32Div,
+            (P::Eq, T::U32) => Self::U32Eq,
+            (P::Neq, T::U32) => Self::U32Neq,
+            (P::Less, T::U32) => Self::U32Less,
+            (P::Greater, T::U32) => Self::U32Greater,
+            (P::LessEqual, T::U32) => Self::U32LessEqual,
+            (P::GreaterEqual, T::U32) => Self::U32GreaterEqual,
+
+            // Bool operations
+            (P::Eq, T::Bool) => Self::Eq,
+            (P::Neq, T::Bool) => Self::Neq,
+            (P::And, T::Bool) => Self::And,
+            (P::Or, T::Bool) => Self::Or,
+
+            _ => {
+                return Err(format!(
+                    "Unsupported binary op {:?} for type {:?}",
+                    op, operand_type
+                ))
+            }
+        };
+
+        Ok(mir_op)
+    }
+
+    /// Get the result type of this operation
+    pub const fn result_type(&self) -> crate::MirType {
+        match self {
+            // Arithmetic ops return same type
+            Self::Add | Self::Sub | Self::Mul | Self::Div => crate::MirType::felt(),
+            Self::U32Add | Self::U32Sub | Self::U32Mul | Self::U32Div => crate::MirType::u32(),
+
+            // Comparison ops return bool
+            Self::Eq
+            | Self::Neq
+            | Self::Less
+            | Self::Greater
+            | Self::LessEqual
+            | Self::GreaterEqual => crate::MirType::bool(),
+
+            Self::U32Eq
+            | Self::U32Neq
+            | Self::U32Less
+            | Self::U32Greater
+            | Self::U32LessEqual
+            | Self::U32GreaterEqual => crate::MirType::bool(),
+
+            // Logical ops
+            Self::And | Self::Or => crate::MirType::bool(),
+        }
+    }
+}
+
 /// Simple expression identifier for MIR that doesn't depend on Salsa lifetimes
 ///
 /// This is derived from semantic `ExpressionId` but simplified for use in MIR.

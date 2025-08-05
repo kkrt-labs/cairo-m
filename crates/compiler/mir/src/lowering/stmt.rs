@@ -314,15 +314,30 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     None
                 };
 
+                // Get the type of the left operand to determine the correct binary operation
+                let left_expr_id = self
+                    .ctx
+                    .semantic_index
+                    .expression_id_by_span(left.span())
+                    .ok_or_else(|| "No expression ID for left operand".to_string())?;
+
+                let left_type = expression_semantic_type(
+                    self.ctx.db,
+                    self.ctx.crate_id,
+                    self.ctx.file,
+                    left_expr_id,
+                    None,
+                );
+                let left_type_data = left_type.data(self.ctx.db);
+                let typed_op = crate::BinaryOp::from_parser(*op, &left_type_data)?;
+
                 if let Some(dest_id) = lhs_value_id {
                     // Generate single binary operation instruction directly to LHS
-                    let typed_op = self.convert_binary_op(*op, left, right);
                     self.instr()
                         .binary_op(typed_op, dest_id, left_value, right_value);
                 } else {
                     // Fall back to two-instruction approach for complex LHS expressions
                     let dest = self.state.mir_function.new_typed_value_id(result_type);
-                    let typed_op = self.convert_binary_op(*op, left, right);
                     self.instr()
                         .binary_op(typed_op, dest, left_value, right_value);
                     let lhs_address = self.lower_lvalue_expression(lhs)?;

@@ -368,7 +368,23 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             .mir_function
             .register_value_kind(dest, ValueKind::Value);
 
-        let typed_op = self.convert_binary_op(op, left, right);
+        // Get the type of the left operand to determine the correct binary operation
+        let left_expr_id = self
+            .ctx
+            .semantic_index
+            .expression_id_by_span(left.span())
+            .ok_or_else(|| "No expression ID for left operand".to_string())?;
+
+        let left_type = expression_semantic_type(
+            self.ctx.db,
+            self.ctx.crate_id,
+            self.ctx.file,
+            left_expr_id,
+            None,
+        );
+        let left_type_data = left_type.data(self.ctx.db);
+
+        let typed_op = crate::BinaryOp::from_parser(op, &left_type_data)?;
         self.instr().binary_op(typed_op, dest, lhs_value, rhs_value);
         Ok(Value::operand(dest))
     }
