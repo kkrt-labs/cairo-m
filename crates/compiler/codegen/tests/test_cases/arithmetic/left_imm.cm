@@ -1,6 +1,6 @@
 fn with_left_imm() -> felt {
     let x = 1+1;
-    let y = 2*x;
+    let _y = 2*x;
     let z = 20/x;
     return z;
 }

@@ -9,25 +9,48 @@ expression: codegen_output
 Fixture: random_instructions.cm
 ============================================================
 Source code:
-fn main(){
+fn main() -> felt {
     let x = 3;
     let y = 13;
     let even_number = 16;
     let eq = x == y;
     let mut_val = 1;
-    if (eq) {
-        mut_val = mut_val + eq + 1;
+    let eq_felt = 0;
+    if (eq){
+        eq_felt = 1;
+        mut_val = mut_val + eq_felt + 1;
     }
     mut_val = mut_val * mut_val;
     mut_val = mut_val + (even_number / 2);
 
     let eq2 = (x == 3);
+    let eq2_felt = 0;
+    if (eq2){
+        eq2_felt = 1;
+    }
 
-    let compound1 = x || (y == 3) + 2;
-    let compound2 = eq != 2 && 3;
+    let tempvar = 0;
+    if (y == 3) {
+        tempvar = 1;
+    }
+    let compound1 = (x != 0) || ((tempvar) + 2 != 0);
+    let compound1_felt = 0;
+    if (compound1){
+        compound1_felt = 1;
+    }
+    let compound2 = (eq_felt != 2) && (3 != 0);
+
+    let compound2_felt = 0;
+    if (compound2){
+        compound2_felt = 1;
+    }
+
+    for (let i = 0; i != 3; i = i + 1) {
+        mut_val = mut_val + i;
+    }
 
     let (a, b) = foo();
-    return mut_val + eq2 + a + bar() + b + compound1 + compound2;
+    return mut_val + eq2_felt + a + bar() + b + compound1_felt + compound2_felt;
 }
 
 fn foo() -> (felt, felt) {
@@ -52,67 +75,120 @@ not_zero_0:
    7: 9 0 3 _              // [fp + 3] = 0
 end_1:
    8: 9 1 4 _              // Store immediate: [fp + 4] = 1
-   9: 14 3 2 _             // if [fp + 3] != 0 jmp rel main_1
-  10: 12 13 _ _            // jump abs main_2
+   9: 9 0 5 _              // Store immediate: [fp + 5] = 0
+  10: 14 3 2 _             // if [fp + 3] != 0 jmp rel main_1
+  11: 12 15 _ _            // jump abs main_2
 main_1:
-  11: 0 4 3 5              // [fp + 5] = [fp + 4] op [fp + 3]
-  12: 4 5 1 4              // [fp + 4] = [fp + 5] op 1
+  12: 9 1 5 _              // Store immediate: [fp + 5] = 1
+  13: 0 4 5 6              // [fp + 6] = [fp + 4] op [fp + 5]
+  14: 4 6 1 4              // [fp + 4] = [fp + 6] op 1
 main_2:
-  13: 4 4 0 28             // [fp + 28] = [fp + 4] + 0
-  14: 4 4 0 29             // [fp + 29] = [fp + 4] + 0
-  15: 2 28 29 4            // [fp + 4] = [fp + 28] op [fp + 29]
-  16: 7 2 2 6              // [fp + 6] = [fp + 2] op 2
-  17: 4 4 0 28             // [fp + 28] = [fp + 4] + 0
-  18: 0 28 6 4             // [fp + 4] = [fp + 28] op [fp + 6]
-  19: 5 0 3 7              // [fp + 7] = [fp + 0] op 3
-  20: 14 7 3 _             // if [fp + 7] != 0, jump to not_zero_2
-  21: 9 1 7 _              // [fp + 7] = 1
-  22: 12 24 _ _            // jump to end_3
+  15: 4 4 0 38             // [fp + 38] = [fp + 4] + 0
+  16: 4 4 0 39             // [fp + 39] = [fp + 4] + 0
+  17: 2 38 39 4            // [fp + 4] = [fp + 38] op [fp + 39]
+  18: 7 2 2 7              // [fp + 7] = [fp + 2] op 2
+  19: 4 4 0 38             // [fp + 38] = [fp + 4] + 0
+  20: 0 38 7 4             // [fp + 4] = [fp + 38] op [fp + 7]
+  21: 5 0 3 8              // [fp + 8] = [fp + 0] op 3
+  22: 14 8 3 _             // if [fp + 8] != 0, jump to not_zero_2
+  23: 9 1 8 _              // [fp + 8] = 1
+  24: 12 26 _ _            // jump to end_3
 not_zero_2:
-  23: 9 0 7 _              // [fp + 7] = 0
+  25: 9 0 8 _              // [fp + 8] = 0
 end_3:
-  24: 5 1 3 8              // [fp + 8] = [fp + 1] op 3
-  25: 14 8 3 _             // if [fp + 8] != 0, jump to not_zero_4
-  26: 9 1 8 _              // [fp + 8] = 1
-  27: 12 29 _ _            // jump to end_5
-not_zero_4:
-  28: 9 0 8 _              // [fp + 8] = 0
-end_5:
-  29: 4 8 2 9              // [fp + 9] = [fp + 8] op 2
-  30: 9 0 10 _             // Initialize OR result to 0
-  31: 14 0 3 _             // if [fp + 0] != 0, jump to or_true_6
-  32: 14 9 2 _             // if [fp + 9] != 0, jump to or_true_6
-  33: 12 35 _ _            // jump to or_end_7
-or_true_6:
-  34: 9 1 10 _             // [fp + 10] = 1
-or_end_7:
-  35: 5 3 2 11             // [fp + 11] = [fp + 3] op 2
-  36: 14 11 3 _            // if [fp + 11] != 0, jump to neq_non_zero_8
-  37: 9 0 11 _             // [fp + 11] = 0
-  38: 12 40 _ _            // jump to neq_end_9
-neq_non_zero_8:
-  39: 9 1 11 _             // [fp + 11] = 1
-neq_end_9:
-  40: 6 11 3 12            // [fp + 12] = [fp + 11] op 3
-  41: 14 12 3 _            // if [fp + 12] != 0, jump to and_non_zero_10
-  42: 9 0 12 _             // [fp + 12] = 0
-  43: 12 45 _ _            // jump to and_end_11
-and_non_zero_10:
-  44: 9 1 12 _             // [fp + 12] = 1
-and_end_11:
-  45: 10 24 54 _           // call foo
-  46: 0 4 7 15             // [fp + 15] = [fp + 4] op [fp + 7]
-  47: 0 15 22 16           // [fp + 16] = [fp + 15] op [fp + 22]
-  48: 10 27 57 _           // call bar
-  49: 0 16 26 18           // [fp + 18] = [fp + 16] op [fp + 26]
-  50: 0 18 23 19           // [fp + 19] = [fp + 18] op [fp + 23]
-  51: 0 19 10 20           // [fp + 20] = [fp + 19] op [fp + 10]
-  52: 0 20 12 -3           // [fp + -3] = [fp + 20] op [fp + 12]
-  53: 11 _ _ _             // return
+  26: 9 0 9 _              // Store immediate: [fp + 9] = 0
+  27: 14 8 2 _             // if [fp + 8] != 0 jmp rel main_3
+  28: 12 30 _ _            // jump abs main_4
+main_3:
+  29: 9 1 9 _              // Store immediate: [fp + 9] = 1
+main_4:
+  30: 9 0 10 _             // Store immediate: [fp + 10] = 0
+  31: 5 1 3 30             // [fp + 30] = [fp + 1] op 3
+  32: 14 30 2 _            // if [fp + 30] != 0 jmp rel main_6
+main_5:
+  33: 9 1 10 _             // Store immediate: [fp + 10] = 1
+main_6:
+  34: 5 0 0 11             // [fp + 11] = [fp + 0] op 0
+  35: 14 11 3 _            // if [fp + 11] != 0, jump to neq_non_zero_4
+  36: 9 0 11 _             // [fp + 11] = 0
+  37: 12 39 _ _            // jump to neq_end_5
+neq_non_zero_4:
+  38: 9 1 11 _             // [fp + 11] = 1
+neq_end_5:
+  39: 4 10 2 12            // [fp + 12] = [fp + 10] op 2
+  40: 5 12 0 13            // [fp + 13] = [fp + 12] op 0
+  41: 14 13 3 _            // if [fp + 13] != 0, jump to neq_non_zero_6
+  42: 9 0 13 _             // [fp + 13] = 0
+  43: 12 45 _ _            // jump to neq_end_7
+neq_non_zero_6:
+  44: 9 1 13 _             // [fp + 13] = 1
+neq_end_7:
+  45: 9 0 14 _             // Initialize OR result to 0
+  46: 14 11 3 _            // if [fp + 11] != 0, jump to or_true_8
+  47: 14 13 2 _            // if [fp + 13] != 0, jump to or_true_8
+  48: 12 50 _ _            // jump to or_end_9
+or_true_8:
+  49: 9 1 14 _             // [fp + 14] = 1
+or_end_9:
+  50: 9 0 15 _             // Store immediate: [fp + 15] = 0
+  51: 14 14 2 _            // if [fp + 14] != 0 jmp rel main_7
+  52: 12 54 _ _            // jump abs main_8
+main_7:
+  53: 9 1 15 _             // Store immediate: [fp + 15] = 1
+main_8:
+  54: 5 5 2 16             // [fp + 16] = [fp + 5] op 2
+  55: 14 16 3 _            // if [fp + 16] != 0, jump to neq_non_zero_10
+  56: 9 0 16 _             // [fp + 16] = 0
+  57: 12 59 _ _            // jump to neq_end_11
+neq_non_zero_10:
+  58: 9 1 16 _             // [fp + 16] = 1
+neq_end_11:
+  59: 9 3 17 _             // [fp + 17] = 3
+  60: 14 17 3 _            // if [fp + 17] != 0, jump to neq_non_zero_12
+  61: 9 0 17 _             // [fp + 17] = 0
+  62: 12 64 _ _            // jump to neq_end_13
+neq_non_zero_12:
+  63: 9 1 17 _             // [fp + 17] = 1
+neq_end_13:
+  64: 2 16 17 18           // [fp + 18] = [fp + 16] op [fp + 17]
+  65: 14 18 3 _            // if [fp + 18] != 0, jump to and_non_zero_14
+  66: 9 0 18 _             // [fp + 18] = 0
+  67: 12 69 _ _            // jump to and_end_15
+and_non_zero_14:
+  68: 9 1 18 _             // [fp + 18] = 1
+and_end_15:
+  69: 9 0 19 _             // Store immediate: [fp + 19] = 0
+  70: 14 18 2 _            // if [fp + 18] != 0 jmp rel main_9
+  71: 12 73 _ _            // jump abs main_10
+main_9:
+  72: 9 1 19 _             // Store immediate: [fp + 19] = 1
+main_10:
+  73: 9 0 20 _             // Store immediate: [fp + 20] = 0
+main_11:
+  74: 5 20 3 31            // [fp + 31] = [fp + 20] op 3
+  75: 14 31 2 _            // if [fp + 31] != 0 jmp rel main_12
+  76: 12 82 _ _            // jump abs main_14
+main_12:
+  77: 4 4 0 38             // [fp + 38] = [fp + 4] + 0
+  78: 0 38 20 4            // [fp + 4] = [fp + 38] op [fp + 20]
+main_13:
+  79: 4 20 0 38            // [fp + 38] = [fp + 20] + 0
+  80: 4 38 1 20            // [fp + 20] = [fp + 38] op 1
+  81: 12 74 _ _            // jump abs main_11
+main_14:
+  82: 10 34 91 _           // call foo
+  83: 0 4 9 23             // [fp + 23] = [fp + 4] op [fp + 9]
+  84: 0 23 32 24           // [fp + 24] = [fp + 23] op [fp + 32]
+  85: 10 37 94 _           // call bar
+  86: 0 24 36 26           // [fp + 26] = [fp + 24] op [fp + 36]
+  87: 0 26 33 27           // [fp + 27] = [fp + 26] op [fp + 33]
+  88: 0 27 15 28           // [fp + 28] = [fp + 27] op [fp + 15]
+  89: 0 28 19 -3           // [fp + -3] = [fp + 28] op [fp + 19]
+  90: 11 _ _ _             // return
 foo:
-  54: 9 32 -4 _            // Return value 0: [fp -4] = 32
-  55: 9 62 -3 _            // Return value 1: [fp -3] = 62
-  56: 11 _ _ _             // return
+  91: 9 32 -4 _            // Return value 0: [fp -4] = 32
+  92: 9 62 -3 _            // Return value 1: [fp -3] = 62
+  93: 11 _ _ _             // return
 bar:
-  57: 9 123 -3 _           // Return value 0: [fp -3] = 123
-  58: 11 _ _ _             // return
+  94: 9 123 -3 _           // Return value 0: [fp -3] = 123
+  95: 11 _ _ _             // return

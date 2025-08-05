@@ -150,9 +150,10 @@ impl CasmBuilder {
                 self.touch(offset, 1);
             }
             _ => {
-                return Err(CodegenError::UnsupportedInstruction(
-                    "Unsupported store value type".to_string(),
-                ));
+                return Err(CodegenError::UnsupportedInstruction(format!(
+                    "Unsupported store value type: {:?}",
+                    value
+                )));
             }
         }
         Ok(())
@@ -187,9 +188,10 @@ impl CasmBuilder {
                 self.touch(offset, 1);
             }
             _ => {
-                return Err(CodegenError::UnsupportedInstruction(
-                    "Unsupported store value type".to_string(),
-                ));
+                return Err(CodegenError::UnsupportedInstruction(format!(
+                    "Unsupported store value type: {:?}",
+                    value
+                )));
             }
         }
 
@@ -829,16 +831,16 @@ impl CasmBuilder {
                     ));
                 self.instructions.push(jnz_instr);
             }
-            Value::Literal(Literal::Integer(imm)) => {
+            Value::Literal(Literal::Boolean(imm)) => {
                 // For immediate values, we can directly compute the NOT result
-                let result = if imm == 0 { 1 } else { 0 };
-                self.store_immediate(result, dest_off, format!("[fp + {dest_off}] = {result}"));
+                self.store_immediate(imm as i32, dest_off, format!("[fp + {dest_off}] = {imm}"));
                 return Ok(());
             }
             _ => {
-                return Err(CodegenError::UnsupportedInstruction(
-                    "Unsupported source operand in NOT".to_string(),
-                ));
+                return Err(CodegenError::UnsupportedInstruction(format!(
+                    "Unsupported source operand in NOT: {:?}",
+                    source
+                )));
             }
         }
 
@@ -1498,7 +1500,18 @@ impl CasmBuilder {
                 let dest_offset = self.layout.get_offset(addr_id)?;
 
                 match value {
-                    Value::Literal(Literal::Integer(imm)) => {
+                    Value::Literal(inner) => {
+                        let imm = match inner {
+                            Literal::Integer(imm) => imm,
+                            Literal::Boolean(imm) => imm as i32,
+                            _ => {
+                                return Err(CodegenError::UnsupportedInstruction(format!(
+                                    "Unsupported store value type: {:?}",
+                                    value
+                                )));
+                            }
+                        };
+
                         self.store_immediate(
                             imm,
                             dest_offset,
@@ -1522,9 +1535,10 @@ impl CasmBuilder {
                     }
 
                     _ => {
-                        return Err(CodegenError::UnsupportedInstruction(
-                            "Unsupported store value type".to_string(),
-                        ));
+                        return Err(CodegenError::UnsupportedInstruction(format!(
+                            "Unsupported store value type: {:?}",
+                            value
+                        )));
                     }
                 }
             }

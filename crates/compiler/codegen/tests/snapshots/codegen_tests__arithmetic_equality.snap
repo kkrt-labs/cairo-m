@@ -9,12 +9,12 @@ expression: codegen_output
 Fixture: equality.cm
 ============================================================
 Source code:
-fn main() -> felt {
+fn main() -> bool {
     let a = 1;
     let b = 0;
     let c = a == b;
-    let d = a == 0;
-    return c + d;
+    let _d = a == 0;
+    return c;
 }
 
 ============================================================
@@ -22,19 +22,11 @@ Generated CASM:
 main:
    0: 9 1 0 _              // Store immediate: [fp + 0] = 1
    1: 9 0 1 _              // Store immediate: [fp + 1] = 0
-   2: 1 0 1 2              // [fp + 2] = [fp + 0] op [fp + 1]
-   3: 14 2 3 _             // if [fp + 2] != 0, jump to not_zero_0
-   4: 9 1 2 _              // [fp + 2] = 1
+   2: 1 0 1 -3             // [fp + -3] = [fp + 0] op [fp + 1]
+   3: 14 -3 3 _            // if [fp + -3] != 0, jump to not_zero_0
+   4: 9 1 -3 _             // [fp + -3] = 1
    5: 12 7 _ _             // jump to end_1
 not_zero_0:
-   6: 9 0 2 _              // [fp + 2] = 0
+   6: 9 0 -3 _             // [fp + -3] = 0
 end_1:
-   7: 5 0 0 3              // [fp + 3] = [fp + 0] op 0
-   8: 14 3 3 _             // if [fp + 3] != 0, jump to not_zero_2
-   9: 9 1 3 _              // [fp + 3] = 1
-  10: 12 12 _ _            // jump to end_3
-not_zero_2:
-  11: 9 0 3 _              // [fp + 3] = 0
-end_3:
-  12: 0 2 3 -3             // [fp + -3] = [fp + 2] op [fp + 3]
-  13: 11 _ _ _             // return
+   7: 11 _ _ _             // return

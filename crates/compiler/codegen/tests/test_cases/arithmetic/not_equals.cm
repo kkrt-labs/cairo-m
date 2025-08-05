@@ -1,6 +1,6 @@
-fn simple_neq() -> felt {
-    let x = 10;
-    let y = 20;
+fn simple_neq() -> bool {
+    let x = true;
+    let y = false;
     let z = x != y;
     return z;
 }
