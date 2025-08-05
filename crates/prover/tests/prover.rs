@@ -14,7 +14,6 @@ use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_prover::verifier::verify_cairo_m;
 use cairo_m_runner::{run_cairo_program, RunnerOptions};
 use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::QM31;
 use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
 
 #[cfg(feature = "dhat-heap")]
@@ -28,24 +27,14 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 #[test]
 fn test_prove_and_verify_unchanged_memory() {
     let initial_memory_data = [
-        (M31(0), QM31::from_u32_unchecked(1, 2, 3, 4), M31(0), M31(0)),
-        (M31(1), QM31::from_u32_unchecked(5, 6, 7, 8), M31(0), M31(0)),
-        (
-            M31(2),
-            QM31::from_u32_unchecked(9, 10, 11, 12),
-            M31(0),
-            M31(0),
-        ),
-        (
-            M31(3),
-            QM31::from_u32_unchecked(13, 14, 15, 16),
-            M31(0),
-            M31(0),
-        ),
+        (M31(0), M31(1), M31(0), M31(0)),
+        (M31(1), M31(5), M31(0), M31(0)),
+        (M31(2), M31(9), M31(0), M31(0)),
+        (M31(3), M31(13), M31(0), M31(0)),
     ];
 
     // Create HashMap using address and depth as key
-    let initial_memory: HashMap<(M31, M31), (QM31, M31, M31)> = initial_memory_data
+    let initial_memory: HashMap<(M31, M31), (M31, M31, M31)> = initial_memory_data
         .iter()
         .map(|(address, value, clock, multiplicity)| {
             (
