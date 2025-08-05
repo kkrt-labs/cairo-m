@@ -20,11 +20,12 @@
 //! * registers update is regular
 //!   * `- [pc, fp] + [off0 + pc * is_rel, fp]` in `Registers` relation
 //! * read instruction from memory
-//!   * `- [pc, inst_prev_clk, opcode_constant, off0] + [pc, clk, opcode_constant, off0]` in `Memory` relation
+//!   * `- [pc, inst_prev_clk, opcode_constant] + [pc, clk, opcode_constant]` in `Memory` relation
+//!   * `- [pc + 1, inst_prev_clk, off0] + [pc + 1, clk, off0]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
 
 use cairo_m_common::instruction::JMP_ABS_IMM;
-use num_traits::{One, Zero};
+use num_traits::One;
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
 };
@@ -54,7 +55,7 @@ use crate::utils::enabler::Enabler;
 use crate::utils::execution_bundle::PackedExecutionBundle;
 
 const N_TRACE_COLUMNS: usize = 7;
-const N_MEMORY_LOOKUPS: usize = 2;
+const N_MEMORY_LOOKUPS: usize = 4;
 const N_REGISTERS_LOOKUPS: usize = 2;
 const N_RANGE_CHECK_20_LOOKUPS: usize = 1;
 
@@ -68,7 +69,7 @@ pub struct InteractionClaimData {
 
 #[derive(Uninitialized, IterMut, ParIterMut)]
 pub struct LookupData {
-    pub memory: [Vec<[PackedM31; 6]>; N_MEMORY_LOOKUPS],
+    pub memory: [Vec<[PackedM31; 3]>; N_MEMORY_LOOKUPS],
     pub registers: [Vec<[PackedM31; 2]>; N_REGISTERS_LOOKUPS],
     pub range_check_20: [Vec<PackedM31>; N_RANGE_CHECK_20_LOOKUPS],
 }
@@ -124,7 +125,7 @@ impl Claim {
         inputs.clear();
         inputs.shrink_to_fit();
 
-        let zero = PackedM31::from(M31::zero());
+        let one = PackedM31::from(M31::one());
         let enabler_col = Enabler::new(non_padded_length);
         (
             trace.par_iter_mut(),
@@ -152,8 +153,10 @@ impl Claim {
                 *row[5] = off0;
                 *row[6] = is_rel;
 
-                *lookup_data.memory[0] = [input.pc, inst_prev_clock, opcode_id, off0, zero, zero];
-                *lookup_data.memory[1] = [input.pc, clock, opcode_id, off0, zero, zero];
+                *lookup_data.memory[0] = [input.pc, inst_prev_clock, opcode_id];
+                *lookup_data.memory[1] = [input.pc, clock, opcode_id];
+                *lookup_data.memory[2] = [input.pc + one, inst_prev_clock, off0];
+                *lookup_data.memory[3] = [input.pc + one, clock, off0];
 
                 *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
 
@@ -197,6 +200,27 @@ impl InteractionClaim {
             col.par_iter_mut(),
             &interaction_claim_data.lookup_data.memory[0],
             &interaction_claim_data.lookup_data.memory[1],
+        )
+            .into_par_iter()
+            .enumerate()
+            .for_each(|(i, (writer, memory_prev, memory_new))| {
+                let num_prev = -PackedQM31::from(enabler_col.packed_at(i));
+                let num_new = PackedQM31::from(enabler_col.packed_at(i));
+                let denom_prev: PackedQM31 = relations.memory.combine(memory_prev);
+                let denom_new: PackedQM31 = relations.memory.combine(memory_new);
+
+                let numerator = num_prev * denom_new + num_new * denom_prev;
+                let denom = denom_prev * denom_new;
+
+                writer.write_frac(numerator, denom);
+            });
+        col.finalize_col();
+
+        let mut col = interaction_trace.new_col();
+        (
+            col.par_iter_mut(),
+            &interaction_claim_data.lookup_data.memory[2],
+            &interaction_claim_data.lookup_data.memory[3],
         )
             .into_par_iter()
             .enumerate()
@@ -285,23 +309,33 @@ impl FrameworkEval for Eval {
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
 
         // is_rel is 1 or 0
-        eval.add_constraint(is_rel.clone() * (one - is_rel.clone()));
+        eval.add_constraint(is_rel.clone() * (one.clone() - is_rel.clone()));
 
         // Read instruction from memory
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             -E::EF::from(enabler.clone()),
+            &[pc.clone(), inst_prev_clock.clone(), opcode_id.clone()],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.memory,
+            E::EF::from(enabler.clone()),
+            &[pc.clone(), clock.clone(), opcode_id],
+        ));
+
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.memory,
+            -E::EF::from(enabler.clone()),
             &[
-                pc.clone(),
+                pc.clone() + one.clone(),
                 inst_prev_clock.clone(),
-                opcode_id.clone(),
                 off0.clone(),
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[pc.clone(), clock.clone(), opcode_id, off0.clone()],
+            &[pc.clone() + one, clock.clone(), off0.clone()],
         ));
 
         // Range check 20

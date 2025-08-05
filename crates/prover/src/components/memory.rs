@@ -10,21 +10,15 @@
 //! - multiplicity
 //! - depth
 //! - root
-//! - intermediate_node_flag
 //!
 //! # Constraints
 //!
 //! * enabler is a bool
 //!   * `enabler * (1 - enabler)`
-//! * intermediate_node_flag is a bool
-//!   * `intermediate_node_flag * (1 - intermediate_node_flag)`
 //! * emit or use boundary memory values
 //!   * `+ or - [address, clock, value]` in `Memory` relation
 //! * emit leaves and intermediate nodes of merkle trees
-//!   * `[address * intermediate_node_flag, depth, value0, root]` in `Merkle` relation
-//!   * `(1 - intermediate_node_flag) * enabler * [4 * address + 1, depth, value1, root]` in `Merkle` relation
-//!   * `(1 - intermediate_node_flag) * enabler * [4 * address + 2, depth, value2, root]` in `Merkle` relation
-//!   * `(1 - intermediate_node_flag) * enabler * [4 * address + 3, depth, value3, root]` in `Merkle` relation
+//!   * `[address, depth, value0, root]` in `Merkle` relation
 
 use num_traits::{One, Zero};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
@@ -47,17 +41,16 @@ use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::adapter::memory::Memory;
-use crate::adapter::merkle::TREE_HEIGHT;
 use crate::adapter::MerkleTrees;
 use crate::components::Relations;
 use crate::utils::enabler::Enabler;
 
-const N_TRACE_COLUMNS: usize = 8;
-const N_INPUT_COLUMNS: usize = 7; // same without the enabler
+const N_TRACE_COLUMNS: usize = 7;
+const N_INPUT_COLUMNS: usize = 6; // same without the enabler
 const N_MEMORY_LOOKUPS: usize = 1;
 const N_MERKLE_LOOKUPS: usize = 1;
 const N_INTERACTION_COLUMNS: usize =
-    SECURE_EXTENSION_DEGREE * (N_MEMORY_LOOKUPS + N_MERKLE_LOOKUPS);
+    SECURE_EXTENSION_DEGREE * (N_MEMORY_LOOKUPS + N_MERKLE_LOOKUPS).div_ceil(2);
 
 #[derive(Clone, Default, Serialize, Deserialize, Debug)]
 pub struct Claim {
@@ -77,7 +70,7 @@ pub struct InteractionClaimData {
 #[derive(Uninitialized, IterMut, ParIterMut)]
 pub struct LookupData {
     pub memory: [Vec<[PackedM31; 4]>; N_MEMORY_LOOKUPS],
-    pub merkle: [Vec<[PackedM31; 5]>; N_MERKLE_LOOKUPS],
+    pub merkle: [Vec<[PackedM31; 4]>; N_MERKLE_LOOKUPS],
 }
 
 impl Claim {
@@ -114,19 +107,7 @@ impl Claim {
                 } else {
                     merkle_trees.final_root.unwrap()
                 };
-                [
-                    *address,
-                    *clock,
-                    *value,
-                    *multiplicity,
-                    *depth,
-                    root,
-                    if depth.0 == TREE_HEIGHT {
-                        M31::from(0)
-                    } else {
-                        M31::from(1)
-                    },
-                ]
+                [*address, *clock, *value, *multiplicity, *depth, root]
             })
             .chain(std::iter::repeat([M31::zero(); N_INPUT_COLUMNS]))
             .take(1 << log_size)
@@ -160,7 +141,6 @@ impl Claim {
                 let multiplicity = input[3];
                 let depth = input[4];
                 let root = input[5];
-                let intermediate_node_flag = input[6];
 
                 *row[0] = enabler;
                 *row[1] = address;
@@ -169,10 +149,9 @@ impl Claim {
                 *row[4] = multiplicity;
                 *row[5] = depth;
                 *row[6] = root;
-                *row[7] = intermediate_node_flag;
 
                 *lookup_data.memory[0] = [address, clock, value0, multiplicity];
-                *lookup_data.merkle[0] = [address, depth, value0, root, intermediate_node_flag];
+                *lookup_data.merkle[0] = [address, depth, value0, root];
             });
 
         // Return the trace and lookup data
@@ -206,39 +185,18 @@ impl InteractionClaim {
         (
             col.par_iter_mut(),
             &interaction_claim_data.lookup_data.memory[0],
-        )
-            .into_par_iter()
-            .for_each(|(writer, value)| {
-                let numerator = PackedQM31::from(value[3]);
-                let denom = relations.memory.combine(&value[..3]);
-
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
-
-        // It's important for this column to contain only the first leaf as single lookup
-        // for matters of constraint degree
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
             &interaction_claim_data.lookup_data.merkle[0],
         )
             .into_par_iter()
             .enumerate()
-            .for_each(|(i, (writer, value))| {
-                let intermediate_node_flag = PackedQM31::from(value[4]);
-                let address = PackedQM31::from(value[0]);
-                let depth = PackedQM31::from(value[1]);
-                let value0 = PackedQM31::from(value[2]);
-                let root = PackedQM31::from(value[3]);
+            .for_each(|(i, (writer, value0, value1))| {
+                let num0: PackedQM31 = PackedQM31::from(value0[3]);
+                let denom0: PackedQM31 = relations.memory.combine(&value0[..3]);
+                let num1: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
+                let denom1: PackedQM31 = relations.merkle.combine(value1);
 
-                let numerator = PackedQM31::from(enabler_col.packed_at(i));
-                let denom: PackedQM31 = relations.merkle.combine(&[
-                    address * intermediate_node_flag,
-                    depth,
-                    value0,
-                    root,
-                ]);
+                let numerator = num0 * denom1 + num1 * denom0;
+                let denom = denom0 * denom1;
 
                 writer.write_frac(numerator, denom);
             });
@@ -273,15 +231,9 @@ impl FrameworkEval for Eval {
         let multiplicity = eval.next_trace_mask();
         let depth = eval.next_trace_mask();
         let root = eval.next_trace_mask();
-        let intermediate_node_flag = eval.next_trace_mask();
 
         // Enabler is 1 or 0
-        eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
-
-        // Intermediate node flag is 1 or 0
-        eval.add_constraint(
-            intermediate_node_flag.clone() * (one - intermediate_node_flag.clone()),
-        );
+        eval.add_constraint(enabler.clone() * (one - enabler.clone()));
 
         // Emit initial values and use final ones
         eval.add_to_relation(RelationEntry::new(
@@ -294,9 +246,9 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.merkle,
             E::EF::from(enabler),
-            &[address * intermediate_node_flag, depth, value0, root],
+            &[address, depth, value0, root],
         ));
-        eval.finalize_logup();
+        eval.finalize_logup_in_pairs();
 
         eval
     }
