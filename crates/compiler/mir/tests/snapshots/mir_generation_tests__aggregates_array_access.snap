@@ -26,6 +26,7 @@ module {
     entry: 0
 
     0:
+      %1 = 42
       // Get address of array element
 %2 = getelementptr %1, %0
       store %2, 10

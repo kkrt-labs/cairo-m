@@ -10,14 +10,14 @@ use super::builder::MirBuilder;
 impl<'a, 'db> MirBuilder<'a, 'db> {
     /// Creates an unconditional jump to the target block
     pub fn goto(&mut self, target: BasicBlockId) {
-        if !self.current_block().is_terminated() {
+        if !self.is_current_block_terminated() {
             self.terminate_with_jump(target);
         }
     }
 
     /// Creates a conditional branch
     pub fn branch(&mut self, condition: Value, then_block: BasicBlockId, else_block: BasicBlockId) {
-        if !self.current_block().is_terminated() {
+        if !self.is_current_block_terminated() {
             self.terminate_with_branch(condition, then_block, else_block);
         }
     }

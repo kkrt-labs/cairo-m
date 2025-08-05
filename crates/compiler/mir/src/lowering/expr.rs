@@ -140,13 +140,13 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
 
                 // Calculate the actual field offset from the type information
                 let field_offset_val = object_mir_type.field_offset(field.value())
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "Compiler Error: Field '{}' not found on type '{:?}'. This indicates an issue with type information propagation.",
+                    .ok_or_else(|| {
+                        format!(
+                            "Internal Compiler Error: Field '{}' not found on type '{:?}'. This indicates an issue with type information propagation.",
                             field.value(),
                             object_mir_type
-                        );
-                    });
+                        )
+                    })?;
                 let field_offset = Value::integer(field_offset_val as i32);
 
                 // Query semantic type system for field type from the member access expression
@@ -336,14 +336,15 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         let semantic_type =
             expression_semantic_type(self.ctx.db, self.ctx.crate_id, self.ctx.file, expr_id, None);
         let result_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
-        let dest = self.state.mir_function.new_typed_value_id(result_type);
+
+        // Use the new unary_op API that allocates its own destination
+        let dest = self.instr().unary_op(op, expr_value, result_type);
 
         // Register unary op result as a Value
         self.state
             .mir_function
             .register_value_kind(dest, ValueKind::Value);
 
-        self.instr().unary_op(op, dest, expr_value);
         Ok(Value::operand(dest))
     }
 
@@ -385,7 +386,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         let left_type_data = left_type.data(self.ctx.db);
 
         let typed_op = crate::BinaryOp::from_parser(op, &left_type_data)?;
-        self.instr().binary_op(typed_op, dest, lhs_value, rhs_value);
+        self.instr()
+            .binary_op_with_dest(typed_op, dest, lhs_value, rhs_value);
         Ok(Value::operand(dest))
     }
 
@@ -482,13 +484,13 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         // Calculate the actual field offset from the type information
         let field_offset_val = object_mir_type.field_offset(field.value())
-            .unwrap_or_else(|| {
-                panic!(
-                    "Compiler Error: Field '{}' not found on type '{:?}'. This indicates an issue with type information propagation.",
+            .ok_or_else(|| {
+                format!(
+                    "Internal Compiler Error: Field '{}' not found on type '{:?}'. This indicates an issue with type information propagation.",
                     field.value(),
                     object_mir_type
-                );
-            });
+                )
+            })?;
         let field_offset = Value::integer(field_offset_val as i32);
 
         // Query semantic type system for the field type
@@ -725,13 +727,13 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
             // Calculate the actual field offset from the struct type information
             let field_offset_val = struct_type.field_offset(field_name.value())
-                .unwrap_or_else(|| {
-                    panic!(
-                        "Compiler Error: Field '{}' not found on struct type '{:?}'. This indicates an issue with type information propagation.",
+                .ok_or_else(|| {
+                    format!(
+                        "Internal Compiler Error: Field '{}' not found on struct type '{:?}'. This indicates an issue with type information propagation.",
                         field_name.value(),
                         struct_type
-                    );
-                });
+                    )
+                })?;
             let field_offset = Value::integer(field_offset_val as i32);
 
             // Get the field type from the semantic analysis for the field value

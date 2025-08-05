@@ -38,15 +38,21 @@ impl<'f> InstrBuilder<'f> {
         }
     }
 
-    /// Create and add a binary operation instruction
-    pub fn binary_op(&mut self, op: BinaryOp, dest: ValueId, lhs: Value, rhs: Value) -> &mut Self {
+    /// Create and add a binary operation instruction with explicit destination
+    pub fn binary_op_with_dest(
+        &mut self,
+        op: BinaryOp,
+        dest: ValueId,
+        lhs: Value,
+        rhs: Value,
+    ) -> &mut Self {
         let instr = Instruction::binary_op(op, dest, lhs, rhs);
         self.add_instruction(instr);
         self
     }
 
-    /// Create and add a unary operation instruction
-    pub fn unary_op(&mut self, op: UnaryOp, dest: ValueId, operand: Value) -> &mut Self {
+    /// Create and add a unary operation instruction with explicit destination
+    pub fn unary_op_with_dest(&mut self, op: UnaryOp, dest: ValueId, operand: Value) -> &mut Self {
         let instr = Instruction::unary_op(op, dest, operand);
         self.add_instruction(instr);
         self
@@ -86,81 +92,26 @@ impl<'f> InstrBuilder<'f> {
         self
     }
 
-    /// Create a binary operation instruction
-    ///
-    /// ## Arguments
-    /// * `op` - The binary operation to perform
-    /// * `lhs` - The left operand
-    /// * `rhs` - The right operand  
-    /// * `result_type` - The type of the result
-    ///
-    /// ## Returns
-    /// A tuple of (Instruction, destination ValueId)
-    pub fn binary(
-        &mut self,
-        op: BinaryOp,
-        lhs: Value,
-        rhs: Value,
-        result_type: MirType,
-    ) -> (Instruction, ValueId) {
-        let dest = self.function.new_typed_value_id(result_type);
-        let instr = Instruction::binary_op(op, dest, lhs, rhs);
-        (instr, dest)
-    }
-
-    /// Create a unary operation instruction
-    ///
-    /// ## Arguments
-    /// * `op` - The unary operation to perform
-    /// * `operand` - The operand
-    /// * `result_type` - The type of the result
-    ///
-    /// ## Returns
-    /// A tuple of (Instruction, destination ValueId)
-    pub fn unary(
-        &mut self,
-        op: UnaryOp,
-        operand: Value,
-        result_type: MirType,
-    ) -> (Instruction, ValueId) {
-        let dest = self.function.new_typed_value_id(result_type);
-        let instr = Instruction::unary_op(op, dest, operand);
-        (instr, dest)
-    }
-
-    /// Allocate stack space
-    ///
-    /// ## Arguments
-    /// * `size` - The number of memory units to allocate
-    /// * `ty` - The type of the allocated space (for typing the pointer)
-    ///
-    /// ## Returns
-    /// A tuple of (Instruction, destination ValueId)
-    pub fn stack_alloc(&mut self, size: usize, ty: MirType) -> (Instruction, ValueId) {
-        let dest = self.function.new_typed_value_id(MirType::pointer(ty));
-        let instr = Instruction::stack_alloc(dest, size);
-        (instr, dest)
-    }
-
-    /// Create an assignment from a literal value
+    /// Create and add an assignment from a literal value
     ///
     /// ## Arguments
     /// * `lit` - The literal value
     /// * `ty` - The type of the literal
     ///
     /// ## Returns
-    /// A tuple of (Instruction, destination ValueId)
-    pub fn literal(&mut self, lit: Literal, ty: MirType) -> (Instruction, ValueId) {
+    /// The destination ValueId
+    pub fn literal(&mut self, lit: Literal, ty: MirType) -> ValueId {
         let dest = self.function.new_typed_value_id(ty.clone());
         let instr = if ty == MirType::U32 {
             Instruction::assign_u32(dest, Value::Literal(lit))
         } else {
             Instruction::assign(dest, Value::Literal(lit))
         };
-        (instr, dest)
+        self.add_instruction(instr);
+        dest
     }
 
-    /// Create a function call instruction
+    /// Create and add a function call instruction
     ///
     /// ## Arguments
     /// * `callee` - The ID of the function to call
@@ -168,20 +119,21 @@ impl<'f> InstrBuilder<'f> {
     /// * `return_types` - The types of the return values
     ///
     /// ## Returns
-    /// A tuple of (Instruction, Vec of destination ValueIds)
+    /// Vec of destination ValueIds
     pub fn call(
         &mut self,
         callee: crate::FunctionId,
         args: Vec<Value>,
         return_types: Vec<MirType>,
-    ) -> (Instruction, Vec<ValueId>) {
+    ) -> Vec<ValueId> {
         let dests: Vec<ValueId> = return_types
             .iter()
             .map(|ty| self.function.new_typed_value_id(ty.clone()))
             .collect();
 
         let instr = Instruction::call(dests.clone(), callee, args);
-        (instr, dests)
+        self.add_instruction(instr);
+        dests
     }
 
     /// Load a struct field
@@ -253,8 +205,8 @@ impl<'f> InstrBuilder<'f> {
     pub fn mov(&mut self, value: Value, ty: MirType) -> (Option<Instruction>, ValueId) {
         match value {
             Value::Literal(lit) => {
-                let (instr, dest) = self.literal(lit, ty);
-                (Some(instr), dest)
+                let dest = self.literal(lit, ty);
+                (None, dest) // The instruction was already added by literal()
             }
             Value::Operand(src) => {
                 // For operands, we can just return the same ID (SSA form)
@@ -311,7 +263,7 @@ impl<'f> InstrBuilder<'f> {
     }
 
     /// Create and add a load with automatic destination
-    pub fn load_auto(&mut self, src: Value, ty: MirType) -> ValueId {
+    pub fn load_value(&mut self, src: Value, ty: MirType) -> ValueId {
         let dest = self.function.new_typed_value_id(ty);
         let instr = Instruction::load(dest, src);
         self.add_instruction(instr);
@@ -319,7 +271,7 @@ impl<'f> InstrBuilder<'f> {
     }
 
     /// Create and add a binary operation with automatic destination
-    pub fn binary_op_auto(
+    pub fn binary_op(
         &mut self,
         op: BinaryOp,
         lhs: Value,
@@ -333,7 +285,7 @@ impl<'f> InstrBuilder<'f> {
     }
 
     /// Create and add a unary operation with automatic destination
-    pub fn unary_op_auto(&mut self, op: UnaryOp, operand: Value, result_type: MirType) -> ValueId {
+    pub fn unary_op(&mut self, op: UnaryOp, operand: Value, result_type: MirType) -> ValueId {
         let dest = self.function.new_typed_value_id(result_type);
         let instr = Instruction::unary_op(op, dest, operand);
         self.add_instruction(instr);

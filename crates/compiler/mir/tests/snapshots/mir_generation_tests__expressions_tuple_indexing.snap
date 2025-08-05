@@ -60,6 +60,8 @@ module {
     entry: 0
 
     0:
+      // Allocate tuple with 3 elements
+%0 = stackalloc 3
       // Get address of tuple element 0
 %1 = getelementptr %0, 0
       store %1, 10
@@ -82,6 +84,8 @@ module {
     entry: 0
 
     0:
+      // Allocate tuple with 3 elements
+%0 = stackalloc 3
       // Get address of tuple element 0
 %1 = getelementptr %0, 0
       store %1, 100
@@ -107,6 +111,8 @@ module {
     entry: 0
 
     0:
+      // Allocate tuple with 2 elements
+%0 = stackalloc 4
       // Allocate tuple with 2 elements
 %1 = stackalloc 2
       // Get address of tuple element 0
@@ -180,6 +186,8 @@ module {
     entry: 0
 
     0:
+      // Allocate tuple with 3 elements
+%0 = stackalloc 3
       // Get address of tuple element 0
 %1 = getelementptr %0, 0
       store %1, 1

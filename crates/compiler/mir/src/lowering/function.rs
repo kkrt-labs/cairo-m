@@ -286,7 +286,7 @@ fn lower_return_type<'a, 'db>(
     func_def_id: DefinitionId<'db>,
 ) -> Result<(), String> {
     // Get the function's return types and allocate ValueIds for them
-    let return_types = builder.get_function_return_types(func_def_id);
+    let return_types = builder.get_function_return_types(func_def_id)?;
     let return_value_ids: Vec<ValueId> = return_types
         .into_iter()
         .map(|ty| builder.state.mir_function.new_typed_value_id(ty))

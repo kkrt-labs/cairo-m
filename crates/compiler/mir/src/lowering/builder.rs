@@ -18,8 +18,8 @@ use cairo_m_compiler_semantic::{module_semantic_index, File, SemanticDb};
 use rustc_hash::FxHashMap;
 
 use crate::{
-    BasicBlock, BasicBlockId, BinaryOp, CfgBuilder, FunctionId, InstrBuilder, Instruction,
-    MirDefinitionId, MirFunction, MirType, Value, ValueId,
+    BasicBlockId, BinaryOp, CfgBuilder, FunctionId, InstrBuilder, Instruction, MirDefinitionId,
+    MirFunction, MirType, Value, ValueId,
 };
 
 /// Immutable compilation context shared across lowering
@@ -201,9 +201,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
     /// Terminates the current block with a jump to the target
     pub fn terminate_with_jump(&mut self, target: BasicBlockId) {
-        let mut cfg = self.cfg();
-        cfg.terminate_with_jump(target);
-        self.state.is_terminated = true;
+        let state = self.cfg().terminate_with_jump(target);
+        self.state.is_terminated = state.is_terminated;
     }
 
     /// Terminates the current block with a conditional branch
@@ -213,16 +212,16 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         then_block: BasicBlockId,
         else_block: BasicBlockId,
     ) {
-        let mut cfg = self.cfg();
-        cfg.terminate_with_branch(condition, then_block, else_block);
-        self.state.is_terminated = true;
+        let state = self
+            .cfg()
+            .terminate_with_branch(condition, then_block, else_block);
+        self.state.is_terminated = state.is_terminated;
     }
 
     /// Terminates the current block with a return
     pub fn terminate_with_return(&mut self, values: Vec<Value>) {
-        let mut cfg = self.cfg();
-        cfg.terminate_with_return(values);
-        self.state.is_terminated = true;
+        let state = self.cfg().terminate_with_return(values);
+        self.state.is_terminated = state.is_terminated;
     }
 
     /// Creates blocks for an if statement
@@ -269,12 +268,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         rhs: Value,
         result_type: MirType,
     ) -> ValueId {
-        self.instr().binary_op_auto(op, lhs, rhs, result_type)
+        self.instr().binary_op(op, lhs, rhs, result_type)
     }
 
     /// Load a value with automatic destination
     pub fn load_auto(&mut self, src: Value, ty: MirType) -> ValueId {
-        self.instr().load_auto(src, ty)
+        self.instr().load_value(src, ty)
     }
 
     /// Store a value
@@ -297,27 +296,18 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         dest
     }
 
-    // Keep these for compatibility during migration
-    pub fn current_block_mut(&mut self) -> &mut BasicBlock {
-        self.state
-            .mir_function
-            .basic_blocks
-            .get_mut(self.state.current_block_id)
-            .expect("Current block should exist")
-    }
-
-    pub fn current_block(&self) -> &BasicBlock {
-        self.state
-            .mir_function
-            .basic_blocks
-            .get(self.state.current_block_id)
-            .expect("Current block should exist")
+    /// Check if the current block is terminated
+    pub fn is_current_block_terminated(&mut self) -> bool {
+        self.cfg().is_terminated()
     }
 
     /// Get the return types of the function being lowered
     ///
     /// This retrieves the function's semantic type and extracts the return type information.
-    pub fn get_function_return_types(&self, func_def_id: DefinitionId<'db>) -> Vec<MirType> {
+    pub fn get_function_return_types(
+        &self,
+        func_def_id: DefinitionId<'db>,
+    ) -> Result<Vec<MirType>, String> {
         let semantic_type = definition_semantic_type(self.ctx.db, self.ctx.crate_id, func_def_id);
         let type_data = semantic_type.data(self.ctx.db);
 
@@ -327,7 +317,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             let mir_type = MirType::from_semantic_type(self.ctx.db, return_type);
 
             // If the return type is a tuple, expand it to individual types
-            if let MirType::Tuple(types) = mir_type {
+            Ok(if let MirType::Tuple(types) = mir_type {
                 types
             } else if matches!(mir_type, MirType::Unit) {
                 // Unit type means no return values
@@ -335,9 +325,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             } else {
                 // Single return value
                 vec![mir_type]
-            }
+            })
         } else {
-            panic!("Function definition should have function type");
+            Err(
+                "Internal Compiler Error: Function definition should have function type"
+                    .to_string(),
+            )
         }
     }
 

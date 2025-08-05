@@ -109,9 +109,12 @@ impl<'f> CfgBuilder<'f> {
     /// ## Arguments
     /// * `terminator` - The terminator to set
     ///
+    /// ## Returns
+    /// The new CFG state after termination
+    ///
     /// ## Panics
     /// Panics if the block is already terminated
-    pub fn terminate(&mut self, terminator: Terminator) {
+    pub fn terminate(&mut self, terminator: Terminator) -> CfgState {
         if self.is_terminated() {
             panic!("Attempting to terminate an already terminated block");
         }
@@ -119,14 +122,18 @@ impl<'f> CfgBuilder<'f> {
         let block = self.current_block_mut();
         block.set_terminator(terminator);
         self.is_terminated = true;
+        self.state()
     }
 
     /// Terminates the current block with a jump to the target block
     ///
     /// ## Arguments
     /// * `target` - The block to jump to
-    pub fn terminate_with_jump(&mut self, target: BasicBlockId) {
-        self.terminate(Terminator::jump(target));
+    ///
+    /// ## Returns
+    /// The new CFG state after termination
+    pub fn terminate_with_jump(&mut self, target: BasicBlockId) -> CfgState {
+        self.terminate(Terminator::jump(target))
     }
 
     /// Terminates the current block with a conditional branch
@@ -135,21 +142,27 @@ impl<'f> CfgBuilder<'f> {
     /// * `condition` - The condition value to test
     /// * `then_target` - The block to jump to if condition is true
     /// * `else_target` - The block to jump to if condition is false
+    ///
+    /// ## Returns
+    /// The new CFG state after termination
     pub fn terminate_with_branch(
         &mut self,
         condition: Value,
         then_target: BasicBlockId,
         else_target: BasicBlockId,
-    ) {
-        self.terminate(Terminator::branch(condition, then_target, else_target));
+    ) -> CfgState {
+        self.terminate(Terminator::branch(condition, then_target, else_target))
     }
 
     /// Terminates the current block with a return
     ///
     /// ## Arguments
     /// * `values` - The values to return
-    pub fn terminate_with_return(&mut self, values: Vec<Value>) {
-        self.terminate(Terminator::return_values(values));
+    ///
+    /// ## Returns
+    /// The new CFG state after termination
+    pub fn terminate_with_return(&mut self, values: Vec<Value>) -> CfgState {
+        self.terminate(Terminator::return_values(values))
     }
 
     /// Creates a new block and switches to it
@@ -173,11 +186,14 @@ impl<'f> CfgBuilder<'f> {
     ///
     /// ## Arguments
     /// * `target` - The block to jump to and switch to
-    pub fn jump_to(&mut self, target: BasicBlockId) {
+    ///
+    /// ## Returns
+    /// The new CFG state after jumping
+    pub fn jump_to(&mut self, target: BasicBlockId) -> CfgState {
         if !self.is_terminated() {
             self.terminate_with_jump(target);
         }
-        self.switch_to_block(target);
+        self.switch_to_block(target)
     }
 
     /// Gets a reference to a specific block by ID

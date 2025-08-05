@@ -1,4 +1,4 @@
-use crate::{InstructionKind, MirFunction, Terminator, Value, ValueId};
+use crate::{InstructionKind, MirFunction, Value, ValueId};
 use rustc_hash::FxHashMap;
 
 /// Pre-optimization pass that runs immediately after lowering
@@ -60,95 +60,15 @@ impl PreOptimizationPass {
         let mut use_counts = FxHashMap::default();
 
         for block in function.basic_blocks.iter() {
+            // Use the existing helper methods to get all used values
             for instr in &block.instructions {
-                // Count uses in instruction operands
-                match &instr.kind {
-                    InstructionKind::BinaryOp {
-                        left: Value::Operand(id),
-                        right: Value::Operand(id2),
-                        ..
-                    } => {
-                        *use_counts.entry(*id).or_insert(0) += 1;
-                        *use_counts.entry(*id2).or_insert(0) += 1;
-                    }
-                    InstructionKind::BinaryOp {
-                        left: Value::Operand(id),
-                        ..
-                    } => {
-                        *use_counts.entry(*id).or_insert(0) += 1;
-                    }
-                    InstructionKind::BinaryOp {
-                        right: Value::Operand(id),
-                        ..
-                    } => {
-                        *use_counts.entry(*id).or_insert(0) += 1;
-                    }
-                    InstructionKind::UnaryOp {
-                        source: Value::Operand(id),
-                        ..
-                    } => {
-                        *use_counts.entry(*id).or_insert(0) += 1;
-                    }
-                    InstructionKind::Load {
-                        address: Value::Operand(id),
-                        ..
-                    } => {
-                        *use_counts.entry(*id).or_insert(0) += 1;
-                    }
-                    InstructionKind::Store {
-                        address: Value::Operand(id),
-                        value: Value::Operand(id2),
-                    } => {
-                        *use_counts.entry(*id).or_insert(0) += 1;
-                        *use_counts.entry(*id2).or_insert(0) += 1;
-                    }
-                    InstructionKind::Store {
-                        address: Value::Operand(id),
-                        ..
-                    } => {
-                        *use_counts.entry(*id).or_insert(0) += 1;
-                    }
-                    InstructionKind::Store {
-                        value: Value::Operand(id),
-                        ..
-                    } => {
-                        *use_counts.entry(*id).or_insert(0) += 1;
-                    }
-                    InstructionKind::Call { args, .. } | InstructionKind::VoidCall { args, .. } => {
-                        for arg in args {
-                            if let Value::Operand(id) = arg {
-                                *use_counts.entry(*id).or_insert(0) += 1;
-                            }
-                        }
-                    }
-                    _ => {}
+                for used_value_id in instr.used_values() {
+                    *use_counts.entry(used_value_id).or_insert(0) += 1;
                 }
             }
 
-            // Count uses in terminator
-            match &block.terminator {
-                Terminator::If {
-                    condition: Value::Operand(id),
-                    ..
-                } => {
-                    *use_counts.entry(*id).or_insert(0) += 1;
-                }
-                Terminator::BranchCmp { left, right, .. } => {
-                    if let Value::Operand(id) = left {
-                        *use_counts.entry(*id).or_insert(0) += 1;
-                    }
-                    if let Value::Operand(id) = right {
-                        *use_counts.entry(*id).or_insert(0) += 1;
-                    }
-                }
-                Terminator::Return { values } => {
-                    for val in values {
-                        if let Value::Operand(id) = val {
-                            *use_counts.entry(*id).or_insert(0) += 1;
-                        }
-                    }
-                }
-                _ => {}
+            for used_value_id in block.terminator.used_values() {
+                *use_counts.entry(used_value_id).or_insert(0) += 1;
             }
         }
 

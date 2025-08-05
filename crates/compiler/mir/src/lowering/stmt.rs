@@ -334,12 +334,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 if let Some(dest_id) = lhs_value_id {
                     // Generate single binary operation instruction directly to LHS
                     self.instr()
-                        .binary_op(typed_op, dest_id, left_value, right_value);
+                        .binary_op_with_dest(typed_op, dest_id, left_value, right_value);
                 } else {
                     // Fall back to two-instruction approach for complex LHS expressions
                     let dest = self.state.mir_function.new_typed_value_id(result_type);
                     self.instr()
-                        .binary_op(typed_op, dest, left_value, right_value);
+                        .binary_op_with_dest(typed_op, dest, left_value, right_value);
                     let lhs_address = self.lower_lvalue_expression(lhs)?;
                     self.instr().store(lhs_address, Value::operand(dest));
                 }
@@ -418,7 +418,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             self.lower_statement(then_block)?;
 
             // Check if the then branch terminated
-            if !self.current_block().is_terminated() {
+            if !self.is_current_block_terminated() {
                 final_blocks.push(self.state.current_block_id);
             }
 
@@ -427,7 +427,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             self.lower_statement(else_stmt)?;
 
             // Check if the else branch terminated
-            if !self.current_block().is_terminated() {
+            if !self.is_current_block_terminated() {
                 final_blocks.push(self.state.current_block_id);
             }
         } else {
@@ -443,7 +443,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             self.lower_statement(then_block)?;
 
             // Check if the then branch terminated
-            if !self.current_block().is_terminated() {
+            if !self.is_current_block_terminated() {
                 final_blocks.push(self.state.current_block_id);
             }
 
@@ -493,7 +493,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             self.lower_statement(stmt)?;
 
             // If a statement terminates the block (like return), stop processing
-            if self.current_block().is_terminated() {
+            if self.is_current_block_terminated() {
                 break;
             }
         }
@@ -536,7 +536,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         self.lower_statement(body)?;
 
         // If the body didn't terminate, jump back to the header
-        if !self.current_block().is_terminated() {
+        if !self.is_current_block_terminated() {
             self.terminate_with_jump(loop_header);
         }
 
@@ -574,7 +574,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         self.lower_statement(body)?;
 
         // If the body didn't terminate, jump back to itself
-        if !self.current_block().is_terminated() {
+        if !self.is_current_block_terminated() {
             self.terminate_with_jump(loop_body);
         }
 
@@ -595,7 +595,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     ) -> Result<(), String> {
         // 1. Initialization runs once in the current block
         self.lower_statement(init)?;
-        if self.current_block().is_terminated() {
+        if self.is_current_block_terminated() {
             // Init somehow terminated control flow — nothing more to do.
             return Ok(());
         }
@@ -617,14 +617,14 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // 4. Body: generate code, then jump to step if not terminated
         self.switch_to_block(loop_body);
         self.lower_statement(body)?;
-        if !self.current_block().is_terminated() {
+        if !self.is_current_block_terminated() {
             self.terminate_with_jump(loop_step);
         }
 
         // 5. Step: execute step statement, then jump back to header
         self.switch_to_block(loop_step);
         self.lower_statement(step)?;
-        if !self.current_block().is_terminated() {
+        if !self.is_current_block_terminated() {
             self.terminate_with_jump(loop_header);
         }
 
