@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1754317702212,
+  "lastUpdate": 1754384652164,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -1573,6 +1573,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 334957999,
             "range": "± 3196617",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d3518dc94111b6061d6eae7377464b559fe3833b",
+          "message": "feat(compiler-codegen): implement U32 operations and fix return value slot calculation (#217)\n\n* feat(codegen): implement direct argument placement optimization\n\nThis refactoring establishes a clean architectural boundary between MIR and\ncodegen layers while implementing an optimization that eliminates unnecessary\ncopy instructions for function arguments.\n\nKey changes:\n- Add CalleeSignature to Call/VoidCall instructions for self-contained MIR\n- Implement Direct Argument Placement optimization in CodeGenerator\n- Look ahead to place values directly at argument positions when possible\n- Support optimization for Store, Assign, UnaryOp, and BinaryOp instructions\n- Add per-argument copy skipping in pass_arguments when already in place\n\nThe optimization reduces instruction count by eliminating copies like:\n  Before: Store value at temp location, then copy to argument position\n  After: Store value directly at argument position\n\nThis maintains the robust pre-allocated layout architecture while achieving\nefficient code generation through smart orchestration in the CodeGenerator.\n\n* feat(codegen): implement U32 operations and fix return value slot calculation\n\n- Add U32 arithmetic operations (add, sub, mul, div) code generation\n- Fix return value offset calculation to use slots instead of values\n- Update layout to track num_return_slots for multi-slot types\n- Handle multi-slot value copying in return statements\n- Add comprehensive tests for U32 operations\n\nBreaking changes:\n- Return values for multi-slot types (like u32) now correctly placed at fp-K-2\n  where K is the total number of return slots (not values)\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* fix: address PR review comments\n\n- Replace unwrap() with proper error handling using ? operator in layout.rs\n- Remove fib_u32_loop test that uses unimplemented U32 comparison operations\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* minor changes\n\n* feat(compiler): add info on args/ret data size in ABI\n\n* feat(mir): add AssignU32 instruction for type-aware u32 literal handling\n\n- Add AssignU32 variant to InstructionKind for explicit u32 assignments\n- Update MIR generation to use AssignU32 for u32 literal returns based on function signatures\n- Implement codegen support using U32_STORE_IMM opcode for efficient u32 storage\n- Add proper type inference for literal values in return statements\n- Maintain return value optimization for u32 literals\n- Add test for u32 literal return to verify correct handling\n\nThis change makes the MIR more explicit about u32 operations, avoiding the need\nfor type queries during codegen and ensuring proper handling of multi-slot types.\n\n---------\n\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-08-05T11:00:52+02:00",
+          "tree_id": "2d96001a4c7cd3744fc874c458697f3e33b3d6e8",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/d3518dc94111b6061d6eae7377464b559fe3833b"
+        },
+        "date": 1754384651010,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 337102649,
+            "range": "± 991067",
             "unit": "ns/iter"
           }
         ]
