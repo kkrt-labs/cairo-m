@@ -69,18 +69,12 @@ module {
     entry: 0
 
     0:
-      %0 = stackalloc 1
-      store %0, 3
-      %1 = stackalloc 1
-      store %1, 13
-      %2 = stackalloc 1
-      store %2, 16
-      %3 = stackalloc 1
+      %0 = 3
+      %1 = 13
+      %2 = 16
       %3 = %0 Eq %1
-      %4 = stackalloc 1
-      store %4, 1
-      %5 = stackalloc 1
-      store %5, 0
+      %4 = 1
+      %5 = 0
       if %3 then jump 1 else jump 2
 
     1:
@@ -93,10 +87,8 @@ module {
       %4 = %4 Mul %4
       %7 = %2 Div 2
       %4 = %4 Add %7
-      %8 = stackalloc 1
       %8 = %0 Eq 3
-      %9 = stackalloc 1
-      store %9, 0
+      %9 = 0
       if %8 then jump 3 else jump 4
 
     3:
@@ -104,8 +96,7 @@ module {
       jump 4
 
     4:
-      %10 = stackalloc 1
-      store %10, 0
+      %10 = 0
       if %1 Eq 3 then jump 5 else jump 6
 
     5:
@@ -116,10 +107,8 @@ module {
       %12 = %0 Neq 0
       %13 = %10 Add 2
       %14 = %13 Neq 0
-      %15 = stackalloc 1
       %15 = %12 Or %14
-      %16 = stackalloc 1
-      store %16, 0
+      %16 = 0
       if %15 then jump 7 else jump 8
 
     7:
@@ -129,10 +118,8 @@ module {
     8:
       %17 = %5 Neq 2
       %18 = 3 Neq 0
-      %19 = stackalloc 1
       %19 = %17 And %18
-      %20 = stackalloc 1
-      store %20, 0
+      %20 = 0
       if %19 then jump 9 else jump 10
 
     9:
@@ -140,8 +127,7 @@ module {
       jump 10
 
     10:
-      %21 = stackalloc 1
-      store %21, 0
+      %21 = 0
       jump 11
 
     11:

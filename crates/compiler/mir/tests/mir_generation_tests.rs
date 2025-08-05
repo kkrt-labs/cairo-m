@@ -110,6 +110,7 @@ mir_test!(multiple_functions, "functions");
 mir_test!(fib, "functions");
 mir_test!(fib_loop, "functions");
 mir_test!(return_values, "functions");
+mir_test!(mutual_recursion, "functions");
 
 // --- Variables ---
 mir_test!(assignment, "variables");
@@ -119,6 +120,7 @@ mir_test!(reassignment_from_var, "variables");
 mir_test!(unused_variable_elimination, "optimizations");
 mir_test!(assign_to_binop, "optimizations");
 mir_test!(zero_conditions, "optimizations");
+mir_test!(dead_code, "optimizations");
 
 // --- Aggregates (Structs/Tuples) ---
 mir_test!(struct_literal, "aggregates");

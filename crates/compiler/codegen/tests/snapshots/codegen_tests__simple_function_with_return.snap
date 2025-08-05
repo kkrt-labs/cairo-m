@@ -17,6 +17,5 @@ fn identity(x: felt) -> felt {
 ============================================================
 Generated CASM:
 identity:
-   0: 4 -4 0 0             // Store: [fp + 0] = [fp + -4] + 0
-   1: 4 0 0 -3             // Return value 0: [fp -3] = [fp + 0] + 0
-   2: 11 _ _ _             // return
+   0: 4 -4 0 -3            // Return value 0: [fp -3] = [fp + -4] + 0
+   1: 11 _ _ _             // return

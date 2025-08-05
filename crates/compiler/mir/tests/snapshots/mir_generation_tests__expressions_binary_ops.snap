@@ -50,7 +50,6 @@ module {
     entry: 0
 
     0:
-      %2 = stackalloc 1
       %2 = %0 Add %1
       return %2
 
@@ -62,7 +61,6 @@ module {
     entry: 0
 
     0:
-      %2 = stackalloc 1
       %2 = %0 Mul %1
       return %2
 
@@ -74,7 +72,6 @@ module {
     entry: 0
 
     0:
-      %2 = stackalloc 1
       %2 = %0 Sub %1
       return %2
 
@@ -86,7 +83,6 @@ module {
     entry: 0
 
     0:
-      %2 = stackalloc 1
       %2 = %0 Div %1
       return %2
 
@@ -98,7 +94,6 @@ module {
     entry: 0
 
     0:
-      %2 = stackalloc 1
       %2 = %0 Eq %1
       return %2
 

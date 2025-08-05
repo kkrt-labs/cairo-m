@@ -32,8 +32,6 @@ module {
     entry: 0
 
     0:
-      // Allocate struct
-%0 = stackalloc 2
       // Get address of field 'x'
 %1 = getelementptr %0, 0
       store %1, 10

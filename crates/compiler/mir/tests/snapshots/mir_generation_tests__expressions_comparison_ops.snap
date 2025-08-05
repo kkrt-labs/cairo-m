@@ -55,7 +55,6 @@ module {
     entry: 0
 
     0:
-      %2 = stackalloc 1
       %2 = %0 Less %1
       return %2
 
@@ -67,7 +66,6 @@ module {
     entry: 0
 
     0:
-      %2 = stackalloc 1
       %2 = %0 Greater %1
       return %2
 
@@ -79,7 +77,6 @@ module {
     entry: 0
 
     0:
-      %2 = stackalloc 1
       %2 = %0 LessEqual %1
       return %2
 
@@ -91,7 +88,6 @@ module {
     entry: 0
 
     0:
-      %2 = stackalloc 1
       %2 = %0 GreaterEqual %1
       return %2
 

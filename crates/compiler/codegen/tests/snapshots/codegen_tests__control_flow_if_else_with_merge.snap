@@ -24,7 +24,7 @@ Generated CASM:
 test_if_else:
 test_if_else:
 test_if_else_0:
-   0: 9 0 0 _              // Store immediate: [fp + 0] = 0
+   0: 9 0 0 _              // [fp + 0] = 0
    1: 14 -4 4 _            // if [fp + -4] != 0 jmp rel test_if_else_2
    2: 12 3 _ _             // jump abs test_if_else_1
 test_if_else_1:

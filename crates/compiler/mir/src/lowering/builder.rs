@@ -9,7 +9,6 @@ use std::cell::RefCell;
 use cairo_m_compiler_parser::parser::{Expression, Spanned};
 use cairo_m_compiler_semantic::db::Crate;
 use cairo_m_compiler_semantic::definition::{Definition, DefinitionKind};
-use cairo_m_compiler_semantic::place::FileScopeId;
 use cairo_m_compiler_semantic::semantic_index::{DefinitionId, ExpressionId, SemanticIndex};
 use cairo_m_compiler_semantic::type_resolution::{
     definition_semantic_type, expression_semantic_type, resolve_ast_type,
@@ -40,9 +39,6 @@ pub struct LoweringContext<'a, 'db> {
     // Caches to improve performance
     /// Cache of expression types to avoid repeated semantic queries
     pub(super) expr_type_cache: RefCell<FxHashMap<ExpressionId, MirType>>,
-    /// Cache of scope definitions to avoid repeated lookups
-    pub(super) definition_cache:
-        RefCell<FxHashMap<FileScopeId, Vec<(DefinitionId<'db>, Definition)>>>,
 }
 
 /// Mutable state for the function being built
@@ -122,7 +118,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             function_mapping,
             file_id,
             expr_type_cache: RefCell::new(FxHashMap::default()),
-            definition_cache: RefCell::new(FxHashMap::default()),
         };
 
         let state = MirState {

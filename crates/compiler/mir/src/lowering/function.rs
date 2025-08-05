@@ -18,7 +18,7 @@ use rustc_hash::FxHashMap;
 
 use crate::db::MirDb;
 use crate::passes::PassManager;
-use crate::{MirFunction, MirModule, MirType, ValueId};
+use crate::{MirFunction, MirModule, MirType, ValueId, ValueKind};
 
 use super::builder::MirBuilder;
 use super::stmt::LowerStmt;
@@ -247,6 +247,13 @@ fn lower_parameter<'a, 'db>(
     let param_type = MirType::from_semantic_type(builder.ctx.db, semantic_type);
 
     let incoming_param_val = builder.state.mir_function.new_typed_value_id(param_type);
+
+    // Register parameter as Parameter kind (not an address, can be used directly)
+    builder
+        .state
+        .mir_function
+        .register_value_kind(incoming_param_val, ValueKind::Parameter);
+
     builder
         .state
         .mir_function

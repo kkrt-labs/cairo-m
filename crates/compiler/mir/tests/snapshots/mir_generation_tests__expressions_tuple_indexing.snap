@@ -60,8 +60,6 @@ module {
     entry: 0
 
     0:
-      // Allocate tuple with 3 elements
-%0 = stackalloc 3
       // Get address of tuple element 0
 %1 = getelementptr %0, 0
       store %1, 10
@@ -84,8 +82,6 @@ module {
     entry: 0
 
     0:
-      // Allocate tuple with 3 elements
-%0 = stackalloc 3
       // Get address of tuple element 0
 %1 = getelementptr %0, 0
       store %1, 100
@@ -111,8 +107,6 @@ module {
     entry: 0
 
     0:
-      // Allocate tuple with 2 elements
-%0 = stackalloc 4
       // Allocate tuple with 2 elements
 %1 = stackalloc 2
       // Get address of tuple element 0
@@ -177,9 +171,7 @@ module {
 
     0:
       %0, %1 = call 3()
-      %2 = stackalloc 1
-      store %2, %1
-      return %2
+      return %1
 
   }
 
@@ -188,8 +180,6 @@ module {
     entry: 0
 
     0:
-      // Allocate tuple with 3 elements
-%0 = stackalloc 3
       // Get address of tuple element 0
 %1 = getelementptr %0, 0
       store %1, 1
@@ -203,21 +193,19 @@ module {
 %4 = getelementptr %0, 0
       // Load tuple element 0
 %5 = load %4
-      %6 = stackalloc 1
-      store %6, %5
       // Get address of tuple element 1
-%7 = getelementptr %0, 1
+%6 = getelementptr %0, 1
       // Load tuple element 1
-%8 = load %7
-      %9 = %6 Add %8
+%7 = load %6
+      %8 = %5 Add %7
       // Get address of tuple element 2 for assignment
-%10 = getelementptr %0, 2
-      store %10, %9
+%9 = getelementptr %0, 2
+      store %9, %8
       // Get address of tuple element 2
-%11 = getelementptr %0, 2
+%10 = getelementptr %0, 2
       // Load tuple element 2
-%12 = load %11
-      return %12
+%11 = load %10
+      return %11
 
   }
 

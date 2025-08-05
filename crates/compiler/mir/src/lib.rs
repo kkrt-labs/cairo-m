@@ -57,6 +57,7 @@ pub use module::MirModule;
 pub use passes::{DeadCodeElimination, MirPass, PassManager, Validation};
 pub use terminator::Terminator;
 pub use value::{Literal, Place, Value};
+pub use value_kind::{ValueKind, ValueKindTracker};
 
 pub mod basic_block;
 pub mod builder;
@@ -69,6 +70,7 @@ pub mod module;
 pub mod passes;
 pub mod terminator;
 pub mod value;
+pub mod value_kind;
 
 pub use db::{generate_mir as db_generate_mir, MirDb};
 pub use lowering::generate_mir;

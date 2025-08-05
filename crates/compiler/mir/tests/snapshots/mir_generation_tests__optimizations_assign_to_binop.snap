@@ -25,12 +25,9 @@ module {
     entry: 0
 
     0:
-      %0 = stackalloc 1
-      store %0, 10
-      %1 = stackalloc 1
-      store %1, 20
-      %2 = stackalloc 1
-      store %2, 0
+      %0 = 10
+      %1 = 20
+      %2 = 0
       %2 = %0 Add %1
       return %2
 

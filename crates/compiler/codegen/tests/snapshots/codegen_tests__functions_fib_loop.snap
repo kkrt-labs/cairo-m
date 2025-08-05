@@ -33,9 +33,9 @@ Generated CASM:
 fibonacci_loop:
 fibonacci_loop:
 fibonacci_loop_0:
-   0: 9 0 0 _              // Store immediate: [fp + 0] = 0
-   1: 9 1 1 _              // Store immediate: [fp + 1] = 1
-   2: 9 0 2 _              // Store immediate: [fp + 2] = 0
+   0: 9 0 0 _              // [fp + 0] = 0
+   1: 9 1 1 _              // [fp + 1] = 1
+   2: 9 0 2 _              // [fp + 2] = 0
 fibonacci_loop_1:
    3: 1 2 -4 4             // [fp + 4] = [fp + 2] op [fp + -4]
    4: 14 4 2 _             // if [fp + 4] != 0 jmp rel fibonacci_loop_2
@@ -51,8 +51,7 @@ fibonacci_loop_3:
   12: 4 0 0 -3             // Return value 0: [fp -3] = [fp + 0] + 0
   13: 11 _ _ _             // return
 main:
-  14: 9 10 3 _             // Direct arg placement: [fp + 3] = 10
-  15: 10 5 0 _             // call fibonacci_loop
-  16: 4 4 0 2              // Store: [fp + 2] = [fp + 4] + 0
-  17: 4 2 0 -3             // Return value 0: [fp -3] = [fp + 2] + 0
-  18: 11 _ _ _             // return
+  14: 9 10 1 _             // [fp + 1] = 10
+  15: 10 3 0 _             // call fibonacci_loop
+  16: 4 2 0 -3             // Return value 0: [fp -3] = [fp + 2] + 0
+  17: 11 _ _ _             // return

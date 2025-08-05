@@ -6,30 +6,29 @@ expression: snapshot_content
 source: crates/compiler/mir/tests/mir_generation_tests.rs
 expression: mir_output
 ---
-Fixture: assignment.cm
+Fixture: dead_code.cm
 ============================================================
 Source code:
-//!ASSERT CONTAINS: store %0, 10
-//!ASSERT CONTAINS: store %0, 20
-
-// Tests a simple variable reassignment.
-fn test() -> felt {
-    let x = 10;
-    x = 20;
-    return x;
+fn main() -> bool {
+    let a = 1;
+    let b = 0;
+    let c = a == b;
+    let _d = a == 0;
+    return c;
 }
 
 ============================================================
 Generated MIR:
 module {
   // Function 0
-  fn test {
+  fn main {
     entry: 0
 
     0:
-      %0 = 10
-      store %0, 20
-      return %0
+      %0 = 1
+      %1 = 0
+      %2 = %0 Eq %1
+      return %2
 
   }
 

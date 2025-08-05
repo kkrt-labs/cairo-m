@@ -134,11 +134,18 @@ impl FunctionLayout {
 
     /// Allocates all locals and temporaries by walking through the function's basic blocks.
     fn allocate_locals_and_temporaries(&mut self, function: &MirFunction) -> CodegenResult<()> {
+        use cairo_m_compiler_mir::InstructionKind;
+
         let mut current_offset = 0;
 
         // Walk through all basic blocks and instructions
         for block in function.basic_blocks.iter() {
             for instruction in &block.instructions {
+                // Skip call instructions - their return values are allocated dynamically during codegen
+                if matches!(instruction.kind, InstructionKind::Call { .. }) {
+                    continue;
+                }
+
                 // Get all destination ValueIds from this instruction
                 for dest_id in instruction.destinations() {
                     // Skip if already allocated (e.g., parameters)

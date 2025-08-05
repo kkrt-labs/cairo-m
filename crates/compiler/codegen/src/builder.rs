@@ -213,14 +213,26 @@ impl CasmBuilder {
             self.layout.map_value(dest, offset);
             offset
         } else {
-            // Get the pre-allocated offset from the layout
-            self.layout.get_offset(dest)?
+            // Get the pre-allocated offset from the layout, or allocate on demand
+            match self.layout.get_offset(dest) {
+                Ok(offset) => offset,
+                Err(_) => {
+                    // Value wasn't pre-allocated (likely an immediate assignment from SSA form)
+                    // Allocate it now
+                    self.layout.allocate_local(dest, 1)?
+                }
+            }
         };
 
         match source {
             Value::Literal(Literal::Integer(imm)) => {
                 // Store immediate value
                 self.store_immediate(imm, dest_off, format!("[fp + {dest_off}] = {imm}"));
+                self.touch(dest_off, 1);
+            }
+            Value::Literal(Literal::Boolean(b)) => {
+                // Store immediate value
+                self.store_immediate(b as i32, dest_off, format!("[fp + {dest_off}] = {b}"));
                 self.touch(dest_off, 1);
             }
 
@@ -239,9 +251,10 @@ impl CasmBuilder {
             }
 
             _ => {
-                return Err(CodegenError::UnsupportedInstruction(
-                    "Unsupported assignment source".to_string(),
-                ));
+                return Err(CodegenError::UnsupportedInstruction(format!(
+                    "Unsupported assignment source: {:?}",
+                    source
+                )));
             }
         }
 
@@ -994,6 +1007,12 @@ impl CasmBuilder {
         self.layout.map_value(dest, return_value_offset);
         self.layout.reserve_stack(k);
 
+        // Update max_written_offset to include the return value slots
+        // This ensures the next call won't reuse these slots for arguments
+        self.max_written_offset = self
+            .max_written_offset
+            .max(return_value_offset + k as i32 - 1);
+
         // Step 3: Calculate `frame_off` and emit the `call` instruction.
         // frame_off = where arguments start + size of arguments + size of return values
         let frame_off = args_offset + m as i32 + k as i32;
@@ -1030,6 +1049,11 @@ impl CasmBuilder {
             self.layout.map_value(*dest, return_value_offset);
         }
         self.layout.reserve_stack(k);
+
+        // Update max_written_offset to include the return value slots
+        // This ensures the next call won't reuse these slots for arguments
+        let last_return_offset = args_offset + m as i32 + k as i32 - 1;
+        self.max_written_offset = self.max_written_offset.max(last_return_offset);
 
         // Step 3: Calculate `frame_off` and emit the `call` instruction.
         let frame_off = args_offset + m as i32 + k as i32;

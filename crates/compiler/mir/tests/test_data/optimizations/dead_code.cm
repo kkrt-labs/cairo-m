@@ -1,0 +1,7 @@
+fn main() -> bool {
+    let a = 1;
+    let b = 0;
+    let c = a == b;
+    let _d = a == 0;
+    return c;
+}

@@ -56,7 +56,7 @@ test_jumps_4:
   10: 4 1 0 -3             // Return value 0: [fp -3] = [fp + 1] + 0
   11: 11 _ _ _             // return
 main:
-  12: 9 5 1 _              // Arg 0: [fp + 1] = 5
-  13: 10 3 0 _             // call test_jumps
-  14: 4 2 0 -3             // Return value 0: [fp -3] = [fp + 2] + 0
+  12: 9 5 0 _              // Arg 0: [fp + 0] = 5
+  13: 10 2 0 _             // call test_jumps
+  14: 4 1 0 -3             // Return value 0: [fp -3] = [fp + 1] + 0
   15: 11 _ _ _             // return

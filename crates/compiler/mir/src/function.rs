@@ -6,7 +6,10 @@
 use index_vec::IndexVec;
 use rustc_hash::FxHashMap;
 
-use crate::{indent_str, BasicBlock, BasicBlockId, MirType, PrettyPrint, ValueId};
+use crate::{
+    indent_str, BasicBlock, BasicBlockId, MirType, PrettyPrint, ValueId, ValueKind,
+    ValueKindTracker,
+};
 
 /// A simple definition identifier for MIR that doesn't depend on Salsa lifetimes
 ///
@@ -61,6 +64,10 @@ pub struct MirFunction {
     /// Type information for each value in the function
     /// Maps ValueId to its MirType for type checking and optimization
     pub value_types: FxHashMap<ValueId, MirType>,
+
+    /// Tracks whether each ValueId represents an address or a value
+    /// This is a temporary solution during migration to proper SSA
+    pub value_kinds: ValueKindTracker,
 }
 
 impl MirFunction {
@@ -78,6 +85,7 @@ impl MirFunction {
             return_values: Vec::new(),
             next_value_id: 0,
             value_types: FxHashMap::default(),
+            value_kinds: ValueKindTracker::new(),
         }
     }
 
@@ -134,6 +142,26 @@ impl MirFunction {
             .get(&value_id)
             .cloned()
             .unwrap_or(MirType::unknown())
+    }
+
+    /// Registers a value with its kind (address, value, or parameter)
+    pub fn register_value_kind(&mut self, value_id: ValueId, kind: ValueKind) {
+        self.value_kinds.register(value_id, kind);
+    }
+
+    /// Gets the kind for a value ID
+    pub fn get_value_kind(&self, value_id: ValueId) -> Option<ValueKind> {
+        self.value_kinds.get(value_id)
+    }
+
+    /// Checks if a value needs to be loaded (is an address)
+    pub fn needs_load(&self, value_id: ValueId) -> bool {
+        self.value_kinds.needs_load(value_id)
+    }
+
+    /// Checks if a value can be used directly (is a value or parameter)
+    pub fn is_value(&self, value_id: ValueId) -> bool {
+        self.value_kinds.is_value(value_id)
     }
 
     /// Maps a semantic definition to a MIR value

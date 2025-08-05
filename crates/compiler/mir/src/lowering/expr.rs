@@ -6,11 +6,13 @@
 use cairo_m_compiler_parser::parser::{BinaryOp, Expression, Spanned, UnaryOp};
 use cairo_m_compiler_semantic::place::FileScopeId;
 use cairo_m_compiler_semantic::semantic_index::{DefinitionId, ExpressionId};
-use cairo_m_compiler_semantic::type_resolution::expression_semantic_type;
+use cairo_m_compiler_semantic::type_resolution::{
+    definition_semantic_type, expression_semantic_type,
+};
 use cairo_m_compiler_semantic::types::TypeData;
 
 use crate::instruction::CalleeSignature;
-use crate::{Instruction, InstructionKind, MirType, Value};
+use crate::{Instruction, InstructionKind, MirType, Value, ValueKind};
 
 use super::builder::{CallResult, MirBuilder};
 
@@ -268,7 +270,7 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
 // Individual expression lowering methods
 impl<'a, 'db> MirBuilder<'a, 'db> {
     fn lower_identifier(
-        &self,
+        &mut self,
         name: &Spanned<String>,
         scope_id: FileScopeId,
     ) -> Result<Value, String> {
@@ -281,8 +283,40 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             let mir_def_id = self.convert_definition_id(def_id);
 
             // Look up the MIR value for this definition
-            if let Some(var_addr) = self.state.definition_to_value.get(&mir_def_id) {
-                return Ok(Value::operand(*var_addr));
+            if let Some(var_value) = self.state.definition_to_value.get(&mir_def_id).copied() {
+                // Check the ValueKind to determine if we need to load
+                // First check if it's a parameter (old behavior as fallback)
+                if self.state.mir_function.parameters.contains(&var_value) {
+                    // It's a parameter - use it directly
+                    return Ok(Value::operand(var_value));
+                }
+
+                // Check the ValueKind tracking
+                match self.state.mir_function.get_value_kind(var_value) {
+                    Some(ValueKind::Value) | Some(ValueKind::Parameter) => {
+                        // It's a value or parameter - use it directly
+                        return Ok(Value::operand(var_value));
+                    }
+                    Some(ValueKind::Address) | None => {
+                        // It's an address or unknown (treat as address for backward compatibility)
+                        // Variables are stored in memory, so we need to load them
+                        let semantic_type =
+                            definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
+                        let var_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
+                        let loaded_value = self.state.mir_function.new_typed_value_id(var_type);
+
+                        // Register loaded value as a Value
+                        self.state
+                            .mir_function
+                            .register_value_kind(loaded_value, ValueKind::Value);
+
+                        self.instr().add_instruction(Instruction::load(
+                            loaded_value,
+                            Value::operand(var_value),
+                        ));
+                        return Ok(Value::operand(loaded_value));
+                    }
+                }
             }
         }
 
@@ -303,6 +337,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             expression_semantic_type(self.ctx.db, self.ctx.crate_id, self.ctx.file, expr_id, None);
         let result_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
         let dest = self.state.mir_function.new_typed_value_id(result_type);
+
+        // Register unary op result as a Value
+        self.state
+            .mir_function
+            .register_value_kind(dest, ValueKind::Value);
+
         self.instr().unary_op(op, dest, expr_value);
         Ok(Value::operand(dest))
     }
@@ -322,6 +362,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             expression_semantic_type(self.ctx.db, self.ctx.crate_id, self.ctx.file, expr_id, None);
         let result_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
         let dest = self.state.mir_function.new_typed_value_id(result_type);
+
+        // Register binary op result as a Value
+        self.state
+            .mir_function
+            .register_value_kind(dest, ValueKind::Value);
+
         let typed_op = self.convert_binary_op(op, left, right);
         self.instr().binary_op(typed_op, dest, lhs_value, rhs_value);
         Ok(Value::operand(dest))
@@ -350,6 +396,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     .state
                     .mir_function
                     .new_typed_value_id(MirType::pointer(tuple_type.clone()));
+
+                // Register stack allocation as an address
+                self.state
+                    .mir_function
+                    .register_value_kind(tuple_addr, ValueKind::Address);
+
                 self.instr().add_instruction(
                     Instruction::stack_alloc(tuple_addr, tuple_type.size_units())
                         .with_comment("Allocate space for tuple return value".to_string()),
@@ -440,6 +492,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         // Load the value from the field address
         let loaded_value = self.state.mir_function.new_typed_value_id(field_type);
+
+        // Register loaded value as a Value
+        self.state
+            .mir_function
+            .register_value_kind(loaded_value, ValueKind::Value);
+
         // TODO: This should emit a load with the proper type (e.g. LoadU32?)
         self.instr().load(loaded_value, Value::operand(field_addr));
 
@@ -477,6 +535,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         // Load the value from the element address
         let loaded_value = self.state.mir_function.new_typed_value_id(element_type);
+
+        // Register loaded value as a Value
+        self.state
+            .mir_function
+            .register_value_kind(loaded_value, ValueKind::Value);
+
         self.instr()
             .load(loaded_value, Value::operand(element_addr));
 
@@ -518,7 +582,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 let mut dests = Vec::new();
                 for elem_type in element_types {
                     let mir_type = MirType::from_semantic_type(self.ctx.db, elem_type);
-                    dests.push(self.state.mir_function.new_typed_value_id(mir_type));
+                    let dest = self.state.mir_function.new_typed_value_id(mir_type);
+                    // Register each return value as a Value since it's computed by the function
+                    self.state
+                        .mir_function
+                        .register_value_kind(dest, ValueKind::Value);
+                    dests.push(dest);
                 }
 
                 // Create the CalleeSignature
@@ -547,6 +616,10 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 // Single return value
                 let return_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
                 let dest = self.state.mir_function.new_typed_value_id(return_type);
+                // Register return value as a Value since it's computed by the function
+                self.state
+                    .mir_function
+                    .register_value_kind(dest, ValueKind::Value);
 
                 // Create the CalleeSignature
                 let signature = CalleeSignature {
@@ -619,6 +692,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             .state
             .mir_function
             .new_typed_value_id(MirType::pointer(struct_type.clone()));
+
+        // Register stack allocation as an address
+        self.state
+            .mir_function
+            .register_value_kind(struct_addr, ValueKind::Address);
+
         self.instr().add_instruction(
             Instruction::stack_alloc(struct_addr, struct_type.size_units())
                 .with_comment("Allocate struct".to_string()),
@@ -698,6 +777,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             .state
             .mir_function
             .new_typed_value_id(MirType::pointer(tuple_type.clone()));
+
+        // Register stack allocation as an address
+        self.state
+            .mir_function
+            .register_value_kind(tuple_addr, ValueKind::Address);
+
         self.instr().add_instruction(
             Instruction::stack_alloc(tuple_addr, tuple_type.size_units())
                 .with_comment(format!("Allocate tuple with {} elements", elements.len())),
@@ -804,6 +889,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         // Load the value at the element address
         let loaded_value = self.state.mir_function.new_typed_value_id(element_mir_type);
+
+        // Register loaded value as a Value
+        self.state
+            .mir_function
+            .register_value_kind(loaded_value, ValueKind::Value);
+
         self.instr().add_instruction(
             Instruction::load(loaded_value, Value::operand(element_addr))
                 .with_comment(format!("Load tuple element {}", index)),

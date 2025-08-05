@@ -3,6 +3,8 @@
 //! This module implements various optimization passes that can be applied to MIR functions
 //! to improve code quality and remove dead code.
 
+pub mod pre_opt;
+
 use cairo_m_compiler_parser::parser::UnaryOp;
 use rustc_hash::FxHashMap;
 
@@ -647,6 +649,7 @@ impl PassManager {
     /// Create a standard optimization pipeline
     pub fn standard_pipeline() -> Self {
         Self::new()
+            .add_pass(pre_opt::PreOptimizationPass::new())
             .add_pass(InPlaceOptimizationPass::new())
             .add_pass(FuseCmpBranch::new())
             .add_pass(DeadCodeElimination::new())

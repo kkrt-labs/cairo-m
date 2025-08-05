@@ -11,8 +11,7 @@ use cairo_m_compiler_semantic::type_resolution::{
 };
 use cairo_m_compiler_semantic::types::TypeData;
 
-use crate::mir_types::InstructionEmitter;
-use crate::{Instruction, MirType, Terminator, Value};
+use crate::{Instruction, MirType, Terminator, Value, ValueKind};
 
 use super::builder::MirBuilder;
 use super::expr::LowerExpr;
@@ -77,62 +76,47 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             })?;
         let scope_id = expr_info.scope_id;
 
-        // 1. Try the "fast path" (optimized lowering) for special AST patterns
-        if self.try_lower_let_special_case(pattern, value, scope_id)? {
-            return Ok(());
-        }
+        // All optimizations are now handled by PreOptimizationPass
 
-        // Check for binary operation optimization before falling back to normal processing
-        if let Pattern::Identifier(name) = pattern
-            && let Expression::BinaryOp { op, left, right } = value.value()
+        // Special case: tuple pattern with function call - avoid intermediate tuple
+        // TODO: eventually, this will need to be optimzed in a better way.
+        if let Pattern::Tuple(names) = pattern
+            && let Expression::FunctionCall { callee, args } = value.value()
         {
-            // Binary operation optimization for let statements
-            if let Some((def_idx, _)) = self
-                .ctx
-                .semantic_index
-                .resolve_name_to_definition(name.value(), scope_id)
-            {
-                let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
-                let mir_def_id = self.convert_definition_id(def_id);
-
-                // Check if this variable is actually used
-                let is_used = is_definition_used(self.ctx.semantic_index, def_idx);
-
-                if !is_used {
-                    // For unused variables, still evaluate operands for side effects but don't store
-                    let _ = self.lower_expression(left)?;
-                    let _ = self.lower_expression(right)?;
-                    let dummy_addr = self.state.mir_function.new_value_id();
-                    self.state.definition_to_value.insert(mir_def_id, dummy_addr);
+            // Lower the function call to get multiple return values directly
+            match self.lower_function_call(callee, args, expr_id)? {
+                super::builder::CallResult::Tuple(values) => {
+                    // Directly bind each return value to the corresponding pattern variable
+                    for (name, value) in names.iter().zip(values.iter()) {
+                        self.bind_variable(name, scope_id, *value)?;
+                    }
                     return Ok(());
                 }
+                _ => {
+                    // Fall through to normal handling if not actually a tuple return
+                }
+            }
+        }
 
-                // Lower the operands
-                let left_value = self.lower_expression(left)?;
-                let right_value = self.lower_expression(right)?;
-
-                // Get the variable type
-                let semantic_type = definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
-                let var_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
-
-                // Allocate storage for the variable
-                let var_storage = self.state.mir_function.new_typed_value_id(var_type.clone());
-                self.instr().add_instruction(Instruction::stack_alloc(var_storage, var_type.size_units()));
-
-                // Generate single binary operation directly to allocated storage
-                let typed_op = self.convert_binary_op(*op, left, right);
-                self.instr().binary_op(typed_op, var_storage, left_value, right_value);
-
-                // Map the variable to its storage ValueId
-                self.state.definition_to_value.insert(mir_def_id, var_storage);
+        // Special case: tuple pattern with tuple literal - direct destructuring
+        if let Pattern::Tuple(names) = pattern
+            && let Expression::Tuple(elements) = value.value()
+        {
+            // Directly lower each element and bind to the corresponding name
+            if names.len() == elements.len() {
+                for (name, element) in names.iter().zip(elements.iter()) {
+                    let element_value = self.lower_expression(element)?;
+                    self.bind_variable(name, scope_id, element_value)?;
+                }
                 return Ok(());
             }
         }
 
-        // 2. Fallback to the generic path
+        // Simply lower the expression and bind to pattern
         let rhs_value = self.lower_expression(value)?;
 
         // Handle special case for aggregate literals that return addresses directly
+        // This is not an optimization but a necessary semantic handling
         if let Pattern::Identifier(name) = pattern
             && let Expression::StructLiteral { .. } | Expression::Tuple(_) = value.value()
         {
@@ -228,6 +212,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                         // Load the element
                         let elem_value = self.state.mir_function.new_typed_value_id(mir_type);
+
+                        // Register loaded value as a Value
+                        self.state
+                            .mir_function
+                            .register_value_kind(elem_value, ValueKind::Value);
+
                         self.instr().add_instruction(
                             Instruction::load(elem_value, Value::operand(elem_ptr))
                                 .with_comment(format!("Load tuple element {}", i)),
@@ -238,12 +228,10 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                     // Return tuple elements
                     self.terminate_with_return(return_values);
-                    return Ok(());
                 } else {
                     // Single value return
                     let return_value = self.lower_expression(expr)?;
                     self.terminate_with_return(vec![return_value]);
-                    return Ok(());
                 }
             }
         } else {
@@ -659,113 +647,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         Ok(())
     }
 
-    /// Attempts to lower special-case AST patterns that can be optimized
-    ///
-    /// This handles patterns that can be lowered more directly and efficiently
-    /// than the generic approach, such as direct tuple destructuring and
-    /// function calls with tuple returns.
-    ///
-    /// Returns Ok(true) if the pattern was handled, Ok(false) otherwise.
-    fn try_lower_let_special_case(
-        &mut self,
-        pattern: &Pattern,
-        value: &Spanned<Expression>,
-        scope_id: FileScopeId,
-    ) -> Result<bool, String> {
-        match (pattern, value.value()) {
-            // Direct tuple destructuring optimization - skip intermediate tuple allocation
-            (Pattern::Tuple(names), Expression::Tuple(elements))
-                if names.len() == elements.len() =>
-            {
-                for (name, element_expr) in names.iter().zip(elements.iter()) {
-                    let element_value = self.lower_expression(element_expr)?;
-                    self.bind_variable(name, scope_id, element_value)?;
-                }
-                Ok(true)
-            }
-            (Pattern::Tuple(names), Expression::FunctionCall { callee, args }) => {
-                // Attempt to apply `let (a,b) = f()` optimization
-                let Expression::Identifier(_) = callee.value() else {
-                    return Ok(false);
-                };
-
-                let func_id = match self.resolve_function(callee) {
-                    Ok(id) => id,
-                    Err(_) => return Ok(false),
-                };
-
-                // Check that the function call returns a tuple of the correct arity
-                let expr_id = self
-                    .ctx
-                    .semantic_index
-                    .expression_id_by_span(value.span())
-                    .ok_or_else(|| {
-                        format!(
-                            "MIR: No ExpressionId found for value expression span {:?}",
-                            value.span()
-                        )
-                    })?;
-
-                let func_call_semantic_type = expression_semantic_type(
-                    self.ctx.db,
-                    self.ctx.crate_id,
-                    self.ctx.file,
-                    expr_id,
-                    None,
-                );
-                let TypeData::Tuple(element_types) = func_call_semantic_type.data(self.ctx.db) else {
-                    return Ok(false);
-                };
-                if element_types.len() != names.len() {
-                    return Ok(false);
-                }
-
-                // Apply the optimization
-                let arg_values = args
-                    .iter()
-                    .map(|arg| self.lower_expression(arg))
-                    .collect::<Result<Vec<_>, _>>()?;
-
-                let mut dests = Vec::new();
-                for (i, name) in names.iter().enumerate() {
-                    let (def_idx, _) = self
-                        .ctx
-                        .semantic_index
-                        .resolve_name_to_definition(name.value(), scope_id)
-                        .ok_or_else(|| {
-                            format!(
-                                "Failed to resolve variable '{}' in scope {:?}",
-                                name.value(),
-                                scope_id
-                            )
-                        })?;
-
-                    let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
-                    let mir_def_id = self.convert_definition_id(def_id);
-
-                    let is_used = is_definition_used(self.ctx.semantic_index, def_idx);
-                    let elem_type = element_types[i];
-                    let elem_mir_type = MirType::from_semantic_type(self.ctx.db, elem_type);
-                    let dest = self.state.mir_function.new_typed_value_id(elem_mir_type);
-                    dests.push(dest);
-
-                    if is_used {
-                        self.state.definition_to_value.insert(mir_def_id, dest);
-                    } else {
-                        let dummy_addr = self.state.mir_function.new_value_id();
-                        self.state
-                            .definition_to_value
-                            .insert(mir_def_id, dummy_addr);
-                    }
-                }
-
-                self.emit_call_with_destinations(func_id, arg_values, dests)?;
-                Ok(true)
-            }
-            _ => Ok(false),
-        }
-    }
-
     /// Generic pattern binding for already-lowered values
     ///
     /// This is the fallback path that handles binding a lowered value to a pattern.
@@ -840,29 +721,22 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         .state
                         .mir_function
                         .new_typed_value_id(element_mir_type.clone());
+
+                    // Register loaded value as a Value
+                    self.state
+                        .mir_function
+                        .register_value_kind(elem_value, ValueKind::Value);
+
                     self.instr().add_instruction(
                         Instruction::load(elem_value, Value::operand(elem_ptr))
                             .with_comment(format!("Load tuple element {}", index)),
                     );
 
-                    // Allocate space for the variable and store the loaded value
-                    let var_addr = self
-                        .state
-                        .mir_function
-                        .new_typed_value_id(MirType::pointer(element_mir_type.clone()));
-                    self.instr().add_instruction(Instruction::stack_alloc(
-                        var_addr,
-                        element_mir_type.size_units(),
-                    ));
-
-                    // Store the loaded value
-                    self.instr().add_instruction(
-                        element_mir_type
-                            .emit_store(Value::operand(var_addr), Value::operand(elem_value))?,
-                    );
-
-                    // Update the definition to value mapping
-                    self.state.definition_to_value.insert(mir_def_id, var_addr);
+                    // Map the variable directly to the loaded value (no allocation needed!)
+                    // The value is already loaded and ready to use
+                    self.state
+                        .definition_to_value
+                        .insert(mir_def_id, elem_value);
                 }
             }
         }

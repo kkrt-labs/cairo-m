@@ -21,8 +21,8 @@ Generated CASM:
 simple_or:
 simple_or:
 simple_or_0:
-   0: 9 1 0 _              // Store immediate: [fp + 0] = 1
-   1: 9 0 1 _              // Store immediate: [fp + 1] = 0
+   0: 9 1 0 _              // [fp + 0] = true
+   1: 9 0 1 _              // [fp + 1] = false
    2: 9 0 -3 _             // Initialize OR result to 0
    3: 14 0 3 _             // if [fp + 0] != 0, jump to or_true_0
    4: 14 1 2 _             // if [fp + 1] != 0, jump to or_true_0
