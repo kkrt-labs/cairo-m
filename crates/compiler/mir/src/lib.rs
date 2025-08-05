@@ -64,6 +64,7 @@ pub mod db;
 pub mod function;
 pub mod instruction;
 pub mod ir_generation;
+pub mod lowering;
 pub mod mir_types;
 pub mod module;
 pub mod passes;
