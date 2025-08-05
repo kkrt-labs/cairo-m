@@ -41,7 +41,7 @@ use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::backend::BackendForChannel;
 use stwo_prover::core::channel::{Channel, MerkleChannel};
 use stwo_prover::core::fields::m31::{BaseField, M31};
-use stwo_prover::core::fields::qm31::{SecureField, QM31, SECURE_EXTENSION_DEGREE};
+use stwo_prover::core::fields::qm31::{SecureField, SECURE_EXTENSION_DEGREE};
 use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
@@ -57,7 +57,7 @@ const N_INPUT_COLUMNS: usize = 7; // same without the enabler
 const N_MEMORY_LOOKUPS: usize = 1;
 const N_MERKLE_LOOKUPS: usize = 1;
 const N_INTERACTION_COLUMNS: usize =
-    SECURE_EXTENSION_DEGREE * (N_MEMORY_LOOKUPS + N_MERKLE_LOOKUPS).div_ceil(2);
+    SECURE_EXTENSION_DEGREE * (N_MEMORY_LOOKUPS + N_MERKLE_LOOKUPS);
 
 #[derive(Clone, Default, Serialize, Deserialize, Debug)]
 pub struct Claim {
@@ -202,28 +202,15 @@ impl InteractionClaim {
         let log_size = interaction_claim_data.lookup_data.memory[0].len().ilog2() + LOG_N_LANES;
         let mut interaction_trace = LogupTraceGenerator::new(log_size);
         let enabler_col = Enabler::new(interaction_claim_data.non_padded_length);
-        let one = PackedQM31::one();
-        let qm31_3 = PackedQM31::from(QM31::from(3));
-        let qm31_4 = PackedQM31::from(QM31::from(4));
         let mut col = interaction_trace.new_col();
         (
             col.par_iter_mut(),
             &interaction_claim_data.lookup_data.memory[0],
-            &interaction_claim_data.lookup_data.merkle[0],
         )
             .into_par_iter()
-            .enumerate()
-            .for_each(|(i, (writer, value0, value1))| {
-                let num0: PackedQM31 = PackedQM31::from(value0[3]);
-                let denom0: PackedQM31 = relations.memory.combine(&value0[..3]);
-
-                let intermediate_node_flag1 = PackedQM31::from(value1[4]);
-                let num1: PackedQM31 =
-                    (one - intermediate_node_flag1) * PackedQM31::from(enabler_col.packed_at(i));
-                let denom1: PackedQM31 = relations.merkle.combine(&value1[..4]);
-
-                let numerator = num0 * denom1 + num1 * denom0;
-                let denom = denom0 * denom1;
+            .for_each(|(writer, value)| {
+                let numerator = PackedQM31::from(value[3]);
+                let denom = relations.memory.combine(&value[..3]);
 
                 writer.write_frac(numerator, denom);
             });
@@ -241,13 +228,17 @@ impl InteractionClaim {
             .for_each(|(i, (writer, value))| {
                 let intermediate_node_flag = PackedQM31::from(value[4]);
                 let address = PackedQM31::from(value[0]);
-                let index = address * (qm31_4 - qm31_3 * intermediate_node_flag);
                 let depth = PackedQM31::from(value[1]);
                 let value0 = PackedQM31::from(value[2]);
                 let root = PackedQM31::from(value[3]);
 
                 let numerator = PackedQM31::from(enabler_col.packed_at(i));
-                let denom: PackedQM31 = relations.merkle.combine(&[index, depth, value0, root]);
+                let denom: PackedQM31 = relations.merkle.combine(&[
+                    address * intermediate_node_flag,
+                    depth,
+                    value0,
+                    root,
+                ]);
 
                 writer.write_frac(numerator, denom);
             });
@@ -299,14 +290,13 @@ impl FrameworkEval for Eval {
             &[address.clone(), clock, value0.clone()],
         ));
 
-        // First leaf must be added in last to not be batched with another lookup
-        // in order to keep the constraint degree equal to 2
+        // Emit memory leaf or intermediate nodes of merkle trees
         eval.add_to_relation(RelationEntry::new(
             &self.relations.merkle,
             E::EF::from(enabler),
             &[address * intermediate_node_flag, depth, value0, root],
         ));
-        eval.finalize_logup_in_pairs();
+        eval.finalize_logup();
 
         eval
     }
