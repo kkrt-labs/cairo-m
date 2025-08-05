@@ -7,6 +7,8 @@
 use cairo_m_compiler_semantic::types::{TypeData, TypeId};
 use cairo_m_compiler_semantic::SemanticDb;
 
+use crate::{Instruction, Value};
+
 /// A simplified type representation for MIR
 ///
 /// This is a lifetime-free representation of types that can be stored
@@ -50,6 +52,21 @@ pub enum MirType {
 
     /// Unknown type (for incomplete analysis)
     Unknown,
+}
+
+/// Emit the proper instruction flavor from a value and a given type
+pub trait InstructionEmitter {
+    fn emit_store(self, address: Value, value: Value) -> Result<Instruction, String>;
+}
+
+impl InstructionEmitter for MirType {
+    fn emit_store(self, address: Value, value: Value) -> Result<Instruction, String> {
+        match self {
+            Self::Felt | Self::Bool => Ok(Instruction::store(address, value)),
+            Self::U32 => Ok(Instruction::store_u32(address, value)),
+            _ => Ok(Instruction::store(address, value)),
+        }
+    }
 }
 
 /// Information about a struct field for layout calculations

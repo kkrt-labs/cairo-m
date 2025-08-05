@@ -4,18 +4,19 @@
 //! from the AST to MIR instructions.
 
 use cairo_m_compiler_parser::parser::{Expression, Pattern, Spanned, Statement};
-use cairo_m_compiler_semantic::definition::DefinitionKind;
+use cairo_m_compiler_semantic::place::FileScopeId;
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
 use cairo_m_compiler_semantic::type_resolution::{
     definition_semantic_type, expression_semantic_type,
 };
 use cairo_m_compiler_semantic::types::TypeData;
 
-use crate::instruction::CalleeSignature;
-use crate::{Instruction, InstructionKind, MirType, Terminator, Value};
+use crate::mir_types::InstructionEmitter;
+use crate::{Instruction, MirType, Terminator, Value};
 
 use super::builder::MirBuilder;
 use super::expr::LowerExpr;
+use super::utils::is_definition_used;
 
 /// Trait for lowering statements to MIR
 pub trait LowerStmt<'a> {
@@ -75,391 +76,79 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             .ok_or_else(|| format!("MIR: No ExpressionInfo for value expression ID {expr_id:?}"))?;
         let scope_id = expr_info.scope_id;
 
-        // Check for optimizable tuple destructuring pattern
-        match (pattern, value.value()) {
-            // Direct tuple destructuring optimization - skip intermediate tuple allocation
-            (Pattern::Tuple(names), Expression::Tuple(elements))
-                if names.len() == elements.len() =>
-            {
-                for (name, element_expr) in names.iter().zip(elements.iter()) {
-                    if let Some((def_idx, _)) = self
-                        .semantic_index
-                        .resolve_name_to_definition(name.value(), scope_id)
-                    {
-                        let def_id = DefinitionId::new(self.db, self.file, def_idx);
-                        let mir_def_id = self.convert_definition_id(def_id);
-
-                        // Check if this variable is used
-                        let is_used =
-                            if let Some(definition) = self.semantic_index.definition(def_idx) {
-                                if let Some(place_table) =
-                                    self.semantic_index.place_table(definition.scope_id)
-                                {
-                                    if let Some(place) = place_table.place(definition.place_id) {
-                                        place.is_used()
-                                    } else {
-                                        true
-                                    }
-                                } else {
-                                    true
-                                }
-                            } else {
-                                true
-                            };
-
-                        if is_used {
-                            // Lower the element expression directly
-                            let element_value = self.lower_expression(element_expr)?;
-
-                            // Get the type from semantic analysis
-                            let semantic_type =
-                                definition_semantic_type(self.db, self.crate_id, def_id);
-                            let element_mir_type =
-                                MirType::from_semantic_type(self.db, semantic_type);
-
-                            // Allocate space for the variable
-                            let var_addr = self
-                                .mir_function
-                                .new_typed_value_id(MirType::pointer(element_mir_type.clone()));
-                            self.add_instruction(Instruction::stack_alloc(
-                                var_addr,
-                                element_mir_type.size_units(),
-                            ));
-
-                            match element_mir_type {
-                                MirType::U32 => {
-                                    self.add_instruction(Instruction::store_u32(
-                                        Value::operand(var_addr),
-                                        element_value,
-                                    ));
-                                }
-                                MirType::Felt | MirType::Bool => {
-                                    self.add_instruction(Instruction::store(
-                                        Value::operand(var_addr),
-                                        element_value,
-                                    ));
-                                }
-                                _ => {
-                                    self.add_instruction(Instruction::store(
-                                        Value::operand(var_addr),
-                                        element_value,
-                                    ));
-                                }
-                            }
-                            self.definition_to_value.insert(mir_def_id, var_addr);
-                        } else {
-                            // Unused variable - still evaluate for side effects but don't store
-                            let _ = self.lower_expression(element_expr)?;
-                            let dummy_addr = self.mir_function.new_value_id();
-                            self.definition_to_value.insert(mir_def_id, dummy_addr);
-                        }
-                    } else {
-                        return Err(format!(
-                            "Failed to resolve variable '{}' in scope {:?}",
-                            name.value(),
-                            scope_id
-                        ));
-                    }
-                }
-                return Ok(());
-            }
-            (Pattern::Tuple(names), Expression::FunctionCall { callee, args }) => {
-                // Attempt to apply `let (a,b) = f()` optimization.
-                let res = (|| -> Result<bool, String> {
-                    // Check if callee is a simple identifier.
-                    let Expression::Identifier(func_name) = callee.value() else {
-                        return Ok(false);
-                    };
-
-                    // Get semantic info for the callee.
-                    let callee_expr_id = self
-                        .semantic_index
-                        .expression_id_by_span(callee.span())
-                        .ok_or_else(|| {
-                        format!(
-                            "MIR: No ExpressionId found for callee span {:?}",
-                            callee.span()
-                        )
-                    })?;
-                    let callee_expr_info = self
-                        .semantic_index
-                        .expression(callee_expr_id)
-                        .ok_or_else(|| {
-                            format!("MIR: No ExpressionInfo for callee ID {callee_expr_id:?}")
-                        })?;
-
-                    // Resolve function definition and get its MIR ID.
-                    let Some((local_def_idx, local_def)) = self
-                        .semantic_index
-                        .resolve_name_to_definition(func_name.value(), callee_expr_info.scope_id)
-                    else {
-                        return Ok(false);
-                    };
-
-                    // Handle function resolution: local functions vs imported functions
-                    let func_id = match &local_def.kind {
-                        DefinitionKind::Function(_) => {
-                            // Local function - use current file
-                            let func_def_id = DefinitionId::new(self.db, self.file, local_def_idx);
-                            if let Some((_, func_id)) = self.function_mapping.get(&func_def_id) {
-                                *func_id
-                            } else {
-                                return Ok(false);
-                            }
-                        }
-                        DefinitionKind::Use(use_ref) => {
-                            // Imported function - follow the import chain
-                            match self.resolve_imported_function(
-                                use_ref.imported_module.value(),
-                                func_name.value(),
-                            ) {
-                                Some(func_id) => func_id,
-                                None => {
-                                    return Ok(false);
-                                }
-                            }
-                        }
-                        _ => {
-                            return Ok(false);
-                        }
-                    };
-
-                    // Check that the function call returns a tuple of the correct arity.
-                    let func_call_semantic_type =
-                        expression_semantic_type(self.db, self.crate_id, self.file, expr_id, None);
-                    let TypeData::Tuple(element_types) = func_call_semantic_type.data(self.db)
-                    else {
-                        return Ok(false);
-                    };
-                    if element_types.len() != names.len() {
-                        return Ok(false);
-                    }
-
-                    // Apply the optimization.
-                    let arg_values = args
-                        .iter()
-                        .map(|arg| self.lower_expression(arg))
-                        .collect::<Result<Vec<_>, _>>()?;
-
-                    let mut dests = Vec::new();
-                    for (i, name) in names.iter().enumerate() {
-                        let (def_idx, _) = self
-                            .semantic_index
-                            .resolve_name_to_definition(name.value(), scope_id)
-                            .ok_or_else(|| {
-                                format!(
-                                    "Failed to resolve variable '{}' in scope {:?}",
-                                    name.value(),
-                                    scope_id
-                                )
-                            })?;
-
-                        let def_id = DefinitionId::new(self.db, self.file, def_idx);
-                        let mir_def_id = self.convert_definition_id(def_id);
-
-                        let is_used = self
-                            .semantic_index
-                            .definition(def_idx)
-                            .and_then(|def| {
-                                self.semantic_index
-                                    .place_table(def.scope_id)
-                                    .and_then(|pt| pt.place(def.place_id))
-                            })
-                            .map(|p| p.is_used())
-                            .unwrap_or(true);
-
-                        let elem_type = element_types[i];
-                        let elem_mir_type = MirType::from_semantic_type(self.db, elem_type);
-                        let dest = self.mir_function.new_typed_value_id(elem_mir_type);
-                        dests.push(dest);
-
-                        if is_used {
-                            self.definition_to_value.insert(mir_def_id, dest);
-                        } else {
-                            let dummy_addr = self.mir_function.new_value_id();
-                            self.definition_to_value.insert(mir_def_id, dummy_addr);
-                        }
-                    }
-
-                    // Get the function signature
-                    let (param_types, return_types) = self.get_function_signature(func_id)?;
-
-                    // Create the CalleeSignature
-                    let signature = CalleeSignature {
-                        param_types,
-                        return_types,
-                    };
-
-                    // Create the call instruction with the signature
-                    let mut call_instr = Instruction::call(dests, func_id, arg_values);
-                    if let InstructionKind::Call {
-                        signature: ref mut sig,
-                        ..
-                    } = &mut call_instr.kind
-                    {
-                        *sig = signature;
-                    }
-                    self.add_instruction(call_instr);
-
-                    Ok(true)
-                })();
-
-                match res {
-                    Ok(true) => return Ok(()),
-                    Ok(false) => { /* Fallthrough to generic handling */ }
-                    Err(e) => return Err(e),
-                }
-            }
-            _ => {}
+        // 1. Try the "fast path" (optimized lowering) for special AST patterns
+        if self.try_lower_let_special_case(pattern, value, scope_id)? {
+            return Ok(());
         }
 
         // Check for binary operation optimization before falling back to normal processing
-        if let Pattern::Identifier(name) = pattern {
-            if let Expression::BinaryOp { op, left, right } = value.value() {
-                // Binary operation optimization for let statements
-                if let Some((def_idx, _)) = self
-                    .semantic_index
-                    .resolve_name_to_definition(name.value(), scope_id)
-                {
-                    let def_id = DefinitionId::new(self.db, self.file, def_idx);
-                    let mir_def_id = self.convert_definition_id(def_id);
+        if let Pattern::Identifier(name) = pattern
+            && let Expression::BinaryOp { op, left, right } = value.value()
+        {
+            // Binary operation optimization for let statements
+            if let Some((def_idx, _)) = self
+                .semantic_index
+                .resolve_name_to_definition(name.value(), scope_id)
+            {
+                let def_id = DefinitionId::new(self.db, self.file, def_idx);
+                let mir_def_id = self.convert_definition_id(def_id);
 
-                    // Check if this variable is actually used
-                    let is_used = if let Some(definition) = self.semantic_index.definition(def_idx)
-                    {
-                        if let Some(place_table) =
-                            self.semantic_index.place_table(definition.scope_id)
-                        {
-                            if let Some(place) = place_table.place(definition.place_id) {
-                                place.is_used()
-                            } else {
-                                true
-                            }
-                        } else {
-                            true
-                        }
-                    } else {
-                        true
-                    };
+                // Check if this variable is actually used
+                let is_used = is_definition_used(self.semantic_index, def_idx);
 
-                    if is_used {
-                        // Lower the operands
-                        let left_value = self.lower_expression(left)?;
-                        let right_value = self.lower_expression(right)?;
-
-                        // Get the variable type
-                        let semantic_type =
-                            definition_semantic_type(self.db, self.crate_id, def_id);
-                        let var_type = MirType::from_semantic_type(self.db, semantic_type);
-
-                        // Allocate storage for the variable
-                        let var_storage = self.mir_function.new_typed_value_id(var_type.clone());
-                        self.add_instruction(Instruction::stack_alloc(
-                            var_storage,
-                            var_type.size_units(),
-                        ));
-
-                        // Generate single binary operation directly to allocated storage
-                        let typed_op = self.convert_binary_op(*op, left, right);
-                        self.add_instruction(Instruction::binary_op(
-                            typed_op,
-                            var_storage,
-                            left_value,
-                            right_value,
-                        ));
-
-                        // Map the variable to its storage ValueId
-                        self.definition_to_value.insert(mir_def_id, var_storage);
-                    } else {
-                        // For unused variables, still evaluate operands for side effects but don't store
-                        let _ = self.lower_expression(left)?;
-                        let _ = self.lower_expression(right)?;
-                        let dummy_addr = self.mir_function.new_value_id();
-                        self.definition_to_value.insert(mir_def_id, dummy_addr);
-                    }
+                if !is_used {
+                    // For unused variables, still evaluate operands for side effects but don't store
+                    let _ = self.lower_expression(left)?;
+                    let _ = self.lower_expression(right)?;
+                    let dummy_addr = self.mir_function.new_value_id();
+                    self.definition_to_value.insert(mir_def_id, dummy_addr);
                     return Ok(());
                 }
+
+                // Lower the operands
+                let left_value = self.lower_expression(left)?;
+                let right_value = self.lower_expression(right)?;
+
+                // Get the variable type
+                let semantic_type = definition_semantic_type(self.db, self.crate_id, def_id);
+                let var_type = MirType::from_semantic_type(self.db, semantic_type);
+
+                // Allocate storage for the variable
+                let var_storage = self.mir_function.new_typed_value_id(var_type.clone());
+                self.add_instruction(Instruction::stack_alloc(var_storage, var_type.size_units()));
+
+                // Generate single binary operation directly to allocated storage
+                let typed_op = self.convert_binary_op(*op, left, right);
+                self.add_instruction(Instruction::binary_op(
+                    typed_op,
+                    var_storage,
+                    left_value,
+                    right_value,
+                ));
+
+                // Map the variable to its storage ValueId
+                self.definition_to_value.insert(mir_def_id, var_storage);
+                return Ok(());
             }
         }
 
-        // Fall back to normal processing for non-optimizable cases
+        // 2. Fallback to the generic path
         let rhs_value = self.lower_expression(value)?;
 
-        match pattern {
-            Pattern::Identifier(name) => {
-                // Single identifier pattern
+        // Handle special case for aggregate literals that return addresses directly
+        if let Pattern::Identifier(name) = pattern
+            && let Expression::StructLiteral { .. } | Expression::Tuple(_) = value.value()
+        {
+            if let Value::Operand(addr) = rhs_value {
+                // The RHS expression already allocated the object and returned its address
                 if let Some((def_idx, _)) = self
                     .semantic_index
                     .resolve_name_to_definition(name.value(), scope_id)
                 {
                     let def_id = DefinitionId::new(self.db, self.file, def_idx);
                     let mir_def_id = self.convert_definition_id(def_id);
-
-                    // Check if the RHS is already a stack-allocated aggregate.
-                    if let Expression::StructLiteral { .. } | Expression::Tuple(_) = value.value() {
-                        if let Value::Operand(addr) = rhs_value {
-                            // The RHS expression already allocated the object and returned its address.
-                            self.definition_to_value.insert(mir_def_id, addr);
-                        } else {
-                            return Err("Expected an address from aggregate literal".to_string());
-                        }
-                    } else {
-                        // Check if this variable is actually used
-                        let is_used =
-                            if let Some(definition) = self.semantic_index.definition(def_idx) {
-                                if let Some(place_table) =
-                                    self.semantic_index.place_table(definition.scope_id)
-                                {
-                                    if let Some(place) = place_table.place(definition.place_id) {
-                                        place.is_used()
-                                    } else {
-                                        true
-                                    }
-                                } else {
-                                    true
-                                }
-                            } else {
-                                true
-                            };
-
-                        if is_used {
-                            let semantic_type =
-                                definition_semantic_type(self.db, self.crate_id, def_id);
-                            let var_type = MirType::from_semantic_type(self.db, semantic_type);
-                            let var_addr = self
-                                .mir_function
-                                .new_typed_value_id(MirType::pointer(var_type.clone()));
-                            self.add_instruction(Instruction::stack_alloc(
-                                var_addr,
-                                var_type.size_units(),
-                            ));
-
-                            match var_type {
-                                MirType::U32 => {
-                                    self.add_instruction(Instruction::store_u32(
-                                        Value::operand(var_addr),
-                                        rhs_value,
-                                    ));
-                                }
-                                MirType::Felt | MirType::Bool => {
-                                    self.add_instruction(Instruction::store(
-                                        Value::operand(var_addr),
-                                        rhs_value,
-                                    ));
-                                }
-                                _ => {
-                                    self.add_instruction(Instruction::store(
-                                        Value::operand(var_addr),
-                                        rhs_value,
-                                    ));
-                                }
-                            }
-                            self.definition_to_value.insert(mir_def_id, var_addr);
-                        } else {
-                            let dummy_addr = self.mir_function.new_value_id();
-                            self.definition_to_value.insert(mir_def_id, dummy_addr);
-                        }
-                    }
+                    self.definition_to_value.insert(mir_def_id, addr);
+                    return Ok(());
                 } else {
                     return Err(format!(
                         "Failed to resolve variable '{}' in scope {:?}",
@@ -467,127 +156,13 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         scope_id
                     ));
                 }
-            }
-            Pattern::Tuple(names) => {
-                // Tuple destructuring pattern for non-literal tuples
-                let rhs_semantic_type =
-                    expression_semantic_type(self.db, self.crate_id, self.file, expr_id, None);
-
-                match rhs_semantic_type.data(self.db) {
-                    TypeData::Tuple(element_types) => {
-                        if element_types.len() != names.len() {
-                            return Err(format!(
-                                "Tuple pattern has {} elements but value has {} elements",
-                                names.len(),
-                                element_types.len()
-                            ));
-                        }
-
-                        // For non-literal tuples, we need to extract from the tuple address
-                        if let Value::Operand(tuple_addr) = rhs_value {
-                            // Extract each element from consecutive memory locations
-                            for (index, name) in names.iter().enumerate() {
-                                if let Some((def_idx, _)) = self
-                                    .semantic_index
-                                    .resolve_name_to_definition(name.value(), scope_id)
-                                {
-                                    let def_id = DefinitionId::new(self.db, self.file, def_idx);
-                                    let mir_def_id = self.convert_definition_id(def_id);
-
-                                    let is_used = if let Some(definition) =
-                                        self.semantic_index.definition(def_idx)
-                                    {
-                                        if let Some(place_table) =
-                                            self.semantic_index.place_table(definition.scope_id)
-                                        {
-                                            if let Some(place) =
-                                                place_table.place(definition.place_id)
-                                            {
-                                                place.is_used()
-                                            } else {
-                                                true
-                                            }
-                                        } else {
-                                            true
-                                        }
-                                    } else {
-                                        true
-                                    };
-
-                                    if is_used {
-                                        // Get the element type
-                                        let element_type = element_types[index];
-                                        let element_mir_type =
-                                            MirType::from_semantic_type(self.db, element_type);
-
-                                        // Get pointer to tuple element
-                                        let elem_ptr = self.mir_function.new_typed_value_id(
-                                            MirType::pointer(element_mir_type.clone()),
-                                        );
-                                        self.add_instruction(
-                                            Instruction::get_element_ptr(
-                                                elem_ptr,
-                                                Value::operand(tuple_addr),
-                                                Value::integer(index as i32),
-                                            )
-                                            .with_comment(format!(
-                                                "Get address of tuple element {}",
-                                                index
-                                            )),
-                                        );
-
-                                        // Load the element
-                                        let elem_value = self
-                                            .mir_function
-                                            .new_typed_value_id(element_mir_type.clone());
-                                        self.add_instruction(
-                                            Instruction::load(elem_value, Value::operand(elem_ptr))
-                                                .with_comment(format!(
-                                                    "Load tuple element {}",
-                                                    index
-                                                )),
-                                        );
-
-                                        // Allocate space for the variable
-                                        let var_addr = self.mir_function.new_typed_value_id(
-                                            MirType::pointer(element_mir_type.clone()),
-                                        );
-                                        self.add_instruction(Instruction::stack_alloc(
-                                            var_addr,
-                                            element_mir_type.size_units(),
-                                        ));
-
-                                        // Store the loaded value
-                                        self.add_instruction(Instruction::store(
-                                            Value::operand(var_addr),
-                                            Value::operand(elem_value),
-                                        ));
-
-                                        self.definition_to_value.insert(mir_def_id, var_addr);
-                                    } else {
-                                        let dummy_addr = self.mir_function.new_value_id();
-                                        self.definition_to_value.insert(mir_def_id, dummy_addr);
-                                    }
-                                } else {
-                                    return Err(format!(
-                                        "Failed to resolve variable '{}' in scope {:?}",
-                                        name.value(),
-                                        scope_id
-                                    ));
-                                }
-                            }
-                        } else {
-                            return Err("Tuple destructuring from non-operand expressions not yet supported".to_string());
-                        }
-                    }
-                    _ => {
-                        return Err(
-                            "Cannot destructure non-tuple type in tuple pattern".to_string()
-                        );
-                    }
-                }
+            } else {
+                return Err("Expected an address from aggregate literal".to_string());
             }
         }
+
+        // Use the generic pattern lowering
+        self.lower_pattern(pattern, rhs_value, scope_id)?;
         Ok(())
     }
 
@@ -779,144 +354,27 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // For statement expressions, check if it's a function call that should be void
         if let Expression::FunctionCall { callee, args } = expr.value() {
             // Handle function calls as statements (void calls)
-            if let Expression::Identifier(func_name) = callee.value() {
-                // Get the scope for the callee from its expression info
-                let expr_id = self
-                    .semantic_index
-                    .expression_id_by_span(expr.span())
-                    .ok_or_else(|| {
-                        format!(
-                            "MIR: No ExpressionId found for statement expression span {:?}",
-                            expr.span()
-                        )
-                    })?;
-                let expr_info = self.semantic_index.expression(expr_id).ok_or_else(|| {
-                    format!("MIR: No ExpressionInfo for statement expression ID {expr_id:?}")
+            let expr_id = self
+                .semantic_index
+                .expression_id_by_span(expr.span())
+                .ok_or_else(|| {
+                    format!(
+                        "MIR: No ExpressionId found for statement expression span {:?}",
+                        expr.span()
+                    )
                 })?;
 
-                if let Some((local_def_idx, local_def)) = self
-                    .semantic_index
-                    .resolve_name_to_definition(func_name.value(), expr_info.scope_id)
-                {
-                    // Handle function resolution: local functions vs imported functions
-                    let func_id = match &local_def.kind {
-                        DefinitionKind::Function(_) => {
-                            // Local function - use current file
-                            let func_def_id = DefinitionId::new(self.db, self.file, local_def_idx);
-                            if let Some((_, func_id)) = self.function_mapping.get(&func_def_id) {
-                                *func_id
-                            } else {
-                                // Local function not found in mapping, return error
-                                return Ok(());
-                            }
-                        }
-                        DefinitionKind::Use(use_ref) => {
-                            // Imported function - follow the import chain
-                            match self.resolve_imported_function(
-                                use_ref.imported_module.value(),
-                                func_name.value(),
-                            ) {
-                                Some(func_id) => func_id,
-                                None => {
-                                    // Import resolution failed, return error
-                                    return Ok(());
-                                }
-                            }
-                        }
-                        _ => {
-                            // Neither function nor import, return error
-                            return Ok(());
-                        }
-                    };
+            // Try to resolve the function using our helper
+            if let Ok(func_id) = self.resolve_function(callee) {
+                // Lower arguments
+                let arg_values = args
+                    .iter()
+                    .map(|arg| self.lower_expression(arg))
+                    .collect::<Result<Vec<_>, _>>()?;
 
-                    {
-                        // Lower arguments
-                        let mut arg_values = Vec::new();
-                        for arg in args {
-                            arg_values.push(self.lower_expression(arg)?);
-                        }
-
-                        // Check the function's return type
-                        let func_expr_semantic_type = expression_semantic_type(
-                            self.db,
-                            self.crate_id,
-                            self.file,
-                            expr_id,
-                            None,
-                        );
-
-                        if let TypeData::Tuple(element_types) =
-                            func_expr_semantic_type.data(self.db)
-                        {
-                            // Function returns a tuple - create destinations but don't use them
-                            let mut dests = Vec::new();
-                            for elem_type in element_types {
-                                let mir_type = MirType::from_semantic_type(self.db, elem_type);
-                                dests.push(self.mir_function.new_typed_value_id(mir_type));
-                            }
-                            // Get the function signature
-                            let (param_types, return_types) =
-                                self.get_function_signature(func_id)?;
-
-                            // Create the CalleeSignature
-                            let signature = CalleeSignature {
-                                param_types,
-                                return_types,
-                            };
-
-                            // Create the call instruction with the signature
-                            let mut call_instr = Instruction::call(dests, func_id, arg_values);
-                            if let InstructionKind::Call {
-                                signature: ref mut sig,
-                                ..
-                            } = &mut call_instr.kind
-                            {
-                                *sig = signature;
-                            }
-                            self.add_instruction(call_instr);
-                        } else if let TypeData::Tuple(types) =
-                            func_expr_semantic_type.data(self.db)
-                            && types.is_empty()
-                        {
-                            // Function returns unit/void
-                            let (param_types, return_types) =
-                                self.get_function_signature(func_id)?;
-                            let signature = CalleeSignature {
-                                param_types,
-                                return_types,
-                            };
-                            self.add_instruction(Instruction::void_call(
-                                func_id, arg_values, signature,
-                            ));
-                        } else {
-                            // Function returns a single value - create a destination but don't use it
-                            let return_type =
-                                MirType::from_semantic_type(self.db, func_expr_semantic_type);
-                            let dest = self.mir_function.new_typed_value_id(return_type);
-                            // Get the function signature
-                            let (param_types, return_types) =
-                                self.get_function_signature(func_id)?;
-
-                            // Create the CalleeSignature
-                            let signature = CalleeSignature {
-                                param_types,
-                                return_types,
-                            };
-
-                            // Create the call instruction with the signature
-                            let mut call_instr = Instruction::call(vec![dest], func_id, arg_values);
-                            if let InstructionKind::Call {
-                                signature: ref mut sig,
-                                ..
-                            } = &mut call_instr.kind
-                            {
-                                *sig = signature;
-                            }
-                            self.add_instruction(call_instr);
-                        }
-                        return Ok(());
-                    }
-                }
+                // Use our helper to emit the call and discard results
+                self.emit_call_and_discard_result(func_id, arg_values, expr_id)?;
+                return Ok(());
             }
         }
 
@@ -1208,6 +666,200 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
     pub(super) const fn lower_const_statement(&self) -> Result<(), String> {
         // Constants are handled during semantic analysis, skip in MIR generation
+        Ok(())
+    }
+
+    /// Attempts to lower special-case AST patterns that can be optimized
+    ///
+    /// This handles patterns that can be lowered more directly and efficiently
+    /// than the generic approach, such as direct tuple destructuring and
+    /// function calls with tuple returns.
+    ///
+    /// Returns Ok(true) if the pattern was handled, Ok(false) otherwise.
+    fn try_lower_let_special_case(
+        &mut self,
+        pattern: &Pattern,
+        value: &Spanned<Expression>,
+        scope_id: FileScopeId,
+    ) -> Result<bool, String> {
+        match (pattern, value.value()) {
+            // Direct tuple destructuring optimization - skip intermediate tuple allocation
+            (Pattern::Tuple(names), Expression::Tuple(elements))
+                if names.len() == elements.len() =>
+            {
+                for (name, element_expr) in names.iter().zip(elements.iter()) {
+                    let element_value = self.lower_expression(element_expr)?;
+                    self.bind_variable(name, scope_id, element_value)?;
+                }
+                Ok(true)
+            }
+            (Pattern::Tuple(names), Expression::FunctionCall { callee, args }) => {
+                // Attempt to apply `let (a,b) = f()` optimization
+                let Expression::Identifier(_) = callee.value() else {
+                    return Ok(false);
+                };
+
+                let func_id = match self.resolve_function(callee) {
+                    Ok(id) => id,
+                    Err(_) => return Ok(false),
+                };
+
+                // Check that the function call returns a tuple of the correct arity
+                let expr_id = self
+                    .semantic_index
+                    .expression_id_by_span(value.span())
+                    .ok_or_else(|| {
+                        format!(
+                            "MIR: No ExpressionId found for value expression span {:?}",
+                            value.span()
+                        )
+                    })?;
+
+                let func_call_semantic_type =
+                    expression_semantic_type(self.db, self.crate_id, self.file, expr_id, None);
+                let TypeData::Tuple(element_types) = func_call_semantic_type.data(self.db) else {
+                    return Ok(false);
+                };
+                if element_types.len() != names.len() {
+                    return Ok(false);
+                }
+
+                // Apply the optimization
+                let arg_values = args
+                    .iter()
+                    .map(|arg| self.lower_expression(arg))
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                let mut dests = Vec::new();
+                for (i, name) in names.iter().enumerate() {
+                    let (def_idx, _) = self
+                        .semantic_index
+                        .resolve_name_to_definition(name.value(), scope_id)
+                        .ok_or_else(|| {
+                            format!(
+                                "Failed to resolve variable '{}' in scope {:?}",
+                                name.value(),
+                                scope_id
+                            )
+                        })?;
+
+                    let def_id = DefinitionId::new(self.db, self.file, def_idx);
+                    let mir_def_id = self.convert_definition_id(def_id);
+
+                    let is_used = is_definition_used(self.semantic_index, def_idx);
+                    let elem_type = element_types[i];
+                    let elem_mir_type = MirType::from_semantic_type(self.db, elem_type);
+                    let dest = self.mir_function.new_typed_value_id(elem_mir_type);
+                    dests.push(dest);
+
+                    if is_used {
+                        self.definition_to_value.insert(mir_def_id, dest);
+                    } else {
+                        let dummy_addr = self.mir_function.new_value_id();
+                        self.definition_to_value.insert(mir_def_id, dummy_addr);
+                    }
+                }
+
+                self.emit_call_with_destinations(func_id, arg_values, dests)?;
+                Ok(true)
+            }
+            _ => Ok(false),
+        }
+    }
+
+    /// Generic pattern binding for already-lowered values
+    ///
+    /// This is the fallback path that handles binding a lowered value to a pattern.
+    /// Supports both identifier patterns and tuple destructuring patterns.
+    fn lower_pattern(
+        &mut self,
+        pattern: &Pattern,
+        rhs_value: Value,
+        scope_id: FileScopeId,
+    ) -> Result<(), String> {
+        match pattern {
+            Pattern::Identifier(name) => {
+                // Simple identifier binding - use our new helper
+                self.bind_variable(name, scope_id, rhs_value)?;
+            }
+            Pattern::Tuple(names) => {
+                // Tuple destructuring from an already-lowered tuple address
+                let Value::Operand(tuple_addr) = rhs_value else {
+                    return Err(
+                        "Tuple destructuring from non-operand expressions not yet supported"
+                            .to_string(),
+                    );
+                };
+
+                // Extract each element from consecutive memory locations
+                for (index, name) in names.iter().enumerate() {
+                    let (def_idx, _) = self
+                        .semantic_index
+                        .resolve_name_to_definition(name.value(), scope_id)
+                        .ok_or_else(|| {
+                            format!(
+                                "Failed to resolve variable '{}' in scope {:?}",
+                                name.value(),
+                                scope_id
+                            )
+                        })?;
+
+                    let def_id = DefinitionId::new(self.db, self.file, def_idx);
+                    let mir_def_id = self.convert_definition_id(def_id);
+
+                    let is_used = is_definition_used(self.semantic_index, def_idx);
+                    if !is_used {
+                        let dummy_addr = self.mir_function.new_value_id();
+                        self.definition_to_value.insert(mir_def_id, dummy_addr);
+                        continue;
+                    }
+
+                    // Get the element type - we need to look up the tuple type
+                    let semantic_type = definition_semantic_type(self.db, self.crate_id, def_id);
+                    let element_mir_type = MirType::from_semantic_type(self.db, semantic_type);
+
+                    // Get pointer to tuple element
+                    let elem_ptr = self
+                        .mir_function
+                        .new_typed_value_id(MirType::pointer(element_mir_type.clone()));
+                    self.add_instruction(
+                        Instruction::get_element_ptr(
+                            elem_ptr,
+                            Value::operand(tuple_addr),
+                            Value::integer(index as i32),
+                        )
+                        .with_comment(format!("Get address of tuple element {}", index)),
+                    );
+
+                    // Load the element
+                    let elem_value = self
+                        .mir_function
+                        .new_typed_value_id(element_mir_type.clone());
+                    self.add_instruction(
+                        Instruction::load(elem_value, Value::operand(elem_ptr))
+                            .with_comment(format!("Load tuple element {}", index)),
+                    );
+
+                    // Allocate space for the variable and store the loaded value
+                    let var_addr = self
+                        .mir_function
+                        .new_typed_value_id(MirType::pointer(element_mir_type.clone()));
+                    self.add_instruction(Instruction::stack_alloc(
+                        var_addr,
+                        element_mir_type.size_units(),
+                    ));
+
+                    // Store the loaded value
+                    self.add_instruction(
+                        element_mir_type
+                            .emit_store(Value::operand(var_addr), Value::operand(elem_value))?,
+                    );
+
+                    // Update the definition to value mapping
+                    self.definition_to_value.insert(mir_def_id, var_addr);
+                }
+            }
+        }
         Ok(())
     }
 }

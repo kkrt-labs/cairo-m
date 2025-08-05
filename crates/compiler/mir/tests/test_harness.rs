@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use cairo_m_compiler_mir::{generate_mir, MirModule, PrettyPrint};
 use cairo_m_compiler_parser::Upcast;
-use cairo_m_compiler_semantic::db::{project_validate_semantics, Crate};
+use cairo_m_compiler_semantic::db::Crate;
 use cairo_m_compiler_semantic::File;
 
 // Test database that implements all required traits for MIR generation

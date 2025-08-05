@@ -134,76 +134,68 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         use cairo_m_compiler_parser::parser::BinaryOp as ParserOp;
 
         // Get the expression IDs for the operands
-        let left_expr_id = self.semantic_index.expression_id_by_span(left_expr.span());
-        let right_expr_id = self.semantic_index.expression_id_by_span(right_expr.span());
+        let left_expr_id = self
+            .semantic_index
+            .expression_id_by_span(left_expr.span())
+            .expect("Left expression should have an ID");
+        let right_expr_id = self
+            .semantic_index
+            .expression_id_by_span(right_expr.span())
+            .expect("Right expression should have an ID");
 
         // Check if both operands have U32 type
-        let is_u32 = if let (Some(left_id), Some(right_id)) = (left_expr_id, right_expr_id) {
+        let operand_type = {
             let left_type =
-                expression_semantic_type(self.db, self.crate_id, self.file, left_id, None);
+                expression_semantic_type(self.db, self.crate_id, self.file, left_expr_id, None);
             let right_type =
-                expression_semantic_type(self.db, self.crate_id, self.file, right_id, None);
+                expression_semantic_type(self.db, self.crate_id, self.file, right_expr_id, None);
 
             // Verify operands have the same type - this should be guaranteed by semantic analysis
             let left_type_data = left_type.data(self.db);
             let right_type_data = right_type.data(self.db);
 
-            // Check if both are U32
-            let is_u32 = matches!(
-                (&left_type_data, &right_type_data),
-                (TypeData::U32, TypeData::U32)
-            );
-
-            // Verify they match (allowing felt/bool mixing since bool is represented as felt)
-            // Also allow Error types to pass through for graceful error handling
-            let has_error = matches!(&left_type_data, TypeData::Error)
-                || matches!(&right_type_data, TypeData::Error);
-            if !has_error
-                && !matches!(
-                    (&left_type_data, &right_type_data),
-                    (TypeData::U32, TypeData::U32)
-                        | (TypeData::Felt, TypeData::Felt)
-                        | (TypeData::Bool, TypeData::Bool)
-                        | (TypeData::Felt, TypeData::Bool)
-                        | (TypeData::Bool, TypeData::Felt)
-                )
-            {
+            if left_type_data != right_type_data {
                 panic!(
                     "MIR: Binary op operands must have the same type, got {:?} and {:?}",
                     left_type_data, right_type_data
                 );
             }
 
-            is_u32
-        } else {
-            false
+            left_type_data
         };
 
         // Convert parser op to MIR op, selecting U32 variant if needed
-        match (op, is_u32) {
-            (ParserOp::Add, false) => MirOp::Add,
-            (ParserOp::Add, true) => MirOp::U32Add,
-            (ParserOp::Sub, false) => MirOp::Sub,
-            (ParserOp::Sub, true) => MirOp::U32Sub,
-            (ParserOp::Mul, false) => MirOp::Mul,
-            (ParserOp::Mul, true) => MirOp::U32Mul,
-            (ParserOp::Div, false) => MirOp::Div,
-            (ParserOp::Div, true) => MirOp::U32Div,
-            (ParserOp::Eq, false) => MirOp::Eq,
-            (ParserOp::Eq, true) => MirOp::U32Eq,
-            (ParserOp::Neq, false) => MirOp::Neq,
-            (ParserOp::Neq, true) => MirOp::U32Neq,
-            (ParserOp::Less, false) => MirOp::Less,
-            (ParserOp::Less, true) => MirOp::U32Less,
-            (ParserOp::Greater, false) => MirOp::Greater,
-            (ParserOp::Greater, true) => MirOp::U32Greater,
-            (ParserOp::LessEqual, false) => MirOp::LessEqual,
-            (ParserOp::LessEqual, true) => MirOp::U32LessEqual,
-            (ParserOp::GreaterEqual, false) => MirOp::GreaterEqual,
-            (ParserOp::GreaterEqual, true) => MirOp::U32GreaterEqual,
-            // Logical operators remain the same
-            (ParserOp::And, _) => MirOp::And,
-            (ParserOp::Or, _) => MirOp::Or,
+        match (op, operand_type.clone()) {
+            (ParserOp::Add, TypeData::Felt) => MirOp::Add,
+            (ParserOp::Sub, TypeData::Felt) => MirOp::Sub,
+            (ParserOp::Mul, TypeData::Felt) => MirOp::Mul,
+            (ParserOp::Div, TypeData::Felt) => MirOp::Div,
+            (ParserOp::Eq, TypeData::Felt) => MirOp::Eq,
+            (ParserOp::Neq, TypeData::Felt) => MirOp::Neq,
+            (ParserOp::LessEqual, TypeData::Felt) => MirOp::LessEqual,
+            (ParserOp::Less, TypeData::Felt) => MirOp::Less,
+            (ParserOp::Greater, TypeData::Felt) => MirOp::Greater,
+            (ParserOp::GreaterEqual, TypeData::Felt) => MirOp::GreaterEqual,
+            //
+            (ParserOp::Add, TypeData::U32) => MirOp::U32Add,
+            (ParserOp::Sub, TypeData::U32) => MirOp::U32Sub,
+            (ParserOp::Mul, TypeData::U32) => MirOp::U32Mul,
+            (ParserOp::Div, TypeData::U32) => MirOp::U32Div,
+            (ParserOp::Eq, TypeData::U32) => MirOp::U32Eq,
+            (ParserOp::Neq, TypeData::U32) => MirOp::U32Neq,
+            (ParserOp::Less, TypeData::U32) => MirOp::U32Less,
+            (ParserOp::Greater, TypeData::U32) => MirOp::U32Greater,
+            (ParserOp::LessEqual, TypeData::U32) => MirOp::U32LessEqual,
+            (ParserOp::GreaterEqual, TypeData::U32) => MirOp::U32GreaterEqual,
+            //
+            (ParserOp::Eq, TypeData::Bool) => MirOp::Eq,
+            (ParserOp::Neq, TypeData::Bool) => MirOp::Neq,
+            (ParserOp::And, TypeData::Bool) => MirOp::And,
+            (ParserOp::Or, TypeData::Bool) => MirOp::Or,
+            _ => panic!(
+                "MIR: Unsupported binary op {:?} with type {:?}",
+                op, operand_type
+            ),
         }
     }
 
@@ -235,31 +227,27 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     /// Get the return types of the function being lowered
     ///
     /// This retrieves the function's semantic type and extracts the return type information.
-    pub fn get_function_return_types(&self) -> Vec<MirType> {
-        if let Some(func_def_id) = self.function_def_id {
-            let semantic_type = definition_semantic_type(self.db, self.crate_id, func_def_id);
-            let type_data = semantic_type.data(self.db);
+    pub fn get_function_return_types(&self, func_def_id: DefinitionId<'db>) -> Vec<MirType> {
+        let semantic_type = definition_semantic_type(self.db, self.crate_id, func_def_id);
+        let type_data = semantic_type.data(self.db);
 
-            if let TypeData::Function(sig_id) = type_data {
-                let return_type = sig_id.return_type(self.db);
-                // Convert semantic return type to MIR type
-                let mir_type = MirType::from_semantic_type(self.db, return_type);
+        if let TypeData::Function(sig_id) = type_data {
+            let return_type = sig_id.return_type(self.db);
+            // Convert semantic return type to MIR type
+            let mir_type = MirType::from_semantic_type(self.db, return_type);
 
-                // If the return type is a tuple, expand it to individual types
-                if let MirType::Tuple(types) = mir_type {
-                    types
-                } else if matches!(mir_type, MirType::Unit) {
-                    // Unit type means no return values
-                    vec![]
-                } else {
-                    // Single return value
-                    vec![mir_type]
-                }
+            // If the return type is a tuple, expand it to individual types
+            if let MirType::Tuple(types) = mir_type {
+                types
+            } else if matches!(mir_type, MirType::Unit) {
+                // Unit type means no return values
+                vec![]
             } else {
-                panic!("Function definition should have function type");
+                // Single return value
+                vec![mir_type]
             }
         } else {
-            vec![]
+            panic!("Function definition should have function type");
         }
     }
 

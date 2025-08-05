@@ -327,11 +327,17 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         .with_comment("Allocate space for tuple return value".to_string()),
                 );
 
+                // Get type of each inner tuple element
+                let elem_types = match tuple_type {
+                    MirType::Tuple(types) => types,
+                    _ => return Err("Tuple type expected".to_string()),
+                };
+
                 // Store each returned value into the tuple
-                for (i, value) in values.iter().enumerate() {
-                    let elem_ptr = self.mir_function.new_typed_value_id(
-                        MirType::pointer(MirType::felt()), // TODO: Get proper element type
-                    );
+                for (i, (value, value_type)) in values.iter().zip(elem_types).enumerate() {
+                    let elem_ptr = self
+                        .mir_function
+                        .new_typed_value_id(MirType::pointer(value_type));
                     self.add_instruction(
                         Instruction::get_element_ptr(
                             elem_ptr,
@@ -398,6 +404,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         // Load the value from the field address
         let loaded_value = self.mir_function.new_typed_value_id(field_type);
+        // TODO: This should emit a load with the proper type (e.g. LoadU32?)
         self.add_instruction(Instruction::load(loaded_value, Value::operand(field_addr)));
 
         Ok(Value::operand(loaded_value))

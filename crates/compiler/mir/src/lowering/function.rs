@@ -8,11 +8,12 @@ use std::sync::Arc;
 
 use cairo_m_compiler_diagnostics::Diagnostic;
 use cairo_m_compiler_parser::parse_file;
-use cairo_m_compiler_parser::parser::{FunctionDef, Spanned, Statement, TopLevelItem};
+use cairo_m_compiler_parser::parser::{FunctionDef, Parameter, Spanned, Statement, TopLevelItem};
 use cairo_m_compiler_semantic::db::Crate;
 use cairo_m_compiler_semantic::definition::{Definition, DefinitionKind};
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
 use cairo_m_compiler_semantic::type_resolution::definition_semantic_type;
+use cairo_m_compiler_semantic::FileScopeId;
 use rustc_hash::FxHashMap;
 
 use crate::db::MirDb;
@@ -190,8 +191,6 @@ pub(super) fn lower_function<'a, 'db>(
 ) -> Result<MirFunction, String> {
     // Store the function definition ID for type resolution
     builder.function_def_id = Some(func_def_id);
-    let func_data = func_ast.value();
-
     builder.mir_function.name = func_def.name.clone();
 
     // Get the function's inner scope, where parameters are defined
@@ -200,48 +199,84 @@ pub(super) fn lower_function<'a, 'db>(
         .scope_for_span(func_ast.span())
         .ok_or_else(|| format!("Could not find scope for function '{}'", func_def.name))?;
 
-    // Lower parameters
+    lower_parameters(&mut builder, func_ast, func_inner_scope_id)?;
+
+    lower_body(&mut builder, func_ast)?;
+
+    lower_return_type(&mut builder, func_def_id)?;
+
+    Ok(builder.mir_function)
+}
+
+fn lower_parameters<'a, 'db>(
+    builder: &mut MirBuilder<'a, 'db>,
+    func_ast: &Spanned<FunctionDef>,
+    func_inner_scope_id: FileScopeId,
+) -> Result<(), String> {
+    let func_data = func_ast.value();
+
     for param_ast in &func_data.params {
-        if let Some((def_idx, _)) = builder
-            .semantic_index
-            .resolve_name_to_definition(param_ast.name.value(), func_inner_scope_id)
-        {
-            let def_id = DefinitionId::new(builder.db, builder.file, def_idx);
-            let mir_def_id = builder.convert_definition_id(def_id);
-
-            // 1. Query semantic type system for actual parameter type
-            let semantic_type = definition_semantic_type(builder.db, builder.crate_id, def_id);
-            let param_type = MirType::from_semantic_type(builder.db, semantic_type);
-
-            let incoming_param_val = builder.mir_function.new_typed_value_id(param_type.clone());
-            builder.mir_function.parameters.push(incoming_param_val);
-
-            // 2. Map the semantic definition to its stack address
-            builder
-                .definition_to_value
-                .insert(mir_def_id, incoming_param_val);
-        } else {
-            return Err(format!(
-                "Internal Compiler Error: Could not resolve parameter '{}'",
-                param_ast.name.value()
-            ));
-        }
+        lower_parameter(builder, param_ast, func_inner_scope_id)?;
     }
 
+    Ok(())
+}
+
+fn lower_parameter<'a, 'db>(
+    builder: &mut MirBuilder<'a, 'db>,
+    param_ast: &Parameter,
+    func_inner_scope_id: FileScopeId,
+) -> Result<(), String> {
+    let (def_idx, _) = builder
+        .semantic_index
+        .resolve_name_to_definition(param_ast.name.value(), func_inner_scope_id)
+        .ok_or_else(|| {
+            format!(
+                "Internal Compiler Error: Could not resolve parameter '{}'",
+                param_ast.name.value()
+            )
+        })?;
+
+    let def_id = DefinitionId::new(builder.db, builder.file, def_idx);
+    let mir_def_id = builder.convert_definition_id(def_id);
+
+    // 1. Query semantic type system for actual parameter type
+    let semantic_type = definition_semantic_type(builder.db, builder.crate_id, def_id);
+    let param_type = MirType::from_semantic_type(builder.db, semantic_type);
+
+    let incoming_param_val = builder.mir_function.new_typed_value_id(param_type);
+    builder.mir_function.parameters.push(incoming_param_val);
+
+    // 2. Map the semantic definition to its stack address
+    builder
+        .definition_to_value
+        .insert(mir_def_id, incoming_param_val);
+    Ok(())
+}
+
+fn lower_body<'a, 'db>(
+    builder: &mut MirBuilder<'a, 'db>,
+    func_ast: &Spanned<FunctionDef>,
+) -> Result<(), String> {
     // Treat the entire function body as a single block statement
     // This ensures all statements are processed sequentially, even after complex control flow
-    let body_statements = func_data.body.clone();
+    let body_statements = func_ast.value().body.clone();
     let representative_span = func_ast.span(); // Use function span as representative
     let body_as_block = Spanned::new(Statement::Block(body_statements), representative_span);
     builder.lower_statement(&body_as_block)?;
+    Ok(())
+}
 
+fn lower_return_type<'a, 'db>(
+    builder: &mut MirBuilder<'a, 'db>,
+    func_def_id: DefinitionId<'db>,
+) -> Result<(), String> {
     // Get the function's return types and allocate ValueIds for them
-    let return_types = builder.get_function_return_types();
+    let return_types = builder.get_function_return_types(func_def_id);
     let return_value_ids: Vec<ValueId> = return_types
         .into_iter()
         .map(|ty| builder.mir_function.new_typed_value_id(ty))
         .collect();
     builder.mir_function.return_values = return_value_ids;
-
-    Ok(builder.mir_function)
+    Ok(())
 }
