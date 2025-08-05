@@ -3,6 +3,7 @@
 //! This module implements scope-related validation rules for Cairo-M:
 //! - **Undeclared variable detection**: Identifies uses of undefined identifiers
 //! - **Unused variable detection**: Warns about defined but unused variables
+//!   (except variables with underscore prefix)
 //! - **Duplicate definition detection**: Catches multiple definitions of the same name
 //!
 //! # Implementation Notes
@@ -90,9 +91,12 @@ impl ScopeValidator {
 
     /// Check for unused variables (warnings for local variables)
     ///
+    /// Variables with underscore prefix (e.g., _unused) are ignored and won't
+    /// trigger unused variable warnings. This is a common convention for
+    /// variables that are intentionally unused.
+    ///
     /// TODO: Improve unused variable detection:
     /// - Different handling for different variable types (params vs locals)
-    /// - Allow-list for common unused patterns (e.g., _unused prefix)
     /// - Consider usage in different contexts (read vs write)
     fn check_unused_variables(
         &self,
@@ -108,7 +112,14 @@ impl ScopeValidator {
             let is_local_or_param = !place.flags.contains(PlaceFlags::FUNCTION)
                 && !place.flags.contains(PlaceFlags::STRUCT);
 
-            if is_local_or_param && place.flags.contains(PlaceFlags::DEFINED) && !place.is_used() {
+            // Ignore variables that start with underscore
+            let is_prefixed_with_underscore = place.name.starts_with('_');
+
+            if is_local_or_param
+                && place.flags.contains(PlaceFlags::DEFINED)
+                && !place.is_used()
+                && !is_prefixed_with_underscore
+            {
                 // Get the proper span from the definition
                 let span =
                     if let Some((_, definition)) = index.definition_for_place(scope_id, place_id) {

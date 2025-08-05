@@ -36,3 +36,30 @@ fn test_unused_but_assigned() {
         show_unused
     );
 }
+
+#[test]
+fn test_underscore_prefixed_variables() {
+    // Variables with underscore prefix should not trigger unused variable warnings
+    assert_semantic_ok!(
+        r#"
+        fn test() -> felt {
+            let _unused = 10;
+            let _another_unused = 20;
+            let used = 30;
+            return used;
+        }
+    "#
+    );
+}
+
+#[test]
+fn test_underscore_prefixed_parameters() {
+    // Function parameters with underscore prefix should not trigger unused variable warnings
+    assert_semantic_ok!(
+        r#"
+        fn test(_unused_param: felt, used_param: felt) -> felt {
+            return used_param;
+        }
+    "#
+    );
+}
