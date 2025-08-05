@@ -9,7 +9,7 @@ async fn test_simple_diagnostics__() {
         "src/main.cm",
         r#"
 fn main() {
-    let _x = undefined_var; // This should produce an error AND a warning.
+    let x = undefined_var; // This should produce an error AND a warning.
     return;
 }
 "#,
@@ -40,7 +40,7 @@ fn main() {
         .unwrap();
 
     // We should have two diagnostics, one for the unused variable and one for the undeclared variable
-    assert!(diagnostics[0].message.contains("Unused variable '_x"));
+    assert!(diagnostics[0].message.contains("Unused variable 'x"));
     assert!(diagnostics[1].message.contains("Undeclared variable"));
 
     // Graceful shutdown
@@ -55,7 +55,7 @@ async fn test_simple_diagnostics_standalone() {
         "test.cm",
         r#"
 fn main() {
-    let _x = undefined_var; // This should produce an error
+    let x = undefined_var; // This should produce an error
     return;
 }
 "#,
@@ -83,7 +83,7 @@ fn main() {
         .unwrap();
 
     // We should have two diagnostics, one for the unused variable and one for the undeclared variable
-    assert!(diagnostics[0].message.contains("Unused variable '_x"));
+    assert!(diagnostics[0].message.contains("Unused variable 'x"));
     assert!(diagnostics[1].message.contains("Undeclared variable"));
 
     // Graceful shutdown
