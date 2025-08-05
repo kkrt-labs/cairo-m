@@ -3,9 +3,10 @@
 //! This module provides testing utilities and helpers for working with MIR
 //! in unit tests and integration tests.
 
+use crate::instruction::CalleeSignature;
 use crate::{
-    BasicBlockId, BinaryOp, FunctionId, Instruction, MirFunction, MirModule, Terminator, Value,
-    ValueId,
+    BasicBlockId, BinaryOp, FunctionId, Instruction, MirFunction, MirModule, MirType, Terminator,
+    Value, ValueId,
 };
 
 /// Builder for creating test MIR modules
@@ -128,7 +129,12 @@ impl<'a> TestBlockBuilder<'a> {
 
     /// Adds a void function call instruction
     pub fn void_call(&mut self, callee: FunctionId, args: Vec<Value>) {
-        let instruction = Instruction::void_call(callee, args);
+        // For testing, create a simple signature based on the arguments
+        let signature = CalleeSignature {
+            param_types: args.iter().map(|_| MirType::Felt).collect(),
+            return_types: vec![], // Void call has no returns
+        };
+        let instruction = Instruction::void_call(callee, args, signature);
         self.function
             .get_basic_block_mut(self.current_block)
             .unwrap()

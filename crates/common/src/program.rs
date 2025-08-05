@@ -4,15 +4,24 @@ use serde::{Deserialize, Serialize};
 
 use crate::Instruction;
 
+/// One parameter or return value in the ABI
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AbiSlot {
+    /// Name of the parameter or return value (empty if the compiler had no debug name)
+    pub name: String,
+    /// Number of memory slots this value occupies (1 for felt/bool/ptr, 2 for u32, etc.)
+    pub slots: usize,
+}
+
 /// Information about a function entrypoint
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct EntrypointInfo {
     /// The program counter (instruction index) where the function starts
     pub pc: usize,
-    /// Names of the function arguments
-    pub args: Vec<String>,
-    /// Number of return values
-    pub num_return_values: usize,
+    /// Information about each parameter
+    pub params: Vec<AbiSlot>,
+    /// Information about each return value
+    pub returns: Vec<AbiSlot>,
 }
 
 /// Metadata about the compiled program

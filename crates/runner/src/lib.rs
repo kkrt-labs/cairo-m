@@ -78,13 +78,13 @@ pub fn run_cairo_program(
         )
     })?;
 
-    // Use provided num_return_values or get from entrypoint info
-    let num_return_values = entrypoint_info.num_return_values;
+    let arg_slots: usize = entrypoint_info.params.iter().map(|p| p.slots).sum();
+    let ret_slots: usize = entrypoint_info.returns.iter().map(|r| r.slots).sum();
 
-    // Validate argument count matches expected
-    if args.len() != entrypoint_info.args.len() {
+    // Validate argument count matches expected slots
+    if args.len() != arg_slots {
         return Err(RunnerError::ArgumentCountMismatch {
-            expected: entrypoint_info.args.len(),
+            expected: arg_slots,
             provided: args.len(),
         });
     }
@@ -94,21 +94,21 @@ pub fn run_cairo_program(
     // Calculate FP offset based on Cairo-M calling convention:
     // Frame layout: [args, return_values, old_fp, return_pc]
     // FP points to the first address after the frame
-    let fp_offset = args.len() + num_return_values + 2;
+    let fp_offset = args.len() + ret_slots + 2;
 
     vm.run_from_entrypoint(
         entrypoint_info.pc as u32,
         fp_offset as u32,
         args,
-        num_return_values,
+        ret_slots,
         &options,
     )?;
 
     // Retrieve return values from memory
-    // Return values are stored at [fp - num_return_values - 2] to [fp - 3]
-    let mut return_values = Vec::with_capacity(num_return_values);
-    for i in 0..num_return_values {
-        let return_address = vm.state.fp - M31::from((num_return_values + 2 - i) as u32);
+    // Return values are stored at [fp - return_value_slots - 2] to [fp - 3]
+    let mut return_values = Vec::with_capacity(ret_slots);
+    for i in 0..ret_slots {
+        let return_address = vm.state.fp - M31::from((ret_slots + 2 - i) as u32);
         let value = vm.memory.get_data(return_address)?;
         return_values.push(value);
     }

@@ -34,16 +34,17 @@ use cairo_m_compiler_semantic::db::Crate;
 use cairo_m_compiler_semantic::definition::{Definition, DefinitionKind};
 use cairo_m_compiler_semantic::semantic_index::{DefinitionId, ExpressionId, SemanticIndex};
 use cairo_m_compiler_semantic::type_resolution::{
-    definition_semantic_type, expression_semantic_type,
+    definition_semantic_type, expression_semantic_type, resolve_ast_type,
 };
 use cairo_m_compiler_semantic::types::TypeData;
 use cairo_m_compiler_semantic::{module_semantic_index, File, SemanticDb};
 use rustc_hash::FxHashMap;
 
 use crate::db::MirDb;
+use crate::instruction::CalleeSignature;
 use crate::{
-    BasicBlock, BasicBlockId, FunctionId, Instruction, MirDefinitionId, MirFunction, MirModule,
-    MirType, Terminator, Value, ValueId,
+    BasicBlock, BasicBlockId, FunctionId, Instruction, InstructionKind, MirDefinitionId,
+    MirFunction, MirModule, MirType, Terminator, Value, ValueId,
 };
 
 #[cfg(test)]
@@ -206,6 +207,8 @@ struct MirBuilder<'a, 'db> {
     function_mapping: &'a FxHashMap<DefinitionId<'db>, (&'a Definition, FunctionId)>,
     /// Precomputed file ID for efficient MirDefinitionId creation
     file_id: u64,
+    /// The DefinitionId of the function being lowered (for type information)
+    function_def_id: Option<DefinitionId<'db>>,
 
     // State for the function currently being built
     mir_function: MirFunction,
@@ -252,6 +255,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             current_block_id: entry_block,
             definition_to_value: FxHashMap::default(),
             file_id,
+            function_def_id: None,
             is_terminated: false,
             loop_stack: Vec::new(),
         }
@@ -380,10 +384,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     /// Lowers a single function from the AST into a `MirFunction`
     fn lower_function(
         mut self,
-        _func_def_id: DefinitionId<'db>,
+        func_def_id: DefinitionId<'db>,
         func_def: &Definition,
         func_ast: &Spanned<FunctionDef>,
     ) -> Result<MirFunction, String> {
+        // Store the function definition ID for type resolution
+        self.function_def_id = Some(func_def_id);
         let func_data = func_ast.value();
 
         self.mir_function.name = func_def.name.clone();
@@ -538,12 +544,27 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                                 element_mir_type.size_units(),
                             ));
 
-                            // Store the element value
-                            self.add_instruction(Instruction::store(
-                                Value::operand(var_addr),
-                                element_value,
-                            ));
-
+                            match element_mir_type {
+                                MirType::U32 => {
+                                    self.add_instruction(Instruction::store_u32(
+                                        Value::operand(var_addr),
+                                        element_value,
+                                    ));
+                                }
+                                MirType::Felt | MirType::Bool => {
+                                    self.add_instruction(Instruction::store(
+                                        Value::operand(var_addr),
+                                        element_value,
+                                    ));
+                                }
+                                _ => {
+                                    // TODO: At some point this should be properly handled.
+                                    self.add_instruction(Instruction::store(
+                                        Value::operand(var_addr),
+                                        element_value,
+                                    ));
+                                }
+                            }
                             self.definition_to_value.insert(mir_def_id, var_addr);
                         } else {
                             // Unused variable - still evaluate for side effects but don't store
@@ -689,7 +710,26 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         }
                     }
 
-                    self.add_instruction(Instruction::call(dests, func_id, arg_values));
+                    // Get the function signature
+                    let (param_types, return_types) = self.get_function_signature(func_id)?;
+
+                    // Create the CalleeSignature
+                    let signature = CalleeSignature {
+                        param_types,
+                        return_types,
+                    };
+
+                    // Create the call instruction with the signature
+                    let mut call_instr = Instruction::call(dests, func_id, arg_values);
+                    if let InstructionKind::Call {
+                        signature: ref mut sig,
+                        ..
+                    } = &mut call_instr.kind
+                    {
+                        *sig = signature;
+                    }
+                    self.add_instruction(call_instr);
+
                     Ok(true)
                 })();
 
@@ -829,10 +869,28 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                                 var_addr,
                                 var_type.size_units(),
                             ));
-                            self.add_instruction(Instruction::store(
-                                Value::operand(var_addr),
-                                rhs_value,
-                            ));
+
+                            match var_type {
+                                MirType::U32 => {
+                                    self.add_instruction(Instruction::store_u32(
+                                        Value::operand(var_addr),
+                                        rhs_value,
+                                    ));
+                                }
+                                MirType::Felt | MirType::Bool => {
+                                    self.add_instruction(Instruction::store(
+                                        Value::operand(var_addr),
+                                        rhs_value,
+                                    ));
+                                }
+                                _ => {
+                                    // TODO: At some point this should be properly handled.
+                                    self.add_instruction(Instruction::store(
+                                        Value::operand(var_addr),
+                                        rhs_value,
+                                    ));
+                                }
+                            }
                             self.definition_to_value.insert(mir_def_id, var_addr);
                         } else {
                             // For unused variables, we still need to evaluate the RHS for side effects,
@@ -1237,23 +1295,65 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                                 let mir_type = MirType::from_semantic_type(self.db, elem_type);
                                 dests.push(self.mir_function.new_typed_value_id(mir_type));
                             }
-                            self.add_instruction(Instruction::call(dests, func_id, arg_values));
+                            // Get the function signature
+                            let (param_types, return_types) =
+                                self.get_function_signature(func_id)?;
+
+                            // Create the CalleeSignature
+                            let signature = CalleeSignature {
+                                param_types,
+                                return_types,
+                            };
+
+                            // Create the call instruction with the signature
+                            let mut call_instr = Instruction::call(dests, func_id, arg_values);
+                            if let InstructionKind::Call {
+                                signature: ref mut sig,
+                                ..
+                            } = &mut call_instr.kind
+                            {
+                                *sig = signature;
+                            }
+                            self.add_instruction(call_instr);
                         } else if let cairo_m_compiler_semantic::types::TypeData::Tuple(types) =
                             func_expr_semantic_type.data(self.db)
                             && types.is_empty()
                         {
                             // Function returns unit/void
-                            self.add_instruction(Instruction::void_call(func_id, arg_values));
+                            let (param_types, return_types) =
+                                self.get_function_signature(func_id)?;
+                            let signature = CalleeSignature {
+                                param_types,
+                                return_types,
+                            };
+                            self.add_instruction(Instruction::void_call(
+                                func_id, arg_values, signature,
+                            ));
                         } else {
                             // Function returns a single value - create a destination but don't use it
                             let return_type =
                                 MirType::from_semantic_type(self.db, func_expr_semantic_type);
                             let dest = self.mir_function.new_typed_value_id(return_type);
-                            self.add_instruction(Instruction::call(
-                                vec![dest],
-                                func_id,
-                                arg_values,
-                            ));
+                            // Get the function signature
+                            let (param_types, return_types) =
+                                self.get_function_signature(func_id)?;
+
+                            // Create the CalleeSignature
+                            let signature = CalleeSignature {
+                                param_types,
+                                return_types,
+                            };
+
+                            // Create the call instruction with the signature
+                            let mut call_instr = Instruction::call(vec![dest], func_id, arg_values);
+                            if let InstructionKind::Call {
+                                signature: ref mut sig,
+                                ..
+                            } = &mut call_instr.kind
+                            {
+                                *sig = signature;
+                            }
+                            self.add_instruction(call_instr);
                         }
                         return Ok(());
                     }
@@ -2210,6 +2310,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             arg_values.push(self.lower_expression(arg)?);
         }
 
+        // Get the callee's signature by looking up the function definition
+        let (param_types, return_types) = self.get_function_signature(func_id)?;
+
         // Get the return type of the function
         let semantic_type =
             expression_semantic_type(self.db, self.crate_id, self.file, expr_id, None);
@@ -2224,7 +2327,22 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     dests.push(self.mir_function.new_typed_value_id(mir_type));
                 }
 
-                self.add_instruction(Instruction::call(dests.clone(), func_id, arg_values));
+                // Create the CalleeSignature
+                let signature = CalleeSignature {
+                    param_types,
+                    return_types,
+                };
+
+                // Create the call instruction with the signature
+                let mut call_instr = Instruction::call(dests.clone(), func_id, arg_values);
+                if let InstructionKind::Call {
+                    signature: ref mut sig,
+                    ..
+                } = &mut call_instr.kind
+                {
+                    *sig = signature;
+                }
+                self.add_instruction(call_instr);
 
                 // Return the tuple values directly
                 Ok(CallResult::Tuple(
@@ -2235,10 +2353,89 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 // Single return value
                 let return_type = MirType::from_semantic_type(self.db, semantic_type);
                 let dest = self.mir_function.new_typed_value_id(return_type);
-                self.add_instruction(Instruction::call(vec![dest], func_id, arg_values));
+
+                // Create the CalleeSignature
+                let signature = CalleeSignature {
+                    param_types,
+                    return_types,
+                };
+
+                // Create the call instruction with the signature
+                let mut call_instr = Instruction::call(vec![dest], func_id, arg_values);
+                if let InstructionKind::Call {
+                    signature: ref mut sig,
+                    ..
+                } = &mut call_instr.kind
+                {
+                    *sig = signature;
+                }
+                self.add_instruction(call_instr);
+
                 Ok(CallResult::Single(Value::operand(dest)))
             }
         }
+    }
+
+    /// Gets the function signature (parameter types and return types) for a given FunctionId
+    fn get_function_signature(
+        &self,
+        func_id: FunctionId,
+    ) -> Result<(Vec<MirType>, Vec<MirType>), String> {
+        // Find the Definition for this FunctionId by searching through function_mapping
+        let mut func_def = None;
+        for (def_id, (def, fid)) in self.function_mapping {
+            if *fid == func_id {
+                func_def = Some((def_id, def));
+                break;
+            }
+        }
+
+        let (def_id, def) =
+            func_def.ok_or_else(|| "Function definition not found in mapping".to_string())?;
+
+        // Extract the FunctionDefRef from the Definition
+        let func_ref = match &def.kind {
+            DefinitionKind::Function(func_ref) => func_ref,
+            _ => return Err("Definition is not a function".to_string()),
+        };
+
+        // Convert parameter types from AST to MIR types
+        let mut param_types = Vec::new();
+        for (_, param_type_ast) in &func_ref.params_ast {
+            let semantic_type = resolve_ast_type(
+                self.db,
+                self.crate_id,
+                def_id.file(self.db),
+                param_type_ast.clone(),
+                def.scope_id,
+            );
+            param_types.push(MirType::from_semantic_type(self.db, semantic_type));
+        }
+
+        // Convert return type from AST to MIR type
+        let return_semantic_type = resolve_ast_type(
+            self.db,
+            self.crate_id,
+            def_id.file(self.db),
+            func_ref.return_type_ast.clone(),
+            def.scope_id,
+        );
+
+        // Handle return types - could be unit (empty tuple), single, or tuple
+        let return_types = match return_semantic_type.data(self.db) {
+            cairo_m_compiler_semantic::types::TypeData::Tuple(element_types)
+                if element_types.is_empty() =>
+            {
+                vec![]
+            }
+            cairo_m_compiler_semantic::types::TypeData::Tuple(element_types) => element_types
+                .iter()
+                .map(|t| MirType::from_semantic_type(self.db, *t))
+                .collect(),
+            _ => vec![MirType::from_semantic_type(self.db, return_semantic_type)],
+        };
+
+        Ok((param_types, return_types))
     }
 
     /// Resolves a callee expression to a FunctionId
@@ -2340,21 +2537,72 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     /// If a return value is set, it will be stored in the function's return_value field
     fn terminate_current_block(&mut self, terminator: Terminator) {
         if let Terminator::Return { values } = &terminator {
+            // Get the return types of the current function
+            let return_types = self.get_function_return_types();
+
             // If returning values, track them in the function
             let return_value_ids: Vec<ValueId> = values
                 .iter()
-                .map(|val| match val {
+                .enumerate()
+                .map(|(idx, val)| match val {
                     Value::Operand(id) => *id,
-                    Value::Literal(_) | Value::Error => {
-                        // For literals and errors, we need to create a value ID
-                        // In a more complete implementation, we might emit an assignment first
-                        self.mir_function.new_value_id()
+                    Value::Literal(_) => {
+                        // For literals, use the function's return type if available
+                        let mir_type = return_types[idx].clone();
+
+                        // Create a typed value and emit an assignment
+                        self.mir_function.new_typed_value_id(mir_type)
+                    }
+                    Value::Error => {
+                        // For errors, use the function's return type if available
+                        let mir_type = if idx < return_types.len() {
+                            return_types[idx].clone()
+                        } else {
+                            MirType::error()
+                        };
+                        self.mir_function.new_typed_value_id(mir_type)
                     }
                 })
                 .collect();
             self.mir_function.return_values = return_value_ids;
         }
         self.current_block_mut().set_terminator(terminator);
+    }
+
+    /// Get the return types of the function being lowered
+    fn get_function_return_types(&self) -> Vec<MirType> {
+        if let Some(func_def_id) = self.function_def_id {
+            // Get the semantic type of the function
+            let semantic_type = definition_semantic_type(self.db, self.crate_id, func_def_id);
+
+            // Extract return type from function type
+            match semantic_type.data(self.db) {
+                TypeData::Function(sig_id) => {
+                    let return_type = sig_id.return_type(self.db);
+                    // Check if return type is a tuple
+                    match return_type.data(self.db) {
+                        TypeData::Tuple(element_types) => {
+                            // Multiple return values
+                            element_types
+                                .iter()
+                                .map(|t| MirType::from_semantic_type(self.db, *t))
+                                .collect()
+                        }
+                        _ => {
+                            // Single return value
+                            vec![MirType::from_semantic_type(self.db, return_type)]
+                        }
+                    }
+                }
+                _ => {
+                    // Not a function type - shouldn't happen
+                    vec![]
+                }
+            }
+        } else {
+            // No function def ID - shouldn't happen
+            vec![]
+        }
     }
 
     /// Converts a Salsa DefinitionId to a simple MirDefinitionId
@@ -2387,9 +2635,4 @@ fn test_return_value_field_assignment() {
     // Verify the return_values field is set
     assert!(!function.return_values.is_empty());
     assert_eq!(function.return_values[0], return_value_id);
-
-    println!(
-        "✓ Return values field correctly set: {:?}",
-        function.return_values
-    );
 }

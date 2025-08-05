@@ -28,10 +28,10 @@ fn fib(n: felt) -> felt {
 ============================================================
 Generated CASM:
 main:
-   0: 9 10 0 _             // Store immediate: [fp + 0] = 10
-   1: 10 2 5 _             // call fib
-   2: 4 1 0 3              // Store: [fp + 3] = [fp + 1] + 0
-   3: 4 3 0 -3             // Return value 0: [fp -3] = [fp + 3] + 0
+   0: 9 10 3 _             // Direct arg placement: [fp + 3] = 10
+   1: 10 5 5 _             // call fib
+   2: 4 4 0 2              // Store: [fp + 2] = [fp + 4] + 0
+   3: 4 2 0 -3             // Return value 0: [fp -3] = [fp + 2] + 0
    4: 11 _ _ _             // return
 fib:
    5: 14 -4 4 _            // if [fp + -4] != 0 jmp rel fib_2
@@ -40,15 +40,15 @@ fib_1:
    7: 9 0 -3 _             // Return value 0: [fp -3] = 0
    8: 11 _ _ _             // return
 fib_2:
-   9: 5 -4 1 0             // [fp + 0] = [fp + -4] op 1
-  10: 14 0 3 _             // if [fp + 0] != 0 jmp rel fib_4
+   9: 5 -4 1 5             // [fp + 5] = [fp + -4] op 1
+  10: 14 5 3 _             // if [fp + 5] != 0 jmp rel fib_4
 fib_3:
   11: 9 1 -3 _             // Return value 0: [fp -3] = 1
   12: 11 _ _ _             // return
 fib_4:
-  13: 5 -4 1 1             // [fp + 1] = [fp + -4] op 1
-  14: 10 3 5 _             // call fib
-  15: 5 -4 2 4             // [fp + 4] = [fp + -4] op 2
-  16: 10 6 5 _             // call fib
-  17: 0 2 5 -3             // [fp + -3] = [fp + 2] op [fp + 5]
+  13: 5 -4 1 6             // [fp + 6] = [fp + -4] op 1
+  14: 10 8 5 _             // call fib
+  15: 5 -4 2 9             // [fp + 9] = [fp + -4] op 2
+  16: 10 11 5 _            // call fib
+  17: 0 7 10 -3            // [fp + -3] = [fp + 7] op [fp + 10]
   18: 11 _ _ _             // return

@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use cairo_m_compiler_parser::parser::UnaryOp;
 use chumsky::span::SimpleSpan;
 
-use crate::{PrettyPrint, Value, ValueId};
+use crate::{MirType, PrettyPrint, Value, ValueId};
 
 /// Binary operators supported in MIR
 ///
@@ -91,6 +91,17 @@ pub struct MirExpressionId {
     pub file_id: u64,
 }
 
+/// Represents the signature of a called function
+///
+/// This struct contains the parameter and return types of a function being called,
+/// allowing the code generator to handle argument passing and return value allocation
+/// without needing to look up the callee's information.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CalleeSignature {
+    pub param_types: Vec<MirType>,
+    pub return_types: Vec<MirType>,
+}
+
 /// An instruction performs an operation but does NOT transfer control
 ///
 /// Instructions always fall through to the next instruction in the block.
@@ -125,6 +136,10 @@ pub enum InstructionKind {
     /// Used for variable assignments and copies
     Assign { dest: ValueId, source: Value },
 
+    /// U32 assignment: `dest = source`
+    /// Used for u32 variable assignments and copies
+    AssignU32 { dest: ValueId, source: Value },
+
     /// Unary operation: `dest = op source`
     /// Used for unary operations like negation and logical not
     UnaryOp {
@@ -156,6 +171,7 @@ pub enum InstructionKind {
         dests: Vec<ValueId>,
         callee: crate::FunctionId,
         args: Vec<Value>,
+        signature: CalleeSignature,
     },
 
     /// Void function call: `call callee(args)`
@@ -163,6 +179,7 @@ pub enum InstructionKind {
     VoidCall {
         callee: crate::FunctionId,
         args: Vec<Value>,
+        signature: CalleeSignature,
     },
 
     /// Load from memory: `dest = load addr`
@@ -172,6 +189,10 @@ pub enum InstructionKind {
     /// Store to memory: `store addr, value`
     /// For writing to memory locations
     Store { address: Value, value: Value },
+
+    /// Store to memory: `store [addr, addr+1], [value_low, value_high]`
+    /// For writing to memory locations
+    StoreU32 { address: Value, value: Value },
 
     /// Allocate space on the stack: `dest = stackalloc size`
     /// For allocating local variables and temporary storage
@@ -212,6 +233,16 @@ impl Instruction {
     pub const fn assign(dest: ValueId, source: Value) -> Self {
         Self {
             kind: InstructionKind::Assign { dest, source },
+            source_span: None,
+            source_expr_id: None,
+            comment: None,
+        }
+    }
+
+    /// Creates a new u32 assignment instruction
+    pub const fn assign_u32(dest: ValueId, source: Value) -> Self {
+        Self {
+            kind: InstructionKind::AssignU32 { dest, source },
             source_span: None,
             source_expr_id: None,
             comment: None,
@@ -269,6 +300,15 @@ impl Instruction {
         }
     }
 
+    pub const fn store_u32(address: Value, value: Value) -> Self {
+        Self {
+            kind: InstructionKind::StoreU32 { address, value },
+            source_span: None,
+            source_expr_id: None,
+            comment: None,
+        }
+    }
+
     /// Creates a new stack allocation instruction
     pub const fn stack_alloc(dest: ValueId, size: usize) -> Self {
         Self {
@@ -291,11 +331,18 @@ impl Instruction {
 
     /// Creates a new call instruction with multiple return values
     pub const fn call(dests: Vec<ValueId>, callee: crate::FunctionId, args: Vec<Value>) -> Self {
+        // Temporary placeholder signature - will be properly populated in Issue 4
+        let signature = CalleeSignature {
+            param_types: vec![],
+            return_types: vec![],
+        };
+
         Self {
             kind: InstructionKind::Call {
                 dests,
                 callee,
                 args,
+                signature,
             },
             source_span: None,
             source_expr_id: None,
@@ -304,9 +351,17 @@ impl Instruction {
     }
 
     /// Creates a new void call instruction
-    pub const fn void_call(callee: crate::FunctionId, args: Vec<Value>) -> Self {
+    pub const fn void_call(
+        callee: crate::FunctionId,
+        args: Vec<Value>,
+        signature: CalleeSignature,
+    ) -> Self {
         Self {
-            kind: InstructionKind::VoidCall { callee, args },
+            kind: InstructionKind::VoidCall {
+                callee,
+                args,
+                signature,
+            },
             source_span: None,
             source_expr_id: None,
             comment: None,
@@ -365,6 +420,7 @@ impl Instruction {
     pub fn destinations(&self) -> Vec<ValueId> {
         match &self.kind {
             InstructionKind::Assign { dest, .. }
+            | InstructionKind::AssignU32 { dest, .. }
             | InstructionKind::UnaryOp { dest, .. }
             | InstructionKind::BinaryOp { dest, .. }
             | InstructionKind::Load { dest, .. }
@@ -377,6 +433,7 @@ impl Instruction {
 
             InstructionKind::VoidCall { .. }
             | InstructionKind::Store { .. }
+            | InstructionKind::StoreU32 { .. }
             | InstructionKind::Debug { .. } => vec![],
         }
     }
@@ -396,7 +453,7 @@ impl Instruction {
         let mut used = HashSet::new();
 
         match &self.kind {
-            InstructionKind::Assign { source, .. } => {
+            InstructionKind::Assign { source, .. } | InstructionKind::AssignU32 { source, .. } => {
                 if let Value::Operand(id) = source {
                     used.insert(*id);
                 }
@@ -432,6 +489,15 @@ impl Instruction {
             }
 
             InstructionKind::Store { address, value } => {
+                if let Value::Operand(id) = address {
+                    used.insert(*id);
+                }
+                if let Value::Operand(id) = value {
+                    used.insert(*id);
+                }
+            }
+
+            InstructionKind::StoreU32 { address, value } => {
                 if let Value::Operand(id) = address {
                     used.insert(*id);
                 }
@@ -479,12 +545,14 @@ impl Instruction {
     pub const fn validate(&self) -> Result<(), String> {
         match &self.kind {
             InstructionKind::Assign { .. } => Ok(()),
+            InstructionKind::AssignU32 { .. } => Ok(()),
             InstructionKind::UnaryOp { .. } => Ok(()),
             InstructionKind::BinaryOp { .. } => Ok(()),
             InstructionKind::Call { .. } => Ok(()),
             InstructionKind::VoidCall { .. } => Ok(()),
             InstructionKind::Load { .. } => Ok(()),
             InstructionKind::Store { .. } => Ok(()),
+            InstructionKind::StoreU32 { .. } => Ok(()),
             InstructionKind::StackAlloc { .. } => Ok(()),
             InstructionKind::AddressOf { .. } => Ok(()),
             InstructionKind::GetElementPtr { .. } => Ok(()),
@@ -523,6 +591,14 @@ impl PrettyPrint for Instruction {
             InstructionKind::Assign { dest, source } => {
                 result.push_str(&format!(
                     "{} = {}",
+                    dest.pretty_print(0),
+                    source.pretty_print(0)
+                ));
+            }
+
+            InstructionKind::AssignU32 { dest, source } => {
+                result.push_str(&format!(
+                    "{} = {} (u32)",
                     dest.pretty_print(0),
                     source.pretty_print(0)
                 ));
@@ -576,6 +652,7 @@ impl PrettyPrint for Instruction {
                 dests,
                 callee,
                 args,
+                signature: _,
             } => {
                 let args_str = args
                     .iter()
@@ -603,7 +680,7 @@ impl PrettyPrint for Instruction {
                 }
             }
 
-            InstructionKind::VoidCall { callee, args } => {
+            InstructionKind::VoidCall { callee, args, .. } => {
                 let args_str = args
                     .iter()
                     .map(|arg| arg.pretty_print(0))
@@ -623,6 +700,14 @@ impl PrettyPrint for Instruction {
             InstructionKind::Store { address, value } => {
                 result.push_str(&format!(
                     "store {}, {}",
+                    address.pretty_print(0),
+                    value.pretty_print(0)
+                ));
+            }
+
+            InstructionKind::StoreU32 { address, value } => {
+                result.push_str(&format!(
+                    "storeU32 [{}], [{}]",
                     address.pretty_print(0),
                     value.pretty_print(0)
                 ));

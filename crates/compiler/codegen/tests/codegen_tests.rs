@@ -151,6 +151,7 @@ codegen_test!(and, "arithmetic");
 codegen_test!(or, "arithmetic");
 codegen_test!(left_imm, "arithmetic");
 codegen_test!(unary, "arithmetic");
+codegen_test!(u32_ops, "arithmetic");
 
 // --- Control Flow ---
 codegen_test!(simple_if, "control_flow");
@@ -171,7 +172,6 @@ codegen_test!(args_in_order, "optimization");
 codegen_test!(single_arg_optimization, "optimization");
 
 codegen_test!(random_instructions, "random_instructions");
-
 // --- expressions ---
 codegen_test!(tuple_destructuring, "expressions");
 

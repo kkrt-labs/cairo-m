@@ -1,6 +1,6 @@
 use std::fs;
 
-use cairo_m_common::Program;
+use cairo_m_common::{CairoMSerialize, Program};
 use cairo_m_compiler::{compile_cairo, CompilerOptions};
 use cairo_m_runner::run_cairo_program;
 use stwo_prover::core::fields::m31::M31;
@@ -13,6 +13,18 @@ struct DiffTest {
     args: Vec<M31>,
     rust_fn: fn() -> u32,
     description: &'static str,
+}
+
+/// Macro to encode a list of values into M31 args
+macro_rules! args {
+    () => { vec![] };
+    ($($arg:expr),+ $(,)?) => {{
+        let mut encoded = Vec::new();
+        $(
+            $arg.encode(&mut encoded);
+        )+
+        encoded
+    }};
 }
 
 /// Macro to create a diff test with minimal boilerplate
@@ -85,16 +97,39 @@ fn run_diff_test(test: DiffTest) {
     // Run Rust implementation
     let rust_result = (test.rust_fn)();
 
-    assert!(
-        cairo_result.return_values.len() == 1,
-        "Expected exactly one return value, got {}",
-        cairo_result.return_values.len()
-    );
-    assert_eq!(
-        cairo_result.return_values[0].0, rust_result,
-        "Results differ! Cairo-M: {}, Rust: {} \n for test: {} \n {}",
-        cairo_result.return_values[0].0, rust_result, test.name, test.description
-    );
+    // TODO: we should introduce a trait that easily enables us to serialize/deserialize the return values and args.
+    // Check if this is a u32 test by checking the entrypoint info
+    let entrypoint_info = program
+        .get_entrypoint(test.entrypoint)
+        .expect("Entrypoint not found");
+    let is_u32_return = entrypoint_info.returns.len() == 1 && entrypoint_info.returns[0].slots == 2;
+
+    if is_u32_return {
+        // For u32 returns, we expect 2 M31 values
+        assert!(
+            cairo_result.return_values.len() == 2,
+            "Expected exactly two return values for u32, got {}",
+            cairo_result.return_values.len()
+        );
+        let (cairo_u32, _) = u32::decode(&cairo_result.return_values, 0);
+        assert_eq!(
+            cairo_u32, rust_result,
+            "Results differ! Cairo-M: {}, Rust: {} \n for test: {} \n {}",
+            cairo_u32, rust_result, test.name, test.description
+        );
+    } else {
+        // For felt returns, we expect 1 M31 value
+        assert!(
+            cairo_result.return_values.len() == 1,
+            "Expected exactly one return value, got {}",
+            cairo_result.return_values.len()
+        );
+        assert_eq!(
+            cairo_result.return_values[0].0, rust_result,
+            "Results differ! Cairo-M: {}, Rust: {} \n for test: {} \n {}",
+            cairo_result.return_values[0].0, rust_result, test.name, test.description
+        );
+    }
 }
 
 // Test implementations
@@ -117,7 +152,7 @@ diff_test!(
     test_fibonacci_recursive,
     "fibonacci.cm",
     "fib",
-    vec![M31::from(10)],
+    args![M31::from(10)],
     rust_fib_recursive,
     "Recursive Fibonacci computation for n=10"
 );
@@ -141,7 +176,7 @@ diff_test!(
     test_fibonacci_loop,
     "fibonacci_loop.cm",
     "fibonacci_loop",
-    vec![M31::from(10)],
+    args![M31::from(10)],
     rust_fibonacci_loop,
     "Fibonacci loop computation for n=10"
 );
@@ -182,7 +217,7 @@ diff_test!(
     test_power,
     "power.cm",
     "power",
-    vec![M31::from(3), M31::from(10)],
+    args![M31::from(3), M31::from(10)],
     rust_power,
     "3^10 computation"
 );
@@ -413,4 +448,78 @@ diff_test!(
     "nested_while_loops",
     nested_while_loops,
     "Nested while loops"
+);
+
+// U32 operations test
+const fn rust_u32_add() -> u32 {
+    let a: u32 = 1000000;
+    let b: u32 = 2345678;
+    a.wrapping_add(b).wrapping_add(1)
+}
+
+const fn rust_u32_sub() -> u32 {
+    let a: u32 = 1000000;
+    let b: u32 = 2345678;
+    a.wrapping_sub(b).wrapping_sub(1)
+}
+
+const fn rust_u32_mul() -> u32 {
+    let a: u32 = 1000000;
+    let b: u32 = 2345678;
+    a.wrapping_mul(b).wrapping_mul(2)
+}
+
+const fn rust_u32_div() -> u32 {
+    let a: u32 = 1000000;
+    let b: u32 = 2345678;
+    a.wrapping_div(b).wrapping_div(2)
+}
+
+diff_test!(
+    test_u32_add,
+    "u32_operations.cm",
+    "add",
+    args![1000000u32, 2345678u32],
+    rust_u32_add,
+    "U32 addition test"
+);
+
+diff_test!(
+    test_u32_sub,
+    "u32_operations.cm",
+    "sub",
+    args![1000000u32, 2345678u32],
+    rust_u32_sub,
+    "U32 subtraction test"
+);
+
+diff_test!(
+    test_u32_mul,
+    "u32_operations.cm",
+    "mul",
+    args![1000000u32, 2345678u32],
+    rust_u32_mul,
+    "U32 multiplication test"
+);
+
+diff_test!(
+    test_u32_div,
+    "u32_operations.cm",
+    "div",
+    args![1000000u32, 2345678u32],
+    rust_u32_div,
+    "U32 division test"
+);
+
+// U32 literal return tests
+const fn rust_u32_literal() -> u32 {
+    42
+}
+
+diff_test!(
+    test_u32_literal_return,
+    "u32_operations.cm",
+    "get_u32_literal",
+    rust_u32_literal,
+    "U32 literal return test"
 );
