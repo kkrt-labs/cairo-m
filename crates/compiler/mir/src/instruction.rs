@@ -409,12 +409,17 @@ impl Instruction {
     }
 
     /// Creates a new call instruction with multiple return values
-    pub const fn call(dests: Vec<ValueId>, callee: crate::FunctionId, args: Vec<Value>) -> Self {
-        // Temporary placeholder signature - will be properly populated in Issue 4
-        let signature = CalleeSignature {
-            param_types: vec![],
-            return_types: vec![],
-        };
+    pub fn call(
+        dests: Vec<ValueId>,
+        callee: crate::FunctionId,
+        args: Vec<Value>,
+        signature: CalleeSignature,
+    ) -> Self {
+        debug_assert_eq!(
+            dests.len(),
+            signature.return_types.len(),
+            "Call instruction destination count mismatch with signature return count"
+        );
 
         Self {
             kind: InstructionKind::Call {

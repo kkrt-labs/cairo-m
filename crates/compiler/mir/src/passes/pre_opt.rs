@@ -3,7 +3,7 @@ use rustc_hash::FxHashMap;
 
 /// Pre-optimization pass that runs immediately after lowering
 ///
-/// With the introduction of proper SSA form and ValueKind tracking, many optimizations
+/// With the introduction of proper SSA form and pointer types, many optimizations
 /// that were previously needed are now handled naturally during the lowering phase:
 ///
 /// - Binary operations in let statements generate efficient code directly

@@ -11,7 +11,7 @@ use cairo_m_compiler_semantic::type_resolution::{
 };
 use cairo_m_compiler_semantic::types::TypeData;
 
-use crate::{Instruction, MirType, Terminator, Value, ValueKind};
+use crate::{Instruction, MirType, Terminator, Value};
 
 use super::builder::MirBuilder;
 use super::expr::LowerExpr;
@@ -214,9 +214,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         let elem_value = self.state.mir_function.new_typed_value_id(mir_type);
 
                         // Register loaded value as a Value
-                        self.state
-                            .mir_function
-                            .register_value_kind(elem_value, ValueKind::Value);
 
                         self.instr().add_instruction(
                             Instruction::load(elem_value, Value::operand(elem_ptr))
@@ -278,42 +275,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 );
                 let result_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
 
-                // Try to get the LHS ValueId directly if it's a simple identifier
-                let lhs_value_id = if let Expression::Identifier(name) = lhs.value() {
-                    // Get the expression info for the LHS to get its scope
-                    let lhs_expr_id = self
-                        .ctx
-                        .semantic_index
-                        .expression_id_by_span(lhs.span())
-                        .ok_or_else(|| {
-                            format!("MIR: No ExpressionId found for LHS span {:?}", lhs.span())
-                        })?;
-                    let lhs_expr_info = self
-                        .ctx
-                        .semantic_index
-                        .expression(lhs_expr_id)
-                        .ok_or_else(|| {
-                            format!("MIR: No ExpressionInfo for LHS ID {lhs_expr_id:?}")
-                        })?;
-
-                    // Resolve the identifier to a definition
-                    if let Some((def_idx, _)) = self
-                        .ctx
-                        .semantic_index
-                        .resolve_name_to_definition(name.value(), lhs_expr_info.scope_id)
-                    {
-                        let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
-                        let mir_def_id = self.convert_definition_id(def_id);
-
-                        // Look up the ValueId for this definition
-                        self.state.definition_to_value.get(&mir_def_id).copied()
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
-
                 // Get the type of the left operand to determine the correct binary operation
                 let left_expr_id = self
                     .ctx
@@ -331,18 +292,14 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 let left_type_data = left_type.data(self.ctx.db);
                 let typed_op = crate::BinaryOp::from_parser(*op, &left_type_data)?;
 
-                if let Some(dest_id) = lhs_value_id {
-                    // Generate single binary operation instruction directly to LHS
-                    self.instr()
-                        .binary_op_with_dest(typed_op, dest_id, left_value, right_value);
-                } else {
-                    // Fall back to two-instruction approach for complex LHS expressions
-                    let dest = self.state.mir_function.new_typed_value_id(result_type);
-                    self.instr()
-                        .binary_op_with_dest(typed_op, dest, left_value, right_value);
-                    let lhs_address = self.lower_lvalue_expression(lhs)?;
-                    self.instr().store(lhs_address, Value::operand(dest));
-                }
+                // Always create a new ValueId for the result to maintain SSA form
+                let dest = self.state.mir_function.new_typed_value_id(result_type);
+                self.instr()
+                    .binary_op_with_dest(typed_op, dest, left_value, right_value);
+
+                // Store the result to the LHS address
+                let lhs_address = self.lower_lvalue_expression(lhs)?;
+                self.instr().store(lhs_address, Value::operand(dest));
             }
             _ => {
                 // Standard assignment: lower RHS then store to LHS
@@ -738,9 +695,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         .new_typed_value_id(element_mir_type.clone());
 
                     // Register loaded value as a Value
-                    self.state
-                        .mir_function
-                        .register_value_kind(elem_value, ValueKind::Value);
 
                     self.instr().add_instruction(
                         Instruction::load(elem_value, Value::operand(elem_ptr))

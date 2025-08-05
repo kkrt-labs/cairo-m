@@ -12,7 +12,7 @@ use cairo_m_compiler_semantic::type_resolution::{
 use cairo_m_compiler_semantic::types::TypeData;
 
 use crate::instruction::CalleeSignature;
-use crate::{Instruction, InstructionKind, MirType, Value, ValueKind};
+use crate::{Instruction, MirType, Value};
 
 use super::builder::{CallResult, MirBuilder};
 
@@ -284,38 +284,31 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
             // Look up the MIR value for this definition
             if let Some(var_value) = self.state.definition_to_value.get(&mir_def_id).copied() {
-                // Check the ValueKind to determine if we need to load
-                // First check if it's a parameter (old behavior as fallback)
+                // Check if it's a parameter (parameters are always values, not pointers)
                 if self.state.mir_function.parameters.contains(&var_value) {
                     // It's a parameter - use it directly
                     return Ok(Value::operand(var_value));
                 }
 
-                // Check the ValueKind tracking
-                match self.state.mir_function.get_value_kind(var_value) {
-                    Some(ValueKind::Value) | Some(ValueKind::Parameter) => {
-                        // It's a value or parameter - use it directly
-                        return Ok(Value::operand(var_value));
-                    }
-                    Some(ValueKind::Address) | None => {
-                        // It's an address or unknown (treat as address for backward compatibility)
-                        // Variables are stored in memory, so we need to load them
-                        let semantic_type =
-                            definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
-                        let var_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
-                        let loaded_value = self.state.mir_function.new_typed_value_id(var_type);
+                // Get the type of the value to check if it's a pointer
+                let value_type = self.state.mir_function.get_value_type(var_value);
 
-                        // Register loaded value as a Value
-                        self.state
-                            .mir_function
-                            .register_value_kind(loaded_value, ValueKind::Value);
+                // Check if the type is a pointer - if so, we need to load
+                if let Some(MirType::Pointer(_)) = value_type {
+                    // It's a pointer - we need to load the value
+                    let semantic_type =
+                        definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
+                    let var_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
+                    let loaded_value = self.state.mir_function.new_typed_value_id(var_type);
 
-                        self.instr().add_instruction(Instruction::load(
-                            loaded_value,
-                            Value::operand(var_value),
-                        ));
-                        return Ok(Value::operand(loaded_value));
-                    }
+                    self.instr().add_instruction(Instruction::load(
+                        loaded_value,
+                        Value::operand(var_value),
+                    ));
+                    return Ok(Value::operand(loaded_value));
+                } else {
+                    // It's not a pointer - use it directly
+                    return Ok(Value::operand(var_value));
                 }
             }
         }
@@ -341,9 +334,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         let dest = self.instr().unary_op(op, expr_value, result_type);
 
         // Register unary op result as a Value
-        self.state
-            .mir_function
-            .register_value_kind(dest, ValueKind::Value);
 
         Ok(Value::operand(dest))
     }
@@ -365,9 +355,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         let dest = self.state.mir_function.new_typed_value_id(result_type);
 
         // Register binary op result as a Value
-        self.state
-            .mir_function
-            .register_value_kind(dest, ValueKind::Value);
 
         // Get the type of the left operand to determine the correct binary operation
         let left_expr_id = self
@@ -416,9 +403,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     .new_typed_value_id(MirType::pointer(tuple_type.clone()));
 
                 // Register stack allocation as an address
-                self.state
-                    .mir_function
-                    .register_value_kind(tuple_addr, ValueKind::Address);
 
                 self.instr().add_instruction(
                     Instruction::stack_alloc(tuple_addr, tuple_type.size_units())
@@ -512,9 +496,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         let loaded_value = self.state.mir_function.new_typed_value_id(field_type);
 
         // Register loaded value as a Value
-        self.state
-            .mir_function
-            .register_value_kind(loaded_value, ValueKind::Value);
 
         // TODO: This should emit a load with the proper type (e.g. LoadU32?)
         self.instr().load(loaded_value, Value::operand(field_addr));
@@ -555,9 +536,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         let loaded_value = self.state.mir_function.new_typed_value_id(element_type);
 
         // Register loaded value as a Value
-        self.state
-            .mir_function
-            .register_value_kind(loaded_value, ValueKind::Value);
 
         self.instr()
             .load(loaded_value, Value::operand(element_addr));
@@ -602,9 +580,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     let mir_type = MirType::from_semantic_type(self.ctx.db, elem_type);
                     let dest = self.state.mir_function.new_typed_value_id(mir_type);
                     // Register each return value as a Value since it's computed by the function
-                    self.state
-                        .mir_function
-                        .register_value_kind(dest, ValueKind::Value);
                     dests.push(dest);
                 }
 
@@ -615,14 +590,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 };
 
                 // Create the call instruction with the signature
-                let mut call_instr = Instruction::call(dests.clone(), func_id, arg_values);
-                if let InstructionKind::Call {
-                    signature: ref mut sig,
-                    ..
-                } = &mut call_instr.kind
-                {
-                    *sig = signature;
-                }
+                let call_instr = Instruction::call(dests.clone(), func_id, arg_values, signature);
                 self.instr().add_instruction(call_instr);
 
                 // Return the tuple values directly
@@ -635,9 +603,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 let return_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
                 let dest = self.state.mir_function.new_typed_value_id(return_type);
                 // Register return value as a Value since it's computed by the function
-                self.state
-                    .mir_function
-                    .register_value_kind(dest, ValueKind::Value);
 
                 // Create the CalleeSignature
                 let signature = CalleeSignature {
@@ -646,14 +611,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 };
 
                 // Create the call instruction with the signature
-                let mut call_instr = Instruction::call(vec![dest], func_id, arg_values);
-                if let InstructionKind::Call {
-                    signature: ref mut sig,
-                    ..
-                } = &mut call_instr.kind
-                {
-                    *sig = signature;
-                }
+                let call_instr = Instruction::call(vec![dest], func_id, arg_values, signature);
                 self.instr().add_instruction(call_instr);
 
                 Ok(CallResult::Single(Value::operand(dest)))
@@ -712,9 +670,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             .new_typed_value_id(MirType::pointer(struct_type.clone()));
 
         // Register stack allocation as an address
-        self.state
-            .mir_function
-            .register_value_kind(struct_addr, ValueKind::Address);
 
         self.instr().add_instruction(
             Instruction::stack_alloc(struct_addr, struct_type.size_units())
@@ -797,9 +752,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             .new_typed_value_id(MirType::pointer(tuple_type.clone()));
 
         // Register stack allocation as an address
-        self.state
-            .mir_function
-            .register_value_kind(tuple_addr, ValueKind::Address);
 
         self.instr().add_instruction(
             Instruction::stack_alloc(tuple_addr, tuple_type.size_units())
@@ -909,9 +861,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         let loaded_value = self.state.mir_function.new_typed_value_id(element_mir_type);
 
         // Register loaded value as a Value
-        self.state
-            .mir_function
-            .register_value_kind(loaded_value, ValueKind::Value);
 
         self.instr().add_instruction(
             Instruction::load(loaded_value, Value::operand(element_addr))

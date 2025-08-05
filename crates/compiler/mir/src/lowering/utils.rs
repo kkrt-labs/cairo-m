@@ -15,9 +15,7 @@ use cairo_m_compiler_semantic::SemanticIndex;
 
 use crate::instruction::CalleeSignature;
 use crate::mir_types::InstructionEmitter;
-use crate::{
-    BasicBlockId, FunctionId, Instruction, InstructionKind, MirType, Value, ValueId, ValueKind,
-};
+use crate::{BasicBlockId, FunctionId, Instruction, MirType, Value, ValueId};
 
 use super::builder::MirBuilder;
 
@@ -78,29 +76,25 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             return Ok(());
         }
 
-        // Check if the value is already a simple value (not an address)
-        // If so, we can just map the variable directly to it without allocation
+        // Check if we can use the value directly without allocation
+        // This optimization avoids unnecessary stack allocation for simple values
         match value {
             Value::Operand(value_id) => {
-                // Check if this is a value (not an address) that we can use directly
-                if self.state.mir_function.is_value(value_id) {
-                    // Direct mapping - no allocation needed!
-                    self.state.definition_to_value.insert(mir_def_id, value_id);
-                    return Ok(());
+                // Check if this operand is already a non-pointer value we can use directly
+                if let Some(value_type) = self.state.mir_function.get_value_type(value_id) {
+                    if !matches!(value_type, MirType::Pointer(_)) {
+                        // It's a value (not a pointer) - we can use it directly without allocation!
+                        self.state.definition_to_value.insert(mir_def_id, value_id);
+                        return Ok(());
+                    }
                 }
             }
             Value::Literal(_) => {
-                // Literals are immediate values, not addresses
-                // We need to create a value instruction for them
+                // Literals are immediate values - create a value instruction for them
                 let semantic_type =
                     definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
                 let var_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
                 let value_id = self.state.mir_function.new_typed_value_id(var_type);
-
-                // Register as a Value since it's an immediate
-                self.state
-                    .mir_function
-                    .register_value_kind(value_id, ValueKind::Value);
 
                 // Create a move/immediate instruction
                 self.instr()
@@ -125,11 +119,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             .state
             .mir_function
             .new_typed_value_id(MirType::pointer(var_type.clone()));
-
-        // Register this as an address since stack_alloc returns an address
-        self.state
-            .mir_function
-            .register_value_kind(var_addr, ValueKind::Address);
 
         let mut instr = self.instr();
         instr.add_instruction(Instruction::stack_alloc(var_addr, var_type.size_units()));
@@ -240,14 +229,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         };
 
         // Create the call instruction with the signature
-        let mut call_instr = Instruction::call(dests, func_id, args);
-        if let InstructionKind::Call {
-            signature: ref mut sig,
-            ..
-        } = &mut call_instr.kind
-        {
-            *sig = signature;
-        }
+        let call_instr = Instruction::call(dests, func_id, args, signature);
         self.instr().add_instruction(call_instr);
         Ok(())
     }

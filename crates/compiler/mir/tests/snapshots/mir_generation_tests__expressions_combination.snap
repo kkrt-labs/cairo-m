@@ -80,77 +80,78 @@ module {
     1:
       store %5, 1
       %6 = %4 Add %5
-      %4 = %6 Add 1
+      %7 = %6 Add 1
+      store %4, %7
       jump 2
 
     2:
       %4 = %4 Mul %4
-      %7 = %2 Div 2
-      %4 = %4 Add %7
-      %8 = %0 Eq 3
-      %9 = 0
-      if %8 then jump 3 else jump 4
+      %9 = %2 Div 2
+      %4 = %4 Add %9
+      %11 = %0 Eq 3
+      %12 = 0
+      if %11 then jump 3 else jump 4
 
     3:
-      store %9, 1
+      store %12, 1
       jump 4
 
     4:
-      %10 = 0
+      %13 = 0
       if %1 Eq 3 then jump 5 else jump 6
 
     5:
-      store %10, 1
+      store %13, 1
       jump 6
 
     6:
-      %12 = %0 Neq 0
-      %13 = %10 Add 2
-      %14 = %13 Neq 0
-      %15 = %12 Or %14
-      %16 = 0
-      if %15 then jump 7 else jump 8
+      %15 = %0 Neq 0
+      %16 = %13 Add 2
+      %17 = %16 Neq 0
+      %18 = %15 Or %17
+      %19 = 0
+      if %18 then jump 7 else jump 8
 
     7:
-      store %16, 1
+      store %19, 1
       jump 8
 
     8:
-      %17 = %5 Neq 2
-      %18 = 3 Neq 0
-      %19 = %17 And %18
-      %20 = 0
-      if %19 then jump 9 else jump 10
+      %20 = %5 Neq 2
+      %21 = 3 Neq 0
+      %22 = %20 And %21
+      %23 = 0
+      if %22 then jump 9 else jump 10
 
     9:
-      store %20, 1
+      store %23, 1
       jump 10
 
     10:
-      %21 = 0
+      %24 = 0
       jump 11
 
     11:
-      if %21 Neq 3 then jump 12 else jump 14
+      if %24 Neq 3 then jump 12 else jump 14
 
     12:
-      %4 = %4 Add %21
+      %4 = %4 Add %24
       jump 13
 
     13:
-      %21 = %21 Add 1
+      %24 = %24 Add 1
       jump 11
 
     14:
-      %23, %24 = call 1()
-      %25 = %4 Add %9
-      %26 = %25 Add %23
-      %27 = call 2()
-      %28 = %26 Add %27
-      %29 = %28 Add %24
-      %30 = %29 Add %16
-      %31 = %30 Add %20
-      return %31
+      %28, %29 = call 1()
+      %30 = %4 Add %12
+      %31 = %30 Add %28
+      %32 = call 2()
+      %33 = %31 Add %32
+      %34 = %33 Add %29
+      %35 = %34 Add %19
+      %36 = %35 Add %23
+      return %36
 
   }
 

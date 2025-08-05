@@ -8,8 +8,7 @@ use cairo_m_compiler_parser::parser::UnaryOp;
 
 use crate::instruction::CalleeSignature;
 use crate::{
-    BasicBlockId, BinaryOp, FunctionId, Instruction, InstructionKind, Literal, MirFunction,
-    MirType, Value, ValueId,
+    BasicBlockId, BinaryOp, FunctionId, Instruction, Literal, MirFunction, MirType, Value, ValueId,
 };
 
 /// A builder for creating MIR instructions with a fluent API
@@ -80,14 +79,7 @@ impl<'f> InstrBuilder<'f> {
         args: Vec<Value>,
         signature: CalleeSignature,
     ) -> &mut Self {
-        let mut instr = Instruction::call(dests, func_id, args);
-        if let InstructionKind::Call {
-            signature: ref mut sig,
-            ..
-        } = &mut instr.kind
-        {
-            *sig = signature;
-        }
+        let instr = Instruction::call(dests, func_id, args, signature);
         self.add_instruction(instr);
         self
     }
@@ -126,12 +118,19 @@ impl<'f> InstrBuilder<'f> {
         args: Vec<Value>,
         return_types: Vec<MirType>,
     ) -> Vec<ValueId> {
+        // Since we don't have param_types here, create a signature with empty param_types
+        // The lowering code should use call_with_signature instead when it has full type info
+        let signature = CalleeSignature {
+            param_types: vec![],
+            return_types: return_types.clone(),
+        };
+
         let dests: Vec<ValueId> = return_types
             .iter()
             .map(|ty| self.function.new_typed_value_id(ty.clone()))
             .collect();
 
-        let instr = Instruction::call(dests.clone(), callee, args);
+        let instr = Instruction::call(dests.clone(), callee, args, signature);
         self.add_instruction(instr);
         dests
     }

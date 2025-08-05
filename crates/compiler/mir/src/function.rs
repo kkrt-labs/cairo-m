@@ -4,12 +4,9 @@
 //! the Control Flow Graph (CFG) of basic blocks.
 
 use index_vec::IndexVec;
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
-use crate::{
-    indent_str, BasicBlock, BasicBlockId, MirType, PrettyPrint, ValueId, ValueKind,
-    ValueKindTracker,
-};
+use crate::{indent_str, BasicBlock, BasicBlockId, MirType, PrettyPrint, ValueId};
 
 /// A simple definition identifier for MIR that doesn't depend on Salsa lifetimes
 ///
@@ -65,9 +62,9 @@ pub struct MirFunction {
     /// Maps ValueId to its MirType for type checking and optimization
     pub value_types: FxHashMap<ValueId, MirType>,
 
-    /// Tracks whether each ValueId represents an address or a value
-    /// This is a temporary solution during migration to proper SSA
-    pub value_kinds: ValueKindTracker,
+    /// Track which ValueIds have been used as destinations
+    /// Used to enforce SSA - each ValueId can only be defined once
+    pub(crate) defined_values: FxHashSet<ValueId>,
 }
 
 impl MirFunction {
@@ -85,7 +82,7 @@ impl MirFunction {
             return_values: Vec::new(),
             next_value_id: 0,
             value_types: FxHashMap::default(),
-            value_kinds: ValueKindTracker::new(),
+            defined_values: FxHashSet::default(),
         }
     }
 
@@ -144,24 +141,16 @@ impl MirFunction {
             .unwrap_or(MirType::unknown())
     }
 
-    /// Registers a value with its kind (address, value, or parameter)
-    pub fn register_value_kind(&mut self, value_id: ValueId, kind: ValueKind) {
-        self.value_kinds.register(value_id, kind);
-    }
-
-    /// Gets the kind for a value ID
-    pub fn get_value_kind(&self, value_id: ValueId) -> Option<ValueKind> {
-        self.value_kinds.get(value_id)
-    }
-
-    /// Checks if a value needs to be loaded (is an address)
-    pub fn needs_load(&self, value_id: ValueId) -> bool {
-        self.value_kinds.needs_load(value_id)
-    }
-
-    /// Checks if a value can be used directly (is a value or parameter)
-    pub fn is_value(&self, value_id: ValueId) -> bool {
-        self.value_kinds.is_value(value_id)
+    /// Marks a ValueId as defined, enforcing SSA form
+    /// Returns an error if the ValueId has already been defined
+    pub fn mark_as_defined(&mut self, dest: ValueId) -> Result<(), String> {
+        if !self.defined_values.insert(dest) {
+            return Err(format!(
+                "SSA violation: ValueId {:?} is being defined multiple times",
+                dest
+            ));
+        }
+        Ok(())
     }
 
     /// Maps a semantic definition to a MIR value

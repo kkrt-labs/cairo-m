@@ -119,7 +119,12 @@ impl<'a> TestBlockBuilder<'a> {
     /// Adds a function call instruction
     pub fn call(&mut self, callee: FunctionId, args: Vec<Value>) -> ValueId {
         let dest = self.function.new_value_id();
-        let instruction = Instruction::call(vec![dest], callee, args);
+        // For testing, create a simple signature
+        let signature = CalleeSignature {
+            param_types: args.iter().map(|_| MirType::Felt).collect(),
+            return_types: vec![MirType::Felt],
+        };
+        let instruction = Instruction::call(vec![dest], callee, args, signature);
         self.function
             .get_basic_block_mut(self.current_block)
             .unwrap()
