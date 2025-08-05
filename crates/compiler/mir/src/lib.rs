@@ -63,7 +63,6 @@ pub mod basic_block;
 pub mod db;
 pub mod function;
 pub mod instruction;
-pub mod ir_generation;
 pub mod lowering;
 pub mod mir_types;
 pub mod module;
@@ -71,10 +70,8 @@ pub mod passes;
 pub mod terminator;
 pub mod value;
 
-// Re-export the main IR generation function
-// Re-export database traits and functions
 pub use db::{generate_mir as db_generate_mir, MirDb};
-pub use ir_generation::generate_mir;
+pub use lowering::generate_mir;
 
 #[cfg(test)]
 pub mod testing;

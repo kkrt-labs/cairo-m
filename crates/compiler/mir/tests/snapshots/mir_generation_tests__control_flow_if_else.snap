@@ -1,0 +1,51 @@
+---
+source: crates/compiler/mir/tests/mir_generation_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/compiler/mir/tests/mir_generation_tests.rs
+expression: mir_output
+---
+Fixture: if_else.cm
+============================================================
+Source code:
+//!ASSERT BLOCK_COUNT(test): 4 // entry, then, else, merge
+
+// Tests a standard `if-else` statement where both branches continue execution.
+fn test(x: felt) -> felt {
+    let a = 0;
+    if (x == 10) {
+        a = 1;
+    } else {
+        a = 2;
+    }
+    return a;
+}
+
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test {
+    parameters: [0]
+    entry: 0
+
+    0:
+      %1 = stackalloc 1
+      store %1, 0
+      if %0 Eq 10 then jump 1 else jump 2
+
+    1:
+      store %1, 1
+      jump 3
+
+    2:
+      store %1, 2
+      jump 3
+
+    3:
+      return %1
+
+  }
+
+}

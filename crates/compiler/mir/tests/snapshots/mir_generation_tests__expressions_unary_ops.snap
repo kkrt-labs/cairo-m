@@ -1,0 +1,127 @@
+---
+source: crates/compiler/mir/tests/mir_generation_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/compiler/mir/tests/mir_generation_tests.rs
+expression: mir_output
+---
+Fixture: unary_ops.cm
+============================================================
+Source code:
+//!ASSERT CONTAINS: Neg
+//!ASSERT CONTAINS: Not
+
+// Tests various unary operations.
+fn test_neg(a: felt) -> felt {
+    let c = -a;
+    return c;
+}
+
+fn test_not(a: felt) -> felt {
+    let c = !a;
+    return c;
+}
+
+fn test_neg_literal() -> felt {
+    let c = -42;
+    return c;
+}
+
+fn test_not_literal_nonzero() -> felt {
+    let c = !5;
+    return c;
+}
+
+fn test_double_neg(a: felt) -> felt {
+    let c = --a;
+    return c;
+}
+
+fn test_not_not(a: felt) -> felt {
+    let c = !!a;
+    return c;
+}
+
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_neg {
+    parameters: [0]
+    entry: 0
+
+    0:
+      %1 = Neg %0
+      %2 = stackalloc 1
+      store %2, %1
+      return %2
+
+  }
+
+  // Function 1
+  fn test_not {
+    parameters: [0]
+    entry: 0
+
+    0:
+      %1 = Not %0
+      %2 = stackalloc 1
+      store %2, %1
+      return %2
+
+  }
+
+  // Function 2
+  fn test_neg_literal {
+    entry: 0
+
+    0:
+      %0 = Neg 42
+      %1 = stackalloc 1
+      store %1, %0
+      return %1
+
+  }
+
+  // Function 3
+  fn test_not_literal_nonzero {
+    entry: 0
+
+    0:
+      %0 = Not 5
+      %1 = stackalloc 1
+      store %1, %0
+      return %1
+
+  }
+
+  // Function 4
+  fn test_double_neg {
+    parameters: [0]
+    entry: 0
+
+    0:
+      %1 = Neg %0
+      %2 = Neg %1
+      %3 = stackalloc 1
+      store %3, %2
+      return %3
+
+  }
+
+  // Function 5
+  fn test_not_not {
+    parameters: [0]
+    entry: 0
+
+    0:
+      %1 = Not %0
+      %2 = Not %1
+      %3 = stackalloc 1
+      store %3, %2
+      return %3
+
+  }
+
+}
