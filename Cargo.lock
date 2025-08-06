@@ -4035,7 +4035,7 @@ dependencies = [
 [[package]]
 name = "womir"
 version = "0.0.0"
-source = "git+https://github.com/powdr-labs/womir.git?rev=19e1b4b#19e1b4b463835e0e14da39003c06e9987195e482"
+source = "git+https://github.com/gael-bigot/womir.git?rev=ca585b8#ca585b875a104cd28e128b4f0822ec848d07323c"
 dependencies = [
  "derive-where",
  "env_logger",

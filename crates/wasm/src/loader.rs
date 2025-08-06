@@ -10,7 +10,7 @@ use std::path::Path;
 use thiserror::Error;
 
 use womir::generic_ir::GenericIrSetting;
-use womir::loader::{load_wasm, Program};
+use womir::loader::{load_wasm_unflattened, UnflattenedProgram};
 
 #[derive(Error, Debug)]
 pub enum WasmLoadError {
@@ -31,9 +31,11 @@ impl WasmModule {
     /// Converts the WASM module into a WOMIR program.
     /// This is inefficient, as it will parse the WASM module every time it is called.
     /// However we don't plan on using the WOMIR representation in the future.
-    pub fn program(&self) -> Result<Program<'_, GenericIrSetting>, WasmLoadError> {
-        load_wasm(GenericIrSetting, &self.bytes).map_err(|e| WasmLoadError::ParseError {
-            message: e.to_string(),
+    pub fn program(&self) -> Result<UnflattenedProgram<'_, GenericIrSetting>, WasmLoadError> {
+        load_wasm_unflattened(GenericIrSetting, &self.bytes).map_err(|e| {
+            WasmLoadError::ParseError {
+                message: e.to_string(),
+            }
         })
     }
 
@@ -50,7 +52,7 @@ impl WasmModule {
         let bytes = fs::read(path).map_err(|e| WasmLoadError::IoError { source: e })?;
 
         // Validate the bytes can be parsed (early error detection)
-        load_wasm(GenericIrSetting, &bytes).map_err(|e| WasmLoadError::ParseError {
+        load_wasm_unflattened(GenericIrSetting, &bytes).map_err(|e| WasmLoadError::ParseError {
             message: e.to_string(),
         })?;
 
@@ -67,30 +69,18 @@ impl Display for WasmModule {
 
         let mut output = String::new();
 
-        for func in program.functions.iter() {
-            // Get function name - check if exported, otherwise use default
+        for (func_idx, func) in program.functions.iter() {
             let func_name = program
                 .c
                 .exported_functions
-                .get(&func.func_idx)
+                .get(func_idx)
                 .map(|name| name.to_string())
-                .unwrap_or_else(|| format!("func_{}", func.func_idx));
+                .unwrap_or_else(|| format!("func_{}", func_idx));
 
-            output.push_str(&format!(
-                "Function: {} ({} directives)\n",
-                func_name,
-                func.directives.len()
-            ));
-
-            for (i, directive) in func.directives.iter().enumerate() {
-                output.push_str(&format!("  {:3}: {}\n", i, directive));
+            output.push_str(&format!("{}:\n", func_name));
+            for node in func.nodes.iter() {
+                output.push_str(&format!("  {:?}\n", node));
             }
-            output.push('\n'); // Empty line between functions
-        }
-
-        // Remove the trailing newline if there were functions
-        if !output.is_empty() {
-            output.pop(); // Remove the last newline
         }
 
         write!(f, "{}", output)
