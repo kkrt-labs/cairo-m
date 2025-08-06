@@ -3,11 +3,14 @@
 //! This module implements various optimization passes that can be applied to MIR functions
 //! to improve code quality and remove dead code.
 
+pub mod pre_opt;
+
 use cairo_m_compiler_parser::parser::UnaryOp;
 use rustc_hash::FxHashMap;
 
 use crate::{
-    BinaryOp, Instruction, InstructionKind, Literal, MirFunction, Terminator, Value, ValueId,
+    BinaryOp, Instruction, InstructionKind, Literal, MirFunction, MirType, Terminator, Value,
+    ValueId,
 };
 
 /// A trait for MIR optimization passes
@@ -231,6 +234,7 @@ impl MirPass for Validation {
 
         // Check for additional invariants
         self.validate_value_usage(function);
+        self.validate_pointer_types(function);
 
         false // Validation doesn't modify the function
     }
@@ -262,6 +266,32 @@ impl Validation {
                     eprintln!(
                         "Warning: Block {block_id:?} uses value {used_value:?} that is not defined in the block or as a parameter"
                     );
+                }
+            }
+        }
+    }
+
+    /// Validate that Load instructions only use pointer-typed addresses
+    fn validate_pointer_types(&self, function: &MirFunction) {
+        for (block_id, block) in function.basic_blocks() {
+            for (instr_idx, instruction) in block.instructions.iter().enumerate() {
+                if let InstructionKind::Load {
+                    address: Value::Operand(addr_id),
+                    ..
+                } = &instruction.kind
+                {
+                    // Check that the address operand is a pointer
+                    if let Some(addr_type) = function.get_value_type(*addr_id) {
+                        if !matches!(addr_type, MirType::Pointer(_)) {
+                            eprintln!(
+                                "Error: Block {block_id:?}, instruction {instr_idx}: Load instruction uses non-pointer address {addr_id:?} with type {addr_type:?}"
+                            );
+                        }
+                    } else {
+                        eprintln!(
+                            "Warning: Block {block_id:?}, instruction {instr_idx}: Load instruction uses address {addr_id:?} with unknown type"
+                        );
+                    }
                 }
             }
         }
@@ -647,6 +677,7 @@ impl PassManager {
     /// Create a standard optimization pipeline
     pub fn standard_pipeline() -> Self {
         Self::new()
+            .add_pass(pre_opt::PreOptimizationPass::new())
             .add_pass(InPlaceOptimizationPass::new())
             .add_pass(FuseCmpBranch::new())
             .add_pass(DeadCodeElimination::new())

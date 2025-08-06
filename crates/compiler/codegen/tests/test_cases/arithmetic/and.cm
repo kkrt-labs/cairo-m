@@ -1,6 +1,6 @@
-fn simple_and() -> felt {
-    let x = 10;
-    let y = 20;
+fn simple_and() -> bool {
+    let x = true;
+    let y = true;
     let z = x && y;
     return z;
 }

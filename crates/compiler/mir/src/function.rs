@@ -4,7 +4,7 @@
 //! the Control Flow Graph (CFG) of basic blocks.
 
 use index_vec::IndexVec;
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{indent_str, BasicBlock, BasicBlockId, MirType, PrettyPrint, ValueId};
 
@@ -61,6 +61,10 @@ pub struct MirFunction {
     /// Type information for each value in the function
     /// Maps ValueId to its MirType for type checking and optimization
     pub value_types: FxHashMap<ValueId, MirType>,
+
+    /// Track which ValueIds have been used as destinations
+    /// Used to enforce SSA - each ValueId can only be defined once
+    pub(crate) defined_values: FxHashSet<ValueId>,
 }
 
 impl MirFunction {
@@ -78,12 +82,21 @@ impl MirFunction {
             return_values: Vec::new(),
             next_value_id: 0,
             value_types: FxHashMap::default(),
+            defined_values: FxHashSet::default(),
         }
     }
 
     /// Adds a new basic block and returns its ID
     pub fn add_basic_block(&mut self) -> BasicBlockId {
         self.basic_blocks.push(BasicBlock::new())
+    }
+
+    /// Adds a new basic block with a name and returns its ID
+    pub fn add_basic_block_with_name(&mut self, _name: String) -> BasicBlockId {
+        let block = BasicBlock::new();
+        // Store the name as a comment or label if we want to preserve it for debugging
+        // For now, we just create the block
+        self.basic_blocks.push(block)
     }
 
     /// Gets a basic block by ID
@@ -126,6 +139,18 @@ impl MirFunction {
             .get(&value_id)
             .cloned()
             .unwrap_or(MirType::unknown())
+    }
+
+    /// Marks a ValueId as defined, enforcing SSA form
+    /// Returns an error if the ValueId has already been defined
+    pub fn mark_as_defined(&mut self, dest: ValueId) -> Result<(), String> {
+        if !self.defined_values.insert(dest) {
+            return Err(format!(
+                "SSA violation: ValueId {:?} is being defined multiple times",
+                dest
+            ));
+        }
+        Ok(())
     }
 
     /// Maps a semantic definition to a MIR value

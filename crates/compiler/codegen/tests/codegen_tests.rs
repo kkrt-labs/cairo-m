@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use cairo_m_compiler_codegen::{CodeGenerator, CodegenDb};
 use cairo_m_compiler_mir::{generate_mir, MirDb};
 use cairo_m_compiler_parser::Upcast;
+use cairo_m_compiler_semantic::db::project_validate_semantics;
 use cairo_m_compiler_semantic::{File, SemanticDb};
 use insta::assert_snapshot;
 
@@ -87,6 +88,12 @@ pub fn check_codegen(source: &str, path: &str) -> CodegenOutput {
         "crate_test".to_string(),
     );
 
+    // Ensure no semantic errors
+    let semantic_errors = project_validate_semantics(&db, crate_id);
+    if !semantic_errors.is_empty() {
+        panic!("Semantic errors found: {:?}", semantic_errors);
+    }
+
     // Generate MIR from source
     let mir_module = generate_mir(&db, crate_id).expect("MIR generation failed");
 
@@ -165,6 +172,7 @@ codegen_test!(simple_call, "functions");
 codegen_test!(fib, "functions");
 codegen_test!(fib_loop, "functions");
 codegen_test!(return_values, "functions");
+codegen_test!(mutual_recursion, "functions");
 
 // --- Optimization ---
 codegen_test!(in_place_update, "optimization");

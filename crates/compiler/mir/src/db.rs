@@ -21,13 +21,13 @@ pub trait MirDb: SemanticDb + Upcast<dyn SemanticDb> {}
 #[salsa::tracked]
 pub fn generate_mir(db: &dyn MirDb, crate_id: Crate) -> Option<MirModule> {
     // Delegate to the existing generate_mir function from ir_generation
-    crate::ir_generation::generate_mir(db, crate_id)
+    crate::lowering::generate_mir(db, crate_id)
         .ok()
         .map(|arc| (*arc).clone())
 }
 
 #[cfg(test)]
-pub(crate) mod tests {
+pub mod tests {
     use std::path::PathBuf;
 
     use super::*;

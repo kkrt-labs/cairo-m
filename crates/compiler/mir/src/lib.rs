@@ -48,32 +48,30 @@
 #![feature(let_chains)]
 #![allow(clippy::option_if_let_else)]
 
-// Re-export commonly used types from submodules
 pub use basic_block::BasicBlock;
-use chumsky::span::SimpleSpan;
+pub use builder::{CfgBuilder, CfgState, InstrBuilder};
 pub use function::{MirDefinitionId, MirFunction};
 pub use instruction::{BinaryOp, Instruction, InstructionKind, MirExpressionId};
 pub use mir_types::{MirType, StructField};
 pub use module::MirModule;
 pub use passes::{DeadCodeElimination, MirPass, PassManager, Validation};
 pub use terminator::Terminator;
-pub use value::{Literal, Value};
+pub use value::{Literal, Place, Value};
 
 pub mod basic_block;
+pub mod builder;
 pub mod db;
 pub mod function;
 pub mod instruction;
-pub mod ir_generation;
+pub mod lowering;
 pub mod mir_types;
 pub mod module;
 pub mod passes;
 pub mod terminator;
 pub mod value;
 
-// Re-export the main IR generation function
-// Re-export database traits and functions
 pub use db::{generate_mir as db_generate_mir, MirDb};
-pub use ir_generation::generate_mir;
+pub use lowering::generate_mir;
 
 #[cfg(test)]
 pub mod testing;
@@ -94,69 +92,6 @@ index_vec::define_index_type! {
     /// Unique identifier for a value (virtual register) within a function
     pub struct ValueId = usize;
 }
-
-// --- Error Types ---
-
-/// Represents an error in MIR construction or validation
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum MirError {
-    /// A semantic error that prevents MIR generation
-    SemanticError {
-        message: String,
-        span: Option<SimpleSpan<usize>>,
-    },
-    /// An unresolved reference (forward declaration, missing import, etc.)
-    UnresolvedReference {
-        name: String,
-        span: Option<SimpleSpan<usize>>,
-    },
-    /// Invalid MIR structure (validation error)
-    ValidationError {
-        message: String,
-        function_id: Option<FunctionId>,
-        block_id: Option<BasicBlockId>,
-    },
-}
-
-impl std::fmt::Display for MirError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::SemanticError { message, span } => {
-                write!(f, "Semantic error: {message}")?;
-                if let Some(span) = span {
-                    write!(f, " at {span:?}")?;
-                }
-                Ok(())
-            }
-            Self::UnresolvedReference { name, span } => {
-                write!(f, "Unresolved reference: {name}")?;
-                if let Some(span) = span {
-                    write!(f, " at {span:?}")?;
-                }
-                Ok(())
-            }
-            Self::ValidationError {
-                message,
-                function_id,
-                block_id,
-            } => {
-                write!(f, "Validation error: {message}")?;
-                if let Some(func_id) = function_id {
-                    write!(f, " in function {func_id:?}")?;
-                }
-                if let Some(block_id) = block_id {
-                    write!(f, " in block {block_id:?}")?;
-                }
-                Ok(())
-            }
-        }
-    }
-}
-
-impl std::error::Error for MirError {}
-
-/// Result type for MIR operations
-pub type MirResult<T> = Result<T, MirError>;
 
 // --- Pretty Printing Support ---
 

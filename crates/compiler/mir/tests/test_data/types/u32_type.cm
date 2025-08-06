@@ -1,0 +1,36 @@
+//!ASSERT CONTAINS: U32Add
+//!ASSERT CONTAINS: U32Mul
+//!ASSERT CONTAINS: U32Eq
+//!ASSERT CONTAINS: U32Sub
+//!ASSERT CONTAINS: U32Div
+
+fn test_u32_literal() -> u32 {
+    let x: u32 = 42;
+    return x;
+}
+
+// Tests various binary operations on u32.
+fn test_add(a: u32, b: u32) -> u32 {
+    let c = a + b;
+    return c;
+}
+
+fn test_mul(a: u32, b: u32) -> u32 {
+    let c = a * b;
+    return c;
+}
+
+fn test_sub(a: u32, b: u32) -> u32 {
+    let c = a - b;
+    return c;
+}
+
+fn test_div(a: u32, b: u32) -> u32 {
+    let c = a / b;
+    return c;
+}
+
+fn test_eq(a: u32, b: u32) -> u32 {
+    let c = a == b;
+    return c;
+}

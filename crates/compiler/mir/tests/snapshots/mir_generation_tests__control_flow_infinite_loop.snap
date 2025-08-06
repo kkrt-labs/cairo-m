@@ -1,0 +1,51 @@
+---
+source: crates/compiler/mir/tests/mir_generation_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/compiler/mir/tests/mir_generation_tests.rs
+expression: mir_output
+---
+Fixture: infinite_loop.cm
+============================================================
+Source code:
+fn test_infinite_loop() -> felt {
+    let counter = 0;
+
+    loop {
+        counter = counter + 1;
+        if (counter == 10) {
+            break;
+        }
+    }
+
+    return counter;
+}
+
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_infinite_loop {
+    entry: 0
+
+    0:
+      %0 = 0
+      jump 1
+
+    1:
+      %0 = %0 Add 1
+      if %0 Eq 10 then jump 3 else jump 4
+
+    2:
+      return %0
+
+    3:
+      jump 2
+
+    4:
+      jump 1
+
+  }
+
+}

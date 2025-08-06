@@ -4,7 +4,7 @@ fn test_neg(a: felt) -> felt {
     return c;
 }
 
-fn test_not(a: felt) -> felt {
+fn test_not(a: bool) -> bool {
     let c = !a;
     return c;
 }
@@ -14,8 +14,8 @@ fn test_neg_literal() -> felt {
     return c;
 }
 
-fn test_not_literal_nonzero() -> felt {
-    let c = !5;
+fn test_not_literal_nonzero() -> bool {
+    let c = !true;
     return c;
 }
 
@@ -24,7 +24,7 @@ fn test_double_neg(a: felt) -> felt {
     return c;
 }
 
-fn test_not_not(a: felt) -> felt {
+fn test_not_not(a: bool) -> bool {
     let c = !!a;
     return c;
 }
