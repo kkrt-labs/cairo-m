@@ -2,7 +2,7 @@ use num_traits::{One, Zero};
 use stwo_prover::core::backend::simd::m31::{PackedM31, N_LANES};
 use stwo_prover::core::fields::m31::M31;
 
-/// Manages trace row enablement for constraint activation and padding.
+/// Used to select/enable active rows when padding traces to powers of 2.
 ///
 /// The enabler creates a boolean column where the first `padding_offset` rows
 /// are set to 1 (enabled) and the remaining rows are set to 0 (disabled).

@@ -5,6 +5,7 @@
 //! The final memory commited is vm.memory after the last step of a segment of execution.
 //! The memory commitments can contain memory values that are not accessed during the execution (ie not part of the
 //! memory log).
+//! These commitments are used for continuation to attest that the memory is consistent over the overall execution.
 //!
 //! ## Tree construction
 //! - The leaves of the tree are M31 values corresponding to the QM31 values of the memory.
