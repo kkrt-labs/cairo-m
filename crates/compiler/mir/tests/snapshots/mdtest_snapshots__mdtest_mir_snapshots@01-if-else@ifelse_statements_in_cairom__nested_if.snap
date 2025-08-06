@@ -1,0 +1,46 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: If-Else Statements in Cairo-M - Nested If"
+input_file: mdtest/02-control-flow/01-if-else.md
+---
+Test: If-Else Statements in Cairo-M - Nested If
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/02-control-flow/01-if-else.md
+============================================================
+Source:
+fn classify(x: felt) -> felt {
+    if x == 0 {
+        return 0;
+    } else {
+        if x == 5 {
+            return 1;
+        } else {
+            return 2;
+        }
+    }
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn classify {
+    parameters: [0]
+    entry: 0
+
+    0:
+      if %0 then jump 2 else jump 1
+
+    1:
+      return 0
+
+    2:
+      if %0 Eq 5 then jump 3 else jump 4
+
+    3:
+      return 1
+
+    4:
+      return 2
+
+  }
+
+}

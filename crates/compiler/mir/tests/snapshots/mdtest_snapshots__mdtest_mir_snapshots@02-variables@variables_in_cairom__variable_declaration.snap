@@ -1,0 +1,30 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Variables in Cairo-M - Variable Declaration"
+input_file: mdtest/01-basics/02-variables.md
+---
+Test: Variables in Cairo-M - Variable Declaration
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/01-basics/02-variables.md
+============================================================
+Source:
+fn test_variable() -> felt {
+    let x = 10;
+    let y = 20;
+    return x + y;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_variable {
+    entry: 0
+
+    0:
+      %0 = 10
+      %1 = 20
+      %2 = %0 Add %1
+      return %2
+
+  }
+
+}

@@ -1,0 +1,28 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Field Arithmetic in Cairo-M - Overflow Behavior"
+input_file: mdtest/01-basics/04-arithmetic.md
+---
+Test: Field Arithmetic in Cairo-M - Overflow Behavior
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/01-basics/04-arithmetic.md
+============================================================
+Source:
+fn test_overflow() -> felt {
+    let large = 2147483640;  // Close to 2^31 - 1
+    return large + 12;        // Wraps around
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_overflow {
+    entry: 0
+
+    0:
+      %0 = 2147483640
+      %1 = %0 Add 12
+      return %1
+
+  }
+
+}

@@ -1,0 +1,27 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Field Arithmetic in Cairo-M - Powers and Exponentiation"
+input_file: mdtest/01-basics/04-arithmetic.md
+---
+Test: Field Arithmetic in Cairo-M - Powers and Exponentiation
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/01-basics/04-arithmetic.md
+============================================================
+Source:
+fn powers() -> felt {
+    let base = 3;
+    let p2 = base * base;         // 3^2 = 9
+    let p3 = p2 * base;           // 3^3 = 27
+    let p4 = p3 * base;           // 3^4 = 81
+    return p2 + p3 + p4;          // 9 + 27 + 81 = 117
+}
+============================================================
+Generated CASM:
+powers:
+   0: 9 3 0 _              // [fp + 0] = 3
+   1: 4 0 0 6              // [fp + 6] = [fp + 0] + 0
+   2: 2 6 0 1              // [fp + 1] = [fp + 6] op [fp + 0]
+   3: 2 1 0 2              // [fp + 2] = [fp + 1] op [fp + 0]
+   4: 2 2 0 3              // [fp + 3] = [fp + 2] op [fp + 0]
+   5: 0 1 2 4              // [fp + 4] = [fp + 1] op [fp + 2]
+   6: 0 4 3 -3             // [fp + -3] = [fp + 4] op [fp + 3]
+   7: 11 _ _ _             // return

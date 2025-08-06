@@ -26,6 +26,10 @@ pub fn test_data_path() -> PathBuf {
     WORKSPACE_ROOT.join("test_data")
 }
 
+pub fn mdtest_path() -> PathBuf {
+    WORKSPACE_ROOT.join("mdtest")
+}
+
 /// Get the path to a test fixture file relative to the test_data directory
 ///
 /// ## Arguments

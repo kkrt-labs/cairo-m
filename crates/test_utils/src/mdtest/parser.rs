@@ -103,6 +103,15 @@ pub fn extract_tests(markdown_path: &Path) -> Result<Vec<MdTest>, ParseError> {
                             });
                         }
 
+                        // Validate we have at least a level 1 heading
+                        if current_h1.is_empty() {
+                            eprintln!(
+                                "Warning: Cairo-M code block at line {} appears before any heading in {}",
+                                line_number,
+                                markdown_path.display()
+                            );
+                        }
+
                         // Parse new Cairo-M code
                         let (source, metadata) =
                             parse_annotations(&code_block_content, line_number)?;
@@ -159,10 +168,13 @@ pub fn extract_tests(markdown_path: &Path) -> Result<Vec<MdTest>, ParseError> {
 }
 
 fn format_test_name(h1: &str, h2: &str) -> String {
-    if h2.is_empty() {
-        h1.to_string()
-    } else {
-        format!("{} - {}", h1, h2)
+    match (h1.is_empty(), h2.is_empty()) {
+        (true, _) => {
+            // Code block appears before any heading - generate a warning name
+            "Orphaned Test (no heading)".to_string()
+        }
+        (false, true) => h1.to_string(),
+        (false, false) => format!("{} - {}", h1, h2),
     }
 }
 

@@ -1,0 +1,35 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: If-Else Statements in Cairo-M - Simple If"
+input_file: mdtest/02-control-flow/01-if-else.md
+---
+Test: If-Else Statements in Cairo-M - Simple If
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/02-control-flow/01-if-else.md
+============================================================
+Source:
+fn test_simple_if(x: felt) -> felt {
+    if x == 15 {
+        return 1;
+    }
+    return 0;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_simple_if {
+    parameters: [0]
+    entry: 0
+
+    0:
+      if %0 Eq 15 then jump 1 else jump 2
+
+    1:
+      return 1
+
+    2:
+      return 0
+
+  }
+
+}

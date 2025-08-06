@@ -1,0 +1,37 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: If-Else Statements in Cairo-M - Nested If"
+input_file: mdtest/02-control-flow/01-if-else.md
+---
+Test: If-Else Statements in Cairo-M - Nested If
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/02-control-flow/01-if-else.md
+============================================================
+Source:
+fn classify(x: felt) -> felt {
+    if x == 0 {
+        return 0;
+    } else {
+        if x == 5 {
+            return 1;
+        } else {
+            return 2;
+        }
+    }
+}
+============================================================
+Generated CASM:
+classify:
+   0: 14 -4 4 _            // if [fp + -4] != 0 jmp rel classify_2
+   1: 12 2 _ _             // jump abs classify_1
+classify_1:
+   2: 9 0 -3 _             // Return value 0: [fp -3] = 0
+   3: 11 _ _ _             // return
+classify_2:
+   4: 5 -4 5 0             // [fp + 0] = [fp + -4] op 5
+   5: 14 0 3 _             // if [fp + 0] != 0 jmp rel classify_4
+classify_3:
+   6: 9 1 -3 _             // Return value 0: [fp -3] = 1
+   7: 11 _ _ _             // return
+classify_4:
+   8: 9 2 -3 _             // Return value 0: [fp -3] = 2
+   9: 11 _ _ _             // return

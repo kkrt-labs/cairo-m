@@ -1,0 +1,27 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: If-Else Statements in Cairo-M - If-Else"
+input_file: mdtest/02-control-flow/01-if-else.md
+---
+Test: If-Else Statements in Cairo-M - If-Else
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/02-control-flow/01-if-else.md
+============================================================
+Source:
+fn choose(selector: felt) -> felt {
+    if selector == 0 {
+        return 10;
+    } else {
+        return 20;
+    }
+}
+============================================================
+Generated CASM:
+choose:
+   0: 14 -4 4 _            // if [fp + -4] != 0 jmp rel choose_2
+   1: 12 2 _ _             // jump abs choose_1
+choose_1:
+   2: 9 10 -3 _            // Return value 0: [fp -3] = 10
+   3: 11 _ _ _             // return
+choose_2:
+   4: 9 20 -3 _            // Return value 0: [fp -3] = 20
+   5: 11 _ _ _             // return

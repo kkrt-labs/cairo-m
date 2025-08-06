@@ -1,8 +1,10 @@
 pub mod config;
 pub mod parser;
+pub mod runner;
 
 pub use config::{Location, MdTestConfig, TestMetadata};
 pub use parser::{extract_tests, MdTest, ParseError};
+pub use runner::{MdTestRunner, TestSnapshot};
 
 use std::path::{Path, PathBuf};
 

@@ -1,0 +1,29 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Variables in Cairo-M - Multiple Variables"
+input_file: mdtest/01-basics/02-variables.md
+---
+Test: Variables in Cairo-M - Multiple Variables
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/01-basics/02-variables.md
+============================================================
+Source:
+fn test_multiple_vars() -> felt {
+    let a = 10;
+    let b = 20;
+    let c = 30;
+    let d = 40;
+    return a + b + c + d;
+}
+============================================================
+Generated CASM:
+test_multiple_vars:
+test_multiple_vars:
+test_multiple_vars_0:
+   0: 9 10 0 _             // [fp + 0] = 10
+   1: 9 20 1 _             // [fp + 1] = 20
+   2: 9 30 2 _             // [fp + 2] = 30
+   3: 9 40 3 _             // [fp + 3] = 40
+   4: 0 0 1 4              // [fp + 4] = [fp + 0] op [fp + 1]
+   5: 0 4 2 5              // [fp + 5] = [fp + 4] op [fp + 2]
+   6: 0 5 3 -3             // [fp + -3] = [fp + 5] op [fp + 3]
+   7: 11 _ _ _             // return

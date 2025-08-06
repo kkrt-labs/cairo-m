@@ -1,66 +1,12 @@
 //! Auto-discovery test runner for CASM code generation.
 //! This file automatically generates tests for all Cairo-M files in the test_data directory.
 
-use std::path::PathBuf;
+mod common;
 
-use cairo_m_compiler_codegen::{CodeGenerator, CodegenDb};
-use cairo_m_compiler_mir::{generate_mir, MirDb};
-use cairo_m_compiler_parser::Upcast;
+use cairo_m_compiler_codegen::CodeGenerator;
+use cairo_m_compiler_mir::generate_mir;
 use cairo_m_compiler_semantic::db::project_validate_semantics;
-use cairo_m_compiler_semantic::{File, SemanticDb};
-
-/// Test database that implements all required traits for code generation
-#[salsa::db]
-#[derive(Clone, Default)]
-pub struct TestDatabase {
-    storage: salsa::Storage<Self>,
-}
-
-#[salsa::db]
-impl salsa::Database for TestDatabase {}
-
-#[salsa::db]
-impl cairo_m_compiler_parser::Db for TestDatabase {}
-
-#[salsa::db]
-impl SemanticDb for TestDatabase {}
-
-#[salsa::db]
-impl MirDb for TestDatabase {}
-
-#[salsa::db]
-impl CodegenDb for TestDatabase {}
-
-impl Upcast<dyn cairo_m_compiler_parser::Db> for TestDatabase {
-    fn upcast(&self) -> &(dyn cairo_m_compiler_parser::Db + 'static) {
-        self
-    }
-    fn upcast_mut(&mut self) -> &mut (dyn cairo_m_compiler_parser::Db + 'static) {
-        self
-    }
-}
-
-impl Upcast<dyn SemanticDb> for TestDatabase {
-    fn upcast(&self) -> &(dyn SemanticDb + 'static) {
-        self
-    }
-    fn upcast_mut(&mut self) -> &mut (dyn SemanticDb + 'static) {
-        self
-    }
-}
-
-impl Upcast<dyn MirDb> for TestDatabase {
-    fn upcast(&self) -> &(dyn MirDb + 'static) {
-        self
-    }
-    fn upcast_mut(&mut self) -> &mut (dyn MirDb + 'static) {
-        self
-    }
-}
-
-pub fn test_db() -> TestDatabase {
-    TestDatabase::default()
-}
+use common::{create_test_crate, TestDatabase};
 
 /// The result of running code generation on a test source.
 pub struct CodegenOutput {
@@ -70,22 +16,8 @@ pub struct CodegenOutput {
 
 /// Runs the full compilation pipeline from source to CASM.
 pub fn check_codegen(source: &str, path: &str) -> CodegenOutput {
-    use cairo_m_compiler_semantic::db::Crate;
-    use std::collections::HashMap;
-
-    let db = test_db();
-    let file = File::new(&db, source.to_string(), path.to_string());
-
-    // Create a single-file crate for MIR generation
-    let mut modules = HashMap::new();
-    modules.insert("main".to_string(), file);
-    let crate_id = Crate::new(
-        &db,
-        modules,
-        "main".to_string(),
-        PathBuf::from("."),
-        "crate_test".to_string(),
-    );
+    let db = TestDatabase::default();
+    let crate_id = create_test_crate(&db, source, path, "crate_test");
 
     // Check for semantic errors but don't panic - we want to see what happens
     let semantic_errors = project_validate_semantics(&db, crate_id);

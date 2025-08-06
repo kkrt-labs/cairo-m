@@ -1,0 +1,28 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Literals in Cairo-M - Negative Numbers"
+input_file: mdtest/01-basics/01-literals.md
+---
+Test: Literals in Cairo-M - Negative Numbers
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/01-basics/01-literals.md
+============================================================
+Source:
+fn test_negative() -> felt {
+    let x = -5;
+    return x + 10;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_negative {
+    entry: 0
+
+    0:
+      %0 = Neg 5
+      %1 = %0 Add 10
+      return %1
+
+  }
+
+}

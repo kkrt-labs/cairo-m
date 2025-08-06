@@ -1,0 +1,64 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Recursion in Cairo-M - Fibonacci Sequence"
+input_file: mdtest/04-advanced/01-recursion.md
+---
+Test: Recursion in Cairo-M - Fibonacci Sequence
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/04-advanced/01-recursion.md
+============================================================
+Source:
+fn test_fibonacci() -> felt {
+    return fibonacci(7);  // Returns 13
+}
+
+fn fibonacci(n: felt) -> felt {
+    if n == 0 {
+        return 0;
+    } else if n == 1 {
+        return 1;
+    } else {
+        return fibonacci(n - 1) + fibonacci(n - 2);
+    }
+}
+
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_fibonacci {
+    entry: 0
+
+    0:
+      %0 = call 1(7)
+      return %0
+
+  }
+
+  // Function 1
+  fn fibonacci {
+    parameters: [0]
+    entry: 0
+
+    0:
+      if %0 then jump 2 else jump 1
+
+    1:
+      return 0
+
+    2:
+      if %0 Eq 1 then jump 3 else jump 4
+
+    3:
+      return 1
+
+    4:
+      %3 = %0 Sub 1
+      %4 = call 1(%3)
+      %5 = %0 Sub 2
+      %6 = call 1(%5)
+      %7 = %4 Add %6
+      return %7
+
+  }
+
+}

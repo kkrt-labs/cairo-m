@@ -1,0 +1,41 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Recursion in Cairo-M - Simple Recursion"
+input_file: mdtest/04-advanced/01-recursion.md
+---
+Test: Recursion in Cairo-M - Simple Recursion
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/04-advanced/01-recursion.md
+============================================================
+Source:
+fn test_factorial() -> felt {
+    return factorial(5);  // Returns 120
+}
+
+fn factorial(n: felt) -> felt {
+    if n == 0 {
+        return 1;
+    } else {
+        return n * factorial(n - 1);
+    }
+}
+
+============================================================
+Generated CASM:
+test_factorial:
+test_factorial:
+test_factorial_0:
+   0: 9 5 1 _              // Arg 0: [fp + 1] = 5
+   1: 10 3 4 _             // call factorial
+   2: 4 2 0 -3             // Return value 0: [fp -3] = [fp + 2] + 0
+   3: 11 _ _ _             // return
+factorial:
+   4: 14 -4 4 _            // if [fp + -4] != 0 jmp rel factorial_2
+   5: 12 6 _ _             // jump abs factorial_1
+factorial_1:
+   6: 9 1 -3 _             // Return value 0: [fp -3] = 1
+   7: 11 _ _ _             // return
+factorial_2:
+   8: 5 -4 1 3             // [fp + 3] = [fp + -4] op 1
+   9: 10 5 4 _             // call factorial
+  10: 2 -4 4 -3            // [fp + -3] = [fp + -4] op [fp + 4]
+  11: 11 _ _ _             // return

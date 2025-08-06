@@ -42,10 +42,20 @@ pub struct TestMetadata {
     pub ignore: Option<String>,
 }
 
+/// Represents a location in a source file
+///
+/// **WARNING**: The line number is approximate due to limitations in pulldown-cmark's
+/// event stream. The parser does not provide exact line positions for all events,
+/// so line numbers are calculated by counting newlines in text events. This means:
+/// - Line numbers may be off by a few lines
+/// - The exact position within a line (column) is always 0
+/// - This should only be used for rough debugging/error reporting, not precise source mapping
 #[derive(Debug, Clone)]
 pub struct Location {
     pub file: String,
+    /// Approximate line number - may be inaccurate by a few lines
     pub line: usize,
+    /// Always 0 - column information is not available
     pub column: usize,
 }
 

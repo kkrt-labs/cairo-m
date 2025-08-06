@@ -1,0 +1,26 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Structs in Cairo-M - Struct Field Access"
+input_file: mdtest/03-types/02-structs.md
+---
+Test: Structs in Cairo-M - Struct Field Access
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/03-types/02-structs.md
+============================================================
+Source:
+struct Rectangle {
+    width: felt,
+    height: felt,
+}
+
+fn calculate_area() -> felt {
+    let rect = Rectangle { width: 5, height: 10 };
+    rect.width = 7;
+    return rect.width * rect.height;  // Returns 70
+}
+============================================================
+Generated CASM:
+calculate_area:
+calculate_area:
+calculate_area_0:
+   0: 9 70 -3 _            // [fp + -3] = 70
+   1: 11 _ _ _             // return

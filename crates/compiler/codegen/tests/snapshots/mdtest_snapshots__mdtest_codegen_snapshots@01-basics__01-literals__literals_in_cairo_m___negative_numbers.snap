@@ -1,0 +1,21 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Literals in Cairo-M - Negative Numbers"
+input_file: mdtest/01-basics/01-literals.md
+---
+Test: Literals in Cairo-M - Negative Numbers
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/01-basics/01-literals.md
+============================================================
+Source:
+fn test_negative() -> felt {
+    let x = -5;
+    return x + 10;
+}
+============================================================
+Generated CASM:
+test_negative:
+test_negative:
+test_negative_0:
+   0: 9 2147483642 0 _     // [fp + 0] = 2147483642
+   1: 4 0 10 -3            // [fp + -3] = [fp + 0] op 10
+   2: 11 _ _ _             // return

@@ -1,0 +1,35 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Field Arithmetic in Cairo-M - Powers and Exponentiation"
+input_file: mdtest/01-basics/04-arithmetic.md
+---
+Test: Field Arithmetic in Cairo-M - Powers and Exponentiation
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/01-basics/04-arithmetic.md
+============================================================
+Source:
+fn powers() -> felt {
+    let base = 3;
+    let p2 = base * base;         // 3^2 = 9
+    let p3 = p2 * base;           // 3^3 = 27
+    let p4 = p3 * base;           // 3^4 = 81
+    return p2 + p3 + p4;          // 9 + 27 + 81 = 117
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn powers {
+    entry: 0
+
+    0:
+      %0 = 3
+      %1 = %0 Mul %0
+      %2 = %1 Mul %0
+      %3 = %2 Mul %0
+      %4 = %1 Add %2
+      %5 = %4 Add %3
+      return %5
+
+  }
+
+}

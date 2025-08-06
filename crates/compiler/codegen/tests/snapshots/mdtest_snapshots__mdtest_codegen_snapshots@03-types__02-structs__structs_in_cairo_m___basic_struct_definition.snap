@@ -1,0 +1,25 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Structs in Cairo-M - Basic Struct Definition"
+input_file: mdtest/03-types/02-structs.md
+---
+Test: Structs in Cairo-M - Basic Struct Definition
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/03-types/02-structs.md
+============================================================
+Source:
+struct Point {
+    x: felt,
+    y: felt,
+}
+
+fn test_struct_basic() -> felt {
+    let p = Point { x: 10, y: 20 };
+    return p.x + p.y;
+}
+============================================================
+Generated CASM:
+test_struct_basic:
+test_struct_basic:
+test_struct_basic_0:
+   0: 9 30 -3 _            // [fp + -3] = 30
+   1: 11 _ _ _             // return
