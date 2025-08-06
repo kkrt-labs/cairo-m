@@ -45,6 +45,12 @@ impl Claim {
         channel.mix_u64(self.log_size as u64);
     }
 
+    /// Writes the preprocessed range_check_20 trace
+    ///
+    /// lookup_data contains all range_checks made in other components during main trace generation
+    /// write_trace creates a column with all values from 0 to 2**20 - 1 included and counts how many times other components
+    /// have range_checked each values: every occurence of a range_checked value increases by 1 its multiplicity.
+    /// These multiplicities are stored in a new column.
     pub fn write_trace<'a, MC: MerkleChannel>(
         lookup_data: impl ParallelIterator<Item = &'a PackedM31>,
     ) -> (

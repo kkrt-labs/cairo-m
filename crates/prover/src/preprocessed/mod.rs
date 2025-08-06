@@ -1,5 +1,7 @@
 //! A collection of preprocessed columns, whose values are publicly acknowledged, and independent of
 //! the proof.
+//!
+//! They are similar to regular components but are entirely known by the verifier.
 use stwo_constraint_framework::preprocessed_columns::PreProcessedColumnId;
 use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::fields::m31::BaseField;
