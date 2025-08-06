@@ -1,0 +1,99 @@
+---
+source: crates/wasm/tests/wasm_loading_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/wasm/tests/wasm_loading_tests.rs
+expression: wasm_load_result
+---
+WASM File: fib.wasm
+============================================================
+Success: true
+Functions loaded: 1
+============================================================
+Module Output:
+Function: fib (84 directives)
+    0: __func_0 [21]:
+    1: fib [21]:
+    2:     JumpIf __local_0 $2
+    3:     I32Const 0 -> $4
+    4:     Copy $4 -> $3
+    5:     Return $0 $1
+    6: __local_0:
+    7:     I32Const 7 -> $18
+    8:     I32And $2 $18 -> $17
+    9:     I32Const 0 -> $16
+   10:     I32Const 8 -> $15
+   11:     I32GeU $2 $15 -> $14
+   12:     JumpIf __local_2 $14
+   13:     I32Const 1 -> $7
+   14:     Copy $16 -> $8
+   15:     Jump __local_1
+   16: __local_2:
+   17:     I32Const -8 -> $13
+   18:     I32And $2 $13 -> $12
+   19:     I32Const 1 -> $11
+   20:     AllocateFrameI __loop_6 -> $19
+   21:     CopyIntoFrame $11 $19 -> $19[11]
+   22:     CopyIntoFrame $16 $19 -> $19[12]
+   23:     CopyIntoFrame $12 $19 -> $19[13]
+   24:     JumpAndActivateFrame __loop_6 $19 -> $19[0]
+   25: __loop_6 [15]:
+   26:     I32Add $11 $12 -> $10
+   27:     I32Add $10 $11 -> $9
+   28:     I32Add $9 $10 -> $8
+   29:     I32Add $8 $9 -> $7
+   30:     I32Add $7 $8 -> $6
+   31:     I32Add $6 $7 -> $5
+   32:     I32Add $5 $6 -> $4
+   33:     I32Add $4 $5 -> $3
+   34:     I32Const -8 -> $2
+   35:     I32Add $13 $2 -> $1
+   36:     JumpIfZero __local_7 $1
+   37:     AllocateFrameI __loop_6 -> $14
+   38:     CopyIntoFrame $0 $14 -> $14[0]
+   39:     CopyIntoFrame $3 $14 -> $14[11]
+   40:     CopyIntoFrame $4 $14 -> $14[12]
+   41:     CopyIntoFrame $1 $14 -> $14[13]
+   42:     JumpAndActivateFrame __loop_6 $14
+   43: __local_7:
+   44:     CopyIntoFrame $3 $0 -> $0[9]
+   45:     CopyIntoFrame $4 $0 -> $0[10]
+   46:     JumpAndActivateFrame __local_3 $0
+   47: __local_3:
+   48:     Copy $9 -> $7
+   49:     Copy $10 -> $8
+   50:     Jump __local_1
+   51: __local_1:
+   52:     I32Eqz $17 -> $6
+   53:     JumpIfZero __local_8 $6
+   54:     Copy $8 -> $4
+   55:     Jump __local_4
+   56: __local_8:
+   57:     AllocateFrameI __loop_9 -> $20
+   58:     CopyIntoFrame $7 $20 -> $20[4]
+   59:     CopyIntoFrame $17 $20 -> $20[5]
+   60:     CopyIntoFrame $8 $20 -> $20[6]
+   61:     CopyIntoFrame $8 $20 -> $20[7]
+   62:     JumpAndActivateFrame __loop_9 $20 -> $20[0]
+   63: __loop_9 [9]:
+   64:     I32Add $4 $7 -> $3
+   65:     I32Const -1 -> $2
+   66:     I32Add $5 $2 -> $1
+   67:     JumpIfZero __local_10 $1
+   68:     AllocateFrameI __loop_9 -> $8
+   69:     CopyIntoFrame $0 $8 -> $8[0]
+   70:     CopyIntoFrame $3 $8 -> $8[4]
+   71:     CopyIntoFrame $1 $8 -> $8[5]
+   72:     CopyIntoFrame $4 $8 -> $8[6]
+   73:     CopyIntoFrame $4 $8 -> $8[7]
+   74:     JumpAndActivateFrame __loop_9 $8
+   75: __local_10:
+   76:     CopyIntoFrame $4 $0 -> $0[5]
+   77:     JumpAndActivateFrame __local_5 $0
+   78: __local_5:
+   79:     Copy $5 -> $4
+   80:     Jump __local_4
+   81: __local_4:
+   82:     Copy $4 -> $3
+   83:     Return $0 $1

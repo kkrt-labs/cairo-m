@@ -32,6 +32,7 @@ jobs:
             cairo-m-common,
             cairo-m-runner,
             cairo-m-prover,
+            cairo-m-wasm,
           ]
 
     steps:

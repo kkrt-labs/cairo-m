@@ -12,6 +12,7 @@ members = [
   "crates/runner",
   "crates/prover",
   "crates/cairo-m-ls",
+  "crates/wasm",
 ]
 resolver = "2"
 
@@ -33,6 +34,10 @@ cairo-m-compiler = { path = "crates/compiler" }
 cairo-m-runner = { path = "crates/runner" }
 cairo-m-prover = { path = "crates/prover" }
 cairo-m-formatter = { path = "crates/compiler/formatter" }
+cairo-m-wasm = { path = "crates/wasm" }
+
+# External dependencies
+womir = { git = "https://github.com/powdr-labs/womir.git", rev = "19e1b4b" }
 
 # Starkware dependencies
 stwo-prover = { git = "https://github.com/starkware-libs/stwo", features = [
