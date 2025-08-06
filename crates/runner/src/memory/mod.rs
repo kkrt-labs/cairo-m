@@ -348,8 +348,8 @@ impl Memory {
         let limb_lo = M31::from(value & U32_LIMB_MASK);
         let limb_hi = M31::from((value >> U32_LIMB_BITS) & U32_LIMB_MASK);
 
-        self.insert(addr, limb_lo.into())?;
-        self.insert(addr + M31::one(), limb_hi.into())?;
+        self.insert(addr, limb_lo)?;
+        self.insert(addr + M31::one(), limb_hi)?;
         Ok(())
     }
 }
