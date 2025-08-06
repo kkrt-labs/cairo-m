@@ -1,5 +1,7 @@
+mod flattening;
 mod loader;
 
+use flattening::WasmModuleToMir;
 use loader::WasmModule;
 use std::env;
 
@@ -14,7 +16,10 @@ fn main() {
     let filename = &args[1];
 
     match WasmModule::from_file(filename) {
-        Ok(module) => println!("{module:?}"),
+        Ok(module) => {
+            let mir = WasmModuleToMir::new(module).to_mir().unwrap();
+            println!("{mir:?}");
+        }
         Err(e) => {
             eprintln!("Error: {}", e);
             std::process::exit(1);

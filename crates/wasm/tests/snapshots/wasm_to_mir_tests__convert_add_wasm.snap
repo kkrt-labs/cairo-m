@@ -1,0 +1,25 @@
+---
+source: crates/wasm/tests/wasm_to_mir_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/wasm/tests/wasm_to_mir_tests.rs
+expression: wasm_load_result
+---
+WASM File: add.wasm
+============================================================
+Success: true
+Functions loaded: 1
+============================================================
+Module Output:
+module {
+  // Function 0
+  fn add {
+    entry: 0
+
+    0:
+      unreachable
+
+  }
+
+}

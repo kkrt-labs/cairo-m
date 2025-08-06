@@ -7,6 +7,8 @@ license.workspace = true
 [dependencies]
 womir.workspace = true
 thiserror.workspace = true
+cairo-m-compiler-mir.workspace = true
+ouroboros = "0.18"
 
 [dev-dependencies]
 insta = "1.43.1"

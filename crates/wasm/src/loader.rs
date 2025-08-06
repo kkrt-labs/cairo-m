@@ -9,6 +9,8 @@ use std::path::Path;
 
 use thiserror::Error;
 
+use ouroboros::self_referencing;
+
 use womir::generic_ir::GenericIrSetting;
 use womir::loader::{load_wasm_unflattened, UnflattenedProgram};
 
@@ -22,25 +24,18 @@ pub enum WasmLoadError {
     ParseError { message: String },
 }
 
-/// A WASM module that lazily parses when first accessed
+/// Module loaded by the womir crate.
+#[self_referencing]
 pub struct WasmModule {
     bytes: Vec<u8>,
+    #[borrows(bytes)]
+    #[covariant]
+    pub program: UnflattenedProgram<'this, GenericIrSetting>,
 }
 
 impl WasmModule {
-    /// Converts the WASM module into a WOMIR program.
-    /// This is inefficient, as it will parse the WASM module every time it is called.
-    /// However we don't plan on using the WOMIR representation in the future.
-    pub fn program(&self) -> Result<UnflattenedProgram<'_, GenericIrSetting>, WasmLoadError> {
-        load_wasm_unflattened(GenericIrSetting, &self.bytes).map_err(|e| {
-            WasmLoadError::ParseError {
-                message: e.to_string(),
-            }
-        })
-    }
-
     /// Loads a WASM module from a file.
-    /// For now this just copies the bytes into the struct.
+    /// For now this just copies the bytes intoa,  the struct.
     pub fn from_file(file_path: &str) -> Result<Self, WasmLoadError> {
         let path = Path::new(file_path);
         if !path.exists() {
@@ -51,39 +46,39 @@ impl WasmModule {
 
         let bytes = fs::read(path).map_err(|e| WasmLoadError::IoError { source: e })?;
 
-        // Validate the bytes can be parsed (early error detection)
-        load_wasm_unflattened(GenericIrSetting, &bytes).map_err(|e| WasmLoadError::ParseError {
-            message: e.to_string(),
-        })?;
-
-        Ok(Self { bytes })
+        WasmModuleTryBuilder {
+            bytes,
+            program_builder: |bytes: &Vec<u8>| {
+                load_wasm_unflattened(GenericIrSetting, bytes).map_err(|e| {
+                    WasmLoadError::ParseError {
+                        message: e.to_string(),
+                    }
+                })
+            },
+        }
+        .try_build()
     }
 }
 
 impl Display for WasmModule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let program = match self.program() {
-            Ok(prog) => prog,
-            Err(e) => return write!(f, "Error parsing WASM: {}", e),
-        };
+        self.with_program(|program| {
+            let mut output = String::new();
+            for (func_idx, func) in program.functions.iter() {
+                let func_name = program
+                    .c
+                    .exported_functions
+                    .get(func_idx)
+                    .map(|name| name.to_string())
+                    .unwrap_or_else(|| format!("func_{}", func_idx));
 
-        let mut output = String::new();
-
-        for (func_idx, func) in program.functions.iter() {
-            let func_name = program
-                .c
-                .exported_functions
-                .get(func_idx)
-                .map(|name| name.to_string())
-                .unwrap_or_else(|| format!("func_{}", func_idx));
-
-            output.push_str(&format!("{}:\n", func_name));
-            for node in func.nodes.iter() {
-                output.push_str(&format!("  {:?}\n", node));
+                output.push_str(&format!("{}:\n", func_name));
+                for node in func.nodes.iter() {
+                    output.push_str(&format!("  {:?}\n", node));
+                }
             }
-        }
-
-        write!(f, "{}", output)
+            write!(f, "{}", output)
+        })
     }
 }
 
