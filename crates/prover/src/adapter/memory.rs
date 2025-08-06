@@ -13,12 +13,24 @@ use crate::adapter::io::VmImportError;
 use crate::adapter::merkle::TREE_HEIGHT;
 use crate::preprocessed::range_check::range_check_20::LOG_SIZE_RC_20;
 
+/// Maximum clock difference that can be handled in a single range check (2^20 - 1)
 pub const RC20_LIMIT: u32 = (1 << LOG_SIZE_RC_20) - 1;
 
+/// Represents a single memory access in the prover's memory model.
+///
+/// Each memory entry contains:
+/// - The memory address being accessed
+/// - The QM31 value stored at that address
+/// - The clock time when the access occurred
+///
+/// This is distinct from the runner's memory entry format.
 #[derive(Copy, Clone, Default, Debug, Eq, PartialEq)]
 pub struct MemoryEntry {
+    /// The memory address (M31 field element)
     pub address: M31,
+    /// The QM31 value stored at this address
     pub value: QM31,
+    /// The clock time when this access occurred
     pub clock: M31,
 }
 
@@ -37,31 +49,68 @@ impl From<crate::adapter::io::IoMemoryEntry> for MemoryEntry {
     }
 }
 
+/// Represents a memory value that can be either a Felt (single M31) or U32 (two M31 limbs).
+///
+/// ## Fields
+/// - `limb0`: The low limb for U32 values, or the single value for Felt
+/// - `limb1`: The high limb for U32 values, or zero for Felt values
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct MemoryValue {
+    /// Low limb for U32 values, or the single value for Felt values
     pub limb0: M31,
-    pub limb1: M31, // Always zero for felt values
+    /// High limb for U32 values, always zero for Felt values
+    pub limb1: M31,
 }
 
+/// Represents a data memory access with both previous and current state.
+///
+/// This structure captures the complete state transition for a memory access
+/// that is requiered for the memory lookups (use previous and emit new).
+/// Note that the current clock is in the ExecutionBundle.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct DataAccess {
+    /// The memory address being accessed
     pub address: M31,
+    /// The clock time of the previous access to this address
     pub prev_clock: M31,
+    /// The memory value before this access
     pub prev_value: MemoryValue,
+    /// The memory value after this access
     pub value: MemoryValue,
 }
 
+/// Represents an instruction memory access.
+///
+/// Same as DataAccess but since instruction accesses are only reads, prev_value
+/// is the same as value (contained in Instruction). Also for instructions, the address
+/// is simply the current pc.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InstructionAccess {
+    /// The complete instruction that was read from memory
     pub instruction: Instruction,
+    /// The clock time of the previous access to this instruction address
     pub prev_clock: M31,
 }
 
+/// Represents a complete execution step with all associated memory accesses.
+///
+/// An execution bundle contains:
+/// - The current register state (PC, FP)
+/// - The current clock time: clock is incremented at each step
+/// - The instruction being executed
+/// - Up to 3 operand memory accesses
+///
+/// The execution bundle contains all the necessary data for generating the witnesses
+/// for opcodes. A row of the trace is basically a processed ExecutionBundle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ExecutionBundle {
+    /// The VM register state at this execution step
     pub registers: VmRegisters,
+    /// The clock time for this execution step
     pub clock: M31,
+    /// The instruction memory access
     pub instruction: InstructionAccess,
+    /// Data memory accesses for operands (up to 3 per instruction)
     pub operands: [Option<DataAccess>; 3],
 }
 
@@ -79,34 +128,97 @@ impl Default for ExecutionBundle {
     }
 }
 
-/// Intermediary struct to iterate over the VM memory output and construct the ExecutionBundle.
+/// Internal structure for tracking memory access arguments during processing.
+///
+/// This intermediary structure captures the complete state of a memory access,
+/// including both the previous and current values and clock times.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 struct MemoryArg {
+    /// The memory address being accessed
     pub address: M31,
+    /// The previous QM31 value at this address
     pub prev_val: QM31,
+    /// The current QM31 value at this address
     pub value: QM31,
+    /// The clock time of the previous access
     pub prev_clock: M31,
+    /// The clock time of the current access
     pub clock: M31,
 }
 
-// TODO: Memory Value can take a value enum(M31, QM31) instead of QM31 to save space
+/// Manages the complete memory state for proof generation.
+///
+///
+/// ## For which components ?
+/// MEMORY COMPONENT: The Memory struct mainly tracks both initial and final memory states. It is used by the
+/// memory component for:
+/// - the Memory lookup: + multiplicity * [address, clock, value] where the
+///   multiplicity can be -1 (for final memory entries), 0 (unused memory entries), 1 (initial entries).
+/// - the Merkle lookup:
+///      + [4*addr + 0, value0, depth, root]
+///      + [4*addr + 1, value1, depth, root]
+///      + [4*addr + 2, value2, depth, root]
+///      + [4*addr + 3, value3, depth, root]
+///
+/// Note that the merkle lookup emits the leaves no matter what the multiplicity of the entry is (ie for
+/// used cells as much as unused cells).
+/// Also note that in reality the memory component also emits the intermediate nodes for the partial tree,
+/// this is to be patched (although currently an intermediate node flag is added to separate leaves and intermediate
+/// node emissions)
+///
+/// CLOCK UPDATE COMPONENT: The clock update data is used by the clock_update component to add artificial "reads" when the clock difference
+/// is too large. So if a memory access reads/writes in a cell previously accessed at clk_1 with current_clk - clk_1 > RC20_LIMIT,
+/// the prover will:
+///     - use the memory access at clk_1 produce a new one at clk_1 + RC20_LIMIT,
+///     - if necessary, use this last memory access at clk_1 + RC20_LIMIT and produce one at clk_1 + 2*RC20_LIMIT,
+///     - and so on until current_clk - (clk_1 + i*RC20_LIMIT) < RC20_LIMIT.
+///
+///
+/// ## Fields
+/// - `initial_memory`: Memory state at the start of execution extended with all first writes.
+/// - `final_memory`: Memory state at the end of execution (unlike the initial memory this matches the VM final memory)
+/// - `clock_update_data`: Intermediate clock updates for large time gaps
+///
+/// Note that initial and final memory share the same addresses.
+///
+///
+/// ## Memory Representation
+/// Each memory entry is keyed by (address, depth) tuple and contains:
+/// - Value: The QM31 value stored
+/// - Clock: When the access occurred
+/// - Multiplicity: can be -1 (for final memory entries), 0 (unused memory entries), 1 (initial entries)
 #[derive(Debug, Default, Eq, PartialEq, Clone)]
 pub struct Memory {
-    // (addr, depth) => (value, clock, multiplicity which is -1, 0 or 1)
+    /// Initial memory state: (addr, depth) => (value, clock, multiplicity)
     pub initial_memory: HashMap<(M31, M31), (QM31, M31, M31)>,
+    /// Final memory state: (addr, depth) => (value, clock, multiplicity)
     pub final_memory: HashMap<(M31, M31), (QM31, M31, M31)>,
+    /// Clock update data for handling large time gaps: (addr, clock, value)
     pub clock_update_data: Vec<(M31, M31, QM31)>,
 }
 
+/// Iterator that converts runner execution traces into prover execution bundles.
+///
+/// This iterator processes the raw execution trace from the Cairo-M runner and
+/// transforms it into the structured format needed by the prover components.
+///
+/// ## Type Parameters
+/// - `T`: Iterator over VM register states
+/// - `M`: Iterator over memory access entries
 pub struct ExecutionBundleIterator<T, M>
 where
     T: Iterator<Item = VmRegisters>,
     M: Iterator<Item = RunnerMemoryEntry>,
 {
+    /// Iterator over VM register states
     trace_iter: Peekable<T>,
+    /// Iterator over memory log
     memory_iter: Peekable<M>,
+    /// Memory state tracker
     memory: Memory,
+    /// Execution clock, incremented at each VM step
     clock: u32,
+    /// Final register state (captured when trace ends)
     final_registers: Option<VmRegisters>,
 }
 
@@ -115,12 +227,21 @@ where
     T: Iterator<Item = VmRegisters>,
     M: Iterator<Item = RunnerMemoryEntry>,
 {
+    /// Creates a new execution bundle iterator.
+    ///
+    /// ## Arguments
+    /// * `trace_iter` - Iterator over VM register states
+    /// * `memory_iter` - Iterator over memory access entries
+    /// * `initial_memory` - Initial memory state as QM31 values
+    ///
+    /// ## Returns
+    /// A new iterator that will produce execution bundles
     pub fn new(trace_iter: T, memory_iter: M, initial_memory: Vec<QM31>) -> Self {
         Self {
             trace_iter: trace_iter.peekable(),
             memory_iter: memory_iter.peekable(),
             memory: Memory::new(initial_memory),
-            clock: 1, // Initial memory uses clock = 0
+            clock: 1, // Clock 0 is reserved to preloaded values (like the program, inputs, etc.)
             final_registers: None,
         }
     }
@@ -331,6 +452,18 @@ where
 }
 
 impl Memory {
+    /// Creates a new Memory instance with initial memory values from the VM output.
+    ///
+    /// The initial memory is populated with the provided QM31 values,
+    /// indexed starting from address 0. Each entry is initialized with:
+    /// - Clock = 0 (initial state)
+    /// - Multiplicity = 0 (unused until first access)
+    ///
+    /// ## Arguments
+    /// * `initial_memory` - Vector of QM31 values representing the initial memory state
+    ///
+    /// ## Returns
+    /// A new Memory instance ready for execution trace processing
     pub fn new(initial_memory: Vec<QM31>) -> Self {
         let initial_memory_hashmap: HashMap<(M31, M31), (QM31, M31, M31)> = initial_memory
             .iter()
@@ -348,7 +481,21 @@ impl Memory {
             clock_update_data: Vec::new(),
         }
     }
+
+    /// Update Memory with the provided MemoryEntry.
+    ///
+    /// ## Arguments
+    /// * `memory_entry` - The new memory access to process
+    ///
+    /// ## Returns
+    /// A MemoryArg containing the complete memory transition information
     fn push(&mut self, memory_entry: MemoryEntry) -> MemoryArg {
+        // No matter what update the final memory with the new memory entry
+        // The final memory tracks the "previous data" ie the previous clock and the previous value.
+        // - if this memory access is a first write, there won't be any previous entry tracked, in that case
+        //   previous entry is (current value, 0, -1), note that the -1 is arbitrary and not used.
+        // - if this memory access is a write on an already existing cell or a read, the previous entry is
+        //   simply the previous content of final_memory at (addr, HEIGHT).
         let prev_memory_entry = self
             .final_memory
             .insert(
@@ -359,9 +506,13 @@ impl Memory {
         let mut prev_clk = prev_memory_entry.1;
         let current_clk = memory_entry.clock;
 
-        // If it's the first time we use a memory cell,
-        // We insert it in the initial memory with multiplicity 1.
-        // Thus we extend the initial memory (initial from the VM point of view) with first accesses.
+        // If it's the first time we access the memory cell, we the initial memory with multiplicity 1 at that address.
+        // - again if it's a first write, we insert the memory entry value (coming from the memory log) with clock 0
+        //   and multiplicity 1.
+        // - for other memory accesses, we simlpy update the multiplicity to 1 since the value and clock were already
+        //   set in Memory::new.
+        // NOTE: currently the VM memory is a continuous Vec where empty cells are filled with zero. For example in the
+        // initial memory, outputs are always 0 (since they are written later and before the registers in the memory layout).
         if prev_clk == M31::zero() {
             if let Some(initial_memory_cell) = self
                 .initial_memory
@@ -370,15 +521,17 @@ impl Memory {
                 // Update the multiplicity to 1
                 initial_memory_cell.2 = M31::one();
             } else {
-                let initial_memory_entry = (memory_entry.value, M31::zero(), M31::one());
                 self.initial_memory.insert(
                     (memory_entry.address, M31::from(TREE_HEIGHT)),
-                    initial_memory_entry,
+                    (memory_entry.value, M31::zero(), M31::one()),
                 );
             }
         };
 
-        // Because of sparse memory cases, we need to use the initial memory entry updated as above
+        // Because of sparse memory cases (output example mentioned), we need to use the initial memory entry updated as above.
+        // Indeed when writting the output, memory_entry.value is the output but initial_memory.get(addr) is 0 (filled by VM).
+        // The clock update must consume 0 (emited by the initial memory) and emit 0. The store opcode will be the one consuming
+        // 0 and emitting the acutal output.
         let initial_memory_entry = self
             .initial_memory
             .get(&(memory_entry.address, M31::from(TREE_HEIGHT)));
@@ -404,7 +557,7 @@ impl Memory {
             address: memory_entry.address,
             prev_val: prev_memory_entry.0,
             value: memory_entry.value,
-            prev_clock: prev_clk, // prev_clk is the last step_clock if intermediate steps there are
+            prev_clock: prev_clk, // prev_clk is the last step_clock if there are intermediate steps
             clock: current_clk,
         }
     }

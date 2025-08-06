@@ -36,6 +36,8 @@ pub mod fibonacci {
         #[test]
         #[ignore]
         #[allow(clippy::cognitive_complexity)]
+        /// Test the import of a serialized VM output
+        /// TODO: update the serialization with the new VM output design
         fn test_import_fibonacci() {
             // Create a temporary directory for test fixtures
             let temp_dir = TempDir::new().expect("Failed to create temp directory");

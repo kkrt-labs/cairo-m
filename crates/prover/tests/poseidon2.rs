@@ -10,6 +10,7 @@ fn from_hex(hex_str: &str) -> Scalar {
     Scalar::from(value)
 }
 
+/// Tests that the imported poseidon2 works fine (compared to reference test vector value)
 #[test]
 fn kats() {
     let poseidon2 = Poseidon2::new(&POSEIDON2_M31_16_PARAMS);
