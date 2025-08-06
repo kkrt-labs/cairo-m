@@ -32,7 +32,8 @@ module {
       store %2, 10
       // Get address of array element
 %3 = getelementptr %1, 0
-      %4 = load %3
+      // Load array element [0]
+%4 = load %3
       return %4
 
   }

@@ -98,7 +98,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                 // Create a move/immediate instruction
                 self.instr()
-                    .add_instruction(var_type.emit_assign(value_id, value)?);
+                    .add_instruction(var_type.emit_assign(value_id, value));
 
                 // Map the variable directly to this value
                 self.state.definition_to_value.insert(mir_def_id, value_id);
@@ -124,7 +124,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         instr.add_instruction(Instruction::stack_alloc(var_addr, var_type.size_units()));
 
         // Emit the appropriate store instruction based on type
-        instr.add_instruction(var_type.emit_store(Value::operand(var_addr), value)?);
+        instr.add_instruction(var_type.emit_store(Value::operand(var_addr), value));
 
         // Update the definition to value mapping
         self.state.definition_to_value.insert(mir_def_id, var_addr);

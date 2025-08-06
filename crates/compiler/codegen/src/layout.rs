@@ -134,50 +134,151 @@ impl FunctionLayout {
 
     /// Allocates all locals and temporaries by walking through the function's basic blocks.
     fn allocate_locals_and_temporaries(&mut self, function: &MirFunction) -> CodegenResult<()> {
-        use cairo_m_compiler_mir::InstructionKind;
+        use cairo_m_compiler_mir::{InstructionKind, Literal, Value};
 
         let mut current_offset = 0;
 
         // Walk through all basic blocks and instructions
         for block in function.basic_blocks.iter() {
             for instruction in &block.instructions {
-                // Skip call instructions - their return values are allocated dynamically during codegen
-                if matches!(instruction.kind, InstructionKind::Call { .. }) {
-                    continue;
-                }
+                // Handle special memory instructions
+                match &instruction.kind {
+                    InstructionKind::Call { dests, .. } => {
+                        // Allocate space for call return values
+                        for dest_id in dests {
+                            if self.value_layouts.contains_key(dest_id) {
+                                continue;
+                            }
 
-                // Get all destination ValueIds from this instruction
-                for dest_id in instruction.destinations() {
-                    // Skip if already allocated (e.g., parameters)
-                    if self.value_layouts.contains_key(&dest_id) {
-                        continue;
+                            // Get the type and size for this return value
+                            let ty = function.value_types.get(dest_id).ok_or_else(|| {
+                                CodegenError::LayoutError(format!(
+                                    "No type found for call return value {dest_id:?}"
+                                ))
+                            })?;
+                            let size = ty.size_units();
+
+                            // Allocate space for the return value
+                            if size == 1 {
+                                self.value_layouts.insert(
+                                    *dest_id,
+                                    ValueLayout::Slot {
+                                        offset: current_offset as i32,
+                                    },
+                                );
+                            } else {
+                                self.value_layouts.insert(
+                                    *dest_id,
+                                    ValueLayout::MultiSlot {
+                                        offset: current_offset as i32,
+                                        size,
+                                    },
+                                );
+                            }
+
+                            current_offset += size;
+                        }
                     }
+                    InstructionKind::StackAlloc { dest, size } => {
+                        // Skip if already allocated
+                        if self.value_layouts.contains_key(dest) {
+                            continue;
+                        }
 
-                    // Get the type and size for this value
-                    let ty = function.value_types.get(&dest_id).ok_or_else(|| {
-                        CodegenError::LayoutError(format!("No type found for value {dest_id:?}"))
-                    })?;
-                    let size = ty.size_units();
-
-                    // Create appropriate layout based on size
-                    if size == 1 {
+                        // Allocate a block of memory
+                        let offset = current_offset as i32;
                         self.value_layouts.insert(
-                            dest_id,
-                            ValueLayout::Slot {
-                                offset: current_offset as i32,
-                            },
-                        );
-                    } else {
-                        self.value_layouts.insert(
-                            dest_id,
+                            *dest,
                             ValueLayout::MultiSlot {
-                                offset: current_offset as i32,
-                                size,
+                                offset,
+                                size: *size,
+                            },
+                        );
+                        current_offset += size;
+                    }
+                    InstructionKind::GetElementPtr { dest, base, offset } => {
+                        // Skip if already allocated
+                        if self.value_layouts.contains_key(dest) {
+                            continue;
+                        }
+
+                        // Look up the base layout
+                        let base_offset = match base {
+                            Value::Operand(base_id) => match self.value_layouts.get(base_id) {
+                                Some(ValueLayout::Slot { offset }) => *offset,
+                                Some(ValueLayout::MultiSlot { offset, .. }) => *offset,
+                                _ => {
+                                    return Err(CodegenError::LayoutError(format!(
+                                            "Base value {base_id:?} for getelementptr has no memory layout"
+                                        )));
+                                }
+                            },
+                            _ => {
+                                return Err(CodegenError::LayoutError(format!(
+                                    "getelementptr base must be an operand, got {base:?}"
+                                )));
+                            }
+                        };
+
+                        // Evaluate the offset
+                        let offset_value = match offset {
+                            Value::Literal(Literal::Integer(n)) => *n,
+                            _ => {
+                                // For now, we only support literal offsets
+                                return Err(CodegenError::LayoutError(format!(
+                                    "getelementptr offset must be a literal integer, got {offset:?}"
+                                )));
+                            }
+                        };
+
+                        // Calculate the final offset
+                        let final_offset = base_offset + offset_value;
+
+                        // Store this as a pointer to the calculated offset
+                        self.value_layouts.insert(
+                            *dest,
+                            ValueLayout::Slot {
+                                offset: final_offset,
                             },
                         );
                     }
+                    _ => {
+                        // For all other instructions, process destinations normally
+                        for dest_id in instruction.destinations() {
+                            // Skip if already allocated (e.g., parameters)
+                            if self.value_layouts.contains_key(&dest_id) {
+                                continue;
+                            }
 
-                    current_offset += size;
+                            // Get the type and size for this value
+                            let ty = function.value_types.get(&dest_id).ok_or_else(|| {
+                                CodegenError::LayoutError(format!(
+                                    "No type found for value {dest_id:?}"
+                                ))
+                            })?;
+                            let size = ty.size_units();
+
+                            // Create appropriate layout based on size
+                            if size == 1 {
+                                self.value_layouts.insert(
+                                    dest_id,
+                                    ValueLayout::Slot {
+                                        offset: current_offset as i32,
+                                    },
+                                );
+                            } else {
+                                self.value_layouts.insert(
+                                    dest_id,
+                                    ValueLayout::MultiSlot {
+                                        offset: current_offset as i32,
+                                        size,
+                                    },
+                                );
+                            }
+
+                            current_offset += size;
+                        }
+                    }
                 }
             }
         }

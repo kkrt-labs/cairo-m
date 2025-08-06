@@ -7,6 +7,7 @@
 use cairo_m_compiler_parser::parser::UnaryOp;
 
 use crate::instruction::CalleeSignature;
+use crate::mir_types::InstructionEmitter;
 use crate::{
     BasicBlockId, BinaryOp, FunctionId, Instruction, Literal, MirFunction, MirType, Value, ValueId,
 };
@@ -58,8 +59,21 @@ impl<'f> InstrBuilder<'f> {
     }
 
     /// Create and add a load instruction
-    pub fn load(&mut self, dest: ValueId, src: Value) -> &mut Self {
-        let instr = Instruction::load(dest, src);
+    pub fn load(&mut self, ty: MirType, dest: ValueId, src: Value) -> &mut Self {
+        let instr = ty.emit_load(dest, src);
+        self.add_instruction(instr);
+        self
+    }
+
+    /// Create and add a load instruction with a comment
+    pub fn load_with_comment(
+        &mut self,
+        ty: MirType,
+        dest: ValueId,
+        src: Value,
+        comment: String,
+    ) -> &mut Self {
+        let instr = ty.emit_load(dest, src).with_comment(comment);
         self.add_instruction(instr);
         self
     }
@@ -67,6 +81,13 @@ impl<'f> InstrBuilder<'f> {
     /// Create and add a store instruction
     pub fn store(&mut self, dest: Value, value: Value) -> &mut Self {
         let instr = Instruction::store(dest, value);
+        self.add_instruction(instr);
+        self
+    }
+
+    /// Create and add a store instruction with a comment
+    pub fn store_with_comment(&mut self, dest: Value, value: Value, comment: String) -> &mut Self {
+        let instr = Instruction::store(dest, value).with_comment(comment);
         self.add_instruction(instr);
         self
     }

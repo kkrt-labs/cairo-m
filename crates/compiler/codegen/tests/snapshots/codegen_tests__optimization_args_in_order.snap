@@ -31,10 +31,10 @@ process_four_0:
    2: 0 1 -4 -3            // [fp + -3] = [fp + 1] op [fp + -4]
    3: 11 _ _ _             // return
 wrapper:
-   4: 4 -7 0 0             // Arg 0 slot 0: [fp + 0] = [fp + -7] + 0
-   5: 4 -6 0 1             // Arg 1 slot 0: [fp + 1] = [fp + -6] + 0
-   6: 4 -5 0 2             // Arg 2 slot 0: [fp + 2] = [fp + -5] + 0
-   7: 4 -4 0 3             // Arg 3 slot 0: [fp + 3] = [fp + -4] + 0
-   8: 10 5 0 _             // call process_four
-   9: 4 4 0 -3             // Return value 0: [fp -3] = [fp + 4] + 0
+   4: 4 -7 0 1             // Arg 0 slot 0: [fp + 1] = [fp + -7] + 0
+   5: 4 -6 0 2             // Arg 1 slot 0: [fp + 2] = [fp + -6] + 0
+   6: 4 -5 0 3             // Arg 2 slot 0: [fp + 3] = [fp + -5] + 0
+   7: 4 -4 0 4             // Arg 3 slot 0: [fp + 4] = [fp + -4] + 0
+   8: 10 6 0 _             // call process_four
+   9: 4 5 0 -3             // Return value 0: [fp -3] = [fp + 5] + 0
   10: 11 _ _ _             // return
