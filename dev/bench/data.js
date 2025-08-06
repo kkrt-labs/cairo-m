@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1754384652164,
+  "lastUpdate": 1754487994550,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -1603,6 +1603,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 337102649,
             "range": "± 991067",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8f1f777a371b08e5d86387a5b03040c0e3f4b27a",
+          "message": "feat(compiler): add struct support with mem2reg optimization pass (#224)\n\n- Implement complete struct support in MIR and codegen layers\n- Add stackalloc/getelementptr/load/store instructions for memory operations\n- Create InstructionEmitter trait for type-specific instruction generation\n- Add mem2reg optimization pass for eliminating redundant memory operations\n  - Implements escape analysis to identify non-escaping allocations\n  - Store-to-load forwarding within basic blocks\n  - Full allocation promotion to registers for single-block allocations\n  - Multi-block promotion with proper mutation handling\n- Fix layout calculation for function call return values\n- Add comprehensive documentation for flattened pointer model\n- Restore debug comments in MIR lowering for better debugging experience\n\nThe mem2reg pass successfully optimizes simple struct operations, reducing\nredundant memory traffic. For example, creating a struct and immediately\naccessing its fields is optimized to direct value computation.",
+          "timestamp": "2025-08-06T15:43:22+02:00",
+          "tree_id": "e9d0557882d6e01ddbc3bfbf0e8d0ee6a0874a7e",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/8f1f777a371b08e5d86387a5b03040c0e3f4b27a"
+        },
+        "date": 1754487993345,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 338171921,
+            "range": "± 1579843",
             "unit": "ns/iter"
           }
         ]
