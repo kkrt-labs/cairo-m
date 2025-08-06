@@ -12,9 +12,7 @@ Success: true
 Functions loaded: 1
 ============================================================
 Module Output:
-Function: add (5 directives)
-    0: __func_0 [6]:
-    1: add [6]:
-    2:     I32Add $3 $2 -> $5
-    3:     Copy $5 -> $4
-    4:     Return $0 $1
+add:
+  Node { operation: Inputs, inputs: [], output_types: [I32, I32] }
+  Node { operation: WASMOp(I32Add), inputs: [ValueOrigin { node: 0, output_idx: 1 }, ValueOrigin { node: 0, output_idx: 0 }], output_types: [I32] }
+  Node { operation: Br(BreakTarget { depth: 0, kind: FunctionOrLoop }), inputs: [ValueOrigin { node: 1, output_idx: 0 }], output_types: [] }
