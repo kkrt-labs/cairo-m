@@ -141,6 +141,8 @@ impl<B: BackendForChannel<MC>, MC: MerkleChannel> TreeBuilder<B>
     }
 }
 
+/// Asserts that constraints are correctly enforced.
+/// When adding a component, this function should be updated.
 fn assert_components(trace: TreeVec<Vec<&Vec<M31>>>, components: &Components) {
     let Components {
         opcodes,
