@@ -26,10 +26,7 @@ macro_rules! wasm_test {
                     let module_output = module.to_string();
 
                     // Get the program to access function count
-                    let function_count = match module.program() {
-                        Ok(program) => program.functions.len(),
-                        Err(_) => 0,
-                    };
+                    let function_count = module.with_program(|program| program.functions.len());
 
                     format!(
                         "---\nsource: {}\nexpression: wasm_load_result\n---\nWASM File: {}\n============================================================\nSuccess: true\nFunctions loaded: {}\n============================================================\nModule Output:\n{}",
@@ -82,7 +79,7 @@ mod integration_tests {
         assert!(result.is_ok(), "Should load add.wasm successfully");
 
         let module = result.unwrap();
-        let program = module.program().expect("Should be able to get program");
+        let program = module.with_program(|program| program);
         assert!(
             !program.functions.is_empty(),
             "Should have at least one function"
