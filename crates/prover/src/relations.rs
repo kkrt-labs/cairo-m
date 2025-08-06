@@ -1,4 +1,5 @@
 #![allow(non_camel_case_types)]
+#![allow(clippy::unused_doc_comments)]
 use stwo_constraint_framework::relation;
 
 /// 20-bit range check relation for field arithmetic bounds.
