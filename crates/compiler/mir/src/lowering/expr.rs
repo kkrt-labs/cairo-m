@@ -12,7 +12,7 @@ use cairo_m_compiler_semantic::type_resolution::{
 use cairo_m_compiler_semantic::types::TypeData;
 
 use crate::instruction::CalleeSignature;
-use crate::{Instruction, MirType, Value};
+use crate::{Instruction, Literal, MirType, Value};
 
 use super::builder::{CallResult, MirBuilder};
 
@@ -299,12 +299,14 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     let semantic_type =
                         definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
                     let var_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
-                    let loaded_value = self.state.mir_function.new_typed_value_id(var_type);
+                    let loaded_value = self.state.mir_function.new_typed_value_id(var_type.clone());
 
-                    self.instr().add_instruction(Instruction::load(
+                    self.instr().load_with_comment(
+                        var_type,
                         loaded_value,
                         Value::operand(var_value),
-                    ));
+                        format!("Load variable {}", name.value()),
+                    );
                     return Ok(Value::operand(loaded_value));
                 } else {
                     // It's not a pointer - use it directly
@@ -493,12 +495,20 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         );
 
         // Load the value from the field address
-        let loaded_value = self.state.mir_function.new_typed_value_id(field_type);
+        let loaded_value = self
+            .state
+            .mir_function
+            .new_typed_value_id(field_type.clone());
 
         // Register loaded value as a Value
 
         // TODO: This should emit a load with the proper type (e.g. LoadU32?)
-        self.instr().load(loaded_value, Value::operand(field_addr));
+        self.instr().load_with_comment(
+            field_type,
+            loaded_value,
+            Value::operand(field_addr),
+            format!("Load field '{}'", field.value()),
+        );
 
         Ok(Value::operand(loaded_value))
     }
@@ -533,12 +543,25 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         );
 
         // Load the value from the element address
-        let loaded_value = self.state.mir_function.new_typed_value_id(element_type);
+        let loaded_value = self
+            .state
+            .mir_function
+            .new_typed_value_id(element_type.clone());
 
         // Register loaded value as a Value
 
-        self.instr()
-            .load(loaded_value, Value::operand(element_addr));
+        // Create comment with index if it's a literal
+        let comment = match offset_value {
+            Value::Literal(Literal::Integer(idx)) => format!("Load array element [{}]", idx),
+            _ => "Load array element".to_string(),
+        };
+
+        self.instr().load_with_comment(
+            element_type,
+            loaded_value,
+            Value::operand(element_addr),
+            comment,
+        );
 
         Ok(Value::operand(loaded_value))
     }
@@ -858,13 +881,18 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         );
 
         // Load the value at the element address
-        let loaded_value = self.state.mir_function.new_typed_value_id(element_mir_type);
+        let loaded_value = self
+            .state
+            .mir_function
+            .new_typed_value_id(element_mir_type.clone());
 
         // Register loaded value as a Value
 
-        self.instr().add_instruction(
-            Instruction::load(loaded_value, Value::operand(element_addr))
-                .with_comment(format!("Load tuple element {}", index)),
+        self.instr().load_with_comment(
+            element_mir_type,
+            loaded_value,
+            Value::operand(element_addr),
+            format!("Load tuple element {}", index),
         );
 
         Ok(Value::operand(loaded_value))

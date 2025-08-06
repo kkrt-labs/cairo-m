@@ -479,6 +479,10 @@ impl CodeGenerator {
                 builder.load(*dest, *address)?;
             }
 
+            InstructionKind::LoadU32 { dest, address } => {
+                builder.load_u32(*dest, *address)?;
+            }
+
             InstructionKind::Store { address, value } => {
                 // Check if this store's destination is used as a call argument
                 if let Value::Operand(addr_id) = address {

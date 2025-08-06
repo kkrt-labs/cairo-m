@@ -265,6 +265,10 @@ pub enum InstructionKind {
     /// For accessing memory locations and dereferencing pointers
     Load { dest: ValueId, address: Value },
 
+    /// Load from memory: `[dest, dest+1] = load [addr, addr+1]`
+    /// For accessing memory locations and dereferencing pointers
+    LoadU32 { dest: ValueId, address: Value },
+
     /// Store to memory: `store addr, value`
     /// For writing to memory locations
     Store { address: Value, value: Value },
@@ -363,6 +367,15 @@ impl Instruction {
     pub const fn load(dest: ValueId, address: Value) -> Self {
         Self {
             kind: InstructionKind::Load { dest, address },
+            source_span: None,
+            source_expr_id: None,
+            comment: None,
+        }
+    }
+
+    pub const fn load_u32(dest: ValueId, address: Value) -> Self {
+        Self {
+            kind: InstructionKind::LoadU32 { dest, address },
             source_span: None,
             source_expr_id: None,
             comment: None,
@@ -508,6 +521,7 @@ impl Instruction {
             | InstructionKind::UnaryOp { dest, .. }
             | InstructionKind::BinaryOp { dest, .. }
             | InstructionKind::Load { dest, .. }
+            | InstructionKind::LoadU32 { dest, .. }
             | InstructionKind::StackAlloc { dest, .. }
             | InstructionKind::AddressOf { dest, .. }
             | InstructionKind::GetElementPtr { dest, .. }
@@ -567,6 +581,12 @@ impl Instruction {
             }
 
             InstructionKind::Load { address, .. } => {
+                if let Value::Operand(id) = address {
+                    used.insert(*id);
+                }
+            }
+
+            InstructionKind::LoadU32 { address, .. } => {
                 if let Value::Operand(id) = address {
                     used.insert(*id);
                 }
@@ -635,6 +655,7 @@ impl Instruction {
             InstructionKind::Call { .. } => Ok(()),
             InstructionKind::VoidCall { .. } => Ok(()),
             InstructionKind::Load { .. } => Ok(()),
+            InstructionKind::LoadU32 { .. } => Ok(()),
             InstructionKind::Store { .. } => Ok(()),
             InstructionKind::StoreU32 { .. } => Ok(()),
             InstructionKind::StackAlloc { .. } => Ok(()),
@@ -776,6 +797,14 @@ impl PrettyPrint for Instruction {
             InstructionKind::Load { dest, address } => {
                 result.push_str(&format!(
                     "{} = load {}",
+                    dest.pretty_print(0),
+                    address.pretty_print(0)
+                ));
+            }
+
+            InstructionKind::LoadU32 { dest, address } => {
+                result.push_str(&format!(
+                    "{} = loadU32 {}",
                     dest.pretty_print(0),
                     address.pretty_print(0)
                 ));

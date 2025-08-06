@@ -1375,57 +1375,108 @@ impl CasmBuilder {
     /// Translates `dest = *address` to `[fp + dest_off] = [[fp + addr_off]]`.
     /// This uses the `store_double_deref_fp` opcode.
     /// TODO: check with VM opcode if this is the expected, desired behavior.
-    pub fn load(&mut self, _dest: ValueId, _address: Value) -> CodegenResult<()> {
-        todo!("Load is not implemented yet");
-        // let layout = self
-        //     .layout
-        //     .as_mut()
-        //     .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
+    /// Load a value from memory to a register.
+    ///
+    /// **IMPORTANT: Flattened Pointer Model**
+    ///
+    /// This is NOT a traditional memory load! We use a "flattened pointer model" where
+    /// all pointers are compile-time known offsets from the frame pointer (fp). The
+    /// `address` parameter is not a runtime memory address - it's a ValueId that
+    /// represents a compile-time-known stack slot.
+    ///
+    /// What this means:
+    /// - `stackalloc` creates a stack slot and returns its ValueId (not a pointer)
+    /// - `getelementptr` calculates a new offset at compile time, returning a new ValueId
+    /// - `load` copies data from one stack slot to another (mov [fp+dest], [fp+src])
+    /// - `store` copies data to a stack slot
+    ///
+    /// This model works perfectly for stack-allocated aggregates (structs, arrays) where
+    /// all memory locations are known at compile time. However, it will need significant
+    /// changes to support:
+    /// - Heap allocation (where addresses are runtime values)
+    /// - Function pointers (where addresses must be computed at runtime)
+    /// - Indirect memory access through runtime-computed pointers
+    ///
+    /// The current implementation generates:
+    /// ```ignore
+    /// [fp + dest_offset] = [fp + src_offset] + 0
+    /// ```
+    /// Which is just a stack-to-stack copy, not a memory dereference.
+    pub fn load(&mut self, dest: ValueId, address: Value) -> CodegenResult<()> {
+        match address {
+            Value::Operand(addr_id) => {
+                // The address operand represents a compile-time-known stack slot
+                // In our layout, this was calculated by getelementptr or stackalloc
+                let src_offset = self.layout.get_offset(addr_id)?;
+                let dest_offset = self.layout.get_offset(dest)?;
 
-        // let dest_off = layout.allocate_local(dest, 1)?;
+                // Generate a copy instruction from source to destination
+                let instr = InstructionBuilder::new(STORE_ADD_FP_IMM)
+                    .with_operand(Operand::Literal(src_offset))
+                    .with_operand(Operand::Literal(0))
+                    .with_operand(Operand::Literal(dest_offset))
+                    .with_comment(format!(
+                        "Load: [fp + {dest_offset}] = [fp + {src_offset}] + 0"
+                    ));
+                self.instructions.push(instr);
+                self.touch(dest_offset, 1);
 
-        // let addr_off = match address {
-        //     Value::Operand(id) => layout.get_offset(id)?,
-        //     _ => {
-        //         return Err(CodegenError::UnsupportedInstruction(
-        //             "Load address must be an operand".to_string(),
-        //         ))
-        //     }
-        // };
+                Ok(())
+            }
+            _ => Err(CodegenError::UnsupportedInstruction(format!(
+                "Load from non-operand address not supported: {:?}",
+                address
+            ))),
+        }
+    }
 
-        // let instr = InstructionBuilder::new(opcodes::STORE_DOUBLE_DEREF_FP)
-        //     .with_base_off(addr_off)
-        //     .with_offset(Operand::Literal(0)) // No inner offset for simple dereference
-        //     .with_dst_off(dest_off)
-        //     .with_comment(format!("[fp + {dest_off}] = [[fp + {addr_off}]]"));
+    pub fn load_u32(&mut self, dest: ValueId, address: Value) -> CodegenResult<()> {
+        match address {
+            Value::Operand(addr_id) => {
+                let src_offset = self.layout.get_offset(addr_id)?;
+                let dest_offset = self.layout.get_offset(dest)?;
 
-        // self.instructions.push(instr);
-        // Ok(())
+                let instr = InstructionBuilder::new(U32_STORE_ADD_FP_IMM)
+                    .with_operand(Operand::Literal(src_offset))
+                    .with_operand(Operand::Literal(0))
+                    .with_operand(Operand::Literal(dest_offset))
+                    .with_comment(format!("LoadU32: [fp + {dest_offset}, fp + {dest_offset} + 1] = [fp + {src_offset}, fp + {src_offset} + 1] + 0"));
+                self.instructions.push(instr);
+                self.touch(dest_offset, 2);
+                Ok(())
+            }
+            _ => Err(CodegenError::UnsupportedInstruction(format!(
+                "LoadU32 from non-operand address not supported: {:?}",
+                address
+            ))),
+        }
     }
 
     /// Generate a get element pointer instruction
     ///
-    /// Translates `dest = getelementptr base, offset` to an addition.
+    /// **IMPORTANT: Compile-Time Offset Calculation**
+    ///
+    /// In our flattened pointer model, `getelementptr` is purely a compile-time
+    /// operation. It doesn't generate ANY runtime code! The FunctionLayout phase
+    /// pre-calculates all offsets when building the stack frame layout.
+    ///
+    /// What happens:
+    /// 1. During MIR lowering: `%ptr = getelementptr %base, offset`
+    /// 2. During layout calculation: FunctionLayout computes `fp_offset(%ptr) = fp_offset(%base) + offset`
+    /// 3. During codegen: This function is called but generates NO instructions
+    /// 4. Later uses of %ptr will use the pre-calculated offset
+    ///
+    /// This works because all struct layouts and array indices are known at compile time.
+    /// For dynamic indexing or heap pointers, this model would need to be completely redesigned.
     pub fn get_element_ptr(
         &mut self,
         _dest: ValueId,
         _base: Value,
         _offset: Value,
     ) -> CodegenResult<()> {
-        todo!("Get element pointer is not implemented yet");
-        // let layout = self
-        //     .layout
-        //     .as_mut()
-        //     .ok_or_else(|| CodegenError::LayoutError("No layout set".to_string()))?;
-        // let dest_off = layout.allocate_local(dest, 1)?;
-
-        // self.generate_arithmetic_op(
-        //     opcodes::STORE_ADD_FP_FP,
-        //     opcodes::STORE_ADD_FP_IMM,
-        //     dest_off,
-        //     base,
-        //     offset,
-        // )
+        // The FunctionLayout has already calculated the offset for dest
+        // This instruction doesn't generate any CASM code - it's purely compile-time
+        Ok(())
     }
 
     /// Generate unconditional jump

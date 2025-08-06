@@ -3,6 +3,7 @@
 //! This module implements various optimization passes that can be applied to MIR functions
 //! to improve code quality and remove dead code.
 
+pub mod mem2reg;
 pub mod pre_opt;
 
 use cairo_m_compiler_parser::parser::UnaryOp;
@@ -678,6 +679,7 @@ impl PassManager {
     pub fn standard_pipeline() -> Self {
         Self::new()
             .add_pass(pre_opt::PreOptimizationPass::new())
+            .add_pass(mem2reg::Mem2RegPass::new()) // Run mem2reg early to eliminate memory ops
             .add_pass(InPlaceOptimizationPass::new())
             .add_pass(FuseCmpBranch::new())
             .add_pass(DeadCodeElimination::new())

@@ -1,5 +1,3 @@
-//!ASSERT CONTAINS: getelementptr
-//!ASSERT CONTAINS: store
 
 // Tests writing a value to a struct field.
 struct Point {

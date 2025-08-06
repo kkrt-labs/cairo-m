@@ -174,6 +174,10 @@ codegen_test!(fib_loop, "functions");
 codegen_test!(return_values, "functions");
 codegen_test!(mutual_recursion, "functions");
 
+// --- Structs ---
+codegen_test!(simple_struct, "structs");
+codegen_test!(structs, "structs");
+
 // --- Optimization ---
 codegen_test!(in_place_update, "optimization");
 codegen_test!(args_in_order, "optimization");

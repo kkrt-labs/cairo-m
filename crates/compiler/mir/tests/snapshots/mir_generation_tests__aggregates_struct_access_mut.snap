@@ -9,8 +9,6 @@ expression: mir_output
 Fixture: struct_access_mut.cm
 ============================================================
 Source code:
-//!ASSERT CONTAINS: getelementptr
-//!ASSERT CONTAINS: store
 
 // Tests writing a value to a struct field.
 struct Point {
@@ -32,21 +30,7 @@ module {
     entry: 0
 
     0:
-      // Allocate struct
-%0 = stackalloc 2
-      // Get address of field 'x'
-%1 = getelementptr %0, 0
-      store %1, 10
-      // Get address of field 'y'
-%2 = getelementptr %0, 1
-      store %2, 20
-      // Get address of field 'y'
-%3 = getelementptr %0, 1
-      store %3, 30
-      // Get address of field 'y'
-%4 = getelementptr %0, 1
-      %5 = load %4
-      return %5
+      return 30
 
   }
 

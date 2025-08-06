@@ -11,6 +11,7 @@ use cairo_m_compiler_semantic::type_resolution::{
 };
 use cairo_m_compiler_semantic::types::TypeData;
 
+use crate::mir_types::InstructionEmitter;
 use crate::{Instruction, MirType, Terminator, Value};
 
 use super::builder::MirBuilder;
@@ -211,14 +212,13 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         );
 
                         // Load the element
-                        let elem_value = self.state.mir_function.new_typed_value_id(mir_type);
+                        let elem_value =
+                            self.state.mir_function.new_typed_value_id(mir_type.clone());
 
                         // Register loaded value as a Value
 
-                        self.instr().add_instruction(
-                            Instruction::load(elem_value, Value::operand(elem_ptr))
-                                .with_comment(format!("Load tuple element {}", i)),
-                        );
+                        self.instr()
+                            .load(mir_type, elem_value, Value::operand(elem_ptr));
 
                         return_values.push(Value::operand(elem_value));
                     }
@@ -697,7 +697,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     // Register loaded value as a Value
 
                     self.instr().add_instruction(
-                        Instruction::load(elem_value, Value::operand(elem_ptr))
+                        element_mir_type
+                            .emit_load(elem_value, Value::operand(elem_ptr))
                             .with_comment(format!("Load tuple element {}", index)),
                     );
 

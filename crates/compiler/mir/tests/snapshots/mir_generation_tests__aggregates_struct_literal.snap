@@ -9,9 +9,6 @@ expression: mir_output
 Fixture: struct_literal.cm
 ============================================================
 Source code:
-//!ASSERT CONTAINS: Get address of field 'x'
-//!ASSERT CONTAINS: Get address of field 'y'
-
 // Tests the creation of a struct literal.
 struct Point {
     x: felt,
@@ -31,14 +28,6 @@ module {
     entry: 0
 
     0:
-      // Allocate struct
-%0 = stackalloc 2
-      // Get address of field 'x'
-%1 = getelementptr %0, 0
-      store %1, 10
-      // Get address of field 'y'
-%2 = getelementptr %0, 1
-      store %2, 20
       return 0
 
   }
