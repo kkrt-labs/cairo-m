@@ -5,9 +5,9 @@ use stwo_prover::core::fields::m31::M31;
 
 use crate::adapter::ExecutionBundle;
 
-/// Flattened PackedExecutionBundle that contains all the M31 components as separate PackedM31 vectors
-/// This structure is optimized for SIMD operations
-/// Supports multi-limb values (U32) and variable-sized instructions (up to 5 M31s)
+// Flattened PackedExecutionBundle that contains all the M31 components as separate PackedM31 vectors
+// This structure is optimized for SIMD operations
+// Supports multi-limb values (U32) and variable-sized instructions (up to 5 M31s)
 #[derive(Debug, Clone, Copy)]
 pub struct PackedExecutionBundle {
     // VM registers (2 fields)

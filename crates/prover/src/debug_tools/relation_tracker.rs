@@ -33,6 +33,7 @@ where
 /// Goes through each add_to_relation in each component and for each entry it counts how much time it is emited/used:
 /// - adds `numerator` times for emissions
 /// - substracts `numerator` times for uses
+///
 /// Most of the logic in the track_relations function reproduces the PublicData::initial_logup_sum logic.
 /// Must be updated when components or public data are modified.
 fn track_relations<MC: MerkleChannel>(
