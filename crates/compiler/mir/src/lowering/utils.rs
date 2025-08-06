@@ -94,11 +94,11 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 let semantic_type =
                     definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
                 let var_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
-                let value_id = self.state.mir_function.new_typed_value_id(var_type);
+                let value_id = self.state.mir_function.new_typed_value_id(var_type.clone());
 
                 // Create a move/immediate instruction
                 self.instr()
-                    .add_instruction(Instruction::assign(value_id, value));
+                    .add_instruction(var_type.emit_assign(value_id, value)?);
 
                 // Map the variable directly to this value
                 self.state.definition_to_value.insert(mir_def_id, value_id);

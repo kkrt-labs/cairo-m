@@ -4,6 +4,11 @@
 //!ASSERT CONTAINS: U32Sub
 //!ASSERT CONTAINS: U32Div
 
+fn test_u32_literal() -> u32 {
+    let x: u32 = 42;
+    return x;
+}
+
 // Tests various binary operations on u32.
 fn test_add(a: u32, b: u32) -> u32 {
     let c = a + b;

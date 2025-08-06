@@ -7,7 +7,7 @@
 use cairo_m_compiler_semantic::types::{TypeData, TypeId};
 use cairo_m_compiler_semantic::SemanticDb;
 
-use crate::{Instruction, Value};
+use crate::{Instruction, Value, ValueId};
 
 /// A simplified type representation for MIR
 ///
@@ -56,15 +56,24 @@ pub enum MirType {
 
 /// Emit the proper instruction flavor from a value and a given type
 pub trait InstructionEmitter {
-    fn emit_store(self, address: Value, value: Value) -> Result<Instruction, String>;
+    fn emit_store(&self, address: Value, value: Value) -> Result<Instruction, String>;
+    fn emit_assign(&self, dest: ValueId, source: Value) -> Result<Instruction, String>;
 }
 
 impl InstructionEmitter for MirType {
-    fn emit_store(self, address: Value, value: Value) -> Result<Instruction, String> {
+    fn emit_store(&self, address: Value, value: Value) -> Result<Instruction, String> {
         match self {
             Self::Felt | Self::Bool => Ok(Instruction::store(address, value)),
             Self::U32 => Ok(Instruction::store_u32(address, value)),
             _ => Ok(Instruction::store(address, value)),
+        }
+    }
+
+    fn emit_assign(&self, dest: ValueId, source: Value) -> Result<Instruction, String> {
+        match self {
+            Self::Felt | Self::Bool => Ok(Instruction::assign(dest, source)),
+            Self::U32 => Ok(Instruction::assign_u32(dest, source)),
+            _ => Ok(Instruction::assign(dest, source)),
         }
     }
 }

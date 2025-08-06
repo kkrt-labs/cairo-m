@@ -15,6 +15,11 @@ Source code:
 //!ASSERT CONTAINS: U32Sub
 //!ASSERT CONTAINS: U32Div
 
+fn test_u32_literal() -> u32 {
+    let x: u32 = 42;
+    return x;
+}
+
 // Tests various binary operations on u32.
 fn test_add(a: u32, b: u32) -> u32 {
     let c = a + b;
@@ -45,6 +50,16 @@ fn test_eq(a: u32, b: u32) -> u32 {
 Generated MIR:
 module {
   // Function 0
+  fn test_u32_literal {
+    entry: 0
+
+    0:
+      %0 = 42 (u32)
+      return %0
+
+  }
+
+  // Function 1
   fn test_add {
     parameters: [0, 1]
     entry: 0
@@ -55,7 +70,7 @@ module {
 
   }
 
-  // Function 1
+  // Function 2
   fn test_mul {
     parameters: [0, 1]
     entry: 0
@@ -66,7 +81,7 @@ module {
 
   }
 
-  // Function 2
+  // Function 3
   fn test_sub {
     parameters: [0, 1]
     entry: 0
@@ -77,7 +92,7 @@ module {
 
   }
 
-  // Function 3
+  // Function 4
   fn test_div {
     parameters: [0, 1]
     entry: 0
@@ -88,7 +103,7 @@ module {
 
   }
 
-  // Function 4
+  // Function 5
   fn test_eq {
     parameters: [0, 1]
     entry: 0
