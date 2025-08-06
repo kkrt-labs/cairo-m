@@ -1,0 +1,22 @@
+---
+source: crates/compiler/codegen/tests/codegen_auto_discovery.rs
+description: Codegen snapshot for structs/simple_struct.cm
+input_file: test_data/structs/simple_struct.cm
+---
+Fixture: structs/simple_struct.cm
+============================================================
+Source code:
+struct Point {
+    x: felt,
+    y: felt,
+}
+
+fn main() -> felt {
+    let p = Point { x: 10, y: 20 };
+    return p.x;
+}
+============================================================
+Generated CASM:
+main:
+   0: 9 10 -3 _            // Return value 0: [fp -3] = 10
+   1: 11 _ _ _             // return

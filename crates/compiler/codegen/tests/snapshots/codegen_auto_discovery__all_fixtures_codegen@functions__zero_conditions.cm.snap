@@ -1,0 +1,37 @@
+---
+source: crates/compiler/codegen/tests/codegen_auto_discovery.rs
+description: Codegen snapshot for functions/zero_conditions.cm
+input_file: test_data/functions/zero_conditions.cm
+---
+Fixture: functions/zero_conditions.cm
+============================================================
+Source code:
+fn zero_conditions(x: felt) -> felt {
+    if (0 == x){
+        return 1;
+    }
+    if (x != 0){
+        return 2;
+    }
+    if (!x) {
+        return 3;
+    } else {
+        return 4;
+    }
+}
+
+============================================================
+Result: SEMANTIC ERRORS
+Semantic errors found:
+DiagnosticCollection {
+    diagnostics: [
+        Diagnostic {
+            severity: Error,
+            code: TypeMismatch,
+            message: "Operator `!` is not supported for type `felt`",
+            file_path: "functions/zero_conditions.cm",
+            span: 129..130,
+            related_spans: [],
+        },
+    ],
+}

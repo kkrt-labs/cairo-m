@@ -1,8 +1,7 @@
-use std::fs;
-
 use cairo_m_common::{CairoMSerialize, Program};
 use cairo_m_compiler::{compile_cairo, CompilerOptions};
 use cairo_m_runner::run_cairo_program;
+use cairo_m_test_utils::read_fixture;
 use stwo_prover::core::fields::m31::M31;
 
 /// Represents a test case for diff-testing
@@ -61,20 +60,14 @@ macro_rules! diff_test {
 
 /// Compiles a Cairo-M file to a CompiledProgram
 fn compile_cairo_file(cairo_file: &str) -> Result<Program, String> {
-    let source_path = format!(
-        "{}/tests/test_data/{}",
-        env!("CARGO_MANIFEST_DIR"),
-        cairo_file
-    );
-
-    // Read the source file
-    let source_text = fs::read_to_string(&source_path)
-        .map_err(|e| format!("Failed to read source file '{}': {}", source_path, e))?;
+    // Read the source file from shared test data
+    let fixture_path = format!("functions/{}", cairo_file);
+    let source_text = read_fixture(&fixture_path);
 
     // Compile using the library API
     let options = CompilerOptions { verbose: false };
 
-    let output = compile_cairo(source_text, source_path, options)
+    let output = compile_cairo(source_text, fixture_path, options)
         .map_err(|e| format!("Compilation failed: {}", e))?;
 
     // Clone the Arc<CompiledProgram> to get an owned CompiledProgram

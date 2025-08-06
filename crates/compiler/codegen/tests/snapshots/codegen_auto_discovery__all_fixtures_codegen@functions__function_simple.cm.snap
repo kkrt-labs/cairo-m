@@ -1,0 +1,22 @@
+---
+source: crates/compiler/codegen/tests/codegen_auto_discovery.rs
+description: Codegen snapshot for functions/function_simple.cm
+input_file: test_data/functions/function_simple.cm
+---
+Fixture: functions/function_simple.cm
+============================================================
+Source code:
+//!ASSERT FUNCTION_COUNT: 1
+//!ASSERT BLOCK_COUNT(test): 1
+//!ASSERT CONTAINS: return 42
+
+// A very simple function that returns a literal.
+fn test() -> felt {
+    return 42;
+}
+
+============================================================
+Generated CASM:
+test:
+   0: 9 42 -3 _            // Return value 0: [fp -3] = 42
+   1: 11 _ _ _             // return

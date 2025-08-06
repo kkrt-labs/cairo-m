@@ -1,0 +1,31 @@
+---
+source: crates/compiler/mir/tests/mir_auto_discovery.rs
+description: MIR snapshot for arithmetic/and.cm
+input_file: test_data/arithmetic/and.cm
+---
+Fixture: arithmetic/and.cm
+============================================================
+Source code:
+fn simple_and() -> bool {
+    let x = true;
+    let y = true;
+    let z = x && y;
+    return z;
+}
+
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn simple_and {
+    entry: 0
+
+    0:
+      %0 = true
+      %1 = true
+      %2 = %0 And %1
+      return %2
+
+  }
+
+}

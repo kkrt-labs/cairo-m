@@ -1,0 +1,56 @@
+---
+source: crates/compiler/codegen/tests/codegen_auto_discovery.rs
+description: Codegen snapshot for control_flow/loop_with_breaks.cm
+input_file: test_data/control_flow/loop_with_breaks.cm
+---
+Fixture: control_flow/loop_with_breaks.cm
+============================================================
+Source code:
+fn test_loop_with_breaks() -> felt {
+    let count = 0;
+    let result = 0;
+
+    loop {
+        count = count + 1;
+
+        if (count == 5) {
+            continue;
+        }
+
+        result = result + count;
+
+        if (count == 10) {
+            break;
+        }
+    }
+
+    return result;
+}
+
+============================================================
+Generated CASM:
+test_loop_with_breaks:
+test_loop_with_breaks:
+test_loop_with_breaks_0:
+   0: 9 0 0 _              // [fp + 0] = 0
+   1: 9 0 1 _              // [fp + 1] = 0
+test_loop_with_breaks_1:
+   2: 4 0 0 6              // [fp + 6] = [fp + 0] + 0
+   3: 4 6 1 0              // [fp + 0] = [fp + 6] op 1
+   4: 5 0 5 4              // [fp + 4] = [fp + 0] op 5
+   5: 14 4 5 _             // if [fp + 4] != 0 jmp rel test_loop_with_breaks_4
+   6: 12 9 _ _             // jump abs test_loop_with_breaks_3
+test_loop_with_breaks_2:
+   7: 4 1 0 -3             // Return value 0: [fp -3] = [fp + 1] + 0
+   8: 11 _ _ _             // return
+test_loop_with_breaks_3:
+   9: 12 2 _ _             // jump abs test_loop_with_breaks_1
+test_loop_with_breaks_4:
+  10: 4 1 0 6              // [fp + 6] = [fp + 1] + 0
+  11: 0 6 0 1              // [fp + 1] = [fp + 6] op [fp + 0]
+  12: 5 0 10 5             // [fp + 5] = [fp + 0] op 10
+  13: 14 5 2 _             // if [fp + 5] != 0 jmp rel test_loop_with_breaks_6
+test_loop_with_breaks_5:
+  14: 12 7 _ _             // jump abs test_loop_with_breaks_2
+test_loop_with_breaks_6:
+  15: 12 2 _ _             // jump abs test_loop_with_breaks_1

@@ -1,0 +1,48 @@
+---
+source: crates/compiler/mir/tests/mir_auto_discovery.rs
+description: MIR snapshot for optimization/args_in_order.cm
+input_file: test_data/optimization/args_in_order.cm
+---
+Fixture: optimization/args_in_order.cm
+============================================================
+Source code:
+// Test case where arguments might already be in order
+fn process_four(a: felt, b: felt, c: felt, d: felt) -> felt {
+    return a + b + c + d;
+}
+
+fn wrapper(x: felt, y: felt, z: felt, w: felt) -> felt {
+    // If x, y, z, w are at [fp - 6], [fp - 5], [fp - 4], [fp - 3]
+    // and we haven't allocated any locals yet (L = 0),
+    // then they might already be in consecutive positions
+    return process_four(x, y, z, w);
+}
+
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn process_four {
+    parameters: [0, 1, 2, 3]
+    entry: 0
+
+    0:
+      %4 = %0 Add %1
+      %5 = %4 Add %2
+      %6 = %5 Add %3
+      return %6
+
+  }
+
+  // Function 1
+  fn wrapper {
+    parameters: [0, 1, 2, 3]
+    entry: 0
+
+    0:
+      %4 = call 0(%0, %1, %2, %3)
+      return %4
+
+  }
+
+}

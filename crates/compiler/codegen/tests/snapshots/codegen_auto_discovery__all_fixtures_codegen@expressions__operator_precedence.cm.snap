@@ -1,0 +1,25 @@
+---
+source: crates/compiler/codegen/tests/codegen_auto_discovery.rs
+description: Codegen snapshot for expressions/operator_precedence.cm
+input_file: test_data/expressions/operator_precedence.cm
+---
+Fixture: expressions/operator_precedence.cm
+============================================================
+Source code:
+//!ASSERT CONTAINS: Mul
+//!ASSERT CONTAINS: Add
+
+// Tests that operator precedence (multiplication before addition) is respected.
+// The snapshot will confirm that the `Mul` instruction precedes the `Add` instruction.
+fn test_precedence(a: felt, b: felt, c: felt) -> felt {
+    return a + b * c;
+}
+
+============================================================
+Generated CASM:
+test_precedence:
+test_precedence:
+test_precedence_0:
+   0: 2 -5 -4 0            // [fp + 0] = [fp + -5] op [fp + -4]
+   1: 0 -6 0 -3            // [fp + -3] = [fp + -6] op [fp + 0]
+   2: 11 _ _ _             // return

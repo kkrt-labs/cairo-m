@@ -1,0 +1,108 @@
+---
+source: crates/compiler/mir/tests/mir_auto_discovery.rs
+description: MIR snapshot for arithmetic/u32_ops.cm
+input_file: test_data/arithmetic/u32_ops.cm
+---
+Fixture: arithmetic/u32_ops.cm
+============================================================
+Source code:
+// Test U32 arithmetic operations
+fn define_u32() -> u32 {
+    let a: u32 = 1;
+    return 42 + a;
+}
+
+fn add_u32(a: u32, b: u32) -> u32 {
+    return a + b;
+}
+
+fn sub_u32(a: u32, b: u32) -> u32 {
+    return a - b;
+}
+
+fn mul_u32(a: u32, b: u32) -> u32 {
+    return a * b;
+}
+
+fn div_u32(a: u32, b: u32) -> u32 {
+    return a / b;
+}
+
+// Test mixed operations
+fn complex_u32_expr(x: u32, y: u32, z: u32) -> u32 {
+    let temp = x * y;
+    let result = temp + z;
+    return result;
+}
+
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn define_u32 {
+    entry: 0
+
+    0:
+      %0 = 1 (u32)
+      %1 = 42 U32Add %0
+      return %1
+
+  }
+
+  // Function 1
+  fn add_u32 {
+    parameters: [0, 1]
+    entry: 0
+
+    0:
+      %2 = %0 U32Add %1
+      return %2
+
+  }
+
+  // Function 2
+  fn sub_u32 {
+    parameters: [0, 1]
+    entry: 0
+
+    0:
+      %2 = %0 U32Sub %1
+      return %2
+
+  }
+
+  // Function 3
+  fn mul_u32 {
+    parameters: [0, 1]
+    entry: 0
+
+    0:
+      %2 = %0 U32Mul %1
+      return %2
+
+  }
+
+  // Function 4
+  fn div_u32 {
+    parameters: [0, 1]
+    entry: 0
+
+    0:
+      %2 = %0 U32Div %1
+      return %2
+
+  }
+
+  // Function 5
+  fn complex_u32_expr {
+    parameters: [0, 1, 2]
+    entry: 0
+
+    0:
+      %3 = %0 U32Mul %1
+      %4 = %3 U32Add %2
+      return %4
+
+  }
+
+}

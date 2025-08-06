@@ -1,0 +1,30 @@
+---
+source: crates/compiler/mir/tests/mir_auto_discovery.rs
+description: MIR snapshot for structs/simple_struct.cm
+input_file: test_data/structs/simple_struct.cm
+---
+Fixture: structs/simple_struct.cm
+============================================================
+Source code:
+struct Point {
+    x: felt,
+    y: felt,
+}
+
+fn main() -> felt {
+    let p = Point { x: 10, y: 20 };
+    return p.x;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn main {
+    entry: 0
+
+    0:
+      return 10
+
+  }
+
+}

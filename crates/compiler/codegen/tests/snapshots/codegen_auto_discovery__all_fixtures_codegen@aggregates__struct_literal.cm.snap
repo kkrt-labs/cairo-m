@@ -1,0 +1,34 @@
+---
+source: crates/compiler/codegen/tests/codegen_auto_discovery.rs
+description: Codegen snapshot for aggregates/struct_literal.cm
+input_file: test_data/aggregates/struct_literal.cm
+---
+Fixture: aggregates/struct_literal.cm
+============================================================
+Source code:
+// Tests the creation of a struct literal.
+struct Point {
+    x: felt,
+    y: felt,
+}
+
+fn test() -> felt {
+    let p = Point { x: 10, y: 20 };
+    return 0;
+}
+
+============================================================
+Result: SEMANTIC ERRORS
+Semantic errors found:
+DiagnosticCollection {
+    diagnostics: [
+        Diagnostic {
+            severity: Warning,
+            code: UnusedVariable,
+            message: "Unused variable 'p'",
+            file_path: "aggregates/struct_literal.cm",
+            span: 115..116,
+            related_spans: [],
+        },
+    ],
+}

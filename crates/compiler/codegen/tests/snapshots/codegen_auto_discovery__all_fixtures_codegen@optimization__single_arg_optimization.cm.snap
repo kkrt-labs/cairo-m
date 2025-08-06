@@ -1,0 +1,33 @@
+---
+source: crates/compiler/codegen/tests/codegen_auto_discovery.rs
+description: Codegen snapshot for optimization/single_arg_optimization.cm
+input_file: test_data/optimization/single_arg_optimization.cm
+---
+Fixture: optimization/single_arg_optimization.cm
+============================================================
+Source code:
+// Test the optimization for a single argument case
+fn increment(x: felt) -> felt {
+    return x + 1;
+}
+
+fn test_single_arg() -> felt {
+    // n is allocated at [fp + 0], and when we call increment(n),
+    // it's already at the top of the stack, so no copy is needed
+    let n = 10;
+    let result = increment(n);
+    return result;
+}
+
+============================================================
+Generated CASM:
+increment:
+   0: 4 -4 1 -3            // [fp + -3] = [fp + -4] op 1
+   1: 11 _ _ _             // return
+test_single_arg:
+test_single_arg:
+test_single_arg_0:
+   2: 9 10 2 _             // [fp + 2] = 10
+   3: 10 4 0 _             // call increment
+   4: 4 3 0 -3             // Return value 0: [fp -3] = [fp + 3] + 0
+   5: 11 _ _ _             // return

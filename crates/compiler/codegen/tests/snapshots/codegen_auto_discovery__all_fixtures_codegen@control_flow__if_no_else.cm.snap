@@ -1,0 +1,36 @@
+---
+source: crates/compiler/codegen/tests/codegen_auto_discovery.rs
+description: Codegen snapshot for control_flow/if_no_else.cm
+input_file: test_data/control_flow/if_no_else.cm
+---
+Fixture: control_flow/if_no_else.cm
+============================================================
+Source code:
+//!ASSERT BLOCK_COUNT(test): 3 // entry, then, merge
+
+// Tests a simple `if` statement without an `else` branch.
+// A merge block must be created for the fall-through path.
+fn test(x: felt) -> felt {
+    let a = 10;
+    if (x == 5) {
+        a = 20;
+    }
+    let x = 4;
+    return a;
+}
+
+============================================================
+Result: SEMANTIC ERRORS
+Semantic errors found:
+DiagnosticCollection {
+    diagnostics: [
+        Diagnostic {
+            severity: Warning,
+            code: UnusedVariable,
+            message: "Unused variable 'x'",
+            file_path: "control_flow/if_no_else.cm",
+            span: 264..265,
+            related_spans: [],
+        },
+    ],
+}

@@ -1,0 +1,55 @@
+---
+source: crates/compiler/codegen/tests/codegen_auto_discovery.rs
+description: Codegen snapshot for control_flow/nested_loops.cm
+input_file: test_data/control_flow/nested_loops.cm
+---
+Fixture: control_flow/nested_loops.cm
+============================================================
+Source code:
+fn test_nested_loops() -> felt {
+    let result = 0;
+    let i = 0;
+
+    while (i != 3) {
+        let j = 0;
+        while (j != 4) {
+            result = result + 1;
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+
+    return result;
+}
+
+============================================================
+Generated CASM:
+test_nested_loops:
+test_nested_loops:
+test_nested_loops_0:
+   0: 9 0 0 _              // [fp + 0] = 0
+   1: 9 0 1 _              // [fp + 1] = 0
+test_nested_loops_1:
+   2: 5 1 3 6              // [fp + 6] = [fp + 1] op 3
+   3: 14 6 2 _             // if [fp + 6] != 0 jmp rel test_nested_loops_2
+   4: 12 7 _ _             // jump abs test_nested_loops_3
+test_nested_loops_2:
+   5: 9 0 2 _              // [fp + 2] = 0
+   6: 12 9 _ _             // jump abs test_nested_loops_4
+test_nested_loops_3:
+   7: 4 0 0 -3             // Return value 0: [fp -3] = [fp + 0] + 0
+   8: 11 _ _ _             // return
+test_nested_loops_4:
+   9: 5 2 4 7              // [fp + 7] = [fp + 2] op 4
+  10: 14 7 2 _             // if [fp + 7] != 0 jmp rel test_nested_loops_5
+  11: 12 17 _ _            // jump abs test_nested_loops_6
+test_nested_loops_5:
+  12: 4 0 0 8              // [fp + 8] = [fp + 0] + 0
+  13: 4 8 1 0              // [fp + 0] = [fp + 8] op 1
+  14: 4 2 0 8              // [fp + 8] = [fp + 2] + 0
+  15: 4 8 1 2              // [fp + 2] = [fp + 8] op 1
+  16: 12 9 _ _             // jump abs test_nested_loops_4
+test_nested_loops_6:
+  17: 4 1 0 8              // [fp + 8] = [fp + 1] + 0
+  18: 4 8 1 1              // [fp + 1] = [fp + 8] op 1
+  19: 12 2 _ _             // jump abs test_nested_loops_1

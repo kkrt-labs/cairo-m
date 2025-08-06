@@ -1,0 +1,24 @@
+---
+source: crates/compiler/codegen/tests/codegen_auto_discovery.rs
+description: Codegen snapshot for functions/assignment.cm
+input_file: test_data/functions/assignment.cm
+---
+Fixture: functions/assignment.cm
+============================================================
+Source code:
+//!ASSERT CONTAINS: store %0, 10
+//!ASSERT CONTAINS: store %0, 20
+
+// Tests a simple variable reassignment.
+fn test() -> felt {
+    let x = 10;
+    x = 20;
+    return x;
+}
+
+============================================================
+Generated CASM:
+test:
+   0: 9 10 -3 _            // [fp + -3] = 10
+   1: 9 20 -3 _            // Store immediate: [fp + -3] = 20
+   2: 11 _ _ _             // return

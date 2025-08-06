@@ -1,0 +1,51 @@
+---
+source: crates/compiler/codegen/tests/codegen_auto_discovery.rs
+description: Codegen snapshot for functions/nested_calls.cm
+input_file: test_data/functions/nested_calls.cm
+---
+Fixture: functions/nested_calls.cm
+============================================================
+Source code:
+fn main() -> felt {
+    let x = 7;
+    let result = compute(x);
+    return result;
+}
+
+fn compute(x: felt) -> felt {
+    return add(mul(x, 3), mul(x, 5));
+}
+
+fn add(a: felt, b: felt) -> felt {
+    return a + b;
+}
+
+fn mul(a: felt, b: felt) -> felt {
+    return a * b;
+}
+
+============================================================
+Generated CASM:
+main:
+   0: 9 7 2 _              // [fp + 2] = 7
+   1: 10 4 4 _             // call compute
+   2: 4 3 0 -3             // Return value 0: [fp -3] = [fp + 3] + 0
+   3: 11 _ _ _             // return
+compute:
+   4: 4 -4 0 3             // Arg 0 slot 0: [fp + 3] = [fp + -4] + 0
+   5: 9 3 4 _              // Arg 1: [fp + 4] = 3
+   6: 10 6 17 _            // call mul
+   7: 4 -4 0 7             // Arg 0 slot 0: [fp + 7] = [fp + -4] + 0
+   8: 9 5 8 _              // Arg 1: [fp + 8] = 5
+   9: 10 10 17 _           // call mul
+  10: 4 5 0 11             // Arg 0 slot 0: [fp + 11] = [fp + 5] + 0
+  11: 4 9 0 12             // Arg 1 slot 0: [fp + 12] = [fp + 9] + 0
+  12: 10 14 15 _           // call add
+  13: 4 13 0 -3            // Return value 0: [fp -3] = [fp + 13] + 0
+  14: 11 _ _ _             // return
+add:
+  15: 0 -5 -4 -3           // [fp + -3] = [fp + -5] op [fp + -4]
+  16: 11 _ _ _             // return
+mul:
+  17: 2 -5 -4 -3           // [fp + -3] = [fp + -5] op [fp + -4]
+  18: 11 _ _ _             // return

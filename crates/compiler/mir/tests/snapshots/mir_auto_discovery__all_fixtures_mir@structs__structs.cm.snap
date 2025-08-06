@@ -1,0 +1,79 @@
+---
+source: crates/compiler/mir/tests/mir_auto_discovery.rs
+description: MIR snapshot for structs/structs.cm
+input_file: test_data/structs/structs.cm
+---
+Fixture: structs/structs.cm
+============================================================
+Source code:
+struct Point {
+    x: felt,
+    y: felt,
+}
+
+fn main() -> felt {
+    let p1 = new_struct();
+    let p2 = Point { x: 3, y: 4 };
+    let distance = (p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y);
+    return distance;
+}
+
+
+fn new_struct() -> Point {
+    return Point { x: 1, y: 2 };
+}
+
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn main {
+    entry: 0
+
+    0:
+      %0 = call 1()
+      // Get address of field 'x'
+%4 = getelementptr %0, 0
+      // Load field 'x'
+%5 = load %4
+      %8 = %5 Sub 3
+      // Get address of field 'x'
+%9 = getelementptr %0, 0
+      // Load field 'x'
+%10 = load %9
+      %13 = %10 Sub 3
+      %14 = %8 Mul %13
+      // Get address of field 'y'
+%15 = getelementptr %0, 1
+      // Load field 'y'
+%16 = load %15
+      %19 = %16 Sub 4
+      // Get address of field 'y'
+%20 = getelementptr %0, 1
+      // Load field 'y'
+%21 = load %20
+      %24 = %21 Sub 4
+      %25 = %19 Mul %24
+      %26 = %14 Add %25
+      return %26
+
+  }
+
+  // Function 1
+  fn new_struct {
+    entry: 0
+
+    0:
+      // Allocate struct
+%0 = stackalloc 2
+      // Get address of field 'x'
+%1 = getelementptr %0, 0
+      store %1, 1
+      // Get address of field 'y'
+%2 = getelementptr %0, 1
+      store %2, 2
+      return %0
+
+  }
+
+}

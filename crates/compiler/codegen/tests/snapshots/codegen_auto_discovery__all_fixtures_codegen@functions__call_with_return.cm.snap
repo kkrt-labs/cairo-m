@@ -1,0 +1,28 @@
+---
+source: crates/compiler/codegen/tests/codegen_auto_discovery.rs
+description: Codegen snapshot for functions/call_with_return.cm
+input_file: test_data/functions/call_with_return.cm
+---
+Fixture: functions/call_with_return.cm
+============================================================
+Source code:
+//!ASSERT CONTAINS: %0 = call 0()
+
+// Tests a function call where the return value is assigned to a variable.
+// This should generate a `Call` instruction.
+fn helper() -> felt { return 123; }
+
+fn main() -> felt {
+    let x = helper();
+    return x;
+}
+
+============================================================
+Generated CASM:
+helper:
+   0: 9 123 -3 _           // Return value 0: [fp -3] = 123
+   1: 11 _ _ _             // return
+main:
+   2: 10 2 0 _             // call helper
+   3: 4 1 0 -3             // Return value 0: [fp -3] = [fp + 1] + 0
+   4: 11 _ _ _             // return

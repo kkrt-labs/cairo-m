@@ -1,0 +1,23 @@
+---
+source: crates/compiler/codegen/tests/codegen_auto_discovery.rs
+description: Codegen snapshot for arithmetic/subtract_numbers.cm
+input_file: test_data/arithmetic/subtract_numbers.cm
+---
+Fixture: arithmetic/subtract_numbers.cm
+============================================================
+Source code:
+fn subtract_numbers() -> felt {
+    let a = 100;
+    let b = 25;
+    return a - b;
+}
+
+============================================================
+Generated CASM:
+subtract_numbers:
+subtract_numbers:
+subtract_numbers_0:
+   0: 9 100 0 _            // [fp + 0] = 100
+   1: 9 25 1 _             // [fp + 1] = 25
+   2: 1 0 1 -3             // [fp + -3] = [fp + 0] op [fp + 1]
+   3: 11 _ _ _             // return

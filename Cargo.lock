@@ -452,6 +452,7 @@ dependencies = [
  "cairo-m-compiler-parser",
  "cairo-m-compiler-semantic",
  "cairo-m-project",
+ "cairo-m-test-utils",
  "chumsky",
  "clap",
  "logos",
@@ -474,6 +475,7 @@ dependencies = [
  "cairo-m-compiler-mir",
  "cairo-m-compiler-parser",
  "cairo-m-compiler-semantic",
+ "cairo-m-test-utils",
  "chrono",
  "chumsky",
  "index_vec",
@@ -504,6 +506,7 @@ dependencies = [
  "cairo-m-compiler-diagnostics",
  "cairo-m-compiler-parser",
  "cairo-m-compiler-semantic",
+ "cairo-m-test-utils",
  "chumsky",
  "index_vec",
  "insta",
@@ -518,6 +521,7 @@ version = "0.1.0"
 dependencies = [
  "ariadne",
  "cairo-m-compiler-diagnostics",
+ "cairo-m-test-utils",
  "chumsky",
  "insta",
  "logos",
@@ -541,6 +545,7 @@ dependencies = [
  "cairo-m-compiler-diagnostics",
  "cairo-m-compiler-parser",
  "cairo-m-project",
+ "cairo-m-test-utils",
  "chumsky",
  "index_vec",
  "indexmap",
@@ -625,6 +630,7 @@ dependencies = [
  "cairo-m-common",
  "cairo-m-compiler",
  "cairo-m-runner",
+ "cairo-m-test-utils",
  "clap",
  "criterion",
  "dhat",
@@ -654,6 +660,7 @@ dependencies = [
  "anyhow",
  "cairo-m-common",
  "cairo-m-compiler",
+ "cairo-m-test-utils",
  "clap",
  "criterion",
  "num-traits",
@@ -663,6 +670,13 @@ dependencies = [
  "stwo-prover",
  "tempfile",
  "thiserror",
+]
+
+[[package]]
+name = "cairo-m-test-utils"
+version = "0.1.0"
+dependencies = [
+ "once_cell",
 ]
 
 [[package]]
@@ -1656,8 +1670,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "154934ea70c58054b556dd430b99a98c2a7ff5309ac9891597e339b5c28f4371"
 dependencies = [
  "console",
+ "globset",
  "once_cell",
  "similar",
+ "walkdir",
 ]
 
 [[package]]

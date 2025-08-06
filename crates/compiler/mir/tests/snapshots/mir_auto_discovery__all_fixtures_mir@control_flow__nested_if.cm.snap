@@ -1,0 +1,51 @@
+---
+source: crates/compiler/mir/tests/mir_auto_discovery.rs
+description: MIR snapshot for control_flow/nested_if.cm
+input_file: test_data/control_flow/nested_if.cm
+---
+Fixture: control_flow/nested_if.cm
+============================================================
+Source code:
+//!ASSERT BLOCK_COUNT(test): 5 // entry, outer_then, inner_then, inner_merge, outer_merge
+
+// Tests nested if statements to ensure CFG is built correctly.
+fn test(a: felt, b: felt) -> felt {
+    let result = 0;
+    if (a == 1) {
+        if (b == 2) {
+            result = 100;
+        }
+        result = result + 1;
+    }
+    return result;
+}
+
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test {
+    parameters: [0, 1]
+    entry: 0
+
+    0:
+      %2 = 0
+      if %0 Eq 1 then jump 1 else jump 2
+
+    1:
+      if %1 Eq 2 then jump 3 else jump 4
+
+    2:
+      return %2
+
+    3:
+      store %2, 100
+      jump 4
+
+    4:
+      %2 = %2 Add 1
+      jump 2
+
+  }
+
+}

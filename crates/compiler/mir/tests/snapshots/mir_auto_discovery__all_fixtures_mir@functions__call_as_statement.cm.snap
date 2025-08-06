@@ -1,0 +1,42 @@
+---
+source: crates/compiler/mir/tests/mir_auto_discovery.rs
+description: MIR snapshot for functions/call_as_statement.cm
+input_file: test_data/functions/call_as_statement.cm
+---
+Fixture: functions/call_as_statement.cm
+============================================================
+Source code:
+//!ASSERT CONTAINS: %0 = call 0()
+
+// Tests a function call used as a statement, where the return value is ignored.
+// This generates a call instruction with a destination that is not used.
+fn helper() -> felt { return 123; }
+
+fn main() -> felt {
+    helper(); // Call in statement context
+    return 0;
+}
+
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn helper {
+    entry: 0
+
+    0:
+      return 123
+
+  }
+
+  // Function 1
+  fn main {
+    entry: 0
+
+    0:
+      %0 = call 0()
+      return 0
+
+  }
+
+}

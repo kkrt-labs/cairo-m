@@ -1,0 +1,28 @@
+---
+source: crates/compiler/codegen/tests/codegen_auto_discovery.rs
+description: Codegen snapshot for functions/call_as_statement.cm
+input_file: test_data/functions/call_as_statement.cm
+---
+Fixture: functions/call_as_statement.cm
+============================================================
+Source code:
+//!ASSERT CONTAINS: %0 = call 0()
+
+// Tests a function call used as a statement, where the return value is ignored.
+// This generates a call instruction with a destination that is not used.
+fn helper() -> felt { return 123; }
+
+fn main() -> felt {
+    helper(); // Call in statement context
+    return 0;
+}
+
+============================================================
+Generated CASM:
+helper:
+   0: 9 123 -3 _           // Return value 0: [fp -3] = 123
+   1: 11 _ _ _             // return
+main:
+   2: 10 2 0 _             // call helper
+   3: 9 0 -3 _             // Return value 0: [fp -3] = 0
+   4: 11 _ _ _             // return

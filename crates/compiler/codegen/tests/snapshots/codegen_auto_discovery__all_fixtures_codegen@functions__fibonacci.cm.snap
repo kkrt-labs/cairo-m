@@ -1,0 +1,39 @@
+---
+source: crates/compiler/codegen/tests/codegen_auto_discovery.rs
+description: Codegen snapshot for functions/fibonacci.cm
+input_file: test_data/functions/fibonacci.cm
+---
+Fixture: functions/fibonacci.cm
+============================================================
+Source code:
+fn fib(n: felt) -> felt {
+    if (n == 0) {
+        return 0;
+    }
+    if (n == 1) {
+        return 1;
+    }
+    return fib(n - 1) + fib(n - 2);
+}
+
+============================================================
+Generated CASM:
+fib:
+   0: 14 -4 4 _            // if [fp + -4] != 0 jmp rel fib_2
+   1: 12 2 _ _             // jump abs fib_1
+fib_1:
+   2: 9 0 -3 _             // Return value 0: [fp -3] = 0
+   3: 11 _ _ _             // return
+fib_2:
+   4: 5 -4 1 5             // [fp + 5] = [fp + -4] op 1
+   5: 14 5 3 _             // if [fp + 5] != 0 jmp rel fib_4
+fib_3:
+   6: 9 1 -3 _             // Return value 0: [fp -3] = 1
+   7: 11 _ _ _             // return
+fib_4:
+   8: 5 -4 1 6             // [fp + 6] = [fp + -4] op 1
+   9: 10 8 0 _             // call fib
+  10: 5 -4 2 9             // [fp + 9] = [fp + -4] op 2
+  11: 10 11 0 _            // call fib
+  12: 0 7 10 -3            // [fp + -3] = [fp + 7] op [fp + 10]
+  13: 11 _ _ _             // return

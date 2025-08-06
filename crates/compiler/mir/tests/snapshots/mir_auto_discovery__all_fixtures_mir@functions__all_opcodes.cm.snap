@@ -1,0 +1,138 @@
+---
+source: crates/compiler/mir/tests/mir_auto_discovery.rs
+description: MIR snapshot for functions/all_opcodes.cm
+input_file: test_data/functions/all_opcodes.cm
+---
+Fixture: functions/all_opcodes.cm
+============================================================
+Source code:
+// Cairo-M combination test file demonstrating all compilable opcodes
+// This program exercises all implemented opcodes for comprehensive testing
+
+fn main() -> felt {
+    // Initialize some values for arithmetic operations
+    let a = 10;
+    let b = 5;
+    let c = 2;
+    let d = 20;
+
+    // StoreAddFpFp: [fp + off2] = [fp + off0] + [fp + off1]
+    let sum1 = a + b;
+    let sum1 = a + a;
+    a = a + a;
+
+    // StoreAddFpImm: [fp + off2] = [fp + off0] + imm
+    let sum2 = a + 3;
+    a = a + 3;
+
+    // StoreSubFpFp: [fp + off2] = [fp + off0] - [fp + off1]
+    let diff1 = a - b;
+    let diff1 = a - a;
+    a = a - a;
+
+    // StoreSubFpImm: [fp + off2] = [fp + off0] - imm
+    let diff2 = a - 2;
+    b = b - 2;
+
+    // StoreMulFpFp: [fp + off2] = [fp + off0] * [fp + off1]
+    let prod1 = a * b;
+    let prod1 = b * b;
+    b = b * b;
+
+    // StoreMulFpImm: [fp + off2] = [fp + off0] * imm
+    let prod2 = a * 4;
+    a = a * 4;
+
+    // StoreDivFpFp: [fp + off2] = [fp + off0] / [fp + off1]
+    let div1 = d / b;
+    let div1 = d / d;
+    c = c / c;
+
+    // StoreDivFpImm: [fp + off2] = [fp + off0] / imm
+    let div2 = d / 4;
+    d = d / 4;
+
+
+    // StoreImm: [fp + off2] = imm (immediate store)
+    let immediate = 42;
+
+    // JnzFpImm
+    if (a != 5) {
+        a = a + 1;
+    }
+
+    // JmpAbsImma
+    let counter = 0;
+    loop {
+        counter = counter + 1;
+        if (counter == 2) {
+            break;
+        }
+    }
+
+    // CallAbsImm
+    let result = helper();
+
+    return result;
+}
+
+fn helper() -> felt {
+    return 5;
+}
+
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn main {
+    entry: 0
+
+    0:
+      %0 = 10
+      %1 = 5
+      %2 = 2
+      %3 = 20
+      %0 = %0 Add %0
+      %0 = %0 Add 3
+      %0 = %0 Sub %0
+      %1 = %1 Sub 2
+      %1 = %1 Mul %1
+      %0 = %0 Mul 4
+      %2 = %2 Div %2
+      %3 = %3 Div 4
+      if %0 Neq 5 then jump 1 else jump 2
+
+    1:
+      %0 = %0 Add 1
+      jump 2
+
+    2:
+      %39 = 0
+      jump 3
+
+    3:
+      %39 = %39 Add 1
+      if %39 Eq 2 then jump 5 else jump 6
+
+    4:
+      %42 = call 1()
+      return %42
+
+    5:
+      jump 4
+
+    6:
+      jump 3
+
+  }
+
+  // Function 1
+  fn helper {
+    entry: 0
+
+    0:
+      return 5
+
+  }
+
+}

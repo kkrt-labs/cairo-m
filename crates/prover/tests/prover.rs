@@ -1,6 +1,5 @@
 //! Run these tests with feature `relation-tracker` to see the relation tracker output.
 use std::collections::HashMap;
-use std::fs;
 
 use cairo_m_compiler::{compile_cairo, CompilerOptions};
 use cairo_m_prover::adapter::memory::Memory;
@@ -13,6 +12,7 @@ use cairo_m_prover::poseidon2::Poseidon2Hash;
 use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_prover::verifier::verify_cairo_m;
 use cairo_m_runner::{run_cairo_program, RunnerOptions};
+use cairo_m_test_utils::read_fixture;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
@@ -95,20 +95,16 @@ fn test_prove_and_verify_unchanged_memory() {
 
 #[test]
 fn test_prove_and_verify_fibonacci_program() {
-    let source_path = format!(
-        "{}/tests/test_data/{}",
-        env!("CARGO_MANIFEST_DIR"),
-        "fibonacci.cm"
-    );
-    let compiled_fib = compile_cairo(
-        fs::read_to_string(&source_path).unwrap(),
-        source_path,
+    let source = read_fixture("functions/fibonacci.cm");
+    let compiled = compile_cairo(
+        source,
+        "fibonacci.cm".to_string(),
         CompilerOptions::default(),
     )
     .unwrap();
 
     let runner_output = run_cairo_program(
-        &compiled_fib.program,
+        &compiled.program,
         "fib",
         &[M31::from(5)],
         Default::default(),
@@ -127,21 +123,17 @@ fn test_prove_and_verify_fibonacci_program() {
 
 #[test]
 fn test_prove_and_verify_large_fibonacci_program() {
-    let source_path = format!(
-        "{}/tests/test_data/{}",
-        env!("CARGO_MANIFEST_DIR"),
-        "fibonacci.cm"
-    );
-    let compiled_fib = compile_cairo(
-        fs::read_to_string(&source_path).unwrap(),
-        source_path,
+    let source = read_fixture("functions/fib_loop.cm");
+    let compiled = compile_cairo(
+        source,
+        "fib_loop.cm".to_string(),
         CompilerOptions::default(),
     )
     .unwrap();
 
     let runner_output = run_cairo_program(
-        &compiled_fib.program,
-        "fib",
+        &compiled.program,
+        "fibonacci_loop",
         &[M31::from(1_000_000)],
         RunnerOptions {
             max_steps: 2_usize.pow(30),
@@ -162,20 +154,16 @@ fn test_prove_and_verify_large_fibonacci_program() {
 
 #[test]
 fn test_prove_and_verify_recursive_fibonacci_program() {
-    let source_path = format!(
-        "{}/tests/test_data/{}",
-        env!("CARGO_MANIFEST_DIR"),
-        "recursive_fibonacci.cm"
-    );
-    let compiled_fib = compile_cairo(
-        fs::read_to_string(&source_path).unwrap(),
-        source_path,
+    let source = read_fixture("functions/fibonacci.cm"); // Using same file as recursive version has same logic
+    let compiled = compile_cairo(
+        source,
+        "recursive_fibonacci.cm".to_string(),
         CompilerOptions::default(),
     )
     .unwrap();
 
     let runner_output = run_cairo_program(
-        &compiled_fib.program,
+        &compiled.program,
         "fib",
         &[M31::from(5)],
         Default::default(),
@@ -194,14 +182,10 @@ fn test_prove_and_verify_recursive_fibonacci_program() {
 
 #[test]
 fn test_hash_continuity_fibonacci() {
-    let source_path = format!(
-        "{}/tests/test_data/{}",
-        env!("CARGO_MANIFEST_DIR"),
-        "fibonacci.cm"
-    );
-    let compiled_fib = compile_cairo(
-        fs::read_to_string(&source_path).unwrap(),
-        source_path,
+    let source = read_fixture("functions/fib_loop.cm");
+    let compiled = compile_cairo(
+        source,
+        "fibonacci.cm".to_string(),
         CompilerOptions::default(),
     )
     .unwrap();
@@ -209,8 +193,8 @@ fn test_hash_continuity_fibonacci() {
     let runner_options = RunnerOptions { max_steps: 10 };
 
     let runner_output = run_cairo_program(
-        &compiled_fib.program,
-        "fib",
+        &compiled.program,
+        "fibonacci_loop",
         &[M31::from(5)],
         runner_options,
     )
@@ -240,20 +224,16 @@ fn test_hash_continuity_fibonacci() {
 
 #[test]
 fn test_prove_and_verify_all_opcodes() {
-    let source_path = format!(
-        "{}/tests/test_data/{}",
-        env!("CARGO_MANIFEST_DIR"),
-        "all_opcodes.cm"
-    );
-    let compiled_fib = compile_cairo(
-        fs::read_to_string(&source_path).unwrap(),
-        source_path,
+    let source = read_fixture("functions/all_opcodes.cm");
+    let compiled = compile_cairo(
+        source,
+        "all_opcodes.cm".to_string(),
         CompilerOptions::default(),
     )
     .unwrap();
 
     let runner_output =
-        run_cairo_program(&compiled_fib.program, "main", &[], Default::default()).unwrap();
+        run_cairo_program(&compiled.program, "main", &[], Default::default()).unwrap();
 
     let mut prover_input = import_from_runner_output(
         runner_output.vm.segments.into_iter().next().unwrap(),
@@ -267,20 +247,16 @@ fn test_prove_and_verify_all_opcodes() {
 
 #[test]
 fn test_all_opcodes_constraints() {
-    let source_path = format!(
-        "{}/tests/test_data/{}",
-        env!("CARGO_MANIFEST_DIR"),
-        "all_opcodes.cm"
-    );
-    let compiled_fib = compile_cairo(
-        fs::read_to_string(&source_path).unwrap(),
-        source_path,
+    let source = read_fixture("functions/all_opcodes.cm");
+    let compiled = compile_cairo(
+        source,
+        "all_opcodes.cm".to_string(),
         CompilerOptions::default(),
     )
     .unwrap();
 
     let runner_output =
-        run_cairo_program(&compiled_fib.program, "main", &[], Default::default()).unwrap();
+        run_cairo_program(&compiled.program, "main", &[], Default::default()).unwrap();
 
     let mut prover_input = import_from_runner_output(
         runner_output.vm.segments.into_iter().next().unwrap(),
@@ -298,7 +274,7 @@ fn test_memory_profile_fibonacci_prover() {
         env!("CARGO_MANIFEST_DIR"),
         "fibonacci.cm"
     );
-    let compiled_fib = compile_cairo(
+    let compiled = compile_cairo(
         fs::read_to_string(&source_path).unwrap(),
         source_path,
         CompilerOptions::default(),
@@ -306,7 +282,7 @@ fn test_memory_profile_fibonacci_prover() {
     .unwrap();
 
     let runner_output = run_cairo_program(
-        &compiled_fib.program,
+        &compiled.program,
         "fib",
         &[M31::from(100000)],
         Default::default(),

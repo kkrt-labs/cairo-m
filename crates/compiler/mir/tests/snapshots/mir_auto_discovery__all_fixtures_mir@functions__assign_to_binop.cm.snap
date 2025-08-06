@@ -1,0 +1,34 @@
+---
+source: crates/compiler/mir/tests/mir_auto_discovery.rs
+description: MIR snapshot for functions/assign_to_binop.cm
+input_file: test_data/functions/assign_to_binop.cm
+---
+Fixture: functions/assign_to_binop.cm
+============================================================
+Source code:
+fn assign_to_binop() -> felt {
+    let a = 10;
+    let b = 20;
+    let c = 0;
+    c = a + b;
+    return c;
+}
+
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn assign_to_binop {
+    entry: 0
+
+    0:
+      %0 = 10
+      %1 = 20
+      %2 = 0
+      %3 = %0 Add %1
+      store %2, %3
+      return %2
+
+  }
+
+}

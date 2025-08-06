@@ -1,0 +1,35 @@
+---
+source: crates/compiler/codegen/tests/codegen_auto_discovery.rs
+description: Codegen snapshot for functions/function_with_let.cm
+input_file: test_data/functions/function_with_let.cm
+---
+Fixture: functions/function_with_let.cm
+============================================================
+Source code:
+//!ASSERT FUNCTION_COUNT: 1
+//!ASSERT BLOCK_COUNT(test): 1
+//!ASSERT CONTAINS: stackalloc
+//!ASSERT CONTAINS: store %0, 10
+//!ASSERT CONTAINS: return 99
+
+// Tests that a `let` statement correctly generates stack allocation and storage.
+fn test() -> felt {
+    let x = 10;
+    return 99;
+}
+
+============================================================
+Result: SEMANTIC ERRORS
+Semantic errors found:
+DiagnosticCollection {
+    diagnostics: [
+        Diagnostic {
+            severity: Warning,
+            code: UnusedVariable,
+            message: "Unused variable 'x'",
+            file_path: "functions/function_with_let.cm",
+            span: 264..265,
+            related_spans: [],
+        },
+    ],
+}

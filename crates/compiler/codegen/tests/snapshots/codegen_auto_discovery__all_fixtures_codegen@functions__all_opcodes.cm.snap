@@ -1,0 +1,193 @@
+---
+source: crates/compiler/codegen/tests/codegen_auto_discovery.rs
+description: Codegen snapshot for functions/all_opcodes.cm
+input_file: test_data/functions/all_opcodes.cm
+---
+Fixture: functions/all_opcodes.cm
+============================================================
+Source code:
+// Cairo-M combination test file demonstrating all compilable opcodes
+// This program exercises all implemented opcodes for comprehensive testing
+
+fn main() -> felt {
+    // Initialize some values for arithmetic operations
+    let a = 10;
+    let b = 5;
+    let c = 2;
+    let d = 20;
+
+    // StoreAddFpFp: [fp + off2] = [fp + off0] + [fp + off1]
+    let sum1 = a + b;
+    let sum1 = a + a;
+    a = a + a;
+
+    // StoreAddFpImm: [fp + off2] = [fp + off0] + imm
+    let sum2 = a + 3;
+    a = a + 3;
+
+    // StoreSubFpFp: [fp + off2] = [fp + off0] - [fp + off1]
+    let diff1 = a - b;
+    let diff1 = a - a;
+    a = a - a;
+
+    // StoreSubFpImm: [fp + off2] = [fp + off0] - imm
+    let diff2 = a - 2;
+    b = b - 2;
+
+    // StoreMulFpFp: [fp + off2] = [fp + off0] * [fp + off1]
+    let prod1 = a * b;
+    let prod1 = b * b;
+    b = b * b;
+
+    // StoreMulFpImm: [fp + off2] = [fp + off0] * imm
+    let prod2 = a * 4;
+    a = a * 4;
+
+    // StoreDivFpFp: [fp + off2] = [fp + off0] / [fp + off1]
+    let div1 = d / b;
+    let div1 = d / d;
+    c = c / c;
+
+    // StoreDivFpImm: [fp + off2] = [fp + off0] / imm
+    let div2 = d / 4;
+    d = d / 4;
+
+
+    // StoreImm: [fp + off2] = imm (immediate store)
+    let immediate = 42;
+
+    // JnzFpImm
+    if (a != 5) {
+        a = a + 1;
+    }
+
+    // JmpAbsImma
+    let counter = 0;
+    loop {
+        counter = counter + 1;
+        if (counter == 2) {
+            break;
+        }
+    }
+
+    // CallAbsImm
+    let result = helper();
+
+    return result;
+}
+
+fn helper() -> felt {
+    return 5;
+}
+
+============================================================
+Result: SEMANTIC ERRORS
+Semantic errors found:
+DiagnosticCollection {
+    diagnostics: [
+        Diagnostic {
+            severity: Warning,
+            code: UnusedVariable,
+            message: "Unused variable 'sum1'",
+            file_path: "functions/all_opcodes.cm",
+            span: 355..359,
+            related_spans: [],
+        },
+        Diagnostic {
+            severity: Warning,
+            code: UnusedVariable,
+            message: "Unused variable 'sum1'",
+            file_path: "functions/all_opcodes.cm",
+            span: 377..381,
+            related_spans: [],
+        },
+        Diagnostic {
+            severity: Warning,
+            code: UnusedVariable,
+            message: "Unused variable 'sum2'",
+            file_path: "functions/all_opcodes.cm",
+            span: 469..473,
+            related_spans: [],
+        },
+        Diagnostic {
+            severity: Warning,
+            code: UnusedVariable,
+            message: "Unused variable 'diff1'",
+            file_path: "functions/all_opcodes.cm",
+            span: 568..573,
+            related_spans: [],
+        },
+        Diagnostic {
+            severity: Warning,
+            code: UnusedVariable,
+            message: "Unused variable 'diff1'",
+            file_path: "functions/all_opcodes.cm",
+            span: 591..596,
+            related_spans: [],
+        },
+        Diagnostic {
+            severity: Warning,
+            code: UnusedVariable,
+            message: "Unused variable 'diff2'",
+            file_path: "functions/all_opcodes.cm",
+            span: 684..689,
+            related_spans: [],
+        },
+        Diagnostic {
+            severity: Warning,
+            code: UnusedVariable,
+            message: "Unused variable 'prod1'",
+            file_path: "functions/all_opcodes.cm",
+            span: 784..789,
+            related_spans: [],
+        },
+        Diagnostic {
+            severity: Warning,
+            code: UnusedVariable,
+            message: "Unused variable 'prod1'",
+            file_path: "functions/all_opcodes.cm",
+            span: 807..812,
+            related_spans: [],
+        },
+        Diagnostic {
+            severity: Warning,
+            code: UnusedVariable,
+            message: "Unused variable 'prod2'",
+            file_path: "functions/all_opcodes.cm",
+            span: 900..905,
+            related_spans: [],
+        },
+        Diagnostic {
+            severity: Warning,
+            code: UnusedVariable,
+            message: "Unused variable 'div1'",
+            file_path: "functions/all_opcodes.cm",
+            span: 1000..1004,
+            related_spans: [],
+        },
+        Diagnostic {
+            severity: Warning,
+            code: UnusedVariable,
+            message: "Unused variable 'div1'",
+            file_path: "functions/all_opcodes.cm",
+            span: 1022..1026,
+            related_spans: [],
+        },
+        Diagnostic {
+            severity: Warning,
+            code: UnusedVariable,
+            message: "Unused variable 'div2'",
+            file_path: "functions/all_opcodes.cm",
+            span: 1114..1118,
+            related_spans: [],
+        },
+        Diagnostic {
+            severity: Warning,
+            code: UnusedVariable,
+            message: "Unused variable 'immediate'",
+            file_path: "functions/all_opcodes.cm",
+            span: 1206..1215,
+            related_spans: [],
+        },
+    ],
+}

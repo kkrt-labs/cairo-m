@@ -1,0 +1,23 @@
+---
+source: crates/compiler/codegen/tests/codegen_auto_discovery.rs
+description: Codegen snapshot for structs/simple_optimized.cm
+input_file: test_data/structs/simple_optimized.cm
+---
+Fixture: structs/simple_optimized.cm
+============================================================
+Source code:
+struct Point {
+    x: felt,
+    y: felt,
+}
+
+fn main() -> felt {
+    let p = Point { x: 10, y: 20 };
+    let sum = p.x + p.y;
+    return sum;
+}
+============================================================
+Generated CASM:
+main:
+   0: 9 30 -3 _            // [fp + -3] = 30
+   1: 11 _ _ _             // return

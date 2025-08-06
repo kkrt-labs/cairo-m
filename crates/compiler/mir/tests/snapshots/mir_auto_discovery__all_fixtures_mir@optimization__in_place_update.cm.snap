@@ -1,0 +1,83 @@
+---
+source: crates/compiler/mir/tests/mir_auto_discovery.rs
+description: MIR snapshot for optimization/in_place_update.cm
+input_file: test_data/optimization/in_place_update.cm
+---
+Fixture: optimization/in_place_update.cm
+============================================================
+Source code:
+fn test_in_place_update() -> felt {
+    let a = 5;
+    a = a + 1;
+    let b = 10;
+    b = b + a;
+    return b;
+}
+
+fn test_loop_optimization() -> felt {
+    let i = 0;
+    let sum = 0;
+    while (i != 5) {
+        sum = sum + i;
+        i = i + 1;
+    }
+    return sum;
+}
+
+fn main() -> felt {
+    let x = test_in_place_update();
+    let y = test_loop_optimization();
+    return x + y;
+}
+
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_in_place_update {
+    entry: 0
+
+    0:
+      %0 = 5
+      %0 = %0 Add 1
+      %2 = 10
+      %2 = %2 Add %0
+      return %2
+
+  }
+
+  // Function 1
+  fn test_loop_optimization {
+    entry: 0
+
+    0:
+      %0 = 0
+      %1 = 0
+      jump 1
+
+    1:
+      if %0 Neq 5 then jump 2 else jump 3
+
+    2:
+      %1 = %1 Add %0
+      %0 = %0 Add 1
+      jump 1
+
+    3:
+      return %1
+
+  }
+
+  // Function 2
+  fn main {
+    entry: 0
+
+    0:
+      %0 = call 0()
+      %1 = call 1()
+      %2 = %0 Add %1
+      return %2
+
+  }
+
+}

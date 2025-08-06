@@ -1,0 +1,55 @@
+---
+source: crates/compiler/mir/tests/mir_auto_discovery.rs
+description: MIR snapshot for functions/nested_while_loops.cm
+input_file: test_data/functions/nested_while_loops.cm
+---
+Fixture: functions/nested_while_loops.cm
+============================================================
+Source code:
+fn nested_while_loops() -> felt {
+    let i = 0;
+    let j = 0;
+    while (i != 10) {
+        while (j != 10) {
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    return i;
+}
+
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn nested_while_loops {
+    entry: 0
+
+    0:
+      %0 = 0
+      %1 = 0
+      jump 1
+
+    1:
+      if %0 Neq 10 then jump 2 else jump 3
+
+    2:
+      jump 4
+
+    3:
+      return %0
+
+    4:
+      if %1 Neq 10 then jump 5 else jump 6
+
+    5:
+      %1 = %1 Add 1
+      jump 4
+
+    6:
+      %0 = %0 Add 1
+      jump 1
+
+  }
+
+}

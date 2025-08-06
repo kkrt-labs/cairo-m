@@ -1,0 +1,70 @@
+---
+source: crates/compiler/mir/tests/mir_auto_discovery.rs
+description: MIR snapshot for functions/ackermann.cm
+input_file: test_data/functions/ackermann.cm
+---
+Fixture: functions/ackermann.cm
+============================================================
+Source code:
+fn main() -> felt {
+    let m = 2;
+    let n = 2;
+    let result = ackermann(m, n);
+    return result;
+}
+
+fn ackermann(m: felt, n: felt) -> felt {
+    if (m == 0) {
+        return n + 1;
+    }
+    if (n == 0) {
+        return ackermann(m - 1, 1);
+    }
+    return ackermann(m - 1, ackermann(m, n - 1));
+}
+
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn main {
+    entry: 0
+
+    0:
+      %0 = 2
+      %1 = 2
+      %2 = call 1(%0, %1)
+      return %2
+
+  }
+
+  // Function 1
+  fn ackermann {
+    parameters: [0, 1]
+    entry: 0
+
+    0:
+      if %0 then jump 2 else jump 1
+
+    1:
+      %3 = %1 Add 1
+      return %3
+
+    2:
+      if %1 then jump 4 else jump 3
+
+    3:
+      %5 = %0 Sub 1
+      %6 = call 1(%5, 1)
+      return %6
+
+    4:
+      %7 = %0 Sub 1
+      %8 = %1 Sub 1
+      %9 = call 1(%0, %8)
+      %10 = call 1(%7, %9)
+      return %10
+
+  }
+
+}

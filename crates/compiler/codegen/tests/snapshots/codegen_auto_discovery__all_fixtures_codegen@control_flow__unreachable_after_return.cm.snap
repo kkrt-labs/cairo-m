@@ -1,0 +1,43 @@
+---
+source: crates/compiler/codegen/tests/codegen_auto_discovery.rs
+description: Codegen snapshot for control_flow/unreachable_after_return.cm
+input_file: test_data/control_flow/unreachable_after_return.cm
+---
+Fixture: control_flow/unreachable_after_return.cm
+============================================================
+Source code:
+//!ASSERT NOT_CONTAINS: store %0, 99
+//!ASSERT NOT_CONTAINS: Unreachable code
+
+// Tests that code generation stops after a `return` statement.
+fn test() -> felt {
+    return 42;
+
+    // This code should not appear in the MIR.
+    let x = 99; // Unreachable code
+    return x;
+}
+
+============================================================
+Result: SEMANTIC ERRORS
+Semantic errors found:
+DiagnosticCollection {
+    diagnostics: [
+        Diagnostic {
+            severity: Warning,
+            code: UnreachableCode,
+            message: "Unreachable variable declaration",
+            file_path: "control_flow/unreachable_after_return.cm",
+            span: 230..241,
+            related_spans: [],
+        },
+        Diagnostic {
+            severity: Warning,
+            code: UnreachableCode,
+            message: "Unreachable return statement",
+            file_path: "control_flow/unreachable_after_return.cm",
+            span: 266..275,
+            related_spans: [],
+        },
+    ],
+}

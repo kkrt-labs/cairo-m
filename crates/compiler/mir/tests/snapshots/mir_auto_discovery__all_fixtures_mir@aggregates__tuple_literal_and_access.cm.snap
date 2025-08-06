@@ -1,0 +1,28 @@
+---
+source: crates/compiler/mir/tests/mir_auto_discovery.rs
+description: MIR snapshot for aggregates/tuple_literal_and_access.cm
+input_file: test_data/aggregates/tuple_literal_and_access.cm
+---
+Fixture: aggregates/tuple_literal_and_access.cm
+============================================================
+Source code:
+// Tests tuple creation, indexed write, and indexed read.
+fn test_tuple() -> felt {
+    let t = (100, 200, 300);
+    t[1] = 250;
+    return t[1];
+}
+
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_tuple {
+    entry: 0
+
+    0:
+      return 250
+
+  }
+
+}

@@ -1,0 +1,32 @@
+---
+source: crates/compiler/mir/tests/mir_auto_discovery.rs
+description: MIR snapshot for functions/dead_code.cm
+input_file: test_data/functions/dead_code.cm
+---
+Fixture: functions/dead_code.cm
+============================================================
+Source code:
+fn main() -> bool {
+    let a = 1;
+    let b = 0;
+    let c = a == b;
+    let _d = a == 0;
+    return c;
+}
+
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn main {
+    entry: 0
+
+    0:
+      %0 = 1
+      %1 = 0
+      %2 = %0 Eq %1
+      return %2
+
+  }
+
+}

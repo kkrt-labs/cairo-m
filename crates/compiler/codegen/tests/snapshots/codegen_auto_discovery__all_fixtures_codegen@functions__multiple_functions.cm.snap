@@ -1,0 +1,26 @@
+---
+source: crates/compiler/codegen/tests/codegen_auto_discovery.rs
+description: Codegen snapshot for functions/multiple_functions.cm
+input_file: test_data/functions/multiple_functions.cm
+---
+Fixture: functions/multiple_functions.cm
+============================================================
+Source code:
+//!ASSERT FUNCTION_COUNT: 3
+
+// Tests that a module can contain multiple function definitions.
+fn first() -> felt { return 1; }
+fn second() -> felt { return 2; }
+fn third() -> felt { return 3; }
+
+============================================================
+Generated CASM:
+first:
+   0: 9 1 -3 _             // Return value 0: [fp -3] = 1
+   1: 11 _ _ _             // return
+second:
+   2: 9 2 -3 _             // Return value 0: [fp -3] = 2
+   3: 11 _ _ _             // return
+third:
+   4: 9 3 -3 _             // Return value 0: [fp -3] = 3
+   5: 11 _ _ _             // return
