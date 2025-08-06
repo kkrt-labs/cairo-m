@@ -330,8 +330,8 @@ impl Memory {
 
     /// Read a 32-bit value (little-endian) stored as two 16-bit limbs at `addr`.
     pub fn get_u32(&self, addr: M31) -> Result<u32, MemoryError> {
-        let limb_lo = self.get_data(addr)?;
-        let limb_hi = self.get_data(addr + M31::one())?;
+        let limb_lo = self.get_felt(addr)?;
+        let limb_hi = self.get_felt(addr + M31::one())?;
 
         if limb_lo.0 > U32_LIMB_MASK || limb_hi.0 > U32_LIMB_MASK {
             return Err(MemoryError::U32LimbOutOfRange {

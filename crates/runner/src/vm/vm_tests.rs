@@ -1,7 +1,9 @@
 use std::fs::File;
 use std::io::Read;
 
-use cairo_m_common::instruction::InstructionError;
+use cairo_m_common::instruction::{
+    InstructionError, STORE_ADD_FP_IMM, STORE_DOUBLE_DEREF_FP, STORE_IMM,
+};
 use cairo_m_common::{Instruction, Program, State};
 use num_traits::{One, Zero};
 use stwo_prover::core::fields::m31::M31;
@@ -51,19 +53,19 @@ fn test_vm_try_from() {
     let vm = VM::try_from(&program).unwrap();
 
     // Check that PC is set to 0 (entrypoint)
-    // Check that FP is set right after the bytecode (2 instructions)
-    assert_vm_state!(vm.state, 0, 2);
+    // Check that FP is set right after the bytecode (2 instructions of 4 words)
+    assert_vm_state!(vm.state, 0, 2 * 4);
 
     // Check that the first instruction is in memory at address 0
     let loaded_smallvec = vm.memory.get_instruction(M31::zero()).unwrap();
     let loaded_instruction: Instruction = loaded_smallvec.try_into().unwrap();
-    assert_eq!(loaded_instruction.opcode_value(), 4); // StoreAddFpImm
+    assert_eq!(loaded_instruction.opcode_value(), STORE_ADD_FP_IMM); // StoreAddFpImm
     assert_eq!(loaded_instruction, instructions[0]);
 
-    // Check that the second instruction is in memory at address 1
-    let loaded_smallvec_2 = vm.memory.get_instruction(M31::one()).unwrap();
+    // Check that the second instruction is in memory at address 4
+    let loaded_smallvec_2 = vm.memory.get_instruction(M31(4)).unwrap();
     let loaded_instruction_2: Instruction = loaded_smallvec_2.try_into().unwrap();
-    assert_eq!(loaded_instruction_2.opcode_value(), 8); // StoreDoubleDerefFp
+    assert_eq!(loaded_instruction_2.opcode_value(), STORE_DOUBLE_DEREF_FP); // StoreDoubleDerefFp
     assert_eq!(loaded_instruction_2, instructions[1]);
 }
 
@@ -77,18 +79,19 @@ fn test_step_single_instruction() {
     let program = Program::from(instructions);
     let mut vm = VM::try_from(&program).unwrap();
 
-    // Initial state should have PC = 0, FP = 1
-    assert_vm_state!(vm.state, 0, 1);
+    // Initial state should have PC = 0, FP = 3
+    let fp = vm.program_length.0;
+    assert_vm_state!(vm.state, 0, fp);
 
     // Execute one step
     let result = vm.step();
     assert!(result.is_ok());
 
-    // PC should have advanced to 1, FP should be the same
-    assert_vm_state!(vm.state, 1, 1);
+    // PC should have advanced to 3, FP should be the same
+    assert_vm_state!(vm.state, fp, fp);
 
     // The value 42 should be stored at memory[fp + 0] = memory[1]
-    assert_memory_value!(vm, addr = 1, value = 42);
+    assert_memory_value!(vm, addr = fp, value = 42);
 }
 
 #[test]
@@ -131,11 +134,12 @@ fn test_execute_single_instruction() {
     let result = vm.execute(RunnerOptions::default().max_steps);
     assert!(result.is_ok());
 
-    // PC should be at final position (memory.len() = 1)
-    assert_vm_state!(vm.state, 1, 1);
+    let fp = vm.program_length.0;
+    // PC should be at final position (memory.len() = 3)
+    assert_vm_state!(vm.state, fp, fp);
 
     // The value should be stored correctly at fp + 0 = 1 + 0 = 1
-    assert_memory_value!(vm, addr = 1, value = 42);
+    assert_memory_value!(vm, addr = fp, value = 42);
 }
 
 #[test]
@@ -161,20 +165,21 @@ fn test_execute_multiple_instructions() {
     ];
     let program = Program::from(instructions);
     let mut vm = VM::try_from(&program).unwrap();
-
+    let fp = vm.program_length.0;
     // Initial state
-    assert_vm_state!(vm.state, 0, 3); // FP should be after 3 instructions
+    assert_vm_state!(vm.state, 0, fp);
 
     let result = vm.execute(RunnerOptions::default().max_steps);
     assert!(result.is_ok());
 
     // PC should be at final position (memory.len() = 3)
-    assert_vm_state!(vm.state, 3, 3);
+    assert_vm_state!(vm.state, fp, fp);
 
     // Check the computed values
-    assert_memory_value!(vm, addr = 3, value = 10); // [fp + 0] = 10
-    assert_memory_value!(vm, addr = 4, value = 5); // [fp + 1] = 5
-    assert_memory_value!(vm, addr = 5, value = 15); // [fp + 2] = 15
+
+    assert_memory_value!(vm, addr = fp, value = 10); // [fp + 0] = 10
+    assert_memory_value!(vm, addr = fp + 1, value = 5); // [fp + 1] = 5
+    assert_memory_value!(vm, addr = fp + 2, value = 15); // [fp + 2] = 15
 }
 
 #[test]
@@ -182,10 +187,12 @@ fn test_execute_with_error() {
     // Create a program with an invalid instructions
 
     let instructions = [
-        M31::from(9),
-        M31::from(10), // Valid: [fp + 0] = 10
-        M31::from(99), // Invalid: opcode 99
+        M31(STORE_IMM),
+        M31(10),
+        M31(0),  // Valid: [fp + 0] = 10
+        M31(99), // Invalid: opcode 99
     ];
+    let fp = instructions.len() as u32;
     let initial_memory = Memory::from_iter(instructions);
     let mut vm = VM {
         final_pc: M31::from(instructions.len() as u32),
@@ -207,12 +214,12 @@ fn test_execute_with_error() {
         VmError::Instruction(InstructionError::InvalidOpcode(M31(99)))
     ));
 
-    // PC should be at 1 (where it failed)
+    // PC should be at 3 (where it failed)
     // FP should be at 2 (after the valid instruction)
-    assert_vm_state!(vm.state, 1, 2);
+    assert_vm_state!(vm.state, 3, fp);
 
     // First instruction should have executed successfully
-    let stored_value = vm.memory.get_felt(M31(2)).unwrap();
+    let stored_value = vm.memory.get_felt(M31(fp)).unwrap();
     assert_eq!(stored_value, M31(10));
 }
 
@@ -251,11 +258,12 @@ fn test_execute_arithmetic_operations() {
     assert!(result.is_ok());
 
     // Check all computed values
-    assert_memory_value!(vm, addr = 5, value = 12); // original 12
-    assert_memory_value!(vm, addr = 6, value = 3); // original 3
-    assert_memory_value!(vm, addr = 7, value = 36); // 12 * 3
-    assert_memory_value!(vm, addr = 8, value = 12); // 36 / 3
-    assert_memory_value!(vm, addr = 9, value = 0); // 12 - 12
+    let fp = vm.program_length.0;
+    assert_memory_value!(vm, addr = fp, value = 12); // original 12
+    assert_memory_value!(vm, addr = fp + 1, value = 3); // original 3
+    assert_memory_value!(vm, addr = fp + 2, value = 36); // 12 * 3
+    assert_memory_value!(vm, addr = fp + 3, value = 12); // 36 / 3
+    assert_memory_value!(vm, addr = fp + 4, value = 0); // 12 - 12
 }
 
 #[test]
@@ -271,14 +279,17 @@ fn test_run_from_entrypoint() {
             dst_off: M31(1),
         }, // [fp + 1] = [fp] + 5
     ];
+    let pc_entrypoint = instructions[0].size_in_m31s();
+    let final_pc = pc_entrypoint + instructions[1].size_in_m31s();
     let program = Program::from(instructions);
     let mut vm = VM::try_from(&program).unwrap();
 
-    // Initial FP is 2 in the default case, we add an offset of 2.
+    // Initial FP is program_length in the default case, we add an offset of 2.
     // We run the program from PC = 1, so the first instruction should be ignored.
-    vm.run_from_entrypoint(1, 2, &[], 0, &RunnerOptions::default())
+    let fp_offset = 2;
+    vm.run_from_entrypoint(pc_entrypoint, fp_offset, &[], 0, &RunnerOptions::default())
         .unwrap();
-    assert_vm_state!(vm.state, 2, 4);
+    assert_vm_state!(vm.state, final_pc, vm.program_length.0 + fp_offset);
     assert_eq!(
         vm.memory.get_felt(vm.state.fp + M31::one()).unwrap(),
         M31(5)
@@ -298,8 +309,10 @@ fn test_serialize_trace() {
             dst_off: M31(1),
         }, // [fp + 1] = 20
     ];
+    let intermediate_pc = instructions[0].size_in_m31s();
     let program = Program::from(instructions);
     let mut vm = VM::try_from(&program).unwrap();
+    let fp = vm.program_length;
 
     // Execute the program to generate a trace.
     assert!(vm.execute(RunnerOptions::default().max_steps).is_ok());
@@ -313,14 +326,14 @@ fn test_serialize_trace() {
         vm.trace[0],
         State {
             pc: M31::zero(),
-            fp: M31(2)
+            fp
         }
     );
     assert_eq!(
         vm.trace[1],
         State {
-            pc: M31::one(),
-            fp: M31(2)
+            pc: M31(intermediate_pc),
+            fp
         }
     );
 
@@ -335,7 +348,11 @@ fn test_serialize_trace() {
     // Entry 1: fp=2, pc=0.
     // Entry 2: fp=2, pc=1.
     // Entry 3: fp=2, pc=2. (final state)
-    let expected_bytes = Vec::from([2, 0, 2, 1, 2, 2].map(u32::to_le_bytes).as_flattened());
+    let expected_bytes = Vec::from(
+        [fp.0, 0, fp.0, intermediate_pc, fp.0, vm.program_length.0]
+            .map(u32::to_le_bytes)
+            .as_flattened(),
+    );
 
     assert_eq!(serialized_trace, expected_bytes);
 }
@@ -375,58 +392,67 @@ fn fib(n: u32) -> u32 {
 fn run_fib_test(n: u32) {
     let instructions = vec![
         // Setup
+        // address: 0
         Instruction::StoreImm {
             imm: M31(n),
             dst_off: M31(0),
         }, // store_imm: [fp+0] = counter
+        // address: 3
         Instruction::StoreImm {
             imm: M31(0),
             dst_off: M31(1),
         }, // store_imm: [fp+1] = a = F_0 = 0
+        // address: 6
         Instruction::StoreImm {
             imm: M31(1),
             dst_off: M31(2),
         }, // store_imm: [fp+2] = b = F_1 = 1
         // Loop condition check
         // while counter != 0 jump to loop body
+        // address: 9
         Instruction::JnzFpImm {
             cond_off: M31(0),
-            offset: M31(2),
-        }, // jnz_fp_imm: jmp rel 2 if [fp + 0] != 0  (pc=3 here, pc=5 in beginning of loop body)
+            offset: M31(5),
+        }, // jnz_fp_imm: jmp rel 2 if [fp + 0] != 0  (pc=9 here, pc=14 in beginning of loop body)
         // Exit jump if counter was 0
-        Instruction::JmpAbsImm { target: M31(10) }, // jmp_abs_imm: jmp abs 10
+        // address: 12
+        Instruction::JmpAbsImm { target: M31(32) }, // jmp_abs_imm: jmp abs 10
         // Loop body
+        // address: 14
         Instruction::StoreAddFpImm {
             src_off: M31(1),
             imm: M31(0),
             dst_off: M31(3),
         }, // store_add_fp_imm: [fp+3] = [fp+1] + 0 (tmp = a)
+        // address: 18
         Instruction::StoreAddFpImm {
             src_off: M31(2),
             imm: M31(0),
             dst_off: M31(1),
         }, // store_add_fp_imm: [fp+1] = [fp+2] + 0 (a = b)
+        // address: 22
         Instruction::StoreAddFpFp {
             src0_off: M31(3),
             src1_off: M31(2),
             dst_off: M31(2),
         }, // store_add_fp_fp: [fp+2] = [fp+3] + [fp+2] (b = temp + b)
+        // address: 26
         Instruction::StoreSubFpImm {
             src_off: M31(0),
             imm: M31(1),
             dst_off: M31(0),
         }, // store_sub_fp_imm: [fp+0] = [fp+0] - 1 (counter--)
         // Jump back to condition check
-        Instruction::JmpAbsImm { target: M31(3) }, // jmp_abs_imm: jmp abs 3
+        // address: 30
+        Instruction::JmpAbsImm { target: M31(9) }, // jmp_abs_imm: jmp abs 3
     ];
-    let instructions_len = instructions.len() as u32;
     let program = Program::from(instructions);
     let mut vm = VM::try_from(&program).unwrap();
 
     assert!(vm.execute(RunnerOptions::default().max_steps).is_ok());
     // Verify that FP is still at the end of the program
     // Verify PC reached the end of the program
-    assert_vm_state!(vm.state, instructions_len, instructions_len);
+    assert_vm_state!(vm.state, vm.program_length.0, vm.program_length.0);
     // Verify counter reached zero
     assert_eq!(vm.memory.get_felt(vm.state.fp).unwrap(), M31::zero());
 
@@ -434,7 +460,7 @@ fn run_fib_test(n: u32) {
     // F(n) is at [fp+1].
     // F(n+1) is at [fp+2].
     assert_eq!(
-        vm.memory.get_felt(vm.state.fp + M31::one()).unwrap(),
+        vm.memory.get_felt(vm.state.fp + M31(1)).unwrap(),
         M31(fib(n))
     );
     assert_eq!(
@@ -479,80 +505,96 @@ fn run_exponential_recursive_fib_test(n: u32) {
     let minus_3 = -M31(3);
     let instructions = vec![
         // Setup call to fib(n)
+        // 0: store_imm: [fp] = n
         Instruction::StoreImm {
             imm: M31(n),
             dst_off: M31(0),
-        }, // 0: store_imm: [fp] = n
+        },
+        // 3: call_abs_imm: call fib(n)
         Instruction::CallAbsImm {
             frame_off: M31(2),
-            target: M31(4),
-        }, // 1: call_abs_imm: call fib(n)
+            target: M31(11),
+        },
         // Store the computed fib(n) and return.
+        // 6: store_add_fp_imm: [fp - 3] = [fp + 1] + 0
         Instruction::StoreAddFpImm {
             src_off: M31(1),
             imm: M31(0),
             dst_off: minus_3,
-        }, // 2: store_add_fp_imm: [fp - 3] = [fp + 1] + 0
-        Instruction::Ret {}, // 3: ret
+        },
+        // 10: ret
+        Instruction::Ret {},
         // fib(n: felt) function
         // Check if argument is 0
+        // 11: jnz_fp_imm: jmp rel 7 if [fp - 4] != 0
         Instruction::JnzFpImm {
             cond_off: minus_4,
-            offset: M31(3),
-        }, // 4: jnz_fp_imm: jmp rel 3 if [fp - 4] != 0
+            offset: M31(7),
+        },
         // Argument is 0, return 0
+        // 14: store_imm: [fp - 3] = 0
         Instruction::StoreImm {
             imm: M31(0),
             dst_off: minus_3,
-        }, // 5: store_imm: [fp - 3] = 0
-        Instruction::Ret {}, // 6: ret
+        },
+        // 17: ret
+        Instruction::Ret {},
         // Check if argument is 1
+        // 18: store_sub_fp_imm: [fp] = [fp - 4] - 1
         Instruction::StoreSubFpImm {
             src_off: minus_4,
             imm: M31(1),
             dst_off: M31(0),
-        }, // 7: store_sub_fp_imm: [fp] = [fp - 4] - 1
+        },
+        // 22: jnz_fp_imm: jmp rel 7 if [fp] != 0
         Instruction::JnzFpImm {
             cond_off: M31(0),
-            offset: M31(3),
-        }, // 8: jnz_fp_imm: jmp rel 3 if [fp] != 0
+            offset: M31(7),
+        },
         // Argument is 1, return 1
+        // 25: store_imm: [fp - 3] = 1
         Instruction::StoreImm {
             imm: M31(1),
             dst_off: minus_3,
-        }, // 9: store_imm: [fp - 3] = 1
-        Instruction::Ret {}, // 10: ret
+        },
+        // 28: ret
+        Instruction::Ret {},
         // Compute fib(n-1) + fib(n-2)
         // fib(n-1)
         // n - 1 is already stored at [fp], ready to be used as argument.
+        // 29: call_abs_imm: call fib(n-1)
         Instruction::CallAbsImm {
             frame_off: M31(2),
-            target: M31(4),
-        }, // 11: call_abs_imm: call fib(n-1)
+            target: M31(11),
+        },
+        // 32: store_add_fp_imm: [fp - 3] = [fp + 1] + 0
         Instruction::StoreAddFpImm {
             src_off: M31(1),
             imm: M31(0),
             dst_off: minus_3,
-        }, // 12: store_add_fp_imm: [fp - 3] = [fp + 1] + 0
+        },
         // fib(n-2)
+        // 36: Store n - 2, from previously computed n - 1 [fp] = [fp] - 1
         Instruction::StoreSubFpImm {
             src_off: M31(0),
             imm: M31(1),
             dst_off: M31(0),
-        }, // 13: Store n - 2, from previously computed n - 1 [fp] = [fp] - 1
+        },
+        // 40: call_abs_imm: call fib(n-2)
         Instruction::CallAbsImm {
             frame_off: M31(2),
-            target: M31(4),
-        }, // 14: call_abs_imm: call fib(n-2)
+            target: M31(11),
+        },
         // Return value of fib(n-1) + fib(n-2)
+        // 43: store_add_fp_fp: [fp - 3] = [fp - 3] + [fp + 1]
         Instruction::StoreAddFpFp {
             src0_off: minus_3,
             src1_off: M31(1),
             dst_off: minus_3,
-        }, // 15: store_add_fp_fp: [fp - 3] = [fp - 3] + [fp + 1]
-        Instruction::Ret {}, // 16: ret
+        },
+        // 47: ret
+        Instruction::Ret {},
     ];
-    let instructions_len = instructions.len() as u32;
     let program = Program::from(instructions);
     let mut vm = VM::try_from(&program).unwrap();
 
@@ -560,9 +602,9 @@ fn run_exponential_recursive_fib_test(n: u32) {
     vm.run_from_entrypoint(0, fp_offset, &[], 0, &RunnerOptions::default())
         .unwrap();
     // Verify that FP is still at the end of the program
-    assert_eq!(vm.state.fp, M31(instructions_len + fp_offset));
+    assert_eq!(vm.state.fp, M31(vm.program_length.0 + fp_offset));
     // Verify PC reached the end of the program
-    assert_eq!(vm.state.pc, M31(instructions_len));
+    assert_eq!(vm.state.pc, M31(vm.program_length.0));
 
     // Result is stored at [fp - 3].
     assert_memory_value!(vm, addr = vm.state.fp - M31(3), value = fib(n));
@@ -679,10 +721,10 @@ fn test_write_binary_memory_trace_per_segment() {
         let program_length = u32::from_le_bytes(program_length_bytes);
         assert_eq!(program_length, vm.program_length.0);
 
-        // Remaining data should be memory entries (20 bytes each)
+        // Remaining data should be memory entries (8 bytes each)
         let memory_data_len = contents.len() - 4;
         assert_eq!(
-            memory_data_len % 20,
+            memory_data_len % 8,
             0,
             "Memory trace data should be aligned"
         );
@@ -690,6 +732,7 @@ fn test_write_binary_memory_trace_per_segment() {
 }
 
 #[test]
+// @note This test should be removed
 fn test_5_m31_u32_instruction_execution_and_pc_advancement() {
     use cairo_m_common::Instruction;
 
@@ -726,11 +769,11 @@ fn test_5_m31_u32_instruction_execution_and_pc_advancement() {
     let initial_pc = vm.state.pc;
     vm.step().unwrap();
 
-    // Verify that PC advanced by the correct amount (2 QM31s for a 5-M31 instruction)
-    let expected_pc = initial_pc + M31(2); // 5 M31s = 2 QM31s (rounded up)
+    // Verify that PC advanced by the correct amount for a 5-M31 instruction)
+    let expected_pc = initial_pc + M31(5); // 5 M31s
     assert_eq!(
         vm.state.pc, expected_pc,
-        "PC should advance by 2 QM31s for 5-M31 instruction"
+        "PC should advance by 5 for a 5-M31 instruction"
     );
 
     // Verify the computation: 0x0000000A + 0x00010002 = 0x0001000C
@@ -752,10 +795,10 @@ fn test_5_m31_u32_instruction_execution_and_pc_advancement() {
     vm.step().unwrap();
 
     // Verify PC advanced by 1 QM31 for the 3-M31 instruction
-    let final_expected_pc = expected_pc + M31(1);
+    let final_expected_pc = expected_pc + M31(3);
     assert_eq!(
         vm.state.pc, final_expected_pc,
-        "PC should advance by 1 QM31 for 3-M31 instruction"
+        "PC should advance by 3 for 3-M31 instruction"
     );
 
     // Verify the simple instruction executed correctly

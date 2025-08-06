@@ -70,8 +70,7 @@ impl TryFrom<&Program> for VM {
     /// 2. It sets the Program Counter (`pc`) to `0` to begin at the program's entrypoint.
     /// 3. It sets the Frame Pointer (`fp`) to the address immediately following the loaded bytecode.
     ///
-    /// Instructions are variable-sized (1-5 M31 elements) and are packed into QM31 values
-    /// (4 M31 elements each) with zero padding as needed.
+    /// Instructions are variable-sized (1-7 M31 elements).
     ///
     /// ## Arguments
     ///
@@ -301,7 +300,7 @@ impl VM {
     /// 1. Program length (4 bytes, little-endian u32)
     /// 2. Memory entries, each consisting of:
     ///    - Address (4 bytes, little-endian u32)
-    ///    - QM31 value (16 bytes, 4 x little-endian u32)
+    ///    - M31 value (4 bytes, little-endian u32)
     ///
     /// ## Arguments
     ///

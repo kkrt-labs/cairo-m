@@ -14,7 +14,8 @@ fn test_call_abs_imm_2_args() {
 
     let next_state = call_abs_imm(&mut memory, state, &instruction).unwrap();
 
-    let expected_memory = Memory::from_iter([10, 11, 12, 0, 1].map(Into::into));
+    let expected_fp = instruction.size_in_m31s();
+    let expected_memory = Memory::from_iter([10, 11, 12, 0, expected_fp].map(Into::into));
     let expected_state = State {
         pc: M31(7),
         fp: M31(5),
@@ -51,15 +52,16 @@ fn test_ret_call_abs_imm_2_args() {
     let initial_state = State::default();
     let call_instruction = Instruction::CallAbsImm {
         frame_off: M31(3),
-        target: M31(7),
+        target: M31(9),
     };
     let ret_instruction = Instruction::Ret {};
 
     let call_state = call_abs_imm(&mut memory, initial_state, &call_instruction).unwrap();
     let ret_state = ret(&mut memory, call_state, &ret_instruction).unwrap();
 
-    let expected_memory = Memory::from_iter([10, 11, 12, 0, 1].map(Into::into));
+    let call_instruction_size = call_instruction.size_in_m31s();
+    let expected_memory = Memory::from_iter([10, 11, 12, 0, call_instruction_size].map(Into::into));
 
     assert_eq!(memory.data, expected_memory.data);
-    assert_eq!(ret_state, initial_state.advance_by(1));
+    assert_eq!(ret_state, initial_state.advance_by(call_instruction_size));
 }

@@ -29,7 +29,7 @@ where
 
     let res = op(lhs, rhs);
     memory.insert_u32(state.fp + dst_off, res)?;
-    Ok(state.advance_by(instruction.size_in_qm31s()))
+    Ok(state.advance_by(instruction.size_in_m31s()))
 }
 
 /// Execute a binary op between a U32 operand `[fp + src_off]` and a 32-bit immediate.
@@ -61,7 +61,7 @@ where
 
     let res = op(src_value, imm_value);
     memory.insert_u32(state.fp + dst_off, res)?;
-    Ok(state.advance_by(instruction.size_in_qm31s()))
+    Ok(state.advance_by(instruction.size_in_m31s()))
 }
 
 /// Generates U32 `*_fp_fp` store operations.
