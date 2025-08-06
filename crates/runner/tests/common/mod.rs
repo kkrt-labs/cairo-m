@@ -194,11 +194,19 @@ fn format_output(values: &[M31], return_types: &[AbiSlot]) -> String {
 }
 
 fn convert_cairo_to_rust(cairo_source: &str) -> String {
-    cairo_source
+    use regex::Regex;
+
+    let mut result = cairo_source
         .replace("fn ", "fn ")
         .replace("-> felt", "-> i32")
         .replace("felt", "i32")
-        .replace("u32", "u32")
+        .replace("u32", "u32");
+
+    // Make all variables mutable by default using regex
+    let re = Regex::new(r"\blet\s+([a-zA-Z_][a-zA-Z0-9_]*)\b").unwrap();
+    result = re.replace_all(&result, "let mut $1").to_string();
+
+    result
 }
 
 fn run_rust_differential(

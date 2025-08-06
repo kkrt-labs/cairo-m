@@ -35,19 +35,6 @@ fn calculate_area() -> felt {
 }
 ```
 
-```rust
-struct Rectangle {
-    width: i32,
-    height: i32,
-}
-
-fn calculate_area() -> i32 {
-    let mut rect = Rectangle { width: 5, height: 10 };
-    rect.width = 7;
-    return rect.width * rect.height;
-}
-```
-
 ## Nested Structs
 
 Structs containing other structs:

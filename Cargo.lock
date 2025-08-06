@@ -667,6 +667,7 @@ dependencies = [
  "once_cell",
  "proptest",
  "rand 0.8.5",
+ "regex",
  "smallvec",
  "sonic-rs 0.5.1",
  "stwo-prover",

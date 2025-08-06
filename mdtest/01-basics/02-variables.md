@@ -54,11 +54,3 @@ fn test_mutation() -> felt {
     return x;
 }
 ```
-
-```rust
-fn test_mutation() -> i32 {
-    let mut x = 5;
-    x = x + 1;
-    return x;
-}
-```

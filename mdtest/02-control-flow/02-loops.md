@@ -42,18 +42,6 @@ fn count_down() -> felt {
 }
 ```
 
-```rust
-fn count_down() -> i32 {
-    let mut x = 10;
-    let mut count = 0;
-    while x != 0 {
-        x = x - 1;
-        count = count + 1;
-    }
-    return count;
-}
-```
-
 ## Loop with Break
 
 Infinite loop with break condition:
@@ -61,19 +49,6 @@ Infinite loop with break condition:
 ```cairo-m
 fn loop_with_break() -> felt {
     let i = 10;
-    loop {
-        if i == 7 || i == 0 {
-            break;
-        }
-        i = i - 1;
-    }
-    return i;
-}
-```
-
-```rust
-fn loop_with_break() -> i32 {
-    let mut i = 10;
     loop {
         if i == 7 || i == 0 {
             break;
