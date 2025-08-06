@@ -65,7 +65,7 @@ pub struct MemoryValue {
 /// Represents a data memory access with both previous and current state.
 ///
 /// This structure captures the complete state transition for a memory access
-/// that is requiered for the memory lookups (use previous and emit new).
+/// that is required for the memory lookups (use previous and emit new).
 /// Note that the current clock is in the ExecutionBundle.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct DataAccess {
