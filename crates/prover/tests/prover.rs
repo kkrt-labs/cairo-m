@@ -21,6 +21,10 @@ use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
 #[global_allocator]
 static ALLOC: dhat::Alloc = dhat::Alloc;
 
+/// Tests proof generation and verification with static memory (no program execution).
+///
+/// This test creates a minimal proof scenario with only initial memory entries
+/// that remain unchanged throughout execution.
 #[test]
 fn test_prove_and_verify_unchanged_memory() {
     let initial_memory_data = [
@@ -93,6 +97,10 @@ fn test_prove_and_verify_unchanged_memory() {
     assert!(result.is_ok());
 }
 
+/// Tests end-to-end proof generation for a Fibonacci(5) program.
+///
+/// This test compiles and executes a Cairo-M Fibonacci program, then generates
+/// and verifies a STARK proof of correct execution.
 #[test]
 fn test_prove_and_verify_fibonacci_program() {
     let source_path = format!(
@@ -125,6 +133,10 @@ fn test_prove_and_verify_fibonacci_program() {
     verify_cairo_m::<Blake2sMerkleChannel>(proof, None).unwrap();
 }
 
+/// Tests proof generation for a Fibonacci(1M) calculation.
+///
+/// This test validates that the prover can handle larger execution traces
+/// by computing Fibonacci of a much larger number (1,000,000). It tests the clock update component.
 #[test]
 fn test_prove_and_verify_large_fibonacci_program() {
     let source_path = format!(
@@ -160,6 +172,7 @@ fn test_prove_and_verify_large_fibonacci_program() {
     verify_cairo_m::<Blake2sMerkleChannel>(proof, None).unwrap();
 }
 
+/// Tests proof generation for recursive Fibonacci implementation.
 #[test]
 fn test_prove_and_verify_recursive_fibonacci_program() {
     let source_path = format!(
@@ -192,6 +205,11 @@ fn test_prove_and_verify_recursive_fibonacci_program() {
     verify_cairo_m::<Blake2sMerkleChannel>(proof, None).unwrap();
 }
 
+/// Tests Merkle root continuity across execution segments.
+///
+/// This test verifies that when execution is segmented (due to provided step limits),
+/// the final memory root of one segment matches the initial memory root of
+/// the next segment. This ensures proper continuity in segmented proofs.
 #[test]
 fn test_hash_continuity_fibonacci() {
     let source_path = format!(
@@ -238,6 +256,11 @@ fn test_hash_continuity_fibonacci() {
     }
 }
 
+/// Tests proof generation for comprehensive opcode coverage.
+///
+/// This test executes a Cairo-M program that exercises all available
+/// opcodes in the instruction set with as most operand configuration as possible.
+/// To be updated if new opcodes/new functionalities are added.
 #[test]
 fn test_prove_and_verify_all_opcodes() {
     let source_path = format!(
@@ -265,6 +288,11 @@ fn test_prove_and_verify_all_opcodes() {
     verify_cairo_m::<Blake2sMerkleChannel>(proof, None).unwrap();
 }
 
+/// Tests constraint satisfaction for all opcode types without full proving.
+///
+/// This test validates that all opcode constraint systems are satisfied
+/// by the execution trace, without generating a complete STARK proof.
+/// The constraints are evaluated with the trace values (no interpolation).
 #[test]
 fn test_all_opcodes_constraints() {
     let source_path = format!(
@@ -290,6 +318,11 @@ fn test_all_opcodes_constraints() {
     assert_constraints(&mut prover_input);
 }
 
+/// Memory profiling test for Fibonacci proof generation (requires dhat-heap feature).
+///
+/// This test profiles memory usage during STARK proof generation for
+/// performance analysis and optimization. It's conditionally compiled
+/// and only runs when the `dhat-heap` feature is enabled.
 #[cfg(feature = "dhat-heap")]
 #[test]
 fn test_memory_profile_fibonacci_prover() {

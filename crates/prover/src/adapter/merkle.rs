@@ -1,3 +1,20 @@
+//! # Merkle Tree Construction for Memory Commitments
+//!
+//! This module implements partial Merkle tree construction for Cairo-M memory states.
+//! The initial memory commited is vm.memory before the first step of a segment of execution.
+//! The final memory commited is vm.memory after the last step of a segment of execution.
+//! The memory commitments can contain memory values that are not accessed during the execution (ie not part of the
+//! memory log).
+//! These commitments are used for continuation to attest that the memory is consistent over the overall execution.
+//!
+//! ## Tree construction
+//! - The leaves of the tree are M31 values corresponding to the QM31 values of the memory.
+//!   Each QM31 memory value (4 M31 elements) is decomposed into 4 consecutive leaves:
+//!     - Address N → Leaves at positions [N*4, N*4+1, N*4+2, N*4+3]
+//!     - Maximum memory size: 2^28 QM31 values → 2^30 M31 leaves
+//! - Only used memory cells are added as leaves. To keep a 31 layered tree, missing nodes are added using default hash values,
+//!   these added nodes are the "intermediate nodes".
+
 use std::collections::HashMap;
 
 use num_traits::Zero;
@@ -6,27 +23,52 @@ use stwo_prover::core::fields::qm31::QM31;
 
 pub use super::HashInput;
 
+/// Maximum memory size in QM31 values (2^28)
 pub const MAX_MEMORY_LOG_SIZE: u32 = 28;
-pub const QM31_LOG_SIZE: u32 = 2; // a QM31 is 4 M31 so 4 leaves
-pub const TREE_HEIGHT: u32 = MAX_MEMORY_LOG_SIZE + QM31_LOG_SIZE; // tree height is 30, with depth 0 (root) to depth 30 (leaves)
+/// Number of M31 elements per QM31 (4 elements = 2^2)
+pub const QM31_LOG_SIZE: u32 = 2;
+/// Total Merkle tree height: memory size + QM31 decomposition (28 + 2 = 30)
+pub const TREE_HEIGHT: u32 = MAX_MEMORY_LOG_SIZE + QM31_LOG_SIZE;
 
-/// NodeData represents a node in the partial Merkle tree with left node taken as reference.
+/// Represents a node in the Merkle tree.
 ///
-/// - index: the index of the node (left node index)
-/// - depth: the depth of this left node
-/// - left_value: the value of this same left node
-/// - right_value: the value of the node to the right
-/// - parent_value: the value of the parent node
+/// Each node captures a single hash operation: parent = hash(left, right).
+/// The node is identified by the left child's index and depth.
+///
+/// # Node Scheme
+/// ```text
+///         parent_value
+///           /      \
+///   left_value   right_value
+///   (index)      (index+1)
+///    [depth]      [depth]
+/// ```
+///
+/// ## Fields
+/// - `index`: Index of the left child node
+/// - `depth`: Tree depth of this node (0 = root, 30 = M31 leaves)
+/// - `left_value`: Hash value of the left child
+/// - `right_value`: Hash value of the right child
+/// - `parent_value`: Computed hash value of this node
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NodeData {
+    /// Index of the left child node at this tree depth
     pub index: M31,
+    /// Tree depth (0 = root, increases toward leaves)
     pub depth: u8,
+    /// M31 value of the left child
     pub left_value: M31,
+    /// M31 value of the right child
     pub right_value: M31,
+    /// Computed parent hash: hash(left_value, right_value)
     pub parent_value: M31,
 }
 
 impl NodeData {
+    /// Converts the node data to an M31 array for constraint evaluation.
+    ///
+    /// ## Returns
+    /// Array containing [index, depth, left_value, right_value, parent_value]
     pub fn to_m31_array(&self) -> [M31; 5] {
         [
             self.index,
@@ -37,6 +79,10 @@ impl NodeData {
         ]
     }
 
+    /// Extracts the hash input (left and right values) for hash computation.
+    ///
+    /// ## Returns
+    /// HashInput array with left and right child values
     pub fn to_hash_input(&self) -> HashInput {
         let mut input: HashInput = Default::default();
         input[0] = self.left_value;
@@ -45,18 +91,54 @@ impl NodeData {
     }
 }
 
+/// Trait for Merkle tree hash functions.
+///
+/// Implementations must provide both the hash function and default hash values
+/// for uninitialized nodes at each tree level.
 pub trait MerkleHasher {
+    /// Computes the hash of two M31 field elements.
+    ///
+    /// ## Arguments
+    /// * `left` - Left child hash value
+    /// * `right` - Right child hash value
+    ///
+    /// ## Returns
+    /// The computed parent hash value
     fn hash(left: M31, right: M31) -> M31;
+
+    /// Returns default hash values for each tree level.
+    ///
+    /// Used for uninitialized nodes to maintain tree structure.
+    /// Array index corresponds to tree depth.
+    ///
+    /// ## Returns
+    /// Static array of default hash values indexed by depth
     fn default_hashes() -> &'static [M31];
 }
 
-/// Build a partial Merkle tree from a memory state
-/// Each QM31 value is split into 4 M31 leaves
-/// The tree has depth 0 to 30:
-/// - Depth 0: Root with a single hash value
-/// - Depth 30: Leaves with up to 2^30 M31 values (from 2^28 QM31 memory cells)
+/// Constructs a partial Merkle tree from current memory state.
 ///
-/// Returns (node data, root hash) for all hash computations
+/// This function builds only the necessary portions of the Merkle tree based on
+/// the memory addresses that were actually present in memory. Missing
+/// nodes are filled with default hash values to maintain tree integrity.
+///
+/// ## Process
+/// 1. **Leaf Generation**: Each QM31 memory value is split into 4 M31 leaves
+/// 2. **Tree Construction**: Build from leaves (depth 30) up to depth 1
+/// 3. **Missing Nodes**: Fill gaps with default hashes and add to memory map
+/// 4. **Root Computation**: Calculate single root hash at depth 0
+///
+/// ## Arguments
+/// * `memory` - Memory state map: (address, depth) → (value, clock, multiplicity). Will be modified to include intermediate nodes
+///
+/// ## Returns
+/// * `Vec<NodeData>` - Vec of nodes of the merkle tree
+/// * `Option<M31>` - Root hash value (None if memory is empty)
+///
+/// ## Tree Structure
+/// - **Depth 0**: Root (excluded from NodeData)
+/// - **Depth 1-29**: Intermediate hash computations
+/// - **Depth 30**: M31 leaf values from QM31 decomposition
 pub fn build_partial_merkle_tree<H: MerkleHasher>(
     memory: &mut HashMap<(M31, M31), (QM31, M31, M31)>,
 ) -> (Vec<NodeData>, Option<M31>) {
@@ -101,7 +183,7 @@ pub fn build_partial_merkle_tree<H: MerkleHasher>(
                 continue;
             }
 
-            // Get sibling index
+            // Get sibling and parent indexes
             let sibling_index = index ^ 1;
             let parent_index = index >> 1;
 
@@ -112,14 +194,15 @@ pub fn build_partial_merkle_tree<H: MerkleHasher>(
                 (sibling_index, index)
             };
 
+            // Closure to add missing intermediate nodes with default hash values
             let mut add_intermediate_node = |node_index: u32| {
                 let default_hash = H::default_hashes()[depth as usize];
                 memory.insert(
                     (M31::from(node_index), M31::from(depth)),
                     (
                         QM31::from(default_hash),
-                        M31::zero(), // clock is irrelevant
-                        M31::zero(), // intermediate nodes shouldn't be emitted for the memory relation
+                        M31::zero(), // Clock is irrelevant for intermediate nodes
+                        M31::zero(), // Zero multiplicity - not emitted in memory relation
                     ),
                 );
                 default_hash

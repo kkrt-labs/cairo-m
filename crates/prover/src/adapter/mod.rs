@@ -20,32 +20,79 @@ use crate::adapter::memory::{ExecutionBundleIterator, Memory};
 use crate::adapter::merkle::{build_partial_merkle_tree, NodeData, TREE_HEIGHT};
 use crate::poseidon2::{Poseidon2Hash, T};
 
+/// Hash input type for the merkle tree component (T M31 elements)
 pub type HashInput = [M31; T];
 
+/// Input data structure for proof generation.
+/// Contains all the hints for witness generation and the public data.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ProverInput {
+    /// Merkle tree commitments for initial and final memory states
     pub merkle_trees: MerkleTrees,
+    /// Boundary memory states and clock update data
     pub memory: Memory,
+    /// Execution bundles organized by opcode for opcode witness generation
     pub instructions: Instructions,
+    /// List of public memory addresses (program/inputs/outputs)
     pub public_addresses: Vec<M31>,
+    /// Hash inputs for Poseidon2 computations in Merkle trees
     pub poseidon2_inputs: Vec<HashInput>,
 }
 
+/// Merkle tree commitments for initial and final memory states for continuation.
+///
+/// ## For which components ?
+/// MERKLE COMPONENT: only component using these hints.
+///
+/// Each merkle tree contains a vec of tree nodes. The root is also stored.
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
 pub struct MerkleTrees {
+    /// Vec of nodes for the initial memory state
     pub initial_tree: Vec<NodeData>,
+    /// Root hash of the initial memory state (None if empty)
     pub initial_root: Option<M31>,
+    /// Vec of nodes for the final memory state
     pub final_tree: Vec<NodeData>,
+    /// Root hash of the final memory state (None if empty)
     pub final_root: Option<M31>,
 }
 
+/// Opcode related data.
+///
+/// ## For which component ?
+/// OPCODE COMPONENTS: a row of an opcode component's trace requires only the execution bundle for that opcode.
+/// PUBLIC DATA (not a component): initial and final registers are emited/consumed by the public data.
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
 pub struct Instructions {
+    /// VM register state at the start of execution (PC, FP)
     pub initial_registers: VmRegisters,
+    /// VM register state at the end of execution (PC, FP)
     pub final_registers: VmRegisters,
+    /// Execution bundles grouped by opcode value for opcode witness generation
     pub states_by_opcodes: HashMap<u32, Vec<ExecutionBundle>>,
 }
 
+/// Internal function to convert runner output to prover input format.
+///
+/// This is the core transformation logic that processes execution traces and
+/// memory accesses to create the structured data needed for proof generation.
+///
+/// ## Process Overview
+/// 1. **Bundle Generation** - Convert raw traces to execution bundles
+/// 2. **Opcode Grouping** - Organize bundles by opcode for components
+/// 3. **Public Address Handling** - Adjust multiplicities for public data
+/// 4. **Merkle Tree Construction** - Merkle treee data used to prove merkle tree construction
+/// 5. **Hash Collection** - Poseidon2 inputs used to prove hash computation
+///
+/// ## Arguments
+/// * `trace_iter` - Iterator over VM register states
+/// * `memory_iter` - Iterator over memory access entries
+/// * `initial_memory` - Initial memory state as QM31 values
+/// * `public_addresses` - List of public addresses
+///
+/// ## Returns
+/// * `Ok(ProverInput)` - Complete prover input data
+/// * `Err(VmImportError)` - Import failed due to invalid trace data
 fn import_internal<TraceIter, MemoryIter>(
     trace_iter: TraceIter,
     memory_iter: MemoryIter,
@@ -66,7 +113,7 @@ where
         .ok_or(VmImportError::EmptyTrace)?;
     let mut final_registers = initial_registers;
 
-    // Process all execution bundles
+    // Iterate through the trace and memory log to build the execution bundles
     #[allow(clippy::while_let_on_iterator)]
     while let Some(bundle_result) = bundle_iter.next() {
         let bundle = bundle_result?;
@@ -94,8 +141,14 @@ where
         "Initial and final memory keys do not match"
     );
 
-    // Set multiplicities to 0 for **USED** public addresses in final memory so that they can be consumed seperately in the PublicData.
-    // Set them to 1 for **UNUSED** public addresses (as the public data consumes them no matter what)
+    // Adjust multiplicities for public addresses.
+    // The public data systematically consumes all memory entries pointed by public_addresses.
+    // However it can happen that the public memory is partially used (an instruction might not be used by a segment),
+    // this is equivalent to having a multiplicity of 0 for some memory entries in the final memory. Consuming such unemited entries
+    // would lead to a logup sum error. Hence the following multiplicity adjustment:
+    // - USED addresses (multiplicity == -1): Set to 0 in final memory to replace the memory component
+    //   consumption by the PublicData consumption;
+    // - UNUSED addresses (multiplicity == 0): Set to 1 in final memory since PublicData always consumes them.
     for &addr in &public_addresses {
         if let Some((value, clock, previous_multiplicity)) = memory
             .final_memory
@@ -114,12 +167,15 @@ where
         }
     }
 
-    // Build the partial merkle trees and add to the memory the intermediate nodes
+    // Build partial Merkle trees for memory commitments.
+    // The memory is passed as mut since the merkle tree construction adds intermediate nodes to the memory map.
     let (initial_tree, initial_root) =
         build_partial_merkle_tree::<Poseidon2Hash>(&mut memory.initial_memory);
     let (final_tree, final_root) =
         build_partial_merkle_tree::<Poseidon2Hash>(&mut memory.final_memory);
 
+    // Extract Poseidon2 inputs from merkle trees.
+    // This data is used for the Poseidon2 component
     let mut poseidon2_inputs =
         Vec::<HashInput>::with_capacity(initial_tree.len() + final_tree.len());
     initial_tree.iter().for_each(|node| {
@@ -147,6 +203,24 @@ where
     })
 }
 
+/// Imports prover input from runner artifact files.
+///
+/// This function reads execution trace and memory trace files produced by the
+/// Cairo-M runner and converts them into prover input format. Currently
+/// incomplete - needs serialization of initial memory and public addresses.
+///
+/// ## Arguments
+/// * `trace_path` - Path to the execution trace file
+/// * `mem_path` - Path to the memory trace file
+///
+/// ## Returns
+/// * `Ok(ProverInput)` - Successfully imported prover data
+/// * `Err(VmImportError)` - Failed to read or process files
+///
+/// ## Status
+/// Currently unimplemented - requires serialization format for:
+/// - Initial memory state
+/// - Public address lists
 #[allow(unreachable_code)]
 #[allow(unused_variables)]
 pub fn import_from_runner_artifacts(
@@ -164,6 +238,22 @@ pub fn import_from_runner_artifacts(
     import_internal(trace_iter, memory_iter, vec![], vec![])
 }
 
+/// Imports prover input directly from runner execution segment.
+///
+/// This is the primary entry point for converting runner output into prover input.
+/// It processes a complete execution segment containing the trace, memory accesses,
+/// and initial memory state.
+///
+/// ## Arguments
+/// * `segment` - Execution segment from the Cairo-M runner containing:
+///   - `trace`: Vector of VM register states
+///   - `memory_trace`: Memory access trace
+///   - `initial_memory`: Initial memory state as QM31 values
+/// * `public_addresses` - List of public input/output memory addresses
+///
+/// ## Returns
+/// * `Ok(ProverInput)` - Complete prover input ready for proof generation
+/// * `Err(VmImportError)` - Conversion failed due to invalid segment data
 pub fn import_from_runner_output(
     segment: Segment,
     public_addresses: Vec<M31>,

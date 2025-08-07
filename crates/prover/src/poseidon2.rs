@@ -7,23 +7,9 @@ use zkhash::poseidon2::poseidon2_instance_m31::POSEIDON2_M31_16_PARAMS;
 
 use crate::adapter::merkle::MerkleHasher;
 
-/// ALPHA: power in the S-Box. The paper suggest x**5 as S-Box.
-///
-/// Note that stwo-cairo uses alpha=3.
-/// We pick 5 so that gcd(PRIME-1, 5) = 1 holds, indeed gcd(PRIME-1, 3) = 3.
-/// This const is exclusively used in the build script not for the hash computation nor the AIR (where x**5 s-box is hardcoded)
-pub const ALPHA: u32 = 5;
-
 /// T: State size
 pub const T: usize = 16;
-
-/// FULL_ROUNDS
-/// The poseidon2 paper tests use 8 full rounds.
 pub const FULL_ROUNDS: usize = 8;
-
-/// PARTIAL_ROUNDS
-/// The paper exposes different critieras for different attacks. The tests use 35 (M=80), 60 (M=128), 120 (M=256).
-/// Stwo-cairo uses 31.
 pub const PARTIAL_ROUNDS: usize = 14;
 
 // Include the auto-generated constants from the build script
@@ -33,6 +19,9 @@ include!(concat!(env!("OUT_DIR"), "/poseidon2_constants.rs"));
 pub struct Poseidon2Hash;
 
 impl MerkleHasher for Poseidon2Hash {
+    /// Uses reference implementation to compute the hash.
+    /// The initial state is built by padding [left, right] with 0 to size T.
+    /// Digest is the first element of the final state
     fn hash(left: M31, right: M31) -> M31 {
         let poseidon2 = Poseidon2::new(&POSEIDON2_M31_16_PARAMS);
         let mut input: Vec<FpM31> = vec![FpM31::zero(); T];
@@ -42,6 +31,7 @@ impl MerkleHasher for Poseidon2Hash {
         M31::from(perm[0].into_bigint().0[0] as u32)
     }
 
+    /// Default hash computation
     fn default_hashes() -> &'static [M31] {
         use std::sync::OnceLock;
 
