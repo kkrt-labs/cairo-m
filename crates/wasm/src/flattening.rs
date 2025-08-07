@@ -31,22 +31,28 @@ pub struct DagToMir {
 
 /// Context for converting a single DAG to MIR
 struct DagToMirContext {
-    /// Map from ValueOrigin (WASM DAG values) to MIR ValueId
-    value_map: HashMap<ValueOrigin, ValueId>,
-    /// Map from WASM label IDs to MIR BasicBlockId
-    label_map: HashMap<u32, BasicBlockId>,
-    /// Map from WASM local variable indices to MIR ValueId
-    local_map: HashMap<u32, ValueId>,
-    /// Track values flowing into labels: label_id -> Vec<(source_block, values)>
-    label_inputs: HashMap<u32, Vec<(BasicBlockId, Vec<ValueId>)>>,
-    /// Track which block we're coming from when jumping
-    current_source_block: Option<BasicBlockId>,
-    /// The MIR function being built
+    /// MIR function being built
     mir_function: MirFunction,
-    /// Current basic block being constructed
+    /// Mapping from WASM ValueOrigin to MIR ValueId
+    value_map: HashMap<ValueOrigin, ValueId>,
+    /// Mapping from DAG label IDs to MIR BasicBlockId
+    label_map: HashMap<u32, BasicBlockId>,
+    /// Current basic block being filled
     current_block_id: Option<BasicBlockId>,
+    /// Next BasicBlockId to assign
+    next_block_id: usize,
     /// Next ValueId to assign
     next_value_id: usize,
+    /// Track the current loop exit block
+    current_loop_exit: Option<BasicBlockId>,
+    /// Track the current loop header block for break targets
+    current_loop_header: Option<BasicBlockId>,
+    /// Local variable mapping for LocalGet/LocalSet
+    local_map: HashMap<u32, ValueId>,
+    /// Track label inputs for phi-like resolution
+    label_inputs: HashMap<u32, Vec<(BasicBlockId, Vec<ValueId>)>>,
+    /// Current source block for tracking control flow
+    current_source_block: Option<BasicBlockId>,
 }
 
 impl DagToMirContext {
@@ -64,6 +70,9 @@ impl DagToMirContext {
             mir_function,
             current_block_id: Some(0.into()),
             next_value_id: 0,
+            current_loop_exit: None,
+            current_loop_header: None,
+            next_block_id: 0,
         }
     }
 
@@ -74,7 +83,8 @@ impl DagToMirContext {
     }
 
     fn allocate_basic_block(&mut self) -> BasicBlockId {
-        let id = BasicBlockId::from_usize(self.mir_function.basic_blocks.len());
+        let id = BasicBlockId::from_usize(self.next_block_id);
+        self.next_block_id += 1;
         self.mir_function.basic_blocks.push(BasicBlock::new());
         id
     }
@@ -193,6 +203,94 @@ impl DagToMir {
         Ok(())
     }
 
+    /// Handle loop operation conversion to MIR
+    fn handle_loop_operation(
+        &self,
+        sub_dag: &BlocklessDag,
+        node: &womir::loader::blockless_dag::Node,
+        context: &mut DagToMirContext,
+    ) -> Result<(), DagToMirError> {
+        // Create a loop header block where the loop begins
+        let loop_header_block = context.allocate_basic_block();
+
+        // Process loop inputs - these are the initial values for loop-carried variables
+        let mut loop_input_values = Vec::new();
+        for input in &node.inputs {
+            let input_value = self.get_input_value(input, context)?;
+            loop_input_values.push(input_value);
+        }
+
+        // Jump from current block to loop header
+        let terminator = Terminator::jump(loop_header_block);
+        context.get_current_block().set_terminator(terminator);
+
+        // Switch to loop header block
+        context.set_current_block(loop_header_block);
+
+        // Create an exit block for when the loop terminates
+        let loop_exit_block = context.allocate_basic_block();
+
+        // Save the current loop context so nested loops can work
+        let previous_loop_exit = context.current_loop_exit;
+        let previous_loop_header = context.current_loop_header;
+        context.current_loop_exit = Some(loop_exit_block);
+        context.current_loop_header = Some(loop_header_block);
+
+        // Save current value mappings for loop variables to restore later
+        let mut saved_mappings = Vec::new();
+        for idx in 0..loop_input_values.len() {
+            let value_origin = ValueOrigin {
+                node: 0, // Loop body Input node
+                output_idx: idx as u32,
+            };
+            saved_mappings.push((value_origin, context.value_map.get(&value_origin).copied()));
+        }
+
+        // Set up initial loop variable mappings
+        for (idx, input_value) in loop_input_values.iter().enumerate() {
+            let loop_var_id = context.allocate_value_id();
+            let instruction = Instruction::assign(loop_var_id, *input_value);
+            context.get_current_block().push_instruction(instruction);
+
+            // Map this to the loop body's Input node outputs
+            // Based on WASM semantics: idx=0 is counter, idx=1 is sum
+            let value_origin = ValueOrigin {
+                node: 0, // The Input node in sub_dag is always node 0
+                output_idx: idx as u32,
+            };
+            context.value_map.insert(value_origin, loop_var_id);
+        }
+
+        // Recursively process the loop body (sub_dag)
+        self.generate_instructions_from_dag(sub_dag, context)?;
+
+        // Restore previous loop context
+        context.current_loop_exit = previous_loop_exit;
+        context.current_loop_header = previous_loop_header;
+
+        // Restore saved value mappings
+        for (value_origin, saved_value) in saved_mappings {
+            if let Some(saved) = saved_value {
+                context.value_map.insert(value_origin, saved);
+            } else {
+                context.value_map.remove(&value_origin);
+            }
+        }
+
+        // If the loop body didn't end with a terminator, jump to exit
+        if let Some(current_block_id) = context.current_block_id {
+            let current_block = &mut context.mir_function.basic_blocks[current_block_id];
+            if !current_block.is_terminated() {
+                current_block.set_terminator(Terminator::jump(loop_exit_block));
+            }
+        }
+
+        // Continue execution from the loop exit block
+        context.set_current_block(loop_exit_block);
+
+        Ok(())
+    }
+
     /// Pass 2: Generate MIR instructions from DAG nodes
     fn generate_instructions_from_dag(
         &self,
@@ -202,14 +300,30 @@ impl DagToMir {
         for (node_idx, node) in dag.nodes.iter().enumerate() {
             match &node.operation {
                 Operation::Inputs => {
-                    // Handle function parameters by adding them to the MIR function's params
+                    // Handle function parameters or loop inputs
                     for (output_idx, _output_type) in node.output_types.iter().enumerate() {
-                        let value_id = context.allocate_value_id();
-                        context.mir_function.parameters.push(value_id); // Define as param
                         let value_origin = ValueOrigin {
                             node: node_idx,
                             output_idx: output_idx as u32,
                         };
+
+                        // If we're in a loop and this Input mapping already exists (from loop initialization),
+                        // don't overwrite it - use the existing loop variable mapping
+                        if context.current_loop_header.is_some()
+                            && context.value_map.contains_key(&value_origin)
+                        {
+                            // Loop variable mapping already exists, skip creating a new one
+                            continue;
+                        }
+
+                        let value_id = context.allocate_value_id();
+
+                        // Only add to function parameters if this is the main function inputs
+                        // (not loop sub-DAG inputs)
+                        if context.current_loop_header.is_none() {
+                            context.mir_function.parameters.push(value_id); // Define as param
+                        }
+
                         context.value_map.insert(value_origin, value_id);
                     }
                 }
@@ -319,11 +433,41 @@ impl DagToMir {
                 }
 
                 Operation::BrIf(target) => {
-                    // Conditional branch
-                    let condition_value = self.get_input_value(&node.inputs[0], context)?;
+                    // Conditional branch - the condition is typically the last input
+                    let condition_input_idx = node.inputs.len().saturating_sub(1);
+                    let condition_value =
+                        self.get_input_value(&node.inputs[condition_input_idx], context)?;
                     let then_target = self.resolve_break_target(target, context)?;
 
-                    // TODO: Create else target (next block or explicit target)
+                    // Handle loop back-edge: update loop variables with new values
+                    if matches!(target.kind, TargetType::FunctionOrLoop) && target.depth == 0 {
+                        // This is a loop back-edge - update loop variables
+                        // The inputs (except the last one which is the condition) are the updated loop values
+                        for (idx, input) in node.inputs.iter().enumerate() {
+                            if idx < node.inputs.len() - 1 {
+                                // Skip the condition (last input)
+                                let updated_value = self.get_input_value(input, context)?;
+
+                                // Update the loop variable mapping for the next iteration
+                                // Map this to the loop body's Input node outputs
+                                let value_origin = ValueOrigin {
+                                    node: 0, // Loop body Input node
+                                    output_idx: idx as u32,
+                                };
+
+                                // Create a new value to represent the updated loop variable
+                                let updated_var_id = context.allocate_value_id();
+                                let instruction =
+                                    Instruction::assign(updated_var_id, updated_value);
+                                context.get_current_block().push_instruction(instruction);
+
+                                // Update the mapping so the next iteration uses the updated value
+                                context.value_map.insert(value_origin, updated_var_id);
+                            }
+                        }
+                    }
+
+                    // Create else target (fallthrough block)
                     let else_target = context.allocate_basic_block();
 
                     let terminator = Terminator::branch(condition_value, then_target, else_target);
@@ -357,18 +501,10 @@ impl DagToMir {
                 }
 
                 Operation::Loop {
-                    sub_dag: _,
+                    sub_dag,
                     break_targets: _,
                 } => {
-                    // TODO: Implement loop handling
-                    // This requires creating a separate context for the loop body
-                    // and handling loop-carried values through phi-like constructs
-
-                    // For now, create a placeholder jump
-                    let loop_block = context.allocate_basic_block();
-                    let terminator = Terminator::jump(loop_block);
-                    context.get_current_block().set_terminator(terminator);
-                    context.set_current_block(loop_block);
+                    self.handle_loop_operation(sub_dag, node, context)?;
                 }
             }
         }
@@ -617,20 +753,31 @@ impl DagToMir {
     ) -> Result<BasicBlockId, DagToMirError> {
         match (&target.kind, target.depth) {
             (TargetType::Label(label_id), 0) => {
+                // Direct jump to a label at current scope
                 context.label_map.get(label_id).copied().ok_or_else(|| {
                     DagToMirError::InvalidControlFlow(format!("Label {} not found", label_id))
                 })
             }
-            (TargetType::FunctionOrLoop, 0) => {
-                // This should be handled as a Return terminator, not a block jump
-                Err(DagToMirError::InvalidControlFlow(
-                    "Return target should be handled directly in Br/BrIf".to_string(),
-                ))
+            (TargetType::Label(label_id), 1) => {
+                // Break out of current loop and go to outer label
+                // This is typically the loop exit - for now, map to the label directly
+                // In a more complete implementation, we'd need to track scope depth
+                context.label_map.get(label_id).copied().ok_or_else(|| {
+                    DagToMirError::InvalidControlFlow(format!("Outer label {} not found", label_id))
+                })
             }
-            (_, depth) if depth > 0 => {
-                // TODO: Implement proper nested scope handling
+            (TargetType::FunctionOrLoop, 0) => {
+                // This is a loop back-edge - jump to current loop header
+                context.current_loop_header.ok_or_else(|| {
+                    DagToMirError::InvalidControlFlow(
+                        "Loop break target found but no current loop header".to_string(),
+                    )
+                })
+            }
+            (_, depth) if depth > 1 => {
+                // TODO: Implement proper nested scope handling for deeper nesting
                 Err(DagToMirError::InvalidControlFlow(format!(
-                    "Nested break targets not yet supported: depth {}",
+                    "Deeply nested break targets not yet supported (depth: {})",
                     depth
                 )))
             }

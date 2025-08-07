@@ -1,0 +1,20 @@
+---
+source: crates/wasm/tests/wasm_loading_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/wasm/tests/wasm_loading_tests.rs
+expression: wasm_load_result
+---
+WASM File: simple_loop.wasm
+============================================================
+Success: true
+Functions loaded: 1
+============================================================
+Module Output:
+main:
+  Node { operation: Inputs, inputs: [], output_types: [] }
+  Node { operation: WASMOp(I32Const { value: 0 }), inputs: [], output_types: [I32] }
+  Node { operation: Loop { sub_dag: BlocklessDag { nodes: [Node { operation: Inputs, inputs: [], output_types: [I32, I32] }, Node { operation: WASMOp(I32Add), inputs: [ValueOrigin { node: 0, output_idx: 1 }, ValueOrigin { node: 0, output_idx: 0 }], output_types: [I32] }, Node { operation: WASMOp(I32Const { value: 1 }), inputs: [], output_types: [I32] }, Node { operation: WASMOp(I32Add), inputs: [ValueOrigin { node: 0, output_idx: 0 }, ValueOrigin { node: 2, output_idx: 0 }], output_types: [I32] }, Node { operation: WASMOp(I32Const { value: 3 }), inputs: [], output_types: [I32] }, Node { operation: WASMOp(I32Ne), inputs: [ValueOrigin { node: 3, output_idx: 0 }, ValueOrigin { node: 4, output_idx: 0 }], output_types: [I32] }, Node { operation: BrIf(BreakTarget { depth: 0, kind: FunctionOrLoop }), inputs: [ValueOrigin { node: 3, output_idx: 0 }, ValueOrigin { node: 1, output_idx: 0 }, ValueOrigin { node: 5, output_idx: 0 }], output_types: [] }, Node { operation: Br(BreakTarget { depth: 1, kind: Label(0) }), inputs: [ValueOrigin { node: 1, output_idx: 0 }], output_types: [] }] }, break_targets: [(0, [Label(0)])] }, inputs: [ValueOrigin { node: 1, output_idx: 0 }, ValueOrigin { node: 1, output_idx: 0 }], output_types: [] }
+  Node { operation: Label { id: 0 }, inputs: [], output_types: [I32] }
+  Node { operation: Br(BreakTarget { depth: 0, kind: FunctionOrLoop }), inputs: [ValueOrigin { node: 3, output_idx: 0 }], output_types: [] }
