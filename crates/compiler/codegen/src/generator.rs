@@ -322,27 +322,14 @@ impl CodeGenerator {
                 }
             }
 
-            InstructionKind::UnaryOp {
-                op,
-                dest,
-                source,
-                in_place_target,
-            } => {
-                let mut target_offset = if let Some(target_addr_id) = in_place_target {
-                    builder.layout_mut().get_offset(*target_addr_id).ok()
-                } else {
-                    None
-                };
-
+            InstructionKind::UnaryOp { op, dest, source } => {
                 // Direct Argument Placement Optimization
-                if target_offset.is_none() {
-                    target_offset = self.find_direct_argument_placement_offset(
-                        *dest,
-                        block_instructions,
-                        instruction_index,
-                        builder,
-                    );
-                }
+                let mut target_offset = self.find_direct_argument_placement_offset(
+                    *dest,
+                    block_instructions,
+                    instruction_index,
+                    builder,
+                );
 
                 // Fallback to return-value optimization
                 if target_offset.is_none() {
@@ -357,25 +344,14 @@ impl CodeGenerator {
                 dest,
                 left,
                 right,
-                in_place_target,
             } => {
-                // Check if this op can be performed in-place
-                let mut target_offset = if let Some(target_addr_id) = in_place_target {
-                    // The optimization applies. Get the offset for the target address.
-                    builder.layout_mut().get_offset(*target_addr_id).ok()
-                } else {
-                    None
-                };
-
                 // Direct Argument Placement Optimization
-                if target_offset.is_none() {
-                    target_offset = self.find_direct_argument_placement_offset(
-                        *dest,
-                        block_instructions,
-                        instruction_index,
-                        builder,
-                    );
-                }
+                let mut target_offset = self.find_direct_argument_placement_offset(
+                    *dest,
+                    block_instructions,
+                    instruction_index,
+                    builder,
+                );
 
                 // Fallback to return-value optimization if no other target was found
                 // TODO: Currently disabled for U32 operations due to multi-slot handling

@@ -396,3 +396,309 @@ fn test_multiple_returns() {
     assert!(frontiers[&ret1].is_empty());
     assert!(frontiers[&ret2].is_empty());
 }
+
+/// Helper to create an irreducible CFG (multiple entry points to a loop)
+///     Entry
+///     /  \
+///   B1    B2
+///     \  / \
+///      B3--B4
+fn create_irreducible_cfg() -> MirFunction {
+    let mut function = MirFunction::new("test_irreducible".to_string());
+
+    // Create 5 blocks
+    for _ in 0..5 {
+        function.basic_blocks.push(crate::BasicBlock::new());
+    }
+
+    let entry = BasicBlockId::from_raw(0);
+    let b1 = BasicBlockId::from_raw(1);
+    let b2 = BasicBlockId::from_raw(2);
+    let b3 = BasicBlockId::from_raw(3);
+    let b4 = BasicBlockId::from_raw(4);
+
+    // Entry branches to B1 or B2
+    let cond1 = function.new_value_id();
+    function.basic_blocks[entry].terminator = Terminator::If {
+        condition: Value::operand(cond1),
+        then_target: b1,
+        else_target: b2,
+    };
+
+    // B1 -> B3
+    function.basic_blocks[b1].terminator = Terminator::Jump { target: b3 };
+
+    // B2 branches to B3 or B4
+    let cond2 = function.new_value_id();
+    function.basic_blocks[b2].terminator = Terminator::If {
+        condition: Value::operand(cond2),
+        then_target: b3,
+        else_target: b4,
+    };
+
+    // B3 -> B4 (creates a cycle with B4)
+    function.basic_blocks[b3].terminator = Terminator::Jump { target: b4 };
+
+    // B4 -> B3 (back edge creating irreducible loop)
+    function.basic_blocks[b4].terminator = Terminator::Jump { target: b3 };
+
+    function
+}
+
+#[test]
+fn test_irreducible_cfg() {
+    let function = create_irreducible_cfg();
+    let dom_tree = compute_dominator_tree(&function);
+    let frontiers = compute_dominance_frontiers(&function, &dom_tree);
+
+    let entry = BasicBlockId::from_raw(0);
+    let b1 = BasicBlockId::from_raw(1);
+    let b2 = BasicBlockId::from_raw(2);
+    let b3 = BasicBlockId::from_raw(3);
+    let b4 = BasicBlockId::from_raw(4);
+
+    // Entry dominates B1 and B2
+    assert_eq!(dom_tree[&b1], entry);
+    assert_eq!(dom_tree[&b2], entry);
+
+    // Entry dominates B3 and B4 (not B1 or B2 since there are multiple paths)
+    assert_eq!(dom_tree[&b3], entry);
+    assert_eq!(dom_tree[&b4], entry);
+
+    // B3 and B4 form an irreducible loop - they are in each other's DF
+    assert!(frontiers[&b3].contains(&b4));
+    assert!(frontiers[&b4].contains(&b3));
+
+    // B3 is a join point (from B1 and B2)
+    assert!(frontiers[&b1].contains(&b3) || frontiers[&b2].contains(&b3));
+}
+
+/// Helper to create a complex nested loop CFG
+///     Entry
+///       |
+///     Outer <----
+///     /  \      |
+///   Inner Exit  |
+///     |\ /      |
+///     | X       |
+///     |/ \      |
+///   Back--+-----
+fn create_nested_loops_cfg() -> MirFunction {
+    let mut function = MirFunction::new("test_nested_loops".to_string());
+
+    // Create 5 blocks: Entry, Outer, Inner, Back, Exit
+    for _ in 0..5 {
+        function.basic_blocks.push(crate::BasicBlock::new());
+    }
+
+    let entry = BasicBlockId::from_raw(0);
+    let outer = BasicBlockId::from_raw(1);
+    let inner = BasicBlockId::from_raw(2);
+    let back = BasicBlockId::from_raw(3);
+    let exit = BasicBlockId::from_raw(4);
+
+    // Entry -> Outer
+    function.basic_blocks[entry].terminator = Terminator::Jump { target: outer };
+
+    // Outer branches to Inner or Exit
+    let cond1 = function.new_value_id();
+    function.basic_blocks[outer].terminator = Terminator::If {
+        condition: Value::operand(cond1),
+        then_target: inner,
+        else_target: exit,
+    };
+
+    // Inner branches to Back or Exit
+    let cond2 = function.new_value_id();
+    function.basic_blocks[inner].terminator = Terminator::If {
+        condition: Value::operand(cond2),
+        then_target: back,
+        else_target: exit,
+    };
+
+    // Back branches to Inner (inner loop) or Outer (outer loop)
+    let cond3 = function.new_value_id();
+    function.basic_blocks[back].terminator = Terminator::If {
+        condition: Value::operand(cond3),
+        then_target: inner,
+        else_target: outer,
+    };
+
+    // Exit returns
+    function.basic_blocks[exit].terminator = Terminator::Return { values: vec![] };
+
+    function
+}
+
+#[test]
+fn test_nested_loops() {
+    let function = create_nested_loops_cfg();
+    let dom_tree = compute_dominator_tree(&function);
+    let frontiers = compute_dominance_frontiers(&function, &dom_tree);
+
+    let entry = BasicBlockId::from_raw(0);
+    let outer = BasicBlockId::from_raw(1);
+    let inner = BasicBlockId::from_raw(2);
+    let back = BasicBlockId::from_raw(3);
+    let exit = BasicBlockId::from_raw(4);
+
+    // Verify dominator tree
+    assert_eq!(dom_tree[&outer], entry);
+    assert_eq!(dom_tree[&inner], outer);
+    assert_eq!(dom_tree[&back], inner);
+    assert_eq!(dom_tree[&exit], outer);
+
+    // Outer is in its own DF (loop header for outer loop)
+    assert!(frontiers[&outer].contains(&outer));
+
+    // Inner is in its own DF (loop header for inner loop)
+    assert!(frontiers[&inner].contains(&inner));
+
+    // Back node should have both loop headers in its DF
+    assert!(frontiers[&back].contains(&inner));
+    assert!(frontiers[&back].contains(&outer));
+
+    // Exit is a join point from Outer and Inner
+    assert!(frontiers[&inner].contains(&exit));
+}
+
+/// Helper to create a diamond with critical edge
+///     Entry
+///       |
+///      B1
+///     /  \
+///   B2    B3
+///   |  X  |
+///   | / \ |
+///   B4   B5
+///    \ /
+///    Exit
+fn create_critical_edge_cfg() -> MirFunction {
+    let mut function = MirFunction::new("test_critical_edge".to_string());
+
+    // Create 7 blocks
+    for _ in 0..7 {
+        function.basic_blocks.push(crate::BasicBlock::new());
+    }
+
+    let entry = BasicBlockId::from_raw(0);
+    let b1 = BasicBlockId::from_raw(1);
+    let b2 = BasicBlockId::from_raw(2);
+    let b3 = BasicBlockId::from_raw(3);
+    let b4 = BasicBlockId::from_raw(4);
+    let b5 = BasicBlockId::from_raw(5);
+    let exit = BasicBlockId::from_raw(6);
+
+    // Entry -> B1
+    function.basic_blocks[entry].terminator = Terminator::Jump { target: b1 };
+
+    // B1 branches to B2 or B3
+    let cond1 = function.new_value_id();
+    function.basic_blocks[b1].terminator = Terminator::If {
+        condition: Value::operand(cond1),
+        then_target: b2,
+        else_target: b3,
+    };
+
+    // B2 branches to B4 or B5 (critical edges to join points)
+    let cond2 = function.new_value_id();
+    function.basic_blocks[b2].terminator = Terminator::If {
+        condition: Value::operand(cond2),
+        then_target: b4,
+        else_target: b5,
+    };
+
+    // B3 branches to B4 or B5 (critical edges to join points)
+    let cond3 = function.new_value_id();
+    function.basic_blocks[b3].terminator = Terminator::If {
+        condition: Value::operand(cond3),
+        then_target: b4,
+        else_target: b5,
+    };
+
+    // B4 -> Exit
+    function.basic_blocks[b4].terminator = Terminator::Jump { target: exit };
+
+    // B5 -> Exit
+    function.basic_blocks[b5].terminator = Terminator::Jump { target: exit };
+
+    // Exit returns
+    function.basic_blocks[exit].terminator = Terminator::Return { values: vec![] };
+
+    function
+}
+
+#[test]
+fn test_critical_edges() {
+    let function = create_critical_edge_cfg();
+    let dom_tree = compute_dominator_tree(&function);
+    let frontiers = compute_dominance_frontiers(&function, &dom_tree);
+
+    let b1 = BasicBlockId::from_raw(1);
+    let b2 = BasicBlockId::from_raw(2);
+    let b3 = BasicBlockId::from_raw(3);
+    let b4 = BasicBlockId::from_raw(4);
+    let b5 = BasicBlockId::from_raw(5);
+    let exit = BasicBlockId::from_raw(6);
+
+    // B4 and B5 are join points with critical edges
+    // They should be in the DF of B2 and B3
+    assert!(frontiers[&b2].contains(&b4));
+    assert!(frontiers[&b2].contains(&b5));
+    assert!(frontiers[&b3].contains(&b4));
+    assert!(frontiers[&b3].contains(&b5));
+
+    // Exit is a join point from B4 and B5
+    assert!(frontiers[&b4].contains(&exit));
+    assert!(frontiers[&b5].contains(&exit));
+
+    // Verify dominator relationships
+    assert_eq!(dom_tree[&b4], b1);
+    assert_eq!(dom_tree[&b5], b1);
+    assert_eq!(dom_tree[&exit], b1);
+}
+
+#[test]
+fn test_phi_placement_correctness() {
+    // Test that phi nodes would be placed correctly for a variable defined in multiple branches
+    // This mimics what mem2reg does with the DF computation
+    let function = create_if_else_cfg();
+    let dom_tree = compute_dominator_tree(&function);
+    let frontiers = compute_dominance_frontiers(&function, &dom_tree);
+
+    // Simulate placing phi nodes for a variable defined in blocks 1 and 2
+    let mut phi_blocks = FxHashSet::default();
+    let def_blocks = vec![BasicBlockId::from_raw(1), BasicBlockId::from_raw(2)];
+
+    // Standard algorithm: for each def block, add its DF to phi blocks
+    for &def_block in &def_blocks {
+        for &df_block in &frontiers[&def_block] {
+            phi_blocks.insert(df_block);
+        }
+    }
+
+    // Phi should be placed at the merge block (block 3)
+    assert_eq!(phi_blocks.len(), 1);
+    assert!(phi_blocks.contains(&BasicBlockId::from_raw(3)));
+}
+
+#[test]
+fn test_loop_phi_placement() {
+    // Test phi placement for loop variables
+    let function = create_loop_cfg();
+    let dom_tree = compute_dominator_tree(&function);
+    let frontiers = compute_dominance_frontiers(&function, &dom_tree);
+
+    // Simulate placing phi nodes for a variable modified in the loop body
+    let mut phi_blocks = FxHashSet::default();
+    let def_blocks = vec![BasicBlockId::from_raw(2)]; // Body modifies variable
+
+    for &def_block in &def_blocks {
+        for &df_block in &frontiers[&def_block] {
+            phi_blocks.insert(df_block);
+        }
+    }
+
+    // Phi should be placed at the loop header (block 1)
+    assert!(phi_blocks.contains(&BasicBlockId::from_raw(1)));
+}

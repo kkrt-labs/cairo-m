@@ -38,7 +38,8 @@ module {
       jump 2
 
     4:
-      %0 = %0 Sub 1
+      %4 = %0 Sub 1
+      store %0, %4
       jump 1
 
   }

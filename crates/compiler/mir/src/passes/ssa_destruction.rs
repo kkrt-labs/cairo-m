@@ -20,7 +20,7 @@
 //! This ensures the code is in a form that can be directly lowered to assembly.
 
 use super::MirPass;
-use crate::{BasicBlock, BasicBlockId, Instruction, InstructionKind, MirFunction, Terminator};
+use crate::{Instruction, InstructionKind, MirFunction};
 
 /// Pass that eliminates Phi nodes by converting them to explicit assignments
 pub struct SsaDestructionPass;
@@ -47,63 +47,10 @@ impl MirPass for SsaDestructionPass {
     }
 }
 
-/// Check if an edge is critical (predecessor has multiple successors or successor has multiple predecessors)
-fn is_critical_edge(function: &MirFunction, pred_id: BasicBlockId, succ_id: BasicBlockId) -> bool {
-    // Check how many successors the predecessor has
-    let pred_successors = get_successors(function, pred_id);
-    if pred_successors.len() > 1 {
-        // Check how many predecessors the successor has
-        let succ_predecessors = get_predecessors(function, succ_id);
-        if succ_predecessors.len() > 1 {
-            return true;
-        }
-    }
-    false
-}
-
-/// Get all successor blocks of a given block
-fn get_successors(function: &MirFunction, block_id: BasicBlockId) -> Vec<BasicBlockId> {
-    if let Some(block) = function.basic_blocks.get(block_id) {
-        block.terminator.target_blocks()
-    } else {
-        vec![]
-    }
-}
-
-/// Get all predecessor blocks of a given block
-fn get_predecessors(function: &MirFunction, target_id: BasicBlockId) -> Vec<BasicBlockId> {
-    let mut predecessors = Vec::new();
-    for (block_id, block) in function.basic_blocks.iter_enumerated() {
-        if block.terminator.target_blocks().contains(&target_id) {
-            predecessors.push(block_id);
-        }
-    }
-    predecessors
-}
-
-/// Split a critical edge by inserting a new block between predecessor and successor
-fn split_critical_edge(
-    function: &mut MirFunction,
-    pred_id: BasicBlockId,
-    succ_id: BasicBlockId,
-) -> BasicBlockId {
-    // Create a new edge block
-    let edge_block = BasicBlock {
-        instructions: Vec::new(),
-        terminator: Terminator::Jump { target: succ_id },
-    };
-    let edge_block_id = function.basic_blocks.push(edge_block);
-
-    // Update the predecessor's terminator to point to the edge block
-    if let Some(pred_block) = function.basic_blocks.get_mut(pred_id) {
-        pred_block.terminator.replace_target(succ_id, edge_block_id);
-    }
-
-    edge_block_id
-}
-
 /// Eliminates all Phi nodes in a function
 fn eliminate_phi_nodes(function: &mut MirFunction) -> bool {
+    use crate::cfg::{is_critical_edge, split_critical_edge};
+
     let mut modified = false;
     let mut phi_replacements = Vec::new();
     let mut edge_splits = std::collections::HashMap::new();

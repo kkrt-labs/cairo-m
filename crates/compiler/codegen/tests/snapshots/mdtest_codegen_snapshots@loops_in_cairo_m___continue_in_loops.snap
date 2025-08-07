@@ -32,8 +32,8 @@ continue_in_loop_2:
    8: 14 5 8 _             // if [fp + 5] != 0 jmp rel continue_in_loop_6
    9: 12 15 _ _            // jump abs continue_in_loop_5
 continue_in_loop_3:
-  10: 4 1 0 6              // [fp + 6] = [fp + 1] + 0
-  11: 4 6 1 1              // [fp + 1] = [fp + 6] op 1
+  10: 4 1 1 2              // [fp + 2] = [fp + 1] op 1
+  11: 4 2 0 1              // Store: [fp + 1] = [fp + 2] + 0
   12: 12 2 _ _             // jump abs continue_in_loop_1
 continue_in_loop_4:
   13: 4 0 0 -3             // Return value 0: [fp -3] = [fp + 0] + 0
@@ -41,6 +41,6 @@ continue_in_loop_4:
 continue_in_loop_5:
   15: 12 10 _ _            // jump abs continue_in_loop_3
 continue_in_loop_6:
-  16: 4 0 0 6              // [fp + 6] = [fp + 0] + 0
-  17: 0 6 1 0              // [fp + 0] = [fp + 6] op [fp + 1]
+  16: 0 0 1 3              // [fp + 3] = [fp + 0] op [fp + 1]
+  17: 4 3 0 0              // Store: [fp + 0] = [fp + 3] + 0
   18: 12 10 _ _            // jump abs continue_in_loop_3

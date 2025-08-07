@@ -24,8 +24,8 @@ test_unconditional_jumps:
 test_unconditional_jumps_0:
    0: 9 0 0 _              // [fp + 0] = 0
 test_unconditional_jumps_1:
-   1: 4 0 0 3              // [fp + 3] = [fp + 0] + 0
-   2: 4 3 1 0              // [fp + 0] = [fp + 3] op 1
+   1: 4 0 1 1              // [fp + 1] = [fp + 0] op 1
+   2: 4 1 0 0              // Store: [fp + 0] = [fp + 1] + 0
    3: 5 0 5 2              // [fp + 2] = [fp + 0] op 5
    4: 5 0 5 2              // [fp + 2] = [fp + 0] op 5
    5: 14 2 5 _             // if [fp + 2] != 0 jmp rel test_unconditional_jumps_4

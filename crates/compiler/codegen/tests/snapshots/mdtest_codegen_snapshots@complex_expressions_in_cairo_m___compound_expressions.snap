@@ -51,10 +51,11 @@ and_non_zero_0:
 and_end_1:
   18: 15 10 18 25          // u32([fp + 25], [fp + 26]) = u32([fp + 10], [fp + 11]) op u32([fp + 18], [fp + 19])
   19: 14 24 2 _            // if [fp + 24] != 0 jmp rel test_compound_expressions_1
-  20: 12 26 _ _            // jump abs test_compound_expressions_2
+  20: 12 28 _ _            // jump abs test_compound_expressions_2
 test_compound_expressions_1:
-  21: 19 25 1 0 25         // u32([fp + 25], [fp + 26]) = u32([fp + 25], [fp + 26]) op u32(1, 0)
+  21: 19 25 1 0 27         // u32([fp + 27], [fp + 28]) = u32([fp + 25], [fp + 26]) op u32(1, 0)
+  22: 19 27 0 0 25         // [fp + 25], [fp + 25 + 1] = [fp + 27], [fp + 27  +1] + 0
 test_compound_expressions_2:
-  22: 4 25 0 -4            // Return value 0 slot 0: [fp -4] = [fp + 25] + 0
-  23: 4 26 0 -3            // Return value 0 slot 1: [fp -3] = [fp + 26] + 0
-  24: 11 _ _ _             // return
+  23: 4 25 0 -4            // Return value 0 slot 0: [fp -4] = [fp + 25] + 0
+  24: 4 26 0 -3            // Return value 0 slot 1: [fp -3] = [fp + 26] + 0
+  25: 11 _ _ _             // return

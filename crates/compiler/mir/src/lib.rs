@@ -61,6 +61,7 @@ pub use value::{Literal, Place, Value};
 pub mod analysis;
 pub mod basic_block;
 pub mod builder;
+pub mod cfg;
 pub mod db;
 pub mod function;
 pub mod instruction;

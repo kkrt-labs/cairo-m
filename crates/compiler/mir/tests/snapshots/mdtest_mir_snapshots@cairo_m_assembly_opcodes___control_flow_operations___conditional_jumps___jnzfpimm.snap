@@ -45,7 +45,8 @@ module {
       jump 5
 
     4:
-      %1 = %1 Add 50
+      %4 = %1 Add 50
+      store %1, %4
       jump 5
 
     5:

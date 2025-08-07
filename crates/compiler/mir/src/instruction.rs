@@ -225,10 +225,6 @@ pub enum InstructionKind {
         op: UnaryOp,
         dest: ValueId,
         source: Value,
-        /// If Some, indicates this operation should write its result
-        /// directly to the memory location represented by the given ValueId.
-        /// This is an optimization hint for the code generator.
-        in_place_target: Option<ValueId>,
     },
 
     /// Binary operation: `dest = left op right`
@@ -238,10 +234,6 @@ pub enum InstructionKind {
         dest: ValueId,
         left: Value,
         right: Value,
-        /// If Some, indicates this operation should write its result
-        /// directly to the memory location represented by the given ValueId.
-        /// This is an optimization hint for the code generator.
-        in_place_target: Option<ValueId>,
     },
 
     /// Function call: `dests = call callee(args)`
@@ -337,12 +329,7 @@ impl Instruction {
     /// Creates a new unary operation instruction
     pub const fn unary_op(op: UnaryOp, dest: ValueId, source: Value) -> Self {
         Self {
-            kind: InstructionKind::UnaryOp {
-                op,
-                dest,
-                source,
-                in_place_target: None,
-            },
+            kind: InstructionKind::UnaryOp { op, dest, source },
             source_span: None,
             source_expr_id: None,
             comment: None,
@@ -357,7 +344,6 @@ impl Instruction {
                 dest,
                 left,
                 right,
-                in_place_target: None,
             },
             source_span: None,
             source_expr_id: None,
@@ -712,22 +698,10 @@ impl PrettyPrint for Instruction {
                 }
             }
 
-            InstructionKind::UnaryOp {
-                op,
-                dest,
-                source,
-                in_place_target,
-            } => {
-                // If we have an in-place target, that's where the result actually goes
-                let dest_str = if let Some(target) = in_place_target {
-                    format!("%{}", target.index())
-                } else {
-                    dest.pretty_print(0)
-                };
-
+            InstructionKind::UnaryOp { op, dest, source } => {
                 result.push_str(&format!(
                     "{} = {:?} {}",
-                    dest_str,
+                    dest.pretty_print(0),
                     op,
                     source.pretty_print(0)
                 ));
@@ -738,18 +712,10 @@ impl PrettyPrint for Instruction {
                 dest,
                 left,
                 right,
-                in_place_target,
             } => {
-                // If we have an in-place target, that's where the result actually goes
-                let dest_str = if let Some(target) = in_place_target {
-                    format!("%{}", target.index())
-                } else {
-                    dest.pretty_print(0)
-                };
-
                 result.push_str(&format!(
                     "{} = {} {:?} {}",
-                    dest_str,
+                    dest.pretty_print(0),
                     left.pretty_print(0),
                     op,
                     right.pretty_print(0)

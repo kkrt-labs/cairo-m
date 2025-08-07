@@ -50,7 +50,8 @@ module {
       if %13 then jump 1 else jump 2
 
     1:
-      %14 = %14 U32Add 1
+      %15 = %14 U32Add 1
+      store %14, %15 (u32)
       jump 2
 
     2:

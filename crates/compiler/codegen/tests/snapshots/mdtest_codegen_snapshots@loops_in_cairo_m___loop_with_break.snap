@@ -50,6 +50,6 @@ loop_with_break_2:
 loop_with_break_3:
   20: 12 18 _ _            // jump abs loop_with_break_2
 loop_with_break_4:
-  21: 4 0 0 5              // [fp + 5] = [fp + 0] + 0
-  22: 5 5 1 0              // [fp + 0] = [fp + 5] op 1
+  21: 5 0 1 4              // [fp + 4] = [fp + 0] op 1
+  22: 4 4 0 0              // Store: [fp + 0] = [fp + 4] + 0
   23: 12 1 _ _             // jump abs loop_with_break_1
