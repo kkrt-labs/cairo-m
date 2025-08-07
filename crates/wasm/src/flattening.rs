@@ -89,9 +89,17 @@ impl DagToMirContext {
         id
     }
 
-    fn get_current_block(&mut self) -> &mut BasicBlock {
-        let block_id = self.current_block_id.expect("No current block set");
-        &mut self.mir_function.basic_blocks[block_id]
+    fn get_current_block(&mut self) -> Result<&mut BasicBlock, DagToMirError> {
+        let block_id = self.current_block_id.ok_or_else(|| {
+            DagToMirError::InvalidControlFlow("No current block set - invalid state".to_string())
+        })?;
+
+        self.mir_function
+            .basic_blocks
+            .get_mut(block_id)
+            .ok_or_else(|| {
+                DagToMirError::InvalidControlFlow(format!("Block {:?} does not exist", block_id))
+            })
     }
 
     const fn set_current_block(&mut self, block_id: BasicBlockId) {
@@ -249,7 +257,7 @@ impl DagToMir {
 
         // Jump from current block to loop header
         let terminator = Terminator::jump(loop_header_block);
-        context.get_current_block().set_terminator(terminator);
+        context.get_current_block()?.set_terminator(terminator);
 
         // Switch to loop header block
         context.set_current_block(loop_header_block);
@@ -295,8 +303,8 @@ impl DagToMir {
         // Set up initial loop variable mappings
         for (idx, input_value) in loop_input_values.iter().enumerate() {
             let loop_var_id = context.allocate_value_id();
-            let instruction = Instruction::assign(loop_var_id, *input_value);
-            context.get_current_block().push_instruction(instruction);
+            let instruction = Instruction::assign_u32(loop_var_id, *input_value);
+            context.get_current_block()?.push_instruction(instruction);
 
             // Map this to the loop body's Input node outputs
             let value_origin = ValueOrigin {
@@ -342,8 +350,8 @@ impl DagToMir {
         loop_exit_block: BasicBlockId,
     ) -> Result<(), DagToMirError> {
         // If the loop body didn't end with a terminator, jump to exit
-        if let Some(current_block_id) = context.current_block_id {
-            let current_block = &mut context.mir_function.basic_blocks[current_block_id];
+        if let Some(_current_block_id) = context.current_block_id {
+            let current_block = context.get_current_block()?;
             if !current_block.is_terminated() {
                 current_block.set_terminator(Terminator::jump(loop_exit_block));
             }
@@ -406,7 +414,12 @@ impl DagToMir {
                 }
 
                 Operation::Label { id } => {
-                    let block_id = context.label_map[id];
+                    let block_id = context.label_map.get(id).copied().ok_or_else(|| {
+                        DagToMirError::InvalidControlFlow(format!(
+                            "Label {} not found in label_map",
+                            id
+                        ))
+                    })?;
                     // Link the previous block to this new one with a jump
                     if let Some(current_block) = context
                         .current_block_id
@@ -432,12 +445,12 @@ impl DagToMir {
                         {
                             // Use the actual value from the incoming branch
                             let instruction =
-                                Instruction::assign(value_id, Value::operand(actual_value_id));
-                            context.get_current_block().push_instruction(instruction);
+                                Instruction::assign_u32(value_id, Value::operand(actual_value_id));
+                            context.get_current_block()?.push_instruction(instruction);
                         } else {
                             // Fallback to placeholder if no value is recorded
-                            let instruction = Instruction::assign(value_id, Value::integer(0));
-                            context.get_current_block().push_instruction(instruction);
+                            let instruction = Instruction::assign_u32(value_id, Value::integer(0));
+                            context.get_current_block()?.push_instruction(instruction);
                         }
                     }
                 }
@@ -452,7 +465,7 @@ impl DagToMir {
                             .map(|vo| self.get_input_value(vo, context))
                             .collect::<Result<Vec<_>, _>>()?;
                         context
-                            .get_current_block()
+                            .get_current_block()?
                             .set_terminator(Terminator::Return {
                                 values: return_values,
                             });
@@ -477,8 +490,8 @@ impl DagToMir {
                                     Value::Literal(_) => {
                                         // Create a temporary value for literals
                                         let temp_id = context.allocate_value_id();
-                                        let instruction = Instruction::assign(temp_id, value);
-                                        context.get_current_block().push_instruction(instruction);
+                                        let instruction = Instruction::assign_u32(temp_id, value);
+                                        context.get_current_block()?.push_instruction(instruction);
                                         value_ids.push(temp_id);
                                     }
                                     Value::Error => {
@@ -491,7 +504,7 @@ impl DagToMir {
                         }
 
                         let terminator = Terminator::jump(target_block);
-                        context.get_current_block().set_terminator(terminator);
+                        context.get_current_block()?.set_terminator(terminator);
                     }
                 }
 
@@ -521,8 +534,8 @@ impl DagToMir {
                                 // Create a new value to represent the updated loop variable
                                 let updated_var_id = context.allocate_value_id();
                                 let instruction =
-                                    Instruction::assign(updated_var_id, updated_value);
-                                context.get_current_block().push_instruction(instruction);
+                                    Instruction::assign_u32(updated_var_id, updated_value);
+                                context.get_current_block()?.push_instruction(instruction);
 
                                 // Update the mapping so the next iteration uses the updated value
                                 context.value_map.insert(value_origin, updated_var_id);
@@ -534,7 +547,7 @@ impl DagToMir {
                     let else_target = context.allocate_basic_block();
 
                     let terminator = Terminator::branch(condition_value, then_target, else_target);
-                    context.get_current_block().set_terminator(terminator);
+                    context.get_current_block()?.set_terminator(terminator);
                     context.set_current_block(else_target);
                 }
 
@@ -547,7 +560,7 @@ impl DagToMir {
                     let then_target = context.allocate_basic_block();
 
                     let terminator = Terminator::branch(condition_value, then_target, else_target);
-                    context.get_current_block().set_terminator(terminator);
+                    context.get_current_block()?.set_terminator(terminator);
                     context.set_current_block(then_target);
                 }
 
@@ -559,7 +572,7 @@ impl DagToMir {
                         let target_block =
                             self.resolve_break_target(&first_target.target, context)?;
                         let terminator = Terminator::jump(target_block);
-                        context.get_current_block().set_terminator(terminator);
+                        context.get_current_block()?.set_terminator(terminator);
                     }
                 }
 
@@ -573,8 +586,8 @@ impl DagToMir {
         }
 
         // Ensure the last block has a terminator
-        if let Some(current_block_id) = context.current_block_id {
-            let current_block = &mut context.mir_function.basic_blocks[current_block_id];
+        if let Some(_current_block_id) = context.current_block_id {
+            let current_block = context.get_current_block()?;
             if !current_block.is_terminated() {
                 // Add a return terminator as fallback
                 current_block.set_terminator(Terminator::Return { values: vec![] });
@@ -604,7 +617,7 @@ impl DagToMir {
                 let result_id = context.allocate_value_id();
                 let instruction =
                     Instruction::binary_op(BinaryOp::U32Add, result_id, inputs[0], inputs[1]);
-                context.get_current_block().push_instruction(instruction);
+                context.get_current_block()?.push_instruction(instruction);
                 Ok(vec![result_id])
             }
 
@@ -612,7 +625,7 @@ impl DagToMir {
                 let result_id = context.allocate_value_id();
                 let instruction =
                     Instruction::binary_op(BinaryOp::U32Sub, result_id, inputs[0], inputs[1]);
-                context.get_current_block().push_instruction(instruction);
+                context.get_current_block()?.push_instruction(instruction);
                 Ok(vec![result_id])
             }
 
@@ -620,7 +633,7 @@ impl DagToMir {
                 let result_id = context.allocate_value_id();
                 let instruction =
                     Instruction::binary_op(BinaryOp::U32Mul, result_id, inputs[0], inputs[1]);
-                context.get_current_block().push_instruction(instruction);
+                context.get_current_block()?.push_instruction(instruction);
                 Ok(vec![result_id])
             }
 
@@ -629,7 +642,7 @@ impl DagToMir {
                 let result_id = context.allocate_value_id();
                 let instruction =
                     Instruction::binary_op(BinaryOp::U32Eq, result_id, inputs[0], inputs[1]);
-                context.get_current_block().push_instruction(instruction);
+                context.get_current_block()?.push_instruction(instruction);
                 Ok(vec![result_id])
             }
 
@@ -637,7 +650,7 @@ impl DagToMir {
                 let result_id = context.allocate_value_id();
                 let instruction =
                     Instruction::binary_op(BinaryOp::U32Neq, result_id, inputs[0], inputs[1]);
-                context.get_current_block().push_instruction(instruction);
+                context.get_current_block()?.push_instruction(instruction);
                 Ok(vec![result_id])
             }
 
@@ -645,7 +658,7 @@ impl DagToMir {
                 let result_id = context.allocate_value_id();
                 let instruction =
                     Instruction::binary_op(BinaryOp::U32Less, result_id, inputs[0], inputs[1]);
-                context.get_current_block().push_instruction(instruction);
+                context.get_current_block()?.push_instruction(instruction);
                 Ok(vec![result_id])
             }
 
@@ -657,7 +670,7 @@ impl DagToMir {
                     inputs[0],
                     inputs[1],
                 );
-                context.get_current_block().push_instruction(instruction);
+                context.get_current_block()?.push_instruction(instruction);
                 Ok(vec![result_id])
             }
 
@@ -665,7 +678,7 @@ impl DagToMir {
                 let result_id = context.allocate_value_id();
                 let instruction =
                     Instruction::binary_op(BinaryOp::U32LessEqual, result_id, inputs[0], inputs[1]);
-                context.get_current_block().push_instruction(instruction);
+                context.get_current_block()?.push_instruction(instruction);
                 Ok(vec![result_id])
             }
 
@@ -677,7 +690,7 @@ impl DagToMir {
                     inputs[0],
                     inputs[1],
                 );
-                context.get_current_block().push_instruction(instruction);
+                context.get_current_block()?.push_instruction(instruction);
                 Ok(vec![result_id])
             }
 
@@ -685,7 +698,7 @@ impl DagToMir {
             Op::I32Const { value } => {
                 let result_id = context.allocate_value_id();
                 let instruction = Instruction::assign_u32(result_id, Value::integer(*value));
-                context.get_current_block().push_instruction(instruction);
+                context.get_current_block()?.push_instruction(instruction);
                 Ok(vec![result_id])
             }
 
@@ -705,15 +718,15 @@ impl DagToMir {
                 // If we have a local variable stored, load its value
                 if let Some(&local_value_id) = context.local_map.get(local_index) {
                     let instruction =
-                        Instruction::assign(result_id, Value::operand(local_value_id));
-                    context.get_current_block().push_instruction(instruction);
+                        Instruction::assign_u32(result_id, Value::operand(local_value_id));
+                    context.get_current_block()?.push_instruction(instruction);
                 } else {
                     // No local variable set yet, create a placeholder (uninitialized local)
-                    let instruction = Instruction::assign(
+                    let instruction = Instruction::assign_u32(
                         result_id,
                         Value::integer(0), // Default to 0 for uninitialized locals
                     );
-                    context.get_current_block().push_instruction(instruction);
+                    context.get_current_block()?.push_instruction(instruction);
                 }
                 Ok(vec![result_id])
             }
@@ -727,8 +740,8 @@ impl DagToMir {
                     let local_value_id = context.allocate_value_id();
 
                     // Assign the input value to our local variable
-                    let instruction = Instruction::assign(local_value_id, value_to_store);
-                    context.get_current_block().push_instruction(instruction);
+                    let instruction = Instruction::assign_u32(local_value_id, value_to_store);
+                    context.get_current_block()?.push_instruction(instruction);
 
                     // Store the mapping from local index to ValueId
                     context.local_map.insert(*local_index, local_value_id);
@@ -745,8 +758,8 @@ impl DagToMir {
                     } else {
                         // Create a new value for the literal
                         let result_id = context.allocate_value_id();
-                        let instruction = Instruction::assign(result_id, inputs[0]);
-                        context.get_current_block().push_instruction(instruction);
+                        let instruction = Instruction::assign_u32(result_id, inputs[0]);
+                        context.get_current_block()?.push_instruction(instruction);
                         Ok(vec![result_id])
                     }
                 } else {
@@ -793,7 +806,7 @@ impl DagToMir {
                 };
 
                 let instruction = Instruction::call(vec![result_id], callee_id, inputs, signature);
-                context.get_current_block().push_instruction(instruction);
+                context.get_current_block()?.push_instruction(instruction);
                 Ok(vec![result_id])
             }
 
