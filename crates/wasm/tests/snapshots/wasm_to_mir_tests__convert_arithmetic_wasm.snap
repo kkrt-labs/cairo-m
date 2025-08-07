@@ -6,7 +6,7 @@ expression: snapshot_content
 source: crates/wasm/tests/wasm_to_mir_tests.rs
 expression: wasm_load_result
 ---
-WASM File: add.wasm
+WASM File: arithmetic.wasm
 ============================================================
 Success: true
 Functions loaded: 1
@@ -14,13 +14,17 @@ Functions loaded: 1
 Module Output:
 module {
   // Function 0
-  fn add {
+  fn f {
     parameters: [0, 1]
     entry: 0
 
     0:
-      %2 = %1 Add %0
-      return %2
+      %2 = -3
+      %3 = %1 Add %2
+      %4 = 2
+      %5 = %0 Add %4
+      %6 = %3 Mul %5
+      return %6
 
   }
 

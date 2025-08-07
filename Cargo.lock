@@ -710,6 +710,7 @@ dependencies = [
  "insta",
  "ouroboros",
  "thiserror",
+ "wasmparser",
  "womir",
 ]
 
@@ -1473,6 +1474,7 @@ dependencies = [
  "allocator-api2",
  "equivalent",
  "foldhash",
+ "serde",
 ]
 
 [[package]]
@@ -1690,6 +1692,7 @@ checksum = "cea70ddb795996207ad57735b50c5982d8844f38ba9ee5f1aedcfb708a2aa11e"
 dependencies = [
  "equivalent",
  "hashbrown 0.15.4",
+ "serde",
 ]
 
 [[package]]
@@ -3751,6 +3754,8 @@ dependencies = [
  "bitflags 2.9.1",
  "hashbrown 0.15.4",
  "indexmap",
+ "semver",
+ "serde",
 ]
 
 [[package]]
@@ -4086,7 +4091,7 @@ dependencies = [
 [[package]]
 name = "womir"
 version = "0.0.0"
-source = "git+https://github.com/gael-bigot/womir.git?rev=ca585b8#ca585b875a104cd28e128b4f0822ec848d07323c"
+source = "git+https://github.com/gael-bigot/womir.git?rev=ee7e418#ee7e4181e4af829efb83b37e9a34767e278b519b"
 dependencies = [
  "derive-where",
  "env_logger",
