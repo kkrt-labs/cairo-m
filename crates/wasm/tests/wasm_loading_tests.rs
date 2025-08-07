@@ -60,6 +60,10 @@ macro_rules! wasm_test {
 // --- Basic WASM Loading Tests ---
 wasm_test!(load_add_wasm, "add.wasm");
 wasm_test!(load_fib_wasm, "fib.wasm");
+wasm_test!(load_arithmetic_wasm, "arithmetic.wasm");
+wasm_test!(load_if_statement_wasm, "if_statement.wasm");
+wasm_test!(load_func_call_wasm, "func_call.wasm");
+wasm_test!(load_var_manipulation_wasm, "var_manipulation.wasm");
 
 #[cfg(test)]
 mod integration_tests {
