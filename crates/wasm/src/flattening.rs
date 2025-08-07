@@ -21,6 +21,8 @@ pub enum DagToMirError {
     InvalidControlFlow(String),
     #[error("Value mapping error: {0}")]
     ValueMappingError(String),
+    #[error("Unsupported WASM type: {0:?}")]
+    UnsupportedWasmType(wasmparser::ValType),
 }
 
 pub struct DagToMir {
@@ -87,13 +89,11 @@ impl DagToMir {
     }
 
     /// Convert WASM type to MIR type
-    const fn wasm_type_to_mir_type(wasm_type: &wasmparser::ValType) -> MirType {
+    /// For now, we only support i32
+    fn wasm_type_to_mir_type(wasm_type: &wasmparser::ValType) -> Result<MirType, DagToMirError> {
         match wasm_type {
-            wasmparser::ValType::I32 => MirType::U32,
-            wasmparser::ValType::I64 => MirType::U32, // For now, treat I64 as U32
-            wasmparser::ValType::F32 => MirType::U32, // For now, treat F32 as U32
-            wasmparser::ValType::F64 => MirType::U32, // For now, treat F64 as U32
-            _ => MirType::U32,                        // Default fallback
+            wasmparser::ValType::I32 => Ok(MirType::U32),
+            _ => Err(DagToMirError::UnsupportedWasmType(*wasm_type)),
         }
     }
 
@@ -207,6 +207,22 @@ impl DagToMir {
                         }
                     }
                     context.set_current_block(block_id);
+
+                    // Handle label inputs - these are values flowing into this label from branches
+                    // For simplicity, we'll create phi-like assignments for each input
+                    for (output_idx, _output_type) in node.output_types.iter().enumerate() {
+                        let value_id = context.allocate_value_id();
+                        let value_origin = ValueOrigin {
+                            node: node_idx,
+                            output_idx: output_idx as u32,
+                        };
+                        context.value_map.insert(value_origin, value_id);
+
+                        // TODO: In a full implementation, we'd need proper phi nodes here
+                        // For now, we'll create a placeholder assignment
+                        let instruction = Instruction::assign(value_id, Value::integer(0));
+                        context.get_current_block().push_instruction(instruction);
+                    }
                 }
 
                 Operation::Br(target) => {
@@ -317,7 +333,7 @@ impl DagToMir {
             Op::I32Add => {
                 let result_id = context.allocate_value_id();
                 let instruction =
-                    Instruction::binary_op(BinaryOp::Add, result_id, inputs[0], inputs[1]);
+                    Instruction::binary_op(BinaryOp::U32Add, result_id, inputs[0], inputs[1]);
                 context.get_current_block().push_instruction(instruction);
                 Ok(vec![result_id])
             }
@@ -325,7 +341,7 @@ impl DagToMir {
             Op::I32Sub => {
                 let result_id = context.allocate_value_id();
                 let instruction =
-                    Instruction::binary_op(BinaryOp::Sub, result_id, inputs[0], inputs[1]);
+                    Instruction::binary_op(BinaryOp::U32Sub, result_id, inputs[0], inputs[1]);
                 context.get_current_block().push_instruction(instruction);
                 Ok(vec![result_id])
             }
@@ -333,7 +349,7 @@ impl DagToMir {
             Op::I32Mul => {
                 let result_id = context.allocate_value_id();
                 let instruction =
-                    Instruction::binary_op(BinaryOp::Mul, result_id, inputs[0], inputs[1]);
+                    Instruction::binary_op(BinaryOp::U32Mul, result_id, inputs[0], inputs[1]);
                 context.get_current_block().push_instruction(instruction);
                 Ok(vec![result_id])
             }
@@ -342,7 +358,55 @@ impl DagToMir {
             Op::I32Eq => {
                 let result_id = context.allocate_value_id();
                 let instruction =
-                    Instruction::binary_op(BinaryOp::Eq, result_id, inputs[0], inputs[1]);
+                    Instruction::binary_op(BinaryOp::U32Eq, result_id, inputs[0], inputs[1]);
+                context.get_current_block().push_instruction(instruction);
+                Ok(vec![result_id])
+            }
+
+            Op::I32Ne => {
+                let result_id = context.allocate_value_id();
+                let instruction =
+                    Instruction::binary_op(BinaryOp::U32Neq, result_id, inputs[0], inputs[1]);
+                context.get_current_block().push_instruction(instruction);
+                Ok(vec![result_id])
+            }
+
+            Op::I32LtU => {
+                let result_id = context.allocate_value_id();
+                let instruction =
+                    Instruction::binary_op(BinaryOp::U32Less, result_id, inputs[0], inputs[1]);
+                context.get_current_block().push_instruction(instruction);
+                Ok(vec![result_id])
+            }
+
+            Op::I32GtU => {
+                let result_id = context.allocate_value_id();
+                let instruction = Instruction::binary_op(
+                    BinaryOp::U32GreaterEqual,
+                    result_id,
+                    inputs[0],
+                    inputs[1],
+                );
+                context.get_current_block().push_instruction(instruction);
+                Ok(vec![result_id])
+            }
+
+            Op::I32LeU => {
+                let result_id = context.allocate_value_id();
+                let instruction =
+                    Instruction::binary_op(BinaryOp::U32LessEqual, result_id, inputs[0], inputs[1]);
+                context.get_current_block().push_instruction(instruction);
+                Ok(vec![result_id])
+            }
+
+            Op::I32GeU => {
+                let result_id = context.allocate_value_id();
+                let instruction = Instruction::binary_op(
+                    BinaryOp::U32GreaterEqual,
+                    result_id,
+                    inputs[0],
+                    inputs[1],
+                );
                 context.get_current_block().push_instruction(instruction);
                 Ok(vec![result_id])
             }
@@ -432,13 +496,13 @@ impl DagToMir {
                             .ty
                             .params()
                             .iter()
-                            .map(Self::wasm_type_to_mir_type)
+                            .map(|t| Self::wasm_type_to_mir_type(t).unwrap())
                             .collect(),
                         return_types: func_type
                             .ty
                             .results()
                             .iter()
-                            .map(Self::wasm_type_to_mir_type)
+                            .map(|t| Self::wasm_type_to_mir_type(t).unwrap())
                             .collect(),
                     }
                 });
@@ -506,6 +570,7 @@ impl DagToMir {
         }
     }
 
+    /// Convert the DAG representation of the module to MIR
     pub fn to_mir(&self) -> Result<MirModule, DagToMirError> {
         let mut mir_module = MirModule::new();
         self.module.with_program(|program| {
