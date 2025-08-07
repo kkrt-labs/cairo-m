@@ -621,7 +621,7 @@ impl DagToMir {
             // Constants
             Op::I32Const { value } => {
                 let result_id = context.allocate_value_id();
-                let instruction = Instruction::assign(result_id, Value::integer(*value));
+                let instruction = Instruction::assign_u32(result_id, Value::integer(*value));
                 context.get_current_block().push_instruction(instruction);
                 Ok(vec![result_id])
             }
