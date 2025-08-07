@@ -1,7 +1,8 @@
 //! WASM Module Loader
 //!
-//! This module provides functionality for loading and analyzing WASM modules,
-//! with graceful handling of different womir API versions.
+//! This module provides functionality for loading the WOMIR BlockLess DAG representation of a WASM module.
+
+#![allow(clippy::future_not_send)] // Allow this lint for self-referencing structs in this module
 
 use std::fmt::{Debug, Display};
 use std::fs;
@@ -25,17 +26,17 @@ pub enum WasmLoadError {
 }
 
 /// Module loaded by the womir crate.
+/// TODO : find a way to avoid using ouroboros and #allow(clippy::future_not_send)
 #[self_referencing]
-pub struct WasmModule {
-    bytes: Vec<u8>,
-    #[borrows(bytes)]
+pub struct BlocklessDagModule {
+    wasm_binary: Vec<u8>,
+    #[borrows(wasm_binary)]
     #[covariant]
     pub program: UnflattenedProgram<'this, GenericIrSetting>,
 }
 
-impl WasmModule {
-    /// Loads a WASM module from a file.
-    /// For now this just copies the bytes intoa,  the struct.
+impl BlocklessDagModule {
+    /// Loads a WASM module from a file and converts it to the WOMIR BlockLess DAG representation.
     pub fn from_file(file_path: &str) -> Result<Self, WasmLoadError> {
         let path = Path::new(file_path);
         if !path.exists() {
@@ -46,10 +47,10 @@ impl WasmModule {
 
         let bytes = fs::read(path).map_err(|e| WasmLoadError::IoError { source: e })?;
 
-        WasmModuleTryBuilder {
-            bytes,
-            program_builder: |bytes: &Vec<u8>| {
-                load_wasm_unflattened(GenericIrSetting, bytes).map_err(|e| {
+        BlocklessDagModuleTryBuilder {
+            wasm_binary: bytes,
+            program_builder: |wasm_binary: &Vec<u8>| {
+                load_wasm_unflattened(GenericIrSetting, wasm_binary).map_err(|e| {
                     WasmLoadError::ParseError {
                         message: e.to_string(),
                     }
@@ -60,7 +61,7 @@ impl WasmModule {
     }
 }
 
-impl Display for WasmModule {
+impl Display for BlocklessDagModule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.with_program(|program| {
             let mut output = String::new();
@@ -82,7 +83,7 @@ impl Display for WasmModule {
     }
 }
 
-impl Debug for WasmModule {
+impl Debug for BlocklessDagModule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self)
     }

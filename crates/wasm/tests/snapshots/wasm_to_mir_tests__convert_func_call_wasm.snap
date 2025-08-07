@@ -1,0 +1,39 @@
+---
+source: crates/wasm/tests/wasm_to_mir_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/wasm/tests/wasm_to_mir_tests.rs
+expression: wasm_load_result
+---
+WASM File: func_call.wasm
+============================================================
+Success: true
+Functions loaded: 2
+============================================================
+Module Output:
+module {
+  // Function 0
+  fn func_0 {
+    parameters: [0, 1]
+    entry: 0
+
+    0:
+      %2 = %0 Add %1
+      return %2
+
+  }
+
+  // Function 1
+  fn main {
+    entry: 0
+
+    0:
+      %0 = 15
+      %1 = 25
+      %2 = call 0(%0, %1)
+      return %2
+
+  }
+
+}

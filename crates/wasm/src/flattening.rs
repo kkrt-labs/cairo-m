@@ -1,7 +1,9 @@
-use crate::loader::{WasmLoadError, WasmModule};
+//! This module provides functionality for converting the WOMIR BlockLess DAG representation of a WASM module to MIR.
+
+use crate::loader::{BlocklessDagModule, WasmLoadError};
 use cairo_m_compiler_mir::{
-    BasicBlock, BasicBlockId, BinaryOp, FunctionId, Instruction, InstructionKind, Literal,
-    MirFunction, MirModule, PrettyPrint, Terminator, Value, ValueId,
+    instruction::CalleeSignature, BasicBlock, BasicBlockId, BinaryOp, FunctionId, Instruction,
+    MirFunction, MirModule, MirType, Terminator, Value, ValueId,
 };
 use std::collections::HashMap;
 use thiserror::Error;
@@ -22,7 +24,7 @@ pub enum WasmModuleToMirError {
 }
 
 pub struct WasmModuleToMir {
-    module: WasmModule,
+    module: BlocklessDagModule,
 }
 
 /// Context for converting a single DAG to MIR
@@ -71,13 +73,13 @@ impl DagToMirContext {
         &mut self.mir_function.basic_blocks[block_id]
     }
 
-    fn set_current_block(&mut self, block_id: BasicBlockId) {
+    const fn set_current_block(&mut self, block_id: BasicBlockId) {
         self.current_block_id = Some(block_id);
     }
 }
 
 impl WasmModuleToMir {
-    pub const fn new(module: WasmModule) -> Self {
+    pub const fn new(module: BlocklessDagModule) -> Self {
         Self { module }
     }
 
@@ -88,8 +90,8 @@ impl WasmModuleToMir {
                 .c
                 .exported_functions
                 .get(func_idx)
-                .unwrap_or(&format!("func_{}", func_idx).as_str())
-                .to_string()
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| format!("func_{}", func_idx))
         });
 
         let mut context = DagToMirContext::new(func_name);
@@ -103,10 +105,10 @@ impl WasmModuleToMir {
             // Two-pass algorithm inspired by blockless DAG to LLVM guide
 
             // Pass 1: Create all basic blocks for labels
-            self.create_basic_blocks_for_labels(&func, &mut context)?;
+            self.create_basic_blocks_for_labels(func, &mut context)?;
 
             // Pass 2: Generate instructions and control flow
-            self.generate_instructions_from_dag(&func, &mut context)?;
+            self.generate_instructions_from_dag(func, &mut context)?;
 
             Ok::<(), WasmModuleToMirError>(())
         });
@@ -195,7 +197,7 @@ impl WasmModuleToMir {
 
                 Operation::Br(target) => {
                     // This is either a jump or a return
-                    if let (TargetType::FunctionOrLoop, 0) = (&target.kind, target.depth) {
+                    if (&target.kind, target.depth) == (&TargetType::FunctionOrLoop, 0) {
                         // This is a function return
                         let return_values = node
                             .inputs
@@ -254,8 +256,8 @@ impl WasmModuleToMir {
                 }
 
                 Operation::Loop {
-                    sub_dag,
-                    break_targets,
+                    sub_dag: _,
+                    break_targets: _,
                 } => {
                     // TODO: Implement loop handling
                     // This requires creating a separate context for the loop body
@@ -397,8 +399,15 @@ impl WasmModuleToMir {
             Op::Call { function_index } => {
                 // TODO: Implement function calls
                 let result_id = context.allocate_value_id();
-                let instruction =
-                    Instruction::assign(result_id, Value::integer(*function_index as i32));
+                let callee_id = FunctionId::new(*function_index as usize);
+
+                // TODO: Get signature from wasm module
+                let signature = CalleeSignature {
+                    param_types: vec![MirType::U32, MirType::U32],
+                    return_types: vec![MirType::U32],
+                };
+
+                let instruction = Instruction::call(vec![result_id], callee_id, inputs, signature);
                 context.get_current_block().push_instruction(instruction);
                 Ok(vec![result_id])
             }
