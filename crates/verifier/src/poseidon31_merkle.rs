@@ -96,7 +96,7 @@ impl MerkleHasher for Poseidon31MerkleHasher {
         let padded_values = column_values
             .iter()
             .copied()
-            .chain(std::iter::repeat_n(BaseField::zero(), padding_length));
+            .chain(std::iter::repeat(BaseField::zero()).take(padding_length));
 
         for chunk in padded_values.collect::<Vec<_>>().chunks(ELEMENTS_IN_BLOCK) {
             // Hash each block of values
