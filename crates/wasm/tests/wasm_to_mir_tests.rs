@@ -53,11 +53,6 @@ wasm_test!(
     "fib.wasm"
 );
 wasm_test!(convert_arithmetic_wasm, "arithmetic.wasm");
-// TODO : u32 boolean operations
-wasm_test!(
-    #[ignore]
-    convert_if_statement_wasm,
-    "if_statement.wasm"
-);
+wasm_test!(convert_if_statement_wasm, "if_statement.wasm");
 wasm_test!(convert_func_call_wasm, "func_call.wasm");
 wasm_test!(convert_var_manipulation_wasm, "var_manipulation.wasm");

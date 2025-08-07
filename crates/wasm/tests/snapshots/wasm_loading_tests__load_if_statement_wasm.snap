@@ -12,13 +12,24 @@ Success: true
 Functions loaded: 1
 ============================================================
 Module Output:
-f:
+main:
   Node { operation: Inputs, inputs: [], output_types: [I32] }
-  Node { operation: WASMOp(I32Const { value: 1 }), inputs: [], output_types: [I32] }
-  Node { operation: WASMOp(I32Const { value: 2 }), inputs: [], output_types: [I32] }
-  Node { operation: WASMOp(I32Ne), inputs: [ValueOrigin { node: 0, output_idx: 0 }, ValueOrigin { node: 2, output_idx: 0 }], output_types: [I32] }
-  Node { operation: WASMOp(I32Shl), inputs: [ValueOrigin { node: 3, output_idx: 0 }, ValueOrigin { node: 1, output_idx: 0 }], output_types: [I32] }
   Node { operation: WASMOp(I32Const { value: 3 }), inputs: [], output_types: [I32] }
-  Node { operation: WASMOp(I32Eq), inputs: [ValueOrigin { node: 0, output_idx: 0 }, ValueOrigin { node: 5, output_idx: 0 }], output_types: [I32] }
-  Node { operation: WASMOp(Select), inputs: [ValueOrigin { node: 1, output_idx: 0 }, ValueOrigin { node: 4, output_idx: 0 }, ValueOrigin { node: 6, output_idx: 0 }], output_types: [I32] }
-  Node { operation: Br(BreakTarget { depth: 0, kind: FunctionOrLoop }), inputs: [ValueOrigin { node: 7, output_idx: 0 }], output_types: [] }
+  Node { operation: WASMOp(I32Eq), inputs: [ValueOrigin { node: 0, output_idx: 0 }, ValueOrigin { node: 1, output_idx: 0 }], output_types: [I32] }
+  Node { operation: BrIf(BreakTarget { depth: 0, kind: Label(1) }), inputs: [ValueOrigin { node: 2, output_idx: 0 }], output_types: [] }
+  Node { operation: WASMOp(I32Const { value: 2 }), inputs: [], output_types: [I32] }
+  Node { operation: WASMOp(I32Ne), inputs: [ValueOrigin { node: 0, output_idx: 0 }, ValueOrigin { node: 4, output_idx: 0 }], output_types: [I32] }
+  Node { operation: BrIf(BreakTarget { depth: 0, kind: Label(3) }), inputs: [ValueOrigin { node: 5, output_idx: 0 }], output_types: [] }
+  Node { operation: WASMOp(I32Const { value: 5 }), inputs: [], output_types: [I32] }
+  Node { operation: Br(BreakTarget { depth: 0, kind: Label(2) }), inputs: [ValueOrigin { node: 7, output_idx: 0 }], output_types: [] }
+  Node { operation: Label { id: 3 }, inputs: [], output_types: [] }
+  Node { operation: WASMOp(I32Const { value: 1 }), inputs: [], output_types: [I32] }
+  Node { operation: WASMOp(I32Add), inputs: [ValueOrigin { node: 0, output_idx: 0 }, ValueOrigin { node: 10, output_idx: 0 }], output_types: [I32] }
+  Node { operation: Br(BreakTarget { depth: 0, kind: Label(2) }), inputs: [ValueOrigin { node: 11, output_idx: 0 }], output_types: [] }
+  Node { operation: Label { id: 2 }, inputs: [], output_types: [I32] }
+  Node { operation: Br(BreakTarget { depth: 0, kind: Label(0) }), inputs: [ValueOrigin { node: 13, output_idx: 0 }], output_types: [] }
+  Node { operation: Label { id: 1 }, inputs: [], output_types: [] }
+  Node { operation: WASMOp(I32Const { value: 1 }), inputs: [], output_types: [I32] }
+  Node { operation: Br(BreakTarget { depth: 0, kind: Label(0) }), inputs: [ValueOrigin { node: 16, output_idx: 0 }], output_types: [] }
+  Node { operation: Label { id: 0 }, inputs: [], output_types: [I32] }
+  Node { operation: Br(BreakTarget { depth: 0, kind: FunctionOrLoop }), inputs: [ValueOrigin { node: 18, output_idx: 0 }], output_types: [] }
