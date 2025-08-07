@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1754487994550,
+  "lastUpdate": 1754583486182,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -1633,6 +1633,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 338171921,
             "range": "± 1579843",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0a950aee8b209f3592a1e558509751916b720041",
+          "message": "feat(compiler-runner): implement U32 comparison opcodes and fix return value slot calculation (#228)\n\n* feat(compiler): implement U32 comparison opcodes and fix return value slot calculation\n\n- Add 6 new U32 comparison opcodes (Eq, Neq, Gt, Ge, Lt, Le) that return felt values\n- Implement VM operations for U32 comparisons in store.rs\n- Fix U32 literal returns to use U32_STORE_IMM instead of STORE_IMM\n- Fix caller's calculation of return value slots to account for U32 taking 2 slots\n- Update call and call_multiple methods to properly calculate frame offsets for multi-slot types\n\nThis enables full U32 comparison support and fixes issues where U32 return values\nwere incorrectly read from wrong frame pointer offsets after function calls.\n\n* feat: add U32ComparisonFpImm variants\n\n* review nit",
+          "timestamp": "2025-08-07T18:14:02+02:00",
+          "tree_id": "1504ca26048c15b096b1976ec4a020e625078a91",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/0a950aee8b209f3592a1e558509751916b720041"
+        },
+        "date": 1754583485136,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 386595472,
+            "range": "± 1548665",
             "unit": "ns/iter"
           }
         ]
