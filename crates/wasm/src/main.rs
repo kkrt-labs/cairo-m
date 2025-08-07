@@ -1,7 +1,7 @@
 mod flattening;
 mod loader;
 
-use flattening::WasmModuleToMir;
+use flattening::DagToMir;
 use loader::BlocklessDagModule;
 use std::env;
 
@@ -17,7 +17,7 @@ fn main() {
 
     match BlocklessDagModule::from_file(filename) {
         Ok(module) => {
-            let mir = WasmModuleToMir::new(module).to_mir().unwrap();
+            let mir = DagToMir::new(module).to_mir().unwrap();
             println!("{mir:?}");
         }
         Err(e) => {

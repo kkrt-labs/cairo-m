@@ -12,7 +12,7 @@ use womir::loader::blockless_dag::{BlocklessDag, BreakTarget, Operation, TargetT
 use womir::loader::dag::ValueOrigin;
 
 #[derive(Error, Debug)]
-pub enum WasmModuleToMirError {
+pub enum DagToMirError {
     #[error("Failed to load Wasm module: {0}")]
     WasmLoadError(#[from] WasmLoadError),
     #[error("Unsupported WASM operation: {0:?}")]
@@ -23,7 +23,7 @@ pub enum WasmModuleToMirError {
     ValueMappingError(String),
 }
 
-pub struct WasmModuleToMir {
+pub struct DagToMir {
     module: BlocklessDagModule,
 }
 
@@ -33,6 +33,8 @@ struct DagToMirContext {
     value_map: HashMap<ValueOrigin, ValueId>,
     /// Map from WASM label IDs to MIR BasicBlockId
     label_map: HashMap<u32, BasicBlockId>,
+    /// Map from WASM local variable indices to MIR ValueId
+    local_map: HashMap<u32, ValueId>,
     /// The MIR function being built
     mir_function: MirFunction,
     /// Current basic block being constructed
@@ -50,6 +52,7 @@ impl DagToMirContext {
         Self {
             value_map: HashMap::new(),
             label_map: HashMap::new(),
+            local_map: HashMap::new(),
             mir_function,
             current_block_id: Some(0.into()),
             next_value_id: 0,
@@ -78,13 +81,24 @@ impl DagToMirContext {
     }
 }
 
-impl WasmModuleToMir {
+impl DagToMir {
     pub const fn new(module: BlocklessDagModule) -> Self {
         Self { module }
     }
 
+    /// Convert WASM type to MIR type
+    const fn wasm_type_to_mir_type(wasm_type: &wasmparser::ValType) -> MirType {
+        match wasm_type {
+            wasmparser::ValType::I32 => MirType::U32,
+            wasmparser::ValType::I64 => MirType::U32, // For now, treat I64 as U32
+            wasmparser::ValType::F32 => MirType::U32, // For now, treat F32 as U32
+            wasmparser::ValType::F64 => MirType::U32, // For now, treat F64 as U32
+            _ => MirType::U32,                        // Default fallback
+        }
+    }
+
     /// Convert a single WASM function to MIR using two-pass algorithm
-    fn function_to_mir(&self, func_idx: &u32) -> Result<MirFunction, WasmModuleToMirError> {
+    fn function_to_mir(&self, func_idx: &u32) -> Result<MirFunction, DagToMirError> {
         let func_name = self.module.with_program(|program| {
             program
                 .c
@@ -99,7 +113,7 @@ impl WasmModuleToMir {
         // Get the DAG for this function
         let result = self.module.with_program(|program| {
             let func = program.functions.get(func_idx).ok_or_else(|| {
-                WasmModuleToMirError::ValueMappingError(format!("Function {} not found", func_idx))
+                DagToMirError::ValueMappingError(format!("Function {} not found", func_idx))
             })?;
 
             // Two-pass algorithm inspired by blockless DAG to LLVM guide
@@ -110,7 +124,7 @@ impl WasmModuleToMir {
             // Pass 2: Generate instructions and control flow
             self.generate_instructions_from_dag(func, &mut context)?;
 
-            Ok::<(), WasmModuleToMirError>(())
+            Ok::<(), DagToMirError>(())
         });
 
         result?;
@@ -128,7 +142,7 @@ impl WasmModuleToMir {
         &self,
         dag: &BlocklessDag,
         context: &mut DagToMirContext,
-    ) -> Result<(), WasmModuleToMirError> {
+    ) -> Result<(), DagToMirError> {
         // Entry block is already created in new()
         for node in &dag.nodes {
             match &node.operation {
@@ -151,7 +165,7 @@ impl WasmModuleToMir {
         &self,
         dag: &BlocklessDag,
         context: &mut DagToMirContext,
-    ) -> Result<(), WasmModuleToMirError> {
+    ) -> Result<(), DagToMirError> {
         for (node_idx, node) in dag.nodes.iter().enumerate() {
             match &node.operation {
                 Operation::Inputs => {
@@ -290,7 +304,7 @@ impl WasmModuleToMir {
         wasm_op: &Op,
         node: &womir::loader::blockless_dag::Node,
         context: &mut DagToMirContext,
-    ) -> Result<Vec<ValueId>, WasmModuleToMirError> {
+    ) -> Result<Vec<ValueId>, DagToMirError> {
         let inputs: Result<Vec<Value>, _> = node
             .inputs
             .iter()
@@ -343,38 +357,49 @@ impl WasmModuleToMir {
 
             // Memory operations - TODO: Implement when MIR has memory support
             Op::I32Load { .. } => {
-                // TODO: Implement memory load operations
-                let result_id = context.allocate_value_id();
-                let instruction = Instruction::assign(
-                    result_id,
-                    Value::integer(0), // Placeholder
-                );
-                context.get_current_block().push_instruction(instruction);
-                Ok(vec![result_id])
+                todo!()
             }
 
             Op::I32Store { .. } => {
-                // TODO: Implement memory store operations
-                // Store operations typically don't produce values
-                Ok(vec![])
+                todo!()
             }
 
             // Local variable operations
             Op::LocalGet { local_index } => {
-                // TODO: Map local variables properly
-                // For now, create a placeholder value
                 let result_id = context.allocate_value_id();
-                let instruction = Instruction::assign(
-                    result_id,
-                    Value::integer(*local_index as i32), // Placeholder
-                );
-                context.get_current_block().push_instruction(instruction);
+
+                // If we have a local variable stored, load its value
+                if let Some(&local_value_id) = context.local_map.get(local_index) {
+                    let instruction =
+                        Instruction::assign(result_id, Value::operand(local_value_id));
+                    context.get_current_block().push_instruction(instruction);
+                } else {
+                    // No local variable set yet, create a placeholder (uninitialized local)
+                    let instruction = Instruction::assign(
+                        result_id,
+                        Value::integer(0), // Default to 0 for uninitialized locals
+                    );
+                    context.get_current_block().push_instruction(instruction);
+                }
                 Ok(vec![result_id])
             }
 
-            Op::LocalSet { .. } => {
-                // TODO: Implement local variable assignment
-                Ok(vec![])
+            Op::LocalSet { local_index } => {
+                // Get the input value to store
+                if !inputs.is_empty() {
+                    let value_to_store = inputs[0];
+
+                    // Create a new ValueId for this local variable
+                    let local_value_id = context.allocate_value_id();
+
+                    // Assign the input value to our local variable
+                    let instruction = Instruction::assign(local_value_id, value_to_store);
+                    context.get_current_block().push_instruction(instruction);
+
+                    // Store the mapping from local index to ValueId
+                    context.local_map.insert(*local_index, local_value_id);
+                }
+                Ok(vec![]) // LocalSet doesn't produce any output values
             }
 
             Op::LocalTee { .. } => {
@@ -395,17 +420,28 @@ impl WasmModuleToMir {
                 }
             }
 
-            // Function calls - TODO: Implement when MIR has call support
             Op::Call { function_index } => {
-                // TODO: Implement function calls
                 let result_id = context.allocate_value_id();
                 let callee_id = FunctionId::new(*function_index as usize);
 
-                // TODO: Get signature from wasm module
-                let signature = CalleeSignature {
-                    param_types: vec![MirType::U32, MirType::U32],
-                    return_types: vec![MirType::U32],
-                };
+                // Get signature from wasm module
+                let signature = self.module.with_program(|program| {
+                    let func_type = program.c.get_func_type(*function_index);
+                    CalleeSignature {
+                        param_types: func_type
+                            .ty
+                            .params()
+                            .iter()
+                            .map(Self::wasm_type_to_mir_type)
+                            .collect(),
+                        return_types: func_type
+                            .ty
+                            .results()
+                            .iter()
+                            .map(Self::wasm_type_to_mir_type)
+                            .collect(),
+                    }
+                });
 
                 let instruction = Instruction::call(vec![result_id], callee_id, inputs, signature);
                 context.get_current_block().push_instruction(instruction);
@@ -414,7 +450,7 @@ impl WasmModuleToMir {
 
             _ => {
                 // Unsupported operation
-                Err(WasmModuleToMirError::UnsupportedOperation(format!(
+                Err(DagToMirError::UnsupportedOperation(format!(
                     "{:?}",
                     wasm_op
                 )))
@@ -427,11 +463,11 @@ impl WasmModuleToMir {
         &self,
         value_origin: &ValueOrigin,
         context: &DagToMirContext,
-    ) -> Result<Value, WasmModuleToMirError> {
+    ) -> Result<Value, DagToMirError> {
         if let Some(&value_id) = context.value_map.get(value_origin) {
             Ok(Value::operand(value_id))
         } else {
-            Err(WasmModuleToMirError::ValueMappingError(format!(
+            Err(DagToMirError::ValueMappingError(format!(
                 "Value not found: node {}, output {}",
                 value_origin.node, value_origin.output_idx
             )))
@@ -443,37 +479,34 @@ impl WasmModuleToMir {
         &self,
         target: &BreakTarget,
         context: &DagToMirContext,
-    ) -> Result<BasicBlockId, WasmModuleToMirError> {
+    ) -> Result<BasicBlockId, DagToMirError> {
         match (&target.kind, target.depth) {
             (TargetType::Label(label_id), 0) => {
                 context.label_map.get(label_id).copied().ok_or_else(|| {
-                    WasmModuleToMirError::InvalidControlFlow(format!(
-                        "Label {} not found",
-                        label_id
-                    ))
+                    DagToMirError::InvalidControlFlow(format!("Label {} not found", label_id))
                 })
             }
             (TargetType::FunctionOrLoop, 0) => {
                 // This should be handled as a Return terminator, not a block jump
-                Err(WasmModuleToMirError::InvalidControlFlow(
+                Err(DagToMirError::InvalidControlFlow(
                     "Return target should be handled directly in Br/BrIf".to_string(),
                 ))
             }
             (_, depth) if depth > 0 => {
                 // TODO: Implement proper nested scope handling
-                Err(WasmModuleToMirError::InvalidControlFlow(format!(
+                Err(DagToMirError::InvalidControlFlow(format!(
                     "Nested break targets not yet supported: depth {}",
                     depth
                 )))
             }
-            _ => Err(WasmModuleToMirError::InvalidControlFlow(format!(
+            _ => Err(DagToMirError::InvalidControlFlow(format!(
                 "Unsupported break target: {:?}",
                 target
             ))),
         }
     }
 
-    pub fn to_mir(&self) -> Result<MirModule, WasmModuleToMirError> {
+    pub fn to_mir(&self) -> Result<MirModule, DagToMirError> {
         let mut mir_module = MirModule::new();
         self.module.with_program(|program| {
             for (func_idx, _) in program.functions.iter() {
@@ -484,7 +517,7 @@ impl WasmModuleToMir {
                     .insert(mir_function.name.clone(), function_id);
                 mir_module.functions.insert(function_id, mir_function);
             }
-            Ok::<(), WasmModuleToMirError>(())
+            Ok::<(), DagToMirError>(())
         })?;
         Ok(mir_module)
     }
