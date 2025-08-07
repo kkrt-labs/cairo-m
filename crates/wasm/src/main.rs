@@ -16,12 +16,17 @@ fn main() {
     let filename = &args[1];
 
     match BlocklessDagModule::from_file(filename) {
-        Ok(module) => {
-            let mir = DagToMir::new(module).to_mir().unwrap();
-            println!("{mir:?}");
-        }
+        Ok(module) => match DagToMir::new(module).to_mir() {
+            Ok(mir) => {
+                println!("{mir:?}");
+            }
+            Err(e) => {
+                eprintln!("Error converting to MIR: {}", e);
+                std::process::exit(1);
+            }
+        },
         Err(e) => {
-            eprintln!("Error: {}", e);
+            eprintln!("Error loading WASM module: {}", e);
             std::process::exit(1);
         }
     }
