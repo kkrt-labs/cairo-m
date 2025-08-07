@@ -153,7 +153,7 @@ cargo insta accept
 The system uses a multi-stage process to convert markdown files into executable
 tests:
 
-#### For Runner Tests (`crates/runner/build.rs`):
+#### For Runner Tests (`crates/runner/build.rs`)
 
 1. **Discovery**: Walks the `mdtest/` directory to find all `.md` files
 2. **Parsing**: Uses `mdtest::parser::extract_tests()` to extract Cairo-M and
@@ -165,7 +165,7 @@ tests:
 5. **Test Lookup**: Each test function calls `get_test_by_name()` with the
    unique test name
 
-#### For Snapshot Tests (MIR/Codegen):
+#### For Snapshot Tests (MIR/Codegen)
 
 1. Uses the same parser to extract Cairo-M code
 2. Compiles through the respective phase (MIR generation or Codegen)
@@ -241,7 +241,7 @@ touch mdtest/01-basics/07-new-feature.md
 
 ### 3. Write Your Test
 
-#### Simple Test (Cairo-M only):
+#### Simple Test (Cairo-M only)
 
 ````markdown
 ## Simple Addition
@@ -255,7 +255,11 @@ fn add_numbers() -> felt {
 ```
 ````
 
-#### Differential Test (with Rust):
+If no Rust code is provided, we will auto-generate it based on the Cairo-M code.
+If the Rust code cannot be auto-generated, you will need to implement it
+manually.
+
+#### Differential Test (with Rust)
 
 ````markdown
 ## Addition with Differential Testing
@@ -275,7 +279,7 @@ fn add_numbers() -> i32 {
 ```
 ````
 
-#### Test with Annotations:
+#### Test with Annotations
 
 ````markdown
 ## Expected Output Test
@@ -287,23 +291,6 @@ fn add_numbers() -> felt {
 }
 ```
 ````
-
-### 4. When to Include Rust Code
-
-Include Rust equivalents when:
-
-- **Testing correctness**: Verify Cairo-M produces the same output as Rust
-- **Complex algorithms**: Ensure algorithm implementation matches expected
-  behavior
-- **Arithmetic operations**: Verify field arithmetic behavior
-- **Edge cases**: Compare behavior at boundaries
-
-Skip Rust code when:
-
-- **Cairo-M specific features**: Features that don't have Rust equivalents
-- **Compilation tests**: Testing that code compiles correctly
-- **Error cases**: Testing expected compilation or runtime errors
-- **Opcode generation**: Testing specific assembly generation
 
 ### 5. Run Your Tests
 
