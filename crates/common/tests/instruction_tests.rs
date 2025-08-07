@@ -362,20 +362,6 @@ fn test_operands() {
 fn test_try_from_smallvec() {
     // Test cases: (smallvec_values, expected_instruction, description)
     let test_cases: Vec<(SmallVec<[M31; INSTRUCTION_MAX_SIZE]>, Instruction, &str)> = vec![
-        // Basic instructions
-        (
-            smallvec![M31::from(11)],
-            Instruction::Ret {},
-            "Ret instruction",
-        ),
-        (
-            smallvec![M31::from(9), M31::from(42), M31::from(3)],
-            Instruction::StoreImm {
-                imm: M31::from(42),
-                dst_off: M31::from(3),
-            },
-            "StoreImm instruction",
-        ),
         // Felt arithmetic operations
         (
             smallvec![M31::from(0), M31::from(1), M31::from(2), M31::from(3)],
@@ -452,6 +438,59 @@ fn test_try_from_smallvec() {
         ),
         // U32 arithmetic operations
         (
+            smallvec![M31::from(8), M31::from(9), M31::from(10), M31::from(11)],
+            Instruction::StoreDoubleDerefFp {
+                base_off: M31::from(9),
+                offset: M31::from(10),
+                dst_off: M31::from(11),
+            },
+            "StoreDoubleDerefFp instruction",
+        ),
+        (
+            smallvec![M31::from(9), M31::from(42), M31::from(3)],
+            Instruction::StoreImm {
+                imm: M31::from(42),
+                dst_off: M31::from(3),
+            },
+            "StoreImm instruction",
+        ),
+        (
+            smallvec![M31::from(10), M31::from(19), M31::from(1000)],
+            Instruction::CallAbsImm {
+                frame_off: M31::from(19),
+                target: M31::from(1000),
+            },
+            "CallAbsImm instruction",
+        ),
+        // Basic instructions
+        (
+            smallvec![M31::from(11)],
+            Instruction::Ret {},
+            "Ret instruction",
+        ),
+        (
+            smallvec![M31::from(12), M31::from(2000)],
+            Instruction::JmpAbsImm {
+                target: M31::from(2000),
+            },
+            "JmpAbsImm instruction",
+        ),
+        (
+            smallvec![M31::from(13), M31::from(50)],
+            Instruction::JmpRelImm {
+                offset: M31::from(50),
+            },
+            "JmpRelImm instruction",
+        ),
+        (
+            smallvec![M31::from(14), M31::from(21), M31::from(60)],
+            Instruction::JnzFpImm {
+                cond_off: M31::from(21),
+                offset: M31::from(60),
+            },
+            "JnzFpImm instruction",
+        ),
+        (
             smallvec![M31::from(15), M31::from(1), M31::from(2), M31::from(3)],
             Instruction::U32StoreAddFpFp {
                 src0_off: M31::from(1),
@@ -498,8 +537,8 @@ fn test_try_from_smallvec() {
             ],
             Instruction::U32StoreAddFpImm {
                 src_off: M31::from(1),
-                imm_hi: M31::from(0x1234),
-                imm_lo: M31::from(0x5678),
+                imm_lo: M31::from(0x1234),
+                imm_hi: M31::from(0x5678),
                 dst_off: M31::from(4),
             },
             "U32StoreAddFpImm instruction",
@@ -514,8 +553,8 @@ fn test_try_from_smallvec() {
             ],
             Instruction::U32StoreSubFpImm {
                 src_off: M31::from(2),
-                imm_hi: M31::from(0xabcd),
-                imm_lo: M31::from(0xef01),
+                imm_lo: M31::from(0xabcd),
+                imm_hi: M31::from(0xef01),
                 dst_off: M31::from(5),
             },
             "U32StoreSubFpImm instruction",
@@ -530,8 +569,8 @@ fn test_try_from_smallvec() {
             ],
             Instruction::U32StoreMulFpImm {
                 src_off: M31::from(3),
-                imm_hi: M31::from(0x2345),
-                imm_lo: M31::from(0x6789),
+                imm_lo: M31::from(0x2345),
+                imm_hi: M31::from(0x6789),
                 dst_off: M31::from(6),
             },
             "U32StoreMulFpImm instruction",
@@ -540,14 +579,14 @@ fn test_try_from_smallvec() {
             smallvec![
                 M31::from(22),
                 M31::from(4),
-                M31::from(0xcdef),
                 M31::from(0x0123),
+                M31::from(0xcdef),
                 M31::from(7)
             ],
             Instruction::U32StoreDivFpImm {
                 src_off: M31::from(4),
-                imm_hi: M31::from(0xcdef),
                 imm_lo: M31::from(0x0123),
+                imm_hi: M31::from(0xcdef),
                 dst_off: M31::from(7),
             },
             "U32StoreDivFpImm instruction",
@@ -556,55 +595,167 @@ fn test_try_from_smallvec() {
         (
             smallvec![
                 M31::from(23),
-                M31::from(0x5678),
                 M31::from(0x1234),
+                M31::from(0x5678),
                 M31::from(3)
             ],
             Instruction::U32StoreImm {
-                imm_lo: M31::from(0x5678),
-                imm_hi: M31::from(0x1234),
+                imm_lo: M31::from(0x1234),
+                imm_hi: M31::from(0x5678),
                 dst_off: M31::from(3),
             },
             "U32StoreImm instruction",
         ),
+        // U32 Comparison operations
         (
-            smallvec![M31::from(8), M31::from(9), M31::from(10), M31::from(11)],
-            Instruction::StoreDoubleDerefFp {
-                base_off: M31::from(9),
-                offset: M31::from(10),
-                dst_off: M31::from(11),
+            smallvec![M31::from(24), M31::from(1), M31::from(2), M31::from(3)],
+            Instruction::U32StoreEqFpFp {
+                src0_off: M31::from(1),
+                src1_off: M31::from(2),
+                dst_off: M31::from(3),
             },
-            "StoreDoubleDerefFp instruction",
+            "U32StoreEqFpFp instruction",
         ),
         (
-            smallvec![M31::from(10), M31::from(19), M31::from(1000)],
-            Instruction::CallAbsImm {
-                frame_off: M31::from(19),
-                target: M31::from(1000),
+            smallvec![M31::from(25), M31::from(1), M31::from(2), M31::from(3)],
+            Instruction::U32StoreNeqFpFp {
+                src0_off: M31::from(1),
+                src1_off: M31::from(2),
+                dst_off: M31::from(3),
             },
-            "CallAbsImm instruction",
+            "U32StoreNeqFpFp instruction",
         ),
         (
-            smallvec![M31::from(12), M31::from(2000)],
-            Instruction::JmpAbsImm {
-                target: M31::from(2000),
+            smallvec![M31::from(26), M31::from(1), M31::from(2), M31::from(3)],
+            Instruction::U32StoreGtFpFp {
+                src0_off: M31::from(1),
+                src1_off: M31::from(2),
+                dst_off: M31::from(3),
             },
-            "JmpAbsImm instruction",
+            "U32StoreGtFpFp instruction",
         ),
         (
-            smallvec![M31::from(13), M31::from(50)],
-            Instruction::JmpRelImm {
-                offset: M31::from(50),
+            smallvec![M31::from(27), M31::from(1), M31::from(2), M31::from(3)],
+            Instruction::U32StoreGeFpFp {
+                src0_off: M31::from(1),
+                src1_off: M31::from(2),
+                dst_off: M31::from(3),
             },
-            "JmpRelImm instruction",
+            "U32StoreGeFpFp instruction",
         ),
         (
-            smallvec![M31::from(14), M31::from(21), M31::from(60)],
-            Instruction::JnzFpImm {
-                cond_off: M31::from(21),
-                offset: M31::from(60),
+            smallvec![M31::from(28), M31::from(1), M31::from(2), M31::from(3)],
+            Instruction::U32StoreLtFpFp {
+                src0_off: M31::from(1),
+                src1_off: M31::from(2),
+                dst_off: M31::from(3),
             },
-            "JnzFpImm instruction",
+            "U32StoreLtFpFp instruction",
+        ),
+        (
+            smallvec![M31::from(29), M31::from(1), M31::from(2), M31::from(3)],
+            Instruction::U32StoreLeFpFp {
+                src0_off: M31::from(1),
+                src1_off: M31::from(2),
+                dst_off: M31::from(3),
+            },
+            "U32StoreLeFpFp instruction",
+        ),
+        (
+            smallvec![
+                M31::from(30),
+                M31::from(1),
+                M31::from(0x1234),
+                M31::from(0x5678),
+                M31::from(3)
+            ],
+            Instruction::U32StoreEqFpImm {
+                src_off: M31::from(1),
+                imm_lo: M31::from(0x1234),
+                imm_hi: M31::from(0x5678),
+                dst_off: M31::from(3),
+            },
+            "U32StoreEqFpImm instruction",
+        ),
+        (
+            smallvec![
+                M31::from(31),
+                M31::from(1),
+                M31::from(0x1234),
+                M31::from(0x5678),
+                M31::from(3)
+            ],
+            Instruction::U32StoreNeqFpImm {
+                src_off: M31::from(1),
+                imm_lo: M31::from(0x1234),
+                imm_hi: M31::from(0x5678),
+                dst_off: M31::from(3),
+            },
+            "U32StoreNeqFpImm instruction",
+        ),
+        (
+            smallvec![
+                M31::from(32),
+                M31::from(1),
+                M31::from(0x1234),
+                M31::from(0x5678),
+                M31::from(3)
+            ],
+            Instruction::U32StoreGtFpImm {
+                src_off: M31::from(1),
+                imm_lo: M31::from(0x1234),
+                imm_hi: M31::from(0x5678),
+                dst_off: M31::from(3),
+            },
+            "U32StoreGtFpImm instruction",
+        ),
+        (
+            smallvec![
+                M31::from(33),
+                M31::from(1),
+                M31::from(0x1234),
+                M31::from(0x5678),
+                M31::from(3)
+            ],
+            Instruction::U32StoreGeFpImm {
+                src_off: M31::from(1),
+                imm_lo: M31::from(0x1234),
+                imm_hi: M31::from(0x5678),
+                dst_off: M31::from(3),
+            },
+            "U32StoreGeFpImm instruction",
+        ),
+        (
+            smallvec![
+                M31::from(34),
+                M31::from(1),
+                M31::from(0x1234),
+                M31::from(0x5678),
+                M31::from(3)
+            ],
+            Instruction::U32StoreLtFpImm {
+                src_off: M31::from(1),
+                imm_lo: M31::from(0x1234),
+                imm_hi: M31::from(0x5678),
+                dst_off: M31::from(3),
+            },
+            "U32StoreLtFpImm instruction",
+        ),
+        (
+            smallvec![
+                M31::from(35),
+                M31::from(1),
+                M31::from(0x1234),
+                M31::from(0x5678),
+                M31::from(3)
+            ],
+            Instruction::U32StoreLeFpImm {
+                src_off: M31::from(1),
+                imm_lo: M31::from(0x1234),
+                imm_hi: M31::from(0x5678),
+                dst_off: M31::from(3),
+            },
+            "U32StoreLeFpImm instruction",
         ),
     ];
 
@@ -728,8 +879,8 @@ fn test_to_qm31_vec() {
     let m31_array = qm31_vec[0].to_m31_array();
     assert_eq!(m31_array[0], M31::from(19)); // opcode
     assert_eq!(m31_array[1], M31::from(1)); // src_off
-    assert_eq!(m31_array[2], M31::from(0x1234)); // imm_hi
-    assert_eq!(m31_array[3], M31::from(0x5678)); // imm_lo
+    assert_eq!(m31_array[2], M31::from(0x5678)); // imm_lo
+    assert_eq!(m31_array[3], M31::from(0x1234)); // imm_hi
 
     let m31_array = qm31_vec[1].to_m31_array();
     assert_eq!(m31_array[0], M31::from(4)); // dst_off

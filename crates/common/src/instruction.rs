@@ -271,7 +271,15 @@ define_instruction!(
     U32StoreGtFpFp = 26, 5, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, Felt];                // [fp + dst_off] = u32([fp + src0_off], [fp + src0_off + 1]) > u32([fp + src1_off], [fp + src1_off + 1])
     U32StoreGeFpFp = 27, 5, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, Felt];                // [fp + dst_off] = u32([fp + src0_off], [fp + src0_off + 1]) >= u32([fp + src1_off], [fp + src1_off + 1])
     U32StoreLtFpFp = 28, 5, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, Felt];                // [fp + dst_off] = u32([fp + src0_off], [fp + src0_off + 1]) < u32([fp + src1_off], [fp + src1_off + 1])
-    U32StoreLeFpFp = 29, 5, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, Felt]                 // [fp + dst_off] = u32([fp + src0_off], [fp + src0_off + 1]) <= u32([fp + src1_off], [fp + src1_off + 1])
+    U32StoreLeFpFp = 29, 5, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, Felt];                 // [fp + dst_off] = u32([fp + src0_off], [fp + src0_off + 1]) <= u32([fp + src1_off], [fp + src1_off + 1])
+
+    // U32 Comparison operations with immediate
+    U32StoreEqFpImm = 30, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) == u32(imm_lo, imm_hi)
+    U32StoreNeqFpImm = 31, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) != u32(imm_lo, imm_hi)
+    U32StoreGtFpImm = 32, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) > u32(imm_lo, imm_hi)
+    U32StoreGeFpImm = 33, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) >= u32(imm_lo, imm_hi)
+    U32StoreLtFpImm = 34, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) < u32(imm_lo, imm_hi)
+    U32StoreLeFpImm = 35, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32]  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) <= u32(imm_lo, imm_hi)
 );
 
 impl From<Instruction> for SmallVec<[M31; INSTRUCTION_MAX_SIZE]> {

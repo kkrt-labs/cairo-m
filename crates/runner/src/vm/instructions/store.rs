@@ -286,6 +286,68 @@ where
     Ok(state.advance_by(instruction.size_in_qm31s()))
 }
 
+/// Execute a comparison op between a U32 operand `[fp + src_off]` and a 32-bit immediate.
+#[allow(clippy::too_many_arguments)]
+fn exec_u32_cmp_op_fp_imm<F>(
+    memory: &mut Memory,
+    state: State,
+    instruction: &Instruction,
+    src_off: M31,
+    imm_lo: M31,
+    imm_hi: M31,
+    dst_off: M31,
+    op: F,
+) -> Result<State, InstructionExecutionError>
+where
+    F: Fn(u32, u32) -> bool,
+{
+    if imm_hi.0 > U32_LIMB_MASK || imm_lo.0 > U32_LIMB_MASK {
+        return Err(InstructionExecutionError::Memory(
+            MemoryError::U32LimbOutOfRange {
+                limb_lo: imm_lo.0,
+                limb_hi: imm_hi.0,
+            },
+        ));
+    }
+
+    let imm_value: u32 = (imm_hi.0 << U32_LIMB_BITS) | imm_lo.0;
+    let src_value = memory.get_u32(state.fp + src_off)?;
+
+    let res = if op(src_value, imm_value) {
+        QM31::from(M31::one())
+    } else {
+        QM31::from(M31::from(0))
+    };
+
+    memory.insert(state.fp + dst_off, res)?;
+    Ok(state.advance_by(instruction.size_in_qm31s()))
+}
+
+/// Generates U32 comparison `*_fp_imm` operations.
+macro_rules! impl_u32_cmp_op_fp_imm {
+    ($func_name:ident, $variant:ident, $body:expr) => {
+        #[allow(clippy::redundant_closure_call)]
+        pub fn $func_name(
+            memory: &mut Memory,
+            state: State,
+            instruction: &Instruction,
+        ) -> Result<State, InstructionExecutionError> {
+            let (src_off, imm_lo, imm_hi, dst_off) =
+                extract_as!(instruction, $variant, (src_off, imm_lo, imm_hi, dst_off));
+            exec_u32_cmp_op_fp_imm(
+                memory,
+                state,
+                instruction,
+                src_off,
+                imm_lo,
+                imm_hi,
+                dst_off,
+                $body,
+            )
+        }
+    };
+}
+
 /// Generates U32 comparison `*_fp_fp` operations.
 macro_rules! impl_u32_cmp_op_fp_fp {
     ($func_name:ident, $variant:ident, $body:expr) => {
@@ -317,6 +379,14 @@ impl_u32_cmp_op_fp_fp!(u32_store_gt_fp_fp, U32StoreGtFpFp, |a, b| a > b);
 impl_u32_cmp_op_fp_fp!(u32_store_ge_fp_fp, U32StoreGeFpFp, |a, b| a >= b);
 impl_u32_cmp_op_fp_fp!(u32_store_lt_fp_fp, U32StoreLtFpFp, |a, b| a < b);
 impl_u32_cmp_op_fp_fp!(u32_store_le_fp_fp, U32StoreLeFpFp, |a, b| a <= b);
+
+// -- U32 Comparison FP-IMM variants ------------------------------------------
+impl_u32_cmp_op_fp_imm!(u32_store_eq_fp_imm, U32StoreEqFpImm, |a, b| a == b);
+impl_u32_cmp_op_fp_imm!(u32_store_neq_fp_imm, U32StoreNeqFpImm, |a, b| a != b);
+impl_u32_cmp_op_fp_imm!(u32_store_gt_fp_imm, U32StoreGtFpImm, |a, b| a > b);
+impl_u32_cmp_op_fp_imm!(u32_store_ge_fp_imm, U32StoreGeFpImm, |a, b| a >= b);
+impl_u32_cmp_op_fp_imm!(u32_store_lt_fp_imm, U32StoreLtFpImm, |a, b| a < b);
+impl_u32_cmp_op_fp_imm!(u32_store_le_fp_imm, U32StoreLeFpImm, |a, b| a <= b);
 
 #[cfg(test)]
 #[path = "./store_tests.rs"]

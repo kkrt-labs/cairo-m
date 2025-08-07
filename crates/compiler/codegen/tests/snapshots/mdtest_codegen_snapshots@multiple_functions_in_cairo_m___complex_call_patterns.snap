@@ -62,49 +62,48 @@ get_base_value_0:
 calculate_multiplier:
 calculate_multiplier:
 calculate_multiplier_0:
-  13: 23 10 0 5            // [fp + 5, fp + 5 + 1] = u32(10)
-  14: 26 -6 5 0            // [fp + 0] = u32([fp + -6], [fp + -6 + 1]) op u32([fp + 5], [fp + 5 + 1])
-  15: 14 0 2 _             // if [fp + 0] != 0 jmp rel calculate_multiplier_1
-  16: 12 22 _ _            // jump abs calculate_multiplier_2
+  13: 32 -6 10 0 0         // u32([fp + 0], [fp + 1]) = u32([fp + -6], [fp + -5]) op u32(10, 0)
+  14: 14 0 2 _             // if [fp + 0] != 0 jmp rel calculate_multiplier_1
+  15: 12 22 _ _            // jump abs calculate_multiplier_2
 calculate_multiplier_1:
-  17: 4 -6 0 7             // Arg 0 slot 0: [fp + 7] = [fp + -6] + 0
-  18: 4 -5 0 8             // Arg 0 slot 1: [fp + 8] = [fp + -5] + 0
-  19: 10 11 27 _           // call process_large
-  20: 4 9 0 -4             // Return value 0: [fp -4] = [fp + 9] + 0
-  21: 11 _ _ _             // return
+  16: 4 -6 0 5             // Arg 0 slot 0: [fp + 5] = [fp + -6] + 0
+  17: 4 -5 0 6             // Arg 0 slot 1: [fp + 6] = [fp + -5] + 0
+  18: 10 9 27 _            // call process_large
+  19: 4 7 0 -4             // Return value 0: [fp -4] = [fp + 7] + 0
+  20: 11 _ _ _             // return
 calculate_multiplier_2:
-  22: 4 -6 0 12            // Arg 0 slot 0: [fp + 12] = [fp + -6] + 0
-  23: 4 -5 0 13            // Arg 0 slot 1: [fp + 13] = [fp + -5] + 0
-  24: 10 16 32 _           // call process_small
-  25: 4 14 0 -4            // Return value 0: [fp -4] = [fp + 14] + 0
-  26: 11 _ _ _             // return
-process_large:
+  21: 4 -6 0 10            // Arg 0 slot 0: [fp + 10] = [fp + -6] + 0
+  22: 4 -5 0 11            // Arg 0 slot 1: [fp + 11] = [fp + -5] + 0
+  23: 10 14 32 _           // call process_small
+  24: 4 12 0 -4            // Return value 0: [fp -4] = [fp + 12] + 0
+  25: 11 _ _ _             // return
 process_large:
 process_large_0:
-  27: 22 -6 3 0 0          // u32([fp + 0], [fp + 0 + 1]) = u32([fp + -6], [fp + -6 + 1]) op u32(3, 0)
-  28: 4 0 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
-  29: 4 1 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
-  30: 11 _ _ _             // return
+  26: 22 -6 3 0 0          // u32([fp + 0], [fp + 1]) = u32([fp + -6], [fp + -5]) op u32(3, 0)
+process_large:
+  27: 4 0 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
+  28: 4 1 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
+  29: 11 _ _ _             // return
 process_small:
 process_small_0:
-  31: 21 -6 2 0 0          // u32([fp + 0], [fp + 0 + 1]) = u32([fp + -6], [fp + -6 + 1]) op u32(2, 0)
+  30: 21 -6 2 0 0          // u32([fp + 0], [fp + 1]) = u32([fp + -6], [fp + -5]) op u32(2, 0)
+  31: 4 0 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
 process_small:
-  32: 4 0 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
-  33: 4 1 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
-  34: 11 _ _ _             // return
+  32: 4 1 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
+  33: 11 _ _ _             // return
 apply_transformation:
 apply_transformation_0:
-  35: 15 -8 -6 4           // u32([fp + 4], [fp + 4 + 1]) = u32([fp + -8], [fp + -8 + 1]) op u32([fp + -6], [fp + -6 + 1])
-  36: 4 4 0 5              // Arg 0 slot 0: [fp + 5] = [fp + 4] + 0
+  34: 15 -8 -6 4           // u32([fp + 4], [fp + 5]) = u32([fp + -8], [fp + -7]) op u32([fp + -6], [fp + -5])
+  35: 4 4 0 5              // Arg 0 slot 0: [fp + 5] = [fp + 4] + 0
+  36: 4 5 0 6              // Arg 0 slot 1: [fp + 6] = [fp + 5] + 0
 apply_transformation:
-  37: 4 5 0 6              // Arg 0 slot 1: [fp + 6] = [fp + 5] + 0
-  38: 10 9 43 _            // call finalize_result
-  39: 4 7 0 -4             // Return value 0: [fp -4] = [fp + 7] + 0
-  40: 11 _ _ _             // return
+  37: 10 9 43 _            // call finalize_result
+  38: 4 7 0 -4             // Return value 0: [fp -4] = [fp + 7] + 0
+  39: 11 _ _ _             // return
 finalize_result:
 finalize_result_0:
-  41: 17 -6 -6 0           // u32([fp + 0], [fp + 0 + 1]) = u32([fp + -6], [fp + -6 + 1]) op u32([fp + -6], [fp + -6 + 1])
-  42: 4 0 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
+  40: 17 -6 -6 0           // u32([fp + 0], [fp + 1]) = u32([fp + -6], [fp + -5]) op u32([fp + -6], [fp + -5])
+  41: 4 0 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
+  42: 4 1 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
 finalize_result:
-  43: 4 1 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
-  44: 11 _ _ _             // return
+  43: 11 _ _ _             // return

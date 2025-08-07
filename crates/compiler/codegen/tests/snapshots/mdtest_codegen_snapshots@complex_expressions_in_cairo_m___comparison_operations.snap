@@ -42,45 +42,45 @@ Generated CASM:
 test_comparisons:
 test_comparisons:
 test_comparisons_0:
-   0: 23 10 0 0            // [fp + 0, fp + 0 + 1] = u32(10)
-   1: 23 7 0 2             // [fp + 2, fp + 2 + 1] = u32(7)
-   2: 23 10 0 4            // [fp + 4, fp + 4 + 1] = u32(10)
-   3: 24 0 4 6             // [fp + 6] = u32([fp + 0], [fp + 0 + 1]) op u32([fp + 4], [fp + 4 + 1])
-   4: 25 0 2 7             // [fp + 7] = u32([fp + 0], [fp + 0 + 1]) op u32([fp + 2], [fp + 2 + 1])
-   5: 28 2 0 8             // [fp + 8] = u32([fp + 2], [fp + 2 + 1]) op u32([fp + 0], [fp + 0 + 1])
-   6: 29 0 4 9             // [fp + 9] = u32([fp + 0], [fp + 0 + 1]) op u32([fp + 4], [fp + 4 + 1])
-   7: 26 0 2 10            // [fp + 10] = u32([fp + 0], [fp + 0 + 1]) op u32([fp + 2], [fp + 2 + 1])
-   8: 27 4 0 11            // [fp + 11] = u32([fp + 4], [fp + 4 + 1]) op u32([fp + 0], [fp + 0 + 1])
-   9: 23 0 0 12            // [fp + 12, fp + 12 + 1] = u32(0)
+   0: 23 10 0 0            // u32([fp + 0, fp + 1]) = u32(10)
+   1: 23 7 0 2             // u32([fp + 2, fp + 3]) = u32(7)
+   2: 23 10 0 4            // u32([fp + 4, fp + 5]) = u32(10)
+   3: 24 0 4 6             // [fp + 6] = u32([fp + 0], [fp + 1]) op u32([fp + 4], [fp + 5])
+   4: 25 0 2 7             // [fp + 7] = u32([fp + 0], [fp + 1]) op u32([fp + 2], [fp + 3])
+   5: 28 2 0 8             // [fp + 8] = u32([fp + 2], [fp + 3]) op u32([fp + 0], [fp + 1])
+   6: 29 0 4 9             // [fp + 9] = u32([fp + 0], [fp + 1]) op u32([fp + 4], [fp + 5])
+   7: 26 0 2 10            // [fp + 10] = u32([fp + 0], [fp + 1]) op u32([fp + 2], [fp + 3])
+   8: 27 4 0 11            // [fp + 11] = u32([fp + 4], [fp + 5]) op u32([fp + 0], [fp + 1])
+   9: 23 0 0 12            // u32([fp + 12, fp + 13]) = u32(0)
   10: 14 6 2 _             // if [fp + 6] != 0 jmp rel test_comparisons_1
   11: 12 14 _ _            // jump abs test_comparisons_2
 test_comparisons_1:
-  12: 19 12 1 0 12         // u32([fp + 12], [fp + 12 + 1]) = u32([fp + 12], [fp + 12 + 1]) op u32(1, 0)
+  12: 19 12 1 0 12         // u32([fp + 12], [fp + 13]) = u32([fp + 12], [fp + 13]) op u32(1, 0)
 test_comparisons_2:
   13: 14 7 2 _             // if [fp + 7] != 0 jmp rel test_comparisons_3
   14: 12 18 _ _            // jump abs test_comparisons_4
 test_comparisons_3:
-  15: 19 12 1 0 12         // u32([fp + 12], [fp + 12 + 1]) = u32([fp + 12], [fp + 12 + 1]) op u32(1, 0)
+  15: 19 12 1 0 12         // u32([fp + 12], [fp + 13]) = u32([fp + 12], [fp + 13]) op u32(1, 0)
 test_comparisons_4:
   16: 14 8 2 _             // if [fp + 8] != 0 jmp rel test_comparisons_5
   17: 12 22 _ _            // jump abs test_comparisons_6
 test_comparisons_5:
-  18: 19 12 1 0 12         // u32([fp + 12], [fp + 12 + 1]) = u32([fp + 12], [fp + 12 + 1]) op u32(1, 0)
+  18: 19 12 1 0 12         // u32([fp + 12], [fp + 13]) = u32([fp + 12], [fp + 13]) op u32(1, 0)
 test_comparisons_6:
   19: 14 9 2 _             // if [fp + 9] != 0 jmp rel test_comparisons_7
   20: 12 26 _ _            // jump abs test_comparisons_8
 test_comparisons_7:
-  21: 19 12 1 0 12         // u32([fp + 12], [fp + 12 + 1]) = u32([fp + 12], [fp + 12 + 1]) op u32(1, 0)
+  21: 19 12 1 0 12         // u32([fp + 12], [fp + 13]) = u32([fp + 12], [fp + 13]) op u32(1, 0)
 test_comparisons_8:
   22: 14 10 2 _            // if [fp + 10] != 0 jmp rel test_comparisons_9
   23: 12 30 _ _            // jump abs test_comparisons_10
 test_comparisons_9:
-  24: 19 12 1 0 12         // u32([fp + 12], [fp + 12 + 1]) = u32([fp + 12], [fp + 12 + 1]) op u32(1, 0)
+  24: 19 12 1 0 12         // u32([fp + 12], [fp + 13]) = u32([fp + 12], [fp + 13]) op u32(1, 0)
 test_comparisons_10:
   25: 14 11 2 _            // if [fp + 11] != 0 jmp rel test_comparisons_11
   26: 12 34 _ _            // jump abs test_comparisons_12
 test_comparisons_11:
-  27: 19 12 1 0 12         // u32([fp + 12], [fp + 12 + 1]) = u32([fp + 12], [fp + 12 + 1]) op u32(1, 0)
+  27: 19 12 1 0 12         // u32([fp + 12], [fp + 13]) = u32([fp + 12], [fp + 13]) op u32(1, 0)
 test_comparisons_12:
   28: 4 12 0 -4            // Return value 0 slot 0: [fp -4] = [fp + 12] + 0
   29: 4 13 0 -3            // Return value 0 slot 1: [fp -3] = [fp + 13] + 0
