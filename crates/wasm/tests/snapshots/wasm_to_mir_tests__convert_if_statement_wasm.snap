@@ -19,9 +19,9 @@ module {
     entry: 0
 
     0:
-      %1 = 3
+      %1 = 3 (u32)
       %2 = %0 U32Eq %1
-      %6 = 1
+      %6 = 1 (u32)
       %7 = %0 U32Add %6
       jump 1
 
@@ -30,7 +30,7 @@ module {
       jump 3
 
     2:
-      %9 = 1
+      %9 = 1 (u32)
       jump 3
 
     3:
@@ -38,12 +38,12 @@ module {
       return %10
 
     4:
-      %3 = 2
+      %3 = 2 (u32)
       %4 = %0 U32Neq %3
       if %4 then jump 0 else jump 5
 
     5:
-      %5 = 5
+      %5 = 5 (u32)
       jump 1
 
     6:
