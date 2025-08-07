@@ -121,7 +121,18 @@ pub fn run_mdtest_diff(test: &mdtest::MdTest) -> Result<(), String> {
     // Parse rust output true / false to 1 / 0
     let rust_output = rust_output.replace("true", "1").replace("false", "0");
 
-    if cairo_output != rust_output {
+    // The rust output is an i32 (if returning from a felt, can be a negative value) or a u32 (if returning a u32) that we want to convert to M31.
+    let rust_m31 = match rust_output.parse::<i32>() {
+        Ok(val_i32) => M31::from(val_i32),
+        Err(_) => rust_output.parse::<u32>().map(M31::from).unwrap(),
+    };
+    // The cairo output is at most a u32.
+    let cairo_m31 = match cairo_output.parse::<u32>() {
+        Ok(val_u32) => M31::from(val_u32),
+        Err(_) => cairo_output.parse::<i32>().map(M31::from).unwrap(),
+    };
+
+    if rust_m31 != cairo_m31 {
         return Err(format!(
             "Differential test failed! Cairo-M: {}, Rust: {}",
             cairo_output, rust_output

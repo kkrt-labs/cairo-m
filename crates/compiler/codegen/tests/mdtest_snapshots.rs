@@ -8,7 +8,6 @@ use cairo_m_compiler_codegen::CodeGenerator;
 use cairo_m_compiler_mir::generate_mir;
 use cairo_m_test_utils::{mdtest::MdTestRunner, mdtest_path};
 use common::{create_test_crate, TestDatabase};
-use std::path::PathBuf;
 
 #[test]
 fn test_mdtest_codegen_snapshots() {
