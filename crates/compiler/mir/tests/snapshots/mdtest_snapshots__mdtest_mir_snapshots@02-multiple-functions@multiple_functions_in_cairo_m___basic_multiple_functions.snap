@@ -1,0 +1,69 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Multiple Functions in Cairo-M - Basic Multiple Functions"
+input_file: mdtest/04-advanced/02-multiple-functions.md
+---
+Test: Multiple Functions in Cairo-M - Basic Multiple Functions
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/04-advanced/02-multiple-functions.md
+============================================================
+Source:
+fn test_multiple_functions() -> felt {
+    return first() + second() + third();
+}
+
+fn first() -> felt {
+    return 10;
+}
+
+fn second() -> felt {
+    return 20;
+}
+
+fn third() -> felt {
+    return 30;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_multiple_functions {
+    entry: 0
+
+    0:
+      %0 = call 1()
+      %1 = call 2()
+      %2 = %0 Add %1
+      %3 = call 3()
+      %4 = %2 Add %3
+      return %4
+
+  }
+
+  // Function 1
+  fn first {
+    entry: 0
+
+    0:
+      return 10
+
+  }
+
+  // Function 2
+  fn second {
+    entry: 0
+
+    0:
+      return 20
+
+  }
+
+  // Function 3
+  fn third {
+    entry: 0
+
+    0:
+      return 30
+
+  }
+
+}

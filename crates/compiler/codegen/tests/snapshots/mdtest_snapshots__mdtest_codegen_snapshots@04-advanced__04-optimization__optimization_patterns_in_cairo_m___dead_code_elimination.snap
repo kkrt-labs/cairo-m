@@ -1,0 +1,31 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Optimization Patterns in Cairo-M - Dead Code Elimination"
+input_file: mdtest/04-advanced/04-optimization.md
+---
+Test: Optimization Patterns in Cairo-M - Dead Code Elimination
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/04-advanced/04-optimization.md
+============================================================
+Source:
+fn test_dead_code() -> bool {
+    let a = 1;
+    let b = 0;
+    let result = a == b;  // This affects the return value
+    let dead = a == 0;    // This doesn't affect anything
+    return result;
+}
+============================================================
+Generated CASM:
+test_dead_code:
+test_dead_code:
+test_dead_code_0:
+   0: 9 1 0 _              // [fp + 0] = 1
+   1: 9 0 1 _              // [fp + 1] = 0
+   2: 1 0 1 -3             // [fp + -3] = [fp + 0] op [fp + 1]
+   3: 14 -3 3 _            // if [fp + -3] != 0, jump to not_zero_0
+   4: 9 1 -3 _             // [fp + -3] = 1
+   5: 12 7 _ _             // jump to end_1
+not_zero_0:
+   6: 9 0 -3 _             // [fp + -3] = 0
+end_1:
+   7: 11 _ _ _             // return

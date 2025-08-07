@@ -1,0 +1,44 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Optimization Patterns in Cairo-M - Single Argument Optimization"
+input_file: mdtest/04-advanced/04-optimization.md
+---
+Test: Optimization Patterns in Cairo-M - Single Argument Optimization
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/04-advanced/04-optimization.md
+============================================================
+Source:
+fn increment(x: felt) -> felt {
+    return x + 1;
+}
+
+fn test_single_arg_opt() -> felt {
+    let n = 10;
+    let result = increment(n);  // Argument already at top of stack
+    return result;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn increment {
+    parameters: [0]
+    entry: 0
+
+    0:
+      %1 = %0 Add 1
+      return %1
+
+  }
+
+  // Function 1
+  fn test_single_arg_opt {
+    entry: 0
+
+    0:
+      %0 = 10
+      %1 = call 0(%0)
+      return %1
+
+  }
+
+}

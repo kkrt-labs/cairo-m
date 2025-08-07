@@ -1,0 +1,51 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Multiple Functions in Cairo-M - Function Call Chain"
+input_file: mdtest/04-advanced/02-multiple-functions.md
+---
+Test: Multiple Functions in Cairo-M - Function Call Chain
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/04-advanced/02-multiple-functions.md
+============================================================
+Source:
+fn test_call_chain() -> felt {
+    return compute(7);
+}
+
+fn compute(x: felt) -> felt {
+    return add(mul(x, 3), mul(x, 5));
+}
+
+fn add(a: felt, b: felt) -> felt {
+    return a + b;
+}
+
+fn mul(a: felt, b: felt) -> felt {
+    return a * b;
+}
+============================================================
+Generated CASM:
+test_call_chain:
+test_call_chain:
+test_call_chain_0:
+   0: 9 7 1 _              // Arg 0: [fp + 1] = 7
+   1: 10 3 4 _             // call compute
+   2: 4 2 0 -3             // Return value 0: [fp -3] = [fp + 2] + 0
+   3: 11 _ _ _             // return
+compute:
+   4: 4 -4 0 3             // Arg 0 slot 0: [fp + 3] = [fp + -4] + 0
+   5: 9 3 4 _              // Arg 1: [fp + 4] = 3
+   6: 10 6 17 _            // call mul
+   7: 4 -4 0 7             // Arg 0 slot 0: [fp + 7] = [fp + -4] + 0
+   8: 9 5 8 _              // Arg 1: [fp + 8] = 5
+   9: 10 10 17 _           // call mul
+  10: 4 5 0 11             // Arg 0 slot 0: [fp + 11] = [fp + 5] + 0
+  11: 4 9 0 12             // Arg 1 slot 0: [fp + 12] = [fp + 9] + 0
+  12: 10 14 15 _           // call add
+  13: 4 13 0 -3            // Return value 0: [fp -3] = [fp + 13] + 0
+  14: 11 _ _ _             // return
+add:
+  15: 0 -5 -4 -3           // [fp + -3] = [fp + -5] op [fp + -4]
+  16: 11 _ _ _             // return
+mul:
+  17: 2 -5 -4 -3           // [fp + -3] = [fp + -5] op [fp + -4]
+  18: 11 _ _ _             // return

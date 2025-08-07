@@ -1,0 +1,30 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Primitive Types in Cairo-M - U32 Type - U32 Addition"
+input_file: mdtest/01-basics/03-primitive-types.md
+---
+Test: Primitive Types in Cairo-M - U32 Type - U32 Addition
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/01-basics/03-primitive-types.md
+============================================================
+Source:
+fn test_u32_add() -> u32 {
+    let x: u32 = 4294967295;
+    let y: u32 = 10;
+    return x + y;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_u32_add {
+    entry: 0
+
+    0:
+      %0 = -1 (u32)
+      %1 = 10 (u32)
+      %2 = %0 U32Add %1
+      return %2
+
+  }
+
+}

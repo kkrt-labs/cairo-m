@@ -1,0 +1,32 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Cairo-M Assembly Opcodes - Memory Operations - Immediate Store - StoreImm"
+input_file: mdtest/06-internals/01-opcodes.md
+---
+Test: Cairo-M Assembly Opcodes - Memory Operations - Immediate Store - StoreImm
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/06-internals/01-opcodes.md
+============================================================
+Source:
+fn test_immediate_store() -> felt {
+    // StoreImm: [fp + dst_off] = imm
+    let immediate = 42;
+    let another = 100;
+
+    return immediate + another;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_immediate_store {
+    entry: 0
+
+    0:
+      %0 = 42
+      %1 = 100
+      %2 = %0 Add %1
+      return %2
+
+  }
+
+}

@@ -1,0 +1,42 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Cairo-M Assembly Opcodes - Control Flow Operations - Function Calls - CallAbsImm and Ret"
+input_file: mdtest/06-internals/01-opcodes.md
+---
+Test: Cairo-M Assembly Opcodes - Control Flow Operations - Function Calls - CallAbsImm and Ret
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/06-internals/01-opcodes.md
+============================================================
+Source:
+fn test_function_calls() -> felt {
+    // CallAbsImm: call absolute immediate
+    let result = helper_function();
+    return result;
+}
+
+fn helper_function() -> felt {
+    // Ret: return instruction
+    return 42;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_function_calls {
+    entry: 0
+
+    0:
+      %0 = call 1()
+      return %0
+
+  }
+
+  // Function 1
+  fn helper_function {
+    entry: 0
+
+    0:
+      return 42
+
+  }
+
+}

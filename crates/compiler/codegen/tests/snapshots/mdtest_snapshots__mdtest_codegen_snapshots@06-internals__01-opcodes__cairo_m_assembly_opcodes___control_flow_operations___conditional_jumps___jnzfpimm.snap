@@ -1,0 +1,49 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Cairo-M Assembly Opcodes - Control Flow Operations - Conditional Jumps - JnzFpImm"
+input_file: mdtest/06-internals/01-opcodes.md
+---
+Test: Cairo-M Assembly Opcodes - Control Flow Operations - Conditional Jumps - JnzFpImm
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/06-internals/01-opcodes.md
+============================================================
+Source:
+fn test_conditional_jumps() -> felt {
+    let x = 10;
+    let result = 0;
+
+    // JnzFpImm: jump relative immediate if [fp + cond_off] != 0
+    if x != 0 {
+        result = 100;
+    }
+
+    if x == 5 {
+        result = 200;
+    } else {
+        result = result + 50;
+    }
+
+    return result;
+}
+============================================================
+Generated CASM:
+test_conditional_jumps:
+test_conditional_jumps:
+test_conditional_jumps_0:
+   0: 9 10 0 _             // [fp + 0] = 10
+   1: 9 0 1 _              // [fp + 1] = 0
+   2: 14 0 2 _             // if [fp + 0] != 0 jmp rel test_conditional_jumps_1
+   3: 12 5 _ _             // jump abs test_conditional_jumps_2
+test_conditional_jumps_1:
+   4: 9 100 1 _            // Store immediate: [fp + 1] = 100
+test_conditional_jumps_2:
+   5: 5 0 5 3              // [fp + 3] = [fp + 0] op 5
+   6: 14 3 3 _             // if [fp + 3] != 0 jmp rel test_conditional_jumps_4
+test_conditional_jumps_3:
+   7: 9 200 1 _            // Store immediate: [fp + 1] = 200
+   8: 12 11 _ _            // jump abs test_conditional_jumps_5
+test_conditional_jumps_4:
+   9: 4 1 0 4              // [fp + 4] = [fp + 1] + 0
+  10: 4 4 50 1             // [fp + 1] = [fp + 4] op 50
+test_conditional_jumps_5:
+  11: 4 1 0 -3             // Return value 0: [fp -3] = [fp + 1] + 0
+  12: 11 _ _ _             // return

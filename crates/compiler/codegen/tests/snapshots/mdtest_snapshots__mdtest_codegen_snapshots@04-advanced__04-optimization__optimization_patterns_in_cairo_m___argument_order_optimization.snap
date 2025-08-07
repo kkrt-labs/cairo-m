@@ -1,0 +1,43 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Optimization Patterns in Cairo-M - Argument Order Optimization"
+input_file: mdtest/04-advanced/04-optimization.md
+---
+Test: Optimization Patterns in Cairo-M - Argument Order Optimization
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/04-advanced/04-optimization.md
+============================================================
+Source:
+fn test_arg_order() -> felt {
+    let x = 1;
+    let y = 2;
+    let z = 3;
+    let w = 4;
+    return process_four(x, y, z, w);  // Arguments in natural order
+}
+
+fn process_four(a: felt, b: felt, c: felt, d: felt) -> felt {
+    return a + b + c + d;
+}
+============================================================
+Generated CASM:
+test_arg_order:
+test_arg_order:
+test_arg_order_0:
+   0: 9 1 0 _              // [fp + 0] = 1
+   1: 9 2 1 _              // [fp + 1] = 2
+   2: 9 3 2 _              // [fp + 2] = 3
+   3: 9 4 8 _              // [fp + 8] = 4
+   4: 4 0 0 9              // Arg 0 slot 0: [fp + 9] = [fp + 0] + 0
+   5: 4 1 0 10             // Arg 1 slot 0: [fp + 10] = [fp + 1] + 0
+   6: 4 2 0 11             // Arg 2 slot 0: [fp + 11] = [fp + 2] + 0
+   7: 4 8 0 12             // Arg 3 slot 0: [fp + 12] = [fp + 8] + 0
+   8: 10 14 11 _           // call process_four
+   9: 4 13 0 -3            // Return value 0: [fp -3] = [fp + 13] + 0
+  10: 11 _ _ _             // return
+process_four:
+process_four:
+process_four_0:
+  11: 0 -7 -6 0            // [fp + 0] = [fp + -7] op [fp + -6]
+  12: 0 0 -5 1             // [fp + 1] = [fp + 0] op [fp + -5]
+  13: 0 1 -4 -3            // [fp + -3] = [fp + 1] op [fp + -4]
+  14: 11 _ _ _             // return

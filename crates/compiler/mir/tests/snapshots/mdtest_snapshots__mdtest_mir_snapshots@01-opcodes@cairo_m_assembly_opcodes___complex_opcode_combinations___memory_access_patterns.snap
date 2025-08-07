@@ -1,0 +1,44 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Cairo-M Assembly Opcodes - Complex Opcode Combinations - Memory Access Patterns"
+input_file: mdtest/06-internals/01-opcodes.md
+---
+Test: Cairo-M Assembly Opcodes - Complex Opcode Combinations - Memory Access Patterns
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/06-internals/01-opcodes.md
+============================================================
+Source:
+fn test_memory_patterns() -> u32 {
+    // Store immediates
+    let base_value: u32 = 100;
+    let offset: u32 = 5;
+
+    // Arithmetic operations creating intermediate values
+    let intermediate1 = base_value * 2u32;
+    let intermediate2 = base_value + offset;
+    let intermediate3 = intermediate1 - intermediate2;
+
+    // Complex expression combining multiple operations
+    let final_result = (intermediate3 + 50u32) / 3u32;
+
+    return final_result;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_memory_patterns {
+    entry: 0
+
+    0:
+      %0 = 100 (u32)
+      %1 = 5 (u32)
+      %2 = %0 U32Mul 2
+      %3 = %0 U32Add %1
+      %4 = %2 U32Sub %3
+      %5 = %4 U32Add 50
+      %6 = %5 U32Div 3
+      return %6
+
+  }
+
+}

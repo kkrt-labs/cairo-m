@@ -1,0 +1,31 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Complex Expressions in Cairo-M - Unary Operations"
+input_file: mdtest/01-basics/06-expressions.md
+---
+Test: Complex Expressions in Cairo-M - Unary Operations
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/01-basics/06-expressions.md
+============================================================
+Source:
+fn test_unary_ops() -> felt {
+    let x = 10;
+    let neg_x = -x;           // -10 in field arithmetic
+    let double_neg = --x;     // 10 (double negation)
+    return double_neg;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_unary_ops {
+    entry: 0
+
+    0:
+      %0 = 10
+      %3 = Neg %0
+      %4 = Neg %3
+      return %4
+
+  }
+
+}

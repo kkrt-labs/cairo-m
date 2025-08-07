@@ -1,6 +1,0 @@
-fn simple_and() -> bool {
-    let x = true;
-    let y = true;
-    let z = x && y;
-    return z;
-}

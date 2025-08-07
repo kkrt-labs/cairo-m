@@ -1,6 +1,0 @@
-fn simple_or() -> bool {
-    let x = true;
-    let y = false;
-    let z = x || y;
-    return z;
-}

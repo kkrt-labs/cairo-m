@@ -1,0 +1,29 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Error Handling and Edge Cases in Cairo-M - Field Boundary Values"
+input_file: mdtest/05-edge-cases/01-error-handling.md
+---
+Test: Error Handling and Edge Cases in Cairo-M - Field Boundary Values
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/05-edge-cases/01-error-handling.md
+============================================================
+Source:
+fn field_max_value() -> felt {
+    let max_val = 2147483646;  // 2^31 - 2
+    let max_plus_one = max_val + 1;  // Should equal 2^31 - 1 which is (0 modulo 2^31 - 1)
+    return max_plus_one;  // Returns 0
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn field_max_value {
+    entry: 0
+
+    0:
+      %0 = 2147483646
+      %1 = %0 Add 1
+      return %1
+
+  }
+
+}

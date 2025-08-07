@@ -1,0 +1,39 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Cairo-M Assembly Opcodes - U32 Arithmetic Operations - U32 Multiplication - U32StoreMulFpFp and U32StoreMulFpImm"
+input_file: mdtest/06-internals/01-opcodes.md
+---
+Test: Cairo-M Assembly Opcodes - U32 Arithmetic Operations - U32 Multiplication - U32StoreMulFpFp and U32StoreMulFpImm
+File: /Users/msaug/kkrt-labs/cairo-m/mdtest/06-internals/01-opcodes.md
+============================================================
+Source:
+fn test_u32_multiplication() -> u32 {
+    let a: u32 = 12;
+    let b: u32 = 8;
+
+    // U32StoreMulFpFp: u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) * u32([fp + src1_off], [fp + src1_off + 1])
+    let prod1: u32 = a * b;
+
+    // U32StoreMulFpImm: u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) * u32(imm_lo, imm_hi)
+    let prod2: u32 = a * 3;
+
+    return prod1 * prod2;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_u32_multiplication {
+    entry: 0
+
+    0:
+      %0 = 12 (u32)
+      %1 = 8 (u32)
+      %2 = %0 U32Mul %1
+      %3 = %0 U32Mul 3
+      %4 = %2 U32Mul %3
+      return %4
+
+  }
+
+}
