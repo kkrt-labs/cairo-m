@@ -28,28 +28,27 @@ fn fib(n: felt) -> felt {
 ============================================================
 Generated CASM:
 main:
-   0: 9 10 3 _             // Direct arg placement: [fp + 3] = 10
-   3: 10 5 15 _            // call fib
-   6: 4 4 0 2              // Store: [fp + 2] = [fp + 4] + 0
-  10: 4 2 0 -3             // Return value 0: [fp -3] = [fp + 2] + 0
-  14: 11 _ _ _             // return
+   0: 9 10 2 _             // [fp + 2] = 10
+   3: 10 4 11 _            // call fib
+   6: 4 3 0 -3             // Return value 0: [fp -3] = [fp + 3] + 0
+  10: 11 _ _ _             // return
 fib:
-  15: 14 -4 9 _            // if [fp + -4] != 0 jmp rel fib_2
-  18: 12 20 _ _            // jump abs fib_1
+  11: 14 -4 9 _            // if [fp + -4] != 0 jmp rel fib_2
+  14: 12 16 _ _            // jump abs fib_1
 fib_1:
-  20: 9 0 -3 _             // Return value 0: [fp -3] = 0
-  23: 11 _ _ _             // return
+  16: 9 0 -3 _             // Return value 0: [fp -3] = 0
+  19: 11 _ _ _             // return
 fib_2:
-  24: 5 -4 1 5             // [fp + 5] = [fp + -4] op 1
-  28: 14 5 7 _             // if [fp + 5] != 0 jmp rel fib_4
+  20: 5 -4 1 5             // [fp + 5] = [fp + -4] op 1
+  24: 14 5 7 _             // if [fp + 5] != 0 jmp rel fib_4
 fib_3:
-  31: 9 1 -3 _             // Return value 0: [fp -3] = 1
-  34: 11 _ _ _             // return
-fib_4:
-  35: 5 -4 1 6             // [fp + 6] = [fp + -4] op 1
-  39: 10 8 15 _            // call fib
+  27: 9 1 -3 _             // Return value 0: [fp -3] = 1
 fib:
-  42: 5 -4 2 9             // [fp + 9] = [fp + -4] op 2
-  46: 10 11 15 _           // call fib
-  49: 0 7 10 -3            // [fp + -3] = [fp + 7] op [fp + 10]
-  53: 11 _ _ _             // return
+  30: 11 _ _ _             // return
+fib_4:
+  31: 5 -4 1 6             // [fp + 6] = [fp + -4] op 1
+  35: 10 8 11 _            // call fib
+  38: 5 -4 2 9             // [fp + 9] = [fp + -4] op 2
+  42: 10 11 11 _           // call fib
+  45: 0 7 10 -3            // [fp + -3] = [fp + 7] op [fp + 10]
+  49: 11 _ _ _             // return

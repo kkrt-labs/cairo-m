@@ -29,9 +29,8 @@ increment:
    4: 11 _ _ _             // return
 test_single_arg:
 test_single_arg_0:
-   5: 9 10 3 _             // Direct arg placement: [fp + 3] = 10
-   8: 10 5 0 _             // call increment
-  11: 4 4 0 2              // Store: [fp + 2] = [fp + 4] + 0
+   5: 9 10 2 _             // [fp + 2] = 10
+   8: 10 4 0 _             // call increment
+  11: 4 3 0 -3             // Return value 0: [fp -3] = [fp + 3] + 0
 test_single_arg:
-  15: 4 2 0 -3             // Return value 0: [fp -3] = [fp + 2] + 0
-  19: 11 _ _ _             // return
+  15: 11 _ _ _             // return

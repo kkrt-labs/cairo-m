@@ -51,8 +51,7 @@ fibonacci_loop_3:
   40: 4 0 0 -3             // Return value 0: [fp -3] = [fp + 0] + 0
   44: 11 _ _ _             // return
 main:
-  45: 9 10 3 _             // Direct arg placement: [fp + 3] = 10
-  48: 10 5 0 _             // call fibonacci_loop
-  51: 4 4 0 2              // Store: [fp + 2] = [fp + 4] + 0
-  55: 4 2 0 -3             // Return value 0: [fp -3] = [fp + 2] + 0
-  59: 11 _ _ _             // return
+  45: 9 10 2 _             // [fp + 2] = 10
+  48: 10 4 0 _             // call fibonacci_loop
+  51: 4 3 0 -3             // Return value 0: [fp -3] = [fp + 3] + 0
+  55: 11 _ _ _             // return

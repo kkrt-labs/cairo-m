@@ -29,24 +29,23 @@ fn new_struct() -> Point {
 ============================================================
 Generated CASM:
 main:
-   0: 10 14 13 _           // call new_struct
-   1: 4 0 0 2              // Load: [fp + 2] = [fp + 0] + 0
-   2: 5 2 3 3              // [fp + 3] = [fp + 2] op 3
-   3: 4 0 0 4              // Load: [fp + 4] = [fp + 0] + 0
-   4: 5 4 3 5              // [fp + 5] = [fp + 4] op 3
-   5: 2 3 5 6              // [fp + 6] = [fp + 3] op [fp + 5]
-   6: 4 1 0 7              // Load: [fp + 7] = [fp + 1] + 0
-   7: 5 7 4 8              // [fp + 8] = [fp + 7] op 4
-   8: 4 1 0 9              // Load: [fp + 9] = [fp + 1] + 0
-   9: 5 9 4 10             // [fp + 10] = [fp + 9] op 4
-  10: 2 8 10 11            // [fp + 11] = [fp + 8] op [fp + 10]
-  11: 0 6 11 -3            // [fp + -3] = [fp + 6] op [fp + 11]
-  12: 11 _ _ _             // return
-new_struct:
+   0: 10 14 48 _           // call new_struct
+   3: 4 0 0 2              // Load: [fp + 2] = [fp + 0] + 0
+   7: 5 2 3 3              // [fp + 3] = [fp + 2] op 3
+  11: 4 0 0 4              // Load: [fp + 4] = [fp + 0] + 0
+  15: 5 4 3 5              // [fp + 5] = [fp + 4] op 3
+  19: 2 3 5 6              // [fp + 6] = [fp + 3] op [fp + 5]
+  23: 4 1 0 7              // Load: [fp + 7] = [fp + 1] + 0
+  27: 5 7 4 8              // [fp + 8] = [fp + 7] op 4
+  31: 4 1 0 9              // Load: [fp + 9] = [fp + 1] + 0
+  35: 5 9 4 10             // [fp + 10] = [fp + 9] op 4
+  39: 2 8 10 11            // [fp + 11] = [fp + 8] op [fp + 10]
+  43: 0 6 11 -3            // [fp + -3] = [fp + 6] op [fp + 11]
+  47: 11 _ _ _             // return
 new_struct:
 new_struct_0:
-  13: 9 1 0 _              // Store immediate: [fp + 0] = 1
-  14: 9 2 1 _              // Store immediate: [fp + 1] = 2
-  15: 4 0 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
-  16: 4 1 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
-  17: 11 _ _ _             // return
+  48: 9 1 0 _              // Store immediate: [fp + 0] = 1
+  51: 9 2 1 _              // Store immediate: [fp + 1] = 2
+  54: 4 0 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
+  58: 4 1 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
+  62: 11 _ _ _             // return
