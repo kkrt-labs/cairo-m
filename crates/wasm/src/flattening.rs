@@ -210,6 +210,33 @@ impl DagToMir {
         node: &womir::loader::blockless_dag::Node,
         context: &mut DagToMirContext,
     ) -> Result<(), DagToMirError> {
+        // Setup loop structure and get input values
+        let (loop_header_block, loop_exit_block, loop_input_values) =
+            self.setup_loop_structure(node, context)?;
+
+        // Save current context for nested loops
+        let loop_context = self.save_loop_context(context, loop_header_block, loop_exit_block);
+
+        // Save and setup loop variable mappings
+        let saved_mappings = self.setup_loop_variables(&loop_input_values, context)?;
+
+        // Process the loop body
+        self.generate_instructions_from_dag(sub_dag, context)?;
+
+        // Restore context and finalize loop
+        self.restore_loop_context(context, loop_context);
+        self.restore_variable_mappings(context, saved_mappings);
+        self.finalize_loop(context, loop_exit_block)?;
+
+        Ok(())
+    }
+
+    /// Setup loop structure: create header/exit blocks and process input values
+    fn setup_loop_structure(
+        &self,
+        node: &womir::loader::blockless_dag::Node,
+        context: &mut DagToMirContext,
+    ) -> Result<(BasicBlockId, BasicBlockId, Vec<Value>), DagToMirError> {
         // Create a loop header block where the loop begins
         let loop_header_block = context.allocate_basic_block();
 
@@ -230,12 +257,31 @@ impl DagToMir {
         // Create an exit block for when the loop terminates
         let loop_exit_block = context.allocate_basic_block();
 
-        // Save the current loop context so nested loops can work
+        Ok((loop_header_block, loop_exit_block, loop_input_values))
+    }
+
+    /// Save current loop context for nested loop support
+    const fn save_loop_context(
+        &self,
+        context: &mut DagToMirContext,
+        loop_header_block: BasicBlockId,
+        loop_exit_block: BasicBlockId,
+    ) -> (Option<BasicBlockId>, Option<BasicBlockId>) {
         let previous_loop_exit = context.current_loop_exit;
         let previous_loop_header = context.current_loop_header;
+
         context.current_loop_exit = Some(loop_exit_block);
         context.current_loop_header = Some(loop_header_block);
 
+        (previous_loop_exit, previous_loop_header)
+    }
+
+    /// Setup loop variable mappings and save previous mappings
+    fn setup_loop_variables(
+        &self,
+        loop_input_values: &[Value],
+        context: &mut DagToMirContext,
+    ) -> Result<Vec<(ValueOrigin, Option<ValueId>)>, DagToMirError> {
         // Save current value mappings for loop variables to restore later
         let mut saved_mappings = Vec::new();
         for idx in 0..loop_input_values.len() {
@@ -253,7 +299,6 @@ impl DagToMir {
             context.get_current_block().push_instruction(instruction);
 
             // Map this to the loop body's Input node outputs
-            // Based on WASM semantics: idx=0 is counter, idx=1 is sum
             let value_origin = ValueOrigin {
                 node: 0, // The Input node in sub_dag is always node 0
                 output_idx: idx as u32,
@@ -261,14 +306,26 @@ impl DagToMir {
             context.value_map.insert(value_origin, loop_var_id);
         }
 
-        // Recursively process the loop body (sub_dag)
-        self.generate_instructions_from_dag(sub_dag, context)?;
+        Ok(saved_mappings)
+    }
 
-        // Restore previous loop context
+    /// Restore previous loop context
+    const fn restore_loop_context(
+        &self,
+        context: &mut DagToMirContext,
+        loop_context: (Option<BasicBlockId>, Option<BasicBlockId>),
+    ) {
+        let (previous_loop_exit, previous_loop_header) = loop_context;
         context.current_loop_exit = previous_loop_exit;
         context.current_loop_header = previous_loop_header;
+    }
 
-        // Restore saved value mappings
+    /// Restore saved variable mappings
+    fn restore_variable_mappings(
+        &self,
+        context: &mut DagToMirContext,
+        saved_mappings: Vec<(ValueOrigin, Option<ValueId>)>,
+    ) {
         for (value_origin, saved_value) in saved_mappings {
             if let Some(saved) = saved_value {
                 context.value_map.insert(value_origin, saved);
@@ -276,7 +333,14 @@ impl DagToMir {
                 context.value_map.remove(&value_origin);
             }
         }
+    }
 
+    /// Finalize loop: ensure termination and set exit block
+    fn finalize_loop(
+        &self,
+        context: &mut DagToMirContext,
+        loop_exit_block: BasicBlockId,
+    ) -> Result<(), DagToMirError> {
         // If the loop body didn't end with a terminator, jump to exit
         if let Some(current_block_id) = context.current_block_id {
             let current_block = &mut context.mir_function.basic_blocks[current_block_id];
@@ -287,7 +351,6 @@ impl DagToMir {
 
         // Continue execution from the loop exit block
         context.set_current_block(loop_exit_block);
-
         Ok(())
     }
 
@@ -698,21 +761,36 @@ impl DagToMir {
                 // Get signature from wasm module
                 let signature = self.module.with_program(|program| {
                     let func_type = program.c.get_func_type(*function_index);
-                    CalleeSignature {
-                        param_types: func_type
-                            .ty
-                            .params()
-                            .iter()
-                            .map(|t| Self::wasm_type_to_mir_type(t).unwrap())
-                            .collect(),
-                        return_types: func_type
-                            .ty
-                            .results()
-                            .iter()
-                            .map(|t| Self::wasm_type_to_mir_type(t).unwrap())
-                            .collect(),
-                    }
+
+                    // Handle param types with proper error handling
+                    let param_types: Result<Vec<MirType>, DagToMirError> = func_type
+                        .ty
+                        .params()
+                        .iter()
+                        .map(Self::wasm_type_to_mir_type)
+                        .collect();
+
+                    // Handle return types with proper error handling
+                    let return_types: Result<Vec<MirType>, DagToMirError> = func_type
+                        .ty
+                        .results()
+                        .iter()
+                        .map(Self::wasm_type_to_mir_type)
+                        .collect();
+
+                    // Return both results
+                    (param_types, return_types)
                 });
+
+                // Handle the errors from type conversion
+                let (param_types, return_types) = signature;
+                let param_types = param_types?;
+                let return_types = return_types?;
+
+                let signature = CalleeSignature {
+                    param_types,
+                    return_types,
+                };
 
                 let instruction = Instruction::call(vec![result_id], callee_id, inputs, signature);
                 context.get_current_block().push_instruction(instruction);
