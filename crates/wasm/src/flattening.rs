@@ -37,6 +37,10 @@ struct DagToMirContext {
     label_map: HashMap<u32, BasicBlockId>,
     /// Map from WASM local variable indices to MIR ValueId
     local_map: HashMap<u32, ValueId>,
+    /// Track values flowing into labels: label_id -> Vec<(source_block, values)>
+    label_inputs: HashMap<u32, Vec<(BasicBlockId, Vec<ValueId>)>>,
+    /// Track which block we're coming from when jumping
+    current_source_block: Option<BasicBlockId>,
     /// The MIR function being built
     mir_function: MirFunction,
     /// Current basic block being constructed
@@ -55,6 +59,8 @@ impl DagToMirContext {
             value_map: HashMap::new(),
             label_map: HashMap::new(),
             local_map: HashMap::new(),
+            label_inputs: HashMap::new(),
+            current_source_block: None,
             mir_function,
             current_block_id: Some(0.into()),
             next_value_id: 0,
@@ -79,7 +85,32 @@ impl DagToMirContext {
     }
 
     const fn set_current_block(&mut self, block_id: BasicBlockId) {
+        self.current_source_block = self.current_block_id;
         self.current_block_id = Some(block_id);
+    }
+
+    /// Record values flowing into a label from a branch
+    fn record_label_input(&mut self, label_id: u32, values: Vec<ValueId>) {
+        if let Some(source_block) = self.current_source_block {
+            self.label_inputs
+                .entry(label_id)
+                .or_default()
+                .push((source_block, values));
+        }
+    }
+
+    /// Resolve the actual value for a label output by implementing simple phi logic
+    fn resolve_label_value(&self, label_id: u32, output_idx: usize) -> Option<ValueId> {
+        if let Some(inputs) = self.label_inputs.get(&label_id) {
+            // For now, take the last recorded value (most recent branch)
+            // In a full SSA implementation, this would be a proper phi node
+            for (_source_block, values) in inputs.iter().rev() {
+                if output_idx < values.len() {
+                    return Some(values[output_idx]);
+                }
+            }
+        }
+        None
     }
 }
 
@@ -90,7 +121,9 @@ impl DagToMir {
 
     /// Convert WASM type to MIR type
     /// For now, we only support i32
-    fn wasm_type_to_mir_type(wasm_type: &wasmparser::ValType) -> Result<MirType, DagToMirError> {
+    const fn wasm_type_to_mir_type(
+        wasm_type: &wasmparser::ValType,
+    ) -> Result<MirType, DagToMirError> {
         match wasm_type {
             wasmparser::ValType::I32 => Ok(MirType::U32),
             _ => Err(DagToMirError::UnsupportedWasmType(*wasm_type)),
@@ -209,7 +242,6 @@ impl DagToMir {
                     context.set_current_block(block_id);
 
                     // Handle label inputs - these are values flowing into this label from branches
-                    // For simplicity, we'll create phi-like assignments for each input
                     for (output_idx, _output_type) in node.output_types.iter().enumerate() {
                         let value_id = context.allocate_value_id();
                         let value_origin = ValueOrigin {
@@ -218,10 +250,18 @@ impl DagToMir {
                         };
                         context.value_map.insert(value_origin, value_id);
 
-                        // TODO: In a full implementation, we'd need proper phi nodes here
-                        // For now, we'll create a placeholder assignment
-                        let instruction = Instruction::assign(value_id, Value::integer(0));
-                        context.get_current_block().push_instruction(instruction);
+                        // Try to resolve the actual value flowing into this label
+                        if let Some(actual_value_id) = context.resolve_label_value(*id, output_idx)
+                        {
+                            // Use the actual value from the incoming branch
+                            let instruction =
+                                Instruction::assign(value_id, Value::operand(actual_value_id));
+                            context.get_current_block().push_instruction(instruction);
+                        } else {
+                            // Fallback to placeholder if no value is recorded
+                            let instruction = Instruction::assign(value_id, Value::integer(0));
+                            context.get_current_block().push_instruction(instruction);
+                        }
                     }
                 }
 
@@ -242,6 +282,37 @@ impl DagToMir {
                     } else {
                         // This is a jump to another block
                         let target_block = self.resolve_break_target(target, context)?;
+
+                        // Record values being passed to the target label
+                        if let TargetType::Label(label_id) = target.kind {
+                            let input_values: Result<Vec<Value>, _> = node
+                                .inputs
+                                .iter()
+                                .map(|vo| self.get_input_value(vo, context))
+                                .collect();
+                            let input_values = input_values?;
+
+                            // Convert Values to ValueIds for tracking
+                            let mut value_ids = Vec::new();
+                            for value in input_values {
+                                match value {
+                                    Value::Operand(vid) => value_ids.push(vid),
+                                    Value::Literal(_) => {
+                                        // Create a temporary value for literals
+                                        let temp_id = context.allocate_value_id();
+                                        let instruction = Instruction::assign(temp_id, value);
+                                        context.get_current_block().push_instruction(instruction);
+                                        value_ids.push(temp_id);
+                                    }
+                                    Value::Error => {
+                                        // Skip error values
+                                    }
+                                }
+                            }
+
+                            context.record_label_input(label_id, value_ids);
+                        }
+
                         let terminator = Terminator::jump(target_block);
                         context.get_current_block().set_terminator(terminator);
                     }
