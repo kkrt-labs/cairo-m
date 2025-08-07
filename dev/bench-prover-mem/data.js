@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1754571129754,
+  "lastUpdate": 1754580401819,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -985,6 +985,35 @@ window.BENCHMARK_DATA = {
           {
             "name": "fibonacci_prove_peak_mem",
             "value": 2413860443,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "07282de0487caaaf850c199454e13700a9dbe8f6",
+          "message": "feat: implement comprehensive mdtest markdown-based testing system (#226)\n\n* feat(test): centralize test data across workspace with auto-discovery\n\nBREAKING CHANGE: Test structure reorganization\n\n## Changes\n- Created centralized `test_data/` directory at workspace root\n- Added `cairo_m_test_utils` helper crate for test fixture management\n- Implemented auto-discovery tests for codegen and MIR using insta's glob\\! macro\n- Removed duplicate test data from individual crates\n- Updated all test crates to use shared fixtures\n\n## Benefits\n- Single source of truth for all test fixtures\n- Automatic test generation for all fixtures in test_data/\n- No more duplicate test files across crates\n- Easier maintenance and better discoverability\n- All snapshots generated in a single test run\n\n## Test Utils API\n- `fixture_path(name)` - Get path to fixture\n- `read_fixture(name)` - Load fixture contents\n- `discover_all_fixtures()` - List all fixtures\n- `test_data_path()` - Get test_data directory path\n\n* feat: add mdtests markdown files\n\n* feat: add util files to discover & parse mdtests\n\n* feat: implement diff-testing in runner for mdtests\n\n* dev: expand pattern to convert to valid rust in tests\n\n* refactor(test): eliminate duplication in mdtest runners with generic infrastructure\n\n- Created generic MdTestRunner to eliminate ~70% code duplication between MIR and codegen test files\n- Fixed parser edge cases when Cairo-M blocks appear before headings\n- Removed noisy eprintln\\! statements from test output\n- Documented Location struct's line number approximation limitation\n- Reduced test files from ~140 lines to ~40 lines each\n\nThe refactoring improves maintainability by centralizing test running logic while preserving all existing functionality.\n\n* feat(mdtest): add comprehensive test coverage and support multiple snippets per section\n\n- Add support for multiple Cairo-M snippets in same markdown section with automatic numbering\n- Implement H3 heading support for more granular test naming\n- Add automatic renaming of main functions in Rust code to avoid conflicts\n- Create extensive new test files covering arrays, expressions, multiple functions, mutual recursion, optimization patterns, error handling, and opcodes\n- Update mdtest README with comprehensive documentation on test generation, annotations, and best practices\n- Fix parser to properly handle multiple tests per section without Rust code duplication\n\nThis completes the mdtest migration from scattered MIR/Codegen test files to a unified markdown-based testing system that serves as both documentation and validation.\n\n* refill snapshots\n\n* fmt\n\n* update snapshot naming\n\n* fix last tests\n\n* fix benchmarks",
+          "timestamp": "2025-08-07T17:12:14+02:00",
+          "tree_id": "b8517812aa33b71dc278cc721da39f450c89075e",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/07282de0487caaaf850c199454e13700a9dbe8f6"
+        },
+        "date": 1754580401767,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2413860454,
             "unit": "bytes"
           }
         ]
