@@ -1,0 +1,35 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Optimization Patterns in Cairo-M - Loop Optimization"
+input_file: mdtest/04-advanced/04-optimization.md
+---
+Source:
+fn test_loop_optimization() -> felt {
+    let i = 0;
+    let sum = 0;
+    while (i != 5) {
+        sum = sum + i;  // Accumulator pattern
+        i = i + 1;      // Simple increment
+    }
+    return sum;
+}
+============================================================
+Generated CASM:
+test_loop_optimization:
+test_loop_optimization:
+test_loop_optimization_0:
+   0: 9 0 0 _              // [fp + 0] = 0
+   1: 9 0 1 _              // [fp + 1] = 0
+test_loop_optimization_1:
+   2: 5 0 5 4              // [fp + 4] = [fp + 0] op 5
+   3: 14 4 2 _             // if [fp + 4] != 0 jmp rel test_loop_optimization_2
+   4: 12 10 _ _            // jump abs test_loop_optimization_3
+test_loop_optimization_2:
+   5: 4 1 0 5              // [fp + 5] = [fp + 1] + 0
+   6: 0 5 0 1              // [fp + 1] = [fp + 5] op [fp + 0]
+   7: 4 0 0 5              // [fp + 5] = [fp + 0] + 0
+   8: 4 5 1 0              // [fp + 0] = [fp + 5] op 1
+   9: 12 2 _ _             // jump abs test_loop_optimization_1
+test_loop_optimization_3:
+  10: 4 1 0 -3             // Return value 0: [fp -3] = [fp + 1] + 0
+  11: 11 _ _ _             // return

@@ -1,0 +1,29 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Cairo-M Assembly Opcodes - Felt Arithmetic Operations - Subtraction - StoreSubFpFp and StoreSubFpImm"
+input_file: mdtest/06-internals/01-opcodes.md
+---
+Source:
+fn test_subtraction() -> felt {
+    let a = 15;
+    let b = 7;
+
+    // StoreSubFpFp: [fp + dst_off] = [fp + src0_off] - [fp + src1_off]
+    let diff1 = a - b;
+
+    // StoreSubFpImm: [fp + dst_off] = [fp + src_off] - imm
+    let diff2 = a - 2;
+
+    return diff1 - diff2;
+}
+============================================================
+Generated CASM:
+test_subtraction:
+test_subtraction:
+test_subtraction_0:
+   0: 9 15 0 _             // [fp + 0] = 15
+   1: 9 7 1 _              // [fp + 1] = 7
+   2: 1 0 1 2              // [fp + 2] = [fp + 0] op [fp + 1]
+   3: 5 0 2 3              // [fp + 3] = [fp + 0] op 2
+   4: 1 2 3 -3             // [fp + -3] = [fp + 2] op [fp + 3]
+   5: 11 _ _ _             // return

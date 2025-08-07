@@ -1,0 +1,21 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Tuples in Cairo-M - Tuple Destructuring"
+input_file: mdtest/03-types/01-tuples.md
+---
+Source:
+fn destructuring_tuple() -> felt {
+    let (a, b, c) = (1, 2, 3);
+    return a + b + c;
+}
+============================================================
+Generated CASM:
+destructuring_tuple:
+destructuring_tuple:
+destructuring_tuple_0:
+   0: 9 1 0 _              // [fp + 0] = 1
+   1: 9 2 1 _              // [fp + 1] = 2
+   2: 9 3 2 _              // [fp + 2] = 3
+   3: 0 0 1 3              // [fp + 3] = [fp + 0] op [fp + 1]
+   4: 0 3 2 -3             // [fp + -3] = [fp + 3] op [fp + 2]
+   5: 11 _ _ _             // return

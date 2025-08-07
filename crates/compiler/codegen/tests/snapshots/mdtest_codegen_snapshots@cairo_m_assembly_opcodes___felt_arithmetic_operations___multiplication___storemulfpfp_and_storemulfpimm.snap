@@ -1,0 +1,29 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Cairo-M Assembly Opcodes - Felt Arithmetic Operations - Multiplication - StoreMulFpFp and StoreMulFpImm"
+input_file: mdtest/06-internals/01-opcodes.md
+---
+Source:
+fn test_multiplication() -> felt {
+    let a = 6;
+    let b = 4;
+
+    // StoreMulFpFp: [fp + dst_off] = [fp + src0_off] * [fp + src1_off]
+    let prod1 = a * b;
+
+    // StoreMulFpImm: [fp + dst_off] = [fp + src_off] * imm
+    let prod2 = a * 3;
+
+    return prod1 * prod2;
+}
+============================================================
+Generated CASM:
+test_multiplication:
+test_multiplication:
+test_multiplication_0:
+   0: 9 6 0 _              // [fp + 0] = 6
+   1: 9 4 1 _              // [fp + 1] = 4
+   2: 2 0 1 2              // [fp + 2] = [fp + 0] op [fp + 1]
+   3: 6 0 3 3              // [fp + 3] = [fp + 0] op 3
+   4: 2 2 3 -3             // [fp + -3] = [fp + 2] op [fp + 3]
+   5: 11 _ _ _             // return

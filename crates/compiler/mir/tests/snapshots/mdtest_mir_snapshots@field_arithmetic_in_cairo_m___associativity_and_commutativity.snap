@@ -1,0 +1,47 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Field Arithmetic in Cairo-M - Associativity and Commutativity"
+input_file: mdtest/01-basics/04-arithmetic.md
+---
+Source:
+fn test_properties() -> felt {
+    let a = 12;
+    let b = 8;
+    let c = 5;
+
+    // Associativity: (a + b) + c == a + (b + c)
+    let assoc1 = (a + b) + c;
+    let assoc2 = a + (b + c);
+
+    // Commutativity: a * b == b * a
+    let comm1 = a * b;
+    let comm2 = b * a;
+
+    // Should be 0 if properties hold
+    return (assoc1 - assoc2) + (comm1 - comm2);  // Returns 0
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_properties {
+    entry: 0
+
+    0:
+      %0 = 12
+      %1 = 8
+      %2 = 5
+      %3 = %0 Add %1
+      %4 = %3 Add %2
+      %5 = %1 Add %2
+      %6 = %0 Add %5
+      %7 = %0 Mul %1
+      %8 = %1 Mul %0
+      %9 = %4 Sub %6
+      %10 = %7 Sub %8
+      %11 = %9 Add %10
+      return %11
+
+  }
+
+}

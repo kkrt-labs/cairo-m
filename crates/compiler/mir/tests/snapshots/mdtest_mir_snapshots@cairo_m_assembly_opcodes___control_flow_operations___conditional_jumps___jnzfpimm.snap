@@ -1,0 +1,56 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Cairo-M Assembly Opcodes - Control Flow Operations - Conditional Jumps - JnzFpImm"
+input_file: mdtest/06-internals/01-opcodes.md
+---
+Source:
+fn test_conditional_jumps() -> felt {
+    let x = 10;
+    let result = 0;
+
+    // JnzFpImm: jump relative immediate if [fp + cond_off] != 0
+    if x != 0 {
+        result = 100;
+    }
+
+    if x == 5 {
+        result = 200;
+    } else {
+        result = result + 50;
+    }
+
+    return result;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_conditional_jumps {
+    entry: 0
+
+    0:
+      %0 = 10
+      %1 = 0
+      if %0 then jump 1 else jump 2
+
+    1:
+      store %1, 100
+      jump 2
+
+    2:
+      if %0 Eq 5 then jump 3 else jump 4
+
+    3:
+      store %1, 200
+      jump 5
+
+    4:
+      %1 = %1 Add 50
+      jump 5
+
+    5:
+      return %1
+
+  }
+
+}

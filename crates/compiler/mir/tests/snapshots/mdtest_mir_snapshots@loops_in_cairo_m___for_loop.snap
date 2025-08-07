@@ -1,0 +1,42 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Loops in Cairo-M - For Loop"
+input_file: mdtest/02-control-flow/02-loops.md
+---
+Source:
+fn sum_to_n() -> felt {
+    let sum = 0;
+    for (let i = 0; i != 10; i = i + 1) {
+        sum = sum + i;
+    }
+    return sum;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn sum_to_n {
+    entry: 0
+
+    0:
+      %0 = 0
+      %1 = 0
+      jump 1
+
+    1:
+      if %1 Neq 10 then jump 2 else jump 4
+
+    2:
+      %0 = %0 Add %1
+      jump 3
+
+    3:
+      %1 = %1 Add 1
+      jump 1
+
+    4:
+      return %0
+
+  }
+
+}

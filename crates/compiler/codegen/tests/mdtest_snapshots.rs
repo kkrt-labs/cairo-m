@@ -8,6 +8,7 @@ use cairo_m_compiler_codegen::CodeGenerator;
 use cairo_m_compiler_mir::generate_mir;
 use cairo_m_test_utils::{mdtest::MdTestRunner, mdtest_path};
 use common::{create_test_crate, TestDatabase};
+use std::path::PathBuf;
 
 #[test]
 fn test_mdtest_codegen_snapshots() {
@@ -43,7 +44,8 @@ fn test_mdtest_codegen_snapshots() {
             with_settings!({
                 description => format!("Codegen snapshot for mdtest: {}", snapshot.name).as_str(),
                 omit_expression => true,
-                snapshot_suffix => snapshot.suffix
+                snapshot_suffix => snapshot.suffix,
+                prepend_module_to_snapshot => false,
             }, {
                 assert_snapshot!(snapshot.content);
             });

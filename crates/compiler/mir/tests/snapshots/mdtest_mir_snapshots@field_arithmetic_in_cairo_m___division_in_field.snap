@@ -1,0 +1,27 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Field Arithmetic in Cairo-M - Division in Field"
+input_file: mdtest/01-basics/04-arithmetic.md
+---
+Source:
+fn field_division() -> felt {
+    let a = 100;
+    let b = 10;
+    return a / b;  // Returns 10 (uses field inverse)
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn field_division {
+    entry: 0
+
+    0:
+      %0 = 100
+      %1 = 10
+      %2 = %0 Div %1
+      return %2
+
+  }
+
+}

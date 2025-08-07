@@ -1,0 +1,75 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Complex Expressions in Cairo-M - Nested Function Calls in Expressions"
+input_file: mdtest/01-basics/06-expressions.md
+---
+Source:
+fn compute_base(x: felt) -> felt {
+    return x * 2;
+}
+
+fn compute_offset(y: felt) -> felt {
+    return y + 5;
+}
+
+fn test_function_expressions() -> felt {
+    let a = 7;
+    let b = 3;
+
+    // Function calls in expressions
+    let result1 = compute_base(a) + compute_offset(b);     // (7 * 2) + (3 + 5) = 14 + 8 = 22
+    let result2 = compute_base(a + b) - compute_offset(1); // (10 * 2) - (1 + 5) = 20 - 6 = 14
+
+    // Nested function calls
+    let result3 = compute_base(compute_offset(a));         // compute_base(7 + 5) = compute_base(12) = 24
+
+    return result1 + result2 + result3;                    // 22 + 14 + 24 = 60
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn compute_base {
+    parameters: [0]
+    entry: 0
+
+    0:
+      %1 = %0 Mul 2
+      return %1
+
+  }
+
+  // Function 1
+  fn compute_offset {
+    parameters: [0]
+    entry: 0
+
+    0:
+      %1 = %0 Add 5
+      return %1
+
+  }
+
+  // Function 2
+  fn test_function_expressions {
+    entry: 0
+
+    0:
+      %0 = 7
+      %1 = 3
+      %2 = call 0(%0)
+      %3 = call 1(%1)
+      %4 = %2 Add %3
+      %5 = %0 Add %1
+      %6 = call 0(%5)
+      %7 = call 1(1)
+      %8 = %6 Sub %7
+      %9 = call 1(%0)
+      %10 = call 0(%9)
+      %11 = %4 Add %8
+      %12 = %11 Add %10
+      return %12
+
+  }
+
+}

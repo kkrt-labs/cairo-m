@@ -38,35 +38,13 @@ impl<'a> MdTestRunner<'a> {
                 panic!("Failed to parse markdown file {}: {}", path.display(), e);
             }
         };
-
-        let file_stem = path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("unknown")
-            .to_string();
-
-        let parent_dir = if self.include_parent_dir {
-            path.parent()
-                .and_then(|p| p.file_name())
-                .and_then(|s| s.to_str())
-                .map(|s| s.to_string())
-        } else {
-            None
-        };
-
         tests
             .into_iter()
-            .filter_map(|test| self.process_test(test, path, &file_stem, parent_dir.as_deref()))
+            .filter_map(|test| self.process_test(test))
             .collect()
     }
 
-    fn process_test(
-        &self,
-        test: MdTest,
-        path: &Path,
-        file_stem: &str,
-        parent_dir: Option<&str>,
-    ) -> Option<TestSnapshot> {
+    fn process_test(&self, test: MdTest) -> Option<TestSnapshot> {
         // Skip ignored tests
         if test.metadata.ignore.is_some() {
             return None;
@@ -78,10 +56,7 @@ impl<'a> MdTestRunner<'a> {
         let snapshot_content = match (result, expects_error) {
             (Ok(output), false) => {
                 format!(
-                    "Test: {}\nFile: {}\n{}\nSource:\n{}\n{}\nGenerated {}:\n{}",
-                    test.name,
-                    path.display(),
-                    "=".repeat(60),
+                    "Source:\n{}\n{}\nGenerated {}:\n{}",
                     test.cairo_source,
                     "=".repeat(60),
                     self.phase_name,
@@ -93,10 +68,7 @@ impl<'a> MdTestRunner<'a> {
             }
             (Err(e), true) => {
                 format!(
-                    "Test: {}\nFile: {}\n{}\nSource:\n{}\n{}\nResult: EXPECTED ERROR\n{}",
-                    test.name,
-                    path.display(),
-                    "=".repeat(60),
+                    "Source:\n{}\n{}\nResult: EXPECTED ERROR\n{}",
                     test.cairo_source,
                     "=".repeat(60),
                     e
@@ -104,10 +76,7 @@ impl<'a> MdTestRunner<'a> {
             }
             (Err(e), false) => {
                 format!(
-                    "Test: {}\nFile: {}\n{}\nSource:\n{}\n{}\nResult: UNEXPECTED ERROR\n{}",
-                    test.name,
-                    path.display(),
-                    "=".repeat(60),
+                    "Source:\n{}\n{}\nResult: UNEXPECTED ERROR\n{}",
                     test.cairo_source,
                     "=".repeat(60),
                     e
@@ -117,16 +86,10 @@ impl<'a> MdTestRunner<'a> {
 
         let test_suffix = sanitize_test_name(&test.name);
 
-        let snapshot_suffix = if let Some(parent) = parent_dir {
-            format!("{}__{}__{}", parent, file_stem, test_suffix)
-        } else {
-            format!("{}@{}", file_stem, test_suffix)
-        };
-
         Some(TestSnapshot {
             name: test.name,
             content: snapshot_content,
-            suffix: snapshot_suffix,
+            suffix: test_suffix,
         })
     }
 }

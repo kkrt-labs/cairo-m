@@ -1,0 +1,25 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Field Arithmetic in Cairo-M - Zero and One"
+input_file: mdtest/01-basics/04-arithmetic.md
+---
+Source:
+fn identity_elements() -> felt {
+    let x = 42;
+    let zero_add = x + 0;      // Additive identity
+    let one_mult = x * 1;      // Multiplicative identity
+    let zero_mult = x * 0;     // Multiplication by zero
+    return zero_add + one_mult - zero_mult;  // 42 + 42 - 0 = 84
+}
+============================================================
+Generated CASM:
+identity_elements:
+identity_elements:
+identity_elements_0:
+   0: 9 42 0 _             // [fp + 0] = 42
+   1: 4 0 0 1              // [fp + 1] = [fp + 0] op 0
+   2: 6 0 1 2              // [fp + 2] = [fp + 0] op 1
+   3: 6 0 0 3              // [fp + 3] = [fp + 0] op 0
+   4: 0 1 2 4              // [fp + 4] = [fp + 1] op [fp + 2]
+   5: 1 4 3 -3             // [fp + -3] = [fp + 4] op [fp + 3]
+   6: 11 _ _ _             // return

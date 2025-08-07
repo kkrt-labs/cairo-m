@@ -115,7 +115,7 @@ Tests can be annotated with special comments starting with `//!`:
 Tests are compiled to Rust test functions and can be executed:
 
 ```bash
-# Run all mdtest differential tests
+# Run all mdtest tests against a Rust impl
 cargo test -p cairo-m-runner --test mdtest_generated
 
 # Run specific test file (module)

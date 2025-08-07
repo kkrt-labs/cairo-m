@@ -34,7 +34,8 @@ fn test_mdtest_mir_snapshots() {
             with_settings!({
                 description => format!("MIR snapshot for mdtest: {}", snapshot.name).as_str(),
                 omit_expression => true,
-                snapshot_suffix => snapshot.suffix
+                snapshot_suffix => snapshot.suffix,
+                prepend_module_to_snapshot => false,
             }, {
                 assert_snapshot!(snapshot.content);
             });

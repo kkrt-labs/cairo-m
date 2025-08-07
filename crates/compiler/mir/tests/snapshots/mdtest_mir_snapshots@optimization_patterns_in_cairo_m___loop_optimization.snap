@@ -1,0 +1,41 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Optimization Patterns in Cairo-M - Loop Optimization"
+input_file: mdtest/04-advanced/04-optimization.md
+---
+Source:
+fn test_loop_optimization() -> felt {
+    let i = 0;
+    let sum = 0;
+    while (i != 5) {
+        sum = sum + i;  // Accumulator pattern
+        i = i + 1;      // Simple increment
+    }
+    return sum;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_loop_optimization {
+    entry: 0
+
+    0:
+      %0 = 0
+      %1 = 0
+      jump 1
+
+    1:
+      if %0 Neq 5 then jump 2 else jump 3
+
+    2:
+      %1 = %1 Add %0
+      %0 = %0 Add 1
+      jump 1
+
+    3:
+      return %1
+
+  }
+
+}

@@ -1,0 +1,20 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Variables in Cairo-M - Variable Declaration"
+input_file: mdtest/01-basics/02-variables.md
+---
+Source:
+fn test_variable() -> felt {
+    let x = 10;
+    let y = 20;
+    return x + y;
+}
+============================================================
+Generated CASM:
+test_variable:
+test_variable:
+test_variable_0:
+   0: 9 10 0 _             // [fp + 0] = 10
+   1: 9 20 1 _             // [fp + 1] = 20
+   2: 0 0 1 -3             // [fp + -3] = [fp + 0] op [fp + 1]
+   3: 11 _ _ _             // return

@@ -1,0 +1,29 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Optimization Patterns in Cairo-M - Dead Code Elimination"
+input_file: mdtest/04-advanced/04-optimization.md
+---
+Source:
+fn test_dead_code() -> bool {
+    let a = 1;
+    let b = 0;
+    let result = a == b;  // This affects the return value
+    let dead = a == 0;    // This doesn't affect anything
+    return result;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_dead_code {
+    entry: 0
+
+    0:
+      %0 = 1
+      %1 = 0
+      %2 = %0 Eq %1
+      return %2
+
+  }
+
+}

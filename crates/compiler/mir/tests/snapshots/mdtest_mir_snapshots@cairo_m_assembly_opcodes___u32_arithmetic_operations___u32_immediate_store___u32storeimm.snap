@@ -1,0 +1,29 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Cairo-M Assembly Opcodes - U32 Arithmetic Operations - U32 Immediate Store - U32StoreImm"
+input_file: mdtest/06-internals/01-opcodes.md
+---
+Source:
+fn test_u32_immediate_store() -> u32 {
+    // U32StoreImm: u32([fp + dst_off], [fp + dst_off + 1]) = u32(imm_lo, imm_hi)
+    let immediate: u32 = 0xDEADBEEF;
+    let small_val: u32 = 42;
+
+    return immediate + small_val;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_u32_immediate_store {
+    entry: 0
+
+    0:
+      %0 = -559038737 (u32)
+      %1 = 42 (u32)
+      %2 = %0 U32Add %1
+      return %2
+
+  }
+
+}
