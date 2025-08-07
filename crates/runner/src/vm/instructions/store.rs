@@ -3,7 +3,7 @@
 //! STORE instructions are used to store values in the memory.
 
 use cairo_m_common::{Instruction, State};
-use num_traits::One;
+use num_traits::{One, Zero};
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 
@@ -279,7 +279,7 @@ where
     let res = if op(lhs, rhs) {
         QM31::from(M31::one())
     } else {
-        QM31::from(M31::from(0))
+        QM31::from(M31::zero())
     };
 
     memory.insert(state.fp + dst_off, res)?;
@@ -316,7 +316,7 @@ where
     let res = if op(src_value, imm_value) {
         QM31::from(M31::one())
     } else {
-        QM31::from(M31::from(0))
+        QM31::from(M31::zero())
     };
 
     memory.insert(state.fp + dst_off, res)?;
