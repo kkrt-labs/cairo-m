@@ -19,7 +19,7 @@ pub const RC20_LIMIT: u32 = (1 << LOG_SIZE_RC_20) - 1;
 ///
 /// Each memory entry contains:
 /// - The memory address being accessed
-/// - The QM31 value stored at that address
+/// - The M31 value stored at that address
 /// - The clock time when the access occurred
 ///
 /// This is distinct from the runner's memory entry format.

@@ -89,7 +89,7 @@ Multi-phase incremental compiler using Salsa framework:
 VM with minimal register architecture:
 
 - Two registers: PC (program counter) and FP (frame pointer)
-- Flat memory model storing QM31 values
+- Flat memory model storing M31 values
 - Variable-size instruction encoding: 1-5 M31 elements per instruction
 - Generates execution traces for proof generation
 

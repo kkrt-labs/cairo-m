@@ -8,10 +8,8 @@
 //! These commitments are used for continuation to attest that the memory is consistent over the overall execution.
 //!
 //! ## Tree construction
-//! - The leaves of the tree are M31 values corresponding to the QM31 values of the memory.
-//!   Each QM31 memory value (4 M31 elements) is decomposed into 4 consecutive leaves:
-//!     - Address N → Leaves at positions [N*4, N*4+1, N*4+2, N*4+3]
-//!     - Maximum memory size: 2^28 QM31 values → 2^30 M31 leaves
+//! - The leaves of the tree are M31 values corresponding to values of the memory.
+//! - Maximum memory size: 2^30 M31 values → 2^30 M31 leaves
 //! - Only used memory cells are added as leaves. To keep a 31 layered tree, missing nodes are added using default hash values,
 //!   these added nodes are the "intermediate nodes".
 
@@ -135,7 +133,7 @@ pub trait MerkleHasher {
 /// ## Tree Structure
 /// - **Depth 0**: Root (excluded from NodeData)
 /// - **Depth 1-29**: Intermediate hash computations
-/// - **Depth 30**: M31 leaf values from QM31 decomposition
+/// - **Depth 30**: M31 leaf values
 pub fn build_partial_merkle_tree<H: MerkleHasher>(
     memory: &mut HashMap<(M31, M31), (M31, M31, M31)>,
 ) -> (Vec<NodeData>, Option<M31>) {
@@ -152,7 +150,7 @@ pub fn build_partial_merkle_tree<H: MerkleHasher>(
 
     let mut nodes = Vec::new();
 
-    // Depth 30 (leaves): convert each QM31 to 4 M31 leaves
+    // Depth 30 (leaves)
     let mut current_depth_nodes: HashMap<u32, M31> = HashMap::new();
 
     for ((addr, _), (value, _, _)) in memory.iter() {

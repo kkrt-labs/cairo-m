@@ -71,8 +71,8 @@ impl Memory {
 
     /// Retrieves a complete instruction from memory, handling both single and multi-word instructions.
     ///
-    /// This method fetches the first QM31 word to determine the opcode, then fetches
-    /// additional QM31 words if needed for multi-word instructions.
+    /// This method fetches the first M31 word to determine the opcode, then fetches
+    /// additional M31 words if needed for multi-word instructions.
     ///
     /// # Arguments
     ///
@@ -85,7 +85,7 @@ impl Memory {
         &self,
         addr: M31,
     ) -> Result<SmallVec<[M31; INSTRUCTION_MAX_SIZE]>, MemoryError> {
-        // Fetch first QM31 word
+        // Fetch first M31 word
         let address = addr.0 as usize;
         let opcode_id = self
             .data
@@ -558,7 +558,7 @@ mod tests {
         let inst = memory.get_instruction(start_addr).unwrap();
         assert_eq!(inst.as_slice(), &values);
 
-        // Verify trace contains both QM31 accesses
+        // Verify trace contains both M31 accesses
         assert_eq!(memory.trace.borrow().len(), 5);
         values.iter().enumerate().for_each(|(i, value)| {
             let addr = start_addr + M31::from(i);

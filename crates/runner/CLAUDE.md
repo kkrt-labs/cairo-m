@@ -43,7 +43,7 @@ The Cairo-M VM uses a minimal register architecture:
 
 - **PC**: Program Counter
 - **FP**: Frame Pointer
-- **Memory**: Flat address space storing QM31 values (4 M31 field elements)
+- **Memory**: Flat address space storing M31 values
 - **Variable-size instruction encoding**: 1-5 M31 elements per instruction
 
 ### Memory Layout

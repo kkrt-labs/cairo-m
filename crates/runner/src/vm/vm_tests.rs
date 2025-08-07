@@ -794,7 +794,7 @@ fn test_5_m31_u32_instruction_execution_and_pc_advancement() {
     // Execute one more step (the simple instruction)
     vm.step().unwrap();
 
-    // Verify PC advanced by 1 QM31 for the 3-M31 instruction
+    // Verify PC advanced by 3 M31 for the 3-M31 instruction
     let final_expected_pc = expected_pc + M31(3);
     assert_eq!(
         vm.state.pc, final_expected_pc,
