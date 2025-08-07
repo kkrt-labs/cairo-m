@@ -1,0 +1,28 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Primitive Types in Cairo-M - Type Inference"
+input_file: mdtest/01-basics/03-primitive-types.md
+---
+Source:
+fn test_inference() -> u32 {
+    let x = 42;  // Type inferred as felt
+    let y: u32 = 100;
+    let z = 200u32;
+    return y + z;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_inference {
+    entry: 0
+
+    0:
+      %1 = 100 (u32)
+      %2 = 200 (u32)
+      %3 = %1 U32Add %2
+      return %3
+
+  }
+
+}

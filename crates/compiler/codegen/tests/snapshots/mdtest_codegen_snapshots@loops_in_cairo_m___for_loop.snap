@@ -1,0 +1,34 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Loops in Cairo-M - For Loop"
+input_file: mdtest/02-control-flow/02-loops.md
+---
+Source:
+fn sum_to_n() -> felt {
+    let sum = 0;
+    for (let i = 0; i != 10; i = i + 1) {
+        sum = sum + i;
+    }
+    return sum;
+}
+============================================================
+Generated CASM:
+sum_to_n:
+sum_to_n:
+sum_to_n_0:
+   0: 9 0 0 _              // [fp + 0] = 0
+   1: 9 0 1 _              // [fp + 1] = 0
+sum_to_n_1:
+   2: 5 1 10 4             // [fp + 4] = [fp + 1] op 10
+   3: 14 4 2 _             // if [fp + 4] != 0 jmp rel sum_to_n_2
+   4: 12 10 _ _            // jump abs sum_to_n_4
+sum_to_n_2:
+   5: 4 0 0 5              // [fp + 5] = [fp + 0] + 0
+   6: 0 5 1 0              // [fp + 0] = [fp + 5] op [fp + 1]
+sum_to_n_3:
+   7: 4 1 0 5              // [fp + 5] = [fp + 1] + 0
+   8: 4 5 1 1              // [fp + 1] = [fp + 5] op 1
+   9: 12 2 _ _             // jump abs sum_to_n_1
+sum_to_n_4:
+  10: 4 0 0 -3             // Return value 0: [fp -3] = [fp + 0] + 0
+  11: 11 _ _ _             // return

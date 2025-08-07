@@ -4,6 +4,7 @@ use peak_alloc::PeakAlloc;
 static PEAK_ALLOC: PeakAlloc = PeakAlloc;
 
 use std::fs;
+use std::path::Path;
 
 use cairo_m_common::Program;
 use cairo_m_compiler::{compile_cairo, CompilerOptions};
@@ -17,9 +18,13 @@ const N_ITERATIONS: u32 = 100_000; // Same as speed benchmark for consistency
 
 /// Compiles the fibonacci.cm file from the test data directory
 fn compile_fibonacci() -> Program {
+    let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|p| p.parent())
+        .unwrap();
     let source_path = format!(
-        "{}/tests/test_data/fibonacci.cm",
-        env!("CARGO_MANIFEST_DIR")
+        "{}/test_data/functions/fibonacci_loop.cm",
+        workspace_root.display()
     );
     let source_text = fs::read_to_string(&source_path).expect("Failed to read fibonacci.cm");
     let options = CompilerOptions { verbose: false };
@@ -34,7 +39,7 @@ fn main() {
 
     let runner_output = run_cairo_program(
         &program,
-        "fib",
+        "fibonacci_loop",
         &[M31::from(N_ITERATIONS)],
         Default::default(),
     )

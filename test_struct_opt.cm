@@ -1,9 +1,0 @@
-struct Point {
-    x: felt,
-    y: felt,
-}
-
-fn main() -> felt {
-    let p = Point { x: 5, y: 10 };
-    return p.x + p.y;  // Should optimize to just return 15
-}

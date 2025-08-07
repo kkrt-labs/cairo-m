@@ -43,6 +43,7 @@ itertools.workspace = true
 criterion.workspace = true
 peak_alloc = "0.2.0"
 dhat.workspace = true
+cairo-m-test-utils.workspace = true
 
 [[bench]]
 name = "prover_speed_benchmark"

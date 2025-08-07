@@ -1,0 +1,53 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Complex Expressions in Cairo-M - Expression Evaluation Order"
+input_file: mdtest/01-basics/06-expressions.md
+---
+Source:
+fn test_evaluation_order() -> felt {
+    let a = 2;
+    let b = 3;
+    let c = 4;
+    let d = 5;
+
+    // Test associativity: left-to-right for same precedence
+    let left_assoc = a + b + c + d;               // ((2 + 3) + 4) + 5 = 14
+    let mult_assoc = a * b * c;                   // (2 * 3) * 4 = 24
+
+    // Mixed precedence evaluation
+    let mixed = a + b * c + d;                    // 2 + (3 * 4) + 5 = 2 + 12 + 5 = 19
+    let complex_mixed = a * b + c * d;            // (2 * 3) + (4 * 5) = 6 + 20 = 26
+
+    return left_assoc + mult_assoc + mixed + complex_mixed; // 14 + 24 + 19 + 26 = 83
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_evaluation_order {
+    entry: 0
+
+    0:
+      %0 = 2
+      %1 = 3
+      %2 = 4
+      %3 = 5
+      %4 = %0 Add %1
+      %5 = %4 Add %2
+      %6 = %5 Add %3
+      %7 = %0 Mul %1
+      %8 = %7 Mul %2
+      %9 = %1 Mul %2
+      %10 = %0 Add %9
+      %11 = %10 Add %3
+      %12 = %0 Mul %1
+      %13 = %2 Mul %3
+      %14 = %12 Add %13
+      %15 = %6 Add %8
+      %16 = %15 Add %11
+      %17 = %16 Add %14
+      return %17
+
+  }
+
+}

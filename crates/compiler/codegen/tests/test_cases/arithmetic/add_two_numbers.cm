@@ -1,5 +1,0 @@
-fn add_two_numbers() -> felt {
-    let a = 10;
-    let b = 32;
-    return a + b;
-}

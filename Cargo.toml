@@ -13,6 +13,7 @@ members = [
   "crates/prover",
   "crates/cairo-m-ls",
   "crates/wasm",
+  "crates/test_utils",
 ]
 resolver = "2"
 
@@ -35,6 +36,7 @@ cairo-m-runner = { path = "crates/runner" }
 cairo-m-prover = { path = "crates/prover" }
 cairo-m-formatter = { path = "crates/compiler/formatter" }
 cairo-m-wasm = { path = "crates/wasm" }
+cairo-m-test-utils = { path = "crates/test_utils" }
 
 # External dependencies
 womir = { git = "https://github.com/powdr-labs/womir.git", rev = "19e1b4b" }

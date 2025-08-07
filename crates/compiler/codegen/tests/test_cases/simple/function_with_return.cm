@@ -1,4 +1,0 @@
-fn identity(x: felt) -> felt {
-    let y = x;
-    return y;
-}

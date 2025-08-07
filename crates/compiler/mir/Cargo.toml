@@ -22,4 +22,5 @@ chumsky.workspace = true
 
 # Testing dependencies
 [dev-dependencies]
-insta = "1.43.1"
+insta = { version = "1.43.1", features = ["glob"] }
+cairo-m-test-utils.workspace = true

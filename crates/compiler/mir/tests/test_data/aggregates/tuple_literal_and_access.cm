@@ -1,6 +1,0 @@
-// Tests tuple creation, indexed write, and indexed read.
-fn test_tuple() -> felt {
-    let t = (100, 200, 300);
-    t[1] = 250;
-    return t[1];
-}

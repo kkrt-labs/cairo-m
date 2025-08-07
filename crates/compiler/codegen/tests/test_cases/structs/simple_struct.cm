@@ -1,9 +1,0 @@
-struct Point {
-    x: felt,
-    y: felt,
-}
-
-fn main() -> felt {
-    let p = Point { x: 10, y: 20 };
-    return p.x;
-}

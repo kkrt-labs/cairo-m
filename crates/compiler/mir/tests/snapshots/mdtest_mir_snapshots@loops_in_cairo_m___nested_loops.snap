@@ -1,0 +1,59 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Loops in Cairo-M - Nested Loops"
+input_file: mdtest/02-control-flow/02-loops.md
+---
+Source:
+fn multiply_table() -> felt {
+    let result = 0;
+    for (let i = 1; i != 10; i = i + 1) {
+        for (let j = 1; j != 10; j = j + 1) {
+            result = result + (i * j);
+        }
+    }
+    return result;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn multiply_table {
+    entry: 0
+
+    0:
+      %0 = 0
+      %1 = 1
+      jump 1
+
+    1:
+      if %1 Neq 10 then jump 2 else jump 4
+
+    2:
+      %3 = 1
+      jump 5
+
+    3:
+      %1 = %1 Add 1
+      jump 1
+
+    4:
+      return %0
+
+    5:
+      if %3 Neq 10 then jump 6 else jump 8
+
+    6:
+      %5 = %1 Mul %3
+      %0 = %0 Add %5
+      jump 7
+
+    7:
+      %3 = %3 Add 1
+      jump 5
+
+    8:
+      jump 3
+
+  }
+
+}

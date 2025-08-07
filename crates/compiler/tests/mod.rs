@@ -29,8 +29,7 @@ fn test_compile_project() {
 
 #[test]
 fn test_compile_standalone() {
-    let crate_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let file_to_test = crate_root.join("codegen/tests/test_cases/functions/fib.cm");
+    let file_to_test = cairo_m_test_utils::fixture_path("functions/fib.cm");
     env::set_var("RUST_LOG", "info");
     let res = Command::new("cargo")
         .arg("run")

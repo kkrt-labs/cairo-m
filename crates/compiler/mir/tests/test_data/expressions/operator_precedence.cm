@@ -1,8 +1,0 @@
-//!ASSERT CONTAINS: Mul
-//!ASSERT CONTAINS: Add
-
-// Tests that operator precedence (multiplication before addition) is respected.
-// The snapshot will confirm that the `Mul` instruction precedes the `Add` instruction.
-fn test_precedence(a: felt, b: felt, c: felt) -> felt {
-    return a + b * c;
-}

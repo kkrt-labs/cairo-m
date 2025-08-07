@@ -1,0 +1,31 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Cairo-M Assembly Opcodes - U32 Arithmetic Operations - U32 Addition - U32StoreAddFpFp and U32StoreAddFpImm"
+input_file: mdtest/06-internals/01-opcodes.md
+---
+Source:
+fn test_u32_addition() -> u32 {
+    let a: u32 = 100;
+    let b: u32 = 50;
+
+    // U32StoreAddFpFp: u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) + u32([fp + src1_off], [fp + src1_off + 1])
+    let sum1: u32 = a + b;
+
+    // U32StoreAddFpImm: u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) + u32(imm_lo, imm_hi)
+    let sum2: u32 = a + 25;
+
+    return sum1 + sum2;
+}
+============================================================
+Generated CASM:
+test_u32_addition:
+test_u32_addition:
+test_u32_addition_0:
+   0: 23 100 0 0           // [fp + 0, fp + 0 + 1] = u32(100)
+   1: 23 50 0 2            // [fp + 2, fp + 2 + 1] = u32(50)
+   2: 15 0 2 4             // u32([fp + 4], [fp + 4 + 1]) = u32([fp + 0], [fp + 0 + 1]) op u32([fp + 2], [fp + 2 + 1])
+   3: 19 0 25 0 6          // u32([fp + 6], [fp + 6 + 1]) = u32([fp + 0], [fp + 0 + 1]) op u32(25, 0)
+   4: 15 4 6 8             // u32([fp + 8], [fp + 8 + 1]) = u32([fp + 4], [fp + 4 + 1]) op u32([fp + 6], [fp + 6 + 1])
+   5: 4 8 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 8] + 0
+   6: 4 9 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 9] + 0
+   7: 11 _ _ _             // return

@@ -1,0 +1,34 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Field Arithmetic in Cairo-M - Basic Arithmetic Operations"
+input_file: mdtest/01-basics/04-arithmetic.md
+---
+Source:
+fn basic_arithmetic() -> felt {
+    let a = 10;
+    let b = 20;
+    let sum = a + b;
+    let diff = b - a;
+    let prod = a * b;
+    return sum + diff + prod;  // Returns 30 + 10 + 200 = 240
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn basic_arithmetic {
+    entry: 0
+
+    0:
+      %0 = 10
+      %1 = 20
+      %2 = %0 Add %1
+      %3 = %1 Sub %0
+      %4 = %0 Mul %1
+      %5 = %2 Add %3
+      %6 = %5 Add %4
+      return %6
+
+  }
+
+}

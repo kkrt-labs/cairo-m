@@ -1,0 +1,27 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Primitive Types in Cairo-M - Felt Type"
+input_file: mdtest/01-basics/03-primitive-types.md
+---
+Source:
+fn base_type() -> felt {
+    let x: felt = 100;
+    let y: felt = 200;
+    return x + y;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn base_type {
+    entry: 0
+
+    0:
+      %0 = 100
+      %1 = 200
+      %2 = %0 Add %1
+      return %2
+
+  }
+
+}

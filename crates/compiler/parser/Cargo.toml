@@ -19,3 +19,4 @@ tracing = "0.1"
 
 [dev-dependencies]
 stdext = "0.3"
+cairo-m-test-utils.workspace = true
