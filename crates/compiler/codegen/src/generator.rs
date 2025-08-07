@@ -8,7 +8,7 @@ use cairo_m_common::instruction::*;
 use cairo_m_common::program::{AbiSlot, EntrypointInfo};
 use cairo_m_common::{Program, ProgramMetadata};
 use cairo_m_compiler_mir::{
-    BasicBlockId, BinaryOp, Instruction, InstructionKind, Literal, MirFunction, MirModule,
+    BasicBlockId, BinaryOp, Instruction, InstructionKind, Literal, MirFunction, MirModule, MirType,
     Terminator, Value, ValueId,
 };
 
@@ -241,7 +241,13 @@ impl CodeGenerator {
             };
 
             // Generate terminator with fall-through optimization
-            self.generate_terminator(&block.terminator, &function.name, builder, next_block_id)?;
+            self.generate_terminator(
+                &block.terminator,
+                &function.name,
+                function,
+                builder,
+                next_block_id,
+            )?;
         }
 
         Ok(())
@@ -660,6 +666,7 @@ impl CodeGenerator {
         &self,
         terminator: &Terminator,
         function_name: &str,
+        function: &MirFunction,
         builder: &mut CasmBuilder,
         next_block_id: Option<BasicBlockId>,
     ) -> CodegenResult<()> {
@@ -707,11 +714,24 @@ impl CodeGenerator {
                 let then_label = format!("{function_name}_{then_target:?}");
                 let else_label = format!("{function_name}_{else_target:?}");
 
+                let is_u32_op = matches!(op, BinaryOp::U32Eq | BinaryOp::U32Neq);
+
+                if is_u32_op {
+                    builder.generate_u32_op(BinaryOp::U32Sub, temp_slot_offset, *left, *right)?;
+                } else {
+                    builder.generate_arithmetic_op(
+                        BinaryOp::Sub,
+                        temp_slot_offset,
+                        *left,
+                        *right,
+                    )?;
+                }
+
                 // For comparison, we compute `a - b`. The result is non-zero if they are not equal.
                 builder.generate_arithmetic_op(BinaryOp::Sub, temp_slot_offset, *left, *right)?;
 
                 match op {
-                    BinaryOp::Eq => {
+                    BinaryOp::Eq | BinaryOp::U32Eq => {
                         // `jnz` jumps if the result is non-zero.
                         // A non-zero result means `a != b`, so we should jump to the `else` block.
                         // Otherwise we can simply fallthrough.
@@ -723,7 +743,7 @@ impl CodeGenerator {
                             builder.jump(&then_label)?;
                         }
                     }
-                    BinaryOp::Neq => {
+                    BinaryOp::Neq | BinaryOp::U32Neq => {
                         // `jnz` jumps if the result is non-zero.
                         // A non-zero result means `a != b`, so we should jump to the `then` block.
                         // Otherwise we can simply fallthrough.
@@ -744,7 +764,20 @@ impl CodeGenerator {
             }
 
             Terminator::Return { values } => {
-                builder.return_values(values)?;
+                // Get the return types from the function
+                let return_types: Vec<MirType> = function
+                    .return_values
+                    .iter()
+                    .map(|&ret_id| {
+                        function
+                            .value_types
+                            .get(&ret_id)
+                            .cloned()
+                            .expect("Missing return type")
+                    })
+                    .collect();
+
+                builder.return_values(values, &return_types)?;
             }
 
             Terminator::Unreachable => {

@@ -295,7 +295,6 @@ fn test_u32_immediate_store() -> u32 {
 Combining multiple opcode types in realistic scenarios:
 
 ```cairo-m
-//! ignore: U32Eq not implemented yet
 fn test_mixed_operations() -> u32 {
     let counter: u32 = 0;
     let sum: u32 = 0;

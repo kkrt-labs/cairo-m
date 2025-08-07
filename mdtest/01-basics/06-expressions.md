@@ -103,10 +103,7 @@ fn test_unary_ops() -> i32 {
 
 Comparison operators in expressions:
 
-<!-- //TODO: comparison opcodes not implemented yet -->
-
 ```cairo-m
-//! ignore: Comparison opcodes not implemented yet
 fn test_comparisons() -> u32 {
     let a = 10u32;
     let b = 7u32;
@@ -181,10 +178,7 @@ fn test_logical_ops() -> felt {
 
 Complex expressions with multiple operations:
 
-<!-- TODO: implement U32Eq -->
-
 ```cairo-m
-//! ignore: U32Eq not implemented yet
 fn test_compound_expressions() -> u32 {
     let x: u32 = 8;
     let y: u32 = 3;

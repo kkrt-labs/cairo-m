@@ -1,0 +1,104 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Complex Expressions in Cairo-M - Comparison Operations"
+input_file: mdtest/01-basics/06-expressions.md
+---
+Source:
+fn test_comparisons() -> u32 {
+    let a = 10u32;
+    let b = 7u32;
+    let c = 10u32;
+
+    let eq = (a == c);        // true
+    let ne = (a != b);        // true
+    let lt = (b < a);         // true
+    let le = (a <= c);        // true
+    let gt = (a > b);         // true
+    let ge = (c >= a);        // true
+
+    let res = 0u32;
+    if eq {
+        res = res + 1u32;
+    }
+    if ne {
+        res = res + 1u32;
+    }
+    if lt {
+        res = res + 1u32;
+    }
+    if le {
+        res = res + 1u32;
+    }
+    if gt {
+        res = res + 1u32;
+    }
+    if ge {
+        res = res + 1u32;
+    }
+    return res;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_comparisons {
+    entry: 0
+
+    0:
+      %0 = 10 (u32)
+      %1 = 7 (u32)
+      %2 = 10 (u32)
+      %3 = %0 U32Eq %2
+      %4 = %0 U32Neq %1
+      %5 = %1 U32Less %0
+      %6 = %0 U32LessEqual %2
+      %7 = %0 U32Greater %1
+      %8 = %2 U32GreaterEqual %0
+      %9 = 0 (u32)
+      if %3 then jump 1 else jump 2
+
+    1:
+      %9 = %9 U32Add 1
+      jump 2
+
+    2:
+      if %4 then jump 3 else jump 4
+
+    3:
+      %9 = %9 U32Add 1
+      jump 4
+
+    4:
+      if %5 then jump 5 else jump 6
+
+    5:
+      %9 = %9 U32Add 1
+      jump 6
+
+    6:
+      if %6 then jump 7 else jump 8
+
+    7:
+      %9 = %9 U32Add 1
+      jump 8
+
+    8:
+      if %7 then jump 9 else jump 10
+
+    9:
+      %9 = %9 U32Add 1
+      jump 10
+
+    10:
+      if %8 then jump 11 else jump 12
+
+    11:
+      %9 = %9 U32Add 1
+      jump 12
+
+    12:
+      return %9
+
+  }
+
+}

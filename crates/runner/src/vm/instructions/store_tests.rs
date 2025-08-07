@@ -379,8 +379,8 @@ proptest! {
             src_value,
             Instruction::U32StoreAddFpImm {
                 src_off: M31(0),
-                imm_hi: M31(imm_val_hi),
                 imm_lo: M31(imm_val_lo),
+                imm_hi: M31(imm_val_hi),
                 dst_off: M31(2),
             },
             u32_store_add_fp_imm,
@@ -397,8 +397,8 @@ proptest! {
             0,
             Instruction::U32StoreAddFpImm {
                 src_off: M31(0),
-                imm_hi: M31(imm_val_hi),
                 imm_lo: M31(imm_val_lo),
+                imm_hi: M31(imm_val_hi),
                 dst_off: M31(2),
             },
             u32_store_add_fp_imm,
@@ -420,8 +420,8 @@ proptest! {
             src_value,
             Instruction::U32StoreSubFpImm {
                 src_off: M31(0),
-                imm_hi: M31(imm_val_hi),
                 imm_lo: M31(imm_val_lo),
+                imm_hi: M31(imm_val_hi),
                 dst_off: M31(2),
             },
             u32_store_sub_fp_imm,
@@ -461,8 +461,8 @@ proptest! {
             src_value,
             Instruction::U32StoreMulFpImm {
                 src_off: M31(0),
-                imm_hi: M31(imm_val_hi),
                 imm_lo: M31(imm_val_lo),
+                imm_hi: M31(imm_val_hi),
                 dst_off: M31(2),
             },
             u32_store_mul_fp_imm,
@@ -521,8 +521,8 @@ proptest! {
             src_value,
             Instruction::U32StoreDivFpImm {
                 src_off: M31(0),
-                imm_hi: M31(0x0000),
                 imm_lo: M31(0x0000),
+                imm_hi: M31(0x0000),
                 dst_off: M31(2),
             },
             u32_store_div_fp_imm,

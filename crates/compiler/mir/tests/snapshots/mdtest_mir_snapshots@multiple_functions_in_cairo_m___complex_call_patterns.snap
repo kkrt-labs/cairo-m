@@ -1,0 +1,129 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Multiple Functions in Cairo-M - Complex Call Patterns"
+input_file: mdtest/04-advanced/02-multiple-functions.md
+---
+Source:
+fn test_complex_calls() -> u32 {
+    let base = get_base_value();
+    let multiplier = calculate_multiplier(base);
+    return apply_transformation(base, multiplier);
+}
+
+fn get_base_value() -> u32 {
+    return 15u32;
+}
+
+fn calculate_multiplier(base: u32) -> u32 {
+    if base > 10u32 {
+        return process_large(base);
+    } else {
+        return process_small(base);
+    }
+}
+
+fn process_large(value: u32) -> u32 {
+    return value / 3u32;
+}
+
+fn process_small(value: u32) -> u32 {
+    return value * 2u32;
+}
+
+fn apply_transformation(base: u32, multiplier: u32) -> u32 {
+    let intermediate = base + multiplier;
+    return finalize_result(intermediate);
+}
+
+fn finalize_result(value: u32) -> u32 {
+    return value * value;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_complex_calls {
+    entry: 0
+
+    0:
+      %0 = call 1()
+      %1 = call 2(%0)
+      %2 = call 5(%0, %1)
+      return %2
+
+  }
+
+  // Function 1
+  fn get_base_value {
+    entry: 0
+
+    0:
+      return 15
+
+  }
+
+  // Function 2
+  fn calculate_multiplier {
+    parameters: [0]
+    entry: 0
+
+    0:
+      %1 = %0 U32Greater 10
+      if %1 then jump 1 else jump 2
+
+    1:
+      %2 = call 3(%0)
+      return %2
+
+    2:
+      %3 = call 4(%0)
+      return %3
+
+  }
+
+  // Function 3
+  fn process_large {
+    parameters: [0]
+    entry: 0
+
+    0:
+      %1 = %0 U32Div 3
+      return %1
+
+  }
+
+  // Function 4
+  fn process_small {
+    parameters: [0]
+    entry: 0
+
+    0:
+      %1 = %0 U32Mul 2
+      return %1
+
+  }
+
+  // Function 5
+  fn apply_transformation {
+    parameters: [0, 1]
+    entry: 0
+
+    0:
+      %2 = %0 U32Add %1
+      %3 = call 6(%2)
+      return %3
+
+  }
+
+  // Function 6
+  fn finalize_result {
+    parameters: [0]
+    entry: 0
+
+    0:
+      %1 = %0 U32Mul %0
+      return %1
+
+  }
+
+}

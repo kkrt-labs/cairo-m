@@ -1,0 +1,50 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Error Handling and Edge Cases in Cairo-M - Infinite Loop with Break Condition"
+input_file: mdtest/05-edge-cases/01-error-handling.md
+---
+Source:
+fn loop_with_escape() -> u32 {
+    let counter = 0u32;
+
+    loop {
+        counter = counter + 1u32;
+
+        // Multiple exit conditions
+        if (counter > 1000u32) {
+            break;  // Prevent actual infinite loop
+        }
+
+        if (counter == 10u32) {
+            break;
+        }
+    }
+
+    return counter;  // Should return 100
+}
+============================================================
+Generated CASM:
+loop_with_escape:
+loop_with_escape:
+loop_with_escape_0:
+   0: 23 0 0 0             // [fp + 0, fp + 0 + 1] = u32(0)
+loop_with_escape_1:
+   1: 19 0 1 0 0           // u32([fp + 0], [fp + 0 + 1]) = u32([fp + 0], [fp + 0 + 1]) op u32(1, 0)
+   2: 23 1000 0 5          // [fp + 5, fp + 5 + 1] = u32(1000)
+   3: 26 0 5 4             // [fp + 4] = u32([fp + 0], [fp + 0 + 1]) op u32([fp + 5], [fp + 5 + 1])
+   4: 14 4 5 _             // if [fp + 4] != 0 jmp rel loop_with_escape_3
+   5: 12 11 _ _            // jump abs loop_with_escape_4
+loop_with_escape_2:
+   6: 4 0 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
+   7: 4 1 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
+   8: 11 _ _ _             // return
+loop_with_escape_3:
+   9: 12 7 _ _             // jump abs loop_with_escape_2
+loop_with_escape_4:
+  10: 20 0 10 0 7          // u32([fp + 7], [fp + 7 + 1]) = u32([fp + 0], [fp + 0 + 1]) op u32(10, 0)
+  11: 5 0 10 7             // [fp + 7] = [fp + 0] op 10
+  12: 14 7 2 _             // if [fp + 7] != 0 jmp rel loop_with_escape_6
+loop_with_escape_5:
+  13: 12 7 _ _             // jump abs loop_with_escape_2
+loop_with_escape_6:
+  14: 12 1 _ _             // jump abs loop_with_escape_1

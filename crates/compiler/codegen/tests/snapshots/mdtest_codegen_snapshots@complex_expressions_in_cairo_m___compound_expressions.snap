@@ -1,0 +1,61 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Complex Expressions in Cairo-M - Compound Expressions"
+input_file: mdtest/01-basics/06-expressions.md
+---
+Source:
+fn test_compound_expressions() -> u32 {
+    let x: u32 = 8;
+    let y: u32 = 3;
+    let z: u32 = 12;
+
+    // Complex arithmetic with precedence
+    let expr1 = x * y + z / 4u32;                    // 8 * 3 + 12 / 4 = 24 + 3 = 27
+
+    // Nested parentheses
+    let expr2 = (x + y) * (z - y * 2u32);            // (8 + 3) * (12 - 3 * 2) = 11 * 6 = 66
+
+    // Mixed arithmetic and comparison
+    let expr3 = (x > y) && ((z + x) < 25u32);        // (8 > 3) && ((12 + 8) < 25) = 1 && 1 = 1
+
+    let res = expr1 + expr2;
+    if expr3 {
+        res = res + 1u32;
+    }
+    return res;
+}
+============================================================
+Generated CASM:
+test_compound_expressions:
+test_compound_expressions:
+test_compound_expressions_0:
+   0: 23 8 0 0             // [fp + 0, fp + 0 + 1] = u32(8)
+   1: 23 3 0 2             // [fp + 2, fp + 2 + 1] = u32(3)
+   2: 23 12 0 4            // [fp + 4, fp + 4 + 1] = u32(12)
+   3: 17 0 2 6             // u32([fp + 6], [fp + 6 + 1]) = u32([fp + 0], [fp + 0 + 1]) op u32([fp + 2], [fp + 2 + 1])
+   4: 22 4 4 0 8           // u32([fp + 8], [fp + 8 + 1]) = u32([fp + 4], [fp + 4 + 1]) op u32(4, 0)
+   5: 15 6 8 10            // u32([fp + 10], [fp + 10 + 1]) = u32([fp + 6], [fp + 6 + 1]) op u32([fp + 8], [fp + 8 + 1])
+   6: 15 0 2 12            // u32([fp + 12], [fp + 12 + 1]) = u32([fp + 0], [fp + 0 + 1]) op u32([fp + 2], [fp + 2 + 1])
+   7: 21 2 2 0 14          // u32([fp + 14], [fp + 14 + 1]) = u32([fp + 2], [fp + 2 + 1]) op u32(2, 0)
+   8: 16 4 14 16           // u32([fp + 16], [fp + 16 + 1]) = u32([fp + 4], [fp + 4 + 1]) op u32([fp + 14], [fp + 14 + 1])
+   9: 17 12 16 18          // u32([fp + 18], [fp + 18 + 1]) = u32([fp + 12], [fp + 12 + 1]) op u32([fp + 16], [fp + 16 + 1])
+  10: 26 0 2 20            // [fp + 20] = u32([fp + 0], [fp + 0 + 1]) op u32([fp + 2], [fp + 2 + 1])
+  11: 15 4 0 21            // u32([fp + 21], [fp + 21 + 1]) = u32([fp + 4], [fp + 4 + 1]) op u32([fp + 0], [fp + 0 + 1])
+  12: 23 25 0 29           // [fp + 29, fp + 29 + 1] = u32(25)
+  13: 28 21 29 23          // [fp + 23] = u32([fp + 21], [fp + 21 + 1]) op u32([fp + 29], [fp + 29 + 1])
+  14: 2 20 23 24           // [fp + 24] = [fp + 20] op [fp + 23]
+  15: 14 24 3 _            // if [fp + 24] != 0, jump to and_non_zero_0
+  16: 9 0 24 _             // [fp + 24] = 0
+  17: 12 21 _ _            // jump to and_end_1
+and_non_zero_0:
+  18: 9 1 24 _             // [fp + 24] = 1
+and_end_1:
+  19: 15 10 18 25          // u32([fp + 25], [fp + 25 + 1]) = u32([fp + 10], [fp + 10 + 1]) op u32([fp + 18], [fp + 18 + 1])
+  20: 14 24 2 _            // if [fp + 24] != 0 jmp rel test_compound_expressions_1
+  21: 12 26 _ _            // jump abs test_compound_expressions_2
+test_compound_expressions_1:
+  22: 19 25 1 0 25         // u32([fp + 25], [fp + 25 + 1]) = u32([fp + 25], [fp + 25 + 1]) op u32(1, 0)
+test_compound_expressions_2:
+  23: 4 25 0 -4            // Return value 0 slot 0: [fp -4] = [fp + 25] + 0
+  24: 4 26 0 -3            // Return value 0 slot 1: [fp -3] = [fp + 26] + 0
+  25: 11 _ _ _             // return

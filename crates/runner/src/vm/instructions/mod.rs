@@ -166,6 +166,12 @@ pub fn opcode_to_instruction_fn(op: M31) -> Result<InstructionFn, InstructionErr
         U32_STORE_MUL_FP_IMM => u32_store_mul_fp_imm,
         U32_STORE_DIV_FP_IMM => u32_store_div_fp_imm,
         U32_STORE_IMM => u32_store_imm,
+        U32_STORE_EQ_FP_FP => u32_store_eq_fp_fp,
+        U32_STORE_NEQ_FP_FP => u32_store_neq_fp_fp,
+        U32_STORE_GT_FP_FP => u32_store_gt_fp_fp,
+        U32_STORE_GE_FP_FP => u32_store_ge_fp_fp,
+        U32_STORE_LT_FP_FP => u32_store_lt_fp_fp,
+        U32_STORE_LE_FP_FP => u32_store_le_fp_fp,
         _ => return Err(InstructionError::InvalidOpcode(op)),
     };
     Ok(f)
