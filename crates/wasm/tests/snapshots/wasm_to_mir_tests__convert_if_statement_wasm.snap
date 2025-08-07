@@ -29,7 +29,7 @@ module {
       jump 2
 
     2:
-      %8 = 0
+      %8 = %7
       jump 4
 
     3:
@@ -37,7 +37,7 @@ module {
       jump 4
 
     4:
-      %10 = 0
+      %10 = %9
       return %10
 
     5:
