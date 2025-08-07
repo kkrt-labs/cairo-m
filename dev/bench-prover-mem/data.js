@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1754068505887,
+  "lastUpdate": 1754571129754,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -956,6 +956,35 @@ window.BENCHMARK_DATA = {
           {
             "name": "fibonacci_prove_peak_mem",
             "value": 2413859951,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antoine.fondeur@gmail.com",
+            "name": "Antoine Fondeur",
+            "username": "AntoineFONDEUR"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "96d7f071c012ffb3a1d5180629efb2f3a4fa9ff5",
+          "message": "doc(prover): add documentation for prover crate (#225)\n\n* first batch of comments\n\n* add debug_tools comments\n\n* add a readme for components and some doc for range_check\n\n* fix trunk\n\n* fix typo\n\n* review fix\n\n* keep trunk quiet\n\n* fix",
+          "timestamp": "2025-08-07T14:38:34+02:00",
+          "tree_id": "441b0e274e2efb5ffa89b03e04a7b7cf619acf91",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/96d7f071c012ffb3a1d5180629efb2f3a4fa9ff5"
+        },
+        "date": 1754571129707,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2413860443,
             "unit": "bytes"
           }
         ]
