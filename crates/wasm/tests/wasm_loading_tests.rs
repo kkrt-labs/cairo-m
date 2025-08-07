@@ -4,7 +4,7 @@ use insta::assert_snapshot;
 use std::path::Path;
 
 // Use the loader from our src module
-use cairo_m_wasm::loader::WasmModule;
+use cairo_m_wasm::loader::BlocklessDagModule;
 
 /// A macro to define a WASM loading test case
 macro_rules! wasm_test {
@@ -17,7 +17,7 @@ macro_rules! wasm_test {
             assert!(Path::new(&file_path).exists(), "WASM file should exist: {}", file_path);
 
             // Load the WASM module
-            let result = WasmModule::from_file(&file_path);
+            let result = BlocklessDagModule::from_file(&file_path);
 
             // Create snapshot content
             let snapshot_content = match result {
@@ -79,7 +79,7 @@ mod integration_tests {
     #[test]
     fn test_loader_basic() {
         // Test basic loading functionality
-        let result = WasmModule::from_file("tests/test_cases/add.wasm");
+        let result = BlocklessDagModule::from_file("tests/test_cases/add.wasm");
         assert!(result.is_ok(), "Should load add.wasm successfully");
 
         let module = result.unwrap();
