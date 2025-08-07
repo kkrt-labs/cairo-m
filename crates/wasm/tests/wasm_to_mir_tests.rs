@@ -56,3 +56,4 @@ wasm_test!(convert_arithmetic_wasm, "arithmetic.wasm");
 wasm_test!(convert_if_statement_wasm, "if_statement.wasm");
 wasm_test!(convert_func_call_wasm, "func_call.wasm");
 wasm_test!(convert_var_manipulation_wasm, "var_manipulation.wasm");
+wasm_test!(convert_simple_loop_wasm, "simple_loop.wasm");
