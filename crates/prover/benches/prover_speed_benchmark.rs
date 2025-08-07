@@ -1,4 +1,5 @@
 use std::fs;
+use std::path::Path;
 use std::time::Duration;
 
 use cairo_m_common::Program;
@@ -15,11 +16,16 @@ const N_ITERATIONS: u32 = 100_000;
 
 /// Compiles the fibonacci.cm file from the test data directory
 fn compile_fibonacci() -> Program {
+    let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|p| p.parent())
+        .unwrap();
     let source_path = format!(
-        "{}/tests/test_data/fibonacci.cm",
-        env!("CARGO_MANIFEST_DIR")
+        "{}/test_data/functions/fibonacci_loop.cm",
+        workspace_root.display()
     );
-    let source_text = fs::read_to_string(&source_path).expect("Failed to read fibonacci.cm");
+    let source_text = fs::read_to_string(&source_path)
+        .unwrap_or_else(|_| panic!("Failed to read {}", source_path));
     let options = CompilerOptions { verbose: false };
     let output =
         compile_cairo(source_text, source_path, options).expect("Failed to compile fibonacci.cm");
@@ -31,7 +37,7 @@ fn fibonacci_prove_benchmark(c: &mut Criterion) {
 
     let runner_output = run_cairo_program(
         &program,
-        "fib",
+        "fibonacci_loop",
         &[M31::from(N_ITERATIONS)],
         Default::default(),
     )
