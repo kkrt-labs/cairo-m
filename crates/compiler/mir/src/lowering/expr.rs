@@ -407,7 +407,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 // Register stack allocation as an address
 
                 self.instr().add_instruction(
-                    Instruction::stack_alloc(tuple_addr, tuple_type.size_units())
+                    Instruction::frame_alloc(tuple_addr, tuple_type.clone())
                         .with_comment("Allocate space for tuple return value".to_string()),
                 );
 
@@ -422,7 +422,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     let elem_ptr = self
                         .state
                         .mir_function
-                        .new_typed_value_id(MirType::pointer(value_type));
+                        .new_typed_value_id(MirType::pointer(value_type.clone()));
                     self.instr().add_instruction(
                         Instruction::get_element_ptr(
                             elem_ptr,
@@ -431,7 +431,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         )
                         .with_comment(format!("Get address of tuple element {}", i)),
                     );
-                    self.instr().store(Value::operand(elem_ptr), *value);
+                    self.instr()
+                        .store(Value::operand(elem_ptr), *value, value_type);
                 }
 
                 Ok(Value::operand(tuple_addr))
@@ -695,7 +696,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // Register stack allocation as an address
 
         self.instr().add_instruction(
-            Instruction::stack_alloc(struct_addr, struct_type.size_units())
+            Instruction::frame_alloc(struct_addr, struct_type.clone())
                 .with_comment("Allocate struct".to_string()),
         );
 
@@ -744,7 +745,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             );
 
             // Store the field value
-            self.instr().store(Value::operand(field_addr), field_val);
+            let field_type = struct_type
+                .field_type(field_name.value())
+                .unwrap_or(&MirType::felt())
+                .clone();
+            self.instr()
+                .store(Value::operand(field_addr), field_val, field_type);
         }
 
         // Return the struct address (in a real system, this might return the struct value itself)
@@ -777,7 +783,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // Register stack allocation as an address
 
         self.instr().add_instruction(
-            Instruction::stack_alloc(tuple_addr, tuple_type.size_units())
+            Instruction::frame_alloc(tuple_addr, tuple_type)
                 .with_comment(format!("Allocate tuple with {} elements", elements.len())),
         );
 
@@ -811,7 +817,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             let element_addr = self
                 .state
                 .mir_function
-                .new_typed_value_id(MirType::pointer(element_type));
+                .new_typed_value_id(MirType::pointer(element_type.clone()));
             self.instr().add_instruction(
                 Instruction::get_element_ptr(
                     element_addr,
@@ -822,8 +828,11 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             );
 
             // Store the element value
-            self.instr()
-                .store(Value::operand(element_addr), element_val);
+            self.instr().store(
+                Value::operand(element_addr),
+                element_val,
+                element_type.clone(),
+            );
         }
 
         // Return the tuple address
@@ -875,6 +884,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             .state
             .mir_function
             .new_typed_value_id(MirType::pointer(element_mir_type.clone()));
+
         self.instr().add_instruction(
             Instruction::get_element_ptr(element_addr, tuple_addr, Value::integer(offset as i32))
                 .with_comment(format!("Get address of tuple element {}", index)),

@@ -10,7 +10,11 @@ Simple tuple with mixed types:
 //TODO: fix
 
 ```cairo-m
-//! ignore: true
+fn main_test() -> felt {
+    let tuple = create_tuple();
+    return tuple.0 + tuple.1 + tuple.2;
+}
+
 fn create_tuple() -> (felt, felt, felt) {
     return (1, 2, 3);
 }

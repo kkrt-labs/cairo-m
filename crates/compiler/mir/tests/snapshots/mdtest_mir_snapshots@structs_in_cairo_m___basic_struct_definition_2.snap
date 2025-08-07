@@ -1,43 +1,43 @@
 ---
 source: crates/compiler/mir/tests/mdtest_snapshots.rs
-description: "MIR snapshot for mdtest: Structs in Cairo-M - Basic Struct Definition"
+description: "MIR snapshot for mdtest: Structs in Cairo-M - Basic Struct Definition 2"
 input_file: mdtest/03-types/02-structs.md
 ---
 Source:
-struct Point {
-    x: felt,
-    y: felt,
+struct PointU32 {
+    x: u32,
+    y: u32,
 }
 
-fn test_struct_basic() -> felt {
-    let p = Point { x: 10, y: 20 };
+fn test_struct_basic_u32() -> u32 {
+    let p = PointU32 { x: 10, y: 20 };
     return p.x + p.y;
 }
 ============================================================
 Generated MIR:
 module {
   // Function 0
-  fn test_struct_basic {
+  fn test_struct_basic_u32 {
     entry: 0
 
     0:
       // Allocate struct
-%0 = framealloc Point
+%0 = framealloc PointU32
       // Get address of field 'x'
 %1 = getelementptr %0, 0
-      store %1, 10
+      store %1, 10 (u32)
       // Get address of field 'y'
-%2 = getelementptr %0, 1
-      store %2, 20
+%2 = getelementptr %0, 2
+      store %2, 20 (u32)
       // Get address of field 'x'
 %3 = getelementptr %0, 0
       // Load field 'x'
-%4 = load felt %3
+%4 = load u32 %3
       // Get address of field 'y'
-%5 = getelementptr %0, 1
+%5 = getelementptr %0, 2
       // Load field 'y'
-%6 = load felt %5
-      %7 = %4 Add %6
+%6 = load u32 %5
+      %7 = %4 U32Add %6
       return %7
 
   }

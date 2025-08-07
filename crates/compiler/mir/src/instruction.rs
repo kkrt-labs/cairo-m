@@ -213,11 +213,11 @@ pub struct Instruction {
 pub enum InstructionKind {
     /// Simple assignment: `dest = source`
     /// Used for variable assignments and copies
-    Assign { dest: ValueId, source: Value },
-
-    /// U32 assignment: `dest = source`
-    /// Used for u32 variable assignments and copies
-    AssignU32 { dest: ValueId, source: Value },
+    Assign {
+        dest: ValueId,
+        source: Value,
+        ty: MirType,
+    },
 
     /// Unary operation: `dest = op source`
     /// Used for unary operations like negation and logical not
@@ -263,27 +263,23 @@ pub enum InstructionKind {
 
     /// Load from memory: `dest = load addr`
     /// For accessing memory locations and dereferencing pointers
-    Load { dest: ValueId, address: Value },
-
-    /// Load from memory: `[dest, dest+1] = load [addr, addr+1]`
-    /// For accessing memory locations and dereferencing pointers
-    LoadU32 { dest: ValueId, address: Value },
+    Load {
+        dest: ValueId,
+        ty: MirType,
+        address: Value,
+    },
 
     /// Store to memory: `store addr, value`
     /// For writing to memory locations
-    Store { address: Value, value: Value },
-
-    /// Store to memory: `store [addr, addr+1], [value_low, value_high]`
-    /// For writing to memory locations
-    StoreU32 { address: Value, value: Value },
-
-    /// Allocate space on the stack: `dest = stackalloc size`
-    /// For allocating local variables and temporary storage
-    StackAlloc {
-        dest: ValueId,
-        size: usize,
-        // TODO: Add alignment information when needed
+    Store {
+        address: Value,
+        value: Value,
+        ty: MirType,
     },
+
+    /// Allocate space in the function frame: `dest = framealloc type`
+    /// For allocating local variables and temporary storage
+    FrameAlloc { dest: ValueId, ty: MirType },
 
     /// Get address of a value: `dest = &operand`
     /// For taking addresses of variables
@@ -309,23 +305,29 @@ pub enum InstructionKind {
     /// Debug/diagnostic instruction
     /// Used for debugging and diagnostic output
     Debug { message: String, values: Vec<Value> },
+
+    /// No operation instruction
+    /// Used as a placeholder during transformations
+    Nop,
+
+    /// Phi node for SSA form: `dest = φ(block1: value1, block2: value2, ...)`
+    /// Used at control flow merge points to select values from different paths
+    ///
+    /// A Phi instruction conceptually executes at the beginning of a basic block
+    /// and selects the value corresponding to the predecessor block from which
+    /// control flow arrived.
+    Phi {
+        dest: ValueId,
+        ty: MirType,
+        sources: Vec<(crate::BasicBlockId, Value)>,
+    },
 }
 
 impl Instruction {
     /// Creates a new assignment instruction
-    pub const fn assign(dest: ValueId, source: Value) -> Self {
+    pub const fn assign(dest: ValueId, source: Value, ty: MirType) -> Self {
         Self {
-            kind: InstructionKind::Assign { dest, source },
-            source_span: None,
-            source_expr_id: None,
-            comment: None,
-        }
-    }
-
-    /// Creates a new u32 assignment instruction
-    pub const fn assign_u32(dest: ValueId, source: Value) -> Self {
-        Self {
-            kind: InstructionKind::AssignU32 { dest, source },
+            kind: InstructionKind::Assign { dest, source, ty },
             source_span: None,
             source_expr_id: None,
             comment: None,
@@ -364,18 +366,9 @@ impl Instruction {
     }
 
     /// Creates a new load instruction
-    pub const fn load(dest: ValueId, address: Value) -> Self {
+    pub const fn load(dest: ValueId, ty: MirType, address: Value) -> Self {
         Self {
-            kind: InstructionKind::Load { dest, address },
-            source_span: None,
-            source_expr_id: None,
-            comment: None,
-        }
-    }
-
-    pub const fn load_u32(dest: ValueId, address: Value) -> Self {
-        Self {
-            kind: InstructionKind::LoadU32 { dest, address },
+            kind: InstructionKind::Load { dest, ty, address },
             source_span: None,
             source_expr_id: None,
             comment: None,
@@ -383,28 +376,19 @@ impl Instruction {
     }
 
     /// Creates a new store instruction
-    pub const fn store(address: Value, value: Value) -> Self {
+    pub const fn store(address: Value, value: Value, ty: MirType) -> Self {
         Self {
-            kind: InstructionKind::Store { address, value },
+            kind: InstructionKind::Store { address, value, ty },
             source_span: None,
             source_expr_id: None,
             comment: None,
         }
     }
 
-    pub const fn store_u32(address: Value, value: Value) -> Self {
+    /// Creates a new frame allocation instruction
+    pub const fn frame_alloc(dest: ValueId, ty: MirType) -> Self {
         Self {
-            kind: InstructionKind::StoreU32 { address, value },
-            source_span: None,
-            source_expr_id: None,
-            comment: None,
-        }
-    }
-
-    /// Creates a new stack allocation instruction
-    pub const fn stack_alloc(dest: ValueId, size: usize) -> Self {
-        Self {
-            kind: InstructionKind::StackAlloc { dest, size },
+            kind: InstructionKind::FrameAlloc { dest, ty },
             source_span: None,
             source_expr_id: None,
             comment: None,
@@ -495,6 +479,29 @@ impl Instruction {
         }
     }
 
+    /// Creates a new phi instruction
+    pub const fn phi(
+        dest: ValueId,
+        ty: MirType,
+        sources: Vec<(crate::BasicBlockId, Value)>,
+    ) -> Self {
+        Self {
+            kind: InstructionKind::Phi { dest, ty, sources },
+            source_span: None,
+            source_expr_id: None,
+            comment: None,
+        }
+    }
+
+    pub const fn nop() -> Self {
+        Self {
+            kind: InstructionKind::Nop,
+            source_span: None,
+            source_expr_id: None,
+            comment: None,
+        }
+    }
+
     /// Sets the source span for this instruction
     pub const fn with_span(mut self, span: SimpleSpan<usize>) -> Self {
         self.source_span = Some(span);
@@ -517,22 +524,21 @@ impl Instruction {
     pub fn destinations(&self) -> Vec<ValueId> {
         match &self.kind {
             InstructionKind::Assign { dest, .. }
-            | InstructionKind::AssignU32 { dest, .. }
             | InstructionKind::UnaryOp { dest, .. }
             | InstructionKind::BinaryOp { dest, .. }
             | InstructionKind::Load { dest, .. }
-            | InstructionKind::LoadU32 { dest, .. }
-            | InstructionKind::StackAlloc { dest, .. }
+            | InstructionKind::FrameAlloc { dest, .. }
             | InstructionKind::AddressOf { dest, .. }
             | InstructionKind::GetElementPtr { dest, .. }
-            | InstructionKind::Cast { dest, .. } => vec![*dest],
+            | InstructionKind::Cast { dest, .. }
+            | InstructionKind::Phi { dest, .. } => vec![*dest],
 
             InstructionKind::Call { dests, .. } => dests.clone(),
 
             InstructionKind::VoidCall { .. }
             | InstructionKind::Store { .. }
-            | InstructionKind::StoreU32 { .. }
-            | InstructionKind::Debug { .. } => vec![],
+            | InstructionKind::Debug { .. }
+            | InstructionKind::Nop => vec![],
         }
     }
 
@@ -551,7 +557,7 @@ impl Instruction {
         let mut used = HashSet::new();
 
         match &self.kind {
-            InstructionKind::Assign { source, .. } | InstructionKind::AssignU32 { source, .. } => {
+            InstructionKind::Assign { source, .. } => {
                 if let Value::Operand(id) = source {
                     used.insert(*id);
                 }
@@ -586,13 +592,7 @@ impl Instruction {
                 }
             }
 
-            InstructionKind::LoadU32 { address, .. } => {
-                if let Value::Operand(id) = address {
-                    used.insert(*id);
-                }
-            }
-
-            InstructionKind::Store { address, value } => {
+            InstructionKind::Store { address, value, .. } => {
                 if let Value::Operand(id) = address {
                     used.insert(*id);
                 }
@@ -601,17 +601,8 @@ impl Instruction {
                 }
             }
 
-            InstructionKind::StoreU32 { address, value } => {
-                if let Value::Operand(id) = address {
-                    used.insert(*id);
-                }
-                if let Value::Operand(id) = value {
-                    used.insert(*id);
-                }
-            }
-
-            InstructionKind::StackAlloc { .. } => {
-                // Stack allocation doesn't use any values as input
+            InstructionKind::FrameAlloc { .. } => {
+                // Frame allocation doesn't use any values as input
             }
 
             InstructionKind::AddressOf { operand, .. } => {
@@ -640,6 +631,18 @@ impl Instruction {
                     }
                 }
             }
+
+            InstructionKind::Phi { sources, .. } => {
+                for (_, value) in sources {
+                    if let Value::Operand(id) = value {
+                        used.insert(*id);
+                    }
+                }
+            }
+
+            InstructionKind::Nop => {
+                // No operation - no values used
+            }
         }
 
         used
@@ -649,20 +652,19 @@ impl Instruction {
     pub const fn validate(&self) -> Result<(), String> {
         match &self.kind {
             InstructionKind::Assign { .. } => Ok(()),
-            InstructionKind::AssignU32 { .. } => Ok(()),
             InstructionKind::UnaryOp { .. } => Ok(()),
             InstructionKind::BinaryOp { .. } => Ok(()),
             InstructionKind::Call { .. } => Ok(()),
             InstructionKind::VoidCall { .. } => Ok(()),
             InstructionKind::Load { .. } => Ok(()),
-            InstructionKind::LoadU32 { .. } => Ok(()),
             InstructionKind::Store { .. } => Ok(()),
-            InstructionKind::StoreU32 { .. } => Ok(()),
-            InstructionKind::StackAlloc { .. } => Ok(()),
+            InstructionKind::FrameAlloc { .. } => Ok(()),
             InstructionKind::AddressOf { .. } => Ok(()),
             InstructionKind::GetElementPtr { .. } => Ok(()),
             InstructionKind::Cast { .. } => Ok(()),
             InstructionKind::Debug { .. } => Ok(()),
+            InstructionKind::Phi { .. } => Ok(()),
+            InstructionKind::Nop => Ok(()),
         }
     }
 
@@ -672,7 +674,7 @@ impl Instruction {
             self.kind,
             InstructionKind::VoidCall { .. }
                 | InstructionKind::Store { .. }
-                | InstructionKind::StackAlloc { .. }
+                | InstructionKind::FrameAlloc { .. }
                 | InstructionKind::Debug { .. }
         )
     }
@@ -693,20 +695,21 @@ impl PrettyPrint for Instruction {
         }
 
         match &self.kind {
-            InstructionKind::Assign { dest, source } => {
-                result.push_str(&format!(
-                    "{} = {}",
-                    dest.pretty_print(0),
-                    source.pretty_print(0)
-                ));
-            }
-
-            InstructionKind::AssignU32 { dest, source } => {
-                result.push_str(&format!(
-                    "{} = {} (u32)",
-                    dest.pretty_print(0),
-                    source.pretty_print(0)
-                ));
+            InstructionKind::Assign { dest, source, ty } => {
+                if matches!(ty, MirType::Felt) {
+                    result.push_str(&format!(
+                        "{} = {}",
+                        dest.pretty_print(0),
+                        source.pretty_print(0),
+                    ));
+                } else {
+                    result.push_str(&format!(
+                        "{} = {} ({})",
+                        dest.pretty_print(0),
+                        source.pretty_print(0),
+                        ty
+                    ));
+                }
             }
 
             InstructionKind::UnaryOp {
@@ -794,40 +797,34 @@ impl PrettyPrint for Instruction {
                 result.push_str(&format!("call {callee:?}({args_str})"));
             }
 
-            InstructionKind::Load { dest, address } => {
+            InstructionKind::Load { dest, ty, address } => {
                 result.push_str(&format!(
-                    "{} = load {}",
+                    "{} = load {} {}",
                     dest.pretty_print(0),
+                    ty,
                     address.pretty_print(0)
                 ));
             }
 
-            InstructionKind::LoadU32 { dest, address } => {
-                result.push_str(&format!(
-                    "{} = loadU32 {}",
-                    dest.pretty_print(0),
-                    address.pretty_print(0)
-                ));
+            InstructionKind::Store { address, value, ty } => {
+                if matches!(ty, MirType::Felt) {
+                    result.push_str(&format!(
+                        "store {}, {}",
+                        address.pretty_print(0),
+                        value.pretty_print(0),
+                    ));
+                } else {
+                    result.push_str(&format!(
+                        "store {}, {} ({})",
+                        address.pretty_print(0),
+                        value.pretty_print(0),
+                        ty
+                    ));
+                }
             }
 
-            InstructionKind::Store { address, value } => {
-                result.push_str(&format!(
-                    "store {}, {}",
-                    address.pretty_print(0),
-                    value.pretty_print(0)
-                ));
-            }
-
-            InstructionKind::StoreU32 { address, value } => {
-                result.push_str(&format!(
-                    "storeU32 [{}], [{}]",
-                    address.pretty_print(0),
-                    value.pretty_print(0)
-                ));
-            }
-
-            InstructionKind::StackAlloc { dest, size } => {
-                result.push_str(&format!("{} = stackalloc {}", dest.pretty_print(0), size));
+            InstructionKind::FrameAlloc { dest, ty } => {
+                result.push_str(&format!("{} = framealloc {}", dest.pretty_print(0), ty));
             }
 
             InstructionKind::AddressOf { dest, operand } => {
@@ -862,6 +859,24 @@ impl PrettyPrint for Instruction {
                     .collect::<Vec<_>>()
                     .join(", ");
                 result.push_str(&format!("debug \"{message}\" [{values_str}]"));
+            }
+
+            InstructionKind::Phi { dest, ty, sources } => {
+                let sources_str = sources
+                    .iter()
+                    .map(|(block, val)| format!("[%{}]: {}", block.index(), val.pretty_print(0)))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                result.push_str(&format!(
+                    "{} = φ {} {{ {} }}",
+                    dest.pretty_print(0),
+                    ty,
+                    sources_str
+                ));
+            }
+
+            InstructionKind::Nop => {
+                result.push_str("nop");
             }
         }
 

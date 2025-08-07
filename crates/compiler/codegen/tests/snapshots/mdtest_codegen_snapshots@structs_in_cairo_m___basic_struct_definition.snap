@@ -18,5 +18,9 @@ Generated CASM:
 test_struct_basic:
 test_struct_basic:
 test_struct_basic_0:
-   0: 9 30 -3 _            // [fp + -3] = 30
-   1: 11 _ _ _             // return
+   0: 9 10 0 _             // Store immediate: [fp + 0] = 10
+   1: 9 20 1 _             // Store immediate: [fp + 1] = 20
+   2: 4 0 0 2              // Load: [fp + 2] = [fp + 0] + 0
+   3: 4 1 0 3              // Load: [fp + 3] = [fp + 1] + 0
+   4: 0 2 3 -3             // [fp + -3] = [fp + 2] op [fp + 3]
+   5: 11 _ _ _             // return

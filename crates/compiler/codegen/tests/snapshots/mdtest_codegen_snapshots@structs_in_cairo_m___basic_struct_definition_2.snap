@@ -1,0 +1,28 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Structs in Cairo-M - Basic Struct Definition 2"
+input_file: mdtest/03-types/02-structs.md
+---
+Source:
+struct PointU32 {
+    x: u32,
+    y: u32,
+}
+
+fn test_struct_basic_u32() -> u32 {
+    let p = PointU32 { x: 10, y: 20 };
+    return p.x + p.y;
+}
+============================================================
+Generated CASM:
+test_struct_basic_u32:
+test_struct_basic_u32:
+test_struct_basic_u32_0:
+   0: 23 10 0 0            // [fp + 0, fp + 1] = u32(10)
+   1: 23 20 0 2            // [fp + 2, fp + 3] = u32(20)
+   2: 19 0 0 0 4           // LoadU32: [fp + 4, fp + 4 + 1] = [fp + 0, fp + 0 + 1] + 0
+   3: 19 2 0 0 6           // LoadU32: [fp + 6, fp + 6 + 1] = [fp + 2, fp + 2 + 1] + 0
+   4: 15 4 6 8             // u32([fp + 8], [fp + 9]) = u32([fp + 4], [fp + 5]) op u32([fp + 6], [fp + 7])
+   5: 4 8 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 8] + 0
+   6: 4 9 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 9] + 0
+   7: 11 _ _ _             // return

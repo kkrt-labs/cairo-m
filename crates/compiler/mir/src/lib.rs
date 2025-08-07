@@ -52,12 +52,13 @@ pub use basic_block::BasicBlock;
 pub use builder::{CfgBuilder, CfgState, InstrBuilder};
 pub use function::{MirDefinitionId, MirFunction};
 pub use instruction::{BinaryOp, Instruction, InstructionKind, MirExpressionId};
-pub use mir_types::{MirType, StructField};
+pub use mir_types::MirType;
 pub use module::MirModule;
 pub use passes::{DeadCodeElimination, MirPass, PassManager, Validation};
 pub use terminator::Terminator;
 pub use value::{Literal, Place, Value};
 
+pub mod analysis;
 pub mod basic_block;
 pub mod builder;
 pub mod db;

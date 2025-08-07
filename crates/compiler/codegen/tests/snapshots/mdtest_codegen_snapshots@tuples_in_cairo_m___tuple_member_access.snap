@@ -13,6 +13,12 @@ Generated CASM:
 access_tuple_member:
 access_tuple_member:
 access_tuple_member_0:
-   0: 9 3 0 _              // [fp + 0] = 3
-   1: 4 0 3 -3             // [fp + -3] = [fp + 0] op 3
-   2: 11 _ _ _             // return
+   0: 9 1 0 _              // Store immediate: [fp + 0] = 1
+   1: 9 2 1 _              // Store immediate: [fp + 1] = 2
+   2: 9 3 2 _              // Store immediate: [fp + 2] = 3
+   3: 4 0 0 3              // Load: [fp + 3] = [fp + 0] + 0
+   4: 4 1 0 4              // Load: [fp + 4] = [fp + 1] + 0
+   5: 0 3 4 5              // [fp + 5] = [fp + 3] op [fp + 4]
+   6: 4 2 0 6              // Load: [fp + 6] = [fp + 2] + 0
+   7: 0 5 6 -3             // [fp + -3] = [fp + 5] op [fp + 6]
+   8: 11 _ _ _             // return

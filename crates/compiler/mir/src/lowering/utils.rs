@@ -14,8 +14,7 @@ use cairo_m_compiler_semantic::types::TypeData;
 use cairo_m_compiler_semantic::SemanticIndex;
 
 use crate::instruction::CalleeSignature;
-use crate::mir_types::InstructionEmitter;
-use crate::{BasicBlockId, FunctionId, Instruction, MirType, Value, ValueId};
+use crate::{BasicBlockId, FunctionId, Instruction, Literal, MirType, Value, ValueId};
 
 use super::builder::MirBuilder;
 
@@ -66,9 +65,10 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
         let mir_def_id = self.convert_definition_id(def_id);
+
+        // If the variable is not used, map to a dummy value and exit
         let is_used = is_definition_used(self.ctx.semantic_index, def_idx);
         if !is_used {
-            // Map to a dummy value and return early
             let dummy_addr = self.state.mir_function.new_value_id();
             self.state
                 .definition_to_value
@@ -76,58 +76,139 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             return Ok(());
         }
 
-        // Check if we can use the value directly without allocation
-        // This optimization avoids unnecessary stack allocation for simple values
+        let semantic_type = definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
+        let var_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
+
+        // Handle primitive types and literals
         match value {
             Value::Operand(value_id) => {
-                // Check if this operand is already a non-pointer value we can use directly
                 if let Some(value_type) = self.state.mir_function.get_value_type(value_id) {
                     if !matches!(value_type, MirType::Pointer(_)) {
-                        // It's a value (not a pointer) - we can use it directly without allocation!
+                        // It's a simple value, not a pointer. Use directly.
                         self.state.definition_to_value.insert(mir_def_id, value_id);
                         return Ok(());
                     }
                 }
             }
-            Value::Literal(_) => {
+            Value::Literal(lit) => {
                 // Literals are immediate values - create a value instruction for them
-                let semantic_type =
-                    definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
-                let var_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
-                let value_id = self.state.mir_function.new_typed_value_id(var_type.clone());
-
-                // Create a move/immediate instruction
+                // IMPORTANT: For primitive types, use the variable's type to preserve u32 vs felt distinction
+                // For aggregate types (tuple/struct), this path shouldn't be taken - those are handled elsewhere
+                let literal_type = match lit {
+                    Literal::Integer(_) => {
+                        // Use the variable's type to preserve u32 vs felt distinction
+                        match &var_type {
+                            MirType::U32 => MirType::u32(),
+                            MirType::Felt => MirType::felt(),
+                            _ => panic!("Literal type mismatch: {:?} != {:?}", var_type, lit),
+                        }
+                    }
+                    Literal::Boolean(_) => MirType::bool(),
+                    Literal::Unit => MirType::unit(),
+                };
+                let value_id = self
+                    .state
+                    .mir_function
+                    .new_typed_value_id(literal_type.clone());
                 self.instr()
-                    .add_instruction(var_type.emit_assign(value_id, value));
-
-                // Map the variable directly to this value
+                    .add_instruction(Instruction::assign(value_id, value, literal_type));
                 self.state.definition_to_value.insert(mir_def_id, value_id);
                 return Ok(());
             }
-            _ => {
-                // For other cases, fall through to allocation
+            _ => {}
+        }
+
+        // For pointers (including tuple/struct addresses), just bind directly
+        // The allocation already exists and is populated
+        if let Value::Operand(value_id) = value {
+            if let Some(value_type) = self.state.mir_function.get_value_type(value_id) {
+                if matches!(value_type, MirType::Pointer(_)) {
+                    self.state.definition_to_value.insert(mir_def_id, value_id);
+                    return Ok(());
+                }
             }
         }
 
-        // For addresses or complex values, we need to allocate and store
-        // Get the variable's semantic type and convert to MirType
-        let semantic_type = definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
-        let var_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
-
-        // Allocate space for the variable
-        let var_addr = self
-            .state
-            .mir_function
-            .new_typed_value_id(MirType::pointer(var_type.clone()));
-
-        let mut instr = self.instr();
-        instr.add_instruction(Instruction::stack_alloc(var_addr, var_type.size_units()));
-
-        // Emit the appropriate store instruction based on type
-        instr.add_instruction(var_type.emit_store(Value::operand(var_addr), value));
-
-        // Update the definition to value mapping
+        // Fallback for cases we haven't handled
+        let var_addr = self.alloc_frame(var_type.clone());
+        self.instr()
+            .store(Value::operand(var_addr), value, var_type);
         self.state.definition_to_value.insert(mir_def_id, var_addr);
+        Ok(())
+    }
+
+    /// Copies a composite type (tuple or struct) from a source address to a destination address.
+    ///
+    /// This function generates a series of `getelementptr`, `load`, and `store` instructions
+    /// to perform an element-wise copy, avoiding incorrect "composite store" operations.
+    pub fn copy_composite_type(
+        &mut self,
+        dest_addr: Value,
+        src_addr: Value,
+        ty: &MirType,
+    ) -> Result<(), String> {
+        match ty {
+            MirType::Tuple(element_types) => {
+                for (i, elem_type) in element_types.iter().enumerate() {
+                    let offset = ty
+                        .tuple_element_offset(i)
+                        .ok_or_else(|| format!("Invalid tuple index {} for type", i))?;
+                    let offset_val = Value::integer(offset as i32);
+
+                    // Get pointer to source element
+                    let src_elem_ptr =
+                        self.get_element_ptr_auto(src_addr, offset_val, elem_type.clone());
+
+                    // Load value from source
+                    let loaded_val =
+                        self.load_auto(Value::operand(src_elem_ptr), elem_type.clone());
+
+                    // Get pointer to destination element
+                    let dest_elem_ptr =
+                        self.get_element_ptr_auto(dest_addr, offset_val, elem_type.clone());
+
+                    // Store value to destination
+                    self.store_value(
+                        Value::operand(dest_elem_ptr),
+                        Value::operand(loaded_val),
+                        elem_type.clone(),
+                    );
+                }
+            }
+            MirType::Struct { fields, .. } => {
+                for (field_name, field_type) in fields {
+                    let offset = ty
+                        .field_offset(field_name)
+                        .ok_or_else(|| format!("Field {} not found in struct type", field_name))?;
+                    let offset_val = Value::integer(offset as i32);
+
+                    // Get pointer to source field
+                    let src_elem_ptr =
+                        self.get_element_ptr_auto(src_addr, offset_val, field_type.clone());
+
+                    // Load value from source
+                    let loaded_val =
+                        self.load_auto(Value::operand(src_elem_ptr), field_type.clone());
+
+                    // Get pointer to destination field
+                    let dest_elem_ptr =
+                        self.get_element_ptr_auto(dest_addr, offset_val, field_type.clone());
+
+                    // Store value to destination
+                    self.store_value(
+                        Value::operand(dest_elem_ptr),
+                        Value::operand(loaded_val),
+                        field_type.clone(),
+                    );
+                }
+            }
+            _ => {
+                return Err(format!(
+                    "copy_composite_type called on non-composite type: {:?}",
+                    ty
+                ))
+            }
+        }
         Ok(())
     }
 

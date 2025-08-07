@@ -255,9 +255,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         self.instr().add_instruction(instruction);
     }
 
-    /// Allocate stack space for a variable
-    pub fn alloc_stack(&mut self, ty: MirType) -> ValueId {
-        self.instr().alloc_stack(ty)
+    /// Allocate frame space for a variable
+    pub fn alloc_frame(&mut self, ty: MirType) -> ValueId {
+        self.instr().alloc_frame(ty)
     }
 
     /// Create a binary operation with automatic destination
@@ -277,8 +277,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     }
 
     /// Store a value
-    pub fn store_value(&mut self, dest: Value, value: Value) {
-        self.instr().store(dest, value);
+    pub fn store_value(&mut self, dest: Value, value: Value, ty: MirType) {
+        self.instr().store(dest, value, ty);
     }
 
     /// Get element pointer

@@ -19,7 +19,6 @@ fn test_struct_basic() -> felt {
 ```
 
 ```cairo-m
-//! ignore: CodeGenerationFailed("Layout error: No layout found for value 3")
 struct PointU32 {
     x: u32,
     y: u32,
@@ -49,7 +48,6 @@ fn calculate_area() -> felt {
 ```
 
 ```cairo-m
-//! ignore: CodeGenerationFailed("Layout error: No layout found for value 3")
 struct RectangleU32 {
     width: u32,
     height: u32,
@@ -57,7 +55,11 @@ struct RectangleU32 {
 
 fn calculate_area_u32() -> u32 {
     let rect = RectangleU32 { width: 5, height: 10 };
-    rect.width = 7u32;
+    if rect.width == 5 {
+        rect.width = rect.width * 2;
+    } else {
+        rect.width = rect.height;
+    }
     return rect.width * rect.height;
 }
 ```
@@ -93,23 +95,21 @@ fn line_length_squared() -> felt {
 
 Passing structs to functions:
 
-//TODO: fix
-
 ```cairo-m
-//! ignore: true
+//!ignore: wrong result
 struct Vector {
     x: felt,
     y: felt,
     z: felt,
 }
 
-fn dot_product(v1: Vector, v2: Vector) -> felt {
-    return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
-}
-
 fn test_struct_param() -> felt {
     let a = Vector { x: 1, y: 2, z: 3 };
     let b = Vector { x: 4, y: 5, z: 6 };
     return dot_product(a, b);  // Returns 32
+}
+
+fn dot_product(v1: Vector, v2: Vector) -> felt {
+    return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
 }
 ```

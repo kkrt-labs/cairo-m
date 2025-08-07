@@ -85,7 +85,7 @@ impl PreOptimizationPass {
 
         for block in function.basic_blocks.iter_mut() {
             block.instructions.retain(|instr| {
-                if let InstructionKind::StackAlloc { dest, .. } = &instr.kind {
+                if let InstructionKind::FrameAlloc { dest, .. } = &instr.kind {
                     if use_counts.get(dest).copied().unwrap_or(0) == 0 {
                         modified = true;
                         self.optimizations_applied
@@ -116,13 +116,12 @@ impl PreOptimizationPass {
                     InstructionKind::BinaryOp { dest, .. }
                     | InstructionKind::UnaryOp { dest, .. }
                     | InstructionKind::Assign { dest, .. }
-                    | InstructionKind::AssignU32 { dest, .. } => {
-                        if use_counts.get(dest).copied().unwrap_or(0) == 0 {
-                            modified = true;
-                            self.optimizations_applied
-                                .push("dead_instruction_elimination".to_string());
-                            return false; // Remove this instruction
-                        }
+                        if use_counts.get(dest).copied().unwrap_or(0) == 0 =>
+                    {
+                        modified = true;
+                        self.optimizations_applied
+                            .push("dead_instruction_elimination".to_string());
+                        return false; // Remove this instruction
                     }
                     // Load instructions can also be dead if their result is unused
                     InstructionKind::Load { dest, .. } => {

@@ -97,7 +97,7 @@ impl<'a> TestBlockBuilder<'a> {
     /// Adds an assignment instruction
     pub fn assign(&mut self, source: Value) -> ValueId {
         let dest = self.function.new_value_id();
-        let instruction = Instruction::assign(dest, source);
+        let instruction = Instruction::assign(dest, source, MirType::felt());
         self.function
             .get_basic_block_mut(self.current_block)
             .unwrap()

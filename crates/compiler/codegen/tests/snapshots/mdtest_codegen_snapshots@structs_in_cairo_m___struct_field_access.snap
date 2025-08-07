@@ -19,5 +19,10 @@ Generated CASM:
 calculate_area:
 calculate_area:
 calculate_area_0:
-   0: 9 70 -3 _            // [fp + -3] = 70
-   1: 11 _ _ _             // return
+   0: 9 5 0 _              // Store immediate: [fp + 0] = 5
+   1: 9 10 1 _             // Store immediate: [fp + 1] = 10
+   2: 9 7 0 _              // Store immediate: [fp + 0] = 7
+   3: 4 0 0 2              // Load: [fp + 2] = [fp + 0] + 0
+   4: 4 1 0 3              // Load: [fp + 3] = [fp + 1] + 0
+   5: 2 2 3 -3             // [fp + -3] = [fp + 2] op [fp + 3]
+   6: 11 _ _ _             // return

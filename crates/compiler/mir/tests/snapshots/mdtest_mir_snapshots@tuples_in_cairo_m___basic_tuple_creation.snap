@@ -1,0 +1,62 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Tuples in Cairo-M - Basic Tuple Creation"
+input_file: mdtest/03-types/01-tuples.md
+---
+Source:
+fn main_test() -> felt {
+    let tuple = create_tuple();
+    return tuple.0 + tuple.1 + tuple.2;
+}
+
+fn create_tuple() -> (felt, felt, felt) {
+    return (1, 2, 3);
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn main_test {
+    entry: 0
+
+    0:
+      %0, %1, %2 = call 1()
+      // Allocate space for tuple return value
+%3 = framealloc (felt, felt, felt)
+      // Get address of tuple element 0
+%4 = getelementptr %3, 0
+      store %4, %0
+      // Get address of tuple element 1
+%5 = getelementptr %3, 1
+      store %5, %1
+      // Get address of tuple element 2
+%6 = getelementptr %3, 2
+      store %6, %2
+      // Get address of tuple element 0
+%7 = getelementptr %3, 0
+      // Load tuple element 0
+%8 = load felt %7
+      // Get address of tuple element 1
+%9 = getelementptr %3, 1
+      // Load tuple element 1
+%10 = load felt %9
+      %11 = %8 Add %10
+      // Get address of tuple element 2
+%12 = getelementptr %3, 2
+      // Load tuple element 2
+%13 = load felt %12
+      %14 = %11 Add %13
+      return %14
+
+  }
+
+  // Function 1
+  fn create_tuple {
+    entry: 0
+
+    0:
+      return (1, 2, 3)
+
+  }
+
+}

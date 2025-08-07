@@ -90,7 +90,7 @@ impl FunctionLayout {
             let ty = function.value_types.get(&param_id).ok_or_else(|| {
                 CodegenError::LayoutError(format!("No type found for parameter {param_id:?}"))
             })?;
-            m_slots += ty.size_units();
+            m_slots += ty.size_in_slots();
         }
 
         let mut k_slots = 0;
@@ -100,7 +100,7 @@ impl FunctionLayout {
             let ty = function.value_types.get(&return_id).ok_or_else(|| {
                 CodegenError::LayoutError(format!("No type found for return value {return_id:?}"))
             })?;
-            let size = ty.size_units();
+            let size = ty.size_in_slots();
             k_slots += size;
         }
 
@@ -113,7 +113,7 @@ impl FunctionLayout {
             let ty = function.value_types.get(&param_id).ok_or_else(|| {
                 CodegenError::LayoutError(format!("No type found for parameter {param_id:?}"))
             })?;
-            let size = ty.size_units();
+            let size = ty.size_in_slots();
 
             // Calculate the offset using the formula from Issue 2
             let offset = -(m_slots as i32) - (k_slots as i32) - 2 + cumulative_param_size as i32;
@@ -156,7 +156,7 @@ impl FunctionLayout {
                                     "No type found for call return value {dest_id:?}"
                                 ))
                             })?;
-                            let size = ty.size_units();
+                            let size = ty.size_in_slots();
 
                             // Allocate space for the return value
                             if size == 1 {
@@ -179,7 +179,7 @@ impl FunctionLayout {
                             current_offset += size;
                         }
                     }
-                    InstructionKind::StackAlloc { dest, size } => {
+                    InstructionKind::FrameAlloc { dest, ty } => {
                         // Skip if already allocated
                         if self.value_layouts.contains_key(dest) {
                             continue;
@@ -187,13 +187,9 @@ impl FunctionLayout {
 
                         // Allocate a block of memory
                         let offset = current_offset as i32;
-                        self.value_layouts.insert(
-                            *dest,
-                            ValueLayout::MultiSlot {
-                                offset,
-                                size: *size,
-                            },
-                        );
+                        let size = ty.size_in_slots();
+                        self.value_layouts
+                            .insert(*dest, ValueLayout::MultiSlot { offset, size });
                         current_offset += size;
                     }
                     InstructionKind::GetElementPtr { dest, base, offset } => {
@@ -256,7 +252,7 @@ impl FunctionLayout {
                                     "No type found for value {dest_id:?}"
                                 ))
                             })?;
-                            let size = ty.size_units();
+                            let size = ty.size_in_slots();
 
                             // Create appropriate layout based on size
                             if size == 1 {

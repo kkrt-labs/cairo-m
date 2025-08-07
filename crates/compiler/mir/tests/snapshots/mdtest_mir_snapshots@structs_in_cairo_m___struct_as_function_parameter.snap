@@ -1,0 +1,76 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Structs in Cairo-M - Struct as Function Parameter"
+input_file: mdtest/03-types/02-structs.md
+---
+Source:
+struct Vector {
+    x: felt,
+    y: felt,
+    z: felt,
+}
+
+fn test_struct_param() -> felt {
+    let a = Vector { x: 1, y: 2, z: 3 };
+    let b = Vector { x: 4, y: 5, z: 6 };
+    return dot_product(a, b);  // Returns 32
+}
+
+fn dot_product(v1: Vector, v2: Vector) -> felt {
+    return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_struct_param {
+    entry: 0
+
+    0:
+      %8 = 1 (Vector)
+      %9 = 4 (Vector)
+      %10 = call 1(%8, %9)
+      return %10
+
+  }
+
+  // Function 1
+  fn dot_product {
+    parameters: [0, 1]
+    entry: 0
+
+    0:
+      // Get address of field 'x'
+%2 = getelementptr %0, 0
+      // Load field 'x'
+%3 = load felt %2
+      // Get address of field 'x'
+%4 = getelementptr %1, 0
+      // Load field 'x'
+%5 = load felt %4
+      %6 = %3 Mul %5
+      // Get address of field 'y'
+%7 = getelementptr %0, 1
+      // Load field 'y'
+%8 = load felt %7
+      // Get address of field 'y'
+%9 = getelementptr %1, 1
+      // Load field 'y'
+%10 = load felt %9
+      %11 = %8 Mul %10
+      %12 = %6 Add %11
+      // Get address of field 'z'
+%13 = getelementptr %0, 2
+      // Load field 'z'
+%14 = load felt %13
+      // Get address of field 'z'
+%15 = getelementptr %1, 2
+      // Load field 'z'
+%16 = load felt %15
+      %17 = %14 Mul %16
+      %18 = %12 Add %17
+      return %18
+
+  }
+
+}

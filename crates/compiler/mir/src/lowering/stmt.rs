@@ -11,7 +11,6 @@ use cairo_m_compiler_semantic::type_resolution::{
 };
 use cairo_m_compiler_semantic::types::TypeData;
 
-use crate::mir_types::InstructionEmitter;
 use crate::{Instruction, MirType, Terminator, Value};
 
 use super::builder::MirBuilder;
@@ -218,7 +217,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         // Register loaded value as a Value
 
                         self.instr()
-                            .load(mir_type, elem_value, Value::operand(elem_ptr));
+                            .load(mir_type.clone(), elem_value, Value::operand(elem_ptr));
 
                         return_values.push(Value::operand(elem_value));
                     }
@@ -293,19 +292,55 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 let typed_op = crate::BinaryOp::from_parser(*op, &left_type_data)?;
 
                 // Always create a new ValueId for the result to maintain SSA form
-                let dest = self.state.mir_function.new_typed_value_id(result_type);
+                let dest = self
+                    .state
+                    .mir_function
+                    .new_typed_value_id(result_type.clone());
                 self.instr()
                     .binary_op_with_dest(typed_op, dest, left_value, right_value);
 
                 // Store the result to the LHS address
                 let lhs_address = self.lower_lvalue_expression(lhs)?;
-                self.instr().store(lhs_address, Value::operand(dest));
+                self.instr()
+                    .store(lhs_address, Value::operand(dest), result_type);
             }
             _ => {
-                // Standard assignment: lower RHS then store to LHS
-                let rhs_value = self.lower_expression(rhs)?;
+                // Standard assignment
+                // Get the type of the RHS to determine if it's a composite type
+                let rhs_expr_id = self
+                    .ctx
+                    .semantic_index
+                    .expression_id_by_span(rhs.span())
+                    .ok_or_else(|| {
+                        format!("No ExpressionId found for RHS span {:?}", rhs.span())
+                    })?;
+                let rhs_semantic_type = expression_semantic_type(
+                    self.ctx.db,
+                    self.ctx.crate_id,
+                    self.ctx.file,
+                    rhs_expr_id,
+                    None,
+                );
+                let rhs_type = MirType::from_semantic_type(self.ctx.db, rhs_semantic_type);
+
                 let lhs_address = self.lower_lvalue_expression(lhs)?;
-                self.instr().store(lhs_address, rhs_value);
+
+                match rhs_type {
+                    MirType::Tuple(_) | MirType::Struct { .. } => {
+                        // This is a composite type assignment (e.g., tuple_a = tuple_b).
+                        // We must perform an element-wise copy.
+                        // Get the address of the RHS.
+                        let rhs_address = self.lower_lvalue_expression(rhs)?;
+
+                        // Perform the element-wise copy
+                        self.copy_composite_type(lhs_address, rhs_address, &rhs_type)?;
+                    }
+                    _ => {
+                        // For primitive types, a simple store is sufficient
+                        let rhs_value = self.lower_expression(rhs)?;
+                        self.instr().store(lhs_address, rhs_value, rhs_type);
+                    }
+                }
             }
         }
         Ok(())
@@ -697,8 +732,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     // Register loaded value as a Value
 
                     self.instr().add_instruction(
-                        element_mir_type
-                            .emit_load(elem_value, Value::operand(elem_ptr))
+                        Instruction::load(elem_value, element_mir_type, Value::operand(elem_ptr))
                             .with_comment(format!("Load tuple element {}", index)),
                     );
 

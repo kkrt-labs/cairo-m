@@ -6,7 +6,7 @@
 
 use cairo_m_compiler_mir::passes::pre_opt::PreOptimizationPass;
 use cairo_m_compiler_mir::passes::MirPass;
-use cairo_m_compiler_mir::{Instruction, Literal, MirFunction, Terminator, Value};
+use cairo_m_compiler_mir::{Instruction, Literal, MirFunction, MirType, Terminator, Value};
 
 #[test]
 fn test_dead_allocation_elimination() {
@@ -19,7 +19,7 @@ fn test_dead_allocation_elimination() {
     let unused_addr = function.new_value_id();
 
     let block_mut = function.get_basic_block_mut(block).unwrap();
-    block_mut.push_instruction(Instruction::stack_alloc(unused_addr, 1));
+    block_mut.push_instruction(Instruction::frame_alloc(unused_addr, MirType::felt()));
     block_mut.set_terminator(Terminator::return_void());
 
     // Run the pre-optimization pass
@@ -72,14 +72,16 @@ fn test_optimization_preserves_used_values() {
     let value = function.new_value_id();
 
     let block_mut = function.get_basic_block_mut(block).unwrap();
-    block_mut.push_instruction(Instruction::stack_alloc(addr, 1));
+    block_mut.push_instruction(Instruction::frame_alloc(addr, MirType::felt()));
     block_mut.push_instruction(Instruction::assign(
         value,
         Value::Literal(Literal::Integer(42)),
+        MirType::felt(),
     ));
     block_mut.push_instruction(Instruction::store(
         Value::Operand(addr),
         Value::Operand(value),
+        MirType::felt(),
     ));
     // Use the value in the return
     block_mut.set_terminator(Terminator::return_values(vec![Value::Operand(value)]));

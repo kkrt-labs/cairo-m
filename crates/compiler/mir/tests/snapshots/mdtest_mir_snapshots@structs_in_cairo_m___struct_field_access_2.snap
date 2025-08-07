@@ -1,0 +1,78 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Structs in Cairo-M - Struct Field Access 2"
+input_file: mdtest/03-types/02-structs.md
+---
+Source:
+struct RectangleU32 {
+    width: u32,
+    height: u32,
+}
+
+fn calculate_area_u32() -> u32 {
+    let rect = RectangleU32 { width: 5, height: 10 };
+    if rect.width == 5 {
+        rect.width = rect.width * 2;
+    } else {
+        rect.width = rect.height;
+    }
+    return rect.width * rect.height;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn calculate_area_u32 {
+    entry: 0
+
+    0:
+      // Allocate struct
+%0 = framealloc RectangleU32
+      // Get address of field 'width'
+%1 = getelementptr %0, 0
+      store %1, 5 (u32)
+      // Get address of field 'height'
+%2 = getelementptr %0, 2
+      store %2, 10 (u32)
+      // Get address of field 'width'
+%3 = getelementptr %0, 0
+      // Load field 'width'
+%4 = load u32 %3
+      if %4 U32Eq 5 then jump 1 else jump 2
+
+    1:
+      // Get address of field 'width'
+%6 = getelementptr %0, 0
+      // Load field 'width'
+%7 = load u32 %6
+      %8 = %7 U32Mul 2
+      // Get address of field 'width'
+%9 = getelementptr %0, 0
+      store %9, %8 (u32)
+      jump 3
+
+    2:
+      // Get address of field 'width'
+%10 = getelementptr %0, 0
+      // Get address of field 'height'
+%11 = getelementptr %0, 2
+      // Load field 'height'
+%12 = load u32 %11
+      store %10, %12 (u32)
+      jump 3
+
+    3:
+      // Get address of field 'width'
+%13 = getelementptr %0, 0
+      // Load field 'width'
+%14 = load u32 %13
+      // Get address of field 'height'
+%15 = getelementptr %0, 2
+      // Load field 'height'
+%16 = load u32 %15
+      %17 = %14 U32Mul %16
+      return %17
+
+  }
+
+}

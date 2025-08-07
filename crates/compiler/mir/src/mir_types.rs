@@ -7,8 +7,6 @@
 use cairo_m_compiler_semantic::types::{TypeData, TypeId};
 use cairo_m_compiler_semantic::SemanticDb;
 
-use crate::{Instruction, Value, ValueId};
-
 /// A simplified type representation for MIR
 ///
 /// This is a lifetime-free representation of types that can be stored
@@ -35,7 +33,7 @@ pub enum MirType {
     /// This contains the struct name and ordered field information for layout calculations
     Struct {
         name: String,
-        fields: Vec<StructField>,
+        fields: Vec<(String, MirType)>,
     },
 
     /// Function type with parameter and return types
@@ -52,50 +50,6 @@ pub enum MirType {
 
     /// Unknown type (for incomplete analysis)
     Unknown,
-}
-
-/// Emit the proper instruction flavor from a value and a given type
-pub trait InstructionEmitter {
-    fn emit_store(&self, address: Value, value: Value) -> Instruction;
-    fn emit_assign(&self, dest: ValueId, source: Value) -> Instruction;
-    fn emit_load(&self, dest: ValueId, address: Value) -> Instruction;
-}
-
-impl InstructionEmitter for MirType {
-    fn emit_store(&self, address: Value, value: Value) -> Instruction {
-        match self {
-            Self::Felt | Self::Bool => Instruction::store(address, value),
-            Self::U32 => Instruction::store_u32(address, value),
-            _ => Instruction::store(address, value),
-        }
-    }
-
-    fn emit_assign(&self, dest: ValueId, source: Value) -> Instruction {
-        match self {
-            Self::Felt | Self::Bool => Instruction::assign(dest, source),
-            Self::U32 => Instruction::assign_u32(dest, source),
-            _ => Instruction::assign(dest, source),
-        }
-    }
-
-    fn emit_load(&self, dest: ValueId, address: Value) -> Instruction {
-        match self {
-            Self::Felt | Self::Bool => Instruction::load(dest, address),
-            Self::U32 => Instruction::load_u32(dest, address),
-            _ => Instruction::load(dest, address),
-        }
-    }
-}
-
-/// Information about a struct field for layout calculations
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct StructField {
-    /// The name of the field
-    pub name: String,
-    /// The type of the field
-    pub field_type: MirType,
-    /// The offset of this field in the struct layout (in size units)
-    pub offset: usize,
 }
 
 impl MirType {
@@ -125,7 +79,7 @@ impl MirType {
     }
 
     /// Creates a struct type with field layout information
-    pub const fn struct_type(name: String, fields: Vec<StructField>) -> Self {
+    pub const fn struct_type(name: String, fields: Vec<(String, Self)>) -> Self {
         Self::Struct { name, fields }
     }
 
@@ -175,27 +129,22 @@ impl MirType {
         matches!(self, Self::Error | Self::Unknown)
     }
 
-    /// Gets the size in "units" for this type (simplified)
-    pub fn size_units(&self) -> usize {
+    /// Gets the size in slots (field elements) for this type
+    pub fn size_in_slots(&self) -> usize {
         match self {
-            Self::Felt | Self::Bool => 1,
-            Self::U32 => 2,
-            Self::Pointer(_) => 1, // Assuming pointer size = 1 unit
-            Self::Tuple(types) => types.iter().map(|t| t.size_units()).sum(),
+            Self::Felt | Self::Bool | Self::Pointer(_) => 1,
+            Self::U32 => 2, // U32 takes 2 field elements (low, high)
+            Self::Tuple(types) => types.iter().map(|t| t.size_in_slots()).sum(),
             Self::Struct { fields, .. } => {
-                if fields.is_empty() {
-                    // Fallback for structs without field information
-                    1
-                } else {
-                    // Calculate size as the offset of the last field plus its size
-                    fields.iter().fold(0, |max_end, field| {
-                        (field.offset + field.field_type.size_units()).max(max_end)
-                    })
-                }
+                // Sum the sizes of all fields
+                fields
+                    .iter()
+                    .map(|(_, field_type)| field_type.size_in_slots())
+                    .sum()
             }
             Self::Function { .. } => 1, // Function pointers
             Self::Unit => 0,
-            Self::Error | Self::Unknown => 1, // Fallback
+            Self::Error | Self::Unknown => 1, // Safe default
         }
     }
 
@@ -203,10 +152,16 @@ impl MirType {
     /// Returns None if the field is not found or this is not a struct type
     pub fn field_offset(&self, field_name: &str) -> Option<usize> {
         match self {
-            Self::Struct { fields, .. } => fields
-                .iter()
-                .find(|f| f.name == field_name)
-                .map(|f| f.offset),
+            Self::Struct { fields, .. } => {
+                let mut offset = 0;
+                for (name, field_type) in fields {
+                    if name == field_name {
+                        return Some(offset);
+                    }
+                    offset += field_type.size_in_slots();
+                }
+                None
+            }
             _ => None,
         }
     }
@@ -223,7 +178,7 @@ impl MirType {
                 // Calculate cumulative offset by summing sizes of previous elements
                 let mut offset = 0;
                 for type_at_i in types.iter().take(index) {
-                    offset += type_at_i.size_units();
+                    offset += type_at_i.size_in_slots();
                 }
                 Some(offset)
             }
@@ -237,8 +192,8 @@ impl MirType {
         match self {
             Self::Struct { fields, .. } => fields
                 .iter()
-                .find(|f| f.name == field_name)
-                .map(|f| &f.field_type),
+                .find(|(name, _)| name == field_name)
+                .map(|(_, field_type)| field_type),
             _ => None,
         }
     }
@@ -277,22 +232,14 @@ impl MirType {
                 let struct_name = struct_id.name(db);
                 let semantic_fields = struct_id.fields(db);
 
-                // Convert semantic fields to MIR fields with calculated layout
-                let mut fields = Vec::new();
-                let mut current_offset = 0;
-
-                for (field_name, field_type_id) in semantic_fields {
-                    let field_type = Self::from_semantic_type(db, field_type_id);
-                    let field_size = field_type.size_units();
-
-                    fields.push(StructField {
-                        name: field_name.clone(),
-                        field_type,
-                        offset: current_offset,
-                    });
-
-                    current_offset += field_size;
-                }
+                // Convert semantic fields to MIR fields (name, type) pairs
+                let fields: Vec<(String, Self)> = semantic_fields
+                    .into_iter()
+                    .map(|(field_name, field_type_id)| {
+                        let field_type = Self::from_semantic_type(db, field_type_id);
+                        (field_name, field_type)
+                    })
+                    .collect();
 
                 Self::struct_type(struct_name, fields)
             }

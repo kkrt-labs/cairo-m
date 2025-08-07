@@ -7,7 +7,6 @@
 use cairo_m_compiler_parser::parser::UnaryOp;
 
 use crate::instruction::CalleeSignature;
-use crate::mir_types::InstructionEmitter;
 use crate::{
     BasicBlockId, BinaryOp, FunctionId, Instruction, Literal, MirFunction, MirType, Value, ValueId,
 };
@@ -60,7 +59,7 @@ impl<'f> InstrBuilder<'f> {
 
     /// Create and add a load instruction
     pub fn load(&mut self, ty: MirType, dest: ValueId, src: Value) -> &mut Self {
-        let instr = ty.emit_load(dest, src);
+        let instr = Instruction::load(dest, ty, src);
         self.add_instruction(instr);
         self
     }
@@ -73,21 +72,27 @@ impl<'f> InstrBuilder<'f> {
         src: Value,
         comment: String,
     ) -> &mut Self {
-        let instr = ty.emit_load(dest, src).with_comment(comment);
+        let instr = Instruction::load(dest, ty, src).with_comment(comment);
         self.add_instruction(instr);
         self
     }
 
     /// Create and add a store instruction
-    pub fn store(&mut self, dest: Value, value: Value) -> &mut Self {
-        let instr = Instruction::store(dest, value);
+    pub fn store(&mut self, dest: Value, value: Value, ty: MirType) -> &mut Self {
+        let instr = Instruction::store(dest, value, ty);
         self.add_instruction(instr);
         self
     }
 
     /// Create and add a store instruction with a comment
-    pub fn store_with_comment(&mut self, dest: Value, value: Value, comment: String) -> &mut Self {
-        let instr = Instruction::store(dest, value).with_comment(comment);
+    pub fn store_with_comment(
+        &mut self,
+        dest: Value,
+        value: Value,
+        ty: MirType,
+        comment: String,
+    ) -> &mut Self {
+        let instr = Instruction::store(dest, value, ty).with_comment(comment);
         self.add_instruction(instr);
         self
     }
@@ -115,11 +120,7 @@ impl<'f> InstrBuilder<'f> {
     /// The destination ValueId
     pub fn literal(&mut self, lit: Literal, ty: MirType) -> ValueId {
         let dest = self.function.new_typed_value_id(ty.clone());
-        let instr = if ty == MirType::U32 {
-            Instruction::assign_u32(dest, Value::Literal(lit))
-        } else {
-            Instruction::assign(dest, Value::Literal(lit))
-        };
+        let instr = Instruction::assign(dest, Value::Literal(lit), ty);
         self.add_instruction(instr);
         dest
     }
@@ -171,7 +172,7 @@ impl<'f> InstrBuilder<'f> {
         offset: u32,
         field_type: MirType,
     ) -> (Vec<Instruction>, ValueId) {
-        let dest = self.function.new_typed_value_id(field_type);
+        let dest = self.function.new_typed_value_id(field_type.clone());
         let field_addr = self.function.new_value_id();
 
         // First calculate the field address
@@ -183,7 +184,7 @@ impl<'f> InstrBuilder<'f> {
         );
 
         // Then load from that address
-        let load_instr = Instruction::load(dest, Value::operand(field_addr));
+        let load_instr = Instruction::load(dest, field_type, Value::operand(field_addr));
 
         (vec![offset_instr, load_instr], dest)
     }
@@ -194,10 +195,17 @@ impl<'f> InstrBuilder<'f> {
     /// * `base` - The struct base address
     /// * `offset` - The field offset
     /// * `value` - The value to store
+    /// * `field_type` - The type of the field being stored
     ///
     /// ## Returns
     /// Vec of instructions for calculating address and storing
-    pub fn store_field(&mut self, base: Value, offset: u32, value: Value) -> Vec<Instruction> {
+    pub fn store_field(
+        &mut self,
+        base: Value,
+        offset: u32,
+        value: Value,
+        field_type: MirType,
+    ) -> Vec<Instruction> {
         let field_addr = self.function.new_value_id();
 
         // Calculate field address
@@ -208,8 +216,8 @@ impl<'f> InstrBuilder<'f> {
             Value::integer(offset as i32),
         );
 
-        // Store to that address
-        let store_instr = Instruction::store(Value::operand(field_addr), value);
+        // Store to that address with the provided type
+        let store_instr = Instruction::store(Value::operand(field_addr), value, field_type);
 
         vec![offset_instr, store_instr]
     }
@@ -247,15 +255,8 @@ impl<'f> InstrBuilder<'f> {
     }
 
     /// Add an assign instruction
-    pub fn assign(&mut self, dest: ValueId, value: Value) -> &mut Self {
-        let instr = Instruction::assign(dest, value);
-        self.add_instruction(instr);
-        self
-    }
-
-    /// Add an assign_u32 instruction
-    pub fn assign_u32(&mut self, dest: ValueId, value: Value) -> &mut Self {
-        let instr = Instruction::assign_u32(dest, value);
+    pub fn assign(&mut self, dest: ValueId, value: Value, ty: MirType) -> &mut Self {
+        let instr = Instruction::assign(dest, value, ty);
         self.add_instruction(instr);
         self
     }
@@ -272,20 +273,20 @@ impl<'f> InstrBuilder<'f> {
         self
     }
 
-    /// Create and add a stack allocation with automatic destination
-    pub fn alloc_stack(&mut self, ty: MirType) -> ValueId {
+    /// Create and add a frame allocation with automatic destination
+    pub fn alloc_frame(&mut self, ty: MirType) -> ValueId {
         let dest = self
             .function
             .new_typed_value_id(MirType::pointer(ty.clone()));
-        let instr = Instruction::stack_alloc(dest, ty.size_units());
+        let instr = Instruction::frame_alloc(dest, ty);
         self.add_instruction(instr);
         dest
     }
 
     /// Create and add a load with automatic destination
     pub fn load_value(&mut self, src: Value, ty: MirType) -> ValueId {
-        let dest = self.function.new_typed_value_id(ty);
-        let instr = Instruction::load(dest, src);
+        let dest = self.function.new_typed_value_id(ty.clone());
+        let instr = Instruction::load(dest, ty, src);
         self.add_instruction(instr);
         dest
     }

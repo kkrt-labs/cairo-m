@@ -1068,12 +1068,16 @@ impl CasmBuilder {
         // Step 1: Pass arguments by storing them in the communication area.
         let args_offset = self.pass_arguments(callee_name, args, signature)?;
         // M is the total number of slots occupied by arguments
-        let m: usize = signature.param_types.iter().map(|ty| ty.size_units()).sum();
+        let m: usize = signature
+            .param_types
+            .iter()
+            .map(|ty| ty.size_in_slots())
+            .sum();
         // K is the total number of slots occupied by return values (U32 takes 2 slots)
         let k: usize = signature
             .return_types
             .iter()
-            .map(|ty| ty.size_units())
+            .map(|ty| ty.size_in_slots())
             .sum();
 
         // Step 2: Reserve space for return values and map the destination `ValueId`.
@@ -1114,12 +1118,16 @@ impl CasmBuilder {
         // Step 1: Pass arguments by storing them in the communication area.
         let args_offset = self.pass_arguments(callee_name, args, signature)?;
         // M is the total number of slots occupied by arguments
-        let m: usize = signature.param_types.iter().map(|ty| ty.size_units()).sum();
+        let m: usize = signature
+            .param_types
+            .iter()
+            .map(|ty| ty.size_in_slots())
+            .sum();
         // K is the total number of slots occupied by return values (U32 takes 2 slots)
         let k: usize = signature
             .return_types
             .iter()
-            .map(|ty| ty.size_units())
+            .map(|ty| ty.size_in_slots())
             .sum();
 
         // Step 2: Reserve space for return values and map each destination ValueId.
@@ -1129,7 +1137,7 @@ impl CasmBuilder {
             self.layout.map_value(*dest, current_offset);
             // Move offset by the size of this return type
             if i < signature.return_types.len() {
-                current_offset += signature.return_types[i].size_units() as i32;
+                current_offset += signature.return_types[i].size_in_slots() as i32;
             }
         }
         self.layout.reserve_stack(k);
@@ -1166,7 +1174,11 @@ impl CasmBuilder {
 
         let args_offset = self.pass_arguments(callee_name, args, signature)?;
         // M is the total number of slots occupied by arguments
-        let m: usize = signature.param_types.iter().map(|ty| ty.size_units()).sum();
+        let m: usize = signature
+            .param_types
+            .iter()
+            .map(|ty| ty.size_in_slots())
+            .sum();
         let k = 0; // Void calls have no returns
 
         self.layout.reserve_stack(k);
@@ -1245,7 +1257,7 @@ impl CasmBuilder {
 
         for param_type in &signature.param_types {
             arg_offsets.push(current_offset);
-            current_offset += param_type.size_units() as i32;
+            current_offset += param_type.size_in_slots() as i32;
         }
 
         // Check for mismatch in argument count
@@ -1271,7 +1283,7 @@ impl CasmBuilder {
                         let mut all_args_contiguous = true;
 
                         for (arg, param_type) in args.iter().zip(&signature.param_types) {
-                            let size = param_type.size_units();
+                            let size = param_type.size_in_slots();
 
                             if let Value::Operand(arg_id) = arg {
                                 if !self.layout.is_contiguous(*arg_id, expected_offset, size) {
@@ -1285,8 +1297,11 @@ impl CasmBuilder {
                         if all_args_contiguous {
                             // With pre-allocated layouts, we can only apply the optimization
                             // if the arguments are at the top of the current frame
-                            let total_arg_size: usize =
-                                signature.param_types.iter().map(|ty| ty.size_units()).sum();
+                            let total_arg_size: usize = signature
+                                .param_types
+                                .iter()
+                                .map(|ty| ty.size_in_slots())
+                                .sum();
                             let args_end = first_offset + total_arg_size as i32;
 
                             // Check both conditions:
@@ -1309,7 +1324,7 @@ impl CasmBuilder {
         // Standard path: copy arguments to their positions
         for (i, (arg, param_type)) in args.iter().zip(&signature.param_types).enumerate() {
             let arg_offset = arg_offsets[i];
-            let arg_size = param_type.size_units();
+            let arg_size = param_type.size_in_slots();
 
             match arg {
                 Value::Literal(Literal::Integer(imm)) => {
@@ -1624,11 +1639,11 @@ impl CasmBuilder {
     ///
     /// This allocates the requested number of slots for the destination. This is a no-op, it just increases
     /// the current frame usage.
-    pub fn allocate_stack(&mut self, dest: ValueId, size: usize) -> CodegenResult<()> {
+    pub fn allocate_frame_slots(&mut self, dest: ValueId, size: usize) -> CodegenResult<()> {
         // Allocate the requested size
         let _dest_off = self.layout.allocate_local(dest, size)?;
 
-        // StackAlloc doesn't generate actual instructions, it just reserves space
+        // FrameAlloc doesn't generate actual instructions, it just reserves space
         // The allocation is tracked in the layout for later use
         Ok(())
     }
