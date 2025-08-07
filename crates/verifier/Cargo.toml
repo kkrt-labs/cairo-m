@@ -1,0 +1,29 @@
+[package]
+name = "cairo-m-verifier"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+cairo-m-common = { path = "../common" }
+cairo-m-compiler = { path = "../compiler" }
+cairo-m-runner = { path = "../runner" }
+cairo-m-prover = { path = "../prover" }
+
+anyhow = { workspace = true }
+itertools = { workspace = true }
+num-traits = { workspace = true }
+rayon = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+stwo-prover = { workspace = true }
+stwo-constraint-framework = { workspace = true }
+zkhash = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+test-log = { workspace = true }
