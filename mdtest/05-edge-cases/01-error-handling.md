@@ -114,10 +114,7 @@ fn unreachable_code() -> felt {
 
 Loop that appears infinite but has exit condition:
 
-<!-- TODO: implement U32Greater -->
-
 ```cairo-m
-//! ignore: U32Greater not implemented yet
 fn loop_with_escape() -> u32 {
     let counter = 0u32;
 
@@ -175,10 +172,7 @@ fn complex_edge_expression() -> u32 {
 
 Testing deep recursion limits:
 
-<!-- TODO: implement U32Greater -->
-
 ```cairo-m
-//! ignore: U32Greater not implemented yet
 fn deep_recursion(n: u32, depth: u32) -> u32 {
     if (depth > 1000u32) {  // Prevent stack overflow
         return n;

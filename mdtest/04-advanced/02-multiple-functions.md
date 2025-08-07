@@ -188,10 +188,7 @@ fn is_odd(n: i32) -> i32 {
 
 Functions with multiple parameters and complex interactions:
 
-<!-- TODO: implement U32Eq -->
-
 ```cairo-m
-//! ignore: U32Eq not implemented yet
 fn test_complex_calls() -> u32 {
     let base = get_base_value();
     let multiplier = calculate_multiplier(base);
@@ -199,7 +196,7 @@ fn test_complex_calls() -> u32 {
 }
 
 fn get_base_value() -> u32 {
-    return 15;
+    return 15u32;
 }
 
 fn calculate_multiplier(base: u32) -> u32 {

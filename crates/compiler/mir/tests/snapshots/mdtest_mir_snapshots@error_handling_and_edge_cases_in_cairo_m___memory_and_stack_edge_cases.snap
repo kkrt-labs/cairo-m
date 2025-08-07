@@ -1,0 +1,49 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Error Handling and Edge Cases in Cairo-M - Memory and Stack Edge Cases"
+input_file: mdtest/05-edge-cases/01-error-handling.md
+---
+Source:
+fn deep_recursion(n: u32, depth: u32) -> u32 {
+    if (depth > 1000u32) {  // Prevent stack overflow
+        return n;
+    }
+
+    if (n <= 1u32) {
+        return 1;
+    }
+
+    return n + deep_recursion(n - 1, depth + 1);
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn deep_recursion {
+    parameters: [0, 1]
+    entry: 0
+
+    0:
+      %2 = %1 U32Greater 1000
+      if %2 then jump 1 else jump 2
+
+    1:
+      return %0
+
+    2:
+      %3 = %0 U32LessEqual 1
+      if %3 then jump 3 else jump 4
+
+    3:
+      return 1
+
+    4:
+      %4 = %0 U32Sub 1
+      %5 = %1 U32Add 1
+      %6 = call 0(%4, %5)
+      %7 = %0 U32Add %6
+      return %7
+
+  }
+
+}
