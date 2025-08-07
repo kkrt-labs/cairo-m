@@ -102,15 +102,15 @@ impl CodeGenerator {
             self.memory_layout.push(current_mem_pc);
 
             // Get the size of this instruction based on its opcode
-            let size_in_qm31s =
-                cairo_m_common::Instruction::size_in_qm31s_for_opcode(instr_builder.opcode)
+            let size_in_m31s =
+                cairo_m_common::Instruction::size_in_m31s_for_opcode(instr_builder.opcode)
                     .ok_or_else(|| {
                         CodegenError::InvalidMir(format!(
                             "Unknown opcode: {}",
                             instr_builder.opcode
                         ))
                     })?;
-            current_mem_pc += size_in_qm31s;
+            current_mem_pc += size_in_m31s;
         }
 
         Ok(())
@@ -248,6 +248,8 @@ impl CodeGenerator {
     }
 
     /// Generate code for a single instruction
+    #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::cognitive_complexity)]
     fn generate_instruction(
         &self,
         instruction: &Instruction,
@@ -869,8 +871,11 @@ impl CodeGenerator {
             }
         }
 
-        for (pc, instruction) in self.instructions.iter().enumerate() {
-            if let Some(labels) = pc_to_labels.get(&pc) {
+        for (idx, instruction) in self.instructions.iter().enumerate() {
+            // Get the actual memory PC from the layout
+            let pc = self.memory_layout.get(idx).copied().unwrap_or(idx as u32);
+
+            if let Some(labels) = pc_to_labels.get(&idx) {
                 // Deduplicate labels properly:
                 // 1. If there's a function label and a corresponding block_0 label, only show the function label
                 // 2. Otherwise, show all unique labels

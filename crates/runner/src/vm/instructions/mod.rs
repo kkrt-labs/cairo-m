@@ -5,8 +5,7 @@
 //! - The remaining M31 elements are instruction-specific operands
 //! - Instructions range from 1 M31 (Ret) to 5 M31 (U32StoreAddFpImm)
 //!
-//! Instructions are stored in memory as QM31 values (4 M31 elements each).
-//! When an instruction doesn't fill a complete QM31, it's padded with zeros.
+//! Instructions are stored in memory as M31 values
 //!
 //! ## Instruction Format
 //!

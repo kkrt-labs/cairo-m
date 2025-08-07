@@ -52,10 +52,10 @@ pub fn call_abs_imm(
     instruction: &Instruction,
 ) -> Result<State, InstructionExecutionError> {
     let (frame_off, target) = extract_as!(instruction, CallAbsImm, (frame_off, target));
-    memory.insert(state.fp + frame_off, state.fp.into())?;
+    memory.insert(state.fp + frame_off, state.fp)?;
     memory.insert(
         state.fp + frame_off + M31::one(),
-        (state.pc + M31::from(instruction.size_in_qm31s())).into(),
+        state.pc + M31::from(instruction.size_in_m31s()),
     )?;
 
     Ok(state.call_abs(target, frame_off + M31(2)))
@@ -72,8 +72,8 @@ pub fn ret(
     state: State,
     _instruction: &Instruction,
 ) -> Result<State, InstructionExecutionError> {
-    let pc = memory.get_data(state.fp - M31::one())?;
-    let fp = memory.get_data(state.fp - M31(2))?;
+    let pc = memory.get_felt(state.fp - M31::one())?;
+    let fp = memory.get_felt(state.fp - M31(2))?;
 
     Ok(state.ret(pc, fp))
 }

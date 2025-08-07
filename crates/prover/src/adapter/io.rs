@@ -6,7 +6,6 @@ use cairo_m_common::instruction::InstructionError;
 use cairo_m_common::state::MemoryEntry;
 use cairo_m_common::State;
 use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::QM31;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -55,19 +54,14 @@ impl From<IoTraceEntry> for State {
 #[derive(Copy, Clone, Default, Pod, Zeroable, Debug)]
 pub struct IoMemoryEntry {
     pub address: u32,
-    pub value: [u32; 4],
+    pub value: u32,
 }
 
 impl From<IoMemoryEntry> for MemoryEntry {
     fn from(entry: IoMemoryEntry) -> Self {
         Self {
             addr: M31::from(entry.address),
-            value: QM31::from_u32_unchecked(
-                entry.value[0],
-                entry.value[1],
-                entry.value[2],
-                entry.value[3],
-            ),
+            value: M31::from_u32_unchecked(entry.value),
         }
     }
 }

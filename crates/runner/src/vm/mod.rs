@@ -11,7 +11,6 @@ use cairo_m_common::{Instruction, Program, State};
 use instructions::opcode_to_instruction_fn;
 use num_traits::Zero;
 use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::QM31;
 use thiserror::Error;
 
 use crate::memory::{Memory, MemoryError};
@@ -53,7 +52,7 @@ pub enum VmError {
 #[derive(Debug, Default, Clone)]
 pub struct VM {
     pub final_pc: M31,
-    pub initial_memory: Vec<QM31>,
+    pub initial_memory: Vec<M31>,
     pub memory: Memory,
     pub state: State,
     pub program_length: M31,
@@ -71,8 +70,7 @@ impl TryFrom<&Program> for VM {
     /// 2. It sets the Program Counter (`pc`) to `0` to begin at the program's entrypoint.
     /// 3. It sets the Frame Pointer (`fp`) to the address immediately following the loaded bytecode.
     ///
-    /// Instructions are variable-sized (1-5 M31 elements) and are packed into QM31 values
-    /// (4 M31 elements each) with zero padding as needed.
+    /// Instructions are variable-sized (1-7 M31 elements).
     ///
     /// ## Arguments
     ///
@@ -85,7 +83,7 @@ impl TryFrom<&Program> for VM {
         // Flatten variable-sized instructions into memory words
         let mut memory_words = Vec::new();
         for instruction in &program.instructions {
-            memory_words.extend(instruction.to_qm31_vec());
+            memory_words.extend(instruction.to_m31_vec());
         }
 
         // Create memory and load instructions starting at address 0
@@ -231,7 +229,7 @@ impl VM {
             // For M args and K returns: arg_i is at [fp - M - K - 2 + i]
             let offset = args.len() + num_return_values + 2 - i;
             let arg_address = new_fp - M31::from(offset as u32);
-            self.memory.insert_no_trace(arg_address, (*arg).into())?;
+            self.memory.insert_no_trace(arg_address, *arg)?;
         }
 
         self.state.pc = M31(pc_entrypoint);
@@ -302,7 +300,7 @@ impl VM {
     /// 1. Program length (4 bytes, little-endian u32)
     /// 2. Memory entries, each consisting of:
     ///    - Address (4 bytes, little-endian u32)
-    ///    - QM31 value (16 bytes, 4 x little-endian u32)
+    ///    - M31 value (4 bytes, little-endian u32)
     ///
     /// ## Arguments
     ///
@@ -351,7 +349,7 @@ pub mod test_utils {
         ($vm:expr, addr = $addr:expr, value = $val:expr) => {
             assert_eq!(
                 $vm.memory
-                    .get_data(stwo_prover::core::fields::m31::M31::from($addr))
+                    .get_felt(stwo_prover::core::fields::m31::M31::from($addr))
                     .unwrap(),
                 stwo_prover::core::fields::m31::M31::from($val)
             );

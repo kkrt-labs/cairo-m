@@ -12,7 +12,7 @@ pub trait VmState {
 
 impl VmState for State {
     /// Regular register update.
-    /// Advance the program counter by the given offset (in QM31 memory units).
+    /// Advance the program counter by the given offset.
     fn advance_by(self, offset: u32) -> Self {
         Self {
             pc: self.pc + M31::from(offset),

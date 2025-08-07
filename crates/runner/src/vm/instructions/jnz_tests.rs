@@ -18,8 +18,8 @@ fn test_jnz_fp_imm_zero() -> Result<(), InstructionExecutionError> {
     let new_state = jnz_fp_imm(&mut memory, JNZ_INITIAL_STATE, &instruction)?;
 
     let expected_state = State {
-        pc: M31(4),
-        fp: M31::zero(),
+        pc: JNZ_INITIAL_STATE.pc + M31(instruction.size_in_m31s()),
+        fp: JNZ_INITIAL_STATE.fp,
     };
     assert_eq!(new_state, expected_state);
 

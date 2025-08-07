@@ -29,7 +29,7 @@ where
 
     let res = op(lhs, rhs);
     memory.insert_u32(state.fp + dst_off, res)?;
-    Ok(state.advance_by(instruction.size_in_qm31s()))
+    Ok(state.advance_by(instruction.size_in_m31s()))
 }
 
 /// Execute a binary op between a U32 operand `[fp + src_off]` and a 32-bit immediate.
@@ -61,7 +61,7 @@ where
 
     let res = op(src_value, imm_value);
     memory.insert_u32(state.fp + dst_off, res)?;
-    Ok(state.advance_by(instruction.size_in_qm31s()))
+    Ok(state.advance_by(instruction.size_in_m31s()))
 }
 
 /// Generates U32 `*_fp_fp` store operations.
@@ -125,11 +125,11 @@ macro_rules! impl_store_bin_op_fp_fp {
             let (src0_off, src1_off, dst_off) =
                 extract_as!(instruction, $variant, (src0_off, src1_off, dst_off));
 
-            let value = memory.get_data(state.fp + src0_off)?
-                $op memory.get_data(state.fp + src1_off)?;
+            let value = memory.get_felt(state.fp + src0_off)?
+                $op memory.get_felt(state.fp + src1_off)?;
 
-            memory.insert(state.fp + dst_off, value.into())?;
-            Ok(state.advance_by(instruction.size_in_qm31s()))
+            memory.insert(state.fp + dst_off, value)?;
+            Ok(state.advance_by(instruction.size_in_m31s()))
         }
     };
 }
@@ -146,10 +146,10 @@ macro_rules! impl_store_bin_op_fp_imm {
             let (src_off, imm, dst_off) =
                 extract_as!(instruction, $variant, (src_off, imm, dst_off));
 
-            let value = memory.get_data(state.fp + src_off)? $op imm;
+            let value = memory.get_felt(state.fp + src_off)? $op imm;
 
-            memory.insert(state.fp + dst_off, value.into())?;
-            Ok(state.advance_by(instruction.size_in_qm31s()))
+            memory.insert(state.fp + dst_off, value)?;
+            Ok(state.advance_by(instruction.size_in_m31s()))
         }
     };
 }
@@ -187,11 +187,11 @@ pub fn store_double_deref_fp(
 ) -> Result<State, InstructionExecutionError> {
     let (base_off, offset, dst_off) =
         extract_as!(instruction, StoreDoubleDerefFp, (base_off, offset, dst_off));
-    let deref_value = memory.get_data(state.fp + base_off)?;
-    let value = memory.get_data(deref_value + offset)?;
-    memory.insert(state.fp + dst_off, value.into())?;
+    let deref_value = memory.get_felt(state.fp + base_off)?;
+    let value = memory.get_felt(deref_value + offset)?;
+    memory.insert(state.fp + dst_off, value)?;
 
-    Ok(state.advance_by(instruction.size_in_qm31s()))
+    Ok(state.advance_by(instruction.size_in_m31s()))
 }
 
 /// CASM equivalent:
@@ -204,9 +204,9 @@ pub fn store_imm(
     instruction: &Instruction,
 ) -> Result<State, InstructionExecutionError> {
     let (imm, dst_off) = extract_as!(instruction, StoreImm, (imm, dst_off));
-    memory.insert(state.fp + dst_off, imm.into())?;
+    memory.insert(state.fp + dst_off, imm)?;
 
-    Ok(state.advance_by(instruction.size_in_qm31s()))
+    Ok(state.advance_by(instruction.size_in_m31s()))
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -250,9 +250,9 @@ pub fn u32_store_imm(
             },
         ));
     }
-    memory.insert(state.fp + dst_off, imm_lo.into())?;
-    memory.insert(state.fp + dst_off + M31::one(), imm_hi.into())?;
-    Ok(state.advance_by(instruction.size_in_qm31s()))
+    memory.insert(state.fp + dst_off, imm_lo)?;
+    memory.insert(state.fp + dst_off + M31::one(), imm_hi)?;
+    Ok(state.advance_by(instruction.size_in_m31s()))
 }
 
 #[cfg(test)]

@@ -22,11 +22,11 @@ pub fn jnz_fp_imm(
     instruction: &Instruction,
 ) -> Result<State, InstructionExecutionError> {
     let (cond_off, offset) = extract_as!(instruction, JnzFpImm, (cond_off, offset));
-    let condition = memory.get_data(state.fp + cond_off)?;
+    let condition = memory.get_felt(state.fp + cond_off)?;
     let new_state = if !condition.is_zero() {
         state.jump_rel(offset)
     } else {
-        state.advance_by(instruction.size_in_qm31s())
+        state.advance_by(instruction.size_in_m31s())
     };
 
     Ok(new_state)

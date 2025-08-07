@@ -129,16 +129,18 @@ proptest! {
         let mut expected_mem = initial_mem.clone();
         expected_mem[3] = expected_res.0;
 
-        run_simple_store_test(
-            &initial_mem,
-            Instruction::StoreAddFpFp {
+        let instruction = Instruction::StoreAddFpFp {
                 src0_off: M31(1),
                 src1_off: M31(2),
                 dst_off: M31(3),
-            },
+            };
+
+        run_simple_store_test(
+            &initial_mem,
+            instruction,
             store_add_fp_fp,
             &expected_mem,
-            1,
+            instruction.size_in_m31s(),
         ).unwrap();
     }
 
@@ -153,16 +155,18 @@ proptest! {
         let mut expected_mem = initial_mem.clone();
         expected_mem[3] = expected_res.0;
 
+        let instruction = Instruction::StoreAddFpImm {
+            src_off: M31(1),
+            imm,
+            dst_off: M31(3),
+        };
+
         run_simple_store_test(
             &initial_mem,
-            Instruction::StoreAddFpImm {
-                src_off: M31(1),
-                imm,
-                dst_off: M31(3),
-            },
+            instruction,
             store_add_fp_imm,
             &expected_mem,
-            1,
+            instruction.size_in_m31s(),
         ).unwrap();
     }
 
@@ -178,16 +182,19 @@ proptest! {
         let mut expected_mem = initial_mem.clone();
         expected_mem[3] = expected_res.0;
 
-        run_simple_store_test(
-            &initial_mem,
-            Instruction::StoreSubFpFp {
+
+        let instruction = Instruction::StoreSubFpFp {
                 src0_off: M31(1),
                 src1_off: M31(2),
                 dst_off: M31(3),
-            },
+            };
+
+        run_simple_store_test(
+            &initial_mem,
+            instruction,
             store_sub_fp_fp,
             &expected_mem,
-            1,
+            instruction.size_in_m31s(),
         ).unwrap();
     }
 
@@ -202,31 +209,35 @@ proptest! {
         let mut expected_mem = initial_mem.clone();
         expected_mem[3] = expected_res.0;
 
-        run_simple_store_test(
-            &initial_mem,
-            Instruction::StoreSubFpImm {
+        let instruction = Instruction::StoreSubFpImm {
                 src_off: M31(1),
                 imm,
                 dst_off: M31(3),
-            },
+            };
+
+        run_simple_store_test(
+            &initial_mem,
+            instruction,
             store_sub_fp_imm,
             &expected_mem,
-            1,
+            instruction.size_in_m31s(),
         ).unwrap();
     }
 
     #[test]
     fn test_store_double_deref_fp(val_to_store: u32, dst_val: u32) {
-        run_simple_store_test(
-            &[0, 1, dst_val, val_to_store],
-            Instruction::StoreDoubleDerefFp {
+        let instruction = Instruction::StoreDoubleDerefFp {
                 base_off: M31(1),
                 offset: M31(2),
                 dst_off: M31(2),
-            },
+            };
+
+        run_simple_store_test(
+            &[0, 1, dst_val, val_to_store],
+            instruction,
             store_double_deref_fp,
             &[0, 1, val_to_store, val_to_store],
-            1,
+            instruction.size_in_m31s(),
         )
         .unwrap();
     }
@@ -234,15 +245,18 @@ proptest! {
     #[test]
     fn test_store_imm(imm_val: u32) {
         let imm = M31::from(imm_val);
-        run_simple_store_test(
-            &[0, 4],
-            Instruction::StoreImm {
+
+        let instruction = Instruction::StoreImm {
                 imm,
                 dst_off: M31(2),
-            },
+            };
+
+        run_simple_store_test(
+            &[0, 4],
+            instruction,
             store_imm,
             &[0, 4, imm.0],
-            1,
+            instruction.size_in_m31s(),
         )
         .unwrap();
     }
@@ -259,16 +273,18 @@ proptest! {
         let mut expected_mem = initial_mem.clone();
         expected_mem[3] = expected_res.0;
 
-        run_simple_store_test(
-            &initial_mem,
-            Instruction::StoreMulFpFp {
+        let instruction = Instruction::StoreMulFpFp {
                 src0_off: M31(1),
                 src1_off: M31(2),
                 dst_off: M31(3),
-            },
+            };
+
+        run_simple_store_test(
+            &initial_mem,
+            instruction,
             store_mul_fp_fp,
             &expected_mem,
-            1,
+            instruction.size_in_m31s(),
         ).unwrap();
     }
 
@@ -277,16 +293,19 @@ proptest! {
         let src = M31::from(src_val);
         let imm = M31::from(imm_val);
         let expected_res = src * imm;
-        run_simple_store_test(
-            &[0, src_val],
-            Instruction::StoreMulFpImm {
+
+        let instruction = Instruction::StoreMulFpImm {
                 src_off: M31(1),
                 imm,
                 dst_off: M31(2),
-            },
+            };
+
+        run_simple_store_test(
+            &[0, src_val],
+            instruction,
             store_mul_fp_imm,
             &[0, src_val, expected_res.0],
-            1,
+            instruction.size_in_m31s(),
         ).unwrap();
     }
 
@@ -304,16 +323,18 @@ proptest! {
         let mut expected_mem = initial_mem.clone();
         expected_mem[3] = expected_res.0;
 
-        run_simple_store_test(
-            &initial_mem,
-            Instruction::StoreDivFpFp {
+        let instruction = Instruction::StoreDivFpFp {
                 src0_off: M31(1),
                 src1_off: M31(2),
                 dst_off: M31(3),
-            },
+            };
+
+        run_simple_store_test(
+            &initial_mem,
+            instruction,
             store_div_fp_fp,
             &expected_mem,
-            1,
+            instruction.size_in_m31s(),
         ).unwrap();
     }
 
@@ -324,16 +345,19 @@ proptest! {
 
         let src = M31::from(src_val);
         let expected_res = src / imm;
-        run_simple_store_test(
-            &[0, src_val],
-            Instruction::StoreDivFpImm {
+
+        let instruction = Instruction::StoreDivFpImm {
                 src_off: M31(1),
                 imm,
                 dst_off: M31(2),
-            },
+            };
+
+        run_simple_store_test(
+            &[0, src_val],
+            instruction,
             store_div_fp_imm,
             &[0, src_val, expected_res.0],
-            1,
+            instruction.size_in_m31s(),
         ).unwrap();
     }
 }
@@ -375,18 +399,21 @@ proptest! {
     fn test_u32_store_add_fp_imm(src_value: u32, imm_val_hi in 0..=u16::MAX as u32, imm_val_lo in 0..=u16::MAX as u32) {
         let imm_val = (imm_val_hi << 16) | imm_val_lo;
         let expected_res = src_value.wrapping_add(imm_val);
-        run_u32_fp_imm_test(
-            src_value,
-            Instruction::U32StoreAddFpImm {
+
+        let instruction = Instruction::U32StoreAddFpImm {
                 src_off: M31(0),
                 imm_hi: M31(imm_val_hi),
                 imm_lo: M31(imm_val_lo),
                 dst_off: M31(2),
-            },
+            };
+
+        run_u32_fp_imm_test(
+            src_value,
+            instruction,
             u32_store_add_fp_imm,
             expected_res,
             2,
-            2,
+            instruction.size_in_m31s(),
         ).unwrap();
     }
 
@@ -416,18 +443,21 @@ proptest! {
     fn test_u32_store_sub_fp_imm(src_value: u32, imm_val_hi in 0..=u16::MAX as u32, imm_val_lo in 0..=u16::MAX as u32) {
         let imm_val = (imm_val_hi << 16) | imm_val_lo;
         let expected_res = src_value.wrapping_sub(imm_val);
-        run_u32_fp_imm_test(
-            src_value,
-            Instruction::U32StoreSubFpImm {
+
+        let instruction =Instruction::U32StoreSubFpImm {
                 src_off: M31(0),
                 imm_hi: M31(imm_val_hi),
                 imm_lo: M31(imm_val_lo),
                 dst_off: M31(2),
-            },
+            };
+
+        run_u32_fp_imm_test(
+            src_value,
+            instruction,
             u32_store_sub_fp_imm,
             expected_res,
             2,
-            2,
+            instruction.size_in_m31s(),
         ).unwrap();
     }
 
@@ -457,18 +487,21 @@ proptest! {
     fn test_u32_store_mul_fp_imm(src_value: u32, imm_val_hi in 0..=u16::MAX as u32, imm_val_lo in 0..=u16::MAX as u32) {
         let imm_val = (imm_val_hi << 16) | imm_val_lo;
         let expected_res = src_value.wrapping_mul(imm_val);
-        run_u32_fp_imm_test(
-            src_value,
-            Instruction::U32StoreMulFpImm {
+
+        let instruction =Instruction::U32StoreMulFpImm {
                 src_off: M31(0),
                 imm_hi: M31(imm_val_hi),
                 imm_lo: M31(imm_val_lo),
                 dst_off: M31(2),
-            },
+            };
+
+        run_u32_fp_imm_test(
+            src_value,
+            instruction,
             u32_store_mul_fp_imm,
             expected_res,
             2,
-            2,
+            instruction.size_in_m31s(),
         ).unwrap();
     }
 
@@ -499,18 +532,21 @@ proptest! {
         let imm_val = (imm_val_hi << 16) | imm_val_lo;
         prop_assume!(imm_val != 0, "attempt to divide by zero");
         let expected_res = src_value / imm_val;
-        run_u32_fp_imm_test(
-            src_value,
-            Instruction::U32StoreDivFpImm {
+
+        let instruction =Instruction::U32StoreDivFpImm {
                 src_off: M31(0),
                 imm_hi: M31(imm_val_hi),
                 imm_lo: M31(imm_val_lo),
                 dst_off: M31(2),
-            },
+            };
+
+        run_u32_fp_imm_test(
+            src_value,
+            instruction,
             u32_store_div_fp_imm,
             expected_res,
             2,
-            2,
+            instruction.size_in_m31s(),
         ).unwrap();
     }
 
@@ -563,54 +599,63 @@ proptest! {
     #[test]
     fn test_u32_store_add_fp_fp(src0_value: u32, src1_value: u32) {
         let expected_res = src0_value.wrapping_add(src1_value);
-        run_u32_fp_fp_test(
-            src0_value,
-            src1_value,
-            Instruction::U32StoreAddFpFp {
+
+        let instruction = Instruction::U32StoreAddFpFp {
                 src0_off: M31(0),
                 src1_off: M31(2),
                 dst_off: M31(4),
-            },
+            };
+
+        run_u32_fp_fp_test(
+            src0_value,
+            src1_value,
+            instruction,
             u32_store_add_fp_fp,
             expected_res,
             4,
-            1,
+            instruction.size_in_m31s(),
         ).unwrap();
     }
 
     #[test]
     fn test_u32_store_sub_fp_fp(src0_value: u32, src1_value: u32) {
         let expected_res = src0_value.wrapping_sub(src1_value);
-        run_u32_fp_fp_test(
-            src0_value,
-            src1_value,
-            Instruction::U32StoreSubFpFp {
+
+        let instruction = Instruction::U32StoreSubFpFp {
                 src0_off: M31(0),
                 src1_off: M31(2),
                 dst_off: M31(4),
-            },
+            };
+
+        run_u32_fp_fp_test(
+            src0_value,
+            src1_value,
+            instruction,
             u32_store_sub_fp_fp,
             expected_res,
             4,
-            1,
+            instruction.size_in_m31s(),
         ).unwrap();
     }
 
     #[test]
     fn test_u32_store_mul_fp_fp(src0_value: u32, src1_value: u32) {
         let expected_res = src0_value.wrapping_mul(src1_value);
-        run_u32_fp_fp_test(
-            src0_value,
-            src1_value,
-            Instruction::U32StoreMulFpFp {
+
+        let instruction = Instruction::U32StoreMulFpFp {
                 src0_off: M31(0),
                 src1_off: M31(2),
                 dst_off: M31(4),
-            },
+            };
+
+        run_u32_fp_fp_test(
+            src0_value,
+            src1_value,
+            instruction,
             u32_store_mul_fp_fp,
             expected_res,
             4,
-            1,
+            instruction.size_in_m31s(),
         ).unwrap();
     }
 
@@ -618,33 +663,39 @@ proptest! {
     fn test_u32_store_div_fp_fp(src0_value: u32, src1_value: u32) {
         prop_assume!(src1_value != 0, "attempt to divide by zero");
         let expected_res = src0_value / src1_value;
-        run_u32_fp_fp_test(
-            src0_value,
-            src1_value,
-            Instruction::U32StoreDivFpFp {
+
+        let instruction = Instruction::U32StoreDivFpFp {
                 src0_off: M31(0),
                 src1_off: M31(2),
                 dst_off: M31(4),
-            },
+            };
+
+        run_u32_fp_fp_test(
+            src0_value,
+            src1_value,
+            instruction,
             u32_store_div_fp_fp,
             expected_res,
             4,
-            1,
+            instruction.size_in_m31s(),
         ).unwrap();
     }
 
     #[test]
     fn test_u32_store_imm(imm_val_lo in 0..=u16::MAX as u32, imm_val_hi in 0..=u16::MAX as u32) {
-        run_simple_store_test(
-            &[0, 4],
-            Instruction::U32StoreImm {
+
+        let instruction = Instruction::U32StoreImm {
                 imm_lo: M31(imm_val_lo),
                 imm_hi: M31(imm_val_hi),
                 dst_off: M31(2),
-            },
+            };
+
+        run_simple_store_test(
+            &[0, 4],
+            instruction,
             u32_store_imm,
             &[0, 4, imm_val_lo, imm_val_hi],
-            1,
+            instruction.size_in_m31s(),
         ).unwrap();
     }
 

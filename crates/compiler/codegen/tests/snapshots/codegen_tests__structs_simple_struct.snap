@@ -22,4 +22,4 @@ fn main() -> felt {
 Generated CASM:
 main:
    0: 9 10 -3 _            // Return value 0: [fp -3] = 10
-   1: 11 _ _ _             // return
+   3: 11 _ _ _             // return

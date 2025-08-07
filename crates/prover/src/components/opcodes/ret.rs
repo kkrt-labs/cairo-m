@@ -74,7 +74,7 @@ pub struct InteractionClaimData {
 
 #[derive(Uninitialized, IterMut, ParIterMut)]
 pub struct LookupData {
-    pub memory: [Vec<[PackedM31; 6]>; N_MEMORY_LOOKUPS],
+    pub memory: [Vec<[PackedM31; 3]>; N_MEMORY_LOOKUPS],
     pub registers: [Vec<[PackedM31; 2]>; N_REGISTERS_LOOKUPS],
     pub range_check_20: [Vec<PackedM31>; N_RANGE_CHECK_20_LOOKUPS],
 }
@@ -130,7 +130,7 @@ impl Claim {
         inputs.clear();
         inputs.shrink_to_fit();
 
-        let zero = PackedM31::from(M31::zero());
+        let _zero = PackedM31::from(M31::zero());
         let one = PackedM31::from(M31::one());
         let two = PackedM31::from(M31::from(2));
         let enabler_col = Enabler::new(non_padded_length);
@@ -167,32 +167,17 @@ impl Claim {
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [fp_min_1_val, fp_min_2_val];
 
-                // Read instruction from memory
-                *lookup_data.memory[0] =
-                    [input.pc, inst_prev_clock, opcode_constant, zero, zero, zero];
-                *lookup_data.memory[1] = [input.pc, clock, opcode_constant, zero, zero, zero];
+                // Instruction memory lookups - decomposed
+                *lookup_data.memory[0] = [input.pc, inst_prev_clock, opcode_constant];
+                *lookup_data.memory[1] = [input.pc, clock, opcode_constant];
 
                 // Read return fp from [fp - 2]
-                *lookup_data.memory[2] = [
-                    fp - two,
-                    fp_min_2_prev_clock,
-                    fp_min_2_val,
-                    zero,
-                    zero,
-                    zero,
-                ];
-                *lookup_data.memory[3] = [fp - two, clock, fp_min_2_val, zero, zero, zero];
+                *lookup_data.memory[2] = [fp - two, fp_min_2_prev_clock, fp_min_2_val];
+                *lookup_data.memory[3] = [fp - two, clock, fp_min_2_val];
 
                 // Read return pc from [fp - 1]
-                *lookup_data.memory[4] = [
-                    fp - one,
-                    fp_min_1_prev_clock,
-                    fp_min_1_val,
-                    zero,
-                    zero,
-                    zero,
-                ];
-                *lookup_data.memory[5] = [fp - one, clock, fp_min_1_val, zero, zero, zero];
+                *lookup_data.memory[4] = [fp - one, fp_min_1_prev_clock, fp_min_1_val];
+                *lookup_data.memory[5] = [fp - one, clock, fp_min_1_val];
 
                 *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
                 *lookup_data.range_check_20[1] = clock - fp_min_2_prev_clock - enabler;
@@ -384,7 +369,7 @@ impl FrameworkEval for Eval {
         let fp_min_1_val = eval.next_trace_mask();
 
         // Enabler is 1 or 0
-        eval.add_constraint(enabler.clone() * (one - enabler.clone()));
+        eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
 
         // Registers update: - [pc, fp] + [fp_min_1_val, fp_min_2_val]
         eval.add_to_relation(RelationEntry::new(
@@ -431,7 +416,7 @@ impl FrameworkEval for Eval {
             &self.relations.memory,
             -E::EF::from(enabler.clone()),
             &[
-                fp.clone() - enabler.clone(),
+                fp.clone() - one.clone(),
                 fp_min_1_prev_clock.clone(),
                 fp_min_1_val.clone(),
             ],
@@ -439,7 +424,7 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[fp - enabler.clone(), clock.clone(), fp_min_1_val],
+            &[fp - one, clock.clone(), fp_min_1_val],
         ));
 
         // Range check 20

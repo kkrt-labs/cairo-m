@@ -21,6 +21,6 @@ subtract_numbers:
 subtract_numbers:
 subtract_numbers_0:
    0: 9 100 0 _            // [fp + 0] = 100
-   1: 9 25 1 _             // [fp + 1] = 25
-   2: 1 0 1 -3             // [fp + -3] = [fp + 0] op [fp + 1]
-   3: 11 _ _ _             // return
+   3: 9 25 1 _             // [fp + 1] = 25
+   6: 1 0 1 -3             // [fp + -3] = [fp + 0] op [fp + 1]
+  10: 11 _ _ _             // return

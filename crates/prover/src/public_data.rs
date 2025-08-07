@@ -72,7 +72,7 @@ pub struct PublicData {
     pub final_root: M31,
     /// Public memory entries: (address, value, clock) or None if unused
     /// Includes program code, inputs, and outputs that verifier must see
-    pub public_entries: Vec<Option<(M31, QM31, M31)>>,
+    pub public_entries: Vec<Option<(M31, M31, M31)>>,
 }
 
 impl PublicData {
@@ -172,17 +172,9 @@ impl PublicData {
 
         // Consume public memory entries
         for (addr, value, clock) in self.public_entries.iter().flatten() {
-            let value_array = value.to_m31_array();
             values_to_inverse.push(-<relations::Memory as Relation<M31, QM31>>::combine(
                 &relations.memory,
-                &[
-                    *addr,
-                    *clock,
-                    value_array[0],
-                    value_array[1],
-                    value_array[2],
-                    value_array[3],
-                ],
+                &[*addr, *clock, *value],
             ));
         }
 

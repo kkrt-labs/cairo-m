@@ -5,7 +5,7 @@
 //! - enabler
 //! - addr
 //! - prev_clk
-//! - QM31 value
+//! - M31 value
 //!
 //! # Constraints
 //!
@@ -30,7 +30,7 @@ use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::backend::BackendForChannel;
 use stwo_prover::core::channel::{Channel, MerkleChannel};
 use stwo_prover::core::fields::m31::{BaseField, M31};
-use stwo_prover::core::fields::qm31::{SecureField, QM31, SECURE_EXTENSION_DEGREE};
+use stwo_prover::core::fields::qm31::{SecureField, SECURE_EXTENSION_DEGREE};
 use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
@@ -39,7 +39,7 @@ use crate::adapter::memory::RC20_LIMIT;
 use crate::components::Relations;
 use crate::utils::enabler::Enabler;
 
-const N_TRACE_COLUMNS: usize = 7;
+const N_TRACE_COLUMNS: usize = 4;
 const N_MEMORY_LOOKUPS: usize = 2;
 const N_INTERACTION_COLUMNS: usize = SECURE_EXTENSION_DEGREE * N_MEMORY_LOOKUPS.div_ceil(2);
 
@@ -60,7 +60,7 @@ pub struct InteractionClaimData {
 
 #[derive(Uninitialized, IterMut, ParIterMut)]
 pub struct LookupData {
-    pub memory: [Vec<[PackedM31; 6]>; N_MEMORY_LOOKUPS],
+    pub memory: [Vec<[PackedM31; 3]>; N_MEMORY_LOOKUPS],
 }
 
 impl Claim {
@@ -75,7 +75,7 @@ impl Claim {
     }
 
     pub fn write_trace<MC: MerkleChannel>(
-        clock_update_data: &[(M31, M31, QM31)],
+        clock_update_data: &[(M31, M31, M31)],
     ) -> (Self, ComponentTrace<N_TRACE_COLUMNS>, InteractionClaimData)
     where
         SimdBackend: BackendForChannel<MC>,
@@ -86,17 +86,7 @@ impl Claim {
         // Pack entries from the prover input
         let packed_inputs: Vec<[PackedM31; N_TRACE_COLUMNS - 1]> = clock_update_data
             .iter()
-            .map(|&(addr, prev_clk, value)| {
-                let value_array = value.to_m31_array();
-                [
-                    addr,
-                    prev_clk,
-                    value_array[0],
-                    value_array[1],
-                    value_array[2],
-                    value_array[3],
-                ]
-            })
+            .map(|&tuple| tuple.into())
             .chain(std::iter::repeat([M31::zero(); N_TRACE_COLUMNS - 1]))
             .take(1 << log_size)
             .array_chunks::<N_LANES>()
@@ -124,27 +114,18 @@ impl Claim {
                 let enabler = enabler_col.packed_at(row_index);
                 let address = input[0];
                 let prev_clk = input[1];
-                let value0 = input[2];
-                let value1 = input[3];
-                let value2 = input[4];
-                let value3 = input[5];
+                let value = input[2];
 
                 *row[0] = enabler;
                 *row[1] = address;
                 *row[2] = prev_clk;
-                *row[3] = value0;
-                *row[4] = value1;
-                *row[5] = value2;
-                *row[6] = value3;
+                *row[3] = value;
 
-                *lookup_data.memory[0] = [address, prev_clk, value0, value1, value2, value3];
+                *lookup_data.memory[0] = [address, prev_clk, value];
                 *lookup_data.memory[1] = [
                     address,
                     prev_clk + PackedM31::broadcast(M31::from(RC20_LIMIT)),
-                    value0,
-                    value1,
-                    value2,
-                    value3,
+                    value,
                 ];
             });
 
@@ -222,9 +203,6 @@ impl FrameworkEval for Eval {
         let address = eval.next_trace_mask();
         let prev_clk = eval.next_trace_mask();
         let value0 = eval.next_trace_mask();
-        let value1 = eval.next_trace_mask();
-        let value2 = eval.next_trace_mask();
-        let value3 = eval.next_trace_mask();
 
         let one = E::F::one();
 
@@ -235,14 +213,7 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             -E::EF::from(enabler.clone()),
-            &[
-                address.clone(),
-                prev_clk.clone(),
-                value0.clone(),
-                value1.clone(),
-                value2.clone(),
-                value3.clone(),
-            ],
+            &[address.clone(), prev_clk.clone(), value0.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
@@ -251,9 +222,6 @@ impl FrameworkEval for Eval {
                 address,
                 prev_clk + E::F::from(M31::from(RC20_LIMIT)),
                 value0,
-                value1,
-                value2,
-                value3,
             ],
         ));
 

@@ -7,8 +7,8 @@ use stwo_constraint_framework::relation;
 relation!(RangeCheck20, 1);
 
 // Memory access relation for read/write operations.
-// Tracks all memory operations with address, clock, and QM31 values.
-// Structure: addr, clock, value0-3 (QM31 value components)
+// Tracks all memory operations with address, clock, and M31 values.
+// Structure: addr, clock, value0-3 (M31 value components)
 relation!(Memory, 6);
 
 // VM register state relation for PC and FP tracking.

@@ -12,7 +12,6 @@ use io::VmImportError;
 pub use memory::ExecutionBundle;
 use num_traits::{One, Zero};
 use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::QM31;
 use tracing::{span, Level};
 
 use crate::adapter::io::{MemoryEntryFileIter, TraceFileIter};
@@ -87,7 +86,7 @@ pub struct Instructions {
 /// ## Arguments
 /// * `trace_iter` - Iterator over VM register states
 /// * `memory_iter` - Iterator over memory access entries
-/// * `initial_memory` - Initial memory state as QM31 values
+/// * `initial_memory` - Initial memory state as M31 values
 /// * `public_addresses` - List of public addresses
 ///
 /// ## Returns
@@ -96,7 +95,7 @@ pub struct Instructions {
 fn import_internal<TraceIter, MemoryIter>(
     trace_iter: TraceIter,
     memory_iter: MemoryIter,
-    initial_memory: Vec<QM31>,
+    initial_memory: Vec<M31>,
     public_addresses: Vec<M31>,
 ) -> Result<ProverInput, VmImportError>
 where
@@ -248,7 +247,7 @@ pub fn import_from_runner_artifacts(
 /// * `segment` - Execution segment from the Cairo-M runner containing:
 ///   - `trace`: Vector of VM register states
 ///   - `memory_trace`: Memory access trace
-///   - `initial_memory`: Initial memory state as QM31 values
+///   - `initial_memory`: Initial memory state as M31 values
 /// * `public_addresses` - List of public input/output memory addresses
 ///
 /// ## Returns

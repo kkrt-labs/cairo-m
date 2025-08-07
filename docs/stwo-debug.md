@@ -364,13 +364,13 @@ of the output. So here are a few tips:
 
 - Make sure the lookups fractions have the correct sign, it happens to misplace
   a + or a -
-- For the memory entry you can get useful information from the first value of
-  the QM31 since it’s the `opcode_id` . This gives you a good idea of what
+- For the memory entry you can get useful information from the value of the
+  first M31 since it’s the `opcode_id` . This gives you a good idea of what
   opcode component could be wrong (now again the error could also come from the
   adapter, the memory component, etc.)
 - `Cmd + F` and `Sort lines ascending` are your best friend, try to find
   patterns in the debugged entries. Say the `CallAbsImm` opcode wrongly inverted
-  the 2 first QM31 values. It woud correctly consume
+  the 2 first M31 values. It woud correctly consume
   `[addr, clk, value0, value1]` but would falsely produce
   `[addr, clk, value1, value0]` . The resulting relation summary would be:
 
@@ -379,22 +379,22 @@ Relation Summary:
 Memory:
 // First CallAbsImm instance uses the inital entry (emited by memory component
 // But it emits the wrong entry, this is were problems begin
-[addr, clk_1, QM31_value = (target, 10, 0, 0)] -> 1
+[addr, clk_1, M31_value = (target, 10, 0, 0)] -> 1
 // The second instance uses what should be the last emited entry but no such
 // entry was emitted because of bug. And so on
-[addr, clk_1, QM31_value = (10, target, 0, 0)] -> 2147483646
-[addr, clk_2, QM31_value = (target, 10, 0, 0)] -> 1
+[addr, clk_1, M31_value = (10, target, 0, 0)] -> 2147483646
+[addr, clk_2, M31_value = (target, 10, 0, 0)] -> 1
 // Memory component tries to consume an unexisting value: error.
-[addr, clk_2, QM31_value = (10, target, 0, 0)] -> 2147483646
+[addr, clk_2, M31_value = (10, target, 0, 0)] -> 2147483646
 ```
 
 By putting these entries next to each other, the problem is way more visible. So
 try to find patterns.
 
 - Show the raw data from the `ProverInput` . For instance, you might not
-  directly have the `opcode_id` in the QM31 (e.g if the memory entry is a
-  write), in that case you can show the `ProverInput` and spot with the clock
-  the exact problematic `ExecutionBundles` .
+  directly have the `opcode_id` in the M31 (e.g if the memory entry is a write),
+  in that case you can show the `ProverInput` and spot with the clock the exact
+  problematic `ExecutionBundles` .
 
 The main idea is to trace back the values added to the relation and check if
 these are correct.
