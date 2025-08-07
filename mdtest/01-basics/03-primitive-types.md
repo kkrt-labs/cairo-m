@@ -30,6 +30,8 @@ fn test_u32() -> u32 {
 }
 ```
 
+### U32 Addition
+
 Arithmetic operation on `u32` are wrapped in the `u32` type.
 
 ```cairo-m
@@ -49,6 +51,8 @@ fn test_u32_add() -> u32 {
 }
 ```
 
+### U32 Subtraction
+
 ```cairo-m
 fn test_u32_sub() -> u32 {
     let x: u32 = 4294967295;
@@ -63,6 +67,35 @@ fn test_u32_sub() -> u32 {
     let x: u32 = 4294967295;
     let y: u32 = 10;
     return x.wrapping_sub(y);
+}
+```
+
+### U32 Multiplication
+
+```cairo-m
+fn test_u32_mul() -> u32 {
+    let x: u32 = 4294967295;
+    let y: u32 = 10;
+    return x * y;
+}
+```
+
+```rust
+use std::num::Wrapping;
+fn test_u32_mul() -> u32 {
+    let x: u32 = 4294967295;
+    let y: u32 = 10;
+    return x.wrapping_mul(y);
+}
+```
+
+### U32 Division
+
+```cairo-m
+fn test_u32_div() -> u32 {
+    let x: u32 = 4294967295;
+    let y: u32 = 10;
+    return x / y;
 }
 ```
 

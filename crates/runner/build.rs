@@ -42,7 +42,7 @@ fn main() {
         let rel_path = path.strip_prefix(&mdtest_dir).unwrap();
         let path_parts: Vec<_> = rel_path
             .parent()
-            .unwrap_or(Path::new(""))
+            .unwrap_or_else(|| Path::new(""))
             .components()
             .filter_map(|c| c.as_os_str().to_str())
             .collect();

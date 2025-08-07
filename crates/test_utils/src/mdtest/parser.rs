@@ -32,6 +32,11 @@ pub fn extract_tests(markdown_path: &Path) -> Result<Vec<MdTest>, ParseError> {
     // Track section headings
     let mut current_h1 = String::new();
     let mut current_h2 = String::new();
+    let mut current_h3 = String::new();
+
+    // Track test counts per section for unique naming
+    let mut section_test_counts: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
 
     // Track current test components
     let mut current_config: Option<MdTestConfig> = None;
@@ -52,7 +57,14 @@ pub fn extract_tests(markdown_path: &Path) -> Result<Vec<MdTest>, ParseError> {
             Event::Start(Tag::Heading { level, .. }) => {
                 // First, save any pending test before starting a new section
                 if let Some((cairo_source, metadata, location)) = pending_cairo.take() {
-                    let test_name = format_test_name(&current_h1, &current_h2);
+                    let base_name = format_test_name(&current_h1, &current_h2, &current_h3);
+                    let count = section_test_counts.entry(base_name.clone()).or_insert(0);
+                    *count += 1;
+                    let test_name = if *count == 1 {
+                        base_name
+                    } else {
+                        format!("{} {}", base_name, count)
+                    };
                     tests.push(MdTest {
                         name: test_name,
                         cairo_source,
@@ -74,9 +86,14 @@ pub fn extract_tests(markdown_path: &Path) -> Result<Vec<MdTest>, ParseError> {
                 1 => {
                     current_h1 = text.to_string();
                     current_h2.clear();
+                    current_h3.clear();
                 }
                 2 => {
                     current_h2 = text.to_string();
+                    current_h3.clear();
+                }
+                3 => {
+                    current_h3 = text.to_string();
                 }
                 _ => {}
             },
@@ -91,11 +108,18 @@ pub fn extract_tests(markdown_path: &Path) -> Result<Vec<MdTest>, ParseError> {
                     "cairo-m" => {
                         // Save any previous test first
                         if let Some((cairo_source, metadata, location)) = pending_cairo.take() {
-                            let test_name = format_test_name(&current_h1, &current_h2);
+                            let base_name = format_test_name(&current_h1, &current_h2, &current_h3);
+                            let count = section_test_counts.entry(base_name.clone()).or_insert(0);
+                            *count += 1;
+                            let test_name = if *count == 1 {
+                                base_name
+                            } else {
+                                format!("{} {}", base_name, count)
+                            };
                             tests.push(MdTest {
                                 name: test_name,
                                 cairo_source,
-                                rust_source: pending_rust.take(),
+                                rust_source: pending_rust.take(), // This takes and clears pending_rust
                                 files: HashMap::new(),
                                 metadata,
                                 location,
@@ -152,7 +176,14 @@ pub fn extract_tests(markdown_path: &Path) -> Result<Vec<MdTest>, ParseError> {
 
     // Save any final pending test
     if let Some((cairo_source, metadata, location)) = pending_cairo {
-        let test_name = format_test_name(&current_h1, &current_h2);
+        let base_name = format_test_name(&current_h1, &current_h2, &current_h3);
+        let count = section_test_counts.entry(base_name.clone()).or_insert(0);
+        *count += 1;
+        let test_name = if *count == 1 {
+            base_name
+        } else {
+            format!("{} {}", base_name, count)
+        };
         tests.push(MdTest {
             name: test_name,
             cairo_source,
@@ -167,14 +198,15 @@ pub fn extract_tests(markdown_path: &Path) -> Result<Vec<MdTest>, ParseError> {
     Ok(tests)
 }
 
-fn format_test_name(h1: &str, h2: &str) -> String {
-    match (h1.is_empty(), h2.is_empty()) {
-        (true, _) => {
+fn format_test_name(h1: &str, h2: &str, h3: &str) -> String {
+    match (h1.is_empty(), h2.is_empty(), h3.is_empty()) {
+        (true, _, _) => {
             // Code block appears before any heading - generate a warning name
             "Orphaned Test (no heading)".to_string()
         }
-        (false, true) => h1.to_string(),
-        (false, false) => format!("{} - {}", h1, h2),
+        (false, true, _) => h1.to_string(),
+        (false, false, true) => format!("{} - {}", h1, h2),
+        (false, false, false) => format!("{} - {} - {}", h1, h2, h3),
     }
 }
 

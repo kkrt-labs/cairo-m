@@ -36,7 +36,7 @@ impl fmt::Display for Diagnostic {
 }
 
 impl Diagnostic {
-    fn display_with_source(&self, source: &str) -> String {
+    pub fn display_with_source(&self, source: &str) -> String {
         build_diagnostic_message(source, self, true)
     }
 }

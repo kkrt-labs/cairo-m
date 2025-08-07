@@ -1,6 +1,6 @@
 # Literals in Cairo-M
 
-Cairo-M supports integer literals that represent field elements in the M31 field
+Cairo-M supports `felt` literals that represent field elements in the M31 field
 (2^31 - 1).
 
 ## Integer Literals

@@ -1,3 +1,5 @@
+#![allow(clippy::option_if_let_else)]
+
 pub mod mdtest;
 
 use once_cell::sync::Lazy;

@@ -95,8 +95,6 @@ impl Mem2RegPass {
         if changed {
             self.cleanup_dead_instructions(function);
         }
-
-        eprintln!("Mem2Reg Stats: {:?}", self.stats);
         changed
     }
 }

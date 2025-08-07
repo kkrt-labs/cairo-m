@@ -18,6 +18,19 @@ fn test_struct_basic() -> felt {
 }
 ```
 
+```cairo-m
+//! ignore: CodeGenerationFailed("Layout error: No layout found for value 3")
+struct PointU32 {
+    x: u32,
+    y: u32,
+}
+
+fn test_struct_basic_u32() -> u32 {
+    let p = PointU32 { x: 10, y: 20 };
+    return p.x + p.y;
+}
+```
+
 ## Struct Field Access
 
 Accessing and modifying struct fields:
@@ -35,14 +48,26 @@ fn calculate_area() -> felt {
 }
 ```
 
+```cairo-m
+//! ignore: CodeGenerationFailed("Layout error: No layout found for value 3")
+struct RectangleU32 {
+    width: u32,
+    height: u32,
+}
+
+fn calculate_area_u32() -> u32 {
+    let rect = RectangleU32 { width: 5, height: 10 };
+    rect.width = 7u32;
+    return rect.width * rect.height;
+}
+```
+
 ## Nested Structs
 
 Structs containing other structs:
 
-//TODO: fix
-
 ```cairo-m
-//! ignore: true
+//! ignore: CodeGenerationFailed("Layout error: No layout found for value 3")
 struct Point {
     x: felt,
     y: felt,

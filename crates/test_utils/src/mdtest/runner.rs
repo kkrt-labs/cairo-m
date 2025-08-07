@@ -1,12 +1,14 @@
 use super::parser::{extract_tests, MdTest};
 use std::path::Path;
 
+type ProcessorType<'a> = Box<dyn Fn(&str, &str) -> Result<String, String> + 'a>;
+
 /// Generic mdtest runner that can be configured for different compilation phases
 pub struct MdTestRunner<'a> {
     /// Name of the compilation phase (e.g., "MIR", "Codegen")
     pub phase_name: &'a str,
     /// Function to process source code and return result string
-    pub processor: Box<dyn Fn(&str, &str) -> Result<String, String> + 'a>,
+    pub processor: ProcessorType<'a>,
     /// Whether to include parent directory in snapshot suffix
     pub include_parent_dir: bool,
 }

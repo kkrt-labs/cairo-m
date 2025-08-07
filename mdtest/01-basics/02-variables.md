@@ -20,7 +20,7 @@ Variables can be shadowed by declaring a new variable with the same name:
 
 ```cairo-m
 // TODO: fix this test
-//! ignore: true
+//! ignore: Compiler bug with shadowed variables.
 fn test_shadowing() -> felt {
     let x = 5;
     let x = x + 1;

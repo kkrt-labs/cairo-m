@@ -2,7 +2,7 @@
 
 use cairo_m_common::program::AbiSlot;
 use cairo_m_common::CairoMSerialize;
-use cairo_m_compiler::{compile_cairo, CompilerOptions};
+use cairo_m_compiler::{compile_cairo, CompilerError, CompilerOptions};
 use cairo_m_runner::run_cairo_program;
 use cairo_m_test_utils::mdtest;
 use once_cell::sync::Lazy;
@@ -40,15 +40,18 @@ pub fn run_mdtest_diff(test: &mdtest::MdTest) -> Result<(), String> {
         format!("{}.cm", safe_name),
         compiler_options,
     )
-    .map_err(|e| format!("Compilation failed: {:?}", e))?;
-
-    // Check if we expect a compilation error
-    if let Some(expected_error) = &test.metadata.expected_error {
-        return Err(format!(
-            "Expected compilation error '{}', but compilation succeeded",
-            expected_error
-        ));
-    }
+    .map_err(|e| match e {
+        CompilerError::ParseErrors(errors) | CompilerError::SemanticErrors(errors) => {
+            let mut error_str = String::new();
+            for error in errors {
+                error_str.push_str(&error.display_with_source(&test.cairo_source));
+            }
+            error_str
+        }
+        CompilerError::MirGenerationFailed | CompilerError::CodeGenerationFailed(_) => {
+            format!("Compilation failed: {:?}", e)
+        }
+    })?;
 
     // Find the entry point function
     let entry_point = find_test_function(&test.cairo_source);
@@ -79,6 +82,14 @@ pub fn run_mdtest_diff(test: &mdtest::MdTest) -> Result<(), String> {
     // Format output
     let cairo_output = format_output(&cairo_result.return_values, &entrypoint_info.returns);
 
+    // Check if we expect a runtime error
+    if let Some(expected_error) = &test.metadata.expected_error {
+        return Err(format!(
+            "Expected compilation error '{}', but compilation succeeded",
+            expected_error
+        ));
+    }
+
     // Check expected output if specified
     if let Some(expected) = &test.metadata.expected_output {
         if cairo_output != *expected {
@@ -106,6 +117,9 @@ pub fn run_mdtest_diff(test: &mdtest::MdTest) -> Result<(), String> {
         &entrypoint_info.params,
         &entrypoint_info.returns,
     )?;
+
+    // Parse rust output true / false to 1 / 0
+    let rust_output = rust_output.replace("true", "1").replace("false", "0");
 
     if cairo_output != rust_output {
         return Err(format!(
@@ -161,13 +175,12 @@ fn generate_random_args(params: &[AbiSlot], rng: &mut StdRng) -> Vec<M31> {
     let mut args = Vec::new();
 
     for param in params {
+        let value: u32 = rng.gen_range(0..2u32.pow(31) - 1);
         if param.slots == 1 {
             // Generate a random felt value
-            let value: u32 = rng.gen_range(0..2u32.pow(31) - 1);
             M31::from(value).encode(&mut args);
         } else {
             // Generate a random u32 value
-            let value: u32 = rng.gen_range(0..2u32.pow(31) - 1);
             value.encode(&mut args);
         }
     }
@@ -197,10 +210,8 @@ fn convert_cairo_to_rust(cairo_source: &str) -> String {
     use regex::Regex;
 
     let mut result = cairo_source
-        .replace("fn ", "fn ")
         .replace("-> felt", "-> i32")
-        .replace("felt", "i32")
-        .replace("u32", "u32");
+        .replace("felt", "i32");
 
     // Make all variables mutable by default using regex
     let re = Regex::new(r"\blet\s+([a-zA-Z_][a-zA-Z0-9_]*)\b").unwrap();
