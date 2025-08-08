@@ -82,6 +82,13 @@ impl DagToMirContext {
         id
     }
 
+    /// Allocate a value ID and set its type
+    fn allocate_typed_value_id(&mut self, mir_type: MirType) -> ValueId {
+        let id = self.allocate_value_id();
+        self.mir_function.value_types.insert(id, mir_type);
+        id
+    }
+
     fn allocate_basic_block(&mut self) -> BasicBlockId {
         let id = BasicBlockId::from_usize(self.next_block_id);
         self.next_block_id += 1;
@@ -161,6 +168,32 @@ impl DagToMir {
 
         let mut context = DagToMirContext::new(func_name);
 
+        // Get function type information for parameters and return types
+        let (param_types, return_types) = self.module.with_program(|program| {
+            let func_type = program.c.get_func_type(*func_idx);
+
+            // Handle param types with proper error handling
+            let param_types: Result<Vec<MirType>, DagToMirError> = func_type
+                .ty
+                .params()
+                .iter()
+                .map(Self::wasm_type_to_mir_type)
+                .collect();
+
+            // Handle return types with proper error handling
+            let return_types: Result<Vec<MirType>, DagToMirError> = func_type
+                .ty
+                .results()
+                .iter()
+                .map(Self::wasm_type_to_mir_type)
+                .collect();
+
+            (param_types, return_types)
+        });
+
+        let param_types = param_types?;
+        let return_types = return_types?;
+
         // Get the DAG for this function
         let result = self.module.with_program(|program| {
             let func = program.functions.get(func_idx).ok_or_else(|| {
@@ -183,6 +216,41 @@ impl DagToMir {
         // Set entry block if we created any blocks
         if !context.mir_function.basic_blocks.is_empty() {
             context.mir_function.entry_block = 0.into();
+        }
+
+        // Populate parameter types
+        for (i, &param_value_id) in context.mir_function.parameters.iter().enumerate() {
+            if let Some(param_type) = param_types.get(i) {
+                context
+                    .mir_function
+                    .value_types
+                    .insert(param_value_id, param_type.clone());
+            }
+        }
+
+        // Extract return values from return terminators and set their types
+        let mut return_value_ids = Vec::new();
+        for block in &context.mir_function.basic_blocks {
+            if let Terminator::Return { values } = &block.terminator {
+                for value in values {
+                    if let Value::Operand(value_id) = value {
+                        return_value_ids.push(*value_id);
+                    }
+                }
+            }
+        }
+
+        // Set return values and their types
+        if !return_value_ids.is_empty() {
+            context.mir_function.return_values = return_value_ids.clone();
+            for (i, &return_value_id) in return_value_ids.iter().enumerate() {
+                if let Some(return_type) = return_types.get(i) {
+                    context
+                        .mir_function
+                        .value_types
+                        .insert(return_value_id, return_type.clone());
+                }
+            }
         }
 
         Ok(context.mir_function)
@@ -302,7 +370,7 @@ impl DagToMir {
 
         // Set up initial loop variable mappings
         for (idx, input_value) in loop_input_values.iter().enumerate() {
-            let loop_var_id = context.allocate_value_id();
+            let loop_var_id = context.allocate_typed_value_id(MirType::U32);
             let instruction = Instruction::assign_u32(loop_var_id, *input_value);
             context.get_current_block()?.push_instruction(instruction);
 
@@ -387,7 +455,7 @@ impl DagToMir {
                             continue;
                         }
 
-                        let value_id = context.allocate_value_id();
+                        let value_id = context.allocate_typed_value_id(MirType::U32);
 
                         // Only add to function parameters if this is the main function inputs
                         // (not loop sub-DAG inputs)
@@ -433,7 +501,7 @@ impl DagToMir {
 
                     // Handle label inputs - these are values flowing into this label from branches
                     for (output_idx, _output_type) in node.output_types.iter().enumerate() {
-                        let value_id = context.allocate_value_id();
+                        let value_id = context.allocate_typed_value_id(MirType::U32);
                         let value_origin = ValueOrigin {
                             node: node_idx,
                             output_idx: output_idx as u32,
@@ -489,7 +557,7 @@ impl DagToMir {
                                     Value::Operand(vid) => value_ids.push(vid),
                                     Value::Literal(_) => {
                                         // Create a temporary value for literals
-                                        let temp_id = context.allocate_value_id();
+                                        let temp_id = context.allocate_typed_value_id(MirType::U32);
                                         let instruction = Instruction::assign_u32(temp_id, value);
                                         context.get_current_block()?.push_instruction(instruction);
                                         value_ids.push(temp_id);
@@ -532,7 +600,7 @@ impl DagToMir {
                                 };
 
                                 // Create a new value to represent the updated loop variable
-                                let updated_var_id = context.allocate_value_id();
+                                let updated_var_id = context.allocate_typed_value_id(MirType::U32);
                                 let instruction =
                                     Instruction::assign_u32(updated_var_id, updated_value);
                                 context.get_current_block()?.push_instruction(instruction);
@@ -614,7 +682,7 @@ impl DagToMir {
         match wasm_op {
             // Arithmetic operations
             Op::I32Add => {
-                let result_id = context.allocate_value_id();
+                let result_id = context.allocate_typed_value_id(MirType::U32);
                 let instruction =
                     Instruction::binary_op(BinaryOp::U32Add, result_id, inputs[0], inputs[1]);
                 context.get_current_block()?.push_instruction(instruction);
@@ -622,7 +690,7 @@ impl DagToMir {
             }
 
             Op::I32Sub => {
-                let result_id = context.allocate_value_id();
+                let result_id = context.allocate_typed_value_id(MirType::U32);
                 let instruction =
                     Instruction::binary_op(BinaryOp::U32Sub, result_id, inputs[0], inputs[1]);
                 context.get_current_block()?.push_instruction(instruction);
@@ -630,7 +698,7 @@ impl DagToMir {
             }
 
             Op::I32Mul => {
-                let result_id = context.allocate_value_id();
+                let result_id = context.allocate_typed_value_id(MirType::U32);
                 let instruction =
                     Instruction::binary_op(BinaryOp::U32Mul, result_id, inputs[0], inputs[1]);
                 context.get_current_block()?.push_instruction(instruction);
@@ -639,7 +707,7 @@ impl DagToMir {
 
             // Comparison operations
             Op::I32Eq => {
-                let result_id = context.allocate_value_id();
+                let result_id = context.allocate_typed_value_id(MirType::U32);
                 let instruction =
                     Instruction::binary_op(BinaryOp::U32Eq, result_id, inputs[0], inputs[1]);
                 context.get_current_block()?.push_instruction(instruction);
@@ -647,7 +715,7 @@ impl DagToMir {
             }
 
             Op::I32Ne => {
-                let result_id = context.allocate_value_id();
+                let result_id = context.allocate_typed_value_id(MirType::U32);
                 let instruction =
                     Instruction::binary_op(BinaryOp::U32Neq, result_id, inputs[0], inputs[1]);
                 context.get_current_block()?.push_instruction(instruction);
@@ -655,7 +723,7 @@ impl DagToMir {
             }
 
             Op::I32LtU => {
-                let result_id = context.allocate_value_id();
+                let result_id = context.allocate_typed_value_id(MirType::U32);
                 let instruction =
                     Instruction::binary_op(BinaryOp::U32Less, result_id, inputs[0], inputs[1]);
                 context.get_current_block()?.push_instruction(instruction);
@@ -663,19 +731,15 @@ impl DagToMir {
             }
 
             Op::I32GtU => {
-                let result_id = context.allocate_value_id();
-                let instruction = Instruction::binary_op(
-                    BinaryOp::U32GreaterEqual,
-                    result_id,
-                    inputs[0],
-                    inputs[1],
-                );
+                let result_id = context.allocate_typed_value_id(MirType::U32);
+                let instruction =
+                    Instruction::binary_op(BinaryOp::U32Greater, result_id, inputs[0], inputs[1]);
                 context.get_current_block()?.push_instruction(instruction);
                 Ok(vec![result_id])
             }
 
             Op::I32LeU => {
-                let result_id = context.allocate_value_id();
+                let result_id = context.allocate_typed_value_id(MirType::U32);
                 let instruction =
                     Instruction::binary_op(BinaryOp::U32LessEqual, result_id, inputs[0], inputs[1]);
                 context.get_current_block()?.push_instruction(instruction);
@@ -683,7 +747,7 @@ impl DagToMir {
             }
 
             Op::I32GeU => {
-                let result_id = context.allocate_value_id();
+                let result_id = context.allocate_typed_value_id(MirType::U32);
                 let instruction = Instruction::binary_op(
                     BinaryOp::U32GreaterEqual,
                     result_id,
@@ -696,24 +760,15 @@ impl DagToMir {
 
             // Constants
             Op::I32Const { value } => {
-                let result_id = context.allocate_value_id();
+                let result_id = context.allocate_typed_value_id(MirType::U32);
                 let instruction = Instruction::assign_u32(result_id, Value::integer(*value));
                 context.get_current_block()?.push_instruction(instruction);
                 Ok(vec![result_id])
             }
 
-            // Memory operations - TODO: Implement when MIR has memory support
-            Op::I32Load { .. } => {
-                todo!()
-            }
-
-            Op::I32Store { .. } => {
-                todo!()
-            }
-
             // Local variable operations
             Op::LocalGet { local_index } => {
-                let result_id = context.allocate_value_id();
+                let result_id = context.allocate_typed_value_id(MirType::U32);
 
                 // If we have a local variable stored, load its value
                 if let Some(&local_value_id) = context.local_map.get(local_index) {
@@ -737,7 +792,7 @@ impl DagToMir {
                     let value_to_store = inputs[0];
 
                     // Create a new ValueId for this local variable
-                    let local_value_id = context.allocate_value_id();
+                    let local_value_id = context.allocate_typed_value_id(MirType::U32);
 
                     // Assign the input value to our local variable
                     let instruction = Instruction::assign_u32(local_value_id, value_to_store);
@@ -757,7 +812,7 @@ impl DagToMir {
                         Ok(vec![value_id])
                     } else {
                         // Create a new value for the literal
-                        let result_id = context.allocate_value_id();
+                        let result_id = context.allocate_typed_value_id(MirType::U32);
                         let instruction = Instruction::assign_u32(result_id, inputs[0]);
                         context.get_current_block()?.push_instruction(instruction);
                         Ok(vec![result_id])
@@ -768,7 +823,7 @@ impl DagToMir {
             }
 
             Op::Call { function_index } => {
-                let result_id = context.allocate_value_id();
+                let result_id = context.allocate_typed_value_id(MirType::U32);
                 let callee_id = FunctionId::new(*function_index as usize);
 
                 // Get signature from wasm module

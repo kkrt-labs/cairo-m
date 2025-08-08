@@ -8,8 +8,11 @@ license.workspace = true
 womir.workspace = true
 thiserror.workspace = true
 cairo-m-compiler-mir.workspace = true
+cairo-m-compiler-codegen.workspace = true
+stwo-prover.workspace = true
 ouroboros = "0.18"
 wasmparser = "0.235.0"
 
 [dev-dependencies]
 insta = "1.43.1"
+cairo-m-runner.workspace = true
