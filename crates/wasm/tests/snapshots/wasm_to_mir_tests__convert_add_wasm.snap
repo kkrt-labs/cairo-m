@@ -20,6 +20,9 @@ module {
 
     0:
       %2 = %1 U32Add %0
+      jump 1
+
+    1:
       return %2
 
   }
