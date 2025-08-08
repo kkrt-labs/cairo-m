@@ -10,6 +10,7 @@
 
 use crate::{
     analysis::dominance::{compute_dominance_frontiers, compute_dominator_tree, DominatorTree},
+    layout::DataLayout,
     BasicBlockId, Instruction, InstructionKind, Literal, MirFunction, MirType, Terminator, Value,
     ValueId,
 };
@@ -124,7 +125,8 @@ impl Mem2RegSsaPass {
                         // which is not yet implemented. This is a temporary restriction until
                         // we implement either SROA (scalar replacement of aggregates) or
                         // per-slot phi insertion.
-                        if ty.size_in_slots() == 1 {
+                        let layout = DataLayout::new();
+                        if layout.is_promotable(&ty) {
                             allocations.insert(
                                 *dest,
                                 PromotableAllocation {

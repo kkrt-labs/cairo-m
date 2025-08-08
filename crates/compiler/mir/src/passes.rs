@@ -5,7 +5,10 @@
 
 pub mod mem2reg_ssa;
 pub mod pre_opt;
+pub mod sroa;
 pub mod ssa_destruction;
+
+pub use sroa::SroaPass;
 
 use cairo_m_compiler_parser::parser::UnaryOp;
 
@@ -313,19 +316,17 @@ impl Validation {
                     if let Value::Operand(addr_id) = address {
                         // Check that the address operand is a pointer
                         if let Some(addr_type) = function.get_value_type(*addr_id) {
-                            if !matches!(addr_type, MirType::Pointer(_)) {
-                                if std::env::var("RUST_LOG").is_ok() {
-                                    eprintln!(
-                                        "[ERROR] Block {block_id:?}, instruction {instr_idx}: Store instruction uses non-pointer address {addr_id:?} with type {addr_type:?}"
-                                    );
-                                }
-                            }
-                        } else {
-                            if std::env::var("RUST_LOG").is_ok() {
+                            if !matches!(addr_type, MirType::Pointer(_))
+                                && std::env::var("RUST_LOG").is_ok()
+                            {
                                 eprintln!(
-                                    "[WARN] Block {block_id:?}, instruction {instr_idx}: Store instruction uses address {addr_id:?} with unknown type"
+                                    "[ERROR] Block {block_id:?}, instruction {instr_idx}: Store instruction uses non-pointer address {addr_id:?} with type {addr_type:?}"
                                 );
                             }
+                        } else if std::env::var("RUST_LOG").is_ok() {
+                            eprintln!(
+                                "[WARN] Block {block_id:?}, instruction {instr_idx}: Store instruction uses address {addr_id:?} with unknown type"
+                            );
                         }
                     }
                 }
@@ -341,12 +342,10 @@ impl Validation {
                     // Warn if using raw integer offsets (not typed indexing)
                     // This is a temporary warning until typed GEP is fully implemented
                     if let Value::Literal(Literal::Integer(offset_val)) = offset {
-                        if *offset_val != 0 {
-                            if std::env::var("RUST_LOG").is_ok() {
-                                eprintln!(
-                                    "[WARN] Block {block_id:?}, instruction {instr_idx}: GEP uses raw offset {offset_val}. Consider using typed GEP once available."
-                                );
-                            }
+                        if *offset_val != 0 && std::env::var("RUST_LOG").is_ok() {
+                            eprintln!(
+                                "[WARN] Block {block_id:?}, instruction {instr_idx}: GEP uses raw offset {offset_val}. Consider using typed GEP once available."
+                            );
                         }
                     }
                 }
@@ -360,42 +359,37 @@ impl Validation {
 
         // Check for unreachable blocks
         let unreachable = function.unreachable_blocks();
-        if !unreachable.is_empty() {
-            if std::env::var("RUST_LOG").is_ok() {
-                eprintln!(
-                    "[WARN] Function '{}' contains {} unreachable blocks: {:?}",
-                    function.name,
-                    unreachable.len(),
-                    unreachable
-                );
-            }
+        if !unreachable.is_empty() && std::env::var("RUST_LOG").is_ok() {
+            eprintln!(
+                "[WARN] Function '{}' contains {} unreachable blocks: {:?}",
+                function.name,
+                unreachable.len(),
+                unreachable
+            );
         }
 
         // Warn about critical edges (these should be split for correct SSA destruction)
         for (pred_id, pred_block) in function.basic_blocks.iter_enumerated() {
             for succ_id in pred_block.terminator.target_blocks() {
-                if is_critical_edge(function, pred_id, succ_id) {
-                    if std::env::var("RUST_LOG").is_ok()
-                        && std::env::var("RUST_LOG").unwrap().contains("debug")
-                    {
-                        eprintln!(
-                            "[DEBUG] Critical edge detected: {pred_id:?} -> {succ_id:?} in function '{}'",
-                            function.name
-                        );
-                    }
+                if is_critical_edge(function, pred_id, succ_id)
+                    && std::env::var("RUST_LOG").is_ok()
+                    && std::env::var("RUST_LOG").unwrap().contains("debug")
+                {
+                    eprintln!(
+                        "[DEBUG] Critical edge detected: {pred_id:?} -> {succ_id:?} in function '{}'",
+                        function.name
+                    );
                 }
             }
         }
 
         // Check that entry block has no predecessors
         let entry_preds = get_predecessors(function, function.entry_block);
-        if !entry_preds.is_empty() {
-            if std::env::var("RUST_LOG").is_ok() {
-                eprintln!(
-                    "[ERROR] Entry block {:?} has predecessors: {:?} in function '{}'",
-                    function.entry_block, entry_preds, function.name
-                );
-            }
+        if !entry_preds.is_empty() && std::env::var("RUST_LOG").is_ok() {
+            eprintln!(
+                "[ERROR] Entry block {:?} has predecessors: {:?} in function '{}'",
+                function.entry_block, entry_preds, function.name
+            );
         }
     }
 
@@ -405,13 +399,11 @@ impl Validation {
 
         // Check parameters
         for &param_id in &function.parameters {
-            if !defined_values.insert(param_id) {
-                if std::env::var("RUST_LOG").is_ok() {
-                    eprintln!(
-                        "[ERROR] Value {param_id:?} is defined multiple times as a parameter in function '{}'",
-                        function.name
-                    );
-                }
+            if !defined_values.insert(param_id) && std::env::var("RUST_LOG").is_ok() {
+                eprintln!(
+                    "[ERROR] Value {param_id:?} is defined multiple times as a parameter in function '{}'",
+                    function.name
+                );
             }
         }
 
@@ -419,13 +411,11 @@ impl Validation {
         for (block_id, block) in function.basic_blocks() {
             for (instr_idx, instruction) in block.instructions.iter().enumerate() {
                 if let Some(dest) = instruction.destination() {
-                    if !defined_values.insert(dest) {
-                        if std::env::var("RUST_LOG").is_ok() {
-                            eprintln!(
-                                "[ERROR] Value {dest:?} is defined multiple times (block {block_id:?}, instruction {instr_idx}) in function '{}'",
-                                function.name
-                            );
-                        }
+                    if !defined_values.insert(dest) && std::env::var("RUST_LOG").is_ok() {
+                        eprintln!(
+                            "[ERROR] Value {dest:?} is defined multiple times (block {block_id:?}, instruction {instr_idx}) in function '{}'",
+                            function.name
+                        );
                     }
                 }
             }
@@ -478,6 +468,7 @@ impl PassManager {
     pub fn standard_pipeline() -> Self {
         Self::new()
             .add_pass(pre_opt::PreOptimizationPass::new())
+            .add_pass(sroa::SroaPass::new()) // Split aggregates before mem2reg
             .add_pass(mem2reg_ssa::Mem2RegSsaPass::new()) // Run SSA mem2reg early for true SSA form
             .add_pass(ssa_destruction::SsaDestructionPass::new()) // Eliminate Phi nodes before codegen
             .add_pass(FuseCmpBranch::new())

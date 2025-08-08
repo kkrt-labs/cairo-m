@@ -130,60 +130,29 @@ impl MirType {
     }
 
     /// Gets the size in slots (field elements) for this type
+    #[deprecated(note = "Use DataLayout::size_of() instead for better centralization")]
     pub fn size_in_slots(&self) -> usize {
-        match self {
-            Self::Felt | Self::Bool | Self::Pointer(_) => 1,
-            Self::U32 => 2, // U32 takes 2 field elements (low, high)
-            Self::Tuple(types) => types.iter().map(|t| t.size_in_slots()).sum(),
-            Self::Struct { fields, .. } => {
-                // Sum the sizes of all fields
-                fields
-                    .iter()
-                    .map(|(_, field_type)| field_type.size_in_slots())
-                    .sum()
-            }
-            Self::Function { .. } => 1, // Function pointers
-            Self::Unit => 0,
-            Self::Error | Self::Unknown => 1, // Safe default
-        }
+        // Delegate to DataLayout for consistency
+        let layout = crate::layout::DataLayout::new();
+        layout.size_of(self)
     }
 
     /// Calculates the offset of a struct field by name
     /// Returns None if the field is not found or this is not a struct type
+    #[deprecated(note = "Use DataLayout::field_offset() instead for better centralization")]
     pub fn field_offset(&self, field_name: &str) -> Option<usize> {
-        match self {
-            Self::Struct { fields, .. } => {
-                let mut offset = 0;
-                for (name, field_type) in fields {
-                    if name == field_name {
-                        return Some(offset);
-                    }
-                    offset += field_type.size_in_slots();
-                }
-                None
-            }
-            _ => None,
-        }
+        // Delegate to DataLayout for consistency
+        let layout = crate::layout::DataLayout::new();
+        layout.field_offset(self, field_name)
     }
 
     /// Calculates the offset of a tuple element by index
     /// Returns None if the index is out of bounds or this is not a tuple type
+    #[deprecated(note = "Use DataLayout::tuple_offset() instead for better centralization")]
     pub fn tuple_element_offset(&self, index: usize) -> Option<usize> {
-        match self {
-            Self::Tuple(types) => {
-                if index >= types.len() {
-                    return None;
-                }
-
-                // Calculate cumulative offset by summing sizes of previous elements
-                let mut offset = 0;
-                for type_at_i in types.iter().take(index) {
-                    offset += type_at_i.size_in_slots();
-                }
-                Some(offset)
-            }
-            _ => None,
-        }
+        // Delegate to DataLayout for consistency
+        let layout = crate::layout::DataLayout::new();
+        layout.tuple_offset(self, index)
     }
 
     /// Gets the type of a struct field by name

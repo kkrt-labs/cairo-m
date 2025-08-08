@@ -14,6 +14,7 @@ use cairo_m_compiler_semantic::types::TypeData;
 use cairo_m_compiler_semantic::SemanticIndex;
 
 use crate::instruction::CalleeSignature;
+use crate::layout::DataLayout;
 use crate::{BasicBlockId, FunctionId, Instruction, Literal, MirType, Value, ValueId};
 
 use super::builder::MirBuilder;
@@ -147,11 +148,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         src_addr: Value,
         ty: &MirType,
     ) -> Result<(), String> {
+        let layout = DataLayout::new();
         match ty {
             MirType::Tuple(element_types) => {
                 for (i, elem_type) in element_types.iter().enumerate() {
-                    let offset = ty
-                        .tuple_element_offset(i)
+                    let offset = layout
+                        .tuple_offset(&ty, i)
                         .ok_or_else(|| format!("Invalid tuple index {} for type", i))?;
                     let offset_val = Value::integer(offset as i32);
 
@@ -177,8 +179,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             }
             MirType::Struct { fields, .. } => {
                 for (field_name, field_type) in fields {
-                    let offset = ty
-                        .field_offset(field_name)
+                    let offset = layout
+                        .field_offset(&ty, field_name)
                         .ok_or_else(|| format!("Field {} not found in struct type", field_name))?;
                     let offset_val = Value::integer(offset as i32);
 

@@ -542,6 +542,93 @@ impl CodeGenerator {
                 builder.get_element_ptr(*dest, *base, *offset)?;
             }
 
+            InstructionKind::GetElementPtrTyped {
+                dest,
+                base,
+                path,
+                base_type,
+            } => {
+                // Convert typed path to integer offset using DataLayout
+                use cairo_m_compiler_mir::layout::DataLayout;
+                use cairo_m_compiler_mir::AccessPath;
+
+                let layout = DataLayout::new();
+                let mut offset = 0;
+                let mut current_type = base_type.clone();
+
+                for component in path {
+                    match component {
+                        AccessPath::Field(field_name) => {
+                            if let Some(field_offset) =
+                                layout.field_offset(&current_type, field_name)
+                            {
+                                offset += field_offset;
+                                // Update current_type to the field's type
+                                if let Some(field_type) = current_type.field_type(field_name) {
+                                    current_type = field_type.clone();
+                                }
+                            } else {
+                                return Err(CodegenError::InvalidMir(format!(
+                                    "Field '{}' not found in type",
+                                    field_name
+                                )));
+                            }
+                        }
+                        AccessPath::TupleIndex(index) => {
+                            if let Some(tuple_offset) = layout.tuple_offset(&current_type, *index) {
+                                offset += tuple_offset;
+                                // Update current_type to the element's type
+                                if let Some(elem_type) = current_type.tuple_element_type(*index) {
+                                    current_type = elem_type.clone();
+                                }
+                            } else {
+                                return Err(CodegenError::InvalidMir(format!(
+                                    "Tuple index {} out of bounds",
+                                    index
+                                )));
+                            }
+                        }
+                    }
+                }
+
+                // Generate the GEP with computed offset
+                builder.get_element_ptr(*dest, *base, Value::integer(offset as i32))?;
+            }
+
+            InstructionKind::BuildStruct { .. } => {
+                // First-class aggregate operations need more infrastructure
+                // for aggregate type tracking through codegen
+                return Err(CodegenError::UnsupportedInstruction(
+                    "BuildStruct instruction not yet supported in codegen".to_string(),
+                ));
+            }
+
+            InstructionKind::BuildTuple { .. } => {
+                // First-class aggregate operations need more infrastructure
+                // for aggregate type tracking through codegen
+                return Err(CodegenError::UnsupportedInstruction(
+                    "BuildTuple instruction not yet supported in codegen".to_string(),
+                ));
+            }
+
+            InstructionKind::ExtractValue {
+                dest, aggregate, ..
+            } => {
+                // ExtractValue requires tracking aggregate types through the IR
+                // For now, we'll emit an error since this needs more infrastructure
+                return Err(CodegenError::UnsupportedInstruction(
+                    "ExtractValue instruction not yet implemented in codegen".to_string(),
+                ));
+            }
+
+            InstructionKind::InsertValue { .. } => {
+                // InsertValue requires tracking aggregate types and copying
+                // For now, we'll emit an error since this needs more infrastructure
+                return Err(CodegenError::UnsupportedInstruction(
+                    "InsertValue instruction not yet implemented in codegen".to_string(),
+                ));
+            }
+
             InstructionKind::Cast { .. } => {
                 todo!("Cast is not implemented yet");
             }

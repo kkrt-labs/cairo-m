@@ -51,10 +51,13 @@
 pub use basic_block::BasicBlock;
 pub use builder::{CfgBuilder, CfgState, InstrBuilder};
 pub use function::{MirDefinitionId, MirFunction};
-pub use instruction::{BinaryOp, Instruction, InstructionKind, MirExpressionId};
+pub use instruction::{
+    AccessPath, BinaryOp, FieldPath, Instruction, InstructionKind, MirExpressionId,
+};
+pub use layout::DataLayout;
 pub use mir_types::MirType;
 pub use module::MirModule;
-pub use passes::{DeadCodeElimination, MirPass, PassManager, Validation};
+pub use passes::{DeadCodeElimination, MirPass, PassManager, SroaPass, Validation};
 pub use terminator::Terminator;
 pub use value::{Literal, Place, Value};
 
@@ -65,6 +68,7 @@ pub mod cfg;
 pub mod db;
 pub mod function;
 pub mod instruction;
+pub mod layout;
 pub mod lowering;
 pub mod mir_types;
 pub mod module;

@@ -12,6 +12,7 @@ use cairo_m_compiler_semantic::type_resolution::{
 use cairo_m_compiler_semantic::types::TypeData;
 
 use crate::instruction::CalleeSignature;
+use crate::layout::DataLayout;
 use crate::{Instruction, Literal, MirType, Value};
 
 use super::builder::{CallResult, MirBuilder};
@@ -138,8 +139,9 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
                 let object_mir_type =
                     MirType::from_semantic_type(self.ctx.db, object_semantic_type);
 
-                // Calculate the actual field offset from the type information
-                let field_offset_val = object_mir_type.field_offset(field.value())
+                // Calculate the actual field offset from the type information using DataLayout
+                let layout = DataLayout::new();
+                let field_offset_val = layout.field_offset(&object_mir_type, field.value())
                     .ok_or_else(|| {
                         format!(
                             "Internal Compiler Error: Field '{}' not found on type '{:?}'. This indicates an issue with type information propagation.",
@@ -221,9 +223,10 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
                 // For non-function-call tuples, use the existing lvalue approach
                 let tuple_addr = self.lower_lvalue_expression(tuple)?;
 
-                // Calculate the offset for the element
-                let offset = tuple_mir_type
-                    .tuple_element_offset(*index)
+                // Calculate the offset for the element using DataLayout
+                let layout = DataLayout::new();
+                let offset = layout
+                    .tuple_offset(&tuple_mir_type, *index)
                     .ok_or_else(|| format!("Invalid tuple index {} for type", index))?;
 
                 // Get element type
@@ -469,8 +472,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         );
         let object_mir_type = MirType::from_semantic_type(self.ctx.db, object_semantic_type);
 
-        // Calculate the actual field offset from the type information
-        let field_offset_val = object_mir_type.field_offset(field.value())
+        // Calculate the actual field offset from the type information using DataLayout
+        let layout = DataLayout::new();
+        let field_offset_val = layout.field_offset(&object_mir_type, field.value())
             .ok_or_else(|| {
                 format!(
                     "Internal Compiler Error: Field '{}' not found on type '{:?}'. This indicates an issue with type information propagation.",
@@ -704,8 +708,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         for (field_name, field_value) in fields.iter() {
             let field_val = self.lower_expression(field_value)?;
 
-            // Calculate the actual field offset from the struct type information
-            let field_offset_val = struct_type.field_offset(field_name.value())
+            // Calculate the actual field offset from the struct type information using DataLayout
+            let layout = DataLayout::new();
+            let field_offset_val = layout.field_offset(&struct_type, field_name.value())
                 .ok_or_else(|| {
                     format!(
                         "Internal Compiler Error: Field '{}' not found on struct type '{:?}'. This indicates an issue with type information propagation.",
@@ -865,9 +870,10 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // Get the tuple base address
         let tuple_addr = self.lower_lvalue_expression(tuple)?;
 
-        // Calculate the offset for the element
-        let offset = tuple_mir_type
-            .tuple_element_offset(index)
+        // Calculate the offset for the element using DataLayout
+        let layout = DataLayout::new();
+        let offset = layout
+            .tuple_offset(&tuple_mir_type, index)
             .ok_or_else(|| format!("Invalid tuple index {} for type", index))?;
 
         // Get element type
