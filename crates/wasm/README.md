@@ -148,7 +148,8 @@ Test cases include:
 - `func_call.wasm` - Function call handling
 - `if_statement.wasm` - Conditional branching
 - `fib.wasm` - Recursive Fibonacci (more complex control flow)
-- `var_manipulation.wasm` - Local variable operations
+- `variables.wasm` - Local variable operations
+- `simple_loop.wasm` - Basic loop structure
 
 ## Dependencies
 
@@ -160,7 +161,6 @@ Test cases include:
 ## Future Enhancements
 
 - Support for more WASM operations (memory operations, floating-point, etc.)
-- Advanced control flow constructs (loops, nested blocks)
 - Memory model integration
 - Optimization passes in the MIR representation
 - Integration with Cairo-M's full compilation pipeline

@@ -63,7 +63,7 @@ wasm_test!(load_fib_wasm, "fib.wasm");
 wasm_test!(load_arithmetic_wasm, "arithmetic.wasm");
 wasm_test!(load_if_statement_wasm, "if_statement.wasm");
 wasm_test!(load_func_call_wasm, "func_call.wasm");
-wasm_test!(load_var_manipulation_wasm, "var_manipulation.wasm");
+wasm_test!(load_variables_wasm, "variables.wasm");
 wasm_test!(load_simple_loop_wasm, "simple_loop.wasm");
 
 #[cfg(test)]
