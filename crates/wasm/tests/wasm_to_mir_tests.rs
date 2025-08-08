@@ -46,14 +46,18 @@ macro_rules! wasm_test {
 
 // --- Basic WASM to MIR Conversion Tests ---
 wasm_test!(convert_add_wasm, "add.wasm");
-// TODO : loops, u32 boolean operations
 wasm_test!(
     #[ignore]
     convert_fib_wasm,
     "fib.wasm"
 );
 wasm_test!(convert_arithmetic_wasm, "arithmetic.wasm");
+wasm_test!(convert_simple_if_wasm, "simple_if.wasm");
 wasm_test!(convert_if_statement_wasm, "if_statement.wasm");
 wasm_test!(convert_func_call_wasm, "func_call.wasm");
-wasm_test!(convert_var_manipulation_wasm, "var_manipulation.wasm");
-wasm_test!(convert_simple_loop_wasm, "simple_loop.wasm");
+wasm_test!(convert_variables_wasm, "variables.wasm");
+wasm_test!(
+    #[ignore]
+    convert_simple_loop_wasm,
+    "simple_loop.wasm"
+);

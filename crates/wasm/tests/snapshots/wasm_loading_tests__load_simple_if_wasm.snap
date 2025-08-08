@@ -1,0 +1,26 @@
+---
+source: crates/wasm/tests/wasm_loading_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/wasm/tests/wasm_loading_tests.rs
+expression: wasm_load_result
+---
+WASM File: simple_if.wasm
+============================================================
+Success: true
+Functions loaded: 1
+============================================================
+Module Output:
+simple_if:
+  Node { operation: Inputs, inputs: [], output_types: [I32] }
+  Node { operation: WASMOp(I32Const { value: 5 }), inputs: [], output_types: [I32] }
+  Node { operation: WASMOp(I32GtU), inputs: [ValueOrigin { node: 0, output_idx: 0 }, ValueOrigin { node: 1, output_idx: 0 }], output_types: [I32] }
+  Node { operation: BrIf(BreakTarget { depth: 0, kind: Label(1) }), inputs: [ValueOrigin { node: 2, output_idx: 0 }], output_types: [] }
+  Node { operation: Br(BreakTarget { depth: 0, kind: Label(0) }), inputs: [ValueOrigin { node: 0, output_idx: 0 }], output_types: [] }
+  Node { operation: Label { id: 1 }, inputs: [], output_types: [] }
+  Node { operation: WASMOp(I32Const { value: 10 }), inputs: [], output_types: [I32] }
+  Node { operation: WASMOp(I32Add), inputs: [ValueOrigin { node: 0, output_idx: 0 }, ValueOrigin { node: 6, output_idx: 0 }], output_types: [I32] }
+  Node { operation: Br(BreakTarget { depth: 0, kind: Label(0) }), inputs: [ValueOrigin { node: 7, output_idx: 0 }], output_types: [] }
+  Node { operation: Label { id: 0 }, inputs: [], output_types: [I32] }
+  Node { operation: Br(BreakTarget { depth: 0, kind: FunctionOrLoop }), inputs: [ValueOrigin { node: 9, output_idx: 0 }], output_types: [] }

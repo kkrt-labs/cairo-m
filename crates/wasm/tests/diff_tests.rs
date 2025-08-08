@@ -41,23 +41,25 @@ impl ExternalFunctions for DataInput {
 }
 
 /// Convert a vector of u32 to a vector of M31, splitting each u32 into 2 u16 limbs
+/// Following Cairo-M VM convention: [low_16_bits, high_16_bits]
 fn u32_to_m31(values: Vec<u32>) -> Vec<M31> {
     let mut result = Vec::new();
     for value in values {
-        let high = value >> 16;
-        let low = value & 0xFFFF;
-        result.push(M31::from(high));
+        let low = value & 0xFFFF; // Low 16 bits go first
+        let high = value >> 16; // High 16 bits go second
         result.push(M31::from(low));
+        result.push(M31::from(high));
     }
     result
 }
 
 /// Convert a vector of M31 to a vector of u32, combining each 2 u16 limbs into a u32
+/// Following Cairo-M VM convention: [low_16_bits, high_16_bits]
 fn m31_to_u32(values: Vec<M31>) -> Vec<u32> {
     let mut result = Vec::new();
     for i in (0..values.len()).step_by(2) {
-        let high = values[i].0;
-        let low = values[i + 1].0;
+        let low = values[i].0; // First M31 is low 16 bits
+        let high = values[i + 1].0; // Second M31 is high 16 bits
         result.push((high << 16) | low);
     }
     result
@@ -70,6 +72,7 @@ fn test_program(path: &str, func_name: &str, inputs: Vec<u32>) {
 
     let dag_module = BlocklessDagModule::from_file(path).unwrap();
     let mir_module = DagToMir::new(dag_module).to_mir().unwrap();
+
     let compiled_module = compile_module(&mir_module).unwrap();
 
     let data_input = DataInput::new(vec![]);
@@ -93,9 +96,63 @@ fn test_program(path: &str, func_name: &str, inputs: Vec<u32>) {
 #[test]
 fn test_add() {
     test_program("tests/test_cases/add.wasm", "add", vec![1, 2]);
+    test_program("tests/test_cases/add.wasm", "add", vec![42, 69]);
+    test_program("tests/test_cases/add.wasm", "add", vec![0xFFFF, 0xFFFF]);
+    test_program(
+        "tests/test_cases/add.wasm",
+        "add",
+        vec![0xFFFFFFFF, 0xFFFFFFFF],
+    );
 }
 
 #[test]
 fn test_arithmetic() {
     test_program("tests/test_cases/arithmetic.wasm", "f", vec![1, 2]);
+    test_program("tests/test_cases/arithmetic.wasm", "f", vec![42, 69]);
+    test_program(
+        "tests/test_cases/arithmetic.wasm",
+        "f",
+        vec![0xFFFF, 0xFFFF],
+    );
+    test_program(
+        "tests/test_cases/arithmetic.wasm",
+        "f",
+        vec![0xFFFFFFFF, 0xFFFFFFFF],
+    );
+}
+
+#[test]
+#[ignore]
+fn test_fib() {
+    test_program("tests/test_cases/fib.wasm", "fib", vec![10]);
+}
+
+#[test]
+fn test_func_call() {
+    test_program("tests/test_cases/func_call.wasm", "main", vec![]);
+}
+
+#[test]
+fn test_simple_if() {
+    for i in 0..10 {
+        test_program("tests/test_cases/simple_if.wasm", "simple_if", vec![i]);
+    }
+}
+
+#[test]
+fn test_if_statement() {
+    for i in 0..10 {
+        test_program("tests/test_cases/if_statement.wasm", "main", vec![i]);
+    }
+}
+
+#[test]
+#[ignore]
+fn test_simple_loop() {
+    test_program("tests/test_cases/simple_loop.wasm", "main", vec![]);
+}
+
+#[test]
+fn test_variables() {
+    test_program("tests/test_cases/variables.wasm", "main", vec![]);
 }

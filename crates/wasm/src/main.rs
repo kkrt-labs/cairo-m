@@ -1,6 +1,7 @@
 mod flattening;
 mod loader;
 
+use cairo_m_compiler_codegen::compile_module;
 use flattening::DagToMir;
 use loader::BlocklessDagModule;
 use std::env;
@@ -18,7 +19,8 @@ fn main() {
     match BlocklessDagModule::from_file(filename) {
         Ok(module) => match DagToMir::new(module).to_mir() {
             Ok(mir) => {
-                println!("{mir:?}");
+                let program = compile_module(&mir).unwrap();
+                println!("{:#?}", program.instructions);
             }
             Err(e) => {
                 eprintln!("Error converting to MIR: {}", e);

@@ -19,8 +19,13 @@ Cairo-M's MIR (Mid-level Intermediate Representation) using
 **Complete**: Convert basic WASM operations to Cairo-M MIR instructions ✅
 **Complete**: Support for arithmetic operations (Add, Sub, Mul), constants, and
 local variables ✅ **Complete**: Function parameter handling and return values
-✅ **Testing**: Comprehensive test suite with snapshot testing 🚧 **In
-Progress**: Control flow, comparisons, and advanced operations
+✅ **Complete**: Control flow operations (`if`, `else`, `br`, `br_if`,
+`br_if_zero`) ✅ **Complete**: Comparison operations (`i32.eq`, `i32.ne`,
+`i32.lt`, `i32.gt`, etc.) ✅ **Complete**: Local variable operations
+(`local.get`, `local.set`, `local.tee`) ✅ **Complete**: Basic function calls
+with parameter passing ✅ **Complete**: Testing**: Comprehensive test suite with
+snapshot testing 🚧 **In Progress**: Advanced control flow (loops, nested
+blocks, `br_table`) 🚧 **In Progress\*\*: Memory operations (`load`, `store`)
 
 ## Usage
 
@@ -100,16 +105,19 @@ module {
 
 - **Arithmetic**: `i32.add`, `i32.sub`, `i32.mul`
 - **Constants**: `i32.const`
-- **Local Variables**: `local.get`, `local.set`, `local.tee` (partial)
+- **Local Variables**: `local.get`, `local.set`, `local.tee`
 - **Function Parameters**: Parameter handling and returns
-- **Basic Function Calls**: Simple call operations (experimental)
+- **Function Calls**: Call operations with proper parameter passing
+- **Comparison Operations**: `i32.eq`, `i32.ne`, `i32.lt`, `i32.gt`, `i32.le`,
+  `i32.ge`
+- **Control Flow**: `if`, `else`, `br`, `br_if`, `br_if_zero`
+- **Value Passing**: Robust label parameter handling via memory slots
 
 ### Not Yet Supported
 
-- **Comparison Operations**: `i32.eq`, `i32.ne`, `i32.lt`, etc.
-- **Control Flow**: `if`, `else`, `br`, `br_if`, `select`
+- **Advanced Control Flow**: Loops, nested blocks, `br_table`
 - **Memory Operations**: `load`, `store`
-- **Advanced Operations**: Loops, nested blocks, floating-point operations
+- **Advanced Operations**: Floating-point operations, SIMD instructions
 
 ## Architecture
 
@@ -120,13 +128,47 @@ The crate is organized into two main modules:
 2. **`flattening`**: Converts the WOMIR DAG to Cairo-M MIR using a two-pass
    algorithm
 
+### Recent Improvements
+
+**Control Flow Implementation (Latest)**: The control flow system has been
+completely reworked to use a robust memory slot-based approach:
+
+- **Eliminated Borrow Checker Issues**: Fixed mutable borrow conflicts by
+  implementing proper value cloning
+- **Simplified Architecture**: Removed complex phi-node tracking and unused
+  control flow state
+- **Memory Slot System**: Each label parameter gets dedicated memory slots for
+  reliable value passing
+- **Two-Pass Algorithm**: Preallocate blocks and slots, then generate
+  instructions with proper value flow
+
 The conversion process follows these steps:
 
 1. Load WASM bytecode using `wasmparser`
 2. Convert to WOMIR's BlockLess DAG representation
 3. Apply a two-pass algorithm to generate MIR:
-   - Pass 1: Create basic blocks for all labels
-   - Pass 2: Generate instructions and control flow
+   - Pass 1: Preallocate basic blocks for all labels and allocate memory slots
+     for label parameters
+   - Pass 2: Generate instructions and control flow with robust value passing
+     via memory slots
+
+### Control Flow Implementation
+
+The control flow system uses a **memory slot-based approach** for joining values
+at labels:
+
+- **Memory Slots**: Each label parameter gets a dedicated stack slot (spill
+  slot)
+- **Predecessor Storage**: Each predecessor stores its values to the label's
+  slots before branching
+- **Label Entry Loading**: At label entry, values are loaded from slots into the
+  label's output variables
+
+This approach provides:
+
+- **Simplicity**: Straightforward store-then-load pattern
+- **Robustness**: No complex phi-node logic or value coalescing
+- **Reliability**: Explicit memory operations ensure correct value flow
 
 ## Testing
 
@@ -146,9 +188,12 @@ Test cases include:
 - `add.wasm` - Simple addition function
 - `arithmetic.wasm` - Complex arithmetic expressions
 - `func_call.wasm` - Function call handling
-- `if_statement.wasm` - Conditional branching
+- `if_statement.wasm` - Conditional branching with robust control flow
+- `simple_if.wasm` - Basic if-else control flow
 - `fib.wasm` - Recursive Fibonacci (more complex control flow)
-- `var_manipulation.wasm` - Local variable operations
+- `variables.wasm` - Local variable operations
+- `simple_loop.wasm` - Basic loop structure
+- `select.wasm` - Select operation handling
 
 ## Dependencies
 
@@ -159,8 +204,13 @@ Test cases include:
 
 ## Future Enhancements
 
-- Support for more WASM operations (memory operations, floating-point, etc.)
-- Advanced control flow constructs (loops, nested blocks)
-- Memory model integration
-- Optimization passes in the MIR representation
-- Integration with Cairo-M's full compilation pipeline
+- **Advanced Control Flow**: Complete loop support, nested blocks, `br_table`
+  operations
+- **Memory Operations**: Load/store operations with proper memory model
+  integration
+- **Extended Types**: Support for i64, f32, f64, and vector types
+- **Memory Model**: Integration with Cairo-M's memory management system
+- **Optimization Passes**: Value coalescing, dead code elimination in MIR
+  representation
+- **Integration**: Full integration with Cairo-M's compilation pipeline
+- **Performance**: Optimize memory slot allocation and reduce memory traffic
