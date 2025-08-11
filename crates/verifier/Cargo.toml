@@ -6,11 +6,18 @@ authors.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
+[features]
+relation-tracker = []
+
 [dependencies]
-cairo-m-common = { path = "../common" }
-cairo-m-compiler = { path = "../compiler" }
-cairo-m-runner = { path = "../runner" }
-cairo-m-prover = { path = "../prover" }
+cairo-m-runner.workspace = true
+cairo-m-compiler.workspace = true
+cairo-m-common.workspace = true
+cairo-m-prover.workspace = true
+stwo-prover.workspace = true
+stwo-air-utils.workspace = true
+stwo-air-utils-derive.workspace = true
+stwo-constraint-framework.workspace = true
 
 anyhow = { workspace = true }
 itertools = { workspace = true }
@@ -20,9 +27,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
-stwo-prover = { workspace = true }
-stwo-constraint-framework = { workspace = true }
-zkhash = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

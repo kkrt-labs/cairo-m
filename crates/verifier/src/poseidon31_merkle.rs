@@ -1,3 +1,4 @@
+use cairo_m_prover::poseidon2::Poseidon2Hash;
 use itertools::Itertools;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
@@ -10,15 +11,10 @@ use stwo_prover::core::fields::qm31::{SecureField, SECURE_EXTENSION_DEGREE};
 use stwo_prover::core::proof_of_work::GrindOps;
 use stwo_prover::core::vcs::hash::Hash;
 use stwo_prover::core::vcs::ops::{MerkleHasher, MerkleOps};
-use zkhash::ark_ff::PrimeField;
-use zkhash::fields::m31::FpM31;
-use zkhash::poseidon2::poseidon2::Poseidon2;
-use zkhash::poseidon2::poseidon2_instance_m31::POSEIDON2_M31_16_PARAMS;
 
 use rayon::prelude::*;
 
 const ELEMENTS_IN_BLOCK: usize = 8;
-const T: usize = 16; // State size for Poseidon2
 
 /// Wrapper type for M31 to implement Hash trait
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default, Deserialize, Serialize)]
@@ -50,12 +46,7 @@ pub struct Poseidon31MerkleHasher;
 impl Poseidon31MerkleHasher {
     /// Hash two M31 values using Poseidon2
     fn hash_pair(left: M31, right: M31) -> M31 {
-        let poseidon2 = Poseidon2::new(&POSEIDON2_M31_16_PARAMS);
-        let mut input: Vec<FpM31> = vec![FpM31::zero(); T];
-        input[0] = FpM31::from(left.0);
-        input[1] = FpM31::from(right.0);
-        let perm = poseidon2.permutation(&input);
-        M31::from(perm[0].into_bigint().0[0] as u32)
+        <Poseidon2Hash as cairo_m_prover::adapter::merkle::MerkleHasher>::hash(left, right)
     }
 
     /// Hash multiple M31 values by chaining pairs

@@ -679,13 +679,14 @@ dependencies = [
  "rayon",
  "serde",
  "serde_json",
+ "stwo-air-utils",
+ "stwo-air-utils-derive",
  "stwo-constraint-framework",
  "stwo-prover",
  "tempfile",
  "test-log",
  "thiserror",
  "tracing",
- "zkhash",
 ]
 
 [[package]]
