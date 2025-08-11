@@ -5,11 +5,11 @@ use cairo_m_common::Program;
 use cairo_m_compiler::{compile_cairo, CompilerOptions};
 use cairo_m_prover::adapter::import_from_runner_output;
 use cairo_m_prover::prover::prove_cairo_m;
+use cairo_m_prover::verifier::verify_cairo_m;
 use cairo_m_prover::Proof;
 use cairo_m_runner::run_cairo_program;
-use cairo_m_verifier::{
-    poseidon31_merkle::Poseidon31MerkleHasher, verify_cairo_m, Poseidon31MerkleChannel,
-};
+use cairo_m_verifier::poseidon31_merkle::Poseidon31MerkleHasher;
+use cairo_m_verifier::Poseidon31MerkleChannel;
 use stwo_prover::core::fields::m31::M31;
 
 /// Compiles a Cairo-M file to a Program
