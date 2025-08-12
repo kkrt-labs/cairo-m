@@ -36,8 +36,9 @@ pub struct MirFunction {
     /// The name of the function (for debugging and linking)
     pub name: String,
 
-    /// Maps semantic variable definitions to their MIR value representation
-    /// This preserves the connection between semantic analysis and MIR
+    /// Maps semantic variable definitions to MIR values during lowering.
+    /// Not used by optimization passes, which work directly with ValueIds.
+    /// This preserves the connection between semantic analysis and MIR for debugging.
     pub locals: FxHashMap<MirDefinitionId, ValueId>,
 
     /// All basic blocks in this function, forming the CFG

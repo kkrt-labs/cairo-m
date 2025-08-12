@@ -148,11 +148,16 @@ impl crate::passes::MirPass for PreOptimizationPass {
 
         // Run optimization passes in order:
         // 1. Dead instructions (computations that produce unused values)
-        // 2. Dead stores (stores to unused locations)
+        // 2. Dead stores (stores to unused locations) - DISABLED due to unsoundness
         // 3. Dead allocations (allocations that become unused after removing stores)
         // The order matters because removing one type of dead code can make other code dead
         modified |= self.eliminate_dead_instructions(function);
-        modified |= self.eliminate_dead_stores(function);
+
+        // DISABLED: Unsound with GEP aliasing - can incorrectly eliminate stores
+        // when the same memory location is accessed through different GEP-derived pointers
+        // See: https://github.com/kkrt-labs/cairo-m/issues/XXX
+        // modified |= self.eliminate_dead_stores(function);
+
         modified |= self.eliminate_dead_allocations(function);
 
         if !self.optimizations_applied.is_empty() {
