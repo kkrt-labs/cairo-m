@@ -100,6 +100,7 @@ struct SsaAggregateInfo {
     /// The aggregate value ID
     value_id: ValueId,
     /// The aggregate type
+    #[allow(dead_code)]
     aggregate_type: MirType,
     /// For BuildStruct/BuildTuple: the source values
     source_values: Vec<(String, Value)>, // field name/index as string, value
@@ -342,7 +343,7 @@ impl SroaPass {
                                 Instruction::frame_alloc(field_alloc_id, field_type.clone());
 
                             // Insert at the beginning of the entry block
-                            function.basic_blocks[BasicBlockId::from_raw(0)]
+                            function.basic_blocks[function.entry_block]
                                 .instructions
                                 .insert(0, field_alloc);
 
@@ -371,7 +372,7 @@ impl SroaPass {
                                 Instruction::frame_alloc(elem_alloc_id, elem_type.clone());
 
                             // Insert at the beginning of the entry block
-                            function.basic_blocks[BasicBlockId::from_raw(0)]
+                            function.basic_blocks[function.entry_block]
                                 .instructions
                                 .insert(0, elem_alloc);
 
@@ -386,7 +387,7 @@ impl SroaPass {
                     let alloc_id = function.new_typed_value_id(ty.clone());
                     let alloc = Instruction::frame_alloc(alloc_id, ty.clone());
 
-                    function.basic_blocks[BasicBlockId::from_raw(0)]
+                    function.basic_blocks[function.entry_block]
                         .instructions
                         .insert(0, alloc);
 
@@ -422,7 +423,7 @@ impl SroaPass {
     fn rewrite_aggregate_uses(
         &mut self,
         function: &mut MirFunction,
-        candidate: &AllocaCandidate,
+        _candidate: &AllocaCandidate,
         gep_replacements: &HashMap<ValueId, ValueId>,
     ) {
         for block in function.basic_blocks.iter_mut() {

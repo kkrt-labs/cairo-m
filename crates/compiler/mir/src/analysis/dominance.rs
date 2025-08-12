@@ -12,7 +12,7 @@
 //! - X dominates a predecessor of Y, but
 //! - X does not strictly dominate Y
 
-use crate::{BasicBlockId, MirFunction};
+use crate::{cfg, BasicBlockId, MirFunction};
 use rustc_hash::{FxHashMap, FxHashSet};
 
 /// A dominator tree represented as a mapping from each block to its immediate dominator
@@ -45,7 +45,7 @@ pub fn compute_dominator_tree(function: &MirFunction) -> DominatorTree {
     idom.insert(entry, entry); // Entry is its own idom
 
     // Build predecessor map
-    let predecessors = build_predecessor_map(function);
+    let predecessors = cfg::build_predecessor_map(function);
 
     // Iterate until convergence
     let mut changed = true;
@@ -129,7 +129,7 @@ fn compute_reverse_postorder(function: &MirFunction) -> Vec<BasicBlockId> {
             return;
         }
 
-        for successor in get_successors(&function.basic_blocks[block].terminator) {
+        for successor in function.basic_blocks[block].terminator.target_blocks() {
             dfs(successor, function, visited, postorder);
         }
 
@@ -159,17 +159,15 @@ pub fn compute_dominance_frontiers(
     let mut frontiers: DominanceFrontiers = FxHashMap::default();
 
     // Initialize empty frontiers for all blocks
-    for block_id in 0..function.basic_blocks.len() {
-        frontiers.insert(BasicBlockId::from_raw(block_id), FxHashSet::default());
+    for (block_id, _) in function.basic_blocks.iter_enumerated() {
+        frontiers.insert(block_id, FxHashSet::default());
     }
 
     // Build predecessor map
-    let predecessors = build_predecessor_map(function);
+    let predecessors = cfg::build_predecessor_map(function);
 
     // For each block with at least 2 predecessors (join points)
-    for block in 0..function.basic_blocks.len() {
-        let block_id = BasicBlockId::from_raw(block);
-
+    for (block_id, _) in function.basic_blocks.iter_enumerated() {
         if let Some(preds) = predecessors.get(&block_id) {
             if preds.len() >= 2 {
                 // For each predecessor
@@ -200,35 +198,5 @@ pub fn compute_dominance_frontiers(
     frontiers
 }
 
-/// Builds a map from each block to its predecessors
-fn build_predecessor_map(function: &MirFunction) -> FxHashMap<BasicBlockId, Vec<BasicBlockId>> {
-    let mut predecessors: FxHashMap<BasicBlockId, Vec<BasicBlockId>> = FxHashMap::default();
-
-    for (block_id, block) in function.basic_blocks.iter_enumerated() {
-        for successor in get_successors(&block.terminator) {
-            predecessors.entry(successor).or_default().push(block_id);
-        }
-    }
-
-    predecessors
-}
-
-/// Gets the successor blocks from a terminator
-fn get_successors(terminator: &crate::Terminator) -> Vec<BasicBlockId> {
-    use crate::Terminator;
-
-    match terminator {
-        Terminator::Jump { target } => vec![*target],
-        Terminator::If {
-            then_target,
-            else_target,
-            ..
-        } => vec![*then_target, *else_target],
-        Terminator::BranchCmp {
-            then_target,
-            else_target,
-            ..
-        } => vec![*then_target, *else_target],
-        Terminator::Return { .. } | Terminator::Unreachable => vec![],
-    }
-}
+// Note: build_predecessor_map and get_successors have been removed
+// These functions are now imported from the cfg module

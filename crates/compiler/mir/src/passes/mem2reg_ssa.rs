@@ -369,7 +369,7 @@ impl Mem2RegSsaPass {
         }
 
         // Start renaming from the entry block
-        let entry = BasicBlockId::from_raw(0);
+        let entry = function.entry_block;
         self.rename_block(
             function,
             entry,
@@ -545,7 +545,7 @@ impl Mem2RegSsaPass {
         }
 
         // Update Phi nodes in successors
-        let successors = get_successors(&function.basic_blocks[block_id].terminator);
+        let successors = function.basic_blocks[block_id].terminator.target_blocks();
         for succ_id in successors {
             let succ_block = &mut function.basic_blocks[succ_id];
             for instruction in &mut succ_block.instructions {
@@ -628,23 +628,7 @@ impl Mem2RegSsaPass {
     }
 }
 
-/// Get successor blocks from a terminator
-fn get_successors(terminator: &Terminator) -> Vec<BasicBlockId> {
-    match terminator {
-        Terminator::Jump { target } => vec![*target],
-        Terminator::If {
-            then_target,
-            else_target,
-            ..
-        } => vec![*then_target, *else_target],
-        Terminator::BranchCmp {
-            then_target,
-            else_target,
-            ..
-        } => vec![*then_target, *else_target],
-        Terminator::Return { .. } | Terminator::Unreachable => vec![],
-    }
-}
+// Note: get_successors has been removed - using terminator.target_blocks() instead
 
 impl crate::passes::MirPass for Mem2RegSsaPass {
     fn run(&mut self, function: &mut MirFunction) -> bool {
