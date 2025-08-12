@@ -16,7 +16,7 @@ use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
-use crate::adapter::ProverInput;
+use crate::hints::ProverInput;
 use crate::public_data::PublicData;
 use crate::relations;
 

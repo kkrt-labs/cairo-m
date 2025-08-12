@@ -3,18 +3,20 @@
 #![feature(portable_simd)]
 #![feature(iter_array_chunks)]
 
-pub mod adapter;
 pub mod components;
 pub mod debug_tools;
 pub mod errors;
+pub mod hints;
 pub mod poseidon31_merkle;
 pub mod preprocessed;
 pub mod prover;
 pub mod prover_config;
 pub mod public_data;
+pub mod recording_channel;
 pub mod relations;
 pub mod utils;
 pub mod verifier;
+pub mod verifier_with_channel;
 pub use poseidon31_merkle::{Poseidon31Channel, Poseidon31MerkleChannel, Poseidon31MerkleHasher};
 
 use serde::{Deserialize, Serialize};

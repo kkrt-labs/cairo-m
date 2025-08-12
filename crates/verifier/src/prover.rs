@@ -10,9 +10,9 @@ use stwo_prover::core::proof_of_work::GrindOps;
 use stwo_prover::core::prover::prove;
 use tracing::{info, span, Level};
 
-use crate::adapter::ProverInput;
 use crate::components::{Claim, Components, InteractionClaim, Relations};
 use crate::errors::ProvingError;
+use crate::hints::ProverInput;
 use crate::preprocessed::PreProcessedTraceBuilder;
 use crate::prover_config::REGULAR_96_BITS;
 use crate::public_data::PublicData;

@@ -16,8 +16,8 @@ use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 use stwo_prover::core::ColumnVec;
 
-use crate::adapter::ProverInput;
 use crate::components::{Claim, Components, InteractionClaim, Relations};
+use crate::hints::ProverInput;
 use crate::poseidon31_merkle::{Poseidon31Channel, Poseidon31MerkleChannel};
 use crate::preprocessed::PreProcessedTraceBuilder;
 use cairo_m_prover::poseidon2::T;

@@ -59,8 +59,8 @@ use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
-use crate::adapter::HashInput;
 use crate::components::Relations;
+use crate::hints::HashInput;
 use crate::utils::Enabler;
 use cairo_m_prover::poseidon2::{
     EXTERNAL_ROUND_CONSTS, FULL_ROUNDS, INTERNAL_MATRIX, INTERNAL_ROUND_CONSTS, PARTIAL_ROUNDS, T,
