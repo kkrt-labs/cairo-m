@@ -3,10 +3,9 @@
 //! This module contains shared utility functions used across the lowering
 //! implementation.
 
-use cairo_m_compiler_parser::parser::{Expression, Spanned};
-use cairo_m_compiler_semantic::definition::DefinitionKind;
+use cairo_m_compiler_parser::parser::Spanned;
 use cairo_m_compiler_semantic::place::FileScopeId;
-use cairo_m_compiler_semantic::semantic_index::{DefinitionId, DefinitionIndex, ExpressionId};
+use cairo_m_compiler_semantic::semantic_index::{DefinitionId, DefinitionIndex};
 use cairo_m_compiler_semantic::type_resolution::{
     definition_semantic_type, expression_semantic_type,
 };
@@ -20,12 +19,7 @@ use crate::{BasicBlockId, FunctionId, Instruction, Literal, MirType, Value, Valu
 use super::builder::MirBuilder;
 
 impl<'a, 'db> MirBuilder<'a, 'db> {
-    /// Gets the MIR type for an expression by its ID
-    pub fn get_expression_type(&self, expr_id: ExpressionId) -> MirType {
-        let semantic_type =
-            expression_semantic_type(self.ctx.db, self.ctx.crate_id, self.ctx.file, expr_id, None);
-        MirType::from_semantic_type(self.ctx.db, semantic_type)
-    }
+    // Note: get_expression_type has been removed - use get_expr_type in builder.rs instead (has caching)
 
     /// Checks if we're currently in a loop context
     pub const fn in_loop(&self) -> bool {
@@ -212,84 +206,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             }
         }
         Ok(())
-    }
-
-    /// Resolves a function call's callee to its FunctionId
-    ///
-    /// This centralizes the logic for resolving function calls, whether they're
-    /// local functions or imported ones. Handles both simple identifiers and
-    /// member access patterns.
-    pub fn resolve_function(&mut self, callee: &Spanned<Expression>) -> Result<FunctionId, String> {
-        match callee.value() {
-            Expression::Identifier(func_name) => {
-                // Get the scope for the callee from its expression info
-                let callee_expr_id = self
-                    .ctx
-                    .semantic_index
-                    .expression_id_by_span(callee.span())
-                    .ok_or_else(|| {
-                        format!("No ExpressionId found for callee span {:?}", callee.span())
-                    })?;
-                let callee_expr_info = self
-                    .ctx
-                    .semantic_index
-                    .expression(callee_expr_id)
-                    .ok_or_else(|| format!("No ExpressionInfo for callee ID {callee_expr_id:?}"))?;
-
-                // Resolve the function name in the appropriate scope
-                let (local_def_idx, local_def) = self
-                    .ctx
-                    .semantic_index
-                    .resolve_name_to_definition(func_name.value(), callee_expr_info.scope_id)
-                    .ok_or_else(|| {
-                        format!(
-                            "Failed to resolve function '{}' in scope {:?}",
-                            func_name.value(),
-                            callee_expr_info.scope_id
-                        )
-                    })?;
-
-                // Handle function resolution: local functions vs imported functions
-                match &local_def.kind {
-                    DefinitionKind::Function(_) => {
-                        // Local function - use current file
-                        let func_def_id =
-                            DefinitionId::new(self.ctx.db, self.ctx.file, local_def_idx);
-                        if let Some((_, func_id)) = self.ctx.function_mapping.get(&func_def_id) {
-                            Ok(*func_id)
-                        } else {
-                            Err(format!(
-                                "Function '{}' not found in function mapping",
-                                func_name.value()
-                            ))
-                        }
-                    }
-                    DefinitionKind::Use(use_ref) => {
-                        // Imported function - follow the import chain
-                        self.resolve_imported_function(
-                            use_ref.imported_module.value(),
-                            func_name.value(),
-                        )
-                        .ok_or_else(|| {
-                            format!(
-                                "Failed to resolve imported function '{}' from module '{}'",
-                                func_name.value(),
-                                use_ref.imported_module.value()
-                            )
-                        })
-                    }
-                    _ => Err(format!(
-                        "'{}' is not a function or import",
-                        func_name.value()
-                    )),
-                }
-            }
-            Expression::MemberAccess { .. } => {
-                // For member access patterns (e.g., module.function), use existing resolution
-                self.resolve_callee_expression(callee)
-            }
-            _ => Err("Unsupported callee expression type".to_string()),
-        }
     }
 
     /// Emits a call instruction with destinations and proper signature

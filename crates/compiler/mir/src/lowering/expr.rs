@@ -770,8 +770,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // Tuple literal - for now we still need to allocate and return an address
         // This will be optimized away in most cases by the destructuring code
         if elements.is_empty() {
-            // Empty tuple - just return unit value
-            return Ok(Value::integer(0)); // Unit value representation
+            // Empty tuple - return proper unit value
+            return Ok(Value::unit());
         }
 
         // Query semantic type system for the tuple type

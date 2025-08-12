@@ -365,7 +365,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 })?;
 
             // Try to resolve the function using our helper
-            if let Ok(func_id) = self.resolve_function(callee) {
+            if let Ok(func_id) = self.resolve_callee_expression(callee) {
                 // Lower arguments
                 let arg_values = args
                     .iter()
