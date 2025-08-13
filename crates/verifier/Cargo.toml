@@ -8,6 +8,7 @@ rust-version.workspace = true
 
 [features]
 relation-tracker = []
+test-utils = []
 
 [dependencies]
 cairo-m-runner.workspace = true
@@ -31,3 +32,4 @@ tracing = { workspace = true }
 [dev-dependencies]
 tempfile = { workspace = true }
 test-log = { workspace = true }
+cairo-m-verifier = { path = ".", features = ["test-utils"] }

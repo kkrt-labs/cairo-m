@@ -8,10 +8,10 @@ use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_runner::run_cairo_program;
 use cairo_m_verifier::hints::generate_hints;
 use cairo_m_verifier::poseidon31_merkle::Poseidon31MerkleHasher;
-use cairo_m_verifier::recording_channel::{
+use cairo_m_verifier::test_utils::{
+    verify_cairo_m, verify_cairo_m_with_channel, RecordingPoseidon31Channel,
     RecordingPoseidon31MerkleChannel, RecordingPoseidon31MerkleHasher,
 };
-use cairo_m_verifier::verifier_with_channel::verify_cairo_m;
 use cairo_m_verifier::Poseidon31MerkleChannel;
 use stwo_prover::core::fields::m31::M31;
 
@@ -138,9 +138,6 @@ fn test_verify_fibonacci_recording() {
         serde_json::from_str(&proof_json).unwrap();
 
     // Create a recording channel to capture operations
-    use cairo_m_verifier::recording_channel::RecordingPoseidon31Channel;
-    use cairo_m_verifier::verifier_with_channel::verify_cairo_m_with_channel;
-
     let mut recording_channel = RecordingPoseidon31Channel::default();
 
     // Then verify the proof using RecordingPoseidon31MerkleChannel with our recording channel
@@ -157,4 +154,7 @@ fn test_verify_fibonacci_recording() {
     let proof: cairo_m_prover::Proof<Poseidon31MerkleHasher> =
         serde_json::from_str(&proof_json).unwrap();
     let _hints = generate_hints::<Poseidon31MerkleChannel>(&proof);
+
+    // Hand comparaison was done and it was successful
+    // TODO: Add automatic comparaison
 }

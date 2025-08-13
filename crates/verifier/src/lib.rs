@@ -12,11 +12,12 @@ pub mod preprocessed;
 pub mod prover;
 pub mod prover_config;
 pub mod public_data;
-pub mod recording_channel;
 pub mod relations;
 pub mod utils;
 pub mod verifier;
-pub mod verifier_with_channel;
+
+#[cfg(any(test, feature = "test-utils"))]
+pub mod test_utils;
 pub use poseidon31_merkle::{Poseidon31Channel, Poseidon31MerkleChannel, Poseidon31MerkleHasher};
 
 use serde::{Deserialize, Serialize};

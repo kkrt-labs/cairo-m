@@ -5,7 +5,7 @@ use stwo_prover::core::circle::CirclePoint;
 use stwo_prover::core::fields::qm31::SecureField;
 use stwo_prover::core::queries::Queries;
 
-use crate::components::Relations;
+use cairo_m_prover::components::Relations;
 use cairo_m_prover::Proof;
 
 /// Stores all data received from channel requests during proof verification
@@ -34,10 +34,14 @@ impl ChannelHints {
     pub fn new() -> Self {
         // Use dummy values for initialization
         // These will be replaced with actual values during transcript reconstruction
-        use crate::relations;
+        use cairo_m_prover::relations;
         Self {
             relations: Relations {
+                registers: relations::Registers::dummy(),
+                memory: relations::Memory::dummy(),
+                merkle: relations::Merkle::dummy(),
                 poseidon2: relations::Poseidon2::dummy(),
+                range_check_20: relations::RangeCheck20::dummy(),
             },
             cp_coeff: SecureField::default(),
             oods_point: CirclePoint::zero(),
@@ -105,6 +109,9 @@ where
         channel,
         proof.stark_proof.0.fri_proof.first_layer.commitment,
     );
+    // First layer folding alpha
+    let folding_alpha = channel.draw_secure_felt();
+    hints.fri_folding_alphas.push(folding_alpha);
 
     // Inner layers
     for layer in &proof.stark_proof.0.fri_proof.inner_layers {

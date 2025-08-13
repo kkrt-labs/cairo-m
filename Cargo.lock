@@ -674,6 +674,7 @@ dependencies = [
  "cairo-m-compiler",
  "cairo-m-prover",
  "cairo-m-runner",
+ "cairo-m-verifier",
  "itertools 0.12.1",
  "num-traits",
  "rayon",
