@@ -200,6 +200,8 @@ fn generate_random_args(params: &[AbiSlot], rng: &mut StdRng) -> Vec<M31> {
 }
 
 fn format_output(values: &[M31], return_types: &[AbiSlot]) -> String {
+    println!("values: {:?}", values);
+    println!("return_types: {:?}", return_types);
     if values.is_empty() {
         return "void".to_string();
     }

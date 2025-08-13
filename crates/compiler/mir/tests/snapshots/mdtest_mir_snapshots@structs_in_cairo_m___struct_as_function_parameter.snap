@@ -27,8 +27,32 @@ module {
     entry: 0
 
     0:
-      %8 = 1 (Vector)
-      %9 = 4 (Vector)
+      // Allocate struct
+%0 = framealloc Vector
+      // Get address of field 'x'
+%1 = getelementptr %0, 0
+      store %1, 1
+      // Get address of field 'y'
+%2 = getelementptr %0, 1
+      store %2, 2
+      // Get address of field 'z'
+%3 = getelementptr %0, 2
+      store %3, 3
+      // Allocate struct
+%4 = framealloc Vector
+      // Get address of field 'x'
+%5 = getelementptr %4, 0
+      store %5, 4
+      // Get address of field 'y'
+%6 = getelementptr %4, 1
+      store %6, 5
+      // Get address of field 'z'
+%7 = getelementptr %4, 2
+      store %7, 6
+      // Load variable a
+%8 = load Vector %0
+      // Load variable b
+%9 = load Vector %4
       %10 = call 1(%8, %9)
       return %10
 

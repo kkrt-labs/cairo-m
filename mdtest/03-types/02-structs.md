@@ -69,7 +69,6 @@ fn calculate_area_u32() -> u32 {
 Structs containing other structs:
 
 ```cairo-m
-//! ignore: CodeGenerationFailed("Layout error: No layout found for value 3")
 struct Point {
     x: felt,
     y: felt,
@@ -91,12 +90,30 @@ fn line_length_squared() -> felt {
 }
 ```
 
+## Multi-Slot Aggregate Store
+
+Testing that multi-slot structs are correctly copied:
+
+```cairo-m
+struct U32Pair {
+    first: u32,
+    second: u32,
+}
+
+fn test_multi_slot_store() -> u32 {
+    let s1 = U32Pair { first: 100u32, second: 200u32 };
+    let s2 = s1;  // This should copy all 4 slots (2 for each u32)
+
+    // Return the sum to verify both fields were copied
+    return s2.first + s2.second;  // Should return 300
+}
+```
+
 ## Struct as Function Parameter
 
 Passing structs to functions:
 
 ```cairo-m
-//!ignore: wrong result
 struct Vector {
     x: felt,
     y: felt,

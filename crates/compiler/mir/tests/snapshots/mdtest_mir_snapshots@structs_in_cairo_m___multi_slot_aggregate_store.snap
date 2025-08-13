@@ -1,0 +1,50 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Structs in Cairo-M - Multi-Slot Aggregate Store"
+input_file: mdtest/03-types/02-structs.md
+---
+Source:
+struct U32Pair {
+    first: u32,
+    second: u32,
+}
+
+fn test_multi_slot_store() -> u32 {
+    let s1 = U32Pair { first: 100u32, second: 200u32 };
+    let s2 = s1;  // This should copy all 4 slots (2 for each u32)
+
+    // Return the sum to verify both fields were copied
+    return s2.first + s2.second;  // Should return 300
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_multi_slot_store {
+    entry: 0
+
+    0:
+      // Allocate struct
+%0 = framealloc U32Pair
+      // Get address of field 'first'
+%1 = getelementptr %0, 0
+      store %1, 100 (u32)
+      // Get address of field 'second'
+%2 = getelementptr %0, 2
+      store %2, 200 (u32)
+      // Load variable s1
+%3 = load U32Pair %0
+      // Get address of field 'first'
+%4 = getelementptr %3, 0
+      // Load field 'first'
+%5 = load u32 %4
+      // Get address of field 'second'
+%6 = getelementptr %3, 2
+      // Load field 'second'
+%7 = load u32 %6
+      %8 = %5 U32Add %7
+      return %8
+
+  }
+
+}

@@ -37,12 +37,12 @@ deep_recursion_3:
 deep_recursion_4:
   11: 20 -8 1 0 2          // u32([fp + 2], [fp + 3]) = u32([fp + -8], [fp + -7]) op u32(1, 0)
   12: 19 -6 1 0 12         // u32([fp + 12], [fp + 13]) = u32([fp + -6], [fp + -5]) op u32(1, 0)
-  13: 4 2 0 13             // Arg 0 slot 0: [fp + 13] = [fp + 2] + 0
-  14: 4 3 0 14             // Arg 0 slot 1: [fp + 14] = [fp + 3] + 0
-  15: 4 12 0 15            // Arg 1 slot 0: [fp + 15] = [fp + 12] + 0
-  16: 4 13 0 16            // Arg 1 slot 1: [fp + 16] = [fp + 13] + 0
-  17: 10 19 0 _            // call deep_recursion
-  18: 15 -8 17 8           // u32([fp + 8], [fp + 9]) = u32([fp + -8], [fp + -7]) op u32([fp + 17], [fp + 18])
+  13: 4 2 0 14             // Arg 0 slot 0: [fp + 14] = [fp + 2] + 0
+  14: 4 3 0 15             // Arg 0 slot 1: [fp + 15] = [fp + 3] + 0
+  15: 4 12 0 16            // Arg 1 slot 0: [fp + 16] = [fp + 12] + 0
+  16: 4 13 0 17            // Arg 1 slot 1: [fp + 17] = [fp + 13] + 0
+  17: 10 20 0 _            // call deep_recursion
+  18: 15 -8 18 8           // u32([fp + 8], [fp + 9]) = u32([fp + -8], [fp + -7]) op u32([fp + 18], [fp + 19])
   19: 4 8 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 8] + 0
   20: 4 9 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 9] + 0
   21: 11 _ _ _             // return

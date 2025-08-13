@@ -79,23 +79,27 @@ fn test_precedence() -> i32 {
 
 ## Unary Operations
 
-Unary negation and logical not:
+### Negation
 
 ```cairo-m
 fn test_unary_ops() -> felt {
     let x = 10;
     let neg_x = -x;           // -10 in field arithmetic
     let double_neg = --x;     // 10 (double negation)
-    return double_neg;
+    let neg_lit = -10;
+    return double_neg + neg_lit;
 }
 ```
 
-```rust
-fn test_unary_ops() -> i32 {
-    let x = 10;
-    let neg_x = -x;           // -10
-    let double_neg = -(-x);   // 10 (double negation)
-    return double_neg;
+### Logical Not
+
+```cairo-m
+fn test_logical_not() -> bool {
+    let x = true;
+    let not_x = !x;           // false
+    let double_not = !!x;     // true
+    let not_zero = !false;        // true
+    return not_zero && double_not;
 }
 ```
 

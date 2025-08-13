@@ -131,6 +131,9 @@ impl CasmBuilder {
     }
 
     /// Store a value at a specific offset
+    ///
+    /// The dest_id is used to map the destination in the layout, but the size
+    /// is determined by the value being stored, not the destination.
     pub fn store_at(&mut self, dest_id: ValueId, offset: i32, value: Value) -> CodegenResult<()> {
         // Map the destination to the specific offset
         self.layout.map_value(dest_id, offset);
@@ -141,13 +144,24 @@ impl CasmBuilder {
             }
             Value::Operand(src_id) => {
                 let src_off = self.layout.get_offset(src_id)?;
-                let instr = InstructionBuilder::new(STORE_ADD_FP_IMM)
-                    .with_operand(Operand::Literal(src_off))
-                    .with_operand(Operand::Literal(0))
-                    .with_operand(Operand::Literal(offset))
-                    .with_comment(format!("[fp + {}] = [fp + {}] + 0", offset, src_off));
-                self.instructions.push(instr);
-                self.touch(offset, 1);
+                // Get the size of the value being stored
+                let size = self.layout.get_value_size(src_id);
+
+                // For multi-slot values, copy each slot
+                for i in 0..size {
+                    let slot_src_off = src_off + i as i32;
+                    let slot_dest_off = offset + i as i32;
+                    let instr = InstructionBuilder::new(STORE_ADD_FP_IMM)
+                        .with_operand(Operand::Literal(slot_src_off))
+                        .with_operand(Operand::Literal(0))
+                        .with_operand(Operand::Literal(slot_dest_off))
+                        .with_comment(format!(
+                            "[fp + {}] = [fp + {}] + 0",
+                            slot_dest_off, slot_src_off
+                        ));
+                    self.instructions.push(instr);
+                }
+                self.touch(offset, size);
             }
             _ => {
                 return Err(CodegenError::UnsupportedInstruction(format!(
@@ -850,7 +864,7 @@ impl CasmBuilder {
             }
             Value::Literal(Literal::Boolean(imm)) => {
                 // For immediate values, we can directly compute the NOT result
-                self.store_immediate(imm as i32, dest_off, format!("[fp + {dest_off}] = {imm}"));
+                self.store_immediate(!imm as i32, dest_off, format!("[fp + {dest_off}] = {}", !imm));
                 return Ok(());
             }
             _ => {
@@ -1715,17 +1729,24 @@ impl CasmBuilder {
 
                     Value::Operand(val_id) => {
                         let val_offset = self.layout.get_offset(val_id)?;
+                        // Get the size of the value being stored
+                        let size = self.layout.get_value_size(val_id);
 
-                        let instr = InstructionBuilder::new(STORE_ADD_FP_IMM) // StoreAddFpImm
-                            .with_operand(Operand::Literal(val_offset))
-                            .with_operand(Operand::Literal(0))
-                            .with_operand(Operand::Literal(dest_offset))
-                            .with_comment(format!(
-                                "Store: [fp + {dest_offset}] = [fp + {val_offset}] + 0"
-                            ));
+                        // For multi-slot values, copy each slot
+                        for i in 0..size {
+                            let slot_src_off = val_offset + i as i32;
+                            let slot_dest_off = dest_offset + i as i32;
+                            let instr = InstructionBuilder::new(STORE_ADD_FP_IMM) // StoreAddFpImm
+                                .with_operand(Operand::Literal(slot_src_off))
+                                .with_operand(Operand::Literal(0))
+                                .with_operand(Operand::Literal(slot_dest_off))
+                                .with_comment(format!(
+                                    "Store: [fp + {slot_dest_off}] = [fp + {slot_src_off}] + 0"
+                                ));
 
-                        self.instructions.push(instr);
-                        self.touch(dest_offset, 1);
+                            self.instructions.push(instr);
+                        }
+                        self.touch(dest_offset, size);
                     }
 
                     _ => {

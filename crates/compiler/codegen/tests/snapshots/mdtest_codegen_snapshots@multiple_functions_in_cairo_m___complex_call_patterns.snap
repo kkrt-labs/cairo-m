@@ -43,67 +43,63 @@ Generated CASM:
 test_complex_calls:
 test_complex_calls:
 test_complex_calls_0:
-   0: 10 8 11 _            // call get_base_value
-   1: 4 6 0 9              // Arg 0 slot 0: [fp + 9] = [fp + 6] + 0
-   2: 4 7 0 10             // Arg 0 slot 1: [fp + 10] = [fp + 7] + 0
-   3: 10 13 13 _           // call calculate_multiplier
-   4: 4 6 0 14             // Arg 0 slot 0: [fp + 14] = [fp + 6] + 0
-   5: 4 7 0 15             // Arg 0 slot 1: [fp + 15] = [fp + 7] + 0
-   6: 4 11 0 16            // Arg 1 slot 0: [fp + 16] = [fp + 11] + 0
-   7: 4 12 0 17            // Arg 1 slot 1: [fp + 17] = [fp + 12] + 0
-   8: 10 20 37 _           // call apply_transformation
-   9: 4 18 0 -4            // Return value 0: [fp -4] = [fp + 18] + 0
-  10: 11 _ _ _             // return
+   0: 10 8 6 _             // call get_base_value
+   1: 10 10 8 _            // call calculate_multiplier
+   2: 10 12 34 _           // call apply_transformation
+   3: 4 10 0 -4            // Return value 0 slot 0: [fp -4] = [fp + 10] + 0
+   4: 4 11 0 -3            // Return value 0 slot 1: [fp -3] = [fp + 11] + 0
+   5: 11 _ _ _             // return
 get_base_value:
 get_base_value:
 get_base_value_0:
-  11: 23 15 0 -4           // Return value 0: [fp -4, fp -4 + 1] = u32(15)
-  12: 11 _ _ _             // return
+   6: 23 15 0 -4           // Return value 0: [fp -4, fp -4 + 1] = u32(15)
+   7: 11 _ _ _             // return
 calculate_multiplier:
 calculate_multiplier:
 calculate_multiplier_0:
-  13: 32 -6 10 0 0         // u32([fp + 0], [fp + 1]) = u32([fp + -6], [fp + -5]) op u32(10, 0)
-  14: 14 0 2 _             // if [fp + 0] != 0 jmp rel calculate_multiplier_1
-  15: 12 22 _ _            // jump abs calculate_multiplier_2
+   8: 32 -6 10 0 0         // u32([fp + 0], [fp + 1]) = u32([fp + -6], [fp + -5]) op u32(10, 0)
+   9: 14 0 2 _             // if [fp + 0] != 0 jmp rel calculate_multiplier_1
+  10: 12 18 _ _            // jump abs calculate_multiplier_2
 calculate_multiplier_1:
-  16: 4 -6 0 5             // Arg 0 slot 0: [fp + 5] = [fp + -6] + 0
-  17: 4 -5 0 6             // Arg 0 slot 1: [fp + 6] = [fp + -5] + 0
-  18: 10 9 27 _            // call process_large
-  19: 4 7 0 -4             // Return value 0: [fp -4] = [fp + 7] + 0
-  20: 11 _ _ _             // return
+  11: 4 -6 0 5             // Arg 0 slot 0: [fp + 5] = [fp + -6] + 0
+  12: 4 -5 0 6             // Arg 0 slot 1: [fp + 6] = [fp + -5] + 0
+  13: 10 9 24 _            // call process_large
+  14: 4 7 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 7] + 0
+  15: 4 8 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 8] + 0
+  16: 11 _ _ _             // return
 calculate_multiplier_2:
-  21: 4 -6 0 10            // Arg 0 slot 0: [fp + 10] = [fp + -6] + 0
-  22: 4 -5 0 11            // Arg 0 slot 1: [fp + 11] = [fp + -5] + 0
-  23: 10 14 32 _           // call process_small
-  24: 4 12 0 -4            // Return value 0: [fp -4] = [fp + 12] + 0
-  25: 11 _ _ _             // return
+  17: 4 -6 0 11            // Arg 0 slot 0: [fp + 11] = [fp + -6] + 0
+  18: 4 -5 0 12            // Arg 0 slot 1: [fp + 12] = [fp + -5] + 0
+  19: 10 15 29 _           // call process_small
+  20: 4 13 0 -4            // Return value 0 slot 0: [fp -4] = [fp + 13] + 0
+  21: 4 14 0 -3            // Return value 0 slot 1: [fp -3] = [fp + 14] + 0
+  22: 11 _ _ _             // return
 process_large:
 process_large_0:
-  26: 22 -6 3 0 0          // u32([fp + 0], [fp + 1]) = u32([fp + -6], [fp + -5]) op u32(3, 0)
+  23: 22 -6 3 0 0          // u32([fp + 0], [fp + 1]) = u32([fp + -6], [fp + -5]) op u32(3, 0)
 process_large:
-  27: 4 0 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
-  28: 4 1 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
-  29: 11 _ _ _             // return
+  24: 4 0 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
+  25: 4 1 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
+  26: 11 _ _ _             // return
 process_small:
 process_small_0:
-  30: 21 -6 2 0 0          // u32([fp + 0], [fp + 1]) = u32([fp + -6], [fp + -5]) op u32(2, 0)
-  31: 4 0 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
+  27: 21 -6 2 0 0          // u32([fp + 0], [fp + 1]) = u32([fp + -6], [fp + -5]) op u32(2, 0)
+  28: 4 0 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
 process_small:
-  32: 4 1 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
-  33: 11 _ _ _             // return
+  29: 4 1 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
+  30: 11 _ _ _             // return
 apply_transformation:
 apply_transformation_0:
-  34: 15 -8 -6 4           // u32([fp + 4], [fp + 5]) = u32([fp + -8], [fp + -7]) op u32([fp + -6], [fp + -5])
-  35: 4 4 0 5              // Arg 0 slot 0: [fp + 5] = [fp + 4] + 0
-  36: 4 5 0 6              // Arg 0 slot 1: [fp + 6] = [fp + 5] + 0
+  31: 15 -8 -6 4           // u32([fp + 4], [fp + 5]) = u32([fp + -8], [fp + -7]) op u32([fp + -6], [fp + -5])
+  32: 10 8 39 _            // call finalize_result
+  33: 4 6 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 6] + 0
 apply_transformation:
-  37: 10 9 43 _            // call finalize_result
-  38: 4 7 0 -4             // Return value 0: [fp -4] = [fp + 7] + 0
-  39: 11 _ _ _             // return
+  34: 4 7 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 7] + 0
+  35: 11 _ _ _             // return
 finalize_result:
 finalize_result_0:
-  40: 17 -6 -6 0           // u32([fp + 0], [fp + 1]) = u32([fp + -6], [fp + -5]) op u32([fp + -6], [fp + -5])
-  41: 4 0 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
-  42: 4 1 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
+  36: 17 -6 -6 0           // u32([fp + 0], [fp + 1]) = u32([fp + -6], [fp + -5]) op u32([fp + -6], [fp + -5])
+  37: 4 0 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
+  38: 4 1 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
 finalize_result:
-  43: 11 _ _ _             // return
+  39: 11 _ _ _             // return

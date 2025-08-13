@@ -1,0 +1,50 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Structs in Cairo-M - Nested Structs"
+input_file: mdtest/03-types/02-structs.md
+---
+Source:
+struct Point {
+    x: felt,
+    y: felt,
+}
+
+struct Line {
+    start: Point,
+    end: Point,
+}
+
+fn line_length_squared() -> felt {
+    let line = Line {
+        start: Point { x: 0, y: 0 },
+        end: Point { x: 3, y: 4 }
+    };
+    let dx = line.end.x - line.start.x;
+    let dy = line.end.y - line.start.y;
+    return dx * dx + dy * dy;  // Returns 25
+}
+============================================================
+Generated CASM:
+line_length_squared:
+line_length_squared:
+line_length_squared_0:
+   0: 9 0 4 _              // Store immediate: [fp + 4] = 0
+   1: 9 0 5 _              // Store immediate: [fp + 5] = 0
+   2: 4 4 0 0              // Store: [fp + 0] = [fp + 4] + 0
+   3: 4 5 0 1              // Store: [fp + 1] = [fp + 5] + 0
+   4: 9 3 6 _              // Store immediate: [fp + 6] = 3
+   5: 9 4 7 _              // Store immediate: [fp + 7] = 4
+   6: 4 6 0 2              // Store: [fp + 2] = [fp + 6] + 0
+   7: 4 7 0 3              // Store: [fp + 3] = [fp + 7] + 0
+   8: 4 2 0 8              // Load: [fp + 8] = [fp + 2] + 0
+   9: 4 0 0 9              // Load: [fp + 9] = [fp + 0] + 0
+  10: 1 8 9 10             // [fp + 10] = [fp + 8] op [fp + 9]
+  11: 4 3 0 11             // Load: [fp + 11] = [fp + 3] + 0
+  12: 4 1 0 12             // Load: [fp + 12] = [fp + 1] + 0
+  13: 1 11 12 13           // [fp + 13] = [fp + 11] op [fp + 12]
+  14: 4 10 0 17            // [fp + 17] = [fp + 10] + 0
+  15: 2 17 10 14           // [fp + 14] = [fp + 17] op [fp + 10]
+  16: 4 13 0 17            // [fp + 17] = [fp + 13] + 0
+  17: 2 17 13 15           // [fp + 15] = [fp + 17] op [fp + 13]
+  18: 0 14 15 -3           // [fp + -3] = [fp + 14] op [fp + 15]
+  19: 11 _ _ _             // return

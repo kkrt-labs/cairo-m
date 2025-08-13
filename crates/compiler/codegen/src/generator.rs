@@ -746,6 +746,7 @@ impl CodeGenerator {
 
                 let is_u32_op = matches!(op, BinaryOp::U32Eq | BinaryOp::U32Neq);
 
+                // For comparison, we compute `a - b`. The result is non-zero if they are not equal.
                 if is_u32_op {
                     builder.generate_u32_op(BinaryOp::U32Sub, temp_slot_offset, *left, *right)?;
                 } else {
@@ -756,9 +757,6 @@ impl CodeGenerator {
                         *right,
                     )?;
                 }
-
-                // For comparison, we compute `a - b`. The result is non-zero if they are not equal.
-                builder.generate_arithmetic_op(BinaryOp::Sub, temp_slot_offset, *left, *right)?;
 
                 match op {
                     BinaryOp::Eq | BinaryOp::U32Eq => {

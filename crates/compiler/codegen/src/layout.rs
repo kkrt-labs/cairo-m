@@ -313,12 +313,21 @@ impl FunctionLayout {
     /// Manually maps a `ValueId` to a specific offset. Used by the caller to map
     /// return value destinations.
     pub fn map_value(&mut self, value_id: ValueId, offset: i32) {
-        // For now, assume mapped values are single-slot
-        self.value_layouts
-            .insert(value_id, ValueLayout::Slot { offset });
+        // Check if we already have a layout for this value to preserve its size
+        let size = self.get_value_size(value_id);
+
+        if size == 1 {
+            self.value_layouts
+                .insert(value_id, ValueLayout::Slot { offset });
+        } else {
+            self.value_layouts
+                .insert(value_id, ValueLayout::MultiSlot { offset, size });
+        }
+
         // Update frame_size if this offset extends beyond it
-        if offset >= self.frame_size as i32 {
-            self.frame_size = (offset + 1) as usize;
+        let end_offset = offset + size as i32;
+        if end_offset > self.frame_size as i32 {
+            self.frame_size = end_offset as usize;
         }
     }
 
