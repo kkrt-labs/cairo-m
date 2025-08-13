@@ -153,7 +153,7 @@ fn test_verify_fibonacci_recording() {
     // ╚══════════════════════════════════════════════════════════════════════╝
     let proof: cairo_m_prover::Proof<Poseidon31MerkleHasher> =
         serde_json::from_str(&proof_json).unwrap();
-    let _hints = generate_hints::<Poseidon31MerkleChannel>(&proof);
+    let _hints = generate_hints(&proof);
 
     // Hand comparaison was done and it was successful
     // TODO: Add automatic comparaison

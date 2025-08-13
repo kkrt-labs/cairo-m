@@ -14,7 +14,7 @@ use stwo_prover::core::vcs::ops::{MerkleHasher, MerkleOps};
 
 use rayon::prelude::*;
 
-const ELEMENTS_IN_BLOCK: usize = 8;
+pub const ELEMENTS_IN_BLOCK: usize = 8;
 
 /// Wrapper type for M31 to implement Hash trait
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default, Deserialize, Serialize)]
@@ -45,7 +45,7 @@ pub struct Poseidon31MerkleHasher;
 
 impl Poseidon31MerkleHasher {
     /// Hash two M31 values using Poseidon2
-    fn hash_pair(left: M31, right: M31) -> M31 {
+    pub fn hash_pair(left: M31, right: M31) -> M31 {
         <Poseidon2Hash as cairo_m_prover::adapter::merkle::MerkleHasher>::hash(left, right)
     }
 
