@@ -61,7 +61,7 @@ impl Claim {
     {
         // Write poseidon2 trace
         let (poseidon2_claim, poseidon2_trace, poseidon2_interaction_claim_data) =
-            poseidon2::Claim::write_trace(&inputs.poseidon2_inputs);
+            poseidon2::Claim::write_trace(&inputs.decommitment_hints);
 
         // Gather all lookup data
         let interaction_claim_data = InteractionClaimData {

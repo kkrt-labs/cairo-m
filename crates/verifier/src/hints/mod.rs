@@ -11,13 +11,14 @@ pub mod decommitments;
 use cairo_m_prover::Proof;
 pub use channel::{hints, ChannelHints};
 
+use crate::hints::decommitments::MerkleDecommitmentHints;
 use crate::{Poseidon31MerkleChannel, Poseidon31MerkleHasher};
 
 pub type HashInput = [M31; T];
 
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct ProverInput {
-    pub poseidon2_inputs: Vec<HashInput>,
+    pub decommitment_hints: MerkleDecommitmentHints,
 }
 
 // TODO: remove this once we have a generic MerkleChannel trait
@@ -25,7 +26,7 @@ type MC = Poseidon31MerkleChannel;
 type H = Poseidon31MerkleHasher;
 
 /// Generate all hints for verification of a proof
-pub fn generate_hints(proof: &Proof<H>) -> ChannelHints
+pub fn generate_hints(proof: &Proof<H>) -> ProverInput
 where
     SimdBackend: BackendForChannel<MC>,
 {
@@ -40,11 +41,10 @@ where
     let column_log_sizes: TreeVec<Vec<u32>> = get_column_log_sizes(&proof.claim.log_sizes());
 
     // NOTE: decommitment hints are Poseidon31MerkleHasher specific
-    let _decommitment_hints =
-        decommitments::hints(proof, &channel_hints.queries, &column_log_sizes)
-            .expect("Failed to generate decommitment hints");
+    let decommitment_hints = decommitments::hints(proof, &channel_hints.queries, &column_log_sizes)
+        .expect("Failed to generate decommitment hints");
 
-    channel_hints
+    ProverInput { decommitment_hints }
 }
 
 /// Get the column log sizes for the decommitment hints (unextended)

@@ -15,6 +15,7 @@ use thiserror::Error;
 
 use cairo_m_prover::Proof;
 
+use crate::hints::HashInput;
 use crate::poseidon31_merkle::{M31Hash, Poseidon31MerkleHasher, ELEMENTS_IN_BLOCK};
 use crate::Poseidon31MerkleChannel;
 
@@ -59,8 +60,17 @@ pub struct MerkleDecommitmentHintRow {
     pub final_hash: u8,
 }
 
+impl MerkleDecommitmentHintRow {
+    pub fn to_hash_input(&self) -> HashInput {
+        let mut input: HashInput = Default::default();
+        input[0] = self.x_0;
+        input[1] = self.x_1;
+        input
+    }
+}
+
 /// Collection of all Merkle decommitment hints needed for verification
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct MerkleDecommitmentHints {
     /// All hint rows needed for the verification
     /// Organized as a flat vector of rows

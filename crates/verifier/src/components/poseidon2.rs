@@ -60,6 +60,7 @@ use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::components::Relations;
+use crate::hints::decommitments::MerkleDecommitmentHints;
 use crate::hints::HashInput;
 use crate::utils::Enabler;
 use cairo_m_prover::poseidon2::{
@@ -171,18 +172,20 @@ impl Claim {
 
     #[allow(clippy::needless_range_loop)]
     pub fn write_trace<MC: MerkleChannel>(
-        inputs: &Vec<HashInput>,
+        inputs: &MerkleDecommitmentHints,
     ) -> (Self, ComponentTrace<N_TRACE_COLUMNS>, InteractionClaimData)
     where
         SimdBackend: BackendForChannel<MC>,
     {
-        let non_padded_length = inputs.len();
+        let non_padded_length = inputs.rows.len();
         let log_size = std::cmp::max(non_padded_length.next_power_of_two(), N_LANES).ilog2();
 
         // Pack round data from the prover input
         let packed_inputs: Vec<[PackedM31; T]> = inputs
+            .rows
             .iter()
-            .chain(std::iter::repeat(&[M31::zero(); T]))
+            .map(|row| row.to_hash_input())
+            .chain(std::iter::repeat(HashInput::default()))
             .take(1 << log_size)
             .array_chunks::<N_LANES>()
             .map(|chunk| {
