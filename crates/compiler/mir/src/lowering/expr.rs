@@ -752,7 +752,13 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             // Store the field value
             let field_type = struct_type
                 .field_type(field_name.value())
-                .unwrap_or(&MirType::felt())
+                .ok_or_else(|| {
+                    format!(
+                        "Internal Compiler Error: Field '{}' not found on struct type '{:?}'. This indicates an issue with type information propagation from semantic analysis to MIR lowering.",
+                        field_name.value(),
+                        struct_type
+                    )
+                })?
                 .clone();
             self.instr()
                 .store(Value::operand(field_addr), field_val, field_type);
