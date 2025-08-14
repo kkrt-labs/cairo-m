@@ -512,7 +512,7 @@ impl Instruction {
     }
 
     /// Creates a new typed get element pointer instruction
-    pub fn get_element_ptr_typed(
+    pub const fn get_element_ptr_typed(
         dest: ValueId,
         base: Value,
         path: FieldPath,
@@ -532,7 +532,11 @@ impl Instruction {
     }
 
     /// Creates a new build struct instruction
-    pub fn build_struct(dest: ValueId, struct_type: MirType, fields: Vec<(String, Value)>) -> Self {
+    pub const fn build_struct(
+        dest: ValueId,
+        struct_type: MirType,
+        fields: Vec<(String, Value)>,
+    ) -> Self {
         Self {
             kind: InstructionKind::BuildStruct {
                 dest,
@@ -546,7 +550,7 @@ impl Instruction {
     }
 
     /// Creates a new build tuple instruction
-    pub fn build_tuple(dest: ValueId, elements: Vec<Value>, tuple_type: MirType) -> Self {
+    pub const fn build_tuple(dest: ValueId, elements: Vec<Value>, tuple_type: MirType) -> Self {
         Self {
             kind: InstructionKind::BuildTuple {
                 dest,
@@ -560,7 +564,7 @@ impl Instruction {
     }
 
     /// Creates a new extract value instruction
-    pub fn extract_value(
+    pub const fn extract_value(
         dest: ValueId,
         aggregate: Value,
         path: FieldPath,
@@ -580,7 +584,7 @@ impl Instruction {
     }
 
     /// Creates a new insert value instruction
-    pub fn insert_value(
+    pub const fn insert_value(
         dest: ValueId,
         aggregate: Value,
         value: Value,

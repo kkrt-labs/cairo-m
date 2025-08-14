@@ -27,13 +27,12 @@ test_unconditional_jumps_1:
    1: 4 0 1 1              // [fp + 1] = [fp + 0] op 1
    2: 4 1 0 0              // Store: [fp + 0] = [fp + 1] + 0
    3: 5 0 5 2              // [fp + 2] = [fp + 0] op 5
-   4: 5 0 5 2              // [fp + 2] = [fp + 0] op 5
-   5: 14 2 5 _             // if [fp + 2] != 0 jmp rel test_unconditional_jumps_4
-   6: 12 9 _ _             // jump abs test_unconditional_jumps_3
+   4: 14 2 5 _             // if [fp + 2] != 0 jmp rel test_unconditional_jumps_4
+   5: 12 8 _ _             // jump abs test_unconditional_jumps_3
 test_unconditional_jumps_2:
-   7: 4 0 0 -3             // Return value 0: [fp -3] = [fp + 0] + 0
-   8: 11 _ _ _             // return
+   6: 4 0 0 -3             // Return value 0: [fp -3] = [fp + 0] + 0
+   7: 11 _ _ _             // return
 test_unconditional_jumps_3:
-   9: 12 7 _ _             // jump abs test_unconditional_jumps_2
+   8: 12 6 _ _             // jump abs test_unconditional_jumps_2
 test_unconditional_jumps_4:
-  10: 12 1 _ _             // jump abs test_unconditional_jumps_1
+   9: 12 1 _ _             // jump abs test_unconditional_jumps_1

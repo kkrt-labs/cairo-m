@@ -1,0 +1,243 @@
+# Example Programs
+
+## Comprehensive RPG Combat System
+
+This example demonstrates most of Cairo-M's language features through a simple
+RPG combat simulation:
+
+```cairo-m
+//! ignore
+// Struct definitions showing custom types
+struct Character {
+    health: u32,
+    mana: u32,
+    level: u32,
+    position: Position,
+}
+
+struct Position {
+    x: u32,
+    y: u32,
+}
+
+struct CombatResult {
+    damage_dealt: u32,
+    critical_hit: bool,
+    remaining_health: u32,
+}
+
+
+// Entry point demonstrating tuple usage and multiple features
+fn main_test() -> u32 {
+    let battle_result = simulate_full_battle();
+
+    // Create a summary tuple
+    let summary = get_character_stats(Character {
+        health: 100,
+        mana: 50,
+        level: 5,
+        position: Position { x: 0, y: 0 },
+    });
+
+    // Extract tuple values
+    let (health, mana, level) = summary;
+
+    // Combine results using both felt and u32 arithmetic
+    let final_score: u32 = battle_result + level;  // u32 + u32 in felt context
+    let bonus_score = mana / 10u32;  // felt arithmetic
+
+    return final_score + bonus_score;
+}
+
+
+// Function demonstrating tuples as return types
+fn get_character_stats(char: Character) -> (u32, u32, u32) {
+    return (char.health, char.mana, char.level);
+}
+
+// Function with complex struct manipulation and arithmetic
+fn calculate_distance_squared(pos1: Position, pos2: Position) -> u32 {
+    let dx = pos1.x - pos2.x;
+    let dy = pos1.y - pos2.y;
+    return dx * dx + dy * dy;
+}
+
+// Function demonstrating control flow and u32/felt operations
+fn calculate_damage(attacker_level: u32, defender_level: u32, distance: u32) -> u32 {
+    let base_damage: u32 = 10;
+    let level_bonus = attacker_level * 2;
+
+    // Convert felt to rough u32 for distance penalty (simplified)
+    let distance_penalty: u32 = 0;
+    if (distance > 100) {
+        distance_penalty = 5;
+    } else {
+        if (distance > 50) {
+            distance_penalty = 2;
+        }
+    }
+
+    let total_damage = base_damage + level_bonus;
+    if (total_damage > distance_penalty) {
+        return total_damage - distance_penalty;
+    } else {
+        return 1;  // Minimum damage
+    }
+}
+
+// Function showing loops and complex logic
+fn perform_combat(attacker: Character, defender: Character) -> CombatResult {
+    let distance = calculate_distance_squared(attacker.position, defender.position);
+    let base_damage = calculate_damage(attacker.level, defender.level, distance);
+
+    // Critical hit calculation using felt arithmetic
+    let critical_multiplier = attacker.mana / 10u32;  // u32 division
+    let is_critical: bool = false;
+    let final_damage = base_damage;
+
+    if (critical_multiplier > 5) {
+        is_critical = true;
+        final_damage = base_damage * 2;
+    }
+
+    // Apply damage with bounds checking
+    let new_health = defender.health;
+    if (final_damage >= defender.health) {
+        new_health = 0;
+    } else {
+        new_health = defender.health - final_damage;
+    }
+
+    let res = CombatResult {
+        damage_dealt: final_damage,
+        critical_hit: is_critical,
+        remaining_health: new_health,
+    };
+    return res;
+}
+
+// Function demonstrating multiple function calls and tuple destructuring
+fn simulate_battle_round(hero: Character, enemy: Character) -> u32 {
+    // Hero attacks enemy
+    let hero_attack = perform_combat(hero, enemy);
+    let enemy_health = hero_attack.remaining_health;
+
+    // Enemy counter-attacks if still alive
+    if (enemy_health > 0) {
+        let enemy_counter = perform_combat(enemy, hero);
+        let hero_health = enemy_counter.remaining_health;
+
+        // Return 1 if hero wins, 2 if enemy wins, 0 if both alive
+        if (enemy_health == 0) {
+            return 1;  // Hero wins
+        } else {
+            if (hero_health == 0) {
+                return 2;  // Enemy wins
+            } else {
+                return 0;  // Both alive, continue battle
+            }
+        }
+    } else {
+        return 1;  // Hero wins immediately
+    }
+}
+
+// Main function demonstrating variable mutation and comprehensive example
+fn simulate_full_battle() -> u32 {
+    // Create characters using struct literals
+    let hero = Character {
+        health: 100,
+        mana: 50,
+        level: 5,
+        position: Position { x: 10, y: 20 },
+    };
+
+    let enemy = Character {
+        health: 80,
+        mana: 30,
+        level: 4,
+        position: Position { x: 15, y: 25 },
+    };
+
+    // Battle loop with mutation
+    let current_hero = hero;
+    let current_enemy = enemy;
+    let round: u32 = 1;
+    let max_rounds: u32 = 10;
+
+    // Simulate multiple battle rounds
+    loop {
+        if (round > max_rounds) {
+            break;  // Draw after max rounds
+        }
+
+        let result = simulate_battle_round(current_hero, current_enemy);
+
+        if (result == 1) {
+            return 1;  // Hero victory
+        } else {
+            if (result == 2) {
+                return 2;  // Enemy victory
+            }
+        }
+
+        // Update for next round (simplified - reduce both healths)
+        if (current_hero.health > 10) {
+            current_hero.health = current_hero.health - 5;
+        }
+        if (current_enemy.health > 8) {
+            current_enemy.health = current_enemy.health - 4;
+        }
+
+        round = round + 1;
+    }
+
+    return 0;  // Draw
+}
+```
+
+This example demonstrates:
+
+### Language Features Showcased:
+
+1. **Structs**: `Character`, `Position`, `CombatResult` with nested struct
+   fields
+2. **Tuples**: Return types `(u32, felt, u32)` and tuple destructuring
+3. **Primitive Types**:
+   - `felt` for coordinates, mana, distance calculations
+   - `u32` for health, damage, levels, counters
+4. **Functions**: Multiple functions with various parameter types and return
+   values
+5. **Control Flow**:
+   - `if-else` statements (nested and chained)
+   - `loop` with `break` statements
+   - Complex conditional logic
+6. **Variable Operations**:
+   - Variable declarations with `let`
+   - Variable mutation (health updates, counters)
+   - Type inference and explicit typing
+7. **Arithmetic Operations**:
+   - Addition, subtraction, multiplication, division
+   - Mixed felt/u32 arithmetic
+   - Comparison operations (`>`, `==`, `>=`)
+8. **Struct Operations**:
+   - Struct literal creation
+   - Field access and modification
+   - Nested struct access (`position.x`, `position.y`)
+   - Struct parameters and return values
+9. **Complex Expressions**: Multi-step calculations and nested function calls
+
+### Real-World Relevance:
+
+This RPG combat system is practical and demonstrates how Cairo-M could be used
+for:
+
+- Game logic implementation
+- State management
+- Mathematical calculations
+- Complex business rules
+- Resource management systems
+
+The example shows progression from simple operations to complex multi-function
+interactions while maintaining readability and demonstrating the full spectrum
+of Cairo-M's capabilities.

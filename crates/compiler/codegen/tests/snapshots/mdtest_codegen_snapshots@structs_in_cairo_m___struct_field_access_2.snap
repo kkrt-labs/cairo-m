@@ -26,9 +26,9 @@ calculate_area_u32_0:
    0: 23 5 0 0             // [fp + 0, fp + 1] = u32(5)
    1: 23 10 0 2            // [fp + 2, fp + 3] = u32(10)
    2: 19 0 0 0 4           // LoadU32: [fp + 4, fp + 4 + 1] = [fp + 0, fp + 0 + 1] + 0
-   3: 20 4 5 0 18          // u32([fp + 18], [fp + 19]) = u32([fp + 4], [fp + 5]) op u32(5, 0)
-   4: 5 4 5 18             // [fp + 18] = [fp + 4] op 5
-   5: 14 18 8 _            // if [fp + 18] != 0 jmp rel calculate_area_u32_2
+   3: 30 4 5 0 18          // u32([fp + 18], [fp + 19]) = u32([fp + 4], [fp + 5]) op u32(5, 0)
+   4: 14 18 2 _            // if [fp + 18] != 0 jmp rel calculate_area_u32_1
+   5: 12 15 _ _            // jump abs calculate_area_u32_2
 calculate_area_u32_1:
    6: 19 0 0 0 6           // LoadU32: [fp + 6, fp + 6 + 1] = [fp + 0, fp + 0 + 1] + 0
    7: 21 6 2 0 8           // u32([fp + 8], [fp + 9]) = u32([fp + 6], [fp + 7]) op u32(2, 0)

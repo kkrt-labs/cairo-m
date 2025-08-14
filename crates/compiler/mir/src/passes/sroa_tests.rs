@@ -151,7 +151,7 @@ fn test_sroa_nested_struct() {
         name: "Line".to_string(),
         fields: vec![
             ("start".to_string(), inner_struct.clone()),
-            ("end".to_string(), inner_struct.clone()),
+            ("end".to_string(), inner_struct),
         ],
     };
 
@@ -306,7 +306,7 @@ fn test_sroa_ssa_aggregates() {
             Instruction::build_tuple(
                 tuple,
                 vec![Value::Operand(val1), Value::Operand(val2)],
-                tuple_type.clone(),
+                tuple_type,
             ),
             Instruction::extract_value(
                 extract1,
@@ -386,7 +386,7 @@ fn test_sroa_escaping_allocation() {
                 dummy_func,
                 vec![Value::Operand(alloc)],
                 crate::instruction::CalleeSignature {
-                    param_types: vec![struct_type.clone()],
+                    param_types: vec![struct_type],
                     return_types: vec![],
                 },
             ),

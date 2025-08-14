@@ -24,9 +24,12 @@ test_multi_slot_store_0:
    0: 23 100 0 0           // [fp + 0, fp + 1] = u32(100)
    1: 23 200 0 2           // [fp + 2, fp + 3] = u32(200)
    2: 4 0 0 4              // Load: [fp + 4] = [fp + 0] + 0
-   3: 19 4 0 0 8           // LoadU32: [fp + 8, fp + 8 + 1] = [fp + 4, fp + 4 + 1] + 0
-   4: 19 6 0 0 10          // LoadU32: [fp + 10, fp + 10 + 1] = [fp + 6, fp + 6 + 1] + 0
-   5: 15 8 10 12           // u32([fp + 12], [fp + 13]) = u32([fp + 8], [fp + 9]) op u32([fp + 10], [fp + 11])
-   6: 4 12 0 -4            // Return value 0 slot 0: [fp -4] = [fp + 12] + 0
-   7: 4 13 0 -3            // Return value 0 slot 1: [fp -3] = [fp + 13] + 0
-   8: 11 _ _ _             // return
+   3: 4 1 0 5              // Load: [fp + 5] = [fp + 1] + 0
+   4: 4 2 0 6              // Load: [fp + 6] = [fp + 2] + 0
+   5: 4 3 0 7              // Load: [fp + 7] = [fp + 3] + 0
+   6: 19 4 0 0 8           // LoadU32: [fp + 8, fp + 8 + 1] = [fp + 4, fp + 4 + 1] + 0
+   7: 19 6 0 0 10          // LoadU32: [fp + 10, fp + 10 + 1] = [fp + 6, fp + 6 + 1] + 0
+   8: 15 8 10 12           // u32([fp + 12], [fp + 13]) = u32([fp + 8], [fp + 9]) op u32([fp + 10], [fp + 11])
+   9: 4 12 0 -4            // Return value 0 slot 0: [fp -4] = [fp + 12] + 0
+  10: 4 13 0 -3            // Return value 0 slot 1: [fp -3] = [fp + 13] + 0
+  11: 11 _ _ _             // return

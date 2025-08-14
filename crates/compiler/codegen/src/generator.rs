@@ -188,7 +188,7 @@ impl CodeGenerator {
         self.label_counter += builder.label_counter();
 
         // Remove duplicate offsets
-        let _ = builder.resolve_duplicate_offsets();
+        builder.resolve_duplicate_offsets()?;
 
         // Fix label addresses to be relative to the global instruction stream
         let instruction_offset = self.instructions.len();
@@ -292,7 +292,7 @@ impl CodeGenerator {
     fn generate_instruction(
         &self,
         instruction: &Instruction,
-        _function: &MirFunction,
+        function: &MirFunction,
         module: &MirModule,
         builder: &mut CasmBuilder,
         block_instructions: &[Instruction],
@@ -311,7 +311,7 @@ impl CodeGenerator {
 
                 // Fallback to return-value optimization
                 if target_offset.is_none() {
-                    target_offset = self.get_target_offset_for_dest(*dest, terminator);
+                    target_offset = self.get_target_offset_for_dest(*dest, terminator, function);
                 }
 
                 // Determine if this is a U32 assignment based on type
@@ -333,7 +333,7 @@ impl CodeGenerator {
 
                 // Fallback to return-value optimization
                 if target_offset.is_none() {
-                    target_offset = self.get_target_offset_for_dest(*dest, terminator);
+                    target_offset = self.get_target_offset_for_dest(*dest, terminator, function);
                 }
 
                 builder.unary_op_with_target(*op, *dest, *source, target_offset)?;
@@ -370,7 +370,7 @@ impl CodeGenerator {
                             | BinaryOp::U32GreaterEqual
                     )
                 {
-                    target_offset = self.get_target_offset_for_dest(*dest, terminator);
+                    target_offset = self.get_target_offset_for_dest(*dest, terminator, function);
                 }
 
                 builder.binary_op_with_target(*op, *dest, *left, *right, target_offset)?;
@@ -611,9 +611,7 @@ impl CodeGenerator {
                 ));
             }
 
-            InstructionKind::ExtractValue {
-                dest, aggregate, ..
-            } => {
+            InstructionKind::ExtractValue { .. } => {
                 // ExtractValue requires tracking aggregate types through the IR
                 // For now, we'll emit an error since this needs more infrastructure
                 return Err(CodegenError::UnsupportedInstruction(
@@ -661,10 +659,36 @@ impl CodeGenerator {
         &self,
         dests: &[ValueId],
         terminator: &Terminator,
+        function: &MirFunction,
     ) -> Vec<Option<i32>> {
         match terminator {
             Terminator::Return { values } => {
-                let k = values.len() as i32;
+                // Calculate the total number of return slots (accounting for multi-slot types)
+                let return_types: Vec<MirType> = function
+                    .return_values
+                    .iter()
+                    .map(|&ret_id| {
+                        function
+                            .value_types
+                            .get(&ret_id)
+                            .cloned()
+                            .expect("Missing return type")
+                    })
+                    .collect();
+
+                let k_slots: i32 = return_types
+                    .iter()
+                    .map(|ty| ty.size_in_slots() as i32)
+                    .sum();
+
+                // Calculate cumulative slot offsets for each return value
+                let mut slot_offsets = Vec::new();
+                let mut cumulative = 0;
+                for ty in &return_types {
+                    slot_offsets.push(cumulative);
+                    cumulative += ty.size_in_slots() as i32;
+                }
+
                 dests
                     .iter()
                     .map(|dest| {
@@ -673,8 +697,8 @@ impl CodeGenerator {
                             .iter()
                             .position(|v| matches!(v, Value::Operand(id) if *id == *dest))
                             .map(|index| {
-                                // Return value i goes to [fp - K - 2 + i]
-                                -(k + 2) + index as i32
+                                // Return value i goes to [fp - k_slots - 2 + slot_offset[i]]
+                                -(k_slots + 2) + slot_offsets[index]
                             })
                     })
                     .collect()
@@ -684,8 +708,13 @@ impl CodeGenerator {
     }
 
     /// Get the target offset for a single destination ValueId if it will be immediately returned
-    fn get_target_offset_for_dest(&self, dest: ValueId, terminator: &Terminator) -> Option<i32> {
-        self.get_target_offsets_for_dests(&[dest], terminator)
+    fn get_target_offset_for_dest(
+        &self,
+        dest: ValueId,
+        terminator: &Terminator,
+        function: &MirFunction,
+    ) -> Option<i32> {
+        self.get_target_offsets_for_dests(&[dest], terminator, function)
             .into_iter()
             .next()
             .flatten()
@@ -744,39 +773,65 @@ impl CodeGenerator {
                 let then_label = format!("{function_name}_{then_target:?}");
                 let else_label = format!("{function_name}_{else_target:?}");
 
-                let is_u32_op = matches!(op, BinaryOp::U32Eq | BinaryOp::U32Neq);
-
-                // For comparison, we compute `a - b`. The result is non-zero if they are not equal.
-                if is_u32_op {
-                    builder.generate_u32_op(BinaryOp::U32Sub, temp_slot_offset, *left, *right)?;
-                } else {
-                    builder.generate_arithmetic_op(
-                        BinaryOp::Sub,
-                        temp_slot_offset,
-                        *left,
-                        *right,
-                    )?;
-                }
-
                 match op {
-                    BinaryOp::Eq | BinaryOp::U32Eq => {
-                        // `jnz` jumps if the result is non-zero.
-                        // A non-zero result means `a != b`, so we should jump to the `else` block.
-                        // Otherwise we can simply fallthrough.
+                    BinaryOp::Eq => {
+                        // For felt comparison, compute `a - b`. Result is zero if equal.
+                        builder.generate_arithmetic_op(
+                            BinaryOp::Sub,
+                            temp_slot_offset,
+                            *left,
+                            *right,
+                        )?;
+                        // Jump to else if non-zero (not equal)
                         builder.jnz_offset(temp_slot_offset, &else_label)?;
-
                         // Fallthrough to the `then` block if the `jnz` was not taken.
                         let then_is_next = next_block_id == Some(*then_target);
                         if !then_is_next {
                             builder.jump(&then_label)?;
                         }
                     }
-                    BinaryOp::Neq | BinaryOp::U32Neq => {
-                        // `jnz` jumps if the result is non-zero.
-                        // A non-zero result means `a != b`, so we should jump to the `then` block.
-                        // Otherwise we can simply fallthrough.
+                    BinaryOp::Neq => {
+                        // For felt comparison, compute `a - b`. Result is non-zero if not equal.
+                        builder.generate_arithmetic_op(
+                            BinaryOp::Sub,
+                            temp_slot_offset,
+                            *left,
+                            *right,
+                        )?;
+                        // Jump to then if non-zero (not equal)
                         builder.jnz_offset(temp_slot_offset, &then_label)?;
-
+                        // Fallthrough to the `else` block if the `jnz` was not taken.
+                        let else_is_next = next_block_id == Some(*else_target);
+                        if !else_is_next {
+                            builder.jump(&else_label)?;
+                        }
+                    }
+                    BinaryOp::U32Eq => {
+                        // For U32 comparison, use U32Eq which returns a felt (1 if equal, 0 if not)
+                        builder.generate_u32_op(
+                            BinaryOp::U32Eq,
+                            temp_slot_offset,
+                            *left,
+                            *right,
+                        )?;
+                        // Jump to then if non-zero (equal)
+                        builder.jnz_offset(temp_slot_offset, &then_label)?;
+                        // Fallthrough to the `else` block if the `jnz` was not taken.
+                        let else_is_next = next_block_id == Some(*else_target);
+                        if !else_is_next {
+                            builder.jump(&else_label)?;
+                        }
+                    }
+                    BinaryOp::U32Neq => {
+                        // For U32 comparison, use U32Neq which returns a felt (1 if not equal, 0 if equal)
+                        builder.generate_u32_op(
+                            BinaryOp::U32Neq,
+                            temp_slot_offset,
+                            *left,
+                            *right,
+                        )?;
+                        // Jump to then if non-zero (not equal)
+                        builder.jnz_offset(temp_slot_offset, &then_label)?;
                         // Fallthrough to the `else` block if the `jnz` was not taken.
                         let else_is_next = next_block_id == Some(*else_target);
                         if !else_is_next {

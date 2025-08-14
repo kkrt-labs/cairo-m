@@ -230,6 +230,12 @@ fn convert_cairo_to_rust(cairo_source: &str) -> String {
     let re = Regex::new(r"\blet\s+([a-zA-Z_][a-zA-Z0-9_]*)\b").unwrap();
     result = re.replace_all(&result, "let mut $1").to_string();
 
+    // Add a #[derive(Copy, Clone)] to all structs
+    let re = Regex::new(r"\bstruct\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\{").unwrap();
+    result = re
+        .replace_all(&result, "#[derive(Copy, Clone)]\nstruct $1 {")
+        .to_string();
+
     result
 }
 

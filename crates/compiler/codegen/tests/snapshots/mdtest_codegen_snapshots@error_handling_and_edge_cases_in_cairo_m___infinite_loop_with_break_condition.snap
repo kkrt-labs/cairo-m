@@ -41,9 +41,9 @@ loop_with_escape_2:
 loop_with_escape_3:
    9: 12 9 _ _             // jump abs loop_with_escape_2
 loop_with_escape_4:
-  10: 20 0 10 0 5          // u32([fp + 5], [fp + 6]) = u32([fp + 0], [fp + 1]) op u32(10, 0)
-  11: 5 0 10 5             // [fp + 5] = [fp + 0] op 10
-  12: 14 5 2 _             // if [fp + 5] != 0 jmp rel loop_with_escape_6
+  10: 30 0 10 0 5          // u32([fp + 5], [fp + 6]) = u32([fp + 0], [fp + 1]) op u32(10, 0)
+  11: 14 5 2 _             // if [fp + 5] != 0 jmp rel loop_with_escape_5
+  12: 12 18 _ _            // jump abs loop_with_escape_6
 loop_with_escape_5:
   13: 12 9 _ _             // jump abs loop_with_escape_2
 loop_with_escape_6:

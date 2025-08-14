@@ -11,6 +11,19 @@ use stwo_prover::core::fields::m31::M31;
 
 use crate::{CodegenError, CodegenResult, FunctionLayout, InstructionBuilder, Label, Operand};
 
+/// Helper to split a u32 value into low and high 16-bit parts
+#[inline]
+const fn split_u32_value(value: u32) -> (i32, i32) {
+    ((value & 0xFFFF) as i32, ((value >> 16) & 0xFFFF) as i32)
+}
+
+/// Helper to split an i32 value (interpreted as u32) into low and high 16-bit parts
+#[inline]
+const fn split_u32_i32(value: i32) -> (i32, i32) {
+    let u = value as u32;
+    ((u & 0xFFFF) as i32, ((u >> 16) & 0xFFFF) as i32)
+}
+
 /// Builder for generating CASM instructions
 ///
 /// This struct manages the generation of CASM instructions, handling the
@@ -96,8 +109,7 @@ impl CasmBuilder {
     /// Helper to emit a u32 store immediate instruction and track the write
     fn store_u32_immediate(&mut self, value: u32, offset: i32, comment: String) {
         // Split the u32 value into low and high 16-bit parts
-        let lo = (value & 0xFFFF) as i32;
-        let hi = ((value >> 16) & 0xFFFF) as i32;
+        let (lo, hi) = split_u32_value(value);
 
         let instr = InstructionBuilder::new(U32_STORE_IMM)
             .with_operand(Operand::Literal(lo))
@@ -196,10 +208,17 @@ impl CasmBuilder {
                 let instr = InstructionBuilder::new(U32_STORE_ADD_FP_IMM)
                     .with_operand(Operand::Literal(src_off))
                     .with_operand(Operand::Literal(0))
+                    .with_operand(Operand::Literal(0))
                     .with_operand(Operand::Literal(offset))
-                    .with_comment(format!("[fp + {}] = [fp + {}] + 0", offset, src_off));
+                    .with_comment(format!(
+                        "u32([fp + {}], [fp + {}]) = u32([fp + {}], [fp + {}]) + u32(0, 0)",
+                        offset,
+                        offset + 1,
+                        src_off,
+                        src_off + 1
+                    ));
                 self.instructions.push(instr);
-                self.touch(offset, 1);
+                self.touch(offset, 2);
             }
             _ => {
                 return Err(CodegenError::UnsupportedInstruction(format!(
@@ -297,8 +316,15 @@ impl CasmBuilder {
             self.layout.map_value(dest, offset);
             offset
         } else {
-            // Get the pre-allocated offset from the layout
-            self.layout.get_offset(dest)?
+            // Get the pre-allocated offset from the layout, or allocate on demand
+            match self.layout.get_offset(dest) {
+                Ok(offset) => offset,
+                Err(_) => {
+                    // Value wasn't pre-allocated (likely an immediate assignment from SSA form)
+                    // Allocate it now (U32 needs 2 slots)
+                    self.layout.allocate_local(dest, 2)?
+                }
+            }
         };
 
         match source {
@@ -599,7 +625,14 @@ impl CasmBuilder {
                     BinaryOp::Add => (M31::from(*imm) + M31::from(*imm2)).0,
                     BinaryOp::Sub => (M31::from(*imm) - M31::from(*imm2)).0,
                     BinaryOp::Mul => (M31::from(*imm) * M31::from(*imm2)).0,
-                    BinaryOp::Div => (M31::from(*imm) / M31::from(*imm2)).0,
+                    BinaryOp::Div => {
+                        if *imm2 == 0 {
+                            return Err(CodegenError::InvalidMir(
+                                "Division by zero in felt constant folding".to_string(),
+                            ));
+                        }
+                        (M31::from(*imm) / M31::from(*imm2)).0
+                    }
                     _ => {
                         return Err(CodegenError::UnsupportedInstruction(
                             "Unsupported operation".to_string(),
@@ -864,7 +897,11 @@ impl CasmBuilder {
             }
             Value::Literal(Literal::Boolean(imm)) => {
                 // For immediate values, we can directly compute the NOT result
-                self.store_immediate(!imm as i32, dest_off, format!("[fp + {dest_off}] = {}", !imm));
+                self.store_immediate(
+                    !imm as i32,
+                    dest_off,
+                    format!("[fp + {dest_off}] = {}", !imm),
+                );
                 return Ok(());
             }
             _ => {
@@ -948,8 +985,7 @@ impl CasmBuilder {
             (Value::Operand(left_id), Value::Literal(Literal::Integer(imm))) => {
                 let left_off = self.layout.get_offset(*left_id)?;
 
-                let imm_16b_low = *imm & 0xFFFF;
-                let imm_16b_high = *imm >> 16;
+                let (imm_16b_low, imm_16b_high) = split_u32_i32(*imm);
 
                 // Use immediate versions
                 let instr = InstructionBuilder::new(self.fp_imm_opcode_for_u32_op(op)?)
@@ -968,8 +1004,7 @@ impl CasmBuilder {
 
             // Left is immediate, right is value: use fp_imm variant
             (Value::Literal(Literal::Integer(imm)), Value::Operand(right_id)) => {
-                let imm_16b_low = *imm & 0xFFFF;
-                let imm_16b_high = *imm >> 16;
+                let (imm_16b_low, imm_16b_high) = split_u32_i32(*imm);
 
                 match op {
                     // For addition and multiplication, we can swap the operands
@@ -1051,14 +1086,106 @@ impl CasmBuilder {
                 }
             }
 
-            // TODO: We should have constant folding already. This should be an unreachable case.
             // Both operands are immediate: fold constants
-            // This is a workaround for the fact that we don't have a constant folding pass yet.
             (Value::Literal(Literal::Integer(imm)), Value::Literal(Literal::Integer(imm2))) => {
-                panic!(
-                    "Constant folding not properly made while folding {:?} {:?} {:?}",
-                    imm, op, imm2
-                );
+                // Perform constant folding for U32 operations
+                let left_u32 = *imm as u32;
+                let right_u32 = *imm2 as u32;
+
+                match op {
+                    // Arithmetic operations - result is U32
+                    BinaryOp::U32Add => {
+                        let result = left_u32.wrapping_add(right_u32);
+                        self.store_u32_immediate(
+                            result,
+                            dest_off,
+                            format!("u32([fp + {dest_off}], [fp + {}]) = u32({result}) // {left_u32} + {right_u32}", dest_off + 1),
+                        );
+                    }
+                    BinaryOp::U32Sub => {
+                        let result = left_u32.wrapping_sub(right_u32);
+                        self.store_u32_immediate(
+                            result,
+                            dest_off,
+                            format!("u32([fp + {dest_off}], [fp + {}]) = u32({result}) // {left_u32} - {right_u32}", dest_off + 1),
+                        );
+                    }
+                    BinaryOp::U32Mul => {
+                        let result = left_u32.wrapping_mul(right_u32);
+                        self.store_u32_immediate(
+                            result,
+                            dest_off,
+                            format!("u32([fp + {dest_off}], [fp + {}]) = u32({result}) // {left_u32} * {right_u32}", dest_off + 1),
+                        );
+                    }
+                    BinaryOp::U32Div => {
+                        if right_u32 == 0 {
+                            return Err(CodegenError::InvalidMir(
+                                "Division by zero in U32 constant folding".to_string(),
+                            ));
+                        }
+                        let result = left_u32 / right_u32;
+                        self.store_u32_immediate(
+                            result,
+                            dest_off,
+                            format!("u32([fp + {dest_off}], [fp + {}]) = u32({result}) // {left_u32} / {right_u32}", dest_off + 1),
+                        );
+                    }
+                    // Comparison operations - result is felt (1 slot, 1 for true, 0 for false)
+                    BinaryOp::U32Eq => {
+                        let result = if left_u32 == right_u32 { 1 } else { 0 };
+                        self.store_immediate(
+                            result,
+                            dest_off,
+                            format!("[fp + {dest_off}] = {result} // u32({left_u32}) == u32({right_u32})"),
+                        );
+                    }
+                    BinaryOp::U32Neq => {
+                        let result = if left_u32 != right_u32 { 1 } else { 0 };
+                        self.store_immediate(
+                            result,
+                            dest_off,
+                            format!("[fp + {dest_off}] = {result} // u32({left_u32}) != u32({right_u32})"),
+                        );
+                    }
+                    BinaryOp::U32Greater => {
+                        let result = if left_u32 > right_u32 { 1 } else { 0 };
+                        self.store_immediate(
+                            result,
+                            dest_off,
+                            format!("[fp + {dest_off}] = {result} // u32({left_u32}) > u32({right_u32})"),
+                        );
+                    }
+                    BinaryOp::U32GreaterEqual => {
+                        let result = if left_u32 >= right_u32 { 1 } else { 0 };
+                        self.store_immediate(
+                            result,
+                            dest_off,
+                            format!("[fp + {dest_off}] = {result} // u32({left_u32}) >= u32({right_u32})"),
+                        );
+                    }
+                    BinaryOp::U32Less => {
+                        let result = if left_u32 < right_u32 { 1 } else { 0 };
+                        self.store_immediate(
+                            result,
+                            dest_off,
+                            format!("[fp + {dest_off}] = {result} // u32({left_u32}) < u32({right_u32})"),
+                        );
+                    }
+                    BinaryOp::U32LessEqual => {
+                        let result = if left_u32 <= right_u32 { 1 } else { 0 };
+                        self.store_immediate(
+                            result,
+                            dest_off,
+                            format!("[fp + {dest_off}] = {result} // u32({left_u32}) <= u32({right_u32})"),
+                        );
+                    }
+                    _ => {
+                        return Err(CodegenError::UnsupportedInstruction(format!(
+                            "Unsupported U32 operation for constant folding: {op:?}"
+                        )));
+                    }
+                }
             }
 
             _ => {
@@ -1504,55 +1631,39 @@ impl CasmBuilder {
 
     /// Generate a load instruction
     ///
-    /// Translates `dest = *address` to `[fp + dest_off] = [[fp + addr_off]]`.
-    /// This uses the `store_double_deref_fp` opcode.
-    /// TODO: check with VM opcode if this is the expected, desired behavior.
-    /// Load a value from memory to a register.
+    /// Translates `dest = *address` to a **stack-to-stack copy** from the source slots
+    /// starting at `addr_off` into the destination slots starting at `dest_off`.
+    /// In the flattened pointer model, `address` is a compile-time-known fp-relative slot,
+    /// so a load is implemented as one or more `STORE_ADD_FP_IMM` copies.
     ///
-    /// **IMPORTANT: Flattened Pointer Model**
-    ///
-    /// This is NOT a traditional memory load! We use a "flattened pointer model" where
-    /// all pointers are compile-time known offsets from the frame pointer (fp). The
-    /// `address` parameter is not a runtime memory address - it's a ValueId that
-    /// represents a compile-time-known stack slot.
-    ///
-    /// What this means:
-    /// - `stackalloc` creates a stack slot and returns its ValueId (not a pointer)
-    /// - `getelementptr` calculates a new offset at compile time, returning a new ValueId
-    /// - `load` copies data from one stack slot to another (mov [fp+dest], [fp+src])
-    /// - `store` copies data to a stack slot
-    ///
-    /// This model works perfectly for stack-allocated aggregates (structs, arrays) where
-    /// all memory locations are known at compile time. However, it will need significant
-    /// changes to support:
-    /// - Heap allocation (where addresses are runtime values)
-    /// - Function pointers (where addresses must be computed at runtime)
-    /// - Indirect memory access through runtime-computed pointers
-    ///
-    /// The current implementation generates:
-    /// ```ignore
-    /// [fp + dest_offset] = [fp + src_offset] + 0
-    /// ```
-    /// Which is just a stack-to-stack copy, not a memory dereference.
+    /// For multi-slot aggregates (e.g., structs/arrays), this copies **all slots**
+    /// corresponding to the destination's size in the current function layout.
     pub fn load(&mut self, dest: ValueId, address: Value) -> CodegenResult<()> {
         match address {
             Value::Operand(addr_id) => {
                 // The address operand represents a compile-time-known stack slot
-                // In our layout, this was calculated by getelementptr or stackalloc
+                // computed via stackalloc/getelementptr.
                 let src_offset = self.layout.get_offset(addr_id)?;
                 let dest_offset = self.layout.get_offset(dest)?;
+                let size = self.layout.get_value_size(dest).max(1);
 
-                // Generate a copy instruction from source to destination
-                let instr = InstructionBuilder::new(STORE_ADD_FP_IMM)
-                    .with_operand(Operand::Literal(src_offset))
-                    .with_operand(Operand::Literal(0))
-                    .with_operand(Operand::Literal(dest_offset))
-                    .with_comment(format!(
-                        "Load: [fp + {dest_offset}] = [fp + {src_offset}] + 0"
-                    ));
-                self.instructions.push(instr);
-                self.touch(dest_offset, 1);
+                // Copy each slot (handles both single-slot and multi-slot aggregates)
+                for i in 0..size {
+                    let slot_src_off = src_offset + i as i32;
+                    let slot_dest_off = dest_offset + i as i32;
 
+                    let instr = InstructionBuilder::new(STORE_ADD_FP_IMM)
+                        .with_operand(Operand::Literal(slot_src_off))
+                        .with_operand(Operand::Literal(0))
+                        .with_operand(Operand::Literal(slot_dest_off))
+                        .with_comment(format!(
+                            "Load: [fp + {slot_dest_off}] = [fp + {slot_src_off}] + 0"
+                        ));
+                    self.instructions.push(instr);
+                }
+
+                // Track writes for the whole aggregate
+                self.touch(dest_offset, size);
                 Ok(())
             }
             _ => Err(CodegenError::UnsupportedInstruction(format!(
@@ -1818,44 +1929,73 @@ impl CasmBuilder {
     /// This is required by the prover, which does not currently support memory operations on the same memory location in a single instruction.
     /// This fix was designed to be as non-invasive as possible to be reverted easily in case of design changes in the prover.
     pub fn resolve_duplicate_offsets(&mut self) -> CodegenResult<()> {
-        // Reserve space for temporary variables
-        // We need at least 4 slots for U32 operations (2 slots per U32 value)
-        let temp_var_offset = self.layout.reserve_stack(2);
-        let temp_var_offset2 = self.layout.reserve_stack(2);
-
         let mut new_instructions = Vec::new();
         // Track how instruction indices change: original_index -> new_index_range
         let mut index_mapping: Vec<Option<std::ops::Range<usize>>> = Vec::new();
+
+        // Reserve space for temporary variables only when needed
+        // Keep separate temps for felt (1-slot) and U32 (2-slot) operations to avoid size conflicts
+        let mut felt_temp1: Option<i32> = None;
+        let mut felt_temp2: Option<i32> = None;
+        let mut u32_temp1: Option<i32> = None;
+        let mut u32_temp2: Option<i32> = None;
 
         for instr in self.instructions.iter() {
             let current_new_index = new_instructions.len();
 
             let replacement_instructions = match instr.opcode {
                 STORE_ADD_FP_FP | STORE_SUB_FP_FP | STORE_MUL_FP_FP | STORE_DIV_FP_FP => {
-                    Self::handle_fp_fp_duplicates(instr, temp_var_offset, temp_var_offset2)
+                    // Reserve temp variables on demand for felt operations (need 2 single-slot temps)
+                    if felt_temp1.is_none() || felt_temp2.is_none() {
+                        felt_temp1 = Some(self.layout.reserve_stack(1));
+                        felt_temp2 = Some(self.layout.reserve_stack(1));
+                    }
+                    Self::handle_fp_fp_duplicates(instr, felt_temp1.unwrap(), felt_temp2.unwrap())
                 }
                 STORE_ADD_FP_IMM | STORE_SUB_FP_IMM | STORE_MUL_FP_IMM | STORE_DIV_FP_IMM => {
-                    Self::handle_fp_imm_duplicates(instr, temp_var_offset)?
+                    // Reserve temp variable on demand for felt operations with immediate (need 1 single-slot temp)
+                    if felt_temp1.is_none() {
+                        felt_temp1 = Some(self.layout.reserve_stack(1));
+                    }
+                    Self::handle_fp_imm_duplicates(instr, felt_temp1.unwrap())?
                 }
                 // U32 arithmetic operations with FP operands
                 U32_STORE_ADD_FP_FP | U32_STORE_SUB_FP_FP | U32_STORE_MUL_FP_FP
                 | U32_STORE_DIV_FP_FP => {
-                    Self::handle_u32_fp_fp_duplicates(instr, temp_var_offset, temp_var_offset2)
+                    // Reserve temp variables on demand for U32 operations (need 2 slots each)
+                    if u32_temp1.is_none() || u32_temp2.is_none() {
+                        u32_temp1 = Some(self.layout.reserve_stack(2));
+                        u32_temp2 = Some(self.layout.reserve_stack(2));
+                    }
+                    Self::handle_u32_fp_fp_duplicates(instr, u32_temp1.unwrap(), u32_temp2.unwrap())
                 }
                 // U32 arithmetic operations with immediate operands
                 U32_STORE_ADD_FP_IMM | U32_STORE_SUB_FP_IMM | U32_STORE_MUL_FP_IMM
                 | U32_STORE_DIV_FP_IMM => {
-                    Self::handle_u32_fp_imm_duplicates(instr, temp_var_offset)?
+                    // Reserve temp variable on demand for U32 operations (need 2 slots)
+                    if u32_temp1.is_none() {
+                        u32_temp1 = Some(self.layout.reserve_stack(2));
+                    }
+                    Self::handle_u32_fp_imm_duplicates(instr, u32_temp1.unwrap())?
                 }
                 // U32 comparison operations with FP operands (result is felt, not u32)
                 U32_STORE_EQ_FP_FP | U32_STORE_NEQ_FP_FP | U32_STORE_GT_FP_FP
                 | U32_STORE_GE_FP_FP | U32_STORE_LT_FP_FP | U32_STORE_LE_FP_FP => {
-                    Self::handle_u32_fp_fp_duplicates(instr, temp_var_offset, temp_var_offset2)
+                    // Reserve temp variables on demand for U32 comparisons (need 2 slots each for operands)
+                    if u32_temp1.is_none() || u32_temp2.is_none() {
+                        u32_temp1 = Some(self.layout.reserve_stack(2));
+                        u32_temp2 = Some(self.layout.reserve_stack(2));
+                    }
+                    Self::handle_u32_fp_fp_duplicates(instr, u32_temp1.unwrap(), u32_temp2.unwrap())
                 }
                 // U32 comparison operations with immediate operands
                 U32_STORE_EQ_FP_IMM | U32_STORE_NEQ_FP_IMM | U32_STORE_GT_FP_IMM
                 | U32_STORE_GE_FP_IMM | U32_STORE_LT_FP_IMM | U32_STORE_LE_FP_IMM => {
-                    Self::handle_u32_fp_imm_duplicates(instr, temp_var_offset)?
+                    // Reserve temp variable on demand for U32 comparisons (need 2 slots)
+                    if u32_temp1.is_none() {
+                        u32_temp1 = Some(self.layout.reserve_stack(2));
+                    }
+                    Self::handle_u32_fp_imm_duplicates(instr, u32_temp1.unwrap())?
                 }
                 _ => {
                     // Keep instruction as-is

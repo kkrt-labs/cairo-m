@@ -126,7 +126,7 @@ impl Mem2RegSsaPass {
                         // we implement either SROA (scalar replacement of aggregates) or
                         // per-slot phi insertion.
                         let layout = DataLayout::new();
-                        if layout.is_promotable(&ty) {
+                        if layout.is_promotable(ty) {
                             allocations.insert(
                                 *dest,
                                 PromotableAllocation {

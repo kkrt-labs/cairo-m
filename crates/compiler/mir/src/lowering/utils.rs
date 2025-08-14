@@ -147,7 +147,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             MirType::Tuple(element_types) => {
                 for (i, elem_type) in element_types.iter().enumerate() {
                     let offset = layout
-                        .tuple_offset(&ty, i)
+                        .tuple_offset(ty, i)
                         .ok_or_else(|| format!("Invalid tuple index {} for type", i))?;
                     let offset_val = Value::integer(offset as i32);
 
@@ -174,7 +174,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             MirType::Struct { fields, .. } => {
                 for (field_name, field_type) in fields {
                     let offset = layout
-                        .field_offset(&ty, field_name)
+                        .field_offset(ty, field_name)
                         .ok_or_else(|| format!("Field {} not found in struct type", field_name))?;
                     let offset_val = Value::integer(offset as i32);
 
