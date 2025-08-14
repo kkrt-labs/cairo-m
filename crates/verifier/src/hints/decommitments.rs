@@ -15,6 +15,7 @@ use thiserror::Error;
 
 use cairo_m_prover::Proof;
 
+use crate::components::decommitments::N_INPUT_COLUMNS;
 use crate::hints::HashInput;
 use crate::poseidon31_merkle::{M31Hash, Poseidon31MerkleHasher, ELEMENTS_IN_BLOCK};
 use crate::Poseidon31MerkleChannel;
@@ -47,7 +48,7 @@ pub struct MerkleDecommitmentHintRow {
     /// The root of the Merkle tree (the commitment)
     pub root: M31Hash,
     /// The depth in the tree (0 is the root layer)
-    pub depth: u32,
+    pub layer_log_size: u32,
     /// The node index at this layer
     pub node_index: usize,
     /// Left value in the hashing process
@@ -66,6 +67,20 @@ impl MerkleDecommitmentHintRow {
         input[0] = self.x_0;
         input[1] = self.x_1;
         input
+    }
+
+    pub fn to_m31_array(&self) -> [M31; N_INPUT_COLUMNS] {
+        [
+            self.root.into(),
+            M31::from(self.layer_log_size),
+            M31::from(self.node_index),
+            M31::from(self.node_index / 2),
+            M31::from(self.node_index % 2),
+            self.x_0,
+            self.x_1,
+            self.parent_hash,
+            M31::from(self.final_hash as u32),
+        ]
     }
 }
 
@@ -87,7 +102,7 @@ impl MerkleDecommitmentHints {
     pub fn add_row(
         &mut self,
         root: M31Hash,
-        depth: u32,
+        layer_log_size: u32,
         node_index: usize,
         x_0: M31,
         x_1: M31,
@@ -96,7 +111,7 @@ impl MerkleDecommitmentHints {
     ) {
         self.rows.push(MerkleDecommitmentHintRow {
             root,
-            depth,
+            layer_log_size,
             node_index,
             x_0,
             x_1,
@@ -171,7 +186,6 @@ fn verify_tree_decommitment(
     let mut column_witness_iter = decommitment.column_witness.iter().copied();
 
     let mut last_layer_hashes: Option<Vec<(usize, M31Hash)>> = None;
-    dbg!(&n_columns_per_log_size);
     // Process layers from leaf to root
     for layer_log_size in (0..=max_log_size).rev() {
         let n_columns_in_layer = *n_columns_per_log_size.get(&layer_log_size).unwrap_or(&0);
@@ -225,15 +239,9 @@ fn verify_tree_decommitment(
 
             let node_values_iter = match layer_column_queries.next_if_eq(&node_index) {
                 // If the column values were queried, read them from `queried_value`.
-                Some(_) => {
-                    println!("layer {} node {} queried", layer_log_size, node_index);
-                    &mut queried_values_iter
-                }
+                Some(_) => &mut queried_values_iter,
                 // Otherwise, read them from the witness.
-                None => {
-                    println!("layer {} node {} witness", layer_log_size, node_index);
-                    &mut column_witness_iter
-                }
+                None => &mut column_witness_iter,
             };
 
             let node_values = node_values_iter.take(n_columns_in_layer).collect_vec();
@@ -303,11 +311,13 @@ fn verify_tree_decommitment(
 fn generate_node_hints(
     hints: &mut MerkleDecommitmentHints,
     root: M31Hash,
-    depth: u32,
+    layer_log_size: u32,
     node_index: usize,
     children_hashes: Option<(M31Hash, M31Hash)>,
     column_values: &[BaseField],
 ) -> M31 {
+    // Two children of a same parent have the same node_index.
+    let node_index = node_index / 2;
     let n_column_blocks = column_values.len().div_ceil(ELEMENTS_IN_BLOCK);
     let mut values_to_hash = Vec::with_capacity(2 + n_column_blocks);
 
@@ -336,7 +346,13 @@ fn generate_node_hints(
 
                     // Record hint for this pair hash within the block
                     hints.add_row(
-                        root, depth, node_index, acc, *value, new_hash, false, // Not final
+                        root,
+                        layer_log_size,
+                        node_index,
+                        acc,
+                        *value,
+                        new_hash,
+                        false, // Not final
                     );
 
                     acc = new_hash;
@@ -362,7 +378,7 @@ fn generate_node_hints(
             // Record hint for this final stage hash
             hints.add_row(
                 root,
-                depth,
+                layer_log_size,
                 node_index,
                 acc,
                 values_to_hash[i],

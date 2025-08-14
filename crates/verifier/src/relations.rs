@@ -3,6 +3,9 @@ use stwo_constraint_framework::relation;
 
 relation!(Poseidon2, 16); // state
 
+// Merkle(Root, Layer log size, Node index, Node value)
+relation!(Merkle, 4);
+
 /// Logup security is defined by the `QM31` space:
 /// (~124 bits) + `INTERACTION_POW_BITS` - log2(number of relation terms).
 ///

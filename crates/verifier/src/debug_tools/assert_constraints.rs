@@ -143,8 +143,12 @@ impl<B: BackendForChannel<MC>, MC: MerkleChannel> TreeBuilder<B>
 }
 
 fn assert_components(trace: TreeVec<Vec<&Vec<M31>>>, components: &Components) {
-    let Components { poseidon2 } = components;
+    let Components {
+        poseidon2,
+        decommitments,
+    } = components;
     assert_component(poseidon2, &trace);
+    assert_component(decommitments, &trace);
 }
 
 fn assert_component<E: FrameworkEval + Sync>(

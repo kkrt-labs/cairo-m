@@ -1,3 +1,4 @@
+pub mod decommitments;
 pub mod poseidon2;
 
 use num_traits::Zero;
@@ -22,30 +23,35 @@ use crate::relations;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Claim {
+    pub decommitments: decommitments::Claim,
     pub poseidon2: poseidon2::Claim,
 }
 
 #[derive(Debug, Clone)]
 pub struct Relations {
     pub poseidon2: relations::Poseidon2,
+    pub merkle: relations::Merkle,
 }
 
 pub struct InteractionClaimData {
+    pub decommitments: decommitments::InteractionClaimData,
     pub poseidon2: poseidon2::InteractionClaimData,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct InteractionClaim {
+    pub decommitments: decommitments::InteractionClaim,
     pub poseidon2: poseidon2::InteractionClaim,
 }
 
 impl Claim {
     pub fn log_sizes(&self) -> TreeVec<Vec<u32>> {
-        let trees = vec![self.poseidon2.log_sizes()];
+        let trees = vec![self.decommitments.log_sizes(), self.poseidon2.log_sizes()];
         TreeVec::concat_cols(trees.into_iter())
     }
 
     pub fn mix_into(&self, channel: &mut impl Channel) {
+        self.decommitments.mix_into(channel);
         self.poseidon2.mix_into(channel);
     }
 
@@ -59,20 +65,29 @@ impl Claim {
     where
         SimdBackend: BackendForChannel<MC>,
     {
+        // Write decommitments trace
+        let (decommitments_claim, decommitments_trace, decommitments_interaction_claim_data) =
+            decommitments::Claim::write_trace(&inputs.decommitment_hints);
+
         // Write poseidon2 trace
         let (poseidon2_claim, poseidon2_trace, poseidon2_interaction_claim_data) =
             poseidon2::Claim::write_trace(&inputs.decommitment_hints);
 
         // Gather all lookup data
         let interaction_claim_data = InteractionClaimData {
+            decommitments: decommitments_interaction_claim_data,
             poseidon2: poseidon2_interaction_claim_data,
         };
 
         // Combine all traces
-        let trace = poseidon2_trace.to_evals();
+        let trace = decommitments_trace
+            .to_evals()
+            .into_iter()
+            .chain(poseidon2_trace.to_evals());
 
         (
             Self {
+                decommitments: decommitments_claim,
                 poseidon2: poseidon2_claim,
             },
             trace,
@@ -89,6 +104,12 @@ impl InteractionClaim {
         impl IntoIterator<Item = CircleEvaluation<SimdBackend, M31, BitReversedOrder>>,
         Self,
     ) {
+        let (decommitments_interaction_claim, decommitments_interaction_trace) =
+            decommitments::InteractionClaim::write_interaction_trace(
+                relations,
+                &interaction_claim_data.decommitments,
+            );
+
         let (poseidon2_interaction_claim, poseidon2_interaction_trace) =
             poseidon2::InteractionClaim::write_interaction_trace(
                 relations,
@@ -96,8 +117,11 @@ impl InteractionClaim {
             );
 
         (
-            poseidon2_interaction_trace,
+            decommitments_interaction_trace
+                .into_iter()
+                .chain(poseidon2_interaction_trace),
             Self {
+                decommitments: decommitments_interaction_claim,
                 poseidon2: poseidon2_interaction_claim,
             },
         )
@@ -106,11 +130,13 @@ impl InteractionClaim {
     pub fn claimed_sum(&self, relations: &Relations, public_data: PublicData) -> SecureField {
         let mut sum = SecureField::zero();
         sum += public_data.initial_logup_sum(relations);
+        sum += self.decommitments.claimed_sum;
         sum += self.poseidon2.claimed_sum;
         sum
     }
 
     pub fn mix_into(&self, channel: &mut impl Channel) {
+        self.decommitments.mix_into(channel);
         self.poseidon2.mix_into(channel);
     }
 }
@@ -119,11 +145,13 @@ impl Relations {
     pub fn draw(channel: &mut impl Channel) -> Self {
         Self {
             poseidon2: relations::Poseidon2::draw(channel),
+            merkle: relations::Merkle::draw(channel),
         }
     }
 }
 
 pub struct Components {
+    pub decommitments: decommitments::Component,
     pub poseidon2: poseidon2::Component,
 }
 
@@ -135,6 +163,14 @@ impl Components {
         relations: &Relations,
     ) -> Self {
         Self {
+            decommitments: decommitments::Component::new(
+                location_allocator,
+                decommitments::Eval {
+                    claim: claim.decommitments.clone(),
+                    relations: relations.clone(),
+                },
+                interaction_claim.decommitments.claimed_sum,
+            ),
             poseidon2: poseidon2::Component::new(
                 location_allocator,
                 poseidon2::Eval {
@@ -147,10 +183,10 @@ impl Components {
     }
 
     pub fn provers(&self) -> Vec<&dyn ComponentProver<SimdBackend>> {
-        vec![&self.poseidon2]
+        vec![&self.decommitments, &self.poseidon2]
     }
 
     pub fn verifiers(&self) -> Vec<&dyn ComponentVerifier> {
-        vec![&self.poseidon2]
+        vec![&self.decommitments, &self.poseidon2]
     }
 }

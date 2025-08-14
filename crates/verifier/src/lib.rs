@@ -35,3 +35,23 @@ pub struct Proof<H: MerkleHasher> {
     pub stark_proof: StarkProof<H>,
     pub interaction_pow: u64,
 }
+
+impl<H: MerkleHasher> Proof<H>
+where
+    for<'de> H: Deserialize<'de>,
+    for<'de> H::Hash: Deserialize<'de>,
+{
+    /// Load a proof from a JSON file at the given path
+    pub fn from_json_file(path: impl AsRef<std::path::Path>) -> Result<Self, String> {
+        let json_content = std::fs::read_to_string(path.as_ref()).map_err(|e| {
+            format!(
+                "Failed to read proof file '{}': {}",
+                path.as_ref().display(),
+                e
+            )
+        })?;
+
+        serde_json::from_str(&json_content)
+            .map_err(|e| format!("Failed to parse proof JSON: {}", e))
+    }
+}

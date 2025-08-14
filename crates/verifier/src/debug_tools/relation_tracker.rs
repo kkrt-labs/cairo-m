@@ -53,10 +53,16 @@ fn relation_entries(
     components: &Components,
     trace: &TreeVec<Vec<&Vec<M31>>>,
 ) -> Vec<RelationTrackerEntry> {
-    let Components { poseidon2 } = components;
+    let Components {
+        poseidon2,
+        decommitments,
+    } = components;
 
-    let entries: Vec<RelationTrackerEntry> =
-        chain!(add_to_relation_entries(poseidon2, trace),).collect();
+    let entries: Vec<RelationTrackerEntry> = chain!(
+        add_to_relation_entries(poseidon2, trace),
+        add_to_relation_entries(decommitments, trace),
+    )
+    .collect();
 
     entries
 }
