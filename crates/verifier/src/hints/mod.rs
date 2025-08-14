@@ -37,10 +37,7 @@ where
     // ╔══════════════════════════════════════════════════════════════════════════╗
     // ║                              Decommitments                               ║
     // ╚══════════════════════════════════════════════════════════════════════════╝
-    let column_log_sizes: TreeVec<Vec<u32>> = get_column_log_sizes(
-        &proof.claim.log_sizes(),
-        proof.stark_proof.0.config.fri_config.log_blowup_factor,
-    );
+    let column_log_sizes: TreeVec<Vec<u32>> = get_column_log_sizes(&proof.claim.log_sizes());
 
     // NOTE: decommitment hints are Poseidon31MerkleHasher specific
     let _decommitment_hints =
@@ -50,16 +47,14 @@ where
     channel_hints
 }
 
-fn get_column_log_sizes(
-    log_sizes: &TreeVec<Vec<u32>>,
-    log_blowup_factor: u32,
-) -> TreeVec<Vec<u32>> {
+/// Get the column log sizes for the decommitment hints (unextended)
+fn get_column_log_sizes(log_sizes: &TreeVec<Vec<u32>>) -> TreeVec<Vec<u32>> {
     let execution_trace_log_size = log_sizes[1].clone();
     // TOOD: remove hardcoded max constraint log degree bound
     let composition_log_size = execution_trace_log_size.iter().max().unwrap() + 1;
     TreeVec::new(vec![
         // TODO: remove hardcoded preprocessed trace log_size
-        vec![20 + log_blowup_factor],
+        vec![20],
         execution_trace_log_size,
         log_sizes[2].clone(),
         vec![composition_log_size; SECURE_EXTENSION_DEGREE],

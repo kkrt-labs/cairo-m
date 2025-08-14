@@ -30,8 +30,14 @@ pub enum DecommitmentError {
     #[error("Column witness exhausted")]
     ColumnWitnessExhausted,
 
-    #[error("Queried values exhausted")]
-    QueriedValuesExhausted,
+    #[error("Too many queried values")]
+    TooManyQueriedValues,
+
+    #[error("Witness too long")]
+    WitnessTooLong,
+
+    #[error("Root mismatch")]
+    RootMismatch,
 }
 
 /// Represents a single row in the Merkle decommitment hints table
@@ -43,8 +49,6 @@ pub struct MerkleDecommitmentHintRow {
     pub depth: u32,
     /// The node index at this layer
     pub node_index: usize,
-    /// Sub-index j: which hash computation within the node (0 to k-1)
-    pub sub_index: usize,
     /// Left value in the hashing process
     pub x_0: M31,
     /// Right value in the hashing process
@@ -75,7 +79,6 @@ impl MerkleDecommitmentHints {
         root: M31Hash,
         depth: u32,
         node_index: usize,
-        sub_index: usize,
         x_0: M31,
         x_1: M31,
         parent_hash: M31,
@@ -85,7 +88,6 @@ impl MerkleDecommitmentHints {
             root,
             depth,
             node_index,
-            sub_index,
             x_0,
             x_1,
             parent_hash,
@@ -148,22 +150,18 @@ fn verify_tree_decommitment(
     // Count columns per extended log size (domain size)
     let mut n_columns_per_log_size = BTreeMap::new();
     for log_size in column_log_sizes {
-        // Use extended log size to match queries_per_log_size keys
-        let extended_log_size = *log_size + log_blowup_factor;
+        let extended_log_size = log_size + log_blowup_factor;
         *n_columns_per_log_size.entry(extended_log_size).or_insert(0) += 1;
     }
 
-    let Some(max_column_log_size) = column_log_sizes.iter().max() else {
-        return Ok(());
-    };
-    let max_log_size = max_column_log_size + log_blowup_factor;
+    let max_log_size = column_log_sizes.iter().max().unwrap() + log_blowup_factor;
 
     let mut queried_values_iter = queried_values.iter().copied();
     let mut hash_witness_iter = decommitment.hash_witness.iter().copied();
     let mut column_witness_iter = decommitment.column_witness.iter().copied();
 
     let mut last_layer_hashes: Option<Vec<(usize, M31Hash)>> = None;
-
+    dbg!(&n_columns_per_log_size);
     // Process layers from leaf to root
     for layer_log_size in (0..=max_log_size).rev() {
         let n_columns_in_layer = *n_columns_per_log_size.get(&layer_log_size).unwrap_or(&0);
@@ -217,9 +215,15 @@ fn verify_tree_decommitment(
 
             let node_values_iter = match layer_column_queries.next_if_eq(&node_index) {
                 // If the column values were queried, read them from `queried_value`.
-                Some(_) => &mut queried_values_iter,
+                Some(_) => {
+                    println!("layer {} node {} queried", layer_log_size, node_index);
+                    &mut queried_values_iter
+                }
                 // Otherwise, read them from the witness.
-                None => &mut column_witness_iter,
+                None => {
+                    println!("layer {} node {} witness", layer_log_size, node_index);
+                    &mut column_witness_iter
+                }
             };
 
             let node_values = node_values_iter.take(n_columns_in_layer).collect_vec();
@@ -258,6 +262,26 @@ fn verify_tree_decommitment(
         last_layer_hashes = Some(layer_total_queries);
     }
 
+    // Check that all witnesses and values have been consumed.
+    if hash_witness_iter.next().is_some() {
+        return Err(DecommitmentError::WitnessTooLong);
+    }
+    if queried_values_iter.next().is_some() {
+        return Err(DecommitmentError::TooManyQueriedValues);
+    }
+    if column_witness_iter.next().is_some() {
+        return Err(DecommitmentError::ColumnWitnessExhausted);
+    }
+
+    let last_layer = last_layer_hashes.unwrap();
+    if last_layer.len() != 1 {
+        return Err(DecommitmentError::RootMismatch);
+    }
+    let (_, computed_root) = last_layer[0];
+    if computed_root != root {
+        return Err(DecommitmentError::RootMismatch);
+    }
+
     Ok(())
 }
 
@@ -276,7 +300,6 @@ fn generate_node_hints(
 ) -> M31 {
     let n_column_blocks = column_values.len().div_ceil(ELEMENTS_IN_BLOCK);
     let mut values_to_hash = Vec::with_capacity(2 + n_column_blocks);
-    let mut sub_index = 0;
 
     // Step 1: Add children hashes if they exist
     if let Some((left, right)) = children_hashes {
@@ -303,10 +326,8 @@ fn generate_node_hints(
 
                     // Record hint for this pair hash within the block
                     hints.add_row(
-                        root, depth, node_index, sub_index, acc, *value, new_hash,
-                        false, // Not final
+                        root, depth, node_index, acc, *value, new_hash, false, // Not final
                     );
-                    sub_index += 1;
 
                     acc = new_hash;
                 }
@@ -333,13 +354,11 @@ fn generate_node_hints(
                 root,
                 depth,
                 node_index,
-                sub_index,
                 acc,
                 values_to_hash[i],
                 new_hash,
                 i == values_to_hash.len() - 1, // Mark as final if this is the last hash
             );
-            sub_index += 1;
 
             acc = new_hash;
         }
@@ -360,7 +379,7 @@ fn get_next_node(
         .min()
 }
 
-/// Generate query positions mapped by log size
+/// Generate query positions mapped by extended log size
 fn get_queries_per_log_size(
     queries: &Queries,
     column_log_sizes: &[Vec<u32>],
