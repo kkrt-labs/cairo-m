@@ -25,36 +25,44 @@ module {
       %1 = 1
       jump 1
 
-    1:
+    1 (for_header):
+      ; for_header
       if %1 Neq 10 then jump 2 else jump 4
 
-    2:
+    2 (for_body):
+      ; for_body
       %3 = 1
       jump 5
 
-    3:
+    3 (for_step):
+      ; for_step
       %8 = %1 Add 1
       store %1, %8
       jump 1
 
-    4:
+    4 (for_exit):
+      ; for_exit
       return %0
 
-    5:
+    5 (for_header):
+      ; for_header
       if %3 Neq 10 then jump 6 else jump 8
 
-    6:
+    6 (for_body):
+      ; for_body
       %5 = %1 Mul %3
       %6 = %0 Add %5
       store %0, %6
       jump 7
 
-    7:
+    7 (for_step):
+      ; for_step
       %7 = %3 Add 1
       store %3, %7
       jump 5
 
-    8:
+    8 (for_exit):
+      ; for_exit
       jump 3
 
   }

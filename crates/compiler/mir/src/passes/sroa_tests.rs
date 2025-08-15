@@ -65,6 +65,7 @@ fn test_sroa_simple_struct() {
     let sum = function.new_typed_value_id(MirType::felt());
 
     let entry_block = BasicBlock {
+        name: None,
         instructions: vec![
             Instruction::frame_alloc(alloc, struct_type.clone()),
             Instruction::get_element_ptr_typed(
@@ -161,6 +162,7 @@ fn test_sroa_nested_struct() {
     let load_val = function.new_typed_value_id(MirType::felt());
 
     let entry_block = BasicBlock {
+        name: None,
         instructions: vec![
             Instruction::frame_alloc(alloc, outer_struct.clone()),
             Instruction::get_element_ptr_typed(
@@ -228,6 +230,7 @@ fn test_sroa_tuple() {
     let load_0 = function.new_typed_value_id(MirType::felt());
 
     let entry_block = BasicBlock {
+        name: None,
         instructions: vec![
             Instruction::frame_alloc(alloc, tuple_type.clone()),
             Instruction::get_element_ptr_typed(
@@ -300,6 +303,7 @@ fn test_sroa_ssa_aggregates() {
     let sum = function.new_typed_value_id(MirType::felt());
 
     let entry_block = BasicBlock {
+        name: None,
         instructions: vec![
             Instruction::assign(val1, Value::integer(10), MirType::felt()),
             Instruction::assign(val2, Value::integer(20), MirType::felt()),
@@ -380,6 +384,7 @@ fn test_sroa_escaping_allocation() {
     let dummy_func = FunctionId::from_raw(1);
 
     let entry_block = BasicBlock {
+        name: None,
         instructions: vec![
             Instruction::frame_alloc(alloc, struct_type.clone()),
             Instruction::void_call(

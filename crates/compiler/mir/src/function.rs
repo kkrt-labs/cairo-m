@@ -93,10 +93,8 @@ impl MirFunction {
     }
 
     /// Adds a new basic block with a name and returns its ID
-    pub fn add_basic_block_with_name(&mut self, _name: String) -> BasicBlockId {
-        let block = BasicBlock::new();
-        // Store the name as a comment or label if we want to preserve it for debugging
-        // For now, we just create the block
+    pub fn add_basic_block_with_name(&mut self, name: String) -> BasicBlockId {
+        let block = BasicBlock::with_name(name);
         self.basic_blocks.push(block)
     }
 
@@ -297,7 +295,12 @@ impl PrettyPrint for MirFunction {
 
         // Print basic blocks
         for (block_id, block) in self.basic_blocks() {
-            result.push_str(&format!("{base_indent}  {block_id:?}:\n"));
+            let block_display = if let Some(ref name) = block.name {
+                format!("{block_id:?} ({name})")
+            } else {
+                format!("{block_id:?}")
+            };
+            result.push_str(&format!("{base_indent}  {block_display}:\n"));
             result.push_str(&block.pretty_print(indent + 2));
             result.push('\n');
         }

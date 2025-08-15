@@ -25,19 +25,23 @@ module {
       %0 = 10
       jump 1
 
-    1:
+    1 (block_1):
+      ; block_1
       %1 = %0 Eq 7
       %2 = %0 Eq 0
       %3 = %1 Or %2
       if %3 then jump 3 else jump 4
 
-    2:
+    2 (block_2):
+      ; block_2
       return %0
 
-    3:
+    3 (block_3):
+      ; block_3
       jump 2
 
-    4:
+    4 (block_4):
+      ; block_4
       %4 = %0 Sub 1
       store %0, %4
       jump 1

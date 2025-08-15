@@ -49,12 +49,14 @@ module {
       %14 = %5 U32Add %9
       if %13 then jump 1 else jump 2
 
-    1:
+    1 (block_1):
+      ; block_1
       %15 = %14 U32Add 1
       store %14, %15 (u32)
       jump 2
 
-    2:
+    2 (block_2):
+      ; block_2
       return %14
 
   }

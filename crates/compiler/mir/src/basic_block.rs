@@ -21,6 +21,9 @@ use crate::{indent_str, Instruction, PrettyPrint, Terminator};
 /// - Control can only enter at the beginning and exit at the end
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BasicBlock {
+    /// Optional name for debugging purposes
+    pub name: Option<String>,
+
     /// The sequence of instructions in this block
     /// These execute sequentially without any control flow changes
     pub instructions: Vec<Instruction>,
@@ -37,6 +40,16 @@ impl BasicBlock {
     /// terminator is set during MIR construction.
     pub const fn new() -> Self {
         Self {
+            name: None,
+            instructions: Vec::new(),
+            terminator: Terminator::Unreachable,
+        }
+    }
+
+    /// Creates a new basic block with a name and an unreachable terminator
+    pub fn with_name(name: String) -> Self {
+        Self {
+            name: Some(name),
             instructions: Vec::new(),
             terminator: Terminator::Unreachable,
         }
@@ -45,6 +58,7 @@ impl BasicBlock {
     /// Creates a new basic block with the given terminator
     pub const fn with_terminator(terminator: Terminator) -> Self {
         Self {
+            name: None,
             instructions: Vec::new(),
             terminator,
         }
@@ -163,6 +177,11 @@ impl PrettyPrint for BasicBlock {
     fn pretty_print(&self, indent: usize) -> String {
         let mut result = String::new();
         let base_indent = indent_str(indent);
+
+        // Print block name if available
+        if let Some(ref name) = self.name {
+            result.push_str(&format!("{}; {}\n", base_indent, name));
+        }
 
         // Print instructions
         for instruction in &self.instructions {

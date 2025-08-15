@@ -91,6 +91,7 @@ pub fn split_critical_edge(
 ) -> BasicBlockId {
     // Create a new edge block that simply jumps to the successor
     let edge_block = BasicBlock {
+        name: Some(format!("edge_{:?}_{:?}", pred_id, succ_id)),
         instructions: Vec::new(),
         terminator: Terminator::Jump { target: succ_id },
     };

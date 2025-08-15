@@ -33,25 +33,31 @@ module {
       %0 = 0 (u32)
       jump 1
 
-    1:
+    1 (block_1):
+      ; block_1
       %1 = %0 U32Add 1
       store %0, %1 (u32)
       %2 = %0 U32Greater 1000
       if %2 then jump 3 else jump 4
 
-    2:
+    2 (block_2):
+      ; block_2
       return %0
 
-    3:
+    3 (block_3):
+      ; block_3
       jump 2
 
-    4:
+    4 (block_4):
+      ; block_4
       if %0 U32Eq 10 then jump 5 else jump 6
 
-    5:
+    5 (block_5):
+      ; block_5
       jump 2
 
-    6:
+    6 (block_6):
+      ; block_6
       jump 1
 
   }

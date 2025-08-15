@@ -5,7 +5,7 @@
 This example demonstrates most of Cairo-M's language features through a simple
 RPG combat simulation:
 
-```cairo-m
+````cairo-m
 //! ignore
 // Struct definitions showing custom types
 struct Character {
@@ -194,7 +194,199 @@ fn simulate_full_battle() -> u32 {
 
     return 0;  // Draw
 }
-```
+
+## Rust Equivalent with Wrapping Math
+
+Here's the exact equivalent implementation in Rust using wrapping arithmetic for u32 operations:
+
+```rust
+// Struct definitions showing custom types
+#[derive(Debug, Clone, Copy)]
+struct Character {
+    health: u32,
+    mana: u32,
+    level: u32,
+    position: Position,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct Position {
+    x: u32,
+    y: u32,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct CombatResult {
+    damage_dealt: u32,
+    critical_hit: bool,
+    remaining_health: u32,
+}
+
+// Entry point demonstrating tuple usage and multiple features
+fn main_test() -> u32 {
+    let battle_result = simulate_full_battle();
+
+    // Create a summary tuple
+    let summary = get_character_stats(Character {
+        health: 100,
+        mana: 50,
+        level: 5,
+        position: Position { x: 0, y: 0 },
+    });
+
+    // Extract tuple values
+    let (health, mana, level) = summary;
+
+    // Combine results using wrapping u32 arithmetic
+    let final_score: u32 = battle_result.wrapping_add(level);
+    let bonus_score = mana.wrapping_div(10u32);
+
+    final_score.wrapping_add(bonus_score)
+}
+
+// Function demonstrating tuples as return types
+fn get_character_stats(char: Character) -> (u32, u32, u32) {
+    (char.health, char.mana, char.level)
+}
+
+// Function with complex struct manipulation and arithmetic
+fn calculate_distance_squared(pos1: Position, pos2: Position) -> u32 {
+    let dx = pos1.x.wrapping_sub(pos2.x);
+    let dy = pos1.y.wrapping_sub(pos2.y);
+    dx.wrapping_mul(dx).wrapping_add(dy.wrapping_mul(dy))
+}
+
+// Function demonstrating control flow and u32 operations
+fn calculate_damage(attacker_level: u32, defender_level: u32, distance: u32) -> u32 {
+    let base_damage: u32 = 10;
+    let level_bonus = attacker_level.wrapping_mul(2);
+
+    // Distance penalty calculation
+    let distance_penalty: u32 = if distance > 100 {
+        5
+    } else if distance > 50 {
+        2
+    } else {
+        0
+    };
+
+    let total_damage = base_damage.wrapping_add(level_bonus);
+    if total_damage > distance_penalty {
+        total_damage.wrapping_sub(distance_penalty)
+    } else {
+        1  // Minimum damage
+    }
+}
+
+// Function showing complex logic
+fn perform_combat(attacker: Character, defender: Character) -> CombatResult {
+    let distance = calculate_distance_squared(attacker.position, defender.position);
+    let base_damage = calculate_damage(attacker.level, defender.level, distance);
+
+    // Critical hit calculation using u32 arithmetic
+    let critical_multiplier = attacker.mana.wrapping_div(10u32);
+    let mut is_critical: bool = false;
+    let mut final_damage = base_damage;
+
+    if critical_multiplier > 5 {
+        is_critical = true;
+        final_damage = base_damage.wrapping_mul(2);
+    }
+
+    // Apply damage with bounds checking
+    let new_health = if final_damage >= defender.health {
+        0
+    } else {
+        defender.health.wrapping_sub(final_damage)
+    };
+
+    CombatResult {
+        damage_dealt: final_damage,
+        critical_hit: is_critical,
+        remaining_health: new_health,
+    }
+}
+
+// Function demonstrating multiple function calls and tuple destructuring
+fn simulate_battle_round(hero: Character, enemy: Character) -> u32 {
+    // Hero attacks enemy
+    let hero_attack = perform_combat(hero, enemy);
+    let enemy_health = hero_attack.remaining_health;
+
+    // Enemy counter-attacks if still alive
+    if enemy_health > 0 {
+        let enemy_counter = perform_combat(enemy, hero);
+        let hero_health = enemy_counter.remaining_health;
+
+        // Return 1 if hero wins, 2 if enemy wins, 0 if both alive
+        if enemy_health == 0 {
+            1  // Hero wins
+        } else if hero_health == 0 {
+            2  // Enemy wins
+        } else {
+            0  // Both alive, continue battle
+        }
+    } else {
+        1  // Hero wins immediately
+    }
+}
+
+// Main function demonstrating variable mutation and comprehensive example
+fn simulate_full_battle() -> u32 {
+    // Create characters using struct literals
+    let hero = Character {
+        health: 100,
+        mana: 50,
+        level: 5,
+        position: Position { x: 10, y: 20 },
+    };
+
+    let enemy = Character {
+        health: 80,
+        mana: 30,
+        level: 4,
+        position: Position { x: 15, y: 25 },
+    };
+
+    // Battle loop with mutation
+    let mut current_hero = hero;
+    let mut current_enemy = enemy;
+    let mut round: u32 = 1;
+    let max_rounds: u32 = 10;
+
+    // Simulate multiple battle rounds
+    loop {
+        if round > max_rounds {
+            break;  // Draw after max rounds
+        }
+
+        let result = simulate_battle_round(current_hero, current_enemy);
+
+        if result == 1 {
+            return 1;  // Hero victory
+        } else if result == 2 {
+            return 2;  // Enemy victory
+        }
+
+        // Update for next round (simplified - reduce both healths)
+        if current_hero.health > 10 {
+            current_hero.health = current_hero.health.wrapping_sub(5);
+        }
+        if current_enemy.health > 8 {
+            current_enemy.health = current_enemy.health.wrapping_sub(4);
+        }
+
+        round = round.wrapping_add(1);
+    }
+
+    0  // Draw
+}
+
+// Main function to run the test
+fn main() {
+    let result = main_test();
+    println!("Final result: {}", result);
+}
 
 This example demonstrates:
 
@@ -241,3 +433,4 @@ for:
 The example shows progression from simple operations to complex multi-function
 interactions while maintaining readability and demonstrating the full spectrum
 of Cairo-M's capabilities.
+````

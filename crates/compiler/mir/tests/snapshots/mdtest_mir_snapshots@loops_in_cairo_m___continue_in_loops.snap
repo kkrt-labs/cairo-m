@@ -26,24 +26,30 @@ module {
       %1 = 0
       jump 1
 
-    1:
+    1 (for_header):
+      ; for_header
       if %1 Neq 10 then jump 2 else jump 4
 
-    2:
+    2 (for_body):
+      ; for_body
       if %1 Eq 5 then jump 5 else jump 6
 
-    3:
+    3 (for_step):
+      ; for_step
       %5 = %1 Add 1
       store %1, %5
       jump 1
 
-    4:
+    4 (for_exit):
+      ; for_exit
       return %0
 
-    5:
+    5 (block_5):
+      ; block_5
       jump 3
 
-    6:
+    6 (block_6):
+      ; block_6
       %4 = %0 Add %1
       store %0, %4
       jump 3

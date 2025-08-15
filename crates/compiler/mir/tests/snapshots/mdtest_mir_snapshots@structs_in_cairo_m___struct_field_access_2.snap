@@ -40,7 +40,8 @@ module {
 %4 = load u32 %3
       if %4 U32Eq 5 then jump 1 else jump 2
 
-    1:
+    1 (block_1):
+      ; block_1
       // Get address of field 'width'
 %6 = getelementptr %0, 0
       // Load field 'width'
@@ -51,7 +52,8 @@ module {
       store %9, %8 (u32)
       jump 3
 
-    2:
+    2 (block_2):
+      ; block_2
       // Get address of field 'width'
 %10 = getelementptr %0, 0
       // Get address of field 'height'
@@ -61,7 +63,8 @@ module {
       store %10, %12 (u32)
       jump 3
 
-    3:
+    3 (block_3):
+      ; block_3
       // Get address of field 'width'
 %13 = getelementptr %0, 0
       // Load field 'width'
