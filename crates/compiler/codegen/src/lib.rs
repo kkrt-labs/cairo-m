@@ -21,12 +21,14 @@ use cairo_m_compiler_mir::{BasicBlockId, MirModule};
 use smallvec::SmallVec;
 use stwo_prover::core::fields::m31::M31;
 
+pub mod backend;
 pub mod builder;
 pub mod db;
 pub mod generator;
 pub mod layout;
 
 // Re-export main components
+pub use backend::CasmBackend;
 pub use builder::CasmBuilder;
 pub use db::{compile_project as db_compile_project, CodegenDb};
 pub use generator::CodeGenerator;

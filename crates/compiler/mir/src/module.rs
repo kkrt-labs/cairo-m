@@ -79,6 +79,11 @@ impl MirModule {
         self.functions.iter_enumerated()
     }
 
+    /// Returns a mutable iterator over all functions
+    pub fn functions_mut(&mut self) -> impl Iterator<Item = &mut MirFunction> {
+        self.functions.iter_mut()
+    }
+
     /// Returns the number of functions in this module
     pub fn function_count(&self) -> usize {
         self.functions.len()

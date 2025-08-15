@@ -57,11 +57,12 @@ pub use instruction::{
 pub use layout::DataLayout;
 pub use mir_types::MirType;
 pub use module::MirModule;
-pub use passes::{DeadCodeElimination, MirPass, PassManager, SroaPass, Validation};
+pub use passes::{DeadCodeElimination, FuseCmpBranch, MirPass, PassManager, SroaPass, Validation};
 pub use terminator::Terminator;
 pub use value::{Literal, Place, Value};
 
 pub mod analysis;
+pub mod backend;
 pub mod basic_block;
 pub mod builder;
 pub mod cfg;
@@ -73,6 +74,7 @@ pub mod lowering;
 pub mod mir_types;
 pub mod module;
 pub mod passes;
+pub mod pipeline;
 pub mod terminator;
 pub mod value;
 
