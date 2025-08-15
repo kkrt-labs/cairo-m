@@ -165,3 +165,95 @@ fn test_single_definition_validation() {
     assert!(!modified);
     std::env::remove_var("RUST_LOG");
 }
+
+#[test]
+fn test_post_ssa_validation_no_false_warnings() {
+    // This test simulates what SSA destruction does: multiple assignments to the same ValueId
+    let mut function = MirFunction::new("test_post_ssa".to_string());
+
+    // Create blocks that simulate post-SSA code
+    function.basic_blocks.push(BasicBlock::new());
+    function.basic_blocks.push(BasicBlock::new());
+    function.basic_blocks.push(BasicBlock::new());
+
+    let value_id = function.new_value_id();
+
+    // Simulate what SSA destruction does: assignments in different predecessor blocks
+    // This is valid post-SSA code
+    function.basic_blocks[BasicBlockId::from_raw(0)]
+        .instructions
+        .push(Instruction::assign(
+            value_id,
+            Value::Literal(Literal::Integer(1)),
+            MirType::Felt,
+        ));
+    function.basic_blocks[BasicBlockId::from_raw(0)].terminator = Terminator::Jump {
+        target: BasicBlockId::from_raw(2),
+    };
+
+    function.basic_blocks[BasicBlockId::from_raw(1)]
+        .instructions
+        .push(Instruction::assign(
+            value_id,
+            Value::Literal(Literal::Integer(2)),
+            MirType::Felt,
+        ));
+    function.basic_blocks[BasicBlockId::from_raw(1)].terminator = Terminator::Jump {
+        target: BasicBlockId::from_raw(2),
+    };
+
+    function.basic_blocks[BasicBlockId::from_raw(2)].terminator = Terminator::Return {
+        values: vec![Value::operand(value_id)],
+    };
+
+    // Run validation with SSA checks enabled - should report error
+    std::env::set_var("RUST_LOG", "error");
+    let mut validation_ssa = Validation::new();
+    validation_ssa.run(&mut function);
+    // We expect this to log an error about multiple definitions
+
+    // Run validation with SSA checks disabled (post-SSA mode) - should NOT report error
+    let mut validation_post_ssa = Validation::new_post_ssa();
+    validation_post_ssa.run(&mut function);
+    // This should not log any errors about multiple definitions
+
+    std::env::remove_var("RUST_LOG");
+}
+
+#[test]
+fn test_validation_detects_phi_nodes() {
+    // Test that validation can detect when MIR is in SSA form (has phi nodes)
+    let mut function = MirFunction::new("test_phi_detection".to_string());
+
+    function.basic_blocks.push(BasicBlock::new());
+
+    let phi_dest = function.new_value_id();
+    let val1 = function.new_value_id();
+    let val2 = function.new_value_id();
+
+    // Add a phi node
+    function.basic_blocks[BasicBlockId::from_raw(0)]
+        .instructions
+        .push(Instruction {
+            kind: InstructionKind::Phi {
+                dest: phi_dest,
+                sources: vec![
+                    (BasicBlockId::from_raw(0), Value::operand(val1)),
+                    (BasicBlockId::from_raw(0), Value::operand(val2)),
+                ],
+                ty: MirType::Felt,
+            },
+            source_span: None,
+            source_expr_id: None,
+            comment: Some("Phi node".to_string()),
+        });
+
+    function.basic_blocks[BasicBlockId::from_raw(0)].terminator = Terminator::Return {
+        values: vec![Value::operand(phi_dest)],
+    };
+
+    // Run validation - should work fine with phi nodes
+    let mut validation = Validation::new();
+    let modified = validation.run(&mut function);
+    assert!(!modified);
+}

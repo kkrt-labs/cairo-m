@@ -212,13 +212,33 @@ impl MirPass for DeadCodeElimination {
 ///
 /// This pass validates the MIR function to ensure it meets all invariants.
 /// It's useful to run after other passes to ensure correctness.
-#[derive(Debug, Default)]
-pub struct Validation;
+#[derive(Debug)]
+pub struct Validation {
+    /// Whether to check SSA invariants (single definition per value)
+    /// Should be false after SSA destruction pass
+    check_ssa_invariants: bool,
+}
+
+impl Default for Validation {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl Validation {
-    /// Create a new validation pass
+    /// Create a new validation pass that checks SSA invariants
     pub const fn new() -> Self {
-        Self
+        Self {
+            check_ssa_invariants: true,
+        }
+    }
+
+    /// Create a new validation pass for post-SSA form
+    /// This skips SSA invariant checks since SSA destruction creates multiple assignments
+    pub const fn new_post_ssa() -> Self {
+        Self {
+            check_ssa_invariants: false,
+        }
     }
 }
 
@@ -393,8 +413,13 @@ impl Validation {
         }
     }
 
-    /// Validate that each value is defined exactly once
+    /// Validate that each value is defined exactly once (only in SSA form)
     fn validate_single_definition(&self, function: &MirFunction) {
+        // Skip SSA invariant checks if we're in post-SSA form
+        if !self.check_ssa_invariants {
+            return;
+        }
+
         let mut defined_values = std::collections::HashSet::new();
 
         // Check parameters
@@ -470,10 +495,11 @@ impl PassManager {
             .add_pass(pre_opt::PreOptimizationPass::new())
             .add_pass(sroa::SroaPass::new()) // Split aggregates before mem2reg
             .add_pass(mem2reg_ssa::Mem2RegSsaPass::new()) // Run SSA mem2reg early for true SSA form
+            .add_pass(Validation::new()) // Validate SSA form before destruction
             .add_pass(ssa_destruction::SsaDestructionPass::new()) // Eliminate Phi nodes before codegen
             .add_pass(FuseCmpBranch::new())
             .add_pass(DeadCodeElimination::new())
-            .add_pass(Validation::new())
+            .add_pass(Validation::new_post_ssa()) // Validate post-SSA form without SSA invariants
     }
 }
 
