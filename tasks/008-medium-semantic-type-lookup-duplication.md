@@ -2,7 +2,7 @@
 
 ## Priority
 
-MEDIUM
+MEDIUM - COMPLETED
 
 ## Why
 
@@ -165,3 +165,33 @@ let result_type = self.ctx.get_expr_type(expr_id);
 - Code coverage remains identical
 - No performance regressions in compilation times
 - Reduced cognitive complexity in affected methods
+
+## Implementation Summary
+
+Successfully unified semantic type lookups by replacing 14 duplicated patterns
+with calls to the existing `get_expr_type` helper method:
+
+1. **Replacements made**:
+   - Member access object type (both lvalue and expression contexts)
+   - Member access field type (both contexts)
+   - Index access element type (both contexts)
+   - Tuple index tuple type (both contexts)
+   - Binary operation result type
+   - Unary operation result type
+   - Struct literal type
+   - Struct field value types
+   - Tuple literal type
+   - Tuple element types
+2. **Special cases preserved**:
+   - Definition semantic type lookups (using `definition_semantic_type`)
+   - Function call return type checking (needs TypeData examination)
+   - Left operand type in binary operations (needs semantic data)
+
+3. **Benefits achieved**:
+   - Eliminated ~28 lines of duplicated code
+   - Improved performance through type caching
+   - Single point of change for type lookup logic
+   - Cleaner, more maintainable code
+
+All tests pass and the refactoring maintains identical behavior while improving
+code quality.

@@ -191,351 +191,630 @@ fn simulate_full_battle() -> u32 {
 
     return 0;  // Draw
 }
+
+## Rust Equivalent with Wrapping Math
+
+Here's the exact equivalent implementation in Rust using wrapping arithmetic for u32 operations:
+
+```rust
+// Struct definitions showing custom types
+#[derive(Debug, Clone, Copy)]
+struct Character {
+    health: u32,
+    mana: u32,
+    level: u32,
+    position: Position,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct Position {
+    x: u32,
+    y: u32,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct CombatResult {
+    damage_dealt: u32,
+    critical_hit: bool,
+    remaining_health: u32,
+}
+
+// Entry point demonstrating tuple usage and multiple features
+fn main_test() -> u32 {
+    let battle_result = simulate_full_battle();
+
+    // Create a summary tuple
+    let summary = get_character_stats(Character {
+        health: 100,
+        mana: 50,
+        level: 5,
+        position: Position { x: 0, y: 0 },
+    });
+
+    // Extract tuple values
+    let (health, mana, level) = summary;
+
+    // Combine results using wrapping u32 arithmetic
+    let final_score: u32 = battle_result.wrapping_add(level);
+    let bonus_score = mana.wrapping_div(10u32);
+
+    final_score.wrapping_add(bonus_score)
+}
+
+// Function demonstrating tuples as return types
+fn get_character_stats(char: Character) -> (u32, u32, u32) {
+    (char.health, char.mana, char.level)
+}
+
+// Function with complex struct manipulation and arithmetic
+fn calculate_distance_squared(pos1: Position, pos2: Position) -> u32 {
+    let dx = pos1.x.wrapping_sub(pos2.x);
+    let dy = pos1.y.wrapping_sub(pos2.y);
+    dx.wrapping_mul(dx).wrapping_add(dy.wrapping_mul(dy))
+}
+
+// Function demonstrating control flow and u32 operations
+fn calculate_damage(attacker_level: u32, defender_level: u32, distance: u32) -> u32 {
+    let base_damage: u32 = 10;
+    let level_bonus = attacker_level.wrapping_mul(2);
+
+    // Distance penalty calculation
+    let distance_penalty: u32 = if distance > 100 {
+        5
+    } else if distance > 50 {
+        2
+    } else {
+        0
+    };
+
+    let total_damage = base_damage.wrapping_add(level_bonus);
+    if total_damage > distance_penalty {
+        total_damage.wrapping_sub(distance_penalty)
+    } else {
+        1  // Minimum damage
+    }
+}
+
+// Function showing complex logic
+fn perform_combat(attacker: Character, defender: Character) -> CombatResult {
+    let distance = calculate_distance_squared(attacker.position, defender.position);
+    let base_damage = calculate_damage(attacker.level, defender.level, distance);
+
+    // Critical hit calculation using u32 arithmetic
+    let critical_multiplier = attacker.mana.wrapping_div(10u32);
+    let mut is_critical: bool = false;
+    let mut final_damage = base_damage;
+
+    if critical_multiplier > 5 {
+        is_critical = true;
+        final_damage = base_damage.wrapping_mul(2);
+    }
+
+    // Apply damage with bounds checking
+    let new_health = if final_damage >= defender.health {
+        0
+    } else {
+        defender.health.wrapping_sub(final_damage)
+    };
+
+    CombatResult {
+        damage_dealt: final_damage,
+        critical_hit: is_critical,
+        remaining_health: new_health,
+    }
+}
+
+// Function demonstrating multiple function calls and tuple destructuring
+fn simulate_battle_round(hero: Character, enemy: Character) -> u32 {
+    // Hero attacks enemy
+    let hero_attack = perform_combat(hero, enemy);
+    let enemy_health = hero_attack.remaining_health;
+
+    // Enemy counter-attacks if still alive
+    if enemy_health > 0 {
+        let enemy_counter = perform_combat(enemy, hero);
+        let hero_health = enemy_counter.remaining_health;
+
+        // Return 1 if hero wins, 2 if enemy wins, 0 if both alive
+        if enemy_health == 0 {
+            1  // Hero wins
+        } else if hero_health == 0 {
+            2  // Enemy wins
+        } else {
+            0  // Both alive, continue battle
+        }
+    } else {
+        1  // Hero wins immediately
+    }
+}
+
+// Main function demonstrating variable mutation and comprehensive example
+fn simulate_full_battle() -> u32 {
+    // Create characters using struct literals
+    let hero = Character {
+        health: 100,
+        mana: 50,
+        level: 5,
+        position: Position { x: 10, y: 20 },
+    };
+
+    let enemy = Character {
+        health: 80,
+        mana: 30,
+        level: 4,
+        position: Position { x: 15, y: 25 },
+    };
+
+    // Battle loop with mutation
+    let mut current_hero = hero;
+    let mut current_enemy = enemy;
+    let mut round: u32 = 1;
+    let max_rounds: u32 = 10;
+
+    // Simulate multiple battle rounds
+    loop {
+        if round > max_rounds {
+            break;  // Draw after max rounds
+        }
+
+        let result = simulate_battle_round(current_hero, current_enemy);
+
+        if result == 1 {
+            return 1;  // Hero victory
+        } else if result == 2 {
+            return 2;  // Enemy victory
+        }
+
+        // Update for next round (simplified - reduce both healths)
+        if current_hero.health > 10 {
+            current_hero.health = current_hero.health.wrapping_sub(5);
+        }
+        if current_enemy.health > 8 {
+            current_enemy.health = current_enemy.health.wrapping_sub(4);
+        }
+
+        round = round.wrapping_add(1);
+    }
+
+    0  // Draw
+}
+
+// Main function to run the test
+fn main() {
+    let result = main_test();
+    println!("Final result: {}", result);
+}
+
+This example demonstrates:
+
+### Language Features Showcased:
+
+1. **Structs**: `Character`, `Position`, `CombatResult` with nested struct
+   fields
+2. **Tuples**: Return types `(u32, felt, u32)` and tuple destructuring
+3. **Primitive Types**:
+   - `felt` for coordinates, mana, distance calculations
+   - `u32` for health, damage, levels, counters
+4. **Functions**: Multiple functions with various parameter types and return
+   values
+5. **Control Flow**:
+   - `if-else` statements (nested and chained)
+   - `loop` with `break` statements
+   - Complex conditional logic
+6. **Variable Operations**:
+   - Variable declarations with `let`
+   - Variable mutation (health updates, counters)
+   - Type inference and explicit typing
+7. **Arithmetic Operations**:
+   - Addition, subtraction, multiplication, division
+   - Mixed felt/u32 arithmetic
+   - Comparison operations (`>`, `==`, `>=`)
+8. **Struct Operations**:
+   - Struct literal creation
+   - Field access and modification
+   - Nested struct access (`position.x`, `position.y`)
+   - Struct parameters and return values
+9. **Complex Expressions**: Multi-step calculations and nested function calls
+
+### Real-World Relevance:
+
+This RPG combat system is practical and demonstrates how Cairo-M could be used
+for:
+
+- Game logic implementation
+- State management
+- Mathematical calculations
+- Complex business rules
+- Resource management systems
+
+The example shows progression from simple operations to complex multi-function
+interactions while maintaining readability and demonstrating the full spectrum
+of Cairo-M's capabilities.
 ============================================================
-Generated CASM:
-main_test:
-main_test:
-main_test_0:
-   0: 10 46 232 _          // call simulate_full_battle
-   1: 23 100 0 2           // [fp + 2, fp + 3] = u32(100)
-   2: 23 50 0 4            // [fp + 4, fp + 5] = u32(50)
-   3: 23 5 0 6             // [fp + 6, fp + 7] = u32(5)
-   4: 23 0 0 12            // [fp + 12, fp + 13] = u32(0)
-   5: 23 0 0 14            // [fp + 14, fp + 15] = u32(0)
-   6: 4 12 0 8             // Store: [fp + 8] = [fp + 12] + 0
-   7: 4 13 0 9             // Store: [fp + 9] = [fp + 13] + 0
-   8: 4 14 0 10            // Store: [fp + 10] = [fp + 14] + 0
-   9: 4 15 0 11            // Store: [fp + 11] = [fp + 15] + 0
-  10: 4 2 0 48             // Arg 0 slot 0: [fp + 48] = [fp + 2] + 0
-  11: 4 3 0 49             // Arg 0 slot 1: [fp + 49] = [fp + 3] + 0
-  12: 4 4 0 50             // Arg 0 slot 2: [fp + 50] = [fp + 4] + 0
-  13: 4 5 0 51             // Arg 0 slot 3: [fp + 51] = [fp + 5] + 0
-  14: 4 6 0 52             // Arg 0 slot 4: [fp + 52] = [fp + 6] + 0
-  15: 4 7 0 53             // Arg 0 slot 5: [fp + 53] = [fp + 7] + 0
-  16: 4 8 0 54             // Arg 0 slot 6: [fp + 54] = [fp + 8] + 0
-  17: 4 9 0 55             // Arg 0 slot 7: [fp + 55] = [fp + 9] + 0
-  18: 4 10 0 56            // Arg 0 slot 8: [fp + 56] = [fp + 10] + 0
-  19: 4 11 0 57            // Arg 0 slot 9: [fp + 57] = [fp + 11] + 0
-  20: 10 64 44 _           // call get_character_stats
-  21: 19 58 0 0 22         // [fp + 22], [fp + 22 + 1] = [fp + 58], [fp + 58  +1] + 0
-  22: 19 60 0 0 23         // [fp + 23], [fp + 23 + 1] = [fp + 60], [fp + 60  +1] + 0
-  23: 19 62 0 0 24         // [fp + 24], [fp + 24 + 1] = [fp + 62], [fp + 62  +1] + 0
-  24: 4 22 0 28            // Load: [fp + 28] = [fp + 22] + 0
-  25: 4 23 0 29            // Load: [fp + 29] = [fp + 23] + 0
-  26: 4 24 0 30            // Load: [fp + 30] = [fp + 24] + 0
-  27: 4 25 0 31            // Load: [fp + 31] = [fp + 25] + 0
-  28: 4 26 0 32            // Load: [fp + 32] = [fp + 26] + 0
-  29: 4 27 0 33            // Load: [fp + 33] = [fp + 27] + 0
-  30: 19 29 0 0 34         // LoadU32: [fp + 34, fp + 34 + 1] = [fp + 29, fp + 29 + 1] + 0
-  31: 19 30 0 0 36         // LoadU32: [fp + 36, fp + 36 + 1] = [fp + 30, fp + 30 + 1] + 0
-  32: 15 44 36 38          // u32([fp + 38], [fp + 39]) = u32([fp + 44], [fp + 45]) op u32([fp + 36], [fp + 37])
-  33: 22 34 10 0 40        // u32([fp + 40], [fp + 41]) = u32([fp + 34], [fp + 35]) op u32(10, 0)
-  34: 15 38 40 42          // u32([fp + 42], [fp + 43]) = u32([fp + 38], [fp + 39]) op u32([fp + 40], [fp + 41])
-  35: 4 42 0 -4            // Return value 0 slot 0: [fp -4] = [fp + 42] + 0
-  36: 4 43 0 -3            // Return value 0 slot 1: [fp -3] = [fp + 43] + 0
-  37: 11 _ _ _             // return
-get_character_stats:
-get_character_stats_0:
-  38: 19 -18 0 0 0         // LoadU32: [fp + 0, fp + 0 + 1] = [fp + -18, fp + -18 + 1] + 0
-  39: 19 -16 0 0 2         // LoadU32: [fp + 2, fp + 2 + 1] = [fp + -16, fp + -16 + 1] + 0
-  40: 19 -14 0 0 4         // LoadU32: [fp + 4, fp + 4 + 1] = [fp + -14, fp + -14 + 1] + 0
-  41: 4 0 0 -8             // Return value 0 slot 0: [fp -8] = [fp + 0] + 0
-  42: 4 1 0 -7             // Return value 0 slot 1: [fp -7] = [fp + 1] + 0
-  43: 4 2 0 -6             // Return value 1 slot 0: [fp -6] = [fp + 2] + 0
-get_character_stats:
-  44: 4 3 0 -5             // Return value 1 slot 1: [fp -5] = [fp + 3] + 0
-  45: 4 4 0 -4             // Return value 2 slot 0: [fp -4] = [fp + 4] + 0
-  46: 4 5 0 -3             // Return value 2 slot 1: [fp -3] = [fp + 5] + 0
-  47: 11 _ _ _             // return
-calculate_distance_squared:
-calculate_distance_squared_0:
-  48: 19 -12 0 0 0         // LoadU32: [fp + 0, fp + 0 + 1] = [fp + -12, fp + -12 + 1] + 0
-  49: 19 -8 0 0 2          // LoadU32: [fp + 2, fp + 2 + 1] = [fp + -8, fp + -8 + 1] + 0
-  50: 16 0 2 4             // u32([fp + 4], [fp + 5]) = u32([fp + 0], [fp + 1]) op u32([fp + 2], [fp + 3])
-  51: 19 -10 0 0 6         // LoadU32: [fp + 6, fp + 6 + 1] = [fp + -10, fp + -10 + 1] + 0
-  52: 19 -6 0 0 8          // LoadU32: [fp + 8, fp + 8 + 1] = [fp + -6, fp + -6 + 1] + 0
-  53: 16 6 8 10            // u32([fp + 10], [fp + 11]) = u32([fp + 6], [fp + 7]) op u32([fp + 8], [fp + 9])
-  54: 17 4 4 12            // u32([fp + 12], [fp + 13]) = u32([fp + 4], [fp + 5]) op u32([fp + 4], [fp + 5])
-  55: 17 10 10 14          // u32([fp + 14], [fp + 15]) = u32([fp + 10], [fp + 11]) op u32([fp + 10], [fp + 11])
-  56: 15 12 14 16          // u32([fp + 16], [fp + 17]) = u32([fp + 12], [fp + 13]) op u32([fp + 14], [fp + 15])
-calculate_distance_squared:
-  57: 4 16 0 -4            // Return value 0 slot 0: [fp -4] = [fp + 16] + 0
-  58: 4 17 0 -3            // Return value 0 slot 1: [fp -3] = [fp + 17] + 0
-  59: 11 _ _ _             // return
-calculate_damage:
-calculate_damage_0:
-  60: 23 10 0 0            // u32([fp + 0, fp + 1]) = u32(10)
-  61: 21 -10 2 0 2         // u32([fp + 2], [fp + 3]) = u32([fp + -10], [fp + -9]) op u32(2, 0)
-  62: 23 0 0 4             // u32([fp + 4, fp + 5]) = u32(0)
-  63: 32 -6 100 0 6        // u32([fp + 6], [fp + 7]) = u32([fp + -6], [fp + -5]) op u32(100, 0)
-  64: 14 6 2 _             // if [fp + 6] != 0 jmp rel calculate_damage_1
-  65: 12 83 _ _            // jump abs calculate_damage_2
-calculate_damage_1:
-  66: 23 5 0 4             // [fp + 4, fp + 5] = u32(5)
-  67: 12 88 _ _            // jump abs calculate_damage_5
-calculate_damage_2:
-  68: 32 -6 50 0 7         // u32([fp + 7], [fp + 8]) = u32([fp + -6], [fp + -5]) op u32(50, 0)
-  69: 14 7 2 _             // if [fp + 7] != 0 jmp rel calculate_damage_3
-  70: 12 88 _ _            // jump abs calculate_damage_4
-calculate_damage_3:
-  71: 23 2 0 4             // [fp + 4, fp + 5] = u32(2)
-calculate_damage_4:
-calculate_damage_5:
-  72: 15 0 2 8             // u32([fp + 8], [fp + 9]) = u32([fp + 0], [fp + 1]) op u32([fp + 2], [fp + 3])
-calculate_damage:
-  73: 26 8 4 10            // [fp + 10] = u32([fp + 8], [fp + 9]) op u32([fp + 4], [fp + 5])
-  74: 14 10 2 _            // if [fp + 10] != 0 jmp rel calculate_damage_6
-  75: 12 96 _ _            // jump abs calculate_damage_7
-calculate_damage_6:
-  76: 16 8 4 11            // u32([fp + 11], [fp + 12]) = u32([fp + 8], [fp + 9]) op u32([fp + 4], [fp + 5])
-  77: 4 11 0 -4            // Return value 0 slot 0: [fp -4] = [fp + 11] + 0
-  78: 4 12 0 -3            // Return value 0 slot 1: [fp -3] = [fp + 12] + 0
-  79: 11 _ _ _             // return
-calculate_damage_7:
-  80: 23 1 0 -4            // Return value 0: [fp -4, fp -4 + 1] = u32(1)
-  81: 11 _ _ _             // return
-perform_combat:
-perform_combat_0:
-  82: 4 -21 0 0            // Load: [fp + 0] = [fp + -21] + 0
-  83: 4 -20 0 1            // Load: [fp + 1] = [fp + -20] + 0
-  84: 4 -19 0 2            // Load: [fp + 2] = [fp + -19] + 0
-  85: 4 -18 0 3            // Load: [fp + 3] = [fp + -18] + 0
-  86: 4 -11 0 4            // Load: [fp + 4] = [fp + -11] + 0
-  87: 4 -10 0 5            // Load: [fp + 5] = [fp + -10] + 0
-  88: 4 -9 0 6             // Load: [fp + 6] = [fp + -9] + 0
-  89: 4 -8 0 7             // Load: [fp + 7] = [fp + -8] + 0
-  90: 4 0 0 43             // Arg 0 slot 0: [fp + 43] = [fp + 0] + 0
-  91: 4 1 0 44             // Arg 0 slot 1: [fp + 44] = [fp + 1] + 0
-  92: 4 2 0 45             // Arg 0 slot 2: [fp + 45] = [fp + 2] + 0
-  93: 4 3 0 46             // Arg 0 slot 3: [fp + 46] = [fp + 3] + 0
-  94: 4 4 0 47             // Arg 1 slot 0: [fp + 47] = [fp + 4] + 0
-  95: 4 5 0 48             // Arg 1 slot 1: [fp + 48] = [fp + 5] + 0
-  96: 4 6 0 49             // Arg 1 slot 2: [fp + 49] = [fp + 6] + 0
-  97: 4 7 0 50             // Arg 1 slot 3: [fp + 50] = [fp + 7] + 0
-perform_combat:
-  98: 10 53 57 _           // call calculate_distance_squared
-  99: 19 -23 0 0 10        // LoadU32: [fp + 10, fp + 10 + 1] = [fp + -23, fp + -23 + 1] + 0
- 100: 19 -13 0 0 12        // LoadU32: [fp + 12, fp + 12 + 1] = [fp + -13, fp + -13 + 1] + 0
- 101: 4 10 0 55            // Arg 0 slot 0: [fp + 55] = [fp + 10] + 0
- 102: 4 11 0 56            // Arg 0 slot 1: [fp + 56] = [fp + 11] + 0
- 103: 4 12 0 57            // Arg 1 slot 0: [fp + 57] = [fp + 12] + 0
- 104: 4 13 0 58            // Arg 1 slot 1: [fp + 58] = [fp + 13] + 0
- 105: 4 51 0 59            // Arg 2 slot 0: [fp + 59] = [fp + 51] + 0
- 106: 4 52 0 60            // Arg 2 slot 1: [fp + 60] = [fp + 52] + 0
- 107: 10 63 73 _           // call calculate_damage
- 108: 19 -25 0 0 16        // LoadU32: [fp + 16, fp + 16 + 1] = [fp + -25, fp + -25 + 1] + 0
- 109: 22 16 10 0 18        // u32([fp + 18], [fp + 19]) = u32([fp + 16], [fp + 17]) op u32(10, 0)
- 110: 9 0 20 _             // [fp + 20] = false
- 111: 32 18 5 0 21         // u32([fp + 21], [fp + 22]) = u32([fp + 18], [fp + 19]) op u32(5, 0)
- 112: 14 21 2 _            // if [fp + 21] != 0 jmp rel perform_combat_1
- 113: 12 140 _ _           // jump abs perform_combat_2
-perform_combat_1:
- 114: 9 1 20 _             // Store immediate: [fp + 20] = 1
- 115: 21 61 2 0 22         // u32([fp + 22], [fp + 23]) = u32([fp + 61], [fp + 62]) op u32(2, 0)
- 116: 19 22 0 0 61         // [fp + 61], [fp + 61 + 1] = [fp + 22], [fp + 22  +1] + 0
-perform_combat_2:
- 117: 19 -17 0 0 24        // LoadU32: [fp + 24, fp + 24 + 1] = [fp + -17, fp + -17 + 1] + 0
- 118: 19 -17 0 0 26        // LoadU32: [fp + 26, fp + 26 + 1] = [fp + -17, fp + -17 + 1] + 0
- 119: 27 61 26 28          // [fp + 28] = u32([fp + 61], [fp + 62]) op u32([fp + 26], [fp + 27])
- 120: 14 28 2 _            // if [fp + 28] != 0 jmp rel perform_combat_3
- 121: 12 149 _ _           // jump abs perform_combat_4
-perform_combat_3:
- 122: 9 0 24 _             // Store immediate: [fp + 24] = 0
- 123: 12 154 _ _           // jump abs perform_combat_5
-perform_combat_4:
- 124: 19 -17 0 0 29        // LoadU32: [fp + 29, fp + 29 + 1] = [fp + -17, fp + -17 + 1] + 0
- 125: 16 29 61 31          // u32([fp + 31], [fp + 32]) = u32([fp + 29], [fp + 30]) op u32([fp + 61], [fp + 62])
- 126: 19 31 0 0 24         // [fp + 24], [fp + 24 + 1] = [fp + 31], [fp + 31  +1] + 0
-perform_combat_5:
- 127: 19 61 0 0 33         // [fp + 33], [fp + 33 + 1] = [fp + 61], [fp + 61  +1] + 0
- 128: 4 20 0 35            // Store: [fp + 35] = [fp + 20] + 0
- 129: 19 24 0 0 36         // [fp + 36], [fp + 36 + 1] = [fp + 24], [fp + 24  +1] + 0
- 130: 4 33 0 38            // Load: [fp + 38] = [fp + 33] + 0
- 131: 4 34 0 39            // Load: [fp + 39] = [fp + 34] + 0
- 132: 4 35 0 40            // Load: [fp + 40] = [fp + 35] + 0
- 133: 4 36 0 41            // Load: [fp + 41] = [fp + 36] + 0
- 134: 4 37 0 42            // Load: [fp + 42] = [fp + 37] + 0
- 135: 4 38 0 -7            // Return value 0 slot 0: [fp -7] = [fp + 38] + 0
- 136: 4 39 0 -6            // Return value 0 slot 1: [fp -6] = [fp + 39] + 0
- 137: 4 40 0 -5            // Return value 0 slot 2: [fp -5] = [fp + 40] + 0
- 138: 4 41 0 -4            // Return value 0 slot 3: [fp -4] = [fp + 41] + 0
- 139: 4 42 0 -3            // Return value 0 slot 4: [fp -3] = [fp + 42] + 0
- 140: 11 _ _ _             // return
-simulate_battle_round:
-simulate_battle_round_0:
- 141: 4 -24 0 15           // Arg 0 slot 0: [fp + 15] = [fp + -24] + 0
- 142: 4 -23 0 16           // Arg 0 slot 1: [fp + 16] = [fp + -23] + 0
- 143: 4 -22 0 17           // Arg 0 slot 2: [fp + 17] = [fp + -22] + 0
- 144: 4 -21 0 18           // Arg 0 slot 3: [fp + 18] = [fp + -21] + 0
- 145: 4 -20 0 19           // Arg 0 slot 4: [fp + 19] = [fp + -20] + 0
- 146: 4 -19 0 20           // Arg 0 slot 5: [fp + 20] = [fp + -19] + 0
- 147: 4 -18 0 21           // Arg 0 slot 6: [fp + 21] = [fp + -18] + 0
- 148: 4 -17 0 22           // Arg 0 slot 7: [fp + 22] = [fp + -17] + 0
- 149: 4 -16 0 23           // Arg 0 slot 8: [fp + 23] = [fp + -16] + 0
- 150: 4 -15 0 24           // Arg 0 slot 9: [fp + 24] = [fp + -15] + 0
- 151: 4 -14 0 25           // Arg 1 slot 0: [fp + 25] = [fp + -14] + 0
- 152: 4 -13 0 26           // Arg 1 slot 1: [fp + 26] = [fp + -13] + 0
- 153: 4 -12 0 27           // Arg 1 slot 2: [fp + 27] = [fp + -12] + 0
- 154: 4 -11 0 28           // Arg 1 slot 3: [fp + 28] = [fp + -11] + 0
- 155: 4 -10 0 29           // Arg 1 slot 4: [fp + 29] = [fp + -10] + 0
- 156: 4 -9 0 30            // Arg 1 slot 5: [fp + 30] = [fp + -9] + 0
- 157: 4 -8 0 31            // Arg 1 slot 6: [fp + 31] = [fp + -8] + 0
- 158: 4 -7 0 32            // Arg 1 slot 7: [fp + 32] = [fp + -7] + 0
- 159: 4 -6 0 33            // Arg 1 slot 8: [fp + 33] = [fp + -6] + 0
- 160: 4 -5 0 34            // Arg 1 slot 9: [fp + 34] = [fp + -5] + 0
- 161: 10 40 98 _           // call perform_combat
- 162: 19 3 0 0 5           // LoadU32: [fp + 5, fp + 5 + 1] = [fp + 3, fp + 3 + 1] + 0
- 163: 32 5 0 0 7           // u32([fp + 7], [fp + 8]) = u32([fp + 5], [fp + 6]) op u32(0, 0)
- 164: 14 7 2 _             // if [fp + 7] != 0 jmp rel simulate_battle_round_1
- 165: 12 222 _ _           // jump abs simulate_battle_round_2
-simulate_battle_round_1:
- 166: 4 -14 0 45           // Arg 0 slot 0: [fp + 45] = [fp + -14] + 0
- 167: 4 -13 0 46           // Arg 0 slot 1: [fp + 46] = [fp + -13] + 0
- 168: 4 -12 0 47           // Arg 0 slot 2: [fp + 47] = [fp + -12] + 0
- 169: 4 -11 0 48           // Arg 0 slot 3: [fp + 48] = [fp + -11] + 0
-simulate_battle_round:
- 170: 4 -10 0 49           // Arg 0 slot 4: [fp + 49] = [fp + -10] + 0
- 171: 4 -9 0 50            // Arg 0 slot 5: [fp + 50] = [fp + -9] + 0
- 172: 4 -8 0 51            // Arg 0 slot 6: [fp + 51] = [fp + -8] + 0
- 173: 4 -7 0 52            // Arg 0 slot 7: [fp + 52] = [fp + -7] + 0
- 174: 4 -6 0 53            // Arg 0 slot 8: [fp + 53] = [fp + -6] + 0
- 175: 4 -5 0 54            // Arg 0 slot 9: [fp + 54] = [fp + -5] + 0
- 176: 4 -24 0 55           // Arg 1 slot 0: [fp + 55] = [fp + -24] + 0
- 177: 4 -23 0 56           // Arg 1 slot 1: [fp + 56] = [fp + -23] + 0
- 178: 4 -22 0 57           // Arg 1 slot 2: [fp + 57] = [fp + -22] + 0
- 179: 4 -21 0 58           // Arg 1 slot 3: [fp + 58] = [fp + -21] + 0
- 180: 4 -20 0 59           // Arg 1 slot 4: [fp + 59] = [fp + -20] + 0
- 181: 4 -19 0 60           // Arg 1 slot 5: [fp + 60] = [fp + -19] + 0
- 182: 4 -18 0 61           // Arg 1 slot 6: [fp + 61] = [fp + -18] + 0
- 183: 4 -17 0 62           // Arg 1 slot 7: [fp + 62] = [fp + -17] + 0
- 184: 4 -16 0 63           // Arg 1 slot 8: [fp + 63] = [fp + -16] + 0
- 185: 4 -15 0 64           // Arg 1 slot 9: [fp + 64] = [fp + -15] + 0
- 186: 10 70 98 _           // call perform_combat
- 187: 19 11 0 0 13         // LoadU32: [fp + 13, fp + 13 + 1] = [fp + 11, fp + 11 + 1] + 0
- 188: 14 5 6 _             // if [fp + 5] != 0 jmp rel simulate_battle_round_4
- 189: 12 224 _ _           // jump abs simulate_battle_round_3
-simulate_battle_round_2:
- 190: 23 1 0 -4            // Return value 0: [fp -4, fp -4 + 1] = u32(1)
- 191: 11 _ _ _             // return
-simulate_battle_round_3:
- 192: 23 1 0 -4            // Return value 0: [fp -4, fp -4 + 1] = u32(1)
- 193: 11 _ _ _             // return
-simulate_battle_round_4:
- 194: 14 13 4 _            // if [fp + 13] != 0 jmp rel simulate_battle_round_6
- 195: 12 228 _ _           // jump abs simulate_battle_round_5
-simulate_battle_round_5:
- 196: 23 2 0 -4            // Return value 0: [fp -4, fp -4 + 1] = u32(2)
- 197: 11 _ _ _             // return
-simulate_battle_round_6:
- 198: 23 0 0 -4            // Return value 0: [fp -4, fp -4 + 1] = u32(0)
- 199: 11 _ _ _             // return
-simulate_full_battle:
-simulate_full_battle_0:
- 200: 23 100 0 0           // [fp + 0, fp + 1] = u32(100)
- 201: 23 50 0 2            // [fp + 2, fp + 3] = u32(50)
- 202: 23 5 0 4             // [fp + 4, fp + 5] = u32(5)
- 203: 23 10 0 10           // [fp + 10, fp + 11] = u32(10)
- 204: 23 20 0 12           // [fp + 12, fp + 13] = u32(20)
- 205: 4 10 0 6             // Store: [fp + 6] = [fp + 10] + 0
- 206: 4 11 0 7             // Store: [fp + 7] = [fp + 11] + 0
- 207: 4 12 0 8             // Store: [fp + 8] = [fp + 12] + 0
- 208: 4 13 0 9             // Store: [fp + 9] = [fp + 13] + 0
- 209: 23 80 0 14           // [fp + 14, fp + 15] = u32(80)
- 210: 23 30 0 16           // [fp + 16, fp + 17] = u32(30)
- 211: 23 4 0 18            // [fp + 18, fp + 19] = u32(4)
- 212: 23 15 0 24           // [fp + 24, fp + 25] = u32(15)
- 213: 23 25 0 26           // [fp + 26, fp + 27] = u32(25)
- 214: 4 24 0 20            // Store: [fp + 20] = [fp + 24] + 0
- 215: 4 25 0 21            // Store: [fp + 21] = [fp + 25] + 0
- 216: 4 26 0 22            // Store: [fp + 22] = [fp + 26] + 0
- 217: 4 27 0 23            // Store: [fp + 23] = [fp + 27] + 0
- 218: 4 0 0 28             // Load: [fp + 28] = [fp + 0] + 0
- 219: 4 1 0 29             // Load: [fp + 29] = [fp + 1] + 0
- 220: 4 2 0 30             // Load: [fp + 30] = [fp + 2] + 0
- 221: 4 3 0 31             // Load: [fp + 31] = [fp + 3] + 0
- 222: 4 4 0 32             // Load: [fp + 32] = [fp + 4] + 0
- 223: 4 5 0 33             // Load: [fp + 33] = [fp + 5] + 0
- 224: 4 6 0 34             // Load: [fp + 34] = [fp + 6] + 0
- 225: 4 7 0 35             // Load: [fp + 35] = [fp + 7] + 0
- 226: 4 8 0 36             // Load: [fp + 36] = [fp + 8] + 0
- 227: 4 9 0 37             // Load: [fp + 37] = [fp + 9] + 0
- 228: 4 14 0 38            // Load: [fp + 38] = [fp + 14] + 0
- 229: 4 15 0 39            // Load: [fp + 39] = [fp + 15] + 0
- 230: 4 16 0 40            // Load: [fp + 40] = [fp + 16] + 0
- 231: 4 17 0 41            // Load: [fp + 41] = [fp + 17] + 0
-simulate_full_battle:
- 232: 4 18 0 42            // Load: [fp + 42] = [fp + 18] + 0
- 233: 4 19 0 43            // Load: [fp + 43] = [fp + 19] + 0
- 234: 4 20 0 44            // Load: [fp + 44] = [fp + 20] + 0
- 235: 4 21 0 45            // Load: [fp + 45] = [fp + 21] + 0
- 236: 4 22 0 46            // Load: [fp + 46] = [fp + 22] + 0
- 237: 4 23 0 47            // Load: [fp + 47] = [fp + 23] + 0
- 238: 23 1 0 48            // u32([fp + 48, fp + 49]) = u32(1)
- 239: 23 10 0 50           // u32([fp + 50, fp + 51]) = u32(10)
-simulate_full_battle_1:
- 240: 26 48 50 52          // [fp + 52] = u32([fp + 48], [fp + 49]) op u32([fp + 50], [fp + 51])
- 241: 14 52 4 _            // if [fp + 52] != 0 jmp rel simulate_full_battle_3
- 242: 12 278 _ _           // jump abs simulate_full_battle_4
-simulate_full_battle_2:
- 243: 23 0 0 -4            // Return value 0: [fp -4, fp -4 + 1] = u32(0)
- 244: 11 _ _ _             // return
-simulate_full_battle_3:
- 245: 12 275 _ _           // jump abs simulate_full_battle_2
-simulate_full_battle_4:
- 246: 4 28 0 71            // Arg 0 slot 0: [fp + 71] = [fp + 28] + 0
- 247: 4 29 0 72            // Arg 0 slot 1: [fp + 72] = [fp + 29] + 0
- 248: 4 30 0 73            // Arg 0 slot 2: [fp + 73] = [fp + 30] + 0
- 249: 4 31 0 74            // Arg 0 slot 3: [fp + 74] = [fp + 31] + 0
- 250: 4 32 0 75            // Arg 0 slot 4: [fp + 75] = [fp + 32] + 0
- 251: 4 33 0 76            // Arg 0 slot 5: [fp + 76] = [fp + 33] + 0
- 252: 4 34 0 77            // Arg 0 slot 6: [fp + 77] = [fp + 34] + 0
- 253: 4 35 0 78            // Arg 0 slot 7: [fp + 78] = [fp + 35] + 0
- 254: 4 36 0 79            // Arg 0 slot 8: [fp + 79] = [fp + 36] + 0
- 255: 4 37 0 80            // Arg 0 slot 9: [fp + 80] = [fp + 37] + 0
- 256: 4 38 0 81            // Arg 1 slot 0: [fp + 81] = [fp + 38] + 0
- 257: 4 39 0 82            // Arg 1 slot 1: [fp + 82] = [fp + 39] + 0
- 258: 4 40 0 83            // Arg 1 slot 2: [fp + 83] = [fp + 40] + 0
- 259: 4 41 0 84            // Arg 1 slot 3: [fp + 84] = [fp + 41] + 0
- 260: 4 42 0 85            // Arg 1 slot 4: [fp + 85] = [fp + 42] + 0
- 261: 4 43 0 86            // Arg 1 slot 5: [fp + 86] = [fp + 43] + 0
- 262: 4 44 0 87            // Arg 1 slot 6: [fp + 87] = [fp + 44] + 0
- 263: 4 45 0 88            // Arg 1 slot 7: [fp + 88] = [fp + 45] + 0
- 264: 4 46 0 89            // Arg 1 slot 8: [fp + 89] = [fp + 46] + 0
- 265: 4 47 0 90            // Arg 1 slot 9: [fp + 90] = [fp + 47] + 0
- 266: 10 93 170 _          // call simulate_battle_round
- 267: 30 91 1 0 95         // u32([fp + 95], [fp + 96]) = u32([fp + 91], [fp + 92]) op u32(1, 0)
- 268: 14 95 2 _            // if [fp + 95] != 0 jmp rel simulate_full_battle_5
- 269: 12 305 _ _           // jump abs simulate_full_battle_6
-simulate_full_battle_5:
- 270: 23 1 0 -4            // Return value 0: [fp -4, fp -4 + 1] = u32(1)
- 271: 11 _ _ _             // return
-simulate_full_battle_6:
- 272: 30 91 2 0 96         // u32([fp + 96], [fp + 97]) = u32([fp + 91], [fp + 92]) op u32(2, 0)
- 273: 14 96 2 _            // if [fp + 96] != 0 jmp rel simulate_full_battle_7
- 274: 12 311 _ _           // jump abs simulate_full_battle_8
-simulate_full_battle_7:
- 275: 23 2 0 -4            // Return value 0: [fp -4, fp -4 + 1] = u32(2)
- 276: 11 _ _ _             // return
-simulate_full_battle_8:
-simulate_full_battle_9:
- 277: 19 28 0 0 55         // LoadU32: [fp + 55, fp + 55 + 1] = [fp + 28, fp + 28 + 1] + 0
- 278: 32 55 10 0 57        // u32([fp + 57], [fp + 58]) = u32([fp + 55], [fp + 56]) op u32(10, 0)
- 279: 14 57 2 _            // if [fp + 57] != 0 jmp rel simulate_full_battle_10
- 280: 12 323 _ _           // jump abs simulate_full_battle_11
-simulate_full_battle_10:
- 281: 19 28 0 0 58         // LoadU32: [fp + 58, fp + 58 + 1] = [fp + 28, fp + 28 + 1] + 0
- 282: 20 58 5 0 60         // u32([fp + 60], [fp + 61]) = u32([fp + 58], [fp + 59]) op u32(5, 0)
- 283: 19 60 0 0 28         // [fp + 28], [fp + 28 + 1] = [fp + 60], [fp + 60  +1] + 0
-simulate_full_battle_11:
- 284: 19 38 0 0 62         // LoadU32: [fp + 62, fp + 62 + 1] = [fp + 38, fp + 38 + 1] + 0
- 285: 32 62 8 0 64         // u32([fp + 64], [fp + 65]) = u32([fp + 62], [fp + 63]) op u32(8, 0)
- 286: 14 64 2 _            // if [fp + 64] != 0 jmp rel simulate_full_battle_12
- 287: 12 335 _ _           // jump abs simulate_full_battle_13
-simulate_full_battle_12:
- 288: 19 38 0 0 65         // LoadU32: [fp + 65, fp + 65 + 1] = [fp + 38, fp + 38 + 1] + 0
- 289: 20 65 4 0 67         // u32([fp + 67], [fp + 68]) = u32([fp + 65], [fp + 66]) op u32(4, 0)
- 290: 19 67 0 0 38         // [fp + 38], [fp + 38 + 1] = [fp + 67], [fp + 67  +1] + 0
-simulate_full_battle_13:
- 291: 19 48 1 0 69         // u32([fp + 69], [fp + 70]) = u32([fp + 48], [fp + 49]) op u32(1, 0)
- 292: 19 69 0 0 48         // [fp + 48], [fp + 48 + 1] = [fp + 69], [fp + 69  +1] + 0
- 293: 12 272 _ _           // jump abs simulate_full_battle_1
+Result: UNEXPECTED ERROR
+MIR generation failed: [
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 5139..5140,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 5140..5141,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 5182..5183,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 5276..5277,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 5277..5278,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 5278..5279,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 5327..5328,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 5451..5452,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 5526..5527,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 10404..10405,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 10421..10422,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 10464..10465,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 10465..10466,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 10466..10467,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 10514..10515,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 10524..10525,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 10527..10528,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 10536..10537,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 10539..10540,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 10552..10553,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 10611..10612,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 10628..10629,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 10683..10684,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 10688..10689,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 10740..10741,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 10744..10745,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 10896..10897,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 10904..10905,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 10943..10944,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 10948..10949,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 10955..10956,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 10961..10962,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 11065..11066,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 11069..11070,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 11303..11304,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 11305..11306,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 11308..11309,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 11311..11312,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 11314..11315,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 11317..11318,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 11437..11438,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 11448..11449,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 11451..11452,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 11462..11463,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 11585..11586,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 11586..11587,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 11587..11588,
+        related_spans: [],
+    },
+    Diagnostic {
+        severity: Error,
+        code: LexicalError,
+        message: "Invalid character",
+        file_path: "Example Programs - Comprehensive RPG Combat System",
+        span: 11996..11997,
+        related_spans: [],
+    },
+]
