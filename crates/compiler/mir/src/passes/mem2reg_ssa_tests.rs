@@ -1,5 +1,5 @@
 use super::*;
-use crate::{BasicBlock, Instruction, MirType, Value};
+use crate::{BasicBlock, BasicBlockId, Instruction, MirType, Terminator, Value};
 
 #[test]
 fn test_simple_promotion() {
@@ -563,6 +563,121 @@ fn test_tuple_not_promoted() {
     let changed = pass.optimize(&mut function);
 
     // Should NOT be promoted because tuple is multi-slot
+    assert!(!changed);
+    assert_eq!(pass.stats.allocations_promoted, 0);
+}
+
+#[test]
+fn test_u32_simple_promotion() {
+    // Test that U32 allocations CAN be promoted when accessed as a whole (no GEP)
+    let mut function = MirFunction::new("test_u32_simple".to_string());
+    let entry_block_id = function.entry_block;
+
+    // %0 = framealloc u32
+    let alloc = function.new_typed_value_id(MirType::pointer(MirType::u32()));
+
+    // store %0, 12345u32
+    // %1 = load %0
+    let loaded = function.new_typed_value_id(MirType::u32());
+
+    // Build instructions for U32 allocation, store, and load
+    function.basic_blocks[entry_block_id]
+        .instructions
+        .push(Instruction::frame_alloc(alloc, MirType::u32()));
+    function.basic_blocks[entry_block_id]
+        .instructions
+        .push(Instruction::store(
+            Value::operand(alloc),
+            Value::integer(12345),
+            MirType::u32(),
+        ));
+    function.basic_blocks[entry_block_id]
+        .instructions
+        .push(Instruction::load(
+            loaded,
+            MirType::u32(),
+            Value::operand(alloc),
+        ));
+
+    // return %1
+    function.basic_blocks[entry_block_id].terminator = Terminator::Return {
+        values: vec![Value::operand(loaded)],
+    };
+
+    // Run mem2reg pass
+    let mut pass = Mem2RegSsaPass::new();
+    let changed = pass.optimize(&mut function);
+
+    // U32 should be promoted when accessed as a whole
+    assert!(changed);
+    assert_eq!(pass.stats.allocations_promoted, 1);
+    assert_eq!(pass.stats.stores_eliminated, 1);
+    assert_eq!(pass.stats.loads_eliminated, 1);
+
+    // Check that the allocation and memory operations were removed
+    let block = &function.basic_blocks[BasicBlockId::from_raw(0)];
+    assert_eq!(block.instructions.len(), 1); // Only the assign remains
+
+    // The load should be replaced with an assign
+    if let InstructionKind::Assign { source, .. } = &block.instructions[0].kind {
+        assert_eq!(*source, Value::integer(12345));
+    } else {
+        panic!("Expected assign instruction");
+    }
+}
+
+#[test]
+fn test_u32_with_gep_not_promoted() {
+    // Test that U32 allocations with GEP access are NOT promoted
+    let mut function = MirFunction::new("test_u32_gep".to_string());
+    let entry_block_id = function.entry_block;
+
+    // %0 = framealloc u32
+    let alloc = function.new_typed_value_id(MirType::pointer(MirType::u32()));
+
+    // %1 = getelementptr %0, 0  (access low part)
+    let gep_low = function.new_typed_value_id(MirType::pointer(MirType::felt()));
+
+    // store %1, 100
+    // %2 = load %1
+    let loaded = function.new_typed_value_id(MirType::felt());
+
+    // Build instructions
+    function.basic_blocks[entry_block_id]
+        .instructions
+        .push(Instruction::frame_alloc(alloc, MirType::u32()));
+    function.basic_blocks[entry_block_id]
+        .instructions
+        .push(Instruction::get_element_ptr(
+            gep_low,
+            Value::operand(alloc),
+            Value::integer(0),
+        ));
+    function.basic_blocks[entry_block_id]
+        .instructions
+        .push(Instruction::store(
+            Value::operand(gep_low),
+            Value::integer(100),
+            MirType::felt(),
+        ));
+    function.basic_blocks[entry_block_id]
+        .instructions
+        .push(Instruction::load(
+            loaded,
+            MirType::felt(),
+            Value::operand(gep_low),
+        ));
+
+    // return %2
+    function.basic_blocks[entry_block_id].terminator = Terminator::Return {
+        values: vec![Value::operand(loaded)],
+    };
+
+    // Run mem2reg pass
+    let mut pass = Mem2RegSsaPass::new();
+    let changed = pass.optimize(&mut function);
+
+    // U32 with GEP should NOT be promoted (requires per-slot phi)
     assert!(!changed);
     assert_eq!(pass.stats.allocations_promoted, 0);
 }

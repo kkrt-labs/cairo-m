@@ -120,26 +120,41 @@ impl Mem2RegSsaPass {
             for instruction in &block.instructions {
                 match &instruction.kind {
                     InstructionKind::FrameAlloc { dest, ty } => {
-                        // IMPORTANT: Only track single-slot allocations for promotion
-                        // Multi-slot allocations (u32, structs, tuples) require per-slot phi insertion
-                        // which is not yet implemented. This is a temporary restriction until
-                        // we implement either SROA (scalar replacement of aggregates) or
-                        // per-slot phi insertion.
+                        // Check if type is promotable according to layout rules
                         let layout = DataLayout::new();
                         if layout.is_promotable(ty) {
-                            allocations.insert(
-                                *dest,
-                                PromotableAllocation {
-                                    alloc_id: *dest,
-                                    ty: ty.clone(),
-                                    store_blocks: FxHashSet::default(),
-                                    gep_values: FxHashMap::default(),
-                                },
-                            );
+                            // Special handling for multi-slot types like U32
+                            // U32 can be promoted, but only if accessed as a whole (no GEP offsets)
+                            // Full multi-slot phi insertion with per-slot tracking is TODO
+                            if matches!(ty, MirType::U32) {
+                                // Track U32 allocations - will check for GEP usage later
+                                allocations.insert(
+                                    *dest,
+                                    PromotableAllocation {
+                                        alloc_id: *dest,
+                                        ty: ty.clone(),
+                                        store_blocks: FxHashSet::default(),
+                                        gep_values: FxHashMap::default(),
+                                    },
+                                );
+                            } else if layout.size_of(ty) == 1 {
+                                // Single-slot types can always be promoted
+                                allocations.insert(
+                                    *dest,
+                                    PromotableAllocation {
+                                        alloc_id: *dest,
+                                        ty: ty.clone(),
+                                        store_blocks: FxHashSet::default(),
+                                        gep_values: FxHashMap::default(),
+                                    },
+                                );
+                            } else {
+                                // Other multi-slot types not yet supported
+                                // TODO: Implement SROA or per-slot phi insertion for full support
+                                escaping.insert(*dest);
+                            }
                         } else {
-                            // TODO: this is currently inefficient, but we keep this for safety.
-                            // Mark multi-slot allocations as escaping immediately
-                            // This ensures they won't be considered for promotion
+                            // Non-promotable types are marked as escaping
                             escaping.insert(*dest);
                         }
                         self.stats.allocations_analyzed += 1;
@@ -147,6 +162,16 @@ impl Mem2RegSsaPass {
                     InstructionKind::GetElementPtr { dest, base, offset } => {
                         // Track GEPs with constant offsets
                         if let Value::Operand(base_id) = base {
+                            // Check if this is a GEP on a U32 allocation
+                            if let Some(alloc) = allocations.get(base_id) {
+                                if matches!(alloc.ty, MirType::U32) {
+                                    // U32 with GEP access cannot be promoted yet
+                                    // (requires per-slot phi insertion)
+                                    escaping.insert(*base_id);
+                                    continue;
+                                }
+                            }
+
                             if let Value::Literal(Literal::Integer(off)) = offset {
                                 if let Some(alloc) = allocations.get_mut(base_id) {
                                     alloc.gep_values.insert(*dest, *off);

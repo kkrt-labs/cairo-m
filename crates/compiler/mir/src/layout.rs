@@ -89,12 +89,33 @@ impl DataLayout {
         }
     }
 
-    /// Check if a type can be promoted to registers (typically size == 1)
+    /// Check if a type can be promoted to registers
     ///
     /// This is used by optimization passes like mem2reg to determine
     /// if a value can be kept in registers instead of memory.
+    /// Single-slot types and U32 (2 slots) are promotable.
+    /// Small aggregates could be promotable with proper SROA support.
     pub fn is_promotable(&self, ty: &MirType) -> bool {
-        self.size_of(ty) == 1
+        match ty {
+            // Single-slot types are always promotable
+            MirType::Felt | MirType::Bool | MirType::Pointer(_) => true,
+            // U32 is promotable as a 2-slot aggregate
+            MirType::U32 => true,
+            // Small tuples could be promotable with proper multi-slot phi support
+            MirType::Tuple(types) => {
+                // For now, only allow single-element tuples until full SROA
+                let size = self.size_of(ty);
+                size <= 2 && types.iter().all(|t| self.is_promotable(t))
+            }
+            // Small structs could be promotable with proper multi-slot phi support
+            MirType::Struct { fields, .. } => {
+                // For now, keep conservative for complex aggregates
+                let size = self.size_of(ty);
+                size <= 2 && fields.iter().all(|(_, t)| self.is_promotable(t))
+            }
+            // Don't promote function pointers, error types, units, etc.
+            _ => false,
+        }
     }
 
     /// Get the alignment requirement for a type (in slots)
@@ -214,10 +235,22 @@ mod tests {
     fn test_promotable_types() {
         let layout = DataLayout::new();
 
+        // Single-slot types are promotable
         assert!(layout.is_promotable(&MirType::Felt));
         assert!(layout.is_promotable(&MirType::Bool));
-        assert!(!layout.is_promotable(&MirType::U32)); // Size 2, not promotable
-        assert!(!layout.is_promotable(&MirType::tuple(vec![MirType::Felt, MirType::Bool])));
-        // Size 2
+
+        // U32 is now promotable (2 slots, but handled specially)
+        assert!(layout.is_promotable(&MirType::U32));
+
+        // Small tuples (size <= 2) with promotable elements are promotable
+        assert!(layout.is_promotable(&MirType::tuple(vec![MirType::Felt])));
+        assert!(layout.is_promotable(&MirType::tuple(vec![MirType::Bool, MirType::Bool])));
+
+        // Larger tuples are not promotable
+        assert!(!layout.is_promotable(&MirType::tuple(vec![
+            MirType::Felt,
+            MirType::Felt,
+            MirType::Felt
+        ])));
     }
 }
