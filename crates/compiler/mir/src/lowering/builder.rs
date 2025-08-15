@@ -273,7 +273,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
     /// Load a value with automatic destination
     pub fn load_auto(&mut self, src: Value, ty: MirType) -> ValueId {
-        self.instr().load_value(src, ty)
+        self.instr().load(src, ty)
     }
 
     /// Store a value
@@ -292,7 +292,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             .state
             .mir_function
             .new_typed_value_id(MirType::pointer(elem_type));
-        self.instr().get_element_ptr(dest, base, offset);
+        self.instr().get_element_ptr_to(dest, base, offset);
         dest
     }
 
@@ -510,7 +510,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             .state
             .mir_function
             .new_typed_value_id(field_type.clone());
-        self.instr().load_with_comment(
+        self.instr().load_with(
             field_type,
             loaded_value,
             Value::operand(field_addr),
@@ -561,7 +561,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             .state
             .mir_function
             .new_typed_value_id(elem_type.clone());
-        self.instr().load_with_comment(
+        self.instr().load_with(
             elem_type,
             elem_value,
             Value::operand(elem_ptr),

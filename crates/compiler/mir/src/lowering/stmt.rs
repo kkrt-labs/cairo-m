@@ -11,7 +11,7 @@ use cairo_m_compiler_semantic::type_resolution::{
 };
 use cairo_m_compiler_semantic::types::TypeData;
 
-use crate::{Instruction, MirType, Terminator, Value};
+use crate::{MirType, Terminator, Value};
 
 use super::builder::MirBuilder;
 use super::expr::LowerExpr;
@@ -273,7 +273,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     .mir_function
                     .new_typed_value_id(result_type.clone());
                 self.instr()
-                    .binary_op_with_dest(typed_op, dest, left_value, right_value);
+                    .binary_op_to(typed_op, dest, left_value, right_value);
 
                 // Store the result to the LHS address
                 let lhs_address = self.lower_lvalue_expression(lhs)?;

@@ -38,7 +38,7 @@ impl<'f> InstrBuilder<'f> {
     }
 
     /// Create and add a binary operation instruction with explicit destination
-    pub fn binary_op_with_dest(
+    pub fn binary_op_to(
         &mut self,
         op: BinaryOp,
         dest: ValueId,
@@ -51,21 +51,21 @@ impl<'f> InstrBuilder<'f> {
     }
 
     /// Create and add a unary operation instruction with explicit destination
-    pub fn unary_op_with_dest(&mut self, op: UnaryOp, dest: ValueId, operand: Value) -> &mut Self {
+    pub fn unary_op_to(&mut self, op: UnaryOp, dest: ValueId, operand: Value) -> &mut Self {
         let instr = Instruction::unary_op(op, dest, operand);
         self.add_instruction(instr);
         self
     }
 
-    /// Create and add a load instruction
-    pub fn load(&mut self, ty: MirType, dest: ValueId, src: Value) -> &mut Self {
+    /// Create and add a load instruction with explicit destination
+    pub fn load_to(&mut self, ty: MirType, dest: ValueId, src: Value) -> &mut Self {
         let instr = Instruction::load(dest, ty, src);
         self.add_instruction(instr);
         self
     }
 
     /// Create and add a load instruction with a comment
-    pub fn load_with_comment(
+    pub fn load_with(
         &mut self,
         ty: MirType,
         dest: ValueId,
@@ -85,7 +85,7 @@ impl<'f> InstrBuilder<'f> {
     }
 
     /// Create and add a store instruction with a comment
-    pub fn store_with_comment(
+    pub fn store_with(
         &mut self,
         dest: Value,
         value: Value,
@@ -98,7 +98,7 @@ impl<'f> InstrBuilder<'f> {
     }
 
     /// Create and add a call instruction with signature
-    pub fn call_with_signature(
+    pub fn call_with(
         &mut self,
         dests: Vec<ValueId>,
         func_id: FunctionId,
@@ -247,15 +247,15 @@ impl<'f> InstrBuilder<'f> {
         }
     }
 
-    /// Add a get_element_ptr instruction
-    pub fn get_element_ptr(&mut self, dest: ValueId, base: Value, offset: Value) -> &mut Self {
+    /// Add a get_element_ptr instruction with explicit destination
+    pub fn get_element_ptr_to(&mut self, dest: ValueId, base: Value, offset: Value) -> &mut Self {
         let instr = Instruction::get_element_ptr(dest, base, offset);
         self.add_instruction(instr);
         self
     }
 
-    /// Add an assign instruction
-    pub fn assign(&mut self, dest: ValueId, value: Value, ty: MirType) -> &mut Self {
+    /// Add an assign instruction with explicit destination
+    pub fn assign_to(&mut self, dest: ValueId, value: Value, ty: MirType) -> &mut Self {
         let instr = Instruction::assign(dest, value, ty);
         self.add_instruction(instr);
         self
@@ -284,7 +284,7 @@ impl<'f> InstrBuilder<'f> {
     }
 
     /// Create and add a load with automatic destination
-    pub fn load_value(&mut self, src: Value, ty: MirType) -> ValueId {
+    pub fn load(&mut self, src: Value, ty: MirType) -> ValueId {
         let dest = self.function.new_typed_value_id(ty.clone());
         let instr = Instruction::load(dest, ty, src);
         self.add_instruction(instr);

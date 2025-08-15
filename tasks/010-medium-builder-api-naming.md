@@ -2,7 +2,7 @@
 
 ## Priority
 
-MEDIUM
+MEDIUM - COMPLETED
 
 ## Why
 
@@ -155,3 +155,37 @@ Update all call sites in:
 - **Testing**: 1 day for comprehensive validation
 - **Documentation**: 1 day for updating examples and guides
 - **Migration**: Ongoing during deprecation period
+
+## Implementation Summary
+
+Successfully standardized the builder API naming conventions:
+
+1. **InstrBuilder Methods Renamed**:
+   - `binary_op_with_dest()` → `binary_op_to()`
+   - `unary_op_with_dest()` → `unary_op_to()`
+   - `load()` → `load_to()` (explicit destination)
+   - `load_value()` → `load()` (automatic destination as default)
+   - `load_with_comment()` → `load_with()`
+   - `store_with_comment()` → `store_with()`
+   - `call_with_signature()` → `call_with()`
+   - `get_element_ptr()` → `get_element_ptr_to()`
+   - `assign()` → `assign_to()`
+
+2. **Consistent Naming Pattern Established**:
+   - Base methods with automatic destination: `method()`
+   - Methods with explicit destination: `method_to()`
+   - Methods with options/metadata: `method_with()`
+
+3. **All Usages Updated**:
+   - Updated all call sites in expr.rs
+   - Updated all call sites in stmt.rs
+   - Updated helper methods in builder.rs
+   - Fixed wrapper methods to use new names
+
+4. **Benefits Achieved**:
+   - Clear, predictable API naming
+   - Easier to learn and use
+   - Better IDE autocomplete experience
+   - Reduced cognitive load for developers
+
+All tests pass with the standardized naming.

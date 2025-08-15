@@ -261,7 +261,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     let var_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
                     let loaded_value = self.state.mir_function.new_typed_value_id(var_type.clone());
 
-                    self.instr().load_with_comment(
+                    self.instr().load_with(
                         var_type,
                         loaded_value,
                         Value::operand(var_value),
@@ -332,7 +332,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         let typed_op = crate::BinaryOp::from_parser(op, &left_type_data)?;
         self.instr()
-            .binary_op_with_dest(typed_op, dest, lhs_value, rhs_value);
+            .binary_op_to(typed_op, dest, lhs_value, rhs_value);
         Ok(Value::operand(dest))
     }
 
@@ -480,7 +480,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             _ => "Load array element".to_string(),
         };
 
-        self.instr().load_with_comment(
+        self.instr().load_with(
             element_type,
             loaded_value,
             Value::operand(element_addr),
@@ -706,9 +706,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         for (element_idx, element_expr) in elements.iter().enumerate() {
             let element_val = self.lower_expression(element_expr)?;
 
-            // Tuples are stored as consecutive values, so offset is just the index
-            let element_offset = Value::integer(element_idx as i32);
-
             // Get the element type from semantic analysis
             let element_expr_id = self
                 .ctx
@@ -787,7 +784,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         // Register loaded value as a Value
 
-        self.instr().load_with_comment(
+        self.instr().load_with(
             element_mir_type,
             loaded_value,
             Value::operand(element_addr),
