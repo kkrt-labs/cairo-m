@@ -193,32 +193,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     for (i, elem_type) in element_types.iter().enumerate() {
                         let mir_type = MirType::from_semantic_type(self.ctx.db, *elem_type);
 
-                        // Tuples are stored as consecutive values, so offset is just the index
-                        let offset = i;
-
-                        // Get element pointer
-                        let elem_ptr = self
-                            .state
-                            .mir_function
-                            .new_typed_value_id(MirType::pointer(mir_type.clone()));
-                        self.instr().add_instruction(
-                            Instruction::get_element_ptr(
-                                elem_ptr,
-                                tuple_addr,
-                                Value::integer(offset as i32),
-                            )
-                            .with_comment(format!("Get address of tuple element {}", i)),
-                        );
-
-                        // Load the element
-                        let elem_value =
-                            self.state.mir_function.new_typed_value_id(mir_type.clone());
-
-                        // Register loaded value as a Value
-
-                        self.instr()
-                            .load(mir_type.clone(), elem_value, Value::operand(elem_ptr));
-
+                        // Load the tuple element using helper
+                        let elem_value = self.load_tuple_element(tuple_addr, i, mir_type.clone());
                         return_values.push(Value::operand(elem_value));
                     }
 
@@ -710,30 +686,11 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     let element_mir_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
 
                     // Get pointer to tuple element
-                    let elem_ptr = self
-                        .state
-                        .mir_function
-                        .new_typed_value_id(MirType::pointer(element_mir_type.clone()));
-                    self.instr().add_instruction(
-                        Instruction::get_element_ptr(
-                            elem_ptr,
-                            Value::operand(tuple_addr),
-                            Value::integer(index as i32),
-                        )
-                        .with_comment(format!("Get address of tuple element {}", index)),
-                    );
-
-                    // Load the element
-                    let elem_value = self
-                        .state
-                        .mir_function
-                        .new_typed_value_id(element_mir_type.clone());
-
-                    // Register loaded value as a Value
-
-                    self.instr().add_instruction(
-                        Instruction::load(elem_value, element_mir_type, Value::operand(elem_ptr))
-                            .with_comment(format!("Load tuple element {}", index)),
+                    // Load the tuple element using helper
+                    let elem_value = self.load_tuple_element(
+                        Value::operand(tuple_addr),
+                        index,
+                        element_mir_type.clone(),
                     );
 
                     // Map the variable directly to the loaded value (no allocation needed!)

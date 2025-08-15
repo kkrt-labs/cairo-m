@@ -2,7 +2,7 @@
 
 ## Priority
 
-MEDIUM
+MEDIUM - COMPLETED
 
 ## Why
 
@@ -318,3 +318,33 @@ fn test_get_element_address_helper() {
 - Easier to add optimizations (e.g., strength reduction for constant offsets)
 - Simpler to add debugging/tracing for memory operations
 - Foundation for more sophisticated address calculation optimizations
+
+## Implementation Summary
+
+Successfully extracted memory access patterns into reusable builder helpers:
+
+1. **Helper Methods Added** to `MirBuilder`:
+   - `load_field()` - Load a field from a struct/object
+   - `store_field()` - Store a value to a struct field
+   - `load_tuple_element()` - Load a tuple element by index
+   - `store_tuple_element()` - Store a value to a tuple element
+   - `get_element_address()` - Get the address of a field/element
+
+2. **Patterns Replaced**:
+   - Member access field loading in `lower_member_access()`
+   - Field address calculation in lvalue member access
+   - Array element address calculation in lvalue index access
+   - Tuple element address calculation in lvalue tuple index
+   - Struct field storage in `lower_struct_literal()`
+   - Tuple element storage in `lower_tuple_literal()`
+   - Tuple element loading in return statements
+   - Tuple destructuring in pattern matching
+
+3. **Benefits Achieved**:
+   - Eliminated ~100+ lines of duplicated code
+   - Centralized memory access logic in one place
+   - Consistent error messages and comments
+   - Better type safety with centralized pointer management
+   - Easier to maintain and extend
+
+All tests pass with the refactored code maintaining identical behavior.

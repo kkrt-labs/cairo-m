@@ -146,13 +146,11 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
                 // Query semantic type system for field type from the member access expression
                 let field_type = self.ctx.get_expr_type(expr_id);
 
-                let dest = self
-                    .state
-                    .mir_function
-                    .new_typed_value_id(MirType::pointer(field_type));
-                self.instr().add_instruction(
-                    Instruction::get_element_ptr(dest, object_addr, field_offset)
-                        .with_comment(format!("Get address of field '{}'", field.value())),
+                let dest = self.get_element_address(
+                    object_addr,
+                    field_offset,
+                    field_type,
+                    &format!("Get address of field '{}'", field.value()),
                 );
                 Ok(Value::operand(dest))
             }
@@ -170,13 +168,11 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
                 // Query semantic type system for array element type from the index access expression
                 let element_type = self.ctx.get_expr_type(expr_id);
 
-                let dest = self
-                    .state
-                    .mir_function
-                    .new_typed_value_id(MirType::pointer(element_type));
-                self.instr().add_instruction(
-                    Instruction::get_element_ptr(dest, array_addr, offset_value)
-                        .with_comment("Get address of array element".to_string()),
+                let dest = self.get_element_address(
+                    array_addr,
+                    offset_value,
+                    element_type,
+                    "Get address of array element",
                 );
                 Ok(Value::operand(dest))
             }
@@ -208,21 +204,12 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
                     _ => return Err("TupleIndex on non-tuple type".to_string()),
                 };
 
-                // Calculate element address using get_element_ptr
-                let element_addr = self
-                    .state
-                    .mir_function
-                    .new_typed_value_id(MirType::pointer(element_mir_type));
-                self.instr().add_instruction(
-                    Instruction::get_element_ptr(
-                        element_addr,
-                        tuple_addr,
-                        Value::integer(offset as i32),
-                    )
-                    .with_comment(format!(
-                        "Get address of tuple element {} for assignment",
-                        index
-                    )),
+                // Calculate element address using helper
+                let element_addr = self.get_element_address(
+                    tuple_addr,
+                    Value::integer(offset as i32),
+                    element_mir_type,
+                    &format!("Get address of tuple element {} for assignment", index),
                 );
                 Ok(Value::operand(element_addr))
             }
@@ -446,31 +433,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // Query semantic type system for the field type
         let field_type = self.ctx.get_expr_type(expr_id);
 
-        // Calculate the address of the field
-        let field_addr = self
-            .state
-            .mir_function
-            .new_typed_value_id(MirType::pointer(field_type.clone()));
-        self.instr().add_instruction(
-            Instruction::get_element_ptr(field_addr, object_addr, field_offset)
-                .with_comment(format!("Get address of field '{}'", field.value())),
-        );
-
-        // Load the value from the field address
-        let loaded_value = self
-            .state
-            .mir_function
-            .new_typed_value_id(field_type.clone());
-
-        // Register loaded value as a Value
-
-        // TODO: This should emit a load with the proper type (e.g. LoadU32?)
-        self.instr().load_with_comment(
-            field_type,
-            loaded_value,
-            Value::operand(field_addr),
-            format!("Load field '{}'", field.value()),
-        );
+        // Use helper to load the field
+        let loaded_value = self.load_field(object_addr, field_offset, field_type, field.value());
 
         Ok(Value::operand(loaded_value))
     }
@@ -684,18 +648,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         field_value.span()
                     )
                 })?;
-            let field_type = self.ctx.get_expr_type(field_val_expr_id);
-
-            let field_addr = self
-                .state
-                .mir_function
-                .new_typed_value_id(MirType::pointer(field_type));
-            self.instr().add_instruction(
-                Instruction::get_element_ptr(field_addr, Value::operand(struct_addr), field_offset)
-                    .with_comment(format!("Get address of field '{}'", field_name.value())),
-            );
-
-            // Store the field value
+            // Get the field type from struct definition (more reliable than expr type)
             let field_type = struct_type
                 .field_type(field_name.value())
                 .ok_or_else(|| {
@@ -706,8 +659,15 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     )
                 })?
                 .clone();
-            self.instr()
-                .store(Value::operand(field_addr), field_val, field_type);
+
+            // Store the field value using helper
+            self.store_field(
+                Value::operand(struct_addr),
+                field_offset,
+                field_val,
+                field_type,
+                field_name.value(),
+            );
         }
 
         // Return the struct address (in a real system, this might return the struct value itself)
@@ -762,24 +722,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 })?;
             let element_type = self.ctx.get_expr_type(element_expr_id);
 
-            let element_addr = self
-                .state
-                .mir_function
-                .new_typed_value_id(MirType::pointer(element_type.clone()));
-            self.instr().add_instruction(
-                Instruction::get_element_ptr(
-                    element_addr,
-                    Value::operand(tuple_addr),
-                    element_offset,
-                )
-                .with_comment(format!("Get address of tuple element {element_idx}")),
-            );
-
-            // Store the element value
-            self.instr().store(
-                Value::operand(element_addr),
+            // Store the element value using helper
+            self.store_tuple_element(
+                Value::operand(tuple_addr),
+                element_idx,
                 element_val,
-                element_type.clone(),
+                element_type,
             );
         }
 

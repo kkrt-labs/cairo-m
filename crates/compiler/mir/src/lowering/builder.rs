@@ -485,4 +485,127 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             _ => Err("Unsupported callee expression type".to_string()),
         }
     }
+
+    // ===== Memory Access Helper Methods =====
+
+    /// Load a field from a struct/object
+    /// Returns the ValueId of the loaded value
+    pub fn load_field(
+        &mut self,
+        base_addr: Value,
+        offset: Value,
+        field_type: MirType,
+        field_name: &str,
+    ) -> ValueId {
+        let field_addr = self
+            .state
+            .mir_function
+            .new_typed_value_id(MirType::pointer(field_type.clone()));
+        self.instr().add_instruction(
+            Instruction::get_element_ptr(field_addr, base_addr, offset)
+                .with_comment(format!("Get address of field '{}'", field_name)),
+        );
+
+        let loaded_value = self
+            .state
+            .mir_function
+            .new_typed_value_id(field_type.clone());
+        self.instr().load_with_comment(
+            field_type,
+            loaded_value,
+            Value::operand(field_addr),
+            format!("Load field '{}'", field_name),
+        );
+        loaded_value
+    }
+
+    /// Store a value to a struct field
+    pub fn store_field(
+        &mut self,
+        base_addr: Value,
+        offset: Value,
+        value: Value,
+        field_type: MirType,
+        field_name: &str,
+    ) {
+        let field_addr = self
+            .state
+            .mir_function
+            .new_typed_value_id(MirType::pointer(field_type.clone()));
+        self.instr().add_instruction(
+            Instruction::get_element_ptr(field_addr, base_addr, offset)
+                .with_comment(format!("Get address of field '{}'", field_name)),
+        );
+        self.instr()
+            .store(Value::operand(field_addr), value, field_type);
+    }
+
+    /// Load a tuple element by index
+    /// Returns the ValueId of the loaded value
+    pub fn load_tuple_element(
+        &mut self,
+        tuple_addr: Value,
+        index: usize,
+        elem_type: MirType,
+    ) -> ValueId {
+        let elem_ptr = self
+            .state
+            .mir_function
+            .new_typed_value_id(MirType::pointer(elem_type.clone()));
+        self.instr().add_instruction(
+            Instruction::get_element_ptr(elem_ptr, tuple_addr, Value::integer(index as i32))
+                .with_comment(format!("Get address of tuple element {}", index)),
+        );
+
+        let elem_value = self
+            .state
+            .mir_function
+            .new_typed_value_id(elem_type.clone());
+        self.instr().load_with_comment(
+            elem_type,
+            elem_value,
+            Value::operand(elem_ptr),
+            format!("Load tuple element {}", index),
+        );
+        elem_value
+    }
+
+    /// Store a value to a tuple element
+    pub fn store_tuple_element(
+        &mut self,
+        tuple_addr: Value,
+        index: usize,
+        value: Value,
+        elem_type: MirType,
+    ) {
+        let elem_ptr = self
+            .state
+            .mir_function
+            .new_typed_value_id(MirType::pointer(elem_type.clone()));
+        self.instr().add_instruction(
+            Instruction::get_element_ptr(elem_ptr, tuple_addr, Value::integer(index as i32))
+                .with_comment(format!("Get address of tuple element {}", index)),
+        );
+        self.instr()
+            .store(Value::operand(elem_ptr), value, elem_type);
+    }
+
+    /// Get the address of a field/element (for lvalue expressions)
+    /// Returns the ValueId of the address
+    pub fn get_element_address(
+        &mut self,
+        base_addr: Value,
+        offset: Value,
+        target_type: MirType,
+        comment: &str,
+    ) -> ValueId {
+        let addr = self
+            .state
+            .mir_function
+            .new_typed_value_id(MirType::pointer(target_type));
+        self.instr().add_instruction(
+            Instruction::get_element_ptr(addr, base_addr, offset).with_comment(comment.to_string()),
+        );
+        addr
+    }
 }
