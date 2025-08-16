@@ -8,6 +8,9 @@ edition.workspace = true
 index_vec = "0.1.4"
 rustc-hash = "1.1.0"
 
+# Logging
+log = "0.4"
+
 # Salsa for incremental compilation
 salsa = "0.22.0"
 salsa-macros = "0.22.0"

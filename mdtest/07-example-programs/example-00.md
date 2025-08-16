@@ -5,7 +5,7 @@
 This example demonstrates most of Cairo-M's language features through a simple
 RPG combat simulation:
 
-````cairo-m
+```cairo-m
 //! ignore
 // Struct definitions showing custom types
 struct Character {
@@ -194,10 +194,12 @@ fn simulate_full_battle() -> u32 {
 
     return 0;  // Draw
 }
+```
 
 ## Rust Equivalent with Wrapping Math
 
-Here's the exact equivalent implementation in Rust using wrapping arithmetic for u32 operations:
+Here's the exact equivalent implementation in Rust using wrapping arithmetic for
+u32 operations:
 
 ```rust
 // Struct definitions showing custom types
@@ -387,8 +389,7 @@ fn main() {
     let result = main_test();
     println!("Final result: {}", result);
 }
-
-This example demonstrates:
+```
 
 ### Language Features Showcased:
 
@@ -433,4 +434,3 @@ for:
 The example shows progression from simple operations to complex multi-function
 interactions while maintaining readability and demonstrating the full spectrum
 of Cairo-M's capabilities.
-````

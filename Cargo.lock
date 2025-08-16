@@ -510,6 +510,7 @@ dependencies = [
  "chumsky",
  "index_vec",
  "insta",
+ "log",
  "rustc-hash 1.1.0",
  "salsa",
  "salsa-macros",

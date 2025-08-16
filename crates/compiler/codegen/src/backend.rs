@@ -42,7 +42,7 @@ impl Backend for CasmBackend {
         // Validate basic structure
         module
             .validate()
-            .map_err(|e| BackendError::UnsupportedFeature(e))?;
+            .map_err(BackendError::UnsupportedFeature)?;
 
         // Check that SSA destruction has been run (no phi nodes remaining)
         for (_, function) in module.functions() {

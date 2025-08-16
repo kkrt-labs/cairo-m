@@ -300,58 +300,6 @@ pub enum InstructionKind {
         offset: Value,
     },
 
-    /// Typed get element pointer: `dest = getelementptr base, path`
-    /// Calculates memory address using a typed path through aggregate types
-    /// This is safer than integer offsets and enables better optimizations
-    GetElementPtrTyped {
-        dest: ValueId,
-        base: Value,
-        path: FieldPath,
-        /// The base type being indexed into (for validation and offset calculation)
-        base_type: MirType,
-    },
-
-    /// Build a struct value: `dest = buildstruct {field1: val1, field2: val2, ...}`
-    /// Creates a struct value from field values without going through memory
-    BuildStruct {
-        dest: ValueId,
-        /// The struct type being constructed
-        struct_type: MirType,
-        /// Field values in order matching the struct definition
-        fields: Vec<(String, Value)>,
-    },
-
-    /// Build a tuple value: `dest = buildtuple (val1, val2, ...)`
-    /// Creates a tuple value from element values without going through memory
-    BuildTuple {
-        dest: ValueId,
-        /// Element values in order
-        elements: Vec<Value>,
-        /// The complete tuple type
-        tuple_type: MirType,
-    },
-
-    /// Extract a value from an aggregate: `dest = extractvalue aggregate, path`
-    /// Extracts a field or element from a struct/tuple without going through memory
-    ExtractValue {
-        dest: ValueId,
-        aggregate: Value,
-        path: FieldPath,
-        /// Type of the extracted value
-        extracted_type: MirType,
-    },
-
-    /// Insert a value into an aggregate: `dest = insertvalue aggregate, value, path`
-    /// Creates a new aggregate with one field/element replaced
-    InsertValue {
-        dest: ValueId,
-        aggregate: Value,
-        value: Value,
-        path: FieldPath,
-        /// Type of the resulting aggregate
-        result_type: MirType,
-    },
-
     /// Cast/conversion: `dest = cast value as type`
     /// For type conversions (to be expanded with type system)
     Cast {
@@ -511,100 +459,6 @@ impl Instruction {
         }
     }
 
-    /// Creates a new typed get element pointer instruction
-    pub const fn get_element_ptr_typed(
-        dest: ValueId,
-        base: Value,
-        path: FieldPath,
-        base_type: MirType,
-    ) -> Self {
-        Self {
-            kind: InstructionKind::GetElementPtrTyped {
-                dest,
-                base,
-                path,
-                base_type,
-            },
-            source_span: None,
-            source_expr_id: None,
-            comment: None,
-        }
-    }
-
-    /// Creates a new build struct instruction
-    pub const fn build_struct(
-        dest: ValueId,
-        struct_type: MirType,
-        fields: Vec<(String, Value)>,
-    ) -> Self {
-        Self {
-            kind: InstructionKind::BuildStruct {
-                dest,
-                struct_type,
-                fields,
-            },
-            source_span: None,
-            source_expr_id: None,
-            comment: None,
-        }
-    }
-
-    /// Creates a new build tuple instruction
-    pub const fn build_tuple(dest: ValueId, elements: Vec<Value>, tuple_type: MirType) -> Self {
-        Self {
-            kind: InstructionKind::BuildTuple {
-                dest,
-                elements,
-                tuple_type,
-            },
-            source_span: None,
-            source_expr_id: None,
-            comment: None,
-        }
-    }
-
-    /// Creates a new extract value instruction
-    pub const fn extract_value(
-        dest: ValueId,
-        aggregate: Value,
-        path: FieldPath,
-        extracted_type: MirType,
-    ) -> Self {
-        Self {
-            kind: InstructionKind::ExtractValue {
-                dest,
-                aggregate,
-                path,
-                extracted_type,
-            },
-            source_span: None,
-            source_expr_id: None,
-            comment: None,
-        }
-    }
-
-    /// Creates a new insert value instruction
-    pub const fn insert_value(
-        dest: ValueId,
-        aggregate: Value,
-        value: Value,
-        path: FieldPath,
-        result_type: MirType,
-    ) -> Self {
-        Self {
-            kind: InstructionKind::InsertValue {
-                dest,
-                aggregate,
-                value,
-                path,
-                result_type,
-            },
-            source_span: None,
-            source_expr_id: None,
-            comment: None,
-        }
-    }
-
     /// Creates a new cast instruction
     pub const fn cast(dest: ValueId, source: Value) -> Self {
         Self {
@@ -676,11 +530,6 @@ impl Instruction {
             | InstructionKind::FrameAlloc { dest, .. }
             | InstructionKind::AddressOf { dest, .. }
             | InstructionKind::GetElementPtr { dest, .. }
-            | InstructionKind::GetElementPtrTyped { dest, .. }
-            | InstructionKind::BuildStruct { dest, .. }
-            | InstructionKind::BuildTuple { dest, .. }
-            | InstructionKind::ExtractValue { dest, .. }
-            | InstructionKind::InsertValue { dest, .. }
             | InstructionKind::Cast { dest, .. }
             | InstructionKind::Phi { dest, .. } => vec![*dest],
 
@@ -769,45 +618,6 @@ impl Instruction {
                 }
             }
 
-            InstructionKind::GetElementPtrTyped { base, .. } => {
-                if let Value::Operand(id) = base {
-                    used.insert(*id);
-                }
-            }
-
-            InstructionKind::BuildStruct { fields, .. } => {
-                for (_, value) in fields {
-                    if let Value::Operand(id) = value {
-                        used.insert(*id);
-                    }
-                }
-            }
-
-            InstructionKind::BuildTuple { elements, .. } => {
-                for value in elements {
-                    if let Value::Operand(id) = value {
-                        used.insert(*id);
-                    }
-                }
-            }
-
-            InstructionKind::ExtractValue { aggregate, .. } => {
-                if let Value::Operand(id) = aggregate {
-                    used.insert(*id);
-                }
-            }
-
-            InstructionKind::InsertValue {
-                aggregate, value, ..
-            } => {
-                if let Value::Operand(id) = aggregate {
-                    used.insert(*id);
-                }
-                if let Value::Operand(id) = value {
-                    used.insert(*id);
-                }
-            }
-
             InstructionKind::Cast { source, .. } => {
                 if let Value::Operand(id) = source {
                     used.insert(*id);
@@ -851,11 +661,6 @@ impl Instruction {
             InstructionKind::FrameAlloc { .. } => Ok(()),
             InstructionKind::AddressOf { .. } => Ok(()),
             InstructionKind::GetElementPtr { .. } => Ok(()),
-            InstructionKind::GetElementPtrTyped { .. } => Ok(()),
-            InstructionKind::BuildStruct { .. } => Ok(()),
-            InstructionKind::BuildTuple { .. } => Ok(()),
-            InstructionKind::ExtractValue { .. } => Ok(()),
-            InstructionKind::InsertValue { .. } => Ok(()),
             InstructionKind::Cast { .. } => Ok(()),
             InstructionKind::Debug { .. } => Ok(()),
             InstructionKind::Phi { .. } => Ok(()),
@@ -1016,102 +821,6 @@ impl PrettyPrint for Instruction {
                     dest.pretty_print(0),
                     base.pretty_print(0),
                     offset.pretty_print(0)
-                ));
-            }
-
-            InstructionKind::GetElementPtrTyped {
-                dest, base, path, ..
-            } => {
-                let path_str = path
-                    .iter()
-                    .map(|p| match p {
-                        AccessPath::Field(name) => format!(".{}", name),
-                        AccessPath::TupleIndex(idx) => format!("[{}]", idx),
-                    })
-                    .collect::<Vec<_>>()
-                    .join("");
-                result.push_str(&format!(
-                    "{} = getelementptr_typed {}{}",
-                    dest.pretty_print(0),
-                    base.pretty_print(0),
-                    path_str
-                ));
-            }
-
-            InstructionKind::BuildStruct {
-                dest,
-                struct_type,
-                fields,
-            } => {
-                let fields_str = fields
-                    .iter()
-                    .map(|(name, val)| format!("{}: {}", name, val.pretty_print(0)))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                result.push_str(&format!(
-                    "{} = buildstruct {} {{ {} }}",
-                    dest.pretty_print(0),
-                    struct_type,
-                    fields_str
-                ));
-            }
-
-            InstructionKind::BuildTuple { dest, elements, .. } => {
-                let elements_str = elements
-                    .iter()
-                    .map(|val| val.pretty_print(0))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                result.push_str(&format!(
-                    "{} = buildtuple ({})",
-                    dest.pretty_print(0),
-                    elements_str
-                ));
-            }
-
-            InstructionKind::ExtractValue {
-                dest,
-                aggregate,
-                path,
-                ..
-            } => {
-                let path_str = path
-                    .iter()
-                    .map(|p| match p {
-                        AccessPath::Field(name) => format!(".{}", name),
-                        AccessPath::TupleIndex(idx) => format!("[{}]", idx),
-                    })
-                    .collect::<Vec<_>>()
-                    .join("");
-                result.push_str(&format!(
-                    "{} = extractvalue {}{}",
-                    dest.pretty_print(0),
-                    aggregate.pretty_print(0),
-                    path_str
-                ));
-            }
-
-            InstructionKind::InsertValue {
-                dest,
-                aggregate,
-                value,
-                path,
-                ..
-            } => {
-                let path_str = path
-                    .iter()
-                    .map(|p| match p {
-                        AccessPath::Field(name) => format!(".{}", name),
-                        AccessPath::TupleIndex(idx) => format!("[{}]", idx),
-                    })
-                    .collect::<Vec<_>>()
-                    .join("");
-                result.push_str(&format!(
-                    "{} = insertvalue {}, {}, {}",
-                    dest.pretty_print(0),
-                    aggregate.pretty_print(0),
-                    value.pretty_print(0),
-                    path_str
                 ));
             }
 

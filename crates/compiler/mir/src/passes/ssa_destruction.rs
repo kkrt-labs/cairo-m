@@ -79,11 +79,7 @@ impl ParallelCopyGraph {
 
     fn add_copy(&mut self, dest: ValueId, source: Value, ty: MirType) {
         let copy_idx = self.copies.len();
-        self.copies.push(CopyOperation {
-            dest,
-            source: source.clone(),
-            ty,
-        });
+        self.copies.push(CopyOperation { dest, source, ty });
 
         // Track dependencies: if source is an operand, this copy depends on that value
         if let Value::Operand(src_id) = source {
@@ -158,7 +154,7 @@ impl ParallelCopyGraph {
                 // Save the source value to the temporary
                 temp_assignments.push(CopyOperation {
                     dest: temp,
-                    source: first_copy.source.clone(),
+                    source: first_copy.source,
                     ty: temp_type,
                 });
 
@@ -185,11 +181,9 @@ impl ParallelCopyGraph {
         // Then, insert the main assignments in dependency order
         for idx in sorted_indices {
             let copy = &modified_copies[idx];
-            block.instructions.push(Instruction::assign(
-                copy.dest,
-                copy.source.clone(),
-                copy.ty.clone(),
-            ));
+            block
+                .instructions
+                .push(Instruction::assign(copy.dest, copy.source, copy.ty.clone()));
         }
     }
 

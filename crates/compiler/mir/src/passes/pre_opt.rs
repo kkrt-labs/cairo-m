@@ -29,8 +29,11 @@ impl PreOptimizationPass {
     /// This optimization removes store instructions for variables that are never used.
     /// It's particularly useful for cleaning up after the lowering phase, which may
     /// generate stores for variables that semantic analysis marked as unused.
-    fn eliminate_dead_stores(&mut self, function: &mut MirFunction) -> bool {
-        let use_counts = self.calculate_value_use_counts(function);
+    fn eliminate_dead_stores(
+        &mut self,
+        function: &mut MirFunction,
+        use_counts: &FxHashMap<ValueId, usize>,
+    ) -> bool {
         let mut modified = false;
 
         for block in function.basic_blocks.iter_mut() {
@@ -79,8 +82,11 @@ impl PreOptimizationPass {
     ///
     /// After eliminating dead stores, some stack allocations may become unused.
     /// This optimization removes them to reduce stack frame size.
-    fn eliminate_dead_allocations(&mut self, function: &mut MirFunction) -> bool {
-        let use_counts = self.calculate_value_use_counts(function);
+    fn eliminate_dead_allocations(
+        &mut self,
+        function: &mut MirFunction,
+        use_counts: &FxHashMap<ValueId, usize>,
+    ) -> bool {
         let mut modified = false;
 
         for block in function.basic_blocks.iter_mut() {
@@ -105,8 +111,11 @@ impl PreOptimizationPass {
     /// This optimization removes instructions whose results are never used.
     /// This includes binary operations, unary operations, and assignments
     /// that produce values that are never referenced.
-    fn eliminate_dead_instructions(&mut self, function: &mut MirFunction) -> bool {
-        let use_counts = self.calculate_value_use_counts(function);
+    fn eliminate_dead_instructions(
+        &mut self,
+        function: &mut MirFunction,
+        use_counts: &FxHashMap<ValueId, usize>,
+    ) -> bool {
         let mut modified = false;
 
         for block in function.basic_blocks.iter_mut() {
@@ -146,24 +155,39 @@ impl crate::passes::MirPass for PreOptimizationPass {
     fn run(&mut self, function: &mut MirFunction) -> bool {
         let mut modified = false;
 
+        // Calculate use counts once at the beginning
+        let mut use_counts = self.calculate_value_use_counts(function);
+
         // Run optimization passes in order:
         // 1. Dead instructions (computations that produce unused values)
         // 2. Dead stores (stores to unused locations)
         // 3. Dead allocations (allocations that become unused after removing stores)
         // The order matters because removing one type of dead code can make other code dead
-        modified |= self.eliminate_dead_instructions(function);
+        let instructions_modified = self.eliminate_dead_instructions(function, &use_counts);
+        modified |= instructions_modified;
+
+        // Recompute use counts if we modified the function
+        if instructions_modified {
+            use_counts = self.calculate_value_use_counts(function);
+        }
 
         // Re-enabled with conservative analysis - only eliminates stores to local frame allocations
         // The current implementation only removes stores where the address operand itself is unused,
         // which is conservative and safe. This avoids the GEP aliasing issue while still providing
         // optimization benefits for simple cases.
         // TODO: Enhance with alias analysis to handle GEP-derived pointers more aggressively
-        modified |= self.eliminate_dead_stores(function);
+        let stores_modified = self.eliminate_dead_stores(function, &use_counts);
+        modified |= stores_modified;
 
-        modified |= self.eliminate_dead_allocations(function);
+        // Recompute use counts again if we modified stores
+        if stores_modified {
+            use_counts = self.calculate_value_use_counts(function);
+        }
+
+        modified |= self.eliminate_dead_allocations(function, &use_counts);
 
         if !self.optimizations_applied.is_empty() {
-            eprintln!(
+            log::debug!(
                 "Pre-optimizations applied: {:?}",
                 self.optimizations_applied
             );

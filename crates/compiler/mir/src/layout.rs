@@ -120,13 +120,29 @@ impl DataLayout {
 
     /// Get the alignment requirement for a type (in slots)
     ///
-    /// Currently, all types are aligned to 1 slot, but this method
-    /// provides a centralized place to change alignment strategy.
+    /// Currently returns 1 for all types (no alignment padding).
+    /// This method provides a centralized place for future alignment strategies.
+    ///
+    /// ## Future Considerations
+    /// - Target-specific alignment requirements for different architectures
+    /// - SIMD-friendly alignment for vector types when added
+    /// - Cache-line alignment for performance-critical structures
+    /// - Natural alignment for primitive types (e.g., U32 aligned to 2 slots)
     pub const fn alignment_of(&self, _ty: &MirType) -> usize {
         1 // All types are currently 1-slot aligned
     }
 
-    /// Calculate the total size needed for a struct with alignment
+    /// Calculate the total size needed for a struct with alignment padding
+    ///
+    /// This method computes the size of a struct including any padding needed
+    /// for proper alignment of the struct as a whole. Currently, no padding is
+    /// added since all types have 1-slot alignment.
+    ///
+    /// ## Future Enhancements
+    /// When alignment requirements change, this method will:
+    /// - Add padding between fields to maintain field alignment
+    /// - Add trailing padding to ensure the struct size is a multiple of its alignment
+    /// - Support packed vs. aligned struct layouts
     ///
     /// This accounts for any padding that might be needed between fields
     /// or at the end of the struct for alignment purposes.

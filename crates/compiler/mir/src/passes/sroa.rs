@@ -47,7 +47,6 @@ pub struct SroaPass {
 struct SroaStats {
     allocas_analyzed: usize,
     allocas_split: usize,
-    aggregates_scalarized: usize,
     loads_eliminated: usize,
     stores_eliminated: usize,
 }
@@ -68,13 +67,8 @@ impl SroaPass {
 
     /// Run the SROA optimization
     pub fn optimize(&mut self, function: &mut MirFunction) -> bool {
-        // Phase 1: Handle alloca splitting
-        let alloca_changes = self.process_allocas(function);
-
-        // Phase 2: Handle SSA aggregate scalarization
-        let ssa_changes = self.process_ssa_aggregates(function);
-
-        alloca_changes || ssa_changes
+        // Handle alloca splitting - focus exclusively on memory-based aggregate splitting
+        self.process_allocas(function)
     }
 }
 
@@ -85,31 +79,13 @@ struct AllocaCandidate {
     alloc_id: ValueId,
     /// The aggregate type being allocated
     aggregate_type: MirType,
-    /// All GetElementPtrTyped instructions derived from this alloca
-    /// Maps the GEP result to its constant path
-    typed_geps: HashMap<ValueId, FieldPath>,
+    /// All GetElementPtr instructions with constant offsets derived from this alloca
+    /// Maps the GEP result to its field path (when offset can be resolved to a field)
+    constant_geps: HashMap<ValueId, FieldPath>,
     /// Whether this allocation escapes (passed to call, address taken, etc.)
     escapes: bool,
     /// Blocks containing uses of this allocation
     use_blocks: HashSet<BasicBlockId>,
-}
-
-/// Information about an SSA aggregate value
-#[derive(Debug, Clone)]
-struct SsaAggregateInfo {
-    /// The aggregate value ID
-    value_id: ValueId,
-    /// The aggregate type
-    #[allow(dead_code)]
-    aggregate_type: MirType,
-    /// For BuildStruct/BuildTuple: the source values
-    source_values: Vec<(String, Value)>, // field name/index as string, value
-    /// All ExtractValue uses with their paths
-    extracts: HashMap<ValueId, FieldPath>,
-    /// All InsertValue uses
-    inserts: Vec<(ValueId, FieldPath, Value)>,
-    /// Whether this aggregate escapes (returned, stored, passed to call)
-    escapes: bool,
 }
 
 impl SroaPass {
@@ -139,7 +115,7 @@ impl SroaPass {
         let mut escaping = HashSet::new();
 
         // First pass: Find all aggregate allocations and typed GEPs
-        for (block_id, block) in function.basic_blocks.iter_enumerated() {
+        for (_block_id, block) in function.basic_blocks.iter_enumerated() {
             for instruction in &block.instructions {
                 match &instruction.kind {
                     InstructionKind::FrameAlloc { dest, ty } => {
@@ -151,43 +127,22 @@ impl SroaPass {
                                 AllocaCandidate {
                                     alloc_id: *dest,
                                     aggregate_type: ty.clone(),
-                                    typed_geps: HashMap::new(),
+                                    constant_geps: HashMap::new(),
                                     escapes: false,
                                     use_blocks: HashSet::new(),
                                 },
                             );
                         }
                     }
-                    InstructionKind::GetElementPtrTyped {
-                        dest, base, path, ..
-                    } => {
-                        if let Value::Operand(base_id) = base {
-                            // Check if this is a GEP from a candidate allocation
-                            if let Some(candidate) = candidates.get_mut(base_id) {
-                                candidate.typed_geps.insert(*dest, path.clone());
-                                candidate.use_blocks.insert(block_id);
-                            }
-                            // Also check for chained GEPs
-                            for candidate in candidates.values_mut() {
-                                if candidate.typed_geps.contains_key(base_id) {
-                                    // Combine paths for chained GEPs
-                                    if let Some(base_path) = candidate.typed_geps.get(base_id) {
-                                        let mut combined_path = base_path.clone();
-                                        combined_path.extend(path.clone());
-                                        candidate.typed_geps.insert(*dest, combined_path);
-                                        candidate.use_blocks.insert(block_id);
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    // Note: GetElementPtrTyped has been removed. We now analyze regular GetElementPtr
+                    // instructions with constant offsets to determine field access patterns.
                     InstructionKind::GetElementPtr { base, .. } => {
                         // Regular (untyped) GEP - mark allocation as escaping
                         if let Value::Operand(base_id) = base {
                             escaping.insert(*base_id);
                             // Also check chained GEPs
                             for candidate in candidates.values() {
-                                if candidate.typed_geps.contains_key(base_id) {
+                                if candidate.constant_geps.contains_key(base_id) {
                                     escaping.insert(candidate.alloc_id);
                                 }
                             }
@@ -211,7 +166,7 @@ impl SroaPass {
                                 } else {
                                     // Check if it's a GEP from an allocation
                                     for candidate in candidates.values() {
-                                        if candidate.typed_geps.contains_key(arg_id) {
+                                        if candidate.constant_geps.contains_key(arg_id) {
                                             escaping.insert(candidate.alloc_id);
                                         }
                                     }
@@ -235,7 +190,7 @@ impl SroaPass {
                         // Record use blocks for stores TO the allocation
                         if let Value::Operand(addr_id) = address {
                             for candidate in candidates.values_mut() {
-                                if candidate.typed_geps.contains_key(addr_id) {
+                                if candidate.constant_geps.contains_key(addr_id) {
                                     candidate.use_blocks.insert(block_id);
                                 }
                             }
@@ -245,7 +200,7 @@ impl SroaPass {
                         // Record use blocks for loads FROM the allocation
                         if let Value::Operand(addr_id) = address {
                             for candidate in candidates.values_mut() {
-                                if candidate.typed_geps.contains_key(addr_id) {
+                                if candidate.constant_geps.contains_key(addr_id) {
                                     candidate.use_blocks.insert(block_id);
                                 }
                             }
@@ -294,7 +249,7 @@ impl SroaPass {
 
         // Create a mapping from GEP results to their corresponding field allocations
         let mut gep_replacements: HashMap<ValueId, ValueId> = HashMap::new();
-        for (gep_id, path) in &candidate.typed_geps {
+        for (gep_id, path) in &candidate.constant_geps {
             if let Some(&field_alloc) = self.resolve_path_to_field(&field_allocations, path) {
                 gep_replacements.insert(*gep_id, field_alloc);
             }
@@ -303,7 +258,7 @@ impl SroaPass {
         // Rewrite all uses of the original allocation and its GEPs
         self.rewrite_aggregate_uses(function, &candidate, &gep_replacements);
 
-        // Remove the original allocation and typed GEPs
+        // Remove the original allocation and constant GEPs
         self.remove_original_instructions(function, &candidate);
     }
 
@@ -462,284 +417,12 @@ impl SroaPass {
                 .instructions
                 .retain(|instruction| match &instruction.kind {
                     InstructionKind::FrameAlloc { dest, .. } => *dest != candidate.alloc_id,
-                    InstructionKind::GetElementPtrTyped { dest, .. } => {
-                        !candidate.typed_geps.contains_key(dest)
+                    // Remove constant GEPs that were replaced with field allocations
+                    InstructionKind::GetElementPtr { dest, .. } => {
+                        !candidate.constant_geps.contains_key(dest)
                     }
                     _ => true,
                 });
-        }
-    }
-
-    /// Phase 2: Process SSA aggregates (Build*/Extract* patterns)
-    fn process_ssa_aggregates(&mut self, function: &mut MirFunction) -> bool {
-        // Step 1: Identify SSA aggregate patterns
-        let aggregates = self.identify_ssa_aggregates(function);
-        if aggregates.is_empty() {
-            return false;
-        }
-
-        // Step 2: Scalarize eligible aggregates
-        let mut any_changed = false;
-        for aggregate in aggregates {
-            if !aggregate.escapes && !aggregate.inserts.is_empty() {
-                // For now, only handle pure Extract patterns (no InsertValue)
-                // InsertValue requires more complex rewriting
-                continue;
-            }
-
-            if !aggregate.escapes {
-                self.scalarize_ssa_aggregate(function, aggregate);
-                any_changed = true;
-            }
-        }
-
-        any_changed
-    }
-
-    /// Identify SSA aggregates built with Build* instructions
-    fn identify_ssa_aggregates(&mut self, function: &MirFunction) -> Vec<SsaAggregateInfo> {
-        let mut aggregates = HashMap::new();
-        let mut escaping = HashSet::new();
-
-        // First pass: Find Build* instructions
-        for (_block_id, block) in function.basic_blocks.iter_enumerated() {
-            for instruction in &block.instructions {
-                match &instruction.kind {
-                    InstructionKind::BuildStruct {
-                        dest,
-                        struct_type,
-                        fields,
-                    } => {
-                        let source_values: Vec<(String, Value)> = fields.clone();
-                        aggregates.insert(
-                            *dest,
-                            SsaAggregateInfo {
-                                value_id: *dest,
-                                aggregate_type: struct_type.clone(),
-                                source_values,
-                                extracts: HashMap::new(),
-                                inserts: Vec::new(),
-                                escapes: false,
-                            },
-                        );
-                    }
-                    InstructionKind::BuildTuple {
-                        dest,
-                        elements,
-                        tuple_type,
-                    } => {
-                        let source_values: Vec<(String, Value)> = elements
-                            .iter()
-                            .enumerate()
-                            .map(|(i, v)| (i.to_string(), *v))
-                            .collect();
-                        aggregates.insert(
-                            *dest,
-                            SsaAggregateInfo {
-                                value_id: *dest,
-                                aggregate_type: tuple_type.clone(),
-                                source_values,
-                                extracts: HashMap::new(),
-                                inserts: Vec::new(),
-                                escapes: false,
-                            },
-                        );
-                    }
-                    _ => {}
-                }
-            }
-        }
-
-        // Second pass: Find uses of these aggregates
-        for (_block_id, block) in function.basic_blocks.iter_enumerated() {
-            for instruction in &block.instructions {
-                match &instruction.kind {
-                    InstructionKind::ExtractValue {
-                        dest,
-                        aggregate,
-                        path,
-                        ..
-                    } => {
-                        if let Value::Operand(agg_id) = aggregate {
-                            if let Some(info) = aggregates.get_mut(agg_id) {
-                                info.extracts.insert(*dest, path.clone());
-                            }
-                        }
-                    }
-                    InstructionKind::InsertValue {
-                        dest,
-                        aggregate,
-                        value,
-                        path,
-                        ..
-                    } => {
-                        if let Value::Operand(agg_id) = aggregate {
-                            if let Some(info) = aggregates.get_mut(agg_id) {
-                                info.inserts.push((*dest, path.clone(), *value));
-                            }
-                        }
-                    }
-                    InstructionKind::Store { value, .. } => {
-                        // Storing an aggregate means it escapes
-                        if let Value::Operand(val_id) = value {
-                            if aggregates.contains_key(val_id) {
-                                escaping.insert(*val_id);
-                            }
-                        }
-                    }
-                    InstructionKind::Call { args, .. } | InstructionKind::VoidCall { args, .. } => {
-                        // Passing aggregate to call means it escapes
-                        for arg in args {
-                            if let Value::Operand(arg_id) = arg {
-                                if aggregates.contains_key(arg_id) {
-                                    escaping.insert(*arg_id);
-                                }
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-            }
-
-            // Check terminator
-            if let Terminator::Return { values } = &block.terminator {
-                for value in values {
-                    if let Value::Operand(val_id) = value {
-                        if aggregates.contains_key(val_id) {
-                            escaping.insert(*val_id);
-                        }
-                    }
-                }
-            }
-        }
-
-        // Mark escaping aggregates
-        for escaped_id in escaping {
-            if let Some(info) = aggregates.get_mut(&escaped_id) {
-                info.escapes = true;
-            }
-        }
-
-        aggregates.into_values().collect()
-    }
-
-    /// Scalarize an SSA aggregate by replacing ExtractValue with direct value references
-    fn scalarize_ssa_aggregate(&mut self, function: &mut MirFunction, aggregate: SsaAggregateInfo) {
-        self.stats.aggregates_scalarized += 1;
-
-        // Create a mapping from ExtractValue results to their source values
-        let mut extract_replacements = HashMap::new();
-        for (extract_dest, path) in &aggregate.extracts {
-            if let Some(source_value) = self.resolve_path_to_source(&aggregate, path) {
-                extract_replacements.insert(*extract_dest, source_value);
-            }
-        }
-
-        // Rewrite all uses of ExtractValue results
-        for block in function.basic_blocks.iter_mut() {
-            for instruction in &mut block.instructions {
-                // Replace uses of extracted values
-                match &mut instruction.kind {
-                    InstructionKind::Assign { source, .. } => {
-                        if let Value::Operand(src_id) = source {
-                            if let Some(&replacement) = extract_replacements.get(src_id) {
-                                *source = replacement;
-                            }
-                        }
-                    }
-                    InstructionKind::BinaryOp { left, right, .. } => {
-                        if let Value::Operand(left_id) = left {
-                            if let Some(&replacement) = extract_replacements.get(left_id) {
-                                *left = replacement;
-                            }
-                        }
-                        if let Value::Operand(right_id) = right {
-                            if let Some(&replacement) = extract_replacements.get(right_id) {
-                                *right = replacement;
-                            }
-                        }
-                    }
-                    InstructionKind::UnaryOp { source, .. } => {
-                        if let Value::Operand(src_id) = source {
-                            if let Some(&replacement) = extract_replacements.get(src_id) {
-                                *source = replacement;
-                            }
-                        }
-                    }
-                    InstructionKind::Store { value, .. } => {
-                        if let Value::Operand(val_id) = value {
-                            if let Some(&replacement) = extract_replacements.get(val_id) {
-                                *value = replacement;
-                            }
-                        }
-                    }
-                    InstructionKind::Call { args, .. } | InstructionKind::VoidCall { args, .. } => {
-                        for arg in args {
-                            if let Value::Operand(arg_id) = arg {
-                                if let Some(&replacement) = extract_replacements.get(arg_id) {
-                                    *arg = replacement;
-                                }
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-            }
-
-            // Update terminator
-            if let Terminator::Return { values } = &mut block.terminator {
-                for value in values {
-                    if let Value::Operand(val_id) = value {
-                        if let Some(&replacement) = extract_replacements.get(val_id) {
-                            *value = replacement;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Remove Build* and ExtractValue instructions
-        for block in function.basic_blocks.iter_mut() {
-            block
-                .instructions
-                .retain(|instruction| match &instruction.kind {
-                    InstructionKind::BuildStruct { dest, .. }
-                    | InstructionKind::BuildTuple { dest, .. } => *dest != aggregate.value_id,
-                    InstructionKind::ExtractValue { dest, .. } => {
-                        !aggregate.extracts.contains_key(dest)
-                    }
-                    _ => true,
-                });
-        }
-    }
-
-    /// Resolve a path through an aggregate to find the source value
-    fn resolve_path_to_source(
-        &self,
-        aggregate: &SsaAggregateInfo,
-        path: &FieldPath,
-    ) -> Option<Value> {
-        if path.is_empty() {
-            return Some(Value::Operand(aggregate.value_id));
-        }
-
-        // For single-level paths, directly look up the source value
-        if path.len() == 1 {
-            match &path[0] {
-                AccessPath::Field(field_name) => aggregate
-                    .source_values
-                    .iter()
-                    .find(|(name, _)| name == field_name)
-                    .map(|(_, value)| *value),
-                AccessPath::TupleIndex(index) => {
-                    aggregate.source_values.get(*index).map(|(_, value)| *value)
-                }
-            }
-        } else {
-            // For nested paths, we would need to recursively resolve
-            // This requires tracking nested Build* instructions
-            // For now, return None for nested paths
-            None
         }
     }
 }

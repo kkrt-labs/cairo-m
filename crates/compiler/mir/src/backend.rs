@@ -18,10 +18,10 @@ pub enum BackendError {
 impl fmt::Display for BackendError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            BackendError::Configuration(msg) => write!(f, "Backend configuration error: {}", msg),
-            BackendError::CodeGeneration(msg) => write!(f, "Code generation failed: {}", msg),
-            BackendError::UnsupportedFeature(msg) => write!(f, "Unsupported MIR feature: {}", msg),
-            BackendError::BackendSpecific(msg) => write!(f, "Backend-specific error: {}", msg),
+            Self::Configuration(msg) => write!(f, "Backend configuration error: {}", msg),
+            Self::CodeGeneration(msg) => write!(f, "Code generation failed: {}", msg),
+            Self::UnsupportedFeature(msg) => write!(f, "Unsupported MIR feature: {}", msg),
+            Self::BackendSpecific(msg) => write!(f, "Backend-specific error: {}", msg),
         }
     }
 }
@@ -85,7 +85,7 @@ pub trait Backend: Send + Sync {
         // Default implementation checks basic structure
         module
             .validate()
-            .map_err(|e| BackendError::UnsupportedFeature(e))?;
+            .map_err(BackendError::UnsupportedFeature)?;
         Ok(())
     }
 

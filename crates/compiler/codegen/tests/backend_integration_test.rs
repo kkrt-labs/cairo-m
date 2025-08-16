@@ -4,8 +4,7 @@ use cairo_m_compiler_codegen::CasmBackend;
 use cairo_m_compiler_mir::{
     backend::{Backend, BackendConfig},
     pipeline::{CompilationPipeline, PipelineConfig},
-    BasicBlock, BasicBlockId, Instruction, InstructionKind, MirFunction, MirModule, MirType,
-    Terminator, Value, ValueId,
+    Instruction, InstructionKind, MirFunction, MirModule, MirType, Terminator, ValueId,
 };
 
 #[test]

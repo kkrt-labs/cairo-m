@@ -92,8 +92,8 @@ pub fn generate_mir(db: &dyn MirDb, crate_id: Crate) -> Result<Arc<MirModule>, V
                     // Map semantic DefinitionId to MIR FunctionId
                     function_mapping.insert(def_id, (def, func_id));
                 } else {
-                    eprintln!(
-                        "Warning: Function '{}' found in semantic index but not in AST",
+                    log::warn!(
+                        "Function '{}' found in semantic index but not in AST",
                         def.name
                     );
                 }
@@ -151,13 +151,13 @@ pub fn generate_mir(db: &dyn MirDb, crate_id: Crate) -> Result<Arc<MirModule>, V
                             mir_module.functions[func_id] = mir_function;
                         }
                         Err(e) => {
-                            eprintln!("Failed to lower function '{}': {}", def.name, e);
+                            log::error!("Failed to lower function '{}': {}", def.name, e);
                             // Continue with other functions even if one fails
                         }
                     }
                 } else {
-                    eprintln!(
-                        "Warning: Function '{}' found in semantic index but not in AST",
+                    log::warn!(
+                        "Function '{}' found in semantic index but not in AST",
                         def.name
                     );
                 }

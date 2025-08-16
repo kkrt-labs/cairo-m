@@ -47,7 +47,7 @@ impl BasicBlock {
     }
 
     /// Creates a new basic block with a name and an unreachable terminator
-    pub fn with_name(name: String) -> Self {
+    pub const fn with_name(name: String) -> Self {
         Self {
             name: Some(name),
             instructions: Vec::new(),

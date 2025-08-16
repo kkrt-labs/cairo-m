@@ -89,35 +89,36 @@ impl MirPass for FuseCmpBranch {
                             if Self::is_fusible_comparison(*op) {
                                 // We found the pattern! Perform the fusion.
 
+                                // Helper to check if a value represents zero
+                                let is_zero = |v: &Value| {
+                                    matches!(
+                                        v,
+                                        Value::Literal(Literal::Integer(0))
+                                            | Value::Literal(Literal::Boolean(false))
+                                    )
+                                };
+
                                 // We first check for comparisons with 0 which can be optimized
-                                match (*op, *left, *right) {
-                                    (
-                                        BinaryOp::Eq | BinaryOp::U32Eq,
-                                        Value::Literal(Literal::Integer(0)),
-                                        cond,
-                                    )
-                                    | (
-                                        BinaryOp::Eq | BinaryOp::U32Eq,
-                                        cond,
-                                        Value::Literal(Literal::Integer(0)),
-                                    ) => {
-                                        // Checking x == 0 is equivalent to !x, so we switch the targets
+                                match (*op, is_zero(left), is_zero(right)) {
+                                    (BinaryOp::Eq | BinaryOp::U32Eq, true, false) => {
+                                        // 0 == x is equivalent to !x, so we switch the targets
                                         block.terminator =
-                                            Terminator::branch(cond, else_target, then_target);
+                                            Terminator::branch(*right, else_target, then_target);
                                     }
-                                    (
-                                        BinaryOp::Neq | BinaryOp::U32Neq,
-                                        Value::Literal(Literal::Integer(0)),
-                                        cond,
-                                    )
-                                    | (
-                                        BinaryOp::Neq | BinaryOp::U32Neq,
-                                        cond,
-                                        Value::Literal(Literal::Integer(0)),
-                                    ) => {
-                                        // Checking x != 0 is equivalent to x, so we use x as the condition
+                                    (BinaryOp::Eq | BinaryOp::U32Eq, false, true) => {
+                                        // x == 0 is equivalent to !x, so we switch the targets
                                         block.terminator =
-                                            Terminator::branch(cond, then_target, else_target);
+                                            Terminator::branch(*left, else_target, then_target);
+                                    }
+                                    (BinaryOp::Neq | BinaryOp::U32Neq, true, false) => {
+                                        // 0 != x is equivalent to x, so we use x as the condition
+                                        block.terminator =
+                                            Terminator::branch(*right, then_target, else_target);
+                                    }
+                                    (BinaryOp::Neq | BinaryOp::U32Neq, false, true) => {
+                                        // x != 0 is equivalent to x, so we use x as the condition
+                                        block.terminator =
+                                            Terminator::branch(*left, then_target, else_target);
                                     }
                                     _ => {
                                         // For all other cases, we can fuse the comparison and branch
@@ -391,12 +392,9 @@ impl Validation {
         // Warn about critical edges (these should be split for correct SSA destruction)
         for (pred_id, pred_block) in function.basic_blocks.iter_enumerated() {
             for succ_id in pred_block.terminator.target_blocks() {
-                if is_critical_edge(function, pred_id, succ_id)
-                    && std::env::var("RUST_LOG").is_ok()
-                    && std::env::var("RUST_LOG").unwrap().contains("debug")
-                {
-                    eprintln!(
-                        "[DEBUG] Critical edge detected: {pred_id:?} -> {succ_id:?} in function '{}'",
+                if is_critical_edge(function, pred_id, succ_id) {
+                    log::debug!(
+                        "Critical edge detected: {pred_id:?} -> {succ_id:?} in function '{}'",
                         function.name
                     );
                 }

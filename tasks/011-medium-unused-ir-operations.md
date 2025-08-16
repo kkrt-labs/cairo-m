@@ -2,7 +2,7 @@
 
 ## Priority
 
-MEDIUM
+MEDIUM - COMPLETED
 
 ## Why
 
@@ -131,6 +131,35 @@ benefit over the current approach.
    aggregates
 4. **Type safety**: Verify aggregate types are preserved correctly through the
    pipeline
+
+## Implementation Summary
+
+Successfully removed unused IR operations from the codebase:
+
+1. **Removed from InstructionKind enum**:
+   - `BuildStruct` - SSA aggregate construction
+   - `BuildTuple` - SSA aggregate construction
+   - `ExtractValue` - SSA aggregate field extraction
+   - `InsertValue` - SSA aggregate field insertion
+   - `GetElementPtrTyped` - Type-safe pointer arithmetic
+
+2. **Updated SROA pass**:
+   - Removed `process_ssa_aggregates()` method
+   - Removed `SsaAggregateInfo` struct
+   - Simplified to focus exclusively on memory-based aggregates
+   - Updated to work without GetElementPtrTyped (though optimization is now
+     limited)
+
+3. **Updated codegen**:
+   - Removed cases for all unused instructions
+   - Added comment explaining their removal
+
+4. **Updated tests**:
+   - Rewrote SROA tests to work without the removed instructions
+   - Added explanatory comments about the limitations
+
+The compiler now uses a simpler, memory-based approach for aggregates
+exclusively, reducing code complexity and maintenance burden.
 
 ## Impact
 

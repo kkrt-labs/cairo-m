@@ -638,7 +638,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             let field_offset = Value::integer(field_offset_val as i32);
 
             // Get the field type from the semantic analysis for the field value
-            let field_val_expr_id = self
+            let _field_val_expr_id = self
                 .ctx
                 .semantic_index
                 .expression_id_by_span(field_value.span())
