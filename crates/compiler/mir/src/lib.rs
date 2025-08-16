@@ -87,6 +87,9 @@ pub mod testing;
 #[cfg(test)]
 mod instruction_tests;
 
+#[cfg(test)]
+mod insert_instructions_test;
+
 // --- Core Identifiers ---
 
 index_vec::define_index_type! {

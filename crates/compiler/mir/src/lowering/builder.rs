@@ -679,6 +679,48 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         dest
     }
 
+    /// Insert a field into a struct value, creating a new struct
+    /// Returns the ValueId of the new struct with the field updated
+    pub fn insert_field(
+        &mut self,
+        struct_val: Value,
+        field_name: String,
+        new_value: Value,
+        struct_type: MirType,
+    ) -> ValueId {
+        let dest = self
+            .state
+            .mir_function
+            .new_typed_value_id(struct_type.clone());
+        self.instr().add_instruction(Instruction::insert_field(
+            dest,
+            struct_val,
+            field_name,
+            new_value,
+            struct_type,
+        ));
+        dest
+    }
+
+    /// Insert an element into a tuple value, creating a new tuple
+    /// Returns the ValueId of the new tuple with the element updated
+    pub fn insert_tuple(
+        &mut self,
+        tuple_val: Value,
+        index: usize,
+        new_value: Value,
+        tuple_type: MirType,
+    ) -> ValueId {
+        let dest = self
+            .state
+            .mir_function
+            .new_typed_value_id(tuple_type.clone());
+        self.instr().add_instruction(Instruction::insert_tuple(
+            dest, tuple_val, index, new_value, tuple_type,
+        ));
+        dest
+    }
+
     // ================================================================================
     // Helper Methods - Common Patterns
     // ================================================================================

@@ -353,6 +353,24 @@ pub enum InstructionKind {
         field_name: String,
         field_ty: MirType,
     },
+
+    /// Insert a new field value into a struct: `dest = insert_field(struct_val, "field", value)`
+    InsertField {
+        dest: ValueId,
+        struct_val: Value,
+        field_name: String,
+        new_value: Value,
+        struct_ty: MirType,
+    },
+
+    /// Insert a new element value into a tuple: `dest = insert_tuple(tuple_val, index, value)`
+    InsertTuple {
+        dest: ValueId,
+        tuple_val: Value,
+        index: usize,
+        new_value: Value,
+        tuple_ty: MirType,
+    },
 }
 
 impl Instruction {
@@ -583,6 +601,50 @@ impl Instruction {
         }
     }
 
+    /// Creates a new insert field instruction
+    pub fn insert_field(
+        dest: ValueId,
+        struct_val: Value,
+        field_name: String,
+        new_value: Value,
+        struct_ty: MirType,
+    ) -> Self {
+        Self {
+            kind: InstructionKind::InsertField {
+                dest,
+                struct_val,
+                field_name,
+                new_value,
+                struct_ty,
+            },
+            source_span: None,
+            source_expr_id: None,
+            comment: None,
+        }
+    }
+
+    /// Creates a new insert tuple instruction
+    pub fn insert_tuple(
+        dest: ValueId,
+        tuple_val: Value,
+        index: usize,
+        new_value: Value,
+        tuple_ty: MirType,
+    ) -> Self {
+        Self {
+            kind: InstructionKind::InsertTuple {
+                dest,
+                tuple_val,
+                index,
+                new_value,
+                tuple_ty,
+            },
+            source_span: None,
+            source_expr_id: None,
+            comment: None,
+        }
+    }
+
     pub const fn nop() -> Self {
         Self {
             kind: InstructionKind::Nop,
@@ -625,7 +687,9 @@ impl Instruction {
             | InstructionKind::MakeTuple { dest, .. }
             | InstructionKind::ExtractTupleElement { dest, .. }
             | InstructionKind::MakeStruct { dest, .. }
-            | InstructionKind::ExtractStructField { dest, .. } => vec![*dest],
+            | InstructionKind::ExtractStructField { dest, .. }
+            | InstructionKind::InsertField { dest, .. }
+            | InstructionKind::InsertTuple { dest, .. } => vec![*dest],
 
             InstructionKind::Call { dests, .. } => dests.clone(),
 
@@ -765,6 +829,32 @@ impl Instruction {
                     used.insert(*id);
                 }
             }
+
+            InstructionKind::InsertField {
+                struct_val,
+                new_value,
+                ..
+            } => {
+                if let Value::Operand(id) = struct_val {
+                    used.insert(*id);
+                }
+                if let Value::Operand(id) = new_value {
+                    used.insert(*id);
+                }
+            }
+
+            InstructionKind::InsertTuple {
+                tuple_val,
+                new_value,
+                ..
+            } => {
+                if let Value::Operand(id) = tuple_val {
+                    used.insert(*id);
+                }
+                if let Value::Operand(id) = new_value {
+                    used.insert(*id);
+                }
+            }
         }
 
         used
@@ -791,6 +881,8 @@ impl Instruction {
             InstructionKind::ExtractTupleElement { .. } => Ok(()),
             InstructionKind::MakeStruct { .. } => Ok(()),
             InstructionKind::ExtractStructField { .. } => Ok(()),
+            InstructionKind::InsertField { .. } => Ok(()),
+            InstructionKind::InsertTuple { .. } => Ok(()),
         }
     }
 
@@ -1043,6 +1135,40 @@ impl PrettyPrint for Instruction {
                     struct_val.pretty_print(0),
                     field_name,
                     field_ty
+                ));
+            }
+
+            InstructionKind::InsertField {
+                dest,
+                struct_val,
+                field_name,
+                new_value,
+                struct_ty,
+            } => {
+                result.push_str(&format!(
+                    "{} = insert_field {}, \"{}\", {} ({})",
+                    dest.pretty_print(0),
+                    struct_val.pretty_print(0),
+                    field_name,
+                    new_value.pretty_print(0),
+                    struct_ty
+                ));
+            }
+
+            InstructionKind::InsertTuple {
+                dest,
+                tuple_val,
+                index,
+                new_value,
+                tuple_ty,
+            } => {
+                result.push_str(&format!(
+                    "{} = insert_tuple {}, {}, {} ({})",
+                    dest.pretty_print(0),
+                    tuple_val.pretty_print(0),
+                    index,
+                    new_value.pretty_print(0),
+                    tuple_ty
                 ));
             }
         }

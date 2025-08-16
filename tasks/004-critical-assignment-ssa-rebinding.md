@@ -4,6 +4,40 @@
 
 ## Dependencies: Task 003 (Variable-SSA pass)
 
+## Status: COMPLETED
+
+## Implementation Summary
+
+Successfully added InsertField and InsertTuple instructions to support SSA-based
+assignment rebinding for aggregate types. These instructions enable field and
+element updates without memory operations, maintaining proper SSA form.
+
+### Changes Made:
+
+1. **Added new instructions to InstructionKind enum** (`instruction.rs`):
+   - `InsertField`: Creates new struct with one field replaced
+   - `InsertTuple`: Creates new tuple with one element replaced
+
+2. **Implemented support methods**:
+   - Constructor functions: `insert_field()` and `insert_tuple()`
+   - Updated `destinations()` to include new instructions
+   - Updated `used_values()` to track operands correctly
+   - Updated `validate()` to accept new instructions
+   - Added pretty-print formatting for both instructions
+
+3. **Added builder methods** (`lowering/builder.rs`):
+   - `insert_field()`: Creates InsertField instruction with proper type tracking
+   - `insert_tuple()`: Creates InsertTuple instruction with proper type tracking
+
+4. **Created comprehensive test suite** (`insert_instructions_test.rs`):
+   - Tests for instruction creation and validation
+   - Tests for used values tracking
+   - Tests for pretty printing
+
+All tests pass successfully. The new instructions are ready to be integrated
+with assignment statement lowering to enable SSA rebinding for field/element
+updates.
+
 ## Why
 
 Assignment statements in the current MIR implementation rely heavily on memory
