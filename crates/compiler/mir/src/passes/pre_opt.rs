@@ -1,5 +1,5 @@
 use crate::{InstructionKind, MirFunction, Value, ValueId};
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 /// Pre-optimization pass that runs immediately after lowering
 ///
@@ -34,18 +34,57 @@ impl PreOptimizationPass {
         function: &mut MirFunction,
         use_counts: &FxHashMap<ValueId, usize>,
     ) -> bool {
+        // First, collect all addresses that are read from
+        let mut addresses_read = FxHashSet::default();
+        let mut local_addresses = FxHashSet::default();
+        let mut escaping_addresses = FxHashSet::default();
+
+        for block in function.basic_blocks.iter() {
+            for instr in &block.instructions {
+                match &instr.kind {
+                    InstructionKind::Load { address, .. } => {
+                        if let Value::Operand(addr_id) = address {
+                            addresses_read.insert(*addr_id);
+                        }
+                    }
+                    InstructionKind::FrameAlloc { dest, .. } => {
+                        local_addresses.insert(*dest);
+                    }
+                    InstructionKind::Call { args, .. } => {
+                        // Mark any address passed to a call as escaping
+                        for arg in args {
+                            if let Value::Operand(id) = arg {
+                                if local_addresses.contains(id) {
+                                    escaping_addresses.insert(*id);
+                                }
+                            }
+                        }
+                    }
+                    InstructionKind::AddressOf { operand, .. } => {
+                        escaping_addresses.insert(*operand);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
         let mut modified = false;
 
         for block in function.basic_blocks.iter_mut() {
             block.instructions.retain(|instr| {
                 if let InstructionKind::Store { address, .. } = &instr.kind
                     && let Value::Operand(dest) = address
-                    && use_counts.get(dest).copied().unwrap_or(0) == 0
                 {
-                    modified = true;
-                    self.optimizations_applied
-                        .push("dead_store_elimination".to_string());
-                    return false; // Remove this instruction
+                    // Only eliminate stores to local, non-escaping addresses that are never read
+                    if local_addresses.contains(dest)
+                        && !escaping_addresses.contains(dest)
+                        && !addresses_read.contains(dest)
+                    {
+                        modified = true;
+                        self.optimizations_applied
+                            .push("dead_store_elimination".to_string());
+                        return false; // Remove this instruction
+                    }
                 }
                 true
             });

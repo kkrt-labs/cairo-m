@@ -273,26 +273,38 @@ impl MirPass for Validation {
 }
 
 impl Validation {
-    /// Validate that all used values are defined before use within each block
+    /// Validate that all used values are defined somewhere in the function
+    ///
+    /// In SSA form, values can be used from any dominating block, not just the same block.
+    /// This validation ensures that every used value is either:
+    /// - A function parameter
+    /// - Defined by some instruction in the function
     fn validate_value_usage(&self, function: &MirFunction) {
-        for (block_id, block) in function.basic_blocks() {
-            let mut defined_in_block = std::collections::HashSet::new();
+        // Collect all defined values in the entire function
+        let mut all_defined_values = std::collections::HashSet::new();
 
-            // Collect all values defined by instructions in this block
+        // Add function parameters
+        for param in &function.parameters {
+            all_defined_values.insert(*param);
+        }
+
+        // Add all values defined by instructions
+        for (_block_id, block) in function.basic_blocks() {
             for instruction in &block.instructions {
                 if let Some(dest) = instruction.destination() {
-                    defined_in_block.insert(dest);
+                    all_defined_values.insert(dest);
                 }
             }
+        }
 
-            // Check that all used values are either defined in this block or are parameters
+        // Now check that all used values are defined somewhere
+        for (block_id, block) in function.basic_blocks() {
             let used_values = block.used_values();
             for used_value in used_values {
-                if !defined_in_block.contains(&used_value)
-                    && !function.parameters.contains(&used_value)
-                {
+                if !all_defined_values.contains(&used_value) {
+                    // This is a real error - value is not defined anywhere
                     eprintln!(
-                        "Warning: Block {block_id:?} uses value {used_value:?} that is not defined in the block or as a parameter"
+                        "Error: Block {block_id:?} uses value {used_value:?} that is not defined anywhere in the function"
                     );
                 }
             }
@@ -491,7 +503,9 @@ impl PassManager {
     pub fn standard_pipeline() -> Self {
         Self::new()
             .add_pass(pre_opt::PreOptimizationPass::new())
-            .add_pass(sroa::SroaPass::new()) // Split aggregates before mem2reg
+            // SROA pass temporarily disabled due to IR corruption bug
+            // TODO: Re-enable once constant_geps population is fixed
+            // .add_pass(sroa::SroaPass::new()) // Split aggregates before mem2reg
             .add_pass(mem2reg_ssa::Mem2RegSsaPass::new()) // Run SSA mem2reg early for true SSA form
             .add_pass(Validation::new()) // Validate SSA form before destruction
             .add_pass(ssa_destruction::SsaDestructionPass::new()) // Eliminate Phi nodes before codegen

@@ -33,6 +33,9 @@ pub struct LoweringContext<'a, 'db> {
     pub(super) semantic_index: &'a SemanticIndex,
     /// Global map from function DefinitionId to MIR FunctionId for call resolution
     pub(super) function_mapping: &'a FxHashMap<DefinitionId<'db>, (&'a Definition, FunctionId)>,
+    /// Reverse mapping from FunctionId to DefinitionId for O(1) signature lookups
+    pub(super) function_id_to_def:
+        RefCell<FxHashMap<FunctionId, (DefinitionId<'db>, &'a Definition)>>,
     /// Precomputed file ID for efficient MirDefinitionId creation
     pub(super) file_id: u64,
 
@@ -110,12 +113,19 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         let mir_function = MirFunction::new(String::new());
         let entry_block = mir_function.entry_block;
 
+        // Build reverse mapping for O(1) function signature lookups
+        let mut function_id_to_def = FxHashMap::default();
+        for (def_id, (def, func_id)) in function_mapping.iter() {
+            function_id_to_def.insert(*func_id, (*def_id, *def));
+        }
+
         let ctx = LoweringContext {
             db,
             file,
             crate_id,
             semantic_index,
             function_mapping,
+            function_id_to_def: RefCell::new(function_id_to_def),
             file_id,
             expr_type_cache: RefCell::new(FxHashMap::default()),
         };
@@ -182,7 +192,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     // ================================================================================
 
     /// Creates a CfgBuilder for the current function
-    pub(super) const fn cfg(&mut self) -> CfgBuilder {
+    pub(super) fn cfg(&mut self) -> CfgBuilder {
         CfgBuilder::new(&mut self.state.mir_function, self.state.current_block_id)
     }
 
@@ -192,7 +202,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     }
 
     /// Switches to a different block
-    pub const fn switch_to_block(&mut self, block_id: BasicBlockId) {
+    pub fn switch_to_block(&mut self, block_id: BasicBlockId) {
         let mut cfg = self.cfg();
         let state = cfg.switch_to_block(block_id);
         self.state.current_block_id = state.current_block_id;
@@ -246,7 +256,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     // ================================================================================
 
     /// Creates an InstrBuilder for the current block
-    pub(super) const fn instr(&mut self) -> InstrBuilder {
+    pub(super) fn instr(&mut self) -> InstrBuilder {
         InstrBuilder::new(&mut self.state.mir_function, self.state.current_block_id)
     }
 
@@ -345,17 +355,11 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         &self,
         func_id: FunctionId,
     ) -> Result<(Vec<MirType>, Vec<MirType>), String> {
-        // Find the Definition for this FunctionId by searching through function_mapping
-        let mut func_def = None;
-        for (def_id, (def, fid)) in self.ctx.function_mapping {
-            if *fid == func_id {
-                func_def = Some((def_id, def));
-                break;
-            }
-        }
-
-        let (def_id, def) =
-            func_def.ok_or_else(|| "Function definition not found in mapping".to_string())?;
+        // Use reverse mapping for O(1) lookup instead of linear scan
+        let cache = self.ctx.function_id_to_def.borrow();
+        let (def_id, def) = cache
+            .get(&func_id)
+            .ok_or_else(|| "Function definition not found in mapping".to_string())?;
 
         // Extract the FunctionDefRef from the Definition
         let func_ref = match &def.kind {
@@ -607,5 +611,51 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             Instruction::get_element_ptr(addr, base_addr, offset).with_comment(comment.to_string()),
         );
         addr
+    }
+
+    // ================================================================================
+    // Helper Methods - Common Patterns
+    // ================================================================================
+
+    /// Get the ExpressionId for a given span
+    ///
+    /// This is a common pattern used throughout the lowering code
+    pub fn expr_id(&self, span: chumsky::prelude::SimpleSpan) -> Result<ExpressionId, String> {
+        self.ctx
+            .semantic_index
+            .expression_id_by_span(span)
+            .ok_or_else(|| {
+                format!(
+                    "Internal Compiler Error: No ExpressionId found for span {:?}",
+                    span
+                )
+            })
+    }
+
+    /// Get the MirType for an expression at a given span
+    ///
+    /// This combines the common pattern of:
+    /// 1. Getting the ExpressionId from span
+    /// 2. Getting the semantic type from the expression
+    /// 3. Converting to MirType
+    pub fn expr_mir_type(&self, span: chumsky::prelude::SimpleSpan) -> Result<MirType, String> {
+        let expr_id = self.expr_id(span)?;
+        let semantic_type =
+            expression_semantic_type(self.ctx.db, self.ctx.crate_id, self.ctx.file, expr_id, None);
+        Ok(MirType::from_semantic_type(self.ctx.db, semantic_type))
+    }
+
+    /// Get both the ExpressionId and MirType for a span
+    ///
+    /// This is useful when you need both values, avoiding duplicate lookups
+    pub fn expr_id_and_type(
+        &self,
+        span: chumsky::prelude::SimpleSpan,
+    ) -> Result<(ExpressionId, MirType), String> {
+        let expr_id = self.expr_id(span)?;
+        let semantic_type =
+            expression_semantic_type(self.ctx.db, self.ctx.crate_id, self.ctx.file, expr_id, None);
+        let mir_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
+        Ok((expr_id, mir_type))
     }
 }

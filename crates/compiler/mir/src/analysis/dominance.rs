@@ -114,29 +114,41 @@ fn intersect(
     b1
 }
 
-/// Computes blocks in reverse postorder
+/// Computes blocks in reverse postorder using iterative DFS
+///
+/// This iterative implementation avoids stack overflow on deeply nested control flow graphs
 fn compute_reverse_postorder(function: &MirFunction) -> Vec<BasicBlockId> {
     let mut visited = FxHashSet::default();
     let mut postorder = Vec::new();
+    let mut stack = Vec::new();
 
-    fn dfs(
-        block: BasicBlockId,
-        function: &MirFunction,
-        visited: &mut FxHashSet<BasicBlockId>,
-        postorder: &mut Vec<BasicBlockId>,
-    ) {
-        if !visited.insert(block) {
-            return;
+    // Stack entry: (block_id, processing_state)
+    // processing_state: false = pre-visit, true = post-visit
+    stack.push((function.entry_block, false));
+
+    while let Some((block, post_visit)) = stack.pop() {
+        if post_visit {
+            // Post-visit: add to postorder
+            postorder.push(block);
+        } else {
+            // Pre-visit: check if already visited
+            if !visited.insert(block) {
+                continue;
+            }
+
+            // Schedule post-visit for this block
+            stack.push((block, true));
+
+            // Schedule pre-visit for all unvisited successors (in reverse order for correct traversal)
+            let successors: Vec<_> = function.basic_blocks[block].terminator.target_blocks();
+            for successor in successors.into_iter().rev() {
+                if !visited.contains(&successor) {
+                    stack.push((successor, false));
+                }
+            }
         }
-
-        for successor in function.basic_blocks[block].terminator.target_blocks() {
-            dfs(successor, function, visited, postorder);
-        }
-
-        postorder.push(block);
     }
 
-    dfs(function.entry_block, function, &mut visited, &mut postorder);
     postorder.reverse();
     postorder
 }
@@ -186,7 +198,7 @@ pub fn compute_dominance_frontiers(
                             runner = idom;
                         } else {
                             // Reached entry block (no idom)
-                            frontiers.entry(runner).or_default().insert(block_id);
+                            // No need to insert again - already inserted at the top of the loop
                             break;
                         }
                     }

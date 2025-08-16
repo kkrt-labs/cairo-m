@@ -10,9 +10,7 @@
 
 use crate::{
     analysis::dominance::{compute_dominance_frontiers, compute_dominator_tree, DominatorTree},
-    layout::DataLayout,
-    BasicBlockId, Instruction, InstructionKind, Literal, MirFunction, MirType, Terminator, Value,
-    ValueId,
+    BasicBlockId, Instruction, InstructionKind, MirFunction, MirType, Terminator, Value, ValueId,
 };
 use rustc_hash::{FxHashMap, FxHashSet};
 
@@ -120,71 +118,43 @@ impl Mem2RegSsaPass {
             for instruction in &block.instructions {
                 match &instruction.kind {
                     InstructionKind::FrameAlloc { dest, ty } => {
-                        // Check if type is promotable according to layout rules
-                        let layout = DataLayout::new();
-                        if layout.is_promotable(ty) {
-                            // Special handling for multi-slot types like U32
-                            // U32 can be promoted, but only if accessed as a whole (no GEP offsets)
-                            // Full multi-slot phi insertion with per-slot tracking is TODO
-                            if matches!(ty, MirType::U32) {
-                                // Track U32 allocations - will check for GEP usage later
-                                allocations.insert(
-                                    *dest,
-                                    PromotableAllocation {
-                                        alloc_id: *dest,
-                                        ty: ty.clone(),
-                                        store_blocks: FxHashSet::default(),
-                                        gep_values: FxHashMap::default(),
-                                    },
-                                );
-                            } else if layout.size_of(ty) == 1 {
-                                // Single-slot types can always be promoted
-                                allocations.insert(
-                                    *dest,
-                                    PromotableAllocation {
-                                        alloc_id: *dest,
-                                        ty: ty.clone(),
-                                        store_blocks: FxHashSet::default(),
-                                        gep_values: FxHashMap::default(),
-                                    },
-                                );
-                            } else {
-                                // Other multi-slot types not yet supported
-                                // TODO: Implement SROA or per-slot phi insertion for full support
-                                escaping.insert(*dest);
-                            }
+                        // CONSERVATIVE FIX: Only promote truly scalar single-slot types
+                        // Multi-slot types and types accessed via GEP require per-location phi nodes
+                        // which is not yet implemented correctly.
+                        //
+                        // Safe to promote: Felt, Bool, Pointer (all single-slot)
+                        // NOT safe yet: U32 (multi-slot), Tuple, Struct (require SROA or per-slot tracking)
+                        if matches!(ty, MirType::Felt | MirType::Bool | MirType::Pointer(_)) {
+                            // Single-slot scalar types can be safely promoted
+                            allocations.insert(
+                                *dest,
+                                PromotableAllocation {
+                                    alloc_id: *dest,
+                                    ty: ty.clone(),
+                                    store_blocks: FxHashSet::default(),
+                                    gep_values: FxHashMap::default(),
+                                },
+                            );
                         } else {
-                            // Non-promotable types are marked as escaping
+                            // Other multi-slot types not yet supported
+                            // TODO: Implement SROA or per-slot phi insertion for full support
                             escaping.insert(*dest);
                         }
                         self.stats.allocations_analyzed += 1;
                     }
-                    InstructionKind::GetElementPtr { dest, base, offset } => {
-                        // Track GEPs with constant offsets
+                    InstructionKind::GetElementPtr { base, .. } => {
+                        // CONSERVATIVE FIX: Any GEP use disqualifies the allocation
+                        // Proper per-location phi insertion is needed to handle GEPs correctly
                         if let Value::Operand(base_id) = base {
-                            // Check if this is a GEP on a U32 allocation
-                            if let Some(alloc) = allocations.get(base_id) {
-                                if matches!(alloc.ty, MirType::U32) {
-                                    // U32 with GEP access cannot be promoted yet
-                                    // (requires per-slot phi insertion)
-                                    escaping.insert(*base_id);
-                                    continue;
-                                }
-                            }
-
-                            if let Value::Literal(Literal::Integer(off)) = offset {
-                                if let Some(alloc) = allocations.get_mut(base_id) {
-                                    alloc.gep_values.insert(*dest, *off);
-                                }
-                                // Also check for chained GEPs
-                                for alloc in allocations.values_mut() {
-                                    if let Some(&base_off) = alloc.gep_values.get(base_id) {
-                                        alloc.gep_values.insert(*dest, base_off + off);
-                                    }
-                                }
-                            } else {
-                                // Non-constant offset - mark as escaping
+                            // Mark the base allocation as escaping if it's tracked
+                            if allocations.contains_key(base_id) {
                                 escaping.insert(*base_id);
+                            }
+                            // Also check for chained GEPs (GEP of GEP)
+                            for alloc in allocations.values() {
+                                if alloc.gep_values.contains_key(base_id) {
+                                    escaping.insert(alloc.alloc_id);
+                                }
                             }
                         }
                     }
