@@ -14,6 +14,26 @@ use cairo_m_compiler_parser::parser::UnaryOp;
 
 use crate::{BinaryOp, InstructionKind, Literal, MirFunction, MirType, Terminator, Value};
 
+/// Analyzes a MIR function to determine if it uses memory operations
+/// that require SROA/Mem2Reg optimization passes.
+pub fn function_uses_memory(function: &MirFunction) -> bool {
+    for block in function.basic_blocks.iter() {
+        for instruction in &block.instructions {
+            match &instruction.kind {
+                InstructionKind::FrameAlloc { .. }
+                | InstructionKind::Load { .. }
+                | InstructionKind::Store { .. }
+                | InstructionKind::GetElementPtr { .. }
+                | InstructionKind::AddressOf { .. } => {
+                    return true;
+                }
+                _ => continue,
+            }
+        }
+    }
+    false
+}
+
 /// A trait for MIR optimization passes
 pub trait MirPass {
     /// Apply this pass to a MIR function
@@ -22,6 +42,37 @@ pub trait MirPass {
 
     /// Get the name of this pass for debugging
     fn name(&self) -> &'static str;
+}
+
+/// A wrapper for conditional pass execution
+///
+/// This allows passes to be skipped based on function characteristics,
+/// improving compilation performance for functions that don't need certain optimizations.
+pub struct ConditionalPass {
+    pass: Box<dyn MirPass>,
+    condition: fn(&MirFunction) -> bool,
+}
+
+impl ConditionalPass {
+    /// Create a new conditional pass
+    pub fn new(pass: Box<dyn MirPass>, condition: fn(&MirFunction) -> bool) -> Self {
+        Self { pass, condition }
+    }
+}
+
+impl MirPass for ConditionalPass {
+    fn run(&mut self, function: &mut MirFunction) -> bool {
+        if (self.condition)(function) {
+            self.pass.run(function)
+        } else {
+            // Skip the pass - no changes needed
+            false
+        }
+    }
+
+    fn name(&self) -> &'static str {
+        self.pass.name()
+    }
 }
 
 /// Fuse Compare and Branch Pass
@@ -480,6 +531,18 @@ impl PassManager {
         self
     }
 
+    /// Add a conditional pass to the manager
+    /// The pass will only run if the condition function returns true
+    pub fn add_conditional_pass<P: MirPass + 'static>(
+        mut self,
+        pass: P,
+        condition: fn(&MirFunction) -> bool,
+    ) -> Self {
+        self.passes
+            .push(Box::new(ConditionalPass::new(Box::new(pass), condition)));
+        self
+    }
+
     /// Run all passes on the function
     /// Returns true if any pass modified the function
     pub fn run(&mut self, function: &mut MirFunction) -> bool {
@@ -500,13 +563,22 @@ impl PassManager {
     }
 
     /// Create a standard optimization pipeline
+    ///
+    /// The pipeline is optimized for functions using value-based aggregates,
+    /// conditionally running expensive memory-oriented passes only when needed.
     pub fn standard_pipeline() -> Self {
         Self::new()
+            // Always run basic cleanup passes
             .add_pass(pre_opt::PreOptimizationPass::new())
+            // Conditionally run memory-oriented optimization passes
             // SROA pass temporarily disabled due to IR corruption bug
             // TODO: Re-enable once constant_geps population is fixed
-            // .add_pass(sroa::SroaPass::new()) // Split aggregates before mem2reg
-            .add_pass(mem2reg_ssa::Mem2RegSsaPass::new()) // Run SSA mem2reg early for true SSA form
+            // .add_conditional_pass(
+            //     sroa::SroaPass::new(),
+            //     function_uses_memory
+            // )
+            .add_conditional_pass(mem2reg_ssa::Mem2RegSsaPass::new(), function_uses_memory)
+            // Always run validation and remaining optimization passes
             .add_pass(Validation::new()) // Validate SSA form before destruction
             .add_pass(ssa_destruction::SsaDestructionPass::new()) // Eliminate Phi nodes before codegen
             .add_pass(FuseCmpBranch::new())

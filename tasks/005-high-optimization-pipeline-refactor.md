@@ -3,6 +3,38 @@
 **Priority:** HIGH  
 **Dependencies:** Tasks 001-004 (requires aggregate infrastructure)
 
+## Status: COMPLETED
+
+## Implementation Summary
+
+Successfully refactored the optimization pipeline to conditionally run expensive
+memory-oriented passes based on function characteristics. This improves
+compilation performance for functions using value-based aggregates.
+
+### Changes Made:
+
+1. **Added memory usage detection** (`passes.rs`):
+   - `function_uses_memory()`: Analyzes functions for memory operations
+   - Detects FrameAlloc, Load, Store, GetElementPtr, AddressOf
+
+2. **Implemented conditional pass mechanism**:
+   - `ConditionalPass` wrapper: Allows passes to be skipped based on conditions
+   - `add_conditional_pass()` method: Builder API for conditional passes
+
+3. **Updated standard pipeline**:
+   - Made Mem2RegSsaPass conditional on memory usage
+   - Preserved all other passes for correctness
+   - Maintained backward compatibility for memory-using functions
+
+4. **Created comprehensive test suite** (`conditional_pass_test.rs`):
+   - Tests for memory usage detection
+   - Tests for conditional pass execution
+   - Integration tests for both memory and value-based functions
+
+All tests pass successfully. The optimization pipeline now intelligently skips
+expensive memory passes for functions that don't need them, improving
+compilation performance.
+
 ## Why
 
 The current optimization pipeline runs expensive passes like SROA (Scalar
