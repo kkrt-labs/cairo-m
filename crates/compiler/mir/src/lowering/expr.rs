@@ -402,41 +402,17 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         field: &Spanned<String>,
         expr_id: ExpressionId,
     ) -> Result<Value, String> {
-        // Member access in expression context (rvalue) - load from computed address
-        let object_addr = self.lower_lvalue_expression(object)?;
-
-        // Get the object's semantic type to calculate field offset
-        let object_expr_id = self
-            .ctx
-            .semantic_index
-            .expression_id_by_span(object.span())
-            .ok_or_else(|| {
-                format!(
-                    "MIR: No ExpressionId found for object span {:?}",
-                    object.span()
-                )
-            })?;
-        let object_mir_type = self.ctx.get_expr_type(object_expr_id);
-
-        // Calculate the actual field offset from the type information using DataLayout
-        let layout = DataLayout::new();
-        let field_offset_val = layout.field_offset(&object_mir_type, field.value())
-            .ok_or_else(|| {
-                format!(
-                    "Internal Compiler Error: Field '{}' not found on type '{:?}'. This indicates an issue with type information propagation.",
-                    field.value(),
-                    object_mir_type
-                )
-            })?;
-        let field_offset = Value::integer(field_offset_val as i32);
+        // NEW: Value-based struct field extraction
+        // Lower the struct expression to get a value
+        let struct_val = self.lower_expression(object)?;
 
         // Query semantic type system for the field type
         let field_type = self.ctx.get_expr_type(expr_id);
 
-        // Use helper to load the field
-        let loaded_value = self.load_field(object_addr, field_offset, field_type, field.value());
+        // Extract the field using ExtractStructField instruction
+        let field_dest = self.extract_struct_field(struct_val, field.value().clone(), field_type);
 
-        Ok(Value::operand(loaded_value))
+        Ok(Value::operand(field_dest))
     }
 
     fn lower_index_access(
@@ -605,73 +581,21 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         fields: &[(Spanned<String>, Spanned<Expression>)],
         expr_id: ExpressionId,
     ) -> Result<Value, String> {
+        // NEW: Value-based struct creation
         // Query semantic type system for struct type
         let struct_type = self.ctx.get_expr_type(expr_id);
 
-        // Allocate space for the struct as consecutive values
-        let struct_addr = self
-            .state
-            .mir_function
-            .new_typed_value_id(MirType::pointer(struct_type.clone()));
-
-        // Register stack allocation as an address
-
-        self.instr().add_instruction(
-            Instruction::frame_alloc(struct_addr, struct_type.clone())
-                .with_comment("Allocate struct".to_string()),
-        );
-
-        // Initialize each field
-        for (field_name, field_value) in fields.iter() {
-            let field_val = self.lower_expression(field_value)?;
-
-            // Calculate the actual field offset from the struct type information using DataLayout
-            let layout = DataLayout::new();
-            let field_offset_val = layout.field_offset(&struct_type, field_name.value())
-                .ok_or_else(|| {
-                    format!(
-                        "Internal Compiler Error: Field '{}' not found on struct type '{:?}'. This indicates an issue with type information propagation.",
-                        field_name.value(),
-                        struct_type
-                    )
-                })?;
-            let field_offset = Value::integer(field_offset_val as i32);
-
-            // Get the field type from the semantic analysis for the field value
-            let _field_val_expr_id = self
-                .ctx
-                .semantic_index
-                .expression_id_by_span(field_value.span())
-                .ok_or_else(|| {
-                    format!(
-                        "No expression ID for field value span: {:?}",
-                        field_value.span()
-                    )
-                })?;
-            // Get the field type from struct definition (more reliable than expr type)
-            let field_type = struct_type
-                .field_type(field_name.value())
-                .ok_or_else(|| {
-                    format!(
-                        "Internal Compiler Error: Field '{}' not found on struct type '{:?}'. This indicates an issue with type information propagation from semantic analysis to MIR lowering.",
-                        field_name.value(),
-                        struct_type
-                    )
-                })?
-                .clone();
-
-            // Store the field value using helper
-            self.store_field(
-                Value::operand(struct_addr),
-                field_offset,
-                field_val,
-                field_type,
-                field_name.value(),
-            );
+        // Lower each field to a value
+        let mut field_values = Vec::new();
+        for (field_name, field_expr) in fields {
+            let field_val = self.lower_expression(field_expr)?;
+            field_values.push((field_name.value().clone(), field_val));
         }
 
-        // Return the struct address (in a real system, this might return the struct value itself)
-        Ok(Value::operand(struct_addr))
+        // Create the struct using a single MakeStruct instruction
+        let struct_dest = self.make_struct(field_values, struct_type);
+
+        Ok(Value::operand(struct_dest))
     }
 
     fn lower_tuple_literal(
@@ -679,57 +603,26 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         elements: &[Spanned<Expression>],
         expr_id: ExpressionId,
     ) -> Result<Value, String> {
-        // Tuple literal - for now we still need to allocate and return an address
-        // This will be optimized away in most cases by the destructuring code
+        // NEW: Value-based tuple creation
         if elements.is_empty() {
             // Empty tuple - return proper unit value
             return Ok(Value::unit());
         }
 
+        // Lower each element to a value
+        let mut element_values = Vec::new();
+        for element_expr in elements {
+            let element_val = self.lower_expression(element_expr)?;
+            element_values.push(element_val);
+        }
+
         // Query semantic type system for the tuple type
         let tuple_type = self.ctx.get_expr_type(expr_id);
 
-        // Allocate space for the tuple as consecutive values
-        let tuple_addr = self
-            .state
-            .mir_function
-            .new_typed_value_id(MirType::pointer(tuple_type.clone()));
+        // Create the tuple using a single MakeTuple instruction
+        let tuple_dest = self.make_tuple(element_values, tuple_type);
 
-        // Register stack allocation as an address
-
-        self.instr().add_instruction(
-            Instruction::frame_alloc(tuple_addr, tuple_type)
-                .with_comment(format!("Allocate tuple with {} elements", elements.len())),
-        );
-
-        // Initialize each element consecutively
-        for (element_idx, element_expr) in elements.iter().enumerate() {
-            let element_val = self.lower_expression(element_expr)?;
-
-            // Get the element type from semantic analysis
-            let element_expr_id = self
-                .ctx
-                .semantic_index
-                .expression_id_by_span(element_expr.span())
-                .ok_or_else(|| {
-                    format!(
-                        "No expression ID for tuple element span: {:?}",
-                        element_expr.span()
-                    )
-                })?;
-            let element_type = self.ctx.get_expr_type(element_expr_id);
-
-            // Store the element value using helper
-            self.store_tuple_element(
-                Value::operand(tuple_addr),
-                element_idx,
-                element_val,
-                element_type,
-            );
-        }
-
-        // Return the tuple address
-        Ok(Value::operand(tuple_addr))
+        Ok(Value::operand(tuple_dest))
     }
 
     fn lower_tuple_index(
@@ -737,24 +630,19 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         tuple: &Spanned<Expression>,
         index: usize,
     ) -> Result<Value, String> {
-        // Get the semantic type of the tuple to determine element types and offsets
+        // NEW: Value-based tuple element extraction
+        // Lower the tuple expression to get a value
+        let tuple_val = self.lower_expression(tuple)?;
+
+        // Get the semantic type of the tuple to determine element types
         let tuple_expr_id = self
             .ctx
             .semantic_index
             .expression_id_by_span(tuple.span())
             .ok_or_else(|| "No ExpressionId for tuple in TupleIndex".to_string())?;
 
-        // Get the MIR type of the tuple to get offset calculation
+        // Get the MIR type of the tuple
         let tuple_mir_type = self.ctx.get_expr_type(tuple_expr_id);
-
-        // Get the tuple base address
-        let tuple_addr = self.lower_lvalue_expression(tuple)?;
-
-        // Calculate the offset for the element using DataLayout
-        let layout = DataLayout::new();
-        let offset = layout
-            .tuple_offset(&tuple_mir_type, index)
-            .ok_or_else(|| format!("Invalid tuple index {} for type", index))?;
 
         // Get element type
         let element_mir_type = match &tuple_mir_type {
@@ -765,32 +653,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             _ => return Err("TupleIndex on non-tuple type".to_string()),
         };
 
-        // Calculate element address using get_element_ptr
-        let element_addr = self
-            .state
-            .mir_function
-            .new_typed_value_id(MirType::pointer(element_mir_type.clone()));
+        // Extract the element using ExtractTupleElement instruction
+        let element_dest = self.extract_tuple_element(tuple_val, index, element_mir_type);
 
-        self.instr().add_instruction(
-            Instruction::get_element_ptr(element_addr, tuple_addr, Value::integer(offset as i32))
-                .with_comment(format!("Get address of tuple element {}", index)),
-        );
-
-        // Load the value at the element address
-        let loaded_value = self
-            .state
-            .mir_function
-            .new_typed_value_id(element_mir_type.clone());
-
-        // Register loaded value as a Value
-
-        self.instr().load_with(
-            element_mir_type,
-            loaded_value,
-            Value::operand(element_addr),
-            format!("Load tuple element {}", index),
-        );
-
-        Ok(Value::operand(loaded_value))
+        Ok(Value::operand(element_dest))
     }
 }

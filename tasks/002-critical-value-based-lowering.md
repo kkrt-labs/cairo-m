@@ -385,21 +385,64 @@ throughout the pipeline.
 
 ## Definition of Done
 
-- [ ] Tuple literals generate `MakeTuple` instructions instead of memory
+- [x] Tuple literals generate `MakeTuple` instructions instead of memory
       operations
-- [ ] Struct literals generate `MakeStruct` instructions instead of memory
+- [x] Struct literals generate `MakeStruct` instructions instead of memory
       operations
-- [ ] Tuple indexing uses `ExtractTupleElement` instead of `get_element_ptr` +
+- [x] Tuple indexing uses `ExtractTupleElement` instead of `get_element_ptr` +
       `load`
-- [ ] Field access uses `ExtractStructField` instead of `get_element_ptr` +
+- [x] Field access uses `ExtractStructField` instead of `get_element_ptr` +
       `load`
-- [ ] Let statements bind aggregate SSA values directly
+- [ ] Let statements bind aggregate SSA values directly (partially done)
 - [ ] Function calls properly handle multi-value returns in tuple contexts
-- [ ] Return statements extract tuple elements for multi-value returns
-- [ ] Backward compatibility maintained for arrays and address-of operations
-- [ ] All new MIR generation tests pass
-- [ ] Existing functionality preserved (no regressions)
-- [ ] MIR pretty printing shows value-based operations, not memory operations
+      (partial)
+- [ ] Return statements extract tuple elements for multi-value returns (partial)
+- [x] Backward compatibility maintained for arrays and address-of operations
+- [x] All new MIR generation tests pass
+- [x] Existing functionality preserved (no regressions)
+- [x] MIR pretty printing shows value-based operations, not memory operations
+
+## Implementation Progress
+
+**Date**: 2025-08-16
+
+### Completed:
+
+1. **Added builder methods for aggregate instructions**:
+   - `make_tuple()`: Creates tuples from value lists
+   - `extract_tuple_element()`: Extracts tuple elements by index
+   - `make_struct()`: Creates structs from field-value pairs
+   - `extract_struct_field()`: Extracts struct fields by name
+
+2. **Updated expression lowering**:
+   - `lower_tuple_literal()`: Now generates `MakeTuple` instead of
+     `frame_alloc` + stores
+   - `lower_struct_literal()`: Now generates `MakeStruct` instead of memory
+     operations
+   - `lower_tuple_index()`: Now generates `ExtractTupleElement` instead of GEP +
+     load
+   - `lower_member_access()`: Now generates `ExtractStructField` instead of
+     GEP + load
+
+3. **Created comprehensive test suite**:
+   - Tests verify value-based operations are generated
+   - Tests confirm no memory operations for simple aggregates
+   - All 5 test cases pass
+
+### Technical Notes:
+
+- The refactoring successfully eliminates memory operations for simple aggregate
+  creation and access
+- MIR is now significantly cleaner and more optimization-friendly
+- The implementation is backward compatible - arrays and other constructs still
+  use memory as needed
+
+### Partial/Future Work:
+
+- Statement lowering needs more work for complete value-based handling
+- Multi-value return handling in function calls needs refinement
+- Return statement tuple extraction needs full implementation
+- These can be completed in follow-up tasks or as part of Task 003/004
 
 ## Success Criteria
 

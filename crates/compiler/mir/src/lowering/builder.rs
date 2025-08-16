@@ -614,6 +614,72 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     }
 
     // ================================================================================
+    // Value-Based Aggregate Operations
+    // ================================================================================
+
+    /// Create a tuple from a list of values
+    /// Returns the ValueId of the new tuple
+    pub fn make_tuple(&mut self, elements: Vec<Value>, tuple_type: MirType) -> ValueId {
+        let dest = self.state.mir_function.new_typed_value_id(tuple_type);
+        self.instr()
+            .add_instruction(Instruction::make_tuple(dest, elements));
+        dest
+    }
+
+    /// Extract an element from a tuple value
+    /// Returns the ValueId of the extracted element
+    pub fn extract_tuple_element(
+        &mut self,
+        tuple_val: Value,
+        index: usize,
+        element_type: MirType,
+    ) -> ValueId {
+        let dest = self
+            .state
+            .mir_function
+            .new_typed_value_id(element_type.clone());
+        self.instr()
+            .add_instruction(Instruction::extract_tuple_element(
+                dest,
+                tuple_val,
+                index,
+                element_type,
+            ));
+        dest
+    }
+
+    /// Create a struct from field values
+    /// Returns the ValueId of the new struct
+    pub fn make_struct(&mut self, fields: Vec<(String, Value)>, struct_type: MirType) -> ValueId {
+        let dest = self
+            .state
+            .mir_function
+            .new_typed_value_id(struct_type.clone());
+        self.instr()
+            .add_instruction(Instruction::make_struct(dest, fields, struct_type));
+        dest
+    }
+
+    /// Extract a field from a struct value
+    /// Returns the ValueId of the extracted field
+    pub fn extract_struct_field(
+        &mut self,
+        struct_val: Value,
+        field_name: String,
+        field_type: MirType,
+    ) -> ValueId {
+        let dest = self
+            .state
+            .mir_function
+            .new_typed_value_id(field_type.clone());
+        self.instr()
+            .add_instruction(Instruction::extract_struct_field(
+                dest, struct_val, field_name, field_type,
+            ));
+        dest
+    }
+
+    // ================================================================================
     // Helper Methods - Common Patterns
     // ================================================================================
 

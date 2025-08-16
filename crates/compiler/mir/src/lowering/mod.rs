@@ -11,6 +11,9 @@ pub mod function;
 pub mod stmt;
 pub mod utils;
 
+#[cfg(test)]
+mod value_based_tests;
+
 // Re-export the main entry point
 pub use function::generate_mir;
 
