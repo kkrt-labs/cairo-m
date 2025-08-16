@@ -84,6 +84,9 @@ pub use lowering::generate_mir;
 #[cfg(test)]
 pub mod testing;
 
+#[cfg(test)]
+mod instruction_tests;
+
 // --- Core Identifiers ---
 
 index_vec::define_index_type! {

@@ -327,6 +327,32 @@ pub enum InstructionKind {
         ty: MirType,
         sources: Vec<(crate::BasicBlockId, Value)>,
     },
+
+    /// Build a tuple from a list of values: `dest = make_tuple(v0, v1, ...)`
+    MakeTuple { dest: ValueId, elements: Vec<Value> },
+
+    /// Extract an element from a tuple value: `dest = extract_tuple_element(tuple_val, index)`
+    ExtractTupleElement {
+        dest: ValueId,
+        tuple: Value,
+        index: usize,
+        element_ty: MirType,
+    },
+
+    /// Build a struct from a list of field values: `dest = make_struct { field1: v1, ... }`
+    MakeStruct {
+        dest: ValueId,
+        fields: Vec<(String, Value)>,
+        struct_ty: MirType,
+    },
+
+    /// Extract a field from a struct value: `dest = extract_struct_field(struct_val, "field_name")`
+    ExtractStructField {
+        dest: ValueId,
+        struct_val: Value,
+        field_name: String,
+        field_ty: MirType,
+    },
 }
 
 impl Instruction {
@@ -493,6 +519,70 @@ impl Instruction {
         }
     }
 
+    /// Creates a new make tuple instruction
+    pub fn make_tuple(dest: ValueId, elements: Vec<Value>) -> Self {
+        Self {
+            kind: InstructionKind::MakeTuple { dest, elements },
+            source_span: None,
+            source_expr_id: None,
+            comment: None,
+        }
+    }
+
+    /// Creates a new extract tuple element instruction
+    pub const fn extract_tuple_element(
+        dest: ValueId,
+        tuple: Value,
+        index: usize,
+        element_ty: MirType,
+    ) -> Self {
+        Self {
+            kind: InstructionKind::ExtractTupleElement {
+                dest,
+                tuple,
+                index,
+                element_ty,
+            },
+            source_span: None,
+            source_expr_id: None,
+            comment: None,
+        }
+    }
+
+    /// Creates a new make struct instruction
+    pub fn make_struct(dest: ValueId, fields: Vec<(String, Value)>, struct_ty: MirType) -> Self {
+        Self {
+            kind: InstructionKind::MakeStruct {
+                dest,
+                fields,
+                struct_ty,
+            },
+            source_span: None,
+            source_expr_id: None,
+            comment: None,
+        }
+    }
+
+    /// Creates a new extract struct field instruction
+    pub fn extract_struct_field(
+        dest: ValueId,
+        struct_val: Value,
+        field_name: String,
+        field_ty: MirType,
+    ) -> Self {
+        Self {
+            kind: InstructionKind::ExtractStructField {
+                dest,
+                struct_val,
+                field_name,
+                field_ty,
+            },
+            source_span: None,
+            source_expr_id: None,
+            comment: None,
+        }
+    }
+
     pub const fn nop() -> Self {
         Self {
             kind: InstructionKind::Nop,
@@ -531,7 +621,11 @@ impl Instruction {
             | InstructionKind::AddressOf { dest, .. }
             | InstructionKind::GetElementPtr { dest, .. }
             | InstructionKind::Cast { dest, .. }
-            | InstructionKind::Phi { dest, .. } => vec![*dest],
+            | InstructionKind::Phi { dest, .. }
+            | InstructionKind::MakeTuple { dest, .. }
+            | InstructionKind::ExtractTupleElement { dest, .. }
+            | InstructionKind::MakeStruct { dest, .. }
+            | InstructionKind::ExtractStructField { dest, .. } => vec![*dest],
 
             InstructionKind::Call { dests, .. } => dests.clone(),
 
@@ -643,6 +737,34 @@ impl Instruction {
             InstructionKind::Nop => {
                 // No operation - no values used
             }
+
+            InstructionKind::MakeTuple { elements, .. } => {
+                for element in elements {
+                    if let Value::Operand(id) = element {
+                        used.insert(*id);
+                    }
+                }
+            }
+
+            InstructionKind::ExtractTupleElement { tuple, .. } => {
+                if let Value::Operand(id) = tuple {
+                    used.insert(*id);
+                }
+            }
+
+            InstructionKind::MakeStruct { fields, .. } => {
+                for (_, value) in fields {
+                    if let Value::Operand(id) = value {
+                        used.insert(*id);
+                    }
+                }
+            }
+
+            InstructionKind::ExtractStructField { struct_val, .. } => {
+                if let Value::Operand(id) = struct_val {
+                    used.insert(*id);
+                }
+            }
         }
 
         used
@@ -665,6 +787,10 @@ impl Instruction {
             InstructionKind::Debug { .. } => Ok(()),
             InstructionKind::Phi { .. } => Ok(()),
             InstructionKind::Nop => Ok(()),
+            InstructionKind::MakeTuple { .. } => Ok(()),
+            InstructionKind::ExtractTupleElement { .. } => Ok(()),
+            InstructionKind::MakeStruct { .. } => Ok(()),
+            InstructionKind::ExtractStructField { .. } => Ok(()),
         }
     }
 
@@ -857,6 +983,67 @@ impl PrettyPrint for Instruction {
 
             InstructionKind::Nop => {
                 result.push_str("nop");
+            }
+
+            InstructionKind::MakeTuple { dest, elements } => {
+                let elements_str = elements
+                    .iter()
+                    .map(|elem| elem.pretty_print(0))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                result.push_str(&format!(
+                    "{} = make_tuple {}",
+                    dest.pretty_print(0),
+                    elements_str
+                ));
+            }
+
+            InstructionKind::ExtractTupleElement {
+                dest,
+                tuple,
+                index,
+                element_ty,
+            } => {
+                result.push_str(&format!(
+                    "{} = extract_tuple_element {}, {} ({})",
+                    dest.pretty_print(0),
+                    tuple.pretty_print(0),
+                    index,
+                    element_ty
+                ));
+            }
+
+            InstructionKind::MakeStruct {
+                dest,
+                fields,
+                struct_ty,
+            } => {
+                let fields_str = fields
+                    .iter()
+                    .map(|(name, value)| format!("{}: {}", name, value.pretty_print(0)))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                result.push_str(&format!(
+                    "{} = make_struct {{ {} }} ({})",
+                    dest.pretty_print(0),
+                    fields_str,
+                    struct_ty
+                ));
+            }
+
+            InstructionKind::ExtractStructField {
+                dest,
+                struct_val,
+                field_name,
+                field_ty,
+            } => {
+                result.push_str(&format!(
+                    "{} = extract_struct_field {}, \"{}\" ({})",
+                    dest.pretty_print(0),
+                    struct_val.pretty_print(0),
+                    field_name,
+                    field_ty
+                ));
             }
         }
 
