@@ -20,43 +20,7 @@ fn dot_product(v1: Vector, v2: Vector) -> felt {
     return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
 }
 ============================================================
-Generated CASM:
-test_struct_param:
-test_struct_param:
-test_struct_param_0:
-   0: 9 1 0 _              // Store immediate: [fp + 0] = 1
-   1: 9 2 1 _              // Store immediate: [fp + 1] = 2
-   2: 9 3 2 _              // Store immediate: [fp + 2] = 3
-   3: 9 4 3 _              // Store immediate: [fp + 3] = 4
-   4: 9 5 4 _              // Store immediate: [fp + 4] = 5
-   5: 9 6 5 _              // Store immediate: [fp + 5] = 6
-   6: 4 0 0 6              // Load: [fp + 6] = [fp + 0] + 0
-   7: 4 1 0 7              // Load: [fp + 7] = [fp + 1] + 0
-   8: 4 2 0 8              // Load: [fp + 8] = [fp + 2] + 0
-   9: 4 3 0 9              // Load: [fp + 9] = [fp + 3] + 0
-  10: 4 4 0 10             // Load: [fp + 10] = [fp + 4] + 0
-  11: 4 5 0 11             // Load: [fp + 11] = [fp + 5] + 0
-  12: 4 6 0 13             // Arg 0 slot 0: [fp + 13] = [fp + 6] + 0
-  13: 4 7 0 14             // Arg 0 slot 1: [fp + 14] = [fp + 7] + 0
-  14: 4 8 0 15             // Arg 0 slot 2: [fp + 15] = [fp + 8] + 0
-  15: 4 9 0 16             // Arg 1 slot 0: [fp + 16] = [fp + 9] + 0
-  16: 4 10 0 17            // Arg 1 slot 1: [fp + 17] = [fp + 10] + 0
-  17: 4 11 0 18            // Arg 1 slot 2: [fp + 18] = [fp + 11] + 0
-  18: 10 20 21 _           // call dot_product
-  19: 4 19 0 -3            // Return value 0: [fp -3] = [fp + 19] + 0
-  20: 11 _ _ _             // return
-dot_product:
-dot_product:
-dot_product_0:
-  21: 4 -9 0 0             // Load: [fp + 0] = [fp + -9] + 0
-  22: 4 -6 0 1             // Load: [fp + 1] = [fp + -6] + 0
-  23: 2 0 1 2              // [fp + 2] = [fp + 0] op [fp + 1]
-  24: 4 -8 0 3             // Load: [fp + 3] = [fp + -8] + 0
-  25: 4 -5 0 4             // Load: [fp + 4] = [fp + -5] + 0
-  26: 2 3 4 5              // [fp + 5] = [fp + 3] op [fp + 4]
-  27: 0 2 5 6              // [fp + 6] = [fp + 2] op [fp + 5]
-  28: 4 -7 0 7             // Load: [fp + 7] = [fp + -7] + 0
-  29: 4 -4 0 8             // Load: [fp + 8] = [fp + -4] + 0
-  30: 2 7 8 9              // [fp + 9] = [fp + 7] op [fp + 8]
-  31: 0 6 9 -3             // [fp + -3] = [fp + 6] op [fp + 9]
-  32: 11 _ _ _             // return
+Result: UNEXPECTED ERROR
+Code generation failed: InvalidMir(
+    "Aggregate value operations should be lowered before code generation",
+)

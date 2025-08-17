@@ -7,11 +7,11 @@ pub mod const_fold;
 pub mod lower_aggregates;
 pub mod mem2reg_ssa;
 pub mod pre_opt;
-pub mod sroa;
 pub mod ssa_destruction;
+pub mod var_ssa;
 
 pub use lower_aggregates::LowerAggregatesPass;
-pub use sroa::SroaPass;
+pub use var_ssa::VarSsaPass;
 
 use cairo_m_compiler_parser::parser::UnaryOp;
 
@@ -669,7 +669,7 @@ impl Validation {
 
                     // Validate MakeStruct
                     InstructionKind::MakeStruct {
-                        dest,
+                        dest: _,
                         fields,
                         struct_ty,
                     } => {
@@ -889,13 +889,9 @@ impl PassManager {
             .add_pass(pre_opt::PreOptimizationPass::new())
             // Run constant folding for aggregates
             .add_pass(const_fold::ConstFoldPass::new())
+            // Run Variable-SSA pass to convert mutable variables to SSA form
+            .add_pass(var_ssa::VarSsaPass::new())
             // Conditionally run memory-oriented optimization passes
-            // SROA pass temporarily disabled due to IR corruption bug
-            // TODO: Re-enable once constant_geps population is fixed
-            // .add_conditional_pass(
-            //     sroa::SroaPass::new(),
-            //     function_uses_memory
-            // )
             .add_conditional_pass(mem2reg_ssa::Mem2RegSsaPass::new(), function_uses_memory)
             // Always run validation and remaining optimization passes
             .add_pass(Validation::new()) // Validate SSA form before destruction

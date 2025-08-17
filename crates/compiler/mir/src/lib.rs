@@ -57,7 +57,7 @@ pub use instruction::{
 pub use layout::DataLayout;
 pub use mir_types::MirType;
 pub use module::MirModule;
-pub use passes::{DeadCodeElimination, FuseCmpBranch, MirPass, PassManager, SroaPass, Validation};
+pub use passes::{DeadCodeElimination, FuseCmpBranch, MirPass, PassManager, Validation};
 pub use terminator::Terminator;
 pub use value::{Literal, Place, Value};
 

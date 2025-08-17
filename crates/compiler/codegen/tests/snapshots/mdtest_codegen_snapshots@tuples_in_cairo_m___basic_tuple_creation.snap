@@ -13,24 +13,7 @@ fn create_tuple() -> (felt, felt, felt) {
     return (1, 2, 3);
 }
 ============================================================
-Generated CASM:
-main_test:
-main_test:
-main_test_0:
-   0: 10 14 10 _           // call create_tuple
-   1: 4 11 0 3             // Store: [fp + 3] = [fp + 11] + 0
-   2: 4 12 0 4             // Store: [fp + 4] = [fp + 12] + 0
-   3: 4 13 0 5             // Store: [fp + 5] = [fp + 13] + 0
-   4: 4 3 0 6              // Load: [fp + 6] = [fp + 3] + 0
-   5: 4 4 0 7              // Load: [fp + 7] = [fp + 4] + 0
-   6: 0 6 7 8              // [fp + 8] = [fp + 6] op [fp + 7]
-   7: 4 5 0 9              // Load: [fp + 9] = [fp + 5] + 0
-   8: 0 8 9 -3             // [fp + -3] = [fp + 8] op [fp + 9]
-   9: 11 _ _ _             // return
-create_tuple:
-create_tuple:
-create_tuple_0:
-  10: 9 1 -5 _             // Return value 0: [fp -5] = 1
-  11: 9 2 -4 _             // Return value 1: [fp -4] = 2
-  12: 9 3 -3 _             // Return value 2: [fp -3] = 3
-  13: 11 _ _ _             // return
+Result: UNEXPECTED ERROR
+Code generation failed: InvalidMir(
+    "Aggregate value operations should be lowered before code generation",
+)

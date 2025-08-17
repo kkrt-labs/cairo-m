@@ -11,7 +11,7 @@ use cairo_m_compiler_semantic::type_resolution::{
 };
 use cairo_m_compiler_semantic::types::TypeData;
 
-use crate::{MirType, Terminator, Value};
+use crate::{DataLayout, Instruction, MirType, Terminator, Value};
 
 use super::builder::MirBuilder;
 use super::expr::LowerExpr;
@@ -189,12 +189,48 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     let tuple_addr = self.lower_lvalue_expression(expr)?;
                     let mut return_values = Vec::new();
 
-                    // Load each element from the tuple (stored consecutively)
+                    // Load each element from the tuple (stored with proper offsets)
+                    let tuple_mir_type = MirType::Tuple(
+                        element_types
+                            .iter()
+                            .map(|t| MirType::from_semantic_type(self.ctx.db, *t))
+                            .collect(),
+                    );
+
                     for (i, elem_type) in element_types.iter().enumerate() {
                         let mir_type = MirType::from_semantic_type(self.ctx.db, *elem_type);
 
-                        // Load the tuple element using helper
-                        let elem_value = self.load_tuple_element(tuple_addr, i, mir_type.clone());
+                        // Calculate proper byte/slot offset for tuple element
+                        let layout = DataLayout::new();
+                        let offset = layout
+                            .tuple_offset(&tuple_mir_type, i)
+                            .ok_or_else(|| format!("Invalid tuple index {} for return", i))?
+                            as i32;
+
+                        // Get element pointer and load
+                        let elem_ptr = self
+                            .state
+                            .mir_function
+                            .new_typed_value_id(MirType::pointer(mir_type.clone()));
+                        self.instr().add_instruction(
+                            Instruction::get_element_ptr(
+                                elem_ptr,
+                                tuple_addr,
+                                Value::integer(offset),
+                            )
+                            .with_comment(format!(
+                                "Get address (offset {}) of tuple element {}",
+                                offset, i
+                            )),
+                        );
+                        let elem_value =
+                            self.state.mir_function.new_typed_value_id(mir_type.clone());
+                        self.instr().load_with(
+                            mir_type,
+                            elem_value,
+                            Value::operand(elem_ptr),
+                            format!("Load tuple element {}", i),
+                        );
                         return_values.push(Value::operand(elem_value));
                     }
 
@@ -654,7 +690,28 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     );
                 };
 
-                // Extract each element from consecutive memory locations
+                // Build the tuple type from element types
+                let mut element_types = Vec::new();
+                for name in names.iter() {
+                    let (def_idx, _) = self
+                        .ctx
+                        .semantic_index
+                        .resolve_name_to_definition(name.value(), scope_id)
+                        .ok_or_else(|| {
+                            format!(
+                                "Failed to resolve variable '{}' in scope {:?}",
+                                name.value(),
+                                scope_id
+                            )
+                        })?;
+                    let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
+                    let semantic_type =
+                        definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
+                    element_types.push(MirType::from_semantic_type(self.ctx.db, semantic_type));
+                }
+                let tuple_type = MirType::Tuple(element_types.clone());
+
+                // Extract each element using proper offsets
                 for (index, name) in names.iter().enumerate() {
                     let (def_idx, _) = self
                         .ctx
@@ -680,21 +737,43 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         continue;
                     }
 
-                    // Get the element type - we need to look up the tuple type
-                    let semantic_type =
-                        definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
-                    let element_mir_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
+                    let element_mir_type = element_types[index].clone();
 
-                    // Get pointer to tuple element
-                    // Load the tuple element using helper
-                    let elem_value = self.load_tuple_element(
-                        Value::operand(tuple_addr),
-                        index,
-                        element_mir_type.clone(),
+                    // Calculate proper byte/slot offset for tuple element
+                    let layout = DataLayout::new();
+                    let offset = layout
+                        .tuple_offset(&tuple_type, index)
+                        .ok_or_else(|| format!("Invalid tuple index {} in destructuring", index))?
+                        as i32;
+
+                    // Get pointer to tuple element and load
+                    let elem_ptr = self
+                        .state
+                        .mir_function
+                        .new_typed_value_id(MirType::pointer(element_mir_type.clone()));
+                    self.instr().add_instruction(
+                        Instruction::get_element_ptr(
+                            elem_ptr,
+                            Value::operand(tuple_addr),
+                            Value::integer(offset),
+                        )
+                        .with_comment(format!(
+                            "Get address (offset {}) of tuple element {}",
+                            offset, index
+                        )),
+                    );
+                    let elem_value = self
+                        .state
+                        .mir_function
+                        .new_typed_value_id(element_mir_type.clone());
+                    self.instr().load_with(
+                        element_mir_type,
+                        elem_value,
+                        Value::operand(elem_ptr),
+                        format!("Load tuple element {}", index),
                     );
 
-                    // Map the variable directly to the loaded value (no allocation needed!)
-                    // The value is already loaded and ready to use
+                    // Map the variable directly to the extracted value
                     self.state
                         .definition_to_value
                         .insert(mir_def_id, elem_value);

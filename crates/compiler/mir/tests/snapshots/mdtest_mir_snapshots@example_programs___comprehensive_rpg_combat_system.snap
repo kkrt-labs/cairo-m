@@ -205,23 +205,23 @@ module {
       %3, %4, %5 = call 1(%2)
       // Allocate space for tuple return value
 %6 = framealloc (u32, u32, u32)
-      // Get address of tuple element 0
+      // Get address (offset 0) of tuple element 0
 %7 = getelementptr %6, 0
       store %7, %3 (u32)
-      // Get address of tuple element 1
-%8 = getelementptr %6, 1
+      // Get address (offset 2) of tuple element 1
+%8 = getelementptr %6, 2
       store %8, %4 (u32)
-      // Get address of tuple element 2
-%9 = getelementptr %6, 2
+      // Get address (offset 4) of tuple element 2
+%9 = getelementptr %6, 4
       store %9, %5 (u32)
       // Load variable summary
 %10 = load (u32, u32, u32) %6
-      // Get address of tuple element 1
-%12 = getelementptr %10, 1
+      // Get address (offset 2) of tuple element 1
+%12 = getelementptr %10, 2
       // Load tuple element 1
 %13 = load u32 %12
-      // Get address of tuple element 2
-%14 = getelementptr %10, 2
+      // Get address (offset 4) of tuple element 2
+%14 = getelementptr %10, 4
       // Load tuple element 2
 %15 = load u32 %14
       %16 = %0 U32Add %15

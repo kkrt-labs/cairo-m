@@ -566,6 +566,21 @@ impl CodeGenerator {
                 // No operation - skip code generation
                 // Nops are used as placeholders during transformation passes
             }
+
+            // Value-based aggregate operations - should have been lowered
+            InstructionKind::MakeTuple { .. }
+            | InstructionKind::ExtractTupleElement { .. }
+            | InstructionKind::MakeStruct { .. }
+            | InstructionKind::ExtractStructField { .. }
+            | InstructionKind::InsertField { .. }
+            | InstructionKind::InsertTuple { .. } => {
+                // These are high-level MIR operations that should be lowered
+                // to memory operations before code generation
+                return Err(CodegenError::InvalidMir(
+                    "Aggregate value operations should be lowered before code generation"
+                        .to_string(),
+                ));
+            }
         }
 
         Ok(())

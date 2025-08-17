@@ -44,29 +44,38 @@ impl LowerAggregatesPass {
         &mut self,
         dest: ValueId,
         elements: &[Value],
-        function: &MirFunction,
+        function: &mut MirFunction,
     ) -> Vec<Instruction> {
         let mut instructions = Vec::new();
 
-        // Infer tuple type from elements
-        let element_types: Vec<MirType> = elements
-            .iter()
-            .map(|elem| match elem {
-                Value::Operand(id) => function
-                    .get_value_type(*id)
-                    .cloned()
-                    .unwrap_or(MirType::Unknown),
-                Value::Literal(_) => MirType::felt(),
-                Value::Error => MirType::Unknown,
-            })
-            .collect();
+        // Get the actual tuple type from the destination
+        let tuple_type = function.get_value_type(dest).cloned().unwrap_or_else(|| {
+            // Fallback: infer from elements
+            let element_types: Vec<MirType> = elements
+                .iter()
+                .map(|elem| match elem {
+                    Value::Operand(id) => function
+                        .get_value_type(*id)
+                        .cloned()
+                        .unwrap_or(MirType::Unknown),
+                    Value::Literal(lit) => match lit {
+                        crate::Literal::Integer(_) => MirType::felt(),
+                        crate::Literal::Boolean(_) => MirType::bool(),
+                        crate::Literal::Unit => MirType::Unit,
+                    },
+                    Value::Error => MirType::Unknown,
+                })
+                .collect();
+            MirType::Tuple(element_types)
+        });
 
-        let tuple_type = MirType::Tuple(element_types.clone());
+        let element_types = match &tuple_type {
+            MirType::Tuple(types) => types.clone(),
+            _ => vec![MirType::Unknown; elements.len()],
+        };
 
-        // Allocate memory for the tuple
-        // Use a simple counter-based ID generation since we can't mutate function here
-        let alloca_id = ValueId::new(1000 + self.next_temp_id as usize);
-        self.next_temp_id += 1;
+        // Allocate memory for the tuple using proper ValueId
+        let alloca_id = function.new_typed_value_id(MirType::pointer(tuple_type.clone()));
         instructions.push(
             Instruction::frame_alloc(alloca_id, tuple_type.clone())
                 .with_comment(format!("Lowered tuple alloca for %{}", dest.index())),
@@ -75,17 +84,21 @@ impl LowerAggregatesPass {
         // Store this mapping for later extract operations
         self.aggregate_allocas.insert(dest, alloca_id);
 
-        // Store each element
+        // Store each element using proper offsets
+        let layout = DataLayout::new();
         for (i, (elem, elem_type)) in elements.iter().zip(element_types.iter()).enumerate() {
-            let elem_ptr = ValueId::new(1000 + self.next_temp_id as usize);
-            self.next_temp_id += 1;
+            let offset = layout.tuple_offset(&tuple_type, i).unwrap_or(i) as i32;
+            let elem_ptr = function.new_typed_value_id(MirType::pointer(elem_type.clone()));
             instructions.push(
                 Instruction::get_element_ptr(
                     elem_ptr,
                     Value::operand(alloca_id),
-                    Value::integer(i as i32),
+                    Value::integer(offset),
                 )
-                .with_comment(format!("Get address of tuple element {}", i)),
+                .with_comment(format!(
+                    "Get address (offset {}) of tuple element {}",
+                    offset, i
+                )),
             );
             instructions.push(
                 Instruction::store(Value::operand(elem_ptr), *elem, elem_type.clone())
@@ -113,13 +126,12 @@ impl LowerAggregatesPass {
         dest: ValueId,
         fields: &[(String, Value)],
         struct_ty: &MirType,
-        _function: &MirFunction,
+        function: &mut MirFunction,
     ) -> Vec<Instruction> {
         let mut instructions = Vec::new();
 
-        // Allocate memory for the struct
-        let alloca_id = ValueId::new(1000 + self.next_temp_id as usize);
-        self.next_temp_id += 1;
+        // Allocate memory for the struct using proper ValueId
+        let alloca_id = function.new_typed_value_id(MirType::pointer(struct_ty.clone()));
         instructions.push(
             Instruction::frame_alloc(alloca_id, struct_ty.clone())
                 .with_comment(format!("Lowered struct alloca for %{}", dest.index())),
@@ -149,8 +161,7 @@ impl LowerAggregatesPass {
                     MirType::Unknown
                 };
 
-                let field_ptr = ValueId::new(1000 + self.next_temp_id as usize);
-                self.next_temp_id += 1;
+                let field_ptr = function.new_typed_value_id(MirType::pointer(field_type.clone()));
                 instructions.push(
                     Instruction::get_element_ptr(
                         field_ptr,
@@ -186,19 +197,32 @@ impl LowerAggregatesPass {
         alloca_value: ValueId,
         index: usize,
         element_ty: &MirType,
-        _function: &MirFunction,
+        function: &mut MirFunction,
     ) -> Vec<Instruction> {
         let mut instructions = Vec::new();
 
-        let elem_ptr = ValueId::new(1000 + self.next_temp_id as usize);
-        self.next_temp_id += 1;
+        // Get the tuple type to calculate proper offset
+        let tuple_type =
+            if let Some(MirType::Pointer(inner)) = function.get_value_type(alloca_value) {
+                inner.as_ref().clone()
+            } else {
+                MirType::Unknown
+            };
+
+        let layout = DataLayout::new();
+        let offset = layout.tuple_offset(&tuple_type, index).unwrap_or(index) as i32;
+
+        let elem_ptr = function.new_typed_value_id(MirType::pointer(element_ty.clone()));
         instructions.push(
             Instruction::get_element_ptr(
                 elem_ptr,
                 Value::operand(alloca_value),
-                Value::integer(index as i32),
+                Value::integer(offset),
             )
-            .with_comment(format!("Get address of tuple element {} (lowered)", index)),
+            .with_comment(format!(
+                "Get address (offset {}) of tuple element {} (lowered)",
+                offset, index
+            )),
         );
 
         instructions.push(
@@ -216,7 +240,7 @@ impl LowerAggregatesPass {
         alloca_value: ValueId,
         field_name: &str,
         field_ty: &MirType,
-        function: &MirFunction,
+        function: &mut MirFunction,
     ) -> Vec<Instruction> {
         let mut instructions = Vec::new();
 
@@ -233,8 +257,7 @@ impl LowerAggregatesPass {
         let layout = DataLayout::new();
         let offset = layout.field_offset(&struct_type, field_name).unwrap_or(0);
 
-        let field_ptr = ValueId::new(1000 + self.next_temp_id as usize);
-        self.next_temp_id += 1;
+        let field_ptr = function.new_typed_value_id(MirType::pointer(field_ty.clone()));
         instructions.push(
             Instruction::get_element_ptr(
                 field_ptr,
@@ -256,7 +279,7 @@ impl LowerAggregatesPass {
     fn lower_instruction(
         &mut self,
         instruction: &Instruction,
-        function: &MirFunction,
+        function: &mut MirFunction,
     ) -> Vec<Instruction> {
         match &instruction.kind {
             // Lower aggregate creation
@@ -306,7 +329,7 @@ impl LowerAggregatesPass {
             // InsertField and InsertTuple need special handling
             InstructionKind::InsertField {
                 dest,
-                struct_val: _,
+                struct_val,
                 field_name,
                 new_value,
                 struct_ty,
@@ -316,16 +339,71 @@ impl LowerAggregatesPass {
                 let mut instructions = Vec::new();
 
                 // Allocate new struct
-                let new_alloca = ValueId::new(1000 + self.next_temp_id as usize);
-                self.next_temp_id += 1;
+                let new_alloca = function.new_typed_value_id(MirType::pointer(struct_ty.clone()));
                 instructions.push(
                     Instruction::frame_alloc(new_alloca, struct_ty.clone())
                         .with_comment("Alloca for updated struct".to_string()),
                 );
 
-                // TODO: Copy old struct contents (would need memcpy or field-by-field copy)
-                // For now, just store the new field value
+                // Copy old struct contents if we have an existing alloca
+                if let Some(value_id) = Self::extract_value_id(struct_val) {
+                    if let Some(&old_alloca) = self.aggregate_allocas.get(&value_id) {
+                        // Copy each field from old to new
+                        if let MirType::Struct { fields, .. } = struct_ty {
+                            let layout = DataLayout::new();
+                            for (fname, ftype) in fields {
+                                if fname == field_name {
+                                    continue; // Skip the field we're updating
+                                }
+                                let offset =
+                                    layout.field_offset(struct_ty, fname).unwrap_or(0) as i32;
 
+                                // Load from old
+                                let old_field_ptr =
+                                    function.new_typed_value_id(MirType::pointer(ftype.clone()));
+                                instructions.push(
+                                    Instruction::get_element_ptr(
+                                        old_field_ptr,
+                                        Value::operand(old_alloca),
+                                        Value::integer(offset),
+                                    )
+                                    .with_comment(format!("Get old field '{}'", fname)),
+                                );
+                                let field_value = function.new_typed_value_id(ftype.clone());
+                                instructions.push(
+                                    Instruction::load(
+                                        field_value,
+                                        ftype.clone(),
+                                        Value::operand(old_field_ptr),
+                                    )
+                                    .with_comment(format!("Load old field '{}'", fname)),
+                                );
+
+                                // Store to new
+                                let new_field_ptr =
+                                    function.new_typed_value_id(MirType::pointer(ftype.clone()));
+                                instructions.push(
+                                    Instruction::get_element_ptr(
+                                        new_field_ptr,
+                                        Value::operand(new_alloca),
+                                        Value::integer(offset),
+                                    )
+                                    .with_comment(format!("Get new field '{}' location", fname)),
+                                );
+                                instructions.push(
+                                    Instruction::store(
+                                        Value::operand(new_field_ptr),
+                                        Value::operand(field_value),
+                                        ftype.clone(),
+                                    )
+                                    .with_comment(format!("Copy field '{}'", fname)),
+                                );
+                            }
+                        }
+                    }
+                }
+
+                // Now store the updated field value
                 let layout = DataLayout::new();
                 if let Some(offset) = layout.field_offset(struct_ty, field_name) {
                     let field_type = if let MirType::Struct { fields, .. } = struct_ty {
@@ -338,8 +416,8 @@ impl LowerAggregatesPass {
                         MirType::Unknown
                     };
 
-                    let field_ptr = ValueId::new(1000 + self.next_temp_id as usize);
-                    self.next_temp_id += 1;
+                    let field_ptr =
+                        function.new_typed_value_id(MirType::pointer(field_type.clone()));
                     instructions.push(
                         Instruction::get_element_ptr(
                             field_ptr,
@@ -369,7 +447,7 @@ impl LowerAggregatesPass {
 
             InstructionKind::InsertTuple {
                 dest,
-                tuple_val: _,
+                tuple_val,
                 index,
                 new_value,
                 tuple_ty,
@@ -378,31 +456,90 @@ impl LowerAggregatesPass {
                 let mut instructions = Vec::new();
 
                 // Allocate new tuple
-                let new_alloca = ValueId::new(1000 + self.next_temp_id as usize);
-                self.next_temp_id += 1;
+                let new_alloca = function.new_typed_value_id(MirType::pointer(tuple_ty.clone()));
                 instructions.push(
                     Instruction::frame_alloc(new_alloca, tuple_ty.clone())
                         .with_comment("Alloca for updated tuple".to_string()),
                 );
 
-                // TODO: Copy old tuple contents
-                // For now, just store the new element value
+                // Copy old tuple contents if we have an existing alloca
+                if let Some(value_id) = Self::extract_value_id(tuple_val) {
+                    if let Some(&old_alloca) = self.aggregate_allocas.get(&value_id) {
+                        // Copy each element from old to new
+                        if let MirType::Tuple(types) = tuple_ty {
+                            let layout = DataLayout::new();
+                            for (i, elem_type) in types.iter().enumerate() {
+                                if i == *index {
+                                    continue; // Skip the element we're updating
+                                }
+                                let offset = layout.tuple_offset(tuple_ty, i).unwrap_or(i) as i32;
 
+                                // Load from old
+                                let old_elem_ptr = function
+                                    .new_typed_value_id(MirType::pointer(elem_type.clone()));
+                                instructions.push(
+                                    Instruction::get_element_ptr(
+                                        old_elem_ptr,
+                                        Value::operand(old_alloca),
+                                        Value::integer(offset),
+                                    )
+                                    .with_comment(format!("Get old element {}", i)),
+                                );
+                                let elem_value = function.new_typed_value_id(elem_type.clone());
+                                instructions.push(
+                                    Instruction::load(
+                                        elem_value,
+                                        elem_type.clone(),
+                                        Value::operand(old_elem_ptr),
+                                    )
+                                    .with_comment(format!("Load old element {}", i)),
+                                );
+
+                                // Store to new
+                                let new_elem_ptr = function
+                                    .new_typed_value_id(MirType::pointer(elem_type.clone()));
+                                instructions.push(
+                                    Instruction::get_element_ptr(
+                                        new_elem_ptr,
+                                        Value::operand(new_alloca),
+                                        Value::integer(offset),
+                                    )
+                                    .with_comment(format!("Get new element {} location", i)),
+                                );
+                                instructions.push(
+                                    Instruction::store(
+                                        Value::operand(new_elem_ptr),
+                                        Value::operand(elem_value),
+                                        elem_type.clone(),
+                                    )
+                                    .with_comment(format!("Copy element {}", i)),
+                                );
+                            }
+                        }
+                    }
+                }
+
+                // Now store the updated element value
                 let element_type = if let MirType::Tuple(types) = tuple_ty {
                     types.get(*index).cloned().unwrap_or(MirType::Unknown)
                 } else {
                     MirType::Unknown
                 };
 
-                let elem_ptr = ValueId::new(1000 + self.next_temp_id as usize);
-                self.next_temp_id += 1;
+                let layout = DataLayout::new();
+                let offset = layout.tuple_offset(tuple_ty, *index).unwrap_or(*index) as i32;
+
+                let elem_ptr = function.new_typed_value_id(MirType::pointer(element_type.clone()));
                 instructions.push(
                     Instruction::get_element_ptr(
                         elem_ptr,
                         Value::operand(new_alloca),
-                        Value::integer(*index as i32),
+                        Value::integer(offset),
                     )
-                    .with_comment(format!("Get address of tuple element {} for update", index)),
+                    .with_comment(format!(
+                        "Get address (offset {}) of tuple element {} for update",
+                        offset, index
+                    )),
                 );
                 instructions.push(
                     Instruction::store(Value::operand(elem_ptr), *new_value, element_type)
@@ -432,15 +569,20 @@ impl MirPass for LowerAggregatesPass {
     fn run(&mut self, function: &mut MirFunction) -> bool {
         let mut modified = false;
 
-        // We need to collect instructions first to avoid borrowing issues
-        let mut blocks_new_instructions = Vec::new();
+        // Clone instructions to avoid borrow issues
+        let blocks_instructions: Vec<Vec<Instruction>> = function
+            .basic_blocks
+            .iter()
+            .map(|b| b.instructions.clone())
+            .collect();
 
-        // Process each basic block
-        for block in function.basic_blocks.iter() {
+        // Process each block's instructions
+        let mut blocks_new_instructions = Vec::new();
+        for block_instructions in blocks_instructions {
             let mut new_instructions = Vec::new();
 
-            for instruction in &block.instructions {
-                let lowered = self.lower_instruction(instruction, function);
+            for instruction in block_instructions {
+                let lowered = self.lower_instruction(&instruction, function);
                 if lowered.len() != 1 || !lowered[0].kind.eq(&instruction.kind) {
                     modified = true;
                 }

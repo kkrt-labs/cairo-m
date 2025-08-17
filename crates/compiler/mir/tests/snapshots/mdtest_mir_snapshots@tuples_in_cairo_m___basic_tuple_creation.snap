@@ -23,13 +23,13 @@ module {
       %0, %1, %2 = call 1()
       // Allocate space for tuple return value
 %3 = framealloc (felt, felt, felt)
-      // Get address of tuple element 0
+      // Get address (offset 0) of tuple element 0
 %4 = getelementptr %3, 0
       store %4, %0
-      // Get address of tuple element 1
+      // Get address (offset 1) of tuple element 1
 %5 = getelementptr %3, 1
       store %5, %1
-      // Get address of tuple element 2
+      // Get address (offset 2) of tuple element 2
 %6 = getelementptr %3, 2
       store %6, %2
       // Load variable tuple

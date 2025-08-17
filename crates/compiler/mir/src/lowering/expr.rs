@@ -368,8 +368,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 );
 
                 // Get type of each inner tuple element
-                let elem_types = match tuple_type {
-                    MirType::Tuple(types) => types,
+                let elem_types = match &tuple_type {
+                    MirType::Tuple(types) => types.clone(),
                     _ => return Err("Tuple type expected".to_string()),
                 };
 
@@ -379,13 +379,24 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         .state
                         .mir_function
                         .new_typed_value_id(MirType::pointer(value_type.clone()));
+
+                    // Calculate proper byte/slot offset for tuple element
+                    let layout = DataLayout::new();
+                    let offset = layout
+                        .tuple_offset(&tuple_type, i)
+                        .ok_or_else(|| format!("Invalid tuple index {}", i))?
+                        as i32;
+
                     self.instr().add_instruction(
                         Instruction::get_element_ptr(
                             elem_ptr,
                             Value::operand(tuple_addr),
-                            Value::integer(i as i32),
+                            Value::integer(offset),
                         )
-                        .with_comment(format!("Get address of tuple element {}", i)),
+                        .with_comment(format!(
+                            "Get address (offset {}) of tuple element {}",
+                            offset, i
+                        )),
                     );
                     self.instr()
                         .store(Value::operand(elem_ptr), *value, value_type);
