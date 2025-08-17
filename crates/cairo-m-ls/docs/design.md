@@ -287,7 +287,7 @@ sequenceDiagram
 - **Incremental**: Salsa recomputes only changed queries.
 - **Concurrency**: Channels and tasks prevent blocking.
 - **Memory**: DB swapper clears Salsa accumulations.
-- **Caching**: Project manifests cached with expiry.
+- **Caching**: Project manifests are cached with expiry.
 - **Debouncing**: Reduces diagnostics computation frequency on rapid changes.
 - **Delta Diagnostics**: Only processes changed modules via
   DeltaDiagnosticsTracker.
