@@ -32,7 +32,7 @@ fn test_u32() -> u32 {
 
 ### U32 Addition
 
-Arithmetic operation on `u32` are wrapped in the `u32` type.
+Arithmetic operations on `u32` are wrapped in the `u32` type.
 
 ```cairo-m
 fn test_u32_add() -> u32 {
