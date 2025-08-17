@@ -163,7 +163,7 @@ provide helpful diagnostics to users.
 - Use `anyhow` for error handling in binaries with `with_context()` for
   descriptive error messages
 - Prefer `unwrap_or_else()` over `unwrap()` when providing custom error handling
-- Use `#[from]` attribute with thiserror for automatic error conversion
+- Use `#[from]` attribute with this error for automatic error conversion
 - Use `?` operator instead of manual error propagation where possible
 
 Example:
