@@ -538,7 +538,7 @@ impl Instruction {
     }
 
     /// Creates a new make tuple instruction
-    pub fn make_tuple(dest: ValueId, elements: Vec<Value>) -> Self {
+    pub const fn make_tuple(dest: ValueId, elements: Vec<Value>) -> Self {
         Self {
             kind: InstructionKind::MakeTuple { dest, elements },
             source_span: None,
@@ -568,7 +568,11 @@ impl Instruction {
     }
 
     /// Creates a new make struct instruction
-    pub fn make_struct(dest: ValueId, fields: Vec<(String, Value)>, struct_ty: MirType) -> Self {
+    pub const fn make_struct(
+        dest: ValueId,
+        fields: Vec<(String, Value)>,
+        struct_ty: MirType,
+    ) -> Self {
         Self {
             kind: InstructionKind::MakeStruct {
                 dest,
@@ -582,7 +586,7 @@ impl Instruction {
     }
 
     /// Creates a new extract struct field instruction
-    pub fn extract_struct_field(
+    pub const fn extract_struct_field(
         dest: ValueId,
         struct_val: Value,
         field_name: String,
@@ -602,7 +606,7 @@ impl Instruction {
     }
 
     /// Creates a new insert field instruction
-    pub fn insert_field(
+    pub const fn insert_field(
         dest: ValueId,
         struct_val: Value,
         field_name: String,
@@ -624,7 +628,7 @@ impl Instruction {
     }
 
     /// Creates a new insert tuple instruction
-    pub fn insert_tuple(
+    pub const fn insert_tuple(
         dest: ValueId,
         tuple_val: Value,
         index: usize,
@@ -1083,32 +1087,35 @@ impl PrettyPrint for Instruction {
                     .map(|elem| elem.pretty_print(0))
                     .collect::<Vec<_>>()
                     .join(", ");
-                result.push_str(&format!(
-                    "{} = make_tuple {}",
-                    dest.pretty_print(0),
-                    elements_str
-                ));
+                if elements.is_empty() {
+                    result.push_str(&format!("{} = maketuple", dest.pretty_print(0)));
+                } else {
+                    result.push_str(&format!(
+                        "{} = maketuple {}",
+                        dest.pretty_print(0),
+                        elements_str
+                    ));
+                }
             }
 
             InstructionKind::ExtractTupleElement {
                 dest,
                 tuple,
                 index,
-                element_ty,
+                element_ty: _, // Type info not shown for cleaner output
             } => {
                 result.push_str(&format!(
-                    "{} = extract_tuple_element {}, {} ({})",
+                    "{} = extracttuple {}, {}",
                     dest.pretty_print(0),
                     tuple.pretty_print(0),
-                    index,
-                    element_ty
+                    index
                 ));
             }
 
             InstructionKind::MakeStruct {
                 dest,
                 fields,
-                struct_ty,
+                struct_ty: _, // Type info not shown for cleaner output
             } => {
                 let fields_str = fields
                     .iter()
@@ -1116,10 +1123,9 @@ impl PrettyPrint for Instruction {
                     .collect::<Vec<_>>()
                     .join(", ");
                 result.push_str(&format!(
-                    "{} = make_struct {{ {} }} ({})",
+                    "{} = makestruct {{ {} }}",
                     dest.pretty_print(0),
-                    fields_str,
-                    struct_ty
+                    fields_str
                 ));
             }
 
@@ -1127,14 +1133,13 @@ impl PrettyPrint for Instruction {
                 dest,
                 struct_val,
                 field_name,
-                field_ty,
+                field_ty: _, // Type info not shown for cleaner output
             } => {
                 result.push_str(&format!(
-                    "{} = extract_struct_field {}, \"{}\" ({})",
+                    "{} = extractfield {}, \"{}\"",
                     dest.pretty_print(0),
                     struct_val.pretty_print(0),
-                    field_name,
-                    field_ty
+                    field_name
                 ));
             }
 
@@ -1143,15 +1148,14 @@ impl PrettyPrint for Instruction {
                 struct_val,
                 field_name,
                 new_value,
-                struct_ty,
+                struct_ty: _, // Type info not shown for cleaner output
             } => {
                 result.push_str(&format!(
-                    "{} = insert_field {}, \"{}\", {} ({})",
+                    "{} = insertfield {}, \"{}\", {}",
                     dest.pretty_print(0),
                     struct_val.pretty_print(0),
                     field_name,
-                    new_value.pretty_print(0),
-                    struct_ty
+                    new_value.pretty_print(0)
                 ));
             }
 
@@ -1160,15 +1164,14 @@ impl PrettyPrint for Instruction {
                 tuple_val,
                 index,
                 new_value,
-                tuple_ty,
+                tuple_ty: _, // Type info not shown for cleaner output
             } => {
                 result.push_str(&format!(
-                    "{} = insert_tuple {}, {}, {} ({})",
+                    "{} = inserttuple {}, {}, {}",
                     dest.pretty_print(0),
                     tuple_val.pretty_print(0),
                     index,
-                    new_value.pretty_print(0),
-                    tuple_ty
+                    new_value.pretty_print(0)
                 ));
             }
         }

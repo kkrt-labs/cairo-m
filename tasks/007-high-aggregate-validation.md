@@ -1,5 +1,7 @@
 # Task 007: High-Priority Aggregate Validation
 
+**Status:** COMPLETED
+
 ## Why
 
 As part of the MIR refactoring towards aggregate-first design (Issue #10 from

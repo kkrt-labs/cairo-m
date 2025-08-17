@@ -24,26 +24,12 @@ module {
     entry: 0
 
     0:
-      // Allocate struct
-%0 = framealloc U32Pair
-      // Get address of field 'first'
-%1 = getelementptr %0, 0
-      store %1, 100 (u32)
-      // Get address of field 'second'
-%2 = getelementptr %0, 2
-      store %2, 200 (u32)
-      // Load variable s1
-%3 = load U32Pair %0
-      // Get address of field 'first'
-%4 = getelementptr %3, 0
-      // Load field 'first'
-%5 = load u32 %4
-      // Get address of field 'second'
-%6 = getelementptr %3, 2
-      // Load field 'second'
-%7 = load u32 %6
-      %8 = %5 U32Add %7
-      return %8
+      // Folded ExtractStructField(0, "first")
+%1 = 100 (u32)
+      // Folded ExtractStructField(0, "second")
+%2 = 200 (u32)
+      %3 = %1 U32Add %2
+      return %3
 
   }
 

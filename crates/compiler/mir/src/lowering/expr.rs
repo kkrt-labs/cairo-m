@@ -402,6 +402,10 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         field: &Spanned<String>,
         expr_id: ExpressionId,
     ) -> Result<Value, String> {
+        // NOTE: When arrays are implemented, they should use memory-based access:
+        // - Arrays should use get_element_ptr + load for element access
+        // - Arrays should NOT use ExtractTupleElement or similar value-based operations
+        // - Use array_guards::should_use_memory_lowering() to check
         // NEW: Value-based struct field extraction
         // Lower the struct expression to get a value
         let struct_val = self.lower_expression(object)?;

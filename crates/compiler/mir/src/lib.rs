@@ -62,7 +62,6 @@ pub use terminator::Terminator;
 pub use value::{Literal, Place, Value};
 
 pub mod analysis;
-pub mod backend;
 pub mod basic_block;
 pub mod builder;
 pub mod cfg;
@@ -92,6 +91,15 @@ mod insert_instructions_test;
 
 #[cfg(test)]
 mod conditional_pass_test;
+
+#[cfg(test)]
+mod pretty_print_tests;
+
+#[cfg(test)]
+mod pipeline_tests;
+
+#[cfg(test)]
+mod aggregate_instruction_tests;
 
 // --- Core Identifiers ---
 

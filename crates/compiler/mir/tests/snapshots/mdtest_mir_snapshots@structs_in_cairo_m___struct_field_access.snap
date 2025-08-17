@@ -22,27 +22,16 @@ module {
     entry: 0
 
     0:
-      // Allocate struct
-%0 = framealloc Rectangle
+      %0 = makestruct { width: 5, height: 10 }
       // Get address of field 'width'
 %1 = getelementptr %0, 0
-      store %1, 5
-      // Get address of field 'height'
-%2 = getelementptr %0, 1
-      store %2, 10
-      // Get address of field 'width'
-%3 = getelementptr %0, 0
-      store %3, 7
-      // Get address of field 'width'
-%4 = getelementptr %0, 0
-      // Load field 'width'
-%5 = load felt %4
-      // Get address of field 'height'
-%6 = getelementptr %0, 1
-      // Load field 'height'
-%7 = load felt %6
-      %8 = %5 Mul %7
-      return %8
+      store %1, 7
+      // Folded ExtractStructField(0, "width")
+%2 = 5
+      // Folded ExtractStructField(0, "height")
+%3 = 10
+      %4 = %2 Mul %3
+      return %4
 
   }
 

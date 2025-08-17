@@ -118,14 +118,17 @@ impl Mem2RegSsaPass {
             for instruction in &block.instructions {
                 match &instruction.kind {
                     InstructionKind::FrameAlloc { dest, ty } => {
-                        // CONSERVATIVE FIX: Only promote truly scalar single-slot types
-                        // Multi-slot types and types accessed via GEP require per-location phi nodes
-                        // which is not yet implemented correctly.
+                        // Allow promotion of scalar types that can be treated as single values
+                        // Even though U32 uses 2 slots internally, if it's only accessed as a whole
+                        // (no GEP to individual limbs), we can safely promote it.
                         //
-                        // Safe to promote: Felt, Bool, Pointer (all single-slot)
-                        // NOT safe yet: U32 (multi-slot), Tuple, Struct (require SROA or per-slot tracking)
-                        if matches!(ty, MirType::Felt | MirType::Bool | MirType::Pointer(_)) {
-                            // Single-slot scalar types can be safely promoted
+                        // Safe to promote: Felt, Bool, Pointer, U32 (when accessed as whole)
+                        // NOT safe: Tuple, Struct (require SROA or per-slot tracking)
+                        if matches!(
+                            ty,
+                            MirType::Felt | MirType::Bool | MirType::Pointer(_) | MirType::U32
+                        ) {
+                            // Scalar types can be safely promoted when accessed as whole values
                             allocations.insert(
                                 *dest,
                                 PromotableAllocation {

@@ -31,60 +31,26 @@ module {
     entry: 0
 
     0:
-      // Allocate struct
-%0 = framealloc Line
-      // Allocate struct
-%1 = framealloc Point
-      // Get address of field 'x'
-%2 = getelementptr %1, 0
-      store %2, 0
-      // Get address of field 'y'
-%3 = getelementptr %1, 1
-      store %3, 0
-      // Get address of field 'start'
-%4 = getelementptr %0, 0
-      store %4, %1 (Point)
-      // Allocate struct
-%5 = framealloc Point
-      // Get address of field 'x'
-%6 = getelementptr %5, 0
-      store %6, 3
-      // Get address of field 'y'
-%7 = getelementptr %5, 1
-      store %7, 4
-      // Get address of field 'end'
-%8 = getelementptr %0, 2
-      store %8, %5 (Point)
-      // Get address of field 'end'
-%9 = getelementptr %0, 2
-      // Get address of field 'x'
-%10 = getelementptr %9, 0
-      // Load field 'x'
-%11 = load felt %10
-      // Get address of field 'start'
-%12 = getelementptr %0, 0
-      // Get address of field 'x'
-%13 = getelementptr %12, 0
-      // Load field 'x'
-%14 = load felt %13
-      %15 = %11 Sub %14
-      // Get address of field 'end'
-%16 = getelementptr %0, 2
-      // Get address of field 'y'
-%17 = getelementptr %16, 1
-      // Load field 'y'
-%18 = load felt %17
-      // Get address of field 'start'
-%19 = getelementptr %0, 0
-      // Get address of field 'y'
-%20 = getelementptr %19, 1
-      // Load field 'y'
-%21 = load felt %20
-      %22 = %18 Sub %21
-      %23 = %15 Mul %15
-      %24 = %22 Mul %22
-      %25 = %23 Add %24
-      return %25
+      %0 = makestruct { x: 0, y: 0 }
+      %1 = makestruct { x: 3, y: 4 }
+      // Folded ExtractStructField(2, "end")
+%3 = %1 (Point)
+      %4 = extractfield %3, "x"
+      // Folded ExtractStructField(2, "start")
+%5 = %0 (Point)
+      %6 = extractfield %5, "x"
+      %7 = %4 Sub %6
+      // Folded ExtractStructField(2, "end")
+%8 = %1 (Point)
+      %9 = extractfield %8, "y"
+      // Folded ExtractStructField(2, "start")
+%10 = %0 (Point)
+      %11 = extractfield %10, "y"
+      %12 = %9 Sub %11
+      %13 = %7 Mul %7
+      %14 = %12 Mul %12
+      %15 = %13 Add %14
+      return %15
 
   }
 

@@ -32,19 +32,16 @@ module {
       // Get address of tuple element 2
 %6 = getelementptr %3, 2
       store %6, %2
-      // Get address of tuple element 0
-%7 = getelementptr %3, 0
-      // Load tuple element 0
-%8 = load felt %7
-      // Get address of tuple element 1
-%9 = getelementptr %3, 1
-      // Load tuple element 1
-%10 = load felt %9
+      // Load variable tuple
+%7 = load (felt, felt, felt) %3
+      %8 = extracttuple %7, 0
+      // Load variable tuple
+%9 = load (felt, felt, felt) %3
+      %10 = extracttuple %9, 1
       %11 = %8 Add %10
-      // Get address of tuple element 2
-%12 = getelementptr %3, 2
-      // Load tuple element 2
-%13 = load felt %12
+      // Load variable tuple
+%12 = load (felt, felt, felt) %3
+      %13 = extracttuple %12, 2
       %14 = %11 Add %13
       return %14
 

@@ -128,7 +128,7 @@ mod aggregate_instruction_tests {
         // Test MakeTuple pretty print
         let tuple_instr = Instruction::make_tuple(dest, vec![elem1, elem2]);
         let tuple_pretty = tuple_instr.pretty_print(0);
-        assert!(tuple_pretty.contains("make_tuple"));
+        assert!(tuple_pretty.contains("maketuple"));
         assert!(tuple_pretty.contains("%0"));
         assert!(tuple_pretty.contains("%1"));
         assert!(tuple_pretty.contains("%2"));
@@ -136,7 +136,7 @@ mod aggregate_instruction_tests {
         // Test ExtractTupleElement pretty print
         let extract_instr = Instruction::extract_tuple_element(dest, elem1, 0, MirType::felt());
         let extract_pretty = extract_instr.pretty_print(0);
-        assert!(extract_pretty.contains("extract_tuple_element"));
+        assert!(extract_pretty.contains("extracttuple"));
         assert!(extract_pretty.contains("0"));
 
         // Test MakeStruct pretty print
@@ -147,14 +147,14 @@ mod aggregate_instruction_tests {
             MirType::simple_struct_type("Point".to_string()),
         );
         let struct_pretty = struct_instr.pretty_print(0);
-        assert!(struct_pretty.contains("make_struct"));
+        assert!(struct_pretty.contains("makestruct"));
         assert!(struct_pretty.contains("x:"));
 
         // Test ExtractStructField pretty print
         let field_instr =
             Instruction::extract_struct_field(dest, elem1, "x".to_string(), MirType::felt());
         let field_pretty = field_instr.pretty_print(0);
-        assert!(field_pretty.contains("extract_struct_field"));
+        assert!(field_pretty.contains("extractfield"));
         assert!(field_pretty.contains("\"x\""));
     }
 

@@ -1,163 +1,168 @@
-//! Compilation pipeline with pluggable backends
+//! Simplified MIR optimization pipeline configuration
 
-use crate::{
-    backend::{Backend, BackendConfig, BackendError, BackendResult},
-    MirModule, PassManager,
-};
+use crate::passes::MirPass;
+use crate::{MirModule, PassManager, PrettyPrint};
 
-/// Configuration for the entire compilation pipeline
+/// Optimization level for the MIR pipeline
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OptimizationLevel {
+    /// No optimizations
+    None,
+    /// Basic optimizations (dead code elimination)
+    Basic,
+    /// Standard optimizations (default)
+    Standard,
+    /// Aggressive optimizations
+    Aggressive,
+}
+
+impl Default for OptimizationLevel {
+    fn default() -> Self {
+        Self::Standard
+    }
+}
+
+/// Simple pipeline configuration
 #[derive(Debug, Clone)]
 pub struct PipelineConfig {
-    /// Backend configuration
-    pub backend_config: BackendConfig,
-    /// Whether to run standard MIR optimization pipeline
-    pub run_mir_optimizations: bool,
-    /// Whether to run backend-specific optimizations
-    pub run_backend_optimizations: bool,
+    /// Optimization level
+    pub optimization_level: OptimizationLevel,
+    /// Enable debug output (verbose MIR dumps)
+    pub debug: bool,
+    /// Lower aggregates to memory for compatibility (only if needed for specific backends)
+    pub lower_aggregates_to_memory: bool,
 }
 
 impl Default for PipelineConfig {
     fn default() -> Self {
         Self {
-            backend_config: BackendConfig::default(),
-            run_mir_optimizations: true,
-            run_backend_optimizations: true,
+            optimization_level: OptimizationLevel::Standard,
+            debug: false,
+            lower_aggregates_to_memory: false, // By default, keep aggregates as values
         }
     }
 }
 
-/// A complete compilation pipeline with a pluggable backend
-pub struct CompilationPipeline<B: Backend> {
-    backend: B,
-    mir_passes: PassManager,
-}
-
-impl<B: Backend> CompilationPipeline<B> {
-    /// Create a new pipeline with the given backend
-    pub fn new(backend: B) -> Self {
+impl PipelineConfig {
+    /// Create a configuration with no optimizations (for debugging)
+    pub const fn no_opt() -> Self {
         Self {
-            backend,
-            mir_passes: PassManager::standard_pipeline(),
+            optimization_level: OptimizationLevel::None,
+            debug: false,
+            lower_aggregates_to_memory: false,
         }
     }
 
-    /// Create a pipeline with custom MIR passes
-    pub fn with_mir_passes(mut self, passes: PassManager) -> Self {
-        self.mir_passes = passes;
-        self
+    /// Create a configuration with debug output enabled
+    pub const fn debug() -> Self {
+        Self {
+            optimization_level: OptimizationLevel::Standard,
+            debug: true,
+            lower_aggregates_to_memory: false,
+        }
     }
 
-    /// Compile a MIR module through the complete pipeline
-    pub fn compile(
-        &mut self,
-        mut module: MirModule,
-        config: PipelineConfig,
-    ) -> BackendResult<B::Output> {
-        // Validate that backend can handle this module
-        self.backend.validate_module(&module)?;
+    /// Create configuration from environment (simplified)
+    pub fn from_environment() -> Self {
+        let mut config = Self::default();
 
-        // Run MIR-level optimizations if requested
-        if config.run_mir_optimizations {
-            for function in module.functions_mut() {
-                if let Err(e) = function.validate() {
-                    return Err(BackendError::CodeGeneration(format!(
-                        "Function validation failed before optimization: {}",
-                        e
-                    )));
-                }
-
-                self.mir_passes.run(function);
-
-                if let Err(e) = function.validate() {
-                    return Err(BackendError::CodeGeneration(format!(
-                        "Function validation failed after optimization: {}",
-                        e
-                    )));
-                }
-            }
+        // Simple optimization level control
+        if let Ok(val) = std::env::var("CAIRO_M_OPT_LEVEL") {
+            config.optimization_level = match val.as_str() {
+                "0" | "none" => OptimizationLevel::None,
+                "1" | "basic" => OptimizationLevel::Basic,
+                "2" | "standard" => OptimizationLevel::Standard,
+                "3" | "aggressive" => OptimizationLevel::Aggressive,
+                _ => OptimizationLevel::Standard,
+            };
         }
 
-        // Run backend-specific optimizations if requested
-        if config.run_backend_optimizations {
-            let mut backend_passes = self.backend.backend_passes();
-            for function in module.functions_mut() {
-                backend_passes.run(function);
-            }
+        // Debug flag
+        if let Ok(val) = std::env::var("CAIRO_M_DEBUG") {
+            config.debug = val == "1" || val.to_lowercase() == "true";
         }
 
-        // Generate code using the backend
-        self.backend.generate_code(&module, &config.backend_config)
+        config
+    }
+}
+
+/// Run the optimization pipeline on a MIR module
+pub fn optimize_module(module: &mut MirModule, config: &PipelineConfig) {
+    let mut pass_manager = match config.optimization_level {
+        OptimizationLevel::None => return, // No optimizations
+        OptimizationLevel::Basic => PassManager::basic_pipeline(),
+        OptimizationLevel::Standard => PassManager::standard_pipeline(),
+        OptimizationLevel::Aggressive => PassManager::aggressive_pipeline(),
+    };
+
+    // Apply passes to each function
+    for function in module.functions_mut() {
+        // Validate before optimization
+        if let Err(e) = function.validate() {
+            eprintln!(
+                "Warning: Function validation failed before optimization: {}",
+                e
+            );
+            continue;
+        }
+
+        // Run optimization passes
+        pass_manager.run(function);
+
+        // Optionally lower aggregates to memory
+        if config.lower_aggregates_to_memory {
+            use crate::passes::lower_aggregates::LowerAggregatesPass;
+            let mut lower_pass = LowerAggregatesPass::new();
+            lower_pass.run(function);
+        }
+
+        // Validate after optimization
+        if let Err(e) = function.validate() {
+            eprintln!(
+                "Warning: Function validation failed after optimization: {}",
+                e
+            );
+        }
+
+        // Debug output if requested
+        if config.debug {
+            eprintln!("=== Optimized MIR for {} ===", function.name);
+            eprintln!("{}", function.pretty_print(0));
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend::BackendInfo;
-
-    struct TestBackend {
-        info: BackendInfo,
-    }
-
-    impl TestBackend {
-        fn new() -> Self {
-            Self {
-                info: BackendInfo {
-                    name: "test".to_string(),
-                    description: "Test backend".to_string(),
-                    version: "1.0.0".to_string(),
-                    supported_targets: vec!["test".to_string()],
-                    required_mir_features: vec![],
-                    optional_mir_features: vec![],
-                },
-            }
-        }
-    }
-
-    impl Backend for TestBackend {
-        type Output = String;
-
-        fn info(&self) -> &BackendInfo {
-            &self.info
-        }
-
-        fn generate_code(
-            &mut self,
-            module: &MirModule,
-            _config: &BackendConfig,
-        ) -> BackendResult<Self::Output> {
-            Ok(format!(
-                "Generated code for {} functions",
-                module.function_count()
-            ))
-        }
-    }
+    use crate::MirFunction;
 
     #[test]
-    fn test_pipeline_compilation() {
-        let backend = TestBackend::new();
-        let mut pipeline = CompilationPipeline::new(backend);
-
-        let module = MirModule::new();
+    fn test_default_config() {
         let config = PipelineConfig::default();
-
-        let result = pipeline.compile(module, config);
-        assert!(result.is_ok());
+        assert_eq!(config.optimization_level, OptimizationLevel::Standard);
+        assert!(!config.debug);
+        assert!(!config.lower_aggregates_to_memory);
     }
 
     #[test]
-    fn test_pipeline_with_custom_passes() {
-        let backend = TestBackend::new();
-        let custom_passes = PassManager::new();
-        let mut pipeline = CompilationPipeline::new(backend).with_mir_passes(custom_passes);
+    fn test_no_opt_config() {
+        let config = PipelineConfig::no_opt();
+        assert_eq!(config.optimization_level, OptimizationLevel::None);
+    }
 
-        let module = MirModule::new();
-        let config = PipelineConfig {
-            run_mir_optimizations: true,
-            ..Default::default()
-        };
+    #[test]
+    fn test_optimize_module() {
+        let mut module = MirModule::new();
+        let mut func = MirFunction::new("test".to_string());
+        let entry = func.add_basic_block();
+        func.entry_block = entry;
+        module.add_function(func);
 
-        let result = pipeline.compile(module, config);
-        assert!(result.is_ok());
+        let config = PipelineConfig::default();
+        optimize_module(&mut module, &config);
+
+        // Module should still be valid after optimization
+        assert!(module.validate().is_ok());
     }
 }

@@ -28,20 +28,11 @@ pub mod generator;
 pub mod layout;
 
 // Re-export main components
-pub use backend::CasmBackend;
+pub use backend::{compile_module, validate_for_casm};
 pub use builder::CasmBuilder;
 pub use db::{compile_project as db_compile_project, CodegenDb};
 pub use generator::CodeGenerator;
 pub use layout::FunctionLayout;
-
-/// Main entry point for code generation
-///
-/// Converts a MIR module to a JSON representation of the compiled program
-pub fn compile_module(module: &MirModule) -> Result<Program, CodegenError> {
-    let mut generator = CodeGenerator::new();
-    generator.generate_module(module)?;
-    Ok(generator.compile())
-}
 
 /// Represents an operand that can be either a literal value or a label reference
 #[derive(Debug, Clone, PartialEq, Eq)]

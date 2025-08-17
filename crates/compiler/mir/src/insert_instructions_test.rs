@@ -38,8 +38,8 @@ mod tests {
         assert!(insert_instr.validate().is_ok());
 
         // Verify pretty printing
-        let pretty = insert_instr.kind.clone().into_instruction().pretty_print(0);
-        assert!(pretty.contains("insert_field"));
+        let pretty = insert_instr.kind.into_instruction().pretty_print(0);
+        assert!(pretty.contains("insertfield"));
         assert!(pretty.contains("\"x\""));
     }
 
@@ -71,8 +71,8 @@ mod tests {
         assert!(insert_instr.validate().is_ok());
 
         // Verify pretty printing
-        let pretty = insert_instr.kind.clone().into_instruction().pretty_print(0);
-        assert!(pretty.contains("insert_tuple"));
+        let pretty = insert_instr.kind.into_instruction().pretty_print(0);
+        assert!(pretty.contains("inserttuple"));
         assert!(pretty.contains(", 1,")); // Index 1
     }
 

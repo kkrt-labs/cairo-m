@@ -6,7 +6,9 @@
 
 use cairo_m_compiler_mir::passes::pre_opt::PreOptimizationPass;
 use cairo_m_compiler_mir::passes::MirPass;
-use cairo_m_compiler_mir::{Instruction, Literal, MirFunction, MirType, Terminator, Value};
+use cairo_m_compiler_mir::{
+    Instruction, InstructionKind, Literal, MirFunction, MirType, Terminator, Value,
+};
 
 #[test]
 fn test_dead_allocation_elimination() {
@@ -63,6 +65,7 @@ fn test_optimization_pass_in_pipeline() {
 #[test]
 fn test_optimization_preserves_used_values() {
     // Test that the optimization pass doesn't remove used values
+    // Note: Dead stores to addresses that are never read should be eliminated
 
     let mut function = MirFunction::new("test".to_string());
     let block = function.entry_block;
@@ -86,17 +89,25 @@ fn test_optimization_preserves_used_values() {
     // Use the value in the return
     block_mut.set_terminator(Terminator::return_values(vec![Value::Operand(value)]));
 
-    let initial_instruction_count = block_mut.instructions.len();
-
     // Run the pre-optimization pass
     let mut pass = PreOptimizationPass::new();
     pass.run(&mut function);
 
-    // The instructions should still be there since the value is used
+    // The assign instruction should still be there since the value is used
+    // But the framealloc and store are dead code (address is never read)
     let block = function.get_basic_block(block).unwrap();
     assert_eq!(
         block.instructions.len(),
-        initial_instruction_count,
-        "Used values should not be removed"
+        1, // Only the assign should remain
+        "Dead framealloc and store should be removed, but used assign should remain"
     );
+
+    // Verify the remaining instruction is the assign
+    match &block.instructions[0].kind {
+        InstructionKind::Assign { dest, source, .. } => {
+            assert_eq!(*dest, value);
+            assert_eq!(*source, Value::Literal(Literal::Integer(42)));
+        }
+        _ => panic!("Expected Assign instruction to remain"),
+    }
 }

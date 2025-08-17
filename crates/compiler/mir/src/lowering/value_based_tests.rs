@@ -74,7 +74,7 @@ mod value_based_lowering_tests {
         let mir_text = module.pretty_print(0);
 
         // Verify that MakeTuple is used, not frame_alloc
-        assert!(mir_text.contains("make_tuple"));
+        assert!(mir_text.contains("maketuple"));
         assert!(!mir_text.contains("framealloc"));
         // Store instructions should not be present for simple tuple creation
         assert!(!mir_text.contains("store %"));
@@ -97,7 +97,7 @@ mod value_based_lowering_tests {
         let mir_text = module.pretty_print(0);
 
         // Verify that MakeStruct is used, not frame_alloc
-        assert!(mir_text.contains("make_struct"));
+        assert!(mir_text.contains("makestruct"));
         assert!(!mir_text.contains("framealloc"));
     }
 
@@ -115,9 +115,10 @@ mod value_based_lowering_tests {
         let module = generate_mir(&db, crate_id).expect("MIR generation failed");
         let mir_text = module.pretty_print(0);
 
-        // Should use ExtractTupleElement, not GEP + load
-        assert!(mir_text.contains("extract_tuple_element"));
+        // The constant folding pass will optimize extract_tuple_element(make_tuple(42, 24), 0) to just 42
+        // What's important is that we don't use memory operations
         assert!(!mir_text.contains("getelementptr"));
+        assert!(!mir_text.contains("framealloc"));
         // No load should be present for direct tuple element access
         assert!(!mir_text.contains("load"));
     }
@@ -138,9 +139,10 @@ mod value_based_lowering_tests {
         let module = generate_mir(&db, crate_id).expect("MIR generation failed");
         let mir_text = module.pretty_print(0);
 
-        // Should use ExtractStructField, not GEP + load
-        assert!(mir_text.contains("extract_struct_field"));
+        // The constant folding pass will optimize extract_struct_field(make_struct(...), "x") to just 42
+        // What's important is that we don't use memory operations
         assert!(!mir_text.contains("getelementptr"));
+        assert!(!mir_text.contains("framealloc"));
         assert!(!mir_text.contains("load"));
     }
 
@@ -160,7 +162,7 @@ mod value_based_lowering_tests {
 
         // Empty tuple results in unreachable since there's nothing to return
         // This is expected behavior for empty tuple returns in the current implementation
-        assert!(!mir_text.contains("make_tuple"));
+        assert!(!mir_text.contains("maketuple"));
         assert!(!mir_text.contains("framealloc"));
     }
 }

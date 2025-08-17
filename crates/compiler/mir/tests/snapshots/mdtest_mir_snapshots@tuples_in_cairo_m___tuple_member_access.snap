@@ -16,32 +16,15 @@ module {
     entry: 0
 
     0:
-      // Allocate tuple with 3 elements
-%0 = framealloc (felt, felt, felt)
-      // Get address of tuple element 0
-%1 = getelementptr %0, 0
-      store %1, 1
-      // Get address of tuple element 1
-%2 = getelementptr %0, 1
-      store %2, 2
-      // Get address of tuple element 2
-%3 = getelementptr %0, 2
-      store %3, 3
-      // Get address of tuple element 0
-%4 = getelementptr %0, 0
-      // Load tuple element 0
-%5 = load felt %4
-      // Get address of tuple element 1
-%6 = getelementptr %0, 1
-      // Load tuple element 1
-%7 = load felt %6
-      %8 = %5 Add %7
-      // Get address of tuple element 2
-%9 = getelementptr %0, 2
-      // Load tuple element 2
-%10 = load felt %9
-      %11 = %8 Add %10
-      return %11
+      // Folded ExtractTupleElement(0, 0)
+%1 = 1
+      // Folded ExtractTupleElement(0, 1)
+%2 = 2
+      %3 = %1 Add %2
+      // Folded ExtractTupleElement(0, 2)
+%4 = 3
+      %5 = %3 Add %4
+      return %5
 
   }
 

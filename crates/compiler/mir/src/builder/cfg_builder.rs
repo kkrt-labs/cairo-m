@@ -72,7 +72,7 @@ impl<'f> CfgBuilder<'f> {
     ///
     /// ## Returns
     /// The new CFG state after switching
-    pub fn switch_to_block(&mut self, block_id: BasicBlockId) -> CfgState {
+    pub const fn switch_to_block(&mut self, block_id: BasicBlockId) -> CfgState {
         self.current_block_id = block_id;
         self.is_terminated = false;
         self.state()

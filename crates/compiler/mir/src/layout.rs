@@ -41,6 +41,11 @@ impl DataLayout {
                     .map(|(_, field_type)| self.size_of(field_type))
                     .sum()
             }
+            MirType::Array { element_type, size } => {
+                // Arrays are sized by element count * element size
+                let element_size = self.size_of(element_type);
+                size.unwrap_or(0) * element_size
+            }
             MirType::Function { .. } => 1, // Function pointers
             MirType::Unit => 0,
             MirType::Error | MirType::Unknown => 1, // Safe default

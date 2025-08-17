@@ -26,55 +26,34 @@ module {
     entry: 0
 
     0:
-      // Allocate struct
-%0 = framealloc RectangleU32
-      // Get address of field 'width'
-%1 = getelementptr %0, 0
-      store %1, 5 (u32)
-      // Get address of field 'height'
-%2 = getelementptr %0, 2
-      store %2, 10 (u32)
-      // Get address of field 'width'
-%3 = getelementptr %0, 0
-      // Load field 'width'
-%4 = load u32 %3
-      if %4 U32Eq 5 then jump 1 else jump 2
+      %0 = makestruct { width: 5, height: 10 }
+      // Folded ExtractStructField(0, "width")
+%1 = 5 (u32)
+      if %1 U32Eq 5 then jump 1 else jump 2
 
     1 (block_1):
       ; block_1
+      %3 = extractfield %0, "width"
+      %4 = %3 U32Mul 2
       // Get address of field 'width'
-%6 = getelementptr %0, 0
-      // Load field 'width'
-%7 = load u32 %6
-      %8 = %7 U32Mul 2
-      // Get address of field 'width'
-%9 = getelementptr %0, 0
-      store %9, %8 (u32)
+%5 = getelementptr %0, 0
+      store %5, %4 (u32)
       jump 3
 
     2 (block_2):
       ; block_2
       // Get address of field 'width'
-%10 = getelementptr %0, 0
-      // Get address of field 'height'
-%11 = getelementptr %0, 2
-      // Load field 'height'
-%12 = load u32 %11
-      store %10, %12 (u32)
+%6 = getelementptr %0, 0
+      %7 = extractfield %0, "height"
+      store %6, %7 (u32)
       jump 3
 
     3 (block_3):
       ; block_3
-      // Get address of field 'width'
-%13 = getelementptr %0, 0
-      // Load field 'width'
-%14 = load u32 %13
-      // Get address of field 'height'
-%15 = getelementptr %0, 2
-      // Load field 'height'
-%16 = load u32 %15
-      %17 = %14 U32Mul %16
-      return %17
+      %8 = extractfield %0, "width"
+      %9 = extractfield %0, "height"
+      %10 = %8 U32Mul %9
+      return %10
 
   }
 

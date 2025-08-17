@@ -3,11 +3,14 @@
 //! This module implements various optimization passes that can be applied to MIR functions
 //! to improve code quality and remove dead code.
 
+pub mod const_fold;
+pub mod lower_aggregates;
 pub mod mem2reg_ssa;
 pub mod pre_opt;
 pub mod sroa;
 pub mod ssa_destruction;
 
+pub use lower_aggregates::LowerAggregatesPass;
 pub use sroa::SroaPass;
 
 use cairo_m_compiler_parser::parser::UnaryOp;
@@ -312,6 +315,7 @@ impl MirPass for Validation {
         self.validate_pointer_types(function);
         self.validate_store_types(function);
         self.validate_gep_usage(function);
+        self.validate_aggregate_operations(function);
         self.validate_cfg_structure(function);
         self.validate_single_definition(function);
 
@@ -507,11 +511,317 @@ impl Validation {
             }
         }
     }
+
+    /// Validate aggregate operations (MakeTuple, ExtractTuple, MakeStruct, etc.)
+    fn validate_aggregate_operations(&self, function: &MirFunction) {
+        for (block_id, block) in function.basic_blocks() {
+            for (instr_idx, instruction) in block.instructions.iter().enumerate() {
+                match &instruction.kind {
+                    // Validate ExtractTupleElement
+                    InstructionKind::ExtractTupleElement {
+                        tuple,
+                        index,
+                        element_ty,
+                        ..
+                    } => {
+                        if let Value::Operand(tuple_id) = tuple {
+                            if let Some(tuple_type) = function.get_value_type(*tuple_id) {
+                                // Check that ExtractTupleElement is not used on arrays
+                                if matches!(tuple_type, MirType::Array { .. })
+                                    && std::env::var("RUST_LOG").is_ok()
+                                {
+                                    eprintln!(
+                                        "[ERROR] Block {block_id:?}, instruction {instr_idx}: \
+                                        ExtractTupleElement used on array type - arrays should use memory operations (get_element_ptr + load)"
+                                    );
+                                }
+                                if let MirType::Tuple(elements) = tuple_type {
+                                    // Check index bounds
+                                    if *index >= elements.len() && std::env::var("RUST_LOG").is_ok()
+                                    {
+                                        eprintln!(
+                                            "[ERROR] Block {block_id:?}, instruction {instr_idx}: \
+                                            ExtractTupleElement index {} out of bounds for tuple with {} elements",
+                                            index, elements.len()
+                                        );
+                                    }
+                                    // Check type consistency
+                                    if let Some(expected_ty) = elements.get(*index) {
+                                        if expected_ty != element_ty
+                                            && !matches!(expected_ty, MirType::Unknown)
+                                            && !matches!(element_ty, MirType::Unknown)
+                                            && std::env::var("RUST_LOG").is_ok()
+                                        {
+                                            eprintln!(
+                                                "[ERROR] Block {block_id:?}, instruction {instr_idx}: \
+                                                ExtractTupleElement type mismatch: expected {expected_ty:?}, got {element_ty:?}"
+                                            );
+                                        }
+                                    }
+                                } else if std::env::var("RUST_LOG").is_ok() {
+                                    eprintln!(
+                                        "[WARN] Block {block_id:?}, instruction {instr_idx}: \
+                                        ExtractTupleElement on non-tuple type {tuple_type:?}"
+                                    );
+                                }
+                            }
+                        }
+                    }
+
+                    // Validate ExtractStructField
+                    InstructionKind::ExtractStructField {
+                        struct_val,
+                        field_name,
+                        field_ty,
+                        ..
+                    } => {
+                        if let Value::Operand(struct_id) = struct_val {
+                            if let Some(struct_type) = function.get_value_type(*struct_id) {
+                                // Check that ExtractStructField is not used on arrays
+                                if matches!(struct_type, MirType::Array { .. })
+                                    && std::env::var("RUST_LOG").is_ok()
+                                {
+                                    eprintln!(
+                                        "[ERROR] Block {block_id:?}, instruction {instr_idx}: \
+                                        ExtractStructField used on array type - arrays should use memory operations"
+                                    );
+                                }
+                                if let MirType::Struct { fields, .. } = struct_type {
+                                    // Check field exists
+                                    if let Some((_, expected_ty)) =
+                                        fields.iter().find(|(name, _)| name == field_name)
+                                    {
+                                        // Check type consistency
+                                        if expected_ty != field_ty
+                                            && !matches!(expected_ty, MirType::Unknown)
+                                            && !matches!(field_ty, MirType::Unknown)
+                                            && std::env::var("RUST_LOG").is_ok()
+                                        {
+                                            eprintln!(
+                                                "[ERROR] Block {block_id:?}, instruction {instr_idx}: \
+                                                ExtractStructField type mismatch for field '{}': expected {expected_ty:?}, got {field_ty:?}",
+                                                field_name
+                                            );
+                                        }
+                                    } else if std::env::var("RUST_LOG").is_ok() {
+                                        eprintln!(
+                                            "[ERROR] Block {block_id:?}, instruction {instr_idx}: \
+                                            ExtractStructField: field '{}' not found in struct",
+                                            field_name
+                                        );
+                                    }
+                                } else if std::env::var("RUST_LOG").is_ok() {
+                                    eprintln!(
+                                        "[WARN] Block {block_id:?}, instruction {instr_idx}: \
+                                        ExtractStructField on non-struct type {struct_type:?}"
+                                    );
+                                }
+                            }
+                        }
+                    }
+
+                    // Validate MakeTuple
+                    InstructionKind::MakeTuple { dest, elements } => {
+                        if let Some(tuple_type) = function.get_value_type(*dest) {
+                            // Check that MakeTuple is not creating an array type
+                            if matches!(tuple_type, MirType::Array { .. })
+                                && std::env::var("RUST_LOG").is_ok()
+                            {
+                                eprintln!(
+                                    "[ERROR] Block {block_id:?}, instruction {instr_idx}: \
+                                    MakeTuple used to create array type - arrays should use frame_alloc + store operations"
+                                );
+                            }
+                            if let MirType::Tuple(expected_types) = tuple_type {
+                                // Check arity matches
+                                if elements.len() != expected_types.len()
+                                    && std::env::var("RUST_LOG").is_ok()
+                                {
+                                    eprintln!(
+                                        "[ERROR] Block {block_id:?}, instruction {instr_idx}: \
+                                        MakeTuple arity mismatch: expected {} elements, got {}",
+                                        expected_types.len(),
+                                        elements.len()
+                                    );
+                                }
+                                // Check element types
+                                for (idx, (elem_val, expected_ty)) in
+                                    elements.iter().zip(expected_types.iter()).enumerate()
+                                {
+                                    if let Value::Operand(elem_id) = elem_val {
+                                        if let Some(elem_ty) = function.get_value_type(*elem_id) {
+                                            if elem_ty != expected_ty
+                                                && !matches!(elem_ty, MirType::Unknown)
+                                                && !matches!(expected_ty, MirType::Unknown)
+                                                && std::env::var("RUST_LOG").is_ok()
+                                            {
+                                                eprintln!(
+                                                    "[WARN] Block {block_id:?}, instruction {instr_idx}: \
+                                                    MakeTuple element {idx} type mismatch: expected {expected_ty:?}, got {elem_ty:?}"
+                                                );
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Validate MakeStruct
+                    InstructionKind::MakeStruct {
+                        dest,
+                        fields,
+                        struct_ty,
+                    } => {
+                        if let MirType::Struct {
+                            fields: expected_fields,
+                            ..
+                        } = struct_ty
+                        {
+                            // Check all required fields are present
+                            for (expected_name, _) in expected_fields {
+                                if !fields.iter().any(|(name, _)| name == expected_name)
+                                    && std::env::var("RUST_LOG").is_ok()
+                                {
+                                    eprintln!(
+                                        "[ERROR] Block {block_id:?}, instruction {instr_idx}: \
+                                        MakeStruct missing required field '{}'",
+                                        expected_name
+                                    );
+                                }
+                            }
+                            // Check for duplicate fields
+                            let mut seen_fields = std::collections::HashSet::new();
+                            for (field_name, _) in fields {
+                                if !seen_fields.insert(field_name.clone())
+                                    && std::env::var("RUST_LOG").is_ok()
+                                {
+                                    eprintln!(
+                                        "[ERROR] Block {block_id:?}, instruction {instr_idx}: \
+                                        MakeStruct has duplicate field '{}'",
+                                        field_name
+                                    );
+                                }
+                            }
+                            // Check field types
+                            for (field_name, field_val) in fields {
+                                if let Some((_, expected_ty)) =
+                                    expected_fields.iter().find(|(name, _)| name == field_name)
+                                {
+                                    if let Value::Operand(val_id) = field_val {
+                                        if let Some(val_ty) = function.get_value_type(*val_id) {
+                                            if val_ty != expected_ty
+                                                && !matches!(val_ty, MirType::Unknown)
+                                                && !matches!(expected_ty, MirType::Unknown)
+                                                && std::env::var("RUST_LOG").is_ok()
+                                            {
+                                                eprintln!(
+                                                    "[WARN] Block {block_id:?}, instruction {instr_idx}: \
+                                                    MakeStruct field '{}' type mismatch: expected {expected_ty:?}, got {val_ty:?}",
+                                                    field_name
+                                                );
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Validate InsertField
+                    InstructionKind::InsertField {
+                        field_name,
+                        new_value,
+                        struct_ty,
+                        ..
+                    } => {
+                        if let MirType::Struct { fields, .. } = struct_ty {
+                            // Check field exists
+                            if let Some((_, expected_ty)) =
+                                fields.iter().find(|(name, _)| name == field_name)
+                            {
+                                // Check new value type
+                                if let Value::Operand(val_id) = new_value {
+                                    if let Some(val_ty) = function.get_value_type(*val_id) {
+                                        if val_ty != expected_ty
+                                            && !matches!(val_ty, MirType::Unknown)
+                                            && !matches!(expected_ty, MirType::Unknown)
+                                            && std::env::var("RUST_LOG").is_ok()
+                                        {
+                                            eprintln!(
+                                                "[ERROR] Block {block_id:?}, instruction {instr_idx}: \
+                                                InsertField type mismatch for field '{}': expected {expected_ty:?}, got {val_ty:?}",
+                                                field_name
+                                            );
+                                        }
+                                    }
+                                }
+                            } else if std::env::var("RUST_LOG").is_ok() {
+                                eprintln!(
+                                    "[ERROR] Block {block_id:?}, instruction {instr_idx}: \
+                                    InsertField: field '{}' not found in struct",
+                                    field_name
+                                );
+                            }
+                        }
+                    }
+
+                    // Validate InsertTuple
+                    InstructionKind::InsertTuple {
+                        tuple_val,
+                        index,
+                        new_value,
+                        ..
+                    } => {
+                        if let Value::Operand(tuple_id) = tuple_val {
+                            if let Some(tuple_type) = function.get_value_type(*tuple_id) {
+                                if let MirType::Tuple(elements) = tuple_type {
+                                    // Check index bounds
+                                    if *index >= elements.len() && std::env::var("RUST_LOG").is_ok()
+                                    {
+                                        eprintln!(
+                                            "[ERROR] Block {block_id:?}, instruction {instr_idx}: \
+                                            InsertTuple index {} out of bounds for tuple with {} elements",
+                                            index, elements.len()
+                                        );
+                                    }
+                                    // Check type consistency
+                                    if let Some(expected_ty) = elements.get(*index) {
+                                        if let Value::Operand(val_id) = new_value {
+                                            if let Some(val_ty) = function.get_value_type(*val_id) {
+                                                if val_ty != expected_ty
+                                                    && !matches!(val_ty, MirType::Unknown)
+                                                    && !matches!(expected_ty, MirType::Unknown)
+                                                    && std::env::var("RUST_LOG").is_ok()
+                                                {
+                                                    eprintln!(
+                                                        "[ERROR] Block {block_id:?}, instruction {instr_idx}: \
+                                                        InsertTuple type mismatch at index {}: expected {expected_ty:?}, got {val_ty:?}",
+                                                        index
+                                                    );
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    _ => {}
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 #[path = "./passes/validation_tests.rs"]
 mod validation_tests;
+
+#[cfg(test)]
+#[path = "./passes/aggregate_validation_tests.rs"]
+mod aggregate_validation_tests;
 
 /// A pass manager that can run multiple passes in sequence
 #[derive(Default)]
@@ -562,7 +872,14 @@ impl PassManager {
         modified
     }
 
-    /// Create a standard optimization pipeline
+    /// Create a basic optimization pipeline (minimal optimizations)
+    pub fn basic_pipeline() -> Self {
+        Self::new()
+            .add_pass(DeadCodeElimination::new())
+            .add_pass(Validation::new_post_ssa())
+    }
+
+    /// Create a standard optimization pipeline (default)
     ///
     /// The pipeline is optimized for functions using value-based aggregates,
     /// conditionally running expensive memory-oriented passes only when needed.
@@ -570,6 +887,8 @@ impl PassManager {
         Self::new()
             // Always run basic cleanup passes
             .add_pass(pre_opt::PreOptimizationPass::new())
+            // Run constant folding for aggregates
+            .add_pass(const_fold::ConstFoldPass::new())
             // Conditionally run memory-oriented optimization passes
             // SROA pass temporarily disabled due to IR corruption bug
             // TODO: Re-enable once constant_geps population is fixed
@@ -584,6 +903,23 @@ impl PassManager {
             .add_pass(FuseCmpBranch::new())
             .add_pass(DeadCodeElimination::new())
             .add_pass(Validation::new_post_ssa()) // Validate post-SSA form without SSA invariants
+    }
+
+    /// Create an aggressive optimization pipeline
+    pub fn aggressive_pipeline() -> Self {
+        Self::new()
+            // Pre-optimization and constant folding
+            .add_pass(pre_opt::PreOptimizationPass::new())
+            .add_pass(const_fold::ConstFoldPass::new())
+            // Memory optimization (conditional)
+            .add_conditional_pass(mem2reg_ssa::Mem2RegSsaPass::new(), function_uses_memory)
+            // Additional aggressive passes could be added here
+            // For now, same as standard but could add more in future
+            .add_pass(Validation::new())
+            .add_pass(ssa_destruction::SsaDestructionPass::new())
+            .add_pass(FuseCmpBranch::new())
+            .add_pass(DeadCodeElimination::new())
+            .add_pass(Validation::new_post_ssa())
     }
 }
 

@@ -21,24 +21,12 @@ module {
     entry: 0
 
     0:
-      // Allocate struct
-%0 = framealloc Point
-      // Get address of field 'x'
-%1 = getelementptr %0, 0
-      store %1, 10
-      // Get address of field 'y'
-%2 = getelementptr %0, 1
-      store %2, 20
-      // Get address of field 'x'
-%3 = getelementptr %0, 0
-      // Load field 'x'
-%4 = load felt %3
-      // Get address of field 'y'
-%5 = getelementptr %0, 1
-      // Load field 'y'
-%6 = load felt %5
-      %7 = %4 Add %6
-      return %7
+      // Folded ExtractStructField(0, "x")
+%1 = 10
+      // Folded ExtractStructField(0, "y")
+%2 = 20
+      %3 = %1 Add %2
+      return %3
 
   }
 

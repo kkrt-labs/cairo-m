@@ -81,7 +81,7 @@ Multi-phase incremental compiler using Salsa framework:
 
 - **Parser**: Lexing (logos) and parsing (chumsky) with error recovery
 - **Semantic**: Type checking, name resolution, and validation
-- **MIR**: Middle-level IR with control flow graphs and virtual registers
+- **MIR**: Aggregate-first IR with value-based tuples/structs and SSA form
 - **Codegen**: Generates Cairo Assembly (CASM)
 
 ### 2. Runner (`crates/runner/`)
@@ -144,9 +144,20 @@ When implementing features for the compiler:
 
 1. Update parser grammar in `parser/src/parser.rs`
 2. Add semantic validation in `semantic/src/validation/`
-3. Extend MIR generation in `mir/src/ir_generation.rs`
+3. Extend MIR generation in `mir/src/ir_generation.rs` using value-based
+   aggregates
 4. Implement codegen in `codegen/src/generator.rs`
 5. Write tests with snapshots at each level
+
+### MIR Aggregate-First Design
+
+The MIR uses value-based aggregate operations for tuples and structs:
+
+- Use `make_tuple`/`make_struct` for creation (not memory allocation)
+- Use `extract_tuple`/`extract_field` for access (not pointer operations)
+- Arrays remain memory-based for addressing flexibility
+- See `docs/mir_aggregate_first.md` for design details
+- See `docs/mir_migration_guide.md` for implementation guidance
 
 Use `sg --lang rust -p <pattern>` for syntax-aware code search instead of
 text-based tools unless explicitly needed.

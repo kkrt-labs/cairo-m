@@ -192,7 +192,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     // ================================================================================
 
     /// Creates a CfgBuilder for the current function
-    pub(super) fn cfg(&mut self) -> CfgBuilder {
+    pub(super) const fn cfg(&mut self) -> CfgBuilder {
         CfgBuilder::new(&mut self.state.mir_function, self.state.current_block_id)
     }
 
@@ -202,7 +202,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     }
 
     /// Switches to a different block
-    pub fn switch_to_block(&mut self, block_id: BasicBlockId) {
+    pub const fn switch_to_block(&mut self, block_id: BasicBlockId) {
         let mut cfg = self.cfg();
         let state = cfg.switch_to_block(block_id);
         self.state.current_block_id = state.current_block_id;
@@ -256,7 +256,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     // ================================================================================
 
     /// Creates an InstrBuilder for the current block
-    pub(super) fn instr(&mut self) -> InstrBuilder {
+    pub(super) const fn instr(&mut self) -> InstrBuilder {
         InstrBuilder::new(&mut self.state.mir_function, self.state.current_block_id)
     }
 
@@ -490,10 +490,29 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         }
     }
 
-    // ===== Memory Access Helper Methods =====
+    // ===== Memory Access Helper Methods (DEPRECATED) =====
+    // These methods encourage memory-based thinking and are being phased out
+    // in favor of value-based aggregate operations.
 
     /// Load a field from a struct/object
     /// Returns the ValueId of the loaded value
+    ///
+    /// # Deprecated
+    ///
+    /// This method is deprecated in favor of value-based aggregate operations.
+    /// Use `extract_struct_field()` method instead:
+    ///
+    /// ```ignore
+    /// // Old approach (deprecated):
+    /// let value = builder.load_field(addr, offset, field_type, "field_name");
+    ///
+    /// // New approach (preferred):
+    /// let value = builder.extract_struct_field(struct_value, "field_name", field_type);
+    /// ```
+    #[deprecated(
+        since = "0.2.0",
+        note = "Use extract_struct_field() for value-based field access instead"
+    )]
     pub fn load_field(
         &mut self,
         base_addr: Value,
@@ -524,6 +543,24 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     }
 
     /// Store a value to a struct field
+    ///
+    /// # Deprecated
+    ///
+    /// This method is deprecated in favor of value-based aggregate operations.
+    /// Use `insert_struct_field()` method instead:
+    ///
+    /// ```ignore
+    /// // Old approach (deprecated):
+    /// builder.store_field(addr, offset, new_value, field_type, "field_name");
+    ///
+    /// // New approach (preferred):
+    /// let new_struct = builder.insert_struct_field(old_struct, "field_name", new_value, struct_type);
+    /// // Then rebind the variable to the new struct value
+    /// ```
+    #[deprecated(
+        since = "0.2.0",
+        note = "Use insert_struct_field() for value-based field updates instead"
+    )]
     pub fn store_field(
         &mut self,
         base_addr: Value,
@@ -546,6 +583,23 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
     /// Load a tuple element by index
     /// Returns the ValueId of the loaded value
+    ///
+    /// # Deprecated
+    ///
+    /// This method is deprecated in favor of value-based aggregate operations.
+    /// Use `extract_tuple_element()` method instead:
+    ///
+    /// ```ignore
+    /// // Old approach (deprecated):
+    /// let elem = builder.load_tuple_element(tuple_addr, index, elem_type);
+    ///
+    /// // New approach (preferred):
+    /// let elem = builder.extract_tuple_element(tuple_value, index, elem_type);
+    /// ```
+    #[deprecated(
+        since = "0.2.0",
+        note = "Use extract_tuple_element() for value-based tuple access instead"
+    )]
     pub fn load_tuple_element(
         &mut self,
         tuple_addr: Value,
@@ -575,6 +629,24 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     }
 
     /// Store a value to a tuple element
+    ///
+    /// # Deprecated
+    ///
+    /// This method is deprecated in favor of value-based aggregate operations.
+    /// Use `insert_tuple()` method instead:
+    ///
+    /// ```ignore
+    /// // Old approach (deprecated):
+    /// builder.store_tuple_element(tuple_addr, index, value, elem_type);
+    ///
+    /// // New approach (preferred):
+    /// let new_tuple = builder.insert_tuple(old_tuple, index, value, tuple_type);
+    /// // Then rebind the variable to the new tuple value
+    /// ```
+    #[deprecated(
+        since = "0.2.0",
+        note = "Use insert_tuple() for value-based tuple updates instead"
+    )]
     pub fn store_tuple_element(
         &mut self,
         tuple_addr: Value,
@@ -700,6 +772,17 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             struct_type,
         ));
         dest
+    }
+
+    /// Alias for insert_field for consistency with deprecated method names
+    pub fn insert_struct_field(
+        &mut self,
+        struct_val: Value,
+        field_name: &str,
+        new_value: Value,
+        struct_type: MirType,
+    ) -> ValueId {
+        self.insert_field(struct_val, field_name.to_string(), new_value, struct_type)
     }
 
     /// Insert an element into a tuple value, creating a new tuple

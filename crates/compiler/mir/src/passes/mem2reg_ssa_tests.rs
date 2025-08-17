@@ -213,7 +213,9 @@ fn test_escaping_allocation_not_promoted() {
 }
 
 #[test]
-fn test_gep_promotion() {
+fn test_gep_not_promoted() {
+    // Test that allocations with GEP are conservatively not promoted
+    // This is a conservative fix to prevent incorrect optimization of GEPs
     let mut function = MirFunction::new("test_gep".to_string());
 
     // Use existing entry block
@@ -262,15 +264,15 @@ fn test_gep_promotion() {
     let mut pass = Mem2RegSsaPass::new();
     let changed = pass.optimize(&mut function);
 
-    assert!(changed);
-    assert_eq!(pass.stats.allocations_promoted, 1);
-    assert_eq!(pass.stats.stores_eliminated, 1);
-    assert_eq!(pass.stats.loads_eliminated, 1);
+    // Due to conservative fix, GEP allocations are not promoted
+    assert!(!changed);
+    assert_eq!(pass.stats.allocations_promoted, 0);
+    assert_eq!(pass.stats.stores_eliminated, 0);
+    assert_eq!(pass.stats.loads_eliminated, 0);
 
-    // Check that GEP was also removed
+    // All instructions should still be present
     let block = &function.basic_blocks[BasicBlockId::from_raw(0)];
-    // Should only have the assign from the load replacement
-    assert_eq!(block.instructions.len(), 1);
+    assert_eq!(block.instructions.len(), 4); // framealloc, gep, store, load
 }
 
 #[test]
