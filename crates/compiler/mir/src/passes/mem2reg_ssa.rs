@@ -92,25 +92,9 @@ impl Mem2RegSsaPass {
         let mut allocations = FxHashMap::default();
         let mut escaping = FxHashSet::default();
 
-        // IMPORTANT: Track allocations that are used as values (not just for loads/stores)
-        // This is critical for handling tuple returns from function calls correctly.
-        //
-        // When a function returns a tuple, the MIR lowering creates an allocation to hold
-        // the tuple values, but then returns the allocation address itself as the value
-        // that represents the tuple. This allocation serves as a "value proxy" - other
-        // code expects to receive this address and use it to access tuple elements.
-        //
-        // If we promote such allocations, we would eliminate the allocation instruction
-        // but the code that expects to receive the allocation address would break.
-        // For example, consider: let (a, b) = returns_tuple()
-        // The lowering produces something like:
-        //   %alloc = framealloc (felt, felt)
-        //   %ret1, %ret2 = call returns_tuple
-        //   store %alloc[0], %ret1
-        //   store %alloc[1], %ret2
-        //   %result = %alloc  // The allocation ADDRESS is the tuple value!
-        //
-        // If we promoted %alloc, the "%result = %alloc" would become invalid.
+        // Note: With the fixed value-based aggregate lowering, allocations should no longer
+        // be used as proxy values for tuples. This tracking is kept for backwards compatibility
+        // with any remaining memory-based code paths during the transition.
         let mut used_as_values = FxHashSet::default();
 
         // First pass: Find all allocations and GEPs
@@ -228,19 +212,8 @@ impl Mem2RegSsaPass {
                         }
                     }
                     InstructionKind::Assign { source, .. } => {
-                        // CRITICAL: Check if an allocation address is being used as a value
-                        // This happens when tuple returns from function calls are assigned.
-                        // Example: After calling a function that returns (felt, felt):
-                        //   %alloc = framealloc (felt, felt)
-                        //   %v1, %v2 = call func()
-                        //   store %alloc[0], %v1
-                        //   store %alloc[1], %v2
-                        //   %tuple = %alloc      // <-- This Assign uses the allocation as a value!
-                        //
-                        // The %tuple = %alloc assignment means the allocation address itself
-                        // has semantic meaning beyond just being storage. It represents the
-                        // tuple value that other code will use to access the elements.
-                        // We cannot promote such allocations without breaking this semantic.
+                        // Check if an allocation address is being used as a value
+                        // (Legacy check for backwards compatibility with memory-based paths)
                         if let Value::Operand(src_id) = source {
                             if allocations.contains_key(src_id) {
                                 // Mark as used as value - these allocations cannot be promoted
@@ -265,20 +238,8 @@ impl Mem2RegSsaPass {
         }
 
         // Return only non-escaping allocations that are not used as values.
-        //
-        // WHY THIS FILTER IS NECESSARY:
-        // Some allocations serve dual purposes - they are both storage AND values.
-        // This happens with tuple returns from function calls where the MIR lowering
-        // creates an allocation to hold the tuple elements, but then uses the allocation
-        // address itself as the value representing the tuple.
-        //
-        // Without this filter, we would promote these allocations and eliminate them,
-        // but then instructions that use the allocation address as a value would
-        // reference non-existent values, creating invalid MIR like "%9 = %3" where
-        // %3 was the removed allocation.
-        //
-        // This preserves the semantic meaning of allocations that represent compound
-        // values in the MIR, ensuring the generated code remains valid after optimization.
+        // This filter remains for backwards compatibility with any remaining memory-based
+        // code paths that might still use allocations as value proxies.
         allocations
             .into_iter()
             .filter(|(id, _)| !escaping.contains(id) && !used_as_values.contains(id))

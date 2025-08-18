@@ -17,7 +17,7 @@ use cairo_m_compiler_semantic::FileScopeId;
 use rustc_hash::FxHashMap;
 
 use crate::db::MirDb;
-use crate::passes::PassManager;
+use crate::pipeline::{optimize_module, PipelineConfig};
 use crate::{MirFunction, MirModule, MirType, ValueId};
 
 use super::builder::MirBuilder;
@@ -37,6 +37,8 @@ use super::stmt::LowerStmt;
 /// - Uses placeholder values for unresolved references
 #[salsa::tracked]
 pub fn generate_mir(db: &dyn MirDb, crate_id: Crate) -> Result<Arc<MirModule>, Vec<Diagnostic>> {
+    let pipeline_config = PipelineConfig::from_environment();
+
     // Get semantic index for the entire crate
     let crate_semantic_index =
         match cairo_m_compiler_semantic::db::project_semantic_index(db, crate_id) {
@@ -143,10 +145,6 @@ pub fn generate_mir(db: &dyn MirDb, crate_id: Crate) -> Result<Arc<MirModule>, V
                     // Lower the function
                     match lower_function(builder, func_def_id, def, func_ast) {
                         Ok(mut mir_function) => {
-                            // Run optimization passes on the function
-                            let mut pass_manager = PassManager::standard_pipeline();
-                            pass_manager.run(&mut mir_function);
-
                             // Use direct indexing to replace the placeholder function
                             mir_module.functions[func_id] = mir_function;
                         }
@@ -164,6 +162,9 @@ pub fn generate_mir(db: &dyn MirDb, crate_id: Crate) -> Result<Arc<MirModule>, V
             }
         }
     }
+
+    // Run optimization pipeline on the entire module
+    optimize_module(&mut mir_module, &pipeline_config);
 
     Ok(Arc::new(mir_module))
 }

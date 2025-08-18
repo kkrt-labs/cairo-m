@@ -346,7 +346,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             CallResult::Single(value) => Ok(value),
             CallResult::Tuple(values) => {
                 // For expression context, we need to return a single value
-                // Create a tuple to hold the values
+                // Use MakeTuple to create a value-based tuple from the returned values
                 let semantic_type = expression_semantic_type(
                     self.ctx.db,
                     self.ctx.crate_id,
@@ -355,54 +355,10 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     None,
                 );
                 let tuple_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
-                let tuple_addr = self
-                    .state
-                    .mir_function
-                    .new_typed_value_id(MirType::pointer(tuple_type.clone()));
 
-                // Register stack allocation as an address
-
-                self.instr().add_instruction(
-                    Instruction::frame_alloc(tuple_addr, tuple_type.clone())
-                        .with_comment("Allocate space for tuple return value".to_string()),
-                );
-
-                // Get type of each inner tuple element
-                let elem_types = match &tuple_type {
-                    MirType::Tuple(types) => types.clone(),
-                    _ => return Err("Tuple type expected".to_string()),
-                };
-
-                // Store each returned value into the tuple
-                for (i, (value, value_type)) in values.iter().zip(elem_types).enumerate() {
-                    let elem_ptr = self
-                        .state
-                        .mir_function
-                        .new_typed_value_id(MirType::pointer(value_type.clone()));
-
-                    // Calculate proper byte/slot offset for tuple element
-                    let layout = DataLayout::new();
-                    let offset = layout
-                        .tuple_offset(&tuple_type, i)
-                        .ok_or_else(|| format!("Invalid tuple index {}", i))?
-                        as i32;
-
-                    self.instr().add_instruction(
-                        Instruction::get_element_ptr(
-                            elem_ptr,
-                            Value::operand(tuple_addr),
-                            Value::integer(offset),
-                        )
-                        .with_comment(format!(
-                            "Get address (offset {}) of tuple element {}",
-                            offset, i
-                        )),
-                    );
-                    self.instr()
-                        .store(Value::operand(elem_ptr), *value, value_type);
-                }
-
-                Ok(Value::operand(tuple_addr))
+                // Create a tuple value using MakeTuple instruction
+                let tuple_value = self.make_tuple(values, tuple_type);
+                Ok(Value::operand(tuple_value))
             }
         }
     }

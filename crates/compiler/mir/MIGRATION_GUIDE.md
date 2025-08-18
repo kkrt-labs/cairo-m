@@ -2,9 +2,9 @@
 
 ## Overview
 
-The MIR builder API is transitioning from memory-based aggregate operations to
-value-based operations. This guide helps you migrate existing code to use the
-new preferred patterns.
+The MIR builder API has completed its transition from memory-based aggregate
+operations to value-based operations. This guide documents the current
+value-based patterns that should be used throughout the codebase.
 
 ## Deprecated Methods
 

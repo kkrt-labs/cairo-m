@@ -152,16 +152,31 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     let offset_val = Value::integer(offset as i32);
 
                     // Get pointer to source element
-                    let src_elem_ptr =
-                        self.get_element_ptr_auto(src_addr, offset_val, elem_type.clone());
+                    let src_elem_ptr = self
+                        .state
+                        .mir_function
+                        .new_typed_value_id(MirType::pointer(elem_type.clone()));
+                    self.instr()
+                        .get_element_ptr_to(src_elem_ptr, src_addr, offset_val);
 
                     // Load value from source
-                    let loaded_val =
-                        self.load_auto(Value::operand(src_elem_ptr), elem_type.clone());
+                    let loaded_val = self
+                        .state
+                        .mir_function
+                        .new_typed_value_id(elem_type.clone());
+                    self.instr().load_to(
+                        elem_type.clone(),
+                        loaded_val,
+                        Value::operand(src_elem_ptr),
+                    );
 
                     // Get pointer to destination element
-                    let dest_elem_ptr =
-                        self.get_element_ptr_auto(dest_addr, offset_val, elem_type.clone());
+                    let dest_elem_ptr = self
+                        .state
+                        .mir_function
+                        .new_typed_value_id(MirType::pointer(elem_type.clone()));
+                    self.instr()
+                        .get_element_ptr_to(dest_elem_ptr, dest_addr, offset_val);
 
                     // Store value to destination
                     self.store_value(
@@ -179,16 +194,31 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     let offset_val = Value::integer(offset as i32);
 
                     // Get pointer to source field
-                    let src_elem_ptr =
-                        self.get_element_ptr_auto(src_addr, offset_val, field_type.clone());
+                    let src_elem_ptr = self
+                        .state
+                        .mir_function
+                        .new_typed_value_id(MirType::pointer(field_type.clone()));
+                    self.instr()
+                        .get_element_ptr_to(src_elem_ptr, src_addr, offset_val);
 
                     // Load value from source
-                    let loaded_val =
-                        self.load_auto(Value::operand(src_elem_ptr), field_type.clone());
+                    let loaded_val = self
+                        .state
+                        .mir_function
+                        .new_typed_value_id(field_type.clone());
+                    self.instr().load_to(
+                        field_type.clone(),
+                        loaded_val,
+                        Value::operand(src_elem_ptr),
+                    );
 
                     // Get pointer to destination field
-                    let dest_elem_ptr =
-                        self.get_element_ptr_auto(dest_addr, offset_val, field_type.clone());
+                    let dest_elem_ptr = self
+                        .state
+                        .mir_function
+                        .new_typed_value_id(MirType::pointer(field_type.clone()));
+                    self.instr()
+                        .get_element_ptr_to(dest_elem_ptr, dest_addr, offset_val);
 
                     // Store value to destination
                     self.store_value(

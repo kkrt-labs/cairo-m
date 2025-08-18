@@ -18,8 +18,8 @@ use cairo_m_compiler_semantic::{module_semantic_index, File, SemanticDb};
 use rustc_hash::FxHashMap;
 
 use crate::{
-    BasicBlockId, BinaryOp, CfgBuilder, FunctionId, InstrBuilder, Instruction, MirDefinitionId,
-    MirFunction, MirType, Value, ValueId,
+    BasicBlockId, CfgBuilder, FunctionId, InstrBuilder, Instruction, MirDefinitionId, MirFunction,
+    MirType, Value, ValueId,
 };
 
 /// Immutable compilation context shared across lowering
@@ -270,40 +270,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         self.instr().alloc_frame(ty)
     }
 
-    /// Create a binary operation with automatic destination
-    pub fn binary_op_auto(
-        &mut self,
-        op: BinaryOp,
-        lhs: Value,
-        rhs: Value,
-        result_type: MirType,
-    ) -> ValueId {
-        self.instr().binary_op(op, lhs, rhs, result_type)
-    }
-
-    /// Load a value with automatic destination
-    pub fn load_auto(&mut self, src: Value, ty: MirType) -> ValueId {
-        self.instr().load(src, ty)
-    }
-
     /// Store a value
     pub fn store_value(&mut self, dest: Value, value: Value, ty: MirType) {
         self.instr().store(dest, value, ty);
-    }
-
-    /// Get element pointer
-    pub fn get_element_ptr_auto(
-        &mut self,
-        base: Value,
-        offset: Value,
-        elem_type: MirType,
-    ) -> ValueId {
-        let dest = self
-            .state
-            .mir_function
-            .new_typed_value_id(MirType::pointer(elem_type));
-        self.instr().get_element_ptr_to(dest, base, offset);
-        dest
     }
 
     /// Check if the current block is terminated

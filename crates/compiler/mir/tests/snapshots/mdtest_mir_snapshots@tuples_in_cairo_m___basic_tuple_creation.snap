@@ -21,29 +21,15 @@ module {
 
     0:
       %0, %1, %2 = call 1()
-      // Allocate space for tuple return value
-%3 = framealloc (felt, felt, felt)
-      // Get address (offset 0) of tuple element 0
-%4 = getelementptr %3, 0
-      store %4, %0
-      // Get address (offset 1) of tuple element 1
-%5 = getelementptr %3, 1
-      store %5, %1
-      // Get address (offset 2) of tuple element 2
-%6 = getelementptr %3, 2
-      store %6, %2
-      // Load variable tuple
-%7 = load (felt, felt, felt) %3
-      %8 = extracttuple %7, 0
-      // Load variable tuple
-%9 = load (felt, felt, felt) %3
-      %10 = extracttuple %9, 1
-      %11 = %8 Add %10
-      // Load variable tuple
-%12 = load (felt, felt, felt) %3
-      %13 = extracttuple %12, 2
-      %14 = %11 Add %13
-      return %14
+      // Folded ExtractTupleElement(3, 0)
+%4 = %0
+      // Folded ExtractTupleElement(3, 1)
+%5 = %1
+      %6 = %4 Add %5
+      // Folded ExtractTupleElement(3, 2)
+%7 = %2
+      %8 = %6 Add %7
+      return %8
 
   }
 

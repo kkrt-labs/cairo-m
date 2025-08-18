@@ -5,41 +5,44 @@
 The MIR optimization pipeline is carefully ordered to respect pass dependencies
 and invariants. Passes are executed in the following order:
 
-### SSA-Based Passes (require SSA form)
+### Pre-SSA Passes
 
-1. **PreOptimizationPass**: Basic cleanup (dead code elimination)
+1. **PreOptimizationPass**: Basic cleanup
    - Removes unused instructions and allocations
-   - Note: Dead store elimination is currently disabled due to aliasing
-     unsoundness
+   - Performs dead code elimination
 
-2. **SroaPass**: Scalar Replacement of Aggregates
-   - Phase 1: Alloca splitting (doesn't require SSA)
-   - Phase 2: SSA aggregate scalarization (requires SSA)
-   - Replaces aggregate allocations with individual scalar allocations
+2. **ConstFoldPass**: Constant folding for aggregates
+   - Evaluates constant expressions at compile time
+   - Optimizes operations on known values
 
-3. **Mem2RegSsaPass**: Promote allocas to SSA registers
+3. **Mem2RegSsaPass**: Promote allocas to SSA registers (conditional)
    - Creates SSA form with Phi nodes
    - Promotes memory allocations to SSA values where possible
+   - Only runs when function uses memory operations
    - Critical for performance and enabling further optimizations
 
-### SSA Destruction
+### SSA Form Management
 
-4. **SsaDestructionPass**: Convert Phi nodes to explicit assignments
+4. **Validation**: Verify SSA form correctness
+   - Checks SSA invariants
+   - Validates instruction well-formedness
+
+5. **SsaDestructionPass**: Convert Phi nodes to explicit assignments
    - MUST run after all SSA-requiring passes
    - Destroys SSA single-assignment property
    - Prepares code for backends that don't support Phi nodes
 
 ### Post-SSA Passes (work without SSA)
 
-5. **FuseCmpBranch**: Combine compare and branch instructions
+6. **FuseCmpBranch**: Combine compare and branch instructions
    - Pattern matches cmp+branch sequences
    - Fuses them into single BranchCmp instructions
 
-6. **DeadCodeElimination**: Remove unreachable code
+7. **DeadCodeElimination**: Remove unreachable code
    - Eliminates blocks not reachable from entry
    - Removes instructions after terminators
 
-7. **Validation**: Final structural validation
+8. **Validation**: Final structural validation
    - Verifies IR invariants
    - Checks for type consistency
    - Ensures no malformed instructions

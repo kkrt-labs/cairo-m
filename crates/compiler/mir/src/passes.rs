@@ -889,8 +889,7 @@ impl PassManager {
             .add_pass(pre_opt::PreOptimizationPass::new())
             // Run constant folding for aggregates
             .add_pass(const_fold::ConstFoldPass::new())
-            // Run Variable-SSA pass to convert mutable variables to SSA form
-            .add_pass(var_ssa::VarSsaPass::new())
+            // NOTE: VarSsaPass removed - implementation incomplete (see var_ssa.rs)
             // Conditionally run memory-oriented optimization passes
             .add_conditional_pass(mem2reg_ssa::Mem2RegSsaPass::new(), function_uses_memory)
             // Always run validation and remaining optimization passes
@@ -903,19 +902,7 @@ impl PassManager {
 
     /// Create an aggressive optimization pipeline
     pub fn aggressive_pipeline() -> Self {
-        Self::new()
-            // Pre-optimization and constant folding
-            .add_pass(pre_opt::PreOptimizationPass::new())
-            .add_pass(const_fold::ConstFoldPass::new())
-            // Memory optimization (conditional)
-            .add_conditional_pass(mem2reg_ssa::Mem2RegSsaPass::new(), function_uses_memory)
-            // Additional aggressive passes could be added here
-            // For now, same as standard but could add more in future
-            .add_pass(Validation::new())
-            .add_pass(ssa_destruction::SsaDestructionPass::new())
-            .add_pass(FuseCmpBranch::new())
-            .add_pass(DeadCodeElimination::new())
-            .add_pass(Validation::new_post_ssa())
+        Self::standard_pipeline()
     }
 }
 

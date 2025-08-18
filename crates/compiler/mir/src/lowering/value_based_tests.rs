@@ -70,6 +70,8 @@ mod value_based_lowering_tests {
 
         let db = TestDatabase::default();
         let crate_id = create_test_crate(&db, source);
+        // Set the optimization level to none in env variable
+        std::env::set_var("CAIRO_M_OPT_LEVEL", "0");
         let module = generate_mir(&db, crate_id).expect("MIR generation failed");
         let mir_text = module.pretty_print(0);
 
@@ -84,7 +86,7 @@ mod value_based_lowering_tests {
     fn test_value_based_struct_literal() {
         let source = r#"
         struct Point { x: felt, y: felt }
-        
+
         fn test() -> Point {
             let p = Point { x: 10, y: 20 };
             return p;
@@ -127,7 +129,7 @@ mod value_based_lowering_tests {
     fn test_value_based_field_access() {
         let source = r#"
         struct Point { x: felt, y: felt }
-        
+
         fn test() -> felt {
             let p = Point { x: 42, y: 24 };
             return p.x;

@@ -185,7 +185,30 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                 // Check if it's a tuple type
                 if let TypeData::Tuple(element_types) = expr_semantic_type.data(self.ctx.db) {
-                    // We're returning a tuple variable - need to extract each element
+                    // For tuple returns, try to handle value-based tuples
+                    // First, attempt to lower the expression as a value
+                    let expr_value = self.lower_expression(expr)?;
+
+                    // Check if we got a tuple value
+                    if let Value::Operand(value_id) = expr_value {
+                        if let Some(MirType::Tuple(elem_types)) =
+                            self.state.mir_function.get_value_type(value_id)
+                        {
+                            // We have a tuple value - extract its elements for the return
+                            // Clone elem_types to avoid borrow checker issues
+                            let elem_types_cloned = elem_types.clone();
+                            let mut return_values = Vec::new();
+                            for (i, elem_type) in elem_types_cloned.iter().enumerate() {
+                                let elem_value =
+                                    self.extract_tuple_element(expr_value, i, elem_type.clone());
+                                return_values.push(Value::operand(elem_value));
+                            }
+                            self.terminate_with_return(return_values);
+                            return Ok(());
+                        }
+                    }
+
+                    // Fallback: handle memory-based tuples (temporary until full migration)
                     let tuple_addr = self.lower_lvalue_expression(expr)?;
                     let mut return_values = Vec::new();
 
@@ -335,20 +358,20 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 );
                 let rhs_type = MirType::from_semantic_type(self.ctx.db, rhs_semantic_type);
 
-                let lhs_address = self.lower_lvalue_expression(lhs)?;
-
+                // For value-based aggregates, we treat assignment differently
                 match rhs_type {
                     MirType::Tuple(_) | MirType::Struct { .. } => {
-                        // This is a composite type assignment (e.g., tuple_a = tuple_b).
-                        // We must perform an element-wise copy.
-                        // Get the address of the RHS.
-                        let rhs_address = self.lower_lvalue_expression(rhs)?;
+                        // Lower the RHS as a value (not an address)
+                        let rhs_value = self.lower_expression(rhs)?;
 
-                        // Perform the element-wise copy
-                        self.copy_composite_type(lhs_address, rhs_address, &rhs_type)?;
+                        // For assignments to aggregates, we need to store the value
+                        // This will be optimized away if the variable is promoted to SSA
+                        let lhs_address = self.lower_lvalue_expression(lhs)?;
+                        self.instr().store(lhs_address, rhs_value, rhs_type);
                     }
                     _ => {
                         // For primitive types, a simple store is sufficient
+                        let lhs_address = self.lower_lvalue_expression(lhs)?;
                         let rhs_value = self.lower_expression(rhs)?;
                         self.instr().store(lhs_address, rhs_value, rhs_type);
                     }
