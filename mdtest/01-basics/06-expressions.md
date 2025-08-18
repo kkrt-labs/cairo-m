@@ -9,7 +9,7 @@ Basic binary operations between operands:
 
 ```cairo-m
 fn test_binary_ops() -> felt {
-    let a = 15;
+    let a = 14;
     let b = 7;
 
     let add_result = a + b;        // 22
@@ -17,13 +17,13 @@ fn test_binary_ops() -> felt {
     let mul_result = a * b;        // 105
     let div_result = a / b;        // Field division
 
-    return add_result + sub_result + mul_result;
+    return add_result + sub_result + mul_result + div_result;
 }
 ```
 
 ```rust
 fn test_binary_ops() -> i32 {
-    let a = 15;
+    let a = 14;
     let b = 7;
 
     let add_result = a + b;        // 22
@@ -31,7 +31,7 @@ fn test_binary_ops() -> i32 {
     let mul_result = a * b;        // 105
     let div_result = a / b;        // Integer division
 
-    return add_result + sub_result + mul_result;
+    return add_result + sub_result + mul_result + div_result;
 }
 ```
 

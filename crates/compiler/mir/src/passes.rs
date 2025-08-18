@@ -5,7 +5,6 @@
 
 pub mod const_fold;
 pub mod lower_aggregates;
-pub mod mem2reg_ssa;
 pub mod pre_opt;
 pub mod ssa_destruction;
 pub mod var_ssa;
@@ -884,14 +883,15 @@ impl PassManager {
     /// The pipeline is optimized for functions using value-based aggregates,
     /// conditionally running expensive memory-oriented passes only when needed.
     pub fn standard_pipeline() -> Self {
+        // This is now the generic pipeline that keeps value-based aggregates
         Self::new()
             // Always run basic cleanup passes
             .add_pass(pre_opt::PreOptimizationPass::new())
             // Run constant folding for aggregates
             .add_pass(const_fold::ConstFoldPass::new())
+            // 3. Lower aggregates to memory BEFORE mem2reg (critical for optimization)
+            .add_pass(lower_aggregates::LowerAggregatesPass::new())
             // NOTE: VarSsaPass removed - implementation incomplete (see var_ssa.rs)
-            // Conditionally run memory-oriented optimization passes
-            .add_conditional_pass(mem2reg_ssa::Mem2RegSsaPass::new(), function_uses_memory)
             // Always run validation and remaining optimization passes
             .add_pass(Validation::new()) // Validate SSA form before destruction
             .add_pass(ssa_destruction::SsaDestructionPass::new()) // Eliminate Phi nodes before codegen

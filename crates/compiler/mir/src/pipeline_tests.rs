@@ -9,7 +9,6 @@ mod tests {
         let config = PipelineConfig::default();
         assert_eq!(config.optimization_level, OptimizationLevel::Standard);
         assert!(!config.debug);
-        assert!(!config.lower_aggregates_to_memory);
     }
 
     #[test]
@@ -17,7 +16,6 @@ mod tests {
         let config = PipelineConfig::no_opt();
         assert_eq!(config.optimization_level, OptimizationLevel::None);
         assert!(!config.debug);
-        assert!(!config.lower_aggregates_to_memory);
     }
 
     #[test]
@@ -25,7 +23,6 @@ mod tests {
         let config = PipelineConfig::debug();
         assert_eq!(config.optimization_level, OptimizationLevel::Standard);
         assert!(config.debug);
-        assert!(!config.lower_aggregates_to_memory);
     }
 
     #[test]

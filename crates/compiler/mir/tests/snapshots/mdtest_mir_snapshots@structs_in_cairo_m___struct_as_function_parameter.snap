@@ -27,8 +27,38 @@ module {
     entry: 0
 
     0:
-      %0 = makestruct { x: 1, y: 2, z: 3 }
-      %1 = makestruct { x: 4, y: 5, z: 6 }
+      // Lowered struct alloca for %0
+%4 = framealloc Vector
+      // Get address of field 'x'
+%5 = getelementptr %4, 0
+      // Store field 'x'
+store %5, 1
+      // Get address of field 'y'
+%6 = getelementptr %4, 1
+      // Store field 'y'
+store %6, 2
+      // Get address of field 'z'
+%7 = getelementptr %4, 2
+      // Store field 'z'
+store %7, 3
+      // Alias struct value to alloca
+%0 = %4 (*Vector)
+      // Lowered struct alloca for %1
+%8 = framealloc Vector
+      // Get address of field 'x'
+%9 = getelementptr %8, 0
+      // Store field 'x'
+store %9, 4
+      // Get address of field 'y'
+%10 = getelementptr %8, 1
+      // Store field 'y'
+store %10, 5
+      // Get address of field 'z'
+%11 = getelementptr %8, 2
+      // Store field 'z'
+store %11, 6
+      // Alias struct value to alloca
+%1 = %8 (*Vector)
       %2 = call 1(%0, %1)
       return %2
 
@@ -40,15 +70,33 @@ module {
     entry: 0
 
     0:
-      %2 = extractfield %0, "x"
-      %3 = extractfield %1, "x"
+      // Get address of field 'x' (lowered)
+%14 = getelementptr %4, 0
+      // Load field 'x' (lowered)
+%2 = load felt %14
+      // Get address of field 'x' (lowered)
+%15 = getelementptr %8, 0
+      // Load field 'x' (lowered)
+%3 = load felt %15
       %4 = %2 Mul %3
-      %5 = extractfield %0, "y"
-      %6 = extractfield %1, "y"
+      // Get address of field 'y' (lowered)
+%16 = getelementptr %4, 0
+      // Load field 'y' (lowered)
+%5 = load felt %16
+      // Get address of field 'y' (lowered)
+%17 = getelementptr %8, 0
+      // Load field 'y' (lowered)
+%6 = load felt %17
       %7 = %5 Mul %6
       %8 = %4 Add %7
-      %9 = extractfield %0, "z"
-      %10 = extractfield %1, "z"
+      // Get address of field 'z' (lowered)
+%18 = getelementptr %4, 0
+      // Load field 'z' (lowered)
+%9 = load felt %18
+      // Get address of field 'z' (lowered)
+%19 = getelementptr %8, 0
+      // Load field 'z' (lowered)
+%10 = load felt %19
       %11 = %9 Mul %10
       %12 = %8 Add %11
       return %12

@@ -58,6 +58,7 @@ pub use layout::DataLayout;
 pub use mir_types::MirType;
 pub use module::MirModule;
 pub use passes::{DeadCodeElimination, FuseCmpBranch, MirPass, PassManager, Validation};
+pub use pipeline::{OptimizationLevel, PipelineConfig};
 pub use terminator::Terminator;
 pub use value::{Literal, Place, Value};
 

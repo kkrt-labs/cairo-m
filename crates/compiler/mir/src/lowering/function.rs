@@ -144,7 +144,7 @@ pub fn generate_mir(db: &dyn MirDb, crate_id: Crate) -> Result<Arc<MirModule>, V
 
                     // Lower the function
                     match lower_function(builder, func_def_id, def, func_ast) {
-                        Ok(mut mir_function) => {
+                        Ok(mir_function) => {
                             // Use direct indexing to replace the placeholder function
                             mir_module.functions[func_id] = mir_function;
                         }

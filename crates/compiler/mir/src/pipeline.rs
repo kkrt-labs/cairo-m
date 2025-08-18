@@ -1,6 +1,5 @@
 //! Simplified MIR optimization pipeline configuration
 
-use crate::passes::MirPass;
 use crate::{MirModule, PassManager, PrettyPrint};
 
 /// Optimization level for the MIR pipeline
@@ -29,8 +28,6 @@ pub struct PipelineConfig {
     pub optimization_level: OptimizationLevel,
     /// Enable debug output (verbose MIR dumps)
     pub debug: bool,
-    /// Lower aggregates to memory for compatibility (only if needed for specific backends)
-    pub lower_aggregates_to_memory: bool,
 }
 
 impl Default for PipelineConfig {
@@ -38,7 +35,6 @@ impl Default for PipelineConfig {
         Self {
             optimization_level: OptimizationLevel::Standard,
             debug: false,
-            lower_aggregates_to_memory: false, // By default, keep aggregates as values
         }
     }
 }
@@ -49,7 +45,6 @@ impl PipelineConfig {
         Self {
             optimization_level: OptimizationLevel::None,
             debug: false,
-            lower_aggregates_to_memory: false,
         }
     }
 
@@ -58,7 +53,6 @@ impl PipelineConfig {
         Self {
             optimization_level: OptimizationLevel::Standard,
             debug: true,
-            lower_aggregates_to_memory: false,
         }
     }
 
@@ -109,13 +103,6 @@ pub fn optimize_module(module: &mut MirModule, config: &PipelineConfig) {
         // Run optimization passes
         pass_manager.run(function);
 
-        // Optionally lower aggregates to memory
-        if config.lower_aggregates_to_memory {
-            use crate::passes::lower_aggregates::LowerAggregatesPass;
-            let mut lower_pass = LowerAggregatesPass::new();
-            lower_pass.run(function);
-        }
-
         // Validate after optimization
         if let Err(e) = function.validate() {
             eprintln!(
@@ -142,7 +129,6 @@ mod tests {
         let config = PipelineConfig::default();
         assert_eq!(config.optimization_level, OptimizationLevel::Standard);
         assert!(!config.debug);
-        assert!(!config.lower_aggregates_to_memory);
     }
 
     #[test]

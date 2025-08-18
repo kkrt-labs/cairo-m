@@ -72,8 +72,14 @@ mod value_based_lowering_tests {
         let crate_id = create_test_crate(&db, source);
         // Set the optimization level to none in env variable
         std::env::set_var("CAIRO_M_OPT_LEVEL", "0");
+        // Set backend to Generic to preserve value-based aggregates
+        std::env::set_var("CAIRO_M_BACKEND", "generic");
         let module = generate_mir(&db, crate_id).expect("MIR generation failed");
         let mir_text = module.pretty_print(0);
+
+        // Clean up environment variables
+        std::env::remove_var("CAIRO_M_OPT_LEVEL");
+        std::env::remove_var("CAIRO_M_BACKEND");
 
         // Verify that MakeTuple is used, not frame_alloc
         assert!(mir_text.contains("maketuple"));
@@ -93,10 +99,16 @@ mod value_based_lowering_tests {
         }
         "#;
 
+        // Set backend to Generic to preserve value-based aggregates
+        std::env::set_var("CAIRO_M_BACKEND", "generic");
+
         let db = TestDatabase::default();
         let crate_id = create_test_crate(&db, source);
         let module = generate_mir(&db, crate_id).expect("MIR generation failed");
         let mir_text = module.pretty_print(0);
+
+        // Clean up environment variable
+        std::env::remove_var("CAIRO_M_BACKEND");
 
         // Verify that MakeStruct is used, not frame_alloc
         assert!(mir_text.contains("makestruct"));
@@ -112,10 +124,16 @@ mod value_based_lowering_tests {
         }
         "#;
 
+        // Set backend to Generic to preserve value-based aggregates
+        std::env::set_var("CAIRO_M_BACKEND", "generic");
+
         let db = TestDatabase::default();
         let crate_id = create_test_crate(&db, source);
         let module = generate_mir(&db, crate_id).expect("MIR generation failed");
         let mir_text = module.pretty_print(0);
+
+        // Clean up environment variable
+        std::env::remove_var("CAIRO_M_BACKEND");
 
         // The constant folding pass will optimize extract_tuple_element(make_tuple(42, 24), 0) to just 42
         // What's important is that we don't use memory operations
