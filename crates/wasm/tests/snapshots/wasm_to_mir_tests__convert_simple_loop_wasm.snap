@@ -18,30 +18,33 @@ module {
     entry: 0
 
     0:
-      %0 = 0 (u32)
-      %1 = %0 (u32)
-      %2 = %0 (u32)
-      %3 = %2 U32Add %1
-      %4 = 1 (u32)
-      %5 = %1 U32Add %4
-      %6 = 3 (u32)
-      %7 = %5 U32Neq %6
-      %8 = %5 (u32)
-      %9 = %3 (u32)
-      if %7 then jump 0 else jump 2
+      %4 = 0 (u32)
+      jump 2
 
     1:
-      jump 3
+      jump 5
 
     2:
+      %0 = %4 (u32)
+      %1 = %4 (u32)
       jump 3
 
     3:
-      %10 = %3 (u32)
-      return %10
+      %5 = %1 U32Add %0
+      %6 = 1 (u32)
+      %7 = %0 U32Add %6
+      %8 = 3 (u32)
+      %9 = %7 U32Neq %8
+      %0 = %7 (u32)
+      %1 = %5 (u32)
+      if %9 then jump 3 else jump 4
 
     4:
-      unreachable
+      %2 = %5 (u32)
+      jump 1
+
+    5:
+      return %2
 
   }
 

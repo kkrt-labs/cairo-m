@@ -122,7 +122,6 @@ fn test_arithmetic() {
 }
 
 #[test]
-#[ignore]
 fn test_fib() {
     test_program("tests/test_cases/fib.wasm", "fib", vec![10]);
 }
@@ -147,7 +146,6 @@ fn test_if_statement() {
 }
 
 #[test]
-#[ignore]
 fn test_simple_loop() {
     test_program("tests/test_cases/simple_loop.wasm", "main", vec![]);
 }
