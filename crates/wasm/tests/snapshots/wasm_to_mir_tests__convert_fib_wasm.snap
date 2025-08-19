@@ -19,39 +19,50 @@ module {
     entry: 0
 
     0:
-      %1 = 1 (u32)
-      %2 = %0 U32LessEqual %1
-      %3 = 0 (u32)
-      %4 = 2 (u32)
-      jump 2
+      %8 = 1 (u32)
+      %9 = %0 U32LessEqual %8
+      if %9 then jump 3 else jump 1
 
     1:
-      return %0
+      %10 = 0 (u32)
+      %11 = 2 (u32)
+      jump 5
 
     2:
-      %5 = %0 (u32)
-      %6 = %3 (u32)
-      %7 = %1 (u32)
-      %8 = %3 (u32)
-      %9 = %4 (u32)
-      %10 = %9 U32Greater %5
-      if %10 then jump 4 else jump 5
+      jump 8
 
     3:
       jump 4
 
     4:
-      %14 = 0 (u32)
-      return %14
+      return %0
 
     5:
-      %11 = %6 U32Add %7
-      %12 = 1 (u32)
-      %13 = %9 U32Add %12
-      jump 2
+      %1 = %1 (u32)
+      %2 = %10 (u32)
+      %3 = %8 (u32)
+      %4 = %10 (u32)
+      %5 = %11 (u32)
+      jump 6
 
     6:
-      unreachable
+      %12 = %5 U32Greater %1
+      %6 = %3 (u32)
+      if %12 then jump 2 else jump 7
+
+    7:
+      %13 = %2 U32Add %3
+      %14 = 1 (u32)
+      %15 = %5 U32Add %14
+      %1 = %1 (u32)
+      %2 = %3 (u32)
+      %3 = %13 (u32)
+      %4 = %13 (u32)
+      %5 = %15 (u32)
+      jump 6
+
+    8:
+      return %6
 
   }
 

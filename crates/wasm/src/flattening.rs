@@ -33,22 +33,32 @@ pub struct DagToMir {
 struct DagToMirContext {
     /// MIR function being built
     mir_function: MirFunction,
-    /// Mapping from WASM ValueOrigin to MIR ValueId
-    value_map: HashMap<ValueOrigin, ValueId>,
+    /// Stack of value maps to scope ValueOrigin -> ValueId per DAG (avoids collisions)
+    value_maps: Vec<HashMap<ValueOrigin, ValueId>>,
     /// Mapping from DAG label IDs to MIR BasicBlockId
     label_map: HashMap<u32, BasicBlockId>,
     /// Current basic block being filled
     current_block_id: Option<BasicBlockId>,
-    /// Track the current loop header block for break targets
-    current_loop_header: Option<BasicBlockId>,
+    /// Track the current loop body block for break targets
+    current_loop_body: Option<BasicBlockId>,
     /// Local variable mapping for LocalGet/LocalSet
     local_map: HashMap<u32, ValueId>,
     /// Current source block for tracking control flow
     current_source_block: Option<BasicBlockId>,
-    /// For each label id, a vector of slot ValueIds (one per label parameter)
-    label_slots: HashMap<u32, Vec<ValueId>>,
     /// For each label id, the pre-allocated output ValueIds (one per label parameter)
     label_output_values: HashMap<u32, Vec<ValueId>>,
+    /// For each loop, the pre-allocated header slot ValueIds (one per loop parameter)
+    loop_header_slots: HashMap<u32, Vec<ValueId>>,
+    /// Stack of active loops to support continues and loop-carried variables
+    loop_stack: Vec<ActiveLoop>,
+}
+
+/// Information about an active loop during lowering
+struct ActiveLoop {
+    /// Body basic block for this loop
+    body_block: BasicBlockId,
+    /// Canonical storages (slots) for loop-carried values (header parameters)
+    header_slots: Vec<ValueId>,
 }
 
 impl DagToMirContext {
@@ -56,15 +66,16 @@ impl DagToMirContext {
         let mir_function = MirFunction::new(func_name);
 
         Self {
-            value_map: HashMap::new(),
+            value_maps: vec![HashMap::new()],
             label_map: HashMap::new(),
             local_map: HashMap::new(),
             current_source_block: None,
-            label_slots: HashMap::new(),
             label_output_values: HashMap::new(),
+            loop_header_slots: HashMap::new(),
             mir_function,
             current_block_id: Some(0.into()),
-            current_loop_header: None,
+            current_loop_body: None,
+            loop_stack: Vec::new(),
         }
     }
 
@@ -84,6 +95,37 @@ impl DagToMirContext {
     const fn set_current_block(&mut self, block_id: BasicBlockId) {
         self.current_source_block = self.current_block_id;
         self.current_block_id = Some(block_id);
+    }
+
+    fn insert_value(&mut self, origin: ValueOrigin, value_id: ValueId) {
+        if let Some(map) = self.value_maps.last_mut() {
+            map.insert(origin, value_id);
+        }
+    }
+
+    fn contains_value(&self, origin: &ValueOrigin) -> bool {
+        for map in self.value_maps.iter().rev() {
+            if map.contains_key(origin) {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn get_value(&self, origin: &ValueOrigin) -> Option<ValueId> {
+        for map in self.value_maps.iter().rev() {
+            if let Some(v) = map.get(origin) {
+                return Some(*v);
+            }
+        }
+        None
+    }
+
+    fn push_scope(&mut self) {
+        self.value_maps.push(HashMap::new());
+    }
+    fn pop_scope(&mut self) {
+        self.value_maps.pop();
     }
 }
 
@@ -142,14 +184,27 @@ impl DagToMir {
         let param_types = param_types?;
         let return_types = return_types?;
 
+        // Allocate parameters
+        for (i, param_type) in param_types.iter().enumerate() {
+            let param_id = context.mir_function.new_typed_value_id(param_type.clone());
+            context.mir_function.parameters.push(param_id);
+            context.insert_value(
+                ValueOrigin {
+                    node: 0,
+                    output_idx: i as u32,
+                },
+                param_id,
+            );
+        }
+
         // Get the DAG for this function
         let result = self.module.with_program(|program| {
             let func = program.functions.get(func_idx).ok_or_else(|| {
                 DagToMirError::ValueMappingError(format!("Function {} not found", func_idx))
             })?;
 
-            // Preallocate all the blocks associated with DAG lebels
-            self.allocate_labeled_blocks(func, &mut context)?;
+            // Preallocate all the blocks associated with DAG labels and loops
+            self.allocate_blocks_and_slots(func, &mut context)?;
 
             // Generate instructions and control flow
             self.generate_instructions_from_dag(func, &mut context)?;
@@ -174,66 +229,72 @@ impl DagToMir {
             }
         }
 
-        // Extract return values from return terminators and set their types
-        let mut return_value_ids = Vec::new();
-        for block in &context.mir_function.basic_blocks {
-            if let Terminator::Return { values } = &block.terminator {
-                for value in values {
-                    if let Value::Operand(value_id) = value {
-                        return_value_ids.push(*value_id);
-                    }
-                }
-            }
-        }
-
-        // Set return values and their types
-        if !return_value_ids.is_empty() {
-            context.mir_function.return_values = return_value_ids.clone();
-            for (i, &return_value_id) in return_value_ids.iter().enumerate() {
-                if let Some(return_type) = return_types.get(i) {
-                    context
-                        .mir_function
-                        .value_types
-                        .insert(return_value_id, return_type.clone());
-                }
-            }
-        }
+        // Define return values from the function signature (types/arity only).
+        // The actual values returned are supplied by each Return terminator.
+        context.mir_function.return_values = return_types
+            .iter()
+            .map(|ty| context.mir_function.new_typed_value_id(ty.clone()))
+            .collect();
 
         Ok(context.mir_function)
     }
 
-    /// Pass 1: Preallocate all the blocks associated with DAG labels
-    /// Allocate variables to block inputs
-    fn allocate_labeled_blocks(
+    /// Pass 1: Preallocate all the blocks associated with DAG labels and loops
+    /// Allocate variables to block inputs and loop header slots
+    fn allocate_blocks_and_slots(
         &self,
         func: &BlocklessDag,
         context: &mut DagToMirContext,
     ) -> Result<(), DagToMirError> {
         for (node_idx, node) in func.nodes.iter().enumerate() {
-            if let Operation::Label { id } = &node.operation {
-                let block_id = context.mir_function.add_basic_block();
-                context.label_map.insert(*id, block_id);
-                let mut output_value_ids: Vec<ValueId> = Vec::new();
-                let mut slot_value_ids: Vec<ValueId> = Vec::new();
-                for (output_idx, output_type) in node.output_types.iter().enumerate() {
-                    let mir_type = Self::wasm_type_to_mir_type(output_type)?;
-                    // Pre-allocate the label output value id
-                    let output_value_id = context.mir_function.new_typed_value_id(mir_type.clone());
-                    context.value_map.insert(
-                        ValueOrigin {
-                            node: node_idx,
-                            output_idx: output_idx as u32,
-                        },
-                        output_value_id,
-                    );
-                    output_value_ids.push(output_value_id);
+            match &node.operation {
+                Operation::Label { id } => {
+                    let block_id = context.mir_function.add_basic_block();
+                    context.label_map.insert(*id, block_id);
+                    let mut output_value_ids: Vec<ValueId> = Vec::new();
+                    let mut slot_value_ids: Vec<ValueId> = Vec::new();
+                    for (output_idx, output_type) in node.output_types.iter().enumerate() {
+                        let mir_type = Self::wasm_type_to_mir_type(output_type)?;
+                        // Pre-allocate the label output value id
+                        let output_value_id =
+                            context.mir_function.new_typed_value_id(mir_type.clone());
+                        context.insert_value(
+                            ValueOrigin {
+                                node: node_idx,
+                                output_idx: output_idx as u32,
+                            },
+                            output_value_id,
+                        );
+                        output_value_ids.push(output_value_id);
 
-                    // Allocate a dedicated slot for this label parameter
-                    let slot_value_id = context.mir_function.new_typed_value_id(mir_type);
-                    slot_value_ids.push(slot_value_id);
+                        // Allocate a dedicated slot for this label parameter
+                        let slot_value_id = context.mir_function.new_typed_value_id(mir_type);
+                        slot_value_ids.push(slot_value_id);
+                    }
+                    context.label_output_values.insert(*id, output_value_ids);
                 }
-                context.label_output_values.insert(*id, output_value_ids);
-                context.label_slots.insert(*id, slot_value_ids);
+                Operation::Loop { sub_dag, .. } => {
+                    // Pre-allocate loop header slots from the sub-DAG's Inputs node
+                    let sub_inputs_idx = 0;
+                    let input_node = &sub_dag.nodes[sub_inputs_idx];
+                    assert!(
+                        matches!(input_node.operation, Operation::Inputs),
+                        "Loop sub-DAG must start with Inputs node"
+                    );
+
+                    let mut header_slots = Vec::new();
+                    for output_type in &input_node.output_types {
+                        let mir_type = Self::wasm_type_to_mir_type(output_type)?;
+                        let slot_id = context.mir_function.new_typed_value_id(mir_type);
+                        header_slots.push(slot_id);
+                    }
+
+                    // Use node_idx as the loop identifier
+                    context
+                        .loop_header_slots
+                        .insert(node_idx as u32, header_slots);
+                }
+                _ => {}
             }
         }
         Ok(())
@@ -247,34 +308,7 @@ impl DagToMir {
     ) -> Result<(), DagToMirError> {
         for (node_idx, node) in dag.nodes.iter().enumerate() {
             match &node.operation {
-                Operation::Inputs => {
-                    // Handle function parameters or loop inputs
-                    for (output_idx, _output_type) in node.output_types.iter().enumerate() {
-                        let value_origin = ValueOrigin {
-                            node: node_idx,
-                            output_idx: output_idx as u32,
-                        };
-
-                        // If we're in a loop and this Input mapping already exists (from loop initialization),
-                        // don't overwrite it - use the existing loop variable mapping
-                        if context.current_loop_header.is_some()
-                            && context.value_map.contains_key(&value_origin)
-                        {
-                            // Loop variable mapping already exists, skip creating a new one
-                            continue;
-                        }
-
-                        let value_id = context.mir_function.new_typed_value_id(MirType::U32);
-
-                        // Only add to function parameters if this is the main function inputs
-                        // (not loop sub-DAG inputs)
-                        if context.current_loop_header.is_none() {
-                            context.mir_function.parameters.push(value_id); // Define as param
-                        }
-
-                        context.value_map.insert(value_origin, value_id);
-                    }
-                }
+                Operation::Inputs => {}
 
                 Operation::WASMOp(wasm_op) => {
                     // Convert WASM operation to MIR instruction
@@ -286,38 +320,26 @@ impl DagToMir {
                             node: node_idx,
                             output_idx: output_idx as u32,
                         };
-                        context.value_map.insert(value_origin, *mir_value_id);
+                        context.insert_value(value_origin, *mir_value_id);
                     }
                 }
 
                 Operation::Label { id } => {
                     context.set_current_block(context.label_map.get(id).copied().unwrap());
-                    // At label entry, load from the slots into the label outputs
-                    let output_value_ids = context.label_output_values.get(id).cloned();
-                    let slot_value_ids = context.label_slots.get(id).cloned();
-                    if let (Some(output_value_ids), Some(slot_value_ids)) =
-                        (output_value_ids, slot_value_ids)
-                    {
-                        let count = core::cmp::min(output_value_ids.len(), slot_value_ids.len());
-                        for i in 0..count {
-                            let dest_value_id = output_value_ids[i];
-                            let slot_value_id = slot_value_ids[i];
-                            let load_inst = Instruction::assign_u32(
-                                dest_value_id,
-                                Value::operand(slot_value_id),
-                            );
-                            context.get_current_block()?.push_instruction(load_inst);
-                        }
-                    }
                 }
 
                 Operation::Br(target) => {
                     // This is either a jump or a return
                     let target_block = self.resolve_break_target(node, target, context)?;
 
-                    // If this is a branch to a label, copy the branch values to the label's outputs
-                    if let TargetType::Label(label_id) = &target.kind {
-                        self.copy_branch_values_to_label(node, *label_id, context)?;
+                    // Edge copies
+                    match &target.kind {
+                        TargetType::Label(label_id) => {
+                            self.copy_branch_values_to_label(node, *label_id, context)?;
+                        }
+                        TargetType::FunctionOrLoop => {
+                            self.copy_branch_values_to_loop(node, target.depth, context)?;
+                        }
                     }
 
                     let terminator = Terminator::jump(target_block);
@@ -326,14 +348,24 @@ impl DagToMir {
                 }
 
                 Operation::BrIf(target) => {
-                    // Conditional branch - the condition is typically the last input
-                    let condition_value = self.get_input_value(&node.inputs[0], context)?;
+                    // Conditional branch - in our DAG, the condition is the last input
+                    let cond_idx = node.inputs.len().checked_sub(1).ok_or_else(|| {
+                        DagToMirError::InvalidControlFlow(
+                            "BrIf without condition input".to_string(),
+                        )
+                    })?;
+                    let condition_value = self.get_input_value(&node.inputs[cond_idx], context)?;
                     let target_block = self.resolve_break_target(node, target, context)?;
                     let else_block = context.mir_function.add_basic_block();
 
-                    // If this is a branch to a label, copy the branch values to the label's outputs
-                    if let TargetType::Label(label_id) = &target.kind {
-                        self.copy_branch_values_to_label(node, *label_id, context)?;
+                    // Edge copies on the taken edge
+                    match &target.kind {
+                        TargetType::Label(label_id) => {
+                            self.copy_branch_values_to_label(node, *label_id, context)?;
+                        }
+                        TargetType::FunctionOrLoop => {
+                            self.copy_branch_values_to_loop(node, target.depth, context)?;
+                        }
                     }
 
                     let terminator = Terminator::branch(condition_value, target_block, else_block);
@@ -342,14 +374,24 @@ impl DagToMir {
                 }
 
                 Operation::BrIfZero(target) => {
-                    // Inverted conditional branch
-                    let condition_value = self.get_input_value(&node.inputs[0], context)?;
+                    // Inverted conditional branch - condition is the last input
+                    let cond_idx = node.inputs.len().checked_sub(1).ok_or_else(|| {
+                        DagToMirError::InvalidControlFlow(
+                            "BrIfZero without condition input".to_string(),
+                        )
+                    })?;
+                    let condition_value = self.get_input_value(&node.inputs[cond_idx], context)?;
                     let else_target = self.resolve_break_target(node, target, context)?;
                     let then_target = context.mir_function.add_basic_block();
 
-                    // If this is a branch to a label, copy the branch values to the label's outputs
-                    if let TargetType::Label(label_id) = &target.kind {
-                        self.copy_branch_values_to_label(node, *label_id, context)?;
+                    // Edge copies on the taken edge
+                    match &target.kind {
+                        TargetType::Label(label_id) => {
+                            self.copy_branch_values_to_label(node, *label_id, context)?;
+                        }
+                        TargetType::FunctionOrLoop => {
+                            self.copy_branch_values_to_loop(node, target.depth, context)?;
+                        }
                     }
 
                     let terminator = Terminator::branch(condition_value, then_target, else_target);
@@ -362,10 +404,76 @@ impl DagToMir {
                 }
 
                 Operation::Loop {
-                    sub_dag: _,
+                    sub_dag,
                     break_targets: _,
                 } => {
-                    todo!()
+                    // Build a normal loop (header/body/exit) from the sub-DAG
+                    // Create header block and get pre-allocated header slots
+                    let header_block = context.mir_function.add_basic_block();
+                    let header_slots = context
+                        .loop_header_slots
+                        .get(&(node_idx as u32))
+                        .cloned()
+                        .ok_or_else(|| {
+                        DagToMirError::InvalidControlFlow(
+                            "Loop header slots not pre-allocated".to_string(),
+                        )
+                    })?;
+
+                    // Map sub-DAG Inputs outputs directly to header slots so inner code uses them
+                    for (output_idx, slot_value_id) in header_slots.iter().enumerate() {
+                        context.insert_value(
+                            ValueOrigin {
+                                node: 0,
+                                output_idx: output_idx as u32,
+                            },
+                            *slot_value_id,
+                        );
+                    }
+
+                    let terminator = Terminator::jump(header_block);
+                    context.get_current_block()?.set_terminator(terminator);
+
+                    // Enter header (no materialization needed since we use slots directly)
+                    context.set_current_block(header_block);
+
+                    // Copy the loop inputs into header slots
+                    for (input_idx, input) in node.inputs.iter().enumerate() {
+                        let slot_value_id = header_slots[input_idx];
+                        let source_value_id = context.get_value(input).unwrap();
+                        let assign_instruction =
+                            Instruction::assign_u32(slot_value_id, Value::operand(source_value_id));
+                        context
+                            .get_current_block()?
+                            .push_instruction(assign_instruction);
+                    }
+
+                    // Allocate a new block for the loop body
+                    let body_block = context.mir_function.add_basic_block();
+                    let terminator = Terminator::jump(body_block);
+                    context.get_current_block()?.set_terminator(terminator);
+                    context.set_current_block(body_block);
+
+                    // Push loop on the stack and lower the body sub-DAG
+                    let prev_loop_body = context.current_loop_body;
+                    context.current_loop_body = Some(body_block);
+                    context.loop_stack.push(ActiveLoop {
+                        body_block,
+                        header_slots: header_slots.clone(),
+                    });
+
+                    // Enter a new value scope for the loop body to avoid ValueOrigin collisions
+                    context.push_scope();
+                    // Pre-allocate labels inside the loop sub-DAG
+                    self.allocate_blocks_and_slots(sub_dag, context)?;
+                    // Lower the body
+                    self.generate_instructions_from_dag(sub_dag, context)?;
+                    // Exit the loop body's value scope
+                    context.pop_scope();
+
+                    // Pop loop and restore state
+                    context.loop_stack.pop();
+                    context.current_loop_body = prev_loop_body;
                 }
             }
         }
@@ -589,7 +697,7 @@ impl DagToMir {
         value_origin: &ValueOrigin,
         context: &DagToMirContext,
     ) -> Result<Value, DagToMirError> {
-        if let Some(&value_id) = context.value_map.get(value_origin) {
+        if let Some(value_id) = context.get_value(value_origin) {
             Ok(Value::operand(value_id))
         } else {
             Err(DagToMirError::ValueMappingError(format!(
@@ -620,38 +728,34 @@ impl DagToMir {
                 )
             }
 
-            (TargetType::FunctionOrLoop, 0) => {
-                // We suppose this is a return for now
-                // Allocate a new block containing only the return instruction
-                let return_block = context.mir_function.add_basic_block();
+            (TargetType::FunctionOrLoop, depth) => {
+                // If inside a loop, this is a continue to the appropriate loop header.
+                // depth == 0 => current loop, depth > 0 => outer loops
+                let d = depth as usize;
+                if !context.loop_stack.is_empty() && d < context.loop_stack.len() {
+                    let idx = context.loop_stack.len() - 1 - d;
+                    let loop_info = &context.loop_stack[idx];
+                    Ok(loop_info.body_block)
+                } else {
+                    // No active loop at this depth: treat as function return
+                    let return_block = context.mir_function.add_basic_block();
 
-                // TODO: fix returns
-                let node_inputs = node.inputs.clone();
-                let return_values: Result<Vec<Value>, DagToMirError> = node_inputs
-                    .iter()
-                    .map(|input| self.get_input_value(input, context))
-                    .collect();
+                    let node_inputs = node.inputs.clone();
+                    let return_values: Result<Vec<Value>, DagToMirError> = node_inputs
+                        .iter()
+                        .map(|input| self.get_input_value(input, context))
+                        .collect();
 
-                let return_values = return_values?;
-                let terminator = Terminator::return_values(return_values);
-                context
-                    .mir_function
-                    .get_basic_block_mut(return_block)
-                    .unwrap()
-                    .set_terminator(terminator);
-                Ok(return_block)
+                    let return_values = return_values?;
+                    let terminator = Terminator::return_values(return_values);
+                    context
+                        .mir_function
+                        .get_basic_block_mut(return_block)
+                        .unwrap()
+                        .set_terminator(terminator);
+                    Ok(return_block)
+                }
             }
-            (_, depth) if depth > 1 => {
-                // TODO: Implement proper nested scope handling for deeper nesting
-                Err(DagToMirError::InvalidControlFlow(format!(
-                    "Deeply nested break targets not yet supported (depth: {})",
-                    depth
-                )))
-            }
-            _ => Err(DagToMirError::InvalidControlFlow(format!(
-                "Unsupported break target: {:?}",
-                target
-            ))),
         }
     }
 
@@ -663,28 +767,82 @@ impl DagToMir {
         context: &mut DagToMirContext,
     ) -> Result<(), DagToMirError> {
         // Determine which inputs represent data (exclude condition for conditional branches)
-        let data_inputs_start_index = match &node.operation {
-            Operation::BrIf(_) | Operation::BrIfZero(_) => 1,
-            _ => 0,
+        // For BrIf / BrIfZero, the last input is the condition; exclude it from data copies
+        let data_inputs_start_index = 0;
+        let data_inputs_end_index = match &node.operation {
+            Operation::BrIf(_) | Operation::BrIfZero(_) => node.inputs.len().saturating_sub(1),
+            _ => node.inputs.len(),
         };
 
         // Get the values that should be copied to the label's slots
-        let branch_values: Result<Vec<Value>, DagToMirError> = node
-            .inputs
+        let branch_values: Result<Vec<Value>, DagToMirError> = node.inputs
+            [data_inputs_start_index..data_inputs_end_index]
             .iter()
-            .skip(data_inputs_start_index)
             .map(|input| self.get_input_value(input, context))
             .collect();
         let branch_values = branch_values?;
 
         // Copy into the label's dedicated slots
-        let slot_value_ids = context.label_slots.get(&label_id).cloned().ok_or_else(|| {
-            DagToMirError::InvalidControlFlow(format!("No slots allocated for label {}", label_id))
-        })?;
+        let slot_value_ids = context
+            .label_output_values
+            .get(&label_id)
+            .cloned()
+            .ok_or_else(|| {
+                DagToMirError::InvalidControlFlow(format!(
+                    "No slots allocated for label {}",
+                    label_id
+                ))
+            })?;
 
         let count = core::cmp::min(branch_values.len(), slot_value_ids.len());
         for i in 0..count {
             let slot_value_id = slot_value_ids[i];
+            let assign_instruction = Instruction::assign_u32(slot_value_id, branch_values[i]);
+            context
+                .get_current_block()?
+                .push_instruction(assign_instruction);
+        }
+
+        Ok(())
+    }
+
+    /// Copy branch values to loop header storages when continuing to a loop
+    fn copy_branch_values_to_loop(
+        &self,
+        node: &Node,
+        depth: u32,
+        context: &mut DagToMirContext,
+    ) -> Result<(), DagToMirError> {
+        // Determine which inputs represent data (exclude condition for conditional branches)
+        // For BrIf / BrIfZero, the last input is the condition; exclude it from data copies
+        let data_inputs_start_index = 0;
+        let data_inputs_end_index = match &node.operation {
+            Operation::BrIf(_) | Operation::BrIfZero(_) => node.inputs.len().saturating_sub(1),
+            _ => node.inputs.len(),
+        };
+
+        // Compute target loop based on depth
+        let d = depth as usize;
+        if context.loop_stack.is_empty() || d >= context.loop_stack.len() {
+            return Ok(()); // Treat as return; copies handled by return slots elsewhere
+        }
+        let idx = context.loop_stack.len() - 1 - d;
+        let loop_info = &context.loop_stack[idx];
+
+        // Get the header slots for this loop
+        let header_slots = loop_info.header_slots.clone();
+
+        // Get the values that should be copied to the loop header slots
+        let branch_values: Result<Vec<Value>, DagToMirError> = node.inputs
+            [data_inputs_start_index..data_inputs_end_index]
+            .iter()
+            .map(|input| self.get_input_value(input, context))
+            .collect();
+        let branch_values = branch_values?;
+
+        let count = core::cmp::min(branch_values.len(), header_slots.len());
+        for i in 0..count {
+            let slot_value_id = header_slots[i];
             let assign_instruction = Instruction::assign_u32(slot_value_id, branch_values[i]);
             context
                 .get_current_block()?

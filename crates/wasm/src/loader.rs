@@ -74,12 +74,35 @@ impl Display for BlocklessDagModule {
                     .unwrap_or_else(|| format!("func_{}", func_idx));
 
                 output.push_str(&format!("{}:\n", func_name));
-                for node in func.nodes.iter() {
-                    output.push_str(&format!("  {:?}\n", node));
-                }
+                Self::format_nodes(&func.nodes, &mut output, 1);
             }
             write!(f, "{}", output)
         })
+    }
+}
+
+impl BlocklessDagModule {
+    /// Recursively format nodes with proper indentation for nested structures
+    fn format_nodes(
+        nodes: &[womir::loader::blockless_dag::Node],
+        output: &mut String,
+        indent_level: usize,
+    ) {
+        let indent = "  ".repeat(indent_level);
+        for node in nodes {
+            match &node.operation {
+                womir::loader::blockless_dag::Operation::Loop { sub_dag, .. } => {
+                    // Format the loop node itself
+                    output.push_str(&format!("{}{:?}\n", indent, node));
+                    // Recursively format the sub-DAG with increased indentation
+                    Self::format_nodes(&sub_dag.nodes, output, indent_level + 1);
+                }
+                _ => {
+                    // Regular node with current indentation
+                    output.push_str(&format!("{}{:?}\n", indent, node));
+                }
+            }
+        }
     }
 }
 
