@@ -390,27 +390,16 @@ impl CodeGenerator {
                 let callee_name = &callee_function.name;
                 let _num_returns = callee_function.return_values.len();
 
-                if dests.len() == 1 {
+                if dests.is_empty() {
+                    // Void call (no return values)
+                    builder.void_call(callee_name, args, signature)?;
+                } else if dests.len() == 1 {
                     // Single return value
                     builder.call(dests[0], callee_name, args, signature)?;
                 } else {
                     // Multiple return values
                     builder.call_multiple(dests, callee_name, args, signature)?;
                 }
-            }
-
-            InstructionKind::VoidCall {
-                callee,
-                args,
-                signature,
-            } => {
-                // Look up the callee's actual function name from the module
-                let callee_function = module.functions.get(*callee).ok_or_else(|| {
-                    CodegenError::MissingTarget(format!("No function found for callee {callee:?}"))
-                })?;
-                let callee_name = &callee_function.name;
-
-                builder.void_call(callee_name, args, signature)?;
             }
 
             InstructionKind::Load { dest, address, ty } => {

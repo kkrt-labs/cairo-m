@@ -39,14 +39,14 @@ module {
 
     2 (block_2):
       ; block_2
-      %6 = extractfield %0, "height"
-      %7 = insertfield %0, "width", %6
+      %6 = extractfield %5, "height"
+      %7 = insertfield %5, "width", %6
       jump 3
 
     3 (block_3):
       ; block_3
-      %8 = extractfield %0, "width"
-      %9 = extractfield %0, "height"
+      %8 = extractfield %7, "width"
+      %9 = extractfield %7, "height"
       %10 = %8 U32Mul %9
       return %10
 

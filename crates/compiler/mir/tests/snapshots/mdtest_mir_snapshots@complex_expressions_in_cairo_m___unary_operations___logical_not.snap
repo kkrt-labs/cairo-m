@@ -20,11 +20,11 @@ module {
 
     0:
       %0 = true (bool)
-      %3 = Not %0
-      %4 = Not %3
-      %5 = Not false
-      %6 = %5 And %4
-      return %6
+      %2 = Not %0
+      %3 = Not %2
+      %4 = Not false
+      %5 = %4 And %3
+      return %5
 
   }
 

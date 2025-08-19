@@ -216,21 +216,3 @@ fn test_empty_aggregates() {
     assert_eq!(struct_instr.destination(), Some(empty_struct));
     assert_eq!(struct_instr.used_values().len(), 0);
 }
-
-#[test]
-fn test_instruction_cloning() {
-    let mut function = MirFunction::new("test".to_string());
-    let dest = function.new_value_id();
-    let elem = function.new_value_id();
-
-    let original = Instruction::make_tuple(dest, vec![Value::operand(elem)]);
-
-    let cloned = original;
-
-    // Ensure deep equality
-    assert_eq!(original.destination(), cloned.destination());
-    assert_eq!(original.used_values(), cloned.used_values());
-
-    // Check they're actually different instances
-    assert!(!std::ptr::eq(&original, &cloned));
-}

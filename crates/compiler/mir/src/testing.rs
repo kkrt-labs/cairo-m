@@ -139,7 +139,7 @@ impl<'a> TestBlockBuilder<'a> {
             param_types: args.iter().map(|_| MirType::Felt).collect(),
             return_types: vec![], // Void call has no returns
         };
-        let instruction = Instruction::void_call(callee, args, signature);
+        let instruction = Instruction::call(vec![], callee, args, signature);
         self.function
             .get_basic_block_mut(self.current_block)
             .unwrap()

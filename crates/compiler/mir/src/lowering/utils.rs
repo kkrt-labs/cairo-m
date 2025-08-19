@@ -13,7 +13,6 @@ use cairo_m_compiler_semantic::types::TypeData;
 use cairo_m_compiler_semantic::SemanticIndex;
 
 use crate::instruction::CalleeSignature;
-use crate::layout::DataLayout;
 use crate::{BasicBlockId, FunctionId, Instruction, Literal, MirType, Value, ValueId};
 
 use super::builder::MirBuilder;
@@ -60,16 +59,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
         let mir_def_id = self.convert_definition_id(def_id);
-
-        // If the variable is not used, map to a dummy value and exit
-        let is_used = is_definition_used(self.ctx.semantic_index, def_idx);
-        if !is_used {
-            let dummy_addr = self.state.mir_function.new_value_id();
-            self.state
-                .definition_to_value
-                .insert(mir_def_id, dummy_addr);
-            return Ok(());
-        }
 
         let semantic_type = definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
         let var_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
@@ -146,112 +135,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         Ok(())
     }
 
-    /// Copies a composite type (tuple or struct) from a source address to a destination address.
-    ///
-    /// This function generates a series of `getelementptr`, `load`, and `store` instructions
-    /// to perform an element-wise copy, avoiding incorrect "composite store" operations.
-    pub fn copy_composite_type(
-        &mut self,
-        dest_addr: Value,
-        src_addr: Value,
-        ty: &MirType,
-    ) -> Result<(), String> {
-        let layout = DataLayout::new();
-        match ty {
-            MirType::Tuple(element_types) => {
-                for (i, elem_type) in element_types.iter().enumerate() {
-                    let offset = layout
-                        .tuple_offset(ty, i)
-                        .ok_or_else(|| format!("Invalid tuple index {} for type", i))?;
-                    let offset_val = Value::integer(offset as i32);
-
-                    // Get pointer to source element
-                    let src_elem_ptr = self
-                        .state
-                        .mir_function
-                        .new_typed_value_id(MirType::pointer(elem_type.clone()));
-                    self.instr()
-                        .get_element_ptr_to(src_elem_ptr, src_addr, offset_val);
-
-                    // Load value from source
-                    let loaded_val = self
-                        .state
-                        .mir_function
-                        .new_typed_value_id(elem_type.clone());
-                    self.instr().load_to(
-                        elem_type.clone(),
-                        loaded_val,
-                        Value::operand(src_elem_ptr),
-                    );
-
-                    // Get pointer to destination element
-                    let dest_elem_ptr = self
-                        .state
-                        .mir_function
-                        .new_typed_value_id(MirType::pointer(elem_type.clone()));
-                    self.instr()
-                        .get_element_ptr_to(dest_elem_ptr, dest_addr, offset_val);
-
-                    // Store value to destination
-                    self.store_value(
-                        Value::operand(dest_elem_ptr),
-                        Value::operand(loaded_val),
-                        elem_type.clone(),
-                    );
-                }
-            }
-            MirType::Struct { fields, .. } => {
-                for (field_name, field_type) in fields {
-                    let offset = layout
-                        .field_offset(ty, field_name)
-                        .ok_or_else(|| format!("Field {} not found in struct type", field_name))?;
-                    let offset_val = Value::integer(offset as i32);
-
-                    // Get pointer to source field
-                    let src_elem_ptr = self
-                        .state
-                        .mir_function
-                        .new_typed_value_id(MirType::pointer(field_type.clone()));
-                    self.instr()
-                        .get_element_ptr_to(src_elem_ptr, src_addr, offset_val);
-
-                    // Load value from source
-                    let loaded_val = self
-                        .state
-                        .mir_function
-                        .new_typed_value_id(field_type.clone());
-                    self.instr().load_to(
-                        field_type.clone(),
-                        loaded_val,
-                        Value::operand(src_elem_ptr),
-                    );
-
-                    // Get pointer to destination field
-                    let dest_elem_ptr = self
-                        .state
-                        .mir_function
-                        .new_typed_value_id(MirType::pointer(field_type.clone()));
-                    self.instr()
-                        .get_element_ptr_to(dest_elem_ptr, dest_addr, offset_val);
-
-                    // Store value to destination
-                    self.store_value(
-                        Value::operand(dest_elem_ptr),
-                        Value::operand(loaded_val),
-                        field_type.clone(),
-                    );
-                }
-            }
-            _ => {
-                return Err(format!(
-                    "copy_composite_type called on non-composite type: {:?}",
-                    ty
-                ))
-            }
-        }
-        Ok(())
-    }
-
     /// Emits a call instruction with destinations and proper signature
     ///
     /// This helper centralizes the logic for emitting function calls with
@@ -293,15 +176,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             expression_semantic_type(self.ctx.db, self.ctx.crate_id, self.ctx.file, expr_id, None);
 
         match func_expr_semantic_type.data(self.ctx.db) {
-            TypeData::Tuple(element_types) if element_types.is_empty() => {
-                // Function returns unit/void
-                let (param_types, return_types) = self.get_function_signature(func_id)?;
-                let signature = CalleeSignature {
-                    param_types,
-                    return_types,
-                };
-                self.instr().void_call(func_id, args, signature);
-            }
             TypeData::Tuple(element_types) => {
                 // Function returns a tuple - create destinations but don't use them
                 let mut dests = Vec::new();

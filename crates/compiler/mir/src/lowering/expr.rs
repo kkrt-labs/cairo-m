@@ -12,15 +12,13 @@ use cairo_m_compiler_semantic::type_resolution::{
 use cairo_m_compiler_semantic::types::TypeData;
 
 use crate::instruction::CalleeSignature;
-use crate::layout::DataLayout;
-use crate::{Instruction, Literal, MirType, Value};
+use crate::{Instruction, MirType, Value};
 
 use super::builder::{CallResult, MirBuilder};
 
 /// Trait for lowering expressions to MIR values
 pub trait LowerExpr<'a> {
     fn lower_expression(&mut self, expr: &Spanned<Expression>) -> Result<Value, String>;
-    fn lower_lvalue_expression(&mut self, expr: &Spanned<Expression>) -> Result<Value, String>;
 }
 
 impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
@@ -40,14 +38,6 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
 
         let current_scope_id = expr_info.scope_id;
 
-        // Special case: For TupleIndex on function calls, we need to use expr.value()
-        // because expr_info.ast_node doesn't preserve the nested structure
-        if let Expression::TupleIndex { tuple, index } = expr.value() {
-            if let Expression::FunctionCall { callee, args } = tuple.value() {
-                return self.lower_tuple_index_on_call(tuple, *index, callee, args);
-            }
-        }
-
         // Use expr_info.ast_node instead of expr.value()
         match &expr_info.ast_node {
             Expression::Literal(n, _) => Ok(Value::integer(*n as i32)),
@@ -64,7 +54,7 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
                 self.lower_member_access(object, field, expr_id)
             }
             Expression::IndexAccess { array, index } => {
-                self.lower_index_access(array, index, expr_id)
+                panic!("IndexAccess for arrays is not supported yet.");
             }
             Expression::StructLiteral { name: _, fields } => {
                 self.lower_struct_literal(fields, expr_id)
@@ -74,127 +64,6 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
         }
     }
 
-    fn lower_lvalue_expression(&mut self, expr: &Spanned<Expression>) -> Result<Value, String> {
-        // First, get the ExpressionId and its associated info
-        let expr_id = self
-            .ctx
-            .semantic_index
-            .expression_id_by_span(expr.span())
-            .ok_or_else(|| {
-                format!(
-                    "MIR: No ExpressionId found for lvalue span {:?}",
-                    expr.span()
-                )
-            })?;
-        let expr_info = self
-            .ctx
-            .semantic_index
-            .expression(expr_id)
-            .ok_or_else(|| format!("MIR: No ExpressionInfo for lvalue ID {expr_id:?}"))?;
-        let current_scope_id = expr_info.scope_id;
-
-        match &expr_info.ast_node {
-            Expression::Identifier(name) => {
-                // Use the correct scope_id from expr_info for resolution
-                if let Some((def_idx, _)) = self
-                    .ctx
-                    .semantic_index
-                    .resolve_name_to_definition(name.value(), current_scope_id)
-                {
-                    let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
-                    let mir_def_id = self.convert_definition_id(def_id);
-
-                    // Look up the MIR value for this definition
-                    if let Some(value_id) = self.state.definition_to_value.get(&mir_def_id) {
-                        // For simple variables, the value ID itself represents the address
-                        // In a more sophisticated system, we might need AddressOf instruction
-                        return Ok(Value::operand(*value_id));
-                    }
-                }
-                // If we can't resolve the identifier, return an error value for recovery
-                Ok(Value::error())
-            }
-            Expression::MemberAccess { object, field } => {
-                // Get the base address of the object
-                let object_addr = self.lower_lvalue_expression(object)?;
-                // Query semantic type system for field type from the member access expression
-                let field_type = self.ctx.get_expr_type(expr_id);
-
-                let dest =
-                    self.extract_struct_field(object_addr, field.value().clone(), field_type);
-                Ok(Value::operand(dest))
-            }
-            Expression::IndexAccess { array, index } => {
-                // Get the base address of the array
-                let array_addr = self.lower_lvalue_expression(array)?;
-
-                // Lower the index expression to get the offset
-                let index_value = self.lower_expression(index)?;
-
-                // For tuples with constant indices, use the index directly since elements are consecutive
-                // For general arrays/pointers, use the index directly (element size scaling would be done in a real system)
-                let offset_value = index_value;
-
-                // Query semantic type system for array element type from the index access expression
-                let element_type = self.ctx.get_expr_type(expr_id);
-
-                let dest = self.get_element_address(
-                    array_addr,
-                    offset_value,
-                    element_type,
-                    "Get address of array element",
-                );
-                Ok(Value::operand(dest))
-            }
-            Expression::TupleIndex { tuple, index } => {
-                // Get the semantic type of the tuple to determine element types and offsets
-                let tuple_expr_id = self
-                    .ctx
-                    .semantic_index
-                    .expression_id_by_span(tuple.span())
-                    .ok_or_else(|| "No ExpressionId for tuple in TupleIndex".to_string())?;
-                // Get the MIR type of the tuple to get offset calculation
-                let tuple_mir_type = self.ctx.get_expr_type(tuple_expr_id);
-
-                // For non-function-call tuples, use the existing lvalue approach
-                let tuple_addr = self.lower_lvalue_expression(tuple)?;
-
-                // Calculate the offset for the element using DataLayout
-                let layout = DataLayout::new();
-                let offset = layout
-                    .tuple_offset(&tuple_mir_type, *index)
-                    .ok_or_else(|| format!("Invalid tuple index {} for type", index))?;
-
-                // Get element type
-                let element_mir_type = match &tuple_mir_type {
-                    MirType::Tuple(types) => types
-                        .get(*index)
-                        .ok_or_else(|| format!("Tuple index {} out of bounds", index))?
-                        .clone(),
-                    _ => return Err("TupleIndex on non-tuple type".to_string()),
-                };
-
-                // Calculate element address using helper
-                let element_addr = self.get_element_address(
-                    tuple_addr,
-                    Value::integer(offset as i32),
-                    element_mir_type,
-                    &format!("Get address of tuple element {} for assignment", index),
-                );
-                Ok(Value::operand(element_addr))
-            }
-            Expression::Literal(_, _)
-            | Expression::BooleanLiteral(_)
-            | Expression::FunctionCall { .. }
-            | Expression::UnaryOp { .. }
-            | Expression::BinaryOp { .. }
-            | Expression::StructLiteral { .. }
-            | Expression::Tuple(_) => Err(format!(
-                "Expression cannot be assigned to: {:?}",
-                expr_info.ast_node
-            )),
-        }
-    }
 }
 
 // Individual expression lowering methods
@@ -357,57 +226,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         Ok(Value::operand(field_dest))
     }
 
-    fn lower_index_access(
-        &mut self,
-        array: &Spanned<Expression>,
-        index: &Spanned<Expression>,
-        expr_id: ExpressionId,
-    ) -> Result<Value, String> {
-        // Array/index access in expression context (rvalue) - load from computed address
-        let array_addr = self.lower_lvalue_expression(array)?;
-        let index_value = self.lower_expression(index)?;
-
-        // For tuples with constant indices, use the index directly since elements are consecutive
-        // For general arrays/pointers, use the index directly (element size scaling would be done in a real system)
-        let offset_value = index_value;
-
-        // Query semantic type system for the element type
-        let element_type = self.ctx.get_expr_type(expr_id);
-
-        // Calculate the address of the array element
-        let element_addr = self
-            .state
-            .mir_function
-            .new_typed_value_id(MirType::pointer(element_type.clone()));
-        self.instr().add_instruction(
-            Instruction::get_element_ptr(element_addr, array_addr, offset_value)
-                .with_comment("Get address of array element".to_string()),
-        );
-
-        // Load the value from the element address
-        let loaded_value = self
-            .state
-            .mir_function
-            .new_typed_value_id(element_type.clone());
-
-        // Register loaded value as a Value
-
-        // Create comment with index if it's a literal
-        let comment = match offset_value {
-            Value::Literal(Literal::Integer(idx)) => format!("Load array element [{}]", idx),
-            _ => "Load array element".to_string(),
-        };
-
-        self.instr().load_with(
-            element_type,
-            loaded_value,
-            Value::operand(element_addr),
-            comment,
-        );
-
-        Ok(Value::operand(loaded_value))
-    }
-
     pub(super) fn lower_function_call(
         &mut self,
         callee: &Spanned<Expression>,
@@ -415,13 +233,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         expr_id: ExpressionId,
     ) -> Result<CallResult, String> {
         // First, resolve the callee to a FunctionId
-        let func_id = match self.resolve_callee_expression(callee) {
-            Ok(id) => id,
-            Err(_) => {
-                // Function not found - return error value for graceful recovery
-                return Ok(CallResult::Single(Value::error()));
-            }
-        };
+        let func_id = self.resolve_callee_expression(callee)?;
 
         // Lower the arguments
         let mut arg_values = Vec::new();
@@ -480,40 +292,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 self.instr().add_instruction(call_instr);
 
                 Ok(CallResult::Single(Value::operand(dest)))
-            }
-        }
-    }
-
-    fn lower_tuple_index_on_call(
-        &mut self,
-        tuple: &Spanned<Expression>,
-        index: usize,
-        callee: &Spanned<Expression>,
-        args: &[Spanned<Expression>],
-    ) -> Result<Value, String> {
-        // Get the expression ID for the function call
-        let func_expr_id = self
-            .ctx
-            .semantic_index
-            .expression_id_by_span(tuple.span())
-            .ok_or_else(|| "No ExpressionId for function call in TupleIndex".to_string())?;
-
-        // Lower the function call
-        match self.lower_function_call(callee, args, func_expr_id)? {
-            CallResult::Single(value) => {
-                // Check if it's an error value - if so, return it for graceful recovery
-                if matches!(value, Value::Error) {
-                    return Ok(value);
-                }
-                Err("Cannot index a non-tuple value".to_string())
-            }
-            CallResult::Tuple(values) => {
-                // Directly return the indexed value
-                if let Some(value) = values.get(index) {
-                    Ok(*value)
-                } else {
-                    Err(format!("Tuple index {} out of bounds", index))
-                }
             }
         }
     }

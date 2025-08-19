@@ -20,11 +20,11 @@ module {
 
     0:
       %0 = 10
-      %3 = Neg %0
-      %4 = Neg %3
-      %5 = Neg 10
-      %6 = %4 Add %5
-      return %6
+      %2 = Neg %0
+      %3 = Neg %2
+      %4 = Neg 10
+      %5 = %3 Add %4
+      return %5
 
   }
 

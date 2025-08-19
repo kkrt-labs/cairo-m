@@ -196,18 +196,6 @@ impl<'f> InstrBuilder<'f> {
         self
     }
 
-    /// Add a void_call instruction
-    pub fn void_call(
-        &mut self,
-        func_id: FunctionId,
-        args: Vec<Value>,
-        signature: CalleeSignature,
-    ) -> &mut Self {
-        let instr = Instruction::void_call(func_id, args, signature);
-        self.add_instruction(instr);
-        self
-    }
-
     /// Create and add a frame allocation with automatic destination
     pub fn alloc_frame(&mut self, ty: MirType) -> ValueId {
         let dest = self

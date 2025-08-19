@@ -11,11 +11,10 @@ use cairo_m_compiler_semantic::type_resolution::{
 };
 use cairo_m_compiler_semantic::types::TypeData;
 
-use crate::{DataLayout, Instruction, MirType, Terminator, Value};
+use crate::{Instruction, MirType, Terminator, Value};
 
 use super::builder::MirBuilder;
 use super::expr::LowerExpr;
-use super::utils::is_definition_used;
 
 /// Trait for lowering statements to MIR
 pub trait LowerStmt<'a> {
@@ -76,42 +75,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             })?;
         let scope_id = expr_info.scope_id;
 
-        // All optimizations are now handled by PreOptimizationPass
-
-        // Special case: tuple pattern with function call - avoid intermediate tuple
-        // TODO: eventually, this will need to be optimzed in a better way.
-        if let Pattern::Tuple(names) = pattern
-            && let Expression::FunctionCall { callee, args } = value.value()
-        {
-            // Lower the function call to get multiple return values directly
-            match self.lower_function_call(callee, args, expr_id)? {
-                super::builder::CallResult::Tuple(values) => {
-                    // Directly bind each return value to the corresponding pattern variable
-                    for (name, value) in names.iter().zip(values.iter()) {
-                        self.bind_variable(name, scope_id, *value)?;
-                    }
-                    return Ok(());
-                }
-                _ => {
-                    // Fall through to normal handling if not actually a tuple return
-                }
-            }
-        }
-
-        // Special case: tuple pattern with tuple literal - direct destructuring
-        if let Pattern::Tuple(names) = pattern
-            && let Expression::Tuple(elements) = value.value()
-        {
-            // Directly lower each element and bind to the corresponding name
-            if names.len() == elements.len() {
-                for (name, element) in names.iter().zip(elements.iter()) {
-                    let element_value = self.lower_expression(element)?;
-                    self.bind_variable(name, scope_id, element_value)?;
-                }
-                return Ok(());
-            }
-        }
-
         // Simply lower the expression and bind to pattern
         let rhs_value = self.lower_expression(value)?;
 
@@ -153,122 +116,56 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         &mut self,
         value: &Option<Spanned<Expression>>,
     ) -> Result<(), String> {
-        if let Some(expr) = value {
-            // Check if we're returning a tuple literal
-            if let Expression::Tuple(elements) = expr.value() {
-                // Lower each element of the tuple
-                let mut return_values = Vec::new();
-                for element in elements {
-                    return_values.push(self.lower_expression(element)?);
-                }
-                // Return multiple values from tuple literal
-                self.terminate_with_return(return_values);
-                return Ok(());
-            } else {
-                // Check if the expression type is a tuple
-                let expr_id = self
-                    .ctx
-                    .semantic_index
-                    .expression_id_by_span(expr.span())
-                    .ok_or_else(|| {
-                        format!(
-                            "MIR: No ExpressionId found for return expression span {:?}",
-                            expr.span()
-                        )
-                    })?;
-                let expr_semantic_type = expression_semantic_type(
-                    self.ctx.db,
-                    self.ctx.crate_id,
-                    self.ctx.file,
-                    expr_id,
-                    None,
-                );
+        // No return value - return unit
+        if value.is_none() {
+            self.terminate_with_return(vec![]);
+            return Ok(());
+        }
 
-                // Check if it's a tuple type
-                if let TypeData::Tuple(element_types) = expr_semantic_type.data(self.ctx.db) {
-                    // For tuple returns, try to handle value-based tuples
-                    // First, attempt to lower the expression as a value
-                    let expr_value = self.lower_expression(expr)?;
+        let expr = value.as_ref().unwrap();
+        // Check if the expression type is a tuple
+        let expr_id = self
+            .ctx
+            .semantic_index
+            .expression_id_by_span(expr.span())
+            .ok_or_else(|| {
+                format!(
+                    "MIR: No ExpressionId found for return expression span {:?}",
+                    expr.span()
+                )
+            })?;
+        let expr_semantic_type =
+            expression_semantic_type(self.ctx.db, self.ctx.crate_id, self.ctx.file, expr_id, None);
 
-                    // Check if we got a tuple value
-                    if let Value::Operand(value_id) = expr_value {
-                        if let Some(MirType::Tuple(elem_types)) =
-                            self.state.mir_function.get_value_type(value_id)
-                        {
-                            // We have a tuple value - extract its elements for the return
-                            // Clone elem_types to avoid borrow checker issues
-                            let elem_types_cloned = elem_types.clone();
-                            let mut return_values = Vec::new();
-                            for (i, elem_type) in elem_types_cloned.iter().enumerate() {
-                                let elem_value =
-                                    self.extract_tuple_element(expr_value, i, elem_type.clone());
-                                return_values.push(Value::operand(elem_value));
-                            }
-                            self.terminate_with_return(return_values);
-                            return Ok(());
-                        }
-                    }
+        // Check if it's a tuple type
+        if let TypeData::Tuple(_) = expr_semantic_type.data(self.ctx.db) {
+            let expr_value = self.lower_expression(expr)?;
 
-                    // Fallback: handle memory-based tuples (temporary until full migration)
-                    let tuple_addr = self.lower_lvalue_expression(expr)?;
+            // We expect a tuple value
+            if let Value::Operand(value_id) = expr_value {
+                if let Some(MirType::Tuple(elem_types)) =
+                    self.state.mir_function.get_value_type(value_id)
+                {
+                    // We have a tuple value - extract its elements for the return
+                    // Clone elem_types to avoid borrow checker issues
+                    let elem_types_cloned = elem_types.clone();
                     let mut return_values = Vec::new();
-
-                    // Load each element from the tuple (stored with proper offsets)
-                    let tuple_mir_type = MirType::Tuple(
-                        element_types
-                            .iter()
-                            .map(|t| MirType::from_semantic_type(self.ctx.db, *t))
-                            .collect(),
-                    );
-
-                    for (i, elem_type) in element_types.iter().enumerate() {
-                        let mir_type = MirType::from_semantic_type(self.ctx.db, *elem_type);
-
-                        // Calculate proper byte/slot offset for tuple element
-                        let layout = DataLayout::new();
-                        let offset = layout
-                            .tuple_offset(&tuple_mir_type, i)
-                            .ok_or_else(|| format!("Invalid tuple index {} for return", i))?
-                            as i32;
-
-                        // Get element pointer and load
-                        let elem_ptr = self
-                            .state
-                            .mir_function
-                            .new_typed_value_id(MirType::pointer(mir_type.clone()));
-                        self.instr().add_instruction(
-                            Instruction::get_element_ptr(
-                                elem_ptr,
-                                tuple_addr,
-                                Value::integer(offset),
-                            )
-                            .with_comment(format!(
-                                "Get address (offset {}) of tuple element {}",
-                                offset, i
-                            )),
-                        );
+                    for (i, elem_type) in elem_types_cloned.iter().enumerate() {
                         let elem_value =
-                            self.state.mir_function.new_typed_value_id(mir_type.clone());
-                        self.instr().load_with(
-                            mir_type,
-                            elem_value,
-                            Value::operand(elem_ptr),
-                            format!("Load tuple element {}", i),
-                        );
+                            self.extract_tuple_element(expr_value, i, elem_type.clone());
                         return_values.push(Value::operand(elem_value));
                     }
-
-                    // Return tuple elements
                     self.terminate_with_return(return_values);
-                } else {
-                    // Single value return
-                    let return_value = self.lower_expression(expr)?;
-                    self.terminate_with_return(vec![return_value]);
+                    return Ok(());
                 }
             }
+            return Err(format!("Expected tuple value but got: {:?}", expr_value));
         } else {
-            self.terminate_with_return(vec![]);
+            // Single value return
+            let return_value = self.lower_expression(expr)?;
+            self.terminate_with_return(vec![return_value]);
         }
+
         Ok(())
     }
 
@@ -299,7 +196,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             let field_type = self.ctx.get_expr_type(lhs_expr_id);
             let rhs_value = self.lower_expression(rhs)?;
             // Extract the field using ExtractStructField instruction
-            self.insert_struct_field(struct_val, field.value(), rhs_value, field_type);
+            let new_struct_id = self.insert_struct_field(struct_val, field.value(), rhs_value, field_type);
+            let obj_scope = lhs_expr_info.scope_id;
+            // Rebind the object to the new value for pure SSA form
+            if let Expression::Identifier(obj_name) = object.value() {
+                self.bind_variable(obj_name, obj_scope, Value::operand(new_struct_id))?;
+            }
             return Ok(());
         }
 
@@ -309,7 +211,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             let tuple_val = self.lower_expression(tuple)?;
             let rhs_value = self.lower_expression(rhs)?;
             let tuple_type = self.ctx.get_expr_type(lhs_expr_id);
-            self.insert_tuple(tuple_val, *index, rhs_value, tuple_type);
+            let new_tuple_id = self.insert_tuple(tuple_val, *index, rhs_value, tuple_type);
+            let obj_scope = lhs_expr_info.scope_id;
+            // Rebind the object to the new value for pure SSA form
+            if let Expression::Identifier(obj_name) = tuple.value() {
+                self.bind_variable(obj_name, obj_scope, Value::operand(new_tuple_id))?;
+            }
             return Ok(());
         }
 
@@ -323,7 +230,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         }
 
         // Standard assignment
-        // Get the type of the RHS to determine if it's a composite type
         let rhs_expr_id = self
             .ctx
             .semantic_index
@@ -337,7 +243,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             None,
         );
         let rhs_type = MirType::from_semantic_type(self.ctx.db, rhs_semantic_type);
-        let lhs_address = self.lower_lvalue_expression(lhs)?;
+        let lhs_address = self.lower_expression(lhs)?;
         let rhs_value = self.lower_expression(rhs)?;
         self.instr().store(lhs_address, rhs_value, rhs_type);
 
@@ -695,7 +601,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
                     element_types.push(MirType::from_semantic_type(self.ctx.db, semantic_type));
                 }
-                let tuple_type = MirType::Tuple(element_types.clone());
 
                 // Extract each element using proper offsets
                 for (index, name) in names.iter().enumerate() {
@@ -714,55 +619,26 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
                     let mir_def_id = self.convert_definition_id(def_id);
 
-                    let is_used = is_definition_used(self.ctx.semantic_index, def_idx);
-                    if !is_used {
-                        let dummy_addr = self.state.mir_function.new_value_id();
-                        self.state
-                            .definition_to_value
-                            .insert(mir_def_id, dummy_addr);
-                        continue;
-                    }
-
                     let element_mir_type = element_types[index].clone();
 
-                    // Calculate proper byte/slot offset for tuple element
-                    let layout = DataLayout::new();
-                    let offset = layout
-                        .tuple_offset(&tuple_type, index)
-                        .ok_or_else(|| format!("Invalid tuple index {} in destructuring", index))?
-                        as i32;
-
                     // Get pointer to tuple element and load
-                    let elem_ptr = self
-                        .state
-                        .mir_function
-                        .new_typed_value_id(MirType::pointer(element_mir_type.clone()));
-                    self.instr().add_instruction(
-                        Instruction::get_element_ptr(
-                            elem_ptr,
-                            Value::operand(tuple_addr),
-                            Value::integer(offset),
-                        )
-                        .with_comment(format!(
-                            "Get address (offset {}) of tuple element {}",
-                            offset, index
-                        )),
-                    );
-                    let elem_value = self
+                    let elem_value_id = self
                         .state
                         .mir_function
                         .new_typed_value_id(element_mir_type.clone());
-                    self.instr().load_with(
-                        element_mir_type,
-                        elem_value,
-                        Value::operand(elem_ptr),
-                        format!("Load tuple element {}", index),
-                    );
+
+                    self.instr()
+                        .add_instruction(Instruction::extract_tuple_element(
+                            elem_value_id,
+                            Value::operand(tuple_addr),
+                            index,
+                            element_mir_type,
+                        ));
 
                     // Map the variable directly to the extracted value
                     self.state
                         .definition_to_value
-                        .insert(mir_def_id, elem_value);
+                        .insert(mir_def_id, elem_value_id);
                 }
             }
         }

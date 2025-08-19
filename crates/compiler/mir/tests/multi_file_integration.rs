@@ -351,8 +351,8 @@ fn main() -> felt {
     let mir_text = mir_module.pretty_print(0);
     println!("MIR with missing imports:\n{}", mir_text);
     assert!(
-        mir_text.contains("<error>"),
-        "Should contain error values for missing imports"
+        mir_text.contains("unreachable"),
+        "Should contain unreachable for missing imports"
     );
 }
 

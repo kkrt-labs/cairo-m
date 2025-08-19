@@ -26,19 +26,4 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     pub fn if_blocks(&mut self) -> (BasicBlockId, BasicBlockId, BasicBlockId) {
         self.create_if_blocks()
     }
-
-    /// Executes a closure within a specific block, then switches back
-    pub fn in_block<F>(&mut self, block_id: BasicBlockId, f: F)
-    where
-        F: FnOnce(&mut Self),
-    {
-        let prev_block = self.state.current_block_id;
-        let prev_terminated = self.state.is_terminated;
-
-        self.switch_to_block(block_id);
-        f(self);
-
-        self.state.current_block_id = prev_block;
-        self.state.is_terminated = prev_terminated;
-    }
 }

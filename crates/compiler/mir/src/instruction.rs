@@ -259,14 +259,6 @@ pub enum InstructionKind {
         signature: CalleeSignature,
     },
 
-    /// Void function call: `call callee(args)`
-    /// For calling functions that don't return a value
-    VoidCall {
-        callee: crate::FunctionId,
-        args: Vec<Value>,
-        signature: CalleeSignature,
-    },
-
     /// Load from memory: `dest = load addr`
     /// For accessing memory locations and dereferencing pointers
     Load {
@@ -465,24 +457,6 @@ impl Instruction {
         Self {
             kind: InstructionKind::Call {
                 dests,
-                callee,
-                args,
-                signature,
-            },
-            source_span: None,
-            source_expr_id: None,
-            comment: None,
-        }
-    }
-
-    /// Creates a new void call instruction
-    pub const fn void_call(
-        callee: crate::FunctionId,
-        args: Vec<Value>,
-        signature: CalleeSignature,
-    ) -> Self {
-        Self {
-            kind: InstructionKind::VoidCall {
                 callee,
                 args,
                 signature,
@@ -697,8 +671,7 @@ impl Instruction {
 
             InstructionKind::Call { dests, .. } => dests.clone(),
 
-            InstructionKind::VoidCall { .. }
-            | InstructionKind::Store { .. }
+            InstructionKind::Store { .. }
             | InstructionKind::Debug { .. }
             | InstructionKind::Nop => vec![],
         }
@@ -740,7 +713,7 @@ impl Instruction {
                 }
             }
 
-            InstructionKind::Call { args, .. } | InstructionKind::VoidCall { args, .. } => {
+            InstructionKind::Call { args, .. } => {
                 for arg in args {
                     if let Value::Operand(id) = arg {
                         used.insert(*id);
@@ -871,7 +844,6 @@ impl Instruction {
             InstructionKind::UnaryOp { .. } => Ok(()),
             InstructionKind::BinaryOp { .. } => Ok(()),
             InstructionKind::Call { .. } => Ok(()),
-            InstructionKind::VoidCall { .. } => Ok(()),
             InstructionKind::Load { .. } => Ok(()),
             InstructionKind::Store { .. } => Ok(()),
             InstructionKind::FrameAlloc { .. } => Ok(()),
@@ -894,7 +866,7 @@ impl Instruction {
     pub const fn has_side_effects(&self) -> bool {
         matches!(
             self.kind,
-            InstructionKind::VoidCall { .. }
+            InstructionKind::Call { .. }
                 | InstructionKind::Store { .. }
                 | InstructionKind::FrameAlloc { .. }
                 | InstructionKind::Debug { .. }
@@ -988,15 +960,6 @@ impl PrettyPrint for Instruction {
                         .join(", ");
                     result.push_str(&format!("{} = call {:?}({})", dests_str, callee, args_str));
                 }
-            }
-
-            InstructionKind::VoidCall { callee, args, .. } => {
-                let args_str = args
-                    .iter()
-                    .map(|arg| arg.pretty_print(0))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                result.push_str(&format!("call {callee:?}({args_str})"));
             }
 
             InstructionKind::Load { dest, ty, address } => {
