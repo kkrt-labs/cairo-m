@@ -115,13 +115,14 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // Simply lower the expression and bind to pattern
         let rhs_value = self.lower_expression(value)?;
 
-        // Handle special case for aggregate literals that return addresses directly
-        // This is not an optimization but a necessary semantic handling
+        // Handle special case for aggregate literals - use value-based assignment
+        // Struct and tuple literals should create values, not memory allocations
         if let Pattern::Identifier(name) = pattern
             && let Expression::StructLiteral { .. } | Expression::Tuple(_) = value.value()
         {
-            if let Value::Operand(addr) = rhs_value {
-                // The RHS expression already allocated the object and returned its address
+            if let Value::Operand(value_id) = rhs_value {
+                // The RHS expression created a value-based aggregate (MakeStruct/MakeTuple)
+                // Assign the value directly to the variable without memory allocation
                 if let Some((def_idx, _)) = self
                     .ctx
                     .semantic_index
@@ -129,7 +130,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 {
                     let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
                     let mir_def_id = self.convert_definition_id(def_id);
-                    self.state.definition_to_value.insert(mir_def_id, addr);
+                    self.state.definition_to_value.insert(mir_def_id, value_id);
                     return Ok(());
                 } else {
                     return Err(format!(
@@ -139,7 +140,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     ));
                 }
             } else {
-                return Err("Expected an address from aggregate literal".to_string());
+                return Err("Expected a value from aggregate literal".to_string());
             }
         }
 
@@ -277,107 +278,69 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         rhs: &Spanned<Expression>,
     ) -> Result<(), String> {
         // Check if RHS is a binary operation that we can optimize
-        match rhs.value() {
-            Expression::BinaryOp { op, left, right } => {
-                // Optimization: Generate direct assignment with binary operation
-                // Instead of: temp = left op right; lhs = temp
-                // Generate: lhs = left op right (single instruction)
+        // Check if LHS is a field assignment that can be optimized
+        let lhs_expr_id = self
+            .ctx
+            .semantic_index
+            .expression_id_by_span(lhs.span())
+            .ok_or_else(|| format!("No ExpressionId found for LHS span {:?}", lhs.span()))?;
+        let lhs_expr_info = self
+            .ctx
+            .semantic_index
+            .expression(lhs_expr_id)
+            .ok_or_else(|| format!("MIR: No ExpressionInfo for LHS ID {lhs_expr_id:?}"))?;
 
-                // Lower the left and right operands separately
-                let left_value = self.lower_expression(left)?;
-                let right_value = self.lower_expression(right)?;
+        // Check if this is a field assignment (rect.width = value)
+        if let Expression::MemberAccess { object, field } = &lhs_expr_info.ast_node {
+            // Check if the object is a value-based variable (not memory-allocated)
+            let struct_val = self.lower_expression(object)?;
 
-                // Get the expression ID for the RHS binary operation to get type information
-                let rhs_expr_id = self
-                    .ctx
-                    .semantic_index
-                    .expression_id_by_span(rhs.span())
-                    .ok_or_else(|| {
-                        format!(
-                            "MIR: No ExpressionId found for RHS binary op span {:?}",
-                            rhs.span()
-                        )
-                    })?;
-
-                // Query semantic type system for result type
-                let semantic_type = expression_semantic_type(
-                    self.ctx.db,
-                    self.ctx.crate_id,
-                    self.ctx.file,
-                    rhs_expr_id,
-                    None,
-                );
-                let result_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
-
-                // Get the type of the left operand to determine the correct binary operation
-                let left_expr_id = self
-                    .ctx
-                    .semantic_index
-                    .expression_id_by_span(left.span())
-                    .ok_or_else(|| "No expression ID for left operand".to_string())?;
-
-                let left_type = expression_semantic_type(
-                    self.ctx.db,
-                    self.ctx.crate_id,
-                    self.ctx.file,
-                    left_expr_id,
-                    None,
-                );
-                let left_type_data = left_type.data(self.ctx.db);
-                let typed_op = crate::BinaryOp::from_parser(*op, &left_type_data)?;
-
-                // Always create a new ValueId for the result to maintain SSA form
-                let dest = self
-                    .state
-                    .mir_function
-                    .new_typed_value_id(result_type.clone());
-                self.instr()
-                    .binary_op_to(typed_op, dest, left_value, right_value);
-
-                // Store the result to the LHS address
-                let lhs_address = self.lower_lvalue_expression(lhs)?;
-                self.instr()
-                    .store(lhs_address, Value::operand(dest), result_type);
-            }
-            _ => {
-                // Standard assignment
-                // Get the type of the RHS to determine if it's a composite type
-                let rhs_expr_id = self
-                    .ctx
-                    .semantic_index
-                    .expression_id_by_span(rhs.span())
-                    .ok_or_else(|| {
-                        format!("No ExpressionId found for RHS span {:?}", rhs.span())
-                    })?;
-                let rhs_semantic_type = expression_semantic_type(
-                    self.ctx.db,
-                    self.ctx.crate_id,
-                    self.ctx.file,
-                    rhs_expr_id,
-                    None,
-                );
-                let rhs_type = MirType::from_semantic_type(self.ctx.db, rhs_semantic_type);
-
-                // For value-based aggregates, we treat assignment differently
-                match rhs_type {
-                    MirType::Tuple(_) | MirType::Struct { .. } => {
-                        // Lower the RHS as a value (not an address)
-                        let rhs_value = self.lower_expression(rhs)?;
-
-                        // For assignments to aggregates, we need to store the value
-                        // This will be optimized away if the variable is promoted to SSA
-                        let lhs_address = self.lower_lvalue_expression(lhs)?;
-                        self.instr().store(lhs_address, rhs_value, rhs_type);
-                    }
-                    _ => {
-                        // For primitive types, a simple store is sufficient
-                        let lhs_address = self.lower_lvalue_expression(lhs)?;
-                        let rhs_value = self.lower_expression(rhs)?;
-                        self.instr().store(lhs_address, rhs_value, rhs_type);
-                    }
-                }
-            }
+            // Query semantic type system for the field type
+            let field_type = self.ctx.get_expr_type(lhs_expr_id);
+            let rhs_value = self.lower_expression(rhs)?;
+            // Extract the field using ExtractStructField instruction
+            self.insert_struct_field(struct_val, field.value(), rhs_value, field_type);
+            return Ok(());
         }
+
+        // Check if this is a tuple assignment (tuple.index  = value)
+        if let Expression::TupleIndex { tuple, index } = &lhs_expr_info.ast_node {
+            // Check if the tuple is a value-based variable (not memory-allocated)
+            let tuple_val = self.lower_expression(tuple)?;
+            let rhs_value = self.lower_expression(rhs)?;
+            let tuple_type = self.ctx.get_expr_type(lhs_expr_id);
+            self.insert_tuple(tuple_val, *index, rhs_value, tuple_type);
+            return Ok(());
+        }
+
+        // TODO: Handle array assignment (array[index] = value)
+        if let Expression::IndexAccess {
+            array: _array,
+            index: _index,
+        } = &lhs_expr_info.ast_node
+        {
+            panic!("Array assignment not implemented");
+        }
+
+        // Standard assignment
+        // Get the type of the RHS to determine if it's a composite type
+        let rhs_expr_id = self
+            .ctx
+            .semantic_index
+            .expression_id_by_span(rhs.span())
+            .ok_or_else(|| format!("No ExpressionId found for RHS span {:?}", rhs.span()))?;
+        let rhs_semantic_type = expression_semantic_type(
+            self.ctx.db,
+            self.ctx.crate_id,
+            self.ctx.file,
+            rhs_expr_id,
+            None,
+        );
+        let rhs_type = MirType::from_semantic_type(self.ctx.db, rhs_semantic_type);
+        let lhs_address = self.lower_lvalue_expression(lhs)?;
+        let rhs_value = self.lower_expression(rhs)?;
+        self.instr().store(lhs_address, rhs_value, rhs_type);
+
         Ok(())
     }
 

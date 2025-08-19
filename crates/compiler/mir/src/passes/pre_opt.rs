@@ -42,10 +42,11 @@ impl PreOptimizationPass {
         for block in function.basic_blocks.iter() {
             for instr in &block.instructions {
                 match &instr.kind {
-                    InstructionKind::Load { address, .. } => {
-                        if let Value::Operand(addr_id) = address {
-                            addresses_read.insert(*addr_id);
-                        }
+                    InstructionKind::Load {
+                        address: Value::Operand(addr_id),
+                        ..
+                    } => {
+                        addresses_read.insert(*addr_id);
                     }
                     InstructionKind::FrameAlloc { dest, .. } => {
                         local_addresses.insert(*dest);

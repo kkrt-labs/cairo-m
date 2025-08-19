@@ -21,10 +21,9 @@ module {
     entry: 0
 
     0:
-      // Folded ExtractStructField(0, "x")
-%1 = 10
-      // Folded ExtractStructField(0, "y")
-%2 = 20
+      %0 = makestruct { x: 10, y: 20 }
+      %1 = extractfield %0, "x"
+      %2 = extractfield %0, "y"
       %3 = %1 Add %2
       return %3
 

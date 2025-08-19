@@ -45,3 +45,13 @@ fn access_tuple_member() -> felt {
     return my_tuple.0 + my_tuple.1 + my_tuple.2;
 }
 ```
+
+## Tuple Member Assignment
+
+```cairo-m
+fn assign_tuple_member() -> felt {
+    let my_tuple = (1, 2, 3);
+    my_tuple.0 = 4;
+    return my_tuple.0 + my_tuple.1 + my_tuple.2;
+}
+```

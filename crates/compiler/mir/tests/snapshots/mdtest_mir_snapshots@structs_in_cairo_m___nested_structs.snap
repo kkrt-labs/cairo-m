@@ -31,42 +31,17 @@ module {
     entry: 0
 
     0:
-      // Lowered struct alloca for %0
-%17 = framealloc Point
-      // Get address of field 'x'
-%18 = getelementptr %17, 0
-      // Store field 'x'
-store %18, 0
-      // Get address of field 'y'
-%19 = getelementptr %17, 1
-      // Store field 'y'
-store %19, 0
-      // Alias struct value to alloca
-%0 = %17 (*Point)
-      // Lowered struct alloca for %1
-%20 = framealloc Point
-      // Get address of field 'x'
-%21 = getelementptr %20, 0
-      // Store field 'x'
-store %21, 3
-      // Get address of field 'y'
-%22 = getelementptr %20, 1
-      // Store field 'y'
-store %22, 4
-      // Alias struct value to alloca
-%1 = %20 (*Point)
-      // Folded ExtractStructField(2, "end")
-%3 = %1 (Point)
+      %0 = makestruct { x: 0, y: 0 }
+      %1 = makestruct { x: 3, y: 4 }
+      %2 = makestruct { start: %0, end: %1 }
+      %3 = extractfield %2, "end"
       %4 = extractfield %3, "x"
-      // Folded ExtractStructField(2, "start")
-%5 = %0 (Point)
+      %5 = extractfield %2, "start"
       %6 = extractfield %5, "x"
       %7 = %4 Sub %6
-      // Folded ExtractStructField(2, "end")
-%8 = %1 (Point)
+      %8 = extractfield %2, "end"
       %9 = extractfield %8, "y"
-      // Folded ExtractStructField(2, "start")
-%10 = %0 (Point)
+      %10 = extractfield %2, "start"
       %11 = extractfield %10, "y"
       %12 = %9 Sub %11
       %13 = %7 Mul %7

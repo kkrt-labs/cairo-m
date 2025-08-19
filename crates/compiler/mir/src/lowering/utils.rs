@@ -124,7 +124,21 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             }
         }
 
-        // Fallback for cases we haven't handled
+        // Handle value-based aggregates (structs and tuples) by binding directly
+        match &var_type {
+            MirType::Struct { .. } | MirType::Tuple(_) => {
+                // For aggregates, try to bind the value directly without memory allocation
+                if let Value::Operand(value_id) = value {
+                    // This is a value-based aggregate (e.g., from MakeStruct or MakeTuple)
+                    // Bind directly to avoid unnecessary memory allocation
+                    self.state.definition_to_value.insert(mir_def_id, value_id);
+                    return Ok(());
+                }
+            }
+            _ => {}
+        }
+
+        // Fallback for cases we haven't handled (primitives, etc.)
         let var_addr = self.alloc_frame(var_type.clone());
         self.instr()
             .store(Value::operand(var_addr), value, var_type);

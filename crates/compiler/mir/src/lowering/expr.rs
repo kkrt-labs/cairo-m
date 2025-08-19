@@ -117,41 +117,11 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
             Expression::MemberAccess { object, field } => {
                 // Get the base address of the object
                 let object_addr = self.lower_lvalue_expression(object)?;
-
-                // Get the object's semantic type to calculate field offset
-                let object_expr_id = self
-                    .ctx
-                    .semantic_index
-                    .expression_id_by_span(object.span())
-                    .ok_or_else(|| {
-                        format!(
-                            "MIR: No ExpressionId found for object span {:?}",
-                            object.span()
-                        )
-                    })?;
-                let object_mir_type = self.ctx.get_expr_type(object_expr_id);
-
-                // Calculate the actual field offset from the type information using DataLayout
-                let layout = DataLayout::new();
-                let field_offset_val = layout.field_offset(&object_mir_type, field.value())
-                    .ok_or_else(|| {
-                        format!(
-                            "Internal Compiler Error: Field '{}' not found on type '{:?}'. This indicates an issue with type information propagation.",
-                            field.value(),
-                            object_mir_type
-                        )
-                    })?;
-                let field_offset = Value::integer(field_offset_val as i32);
-
                 // Query semantic type system for field type from the member access expression
                 let field_type = self.ctx.get_expr_type(expr_id);
 
-                let dest = self.get_element_address(
-                    object_addr,
-                    field_offset,
-                    field_type,
-                    &format!("Get address of field '{}'", field.value()),
-                );
+                let dest =
+                    self.extract_struct_field(object_addr, field.value().clone(), field_type);
                 Ok(Value::operand(dest))
             }
             Expression::IndexAccess { array, index } => {
@@ -229,6 +199,7 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
 
 // Individual expression lowering methods
 impl<'a, 'db> MirBuilder<'a, 'db> {
+    /// Resolves an identifier by looking up its definition in the semantic index.
     fn lower_identifier(
         &mut self,
         name: &Spanned<String>,

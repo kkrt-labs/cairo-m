@@ -200,55 +200,10 @@ module {
 
     0:
       %0 = call 6()
-      // Lowered struct alloca for %1
-%16 = framealloc Position
-      // Get address of field 'x'
-%17 = getelementptr %16, 0
-      // Store field 'x'
-store %17, 0 (u32)
-      // Get address of field 'y'
-%18 = getelementptr %16, 2
-      // Store field 'y'
-store %18, 0 (u32)
-      // Alias struct value to alloca
-%1 = %16 (*Position)
-      // Lowered struct alloca for %2
-%19 = framealloc Character
-      // Get address of field 'health'
-%20 = getelementptr %19, 0
-      // Store field 'health'
-store %20, 100 (u32)
-      // Get address of field 'mana'
-%21 = getelementptr %19, 2
-      // Store field 'mana'
-store %21, 50 (u32)
-      // Get address of field 'level'
-%22 = getelementptr %19, 4
-      // Store field 'level'
-store %22, 5 (u32)
-      // Get address of field 'position'
-%23 = getelementptr %19, 6
-      // Store field 'position'
-store %23, %1 (Position)
-      // Alias struct value to alloca
-%2 = %19 (*Character)
+      %1 = makestruct { x: 0, y: 0 }
+      %2 = makestruct { health: 100, mana: 50, level: 5, position: %1 }
       %3, %4, %5 = call 1(%2)
-      // Lowered tuple alloca for %6
-%24 = framealloc (u32, u32, u32)
-      // Get address (offset 0) of tuple element 0
-%25 = getelementptr %24, 0
-      // Store tuple element 0
-store %25, %3 (u32)
-      // Get address (offset 2) of tuple element 1
-%26 = getelementptr %24, 2
-      // Store tuple element 1
-store %26, %4 (u32)
-      // Get address (offset 4) of tuple element 2
-%27 = getelementptr %24, 4
-      // Store tuple element 2
-store %27, %5 (u32)
-      // Alias tuple value to alloca
-%6 = %24 (*(u32, u32, u32))
+      %6 = maketuple %3, %4, %5
       // Get address (offset 2) of tuple element 1
 %8 = getelementptr %6, 2
       // Load tuple element 1
@@ -284,16 +239,10 @@ store %27, %5 (u32)
 
     0:
       %2 = extractfield %0, "x"
-      // Get address of field 'x' (lowered)
-%12 = getelementptr %16, 0
-      // Load field 'x' (lowered)
-%3 = load u32 %12
+      %3 = extractfield %1, "x"
       %4 = %2 U32Sub %3
       %5 = extractfield %0, "y"
-      // Get address of field 'y' (lowered)
-%13 = getelementptr %16, 0
-      // Load field 'y' (lowered)
-%6 = load u32 %13
+      %6 = extractfield %1, "y"
       %7 = %5 U32Sub %6
       %8 = %4 U32Mul %4
       %9 = %7 U32Mul %7
@@ -357,16 +306,10 @@ store %27, %5 (u32)
 
     0:
       %2 = extractfield %0, "position"
-      // Get address of field 'position' (lowered)
-%20 = getelementptr %16, 0
-      // Load field 'position' (lowered)
-%3 = load Position %20
+      %3 = extractfield %1, "position"
       %4 = call 2(%2, %3)
       %5 = extractfield %0, "level"
-      // Get address of field 'level' (lowered)
-%21 = getelementptr %16, 0
-      // Load field 'level' (lowered)
-%6 = load u32 %21
+      %6 = extractfield %1, "level"
       %7 = call 3(%5, %6, %4)
       %8 = extractfield %0, "mana"
       %9 = %8 U32Div 10
@@ -383,14 +326,8 @@ store %27, %5 (u32)
 
     2 (block_2):
       ; block_2
-      // Get address of field 'health' (lowered)
-%22 = getelementptr %16, 0
-      // Load field 'health' (lowered)
-%13 = load u32 %22
-      // Get address of field 'health' (lowered)
-%23 = getelementptr %16, 0
-      // Load field 'health' (lowered)
-%14 = load u32 %23
+      %13 = extractfield %1, "health"
+      %14 = extractfield %1, "health"
       %15 = %7 U32GreaterEqual %14
       if %15 then jump 3 else jump 4
 
@@ -401,32 +338,14 @@ store %27, %5 (u32)
 
     4 (block_4):
       ; block_4
-      // Get address of field 'health' (lowered)
-%24 = getelementptr %16, 0
-      // Load field 'health' (lowered)
-%16 = load u32 %24
+      %16 = extractfield %1, "health"
       %17 = %16 U32Sub %7
       store %13, %17 (u32)
       jump 5
 
     5 (block_5):
       ; block_5
-      // Lowered struct alloca for %18
-%25 = framealloc CombatResult
-      // Get address of field 'damage_dealt'
-%26 = getelementptr %25, 0
-      // Store field 'damage_dealt'
-store %26, %7 (u32)
-      // Get address of field 'critical_hit'
-%27 = getelementptr %25, 2
-      // Store field 'critical_hit'
-store %27, %10 (bool)
-      // Get address of field 'remaining_health'
-%28 = getelementptr %25, 3
-      // Store field 'remaining_health'
-store %28, %13 (u32)
-      // Alias struct value to alloca
-%18 = %25 (*CombatResult)
+      %18 = makestruct { damage_dealt: %7, critical_hit: %10, remaining_health: %13 }
       return %18
 
   }
@@ -438,10 +357,7 @@ store %28, %13 (u32)
 
     0:
       %2 = call 4(%0, %1)
-      // Get address of field 'remaining_health' (lowered)
-%10 = getelementptr %19, 0
-      // Load field 'remaining_health' (lowered)
-%3 = load u32 %10
+      %3 = extractfield %2, "remaining_health"
       %4 = %3 U32Greater 0
       if %4 then jump 1 else jump 2
 
@@ -478,70 +394,10 @@ store %28, %13 (u32)
     entry: 0
 
     0:
-      // Lowered struct alloca for %0
-%22 = framealloc Position
-      // Get address of field 'x'
-%23 = getelementptr %22, 0
-      // Store field 'x'
-store %23, 10 (u32)
-      // Get address of field 'y'
-%24 = getelementptr %22, 2
-      // Store field 'y'
-store %24, 20 (u32)
-      // Alias struct value to alloca
-%0 = %22 (*Position)
-      // Lowered struct alloca for %1
-%25 = framealloc Character
-      // Get address of field 'health'
-%26 = getelementptr %25, 0
-      // Store field 'health'
-store %26, 100 (u32)
-      // Get address of field 'mana'
-%27 = getelementptr %25, 2
-      // Store field 'mana'
-store %27, 50 (u32)
-      // Get address of field 'level'
-%28 = getelementptr %25, 4
-      // Store field 'level'
-store %28, 5 (u32)
-      // Get address of field 'position'
-%29 = getelementptr %25, 6
-      // Store field 'position'
-store %29, %0 (Position)
-      // Alias struct value to alloca
-%1 = %25 (*Character)
-      // Lowered struct alloca for %2
-%30 = framealloc Position
-      // Get address of field 'x'
-%31 = getelementptr %30, 0
-      // Store field 'x'
-store %31, 15 (u32)
-      // Get address of field 'y'
-%32 = getelementptr %30, 2
-      // Store field 'y'
-store %32, 25 (u32)
-      // Alias struct value to alloca
-%2 = %30 (*Position)
-      // Lowered struct alloca for %3
-%33 = framealloc Character
-      // Get address of field 'health'
-%34 = getelementptr %33, 0
-      // Store field 'health'
-store %34, 80 (u32)
-      // Get address of field 'mana'
-%35 = getelementptr %33, 2
-      // Store field 'mana'
-store %35, 30 (u32)
-      // Get address of field 'level'
-%36 = getelementptr %33, 4
-      // Store field 'level'
-store %36, 4 (u32)
-      // Get address of field 'position'
-%37 = getelementptr %33, 6
-      // Store field 'position'
-store %37, %2 (Position)
-      // Alias struct value to alloca
-%3 = %33 (*Character)
+      %0 = makestruct { x: 10, y: 20 }
+      %1 = makestruct { health: 100, mana: 50, level: 5, position: %0 }
+      %2 = makestruct { x: 15, y: 25 }
+      %3 = makestruct { health: 80, mana: 30, level: 4, position: %2 }
       %4 = 1 (u32)
       %5 = 10 (u32)
       jump 1
@@ -582,44 +438,28 @@ store %37, %2 (Position)
 
     9 (block_9):
       ; block_9
-      // Get address of field 'health' (lowered)
-%38 = getelementptr %25, 0
-      // Load field 'health' (lowered)
-%10 = load u32 %38
+      %10 = extractfield %1, "health"
       %11 = %10 U32Greater 10
       if %11 then jump 10 else jump 11
 
     10 (block_10):
       ; block_10
-      // Get address of field 'health' (lowered)
-%39 = getelementptr %25, 0
-      // Load field 'health' (lowered)
-%12 = load u32 %39
+      %12 = extractfield %1, "health"
       %13 = %12 U32Sub 5
-      // Get address of field 'health'
-%14 = getelementptr %1, 0
-      store %14, %13 (u32)
+      %14 = insertfield %1, "health", %13
       jump 11
 
     11 (block_11):
       ; block_11
-      // Get address of field 'health' (lowered)
-%40 = getelementptr %33, 0
-      // Load field 'health' (lowered)
-%15 = load u32 %40
+      %15 = extractfield %3, "health"
       %16 = %15 U32Greater 8
       if %16 then jump 12 else jump 13
 
     12 (block_12):
       ; block_12
-      // Get address of field 'health' (lowered)
-%41 = getelementptr %33, 0
-      // Load field 'health' (lowered)
-%17 = load u32 %41
+      %17 = extractfield %3, "health"
       %18 = %17 U32Sub 4
-      // Get address of field 'health'
-%19 = getelementptr %3, 0
-      store %19, %18 (u32)
+      %19 = insertfield %3, "health", %18
       jump 13
 
     13 (block_13):

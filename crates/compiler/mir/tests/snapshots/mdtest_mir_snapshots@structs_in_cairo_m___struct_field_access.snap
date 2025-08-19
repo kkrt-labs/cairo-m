@@ -22,25 +22,10 @@ module {
     entry: 0
 
     0:
-      // Lowered struct alloca for %0
-%6 = framealloc Rectangle
-      // Get address of field 'width'
-%7 = getelementptr %6, 0
-      // Store field 'width'
-store %7, 5
-      // Get address of field 'height'
-%8 = getelementptr %6, 1
-      // Store field 'height'
-store %8, 10
-      // Alias struct value to alloca
-%0 = %6 (*Rectangle)
-      // Get address of field 'width'
-%1 = getelementptr %0, 0
-      store %1, 7
-      // Folded ExtractStructField(0, "width")
-%2 = 5
-      // Folded ExtractStructField(0, "height")
-%3 = 10
+      %0 = makestruct { width: 5, height: 10 }
+      %1 = insertfield %0, "width", 7
+      %2 = extractfield %0, "width"
+      %3 = extractfield %0, "height"
       %4 = %2 Mul %3
       return %4
 

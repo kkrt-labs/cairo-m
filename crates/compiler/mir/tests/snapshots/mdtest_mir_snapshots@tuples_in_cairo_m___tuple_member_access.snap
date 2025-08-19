@@ -16,13 +16,11 @@ module {
     entry: 0
 
     0:
-      // Folded ExtractTupleElement(0, 0)
-%1 = 1
-      // Folded ExtractTupleElement(0, 1)
-%2 = 2
+      %0 = maketuple 1, 2, 3
+      %1 = extracttuple %0, 0
+      %2 = extracttuple %0, 1
       %3 = %1 Add %2
-      // Folded ExtractTupleElement(0, 2)
-%4 = 3
+      %4 = extracttuple %0, 2
       %5 = %3 Add %4
       return %5
 
