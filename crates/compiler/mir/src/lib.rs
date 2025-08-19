@@ -81,7 +81,7 @@ pub mod pipeline;
 pub mod terminator;
 pub mod value;
 
-pub use db::{generate_mir as db_generate_mir, MirDb};
+pub use db::MirDb;
 pub use lowering::generate_mir;
 
 #[cfg(test)]

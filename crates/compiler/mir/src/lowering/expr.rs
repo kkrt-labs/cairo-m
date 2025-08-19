@@ -24,11 +24,7 @@ pub trait LowerExpr<'a> {
 impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
     fn lower_expression(&mut self, expr: &Spanned<Expression>) -> Result<Value, String> {
         // First, get the ExpressionId and its associated info
-        let expr_id = self
-            .ctx
-            .semantic_index
-            .expression_id_by_span(expr.span())
-            .ok_or_else(|| format!("MIR: No ExpressionId found for span {:?}", expr.span()))?;
+        let expr_id = self.expr_id(expr.span())?;
 
         let expr_info = self
             .ctx
@@ -63,12 +59,14 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
             Expression::TupleIndex { tuple, index } => self.lower_tuple_index(tuple, *index),
         }
     }
-
 }
 
 // Individual expression lowering methods
 impl<'a, 'db> MirBuilder<'a, 'db> {
     /// Resolves an identifier by looking up its definition in the semantic index.
+    ///
+    /// With the value-first approach, most variables are bound to values directly.
+    /// Only arrays use pointers and require loading.
     fn lower_identifier(
         &mut self,
         name: &Spanned<String>,
@@ -84,32 +82,37 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
             // Look up the MIR value for this definition
             if let Some(var_value) = self.state.definition_to_value.get(&mir_def_id).copied() {
-                // Check if it's a parameter (parameters are always values, not pointers)
-                if self.state.mir_function.parameters.contains(&var_value) {
-                    // It's a parameter - use it directly
-                    return Ok(Value::operand(var_value));
-                }
-
-                // Get the type of the value to check if it's a pointer
+                // Get the type to check if this is an array pointer
                 let value_type = self.state.mir_function.get_value_type(var_value);
 
-                // Check if the type is a pointer - if so, we need to load
-                if let Some(MirType::Pointer(_)) = value_type {
-                    // It's a pointer - we need to load the value
-                    let semantic_type =
-                        definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
-                    let var_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
-                    let loaded_value = self.state.mir_function.new_typed_value_id(var_type.clone());
+                // Arrays are stored as pointers and need to be loaded
+                // All other types (primitives, structs, tuples) are stored as values
+                if let Some(MirType::Pointer(inner_type)) = value_type {
+                    if matches!(**inner_type, MirType::Array { .. }) {
+                        // Array pointer - load the array value
+                        let semantic_type =
+                            definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
+                        let var_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
+                        let loaded_value =
+                            self.state.mir_function.new_typed_value_id(var_type.clone());
 
-                    self.instr().load_with(
-                        var_type,
-                        loaded_value,
-                        Value::operand(var_value),
-                        format!("Load variable {}", name.value()),
-                    );
-                    return Ok(Value::operand(loaded_value));
+                        self.instr().load_with(
+                            var_type,
+                            loaded_value,
+                            Value::operand(var_value),
+                            format!("Load array variable {}", name.value()),
+                        );
+                        return Ok(Value::operand(loaded_value));
+                    }
+                    // Non-array pointers should not exist in value-first approach
+                    // This is likely an error in the lowering
+                    return Err(format!(
+                        "Unexpected pointer type for variable '{}': {:?}. Only arrays should use pointers.",
+                        name.value(),
+                        value_type
+                    ));
                 } else {
-                    // It's not a pointer - use it directly
+                    // It's a value (primitive, struct, tuple) - use directly
                     return Ok(Value::operand(var_value));
                 }
             }
@@ -155,11 +158,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // Register binary op result as a Value
 
         // Get the type of the left operand to determine the correct binary operation
-        let left_expr_id = self
-            .ctx
-            .semantic_index
-            .expression_id_by_span(left.span())
-            .ok_or_else(|| "No expression ID for left operand".to_string())?;
+        let left_expr_id = self.expr_id(left.span())?;
 
         let left_type = expression_semantic_type(
             self.ctx.db,
@@ -187,14 +186,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             CallResult::Tuple(values) => {
                 // For expression context, we need to return a single value
                 // Use MakeTuple to create a value-based tuple from the returned values
-                let semantic_type = expression_semantic_type(
-                    self.ctx.db,
-                    self.ctx.crate_id,
-                    self.ctx.file,
-                    expr_id,
-                    None,
-                );
-                let tuple_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
+                let tuple_type = self.ctx.get_expr_type(expr_id);
 
                 // Create a tuple value using MakeTuple instruction
                 let tuple_value = self.make_tuple(values, tuple_type);
@@ -355,14 +347,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         let tuple_val = self.lower_expression(tuple)?;
 
         // Get the semantic type of the tuple to determine element types
-        let tuple_expr_id = self
-            .ctx
-            .semantic_index
-            .expression_id_by_span(tuple.span())
-            .ok_or_else(|| "No ExpressionId for tuple in TupleIndex".to_string())?;
-
         // Get the MIR type of the tuple
-        let tuple_mir_type = self.ctx.get_expr_type(tuple_expr_id);
+        let tuple_mir_type = self.expr_mir_type(tuple.span())?;
 
         // Get element type
         let element_mir_type = match &tuple_mir_type {

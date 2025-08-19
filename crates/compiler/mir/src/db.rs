@@ -1,10 +1,7 @@
 //! Database traits and implementations for MIR generation with Salsa integration.
 
 use cairo_m_compiler_parser::Upcast;
-use cairo_m_compiler_semantic::db::Crate;
 use cairo_m_compiler_semantic::SemanticDb;
-
-use crate::MirModule;
 
 /// Database trait for MIR (Mid-level Intermediate Representation) queries.
 ///
@@ -14,20 +11,10 @@ use crate::MirModule;
 #[salsa::db]
 pub trait MirDb: SemanticDb + Upcast<dyn SemanticDb> {}
 
-/// Generate MIR for a crate.
-///
-/// This is the main entry point for MIR generation. It uses the semantic index
-/// to build the MIR module, with full incremental caching support.
-#[salsa::tracked]
-pub fn generate_mir(db: &dyn MirDb, crate_id: Crate) -> Option<MirModule> {
-    // Delegate to the existing generate_mir function from ir_generation
-    crate::lowering::generate_mir(db, crate_id)
-        .ok()
-        .map(|arc| (*arc).clone())
-}
-
 #[cfg(test)]
 pub mod tests {
+    use crate::generate_mir;
+    use cairo_m_compiler_semantic::db::Crate;
     use std::path::PathBuf;
 
     use super::*;

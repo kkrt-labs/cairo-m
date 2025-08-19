@@ -5,12 +5,11 @@
 
 use cairo_m_compiler_parser::parser::Spanned;
 use cairo_m_compiler_semantic::place::FileScopeId;
-use cairo_m_compiler_semantic::semantic_index::{DefinitionId, DefinitionIndex};
+use cairo_m_compiler_semantic::semantic_index::DefinitionId;
 use cairo_m_compiler_semantic::type_resolution::{
     definition_semantic_type, expression_semantic_type,
 };
 use cairo_m_compiler_semantic::types::TypeData;
-use cairo_m_compiler_semantic::SemanticIndex;
 
 use crate::instruction::CalleeSignature;
 use crate::{BasicBlockId, FunctionId, Instruction, Literal, MirType, Value, ValueId};
@@ -30,14 +29,16 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         self.state.loop_stack.last().copied()
     }
 
-    /// Binds a value to a variable identifier with complete lifecycle management
+    /// Binds a value to a variable identifier using pure value mapping
     ///
     /// This helper encapsulates:
     /// 1. Resolving the identifier to its DefinitionId and MirDefinitionId
-    /// 2. Checking if the variable is used (and early return if not)
-    /// 3. For simple values (not addresses), directly mapping the variable to the value
-    /// 4. For addresses, allocating stack space and storing the value
-    /// 5. Updating the definition_to_value mapping
+    /// 2. For operand values, directly mapping the variable to the value
+    /// 3. For literals, creating an assign instruction and mapping to the result
+    /// 4. Updating the definition_to_value mapping
+    ///
+    /// Note: Variables are always bound to values,
+    /// never to memory addresses. Arrays are handled separately with memory operations.
     pub fn bind_variable(
         &mut self,
         name: &Spanned<String>,
@@ -63,21 +64,14 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         let semantic_type = definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
         let var_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
 
-        // Handle primitive types and literals
         match value {
             Value::Operand(value_id) => {
-                if let Some(value_type) = self.state.mir_function.get_value_type(value_id) {
-                    if !matches!(value_type, MirType::Pointer(_)) {
-                        // It's a simple value, not a pointer. Use directly.
-                        self.state.definition_to_value.insert(mir_def_id, value_id);
-                        return Ok(());
-                    }
-                }
+                // All operand values are bound directly
+                self.state.definition_to_value.insert(mir_def_id, value_id);
+                Ok(())
             }
             Value::Literal(lit) => {
                 // Literals are immediate values - create a value instruction for them
-                // IMPORTANT: For primitive types, use the variable's type to preserve u32 vs felt distinction
-                // For aggregate types (tuple/struct), this path shouldn't be taken - those are handled elsewhere
                 let literal_type = match lit {
                     Literal::Integer(_) => {
                         // Use the variable's type to preserve u32 vs felt distinction
@@ -97,42 +91,15 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 self.instr()
                     .add_instruction(Instruction::assign(value_id, value, literal_type));
                 self.state.definition_to_value.insert(mir_def_id, value_id);
-                return Ok(());
+                Ok(())
             }
-            _ => {}
-        }
-
-        // For pointers (including tuple/struct addresses), just bind directly
-        // The allocation already exists and is populated
-        if let Value::Operand(value_id) = value {
-            if let Some(value_type) = self.state.mir_function.get_value_type(value_id) {
-                if matches!(value_type, MirType::Pointer(_)) {
-                    self.state.definition_to_value.insert(mir_def_id, value_id);
-                    return Ok(());
-                }
+            Value::Error => {
+                // Error values are used for recovery - create a placeholder
+                let value_id = self.state.mir_function.new_typed_value_id(var_type);
+                self.state.definition_to_value.insert(mir_def_id, value_id);
+                Ok(())
             }
         }
-
-        // Handle value-based aggregates (structs and tuples) by binding directly
-        match &var_type {
-            MirType::Struct { .. } | MirType::Tuple(_) => {
-                // For aggregates, try to bind the value directly without memory allocation
-                if let Value::Operand(value_id) = value {
-                    // This is a value-based aggregate (e.g., from MakeStruct or MakeTuple)
-                    // Bind directly to avoid unnecessary memory allocation
-                    self.state.definition_to_value.insert(mir_def_id, value_id);
-                    return Ok(());
-                }
-            }
-            _ => {}
-        }
-
-        // Fallback for cases we haven't handled (primitives, etc.)
-        let var_addr = self.alloc_frame(var_type.clone());
-        self.instr()
-            .store(Value::operand(var_addr), value, var_type);
-        self.state.definition_to_value.insert(mir_def_id, var_addr);
-        Ok(())
     }
 
     /// Emits a call instruction with destinations and proper signature
@@ -194,16 +161,4 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         }
         Ok(())
     }
-}
-
-pub(crate) fn is_definition_used(semantic_index: &SemanticIndex, def_idx: DefinitionIndex) -> bool {
-    semantic_index.definition(def_idx).is_none_or(|definition| {
-        semantic_index
-            .place_table(definition.scope_id)
-            .is_none_or(|place_table| {
-                place_table
-                    .place(definition.place_id)
-                    .is_none_or(|place| place.is_used())
-            })
-    })
 }

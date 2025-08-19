@@ -94,30 +94,6 @@ impl PreOptimizationPass {
         modified
     }
 
-    /// Calculate how many times each value is used
-    ///
-    /// This analysis walks through all instructions and terminators to count
-    /// how many times each ValueId is referenced. Values with zero uses can
-    /// potentially be eliminated.
-    fn calculate_value_use_counts(&self, function: &MirFunction) -> FxHashMap<ValueId, usize> {
-        let mut use_counts = FxHashMap::default();
-
-        for block in function.basic_blocks.iter() {
-            // Use the existing helper methods to get all used values
-            for instr in &block.instructions {
-                for used_value_id in instr.used_values() {
-                    *use_counts.entry(used_value_id).or_insert(0) += 1;
-                }
-            }
-
-            for used_value_id in block.terminator.used_values() {
-                *use_counts.entry(used_value_id).or_insert(0) += 1;
-            }
-        }
-
-        use_counts
-    }
-
     /// Remove dead stack allocations that are never used
     ///
     /// After eliminating dead stores, some stack allocations may become unused.
@@ -196,7 +172,7 @@ impl crate::passes::MirPass for PreOptimizationPass {
         let mut modified = false;
 
         // Calculate use counts once at the beginning
-        let mut use_counts = self.calculate_value_use_counts(function);
+        let mut use_counts = function.get_value_use_counts();
 
         // Run optimization passes in order:
         // 1. Dead instructions (computations that produce unused values)
@@ -208,7 +184,7 @@ impl crate::passes::MirPass for PreOptimizationPass {
 
         // Recompute use counts if we modified the function
         if instructions_modified {
-            use_counts = self.calculate_value_use_counts(function);
+            use_counts = function.get_value_use_counts();
         }
 
         // Re-enabled with conservative analysis - only eliminates stores to local frame allocations
@@ -221,7 +197,7 @@ impl crate::passes::MirPass for PreOptimizationPass {
 
         // Recompute use counts again if we modified stores
         if stores_modified {
-            use_counts = self.calculate_value_use_counts(function);
+            use_counts = function.get_value_use_counts();
         }
 
         modified |= self.eliminate_dead_allocations(function, &use_counts);

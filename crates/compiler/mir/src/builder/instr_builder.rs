@@ -57,11 +57,12 @@ impl<'f> InstrBuilder<'f> {
         self
     }
 
-    /// Create and add a load instruction with explicit destination
-    pub fn load_to(&mut self, ty: MirType, dest: ValueId, src: Value) -> &mut Self {
+    /// Create and add a load with automatic destination
+    pub fn load(&mut self, src: Value, ty: MirType) -> ValueId {
+        let dest = self.function.new_typed_value_id(ty.clone());
         let instr = Instruction::load(dest, ty, src);
         self.add_instruction(instr);
-        self
+        dest
     }
 
     /// Create and add a load instruction with a comment
@@ -157,59 +158,12 @@ impl<'f> InstrBuilder<'f> {
         dests
     }
 
-    /// Create a move instruction (essentially a load to a new location)
-    ///
-    /// ## Arguments
-    /// * `value` - The value to move
-    /// * `ty` - The type of the value
-    ///
-    /// ## Returns
-    /// The ValueId of the moved value (and optionally the instruction if created)
-    pub fn mov(&mut self, value: Value, ty: MirType) -> (Option<Instruction>, ValueId) {
-        match value {
-            Value::Literal(lit) => {
-                let dest = self.literal(lit, ty);
-                (None, dest) // The instruction was already added by literal()
-            }
-            Value::Operand(src) => {
-                // For operands, we can just return the same ID (SSA form)
-                (None, src)
-            }
-            Value::Error => {
-                // Create an error value
-                (None, self.function.new_typed_value_id(ty))
-            }
-        }
-    }
-
-    /// Add a get_element_ptr instruction with explicit destination
-    pub fn get_element_ptr_to(&mut self, dest: ValueId, base: Value, offset: Value) -> &mut Self {
-        let instr = Instruction::get_element_ptr(dest, base, offset);
-        self.add_instruction(instr);
-        self
-    }
-
-    /// Add an assign instruction with explicit destination
-    pub fn assign_to(&mut self, dest: ValueId, value: Value, ty: MirType) -> &mut Self {
-        let instr = Instruction::assign(dest, value, ty);
-        self.add_instruction(instr);
-        self
-    }
-
     /// Create and add a frame allocation with automatic destination
     pub fn alloc_frame(&mut self, ty: MirType) -> ValueId {
         let dest = self
             .function
             .new_typed_value_id(MirType::pointer(ty.clone()));
         let instr = Instruction::frame_alloc(dest, ty);
-        self.add_instruction(instr);
-        dest
-    }
-
-    /// Create and add a load with automatic destination
-    pub fn load(&mut self, src: Value, ty: MirType) -> ValueId {
-        let dest = self.function.new_typed_value_id(ty.clone());
-        let instr = Instruction::load(dest, ty, src);
         self.add_instruction(instr);
         dest
     }

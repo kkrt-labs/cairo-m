@@ -59,55 +59,15 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         value: &Spanned<Expression>,
     ) -> Result<(), String> {
         // Get the scope from the value expression (the let statement is in the same scope as its value)
-        let expr_id = self
-            .ctx
-            .semantic_index
-            .expression_id_by_span(value.span())
-            .ok_or_else(|| {
-                format!(
-                    "MIR: No ExpressionId found for value expression span {:?}",
-                    value.span()
-                )
-            })?;
+        let expr_id = self.expr_id(value.span())?;
         let expr_info =
             self.ctx.semantic_index.expression(expr_id).ok_or_else(|| {
                 format!("MIR: No ExpressionInfo for value expression ID {expr_id:?}")
             })?;
         let scope_id = expr_info.scope_id;
 
-        // Simply lower the expression and bind to pattern
+        // Lower the expression and bind to pattern using the generic pattern lowering
         let rhs_value = self.lower_expression(value)?;
-
-        // Handle special case for aggregate literals - use value-based assignment
-        // Struct and tuple literals should create values, not memory allocations
-        if let Pattern::Identifier(name) = pattern
-            && let Expression::StructLiteral { .. } | Expression::Tuple(_) = value.value()
-        {
-            if let Value::Operand(value_id) = rhs_value {
-                // The RHS expression created a value-based aggregate (MakeStruct/MakeTuple)
-                // Assign the value directly to the variable without memory allocation
-                if let Some((def_idx, _)) = self
-                    .ctx
-                    .semantic_index
-                    .resolve_name_to_definition(name.value(), scope_id)
-                {
-                    let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
-                    let mir_def_id = self.convert_definition_id(def_id);
-                    self.state.definition_to_value.insert(mir_def_id, value_id);
-                    return Ok(());
-                } else {
-                    return Err(format!(
-                        "Failed to resolve variable '{}' in scope {:?}",
-                        name.value(),
-                        scope_id
-                    ));
-                }
-            } else {
-                return Err("Expected a value from aggregate literal".to_string());
-            }
-        }
-
-        // Use the generic pattern lowering
         self.lower_pattern(pattern, rhs_value, scope_id)?;
         Ok(())
     }
@@ -124,16 +84,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         let expr = value.as_ref().unwrap();
         // Check if the expression type is a tuple
-        let expr_id = self
-            .ctx
-            .semantic_index
-            .expression_id_by_span(expr.span())
-            .ok_or_else(|| {
-                format!(
-                    "MIR: No ExpressionId found for return expression span {:?}",
-                    expr.span()
-                )
-            })?;
+        let expr_id = self.expr_id(expr.span())?;
         let expr_semantic_type =
             expression_semantic_type(self.ctx.db, self.ctx.crate_id, self.ctx.file, expr_id, None);
 
@@ -176,27 +127,30 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     ) -> Result<(), String> {
         // Check if RHS is a binary operation that we can optimize
         // Check if LHS is a field assignment that can be optimized
-        let lhs_expr_id = self
-            .ctx
-            .semantic_index
-            .expression_id_by_span(lhs.span())
-            .ok_or_else(|| format!("No ExpressionId found for LHS span {:?}", lhs.span()))?;
+        let lhs_expr_id = self.expr_id(lhs.span())?;
         let lhs_expr_info = self
             .ctx
             .semantic_index
             .expression(lhs_expr_id)
             .ok_or_else(|| format!("MIR: No ExpressionInfo for LHS ID {lhs_expr_id:?}"))?;
 
+        // Early out: plain identifier assignment => SSA rebind
+        if let Expression::Identifier(ref name) = &lhs_expr_info.ast_node {
+            let rhs_value = self.lower_expression(rhs)?;
+            return self.bind_variable(name, lhs_expr_info.scope_id, rhs_value);
+        }
+
         // Check if this is a field assignment (rect.width = value)
         if let Expression::MemberAccess { object, field } = &lhs_expr_info.ast_node {
             // Check if the object is a value-based variable (not memory-allocated)
             let struct_val = self.lower_expression(object)?;
 
-            // Query semantic type system for the field type
-            let field_type = self.ctx.get_expr_type(lhs_expr_id);
+            // Query semantic type system for the container (struct) type, not the field type
+            let struct_type = self.expr_mir_type(object.span())?;
             let rhs_value = self.lower_expression(rhs)?;
-            // Extract the field using ExtractStructField instruction
-            let new_struct_id = self.insert_struct_field(struct_val, field.value(), rhs_value, field_type);
+            // Insert the field using the container (struct) type
+            let new_struct_id =
+                self.insert_struct_field(struct_val, field.value(), rhs_value, struct_type);
             let obj_scope = lhs_expr_info.scope_id;
             // Rebind the object to the new value for pure SSA form
             if let Expression::Identifier(obj_name) = object.value() {
@@ -210,7 +164,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             // Check if the tuple is a value-based variable (not memory-allocated)
             let tuple_val = self.lower_expression(tuple)?;
             let rhs_value = self.lower_expression(rhs)?;
-            let tuple_type = self.ctx.get_expr_type(lhs_expr_id);
+            // Query semantic type system for the container (tuple) type, not the element type
+            let tuple_type = self.expr_mir_type(tuple.span())?;
             let new_tuple_id = self.insert_tuple(tuple_val, *index, rhs_value, tuple_type);
             let obj_scope = lhs_expr_info.scope_id;
             // Rebind the object to the new value for pure SSA form
@@ -230,19 +185,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         }
 
         // Standard assignment
-        let rhs_expr_id = self
-            .ctx
-            .semantic_index
-            .expression_id_by_span(rhs.span())
-            .ok_or_else(|| format!("No ExpressionId found for RHS span {:?}", rhs.span()))?;
-        let rhs_semantic_type = expression_semantic_type(
-            self.ctx.db,
-            self.ctx.crate_id,
-            self.ctx.file,
-            rhs_expr_id,
-            None,
-        );
-        let rhs_type = MirType::from_semantic_type(self.ctx.db, rhs_semantic_type);
+        let rhs_type = self.expr_mir_type(rhs.span())?;
         let lhs_address = self.lower_expression(lhs)?;
         let rhs_value = self.lower_expression(rhs)?;
         self.instr().store(lhs_address, rhs_value, rhs_type);
@@ -257,16 +200,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // For statement expressions, check if it's a function call that should be void
         if let Expression::FunctionCall { callee, args } = expr.value() {
             // Handle function calls as statements (void calls)
-            let expr_id = self
-                .ctx
-                .semantic_index
-                .expression_id_by_span(expr.span())
-                .ok_or_else(|| {
-                    format!(
-                        "MIR: No ExpressionId found for statement expression span {:?}",
-                        expr.span()
-                    )
-                })?;
+            let expr_id = self.expr_id(expr.span())?;
 
             // Try to resolve the function using our helper
             if let Ok(func_id) = self.resolve_callee_expression(callee) {
@@ -574,8 +508,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 self.bind_variable(name, scope_id, rhs_value)?;
             }
             Pattern::Tuple(names) => {
-                // Tuple destructuring from an already-lowered tuple address
-                let Value::Operand(tuple_addr) = rhs_value else {
+                // Tuple destructuring from a value-based tuple
+                let Value::Operand(tuple_value_id) = rhs_value else {
                     return Err(
                         "Tuple destructuring from non-operand expressions not yet supported"
                             .to_string(),
@@ -602,26 +536,11 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     element_types.push(MirType::from_semantic_type(self.ctx.db, semantic_type));
                 }
 
-                // Extract each element using proper offsets
+                // Extract each element from the tuple value and bind to variables
                 for (index, name) in names.iter().enumerate() {
-                    let (def_idx, _) = self
-                        .ctx
-                        .semantic_index
-                        .resolve_name_to_definition(name.value(), scope_id)
-                        .ok_or_else(|| {
-                            format!(
-                                "Failed to resolve variable '{}' in scope {:?}",
-                                name.value(),
-                                scope_id
-                            )
-                        })?;
-
-                    let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
-                    let mir_def_id = self.convert_definition_id(def_id);
-
                     let element_mir_type = element_types[index].clone();
 
-                    // Get pointer to tuple element and load
+                    // Extract the element using ExtractTupleElement instruction
                     let elem_value_id = self
                         .state
                         .mir_function
@@ -630,15 +549,13 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     self.instr()
                         .add_instruction(Instruction::extract_tuple_element(
                             elem_value_id,
-                            Value::operand(tuple_addr),
+                            Value::operand(tuple_value_id),
                             index,
                             element_mir_type,
                         ));
 
-                    // Map the variable directly to the extracted value
-                    self.state
-                        .definition_to_value
-                        .insert(mir_def_id, elem_value_id);
+                    // Bind the extracted value to the variable using the unified helper
+                    self.bind_variable(name, scope_id, Value::operand(elem_value_id))?;
                 }
             }
         }
