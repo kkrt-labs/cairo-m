@@ -1,0 +1,17 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: If-Else Statements in Cairo-M - Simple If 2"
+input_file: mdtest/02-control-flow/01-if-else.md
+---
+Source:
+fn test_simple_if(x: felt) -> felt {
+    if true {
+        return 2;
+    }
+    return 0;
+}
+============================================================
+Result: UNEXPECTED ERROR
+Code generation failed: UnresolvedLabel(
+    "Label test_simple_if_2 has invalid address 2",
+)

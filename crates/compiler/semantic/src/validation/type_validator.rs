@@ -1212,7 +1212,11 @@ impl TypeValidator {
                 object: _,
                 field: _,
             } => {
-                // TODO: Check if the field is mutable
+                // Member access (struct fields) are valid assignment targets
+                // TODO: Check if the field/member is mutable once mutability is implemented
+            }
+            Expression::TupleIndex { .. } => {
+                // Tuple index is valid assignment target
             }
             Expression::IndexAccess { array: _, index: _ } => {
                 // TODO: Check if the array element is mutable
