@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1754580400634,
+  "lastUpdate": 1755692497248,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -1049,6 +1049,36 @@ window.BENCHMARK_DATA = {
             "name": "prover_fibonacci/prove",
             "value": 6075352372,
             "range": "± 36842624",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antoine.fondeur@gmail.com",
+            "name": "Antoine Fondeur",
+            "username": "AntoineFONDEUR"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1a50c20aaaa42f0648c590185b1b99d67b00b455",
+          "message": "feat(prover): updated public memory (#189)\n\n* update public memory and refacto merkle tree\n\n* fix rebase\n\n* fix: fix rebase\n\n---------\n\nCo-authored-by: malatrax <71888134+zmalatrax@users.noreply.github.com>",
+          "timestamp": "2025-08-20T14:05:42+02:00",
+          "tree_id": "7a1424080579b64fa9e2e3a42e9b110f610f0b05",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/1a50c20aaaa42f0648c590185b1b99d67b00b455"
+        },
+        "date": 1755692496683,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 6534802714,
+            "range": "± 31170601",
             "unit": "ns/iter"
           }
         ]
