@@ -1,0 +1,38 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Tuples in Cairo-M - Nested Tuples"
+input_file: mdtest/03-types/01-tuples.md
+---
+Source:
+fn nested_tuples() -> felt {
+    let tuple = (1, 2, (3, 4));
+    return foo(tuple);
+}
+
+fn foo(input: (felt, felt, (felt, felt))) -> felt {
+    let (a, b, (c, d)) = input;
+    return a + b + c + d;
+}
+============================================================
+Generated CASM:
+nested_tuples:
+nested_tuples:
+nested_tuples_0:
+   0: 9 3 0 _              // [fp + 0] = 3
+   1: 9 4 1 _              // [fp + 1] = 4
+   2: 9 1 2 _              // [fp + 2] = 1
+   3: 9 2 3 _              // [fp + 3] = 2
+   4: 4 0 0 4              // [fp + 4] = [fp + 0] + 0
+   5: 4 1 0 5              // [fp + 5] = [fp + 1] + 0
+   6: 4 2 0 7              // Arg 0 slot 0: [fp + 7] = [fp + 2] + 0
+   7: 4 3 0 8              // Arg 0 slot 1: [fp + 8] = [fp + 3] + 0
+   8: 4 4 0 9              // Arg 0 slot 2: [fp + 9] = [fp + 4] + 0
+   9: 4 5 0 10             // Arg 0 slot 3: [fp + 10] = [fp + 5] + 0
+  10: 10 12 13 _           // call foo
+  11: 4 11 0 -3            // Return value 0: [fp -3] = [fp + 11] + 0
+  12: 11 _ _ _             // return
+foo:
+  13: 0 -7 -6 6            // [fp + 6] = [fp + -7] op [fp + -6]
+  14: 0 6 -5 7             // [fp + 7] = [fp + 6] op [fp + -5]
+  15: 0 7 -4 -3            // [fp + -3] = [fp + 7] op [fp + -4]
+  16: 11 _ _ _             // return

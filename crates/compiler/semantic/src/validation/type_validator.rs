@@ -1090,22 +1090,58 @@ impl TypeValidator {
                     }
                 }
             }
-            Pattern::Tuple(names) => {
-                // Tuple pattern - check that RHS is a tuple with matching arity
+            Pattern::Tuple(patterns) => {
+                // Tuple pattern - check that RHS is a tuple with matching structure
                 match value_type.data(db) {
                     TypeData::Tuple(element_types) => {
-                        if element_types.len() != names.len() {
+                        if element_types.len() != patterns.len() {
                             sink.push(
                                 Diagnostic::error(
                                     DiagnosticCode::TypeMismatch,
                                     format!(
                                         "Tuple pattern has {} elements but value has {} elements",
-                                        names.len(),
+                                        patterns.len(),
                                         element_types.len()
                                     ),
                                 )
                                 .with_location(file.file_path(db).to_string(), value.span()),
                             );
+                        }
+
+                        // Recursively check nested patterns
+                        for (pattern, elem_type) in patterns.iter().zip(element_types.iter()) {
+                            if let Pattern::Tuple(nested_patterns) = pattern {
+                                // Check nested tuple pattern matches nested tuple type
+                                match elem_type.data(db) {
+                                    TypeData::Tuple(nested_types) => {
+                                        if nested_types.len() != nested_patterns.len() {
+                                            sink.push(
+                                                Diagnostic::error(
+                                                    DiagnosticCode::TypeMismatch,
+                                                    format!(
+                                                        "Nested tuple pattern has {} elements but value has {} elements",
+                                                        nested_patterns.len(),
+                                                        nested_types.len()
+                                                    ),
+                                                )
+                                                .with_location(file.file_path(db).to_string(), value.span()),
+                                            );
+                                        }
+                                    }
+                                    _ => {
+                                        sink.push(
+                                            Diagnostic::error(
+                                                DiagnosticCode::TypeMismatch,
+                                                format!(
+                                                    "Expected tuple type for nested tuple pattern, found `{}`",
+                                                    elem_type.data(db).display_name(db)
+                                                ),
+                                            )
+                                            .with_location(file.file_path(db).to_string(), value.span()),
+                                        );
+                                    }
+                                }
+                            }
                         }
 
                         // If a type annotation is provided, it should be a tuple type

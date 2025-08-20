@@ -212,8 +212,8 @@ pub struct Parameter {
 pub enum Pattern {
     /// Single identifier pattern (e.g., `x`)
     Identifier(Spanned<String>),
-    /// Tuple pattern for destructuring (e.g., `(x, y, z)`)
-    Tuple(Vec<Spanned<String>>),
+    /// Tuple pattern for destructuring (e.g., `(x, y, z)` or `(x, (y, z))`)
+    Tuple(Vec<Pattern>),
 }
 
 /// Represents a statement in the Cairo-M language.
@@ -951,9 +951,12 @@ where
     let type_expr = type_expr_parser();
 
     // Pattern parser for destructuring
-    let pattern = {
-        // Tuple pattern: (x, y, z)
-        let tuple_pattern = spanned_ident
+    let pattern = recursive(|pattern| {
+        // Single identifier pattern
+        let ident_pattern = spanned_ident.clone().map(Pattern::Identifier);
+
+        // Tuple pattern: (x, y, z) or (x, (y, z))
+        let tuple_pattern = pattern
             .clone()
             .separated_by(just(TokenType::Comma))
             .at_least(2)
@@ -961,12 +964,9 @@ where
             .delimited_by(just(TokenType::LParen), just(TokenType::RParen))
             .map(Pattern::Tuple);
 
-        // Single identifier pattern
-        let ident_pattern = spanned_ident.clone().map(Pattern::Identifier);
-
         // Try tuple pattern first, then fall back to identifier
         tuple_pattern.or(ident_pattern)
-    };
+    });
 
     recursive(|statement| {
         // Block statement: { stmt1; stmt2; stmt3; }

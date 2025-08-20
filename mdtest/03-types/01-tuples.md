@@ -55,3 +55,17 @@ fn assign_tuple_member() -> felt {
     return my_tuple.0 + my_tuple.1 + my_tuple.2;
 }
 ```
+
+## Nested Tuples
+
+```cairo-m
+fn nested_tuples() -> felt {
+    let tuple = (1, 2, (3, 4));
+    return foo(tuple);
+}
+
+fn foo(input: (felt, felt, (felt, felt))) -> felt {
+    let (a, b, (c, d)) = input;
+    return a + b + c + d;
+}
+```

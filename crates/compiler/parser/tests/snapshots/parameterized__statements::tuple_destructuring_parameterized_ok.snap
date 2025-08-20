@@ -25,13 +25,17 @@ fn test() { let (x, y) = (1, 2); }
                         Let {
                             pattern: Tuple(
                                 [
-                                    Spanned(
-                                        "x",
-                                        17..18,
+                                    Identifier(
+                                        Spanned(
+                                            "x",
+                                            17..18,
+                                        ),
                                     ),
-                                    Spanned(
-                                        "y",
-                                        20..21,
+                                    Identifier(
+                                        Spanned(
+                                            "y",
+                                            20..21,
+                                        ),
                                     ),
                                 ],
                             ),
@@ -91,13 +95,17 @@ fn test() { let (x, y): (felt, felt) = (1, 2); }
                         Let {
                             pattern: Tuple(
                                 [
-                                    Spanned(
-                                        "x",
-                                        17..18,
+                                    Identifier(
+                                        Spanned(
+                                            "x",
+                                            17..18,
+                                        ),
                                     ),
-                                    Spanned(
-                                        "y",
-                                        20..21,
+                                    Identifier(
+                                        Spanned(
+                                            "y",
+                                            20..21,
+                                        ),
                                     ),
                                 ],
                             ),
@@ -183,13 +191,17 @@ fn test() { let (x, y) = get_pair(); }
                         Let {
                             pattern: Tuple(
                                 [
-                                    Spanned(
-                                        "x",
-                                        17..18,
+                                    Identifier(
+                                        Spanned(
+                                            "x",
+                                            17..18,
+                                        ),
                                     ),
-                                    Spanned(
-                                        "y",
-                                        20..21,
+                                    Identifier(
+                                        Spanned(
+                                            "y",
+                                            20..21,
+                                        ),
                                     ),
                                 ],
                             ),
@@ -243,13 +255,17 @@ fn test() { let (sum, diff) = (a + b, a - b); }
                         Let {
                             pattern: Tuple(
                                 [
-                                    Spanned(
-                                        "sum",
-                                        17..20,
+                                    Identifier(
+                                        Spanned(
+                                            "sum",
+                                            17..20,
+                                        ),
                                     ),
-                                    Spanned(
-                                        "diff",
-                                        22..26,
+                                    Identifier(
+                                        Spanned(
+                                            "diff",
+                                            22..26,
+                                        ),
                                     ),
                                 ],
                             ),
@@ -343,17 +359,23 @@ fn test() { let (x, y, z) = (1, 2, 3); }
                         Let {
                             pattern: Tuple(
                                 [
-                                    Spanned(
-                                        "x",
-                                        17..18,
+                                    Identifier(
+                                        Spanned(
+                                            "x",
+                                            17..18,
+                                        ),
                                     ),
-                                    Spanned(
-                                        "y",
-                                        20..21,
+                                    Identifier(
+                                        Spanned(
+                                            "y",
+                                            20..21,
+                                        ),
                                     ),
-                                    Spanned(
-                                        "z",
-                                        23..24,
+                                    Identifier(
+                                        Spanned(
+                                            "z",
+                                            23..24,
+                                        ),
                                     ),
                                 ],
                             ),
@@ -420,13 +442,17 @@ fn test() { let (x, y): (felt, felt) = (42, 84); }
                         Let {
                             pattern: Tuple(
                                 [
-                                    Spanned(
-                                        "x",
-                                        17..18,
+                                    Identifier(
+                                        Spanned(
+                                            "x",
+                                            17..18,
+                                        ),
                                     ),
-                                    Spanned(
-                                        "y",
-                                        20..21,
+                                    Identifier(
+                                        Spanned(
+                                            "y",
+                                            20..21,
+                                        ),
                                     ),
                                 ],
                             ),
@@ -512,13 +538,17 @@ fn test() { let (a, b): (felt, felt) = (1, 2); }
                         Let {
                             pattern: Tuple(
                                 [
-                                    Spanned(
-                                        "a",
-                                        17..18,
+                                    Identifier(
+                                        Spanned(
+                                            "a",
+                                            17..18,
+                                        ),
                                     ),
-                                    Spanned(
-                                        "b",
-                                        20..21,
+                                    Identifier(
+                                        Spanned(
+                                            "b",
+                                            20..21,
+                                        ),
                                     ),
                                 ],
                             ),

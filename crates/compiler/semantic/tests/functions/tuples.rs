@@ -63,3 +63,12 @@ fn test_tuple_indexing() {
         ]
     }
 }
+
+#[test]
+fn test_nested_tuples() {
+    assert_semantic_parameterized! {
+        ok: [
+            "fn nested_tuples() -> felt { let tuple = (1, 2, (3, 4)); return foo(tuple); } fn foo(input: (felt, felt, (felt, felt))) -> felt { let (a, b, (c, d)) = input; return a + b + c + d; }"
+        ]
+    }
+}

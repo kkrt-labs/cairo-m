@@ -41,25 +41,36 @@ pub fn check_duplicate_pattern_identifiers(
     file_path: &str,
     sink: &dyn DiagnosticSink,
 ) {
-    match pattern {
-        Pattern::Tuple(names) => {
-            let mut all_names = FxHashSet::with_capacity_and_hasher(names.len(), FxBuildHasher);
-            for name in names {
-                if !all_names.insert(name.value().as_str()) {
-                    sink.push(
-                        Diagnostic::error(
-                            DiagnosticCode::DuplicatePatternIdentifier,
-                            format!(
-                                "identifier `{}` is bound more than once in the same pattern",
-                                name.value()
-                            ),
-                        )
-                        .with_location(file_path.to_string(), name.span()),
-                    );
+    // Helper to collect all identifiers from nested patterns
+    fn collect_identifiers(pattern: &Pattern) -> Vec<&Spanned<String>> {
+        match pattern {
+            Pattern::Identifier(name) => vec![name],
+            Pattern::Tuple(patterns) => {
+                let mut result = Vec::new();
+                for p in patterns {
+                    result.extend(collect_identifiers(p));
                 }
+                result
             }
         }
-        Pattern::Identifier(_) => {}
+    }
+
+    let identifiers = collect_identifiers(pattern);
+    let mut all_names = FxHashSet::with_capacity_and_hasher(identifiers.len(), FxBuildHasher);
+
+    for name in identifiers {
+        if !all_names.insert(name.value().as_str()) {
+            sink.push(
+                Diagnostic::error(
+                    DiagnosticCode::DuplicatePatternIdentifier,
+                    format!(
+                        "identifier `{}` is bound more than once in the same pattern",
+                        name.value()
+                    ),
+                )
+                .with_location(file_path.to_string(), name.span()),
+            );
+        }
     }
 }
 

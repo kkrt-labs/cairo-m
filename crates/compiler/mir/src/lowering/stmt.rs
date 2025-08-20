@@ -582,7 +582,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 // Simple identifier binding - use our new helper
                 self.bind_variable(name.value(), name.span(), rhs_value, scope_id)?;
             }
-            Pattern::Tuple(names) => {
+            Pattern::Tuple(patterns) => {
                 // Tuple destructuring from a value-based tuple
                 let Value::Operand(tuple_value_id) = rhs_value else {
                     return Err(
@@ -591,28 +591,16 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     );
                 };
 
-                // Build the tuple type from element types
+                // Build element types for this level of the tuple
                 let mut element_types = Vec::new();
-                for name in names.iter() {
-                    let (def_idx, _) = self
-                        .ctx
-                        .semantic_index
-                        .resolve_name_to_definition(name.value(), scope_id)
-                        .ok_or_else(|| {
-                            format!(
-                                "Failed to resolve variable '{}' in scope {:?}",
-                                name.value(),
-                                scope_id
-                            )
-                        })?;
-                    let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
-                    let semantic_type =
-                        definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
-                    element_types.push(MirType::from_semantic_type(self.ctx.db, semantic_type));
+                for pattern in patterns.iter() {
+                    // Get the type for this element (could be another tuple or a simple type)
+                    let element_type = self.get_pattern_type(pattern, scope_id)?;
+                    element_types.push(element_type);
                 }
 
-                // Extract each element from the tuple value and bind to variables
-                for (index, name) in names.iter().enumerate() {
+                // Extract each element from the tuple and recursively handle nested patterns
+                for (index, pattern) in patterns.iter().enumerate() {
                     let element_mir_type = element_types[index].clone();
 
                     // Extract the element using ExtractTupleElement instruction
@@ -629,16 +617,47 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                             element_mir_type,
                         ));
 
-                    // Bind the extracted value to the variable using the unified helper
-                    self.bind_variable(
-                        name.value(),
-                        name.span(),
-                        Value::operand(elem_value_id),
-                        scope_id,
-                    )?;
+                    // Recursively lower the nested pattern
+                    self.lower_pattern(pattern, Value::operand(elem_value_id), scope_id)?;
                 }
             }
         }
         Ok(())
+    }
+
+    /// Helper to get the MIR type for a pattern
+    fn get_pattern_type(
+        &self,
+        pattern: &Pattern,
+        scope_id: FileScopeId,
+    ) -> Result<MirType, String> {
+        match pattern {
+            Pattern::Identifier(name) => {
+                // Get the type of this identifier from semantic analysis
+                let (def_idx, _) = self
+                    .ctx
+                    .semantic_index
+                    .resolve_name_to_definition(name.value(), scope_id)
+                    .ok_or_else(|| {
+                        format!(
+                            "Failed to resolve variable '{}' in scope {:?}",
+                            name.value(),
+                            scope_id
+                        )
+                    })?;
+                let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
+                let semantic_type =
+                    definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
+                Ok(MirType::from_semantic_type(self.ctx.db, semantic_type))
+            }
+            Pattern::Tuple(patterns) => {
+                // Recursively get types for nested patterns
+                let mut element_types = Vec::new();
+                for pattern in patterns {
+                    element_types.push(self.get_pattern_type(pattern, scope_id)?);
+                }
+                Ok(MirType::Tuple(element_types))
+            }
+        }
     }
 }

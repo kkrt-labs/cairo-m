@@ -162,20 +162,26 @@ pub fn definition_semantic_type<'db>(
         }) => resolve_ast_type(db, crate_id, file, type_ast.clone(), definition.scope_id),
         DefinitionKind::Let(let_ref) => {
             // Check if this is from tuple destructuring
-            if let Some((value_expr_id, index)) = let_ref.destructuring_info {
+            if let Some((value_expr_id, path)) = &let_ref.destructuring_info {
                 // Get the type of the RHS tuple expression
-                let tuple_type = expression_semantic_type(db, crate_id, file, value_expr_id, None);
-                // Extract the type of the element at the given index
-                match tuple_type.data(db) {
-                    TypeData::Tuple(element_types) => {
-                        if index < element_types.len() {
-                            element_types[index]
-                        } else {
-                            TypeId::new(db, TypeData::Error)
+                let mut current_type =
+                    expression_semantic_type(db, crate_id, file, *value_expr_id, None);
+
+                // Navigate through nested tuple types using the path
+                for &index in path {
+                    match current_type.data(db) {
+                        TypeData::Tuple(element_types) => {
+                            if index < element_types.len() {
+                                current_type = element_types[index];
+                            } else {
+                                return TypeId::new(db, TypeData::Error);
+                            }
                         }
+                        _ => return TypeId::new(db, TypeData::Error),
                     }
-                    _ => TypeId::new(db, TypeData::Error),
                 }
+
+                current_type
             } else {
                 // Regular let variable
                 resolve_variable_type(
