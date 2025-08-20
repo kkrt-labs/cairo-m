@@ -28,19 +28,24 @@ test_conditional_jumps:
 test_conditional_jumps_0:
    0: 9 10 0 _             // [fp + 0] = 10
    1: 9 0 1 _              // [fp + 1] = 0
-   2: 14 0 2 _             // if [fp + 0] != 0 jmp rel test_conditional_jumps_1
-   3: 12 5 _ _             // jump abs test_conditional_jumps_2
+   2: 4 1 0 2              // [fp + 2] = [fp + 1] + 0
+   3: 14 0 2 _             // if [fp + 0] != 0 jmp rel test_conditional_jumps_1
+   4: 12 16 _ _            // jump abs test_conditional_jumps_6
 test_conditional_jumps_1:
-   4: 9 100 1 _            // Store immediate: [fp + 1] = 100
+   5: 9 100 3 _            // [fp + 3] = 100
+   6: 4 3 0 2              // [fp + 2] = [fp + 3] + 0
 test_conditional_jumps_2:
-   5: 5 0 5 3              // [fp + 3] = [fp + 0] op 5
-   6: 14 3 3 _             // if [fp + 3] != 0 jmp rel test_conditional_jumps_4
+   7: 5 0 5 7              // [fp + 7] = [fp + 0] op 5
+   8: 14 7 4 _             // if [fp + 7] != 0 jmp rel test_conditional_jumps_4
 test_conditional_jumps_3:
-   7: 9 200 1 _            // Store immediate: [fp + 1] = 200
-   8: 12 11 _ _            // jump abs test_conditional_jumps_5
+   9: 9 200 4 _            // [fp + 4] = 200
+  10: 4 4 0 5              // [fp + 5] = [fp + 4] + 0
+  11: 12 14 _ _            // jump abs test_conditional_jumps_5
 test_conditional_jumps_4:
-   9: 4 1 50 2             // [fp + 2] = [fp + 1] op 50
-  10: 4 2 0 1              // Store: [fp + 1] = [fp + 2] + 0
+  12: 4 2 50 6             // [fp + 6] = [fp + 2] op 50
+  13: 4 6 0 5              // [fp + 5] = [fp + 6] + 0
 test_conditional_jumps_5:
-  11: 4 1 0 -3             // Return value 0: [fp -3] = [fp + 1] + 0
-  12: 11 _ _ _             // return
+  14: 4 5 0 -3             // Return value 0: [fp -3] = [fp + 5] + 0
+  15: 11 _ _ _             // return
+test_conditional_jumps_6:
+  16: 12 7 _ _             // jump abs test_conditional_jumps_2

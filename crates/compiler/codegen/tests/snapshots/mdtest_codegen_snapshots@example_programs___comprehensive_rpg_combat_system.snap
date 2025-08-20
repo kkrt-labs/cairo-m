@@ -193,6 +193,6 @@ fn simulate_full_battle() -> u32 {
 }
 ============================================================
 Result: UNEXPECTED ERROR
-Code generation failed: InvalidMir(
-    "Aggregate value operations should be lowered before code generation",
+Code generation failed: LayoutError(
+    "No layout found for value 1",
 )

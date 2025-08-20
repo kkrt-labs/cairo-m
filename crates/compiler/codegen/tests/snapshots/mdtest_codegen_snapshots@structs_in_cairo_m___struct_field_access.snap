@@ -15,7 +15,11 @@ fn calculate_area() -> felt {
     return rect.width * rect.height;  // Returns 70
 }
 ============================================================
-Result: UNEXPECTED ERROR
-Code generation failed: InvalidMir(
-    "Aggregate value operations should be lowered before code generation",
-)
+Generated CASM:
+calculate_area:
+calculate_area:
+calculate_area_0:
+   0: 9 7 0 _              // [fp + 0] = 7
+   1: 9 10 1 _             // [fp + 1] = 10
+   2: 2 0 1 -3             // [fp + -3] = [fp + 0] op [fp + 1]
+   3: 11 _ _ _             // return

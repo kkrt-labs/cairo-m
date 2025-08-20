@@ -125,29 +125,41 @@ or_true_22:
   62: 9 1 14 _             // [fp + 14] = 1
 or_end_23:
   63: 9 0 15 _             // [fp + 15] = 0
-  64: 14 5 2 _             // if [fp + 5] != 0 jmp rel test_logical_ops_1
-  65: 12 68 _ _            // jump abs test_logical_ops_2
+  64: 4 15 0 16            // [fp + 16] = [fp + 15] + 0
+  65: 14 5 2 _             // if [fp + 5] != 0 jmp rel test_logical_ops_1
+  66: 12 86 _ _            // jump abs test_logical_ops_9
 test_logical_ops_1:
-  66: 4 15 1 16            // [fp + 16] = [fp + 15] op 1
-  67: 4 16 0 15            // Store: [fp + 15] = [fp + 16] + 0
+  67: 4 15 1 17            // [fp + 17] = [fp + 15] op 1
+  68: 4 17 0 16            // [fp + 16] = [fp + 17] + 0
 test_logical_ops_2:
-  68: 14 8 2 _             // if [fp + 8] != 0 jmp rel test_logical_ops_3
-  69: 12 72 _ _            // jump abs test_logical_ops_4
+  69: 4 16 0 18            // [fp + 18] = [fp + 16] + 0
+  70: 14 8 2 _             // if [fp + 8] != 0 jmp rel test_logical_ops_3
+  71: 12 87 _ _            // jump abs test_logical_ops_10
 test_logical_ops_3:
-  70: 4 15 1 17            // [fp + 17] = [fp + 15] op 1
-  71: 4 17 0 15            // Store: [fp + 15] = [fp + 17] + 0
+  72: 4 16 1 19            // [fp + 19] = [fp + 16] op 1
+  73: 4 19 0 18            // [fp + 18] = [fp + 19] + 0
 test_logical_ops_4:
-  72: 14 11 2 _            // if [fp + 11] != 0 jmp rel test_logical_ops_5
-  73: 12 76 _ _            // jump abs test_logical_ops_6
+  74: 4 18 0 20            // [fp + 20] = [fp + 18] + 0
+  75: 14 11 2 _            // if [fp + 11] != 0 jmp rel test_logical_ops_5
+  76: 12 88 _ _            // jump abs test_logical_ops_11
 test_logical_ops_5:
-  74: 4 15 1 18            // [fp + 18] = [fp + 15] op 1
-  75: 4 18 0 15            // Store: [fp + 15] = [fp + 18] + 0
+  77: 4 18 1 21            // [fp + 21] = [fp + 18] op 1
+  78: 4 21 0 20            // [fp + 20] = [fp + 21] + 0
 test_logical_ops_6:
-  76: 14 14 2 _            // if [fp + 14] != 0 jmp rel test_logical_ops_7
-  77: 12 80 _ _            // jump abs test_logical_ops_8
+  79: 4 20 0 22            // [fp + 22] = [fp + 20] + 0
+  80: 14 14 2 _            // if [fp + 14] != 0 jmp rel test_logical_ops_7
+  81: 12 89 _ _            // jump abs test_logical_ops_12
 test_logical_ops_7:
-  78: 4 15 1 19            // [fp + 19] = [fp + 15] op 1
-  79: 4 19 0 15            // Store: [fp + 15] = [fp + 19] + 0
+  82: 4 20 1 23            // [fp + 23] = [fp + 20] op 1
+  83: 4 23 0 22            // [fp + 22] = [fp + 23] + 0
 test_logical_ops_8:
-  80: 4 15 0 -3            // Return value 0: [fp -3] = [fp + 15] + 0
-  81: 11 _ _ _             // return
+  84: 4 22 0 -3            // Return value 0: [fp -3] = [fp + 22] + 0
+  85: 11 _ _ _             // return
+test_logical_ops_9:
+  86: 12 69 _ _            // jump abs test_logical_ops_2
+test_logical_ops_10:
+  87: 12 74 _ _            // jump abs test_logical_ops_4
+test_logical_ops_11:
+  88: 12 79 _ _            // jump abs test_logical_ops_6
+test_logical_ops_12:
+  89: 12 84 _ _            // jump abs test_logical_ops_8

@@ -20,7 +20,7 @@ Generated CASM:
 deep_recursion:
 deep_recursion:
 deep_recursion_0:
-   0: 32 -6 1000 0 0       // u32([fp + 0], [fp + 1]) = u32([fp + -6], [fp + -5]) op u32(1000, 0)
+   0: 32 -6 1000 0 0       // [fp + 0] = u32([fp + -6], [fp + -5]) U32Greater u32(1000, 0)
    1: 14 0 2 _             // if [fp + 0] != 0 jmp rel deep_recursion_1
    2: 12 7 _ _             // jump abs deep_recursion_2
 deep_recursion_1:
@@ -28,21 +28,21 @@ deep_recursion_1:
    4: 4 -7 0 -3            // Return value 0 slot 1: [fp -3] = [fp + -7] + 0
    5: 11 _ _ _             // return
 deep_recursion_2:
-   6: 35 -8 1 0 1          // u32([fp + 1], [fp + 2]) = u32([fp + -8], [fp + -7]) op u32(1, 0)
+   6: 35 -8 1 0 1          // [fp + 1] = u32([fp + -8], [fp + -7]) U32LessEqual u32(1, 0)
    7: 14 1 2 _             // if [fp + 1] != 0 jmp rel deep_recursion_3
    8: 12 13 _ _            // jump abs deep_recursion_4
 deep_recursion_3:
    9: 23 1 0 -4            // Return value 0: [fp -4, fp -4 + 1] = u32(1)
   10: 11 _ _ _             // return
 deep_recursion_4:
-  11: 20 -8 1 0 2          // u32([fp + 2], [fp + 3]) = u32([fp + -8], [fp + -7]) op u32(1, 0)
-  12: 19 -6 1 0 12         // u32([fp + 12], [fp + 13]) = u32([fp + -6], [fp + -5]) op u32(1, 0)
+  11: 20 -8 1 0 2          // u32([fp + 2], [fp + 3]) = u32([fp + -8], [fp + -7]) U32Sub u32(1, 0)
+  12: 19 -6 1 0 12         // u32([fp + 12], [fp + 13]) = u32([fp + -6], [fp + -5]) U32Add u32(1, 0)
   13: 4 2 0 14             // Arg 0 slot 0: [fp + 14] = [fp + 2] + 0
   14: 4 3 0 15             // Arg 0 slot 1: [fp + 15] = [fp + 3] + 0
   15: 4 12 0 16            // Arg 1 slot 0: [fp + 16] = [fp + 12] + 0
   16: 4 13 0 17            // Arg 1 slot 1: [fp + 17] = [fp + 13] + 0
   17: 10 20 0 _            // call deep_recursion
-  18: 15 -8 18 8           // u32([fp + 8], [fp + 9]) = u32([fp + -8], [fp + -7]) op u32([fp + 18], [fp + 19])
+  18: 15 -8 18 8           // u32([fp + 8], [fp + 9]) = u32([fp + -8], [fp + -7]) U32Add u32([fp + 18], [fp + 19])
   19: 4 8 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 8] + 0
   20: 4 9 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 9] + 0
   21: 11 _ _ _             // return

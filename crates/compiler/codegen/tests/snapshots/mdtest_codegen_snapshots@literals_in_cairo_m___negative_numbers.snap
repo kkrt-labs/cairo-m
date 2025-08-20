@@ -13,6 +13,6 @@ Generated CASM:
 test_negative:
 test_negative:
 test_negative_0:
-   0: 9 2147483642 0 _     // [fp + 0] = 2147483642
+   0: 9 -5 0 _             // [fp + 0] = -5
    1: 4 0 10 -3            // [fp + -3] = [fp + 0] op 10
    2: 11 _ _ _             // return

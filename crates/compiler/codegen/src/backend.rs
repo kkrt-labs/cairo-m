@@ -28,69 +28,6 @@ pub fn validate_for_casm(module: &MirModule) -> Result<(), CodegenError> {
                             instr_idx
                         )));
                     }
-                    // Aggregate value operations should be lowered by LowerAggregatesPass
-                    InstructionKind::MakeTuple { .. } => {
-                        return Err(CodegenError::InvalidMir(format!(
-                            "Function '{}', block {}, instruction {}: \
-                            MakeTuple instruction found - aggregate value operations must be \
-                            lowered to memory operations before CASM generation. \
-                            Ensure LowerAggregatesPass has been run.",
-                            function.name,
-                            block_idx.index(),
-                            instr_idx
-                        )));
-                    }
-                    InstructionKind::MakeStruct { .. } => {
-                        return Err(CodegenError::InvalidMir(format!(
-                            "Function '{}', block {}, instruction {}: \
-                            MakeStruct instruction found - aggregate value operations must be \
-                            lowered to memory operations before CASM generation. \
-                            Ensure LowerAggregatesPass has been run.",
-                            function.name,
-                            block_idx.index(),
-                            instr_idx
-                        )));
-                    }
-                    InstructionKind::ExtractTupleElement { .. } => {
-                        return Err(CodegenError::InvalidMir(format!(
-                            "Function '{}', block {}, instruction {}: \
-                            ExtractTupleElement instruction found - aggregate value operations must be \
-                            lowered to memory operations before CASM generation. \
-                            Ensure LowerAggregatesPass has been run.",
-                            function.name, block_idx.index(), instr_idx
-                        )));
-                    }
-                    InstructionKind::ExtractStructField { .. } => {
-                        return Err(CodegenError::InvalidMir(format!(
-                            "Function '{}', block {}, instruction {}: \
-                            ExtractStructField instruction found - aggregate value operations must be \
-                            lowered to memory operations before CASM generation. \
-                            Ensure LowerAggregatesPass has been run.",
-                            function.name, block_idx.index(), instr_idx
-                        )));
-                    }
-                    InstructionKind::InsertTuple { .. } => {
-                        return Err(CodegenError::InvalidMir(format!(
-                            "Function '{}', block {}, instruction {}: \
-                            InsertTuple instruction found - aggregate value operations must be \
-                            lowered to memory operations before CASM generation. \
-                            Ensure LowerAggregatesPass has been run.",
-                            function.name,
-                            block_idx.index(),
-                            instr_idx
-                        )));
-                    }
-                    InstructionKind::InsertField { .. } => {
-                        return Err(CodegenError::InvalidMir(format!(
-                            "Function '{}', block {}, instruction {}: \
-                            InsertField instruction found - aggregate value operations must be \
-                            lowered to memory operations before CASM generation. \
-                            Ensure LowerAggregatesPass has been run.",
-                            function.name,
-                            block_idx.index(),
-                            instr_idx
-                        )));
-                    }
                     _ => {
                         // Other instructions are fine
                     }

@@ -29,19 +29,19 @@ Generated CASM:
 test_compound_expressions:
 test_compound_expressions:
 test_compound_expressions_0:
-   0: 23 8 0 0             // u32([fp + 0, fp + 1]) = u32(8)
-   1: 23 3 0 2             // u32([fp + 2, fp + 3]) = u32(3)
-   2: 23 12 0 4            // u32([fp + 4, fp + 5]) = u32(12)
-   3: 17 0 2 6             // u32([fp + 6], [fp + 7]) = u32([fp + 0], [fp + 1]) op u32([fp + 2], [fp + 3])
-   4: 22 4 4 0 8           // u32([fp + 8], [fp + 9]) = u32([fp + 4], [fp + 5]) op u32(4, 0)
-   5: 15 6 8 10            // u32([fp + 10], [fp + 11]) = u32([fp + 6], [fp + 7]) op u32([fp + 8], [fp + 9])
-   6: 15 0 2 12            // u32([fp + 12], [fp + 13]) = u32([fp + 0], [fp + 1]) op u32([fp + 2], [fp + 3])
-   7: 21 2 2 0 14          // u32([fp + 14], [fp + 15]) = u32([fp + 2], [fp + 3]) op u32(2, 0)
-   8: 16 4 14 16           // u32([fp + 16], [fp + 17]) = u32([fp + 4], [fp + 5]) op u32([fp + 14], [fp + 15])
-   9: 17 12 16 18          // u32([fp + 18], [fp + 19]) = u32([fp + 12], [fp + 13]) op u32([fp + 16], [fp + 17])
-  10: 26 0 2 20            // [fp + 20] = u32([fp + 0], [fp + 1]) op u32([fp + 2], [fp + 3])
-  11: 15 4 0 21            // u32([fp + 21], [fp + 22]) = u32([fp + 4], [fp + 5]) op u32([fp + 0], [fp + 1])
-  12: 34 21 25 0 23        // u32([fp + 23], [fp + 24]) = u32([fp + 21], [fp + 22]) op u32(25, 0)
+   0: 23 8 0 0             // u32([fp + 0], [fp + 1]) = u32(8)
+   1: 23 3 0 2             // u32([fp + 2], [fp + 3]) = u32(3)
+   2: 23 12 0 4            // u32([fp + 4], [fp + 5]) = u32(12)
+   3: 17 0 2 6             // u32([fp + 6], [fp + 7]) = u32([fp + 0], [fp + 1]) U32Mul u32([fp + 2], [fp + 3])
+   4: 22 4 4 0 8           // u32([fp + 8], [fp + 9]) = u32([fp + 4], [fp + 5]) U32Div u32(4, 0)
+   5: 15 6 8 10            // u32([fp + 10], [fp + 11]) = u32([fp + 6], [fp + 7]) U32Add u32([fp + 8], [fp + 9])
+   6: 15 0 2 12            // u32([fp + 12], [fp + 13]) = u32([fp + 0], [fp + 1]) U32Add u32([fp + 2], [fp + 3])
+   7: 21 2 2 0 14          // u32([fp + 14], [fp + 15]) = u32([fp + 2], [fp + 3]) U32Mul u32(2, 0)
+   8: 16 4 14 16           // u32([fp + 16], [fp + 17]) = u32([fp + 4], [fp + 5]) U32Sub u32([fp + 14], [fp + 15])
+   9: 17 12 16 18          // u32([fp + 18], [fp + 19]) = u32([fp + 12], [fp + 13]) U32Mul u32([fp + 16], [fp + 17])
+  10: 26 0 2 20            // [fp + 20] = u32([fp + 0], [fp + 1]) U32Greater u32([fp + 2], [fp + 3])
+  11: 15 4 0 21            // u32([fp + 21], [fp + 22]) = u32([fp + 4], [fp + 5]) U32Add u32([fp + 0], [fp + 1])
+  12: 34 21 25 0 23        // [fp + 23] = u32([fp + 21], [fp + 22]) U32Less u32(25, 0)
   13: 2 20 23 24           // [fp + 24] = [fp + 20] op [fp + 23]
   14: 14 24 3 _            // if [fp + 24] != 0, jump to and_non_zero_0
   15: 9 0 24 _             // [fp + 24] = 0
@@ -49,13 +49,16 @@ test_compound_expressions_0:
 and_non_zero_0:
   17: 9 1 24 _             // [fp + 24] = 1
 and_end_1:
-  18: 15 10 18 25          // u32([fp + 25], [fp + 26]) = u32([fp + 10], [fp + 11]) op u32([fp + 18], [fp + 19])
-  19: 14 24 2 _            // if [fp + 24] != 0 jmp rel test_compound_expressions_1
-  20: 12 28 _ _            // jump abs test_compound_expressions_2
+  18: 15 10 18 25          // u32([fp + 25], [fp + 26]) = u32([fp + 10], [fp + 11]) U32Add u32([fp + 18], [fp + 19])
+  19: 19 25 0 0 27         // u32([fp + 27], [fp + 28]) = u32([fp + 25], [fp + 26]) + u32(0, 0)
+  20: 14 24 2 _            // if [fp + 24] != 0 jmp rel test_compound_expressions_1
+  21: 12 33 _ _            // jump abs test_compound_expressions_3
 test_compound_expressions_1:
-  21: 19 25 1 0 27         // u32([fp + 27], [fp + 28]) = u32([fp + 25], [fp + 26]) op u32(1, 0)
-  22: 19 27 0 0 25         // [fp + 25], [fp + 25 + 1] = [fp + 27], [fp + 27  +1] + 0
+  22: 19 25 1 0 29         // u32([fp + 29], [fp + 30]) = u32([fp + 25], [fp + 26]) U32Add u32(1, 0)
+  23: 19 29 0 0 27         // u32([fp + 27], [fp + 28]) = u32([fp + 29], [fp + 30]) + u32(0, 0)
 test_compound_expressions_2:
-  23: 4 25 0 -4            // Return value 0 slot 0: [fp -4] = [fp + 25] + 0
-  24: 4 26 0 -3            // Return value 0 slot 1: [fp -3] = [fp + 26] + 0
-  25: 11 _ _ _             // return
+  24: 4 27 0 -4            // Return value 0 slot 0: [fp -4] = [fp + 27] + 0
+  25: 4 28 0 -3            // Return value 0 slot 1: [fp -3] = [fp + 28] + 0
+  26: 11 _ _ _             // return
+test_compound_expressions_3:
+  27: 12 30 _ _            // jump abs test_compound_expressions_2

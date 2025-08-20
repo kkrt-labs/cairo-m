@@ -19,7 +19,33 @@ fn calculate_area_u32() -> u32 {
     return rect.width * rect.height;
 }
 ============================================================
-Result: UNEXPECTED ERROR
-Code generation failed: InvalidMir(
-    "Aggregate value operations should be lowered before code generation",
-)
+Generated CASM:
+calculate_area_u32:
+calculate_area_u32:
+calculate_area_u32_0:
+   0: 23 5 0 0             // [fp + 0], [fp + 1] = u32(5)
+   1: 23 10 0 2            // [fp + 2], [fp + 3] = u32(10)
+   2: 30 0 5 0 30          // [fp + 30] = u32([fp + 0], [fp + 1]) U32Eq u32(5, 0)
+   3: 14 30 2 _            // if [fp + 30] != 0 jmp rel calculate_area_u32_1
+   4: 12 15 _ _            // jump abs calculate_area_u32_2
+calculate_area_u32_1:
+   5: 21 0 3 0 8           // u32([fp + 8], [fp + 9]) = u32([fp + 0], [fp + 1]) U32Mul u32(3, 0)
+   6: 4 8 0 0              // [fp + 0] = [fp + 8] + 0
+   7: 4 9 0 1              // [fp + 1] = [fp + 9] + 0
+   8: 4 0 0 14             // [fp + 14] = [fp + 0] + 0 (slot 1 of 4)
+   9: 4 1 0 15             // [fp + 15] = [fp + 1] + 0 (slot 2 of 4)
+  10: 4 2 0 16             // [fp + 16] = [fp + 2] + 0 (slot 3 of 4)
+  11: 4 3 0 17             // [fp + 17] = [fp + 3] + 0 (slot 4 of 4)
+  12: 12 21 _ _            // jump abs calculate_area_u32_3
+calculate_area_u32_2:
+  13: 4 2 0 0              // [fp + 0] = [fp + 2] + 0
+  14: 4 3 0 1              // [fp + 1] = [fp + 3] + 0
+  15: 4 0 0 14             // [fp + 14] = [fp + 0] + 0 (slot 1 of 4)
+  16: 4 1 0 15             // [fp + 15] = [fp + 1] + 0 (slot 2 of 4)
+  17: 4 2 0 16             // [fp + 16] = [fp + 2] + 0 (slot 3 of 4)
+  18: 4 3 0 17             // [fp + 17] = [fp + 3] + 0 (slot 4 of 4)
+calculate_area_u32_3:
+  19: 17 14 16 28          // u32([fp + 28], [fp + 29]) = u32([fp + 14], [fp + 15]) U32Mul u32([fp + 16], [fp + 17])
+  20: 4 28 0 -4            // Return value 0 slot 0: [fp -4] = [fp + 28] + 0
+  21: 4 29 0 -3            // Return value 0 slot 1: [fp -3] = [fp + 29] + 0
+  22: 11 _ _ _             // return

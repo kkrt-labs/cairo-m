@@ -314,12 +314,8 @@ impl CodeGenerator {
                     target_offset = self.get_target_offset_for_dest(*dest, terminator, function);
                 }
 
-                // Determine if this is a U32 assignment based on type
-                if matches!(ty, MirType::U32) {
-                    builder.assign_u32_with_target(*dest, *source, target_offset)?;
-                } else {
-                    builder.assign_with_target(*dest, *source, target_offset)?;
-                }
+                // Use the unified type-aware assign method
+                builder.assign_typed(*dest, *source, ty, target_offset)?;
             }
 
             InstructionKind::UnaryOp { op, dest, source } => {
@@ -556,19 +552,61 @@ impl CodeGenerator {
                 // Nops are used as placeholders during transformation passes
             }
 
-            // Value-based aggregate operations - should have been lowered
-            InstructionKind::MakeTuple { .. }
-            | InstructionKind::ExtractTupleElement { .. }
-            | InstructionKind::MakeStruct { .. }
-            | InstructionKind::ExtractStructField { .. }
-            | InstructionKind::InsertField { .. }
-            | InstructionKind::InsertTuple { .. } => {
-                // These are high-level MIR operations that should be lowered
-                // to memory operations before code generation
-                return Err(CodegenError::InvalidMir(
-                    "Aggregate value operations should be lowered before code generation"
-                        .to_string(),
-                ));
+            // Value-based aggregate operations
+            InstructionKind::MakeTuple { dest, elements } => {
+                builder.make_tuple(*dest, elements, function)?;
+            }
+
+            InstructionKind::ExtractTupleElement {
+                dest,
+                tuple,
+                index,
+                element_ty,
+            } => {
+                builder.extract_tuple_element(*dest, *tuple, *index, element_ty, function)?;
+            }
+
+            InstructionKind::MakeStruct {
+                dest,
+                fields,
+                struct_ty,
+            } => {
+                builder.make_struct(*dest, fields, struct_ty)?;
+            }
+
+            InstructionKind::ExtractStructField {
+                dest,
+                struct_val,
+                field_name,
+                field_ty,
+            } => {
+                builder.extract_struct_field(*dest, *struct_val, field_name, field_ty, function)?;
+            }
+
+            InstructionKind::InsertField {
+                dest,
+                struct_val,
+                field_name,
+                new_value,
+                struct_ty,
+            } => {
+                builder.insert_struct_field(
+                    *dest,
+                    *struct_val,
+                    field_name,
+                    *new_value,
+                    struct_ty,
+                )?;
+            }
+
+            InstructionKind::InsertTuple {
+                dest,
+                tuple_val,
+                index,
+                new_value,
+                tuple_ty,
+            } => {
+                builder.insert_tuple_element(*dest, *tuple_val, *index, *new_value, tuple_ty)?;
             }
         }
 
