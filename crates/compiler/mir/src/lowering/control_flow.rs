@@ -10,9 +10,9 @@ use super::builder::MirBuilder;
 impl<'a, 'db> MirBuilder<'a, 'db> {
     /// Creates an unconditional jump to the target block
     pub fn goto(&mut self, target: BasicBlockId) {
-        if !self.is_current_block_terminated() {
-            self.terminate_with_jump(target);
-        }
+        let state = self.cfg().jump_to(target);
+        self.state.current_block_id = state.current_block_id;
+        self.state.is_terminated = state.is_terminated;
     }
 
     /// Creates a conditional branch

@@ -19,8 +19,7 @@ module {
     0:
       %0 = 5
       %1 = %0 Add 1
-      store %0, %1
-      return %0
+      return %1
 
   }
 

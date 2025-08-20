@@ -35,14 +35,15 @@ module {
 
     1 (block_1):
       ; block_1
-      %1 = %0 U32Add 1
-      store %0, %1 (u32)
-      %2 = %0 U32Greater 1000
-      if %2 then jump 3 else jump 4
+      %1 = φ felt { [%0]: %0, [%6]: %2 }
+      %2 = %1 U32Add 1
+      %3 = %2 U32Greater 1000
+      if %3 then jump 3 else jump 4
 
     2 (block_2):
       ; block_2
-      return %0
+      %5 = φ felt { [%3]: %1, [%5]: %2 }
+      return %5
 
     3 (block_3):
       ; block_3
@@ -50,7 +51,7 @@ module {
 
     4 (block_4):
       ; block_4
-      if %0 U32Eq 10 then jump 5 else jump 6
+      if %2 U32Eq 10 then jump 5 else jump 6
 
     5 (block_5):
       ; block_5

@@ -28,21 +28,23 @@ module {
 
     1 (for_header):
       ; for_header
-      if %1 Neq 10 then jump 2 else jump 4
+      %2 = φ felt { [%0]: %1, [%3]: %8 }
+      %5 = φ felt { [%0]: %0, [%3]: %9 }
+      if %2 Neq 10 then jump 2 else jump 4
 
     2 (for_body):
       ; for_body
-      if %1 Eq 5 then jump 5 else jump 6
+      if %2 Eq 5 then jump 5 else jump 6
 
     3 (for_step):
       ; for_step
-      %5 = %1 Add 1
-      store %1, %5
+      %9 = φ felt { [%5]: %5, [%6]: %6 }
+      %8 = %2 Add 1
       jump 1
 
     4 (for_exit):
       ; for_exit
-      return %0
+      return %5
 
     5 (block_5):
       ; block_5
@@ -50,8 +52,7 @@ module {
 
     6 (block_6):
       ; block_6
-      %4 = %0 Add %1
-      store %0, %4
+      %6 = %5 Add %2
       jump 3
 
   }

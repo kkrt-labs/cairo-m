@@ -32,9 +32,12 @@ impl<'f> InstrBuilder<'f> {
 
     /// Add an instruction to the current block
     pub fn add_instruction(&mut self, instruction: Instruction) {
-        if let Some(block) = self.function.basic_blocks.get_mut(self.current_block) {
-            block.push_instruction(instruction);
-        }
+        let block = self
+            .function
+            .basic_blocks
+            .get_mut(self.current_block)
+            .unwrap_or_else(|| panic!("Block {:?} not found", self.current_block));
+        block.push_instruction(instruction);
     }
 
     /// Create and add a binary operation instruction with explicit destination

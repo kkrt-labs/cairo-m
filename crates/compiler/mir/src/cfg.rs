@@ -18,13 +18,11 @@ pub fn get_successors(function: &MirFunction, block_id: BasicBlockId) -> Vec<Bas
 
 /// Get all predecessor blocks of a given block
 pub fn get_predecessors(function: &MirFunction, target_id: BasicBlockId) -> Vec<BasicBlockId> {
-    let mut predecessors = Vec::new();
-    for (block_id, block) in function.basic_blocks.iter_enumerated() {
-        if block.terminator.target_blocks().contains(&target_id) {
-            predecessors.push(block_id);
-        }
-    }
-    predecessors
+    let block = function
+        .basic_blocks
+        .get(target_id)
+        .unwrap_or_else(|| panic!("Block {:?} not found", target_id));
+    block.preds.clone()
 }
 
 /// Build a complete predecessor map for the function
@@ -94,8 +92,15 @@ pub fn split_critical_edge(
         name: Some(format!("edge_{:?}_{:?}", pred_id, succ_id)),
         instructions: Vec::new(),
         terminator: Terminator::Jump { target: succ_id },
+        preds: Vec::new(),
+        sealed: false,
+        filled: false,
     };
     let edge_block_id = function.basic_blocks.push(edge_block);
+
+    // Update edges using new infrastructure
+    function.replace_edge(pred_id, succ_id, edge_block_id);
+    function.connect(edge_block_id, succ_id);
 
     // Update the predecessor's terminator to point to the edge block
     // instead of directly to the successor
@@ -194,12 +199,17 @@ mod tests {
             then_target: left,
             else_target: right,
         };
+        // Set up predecessor relationships for entry's successors
+        function.connect(entry, left);
+        function.connect(entry, right);
 
         // Left -> Merge
         function.basic_blocks[left].terminator = Terminator::Jump { target: merge };
+        function.connect(left, merge);
 
         // Right -> Merge
         function.basic_blocks[right].terminator = Terminator::Jump { target: merge };
+        function.connect(right, merge);
 
         // Merge returns
         function.basic_blocks[merge].terminator = Terminator::Return { values: vec![] };
@@ -287,6 +297,8 @@ mod tests {
             then_target: b1,
             else_target: merge,
         };
+        function.connect(entry, b1);
+        function.connect(entry, merge);
 
         // B1 branches to B2 or Merge (critical edge: B1->Merge)
         let cond2 = function.new_value_id();
@@ -295,9 +307,12 @@ mod tests {
             then_target: b2,
             else_target: merge,
         };
+        function.connect(b1, b2);
+        function.connect(b1, merge);
 
         // B2 -> Merge
         function.basic_blocks[b2].terminator = Terminator::Jump { target: merge };
+        function.connect(b2, merge);
 
         // Merge returns
         function.basic_blocks[merge].terminator = Terminator::Return { values: vec![] };

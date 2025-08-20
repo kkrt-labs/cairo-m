@@ -52,12 +52,12 @@ module {
     1 (block_1):
       ; block_1
       %15 = %14 U32Add 1
-      store %14, %15 (u32)
       jump 2
 
     2 (block_2):
       ; block_2
-      return %14
+      %16 = φ felt { [%0]: %14, [%1]: %15 }
+      return %16
 
   }
 

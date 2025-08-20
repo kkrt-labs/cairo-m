@@ -60,62 +60,62 @@ module {
     1 (block_1):
       ; block_1
       %10 = %9 U32Add 1
-      store %9, %10 (u32)
       jump 2
 
     2 (block_2):
       ; block_2
+      %12 = φ felt { [%0]: %9, [%1]: %10 }
       if %4 then jump 3 else jump 4
 
     3 (block_3):
       ; block_3
-      %11 = %9 U32Add 1
-      store %9, %11 (u32)
+      %13 = %12 U32Add 1
       jump 4
 
     4 (block_4):
       ; block_4
+      %16 = φ felt { [%2]: %12, [%3]: %13 }
       if %5 then jump 5 else jump 6
 
     5 (block_5):
       ; block_5
-      %12 = %9 U32Add 1
-      store %9, %12 (u32)
+      %17 = %16 U32Add 1
       jump 6
 
     6 (block_6):
       ; block_6
+      %21 = φ felt { [%4]: %16, [%5]: %17 }
       if %6 then jump 7 else jump 8
 
     7 (block_7):
       ; block_7
-      %13 = %9 U32Add 1
-      store %9, %13 (u32)
+      %22 = %21 U32Add 1
       jump 8
 
     8 (block_8):
       ; block_8
+      %27 = φ felt { [%6]: %21, [%7]: %22 }
       if %7 then jump 9 else jump 10
 
     9 (block_9):
       ; block_9
-      %14 = %9 U32Add 1
-      store %9, %14 (u32)
+      %28 = %27 U32Add 1
       jump 10
 
     10 (block_10):
       ; block_10
+      %34 = φ felt { [%8]: %27, [%9]: %28 }
       if %8 then jump 11 else jump 12
 
     11 (block_11):
       ; block_11
-      %15 = %9 U32Add 1
-      store %9, %15 (u32)
+      %35 = %34 U32Add 1
       jump 12
 
     12 (block_12):
       ; block_12
-      return %9
+      %36 = φ felt { [%10]: %34, [%11]: %35 }
+      return %36
 
   }
 

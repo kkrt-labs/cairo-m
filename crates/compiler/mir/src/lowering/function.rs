@@ -18,6 +18,7 @@ use rustc_hash::FxHashMap;
 
 use crate::db::MirDb;
 use crate::pipeline::{optimize_module, PipelineConfig};
+use crate::Value;
 use crate::{MirFunction, MirModule, MirType, ValueId};
 
 use super::builder::MirBuilder;
@@ -203,9 +204,19 @@ pub(super) fn lower_function<'a, 'db>(
 
     lower_parameters(&mut builder, func_ast, func_inner_scope_id)?;
 
+    // Seal the entry block since it has no predecessors (function entry point)
+    // This must be done after parameters are set up but before body lowering
+    let entry_block = builder.state.mir_function.entry_block;
+    builder.seal_block(entry_block);
+
     lower_body(&mut builder, func_ast)?;
 
     lower_return_type(&mut builder, func_def_id)?;
+
+    // Mark the current block (wherever we ended up) as filled
+    // since function processing is complete
+    let current_block = builder.state.current_block_id;
+    builder.mark_block_filled(current_block);
 
     Ok(builder.state.mir_function)
 }
@@ -255,11 +266,13 @@ fn lower_parameter<'a, 'db>(
         .parameters
         .push(incoming_param_val);
 
-    // 2. Map the semantic definition to its stack address
-    builder
-        .state
-        .definition_to_value
-        .insert(mir_def_id, incoming_param_val);
+    // 2. Bind the parameter using SSA
+    builder.bind_variable(
+        param_ast.name.value(),
+        param_ast.name.span(),
+        Value::operand(incoming_param_val),
+        func_inner_scope_id,
+    )?;
     Ok(())
 }
 

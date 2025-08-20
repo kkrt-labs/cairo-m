@@ -21,11 +21,9 @@ module {
     0:
       %0 = 5
       %1 = %0 Add 1
-      store %0, %1
       %2 = 10
-      %3 = %2 Add %0
-      store %2, %3
-      return %2
+      %3 = %2 Add %1
+      return %3
 
   }
 

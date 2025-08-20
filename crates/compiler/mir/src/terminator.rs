@@ -171,6 +171,50 @@ impl Terminator {
         used
     }
 
+    /// Replace all occurrences of `from` value with `to` value in this terminator
+    pub fn replace_value_uses(&mut self, from: crate::ValueId, to: crate::ValueId) {
+        if from == to {
+            return; // No-op
+        }
+
+        match self {
+            Self::Jump { .. } => {
+                // No values used - nothing to replace
+            }
+            Self::If { condition, .. } => {
+                if let Value::Operand(id) = condition {
+                    if *id == from {
+                        *id = to;
+                    }
+                }
+            }
+            Self::BranchCmp { left, right, .. } => {
+                if let Value::Operand(id) = left {
+                    if *id == from {
+                        *id = to;
+                    }
+                }
+                if let Value::Operand(id) = right {
+                    if *id == from {
+                        *id = to;
+                    }
+                }
+            }
+            Self::Return { values } => {
+                for value in values {
+                    if let Value::Operand(id) = value {
+                        if *id == from {
+                            *id = to;
+                        }
+                    }
+                }
+            }
+            Self::Unreachable => {
+                // No values used - nothing to replace
+            }
+        }
+    }
+
     /// Returns true if this terminator actually transfers control
     ///
     /// Unreachable terminators don't transfer control since they're never reached.

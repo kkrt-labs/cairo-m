@@ -81,7 +81,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             let mir_def_id = self.convert_definition_id(def_id);
 
             // Look up the MIR value for this definition
-            if let Some(var_value) = self.state.definition_to_value.get(&mir_def_id).copied() {
+            if let Ok(var_value) = self.read_variable(name.value(), name.span()) {
                 // Get the type to check if this is an array pointer
                 let value_type = self.state.mir_function.get_value_type(var_value);
 

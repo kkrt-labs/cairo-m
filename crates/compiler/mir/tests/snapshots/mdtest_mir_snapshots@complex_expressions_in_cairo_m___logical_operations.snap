@@ -61,42 +61,42 @@ module {
     1 (block_1):
       ; block_1
       %16 = %15 Add 1
-      store %15, %16
       jump 2
 
     2 (block_2):
       ; block_2
+      %18 = φ felt { [%0]: %15, [%1]: %16 }
       if %8 then jump 3 else jump 4
 
     3 (block_3):
       ; block_3
-      %17 = %15 Add 1
-      store %15, %17
+      %19 = %18 Add 1
       jump 4
 
     4 (block_4):
       ; block_4
+      %22 = φ felt { [%2]: %18, [%3]: %19 }
       if %11 then jump 5 else jump 6
 
     5 (block_5):
       ; block_5
-      %18 = %15 Add 1
-      store %15, %18
+      %23 = %22 Add 1
       jump 6
 
     6 (block_6):
       ; block_6
+      %27 = φ felt { [%4]: %22, [%5]: %23 }
       if %14 then jump 7 else jump 8
 
     7 (block_7):
       ; block_7
-      %19 = %15 Add 1
-      store %15, %19
+      %28 = %27 Add 1
       jump 8
 
     8 (block_8):
       ; block_8
-      return %15
+      %29 = φ felt { [%6]: %27, [%7]: %28 }
+      return %29
 
   }
 

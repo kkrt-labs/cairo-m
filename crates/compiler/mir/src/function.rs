@@ -5,8 +5,11 @@
 
 use index_vec::IndexVec;
 use rustc_hash::{FxHashMap, FxHashSet};
+use std::collections::HashSet;
 
-use crate::{indent_str, BasicBlock, BasicBlockId, MirType, PrettyPrint, ValueId};
+use crate::{
+    indent_str, BasicBlock, BasicBlockId, Instruction, MirType, PrettyPrint, Value, ValueId,
+};
 
 /// A simple definition identifier for MIR that doesn't depend on Salsa lifetimes
 ///
@@ -66,6 +69,20 @@ pub struct MirFunction {
     /// Track which ValueIds have been used as destinations
     /// Used to enforce SSA - each ValueId can only be defined once
     pub(crate) defined_values: FxHashSet<ValueId>,
+
+    // ==================== SSA Construction State ====================
+    // Based on Braun et al. "Simple and Efficient Construction of Static Single Assignment Form"
+    /// currentDef[var][block] -> ValueId (Algorithm 1)
+    /// Maps (variable, block) pairs to their current definition
+    pub(crate) current_def: FxHashMap<(MirDefinitionId, BasicBlockId), ValueId>,
+
+    /// incompletePhis[block][variable] -> ValueId (Algorithm 2)
+    /// Maps blocks to incomplete phi nodes for each variable
+    pub(crate) incomplete_phis: FxHashMap<BasicBlockId, FxHashMap<MirDefinitionId, ValueId>>,
+
+    /// Track which blocks are sealed (sealedBlocks in paper)
+    /// A block is sealed when no more predecessors will be added to it
+    pub(crate) sealed_blocks: HashSet<BasicBlockId>,
 }
 
 impl MirFunction {
@@ -84,6 +101,10 @@ impl MirFunction {
             next_value_id: 0,
             value_types: FxHashMap::default(),
             defined_values: FxHashSet::default(),
+            // Initialize SSA state
+            current_def: FxHashMap::default(),
+            incomplete_phis: FxHashMap::default(),
+            sealed_blocks: HashSet::new(),
         }
     }
 
@@ -221,6 +242,60 @@ impl MirFunction {
                     ));
                 }
             }
+
+            // NEW: Validate phi instruction placement and consistency
+            let mut seen_non_phi = false;
+            for (i, instruction) in block.instructions.iter().enumerate() {
+                match &instruction.kind {
+                    crate::InstructionKind::Phi { dest, sources, ty } => {
+                        if seen_non_phi {
+                            return Err(format!(
+                                "Block {:?}: Phi instruction at position {} found after non-phi instruction",
+                                block_id, i
+                            ));
+                        }
+
+                        // Check that destination is defined exactly once
+                        if !self.defined_values.contains(dest) {
+                            return Err(format!(
+                                "Block {:?}: Phi instruction destination {:?} not in defined_values",
+                                block_id, dest
+                            ));
+                        }
+
+                        // Check that each source block is actually a predecessor
+                        for (source_block, _value) in sources {
+                            if !block.preds.contains(source_block) {
+                                return Err(format!(
+                                    "Block {:?}: Phi instruction has operand from block {:?} which is not a predecessor",
+                                    block_id, source_block
+                                ));
+                            }
+                        }
+
+                        // Check that we have operands from all predecessors (if sealed)
+                        if block.sealed && sources.len() != block.preds.len() {
+                            return Err(format!(
+                                "Block {:?}: Sealed block has {} predecessors but phi has {} operands",
+                                block_id, block.preds.len(), sources.len()
+                            ));
+                        }
+
+                        // Check that destination type matches phi type
+                        if let Some(dest_type) = self.get_value_type(*dest) {
+                            if dest_type != ty {
+                                return Err(format!(
+                                    "Block {:?}: Phi destination type {:?} doesn't match instruction type {:?}",
+                                    block_id, dest_type, ty
+                                ));
+                            }
+                        }
+                    }
+                    _ => {
+                        seen_non_phi = true;
+                    }
+                }
+            }
         }
 
         Ok(())
@@ -260,6 +335,353 @@ impl MirFunction {
             .filter(|&id| !self.is_block_reachable(id))
             .collect()
     }
+
+    /// Connect two blocks by adding pred/succ edges
+    /// This is the canonical way to add CFG edges
+    ///
+    /// Note: Successors are now derived from terminators, so this method
+    /// only maintains the predecessor list. The terminator of the predecessor
+    /// block should be set separately to establish the actual control flow.
+    pub fn connect(&mut self, pred: BasicBlockId, succ: BasicBlockId) {
+        // Get mutable reference to successor block - panic if not found
+        let succ_block = self
+            .basic_blocks
+            .get_mut(succ)
+            .unwrap_or_else(|| panic!("Successor block {:?} does not exist", succ));
+        succ_block.add_pred(pred);
+    }
+
+    /// Replace an edge from pred->old_succ with pred->new_succ
+    /// Updates predecessor lists and expects terminator to be updated separately
+    pub fn replace_edge(
+        &mut self,
+        pred: BasicBlockId,
+        old_succ: BasicBlockId,
+        new_succ: BasicBlockId,
+    ) {
+        // Get mutable reference to old successor block - panic if not found
+        let old_succ_block = self
+            .basic_blocks
+            .get_mut(old_succ)
+            .unwrap_or_else(|| panic!("Old successor block {:?} does not exist", old_succ));
+        old_succ_block.remove_pred(pred);
+
+        // Add new edge
+        self.connect(pred, new_succ);
+    }
+
+    /// Disconnect two blocks by removing pred/succ edges
+    /// Only removes from predecessor list; terminator should be updated separately
+    pub fn disconnect(&mut self, pred: BasicBlockId, succ: BasicBlockId) {
+        // Get mutable reference to successor block - panic if not found
+        let succ_block = self
+            .basic_blocks
+            .get_mut(succ)
+            .unwrap_or_else(|| panic!("Successor block {:?} does not exist", succ));
+        succ_block.remove_pred(pred);
+    }
+
+    /// Replace all occurrences of `from` value with `to` value throughout the function
+    /// This is needed for trivial phi elimination
+    pub fn replace_all_uses(&mut self, from: ValueId, to: ValueId) {
+        if from == to {
+            return; // No-op
+        }
+
+        for i in 0..self.basic_blocks.len() {
+            let block_id = BasicBlockId::from_raw(i);
+            if let Some(block) = self.basic_blocks.get_mut(block_id) {
+                // Replace in all instructions
+                for instruction in &mut block.instructions {
+                    instruction.replace_value_uses(from, to);
+                }
+
+                // Replace in terminator
+                block.terminator.replace_value_uses(from, to);
+            }
+        }
+
+        // Update parameter list if needed
+        for param in &mut self.parameters {
+            if *param == from {
+                *param = to;
+            }
+        }
+
+        // Update return values if needed
+        for ret_val in &mut self.return_values {
+            if *ret_val == from {
+                *ret_val = to;
+            }
+        }
+
+        // Remove the old value from type information
+        if let Some(ty) = self.value_types.remove(&from) {
+            // If `to` doesn't have a type, give it the type from `from`
+            self.value_types.entry(to).or_insert(ty);
+        }
+
+        // Remove from defined_values
+        self.defined_values.remove(&from);
+    }
+
+    /// Create a new phi instruction at the front of the given block
+    /// Returns the destination ValueId
+    pub fn new_phi(&mut self, block_id: BasicBlockId, ty: MirType) -> ValueId {
+        let dest = self.new_typed_value_id(ty.clone());
+
+        // Mark as defined for SSA validation
+        self.mark_as_defined(dest)
+            .expect("Phi destination should be unique");
+
+        let phi_instr = Instruction::empty_phi(dest, ty);
+
+        if let Some(block) = self.basic_blocks.get_mut(block_id) {
+            block.push_phi_front(phi_instr);
+        }
+
+        dest
+    }
+
+    /// Create a phi instruction with specific operands
+    pub fn new_phi_with_operands(
+        &mut self,
+        block_id: BasicBlockId,
+        ty: MirType,
+        operands: Vec<(BasicBlockId, Value)>,
+    ) -> ValueId {
+        let dest = self.new_typed_value_id(ty.clone());
+
+        // Mark as defined for SSA validation
+        self.mark_as_defined(dest)
+            .expect("Phi destination should be unique");
+
+        let phi_instr = Instruction::phi(dest, ty, operands);
+
+        if let Some(block) = self.basic_blocks.get_mut(block_id) {
+            block.push_phi_front(phi_instr);
+        }
+
+        dest
+    }
+
+    // ==================== SSA Construction Methods ====================
+    // Based on Braun et al. "Simple and Efficient Construction of Static Single Assignment Form"
+
+    /// Write a variable in a block (Algorithm 1, writeVariable)
+    pub fn write_variable(&mut self, var: MirDefinitionId, block: BasicBlockId, value: ValueId) {
+        self.current_def.insert((var, block), value);
+        // Also update the locals map for compatibility
+        self.locals.insert(var, value);
+    }
+
+    /// Read a variable from a block (Algorithm 1, readVariable)
+    pub fn read_variable(&mut self, var: MirDefinitionId, block: BasicBlockId) -> ValueId {
+        if let Some(&value) = self.current_def.get(&(var, block)) {
+            return value;
+        }
+
+        // Variable not defined locally, use recursive algorithm
+        self.read_variable_recursive(var, block)
+    }
+
+    /// Recursive variable reading (Algorithm 2, readVariableRecursive)
+    fn read_variable_recursive(&mut self, var: MirDefinitionId, block: BasicBlockId) -> ValueId {
+        let val = if !self.sealed_blocks.contains(&block) {
+            // Incomplete CFG: val ← new Phi(block)
+            let val = self.new_incomplete_phi(block, var);
+            // incompletePhis[block][variable] ← val
+            self.incomplete_phis
+                .entry(block)
+                .or_default()
+                .insert(var, val);
+            val
+        } else if self.basic_blocks[block].preds.len() == 1 {
+            // Optimize the common case of one predecessor: No phi needed
+            // val ← readVariable(variable, block.preds[0])
+            let pred = self.basic_blocks[block].preds[0];
+
+            self.read_variable(var, pred)
+        } else {
+            // Break potential cycles with operandless phi
+            // val ← new Phi(block)
+            let val = self.new_incomplete_phi(block, var);
+            // writeVariable(variable, block, val)
+            self.write_variable(var, block, val);
+            // val ← addPhiOperands(variable, val)
+            self.add_phi_operands(var, val)
+        };
+        self.write_variable(var, block, val);
+        val
+    }
+
+    /// Create a new incomplete phi instruction (helper for both complete and incomplete phis)
+    fn new_incomplete_phi(&mut self, block: BasicBlockId, var: MirDefinitionId) -> ValueId {
+        // For now, we need to determine the variable type
+        // In the real implementation, this should come from semantic analysis
+        let var_type = MirType::felt(); // Default type - this should be improved
+        self.new_phi(block, var_type)
+    }
+
+    /// Add phi operands from all predecessors (Algorithm 2, addPhiOperands)
+    fn add_phi_operands(&mut self, var: MirDefinitionId, phi: ValueId) -> ValueId {
+        // Get the block containing this phi
+        let phi_block = self.find_phi_block(phi).expect("Phi must exist in a block");
+
+        // Determine operands from predecessors - build explicit block-value pairs
+        let preds = self.basic_blocks[phi_block].preds.clone();
+        let mut block_value_pairs = Vec::new();
+
+        for &pred in &preds {
+            // Recursively read variable from predecessor
+            let operand = self.read_variable(var, pred);
+            block_value_pairs.push((pred, operand));
+        }
+
+        // Update the phi instruction with operands
+        self.update_phi_operands(phi_block, phi, block_value_pairs);
+
+        // Try trivial phi elimination
+        self.try_remove_trivial_phi(phi, var)
+    }
+
+    /// Find which block contains a phi instruction
+    fn find_phi_block(&self, phi: ValueId) -> Option<BasicBlockId> {
+        for (block_id, block) in self.basic_blocks.iter_enumerated() {
+            for instr in &block.instructions {
+                if let crate::InstructionKind::Phi { dest, .. } = &instr.kind {
+                    if *dest == phi {
+                        return Some(block_id);
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// Update phi instruction operands
+    fn update_phi_operands(
+        &mut self,
+        block: BasicBlockId,
+        phi: ValueId,
+        block_value_pairs: Vec<(BasicBlockId, ValueId)>,
+    ) {
+        if let Some(block_ref) = self.basic_blocks.get_mut(block) {
+            for instr in &mut block_ref.instructions {
+                if let crate::InstructionKind::Phi {
+                    dest,
+                    sources: phi_sources,
+                    ..
+                } = &mut instr.kind
+                {
+                    if *dest == phi {
+                        // Convert Vec<(BasicBlockId, ValueId)> to Vec<(BasicBlockId, Value)>
+                        *phi_sources = block_value_pairs
+                            .into_iter()
+                            .map(|(pred_block, value_id)| (pred_block, Value::operand(value_id)))
+                            .collect();
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    /// Try to eliminate trivial phi (Algorithm 3, tryRemoveTrivialPhi)
+    fn try_remove_trivial_phi(&mut self, phi: ValueId, var: MirDefinitionId) -> ValueId {
+        // Get phi operands
+        let phi_block = self.find_phi_block(phi).expect("Phi must exist");
+        let operands = self.get_phi_operands(phi_block, phi);
+
+        // Check if phi is trivial (all operands are the same non-phi value)
+        let mut unique = None;
+        for op in &operands {
+            if *op == phi {
+                continue; // Ignore self-references
+            }
+            if unique.is_none() {
+                unique = Some(*op);
+            } else if unique != Some(*op) {
+                return phi; // Not trivial - has multiple different operands
+            }
+        }
+
+        let Some(replacement) = unique else {
+            return phi; // Only self-references, keep phi
+        };
+
+        // Phi is trivial - replace all uses with the unique operand
+        self.replace_value_uses(phi, replacement);
+
+        // Remove phi instruction
+        self.remove_phi_instruction(phi_block, phi);
+
+        replacement
+    }
+
+    /// Get operands of a phi instruction
+    fn get_phi_operands(&self, block: BasicBlockId, phi: ValueId) -> Vec<ValueId> {
+        if let Some(block) = self.basic_blocks.get(block) {
+            for instr in &block.instructions {
+                if let crate::InstructionKind::Phi { dest, sources, .. } = &instr.kind {
+                    if *dest == phi {
+                        return sources
+                            .iter()
+                            .map(|(_, v)| {
+                                if let Value::Operand(id) = v {
+                                    *id
+                                } else {
+                                    panic!("Expected operand in phi")
+                                }
+                            })
+                            .collect();
+                    }
+                }
+            }
+        }
+        vec![]
+    }
+
+    /// Replace all uses of old_value with new_value
+    fn replace_value_uses(&mut self, old_value: ValueId, new_value: ValueId) {
+        for block in &mut self.basic_blocks {
+            // Replace in instructions
+            for instr in &mut block.instructions {
+                instr.replace_value_uses(old_value, new_value);
+            }
+            // Replace in terminator
+            block.terminator.replace_value_uses(old_value, new_value);
+        }
+    }
+
+    /// Remove a phi instruction from a block
+    fn remove_phi_instruction(&mut self, block: BasicBlockId, phi: ValueId) {
+        if let Some(block) = self.basic_blocks.get_mut(block) {
+            block.instructions.retain(|instr| {
+                !matches!(&instr.kind, crate::InstructionKind::Phi { dest, .. } if *dest == phi)
+            });
+        }
+    }
+
+    /// Seal a block (Algorithm 2, sealBlock)
+    /// This is called when no more predecessors will be added to the block
+    pub fn seal_block(&mut self, block: BasicBlockId) {
+        // Add to sealed blocks
+        self.sealed_blocks.insert(block);
+
+        // Complete all incomplete phis for this block
+        if let Some(phis) = self.incomplete_phis.remove(&block) {
+            for (var, phi) in phis {
+                let completed_phi = self.add_phi_operands(var, phi);
+                self.write_variable(var, block, completed_phi);
+            }
+        }
+    }
+
+    /// Check if a block is sealed
+    pub fn is_block_sealed(&self, block: BasicBlockId) -> bool {
+        self.sealed_blocks.contains(&block)
+    }
 }
 
 impl PrettyPrint for MirFunction {
@@ -277,14 +699,14 @@ impl PrettyPrint for MirFunction {
             ));
         }
 
-        // Print locals mapping
-        if !self.locals.is_empty() {
-            result.push_str(&format!("{base_indent}  locals: {{\n"));
-            for (def_id, value_id) in &self.locals {
-                result.push_str(&format!("{base_indent}    {def_id:?} -> {value_id:?}\n"));
-            }
-            result.push_str(&format!("{base_indent}  }}\n"));
-        }
+        // // Print locals mapping
+        // if !self.locals.is_empty() {
+        //     result.push_str(&format!("{base_indent}  locals: {{\n"));
+        //     for (def_id, value_id) in &self.locals {
+        //         result.push_str(&format!("{base_indent}    {def_id:?} -> {value_id:?}\n"));
+        //     }
+        //     result.push_str(&format!("{base_indent}  }}\n"));
+        // }
 
         result.push_str(&format!(
             "{}  entry: {entry:?}\n",

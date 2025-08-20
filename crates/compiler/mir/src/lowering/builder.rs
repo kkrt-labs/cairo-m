@@ -21,6 +21,7 @@ use crate::{
     BasicBlockId, CfgBuilder, FunctionId, InstrBuilder, Instruction, MirDefinitionId, MirFunction,
     MirType, Value, ValueId,
 };
+// Removed SSABuilder import - SSA is now integrated directly into MirFunction
 
 /// Immutable compilation context shared across lowering
 ///
@@ -53,8 +54,6 @@ pub struct MirState<'db> {
     pub(super) mir_function: MirFunction,
     /// The current basic block being populated with instructions
     pub(super) current_block_id: BasicBlockId,
-    /// Local map from variable DefinitionId to its MIR ValueId
-    pub(super) definition_to_value: FxHashMap<MirDefinitionId, ValueId>,
     /// The DefinitionId of the function being lowered (for type information)
     pub(super) function_def_id: Option<DefinitionId<'db>>,
     /// Becomes true when a terminator like `return` is encountered.
@@ -133,7 +132,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         let state = MirState {
             mir_function,
             current_block_id: entry_block,
-            definition_to_value: FxHashMap::default(),
             function_def_id: None,
             is_terminated: false,
             loop_stack: Vec::new(),
@@ -645,5 +643,122 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             expression_semantic_type(self.ctx.db, self.ctx.crate_id, self.ctx.file, expr_id, None);
         let mir_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
         Ok((expr_id, mir_type))
+    }
+
+    // ================================================================================
+    // SSA Integration Methods - Directly using MirFunction SSA state
+    // ================================================================================
+
+    /// Bind a variable to a value using SSA tracking
+    pub fn bind_variable(
+        &mut self,
+        ident_name: &str,
+        ident_span: chumsky::prelude::SimpleSpan,
+        value: Value,
+        scope_id: cairo_m_compiler_semantic::place::FileScopeId,
+    ) -> Result<(), String> {
+        // Resolve to semantic definition
+        let (def_idx, _definition) = self
+            .ctx
+            .semantic_index
+            .resolve_name_to_definition(ident_name, scope_id)
+            .ok_or_else(|| format!("Failed to resolve identifier {}", ident_name))?;
+
+        let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
+        let mir_def_id = MirDefinitionId {
+            definition_index: def_id.id_in_file(self.ctx.db).index(),
+            file_id: self.ctx.file_id,
+        };
+
+        // Get variable type for proper handling
+        let var_type = definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
+        let mir_type = MirType::from_semantic_type(self.ctx.db, var_type);
+
+        // Convert value to ValueId if needed
+        let value_id = match value {
+            Value::Operand(id) => id,
+            Value::Literal(_) => {
+                // Create assignment instruction for literals
+                let temp_id = self.state.mir_function.new_typed_value_id(mir_type.clone());
+                let assign_instr = Instruction::assign(temp_id, value, mir_type);
+
+                if let Some(block) = self
+                    .state
+                    .mir_function
+                    .basic_blocks
+                    .get_mut(self.state.current_block_id)
+                {
+                    block.push_instruction(assign_instr);
+                }
+                temp_id
+            }
+            Value::Error => {
+                // Create error placeholder
+                self.state.mir_function.new_typed_value_id(mir_type)
+            }
+        };
+
+        // Bind using MirFunction's SSA methods directly
+        self.state
+            .mir_function
+            .write_variable(mir_def_id, self.state.current_block_id, value_id);
+        Ok(())
+    }
+
+    /// Read a variable using SSA tracking
+    pub fn read_variable(
+        &mut self,
+        ident_name: &str,
+        ident_span: chumsky::prelude::SimpleSpan,
+    ) -> Result<ValueId, String> {
+        // Get semantic information
+        let expr_id = self
+            .ctx
+            .semantic_index
+            .expression_id_by_span(ident_span)
+            .ok_or_else(|| format!("No ExpressionId for identifier {}", ident_name))?;
+
+        let expr_info = self
+            .ctx
+            .semantic_index
+            .expression(expr_id)
+            .ok_or_else(|| format!("No ExpressionInfo for identifier {}", ident_name))?;
+
+        // Resolve to definition
+        let (def_idx, _definition) = self
+            .ctx
+            .semantic_index
+            .resolve_name_to_definition(ident_name, expr_info.scope_id)
+            .ok_or_else(|| format!("Failed to resolve identifier {}", ident_name))?;
+
+        let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
+        let mir_def_id = MirDefinitionId {
+            definition_index: def_id.id_in_file(self.ctx.db).index(),
+            file_id: self.ctx.file_id,
+        };
+
+        // Read using MirFunction's SSA methods directly
+        let value_id = self
+            .state
+            .mir_function
+            .read_variable(mir_def_id, self.state.current_block_id);
+        Ok(value_id)
+    }
+
+    /// Seal a block - no more predecessors will be added
+    /// This must be called when the predecessor set of a block is finalized
+    pub fn seal_block(&mut self, block_id: BasicBlockId) {
+        // Mark in CFG builder first
+        let mut cfg = self.cfg();
+        cfg.seal_block(block_id);
+
+        // Then complete incomplete phis using MirFunction's SSA methods directly
+        self.state.mir_function.seal_block(block_id);
+    }
+
+    /// Mark a block as filled - all local statements processed
+    pub fn mark_block_filled(&mut self, block_id: BasicBlockId) {
+        let mut cfg = self.cfg();
+        cfg.mark_block_filled(block_id);
     }
 }

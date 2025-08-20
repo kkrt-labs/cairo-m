@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use cairo_m_compiler_parser::parser::UnaryOp;
 use chumsky::span::SimpleSpan;
 
-use crate::{MirType, PrettyPrint, Value, ValueId};
+use crate::{BasicBlockId, MirType, PrettyPrint, Value, ValueId};
 
 /// Access path component for navigating aggregate types
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -497,20 +497,6 @@ impl Instruction {
         }
     }
 
-    /// Creates a new phi instruction
-    pub const fn phi(
-        dest: ValueId,
-        ty: MirType,
-        sources: Vec<(crate::BasicBlockId, Value)>,
-    ) -> Self {
-        Self {
-            kind: InstructionKind::Phi { dest, ty, sources },
-            source_span: None,
-            source_expr_id: None,
-            comment: None,
-        }
-    }
-
     /// Creates a new make tuple instruction
     pub const fn make_tuple(dest: ValueId, elements: Vec<Value>) -> Self {
         Self {
@@ -837,6 +823,182 @@ impl Instruction {
         used
     }
 
+    /// Replace all occurrences of `from` value with `to` value in this instruction
+    pub fn replace_value_uses(&mut self, from: ValueId, to: ValueId) {
+        if from == to {
+            return; // No-op
+        }
+
+        match &mut self.kind {
+            InstructionKind::Assign { source, .. } => {
+                if let Value::Operand(id) = source {
+                    if *id == from {
+                        *id = to;
+                    }
+                }
+            }
+            InstructionKind::UnaryOp { source, .. } => {
+                if let Value::Operand(id) = source {
+                    if *id == from {
+                        *id = to;
+                    }
+                }
+            }
+            InstructionKind::BinaryOp { left, right, .. } => {
+                if let Value::Operand(id) = left {
+                    if *id == from {
+                        *id = to;
+                    }
+                }
+                if let Value::Operand(id) = right {
+                    if *id == from {
+                        *id = to;
+                    }
+                }
+            }
+            InstructionKind::Call { args, .. } => {
+                for arg in args {
+                    if let Value::Operand(id) = arg {
+                        if *id == from {
+                            *id = to;
+                        }
+                    }
+                }
+            }
+            InstructionKind::Load { address, .. } => {
+                if let Value::Operand(id) = address {
+                    if *id == from {
+                        *id = to;
+                    }
+                }
+            }
+            InstructionKind::Store { address, value, .. } => {
+                if let Value::Operand(id) = address {
+                    if *id == from {
+                        *id = to;
+                    }
+                }
+                if let Value::Operand(id) = value {
+                    if *id == from {
+                        *id = to;
+                    }
+                }
+            }
+            InstructionKind::FrameAlloc { .. } => {
+                // Frame allocation doesn't use any values as input - nothing to replace
+            }
+            InstructionKind::AddressOf { operand, .. } => {
+                if *operand == from {
+                    *operand = to;
+                }
+            }
+            InstructionKind::GetElementPtr { base, offset, .. } => {
+                if let Value::Operand(id) = base {
+                    if *id == from {
+                        *id = to;
+                    }
+                }
+                if let Value::Operand(id) = offset {
+                    if *id == from {
+                        *id = to;
+                    }
+                }
+            }
+            InstructionKind::Cast { source, .. } => {
+                if let Value::Operand(id) = source {
+                    if *id == from {
+                        *id = to;
+                    }
+                }
+            }
+            InstructionKind::Debug { values, .. } => {
+                for value in values {
+                    if let Value::Operand(id) = value {
+                        if *id == from {
+                            *id = to;
+                        }
+                    }
+                }
+            }
+            InstructionKind::Phi { sources, .. } => {
+                for (_, value) in sources {
+                    if let Value::Operand(id) = value {
+                        if *id == from {
+                            *id = to;
+                        }
+                    }
+                }
+            }
+            InstructionKind::Nop => {
+                // No operation - no values to replace
+            }
+            InstructionKind::MakeTuple { elements, .. } => {
+                for element in elements {
+                    if let Value::Operand(id) = element {
+                        if *id == from {
+                            *id = to;
+                        }
+                    }
+                }
+            }
+            InstructionKind::ExtractTupleElement { tuple, .. } => {
+                if let Value::Operand(id) = tuple {
+                    if *id == from {
+                        *id = to;
+                    }
+                }
+            }
+            InstructionKind::MakeStruct { fields, .. } => {
+                for (_, value) in fields {
+                    if let Value::Operand(id) = value {
+                        if *id == from {
+                            *id = to;
+                        }
+                    }
+                }
+            }
+            InstructionKind::ExtractStructField { struct_val, .. } => {
+                if let Value::Operand(id) = struct_val {
+                    if *id == from {
+                        *id = to;
+                    }
+                }
+            }
+            InstructionKind::InsertField {
+                struct_val,
+                new_value,
+                ..
+            } => {
+                if let Value::Operand(id) = struct_val {
+                    if *id == from {
+                        *id = to;
+                    }
+                }
+                if let Value::Operand(id) = new_value {
+                    if *id == from {
+                        *id = to;
+                    }
+                }
+            }
+            InstructionKind::InsertTuple {
+                tuple_val,
+                new_value,
+                ..
+            } => {
+                if let Value::Operand(id) = tuple_val {
+                    if *id == from {
+                        *id = to;
+                    }
+                }
+                if let Value::Operand(id) = new_value {
+                    if *id == from {
+                        *id = to;
+                    }
+                }
+            }
+        }
+    }
+
     /// Validates this instruction
     pub const fn validate(&self) -> Result<(), String> {
         match &self.kind {
@@ -876,6 +1038,66 @@ impl Instruction {
     /// Returns true if this instruction is pure (no side effects, result only depends on inputs)
     pub const fn is_pure(&self) -> bool {
         !self.has_side_effects()
+    }
+
+    /// Create a new phi instruction
+    pub const fn phi(dest: ValueId, ty: MirType, sources: Vec<(BasicBlockId, Value)>) -> Self {
+        Self {
+            kind: InstructionKind::Phi { dest, ty, sources },
+            comment: None,
+            source_span: None,
+            source_expr_id: None,
+        }
+    }
+
+    /// Create an empty phi instruction (operands to be filled later)
+    pub const fn empty_phi(dest: ValueId, ty: MirType) -> Self {
+        Self::phi(dest, ty, Vec::new())
+    }
+
+    /// Check if this instruction is a phi
+    pub const fn is_phi(&self) -> bool {
+        matches!(self.kind, InstructionKind::Phi { .. })
+    }
+
+    /// Get phi operands if this is a phi instruction
+    pub fn phi_operands(&self) -> Option<&[(BasicBlockId, Value)]> {
+        if let InstructionKind::Phi { sources, .. } = &self.kind {
+            Some(sources)
+        } else {
+            None
+        }
+    }
+
+    /// Get phi operands mutably if this is a phi instruction
+    pub const fn phi_operands_mut(&mut self) -> Option<&mut Vec<(BasicBlockId, Value)>> {
+        if let InstructionKind::Phi { sources, .. } = &mut self.kind {
+            Some(sources)
+        } else {
+            None
+        }
+    }
+
+    /// Add an operand to a phi instruction
+    /// Returns true if operand was added, false if not a phi
+    pub fn add_phi_operand(&mut self, block: BasicBlockId, value: Value) -> bool {
+        if let Some(sources) = self.phi_operands_mut() {
+            sources.push((block, value));
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Set all phi operands at once
+    /// Returns true if successful, false if not a phi
+    pub fn set_phi_operands(&mut self, operands: Vec<(BasicBlockId, Value)>) -> bool {
+        if let Some(sources) = self.phi_operands_mut() {
+            *sources = operands;
+            true
+        } else {
+            false
+        }
     }
 }
 

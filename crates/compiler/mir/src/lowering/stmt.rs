@@ -137,7 +137,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // Early out: plain identifier assignment => SSA rebind
         if let Expression::Identifier(ref name) = &lhs_expr_info.ast_node {
             let rhs_value = self.lower_expression(rhs)?;
-            return self.bind_variable(name, lhs_expr_info.scope_id, rhs_value);
+            return self.bind_variable(name.value(), lhs.span(), rhs_value, lhs_expr_info.scope_id);
         }
 
         // Check if this is a field assignment (rect.width = value)
@@ -154,7 +154,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             let obj_scope = lhs_expr_info.scope_id;
             // Rebind the object to the new value for pure SSA form
             if let Expression::Identifier(obj_name) = object.value() {
-                self.bind_variable(obj_name, obj_scope, Value::operand(new_struct_id))?;
+                self.bind_variable(
+                    obj_name.value(),
+                    object.span(),
+                    Value::operand(new_struct_id),
+                    obj_scope,
+                )?;
             }
             return Ok(());
         }
@@ -170,7 +175,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             let obj_scope = lhs_expr_info.scope_id;
             // Rebind the object to the new value for pure SSA form
             if let Expression::Identifier(obj_name) = tuple.value() {
-                self.bind_variable(obj_name, obj_scope, Value::operand(new_tuple_id))?;
+                self.bind_variable(
+                    obj_name.value(),
+                    tuple.span(),
+                    Value::operand(new_tuple_id),
+                    obj_scope,
+                )?;
             }
             return Ok(());
         }
@@ -243,9 +253,16 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             // Terminate the current block with a conditional branch
             self.terminate_with_branch(condition_value, then_block_id, else_block_id);
 
+            // Seal then and else blocks since their predecessor sets are now final
+            self.seal_block(then_block_id);
+            self.seal_block(else_block_id);
+
             // Lower the then block
             self.switch_to_block(then_block_id);
             self.lower_statement(then_block)?;
+
+            // Mark then block as filled after processing all statements
+            self.mark_block_filled(then_block_id);
 
             // Check if the then branch terminated
             if !self.is_current_block_terminated() {
@@ -255,6 +272,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             // Lower the else block
             self.switch_to_block(else_block_id);
             self.lower_statement(else_stmt)?;
+
+            // Mark else block as filled after processing all statements
+            self.mark_block_filled(else_block_id);
 
             // Check if the else branch terminated
             if !self.is_current_block_terminated() {
@@ -268,9 +288,16 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             // If condition is true, go to then_block, otherwise go directly to merge_block
             self.terminate_with_branch(condition_value, then_block_id, merge_block_id);
 
+            // Seal blocks since their predecessor sets are now final
+            self.seal_block(then_block_id);
+            self.seal_block(merge_block_id);
+
             // Lower the then block
             self.switch_to_block(then_block_id);
             self.lower_statement(then_block)?;
+
+            // Mark then block as filled after processing all statements
+            self.mark_block_filled(then_block_id);
 
             // Check if the then branch terminated
             if !self.is_current_block_terminated() {
@@ -306,6 +333,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 let mut cfg = self.cfg();
                 cfg.set_block_terminator(block_id, Terminator::jump(merge_block_id));
             }
+
+            // Seal merge block since its predecessor set is now final
+            self.seal_block(merge_block_id);
 
             // Continue generating code in the new merge block
             self.switch_to_block(merge_block_id);
@@ -361,6 +391,13 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         let condition_value = self.lower_expression(condition)?;
         self.terminate_with_branch(condition_value, loop_body, loop_exit);
 
+        // Mark loop header as filled after processing condition
+        self.mark_block_filled(loop_header);
+
+        // Seal loop body and exit blocks since their predecessor sets are now final
+        self.seal_block(loop_body);
+        self.seal_block(loop_exit);
+
         // Generate the loop body
         self.switch_to_block(loop_body);
         self.lower_statement(body)?;
@@ -369,6 +406,13 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         if !self.is_current_block_terminated() {
             self.terminate_with_jump(loop_header);
         }
+
+        // Mark loop body as filled after processing all statements
+        self.mark_block_filled(loop_body);
+
+        // Now that we know the complete set of predecessors for loop_header, seal it
+        // (it gets predecessors from entry and potentially from loop body)
+        self.seal_block(loop_header);
 
         // Pop loop context
         self.state.loop_stack.pop();
@@ -395,6 +439,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // Jump to the loop body from the current block
         self.terminate_with_jump(loop_body);
 
+        // Seal loop_exit early since we know its predecessors (only from break statements)
+        self.seal_block(loop_exit);
+
         // Push loop context for break/continue
         // For infinite loops, the header is the body itself
         self.state.loop_stack.push((loop_body, loop_exit));
@@ -407,6 +454,13 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         if !self.is_current_block_terminated() {
             self.terminate_with_jump(loop_body);
         }
+
+        // Mark loop body as filled after processing all statements
+        self.mark_block_filled(loop_body);
+
+        // Now that we know the complete set of predecessors for loop_body, seal it
+        // (it gets predecessors from entry and from itself if no terminator)
+        self.seal_block(loop_body);
 
         // Pop loop context
         self.state.loop_stack.pop();
@@ -444,6 +498,11 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         let cond_val = self.lower_expression(condition)?;
         self.terminate_with_branch(cond_val, loop_body, loop_exit);
 
+        // Seal loop_body and loop_exit since their predecessor sets are now final
+        // (loop_body gets predecessors from loop_header, loop_exit gets predecessors from loop_header and potentially break statements)
+        self.seal_block(loop_body);
+        self.seal_block(loop_exit);
+
         // 4. Body: generate code, then jump to step if not terminated
         self.switch_to_block(loop_body);
         self.lower_statement(body)?;
@@ -451,12 +510,28 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             self.terminate_with_jump(loop_step);
         }
 
+        // Mark loop_body as filled after processing all statements
+        self.mark_block_filled(loop_body);
+
+        // Seal loop_step since its predecessor set is now final (only from loop_body)
+        self.seal_block(loop_step);
+
         // 5. Step: execute step statement, then jump back to header
         self.switch_to_block(loop_step);
         self.lower_statement(step)?;
         if !self.is_current_block_terminated() {
             self.terminate_with_jump(loop_header);
         }
+
+        // Mark loop_step as filled after processing all statements
+        self.mark_block_filled(loop_step);
+
+        // Now seal loop_header since we know its complete set of predecessors
+        // (from initial entry and from loop_step back-edge)
+        self.seal_block(loop_header);
+
+        // Mark loop_header as filled after condition evaluation
+        self.mark_block_filled(loop_header);
 
         // 6. Pop loop context and continue in exit block
         self.state.loop_stack.pop();
@@ -505,7 +580,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         match pattern {
             Pattern::Identifier(name) => {
                 // Simple identifier binding - use our new helper
-                self.bind_variable(name, scope_id, rhs_value)?;
+                self.bind_variable(name.value(), name.span(), rhs_value, scope_id)?;
             }
             Pattern::Tuple(names) => {
                 // Tuple destructuring from a value-based tuple
@@ -555,7 +630,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         ));
 
                     // Bind the extracted value to the variable using the unified helper
-                    self.bind_variable(name, scope_id, Value::operand(elem_value_id))?;
+                    self.bind_variable(
+                        name.value(),
+                        name.span(),
+                        Value::operand(elem_value_id),
+                        scope_id,
+                    )?;
                 }
             }
         }

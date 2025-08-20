@@ -27,19 +27,19 @@ module {
 
     1 (loop_header):
       ; loop_header
-      if %0 then jump 2 else jump 3
+      %2 = φ felt { [%0]: %0, [%2]: %4 }
+      %5 = φ felt { [%0]: %1, [%2]: %6 }
+      if %2 then jump 2 else jump 3
 
     2 (loop_body):
       ; loop_body
-      %3 = %0 Sub 1
-      store %0, %3
-      %4 = %1 Add 1
-      store %1, %4
+      %4 = %2 Sub 1
+      %6 = %5 Add 1
       jump 1
 
     3 (loop_exit):
       ; loop_exit
-      return %1
+      return %5
 
   }
 

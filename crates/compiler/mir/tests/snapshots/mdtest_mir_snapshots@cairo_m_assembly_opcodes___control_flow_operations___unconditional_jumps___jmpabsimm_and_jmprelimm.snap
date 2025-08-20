@@ -30,13 +30,13 @@ module {
 
     1 (block_1):
       ; block_1
-      %1 = %0 Add 1
-      store %0, %1
-      if %0 Eq 5 then jump 3 else jump 4
+      %1 = φ felt { [%0]: %0, [%4]: %2 }
+      %2 = %1 Add 1
+      if %2 Eq 5 then jump 3 else jump 4
 
     2 (block_2):
       ; block_2
-      return %0
+      return %1
 
     3 (block_3):
       ; block_3

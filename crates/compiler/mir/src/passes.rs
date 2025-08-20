@@ -3,8 +3,6 @@
 //! This module implements various optimization passes that can be applied to MIR functions
 //! to improve code quality and remove dead code.
 
-pub mod pre_opt;
-
 use crate::{InstructionKind, Literal, MirFunction, MirType, Value};
 
 /// Analyzes a MIR function to determine if it uses memory operations
@@ -685,11 +683,10 @@ impl PassManager {
     /// while still ensuring all aggregates are memory-based for CASM generation.
     pub fn standard_pipeline() -> Self {
         Self::new()
-            .add_pass(pre_opt::PreOptimizationPass::new())
-            .add_pass(Validation::new()) // Validate SSA form before destruction
+            // .add_pass(Validation::new()) // Validate SSA form before destruction
             .add_pass(FuseCmpBranch::new())
-            .add_pass(DeadCodeElimination::new())
-            .add_pass(Validation::new_post_ssa()) // Validate post-SSA form
+        .add_pass(DeadCodeElimination::new())
+        // .add_pass(Validation::new_post_ssa()) // Validate post-SSA form
     }
 
     /// Create an aggressive optimization pipeline
