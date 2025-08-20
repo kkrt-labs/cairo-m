@@ -19,13 +19,15 @@ Cairo-M's MIR (Mid-level Intermediate Representation) using
 **Complete**: Convert basic WASM operations to Cairo-M MIR instructions ✅
 **Complete**: Support for arithmetic operations (Add, Sub, Mul), constants, and
 local variables ✅ **Complete**: Function parameter handling and return values
-✅ **Complete**: Control flow operations (`if`, `else`, `br`, `br_if`,
-`br_if_zero`) ✅ **Complete**: Comparison operations (`i32.eq`, `i32.ne`,
-`i32.lt`, `i32.gt`, etc.) ✅ **Complete**: Local variable operations
-(`local.get`, `local.set`, `local.tee`) ✅ **Complete**: Basic function calls
-with parameter passing ✅ **Complete**: Testing**: Comprehensive test suite with
-snapshot testing 🚧 **In Progress**: Advanced control flow (loops, nested
-blocks, `br_table`) 🚧 **In Progress\*\*: Memory operations (`load`, `store`)
+with optimized ValueIds (0, 1, 2...) ✅ **Complete**: Control flow operations
+(`if`, `else`, `br`, `br_if`, `br_if_zero`) ✅ **Complete**: Comparison
+operations (`i32.eq`, `i32.ne`, `i32.lt`, `i32.gt`, etc.) ✅ **Complete**: Local
+variable operations (`local.get`, `local.set`, `local.tee`) ✅ **Complete**:
+Basic function calls with parameter passing ✅ **Complete**: Loop structures
+with proper scoping and variable management ✅ **Complete**: Nested loops with
+complex control flow structures ✅ **Complete**: Comprehensive test suite with
+snapshot testing 🚧 **In Progress**: Advanced control flow (`br_table`, complex
+nested constructs) 🚧 **In Progress**: Memory operations (`load`, `store`)
 
 ## Usage
 
@@ -106,16 +108,19 @@ module {
 - **Arithmetic**: `i32.add`, `i32.sub`, `i32.mul`
 - **Constants**: `i32.const`
 - **Local Variables**: `local.get`, `local.set`, `local.tee`
-- **Function Parameters**: Parameter handling and returns
+- **Function Parameters**: Parameter handling with optimized ValueId allocation
+  (0, 1, 2...)
 - **Function Calls**: Call operations with proper parameter passing
 - **Comparison Operations**: `i32.eq`, `i32.ne`, `i32.lt`, `i32.gt`, `i32.le`,
   `i32.ge`
 - **Control Flow**: `if`, `else`, `br`, `br_if`, `br_if_zero`
-- **Value Passing**: Robust label parameter handling via memory slots
+- **Loops**: Full nested loop support with proper header/body separation and
+  variable scoping
+- **Value Passing**: Robust label parameter handling via pre-allocated slots
 
 ### Not Yet Supported
 
-- **Advanced Control Flow**: Loops, nested blocks, `br_table`
+- **Advanced Control Flow**: `br_table`, complex nested constructs
 - **Memory Operations**: `load`, `store`
 - **Advanced Operations**: Floating-point operations, SIMD instructions
 
@@ -130,27 +135,41 @@ The crate is organized into two main modules:
 
 ### Recent Improvements
 
-**Control Flow Implementation (Latest)**: The control flow system has been
-completely reworked to use a robust memory slot-based approach:
+**Loop Implementation & Optimization (Latest)**: Major improvements to control
+flow and value management:
 
-- **Eliminated Borrow Checker Issues**: Fixed mutable borrow conflicts by
-  implementing proper value cloning
-- **Simplified Architecture**: Removed complex phi-node tracking and unused
-  control flow state
+- **Complete Loop Support**: Full implementation of WASM loops with proper
+  header/body separation
+- **Optimized Parameter Allocation**: Function parameters now get ValueIds 0, 1,
+  2... for cleaner MIR output
+- **Complete Nested Loop Support**: Full support for complex nested loop
+  structures with proper scoping and variable management
+- **Proper Scope Management**: Loop sub-DAGs get their own value scopes to avoid
+  ValueOrigin collisions
+- **Pre-allocated Header Slots**: Loop variables are allocated during the first
+  pass for consistent handling
+- **Eliminated Redundant Copies**: Streamlined value flow by removing
+  unnecessary intermediate mappings
+
+**Control Flow Implementation**: The control flow system uses a robust memory
+slot-based approach:
+
 - **Memory Slot System**: Each label parameter gets dedicated memory slots for
   reliable value passing
 - **Two-Pass Algorithm**: Preallocate blocks and slots, then generate
   instructions with proper value flow
+- **Clean Value Management**: Proper scoping ensures no conflicts between
+  different control flow contexts
 
 The conversion process follows these steps:
 
 1. Load WASM bytecode using `wasmparser`
 2. Convert to WOMIR's BlockLess DAG representation
 3. Apply a two-pass algorithm to generate MIR:
-   - Pass 1: Preallocate basic blocks for all labels and allocate memory slots
-     for label parameters
-   - Pass 2: Generate instructions and control flow with robust value passing
-     via memory slots
+   - Pass 1: Preallocate function parameters (ValueIds 0,1,2...), basic blocks
+     for labels, and loop header slots
+   - Pass 2: Generate instructions and control flow with proper scoping and
+     value management
 
 ### Control Flow Implementation
 
@@ -190,9 +209,10 @@ Test cases include:
 - `func_call.wasm` - Function call handling
 - `if_statement.wasm` - Conditional branching with robust control flow
 - `simple_if.wasm` - Basic if-else control flow
-- `fib.wasm` - Recursive Fibonacci (more complex control flow)
+- `fib.wasm` - Recursive Fibonacci (complex control flow with loops)
 - `variables.wasm` - Local variable operations
-- `simple_loop.wasm` - Basic loop structure
+- `simple_loop.wasm` - Basic loop structure with header/body separation
+- `nested_loop.wasm` - Complex nested loop structures with proper scoping
 - `select.wasm` - Select operation handling
 
 ## Dependencies
@@ -204,13 +224,17 @@ Test cases include:
 
 ## Future Enhancements
 
-- **Advanced Control Flow**: Complete loop support, nested blocks, `br_table`
-  operations
+- **Advanced Control Flow**: `br_table` operations and complex nested constructs
 - **Memory Operations**: Load/store operations with proper memory model
   integration
 - **Extended Types**: Support for i64, f32, f64, and vector types
 - **Memory Model**: Integration with Cairo-M's memory management system
-- **Optimization Passes**: Value coalescing, dead code elimination in MIR
-  representation
+- **Optimization Passes**:
+  - Eliminate redundant slot allocations for single-predecessor labels
+  - Dead code elimination in MIR representation
+  - Loop optimization and unrolling
 - **Integration**: Full integration with Cairo-M's compilation pipeline
-- **Performance**: Optimize memory slot allocation and reduce memory traffic
+- **Performance**: Further optimize memory slot allocation and reduce memory
+  traffic
+- **Advanced Nested Constructs**: Support for even more complex nested
+  structures if needed

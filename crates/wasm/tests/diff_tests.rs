@@ -123,7 +123,9 @@ fn test_arithmetic() {
 
 #[test]
 fn test_fib() {
-    test_program("tests/test_cases/fib.wasm", "fib", vec![10]);
+    for i in 0..10 {
+        test_program("tests/test_cases/fib.wasm", "fib", vec![i]);
+    }
 }
 
 #[test]
@@ -153,4 +155,11 @@ fn test_simple_loop() {
 #[test]
 fn test_variables() {
     test_program("tests/test_cases/variables.wasm", "main", vec![]);
+}
+
+#[test]
+fn test_nested_loop() {
+    for i in 0..10 {
+        test_program("tests/test_cases/nested_loop.wasm", "nested_loop", vec![i]);
+    }
 }

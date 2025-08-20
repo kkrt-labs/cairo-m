@@ -103,15 +103,6 @@ impl DagToMirContext {
         }
     }
 
-    fn contains_value(&self, origin: &ValueOrigin) -> bool {
-        for map in self.value_maps.iter().rev() {
-            if map.contains_key(origin) {
-                return true;
-            }
-        }
-        false
-    }
-
     fn get_value(&self, origin: &ValueOrigin) -> Option<ValueId> {
         for map in self.value_maps.iter().rev() {
             if let Some(v) = map.get(origin) {
@@ -252,7 +243,6 @@ impl DagToMir {
                     let block_id = context.mir_function.add_basic_block();
                     context.label_map.insert(*id, block_id);
                     let mut output_value_ids: Vec<ValueId> = Vec::new();
-                    let mut slot_value_ids: Vec<ValueId> = Vec::new();
                     for (output_idx, output_type) in node.output_types.iter().enumerate() {
                         let mir_type = Self::wasm_type_to_mir_type(output_type)?;
                         // Pre-allocate the label output value id
@@ -268,8 +258,7 @@ impl DagToMir {
                         output_value_ids.push(output_value_id);
 
                         // Allocate a dedicated slot for this label parameter
-                        let slot_value_id = context.mir_function.new_typed_value_id(mir_type);
-                        slot_value_ids.push(slot_value_id);
+                        context.mir_function.new_typed_value_id(mir_type);
                     }
                     context.label_output_values.insert(*id, output_value_ids);
                 }
@@ -420,17 +409,6 @@ impl DagToMir {
                         )
                     })?;
 
-                    // Map sub-DAG Inputs outputs directly to header slots so inner code uses them
-                    for (output_idx, slot_value_id) in header_slots.iter().enumerate() {
-                        context.insert_value(
-                            ValueOrigin {
-                                node: 0,
-                                output_idx: output_idx as u32,
-                            },
-                            *slot_value_id,
-                        );
-                    }
-
                     let terminator = Terminator::jump(header_block);
                     context.get_current_block()?.set_terminator(terminator);
 
@@ -464,6 +442,18 @@ impl DagToMir {
 
                     // Enter a new value scope for the loop body to avoid ValueOrigin collisions
                     context.push_scope();
+
+                    // Map the sub-DAG's Inputs node (node 0) to header slots
+                    for (output_idx, slot_value_id) in header_slots.iter().enumerate() {
+                        context.insert_value(
+                            ValueOrigin {
+                                node: 0,
+                                output_idx: output_idx as u32,
+                            },
+                            *slot_value_id,
+                        );
+                    }
+
                     // Pre-allocate labels inside the loop sub-DAG
                     self.allocate_blocks_and_slots(sub_dag, context)?;
                     // Lower the body
@@ -517,6 +507,14 @@ impl DagToMir {
                 let result_id = context.mir_function.new_typed_value_id(MirType::U32);
                 let instruction =
                     Instruction::binary_op(BinaryOp::U32Mul, result_id, inputs[0], inputs[1]);
+                context.get_current_block()?.push_instruction(instruction);
+                Ok(vec![result_id])
+            }
+
+            Op::I32DivU => {
+                let result_id = context.mir_function.new_typed_value_id(MirType::U32);
+                let instruction =
+                    Instruction::binary_op(BinaryOp::U32Div, result_id, inputs[0], inputs[1]);
                 context.get_current_block()?.push_instruction(instruction);
                 Ok(vec![result_id])
             }
@@ -592,12 +590,11 @@ impl DagToMir {
                         Instruction::assign_u32(result_id, Value::operand(local_value_id));
                     context.get_current_block()?.push_instruction(instruction);
                 } else {
-                    // No local variable set yet, create a placeholder (uninitialized local)
-                    let instruction = Instruction::assign_u32(
-                        result_id,
-                        Value::integer(0), // Default to 0 for uninitialized locals
-                    );
-                    context.get_current_block()?.push_instruction(instruction);
+                    // No local variable set yet, raise an error
+                    return Err(DagToMirError::ValueMappingError(format!(
+                        "Local variable {} not set",
+                        local_index
+                    )));
                 }
                 Ok(vec![result_id])
             }
@@ -697,14 +694,15 @@ impl DagToMir {
         value_origin: &ValueOrigin,
         context: &DagToMirContext,
     ) -> Result<Value, DagToMirError> {
-        if let Some(value_id) = context.get_value(value_origin) {
-            Ok(Value::operand(value_id))
-        } else {
-            Err(DagToMirError::ValueMappingError(format!(
-                "Value not found: node {}, output {}",
-                value_origin.node, value_origin.output_idx
-            )))
-        }
+        context.get_value(value_origin).map_or_else(
+            || {
+                Err(DagToMirError::ValueMappingError(format!(
+                    "Value not found: node {}, output {}",
+                    value_origin.node, value_origin.output_idx
+                )))
+            },
+            |value_id| Ok(Value::operand(value_id)),
+        )
     }
 
     /// Resolve a WASM break target to a MIR BasicBlockId
