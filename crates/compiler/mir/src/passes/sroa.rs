@@ -4,7 +4,7 @@
 //! unnecessary aggregate construction and enabling better downstream optimizations.
 //! Aggregates are only materialized on-demand at ABI boundaries (calls, stores).
 
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{
     instruction::InstructionKind, value::Value, BasicBlockId, Instruction, MirFunction, MirType,
@@ -107,6 +107,208 @@ impl ScalarReplacementOfAggregates {
         }
     }
 
+    /// Find aggregates that are used across block boundaries
+    /// In phase 1, we skip scalarizing these to maintain correctness
+    fn find_cross_block_aggregates(&self, function: &MirFunction) -> FxHashSet<ValueId> {
+        let mut cross_block = FxHashSet::default();
+        let mut defined_in_block: FxHashMap<ValueId, BasicBlockId> = FxHashMap::default();
+
+        // First pass: record where each aggregate is defined
+        for (block_id, block) in function.basic_blocks.iter_enumerated() {
+            for inst in &block.instructions {
+                match &inst.kind {
+                    InstructionKind::MakeTuple { dest, .. }
+                    | InstructionKind::MakeStruct { dest, .. } => {
+                        if let Some(ty) = function.get_value_type(*dest) {
+                            if self.is_scalarizable(ty) {
+                                defined_in_block.insert(*dest, block_id);
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // Second pass: check if aggregates are used in different blocks
+        for (block_id, block) in function.basic_blocks.iter_enumerated() {
+            // Check all value uses in instructions
+            for inst in &block.instructions {
+                self.collect_value_uses_in_instruction(&inst.kind, |used_value| {
+                    if let Some(&def_block) = defined_in_block.get(&used_value) {
+                        if def_block != block_id {
+                            cross_block.insert(used_value);
+                        }
+                    }
+                });
+            }
+
+            // Check terminator uses
+            self.collect_value_uses_in_terminator(&block.terminator, |used_value| {
+                if let Some(&def_block) = defined_in_block.get(&used_value) {
+                    if def_block != block_id {
+                        cross_block.insert(used_value);
+                    }
+                }
+            });
+        }
+
+        cross_block
+    }
+
+    /// Helper to collect all value uses in an instruction
+    fn collect_value_uses_in_instruction<F>(&self, inst: &InstructionKind, mut callback: F)
+    where
+        F: FnMut(ValueId),
+    {
+        match inst {
+            InstructionKind::Assign { source, .. } => {
+                if let Value::Operand(id) = source {
+                    callback(*id);
+                }
+            }
+            InstructionKind::UnaryOp { source, .. } => {
+                if let Value::Operand(id) = source {
+                    callback(*id);
+                }
+            }
+            InstructionKind::BinaryOp { left, right, .. } => {
+                if let Value::Operand(id) = left {
+                    callback(*id);
+                }
+                if let Value::Operand(id) = right {
+                    callback(*id);
+                }
+            }
+            InstructionKind::Call { args, .. } => {
+                for arg in args {
+                    if let Value::Operand(id) = arg {
+                        callback(*id);
+                    }
+                }
+            }
+            InstructionKind::Load { address, .. } => {
+                if let Value::Operand(id) = address {
+                    callback(*id);
+                }
+            }
+            InstructionKind::Store { address, value, .. } => {
+                if let Value::Operand(id) = address {
+                    callback(*id);
+                }
+                if let Value::Operand(id) = value {
+                    callback(*id);
+                }
+            }
+            InstructionKind::ExtractTupleElement { tuple, .. } => {
+                if let Value::Operand(id) = tuple {
+                    callback(*id);
+                }
+            }
+            InstructionKind::ExtractStructField { struct_val, .. } => {
+                if let Value::Operand(id) = struct_val {
+                    callback(*id);
+                }
+            }
+            InstructionKind::InsertTuple {
+                tuple_val,
+                new_value,
+                ..
+            } => {
+                if let Value::Operand(id) = tuple_val {
+                    callback(*id);
+                }
+                if let Value::Operand(id) = new_value {
+                    callback(*id);
+                }
+            }
+            InstructionKind::InsertField {
+                struct_val,
+                new_value,
+                ..
+            } => {
+                if let Value::Operand(id) = struct_val {
+                    callback(*id);
+                }
+                if let Value::Operand(id) = new_value {
+                    callback(*id);
+                }
+            }
+            InstructionKind::MakeTuple { elements, .. } => {
+                for elem in elements {
+                    if let Value::Operand(id) = elem {
+                        callback(*id);
+                    }
+                }
+            }
+            InstructionKind::MakeStruct { fields, .. } => {
+                for (_, val) in fields {
+                    if let Value::Operand(id) = val {
+                        callback(*id);
+                    }
+                }
+            }
+            InstructionKind::Phi { sources, .. } => {
+                for (_, val) in sources {
+                    if let Value::Operand(id) = val {
+                        callback(*id);
+                    }
+                }
+            }
+            InstructionKind::AddressOf { operand, .. } => {
+                callback(*operand);
+            }
+            InstructionKind::FrameAlloc { .. } => {}
+            InstructionKind::GetElementPtr { base, offset, .. } => {
+                if let Value::Operand(id) = base {
+                    callback(*id);
+                }
+                if let Value::Operand(id) = offset {
+                    callback(*id);
+                }
+            }
+            InstructionKind::Cast { source, .. } => {
+                if let Value::Operand(id) = source {
+                    callback(*id);
+                }
+            }
+            InstructionKind::Debug { .. } => {}
+            InstructionKind::Nop => {}
+        }
+    }
+
+    /// Helper to collect all value uses in a terminator
+    fn collect_value_uses_in_terminator<F>(&self, term: &crate::Terminator, mut callback: F)
+    where
+        F: FnMut(ValueId),
+    {
+        use crate::Terminator;
+        match term {
+            Terminator::Return { values } => {
+                for val in values {
+                    if let Value::Operand(id) = val {
+                        callback(*id);
+                    }
+                }
+            }
+            Terminator::Jump { .. } => {}
+            Terminator::If { condition, .. } => {
+                if let Value::Operand(id) = condition {
+                    callback(*id);
+                }
+            }
+            Terminator::BranchCmp { left, right, .. } => {
+                if let Value::Operand(id) = left {
+                    callback(*id);
+                }
+                if let Value::Operand(id) = right {
+                    callback(*id);
+                }
+            }
+            Terminator::Unreachable => {}
+        }
+    }
+
     /// Check if an instruction requires materialization of its aggregate operands
     fn requires_materialization<'a>(
         &self,
@@ -142,6 +344,9 @@ impl ScalarReplacementOfAggregates {
 impl MirPass for ScalarReplacementOfAggregates {
     fn run(&mut self, function: &mut MirFunction) -> bool {
         let mut modified_any = false;
+
+        // Phase 1: Analyze which aggregates are used across block boundaries
+        let cross_block_aggregates = self.find_cross_block_aggregates(function);
 
         // Process blocks one by one; preserve phi prefix ordering
         let block_count = function.block_count();
@@ -197,6 +402,12 @@ impl MirPass for ScalarReplacementOfAggregates {
                             continue;
                         }
 
+                        // Skip scalarization if used across blocks in phase 1
+                        if cross_block_aggregates.contains(dest) {
+                            new_instrs.push(inst);
+                            continue;
+                        }
+
                         agg_states.insert(*dest, AggState::tuple(elements.clone()));
                         self.stats.scalarized_builds += 1;
                         block_modified = true;
@@ -208,6 +419,12 @@ impl MirPass for ScalarReplacementOfAggregates {
                         struct_ty,
                     } if self.config.enable_structs => {
                         if !self.is_scalarizable(struct_ty) {
+                            new_instrs.push(inst);
+                            continue;
+                        }
+
+                        // Skip scalarization if used across blocks in phase 1
+                        if cross_block_aggregates.contains(dest) {
                             new_instrs.push(inst);
                             continue;
                         }

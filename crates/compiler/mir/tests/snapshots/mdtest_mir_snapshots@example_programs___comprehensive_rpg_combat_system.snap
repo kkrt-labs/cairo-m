@@ -396,6 +396,8 @@ module {
     entry: 0
 
     0:
+      %1 = makestruct { health: 100, mana: 50, level: 5, position: %0 }
+      %3 = makestruct { health: 80, mana: 30, level: 4, position: %2 }
       %4 = 1 (u32)
       %5 = 10 (u32)
       %9 = %1 (Character)
