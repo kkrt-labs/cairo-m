@@ -22,10 +22,8 @@ module {
     entry: 0
 
     0:
-      %0 = makestruct { width: 5, height: 10 }
-      %1 = insertfield %0, "width", 7
-      %2 = extractfield %1, "width"
-      %3 = extractfield %1, "height"
+      %2 = 7
+      %3 = 10
       %4 = %2 Mul %3
       return %4
 

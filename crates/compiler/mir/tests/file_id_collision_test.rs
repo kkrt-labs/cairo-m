@@ -106,7 +106,7 @@ fn main() -> felt {
         modules2,
         "math".to_string(),
         PathBuf::from("."),
-        "crate_test".to_string(),
+        "crate_test2".to_string(),
     );
 
     // Generate MIR for both crates

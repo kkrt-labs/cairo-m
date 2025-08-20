@@ -21,9 +21,8 @@ module {
     0:
       %0 = 10
       %1 = Neg %0
-      %2 = Neg %0
-      %3 = Neg %2
-      %4 = Neg 10
+      %3 = Neg %1
+      %4 = -10
       %5 = %3 Add %4
       return %5
 

@@ -21,9 +21,8 @@ module {
     entry: 0
 
     0:
-      %0 = makestruct { x: 10, y: 20 }
-      %1 = extractfield %0, "x"
-      %2 = extractfield %0, "y"
+      %1 = 10
+      %2 = 20
       %3 = %1 Add %2
       return %3
 

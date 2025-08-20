@@ -200,15 +200,10 @@ module {
 
     0:
       %0 = call 6()
-      %1 = makestruct { x: 0, y: 0 }
-      %2 = makestruct { health: 100, mana: 50, level: 5, position: %1 }
-      %3, %4, %5 = call 1(%2)
-      %6 = maketuple %3, %4, %5
-      %7 = extracttuple %6, 0
-      %8 = extracttuple %6, 1
-      %9 = extracttuple %6, 2
-      %10 = %0 U32Add %9
-      %11 = %8 U32Div 10
+      %14 = makestruct { health: 100, mana: 50, level: 5, position: %1 }
+      %3, %4, %5 = call 1(%14)
+      %10 = %0 U32Add %5
+      %11 = %4 U32Div 10
       %12 = %10 U32Add %11
       return %12
 
@@ -223,11 +218,7 @@ module {
       %1 = extractfield %0, "health"
       %2 = extractfield %0, "mana"
       %3 = extractfield %0, "level"
-      %4 = maketuple %1, %2, %3
-      %5 = extracttuple %4, 0
-      %6 = extracttuple %4, 1
-      %7 = extracttuple %4, 2
-      return (%5, %6, %7)
+      return (%1, %2, %3)
 
   }
 
@@ -327,10 +318,8 @@ module {
     2 (block_2):
       ; block_2
       %16 = φ felt { [%0]: %7, [%1]: %13 }
-      %24 = φ felt { [%0]: %10, [%1]: %12 }
       %15 = extractfield %1, "health"
-      %17 = extractfield %1, "health"
-      %18 = %16 U32GreaterEqual %17
+      %18 = %16 U32GreaterEqual %15
       if %18 then jump 3 else jump 4
 
     3 (block_3):
@@ -347,7 +336,6 @@ module {
     5 (block_5):
       ; block_5
       %25 = φ felt { [%3]: %19, [%4]: %21 }
-      %26 = makestruct { damage_dealt: %16, critical_hit: %24, remaining_health: %25 }
       return %26
 
   }
@@ -396,10 +384,6 @@ module {
     entry: 0
 
     0:
-      %0 = makestruct { x: 10, y: 20 }
-      %1 = makestruct { health: 100, mana: 50, level: 5, position: %0 }
-      %2 = makestruct { x: 15, y: 25 }
-      %3 = makestruct { health: 80, mana: 30, level: 4, position: %2 }
       %4 = 1 (u32)
       %5 = 10 (u32)
       jump 1
@@ -408,7 +392,7 @@ module {
       ; block_1
       %6 = φ felt { [%0]: %4, [%13]: %27 }
       %9 = φ felt { [%0]: %1, [%13]: %29 }
-      %10 = φ felt { [%0]: %3, [%13]: %30 }
+      %10 = φ felt { [%0]: %3, [%13]: %32 }
       %8 = %6 U32Greater %5
       if %8 then jump 3 else jump 4
 
@@ -470,7 +454,7 @@ module {
 
     13 (block_13):
       ; block_13
-      %30 = φ felt { [%11]: %10, [%12]: %24 }
+      %32 = φ felt { [%11]: %10, [%12]: %24 }
       %27 = %6 U32Add 1
       jump 1
 

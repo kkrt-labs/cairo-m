@@ -31,18 +31,11 @@ module {
     entry: 0
 
     0:
-      %0 = makestruct { x: 0, y: 0 }
-      %1 = makestruct { x: 3, y: 4 }
-      %2 = makestruct { start: %0, end: %1 }
-      %3 = extractfield %2, "end"
-      %4 = extractfield %3, "x"
-      %5 = extractfield %2, "start"
-      %6 = extractfield %5, "x"
+      %4 = 3
+      %6 = 0
       %7 = %4 Sub %6
-      %8 = extractfield %2, "end"
-      %9 = extractfield %8, "y"
-      %10 = extractfield %2, "start"
-      %11 = extractfield %10, "y"
+      %9 = 4
+      %11 = 0
       %12 = %9 Sub %11
       %13 = %7 Mul %7
       %14 = %12 Mul %12

@@ -16,11 +16,10 @@ module {
     entry: 0
 
     0:
-      %0 = maketuple 1, 2, 3
-      %1 = extracttuple %0, 0
-      %2 = extracttuple %0, 1
+      %1 = 1
+      %2 = 2
       %3 = %1 Add %2
-      %4 = extracttuple %0, 2
+      %4 = 3
       %5 = %3 Add %4
       return %5
 

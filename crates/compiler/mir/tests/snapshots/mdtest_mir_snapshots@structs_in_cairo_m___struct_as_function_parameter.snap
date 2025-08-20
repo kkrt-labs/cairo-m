@@ -27,9 +27,9 @@ module {
     entry: 0
 
     0:
-      %0 = makestruct { x: 1, y: 2, z: 3 }
-      %1 = makestruct { x: 4, y: 5, z: 6 }
-      %2 = call 1(%0, %1)
+      %4 = makestruct { x: 1, y: 2, z: 3 }
+      %5 = makestruct { x: 4, y: 5, z: 6 }
+      %2 = call 1(%4, %5)
       return %2
 
   }

@@ -66,11 +66,29 @@ impl MirPass for ConditionalPass {
     }
 }
 
+pub mod arithmetic_simplify;
+use arithmetic_simplify::ArithmeticSimplify;
+
+pub mod constant_folding;
+use constant_folding::ConstantFolding;
+
+pub mod copy_propagation;
+use copy_propagation::CopyPropagation;
+
+pub mod local_cse;
+use local_cse::LocalCSE;
+
+pub mod simplify_branches;
+use simplify_branches::SimplifyBranches;
+
 pub mod fuse_cmp;
 use fuse_cmp::FuseCmpBranch;
 
 pub mod dead_code_elimination;
 use dead_code_elimination::DeadCodeElimination;
+
+pub mod sroa;
+use sroa::ScalarReplacementOfAggregates;
 
 /// MIR Validation Pass
 ///
@@ -669,6 +687,9 @@ impl PassManager {
     /// Create a basic optimization pipeline (minimal optimizations)
     pub fn basic_pipeline() -> Self {
         Self::new()
+            .add_pass(ArithmeticSimplify::new())
+            .add_pass(ConstantFolding::new())
+            .add_pass(CopyPropagation::new())
             .add_pass(DeadCodeElimination::new())
             .add_pass(Validation::new_post_ssa())
     }
@@ -683,10 +704,16 @@ impl PassManager {
     /// while still ensuring all aggregates are memory-based for CASM generation.
     pub fn standard_pipeline() -> Self {
         Self::new()
-            // .add_pass(Validation::new()) // Validate SSA form before destruction
+            .add_pass(Validation::new()) // Validate SSA form before destruction
+            .add_pass(ScalarReplacementOfAggregates::new()) // Run SROA early to expose scalars
+            .add_pass(ArithmeticSimplify::new())
+            .add_pass(ConstantFolding::new())
+            .add_pass(CopyPropagation::new())
+            .add_pass(LocalCSE::new())
+            .add_pass(SimplifyBranches::new())
             .add_pass(FuseCmpBranch::new())
-        .add_pass(DeadCodeElimination::new())
-        // .add_pass(Validation::new_post_ssa()) // Validate post-SSA form
+            .add_pass(DeadCodeElimination::new())
+            .add_pass(Validation::new_post_ssa()) // Validate post-SSA form
     }
 
     /// Create an aggressive optimization pipeline

@@ -8,7 +8,8 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use std::collections::HashSet;
 
 use crate::{
-    indent_str, BasicBlock, BasicBlockId, Instruction, MirType, PrettyPrint, Value, ValueId,
+    indent_str, BasicBlock, BasicBlockId, Instruction, MirType, PrettyPrint, Terminator, Value,
+    ValueId,
 };
 
 /// A simple definition identifier for MIR that doesn't depend on Salsa lifetimes
@@ -681,6 +682,32 @@ impl MirFunction {
     /// Check if a block is sealed
     pub fn is_block_sealed(&self, block: BasicBlockId) -> bool {
         self.sealed_blocks.contains(&block)
+    }
+
+    /// Set terminator while properly maintaining CFG edges
+    /// This is a helper for optimization passes that need to change control flow
+    pub fn set_terminator_with_edges(&mut self, block_id: BasicBlockId, new_term: Terminator) {
+        // Get old target blocks
+        let old_targets = if let Some(block) = self.basic_blocks.get(block_id) {
+            block.terminator.target_blocks()
+        } else {
+            return; // Block doesn't exist
+        };
+
+        // Disconnect from old targets
+        for target in old_targets {
+            self.disconnect(block_id, target);
+        }
+
+        // Set new terminator
+        if let Some(block) = self.basic_blocks.get_mut(block_id) {
+            block.set_terminator(new_term.clone());
+        }
+
+        // Connect to new targets
+        for target in new_term.target_blocks() {
+            self.connect(block_id, target);
+        }
     }
 }
 

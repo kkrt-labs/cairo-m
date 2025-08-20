@@ -16,7 +16,7 @@ module {
     entry: 0
 
     0:
-      %0 = Neg 5
+      %0 = -5
       %1 = %0 Add 10
       return %1
 

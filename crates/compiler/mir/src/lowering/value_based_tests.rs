@@ -101,14 +101,17 @@ mod value_based_lowering_tests {
 
         // Set backend to Generic to preserve value-based aggregates
         std::env::set_var("CAIRO_M_BACKEND", "generic");
+        // Disable optimizations to preserve MakeStruct for testing
+        std::env::set_var("CAIRO_M_OPT_LEVEL", "0");
 
         let db = TestDatabase::default();
         let crate_id = create_test_crate(&db, source);
         let module = generate_mir(&db, crate_id).expect("MIR generation failed");
         let mir_text = module.pretty_print(0);
 
-        // Clean up environment variable
+        // Clean up environment variables
         std::env::remove_var("CAIRO_M_BACKEND");
+        std::env::remove_var("CAIRO_M_OPT_LEVEL");
 
         // Verify that MakeStruct is used, not frame_alloc
         assert!(mir_text.contains("makestruct"));

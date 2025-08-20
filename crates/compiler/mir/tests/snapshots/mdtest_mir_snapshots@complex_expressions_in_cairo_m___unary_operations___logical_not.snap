@@ -21,9 +21,8 @@ module {
     0:
       %0 = true (bool)
       %1 = Not %0
-      %2 = Not %0
-      %3 = Not %2
-      %4 = Not false
+      %3 = Not %1
+      %4 = true (bool)
       %5 = %4 And %3
       return %5
 

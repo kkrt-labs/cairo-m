@@ -4,6 +4,7 @@
 //! orchestration logic for lowering entire functions from the semantic AST.
 
 use std::collections::HashMap;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
 
 use cairo_m_compiler_diagnostics::Diagnostic;
@@ -109,11 +110,17 @@ pub fn generate_mir(db: &dyn MirDb, crate_id: Crate) -> Result<Arc<MirModule>, V
         let file = *modules_map
             .get(module_name)
             .expect("Module file should exist");
-        let file_id: u64 = crate_id
+
+        let position = crate_id
             .modules(db)
             .iter()
             .position(|(name, _)| name == module_name)
-            .expect("Module should exist in crate") as u64;
+            .expect("Module should exist in crate");
+
+        let mut hasher = DefaultHasher::new();
+        crate_id.name(db).hash(&mut hasher);
+        position.hash(&mut hasher);
+        let file_id: u64 = hasher.finish();
 
         // Get the parsed module for this file
         let (_, parsed_module) = parsed_modules
