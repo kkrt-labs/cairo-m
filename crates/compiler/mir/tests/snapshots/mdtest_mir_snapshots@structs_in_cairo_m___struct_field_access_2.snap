@@ -34,17 +34,18 @@ module {
       %3 = extractfield %0, "width"
       %4 = %3 U32Mul 3
       %5 = insertfield %0, "width", %4
+      %8 = %5 (RectangleU32)
       jump 3
 
     2 (block_2):
       ; block_2
       %6 = extractfield %0, "height"
       %7 = insertfield %0, "width", %6
+      %8 = %7 (RectangleU32)
       jump 3
 
     3 (block_3):
       ; block_3
-      %8 = φ felt { [%1]: %5, [%2]: %7 }
       %9 = extractfield %8, "width"
       %10 = extractfield %8, "height"
       %11 = %9 U32Mul %10

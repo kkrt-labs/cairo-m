@@ -26,11 +26,11 @@ module {
 
     0:
       %0 = 0
+      %1 = %0
       jump 1
 
     1 (block_1):
       ; block_1
-      %1 = φ felt { [%0]: %0, [%4]: %2 }
       %2 = %1 Add 1
       if %2 Eq 5 then jump 3 else jump 4
 
@@ -44,6 +44,7 @@ module {
 
     4 (block_4):
       ; block_4
+      %1 = %2
       jump 1
 
   }

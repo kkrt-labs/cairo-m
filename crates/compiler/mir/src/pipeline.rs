@@ -97,7 +97,8 @@ pub fn optimize_module(module: &mut MirModule, config: &PipelineConfig) {
                 "Warning: Function validation failed before optimization: {}",
                 e
             );
-            continue;
+            // Don't skip optimization - some passes may fix validation issues
+            // continue;
         }
 
         // Run optimization passes

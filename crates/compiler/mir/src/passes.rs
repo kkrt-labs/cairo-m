@@ -90,6 +90,9 @@ use dead_code_elimination::DeadCodeElimination;
 pub mod sroa;
 use sroa::ScalarReplacementOfAggregates;
 
+pub mod phi_elimination;
+use phi_elimination::PhiElimination;
+
 /// MIR Validation Pass
 ///
 /// This pass validates the MIR function to ensure it meets all invariants.
@@ -673,11 +676,6 @@ impl PassManager {
         for pass in &mut self.passes {
             if pass.run(function) {
                 modified = true;
-                eprintln!(
-                    "Pass '{}' modified function '{}'",
-                    pass.name(),
-                    function.name
-                );
             }
         }
 
@@ -691,6 +689,7 @@ impl PassManager {
             .add_pass(ConstantFolding::new())
             .add_pass(CopyPropagation::new())
             .add_pass(DeadCodeElimination::new())
+            .add_pass(PhiElimination::new()) // Convert from SSA to non-SSA form
             .add_pass(Validation::new_post_ssa())
     }
 
@@ -713,6 +712,7 @@ impl PassManager {
             .add_pass(SimplifyBranches::new())
             .add_pass(FuseCmpBranch::new())
             .add_pass(DeadCodeElimination::new())
+            .add_pass(PhiElimination::new()) // Convert from SSA to non-SSA form
             .add_pass(Validation::new_post_ssa()) // Validate post-SSA form
     }
 

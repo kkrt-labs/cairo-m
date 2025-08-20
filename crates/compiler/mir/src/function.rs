@@ -518,10 +518,11 @@ impl MirFunction {
 
     /// Create a new incomplete phi instruction (helper for both complete and incomplete phis)
     fn new_incomplete_phi(&mut self, block: BasicBlockId, var: MirDefinitionId) -> ValueId {
-        // For now, we need to determine the variable type
-        // In the real implementation, this should come from semantic analysis
-        let var_type = MirType::felt(); // Default type - this should be improved
-        self.new_phi(block, var_type)
+        let value_id = self.locals.get(&var).expect("Variable must be defined");
+        let var_type = self
+            .get_value_type(*value_id)
+            .expect("Variable must have a type");
+        self.new_phi(block, var_type.clone())
     }
 
     /// Add phi operands from all predecessors (Algorithm 2, addPhiOperands)

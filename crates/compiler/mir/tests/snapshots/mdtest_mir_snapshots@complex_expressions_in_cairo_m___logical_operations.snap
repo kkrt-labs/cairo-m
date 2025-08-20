@@ -56,47 +56,67 @@ module {
       %13 = %1 Neq 0
       %14 = %12 Or %13
       %15 = 0
-      if %5 then jump 1 else jump 2
+      %18 = %15
+      if %5 then jump 1 else jump 9
 
     1 (block_1):
       ; block_1
       %16 = %15 Add 1
+      %18 = %16
       jump 2
 
     2 (block_2):
       ; block_2
-      %18 = φ felt { [%0]: %15, [%1]: %16 }
-      if %8 then jump 3 else jump 4
+      %22 = %18
+      if %8 then jump 3 else jump 10
 
     3 (block_3):
       ; block_3
       %19 = %18 Add 1
+      %22 = %19
       jump 4
 
     4 (block_4):
       ; block_4
-      %22 = φ felt { [%2]: %18, [%3]: %19 }
-      if %11 then jump 5 else jump 6
+      %27 = %22
+      if %11 then jump 5 else jump 11
 
     5 (block_5):
       ; block_5
       %23 = %22 Add 1
+      %27 = %23
       jump 6
 
     6 (block_6):
       ; block_6
-      %27 = φ felt { [%4]: %22, [%5]: %23 }
-      if %14 then jump 7 else jump 8
+      %29 = %27
+      if %14 then jump 7 else jump 12
 
     7 (block_7):
       ; block_7
       %28 = %27 Add 1
+      %29 = %28
       jump 8
 
     8 (block_8):
       ; block_8
-      %29 = φ felt { [%6]: %27, [%7]: %28 }
       return %29
+
+    9 (edge_0_2):
+      ; edge_0_2
+      jump 2
+
+    10 (edge_2_4):
+      ; edge_2_4
+      jump 4
+
+    11 (edge_4_6):
+      ; edge_4_6
+      jump 6
+
+    12 (edge_6_8):
+      ; edge_6_8
+      jump 8
 
   }
 

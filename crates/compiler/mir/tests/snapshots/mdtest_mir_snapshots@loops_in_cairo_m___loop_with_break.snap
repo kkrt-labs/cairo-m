@@ -23,11 +23,11 @@ module {
 
     0:
       %0 = 10
+      %1 = %0
       jump 1
 
     1 (block_1):
       ; block_1
-      %1 = φ felt { [%0]: %0, [%4]: %5 }
       %2 = %1 Eq 7
       %3 = %1 Eq 0
       %4 = %2 Or %3
@@ -44,6 +44,7 @@ module {
     4 (block_4):
       ; block_4
       %5 = %1 Sub 1
+      %1 = %5
       jump 1
 
   }
