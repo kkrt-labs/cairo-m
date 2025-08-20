@@ -108,7 +108,7 @@ impl ArithmeticSimplify {
     /// Try to eliminate double negation: !(!x) → x
     fn try_eliminate_double_negation(
         &self,
-        dest: crate::ValueId,
+        _dest: crate::ValueId,
         inner_id: crate::ValueId,
         function: &MirFunction,
     ) -> bool {
@@ -120,7 +120,7 @@ impl ArithmeticSimplify {
                     if instr_dest == inner_id {
                         if let InstructionKind::UnaryOp {
                             op: UnaryOp::Not,
-                            source,
+                            source: _,
                             ..
                         } = &instr.kind
                         {

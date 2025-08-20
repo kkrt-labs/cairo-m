@@ -50,6 +50,7 @@ pub enum ValueLayout {
 /// Maps every ValueId in a function to its fp-relative memory offset.
 #[derive(Debug, Clone)]
 pub struct FunctionLayout {
+    name: String,
     /// Maps ValueId to its memory layout.
     pub value_layouts: FxHashMap<ValueId, ValueLayout>,
     /// The total frame size needed for this function.
@@ -66,6 +67,7 @@ impl FunctionLayout {
     /// Creates a new layout for a function, allocating slots for its parameters.
     pub fn new(function: &MirFunction) -> CodegenResult<Self> {
         let mut layout = Self {
+            name: function.name.clone(),
             value_layouts: FxHashMap::default(),
             frame_size: 0,
             num_parameters: function.parameters.len(),
@@ -349,7 +351,8 @@ impl FunctionLayout {
                 CodegenError::LayoutError(format!("Value {value_id:?} has no memory offset")),
             ),
             None => Err(CodegenError::LayoutError(format!(
-                "No layout found for value {value_id:?}"
+                "No layout found for value {value_id:?} in function {}",
+                self.name
             ))),
         }
     }
@@ -386,7 +389,10 @@ impl FunctionLayout {
     /// Gets the value layout for a specific ValueId.
     pub fn get_layout(&self, value_id: ValueId) -> CodegenResult<&ValueLayout> {
         self.value_layouts.get(&value_id).ok_or_else(|| {
-            CodegenError::LayoutError(format!("No layout found for value {value_id:?}"))
+            CodegenError::LayoutError(format!(
+                "No layout found for value {value_id:?} in function {}",
+                self.name
+            ))
         })
     }
 
@@ -424,6 +430,7 @@ impl FunctionLayout {
     /// Creates a new empty layout for testing.
     pub fn new_for_test() -> Self {
         Self {
+            name: "test".to_string(),
             value_layouts: FxHashMap::default(),
             frame_size: 0,
             num_parameters: 0,

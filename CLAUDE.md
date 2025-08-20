@@ -167,6 +167,11 @@ provide helpful diagnostics to users.
 
 ## Coding Guidelines
 
+- When making changes to a file, always change the file directly, never create a
+  `file_v2` of `file_changed`.
+- When implementing complex behaviors, never implement a silent "fallback".
+  Prefer panicking and leaving a `// TODO` marker.
+
 ### Error Handling
 
 - Use `thiserror` for custom error types to avoid boilerplate in `Display` and

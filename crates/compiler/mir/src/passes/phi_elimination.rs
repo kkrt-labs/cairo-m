@@ -415,7 +415,7 @@ impl PhiElimination {
             // Get the block and insert copies before the terminator
             if let Some(block) = function.basic_blocks.get_mut(block_id) {
                 // Temporarily save and clear the terminator
-                let terminator = block.terminator.clone();
+                let _terminator = block.terminator.clone();
 
                 // Insert all copy instructions
                 for instr in sequenced {

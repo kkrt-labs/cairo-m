@@ -259,7 +259,7 @@ fn lower_parameter<'a, 'db>(
         })?;
 
     let def_id = DefinitionId::new(builder.ctx.db, builder.ctx.file, def_idx);
-    let mir_def_id = builder.convert_definition_id(def_id);
+    let _mir_def_id = builder.convert_definition_id(def_id);
 
     // 1. Query semantic type system for actual parameter type
     let semantic_type = definition_semantic_type(builder.ctx.db, builder.ctx.crate_id, def_id);

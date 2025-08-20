@@ -49,7 +49,7 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
             Expression::MemberAccess { object, field } => {
                 self.lower_member_access(object, field, expr_id)
             }
-            Expression::IndexAccess { array, index } => {
+            Expression::IndexAccess { array: _, index: _ } => {
                 panic!("IndexAccess for arrays is not supported yet.");
             }
             Expression::StructLiteral { name: _, fields } => {
@@ -78,7 +78,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             .resolve_name_to_definition(name.value(), scope_id)
         {
             let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
-            let mir_def_id = self.convert_definition_id(def_id);
+            let _mir_def_id = self.convert_definition_id(def_id);
 
             // Look up the MIR value for this definition
             if let Ok(var_value) = self.read_variable(name.value(), name.span()) {

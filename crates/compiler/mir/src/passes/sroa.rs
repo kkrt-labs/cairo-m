@@ -1,8 +1,74 @@
-//! Scalar Replacement of Aggregates (SROA) Pass
+//! # Scalar Replacement of Aggregates (SROA) Pass
 //!
-//! This pass decomposes tuples and structs into per-field SSA values, eliminating
-//! unnecessary aggregate construction and enabling better downstream optimizations.
-//! Aggregates are only materialized on-demand at ABI boundaries (calls, stores).
+//! This optimization pass decomposes aggregate types (structs and tuples) into their
+//! constituent scalar fields, eliminating unnecessary aggregate construction and
+//! extraction operations. This enables better downstream optimizations by exposing
+//! more opportunities for constant folding, copy propagation, and dead code elimination.
+//!
+//! ## Algorithm Overview
+//!
+//! The SROA pass operates in a single forward pass through each basic block, using
+//! a recursive forward-looking analysis to determine which aggregates can be safely
+//! scalarized.
+//!
+//! ### Scalarization Rules
+//!
+//! An aggregate (struct or tuple) can be scalarized if ALL of the following conditions are met:
+//!
+//! 1. **Type is scalarizable**: The aggregate type must be eligible for scalarization
+//!    (currently limited by size constraints, default max 8 fields)
+//!
+//! 2. **Not used across blocks**: The aggregate must not be used in different basic blocks
+//!    (phase 1 limitation to avoid complex phi node handling)
+//!
+//! 3. **Valid field initialization**: Must be able to create an `AggState` from the
+//!    aggregate's fields (all fields must be properly initialized)
+//!
+//! 4. **Recursive parent check**: If the aggregate is used as a field in another
+//!    aggregate OR passed as an argument to a function call, it can only be scalarized
+//!    if the parent aggregate can also be scalarized
+//!
+//! ### Implementation Strategy
+//!
+//! 1. **Analysis Phase**:
+//!    - Identify aggregates used across block boundaries
+//!    - Build instruction list for forward-looking analysis
+//!
+//! 2. **Transformation Phase** (per instruction):
+//!    - **MakeStruct/MakeTuple**: Check scalarization conditions recursively
+//!      - If scalarizable: capture field values in `AggState`, drop instruction
+//!      - If not: keep instruction unchanged
+//!
+//!    - **ExtractField/ExtractTuple**: Replace with direct field access
+//!      - Rewrite to simple assignment of the tracked scalar value
+//!
+//!    - **InsertField/InsertTuple**: Forward partial updates
+//!      - Create new `AggState` with updated field
+//!
+//!    - **Assign**: Propagate aggregate states between values
+//!
+//!    - **Call/Return**: Materialize aggregates as needed
+//!      - Reconstruct full aggregates from scalar fields at ABI boundaries
+//!
+//! ### Recursive Forward-Looking Analysis
+//!
+//! The key innovation is the recursive check for nested aggregate dependencies:
+//! ```text
+//! struct Point { x, y }
+//! struct Line { start: Point, end: Point }
+//!
+//! %0 = MakeStruct Point { x: 1, y: 2 }  // Can this be scalarized?
+//! %1 = MakeStruct Line { start: %0, ... }  // Depends on whether Line can be scalarized
+//! %2 = Call foo(%1)  // Line cannot be scalarized (used in call)
+//! // Therefore, Point %0 also cannot be scalarized
+//! ```
+//!
+//! ## Limitations (Phase 1)
+//!
+//! - No scalarization across basic blocks (requires phi node handling)
+//! - Arrays are not scalarized (remain memory-based)
+//! - Recursive aggregates not supported
+//! - Maximum aggregate size limit (configurable, default 8 fields)
 
 use rustc_hash::{FxHashMap, FxHashSet};
 
@@ -107,8 +173,155 @@ impl ScalarReplacementOfAggregates {
         }
     }
 
-    /// Find aggregates that are used across block boundaries
-    /// In phase 1, we skip scalarizing these to maintain correctness
+    /// Check if an aggregate can be scalarized using recursive forward-looking analysis.
+    ///
+    /// This implements the core scalarization decision logic:
+    /// 1. Type must be scalarizable
+    /// 2. Not used across blocks
+    /// 3. Valid field initialization (can create AggState)
+    /// 4. Recursive check for parent aggregates and function calls
+    fn can_scalarize_aggregate(
+        &self,
+        dest: &ValueId,
+        instructions: &[Instruction],
+        function: &MirFunction,
+        cross_block_aggregates: &FxHashSet<ValueId>,
+        visited: &mut FxHashSet<ValueId>,
+    ) -> bool {
+        // Avoid infinite recursion on cyclic dependencies
+        if visited.contains(dest) {
+            return false;
+        }
+        visited.insert(*dest);
+
+        // Find the MakeStruct/MakeTuple instruction for this dest
+        let Some(make_inst) = instructions.iter().find(|inst| {
+            match &inst.kind {
+                InstructionKind::MakeStruct { dest: d, .. } => d == dest,
+                InstructionKind::MakeTuple { dest: d, .. } => d == dest,
+                _ => false,
+            }
+        }) else {
+            return false;
+        };
+
+        // Check basic conditions based on instruction type
+        match &make_inst.kind {
+            InstructionKind::MakeStruct {
+                fields, struct_ty, ..
+            } => {
+                // Condition 1: Type must be scalarizable
+                if !self.is_scalarizable(struct_ty) {
+                    return false;
+                }
+
+                // Condition 2: Not used across blocks
+                if cross_block_aggregates.contains(dest) {
+                    return false;
+                }
+
+                // Condition 3: Can create AggState
+                let Some(MirType::Struct { fields: ty_fields, .. }) = function
+                    .get_value_type(*dest)
+                    .or(Some(struct_ty))
+                    .filter(|t| matches!(t, MirType::Struct { .. }))
+                else {
+                    return false;
+                };
+
+                if AggState::from_struct_fields(fields, ty_fields).is_none() {
+                    return false;
+                }
+            }
+            InstructionKind::MakeTuple { .. } => {
+                // Get tuple type
+                let Some(ty @ MirType::Tuple(_)) = function.get_value_type(*dest) else {
+                    return false;
+                };
+
+                // Check basic conditions
+                if !self.is_scalarizable(ty) || cross_block_aggregates.contains(dest) {
+                    return false;
+                }
+            }
+            _ => return false,
+        }
+
+        // Condition 4: Check recursive dependencies (calls and parent aggregates)
+        for inst in instructions {
+            match &inst.kind {
+                // Check if used in a function call - cannot scalarize
+                InstructionKind::Call { args, .. } => {
+                    if args
+                        .iter()
+                        .any(|arg| arg.is_operand() && arg.as_operand() == Some(*dest))
+                    {
+                        return false;
+                    }
+                }
+                // Check if used as a field in another struct
+                InstructionKind::MakeStruct {
+                    dest: parent_dest,
+                    fields: parent_fields,
+                    ..
+                } => {
+                    // Skip self-reference
+                    if parent_dest == dest {
+                        continue;
+                    }
+
+                    for (_, field_val) in parent_fields {
+                        if let Value::Operand(field_id) = field_val {
+                            if field_id == dest {
+                                // Our aggregate is used in parent - recursively check if parent can be scalarized
+                                if !self.can_scalarize_aggregate(
+                                    parent_dest,
+                                    instructions,
+                                    function,
+                                    cross_block_aggregates,
+                                    visited,
+                                ) {
+                                    return false;
+                                }
+                            }
+                        }
+                    }
+                }
+                // Check if used as an element in a tuple
+                InstructionKind::MakeTuple {
+                    dest: parent_dest,
+                    elements,
+                    ..
+                } => {
+                    // Skip self-reference
+                    if parent_dest == dest {
+                        continue;
+                    }
+
+                    for elem in elements {
+                        if elem.is_operand() && elem.as_operand() == Some(*dest) {
+                            // Our aggregate is used in parent tuple - recursively check
+                            if !self.can_scalarize_aggregate(
+                                parent_dest,
+                                instructions,
+                                function,
+                                cross_block_aggregates,
+                                visited,
+                            ) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        true
+    }
+
+    /// Find aggregates that are used across block boundaries.
+    /// In phase 1, we skip scalarizing these to maintain correctness.
     fn find_cross_block_aggregates(&self, function: &MirFunction) -> FxHashSet<ValueId> {
         let mut cross_block = FxHashSet::default();
         let mut defined_in_block: FxHashMap<ValueId, BasicBlockId> = FxHashMap::default();
@@ -308,37 +521,6 @@ impl ScalarReplacementOfAggregates {
             Terminator::Unreachable => {}
         }
     }
-
-    /// Check if an instruction requires materialization of its aggregate operands
-    fn requires_materialization<'a>(
-        &self,
-        inst: &'a InstructionKind,
-        operand_idx: usize,
-    ) -> Option<&'a MirType> {
-        match inst {
-            InstructionKind::Call { signature, .. } => {
-                // Check if this argument position expects an aggregate
-                signature
-                    .param_types
-                    .get(operand_idx)
-                    .filter(|ty| matches!(ty, MirType::Tuple(_) | MirType::Struct { .. }))
-            }
-            InstructionKind::Store { ty, .. } if operand_idx == 1 => {
-                // The value being stored (second operand) needs materialization if aggregate
-                if matches!(ty, MirType::Tuple(_) | MirType::Struct { .. }) {
-                    Some(ty)
-                } else {
-                    None
-                }
-            }
-            InstructionKind::AddressOf { .. } => {
-                // Taking address of aggregate requires materialization
-                // We'd need to check the operand type, but for now be conservative
-                None // Will be handled in full implementation
-            }
-            _ => None,
-        }
-    }
 }
 
 impl MirPass for ScalarReplacementOfAggregates {
@@ -387,6 +569,9 @@ impl MirPass for ScalarReplacementOfAggregates {
 
             let mut block_modified = false;
 
+            // Collect all instructions for forward-looking
+            let all_instructions: Vec<_> = block.non_phi_instructions().cloned().collect();
+
             // Walk non-phi instructions
             for inst in block.non_phi_instructions().cloned() {
                 match &inst.kind {
@@ -408,6 +593,43 @@ impl MirPass for ScalarReplacementOfAggregates {
                             continue;
                         }
 
+                        // For tuples, we scalarize even if used in calls (will materialize later)
+                        // Only check for nested aggregate dependencies
+                        // TODO: come back on this later.
+                        let mut can_scalarize = true;
+                        for future_inst in &all_instructions {
+                            if let InstructionKind::MakeTuple {
+                                dest: parent_dest,
+                                elements: parent_elems,
+                                ..
+                            } = &future_inst.kind
+                            {
+                                if parent_dest != dest
+                                    && parent_elems
+                                        .iter()
+                                        .any(|e| e.is_operand() && e.as_operand() == Some(*dest))
+                                {
+                                    // Check if parent tuple can be scalarized
+                                    let mut visited = FxHashSet::default();
+                                    if !self.can_scalarize_aggregate(
+                                        parent_dest,
+                                        &all_instructions,
+                                        function,
+                                        &cross_block_aggregates,
+                                        &mut visited,
+                                    ) {
+                                        can_scalarize = false;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        if !can_scalarize {
+                            new_instrs.push(inst);
+                            continue;
+                        }
+
                         agg_states.insert(*dest, AggState::tuple(elements.clone()));
                         self.stats.scalarized_builds += 1;
                         block_modified = true;
@@ -418,17 +640,22 @@ impl MirPass for ScalarReplacementOfAggregates {
                         fields,
                         struct_ty,
                     } if self.config.enable_structs => {
-                        if !self.is_scalarizable(struct_ty) {
+                        // Check all conditions including recursive forward-looking
+                        let mut visited = FxHashSet::default();
+                        let can_scalarize = self.can_scalarize_aggregate(
+                            dest,
+                            &all_instructions,
+                            function,
+                            &cross_block_aggregates,
+                            &mut visited,
+                        );
+
+                        if !can_scalarize {
                             new_instrs.push(inst);
                             continue;
                         }
 
-                        // Skip scalarization if used across blocks in phase 1
-                        if cross_block_aggregates.contains(dest) {
-                            new_instrs.push(inst);
-                            continue;
-                        }
-
+                        // If we can scalarize, get the type info and create AggState
                         let Some(MirType::Struct {
                             fields: ty_fields, ..
                         }) = function
@@ -681,12 +908,59 @@ impl MirPass for ScalarReplacementOfAggregates {
                 }
             }
 
+            // Process terminator - materialize any scalarized aggregates in returns
+            let mut new_return_values = None;
+            let terminator_values = if let Some(block) = function.get_basic_block(bb) {
+                if let crate::Terminator::Return { values } = &block.terminator {
+                    Some(values.clone())
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            if let Some(values) = terminator_values {
+                let mut updated_values = values.clone();
+                let mut any_materialized = false;
+
+                // Collect aggregates to materialize first
+                let mut to_materialize = Vec::new();
+                for (i, val) in values.iter().enumerate() {
+                    if let Value::Operand(id) = val {
+                        if let Some(state) = agg_states.get(id) {
+                            if let Some(ty) = function.get_value_type(*id) {
+                                to_materialize.push((i, state.clone(), ty.clone()));
+                            }
+                        }
+                    }
+                }
+
+                // Now materialize them
+                for (i, state, ty) in to_materialize {
+                    let mat_id = materialize(function, &mut new_instrs, &state, &ty);
+                    updated_values[i] = Value::operand(mat_id);
+                    self.stats.materializations += 1;
+                    any_materialized = true;
+                    block_modified = true;
+                }
+
+                if any_materialized {
+                    new_return_values = Some(updated_values);
+                }
+            }
+
             if block_modified {
                 modified_any = true;
                 if let Some(block_mut) = function.get_basic_block_mut(bb) {
                     // Reinstall updated instruction list: phi prefix + rewritten tail
                     block_mut.instructions.clear();
                     block_mut.instructions.extend(new_instrs);
+
+                    // Update terminator if it was modified
+                    if let Some(new_vals) = new_return_values {
+                        block_mut.terminator = crate::Terminator::Return { values: new_vals };
+                    }
                 }
             }
         }

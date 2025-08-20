@@ -589,7 +589,7 @@ impl MirFunction {
     }
 
     /// Try to eliminate trivial phi (Algorithm 3, tryRemoveTrivialPhi)
-    fn try_remove_trivial_phi(&mut self, phi: ValueId, var: MirDefinitionId) -> ValueId {
+    fn try_remove_trivial_phi(&mut self, phi: ValueId, _var: MirDefinitionId) -> ValueId {
         // Get phi operands
         let phi_block = self.find_phi_block(phi).expect("Phi must exist");
         let operands = self.get_phi_operands(phi_block, phi);

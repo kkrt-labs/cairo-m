@@ -3,10 +3,7 @@
 //! This module contains shared utility functions used across the lowering
 //! implementation.
 
-use cairo_m_compiler_semantic::place::FileScopeId;
-use cairo_m_compiler_semantic::type_resolution::{
-    definition_semantic_type, expression_semantic_type,
-};
+use cairo_m_compiler_semantic::type_resolution::expression_semantic_type;
 use cairo_m_compiler_semantic::types::TypeData;
 
 use crate::instruction::CalleeSignature;

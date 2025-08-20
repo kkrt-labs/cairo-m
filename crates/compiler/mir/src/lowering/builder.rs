@@ -653,7 +653,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     pub fn bind_variable(
         &mut self,
         ident_name: &str,
-        ident_span: chumsky::prelude::SimpleSpan,
+        _ident_span: chumsky::prelude::SimpleSpan,
         value: Value,
         scope_id: cairo_m_compiler_semantic::place::FileScopeId,
     ) -> Result<(), String> {
