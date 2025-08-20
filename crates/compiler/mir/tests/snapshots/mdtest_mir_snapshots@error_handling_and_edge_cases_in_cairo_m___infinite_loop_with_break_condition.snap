@@ -42,11 +42,10 @@ module {
 
     2 (block_2):
       ; block_2
-      return %5
+      return %2
 
     3 (block_3):
       ; block_3
-      %5 = %1 (u32)
       jump 2
 
     4 (block_4):
@@ -55,7 +54,6 @@ module {
 
     5 (block_5):
       ; block_5
-      %5 = %2 (u32)
       jump 2
 
     6 (block_6):

@@ -36,7 +36,7 @@ module {
 
     2 (block_2):
       ; block_2
-      return %1
+      return %2
 
     3 (block_3):
       ; block_3

@@ -501,7 +501,6 @@ impl MirFunction {
             // Optimize the common case of one predecessor: No phi needed
             // val ← readVariable(variable, block.preds[0])
             let pred = self.basic_blocks[block].preds[0];
-
             self.read_variable(var, pred)
         } else {
             // Break potential cycles with operandless phi
@@ -674,8 +673,11 @@ impl MirFunction {
         // Complete all incomplete phis for this block
         if let Some(phis) = self.incomplete_phis.remove(&block) {
             for (var, phi) in phis {
-                let completed_phi = self.add_phi_operands(var, phi);
-                self.write_variable(var, block, completed_phi);
+                let result = self.add_phi_operands(var, phi);
+                // If the phi was trivial and got replaced, update the variable map
+                if result != phi && self.current_def.get(&(var, block)) == Some(&phi) {
+                    self.write_variable(var, block, result);
+                }
             }
         }
     }
