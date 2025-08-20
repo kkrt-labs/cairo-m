@@ -1,7 +1,7 @@
 pub mod memory;
 pub mod vm;
 
-use cairo_m_common::Program;
+use cairo_m_common::{Program, PublicAddressRanges};
 use memory::MemoryError;
 use stwo_prover::core::fields::m31::M31;
 use vm::{VmError, VM};
@@ -50,8 +50,8 @@ pub struct RunnerOutput {
     pub return_values: Vec<M31>,
     /// The final VM
     pub vm: VM,
-    /// The public memory addresses (verifier will know the end of execution content of these addresses)
-    pub public_addresses: Vec<M31>,
+    /// The public address ranges for structured access to program, input, and output data
+    pub public_address_ranges: PublicAddressRanges,
 }
 
 /// Runs a compiled Cairo-M program
@@ -113,14 +113,13 @@ pub fn run_cairo_program(
         return_values.push(value);
     }
 
-    // For now the public memory addresses enables the verifier to know the end-of-execution content of given addresses
-    // At the moment the public memory contains: the program, the inputs and the outputs.
-    let end_addr = vm.state.fp - M31::from(2);
-    let public_addresses = (0..end_addr.0).map(M31::from).collect();
+    // Define public addresses
+    let public_address_ranges =
+        PublicAddressRanges::new(vm.program_length.0, args.len(), ret_slots);
 
     Ok(RunnerOutput {
         return_values,
         vm,
-        public_addresses,
+        public_address_ranges,
     })
 }

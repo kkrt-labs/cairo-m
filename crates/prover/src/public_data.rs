@@ -27,18 +27,101 @@
 //! various components. This ensures that public values are properly integrated
 //! into the overall constraint system.
 
-use cairo_m_common::State as VmRegisters;
-use num_traits::Zero;
+use std::collections::HashMap;
+use std::ops::Range;
+
+use cairo_m_common::{PublicAddressRanges, State as VmRegisters};
+use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
 use stwo_constraint_framework::Relation;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::{SecureField, QM31};
 use stwo_prover::core::fields::FieldExpOps;
 
+use crate::adapter::memory::Memory;
 use crate::adapter::merkle::TREE_HEIGHT;
 use crate::adapter::ProverInput;
 use crate::components::Relations;
 use crate::relations;
+
+/// Structured public entries for initial and final memory
+///
+/// This struct is used to store the public entries for the initial and final memory.
+/// It containts:
+/// - program: the instructions
+/// - input: the main arguments
+/// - output: the return values
+///
+/// The entries are stored as a vector of tuples, where the first element is the address,
+/// the second element is the value, and the third element is the clock.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct PublicEntries {
+    pub program: Vec<Option<(M31, QM31, M31)>>,
+    pub input: Vec<Option<(M31, QM31, M31)>>,
+    pub output: Vec<Option<(M31, QM31, M31)>>,
+}
+
+impl PublicEntries {
+    pub fn new(memory: &Memory, public_address_ranges: &PublicAddressRanges) -> Self {
+        // Pre-allocate with known sizes for better memory efficiency
+        let program = Self::extract_range_with_capacity(
+            &memory.initial_memory,
+            &public_address_ranges.program,
+        );
+        let input =
+            Self::extract_range_with_capacity(&memory.initial_memory, &public_address_ranges.input);
+        let output =
+            Self::extract_range_with_capacity(&memory.final_memory, &public_address_ranges.output);
+
+        Self {
+            program,
+            input,
+            output,
+        }
+    }
+
+    fn extract_range_with_capacity(
+        memory: &HashMap<M31, (QM31, M31, M31)>,
+        range: &Range<u32>,
+    ) -> Vec<Option<(M31, QM31, M31)>> {
+        let capacity = (range.end - range.start) as usize;
+        let mut result = Vec::with_capacity(capacity);
+
+        for addr_u32 in range.start..range.end {
+            let addr = M31::from(addr_u32);
+            let entry = memory
+                .get(&addr)
+                .map(|&(value, clock, _)| (addr, value, clock));
+            result.push(entry);
+        }
+
+        result
+    }
+
+    /// Returns the program output values
+    pub fn get_output_values(&self) -> Vec<Option<QM31>> {
+        self.output
+            .iter()
+            .map(|entry| entry.map(|(_, value, _)| value))
+            .collect()
+    }
+
+    /// Returns the program input values
+    pub fn get_input_values(&self) -> Vec<Option<QM31>> {
+        self.input
+            .iter()
+            .map(|entry| entry.map(|(_, value, _)| value))
+            .collect()
+    }
+
+    /// Returns the program instructions
+    pub fn get_program_values(&self) -> Vec<Option<QM31>> {
+        self.program
+            .iter()
+            .map(|entry| entry.map(|(_, value, _)| value))
+            .collect()
+    }
+}
 
 /// Public data accompanying a Cairo-M proof.
 ///
@@ -72,7 +155,7 @@ pub struct PublicData {
     pub final_root: M31,
     /// Public memory entries: (address, value, clock) or None if unused
     /// Includes program code, inputs, and outputs that verifier must see
-    pub public_entries: Vec<Option<(M31, QM31, M31)>>,
+    pub public_memory: PublicEntries,
 }
 
 impl PublicData {
@@ -91,21 +174,6 @@ impl PublicData {
     /// Panics if initial or final Merkle roots are missing, as these are
     /// required for proof verification.
     pub fn new(input: &ProverInput) -> Self {
-        // Extract public memory entries at specified addresses
-        // Some addresses may not have been accessed during execution (None entries)
-        let public_entries = input
-            .public_addresses
-            .iter()
-            .map(|&addr| {
-                // Look up the final state of this public address
-                input
-                    .memory
-                    .final_memory
-                    .get(&(addr, M31::from(TREE_HEIGHT)))
-                    .map(|&(value, clock, _multiplicity)| (addr, value, clock))
-            })
-            .collect();
-
         Self {
             initial_registers: input.instructions.initial_registers,
             final_registers: input.instructions.final_registers,
@@ -117,7 +185,7 @@ impl PublicData {
                 .merkle_trees
                 .final_root
                 .expect("Final memory root is required for verification"),
-            public_entries,
+            public_memory: PublicEntries::new(&input.memory, &input.public_address_ranges),
         }
     }
 
@@ -154,7 +222,7 @@ impl PublicData {
                 &[self.final_registers.pc, self.final_registers.fp],
             ),
             // Consume initial memory root
-            -<relations::Merkle as Relation<M31, QM31>>::combine(
+            <relations::Merkle as Relation<M31, QM31>>::combine(
                 &relations.merkle,
                 &[
                     M31::zero(),       // Root node index
@@ -164,27 +232,77 @@ impl PublicData {
                 ],
             ),
             // Consume final memory root
-            -<relations::Merkle as Relation<M31, QM31>>::combine(
+            <relations::Merkle as Relation<M31, QM31>>::combine(
                 &relations.merkle,
                 &[M31::zero(), M31::zero(), self.final_root, self.final_root],
             ),
         ];
 
-        // Consume public memory entries
-        for (addr, value, clock) in self.public_entries.iter().flatten() {
-            let value_array = value.to_m31_array();
-            values_to_inverse.push(-<relations::Memory as Relation<M31, QM31>>::combine(
-                &relations.memory,
-                &[
-                    *addr,
-                    *clock,
-                    value_array[0],
-                    value_array[1],
-                    value_array[2],
-                    value_array[3],
-                ],
-            ));
-        }
+        let mut add_to_relation = |entries: &[Option<(M31, QM31, M31)>], multiplicity: QM31| {
+            let one = M31::one();
+            let m31_2 = M31::from(2);
+            let m31_3 = M31::from(3);
+            let m31_4 = M31::from(4);
+            let root = if multiplicity == QM31::one() {
+                self.initial_root
+            } else {
+                self.final_root
+            };
+            for (addr, value, clock) in entries.iter().flatten() {
+                let value_array = value.to_m31_array();
+                values_to_inverse.push(
+                    multiplicity
+                        * <relations::Memory as Relation<M31, QM31>>::combine(
+                            &relations.memory,
+                            &[
+                                *addr,
+                                *clock,
+                                value_array[0],
+                                value_array[1],
+                                value_array[2],
+                                value_array[3],
+                            ],
+                        ),
+                );
+                values_to_inverse.push(-<relations::Merkle as Relation<M31, QM31>>::combine(
+                    &relations.merkle,
+                    &[m31_4 * *addr, M31::from(TREE_HEIGHT), value_array[0], root],
+                ));
+                values_to_inverse.push(-<relations::Merkle as Relation<M31, QM31>>::combine(
+                    &relations.merkle,
+                    &[
+                        m31_4 * *addr + one,
+                        M31::from(TREE_HEIGHT),
+                        value_array[1],
+                        root,
+                    ],
+                ));
+                values_to_inverse.push(-<relations::Merkle as Relation<M31, QM31>>::combine(
+                    &relations.merkle,
+                    &[
+                        m31_4 * *addr + m31_2,
+                        M31::from(TREE_HEIGHT),
+                        value_array[2],
+                        root,
+                    ],
+                ));
+                values_to_inverse.push(-<relations::Merkle as Relation<M31, QM31>>::combine(
+                    &relations.merkle,
+                    &[
+                        m31_4 * *addr + m31_3,
+                        M31::from(TREE_HEIGHT),
+                        value_array[3],
+                        root,
+                    ],
+                ));
+            }
+        };
+
+        // Emit the initial program and input values
+        add_to_relation(&self.public_memory.program, QM31::one());
+        add_to_relation(&self.public_memory.input, QM31::one());
+        // Use the final output values
+        add_to_relation(&self.public_memory.output, -QM31::one());
 
         // Batch invert for efficiency and sum all contributions
         let inverted_values = QM31::batch_inverse(&values_to_inverse);
