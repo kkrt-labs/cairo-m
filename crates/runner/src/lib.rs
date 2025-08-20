@@ -115,7 +115,7 @@ pub fn run_cairo_program(
 
     // Define public addresses
     let public_address_ranges =
-        PublicAddressRanges::new(vm.program_length.0, args.len(), num_return_values);
+        PublicAddressRanges::new(vm.program_length.0, args.len(), ret_slots);
 
     Ok(RunnerOutput {
         return_values,

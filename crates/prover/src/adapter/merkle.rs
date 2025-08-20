@@ -61,6 +61,13 @@ pub const QM31_LOG_SIZE: u32 = 2;
 /// Total Merkle tree height: memory size + QM31 decomposition (28 + 2 = 30)
 pub const TREE_HEIGHT: u32 = MAX_MEMORY_LOG_SIZE + QM31_LOG_SIZE;
 
+/// Indicates whether we're building an initial or final Merkle tree
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TreeType {
+    Initial,
+    Final,
+}
+
 /// Represents a node in the Merkle tree.
 ///
 /// Each node captures a single hash operation: parent = hash(left, right).

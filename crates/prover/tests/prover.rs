@@ -302,14 +302,10 @@ fn test_all_opcodes_constraints() {
 
 #[test]
 fn test_fibonacci_public_memory_contents() {
-    let source_path = format!(
-        "{}/tests/test_data/{}",
-        env!("CARGO_MANIFEST_DIR"),
-        "fibonacci.cm"
-    );
+    let source = read_fixture("functions/fibonacci.cm");
     let compiled_fib = compile_cairo(
-        fs::read_to_string(&source_path).unwrap(),
-        source_path,
+        source,
+        "fibonacci.cm".to_string(),
         CompilerOptions::default(),
     )
     .unwrap();
