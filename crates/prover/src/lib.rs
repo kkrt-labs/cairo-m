@@ -32,7 +32,15 @@ pub mod relations;
 pub mod utils;
 pub mod verifier;
 
+use std::collections::HashMap;
+
+use adapter::merkle::build_partial_merkle_tree;
+use cairo_m_common::PublicAddressRanges;
+use num_traits::Zero;
+use poseidon2::Poseidon2Hash;
 use serde::{Deserialize, Serialize};
+use stwo_prover::core::fields::m31::M31;
+use stwo_prover::core::fields::qm31::QM31;
 use stwo_prover::core::prover::StarkProof;
 use stwo_prover::core::vcs::ops::MerkleHasher;
 
@@ -62,4 +70,29 @@ pub struct Proof<H: MerkleHasher> {
     pub stark_proof: StarkProof<H>,
     /// Proof-of-work nonce
     pub interaction_pow: u64,
+}
+
+impl<H: MerkleHasher> Proof<H> {
+    pub fn program_id(&self) -> M31 {
+        // Reconstruct HashMap from program
+        let mut program_map = HashMap::<M31, (QM31, M31, M31)>::new();
+        for (addr, value, _clock) in self
+            .public_data
+            .public_memory
+            .program
+            .iter()
+            .map(|res| res.unwrap())
+        {
+            program_map.insert(addr, (value, M31::zero(), M31::zero()));
+        }
+
+        // Compute Poseidon2 hash of the program.
+        let (_, program_id) = build_partial_merkle_tree::<Poseidon2Hash>(
+            &program_map,
+            adapter::merkle::TreeType::Initial,
+            &PublicAddressRanges::default(),
+        );
+
+        program_id.unwrap()
+    }
 }
