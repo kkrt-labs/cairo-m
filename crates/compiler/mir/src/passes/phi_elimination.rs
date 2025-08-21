@@ -124,27 +124,33 @@ impl PhiElimination {
         // Build a map of destination -> source for all copies
         let mut dest_to_source: FxHashMap<ValueId, ValueId> = FxHashMap::default();
         for copy in copies {
-            if let InstructionKind::Assign { dest, source, .. } = &copy.kind {
-                if let Value::Operand(src_id) = source {
-                    dest_to_source.insert(*dest, *src_id);
-                }
+            if let InstructionKind::Assign {
+                dest,
+                source: Value::Operand(src_id),
+                ..
+            } = &copy.kind
+            {
+                dest_to_source.insert(*dest, *src_id);
             }
         }
 
         // Build dependency edges: if copy A writes to a value that copy B reads,
         // then B depends on A (must happen before A)
         for copy in copies {
-            if let InstructionKind::Assign { dest, source, .. } = &copy.kind {
-                if let Value::Operand(src_id) = source {
-                    // Check if any other copy writes to our source
-                    for other_dest in dest_to_source.keys() {
-                        if other_dest == src_id {
-                            // We depend on the copy that writes our source
-                            graph
-                                .entry(*dest)
-                                .or_insert_with(Vec::new)
-                                .push(*other_dest);
-                        }
+            if let InstructionKind::Assign {
+                dest,
+                source: Value::Operand(src_id),
+                ..
+            } = &copy.kind
+            {
+                // Check if any other copy writes to our source
+                for other_dest in dest_to_source.keys() {
+                    if other_dest == src_id {
+                        // We depend on the copy that writes our source
+                        graph
+                            .entry(*dest)
+                            .or_insert_with(Vec::new)
+                            .push(*other_dest);
                     }
                 }
             }

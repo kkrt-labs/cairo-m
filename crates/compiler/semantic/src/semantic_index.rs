@@ -1274,7 +1274,7 @@ where
 
                         let identifiers =
                             collect_pattern_identifiers(&Pattern::Tuple(patterns.clone()), vec![]);
-                        for (_index, (name, path)) in identifiers.iter().enumerate() {
+                        for (name, path) in identifiers.iter() {
                             let def_kind =
                                 DefinitionKind::Let(LetDefRef::from_nested_destructuring(
                                     name.value(),

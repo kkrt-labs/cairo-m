@@ -31,24 +31,22 @@ impl CopyPropagation {
             for instr in &block.instructions {
                 if let InstructionKind::Assign {
                     dest,
-                    source,
+                    source: Value::Operand(source_id),
                     ty: _,
                 } = &instr.kind
                 {
                     // Only eliminate copies from operands, not literals
                     // (literals are handled by constant propagation/folding)
-                    if let Value::Operand(source_id) = source {
-                        // Verify types match for safety
-                        if let (Some(dest_ty), Some(source_ty)) = (
-                            function.get_value_type(*dest),
-                            function.get_value_type(*source_id),
-                        ) {
-                            if dest_ty == source_ty {
-                                direct_copies.insert(*dest, *source_id);
-                            }
+                    // Verify types match for safety
+                    if let (Some(dest_ty), Some(source_ty)) = (
+                        function.get_value_type(*dest),
+                        function.get_value_type(*source_id),
+                    ) {
+                        if dest_ty == source_ty {
+                            direct_copies.insert(*dest, *source_id);
                         }
-                        // If we can't verify types, be conservative and skip
                     }
+                    // If we can't verify types, be conservative and skip
                 }
             }
         }
@@ -100,11 +98,14 @@ impl CopyPropagation {
             let mut to_remove = Vec::new();
 
             for (idx, instr) in block.instructions.iter().enumerate() {
-                if let InstructionKind::Assign { dest, source, .. } = &instr.kind {
-                    if let Value::Operand(_) = source {
-                        if copies.contains_key(dest) {
-                            to_remove.push(idx);
-                        }
+                if let InstructionKind::Assign {
+                    dest,
+                    source: Value::Operand(_),
+                    ..
+                } = &instr.kind
+                {
+                    if copies.contains_key(dest) {
+                        to_remove.push(idx);
                     }
                 }
             }

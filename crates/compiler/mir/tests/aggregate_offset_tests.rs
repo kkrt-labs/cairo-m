@@ -18,19 +18,19 @@ fn test_tuple_with_u32_element_offsets() {
     ]);
 
     // Verify offsets using DataLayout
-    let layout = DataLayout::new();
+    // No longer need DataLayout instance - using static methods
     assert_eq!(
-        layout.tuple_offset(&tuple_type, 0),
+        DataLayout::tuple_offset(&tuple_type, 0),
         Some(0),
         "First element at offset 0"
     );
     assert_eq!(
-        layout.tuple_offset(&tuple_type, 1),
+        DataLayout::tuple_offset(&tuple_type, 1),
         Some(2),
         "Second element at offset 2 (after u32)"
     );
     assert_eq!(
-        layout.tuple_offset(&tuple_type, 2),
+        DataLayout::tuple_offset(&tuple_type, 2),
         Some(3),
         "Third element at offset 3"
     );
@@ -59,7 +59,7 @@ fn test_tuple_with_u32_element_offsets() {
 #[test]
 fn test_tuple_return_packing_with_mixed_sizes() {
     // Test function returning (u32, felt, u32) - verify frame alloc and GEPs use layout offsets
-    let function = MirFunction::new("returns_mixed_tuple".to_string());
+    let _function = MirFunction::new("returns_mixed_tuple".to_string());
 
     let tuple_type = MirType::Tuple(vec![
         MirType::U32,    // Size 2, offset 0
@@ -67,15 +67,15 @@ fn test_tuple_return_packing_with_mixed_sizes() {
         MirType::U32,    // Size 2, offset 3
     ]);
 
-    let layout = DataLayout::new();
+    // No longer need DataLayout instance - using static methods
 
     // Verify expected offsets
-    assert_eq!(layout.tuple_offset(&tuple_type, 0), Some(0));
-    assert_eq!(layout.tuple_offset(&tuple_type, 1), Some(2));
-    assert_eq!(layout.tuple_offset(&tuple_type, 2), Some(3));
+    assert_eq!(DataLayout::tuple_offset(&tuple_type, 0), Some(0));
+    assert_eq!(DataLayout::tuple_offset(&tuple_type, 1), Some(2));
+    assert_eq!(DataLayout::tuple_offset(&tuple_type, 2), Some(3));
 
     // Total size should be 5 slots
-    assert_eq!(layout.size_of(&tuple_type), 5);
+    assert_eq!(DataLayout::size_of(&tuple_type), 5);
 }
 
 #[test]
@@ -89,14 +89,14 @@ fn test_tuple_destructuring_with_wide_elements() {
         MirType::bool(), // Size 1, offset 3
     ]);
 
-    let layout = DataLayout::new();
+    // No longer need DataLayout instance - using static methods
 
     // Element 0 at offset 0
-    assert_eq!(layout.tuple_offset(&tuple_type, 0), Some(0));
+    assert_eq!(DataLayout::tuple_offset(&tuple_type, 0), Some(0));
     // Element 1 (u32) at offset 1
-    assert_eq!(layout.tuple_offset(&tuple_type, 1), Some(1));
+    assert_eq!(DataLayout::tuple_offset(&tuple_type, 1), Some(1));
     // Element 2 at offset 3 (after the 2-slot u32)
-    assert_eq!(layout.tuple_offset(&tuple_type, 2), Some(3));
+    assert_eq!(DataLayout::tuple_offset(&tuple_type, 2), Some(3));
 
     // When generating GEP instructions for destructuring,
     // these offsets should be used, not the indices
@@ -131,14 +131,14 @@ fn test_struct_field_offsets_with_alignment() {
         ],
     };
 
-    let layout = DataLayout::new();
+    // No longer need DataLayout instance - using static methods
 
-    assert_eq!(layout.field_offset(&struct_type, "field_a"), Some(0));
-    assert_eq!(layout.field_offset(&struct_type, "field_b"), Some(1));
-    assert_eq!(layout.field_offset(&struct_type, "field_c"), Some(3));
+    assert_eq!(DataLayout::field_offset(&struct_type, "field_a"), Some(0));
+    assert_eq!(DataLayout::field_offset(&struct_type, "field_b"), Some(1));
+    assert_eq!(DataLayout::field_offset(&struct_type, "field_c"), Some(3));
 
     // Total size should be 4 slots
-    assert_eq!(layout.size_of(&struct_type), 4);
+    assert_eq!(DataLayout::size_of(&struct_type), 4);
 }
 
 #[test]
@@ -154,17 +154,17 @@ fn test_nested_tuple_offsets() {
         MirType::felt(),     // Size 1
     ]);
 
-    let layout = DataLayout::new();
+    // No longer need DataLayout instance - using static methods
 
     // Inner tuple is 3 slots total
-    assert_eq!(layout.size_of(&inner_tuple), 3);
+    assert_eq!(DataLayout::size_of(&inner_tuple), 3);
 
     // In outer tuple:
     // Element 0 (inner tuple) at offset 0
     // Element 1 (felt) at offset 3
-    assert_eq!(layout.tuple_offset(&outer_tuple, 0), Some(0));
-    assert_eq!(layout.tuple_offset(&outer_tuple, 1), Some(3));
+    assert_eq!(DataLayout::tuple_offset(&outer_tuple, 0), Some(0));
+    assert_eq!(DataLayout::tuple_offset(&outer_tuple, 1), Some(3));
 
     // Total size is 4 slots
-    assert_eq!(layout.size_of(&outer_tuple), 4);
+    assert_eq!(DataLayout::size_of(&outer_tuple), 4);
 }

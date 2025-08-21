@@ -819,9 +819,11 @@ impl MirPass for ScalarReplacementOfAggregates {
                     }
 
                     // 4) Aggregate Assign forwarding (copy-prop for aggregates)
-                    InstructionKind::Assign { dest, source, ty }
-                        if matches!(ty, MirType::Tuple(_) | MirType::Struct { .. }) =>
-                    {
+                    InstructionKind::Assign {
+                        dest,
+                        source,
+                        ty: MirType::Tuple(_) | MirType::Struct { .. },
+                    } => {
                         if let Value::Operand(src_id) = source {
                             if let Some(state) = agg_states.get(src_id).cloned() {
                                 agg_states.insert(*dest, state);

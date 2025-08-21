@@ -2,9 +2,7 @@
 
 use crate::instruction::InstructionKind;
 use crate::passes::sroa::*;
-use crate::{
-    BinaryOp, Instruction, Literal, MirFunction, MirModule, MirType, PrettyPrint, Terminator, Value,
-};
+use crate::{BinaryOp, Instruction, Literal, MirFunction, MirModule, MirType, Terminator, Value};
 
 #[test]
 fn test_simple_tuple_scalarization() {
@@ -280,12 +278,11 @@ fn test_struct_partial_update() {
     assert!(!has_extract, "ExtractStructField should be eliminated");
 
     // Should have an assign that directly uses new_y
-    let assigns: Vec<_> = block
+    let has_assigns = block
         .instructions
         .iter()
-        .filter(|inst| matches!(inst.kind, InstructionKind::Assign { .. }))
-        .collect();
-    assert!(!assigns.is_empty(), "Should have assign instructions");
+        .any(|inst| matches!(inst.kind, InstructionKind::Assign { .. }));
+    assert!(has_assigns, "Should have assign instructions");
 }
 
 #[test]
@@ -596,20 +593,10 @@ fn test_nested_struct_scalarization() {
         values: vec![Value::operand(result)],
     };
 
-    println!("Before SROA:");
-    for inst in &function.get_basic_block(entry).unwrap().instructions {
-        println!("  {}", inst.pretty_print(0));
-    }
-
     // Run SROA
     let mut sroa = ScalarReplacementOfAggregates::new();
     let modified = sroa.run(&mut function);
     assert!(modified, "SROA should modify the function");
-
-    println!("\nAfter SROA:");
-    for inst in &function.get_basic_block(entry).unwrap().instructions {
-        println!("  {}", inst.pretty_print(0));
-    }
 
     // Verify the result is still correct - all operations should work
     let block = function.get_basic_block(entry).unwrap();
@@ -621,20 +608,22 @@ fn test_nested_struct_scalarization() {
 
     // Verify no dangling references
     for inst in &block.instructions {
-        if let InstructionKind::ExtractStructField { struct_val, .. } = &inst.kind {
-            if let Value::Operand(id) = struct_val {
-                // Check if this ID is defined somewhere
-                let is_defined = block
-                    .instructions
-                    .iter()
-                    .any(|i| i.destination() == Some(*id))
-                    || function.parameters.contains(id);
+        if let InstructionKind::ExtractStructField {
+            struct_val: Value::Operand(id),
+            ..
+        } = &inst.kind
+        {
+            // Check if this ID is defined somewhere
+            let is_defined = block
+                .instructions
+                .iter()
+                .any(|i| i.destination() == Some(*id))
+                || function.parameters.contains(id);
 
-                assert!(
-                    is_defined,
-                    "ExtractStructField references undefined value {id:?}"
-                );
-            }
+            assert!(
+                is_defined,
+                "ExtractStructField references undefined value {id:?}"
+            );
         }
     }
 }

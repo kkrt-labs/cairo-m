@@ -12,6 +12,10 @@ use crate::MirType;
 /// This struct encapsulates all layout calculations, making it easier to
 /// change layout strategies in the future (e.g., for optimized packing,
 /// alignment requirements, or target-specific layouts).
+///
+/// Note: All methods are static since the current implementation doesn't
+/// require any instance state. This may change in the future if we need
+/// to support different layout configurations (e.g., for different targets).
 #[derive(Debug, Clone, Default)]
 pub struct DataLayout;
 
@@ -26,19 +30,19 @@ impl DataLayout {
     /// This is the primary method for querying type sizes. It returns
     /// the number of field element slots required to store a value of
     /// the given type.
-    pub fn size_of(&self, ty: &MirType) -> usize {
+    pub fn size_of(ty: &MirType) -> usize {
         match ty {
             MirType::Felt | MirType::Bool | MirType::Pointer(_) => 1,
             MirType::U32 => 2, // U32 takes 2 field elements (low, high)
             MirType::Tuple(types) => {
                 // Sum of all element sizes
-                types.iter().map(|t| self.size_of(t)).sum()
+                types.iter().map(Self::size_of).sum()
             }
             MirType::Struct { fields, .. } => {
                 // Sum of all field sizes
                 fields
                     .iter()
-                    .map(|(_, field_type)| self.size_of(field_type))
+                    .map(|(_, field_type)| Self::size_of(field_type))
                     .sum()
             }
             MirType::Array { .. } => {
@@ -54,7 +58,7 @@ impl DataLayout {
     ///
     /// Returns the offset in slots from the beginning of the struct
     /// to the specified field, or None if the field doesn't exist.
-    pub fn field_offset(&self, ty: &MirType, field_name: &str) -> Option<usize> {
+    pub fn field_offset(ty: &MirType, field_name: &str) -> Option<usize> {
         match ty {
             MirType::Struct { fields, .. } => {
                 let mut offset = 0;
@@ -62,7 +66,7 @@ impl DataLayout {
                     if name == field_name {
                         return Some(offset);
                     }
-                    offset += self.size_of(field_type);
+                    offset += Self::size_of(field_type);
                 }
                 None
             }
@@ -74,7 +78,7 @@ impl DataLayout {
     ///
     /// Returns the offset in slots from the beginning of the tuple
     /// to the element at the specified index, or None if out of bounds.
-    pub fn tuple_offset(&self, ty: &MirType, index: usize) -> Option<usize> {
+    pub fn tuple_offset(ty: &MirType, index: usize) -> Option<usize> {
         match ty {
             MirType::Tuple(types) => {
                 if index >= types.len() {
@@ -84,7 +88,7 @@ impl DataLayout {
                 // Calculate cumulative offset
                 let mut offset = 0;
                 for type_at_i in types.iter().take(index) {
-                    offset += self.size_of(type_at_i);
+                    offset += Self::size_of(type_at_i);
                 }
                 Some(offset)
             }
@@ -98,7 +102,7 @@ impl DataLayout {
     /// if a value can be kept in registers instead of memory.
     /// Single-slot types and U32 (2 slots) are promotable.
     /// Small aggregates could be promotable with proper SROA support.
-    pub fn is_promotable(&self, ty: &MirType) -> bool {
+    pub fn is_promotable(ty: &MirType) -> bool {
         match ty {
             // Single-slot types are always promotable
             MirType::Felt | MirType::Bool | MirType::Pointer(_) => true,
@@ -107,61 +111,26 @@ impl DataLayout {
             // Small tuples could be promotable with proper multi-slot phi support
             MirType::Tuple(types) => {
                 // For now, only allow single-element tuples until full SROA
-                let size = self.size_of(ty);
-                size <= 2 && types.iter().all(|t| self.is_promotable(t))
+                let size = Self::size_of(ty);
+                size <= 2 && types.iter().all(Self::is_promotable)
             }
             // Small structs could be promotable with proper multi-slot phi support
             MirType::Struct { fields, .. } => {
                 // For now, keep conservative for complex aggregates
-                let size = self.size_of(ty);
-                size <= 2 && fields.iter().all(|(_, t)| self.is_promotable(t))
+                let size = Self::size_of(ty);
+                size <= 2 && fields.iter().all(|(_, t)| Self::is_promotable(t))
             }
             // Don't promote function pointers, error types, units, etc.
             _ => false,
         }
     }
-
-    /// Get the alignment requirement for a type (in slots)
-    ///
-    /// Currently returns 1 for all types (no alignment padding).
-    /// This method provides a centralized place for future alignment strategies.
-    ///
-    /// ## Future Considerations
-    /// - Target-specific alignment requirements for different architectures
-    /// - SIMD-friendly alignment for vector types when added
-    /// - Cache-line alignment for performance-critical structures
-    /// - Natural alignment for primitive types (e.g., U32 aligned to 2 slots)
-    pub const fn alignment_of(&self, _ty: &MirType) -> usize {
-        1 // All types are currently 1-slot aligned
-    }
-
-    /// Calculate the total size needed for a struct with alignment padding
-    ///
-    /// This method computes the size of a struct including any padding needed
-    /// for proper alignment of the struct as a whole. Currently, no padding is
-    /// added since all types have 1-slot alignment.
-    ///
-    /// ## Future Enhancements
-    /// When alignment requirements change, this method will:
-    /// - Add padding between fields to maintain field alignment
-    /// - Add trailing padding to ensure the struct size is a multiple of its alignment
-    /// - Support packed vs. aligned struct layouts
-    ///
-    /// This accounts for any padding that might be needed between fields
-    /// or at the end of the struct for alignment purposes.
-    pub fn struct_size_with_padding(&self, ty: &MirType) -> usize {
-        // For now, no padding is needed since everything is 1-slot aligned
-        self.size_of(ty)
-    }
-
     /// Get detailed layout information for a type
     ///
     /// Returns a more detailed breakdown that could be useful for
     /// debugging or advanced optimizations.
-    pub fn layout_info(&self, ty: &MirType) -> LayoutInfo {
+    pub fn layout_info(ty: &MirType) -> LayoutInfo {
         LayoutInfo {
-            size: self.size_of(ty),
-            alignment: self.alignment_of(ty),
+            size: Self::size_of(ty),
             is_aggregate: matches!(ty, MirType::Struct { .. } | MirType::Tuple(_)),
             is_scalar: matches!(
                 ty,
@@ -176,8 +145,6 @@ impl DataLayout {
 pub struct LayoutInfo {
     /// Size in slots
     pub size: usize,
-    /// Alignment requirement in slots
-    pub alignment: usize,
     /// Whether this is an aggregate type (struct/tuple)
     pub is_aggregate: bool,
     /// Whether this is a scalar type
@@ -190,31 +157,31 @@ mod tests {
 
     #[test]
     fn test_basic_type_sizes() {
-        let layout = DataLayout::new();
+        // No longer need DataLayout instance - using static methods
 
-        assert_eq!(layout.size_of(&MirType::Felt), 1);
-        assert_eq!(layout.size_of(&MirType::Bool), 1);
-        assert_eq!(layout.size_of(&MirType::U32), 2);
-        assert_eq!(layout.size_of(&MirType::Unit), 0);
-        assert_eq!(layout.size_of(&MirType::pointer(MirType::Felt)), 1);
+        assert_eq!(DataLayout::size_of(&MirType::Felt), 1);
+        assert_eq!(DataLayout::size_of(&MirType::Bool), 1);
+        assert_eq!(DataLayout::size_of(&MirType::U32), 2);
+        assert_eq!(DataLayout::size_of(&MirType::Unit), 0);
+        assert_eq!(DataLayout::size_of(&MirType::pointer(MirType::Felt)), 1);
     }
 
     #[test]
     fn test_tuple_layout() {
-        let layout = DataLayout::new();
+        // No longer need DataLayout instance - using static methods
 
         let tuple = MirType::tuple(vec![MirType::Felt, MirType::U32, MirType::Bool]);
 
-        assert_eq!(layout.size_of(&tuple), 4); // 1 + 2 + 1
-        assert_eq!(layout.tuple_offset(&tuple, 0), Some(0));
-        assert_eq!(layout.tuple_offset(&tuple, 1), Some(1));
-        assert_eq!(layout.tuple_offset(&tuple, 2), Some(3));
-        assert_eq!(layout.tuple_offset(&tuple, 3), None); // Out of bounds
+        assert_eq!(DataLayout::size_of(&tuple), 4); // 1 + 2 + 1
+        assert_eq!(DataLayout::tuple_offset(&tuple, 0), Some(0));
+        assert_eq!(DataLayout::tuple_offset(&tuple, 1), Some(1));
+        assert_eq!(DataLayout::tuple_offset(&tuple, 2), Some(3));
+        assert_eq!(DataLayout::tuple_offset(&tuple, 3), None); // Out of bounds
     }
 
     #[test]
     fn test_struct_layout() {
-        let layout = DataLayout::new();
+        // No longer need DataLayout instance - using static methods
 
         let struct_type = MirType::struct_type(
             "Point".to_string(),
@@ -225,16 +192,16 @@ mod tests {
             ],
         );
 
-        assert_eq!(layout.size_of(&struct_type), 4); // 1 + 2 + 1
-        assert_eq!(layout.field_offset(&struct_type, "x"), Some(0));
-        assert_eq!(layout.field_offset(&struct_type, "y"), Some(1));
-        assert_eq!(layout.field_offset(&struct_type, "z"), Some(3));
-        assert_eq!(layout.field_offset(&struct_type, "unknown"), None);
+        assert_eq!(DataLayout::size_of(&struct_type), 4); // 1 + 2 + 1
+        assert_eq!(DataLayout::field_offset(&struct_type, "x"), Some(0));
+        assert_eq!(DataLayout::field_offset(&struct_type, "y"), Some(1));
+        assert_eq!(DataLayout::field_offset(&struct_type, "z"), Some(3));
+        assert_eq!(DataLayout::field_offset(&struct_type, "unknown"), None);
     }
 
     #[test]
     fn test_nested_types() {
-        let layout = DataLayout::new();
+        // No longer need DataLayout instance - using static methods
 
         let inner_tuple = MirType::tuple(vec![MirType::Felt, MirType::Bool]);
         let outer_struct = MirType::struct_type(
@@ -245,28 +212,33 @@ mod tests {
             ],
         );
 
-        assert_eq!(layout.size_of(&outer_struct), 4); // 2 + (1 + 1)
-        assert_eq!(layout.field_offset(&outer_struct, "data"), Some(0));
-        assert_eq!(layout.field_offset(&outer_struct, "pair"), Some(2));
+        assert_eq!(DataLayout::size_of(&outer_struct), 4); // 2 + (1 + 1)
+        assert_eq!(DataLayout::field_offset(&outer_struct, "data"), Some(0));
+        assert_eq!(DataLayout::field_offset(&outer_struct, "pair"), Some(2));
     }
 
     #[test]
     fn test_promotable_types() {
-        let layout = DataLayout::new();
+        // No longer need DataLayout instance - using static methods
 
         // Single-slot types are promotable
-        assert!(layout.is_promotable(&MirType::Felt));
-        assert!(layout.is_promotable(&MirType::Bool));
+        assert!(DataLayout::is_promotable(&MirType::Felt));
+        assert!(DataLayout::is_promotable(&MirType::Bool));
 
         // U32 is now promotable (2 slots, but handled specially)
-        assert!(layout.is_promotable(&MirType::U32));
+        assert!(DataLayout::is_promotable(&MirType::U32));
 
         // Small tuples (size <= 2) with promotable elements are promotable
-        assert!(layout.is_promotable(&MirType::tuple(vec![MirType::Felt])));
-        assert!(layout.is_promotable(&MirType::tuple(vec![MirType::Bool, MirType::Bool])));
+        assert!(DataLayout::is_promotable(&MirType::tuple(vec![
+            MirType::Felt
+        ])));
+        assert!(DataLayout::is_promotable(&MirType::tuple(vec![
+            MirType::Bool,
+            MirType::Bool
+        ])));
 
         // Larger tuples are not promotable
-        assert!(!layout.is_promotable(&MirType::tuple(vec![
+        assert!(!DataLayout::is_promotable(&MirType::tuple(vec![
             MirType::Felt,
             MirType::Felt,
             MirType::Felt

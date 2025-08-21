@@ -14,7 +14,7 @@ pub fn validate_for_casm(module: &MirModule) -> Result<(), CodegenError> {
 
     // Check that no aggregate value operations remain
     // The CASM backend requires all aggregates to be lowered to memory operations
-    for (func_idx, function) in module.functions() {
+    for (_func_idx, function) in module.functions() {
         for (block_idx, block) in function.basic_blocks() {
             for (instr_idx, instruction) in block.instructions.iter().enumerate() {
                 match &instruction.kind {

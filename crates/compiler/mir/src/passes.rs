@@ -501,57 +501,63 @@ impl Validation {
                     InstructionKind::MakeStruct {
                         dest: _,
                         fields,
-                        struct_ty,
+                        struct_ty:
+                            MirType::Struct {
+                                fields: expected_fields,
+                                ..
+                            },
                     } => {
-                        if let MirType::Struct {
-                            fields: expected_fields,
-                            ..
-                        } = struct_ty
-                        {
-                            // Check all required fields are present
-                            for (expected_name, _) in expected_fields {
-                                if !fields.iter().any(|(name, _)| name == expected_name)
-                                    && std::env::var("RUST_LOG").is_ok()
-                                {
-                                    eprintln!(
-                                        "[ERROR] Block {block_id:?}, instruction {instr_idx}: \
-                                        MakeStruct missing required field '{}'",
-                                        expected_name
-                                    );
-                                }
-                            }
-                            // Check for duplicate fields
-                            let mut seen_fields = std::collections::HashSet::new();
-                            for (field_name, _) in fields {
-                                if !seen_fields.insert(field_name.clone())
-                                    && std::env::var("RUST_LOG").is_ok()
-                                {
-                                    eprintln!(
-                                        "[ERROR] Block {block_id:?}, instruction {instr_idx}: \
-                                        MakeStruct has duplicate field '{}'",
-                                        field_name
-                                    );
-                                }
-                            }
-                            // Check field types
-                            for (field_name, field_val) in fields {
-                                if let Some((_, expected_ty)) =
-                                    expected_fields.iter().find(|(name, _)| name == field_name)
-                                    && let Value::Operand(val_id) = field_val
-                                    && let Some(val_ty) = function.get_value_type(*val_id)
-                                    && val_ty != expected_ty
-                                    && !matches!(val_ty, MirType::Unknown)
-                                    && !matches!(expected_ty, MirType::Unknown)
-                                    && std::env::var("RUST_LOG").is_ok()
-                                {
-                                    eprintln!(
-                                                    "[WARN] Block {block_id:?}, instruction {instr_idx}: \
-                                                    MakeStruct field '{}' type mismatch: expected {expected_ty:?}, got {val_ty:?}",
-                                                    field_name
-                                                );
-                                }
+                        // Check all required fields are present
+                        for (expected_name, _) in expected_fields {
+                            if !fields.iter().any(|(name, _)| name == expected_name)
+                                && std::env::var("RUST_LOG").is_ok()
+                            {
+                                eprintln!(
+                                    "[ERROR] Block {block_id:?}, instruction {instr_idx}: \
+                                    MakeStruct missing required field '{}'",
+                                    expected_name
+                                );
                             }
                         }
+                        // Check for duplicate fields
+                        let mut seen_fields = std::collections::HashSet::new();
+                        for (field_name, _) in fields {
+                            if !seen_fields.insert(field_name.clone())
+                                && std::env::var("RUST_LOG").is_ok()
+                            {
+                                eprintln!(
+                                    "[ERROR] Block {block_id:?}, instruction {instr_idx}: \
+                                    MakeStruct has duplicate field '{}'",
+                                    field_name
+                                );
+                            }
+                        }
+                        // Check field types
+                        for (field_name, field_val) in fields {
+                            if let Some((_, expected_ty)) =
+                                expected_fields.iter().find(|(name, _)| name == field_name)
+                                && let Value::Operand(val_id) = field_val
+                                && let Some(val_ty) = function.get_value_type(*val_id)
+                                && val_ty != expected_ty
+                                && !matches!(val_ty, MirType::Unknown)
+                                && !matches!(expected_ty, MirType::Unknown)
+                                && std::env::var("RUST_LOG").is_ok()
+                            {
+                                eprintln!(
+                                    "[WARN] Block {block_id:?}, instruction {instr_idx}: \
+                                    MakeStruct field '{}' type mismatch: expected {expected_ty:?}, got {val_ty:?}",
+                                    field_name
+                                );
+                            }
+                        }
+                    }
+
+                    // MakeStruct with non-struct type
+                    InstructionKind::MakeStruct { struct_ty, .. } => {
+                        eprintln!(
+                            "[ERROR] Block {block_id:?}, instruction {instr_idx}: \
+                            MakeStruct has non-struct type: {struct_ty:?}"
+                        );
                     }
 
                     // Validate InsertField

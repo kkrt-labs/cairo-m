@@ -1,8 +1,20 @@
 use cairo_m_compiler_parser::parser::UnaryOp;
+use stwo_prover::core::fields::m31::{M31, P};
 
 use crate::{BinaryOp, InstructionKind, Literal, MirFunction, MirType, Value};
 
 use super::MirPass;
+
+/// Convert an M31 to an i32
+/// Values from [0, P/2] are considered positive, and values from [P/2, P) are considered negative.
+fn m31_to_i32(m31: M31) -> i32 {
+    let value = m31.0;
+    if value < P / 2 {
+        value as i32
+    } else {
+        (value as i64 - P as i64) as i32
+    }
+}
 
 /// Constant Folding Pass
 ///
@@ -24,25 +36,36 @@ impl ConstantFolding {
     }
 
     /// Try to fold a binary operation with literal operands
-    const fn try_fold_binary_op(
-        &self,
-        op: BinaryOp,
-        left: Literal,
-        right: Literal,
-    ) -> Option<Literal> {
+    fn try_fold_binary_op(&self, op: BinaryOp, left: Literal, right: Literal) -> Option<Literal> {
         match (op, left, right) {
             // Felt arithmetic
             (BinaryOp::Add, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Integer(a.saturating_add(b)))
+                let a_m31 = M31::from(a);
+                let b_m31 = M31::from(b);
+                let result = a_m31 + b_m31;
+                let result_i32 = m31_to_i32(result);
+                Some(Literal::Integer(result_i32))
             }
             (BinaryOp::Sub, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Integer(a.saturating_sub(b)))
+                let a_m31 = M31::from(a);
+                let b_m31 = M31::from(b);
+                let result = a_m31 - b_m31;
+                let result_i32 = m31_to_i32(result);
+                Some(Literal::Integer(result_i32))
             }
             (BinaryOp::Mul, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Integer(a.saturating_mul(b)))
+                let a_m31 = M31::from(a);
+                let b_m31 = M31::from(b);
+                let result = a_m31 * b_m31;
+                let result_i32 = m31_to_i32(result);
+                Some(Literal::Integer(result_i32))
             }
             (BinaryOp::Div, Literal::Integer(a), Literal::Integer(b)) if b != 0 => {
-                Some(Literal::Integer(a / b))
+                let a_m31 = M31::from(a);
+                let b_m31 = M31::from(b);
+                let result = a_m31 / b_m31;
+                let result_i32 = m31_to_i32(result);
+                Some(Literal::Integer(result_i32))
             }
 
             // Felt comparisons
@@ -142,22 +165,24 @@ impl ConstantFolding {
                 }
             }
 
-            InstructionKind::UnaryOp { op, dest, source } => {
-                if let Value::Literal(source_lit) = source {
-                    if let Some(result) = self.try_fold_unary_op(*op, *source_lit) {
-                        // Determine result type based on operation
-                        let result_ty = match op {
-                            UnaryOp::Not => MirType::bool(),
-                            UnaryOp::Neg => MirType::felt(), // Assuming negation on felt
-                        };
+            InstructionKind::UnaryOp {
+                op,
+                dest,
+                source: Value::Literal(source_lit),
+            } => {
+                if let Some(result) = self.try_fold_unary_op(*op, *source_lit) {
+                    // Determine result type based on operation
+                    let result_ty = match op {
+                        UnaryOp::Not => MirType::bool(),
+                        UnaryOp::Neg => MirType::felt(), // Assuming negation on felt
+                    };
 
-                        instr.kind = InstructionKind::Assign {
-                            dest: *dest,
-                            source: Value::Literal(result),
-                            ty: result_ty,
-                        };
-                        return true;
-                    }
+                    instr.kind = InstructionKind::Assign {
+                        dest: *dest,
+                        source: Value::Literal(result),
+                        ty: result_ty,
+                    };
+                    return true;
                 }
             }
 
@@ -193,6 +218,17 @@ impl MirPass for ConstantFolding {
 mod tests {
     use super::*;
     use crate::{MirType, Terminator};
+    use proptest::prelude::*;
+    use stwo_prover::core::fields::m31::{M31, P};
+
+    proptest! {
+        #[test]
+        fn test_m31_to_i32(m31_value in 0..P) {
+            let m31_value = M31::from(m31_value);
+            let i32_value = m31_to_i32(m31_value);
+            assert_eq!(m31_value, M31::from(i32_value));
+        }
+    }
 
     #[test]
     fn test_arithmetic_folding() {

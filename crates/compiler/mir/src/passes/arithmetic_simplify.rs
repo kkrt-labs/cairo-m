@@ -106,6 +106,7 @@ impl ArithmeticSimplify {
     }
 
     /// Try to eliminate double negation: !(!x) → x
+    #[allow(dead_code)]
     fn try_eliminate_double_negation(
         &self,
         _dest: crate::ValueId,
@@ -171,6 +172,7 @@ impl ArithmeticSimplify {
     }
 
     /// Apply simplification to a unary operation instruction
+    #[allow(dead_code)]
     fn simplify_unary_op(&self, instr: &mut crate::Instruction, function: &MirFunction) -> bool {
         if let InstructionKind::UnaryOp { op, dest, source } = &instr.kind {
             if matches!(op, UnaryOp::Not) {

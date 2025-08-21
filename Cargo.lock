@@ -511,9 +511,11 @@ dependencies = [
  "index_vec",
  "insta",
  "log",
+ "proptest",
  "rustc-hash 1.1.0",
  "salsa",
  "salsa-macros",
+ "stwo-prover",
 ]
 
 [[package]]

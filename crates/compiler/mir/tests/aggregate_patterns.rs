@@ -15,8 +15,8 @@ fn compile_with_aggregate_config(enabled: bool) -> MirModule {
     // Create test based on config
     if enabled {
         // Use aggregate instructions
-        let elem1 = function.new_value_id();
-        let elem2 = function.new_value_id();
+        let _elem1 = function.new_value_id();
+        let _elem2 = function.new_value_id();
         let tuple_val = function.new_value_id();
 
         let block_id = function.add_basic_block();
@@ -152,7 +152,7 @@ fn test_insert_field_operation() {
 
     // Create values
     let struct_val = function.new_value_id();
-    let new_val = function.new_value_id();
+    let _new_val = function.new_value_id();
     let updated = function.new_value_id();
 
     let struct_type = MirType::Struct {

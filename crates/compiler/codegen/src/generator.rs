@@ -8,8 +8,8 @@ use cairo_m_common::instruction::*;
 use cairo_m_common::program::{AbiSlot, EntrypointInfo};
 use cairo_m_common::{Program, ProgramMetadata};
 use cairo_m_compiler_mir::{
-    BasicBlockId, BinaryOp, Instruction, InstructionKind, Literal, MirFunction, MirModule, MirType,
-    Terminator, Value, ValueId,
+    BasicBlockId, BinaryOp, DataLayout, Instruction, InstructionKind, Literal, MirFunction,
+    MirModule, MirType, Terminator, Value, ValueId,
 };
 
 use crate::{
@@ -151,7 +151,7 @@ impl CodeGenerator {
             .iter()
             .enumerate()
             .map(|(i, &value_id)| {
-                let slots = function.value_types[&value_id].size_in_slots();
+                let slots = DataLayout::size_of(&function.value_types[&value_id]);
                 AbiSlot {
                     name: format!("arg{}", i), // TODO: Get proper names from semantic info
                     slots,
@@ -164,7 +164,7 @@ impl CodeGenerator {
             .iter()
             .enumerate()
             .map(|(i, &value_id)| {
-                let slots = function.value_types[&value_id].size_in_slots();
+                let slots = DataLayout::size_of(&function.value_types[&value_id]);
                 AbiSlot {
                     name: format!("ret{}", i), // TODO: Get proper names from semantic info
                     slots,
@@ -279,7 +279,7 @@ impl CodeGenerator {
                         if i == arg_index {
                             break;
                         }
-                        arg_offset += param_type.size_in_slots() as i32;
+                        arg_offset += DataLayout::size_of(param_type) as i32;
                     }
                     return Some(arg_offset);
                 }
@@ -426,7 +426,7 @@ impl CodeGenerator {
                                     if i == arg_index {
                                         break;
                                     }
-                                    arg_offset += param_type.size_in_slots() as i32;
+                                    arg_offset += DataLayout::size_of(param_type) as i32;
                                 }
 
                                 // Store the value directly at the argument offset
@@ -479,7 +479,7 @@ impl CodeGenerator {
                                         if i == arg_index {
                                             break;
                                         }
-                                        arg_offset += param_type.size_in_slots() as i32;
+                                        arg_offset += DataLayout::size_of(param_type) as i32;
                                     }
 
                                     match value {
@@ -515,7 +515,7 @@ impl CodeGenerator {
 
             InstructionKind::FrameAlloc { dest, ty } => {
                 // Allocate the requested frame space dynamically based on type size
-                let size = ty.size_in_slots();
+                let size = DataLayout::size_of(ty);
                 builder.allocate_frame_slots(*dest, size)?;
             }
 
@@ -638,7 +638,7 @@ impl CodeGenerator {
 
                 let k_slots: i32 = return_types
                     .iter()
-                    .map(|ty| ty.size_in_slots() as i32)
+                    .map(|ty| DataLayout::size_of(ty) as i32)
                     .sum();
 
                 // Calculate cumulative slot offsets for each return value
@@ -646,7 +646,7 @@ impl CodeGenerator {
                 let mut cumulative = 0;
                 for ty in &return_types {
                     slot_offsets.push(cumulative);
-                    cumulative += ty.size_in_slots() as i32;
+                    cumulative += DataLayout::size_of(ty) as i32;
                 }
 
                 dests

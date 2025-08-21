@@ -29,7 +29,7 @@
 //! | ...                        | ...                    |                             |
 //! ```
 
-use cairo_m_compiler_mir::{MirFunction, ValueId};
+use cairo_m_compiler_mir::{DataLayout, MirFunction, ValueId};
 use rustc_hash::FxHashMap;
 
 use crate::{CodegenError, CodegenResult};
@@ -92,7 +92,7 @@ impl FunctionLayout {
             let ty = function.value_types.get(&param_id).ok_or_else(|| {
                 CodegenError::LayoutError(format!("No type found for parameter {param_id:?}"))
             })?;
-            m_slots += ty.size_in_slots();
+            m_slots += DataLayout::size_of(ty);
         }
 
         let mut k_slots = 0;
@@ -102,7 +102,7 @@ impl FunctionLayout {
             let ty = function.value_types.get(&return_id).ok_or_else(|| {
                 CodegenError::LayoutError(format!("No type found for return value {return_id:?}"))
             })?;
-            let size = ty.size_in_slots();
+            let size = DataLayout::size_of(ty);
             k_slots += size;
         }
 
@@ -115,7 +115,7 @@ impl FunctionLayout {
             let ty = function.value_types.get(&param_id).ok_or_else(|| {
                 CodegenError::LayoutError(format!("No type found for parameter {param_id:?}"))
             })?;
-            let size = ty.size_in_slots();
+            let size = DataLayout::size_of(ty);
 
             // Calculate the offset using the formula from Issue 2
             let offset = -(m_slots as i32) - (k_slots as i32) - 2 + cumulative_param_size as i32;
@@ -158,7 +158,7 @@ impl FunctionLayout {
                                     "No type found for call return value {dest_id:?}"
                                 ))
                             })?;
-                            let size = ty.size_in_slots();
+                            let size = DataLayout::size_of(ty);
 
                             // Allocate space for the return value
                             if size == 1 {
@@ -189,7 +189,7 @@ impl FunctionLayout {
 
                         // Allocate a block of memory
                         let offset = current_offset as i32;
-                        let size = ty.size_in_slots();
+                        let size = DataLayout::size_of(ty);
                         self.value_layouts
                             .insert(*dest, ValueLayout::MultiSlot { offset, size });
                         current_offset += size;
@@ -254,7 +254,7 @@ impl FunctionLayout {
                                     "No type found for value {dest_id:?}"
                                 ))
                             })?;
-                            let size = ty.size_in_slots();
+                            let size = DataLayout::size_of(ty);
 
                             // Create appropriate layout based on size
                             if size == 1 {

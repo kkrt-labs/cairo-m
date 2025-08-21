@@ -155,14 +155,11 @@ impl Format for Pattern {
     fn format(&self, _ctx: &mut FormatterCtx) -> Doc {
         match self {
             Self::Identifier(name) => Doc::text(name.value()),
-            Self::Tuple(names) => {
-                let name_docs = names
-                    .iter()
-                    .map(|n| Doc::text(n.value()))
-                    .collect::<Vec<_>>();
+            Self::Tuple(patterns) => {
+                let pattern_docs = patterns.iter().map(|p| p.format(_ctx)).collect::<Vec<_>>();
                 Doc::concat(vec![
                     Doc::text("("),
-                    Doc::join(Doc::text(", "), name_docs),
+                    Doc::join(Doc::text(", "), pattern_docs),
                     Doc::text(")"),
                 ])
             }

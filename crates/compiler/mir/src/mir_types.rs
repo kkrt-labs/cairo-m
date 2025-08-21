@@ -7,6 +7,8 @@
 use cairo_m_compiler_semantic::types::{TypeData, TypeId};
 use cairo_m_compiler_semantic::SemanticDb;
 
+use crate::DataLayout;
+
 /// A simplified type representation for MIR
 ///
 /// This is a lifetime-free representation of types that can be stored
@@ -153,8 +155,7 @@ impl MirType {
     #[deprecated(note = "Use DataLayout::size_of() instead for better centralization")]
     pub fn size_in_slots(&self) -> usize {
         // Delegate to DataLayout for consistency
-        let layout = crate::layout::DataLayout::new();
-        layout.size_of(self)
+        DataLayout::size_of(self)
     }
 
     /// Calculates the offset of a struct field by name
@@ -162,8 +163,7 @@ impl MirType {
     #[deprecated(note = "Use DataLayout::field_offset() instead for better centralization")]
     pub fn field_offset(&self, field_name: &str) -> Option<usize> {
         // Delegate to DataLayout for consistency
-        let layout = crate::layout::DataLayout::new();
-        layout.field_offset(self, field_name)
+        DataLayout::field_offset(self, field_name)
     }
 
     /// Calculates the offset of a tuple element by index
@@ -171,8 +171,7 @@ impl MirType {
     #[deprecated(note = "Use DataLayout::tuple_offset() instead for better centralization")]
     pub fn tuple_element_offset(&self, index: usize) -> Option<usize> {
         // Delegate to DataLayout for consistency
-        let layout = crate::layout::DataLayout::new();
-        layout.tuple_offset(self, index)
+        DataLayout::tuple_offset(self, index)
     }
 
     /// Gets the type of a struct field by name

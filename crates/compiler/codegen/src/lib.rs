@@ -16,8 +16,8 @@
 #![allow(clippy::option_if_let_else)]
 
 use cairo_m_common::instruction::INSTRUCTION_MAX_SIZE;
-use cairo_m_common::{Instruction, Program};
-use cairo_m_compiler_mir::{BasicBlockId, MirModule};
+use cairo_m_common::Instruction;
+use cairo_m_compiler_mir::BasicBlockId;
 use smallvec::SmallVec;
 use stwo_prover::core::fields::m31::M31;
 
