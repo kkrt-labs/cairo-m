@@ -7,7 +7,7 @@ use super::MirPass;
 
 /// Convert an M31 to an i32
 /// Values from [0, P/2] are considered positive, and values from [P/2, P) are considered negative.
-fn m31_to_i32(m31: M31) -> i32 {
+const fn m31_to_i32(m31: M31) -> i32 {
     let value = m31.0;
     if value < P / 2 {
         value as i32
@@ -43,29 +43,25 @@ impl ConstantFolding {
                 let a_m31 = M31::from(a);
                 let b_m31 = M31::from(b);
                 let result = a_m31 + b_m31;
-                let result_i32 = m31_to_i32(result);
-                Some(Literal::Integer(result_i32))
+                Some(Literal::Integer(result.0))
             }
             (BinaryOp::Sub, Literal::Integer(a), Literal::Integer(b)) => {
                 let a_m31 = M31::from(a);
                 let b_m31 = M31::from(b);
                 let result = a_m31 - b_m31;
-                let result_i32 = m31_to_i32(result);
-                Some(Literal::Integer(result_i32))
+                Some(Literal::Integer(result.0))
             }
             (BinaryOp::Mul, Literal::Integer(a), Literal::Integer(b)) => {
                 let a_m31 = M31::from(a);
                 let b_m31 = M31::from(b);
                 let result = a_m31 * b_m31;
-                let result_i32 = m31_to_i32(result);
-                Some(Literal::Integer(result_i32))
+                Some(Literal::Integer(result.0))
             }
             (BinaryOp::Div, Literal::Integer(a), Literal::Integer(b)) if b != 0 => {
                 let a_m31 = M31::from(a);
                 let b_m31 = M31::from(b);
                 let result = a_m31 / b_m31;
-                let result_i32 = m31_to_i32(result);
-                Some(Literal::Integer(result_i32))
+                Some(Literal::Integer(result.0))
             }
 
             // Felt comparisons
@@ -90,36 +86,36 @@ impl ConstantFolding {
 
             // U32 arithmetic (with proper wrapping)
             (BinaryOp::U32Add, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Integer(((a as u32).wrapping_add(b as u32)) as i32))
+                Some(Literal::Integer(a.wrapping_add(b)))
             }
             (BinaryOp::U32Sub, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Integer(((a as u32).wrapping_sub(b as u32)) as i32))
+                Some(Literal::Integer(a.wrapping_sub(b)))
             }
             (BinaryOp::U32Mul, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Integer(((a as u32).wrapping_mul(b as u32)) as i32))
+                Some(Literal::Integer(a.wrapping_mul(b)))
             }
             (BinaryOp::U32Div, Literal::Integer(a), Literal::Integer(b)) if b != 0 => {
-                Some(Literal::Integer(((a as u32) / (b as u32)) as i32))
+                Some(Literal::Integer(a / b))
             }
 
             // U32 comparisons
             (BinaryOp::U32Eq, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Boolean((a as u32) == (b as u32)))
+                Some(Literal::Boolean(a == b))
             }
             (BinaryOp::U32Neq, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Boolean((a as u32) != (b as u32)))
+                Some(Literal::Boolean(a != b))
             }
             (BinaryOp::U32Less, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Boolean((a as u32) < (b as u32)))
+                Some(Literal::Boolean(a < b))
             }
             (BinaryOp::U32Greater, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Boolean((a as u32) > (b as u32)))
+                Some(Literal::Boolean(a > b))
             }
             (BinaryOp::U32LessEqual, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Boolean((a as u32) <= (b as u32)))
+                Some(Literal::Boolean(a <= b))
             }
             (BinaryOp::U32GreaterEqual, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Boolean((a as u32) >= (b as u32)))
+                Some(Literal::Boolean(a >= b))
             }
 
             // Boolean operations
@@ -135,10 +131,13 @@ impl ConstantFolding {
     }
 
     /// Try to fold a unary operation with literal operand
-    const fn try_fold_unary_op(&self, op: UnaryOp, operand: Literal) -> Option<Literal> {
+    fn try_fold_unary_op(&self, op: UnaryOp, operand: Literal) -> Option<Literal> {
         match (op, operand) {
             (UnaryOp::Not, Literal::Boolean(b)) => Some(Literal::Boolean(!b)),
-            (UnaryOp::Neg, Literal::Integer(i)) => Some(Literal::Integer(-i)),
+            (UnaryOp::Neg, Literal::Integer(i)) => {
+                let m31_value = M31::from(i);
+                Some(Literal::Integer((-m31_value).0))
+            }
             _ => None,
         }
     }
@@ -374,7 +373,7 @@ mod tests {
         block.push_instruction(crate::Instruction::binary_op(
             BinaryOp::U32Add,
             val_result,
-            Value::integer(-1), // -1 as u32 is u32::MAX
+            Value::integer(u32::MAX),
             Value::integer(1),
         ));
         block.set_terminator(Terminator::return_value(Value::operand(val_result)));

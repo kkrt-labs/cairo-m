@@ -15,7 +15,8 @@ fn test_integer() -> felt {
 
 ## Negative Numbers
 
-Negative numbers are supported and follow field arithmetic rules:
+Negative numbers are supported on the felt type and follow field arithmetic
+rules:
 
 ```cairo-m
 fn test_negative() -> felt {

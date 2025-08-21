@@ -98,9 +98,9 @@ impl CasmBuilder {
     }
 
     /// Helper to emit a store immediate instruction and track the write
-    fn store_immediate(&mut self, value: i32, offset: i32, comment: String) {
+    fn store_immediate(&mut self, value: u32, offset: i32, comment: String) {
         let instr = InstructionBuilder::new(STORE_IMM)
-            .with_operand(Operand::Literal(value))
+            .with_operand(Operand::Literal(value as i32))
             .with_operand(Operand::Literal(offset))
             .with_comment(comment);
         self.instructions.push(instr);
@@ -124,7 +124,7 @@ impl CasmBuilder {
     /// Store immediate value at a specific offset (public version)
     pub fn store_immediate_at(
         &mut self,
-        value: i32,
+        value: u32,
         offset: i32,
         comment: String,
     ) -> CodegenResult<()> {
@@ -266,7 +266,7 @@ impl CasmBuilder {
             }
             Value::Literal(Literal::Boolean(b)) => {
                 // Store immediate value
-                self.store_immediate(b as i32, dest_off, format!("[fp + {dest_off}] = {b}"));
+                self.store_immediate(b as u32, dest_off, format!("[fp + {dest_off}] = {b}"));
                 self.touch(dest_off, 1);
             }
 
@@ -341,7 +341,7 @@ impl CasmBuilder {
                     self.store_immediate(imm, dest_off, format!("[fp + {dest_off}] = {imm}"));
                 } else if size == 2 && matches!(ty, MirType::U32) {
                     // U32 value
-                    let value = imm as u32;
+                    let value = imm;
                     self.store_u32_immediate(
                         value,
                         dest_off,
@@ -364,7 +364,7 @@ impl CasmBuilder {
                         "Boolean literal must be single-slot".to_string(),
                     ));
                 }
-                self.store_immediate(b as i32, dest_off, format!("[fp + {dest_off}] = {b}"));
+                self.store_immediate(b as u32, dest_off, format!("[fp + {dest_off}] = {b}"));
             }
 
             Value::Operand(src_id) => {
@@ -694,7 +694,7 @@ impl CasmBuilder {
 
                 let instr = InstructionBuilder::new(self.fp_imm_opcode_for_binary_op(op)?)
                     .with_operand(Operand::Literal(left_off))
-                    .with_operand(Operand::Literal(*imm))
+                    .with_operand(Operand::Literal(*imm as i32))
                     .with_operand(Operand::Literal(dest_off))
                     .with_comment(format!("[fp + {dest_off}] = [fp + {left_off}] op {imm}"));
 
@@ -710,7 +710,7 @@ impl CasmBuilder {
                         let right_off = self.layout.get_offset(*right_id)?;
                         let instr = InstructionBuilder::new(self.fp_imm_opcode_for_binary_op(op)?)
                             .with_operand(Operand::Literal(right_off))
-                            .with_operand(Operand::Literal(*imm))
+                            .with_operand(Operand::Literal(*imm as i32))
                             .with_operand(Operand::Literal(dest_off))
                             .with_comment(format!(
                                 "[fp + {dest_off}] = [fp + {right_off}] op {imm}"
@@ -767,11 +767,7 @@ impl CasmBuilder {
                     }
                 };
 
-                self.store_immediate(
-                    result as i32,
-                    dest_off,
-                    format!("[fp + {dest_off}] = {result}"),
-                );
+                self.store_immediate(result, dest_off, format!("[fp + {dest_off}] = {result}"));
             }
 
             _ => {
@@ -1025,7 +1021,7 @@ impl CasmBuilder {
             Value::Literal(Literal::Boolean(imm)) => {
                 // For immediate values, we can directly compute the NOT result
                 self.store_immediate(
-                    !imm as i32,
+                    !imm as u32,
                     dest_off,
                     format!("[fp + {dest_off}] = {}", !imm),
                 );
@@ -1112,7 +1108,7 @@ impl CasmBuilder {
             (Value::Operand(left_id), Value::Literal(Literal::Integer(imm))) => {
                 let left_off = self.layout.get_offset(*left_id)?;
 
-                let (imm_16b_low, imm_16b_high) = split_u32_i32(*imm);
+                let (imm_16b_low, imm_16b_high) = split_u32_i32(*imm as i32);
 
                 let comment = if is_comparison {
                     format!(
@@ -1140,7 +1136,7 @@ impl CasmBuilder {
 
             // Left is immediate, right is value: use fp_imm variant
             (Value::Literal(Literal::Integer(imm)), Value::Operand(right_id)) => {
-                let (imm_16b_low, imm_16b_high) = split_u32_i32(*imm);
+                let (imm_16b_low, imm_16b_high) = split_u32_i32(*imm as i32);
 
                 match op {
                     // For addition and multiplication, we can swap the operands
@@ -1225,8 +1221,8 @@ impl CasmBuilder {
             // Both operands are immediate: fold constants
             (Value::Literal(Literal::Integer(imm)), Value::Literal(Literal::Integer(imm2))) => {
                 // Perform constant folding for U32 operations
-                let left_u32 = *imm as u32;
-                let right_u32 = *imm2 as u32;
+                let left_u32 = { *imm };
+                let right_u32 = { *imm2 };
 
                 match op {
                     // Arithmetic operations - result is U32
@@ -1935,7 +1931,7 @@ impl CasmBuilder {
                     Value::Literal(inner) => {
                         let imm = match inner {
                             Literal::Integer(imm) => imm,
-                            Literal::Boolean(imm) => imm as i32,
+                            Literal::Boolean(imm) => imm as u32,
                             _ => {
                                 return Err(CodegenError::UnsupportedInstruction(format!(
                                     "Unsupported store value type: {:?}",
@@ -2838,7 +2834,7 @@ impl CasmBuilder {
                 } else if size == 2 {
                     // Handle u32 literal
                     self.store_u32_immediate(
-                        *imm as u32,
+                        *imm,
                         target_offset,
                         format!(
                             "[fp + {}], [fp + {}] = u32({})",

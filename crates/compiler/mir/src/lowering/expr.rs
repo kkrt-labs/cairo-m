@@ -36,7 +36,7 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
 
         // Use expr_info.ast_node instead of expr.value()
         match &expr_info.ast_node {
-            Expression::Literal(n, _) => Ok(Value::integer(*n as i32)),
+            Expression::Literal(n, _) => Ok(Value::integer(*n as u32)),
             Expression::BooleanLiteral(b) => Ok(Value::boolean(*b)),
             Expression::Identifier(name) => self.lower_identifier(name, current_scope_id),
             Expression::UnaryOp { op, expr } => self.lower_unary_op(*op, expr, expr_id),

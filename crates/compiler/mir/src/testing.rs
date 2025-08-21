@@ -190,7 +190,7 @@ pub mod values {
     use super::*;
 
     /// Creates an integer literal value
-    pub fn int(value: i32) -> Value {
+    pub fn int(value: u32) -> Value {
         Value::integer(value)
     }
 

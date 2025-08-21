@@ -195,50 +195,7 @@ impl FunctionLayout {
                         current_offset += size;
                     }
                     InstructionKind::GetElementPtr { dest, base, offset } => {
-                        // Skip if already allocated
-                        if self.value_layouts.contains_key(dest) {
-                            continue;
-                        }
-
-                        // Look up the base layout
-                        let base_offset = match base {
-                            Value::Operand(base_id) => match self.value_layouts.get(base_id) {
-                                Some(ValueLayout::Slot { offset }) => *offset,
-                                Some(ValueLayout::MultiSlot { offset, .. }) => *offset,
-                                _ => {
-                                    return Err(CodegenError::LayoutError(format!(
-                                            "Base value {base_id:?} for getelementptr has no memory layout"
-                                        )));
-                                }
-                            },
-                            _ => {
-                                return Err(CodegenError::LayoutError(format!(
-                                    "getelementptr base must be an operand, got {base:?}"
-                                )));
-                            }
-                        };
-
-                        // Evaluate the offset
-                        let offset_value = match offset {
-                            Value::Literal(Literal::Integer(n)) => *n,
-                            _ => {
-                                // For now, we only support literal offsets
-                                return Err(CodegenError::LayoutError(format!(
-                                    "getelementptr offset must be a literal integer, got {offset:?}"
-                                )));
-                            }
-                        };
-
-                        // Calculate the final offset
-                        let final_offset = base_offset + offset_value;
-
-                        // Store this as a pointer to the calculated offset
-                        self.value_layouts.insert(
-                            *dest,
-                            ValueLayout::Slot {
-                                offset: final_offset,
-                            },
-                        );
+                        panic!("GetElementPtr lowering is not supported");
                     }
                     _ => {
                         // For all other instructions, process destinations normally

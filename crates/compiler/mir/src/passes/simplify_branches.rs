@@ -96,24 +96,12 @@ impl SimplifyBranches {
             (BinaryOp::GreaterEqual, Literal::Integer(a), Literal::Integer(b)) => Some(a >= b),
 
             // U32 comparisons (treat as unsigned)
-            (BinaryOp::U32Eq, Literal::Integer(a), Literal::Integer(b)) => {
-                Some((a as u32) == (b as u32))
-            }
-            (BinaryOp::U32Neq, Literal::Integer(a), Literal::Integer(b)) => {
-                Some((a as u32) != (b as u32))
-            }
-            (BinaryOp::U32Less, Literal::Integer(a), Literal::Integer(b)) => {
-                Some((a as u32) < (b as u32))
-            }
-            (BinaryOp::U32Greater, Literal::Integer(a), Literal::Integer(b)) => {
-                Some((a as u32) > (b as u32))
-            }
-            (BinaryOp::U32LessEqual, Literal::Integer(a), Literal::Integer(b)) => {
-                Some((a as u32) <= (b as u32))
-            }
-            (BinaryOp::U32GreaterEqual, Literal::Integer(a), Literal::Integer(b)) => {
-                Some((a as u32) >= (b as u32))
-            }
+            (BinaryOp::U32Eq, Literal::Integer(a), Literal::Integer(b)) => Some(a == b),
+            (BinaryOp::U32Neq, Literal::Integer(a), Literal::Integer(b)) => Some(a != b),
+            (BinaryOp::U32Less, Literal::Integer(a), Literal::Integer(b)) => Some(a < b),
+            (BinaryOp::U32Greater, Literal::Integer(a), Literal::Integer(b)) => Some(a > b),
+            (BinaryOp::U32LessEqual, Literal::Integer(a), Literal::Integer(b)) => Some(a <= b),
+            (BinaryOp::U32GreaterEqual, Literal::Integer(a), Literal::Integer(b)) => Some(a >= b),
 
             // Boolean comparisons
             (BinaryOp::Eq, Literal::Boolean(a), Literal::Boolean(b)) => Some(a == b),
