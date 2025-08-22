@@ -55,45 +55,6 @@ fn test() { && b; }
 ============================================================
 
 --- Input 5 (ERROR) ---
-fn test() { a | b; }
---- Diagnostics ---
-[01] Error: Invalid character
-   ╭─[ test.cairo:1:15 ]
-   │
- 1 │ fn test() { a | b; }
-   │               ┬  
-   │               ╰── Invalid character
-───╯
-
-============================================================
-
---- Input 6 (ERROR) ---
-fn test() { a & b; }
---- Diagnostics ---
-[01] Error: Invalid character
-   ╭─[ test.cairo:1:15 ]
-   │
- 1 │ fn test() { a & b; }
-   │               ┬  
-   │               ╰── Invalid character
-───╯
-
-============================================================
-
---- Input 7 (ERROR) ---
-fn test() { a ^ b; }
---- Diagnostics ---
-[01] Error: Invalid character
-   ╭─[ test.cairo:1:15 ]
-   │
- 1 │ fn test() { a ^ b; }
-   │               ┬  
-   │               ╰── Invalid character
-───╯
-
-============================================================
-
---- Input 8 (ERROR) ---
 fn test() { a << b; }
 --- Diagnostics ---
 [02] Error: found '<' expected '!', '-', something else, identifier, or '('
@@ -106,7 +67,7 @@ fn test() { a << b; }
 
 ============================================================
 
---- Input 9 (ERROR) ---
+--- Input 6 (ERROR) ---
 fn test() { a >> b; }
 --- Diagnostics ---
 [02] Error: found '>' expected '!', '-', something else, identifier, or '('
@@ -119,7 +80,7 @@ fn test() { a >> b; }
 
 ============================================================
 
---- Input 10 (ERROR) ---
+--- Input 7 (ERROR) ---
 fn test() { a % b; }
 --- Diagnostics ---
 [01] Error: Invalid character
@@ -132,7 +93,7 @@ fn test() { a % b; }
 
 ============================================================
 
---- Input 11 (ERROR) ---
+--- Input 8 (ERROR) ---
 fn test() { a ** b; }
 --- Diagnostics ---
 [02] Error: found '*' expected '!', '-', something else, identifier, or '('

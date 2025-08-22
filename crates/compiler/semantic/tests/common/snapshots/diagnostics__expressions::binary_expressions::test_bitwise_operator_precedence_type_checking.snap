@@ -11,9 +11,9 @@ Found 1 diagnostic(s):
 
 --- Diagnostic 1 ---
 [2001] Error: Operator `&` is not supported for type `bool`
-   ╭─[ semantic_tests::expressions::binary_expressions::test_bitwise_operator_precedence_type_checking:1:58 ]
+   ╭─[ semantic_tests::expressions::binary_expressions::test_bitwise_operator_precedence_type_checking:1:59 ]
    │
  1 │ fn test() { let a: u32 = 5; let b: u32 = 3; let result = (a < b) & true; return; }
-   │                                                          ───┬───  
-   │                                                             ╰───── Operator `&` is not supported for type `bool`
+   │                                                           ──┬──  
+   │                                                             ╰──── Operator `&` is not supported for type `bool`
 ───╯
