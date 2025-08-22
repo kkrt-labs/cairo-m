@@ -140,11 +140,11 @@ fn get_tuple() -> (felt, u32, bool) { return (42, 100, true); } fn test() { let 
 fn test() { let x: felt = 42; let y: felt = 100; let z: felt = (x == y); return; }
 --- Diagnostics ---
 [2001] Error: Type mismatch for let statement `z`. Expected `felt`, found `bool`
-   ╭─[ semantic_tests::statements::assignments::test_assignments:1:64 ]
+   ╭─[ semantic_tests::statements::assignments::test_assignments:1:65 ]
    │
  1 │ fn test() { let x: felt = 42; let y: felt = 100; let z: felt = (x == y); return; }
-   │                                                                ────┬───  
-   │                                                                    ╰───── Type mismatch for let statement `z`. Expected `felt`, found `bool`
+   │                                                                 ───┬──  
+   │                                                                    ╰──── Type mismatch for let statement `z`. Expected `felt`, found `bool`
 ───╯
 
 ============================================================
@@ -153,11 +153,11 @@ fn test() { let x: felt = 42; let y: felt = 100; let z: felt = (x == y); return;
 fn test() { let x: felt = 42; let y: felt = 100; let z: felt = (x != y); return; }
 --- Diagnostics ---
 [2001] Error: Type mismatch for let statement `z`. Expected `felt`, found `bool`
-   ╭─[ semantic_tests::statements::assignments::test_assignments:1:64 ]
+   ╭─[ semantic_tests::statements::assignments::test_assignments:1:65 ]
    │
  1 │ fn test() { let x: felt = 42; let y: felt = 100; let z: felt = (x != y); return; }
-   │                                                                ────┬───  
-   │                                                                    ╰───── Type mismatch for let statement `z`. Expected `felt`, found `bool`
+   │                                                                 ───┬──  
+   │                                                                    ╰──── Type mismatch for let statement `z`. Expected `felt`, found `bool`
 ───╯
 
 ============================================================

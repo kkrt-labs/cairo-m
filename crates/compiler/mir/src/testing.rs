@@ -97,7 +97,7 @@ impl<'a> TestBlockBuilder<'a> {
     /// Adds an assignment instruction
     pub fn assign(&mut self, source: Value) -> ValueId {
         let dest = self.function.new_value_id();
-        let instruction = Instruction::assign(dest, source);
+        let instruction = Instruction::assign(dest, source, MirType::felt());
         self.function
             .get_basic_block_mut(self.current_block)
             .unwrap()
@@ -139,7 +139,7 @@ impl<'a> TestBlockBuilder<'a> {
             param_types: args.iter().map(|_| MirType::Felt).collect(),
             return_types: vec![], // Void call has no returns
         };
-        let instruction = Instruction::void_call(callee, args, signature);
+        let instruction = Instruction::call(vec![], callee, args, signature);
         self.function
             .get_basic_block_mut(self.current_block)
             .unwrap()
@@ -171,6 +171,12 @@ impl<'a> TestBlockBuilder<'a> {
 
     /// Sets a return terminator with a value
     pub fn return_value(&mut self, value: Value) {
+        // Also set up the function's return_values field if returning an operand
+        if let Value::Operand(id) = value {
+            if !self.function.return_values.contains(&id) {
+                self.function.return_values.push(id);
+            }
+        }
         self.terminate(Terminator::return_value(value));
     }
 
@@ -190,7 +196,7 @@ pub mod values {
     use super::*;
 
     /// Creates an integer literal value
-    pub fn int(value: i32) -> Value {
+    pub fn int(value: u32) -> Value {
         Value::integer(value)
     }
 
@@ -274,6 +280,10 @@ mod tests {
             .get_basic_block_mut(block_id)
             .unwrap()
             .push_instruction(instruction);
+
+        // Set up return_values field before setting terminator
+        function.return_values = vec![result];
+
         function
             .get_basic_block_mut(block_id)
             .unwrap()

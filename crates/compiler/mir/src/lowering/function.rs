@@ -4,9 +4,10 @@
 //! orchestration logic for lowering entire functions from the semantic AST.
 
 use std::collections::HashMap;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
 
-use cairo_m_compiler_diagnostics::Diagnostic;
+use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
 use cairo_m_compiler_parser::parse_file;
 use cairo_m_compiler_parser::parser::{FunctionDef, Parameter, Spanned, Statement, TopLevelItem};
 use cairo_m_compiler_semantic::db::Crate;
@@ -17,8 +18,9 @@ use cairo_m_compiler_semantic::FileScopeId;
 use rustc_hash::FxHashMap;
 
 use crate::db::MirDb;
-use crate::passes::PassManager;
+use crate::pipeline::{optimize_module, PipelineConfig};
 use crate::{MirFunction, MirModule, MirType, ValueId};
+use crate::{PrettyPrint, Value};
 
 use super::builder::MirBuilder;
 use super::stmt::LowerStmt;
@@ -37,6 +39,8 @@ use super::stmt::LowerStmt;
 /// - Uses placeholder values for unresolved references
 #[salsa::tracked]
 pub fn generate_mir(db: &dyn MirDb, crate_id: Crate) -> Result<Arc<MirModule>, Vec<Diagnostic>> {
+    let pipeline_config = PipelineConfig::default();
+
     // Get semantic index for the entire crate
     let crate_semantic_index =
         match cairo_m_compiler_semantic::db::project_semantic_index(db, crate_id) {
@@ -50,6 +54,7 @@ pub fn generate_mir(db: &dyn MirDb, crate_id: Crate) -> Result<Arc<MirModule>, V
     let mut mir_module = MirModule::new();
     let mut function_mapping = FxHashMap::default();
     let mut parsed_modules = HashMap::new();
+    let mut lowering_errors: Vec<Diagnostic> = Vec::new();
 
     // First, collect all parsed modules to avoid re-parsing
     for (module_name, file) in crate_id.modules(db) {
@@ -92,8 +97,8 @@ pub fn generate_mir(db: &dyn MirDb, crate_id: Crate) -> Result<Arc<MirModule>, V
                     // Map semantic DefinitionId to MIR FunctionId
                     function_mapping.insert(def_id, (def, func_id));
                 } else {
-                    eprintln!(
-                        "Warning: Function '{}' found in semantic index but not in AST",
+                    log::warn!(
+                        "Function '{}' found in semantic index but not in AST",
                         def.name
                     );
                 }
@@ -106,11 +111,17 @@ pub fn generate_mir(db: &dyn MirDb, crate_id: Crate) -> Result<Arc<MirModule>, V
         let file = *modules_map
             .get(module_name)
             .expect("Module file should exist");
-        let file_id: u64 = crate_id
+
+        let position = crate_id
             .modules(db)
             .iter()
             .position(|(name, _)| name == module_name)
-            .expect("Module should exist in crate") as u64;
+            .expect("Module should exist in crate");
+
+        let mut hasher = DefaultHasher::new();
+        crate_id.name(db).hash(&mut hasher);
+        position.hash(&mut hasher);
+        let file_id: u64 = hasher.finish();
 
         // Get the parsed module for this file
         let (_, parsed_module) = parsed_modules
@@ -142,27 +153,42 @@ pub fn generate_mir(db: &dyn MirDb, crate_id: Crate) -> Result<Arc<MirModule>, V
 
                     // Lower the function
                     match lower_function(builder, func_def_id, def, func_ast) {
-                        Ok(mut mir_function) => {
-                            // Run optimization passes on the function
-                            let mut pass_manager = PassManager::standard_pipeline();
-                            pass_manager.run(&mut mir_function);
-
+                        Ok(mir_function) => {
                             // Use direct indexing to replace the placeholder function
                             mir_module.functions[func_id] = mir_function;
                         }
                         Err(e) => {
-                            eprintln!("Failed to lower function '{}': {}", def.name, e);
-                            // Continue with other functions even if one fails
+                            // Collect the error instead of just logging
+                            lowering_errors.push(Diagnostic {
+                                code: DiagnosticCode::InternalError,
+                                file_path: file.file_path(db).to_string(),
+                                related_spans: vec![],
+                                severity: DiagnosticSeverity::Error,
+                                message: format!("Failed to lower function '{}': {}", def.name, e),
+                                span: func_ast.value().name.span(),
+                            });
                         }
                     }
                 } else {
-                    eprintln!(
-                        "Warning: Function '{}' found in semantic index but not in AST",
+                    log::warn!(
+                        "Function '{}' found in semantic index but not in AST",
                         def.name
                     );
                 }
             }
         }
+    }
+
+    // Check if we have any lowering errors
+    if !lowering_errors.is_empty() {
+        return Err(lowering_errors);
+    }
+
+    // Run optimization pipeline on the entire module
+    optimize_module(&mut mir_module, &pipeline_config);
+
+    if std::env::var("DEBUG_MIR").is_ok() {
+        println!("{}", mir_module.pretty_print(0));
     }
 
     Ok(Arc::new(mir_module))
@@ -202,9 +228,19 @@ pub(super) fn lower_function<'a, 'db>(
 
     lower_parameters(&mut builder, func_ast, func_inner_scope_id)?;
 
+    // Seal the entry block since it has no predecessors (function entry point)
+    // This must be done after parameters are set up but before body lowering
+    let entry_block = builder.state.mir_function.entry_block;
+    builder.seal_block(entry_block);
+
     lower_body(&mut builder, func_ast)?;
 
     lower_return_type(&mut builder, func_def_id)?;
+
+    // Mark the current block (wherever we ended up) as filled
+    // since function processing is complete
+    let current_block = builder.state.current_block_id;
+    builder.mark_block_filled(current_block);
 
     Ok(builder.state.mir_function)
 }
@@ -240,7 +276,7 @@ fn lower_parameter<'a, 'db>(
         })?;
 
     let def_id = DefinitionId::new(builder.ctx.db, builder.ctx.file, def_idx);
-    let mir_def_id = builder.convert_definition_id(def_id);
+    let _mir_def_id = builder.convert_definition_id(def_id);
 
     // 1. Query semantic type system for actual parameter type
     let semantic_type = definition_semantic_type(builder.ctx.db, builder.ctx.crate_id, def_id);
@@ -254,11 +290,13 @@ fn lower_parameter<'a, 'db>(
         .parameters
         .push(incoming_param_val);
 
-    // 2. Map the semantic definition to its stack address
-    builder
-        .state
-        .definition_to_value
-        .insert(mir_def_id, incoming_param_val);
+    // 2. Bind the parameter using SSA
+    builder.bind_variable(
+        param_ast.name.value(),
+        param_ast.name.span(),
+        Value::operand(incoming_param_val),
+        func_inner_scope_id,
+    )?;
     Ok(())
 }
 

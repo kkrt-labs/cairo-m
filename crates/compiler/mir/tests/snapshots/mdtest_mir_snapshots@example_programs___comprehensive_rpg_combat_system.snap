@@ -1,0 +1,548 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Example Programs - Comprehensive RPG Combat System"
+input_file: mdtest/07-example-programs/example-00.md
+---
+Source:
+// Struct definitions showing custom types
+struct Character {
+    health: u32,
+    mana: u32,
+    level: u32,
+    position: Position,
+}
+
+struct Position {
+    x: u32,
+    y: u32,
+}
+
+struct CombatResult {
+    damage_dealt: u32,
+    critical_hit: bool,
+    remaining_health: u32,
+}
+
+
+// Entry point demonstrating tuple usage and multiple features
+fn main_test() -> u32 {
+    let battle_result = simulate_full_battle();
+
+    // Create a summary tuple
+    let summary = get_character_stats(Character {
+        health: 100,
+        mana: 50,
+        level: 5,
+        position: Position { x: 0, y: 0 },
+    });
+
+    // Extract tuple values
+    let (health, mana, level) = summary;
+
+    // Combine results using both felt and u32 arithmetic
+    let final_score: u32 = battle_result + level;  // u32 + u32 in felt context
+    let bonus_score = mana / 10u32;  // felt arithmetic
+
+    return final_score + bonus_score;
+}
+
+
+// Function demonstrating tuples as return types
+fn get_character_stats(char: Character) -> (u32, u32, u32) {
+    return (char.health, char.mana, char.level);
+}
+
+// Function with complex struct manipulation and arithmetic
+fn calculate_distance_squared(pos1: Position, pos2: Position) -> u32 {
+    let dx: u32 = 0;
+    if (pos1.x >= pos2.x) {
+        dx = pos1.x - pos2.x;
+    } else {
+        dx = pos2.x - pos1.x;
+    }
+    let dy: u32 = 0;
+    if (pos1.y >= pos2.y) {
+        dy = pos1.y - pos2.y;
+    } else {
+        dy = pos2.y - pos1.y;
+    }
+    return dx * dx + dy * dy;
+}
+
+// Function demonstrating control flow and u32/felt operations
+fn calculate_damage(attacker_level: u32, defender_level: u32, distance: u32) -> u32 {
+    let base_damage: u32 = 10;
+    let level_bonus = attacker_level * 2;
+
+    // Convert felt to rough u32 for distance penalty (simplified)
+    let distance_penalty: u32 = 0;
+    if (distance > 100) {
+        distance_penalty = 5;
+    } else {
+        if (distance > 50) {
+            distance_penalty = 2;
+        }
+    }
+
+    let total_damage = base_damage + level_bonus;
+    if (total_damage > distance_penalty) {
+        return total_damage - distance_penalty;
+    } else {
+        return 1;  // Minimum damage
+    }
+}
+
+// Function showing loops and complex logic
+fn perform_combat(attacker: Character, defender: Character) -> CombatResult {
+    let distance = calculate_distance_squared(attacker.position, defender.position);
+    let base_damage = calculate_damage(attacker.level, defender.level, distance);
+
+    // Critical hit calculation using felt arithmetic
+    let critical_multiplier = attacker.mana / 10u32;  // u32 division
+    let is_critical: bool = false;
+    let final_damage = base_damage;
+
+    if (critical_multiplier > 5) {
+        is_critical = true;
+        final_damage = base_damage * 2;
+    }
+
+    // Apply damage with bounds checking
+    let new_health = defender.health;
+    if (final_damage >= defender.health) {
+        new_health = 0;
+    } else {
+        new_health = defender.health - final_damage;
+    }
+
+    let res = CombatResult {
+        damage_dealt: final_damage,
+        critical_hit: is_critical,
+        remaining_health: new_health,
+    };
+    return res;
+}
+
+// Function demonstrating multiple function calls and tuple destructuring
+fn simulate_battle_round(hero: Character, enemy: Character) -> u32 {
+    // Hero attacks enemy
+    let hero_attack = perform_combat(hero, enemy);
+    let enemy_health = hero_attack.remaining_health;
+
+    // Enemy counter-attacks if still alive
+    if (enemy_health > 0) {
+        let enemy_counter = perform_combat(enemy, hero);
+        let hero_health = enemy_counter.remaining_health;
+
+        // Return 1 if hero wins, 2 if enemy wins, 0 if both alive
+        if (enemy_health == 0) {
+            return 1;  // Hero wins
+        } else {
+            if (hero_health == 0) {
+                return 2;  // Enemy wins
+            } else {
+                return 0;  // Both alive, continue battle
+            }
+        }
+    } else {
+        return 1;  // Hero wins immediately
+    }
+}
+
+// Main function demonstrating variable mutation and comprehensive example
+fn simulate_full_battle() -> u32 {
+    // Create characters using struct literals
+    let hero = Character {
+        health: 100,
+        mana: 50,
+        level: 5,
+        position: Position { x: 10, y: 20 },
+    };
+
+    let enemy = Character {
+        health: 80,
+        mana: 30,
+        level: 4,
+        position: Position { x: 15, y: 25 },
+    };
+
+    // Battle loop with mutation
+    let current_hero = hero;
+    let current_enemy = enemy;
+    let round: u32 = 1;
+    let max_rounds: u32 = 10;
+
+    // Simulate multiple battle rounds
+    loop {
+        if (round > max_rounds) {
+            break;  // Draw after max rounds
+        }
+
+        let result = simulate_battle_round(current_hero, current_enemy);
+
+        if (result == 1) {
+            return 1;  // Hero victory
+        } else {
+            if (result == 2) {
+                return 2;  // Enemy victory
+            }
+        }
+
+        // Update for next round (simplified - reduce both healths)
+        if (current_hero.health > 10) {
+            current_hero.health = current_hero.health - 5;
+        }
+        if (current_enemy.health > 8) {
+            current_enemy.health = current_enemy.health - 4;
+        }
+
+        round = round + 1;
+    }
+
+    return 0;  // Draw
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn main_test {
+    entry: 0
+
+    0:
+      %0 = call 6()
+      %1 = makestruct { x: 0, y: 0 }
+      %2 = makestruct { health: 100, mana: 50, level: 5, position: %1 }
+      %3, %4, %5 = call 1(%2)
+      %10 = %0 U32Add %5
+      %11 = %4 U32Div 10
+      %12 = %10 U32Add %11
+      return %12
+
+  }
+
+  // Function 1
+  fn get_character_stats {
+    parameters: [0]
+    entry: 0
+
+    0:
+      %1 = extractfield %0, "health"
+      %2 = extractfield %0, "mana"
+      %3 = extractfield %0, "level"
+      return (%1, %2, %3)
+
+  }
+
+  // Function 2
+  fn calculate_distance_squared {
+    parameters: [0, 1]
+    entry: 0
+
+    0:
+      %2 = 0 (u32)
+      %3 = extractfield %0, "x"
+      %4 = extractfield %1, "x"
+      %5 = %3 U32GreaterEqual %4
+      if %5 then jump 1 else jump 2
+
+    1 (block_1):
+      ; block_1
+      %6 = extractfield %0, "x"
+      %7 = extractfield %1, "x"
+      %8 = %6 U32Sub %7
+      %25 = %8 (u32)
+      jump 3
+
+    2 (block_2):
+      ; block_2
+      %9 = extractfield %1, "x"
+      %10 = extractfield %0, "x"
+      %11 = %9 U32Sub %10
+      %25 = %11 (u32)
+      jump 3
+
+    3 (block_3):
+      ; block_3
+      %12 = 0 (u32)
+      %14 = extractfield %0, "y"
+      %16 = extractfield %1, "y"
+      %17 = %14 U32GreaterEqual %16
+      if %17 then jump 4 else jump 5
+
+    4 (block_4):
+      ; block_4
+      %18 = extractfield %0, "y"
+      %19 = extractfield %1, "y"
+      %20 = %18 U32Sub %19
+      %27 = %20 (u32)
+      jump 6
+
+    5 (block_5):
+      ; block_5
+      %21 = extractfield %1, "y"
+      %22 = extractfield %0, "y"
+      %23 = %21 U32Sub %22
+      %27 = %23 (u32)
+      jump 6
+
+    6 (block_6):
+      ; block_6
+      %26 = %25 U32Mul %25
+      %28 = %27 U32Mul %27
+      %29 = %26 U32Add %28
+      return %29
+
+  }
+
+  // Function 3
+  fn calculate_damage {
+    parameters: [0, 1, 2]
+    entry: 0
+
+    0:
+      %3 = 10 (u32)
+      %4 = %0 U32Mul 2
+      %5 = 0 (u32)
+      %6 = %2 U32Greater 100
+      if %6 then jump 1 else jump 2
+
+    1 (block_1):
+      ; block_1
+      %7 = 5 (u32)
+      %15 = %7 (u32)
+      jump 5
+
+    2 (block_2):
+      ; block_2
+      %8 = %2 U32Greater 50
+      %16 = %5 (u32)
+      if %8 then jump 3 else jump 8
+
+    3 (block_3):
+      ; block_3
+      %9 = 2 (u32)
+      %16 = %9 (u32)
+      jump 4
+
+    4 (block_4):
+      ; block_4
+      %15 = %16 (u32)
+      jump 5
+
+    5 (block_5):
+      ; block_5
+      %14 = %3 U32Add %4
+      %17 = %14 U32Greater %15
+      if %17 then jump 6 else jump 7
+
+    6 (block_6):
+      ; block_6
+      %18 = %14 U32Sub %15
+      return %18
+
+    7 (block_7):
+      ; block_7
+      return 1
+
+    8 (edge_2_4):
+      ; edge_2_4
+      jump 4
+
+  }
+
+  // Function 4
+  fn perform_combat {
+    parameters: [0, 1]
+    entry: 0
+
+    0:
+      %2 = extractfield %0, "position"
+      %3 = extractfield %1, "position"
+      %4 = call 2(%2, %3)
+      %5 = extractfield %0, "level"
+      %6 = extractfield %1, "level"
+      %7 = call 3(%5, %6, %4)
+      %8 = extractfield %0, "mana"
+      %9 = %8 U32Div 10
+      %10 = false (bool)
+      %11 = %9 U32Greater 5
+      %16 = %7 (u32)
+      %24 = %10 (bool)
+      if %11 then jump 1 else jump 6
+
+    1 (block_1):
+      ; block_1
+      %12 = true (bool)
+      %13 = %7 U32Mul 2
+      %16 = %13 (u32)
+      %24 = %12 (bool)
+      jump 2
+
+    2 (block_2):
+      ; block_2
+      %15 = extractfield %1, "health"
+      %18 = %16 U32GreaterEqual %15
+      if %18 then jump 3 else jump 4
+
+    3 (block_3):
+      ; block_3
+      %19 = 0 (u32)
+      %25 = %19 (u32)
+      jump 5
+
+    4 (block_4):
+      ; block_4
+      %20 = extractfield %1, "health"
+      %21 = %20 U32Sub %16
+      %25 = %21 (u32)
+      jump 5
+
+    5 (block_5):
+      ; block_5
+      %28 = makestruct { damage_dealt: %16, critical_hit: %24, remaining_health: %25 }
+      return %28
+
+    6 (edge_0_2):
+      ; edge_0_2
+      jump 2
+
+  }
+
+  // Function 5
+  fn simulate_battle_round {
+    parameters: [0, 1]
+    entry: 0
+
+    0:
+      %2 = call 4(%0, %1)
+      %3 = extractfield %2, "remaining_health"
+      %4 = %3 U32Greater 0
+      if %4 then jump 1 else jump 2
+
+    1 (block_1):
+      ; block_1
+      %5 = call 4(%1, %0)
+      %6 = extractfield %5, "remaining_health"
+      if %3 then jump 4 else jump 3
+
+    2 (block_2):
+      ; block_2
+      return 1
+
+    3 (block_3):
+      ; block_3
+      return 1
+
+    4 (block_4):
+      ; block_4
+      if %6 then jump 6 else jump 5
+
+    5 (block_5):
+      ; block_5
+      return 2
+
+    6 (block_6):
+      ; block_6
+      return 0
+
+  }
+
+  // Function 6
+  fn simulate_full_battle {
+    entry: 0
+
+    0:
+      %0 = makestruct { x: 10, y: 20 }
+      %1 = makestruct { health: 100, mana: 50, level: 5, position: %0 }
+      %2 = makestruct { x: 15, y: 25 }
+      %3 = makestruct { health: 80, mana: 30, level: 4, position: %2 }
+      %4 = 1 (u32)
+      %5 = 10 (u32)
+      %9 = %1 (Character)
+      %6 = %4 (u32)
+      %10 = %3 (Character)
+      jump 1
+
+    1 (block_1):
+      ; block_1
+      %8 = %6 U32Greater %5
+      if %8 then jump 3 else jump 4
+
+    2 (block_2):
+      ; block_2
+      return 0
+
+    3 (block_3):
+      ; block_3
+      jump 2
+
+    4 (block_4):
+      ; block_4
+      %11 = call 5(%9, %10)
+      if %11 U32Eq 1 then jump 5 else jump 6
+
+    5 (block_5):
+      ; block_5
+      return 1
+
+    6 (block_6):
+      ; block_6
+      if %11 U32Eq 2 then jump 7 else jump 8
+
+    7 (block_7):
+      ; block_7
+      return 2
+
+    8 (block_8):
+      ; block_8
+      jump 9
+
+    9 (block_9):
+      ; block_9
+      %14 = extractfield %9, "health"
+      %15 = %14 U32Greater 10
+      %29 = %9 (Character)
+      if %15 then jump 10 else jump 14
+
+    10 (block_10):
+      ; block_10
+      %16 = extractfield %9, "health"
+      %17 = %16 U32Sub 5
+      %18 = insertfield %9, "health", %17
+      %29 = %18 (Character)
+      jump 11
+
+    11 (block_11):
+      ; block_11
+      %20 = extractfield %10, "health"
+      %21 = %20 U32Greater 8
+      %32 = %10 (Character)
+      if %21 then jump 12 else jump 15
+
+    12 (block_12):
+      ; block_12
+      %22 = extractfield %10, "health"
+      %23 = %22 U32Sub 4
+      %24 = insertfield %10, "health", %23
+      %32 = %24 (Character)
+      jump 13
+
+    13 (block_13):
+      ; block_13
+      %27 = %6 U32Add 1
+      %9 = %29 (Character)
+      %6 = %27 (u32)
+      %10 = %32 (Character)
+      jump 1
+
+    14 (edge_9_11):
+      ; edge_9_11
+      jump 11
+
+    15 (edge_11_13):
+      ; edge_11_13
+      jump 13
+
+  }
+
+}

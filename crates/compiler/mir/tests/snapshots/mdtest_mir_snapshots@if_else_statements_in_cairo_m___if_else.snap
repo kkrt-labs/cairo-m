@@ -22,10 +22,12 @@ module {
     0:
       if %0 then jump 2 else jump 1
 
-    1:
+    1 (block_1):
+      ; block_1
       return 10
 
-    2:
+    2 (block_2):
+      ; block_2
       return 20
 
   }

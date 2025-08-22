@@ -26,19 +26,25 @@ module {
 
     0:
       %0 = 0
+      %1 = %0
       jump 1
 
-    1:
-      %0 = %0 Add 1
-      if %0 Eq 5 then jump 3 else jump 4
+    1 (block_1):
+      ; block_1
+      %2 = %1 + 1
+      if %2 == 5 then jump 3 else jump 4
 
-    2:
-      return %0
+    2 (block_2):
+      ; block_2
+      return %2
 
-    3:
+    3 (block_3):
+      ; block_3
       jump 2
 
-    4:
+    4 (block_4):
+      ; block_4
+      %1 = %2
       jump 1
 
   }

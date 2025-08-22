@@ -11,12 +11,10 @@ use cairo_m_compiler_semantic::type_resolution::{
 };
 use cairo_m_compiler_semantic::types::TypeData;
 
-use crate::mir_types::InstructionEmitter;
 use crate::{Instruction, MirType, Terminator, Value};
 
 use super::builder::MirBuilder;
 use super::expr::LowerExpr;
-use super::utils::is_definition_used;
 
 /// Trait for lowering statements to MIR
 pub trait LowerStmt<'a> {
@@ -61,90 +59,15 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         value: &Spanned<Expression>,
     ) -> Result<(), String> {
         // Get the scope from the value expression (the let statement is in the same scope as its value)
-        let expr_id = self
-            .ctx
-            .semantic_index
-            .expression_id_by_span(value.span())
-            .ok_or_else(|| {
-                format!(
-                    "MIR: No ExpressionId found for value expression span {:?}",
-                    value.span()
-                )
-            })?;
+        let expr_id = self.expr_id(value.span())?;
         let expr_info =
             self.ctx.semantic_index.expression(expr_id).ok_or_else(|| {
                 format!("MIR: No ExpressionInfo for value expression ID {expr_id:?}")
             })?;
         let scope_id = expr_info.scope_id;
 
-        // All optimizations are now handled by PreOptimizationPass
-
-        // Special case: tuple pattern with function call - avoid intermediate tuple
-        // TODO: eventually, this will need to be optimzed in a better way.
-        if let Pattern::Tuple(names) = pattern
-            && let Expression::FunctionCall { callee, args } = value.value()
-        {
-            // Lower the function call to get multiple return values directly
-            match self.lower_function_call(callee, args, expr_id)? {
-                super::builder::CallResult::Tuple(values) => {
-                    // Directly bind each return value to the corresponding pattern variable
-                    for (name, value) in names.iter().zip(values.iter()) {
-                        self.bind_variable(name, scope_id, *value)?;
-                    }
-                    return Ok(());
-                }
-                _ => {
-                    // Fall through to normal handling if not actually a tuple return
-                }
-            }
-        }
-
-        // Special case: tuple pattern with tuple literal - direct destructuring
-        if let Pattern::Tuple(names) = pattern
-            && let Expression::Tuple(elements) = value.value()
-        {
-            // Directly lower each element and bind to the corresponding name
-            if names.len() == elements.len() {
-                for (name, element) in names.iter().zip(elements.iter()) {
-                    let element_value = self.lower_expression(element)?;
-                    self.bind_variable(name, scope_id, element_value)?;
-                }
-                return Ok(());
-            }
-        }
-
-        // Simply lower the expression and bind to pattern
+        // Lower the expression and bind to pattern using the generic pattern lowering
         let rhs_value = self.lower_expression(value)?;
-
-        // Handle special case for aggregate literals that return addresses directly
-        // This is not an optimization but a necessary semantic handling
-        if let Pattern::Identifier(name) = pattern
-            && let Expression::StructLiteral { .. } | Expression::Tuple(_) = value.value()
-        {
-            if let Value::Operand(addr) = rhs_value {
-                // The RHS expression already allocated the object and returned its address
-                if let Some((def_idx, _)) = self
-                    .ctx
-                    .semantic_index
-                    .resolve_name_to_definition(name.value(), scope_id)
-                {
-                    let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
-                    let mir_def_id = self.convert_definition_id(def_id);
-                    self.state.definition_to_value.insert(mir_def_id, addr);
-                    return Ok(());
-                } else {
-                    return Err(format!(
-                        "Failed to resolve variable '{}' in scope {:?}",
-                        name.value(),
-                        scope_id
-                    ));
-                }
-            } else {
-                return Err("Expected an address from aggregate literal".to_string());
-            }
-        }
-
-        // Use the generic pattern lowering
         self.lower_pattern(pattern, rhs_value, scope_id)?;
         Ok(())
     }
@@ -153,87 +76,53 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         &mut self,
         value: &Option<Spanned<Expression>>,
     ) -> Result<(), String> {
-        if let Some(expr) = value {
-            // Check if we're returning a tuple literal
-            if let Expression::Tuple(elements) = expr.value() {
-                // Lower each element of the tuple
-                let mut return_values = Vec::new();
-                for element in elements {
-                    return_values.push(self.lower_expression(element)?);
-                }
-                // Return multiple values from tuple literal
-                self.terminate_with_return(return_values);
+        // No return value - return unit
+        if value.is_none() {
+            self.terminate_with_return(vec![]);
+            return Ok(());
+        }
+
+        let expr = value.as_ref().unwrap();
+        // Check if the expression type is a tuple
+        let expr_id = self.expr_id(expr.span())?;
+        let expr_semantic_type =
+            expression_semantic_type(self.ctx.db, self.ctx.crate_id, self.ctx.file, expr_id, None);
+
+        // Check if it's a tuple type
+        if let TypeData::Tuple(_) = expr_semantic_type.data(self.ctx.db) {
+            let expr_value = self.lower_expression(expr)?;
+
+            // Handle empty tuple case - return() should return no values
+            if matches!(expr_value, Value::Literal(crate::Literal::Unit)) {
+                self.terminate_with_return(vec![]);
                 return Ok(());
-            } else {
-                // Check if the expression type is a tuple
-                let expr_id = self
-                    .ctx
-                    .semantic_index
-                    .expression_id_by_span(expr.span())
-                    .ok_or_else(|| {
-                        format!(
-                            "MIR: No ExpressionId found for return expression span {:?}",
-                            expr.span()
-                        )
-                    })?;
-                let expr_semantic_type = expression_semantic_type(
-                    self.ctx.db,
-                    self.ctx.crate_id,
-                    self.ctx.file,
-                    expr_id,
-                    None,
-                );
+            }
 
-                // Check if it's a tuple type
-                if let TypeData::Tuple(element_types) = expr_semantic_type.data(self.ctx.db) {
-                    // We're returning a tuple variable - need to extract each element
-                    let tuple_addr = self.lower_lvalue_expression(expr)?;
+            // We expect a tuple value
+            if let Value::Operand(value_id) = expr_value {
+                if let Some(MirType::Tuple(elem_types)) =
+                    self.state.mir_function.get_value_type(value_id)
+                {
+                    // We have a tuple value - extract its elements for the return
+                    // Clone elem_types to avoid borrow checker issues
+                    let elem_types_cloned = elem_types.clone();
                     let mut return_values = Vec::new();
-
-                    // Load each element from the tuple (stored consecutively)
-                    for (i, elem_type) in element_types.iter().enumerate() {
-                        let mir_type = MirType::from_semantic_type(self.ctx.db, *elem_type);
-
-                        // Tuples are stored as consecutive values, so offset is just the index
-                        let offset = i;
-
-                        // Get element pointer
-                        let elem_ptr = self
-                            .state
-                            .mir_function
-                            .new_typed_value_id(MirType::pointer(mir_type.clone()));
-                        self.instr().add_instruction(
-                            Instruction::get_element_ptr(
-                                elem_ptr,
-                                tuple_addr,
-                                Value::integer(offset as i32),
-                            )
-                            .with_comment(format!("Get address of tuple element {}", i)),
-                        );
-
-                        // Load the element
+                    for (i, elem_type) in elem_types_cloned.iter().enumerate() {
                         let elem_value =
-                            self.state.mir_function.new_typed_value_id(mir_type.clone());
-
-                        // Register loaded value as a Value
-
-                        self.instr()
-                            .load(mir_type, elem_value, Value::operand(elem_ptr));
-
+                            self.extract_tuple_element(expr_value, i, elem_type.clone());
                         return_values.push(Value::operand(elem_value));
                     }
-
-                    // Return tuple elements
                     self.terminate_with_return(return_values);
-                } else {
-                    // Single value return
-                    let return_value = self.lower_expression(expr)?;
-                    self.terminate_with_return(vec![return_value]);
+                    return Ok(());
                 }
             }
+            return Err(format!("Expected tuple value but got: {:?}", expr_value));
         } else {
-            self.terminate_with_return(vec![]);
+            // Single value return
+            let return_value = self.lower_expression(expr)?;
+            self.terminate_with_return(vec![return_value]);
         }
+
         Ok(())
     }
 
@@ -243,71 +132,80 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         rhs: &Spanned<Expression>,
     ) -> Result<(), String> {
         // Check if RHS is a binary operation that we can optimize
-        match rhs.value() {
-            Expression::BinaryOp { op, left, right } => {
-                // Optimization: Generate direct assignment with binary operation
-                // Instead of: temp = left op right; lhs = temp
-                // Generate: lhs = left op right (single instruction)
+        // Check if LHS is a field assignment that can be optimized
+        let lhs_expr_id = self.expr_id(lhs.span())?;
+        let lhs_expr_info = self
+            .ctx
+            .semantic_index
+            .expression(lhs_expr_id)
+            .ok_or_else(|| format!("MIR: No ExpressionInfo for LHS ID {lhs_expr_id:?}"))?;
 
-                // Lower the left and right operands separately
-                let left_value = self.lower_expression(left)?;
-                let right_value = self.lower_expression(right)?;
-
-                // Get the expression ID for the RHS binary operation to get type information
-                let rhs_expr_id = self
-                    .ctx
-                    .semantic_index
-                    .expression_id_by_span(rhs.span())
-                    .ok_or_else(|| {
-                        format!(
-                            "MIR: No ExpressionId found for RHS binary op span {:?}",
-                            rhs.span()
-                        )
-                    })?;
-
-                // Query semantic type system for result type
-                let semantic_type = expression_semantic_type(
-                    self.ctx.db,
-                    self.ctx.crate_id,
-                    self.ctx.file,
-                    rhs_expr_id,
-                    None,
-                );
-                let result_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
-
-                // Get the type of the left operand to determine the correct binary operation
-                let left_expr_id = self
-                    .ctx
-                    .semantic_index
-                    .expression_id_by_span(left.span())
-                    .ok_or_else(|| "No expression ID for left operand".to_string())?;
-
-                let left_type = expression_semantic_type(
-                    self.ctx.db,
-                    self.ctx.crate_id,
-                    self.ctx.file,
-                    left_expr_id,
-                    None,
-                );
-                let left_type_data = left_type.data(self.ctx.db);
-                let typed_op = crate::BinaryOp::from_parser(*op, &left_type_data)?;
-
-                // Always create a new ValueId for the result to maintain SSA form
-                let dest = self.state.mir_function.new_typed_value_id(result_type);
-                self.instr()
-                    .binary_op_with_dest(typed_op, dest, left_value, right_value);
-
-                // Store the result to the LHS address
-                let lhs_address = self.lower_lvalue_expression(lhs)?;
-                self.instr().store(lhs_address, Value::operand(dest));
-            }
-            _ => {
-                // Standard assignment: lower RHS then store to LHS
-                let rhs_value = self.lower_expression(rhs)?;
-                let lhs_address = self.lower_lvalue_expression(lhs)?;
-                self.instr().store(lhs_address, rhs_value);
-            }
+        // Early out: plain identifier assignment => SSA rebind
+        if let Expression::Identifier(ref name) = &lhs_expr_info.ast_node {
+            let rhs_value = self.lower_expression(rhs)?;
+            return self.bind_variable(name.value(), lhs.span(), rhs_value, lhs_expr_info.scope_id);
         }
+
+        // Check if this is a field assignment (rect.width = value)
+        if let Expression::MemberAccess { object, field } = &lhs_expr_info.ast_node {
+            // Check if the object is a value-based variable (not memory-allocated)
+            let struct_val = self.lower_expression(object)?;
+
+            // Query semantic type system for the container (struct) type, not the field type
+            let struct_type = self.expr_mir_type(object.span())?;
+            let rhs_value = self.lower_expression(rhs)?;
+            // Insert the field using the container (struct) type
+            let new_struct_id =
+                self.insert_struct_field(struct_val, field.value(), rhs_value, struct_type);
+            let obj_scope = lhs_expr_info.scope_id;
+            // Rebind the object to the new value for pure SSA form
+            if let Expression::Identifier(obj_name) = object.value() {
+                self.bind_variable(
+                    obj_name.value(),
+                    object.span(),
+                    Value::operand(new_struct_id),
+                    obj_scope,
+                )?;
+            }
+            return Ok(());
+        }
+
+        // Check if this is a tuple assignment (tuple.index  = value)
+        if let Expression::TupleIndex { tuple, index } = &lhs_expr_info.ast_node {
+            // Check if the tuple is a value-based variable (not memory-allocated)
+            let tuple_val = self.lower_expression(tuple)?;
+            let rhs_value = self.lower_expression(rhs)?;
+            // Query semantic type system for the container (tuple) type, not the element type
+            let tuple_type = self.expr_mir_type(tuple.span())?;
+            let new_tuple_id = self.insert_tuple(tuple_val, *index, rhs_value, tuple_type);
+            let obj_scope = lhs_expr_info.scope_id;
+            // Rebind the object to the new value for pure SSA form
+            if let Expression::Identifier(obj_name) = tuple.value() {
+                self.bind_variable(
+                    obj_name.value(),
+                    tuple.span(),
+                    Value::operand(new_tuple_id),
+                    obj_scope,
+                )?;
+            }
+            return Ok(());
+        }
+
+        // TODO: Handle array assignment (array[index] = value)
+        if let Expression::IndexAccess {
+            array: _array,
+            index: _index,
+        } = &lhs_expr_info.ast_node
+        {
+            panic!("Array assignment not implemented");
+        }
+
+        // Standard assignment
+        let rhs_type = self.expr_mir_type(rhs.span())?;
+        let lhs_address = self.lower_expression(lhs)?;
+        let rhs_value = self.lower_expression(rhs)?;
+        self.instr().store(lhs_address, rhs_value, rhs_type);
+
         Ok(())
     }
 
@@ -318,19 +216,10 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // For statement expressions, check if it's a function call that should be void
         if let Expression::FunctionCall { callee, args } = expr.value() {
             // Handle function calls as statements (void calls)
-            let expr_id = self
-                .ctx
-                .semantic_index
-                .expression_id_by_span(expr.span())
-                .ok_or_else(|| {
-                    format!(
-                        "MIR: No ExpressionId found for statement expression span {:?}",
-                        expr.span()
-                    )
-                })?;
+            let expr_id = self.expr_id(expr.span())?;
 
             // Try to resolve the function using our helper
-            if let Ok(func_id) = self.resolve_function(callee) {
+            if let Ok(func_id) = self.resolve_callee_expression(callee) {
                 // Lower arguments
                 let arg_values = args
                     .iter()
@@ -370,9 +259,16 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             // Terminate the current block with a conditional branch
             self.terminate_with_branch(condition_value, then_block_id, else_block_id);
 
+            // Seal then and else blocks since their predecessor sets are now final
+            self.seal_block(then_block_id);
+            self.seal_block(else_block_id);
+
             // Lower the then block
             self.switch_to_block(then_block_id);
             self.lower_statement(then_block)?;
+
+            // Mark then block as filled after processing all statements
+            self.mark_block_filled(then_block_id);
 
             // Check if the then branch terminated
             if !self.is_current_block_terminated() {
@@ -382,6 +278,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             // Lower the else block
             self.switch_to_block(else_block_id);
             self.lower_statement(else_stmt)?;
+
+            // Mark else block as filled after processing all statements
+            self.mark_block_filled(else_block_id);
 
             // Check if the else branch terminated
             if !self.is_current_block_terminated() {
@@ -395,9 +294,16 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             // If condition is true, go to then_block, otherwise go directly to merge_block
             self.terminate_with_branch(condition_value, then_block_id, merge_block_id);
 
+            // Seal blocks since their predecessor sets are now final
+            self.seal_block(then_block_id);
+            self.seal_block(merge_block_id);
+
             // Lower the then block
             self.switch_to_block(then_block_id);
             self.lower_statement(then_block)?;
+
+            // Mark then block as filled after processing all statements
+            self.mark_block_filled(then_block_id);
 
             // Check if the then branch terminated
             if !self.is_current_block_terminated() {
@@ -433,6 +339,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 let mut cfg = self.cfg();
                 cfg.set_block_terminator(block_id, Terminator::jump(merge_block_id));
             }
+
+            // Seal merge block since its predecessor set is now final
+            self.seal_block(merge_block_id);
 
             // Continue generating code in the new merge block
             self.switch_to_block(merge_block_id);
@@ -488,6 +397,13 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         let condition_value = self.lower_expression(condition)?;
         self.terminate_with_branch(condition_value, loop_body, loop_exit);
 
+        // Mark loop header as filled after processing condition
+        self.mark_block_filled(loop_header);
+
+        // Seal loop body and exit blocks since their predecessor sets are now final
+        self.seal_block(loop_body);
+        self.seal_block(loop_exit);
+
         // Generate the loop body
         self.switch_to_block(loop_body);
         self.lower_statement(body)?;
@@ -496,6 +412,13 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         if !self.is_current_block_terminated() {
             self.terminate_with_jump(loop_header);
         }
+
+        // Mark loop body as filled after processing all statements
+        self.mark_block_filled(loop_body);
+
+        // Now that we know the complete set of predecessors for loop_header, seal it
+        // (it gets predecessors from entry and potentially from loop body)
+        self.seal_block(loop_header);
 
         // Pop loop context
         self.state.loop_stack.pop();
@@ -522,6 +445,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // Jump to the loop body from the current block
         self.terminate_with_jump(loop_body);
 
+        // Seal loop_exit early since we know its predecessors (only from break statements)
+        self.seal_block(loop_exit);
+
         // Push loop context for break/continue
         // For infinite loops, the header is the body itself
         self.state.loop_stack.push((loop_body, loop_exit));
@@ -534,6 +460,13 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         if !self.is_current_block_terminated() {
             self.terminate_with_jump(loop_body);
         }
+
+        // Mark loop body as filled after processing all statements
+        self.mark_block_filled(loop_body);
+
+        // Now that we know the complete set of predecessors for loop_body, seal it
+        // (it gets predecessors from entry and from itself if no terminator)
+        self.seal_block(loop_body);
 
         // Pop loop context
         self.state.loop_stack.pop();
@@ -571,6 +504,11 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         let cond_val = self.lower_expression(condition)?;
         self.terminate_with_branch(cond_val, loop_body, loop_exit);
 
+        // Seal loop_body and loop_exit since their predecessor sets are now final
+        // (loop_body gets predecessors from loop_header, loop_exit gets predecessors from loop_header and potentially break statements)
+        self.seal_block(loop_body);
+        self.seal_block(loop_exit);
+
         // 4. Body: generate code, then jump to step if not terminated
         self.switch_to_block(loop_body);
         self.lower_statement(body)?;
@@ -578,12 +516,28 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             self.terminate_with_jump(loop_step);
         }
 
+        // Mark loop_body as filled after processing all statements
+        self.mark_block_filled(loop_body);
+
+        // Seal loop_step since its predecessor set is now final (only from loop_body)
+        self.seal_block(loop_step);
+
         // 5. Step: execute step statement, then jump back to header
         self.switch_to_block(loop_step);
         self.lower_statement(step)?;
         if !self.is_current_block_terminated() {
             self.terminate_with_jump(loop_header);
         }
+
+        // Mark loop_step as filled after processing all statements
+        self.mark_block_filled(loop_step);
+
+        // Now seal loop_header since we know its complete set of predecessors
+        // (from initial entry and from loop_step back-edge)
+        self.seal_block(loop_header);
+
+        // Mark loop_header as filled after condition evaluation
+        self.mark_block_filled(loop_header);
 
         // 6. Pop loop context and continue in exit block
         self.state.loop_stack.pop();
@@ -632,84 +586,84 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         match pattern {
             Pattern::Identifier(name) => {
                 // Simple identifier binding - use our new helper
-                self.bind_variable(name, scope_id, rhs_value)?;
+                self.bind_variable(name.value(), name.span(), rhs_value, scope_id)?;
             }
-            Pattern::Tuple(names) => {
-                // Tuple destructuring from an already-lowered tuple address
-                let Value::Operand(tuple_addr) = rhs_value else {
+            Pattern::Tuple(patterns) => {
+                // Tuple destructuring from a value-based tuple
+                let Value::Operand(tuple_value_id) = rhs_value else {
                     return Err(
                         "Tuple destructuring from non-operand expressions not yet supported"
                             .to_string(),
                     );
                 };
 
-                // Extract each element from consecutive memory locations
-                for (index, name) in names.iter().enumerate() {
-                    let (def_idx, _) = self
-                        .ctx
-                        .semantic_index
-                        .resolve_name_to_definition(name.value(), scope_id)
-                        .ok_or_else(|| {
-                            format!(
-                                "Failed to resolve variable '{}' in scope {:?}",
-                                name.value(),
-                                scope_id
-                            )
-                        })?;
+                // Build element types for this level of the tuple
+                let mut element_types = Vec::new();
+                for pattern in patterns.iter() {
+                    // Get the type for this element (could be another tuple or a simple type)
+                    let element_type = self.get_pattern_type(pattern, scope_id)?;
+                    element_types.push(element_type);
+                }
 
-                    let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
-                    let mir_def_id = self.convert_definition_id(def_id);
+                // Extract each element from the tuple and recursively handle nested patterns
+                for (index, pattern) in patterns.iter().enumerate() {
+                    let element_mir_type = element_types[index].clone();
 
-                    let is_used = is_definition_used(self.ctx.semantic_index, def_idx);
-                    if !is_used {
-                        let dummy_addr = self.state.mir_function.new_value_id();
-                        self.state
-                            .definition_to_value
-                            .insert(mir_def_id, dummy_addr);
-                        continue;
-                    }
-
-                    // Get the element type - we need to look up the tuple type
-                    let semantic_type =
-                        definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
-                    let element_mir_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
-
-                    // Get pointer to tuple element
-                    let elem_ptr = self
-                        .state
-                        .mir_function
-                        .new_typed_value_id(MirType::pointer(element_mir_type.clone()));
-                    self.instr().add_instruction(
-                        Instruction::get_element_ptr(
-                            elem_ptr,
-                            Value::operand(tuple_addr),
-                            Value::integer(index as i32),
-                        )
-                        .with_comment(format!("Get address of tuple element {}", index)),
-                    );
-
-                    // Load the element
-                    let elem_value = self
+                    // Extract the element using ExtractTupleElement instruction
+                    let elem_value_id = self
                         .state
                         .mir_function
                         .new_typed_value_id(element_mir_type.clone());
 
-                    // Register loaded value as a Value
+                    self.instr()
+                        .add_instruction(Instruction::extract_tuple_element(
+                            elem_value_id,
+                            Value::operand(tuple_value_id),
+                            index,
+                            element_mir_type,
+                        ));
 
-                    self.instr().add_instruction(
-                        element_mir_type
-                            .emit_load(elem_value, Value::operand(elem_ptr))
-                            .with_comment(format!("Load tuple element {}", index)),
-                    );
-
-                    // Map the variable directly to the loaded value (no allocation needed!)
-                    // The value is already loaded and ready to use
-                    self.state
-                        .definition_to_value
-                        .insert(mir_def_id, elem_value);
+                    // Recursively lower the nested pattern
+                    self.lower_pattern(pattern, Value::operand(elem_value_id), scope_id)?;
                 }
             }
         }
         Ok(())
+    }
+
+    /// Helper to get the MIR type for a pattern
+    fn get_pattern_type(
+        &self,
+        pattern: &Pattern,
+        scope_id: FileScopeId,
+    ) -> Result<MirType, String> {
+        match pattern {
+            Pattern::Identifier(name) => {
+                // Get the type of this identifier from semantic analysis
+                let (def_idx, _) = self
+                    .ctx
+                    .semantic_index
+                    .resolve_name_to_definition(name.value(), scope_id)
+                    .ok_or_else(|| {
+                        format!(
+                            "Failed to resolve variable '{}' in scope {:?}",
+                            name.value(),
+                            scope_id
+                        )
+                    })?;
+                let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
+                let semantic_type =
+                    definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
+                Ok(MirType::from_semantic_type(self.ctx.db, semantic_type))
+            }
+            Pattern::Tuple(patterns) => {
+                // Recursively get types for nested patterns
+                let mut element_types = Vec::new();
+                for pattern in patterns {
+                    element_types.push(self.get_pattern_type(pattern, scope_id)?);
+                }
+                Ok(MirType::Tuple(element_types))
+            }
+        }
     }
 }

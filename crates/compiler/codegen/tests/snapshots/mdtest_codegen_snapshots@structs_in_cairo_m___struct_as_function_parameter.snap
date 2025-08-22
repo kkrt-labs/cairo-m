@@ -1,0 +1,50 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Structs in Cairo-M - Struct as Function Parameter"
+input_file: mdtest/03-types/02-structs.md
+---
+Source:
+struct Vector {
+    x: felt,
+    y: felt,
+    z: felt,
+}
+
+fn test_struct_param() -> felt {
+    let a = Vector { x: 1, y: 2, z: 3 };
+    let b = Vector { x: 4, y: 5, z: 6 };
+    return dot_product(a, b);  // Returns 32
+}
+
+fn dot_product(v1: Vector, v2: Vector) -> felt {
+    return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+}
+============================================================
+Generated CASM:
+test_struct_param:
+test_struct_param:
+test_struct_param_0:
+   0: 9 1 0 _              // [fp + 0] = 1
+   1: 9 2 1 _              // [fp + 1] = 2
+   2: 9 3 2 _              // [fp + 2] = 3
+   3: 9 4 3 _              // [fp + 3] = 4
+   4: 9 5 4 _              // [fp + 4] = 5
+   5: 9 6 5 _              // [fp + 5] = 6
+   6: 4 0 0 7              // Arg 0 slot 0: [fp + 7] = [fp + 0] + 0
+   7: 4 1 0 8              // Arg 0 slot 1: [fp + 8] = [fp + 1] + 0
+   8: 4 2 0 9              // Arg 0 slot 2: [fp + 9] = [fp + 2] + 0
+   9: 4 3 0 10             // Arg 1 slot 0: [fp + 10] = [fp + 3] + 0
+  10: 4 4 0 11             // Arg 1 slot 1: [fp + 11] = [fp + 4] + 0
+  11: 4 5 0 12             // Arg 1 slot 2: [fp + 12] = [fp + 5] + 0
+  12: 10 14 15 _           // call dot_product
+  13: 4 13 0 -3            // Return value 0: [fp -3] = [fp + 13] + 0
+  14: 11 _ _ _             // return
+dot_product:
+dot_product:
+dot_product_0:
+  15: 2 -9 -6 2            // [fp + 2] = [fp + -9] op [fp + -6]
+  16: 2 -8 -5 5            // [fp + 5] = [fp + -8] op [fp + -5]
+  17: 0 2 5 6              // [fp + 6] = [fp + 2] op [fp + 5]
+  18: 2 -7 -4 9            // [fp + 9] = [fp + -7] op [fp + -4]
+  19: 0 6 9 -3             // [fp + -3] = [fp + 6] op [fp + 9]
+  20: 11 _ _ _             // return

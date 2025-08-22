@@ -31,25 +31,38 @@ module {
     0:
       %0 = 10
       %1 = 0
-      if %0 then jump 1 else jump 2
+      %7 = %1
+      if %0 then jump 1 else jump 6
 
-    1:
-      store %1, 100
+    1 (block_1):
+      ; block_1
+      %3 = 100
+      %7 = %3
       jump 2
 
-    2:
-      if %0 Eq 5 then jump 3 else jump 4
+    2 (block_2):
+      ; block_2
+      if %0 == 5 then jump 3 else jump 4
 
-    3:
-      store %1, 200
+    3 (block_3):
+      ; block_3
+      %6 = 200
+      %9 = %6
       jump 5
 
-    4:
-      %1 = %1 Add 50
+    4 (block_4):
+      ; block_4
+      %8 = %7 + 50
+      %9 = %8
       jump 5
 
-    5:
-      return %1
+    5 (block_5):
+      ; block_5
+      return %9
+
+    6 (edge_0_2):
+      ; edge_0_2
+      jump 2
 
   }
 

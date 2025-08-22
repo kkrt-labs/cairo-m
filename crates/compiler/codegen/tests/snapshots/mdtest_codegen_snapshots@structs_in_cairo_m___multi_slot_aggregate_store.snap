@@ -1,0 +1,29 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Structs in Cairo-M - Multi-Slot Aggregate Store"
+input_file: mdtest/03-types/02-structs.md
+---
+Source:
+struct U32Pair {
+    first: u32,
+    second: u32,
+}
+
+fn test_multi_slot_store() -> u32 {
+    let s1 = U32Pair { first: 100u32, second: 200u32 };
+    let s2 = s1;  // This should copy all 4 slots (2 for each u32)
+
+    // Return the sum to verify both fields were copied
+    return s2.first + s2.second;  // Should return 300
+}
+============================================================
+Generated CASM:
+test_multi_slot_store:
+test_multi_slot_store:
+test_multi_slot_store_0:
+   0: 23 100 0 0           // u32([fp + 0], [fp + 1]) = u32(100)
+   1: 23 200 0 2           // u32([fp + 2], [fp + 3]) = u32(200)
+   2: 15 0 2 4             // u32([fp + 4], [fp + 5]) = u32([fp + 0], [fp + 1]) U32Add u32([fp + 2], [fp + 3])
+   3: 4 4 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 4] + 0
+   4: 4 5 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 5] + 0
+   5: 11 _ _ _             // return

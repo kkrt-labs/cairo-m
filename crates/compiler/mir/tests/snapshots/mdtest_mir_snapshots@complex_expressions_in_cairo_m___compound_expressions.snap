@@ -45,16 +45,24 @@ module {
       %10 = %0 U32Greater %1
       %11 = %2 U32Add %0
       %12 = %11 U32Less 25
-      %13 = %10 And %12
+      %13 = %10 && %12
       %14 = %5 U32Add %9
-      if %13 then jump 1 else jump 2
+      %16 = %14 (u32)
+      if %13 then jump 1 else jump 3
 
-    1:
-      %14 = %14 U32Add 1
+    1 (block_1):
+      ; block_1
+      %15 = %14 U32Add 1
+      %16 = %15 (u32)
       jump 2
 
-    2:
-      return %14
+    2 (block_2):
+      ; block_2
+      return %16
+
+    3 (edge_0_2):
+      ; edge_0_2
+      jump 2
 
   }
 

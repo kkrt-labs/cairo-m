@@ -18,9 +18,10 @@ use cairo_m_compiler_semantic::{module_semantic_index, File, SemanticDb};
 use rustc_hash::FxHashMap;
 
 use crate::{
-    BasicBlockId, BinaryOp, CfgBuilder, FunctionId, InstrBuilder, Instruction, MirDefinitionId,
-    MirFunction, MirType, Value, ValueId,
+    BasicBlockId, CfgBuilder, FunctionId, InstrBuilder, Instruction, MirDefinitionId, MirFunction,
+    MirType, Value, ValueId,
 };
+// Removed SSABuilder import - SSA is now integrated directly into MirFunction
 
 /// Immutable compilation context shared across lowering
 ///
@@ -33,6 +34,9 @@ pub struct LoweringContext<'a, 'db> {
     pub(super) semantic_index: &'a SemanticIndex,
     /// Global map from function DefinitionId to MIR FunctionId for call resolution
     pub(super) function_mapping: &'a FxHashMap<DefinitionId<'db>, (&'a Definition, FunctionId)>,
+    /// Reverse mapping from FunctionId to DefinitionId for O(1) signature lookups
+    pub(super) function_id_to_def:
+        RefCell<FxHashMap<FunctionId, (DefinitionId<'db>, &'a Definition)>>,
     /// Precomputed file ID for efficient MirDefinitionId creation
     pub(super) file_id: u64,
 
@@ -50,8 +54,6 @@ pub struct MirState<'db> {
     pub(super) mir_function: MirFunction,
     /// The current basic block being populated with instructions
     pub(super) current_block_id: BasicBlockId,
-    /// Local map from variable DefinitionId to its MIR ValueId
-    pub(super) definition_to_value: FxHashMap<MirDefinitionId, ValueId>,
     /// The DefinitionId of the function being lowered (for type information)
     pub(super) function_def_id: Option<DefinitionId<'db>>,
     /// Becomes true when a terminator like `return` is encountered.
@@ -110,12 +112,19 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         let mir_function = MirFunction::new(String::new());
         let entry_block = mir_function.entry_block;
 
+        // Build reverse mapping for O(1) function signature lookups
+        let mut function_id_to_def = FxHashMap::default();
+        for (def_id, (def, func_id)) in function_mapping.iter() {
+            function_id_to_def.insert(*func_id, (*def_id, *def));
+        }
+
         let ctx = LoweringContext {
             db,
             file,
             crate_id,
             semantic_index,
             function_mapping,
+            function_id_to_def: RefCell::new(function_id_to_def),
             file_id,
             expr_type_cache: RefCell::new(FxHashMap::default()),
         };
@@ -123,7 +132,6 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         let state = MirState {
             mir_function,
             current_block_id: entry_block,
-            definition_to_value: FxHashMap::default(),
             function_def_id: None,
             is_terminated: false,
             loop_stack: Vec::new(),
@@ -255,45 +263,14 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         self.instr().add_instruction(instruction);
     }
 
-    /// Allocate stack space for a variable
-    pub fn alloc_stack(&mut self, ty: MirType) -> ValueId {
-        self.instr().alloc_stack(ty)
-    }
-
-    /// Create a binary operation with automatic destination
-    pub fn binary_op_auto(
-        &mut self,
-        op: BinaryOp,
-        lhs: Value,
-        rhs: Value,
-        result_type: MirType,
-    ) -> ValueId {
-        self.instr().binary_op(op, lhs, rhs, result_type)
-    }
-
-    /// Load a value with automatic destination
-    pub fn load_auto(&mut self, src: Value, ty: MirType) -> ValueId {
-        self.instr().load_value(src, ty)
+    /// Allocate frame space for a variable
+    pub fn alloc_frame(&mut self, ty: MirType) -> ValueId {
+        self.instr().alloc_frame(ty)
     }
 
     /// Store a value
-    pub fn store_value(&mut self, dest: Value, value: Value) {
-        self.instr().store(dest, value);
-    }
-
-    /// Get element pointer
-    pub fn get_element_ptr_auto(
-        &mut self,
-        base: Value,
-        offset: Value,
-        elem_type: MirType,
-    ) -> ValueId {
-        let dest = self
-            .state
-            .mir_function
-            .new_typed_value_id(MirType::pointer(elem_type));
-        self.instr().get_element_ptr(dest, base, offset);
-        dest
+    pub fn store_value(&mut self, dest: Value, value: Value, ty: MirType) {
+        self.instr().store(dest, value, ty);
     }
 
     /// Check if the current block is terminated
@@ -345,17 +322,11 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         &self,
         func_id: FunctionId,
     ) -> Result<(Vec<MirType>, Vec<MirType>), String> {
-        // Find the Definition for this FunctionId by searching through function_mapping
-        let mut func_def = None;
-        for (def_id, (def, fid)) in self.ctx.function_mapping {
-            if *fid == func_id {
-                func_def = Some((def_id, def));
-                break;
-            }
-        }
-
-        let (def_id, def) =
-            func_def.ok_or_else(|| "Function definition not found in mapping".to_string())?;
+        // Use reverse mapping for O(1) lookup instead of linear scan
+        let cache = self.ctx.function_id_to_def.borrow();
+        let (def_id, def) = cache
+            .get(&func_id)
+            .ok_or_else(|| "Function definition not found in mapping".to_string())?;
 
         // Extract the FunctionDefRef from the Definition
         let func_ref = match &def.kind {
@@ -484,5 +455,310 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             }
             _ => Err("Unsupported callee expression type".to_string()),
         }
+    }
+
+    // ===== Memory Access Helper Methods (DEPRECATED) =====
+    // These methods encourage memory-based thinking and are being phased out
+    // in favor of value-based aggregate operations.
+
+    /// Get the address of a field/element (for lvalue expressions)
+    /// Returns the ValueId of the address
+    pub fn get_element_address(
+        &mut self,
+        base_addr: Value,
+        offset: Value,
+        target_type: MirType,
+        comment: &str,
+    ) -> ValueId {
+        let addr = self
+            .state
+            .mir_function
+            .new_typed_value_id(MirType::pointer(target_type));
+        self.instr().add_instruction(
+            Instruction::get_element_ptr(addr, base_addr, offset).with_comment(comment.to_string()),
+        );
+        addr
+    }
+
+    // ================================================================================
+    // Value-Based Aggregate Operations
+    // ================================================================================
+
+    /// Create a tuple from a list of values
+    /// Returns the ValueId of the new tuple
+    pub fn make_tuple(&mut self, elements: Vec<Value>, tuple_type: MirType) -> ValueId {
+        let dest = self.state.mir_function.new_typed_value_id(tuple_type);
+        self.instr()
+            .add_instruction(Instruction::make_tuple(dest, elements));
+        dest
+    }
+
+    /// Extract an element from a tuple value
+    /// Returns the ValueId of the extracted element
+    pub fn extract_tuple_element(
+        &mut self,
+        tuple_val: Value,
+        index: usize,
+        element_type: MirType,
+    ) -> ValueId {
+        let dest = self
+            .state
+            .mir_function
+            .new_typed_value_id(element_type.clone());
+        self.instr()
+            .add_instruction(Instruction::extract_tuple_element(
+                dest,
+                tuple_val,
+                index,
+                element_type,
+            ));
+        dest
+    }
+
+    /// Create a struct from field values
+    /// Returns the ValueId of the new struct
+    pub fn make_struct(&mut self, fields: Vec<(String, Value)>, struct_type: MirType) -> ValueId {
+        let dest = self
+            .state
+            .mir_function
+            .new_typed_value_id(struct_type.clone());
+        self.instr()
+            .add_instruction(Instruction::make_struct(dest, fields, struct_type));
+        dest
+    }
+
+    /// Extract a field from a struct value
+    /// Returns the ValueId of the extracted field
+    pub fn extract_struct_field(
+        &mut self,
+        struct_val: Value,
+        field_name: String,
+        field_type: MirType,
+    ) -> ValueId {
+        let dest = self
+            .state
+            .mir_function
+            .new_typed_value_id(field_type.clone());
+        self.instr()
+            .add_instruction(Instruction::extract_struct_field(
+                dest, struct_val, field_name, field_type,
+            ));
+        dest
+    }
+
+    /// Insert a field into a struct value, creating a new struct
+    /// Returns the ValueId of the new struct with the field updated
+    pub fn insert_field(
+        &mut self,
+        struct_val: Value,
+        field_name: String,
+        new_value: Value,
+        struct_type: MirType,
+    ) -> ValueId {
+        let dest = self
+            .state
+            .mir_function
+            .new_typed_value_id(struct_type.clone());
+        self.instr().add_instruction(Instruction::insert_field(
+            dest,
+            struct_val,
+            field_name,
+            new_value,
+            struct_type,
+        ));
+        dest
+    }
+
+    /// Alias for insert_field for consistency with deprecated method names
+    pub fn insert_struct_field(
+        &mut self,
+        struct_val: Value,
+        field_name: &str,
+        new_value: Value,
+        struct_type: MirType,
+    ) -> ValueId {
+        self.insert_field(struct_val, field_name.to_string(), new_value, struct_type)
+    }
+
+    /// Insert an element into a tuple value, creating a new tuple
+    /// Returns the ValueId of the new tuple with the element updated
+    pub fn insert_tuple(
+        &mut self,
+        tuple_val: Value,
+        index: usize,
+        new_value: Value,
+        tuple_type: MirType,
+    ) -> ValueId {
+        let dest = self
+            .state
+            .mir_function
+            .new_typed_value_id(tuple_type.clone());
+        self.instr().add_instruction(Instruction::insert_tuple(
+            dest, tuple_val, index, new_value, tuple_type,
+        ));
+        dest
+    }
+
+    // ================================================================================
+    // Helper Methods - Common Patterns
+    // ================================================================================
+
+    /// Get the ExpressionId for a given span
+    ///
+    /// This is a common pattern used throughout the lowering code
+    pub fn expr_id(&self, span: chumsky::prelude::SimpleSpan) -> Result<ExpressionId, String> {
+        self.ctx
+            .semantic_index
+            .expression_id_by_span(span)
+            .ok_or_else(|| {
+                format!(
+                    "Internal Compiler Error: No ExpressionId found for span {:?}",
+                    span
+                )
+            })
+    }
+
+    /// Get the MirType for an expression at a given span
+    ///
+    /// This combines the common pattern of:
+    /// 1. Getting the ExpressionId from span
+    /// 2. Getting the semantic type from the expression
+    /// 3. Converting to MirType
+    pub fn expr_mir_type(&self, span: chumsky::prelude::SimpleSpan) -> Result<MirType, String> {
+        let expr_id = self.expr_id(span)?;
+        let semantic_type =
+            expression_semantic_type(self.ctx.db, self.ctx.crate_id, self.ctx.file, expr_id, None);
+        Ok(MirType::from_semantic_type(self.ctx.db, semantic_type))
+    }
+
+    /// Get both the ExpressionId and MirType for a span
+    ///
+    /// This is useful when you need both values, avoiding duplicate lookups
+    pub fn expr_id_and_type(
+        &self,
+        span: chumsky::prelude::SimpleSpan,
+    ) -> Result<(ExpressionId, MirType), String> {
+        let expr_id = self.expr_id(span)?;
+        let semantic_type =
+            expression_semantic_type(self.ctx.db, self.ctx.crate_id, self.ctx.file, expr_id, None);
+        let mir_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
+        Ok((expr_id, mir_type))
+    }
+
+    // ================================================================================
+    // SSA Integration Methods - Directly using MirFunction SSA state
+    // ================================================================================
+
+    /// Bind a variable to a value using SSA tracking
+    pub fn bind_variable(
+        &mut self,
+        ident_name: &str,
+        _ident_span: chumsky::prelude::SimpleSpan,
+        value: Value,
+        scope_id: cairo_m_compiler_semantic::place::FileScopeId,
+    ) -> Result<(), String> {
+        // Resolve to semantic definition
+        let (def_idx, _definition) = self
+            .ctx
+            .semantic_index
+            .resolve_name_to_definition(ident_name, scope_id)
+            .ok_or_else(|| format!("Failed to resolve identifier {}", ident_name))?;
+
+        let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
+        let mir_def_id = MirDefinitionId {
+            definition_index: def_id.id_in_file(self.ctx.db).index(),
+            file_id: self.ctx.file_id,
+        };
+
+        // Get variable type for proper handling
+        let var_type = definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
+        let mir_type = MirType::from_semantic_type(self.ctx.db, var_type);
+
+        // Convert value to ValueId if needed
+        let value_id = match value {
+            Value::Operand(id) => id,
+            Value::Literal(_) => {
+                // Create assignment instruction for literals
+                let temp_id = self.state.mir_function.new_typed_value_id(mir_type.clone());
+                let assign_instr = Instruction::assign(temp_id, value, mir_type);
+
+                if let Some(block) = self
+                    .state
+                    .mir_function
+                    .basic_blocks
+                    .get_mut(self.state.current_block_id)
+                {
+                    block.push_instruction(assign_instr);
+                }
+                temp_id
+            }
+            Value::Error => {
+                // Create error placeholder
+                self.state.mir_function.new_typed_value_id(mir_type)
+            }
+        };
+
+        // Bind using MirFunction's SSA methods directly
+        self.state
+            .mir_function
+            .write_variable(mir_def_id, self.state.current_block_id, value_id);
+        Ok(())
+    }
+
+    /// Read a variable using SSA tracking
+    pub fn read_variable(
+        &mut self,
+        ident_name: &str,
+        ident_span: chumsky::prelude::SimpleSpan,
+    ) -> Result<ValueId, String> {
+        // Get semantic information
+        let expr_id = self
+            .ctx
+            .semantic_index
+            .expression_id_by_span(ident_span)
+            .ok_or_else(|| format!("No ExpressionId for identifier {}", ident_name))?;
+
+        let expr_info = self
+            .ctx
+            .semantic_index
+            .expression(expr_id)
+            .ok_or_else(|| format!("No ExpressionInfo for identifier {}", ident_name))?;
+
+        // Resolve to definition
+        let (def_idx, _definition) = self
+            .ctx
+            .semantic_index
+            .resolve_name_to_definition(ident_name, expr_info.scope_id)
+            .ok_or_else(|| format!("Failed to resolve identifier {}", ident_name))?;
+
+        let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
+        let mir_def_id = MirDefinitionId {
+            definition_index: def_id.id_in_file(self.ctx.db).index(),
+            file_id: self.ctx.file_id,
+        };
+
+        // Read using MirFunction's SSA methods directly
+        let value_id = self
+            .state
+            .mir_function
+            .read_variable(mir_def_id, self.state.current_block_id);
+        Ok(value_id)
+    }
+
+    /// Seal a block - no more predecessors will be added
+    /// This must be called when the predecessor set of a block is finalized
+    pub fn seal_block(&mut self, block_id: BasicBlockId) {
+        // Mark in CFG builder first
+        let mut cfg = self.cfg();
+        cfg.seal_block(block_id);
+
+        // Then complete incomplete phis using MirFunction's SSA methods directly
+        self.state.mir_function.seal_block(block_id);
+    }
+
+    /// Mark a block as filled - all local statements processed
+    pub fn mark_block_filled(&mut self, block_id: BasicBlockId) {
+        let mut cfg = self.cfg();
+        cfg.mark_block_filled(block_id);
     }
 }

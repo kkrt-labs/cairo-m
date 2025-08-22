@@ -8,8 +8,8 @@ use cairo_m_common::instruction::*;
 use cairo_m_common::program::{AbiSlot, EntrypointInfo};
 use cairo_m_common::{Program, ProgramMetadata};
 use cairo_m_compiler_mir::{
-    BasicBlockId, BinaryOp, Instruction, InstructionKind, Literal, MirFunction, MirModule, MirType,
-    Terminator, Value, ValueId,
+    BasicBlockId, BinaryOp, DataLayout, Instruction, InstructionKind, Literal, MirFunction,
+    MirModule, MirType, Terminator, Value, ValueId,
 };
 
 use crate::{
@@ -151,7 +151,7 @@ impl CodeGenerator {
             .iter()
             .enumerate()
             .map(|(i, &value_id)| {
-                let slots = function.value_types[&value_id].size_units();
+                let slots = DataLayout::size_of(&function.value_types[&value_id]);
                 AbiSlot {
                     name: format!("arg{}", i), // TODO: Get proper names from semantic info
                     slots,
@@ -164,7 +164,7 @@ impl CodeGenerator {
             .iter()
             .enumerate()
             .map(|(i, &value_id)| {
-                let slots = function.value_types[&value_id].size_units();
+                let slots = DataLayout::size_of(&function.value_types[&value_id]);
                 AbiSlot {
                     name: format!("ret{}", i), // TODO: Get proper names from semantic info
                     slots,
@@ -188,7 +188,7 @@ impl CodeGenerator {
         self.label_counter += builder.label_counter();
 
         // Remove duplicate offsets
-        let _ = builder.resolve_duplicate_offsets();
+        builder.resolve_duplicate_offsets()?;
 
         // Fix label addresses to be relative to the global instruction stream
         let instruction_offset = self.instructions.len();
@@ -253,11 +253,47 @@ impl CodeGenerator {
         Ok(())
     }
 
+    /// Helper function to find direct argument placement offset
+    ///
+    /// Checks if the next instruction is a call and if the given destination
+    /// is used as an argument, returning the offset where it should be placed.
+    fn find_direct_argument_placement_offset(
+        &self,
+        dest: ValueId,
+        block_instructions: &[Instruction],
+        instruction_index: usize,
+        builder: &CasmBuilder,
+    ) -> Option<i32> {
+        if let Some(next_instruction) = block_instructions.get(instruction_index + 1) {
+            if let InstructionKind::Call {
+                args, signature, ..
+            } = &next_instruction.kind
+            {
+                if let Some(arg_index) = args
+                    .iter()
+                    .position(|arg| matches!(arg, Value::Operand(id) if *id == dest))
+                {
+                    let l = builder.current_frame_usage();
+                    let mut arg_offset = l;
+                    for (i, param_type) in signature.param_types.iter().enumerate() {
+                        if i == arg_index {
+                            break;
+                        }
+                        arg_offset += DataLayout::size_of(param_type) as i32;
+                    }
+                    return Some(arg_offset);
+                }
+            }
+        }
+        None
+    }
+
     /// Generate code for a single instruction
+    #[allow(clippy::too_many_arguments)]
     fn generate_instruction(
         &self,
         instruction: &Instruction,
-        _function: &MirFunction,
+        function: &MirFunction,
         module: &MirModule,
         builder: &mut CasmBuilder,
         block_instructions: &[Instruction],
@@ -265,114 +301,36 @@ impl CodeGenerator {
         terminator: &Terminator,
     ) -> CodegenResult<()> {
         match &instruction.kind {
-            InstructionKind::Assign { dest, source } => {
-                let mut target_offset = None;
-
+            InstructionKind::Assign { dest, source, ty } => {
                 // Direct Argument Placement Optimization
-                if let Some(next_instruction) = block_instructions.get(instruction_index + 1) {
-                    if let InstructionKind::Call {
-                        args, signature, ..
-                    } = &next_instruction.kind
-                    {
-                        if let Some(arg_index) = args
-                            .iter()
-                            .position(|arg| matches!(arg, Value::Operand(id) if *id == *dest))
-                        {
-                            let l = builder.current_frame_usage();
-                            let mut arg_offset = l;
-                            for (i, param_type) in signature.param_types.iter().enumerate() {
-                                if i == arg_index {
-                                    break;
-                                }
-                                arg_offset += param_type.size_units() as i32;
-                            }
-                            target_offset = Some(arg_offset);
-                        }
-                    }
-                }
+                let mut target_offset = self.find_direct_argument_placement_offset(
+                    *dest,
+                    block_instructions,
+                    instruction_index,
+                    builder,
+                );
 
                 // Fallback to return-value optimization
                 if target_offset.is_none() {
-                    target_offset = self.get_target_offset_for_dest(*dest, terminator);
+                    target_offset = self.get_target_offset_for_dest(*dest, terminator, function);
                 }
 
-                builder.assign_with_target(*dest, *source, target_offset)?;
+                // Use the unified type-aware assign method
+                builder.assign_typed(*dest, *source, ty, target_offset)?;
             }
 
-            InstructionKind::AssignU32 { dest, source } => {
-                let mut target_offset = None;
-
+            InstructionKind::UnaryOp { op, dest, source } => {
                 // Direct Argument Placement Optimization
-                if let Some(next_instruction) = block_instructions.get(instruction_index + 1) {
-                    if let InstructionKind::Call {
-                        args, signature, ..
-                    } = &next_instruction.kind
-                    {
-                        if let Some(arg_index) = args
-                            .iter()
-                            .position(|arg| matches!(arg, Value::Operand(id) if *id == *dest))
-                        {
-                            let l = builder.current_frame_usage();
-                            let mut arg_offset = l;
-                            for (i, param_type) in signature.param_types.iter().enumerate() {
-                                if i == arg_index {
-                                    break;
-                                }
-                                arg_offset += param_type.size_units() as i32;
-                            }
-                            target_offset = Some(arg_offset);
-                        }
-                    }
-                }
+                let mut target_offset = self.find_direct_argument_placement_offset(
+                    *dest,
+                    block_instructions,
+                    instruction_index,
+                    builder,
+                );
 
                 // Fallback to return-value optimization
                 if target_offset.is_none() {
-                    target_offset = self.get_target_offset_for_dest(*dest, terminator);
-                }
-
-                builder.assign_u32_with_target(*dest, *source, target_offset)?;
-            }
-
-            InstructionKind::UnaryOp {
-                op,
-                dest,
-                source,
-                in_place_target,
-            } => {
-                let mut target_offset = if let Some(target_addr_id) = in_place_target {
-                    builder.layout_mut().get_offset(*target_addr_id).ok()
-                } else {
-                    None
-                };
-
-                // Direct Argument Placement Optimization
-                if target_offset.is_none() {
-                    if let Some(next_instruction) = block_instructions.get(instruction_index + 1) {
-                        if let InstructionKind::Call {
-                            args, signature, ..
-                        } = &next_instruction.kind
-                        {
-                            if let Some(arg_index) = args
-                                .iter()
-                                .position(|arg| matches!(arg, Value::Operand(id) if *id == *dest))
-                            {
-                                let l = builder.current_frame_usage();
-                                let mut arg_offset = l;
-                                for (i, param_type) in signature.param_types.iter().enumerate() {
-                                    if i == arg_index {
-                                        break;
-                                    }
-                                    arg_offset += param_type.size_units() as i32;
-                                }
-                                target_offset = Some(arg_offset);
-                            }
-                        }
-                    }
-                }
-
-                // Fallback to return-value optimization
-                if target_offset.is_none() {
-                    target_offset = self.get_target_offset_for_dest(*dest, terminator);
+                    target_offset = self.get_target_offset_for_dest(*dest, terminator, function);
                 }
 
                 builder.unary_op_with_target(*op, *dest, *source, target_offset)?;
@@ -383,43 +341,14 @@ impl CodeGenerator {
                 dest,
                 left,
                 right,
-                in_place_target,
             } => {
-                // Check if this op can be performed in-place
-                let mut target_offset = if let Some(target_addr_id) = in_place_target {
-                    // The optimization applies. Get the offset for the target address.
-                    builder.layout_mut().get_offset(*target_addr_id).ok()
-                } else {
-                    None
-                };
-
-                // NEW: Direct Argument Placement Optimization
-                if target_offset.is_none() {
-                    // Look ahead to see if `dest` is used as a call argument
-                    if let Some(next_instruction) = block_instructions.get(instruction_index + 1) {
-                        if let InstructionKind::Call {
-                            args, signature, ..
-                        } = &next_instruction.kind
-                        {
-                            // Check if dest is used as an argument
-                            if let Some(arg_index) = args
-                                .iter()
-                                .position(|arg| matches!(arg, Value::Operand(id) if *id == *dest))
-                            {
-                                // Calculate where this argument needs to be placed
-                                let l = builder.current_frame_usage();
-                                let mut arg_offset = l;
-                                for (i, param_type) in signature.param_types.iter().enumerate() {
-                                    if i == arg_index {
-                                        break;
-                                    }
-                                    arg_offset += param_type.size_units() as i32;
-                                }
-                                target_offset = Some(arg_offset);
-                            }
-                        }
-                    }
-                }
+                // Direct Argument Placement Optimization
+                let mut target_offset = self.find_direct_argument_placement_offset(
+                    *dest,
+                    block_instructions,
+                    instruction_index,
+                    builder,
+                );
 
                 // Fallback to return-value optimization if no other target was found
                 // TODO: Currently disabled for U32 operations due to multi-slot handling
@@ -438,7 +367,7 @@ impl CodeGenerator {
                             | BinaryOp::U32GreaterEqual
                     )
                 {
-                    target_offset = self.get_target_offset_for_dest(*dest, terminator);
+                    target_offset = self.get_target_offset_for_dest(*dest, terminator, function);
                 }
 
                 builder.binary_op_with_target(*op, *dest, *left, *right, target_offset)?;
@@ -458,7 +387,10 @@ impl CodeGenerator {
                 let callee_name = &callee_function.name;
                 let _num_returns = callee_function.return_values.len();
 
-                if dests.len() == 1 {
+                if dests.is_empty() {
+                    // Void call (no return values)
+                    builder.void_call(callee_name, args, signature)?;
+                } else if dests.len() == 1 {
                     // Single return value
                     builder.call(dests[0], callee_name, args, signature)?;
                 } else {
@@ -467,29 +399,16 @@ impl CodeGenerator {
                 }
             }
 
-            InstructionKind::VoidCall {
-                callee,
-                args,
-                signature,
-            } => {
-                // Look up the callee's actual function name from the module
-                let callee_function = module.functions.get(*callee).ok_or_else(|| {
-                    CodegenError::MissingTarget(format!("No function found for callee {callee:?}"))
-                })?;
-                let callee_name = &callee_function.name;
-
-                builder.void_call(callee_name, args, signature)?;
+            InstructionKind::Load { dest, address, ty } => {
+                // Determine if this is a U32 load based on type
+                if matches!(ty, MirType::U32) {
+                    builder.load_u32(*dest, *address)?;
+                } else {
+                    builder.load(*dest, *address)?;
+                }
             }
 
-            InstructionKind::Load { dest, address } => {
-                builder.load(*dest, *address)?;
-            }
-
-            InstructionKind::LoadU32 { dest, address } => {
-                builder.load_u32(*dest, *address)?;
-            }
-
-            InstructionKind::Store { address, value } => {
+            InstructionKind::Store { address, value, ty } => {
                 // Check if this store's destination is used as a call argument
                 if let Value::Operand(addr_id) = address {
                     if let Some(next_instruction) = block_instructions.get(instruction_index + 1) {
@@ -508,7 +427,7 @@ impl CodeGenerator {
                                     if i == arg_index {
                                         break;
                                     }
-                                    arg_offset += param_type.size_units() as i32;
+                                    arg_offset += DataLayout::size_of(param_type) as i32;
                                 }
 
                                 // Store the value directly at the argument offset
@@ -540,69 +459,65 @@ impl CodeGenerator {
                     }
                 }
 
-                // Normal store
-                builder.store(*address, *value)?;
-            }
-
-            // TODO: factorize this properly...
-            InstructionKind::StoreU32 { address, value } => {
-                // Check if this store's destination is used as a call argument
-                if let Value::Operand(addr_id) = address {
-                    if let Some(next_instruction) = block_instructions.get(instruction_index + 1) {
-                        if let InstructionKind::Call {
-                            args, signature, ..
-                        } = &next_instruction.kind
+                // Determine if this is a U32 store based on type
+                if matches!(ty, MirType::U32) {
+                    // Handle U32 store with optimization
+                    if let Value::Operand(addr_id) = address {
+                        if let Some(next_instruction) =
+                            block_instructions.get(instruction_index + 1)
                         {
-                            // Check if the stored-to address is used as an argument
-                            if let Some(arg_index) = args.iter().position(
-                                |arg| matches!(arg, Value::Operand(id) if *id == *addr_id),
-                            ) {
-                                // Direct Argument Placement: store directly to argument position
-                                let l = builder.current_frame_usage();
-                                let mut arg_offset = l;
-                                for (i, param_type) in signature.param_types.iter().enumerate() {
-                                    if i == arg_index {
-                                        break;
+                            if let InstructionKind::Call {
+                                args, signature, ..
+                            } = &next_instruction.kind
+                            {
+                                if let Some(arg_index) = args.iter().position(
+                                    |arg| matches!(arg, Value::Operand(id) if *id == *addr_id),
+                                ) {
+                                    let l = builder.current_frame_usage();
+                                    let mut arg_offset = l;
+                                    for (i, param_type) in signature.param_types.iter().enumerate()
+                                    {
+                                        if i == arg_index {
+                                            break;
+                                        }
+                                        arg_offset += DataLayout::size_of(param_type) as i32;
                                     }
-                                    arg_offset += param_type.size_units() as i32;
-                                }
 
-                                // Store the value directly at the argument offset
-                                match value {
-                                    Value::Literal(Literal::Integer(imm)) => {
-                                        builder.store_u32_immediate_at(
-                                            *imm as u32,
-                                            arg_offset,
-                                            format!(
-                                                "Direct arg placement: [fp + {}], [fp + {}] = u32({})",
-                                                arg_offset, arg_offset + 1, imm
-                                            ),
-                                        )?;
-                                        // Map the address ValueId to this offset
-                                        builder.layout_mut().map_value(*addr_id, arg_offset);
+                                    match value {
+                                        Value::Literal(Literal::Integer(imm)) => {
+                                            builder.store_u32_immediate_at(
+                                                *imm as u32,
+                                                arg_offset,
+                                                format!(
+                                                    "Direct arg placement: [fp + {}], [fp + {}] = u32({})",
+                                                    arg_offset, arg_offset + 1, imm
+                                                ),
+                                            )?;
+                                            builder.layout_mut().map_value(*addr_id, arg_offset);
+                                        }
+                                        Value::Operand(_src_id) => {
+                                            builder.store_u32_at(*addr_id, arg_offset, *value)?;
+                                        }
+                                        _ => {
+                                            builder.store_u32(*address, *value)?;
+                                        }
                                     }
-                                    Value::Operand(_src_id) => {
-                                        // For operand sources, use regular store but at arg offset
-                                        builder.store_u32_at(*addr_id, arg_offset, *value)?;
-                                    }
-                                    _ => {
-                                        // Fallback to regular store
-                                        builder.store_u32(*address, *value)?;
-                                    }
+                                    return Ok(());
                                 }
-                                return Ok(());
                             }
                         }
                     }
+                    builder.store_u32(*address, *value)?;
+                } else {
+                    // Normal store (non-U32)
+                    builder.store(*address, *value)?;
                 }
-
-                // Normal store
-                builder.store_u32(*address, *value)?;
             }
 
-            InstructionKind::StackAlloc { dest, size } => {
-                // Allocate the requested stack space dynamically
-                builder.allocate_stack(*dest, *size)?;
+            InstructionKind::FrameAlloc { dest, ty } => {
+                // Allocate the requested frame space dynamically based on type size
+                let size = DataLayout::size_of(ty);
+                builder.allocate_frame_slots(*dest, size)?;
             }
 
             InstructionKind::AddressOf { .. } => {
@@ -613,12 +528,86 @@ impl CodeGenerator {
                 builder.get_element_ptr(*dest, *base, *offset)?;
             }
 
+            // Note: GetElementPtrTyped, BuildStruct, BuildTuple, ExtractValue, and InsertValue
+            // have been removed from the instruction set as they were never generated by the
+            // IR lowering phase. The compiler uses a memory-based approach for aggregates.
             InstructionKind::Cast { .. } => {
                 todo!("Cast is not implemented yet");
             }
 
             InstructionKind::Debug { .. } => {
                 todo!("Debug is not implemented yet");
+            }
+
+            InstructionKind::Phi { .. } => {
+                // Phi nodes are a compile-time construct for SSA form
+                // They should be eliminated before code generation through
+                // register allocation or SSA destruction pass
+                return Err(CodegenError::InvalidMir(
+                    "Phi instructions should be eliminated before code generation".to_string(),
+                ));
+            }
+
+            InstructionKind::Nop => {
+                // No operation - skip code generation
+                // Nops are used as placeholders during transformation passes
+            }
+
+            // Value-based aggregate operations
+            InstructionKind::MakeTuple { dest, elements } => {
+                builder.make_tuple(*dest, elements, function)?;
+            }
+
+            InstructionKind::ExtractTupleElement {
+                dest,
+                tuple,
+                index,
+                element_ty,
+            } => {
+                builder.extract_tuple_element(*dest, *tuple, *index, element_ty, function)?;
+            }
+
+            InstructionKind::MakeStruct {
+                dest,
+                fields,
+                struct_ty,
+            } => {
+                builder.make_struct(*dest, fields, struct_ty)?;
+            }
+
+            InstructionKind::ExtractStructField {
+                dest,
+                struct_val,
+                field_name,
+                field_ty,
+            } => {
+                builder.extract_struct_field(*dest, *struct_val, field_name, field_ty, function)?;
+            }
+
+            InstructionKind::InsertField {
+                dest,
+                struct_val,
+                field_name,
+                new_value,
+                struct_ty,
+            } => {
+                builder.insert_struct_field(
+                    *dest,
+                    *struct_val,
+                    field_name,
+                    *new_value,
+                    struct_ty,
+                )?;
+            }
+
+            InstructionKind::InsertTuple {
+                dest,
+                tuple_val,
+                index,
+                new_value,
+                tuple_ty,
+            } => {
+                builder.insert_tuple_element(*dest, *tuple_val, *index, *new_value, tuple_ty)?;
             }
         }
 
@@ -631,10 +620,36 @@ impl CodeGenerator {
         &self,
         dests: &[ValueId],
         terminator: &Terminator,
+        function: &MirFunction,
     ) -> Vec<Option<i32>> {
         match terminator {
             Terminator::Return { values } => {
-                let k = values.len() as i32;
+                // Calculate the total number of return slots (accounting for multi-slot types)
+                let return_types: Vec<MirType> = function
+                    .return_values
+                    .iter()
+                    .map(|&ret_id| {
+                        function
+                            .value_types
+                            .get(&ret_id)
+                            .cloned()
+                            .expect("Missing return type")
+                    })
+                    .collect();
+
+                let k_slots: i32 = return_types
+                    .iter()
+                    .map(|ty| DataLayout::size_of(ty) as i32)
+                    .sum();
+
+                // Calculate cumulative slot offsets for each return value
+                let mut slot_offsets = Vec::new();
+                let mut cumulative = 0;
+                for ty in &return_types {
+                    slot_offsets.push(cumulative);
+                    cumulative += DataLayout::size_of(ty) as i32;
+                }
+
                 dests
                     .iter()
                     .map(|dest| {
@@ -643,8 +658,8 @@ impl CodeGenerator {
                             .iter()
                             .position(|v| matches!(v, Value::Operand(id) if *id == *dest))
                             .map(|index| {
-                                // Return value i goes to [fp - K - 2 + i]
-                                -(k + 2) + index as i32
+                                // Return value i goes to [fp - k_slots - 2 + slot_offset[i]]
+                                -(k_slots + 2) + slot_offsets[index]
                             })
                     })
                     .collect()
@@ -654,8 +669,13 @@ impl CodeGenerator {
     }
 
     /// Get the target offset for a single destination ValueId if it will be immediately returned
-    fn get_target_offset_for_dest(&self, dest: ValueId, terminator: &Terminator) -> Option<i32> {
-        self.get_target_offsets_for_dests(&[dest], terminator)
+    fn get_target_offset_for_dest(
+        &self,
+        dest: ValueId,
+        terminator: &Terminator,
+        function: &MirFunction,
+    ) -> Option<i32> {
+        self.get_target_offsets_for_dests(&[dest], terminator, function)
             .into_iter()
             .next()
             .flatten()
@@ -714,41 +734,65 @@ impl CodeGenerator {
                 let then_label = format!("{function_name}_{then_target:?}");
                 let else_label = format!("{function_name}_{else_target:?}");
 
-                let is_u32_op = matches!(op, BinaryOp::U32Eq | BinaryOp::U32Neq);
-
-                if is_u32_op {
-                    builder.generate_u32_op(BinaryOp::U32Sub, temp_slot_offset, *left, *right)?;
-                } else {
-                    builder.generate_arithmetic_op(
-                        BinaryOp::Sub,
-                        temp_slot_offset,
-                        *left,
-                        *right,
-                    )?;
-                }
-
-                // For comparison, we compute `a - b`. The result is non-zero if they are not equal.
-                builder.generate_arithmetic_op(BinaryOp::Sub, temp_slot_offset, *left, *right)?;
-
                 match op {
-                    BinaryOp::Eq | BinaryOp::U32Eq => {
-                        // `jnz` jumps if the result is non-zero.
-                        // A non-zero result means `a != b`, so we should jump to the `else` block.
-                        // Otherwise we can simply fallthrough.
+                    BinaryOp::Eq => {
+                        // For felt comparison, compute `a - b`. Result is zero if equal.
+                        builder.generate_arithmetic_op(
+                            BinaryOp::Sub,
+                            temp_slot_offset,
+                            *left,
+                            *right,
+                        )?;
+                        // Jump to else if non-zero (not equal)
                         builder.jnz_offset(temp_slot_offset, &else_label)?;
-
                         // Fallthrough to the `then` block if the `jnz` was not taken.
                         let then_is_next = next_block_id == Some(*then_target);
                         if !then_is_next {
                             builder.jump(&then_label)?;
                         }
                     }
-                    BinaryOp::Neq | BinaryOp::U32Neq => {
-                        // `jnz` jumps if the result is non-zero.
-                        // A non-zero result means `a != b`, so we should jump to the `then` block.
-                        // Otherwise we can simply fallthrough.
+                    BinaryOp::Neq => {
+                        // For felt comparison, compute `a - b`. Result is non-zero if not equal.
+                        builder.generate_arithmetic_op(
+                            BinaryOp::Sub,
+                            temp_slot_offset,
+                            *left,
+                            *right,
+                        )?;
+                        // Jump to then if non-zero (not equal)
                         builder.jnz_offset(temp_slot_offset, &then_label)?;
-
+                        // Fallthrough to the `else` block if the `jnz` was not taken.
+                        let else_is_next = next_block_id == Some(*else_target);
+                        if !else_is_next {
+                            builder.jump(&else_label)?;
+                        }
+                    }
+                    BinaryOp::U32Eq => {
+                        // For U32 comparison, use U32Eq which returns a felt (1 if equal, 0 if not)
+                        builder.generate_u32_op(
+                            BinaryOp::U32Eq,
+                            temp_slot_offset,
+                            *left,
+                            *right,
+                        )?;
+                        // Jump to then if non-zero (equal)
+                        builder.jnz_offset(temp_slot_offset, &then_label)?;
+                        // Fallthrough to the `else` block if the `jnz` was not taken.
+                        let else_is_next = next_block_id == Some(*else_target);
+                        if !else_is_next {
+                            builder.jump(&else_label)?;
+                        }
+                    }
+                    BinaryOp::U32Neq => {
+                        // For U32 comparison, use U32Neq which returns a felt (1 if not equal, 0 if equal)
+                        builder.generate_u32_op(
+                            BinaryOp::U32Neq,
+                            temp_slot_offset,
+                            *left,
+                            *right,
+                        )?;
+                        // Jump to then if non-zero (not equal)
+                        builder.jnz_offset(temp_slot_offset, &then_label)?;
                         // Fallthrough to the `else` block if the `jnz` was not taken.
                         let else_is_next = next_block_id == Some(*else_target);
                         if !else_is_next {
@@ -1012,7 +1056,7 @@ mod tests {
         let dest = function.new_typed_value_id(MirType::Felt);
         block
             .instructions
-            .push(Instruction::assign(dest, Value::integer(42)));
+            .push(Instruction::assign(dest, Value::integer(42), MirType::Felt));
 
         // Return the value
         block.terminator = Terminator::return_value(Value::Operand(dest));

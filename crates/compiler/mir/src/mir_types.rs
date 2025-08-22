@@ -7,7 +7,7 @@
 use cairo_m_compiler_semantic::types::{TypeData, TypeId};
 use cairo_m_compiler_semantic::SemanticDb;
 
-use crate::{Instruction, Value, ValueId};
+use crate::DataLayout;
 
 /// A simplified type representation for MIR
 ///
@@ -35,7 +35,15 @@ pub enum MirType {
     /// This contains the struct name and ordered field information for layout calculations
     Struct {
         name: String,
-        fields: Vec<StructField>,
+        fields: Vec<(String, MirType)>,
+    },
+
+    /// Array type with element type and optional size
+    /// Arrays are intentionally kept on the memory path, not value-based like tuples/structs
+    /// This allows for address-of operations and complex memory semantics
+    Array {
+        element_type: Box<MirType>,
+        size: Option<usize>, // None for dynamic arrays
     },
 
     /// Function type with parameter and return types
@@ -52,50 +60,6 @@ pub enum MirType {
 
     /// Unknown type (for incomplete analysis)
     Unknown,
-}
-
-/// Emit the proper instruction flavor from a value and a given type
-pub trait InstructionEmitter {
-    fn emit_store(&self, address: Value, value: Value) -> Instruction;
-    fn emit_assign(&self, dest: ValueId, source: Value) -> Instruction;
-    fn emit_load(&self, dest: ValueId, address: Value) -> Instruction;
-}
-
-impl InstructionEmitter for MirType {
-    fn emit_store(&self, address: Value, value: Value) -> Instruction {
-        match self {
-            Self::Felt | Self::Bool => Instruction::store(address, value),
-            Self::U32 => Instruction::store_u32(address, value),
-            _ => Instruction::store(address, value),
-        }
-    }
-
-    fn emit_assign(&self, dest: ValueId, source: Value) -> Instruction {
-        match self {
-            Self::Felt | Self::Bool => Instruction::assign(dest, source),
-            Self::U32 => Instruction::assign_u32(dest, source),
-            _ => Instruction::assign(dest, source),
-        }
-    }
-
-    fn emit_load(&self, dest: ValueId, address: Value) -> Instruction {
-        match self {
-            Self::Felt | Self::Bool => Instruction::load(dest, address),
-            Self::U32 => Instruction::load_u32(dest, address),
-            _ => Instruction::load(dest, address),
-        }
-    }
-}
-
-/// Information about a struct field for layout calculations
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct StructField {
-    /// The name of the field
-    pub name: String,
-    /// The type of the field
-    pub field_type: MirType,
-    /// The offset of this field in the struct layout (in size units)
-    pub offset: usize,
 }
 
 impl MirType {
@@ -125,7 +89,7 @@ impl MirType {
     }
 
     /// Creates a struct type with field layout information
-    pub const fn struct_type(name: String, fields: Vec<StructField>) -> Self {
+    pub const fn struct_type(name: String, fields: Vec<(String, Self)>) -> Self {
         Self::Struct { name, fields }
     }
 
@@ -175,60 +139,39 @@ impl MirType {
         matches!(self, Self::Error | Self::Unknown)
     }
 
-    /// Gets the size in "units" for this type (simplified)
-    pub fn size_units(&self) -> usize {
-        match self {
-            Self::Felt | Self::Bool => 1,
-            Self::U32 => 2,
-            Self::Pointer(_) => 1, // Assuming pointer size = 1 unit
-            Self::Tuple(types) => types.iter().map(|t| t.size_units()).sum(),
-            Self::Struct { fields, .. } => {
-                if fields.is_empty() {
-                    // Fallback for structs without field information
-                    1
-                } else {
-                    // Calculate size as the offset of the last field plus its size
-                    fields.iter().fold(0, |max_end, field| {
-                        (field.offset + field.field_type.size_units()).max(max_end)
-                    })
-                }
-            }
-            Self::Function { .. } => 1, // Function pointers
-            Self::Unit => 0,
-            Self::Error | Self::Unknown => 1, // Fallback
-        }
+    /// Returns true if this type should use memory-based operations
+    /// Arrays always use memory path, while tuples/structs use value-based operations
+    pub const fn requires_memory_path(&self) -> bool {
+        matches!(self, Self::Array { .. })
+    }
+
+    /// Returns true if this type can use value-based aggregate operations
+    /// Only tuples and structs use the new aggregate instructions
+    pub const fn uses_value_aggregates(&self) -> bool {
+        matches!(self, Self::Tuple(_) | Self::Struct { .. })
+    }
+
+    /// Gets the size in slots (field elements) for this type
+    #[deprecated(note = "Use DataLayout::size_of() instead for better centralization")]
+    pub fn size_in_slots(&self) -> usize {
+        // Delegate to DataLayout for consistency
+        DataLayout::size_of(self)
     }
 
     /// Calculates the offset of a struct field by name
     /// Returns None if the field is not found or this is not a struct type
+    #[deprecated(note = "Use DataLayout::field_offset() instead for better centralization")]
     pub fn field_offset(&self, field_name: &str) -> Option<usize> {
-        match self {
-            Self::Struct { fields, .. } => fields
-                .iter()
-                .find(|f| f.name == field_name)
-                .map(|f| f.offset),
-            _ => None,
-        }
+        // Delegate to DataLayout for consistency
+        DataLayout::field_offset(self, field_name)
     }
 
     /// Calculates the offset of a tuple element by index
     /// Returns None if the index is out of bounds or this is not a tuple type
+    #[deprecated(note = "Use DataLayout::tuple_offset() instead for better centralization")]
     pub fn tuple_element_offset(&self, index: usize) -> Option<usize> {
-        match self {
-            Self::Tuple(types) => {
-                if index >= types.len() {
-                    return None;
-                }
-
-                // Calculate cumulative offset by summing sizes of previous elements
-                let mut offset = 0;
-                for type_at_i in types.iter().take(index) {
-                    offset += type_at_i.size_units();
-                }
-                Some(offset)
-            }
-            _ => None,
-        }
+        // Delegate to DataLayout for consistency
+        DataLayout::tuple_offset(self, index)
     }
 
     /// Gets the type of a struct field by name
@@ -237,8 +180,8 @@ impl MirType {
         match self {
             Self::Struct { fields, .. } => fields
                 .iter()
-                .find(|f| f.name == field_name)
-                .map(|f| &f.field_type),
+                .find(|(name, _)| name == field_name)
+                .map(|(_, field_type)| field_type),
             _ => None,
         }
     }
@@ -277,22 +220,14 @@ impl MirType {
                 let struct_name = struct_id.name(db);
                 let semantic_fields = struct_id.fields(db);
 
-                // Convert semantic fields to MIR fields with calculated layout
-                let mut fields = Vec::new();
-                let mut current_offset = 0;
-
-                for (field_name, field_type_id) in semantic_fields {
-                    let field_type = Self::from_semantic_type(db, field_type_id);
-                    let field_size = field_type.size_units();
-
-                    fields.push(StructField {
-                        name: field_name.clone(),
-                        field_type,
-                        offset: current_offset,
-                    });
-
-                    current_offset += field_size;
-                }
+                // Convert semantic fields to MIR fields (name, type) pairs
+                let fields: Vec<(String, Self)> = semantic_fields
+                    .into_iter()
+                    .map(|(field_name, field_type_id)| {
+                        let field_type = Self::from_semantic_type(db, field_type_id);
+                        (field_name, field_type)
+                    })
+                    .collect();
 
                 Self::struct_type(struct_name, fields)
             }
@@ -329,6 +264,14 @@ impl std::fmt::Display for MirType {
                 write!(f, ")")
             }
             Self::Struct { name, .. } => write!(f, "{name}"),
+            Self::Array { element_type, size } => {
+                write!(
+                    f,
+                    "[{}; {}]",
+                    element_type,
+                    size.map_or("?".to_string(), |s| s.to_string())
+                )
+            }
             Self::Function {
                 params,
                 return_type,

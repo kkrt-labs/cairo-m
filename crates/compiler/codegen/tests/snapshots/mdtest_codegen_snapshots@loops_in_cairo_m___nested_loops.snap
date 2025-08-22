@@ -20,33 +20,36 @@ multiply_table:
 multiply_table_0:
    0: 9 0 0 _              // [fp + 0] = 0
    1: 9 1 1 _              // [fp + 1] = 1
+   2: 4 0 0 2              // [fp + 2] = [fp + 0] + 0
+   3: 4 1 0 3              // [fp + 3] = [fp + 1] + 0
 multiply_table_1:
-   2: 5 1 10 7             // [fp + 7] = [fp + 1] op 10
-   3: 5 1 10 7             // [fp + 7] = [fp + 1] op 10
-   4: 14 7 2 _             // if [fp + 7] != 0 jmp rel multiply_table_2
-   5: 12 11 _ _            // jump abs multiply_table_4
+   4: 5 3 10 11            // [fp + 11] = [fp + 3] op 10
+   5: 14 11 2 _            // if [fp + 11] != 0 jmp rel multiply_table_2
+   6: 12 15 _ _            // jump abs multiply_table_4
 multiply_table_2:
-   6: 9 1 2 _              // [fp + 2] = 1
-   7: 12 13 _ _            // jump abs multiply_table_5
+   7: 9 1 4 _              // [fp + 4] = 1
+   8: 4 4 0 5              // [fp + 5] = [fp + 4] + 0
+   9: 4 2 0 6              // [fp + 6] = [fp + 2] + 0
+  10: 12 17 _ _            // jump abs multiply_table_5
 multiply_table_3:
-   8: 4 1 0 9              // [fp + 9] = [fp + 1] + 0
-   9: 4 9 1 1              // [fp + 1] = [fp + 9] op 1
-  10: 12 2 _ _             // jump abs multiply_table_1
+  11: 4 3 1 7              // [fp + 7] = [fp + 3] op 1
+  12: 4 6 0 2              // [fp + 2] = [fp + 6] + 0
+  13: 4 7 0 3              // [fp + 3] = [fp + 7] + 0
+  14: 12 4 _ _             // jump abs multiply_table_1
 multiply_table_4:
-  11: 4 0 0 -3             // Return value 0: [fp -3] = [fp + 0] + 0
-  12: 11 _ _ _             // return
+  15: 4 2 0 -3             // Return value 0: [fp -3] = [fp + 2] + 0
+  16: 11 _ _ _             // return
 multiply_table_5:
-  13: 5 2 10 8             // [fp + 8] = [fp + 2] op 10
-  14: 5 2 10 8             // [fp + 8] = [fp + 2] op 10
-  15: 14 8 2 _             // if [fp + 8] != 0 jmp rel multiply_table_6
-  16: 12 23 _ _            // jump abs multiply_table_8
+  17: 5 5 10 12            // [fp + 12] = [fp + 5] op 10
+  18: 14 12 2 _            // if [fp + 12] != 0 jmp rel multiply_table_6
+  19: 12 26 _ _            // jump abs multiply_table_8
 multiply_table_6:
-  17: 2 1 2 4              // [fp + 4] = [fp + 1] op [fp + 2]
-  18: 4 0 0 9              // [fp + 9] = [fp + 0] + 0
-  19: 0 9 4 0              // [fp + 0] = [fp + 9] op [fp + 4]
+  20: 2 3 5 8              // [fp + 8] = [fp + 3] op [fp + 5]
+  21: 0 6 8 9              // [fp + 9] = [fp + 6] op [fp + 8]
 multiply_table_7:
-  20: 4 2 0 9              // [fp + 9] = [fp + 2] + 0
-  21: 4 9 1 2              // [fp + 2] = [fp + 9] op 1
-  22: 12 13 _ _            // jump abs multiply_table_5
+  22: 4 5 1 10             // [fp + 10] = [fp + 5] op 1
+  23: 4 10 0 5             // [fp + 5] = [fp + 10] + 0
+  24: 4 9 0 6              // [fp + 6] = [fp + 9] + 0
+  25: 12 17 _ _            // jump abs multiply_table_5
 multiply_table_8:
-  23: 12 8 _ _             // jump abs multiply_table_3
+  26: 12 11 _ _            // jump abs multiply_table_3

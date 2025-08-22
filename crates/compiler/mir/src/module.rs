@@ -26,19 +26,6 @@ pub struct MirModule {
     /// Mapping from function names to their IDs for lookup
     /// This enables efficient name-based function resolution
     pub function_names: FxHashMap<String, FunctionId>,
-
-    /// Optional debug information for the module
-    pub debug_info: Option<ModuleDebugInfo>,
-}
-
-/// Debug information for a module
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ModuleDebugInfo {
-    /// Original source file path
-    pub source_path: Option<String>,
-
-    /// Source file content hash for validation
-    pub source_hash: Option<u64>,
 }
 
 impl MirModule {
@@ -47,7 +34,6 @@ impl MirModule {
         Self {
             functions: IndexVec::new(),
             function_names: FxHashMap::default(),
-            debug_info: None,
         }
     }
 
@@ -77,6 +63,11 @@ impl MirModule {
     /// Returns an iterator over all functions
     pub fn functions(&self) -> impl Iterator<Item = (FunctionId, &MirFunction)> {
         self.functions.iter_enumerated()
+    }
+
+    /// Returns a mutable iterator over all functions
+    pub fn functions_mut(&mut self) -> impl Iterator<Item = &mut MirFunction> {
+        self.functions.iter_mut()
     }
 
     /// Returns the number of functions in this module

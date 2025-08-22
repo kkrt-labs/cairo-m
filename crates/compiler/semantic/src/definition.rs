@@ -154,8 +154,8 @@ pub struct LetDefRef {
     pub value_expr_id: Option<ExpressionId>,
     /// Explicit type annotation, if provided
     pub explicit_type_ast: Option<Spanned<TypeExpr>>,
-    /// Destructuring information: (RHS expression ID, index in tuple pattern)
-    pub destructuring_info: Option<(ExpressionId, usize)>,
+    /// Destructuring information: (RHS expression ID, path to element in nested tuple)
+    pub destructuring_info: Option<(ExpressionId, Vec<usize>)>,
 }
 
 impl LetDefRef {
@@ -182,7 +182,21 @@ impl LetDefRef {
             name: name.to_string(),
             value_expr_id: Some(value_expr_id),
             explicit_type_ast,
-            destructuring_info: Some((value_expr_id, index)),
+            destructuring_info: Some((value_expr_id, vec![index])),
+        }
+    }
+
+    pub fn from_nested_destructuring(
+        name: &str,
+        explicit_type_ast: Option<Spanned<TypeExpr>>,
+        value_expr_id: ExpressionId,
+        path: Vec<usize>,
+    ) -> Self {
+        Self {
+            name: name.to_string(),
+            value_expr_id: Some(value_expr_id),
+            explicit_type_ast,
+            destructuring_info: Some((value_expr_id, path)),
         }
     }
 }

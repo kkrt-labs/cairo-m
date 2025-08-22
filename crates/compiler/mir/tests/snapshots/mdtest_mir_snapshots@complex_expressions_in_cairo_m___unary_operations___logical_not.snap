@@ -1,0 +1,31 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Complex Expressions in Cairo-M - Unary Operations - Logical Not"
+input_file: mdtest/01-basics/06-expressions.md
+---
+Source:
+fn test_logical_not() -> bool {
+    let x = true;
+    let not_x = !x;           // false
+    let double_not = !!x;     // true
+    let not_zero = !false;        // true
+    return not_zero && double_not;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_logical_not {
+    entry: 0
+
+    0:
+      %0 = true (bool)
+      %1 = Not %0
+      %3 = Not %1
+      %4 = true (bool)
+      %5 = %4 && %3
+      return %5
+
+  }
+
+}

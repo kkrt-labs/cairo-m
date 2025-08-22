@@ -52,7 +52,7 @@ module {
     0:
       %2 = call 2(%0, %1)
       %3 = call 3(%1)
-      %4 = %2 Add %3
+      %4 = %2 + %3
       return %4
 
   }
@@ -65,13 +65,15 @@ module {
     0:
       if %1 then jump 2 else jump 1
 
-    1:
+    1 (block_1):
+      ; block_1
       return 1
 
-    2:
-      %3 = %1 Sub 1
+    2 (block_2):
+      ; block_2
+      %3 = %1 - 1
       %4 = call 2(%0, %3)
-      %5 = %0 Mul %4
+      %5 = %0 * %4
       return %5
 
   }
@@ -84,13 +86,15 @@ module {
     0:
       if %0 then jump 2 else jump 1
 
-    1:
+    1 (block_1):
+      ; block_1
       return 1
 
-    2:
-      %2 = %0 Sub 1
+    2 (block_2):
+      ; block_2
+      %2 = %0 - 1
       %3 = call 3(%2)
-      %4 = %0 Mul %3
+      %4 = %0 * %3
       return %4
 
   }

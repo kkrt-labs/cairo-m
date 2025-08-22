@@ -8,6 +8,9 @@ edition.workspace = true
 index_vec = "0.1.4"
 rustc-hash = "1.1.0"
 
+# Logging
+log = "0.4"
+
 # Salsa for incremental compilation
 salsa = "0.22.0"
 salsa-macros = "0.22.0"
@@ -16,6 +19,7 @@ salsa-macros = "0.22.0"
 cairo-m-compiler-parser.workspace = true
 cairo-m-compiler-semantic.workspace = true
 cairo-m-compiler-diagnostics.workspace = true
+stwo-prover.workspace = true
 
 # Chumsky types
 chumsky.workspace = true
@@ -24,3 +28,4 @@ chumsky.workspace = true
 [dev-dependencies]
 insta = { version = "1.43.1", features = ["glob"] }
 cairo-m-test-utils.workspace = true
+proptest = "1.7.0"

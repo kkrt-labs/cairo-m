@@ -27,17 +27,21 @@ module {
       %2 = %1 U32Greater 1000
       if %2 then jump 1 else jump 2
 
-    1:
+    1 (block_1):
+      ; block_1
       return %0
 
-    2:
+    2 (block_2):
+      ; block_2
       %3 = %0 U32LessEqual 1
       if %3 then jump 3 else jump 4
 
-    3:
+    3 (block_3):
+      ; block_3
       return 1
 
-    4:
+    4 (block_4):
+      ; block_4
       %4 = %0 U32Sub 1
       %5 = %1 U32Add 1
       %6 = call 0(%4, %5)

@@ -1,0 +1,47 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Structs in Cairo-M - Nested Structs"
+input_file: mdtest/03-types/02-structs.md
+---
+Source:
+struct Point {
+    x: felt,
+    y: felt,
+}
+
+struct Line {
+    start: Point,
+    end: Point,
+}
+
+fn line_length_squared() -> felt {
+    let line = Line {
+        start: Point { x: 0, y: 0 },
+        end: Point { x: 3, y: 4 }
+    };
+    let dx = line.end.x - line.start.x;
+    let dy = line.end.y - line.start.y;
+    return dx * dx + dy * dy;  // Returns 25
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn line_length_squared {
+    entry: 0
+
+    0:
+      %4 = 3
+      %6 = 0
+      %7 = %4 - %6
+      %9 = 4
+      %11 = 0
+      %12 = %9 - %11
+      %13 = %7 * %7
+      %14 = %12 * %12
+      %15 = %13 + %14
+      return %15
+
+  }
+
+}

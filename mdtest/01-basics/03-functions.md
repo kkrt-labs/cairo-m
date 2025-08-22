@@ -8,6 +8,25 @@ and return values.
 A basic function without parameters:
 
 ```cairo-m
+fn foo() {
+    return();
+}
+```
+
+If no return value is specified, the function returns `()` - the Unit type. It
+can be omitted for simplicity.
+
+```cairo-m
+fn foo() {
+    return;
+}
+```
+
+## Function with Return Values
+
+A basic function without parameters:
+
+```cairo-m
 fn simple() -> felt {
     return 42;
 }

@@ -1,0 +1,58 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Structs in Cairo-M - Struct as Function Parameter"
+input_file: mdtest/03-types/02-structs.md
+---
+Source:
+struct Vector {
+    x: felt,
+    y: felt,
+    z: felt,
+}
+
+fn test_struct_param() -> felt {
+    let a = Vector { x: 1, y: 2, z: 3 };
+    let b = Vector { x: 4, y: 5, z: 6 };
+    return dot_product(a, b);  // Returns 32
+}
+
+fn dot_product(v1: Vector, v2: Vector) -> felt {
+    return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_struct_param {
+    entry: 0
+
+    0:
+      %0 = makestruct { x: 1, y: 2, z: 3 }
+      %1 = makestruct { x: 4, y: 5, z: 6 }
+      %2 = call 1(%0, %1)
+      return %2
+
+  }
+
+  // Function 1
+  fn dot_product {
+    parameters: [0, 1]
+    entry: 0
+
+    0:
+      %2 = extractfield %0, "x"
+      %3 = extractfield %1, "x"
+      %4 = %2 * %3
+      %5 = extractfield %0, "y"
+      %6 = extractfield %1, "y"
+      %7 = %5 * %6
+      %8 = %4 + %7
+      %9 = extractfield %0, "z"
+      %10 = extractfield %1, "z"
+      %11 = %9 * %10
+      %12 = %8 + %11
+      return %12
+
+  }
+
+}

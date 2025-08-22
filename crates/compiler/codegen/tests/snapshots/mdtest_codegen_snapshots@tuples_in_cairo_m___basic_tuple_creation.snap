@@ -1,0 +1,30 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Tuples in Cairo-M - Basic Tuple Creation"
+input_file: mdtest/03-types/01-tuples.md
+---
+Source:
+fn main_test() -> felt {
+    let tuple = create_tuple();
+    return tuple.0 + tuple.1 + tuple.2;
+}
+
+fn create_tuple() -> (felt, felt, felt) {
+    return (1, 2, 3);
+}
+============================================================
+Generated CASM:
+main_test:
+main_test:
+main_test_0:
+   0: 10 8 4 _             // call create_tuple
+   1: 0 5 6 3              // [fp + 3] = [fp + 5] op [fp + 6]
+   2: 0 3 7 -3             // [fp + -3] = [fp + 3] op [fp + 7]
+   3: 11 _ _ _             // return
+create_tuple:
+create_tuple:
+create_tuple_0:
+   4: 9 1 -5 _             // [fp + -5] = 1
+   5: 9 2 -4 _             // [fp + -4] = 2
+   6: 9 3 -3 _             // [fp + -3] = 3
+   7: 11 _ _ _             // return

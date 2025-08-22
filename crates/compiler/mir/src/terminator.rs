@@ -5,6 +5,7 @@
 
 use std::collections::HashSet;
 
+use crate::value_visitor::{visit_value, visit_values};
 use crate::{BasicBlockId, BinaryOp, PrettyPrint, Value};
 
 /// A terminator ends a basic block and transfers control
@@ -141,26 +142,24 @@ impl Terminator {
             }
 
             Self::If { condition, .. } => {
-                if let Value::Operand(id) = condition {
-                    used.insert(*id);
-                }
+                visit_value(condition, |id| {
+                    used.insert(id);
+                });
             }
 
             Self::BranchCmp { left, right, .. } => {
-                if let Value::Operand(id) = left {
-                    used.insert(*id);
-                }
-                if let Value::Operand(id) = right {
-                    used.insert(*id);
-                }
+                visit_value(left, |id| {
+                    used.insert(id);
+                });
+                visit_value(right, |id| {
+                    used.insert(id);
+                });
             }
 
             Self::Return { values } => {
-                for value in values {
-                    if let Value::Operand(id) = value {
-                        used.insert(*id);
-                    }
-                }
+                visit_values(values, |id| {
+                    used.insert(id);
+                });
             }
 
             Self::Unreachable => {
@@ -169,6 +168,34 @@ impl Terminator {
         }
 
         used
+    }
+
+    /// Replace all occurrences of `from` value with `to` value in this terminator
+    pub fn replace_value_uses(&mut self, from: crate::ValueId, to: crate::ValueId) {
+        if from == to {
+            return; // No-op
+        }
+
+        use crate::value_visitor::{replace_value_id, replace_value_ids};
+
+        match self {
+            Self::Jump { .. } => {
+                // No values used - nothing to replace
+            }
+            Self::If { condition, .. } => {
+                replace_value_id(condition, from, to);
+            }
+            Self::BranchCmp { left, right, .. } => {
+                replace_value_id(left, from, to);
+                replace_value_id(right, from, to);
+            }
+            Self::Return { values } => {
+                replace_value_ids(values, from, to);
+            }
+            Self::Unreachable => {
+                // No values used - nothing to replace
+            }
+        }
     }
 
     /// Returns true if this terminator actually transfers control
@@ -283,9 +310,9 @@ impl PrettyPrint for Terminator {
                 else_target,
             } => {
                 format!(
-                    "if {} {:?} {} then jump {then_target:?} else jump {else_target:?}",
+                    "if {} {} {} then jump {then_target:?} else jump {else_target:?}",
                     left.pretty_print(0),
-                    op,
+                    op, // Use Display trait instead of Debug
                     right.pretty_print(0)
                 )
             }

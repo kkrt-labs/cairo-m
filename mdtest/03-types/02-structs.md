@@ -19,7 +19,6 @@ fn test_struct_basic() -> felt {
 ```
 
 ```cairo-m
-//! ignore: CodeGenerationFailed("Layout error: No layout found for value 3")
 struct PointU32 {
     x: u32,
     y: u32,
@@ -49,7 +48,6 @@ fn calculate_area() -> felt {
 ```
 
 ```cairo-m
-//! ignore: CodeGenerationFailed("Layout error: No layout found for value 3")
 struct RectangleU32 {
     width: u32,
     height: u32,
@@ -57,7 +55,11 @@ struct RectangleU32 {
 
 fn calculate_area_u32() -> u32 {
     let rect = RectangleU32 { width: 5, height: 10 };
-    rect.width = 7u32;
+    if rect.width == 5 {
+        rect.width = rect.width * 3;
+    } else {
+        rect.width = rect.height;
+    }
     return rect.width * rect.height;
 }
 ```
@@ -67,7 +69,6 @@ fn calculate_area_u32() -> u32 {
 Structs containing other structs:
 
 ```cairo-m
-//! ignore: CodeGenerationFailed("Layout error: No layout found for value 3")
 struct Point {
     x: felt,
     y: felt,
@@ -89,27 +90,43 @@ fn line_length_squared() -> felt {
 }
 ```
 
+## Multi-Slot Aggregate Store
+
+Testing that multi-slot structs are correctly copied:
+
+```cairo-m
+struct U32Pair {
+    first: u32,
+    second: u32,
+}
+
+fn test_multi_slot_store() -> u32 {
+    let s1 = U32Pair { first: 100u32, second: 200u32 };
+    let s2 = s1;  // This should copy all 4 slots (2 for each u32)
+
+    // Return the sum to verify both fields were copied
+    return s2.first + s2.second;  // Should return 300
+}
+```
+
 ## Struct as Function Parameter
 
 Passing structs to functions:
 
-//TODO: fix
-
 ```cairo-m
-//! ignore: true
 struct Vector {
     x: felt,
     y: felt,
     z: felt,
 }
 
-fn dot_product(v1: Vector, v2: Vector) -> felt {
-    return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
-}
-
 fn test_struct_param() -> felt {
     let a = Vector { x: 1, y: 2, z: 3 };
     let b = Vector { x: 4, y: 5, z: 6 };
     return dot_product(a, b);  // Returns 32
+}
+
+fn dot_product(v1: Vector, v2: Vector) -> felt {
+    return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
 }
 ```

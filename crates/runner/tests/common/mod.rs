@@ -120,6 +120,10 @@ pub fn run_mdtest_diff(test: &mdtest::MdTest) -> Result<(), String> {
 
     // Parse rust output true / false to 1 / 0
     let rust_output = rust_output.replace("true", "1").replace("false", "0");
+    if rust_output == "[]" {
+        assert_eq!(rust_output, cairo_output);
+        return Ok(());
+    }
 
     // The rust output is an i32 (if returning from a felt, can be a negative value) or a u32 (if returning a u32) that we want to convert to M31.
     let rust_m31 = match rust_output.parse::<i32>() {
@@ -156,7 +160,7 @@ fn find_test_function(cairo_source: &str) -> String {
 
     for line in cairo_source.lines() {
         let trimmed = line.trim();
-        if trimmed.starts_with("fn ") && trimmed.contains("->") {
+        if trimmed.starts_with("fn ") {
             if let Some(name) = trimmed
                 .strip_prefix("fn ")
                 .and_then(|s| s.split('(').next())
@@ -179,7 +183,7 @@ fn find_test_function(cairo_source: &str) -> String {
     test_main_fn
         .or(main_fn)
         .or(first_returning_fn)
-        .unwrap_or_else(|| "main".to_string())
+        .expect("No function found")
 }
 
 fn generate_random_args(params: &[AbiSlot], rng: &mut StdRng) -> Vec<M31> {
@@ -201,7 +205,7 @@ fn generate_random_args(params: &[AbiSlot], rng: &mut StdRng) -> Vec<M31> {
 
 fn format_output(values: &[M31], return_types: &[AbiSlot]) -> String {
     if values.is_empty() {
-        return "void".to_string();
+        return "[]".to_string();
     }
 
     if return_types.len() == 1 && return_types[0].slots == 1 {
@@ -228,6 +232,12 @@ fn convert_cairo_to_rust(cairo_source: &str) -> String {
     let re = Regex::new(r"\blet\s+([a-zA-Z_][a-zA-Z0-9_]*)\b").unwrap();
     result = re.replace_all(&result, "let mut $1").to_string();
 
+    // Add a #[derive(Copy, Clone)] to all structs
+    let re = Regex::new(r"\bstruct\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\{").unwrap();
+    result = re
+        .replace_all(&result, "#[derive(Copy, Clone)]\nstruct $1 {")
+        .to_string();
+
     result
 }
 
@@ -246,7 +256,11 @@ fn run_rust_differential(
 
 fn main() {{
     let result = {}({});
-    println!("{{}}", result);
+    if format!("{{:#?}}", result) != "()" {{
+        println!("{{:#?}}", result);
+    }} else {{
+        println!("[]");
+    }}
 }}
 "#,
         rust_source, entry_point, rust_args

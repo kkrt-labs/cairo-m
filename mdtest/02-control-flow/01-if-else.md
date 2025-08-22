@@ -15,10 +15,12 @@ fn test_simple_if(x: felt) -> felt {
 }
 ```
 
-```rust
-fn test_simple_if(x: i32) -> i32 {
-    if x == 15 {
-        return 1;
+Using a boolean literal in a statement simplifies the MIR CFG:
+
+```cairo-m
+fn test_simple_if(x: felt) -> felt {
+    if true {
+        return 2;
     }
     return 0;
 }

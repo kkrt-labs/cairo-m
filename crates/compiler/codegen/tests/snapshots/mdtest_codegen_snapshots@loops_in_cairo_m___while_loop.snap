@@ -20,15 +20,17 @@ count_down:
 count_down_0:
    0: 9 10 0 _             // [fp + 0] = 10
    1: 9 0 1 _              // [fp + 1] = 0
+   2: 4 1 0 2              // [fp + 2] = [fp + 1] + 0
+   3: 4 0 0 3              // [fp + 3] = [fp + 0] + 0
 count_down_1:
-   2: 14 0 2 _             // if [fp + 0] != 0 jmp rel count_down_2
-   3: 12 9 _ _             // jump abs count_down_3
+   4: 14 3 2 _             // if [fp + 3] != 0 jmp rel count_down_2
+   5: 12 11 _ _            // jump abs count_down_3
 count_down_2:
-   4: 4 0 0 4              // [fp + 4] = [fp + 0] + 0
-   5: 5 4 1 0              // [fp + 0] = [fp + 4] op 1
-   6: 4 1 0 4              // [fp + 4] = [fp + 1] + 0
-   7: 4 4 1 1              // [fp + 1] = [fp + 4] op 1
-   8: 12 2 _ _             // jump abs count_down_1
+   6: 5 3 1 4              // [fp + 4] = [fp + 3] op 1
+   7: 4 2 1 5              // [fp + 5] = [fp + 2] op 1
+   8: 4 5 0 2              // [fp + 2] = [fp + 5] + 0
+   9: 4 4 0 3              // [fp + 3] = [fp + 4] + 0
+  10: 12 4 _ _             // jump abs count_down_1
 count_down_3:
-   9: 4 1 0 -3             // Return value 0: [fp -3] = [fp + 1] + 0
-  10: 11 _ _ _             // return
+  11: 4 2 0 -3             // Return value 0: [fp -3] = [fp + 2] + 0
+  12: 11 _ _ _             // return

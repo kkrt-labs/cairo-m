@@ -4,18 +4,18 @@ description: "MIR snapshot for mdtest: Functions in Cairo-M - Simple Function"
 input_file: mdtest/01-basics/03-functions.md
 ---
 Source:
-fn simple() -> felt {
-    return 42;
+fn foo() {
+    return();
 }
 ============================================================
 Generated MIR:
 module {
   // Function 0
-  fn simple {
+  fn foo {
     entry: 0
 
     0:
-      return 42
+      return
 
   }
 

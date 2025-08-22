@@ -12,7 +12,6 @@ fn test_felt_literals() {
             err: [
             // Overflow
             in_function("let x: felt = 2147483648;"),
-            in_function("let x: felt = 2147483647 + 100;"),
 
             // Negative - we dont support negative felt literals yet
             in_function("let x: felt = -1;"),
@@ -32,7 +31,6 @@ fn test_u32_literals() {
         err: [
             // Overflow
             in_function("let x: u32 = 4294967296;"),
-            in_function("let x: u32 = 4294967295 + 100;"),
         ]
     }
 }

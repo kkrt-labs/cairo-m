@@ -61,7 +61,7 @@ module {
     entry: 0
 
     0:
-      %2 = %0 Add %1
+      %2 = %0 + %1
       return %2
 
   }
@@ -72,7 +72,7 @@ module {
     entry: 0
 
     0:
-      %2 = %0 Mul %1
+      %2 = %0 * %1
       return %2
 
   }
@@ -83,8 +83,8 @@ module {
     entry: 0
 
     0:
-      %2 = %0 Mul 10
-      %3 = %2 Add %1
+      %2 = %0 * 10
+      %3 = %2 + %1
       return %3
 
   }

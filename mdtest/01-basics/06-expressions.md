@@ -9,7 +9,7 @@ Basic binary operations between operands:
 
 ```cairo-m
 fn test_binary_ops() -> felt {
-    let a = 15;
+    let a = 14;
     let b = 7;
 
     let add_result = a + b;        // 22
@@ -17,13 +17,13 @@ fn test_binary_ops() -> felt {
     let mul_result = a * b;        // 105
     let div_result = a / b;        // Field division
 
-    return add_result + sub_result + mul_result;
+    return add_result + sub_result + mul_result + div_result;
 }
 ```
 
 ```rust
 fn test_binary_ops() -> i32 {
-    let a = 15;
+    let a = 14;
     let b = 7;
 
     let add_result = a + b;        // 22
@@ -31,7 +31,7 @@ fn test_binary_ops() -> i32 {
     let mul_result = a * b;        // 105
     let div_result = a / b;        // Integer division
 
-    return add_result + sub_result + mul_result;
+    return add_result + sub_result + mul_result + div_result;
 }
 ```
 
@@ -79,23 +79,27 @@ fn test_precedence() -> i32 {
 
 ## Unary Operations
 
-Unary negation and logical not:
+### Negation
 
 ```cairo-m
 fn test_unary_ops() -> felt {
     let x = 10;
     let neg_x = -x;           // -10 in field arithmetic
     let double_neg = --x;     // 10 (double negation)
-    return double_neg;
+    let neg_lit = -10;
+    return double_neg + neg_lit;
 }
 ```
 
-```rust
-fn test_unary_ops() -> i32 {
-    let x = 10;
-    let neg_x = -x;           // -10
-    let double_neg = -(-x);   // 10 (double negation)
-    return double_neg;
+### Logical Not
+
+```cairo-m
+fn test_logical_not() -> bool {
+    let x = true;
+    let not_x = !x;           // false
+    let double_not = !!x;     // true
+    let not_zero = !false;        // true
+    return not_zero && double_not;
 }
 ```
 

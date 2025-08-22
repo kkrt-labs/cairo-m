@@ -22,8 +22,10 @@ module {
     entry: 0
 
     0:
-      %8 = 7 Mul 10
-      return %8
+      %2 = 7
+      %3 = 10
+      %4 = %2 * %3
+      return %4
 
   }
 

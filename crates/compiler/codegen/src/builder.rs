@@ -5,11 +5,25 @@
 
 use cairo_m_common::instruction::*;
 use cairo_m_compiler_mir::instruction::CalleeSignature;
-use cairo_m_compiler_mir::{BinaryOp, Literal, MirType, Value, ValueId};
+use cairo_m_compiler_mir::{BinaryOp, DataLayout, Literal, MirType, Value, ValueId};
 use cairo_m_compiler_parser::parser::UnaryOp;
 use stwo_prover::core::fields::m31::M31;
 
+use crate::layout::ValueLayout;
 use crate::{CodegenError, CodegenResult, FunctionLayout, InstructionBuilder, Label, Operand};
+
+/// Helper to split a u32 value into low and high 16-bit parts
+#[inline]
+const fn split_u32_value(value: u32) -> (i32, i32) {
+    ((value & 0xFFFF) as i32, ((value >> 16) & 0xFFFF) as i32)
+}
+
+/// Helper to split an i32 value (interpreted as u32) into low and high 16-bit parts
+#[inline]
+const fn split_u32_i32(value: i32) -> (i32, i32) {
+    let u = value as u32;
+    ((u & 0xFFFF) as i32, ((u >> 16) & 0xFFFF) as i32)
+}
 
 /// Builder for generating CASM instructions
 ///
@@ -84,9 +98,9 @@ impl CasmBuilder {
     }
 
     /// Helper to emit a store immediate instruction and track the write
-    fn store_immediate(&mut self, value: i32, offset: i32, comment: String) {
+    fn store_immediate(&mut self, value: u32, offset: i32, comment: String) {
         let instr = InstructionBuilder::new(STORE_IMM)
-            .with_operand(Operand::Literal(value))
+            .with_operand(Operand::Literal(value as i32))
             .with_operand(Operand::Literal(offset))
             .with_comment(comment);
         self.instructions.push(instr);
@@ -96,8 +110,7 @@ impl CasmBuilder {
     /// Helper to emit a u32 store immediate instruction and track the write
     fn store_u32_immediate(&mut self, value: u32, offset: i32, comment: String) {
         // Split the u32 value into low and high 16-bit parts
-        let lo = (value & 0xFFFF) as i32;
-        let hi = ((value >> 16) & 0xFFFF) as i32;
+        let (lo, hi) = split_u32_value(value);
 
         let instr = InstructionBuilder::new(U32_STORE_IMM)
             .with_operand(Operand::Literal(lo))
@@ -111,7 +124,7 @@ impl CasmBuilder {
     /// Store immediate value at a specific offset (public version)
     pub fn store_immediate_at(
         &mut self,
-        value: i32,
+        value: u32,
         offset: i32,
         comment: String,
     ) -> CodegenResult<()> {
@@ -131,6 +144,9 @@ impl CasmBuilder {
     }
 
     /// Store a value at a specific offset
+    ///
+    /// The dest_id is used to map the destination in the layout, but the size
+    /// is determined by the value being stored, not the destination.
     pub fn store_at(&mut self, dest_id: ValueId, offset: i32, value: Value) -> CodegenResult<()> {
         // Map the destination to the specific offset
         self.layout.map_value(dest_id, offset);
@@ -141,13 +157,24 @@ impl CasmBuilder {
             }
             Value::Operand(src_id) => {
                 let src_off = self.layout.get_offset(src_id)?;
-                let instr = InstructionBuilder::new(STORE_ADD_FP_IMM)
-                    .with_operand(Operand::Literal(src_off))
-                    .with_operand(Operand::Literal(0))
-                    .with_operand(Operand::Literal(offset))
-                    .with_comment(format!("[fp + {}] = [fp + {}] + 0", offset, src_off));
-                self.instructions.push(instr);
-                self.touch(offset, 1);
+                // Get the size of the value being stored
+                let size = self.layout.get_value_size(src_id);
+
+                // For multi-slot values, copy each slot
+                for i in 0..size {
+                    let slot_src_off = src_off + i as i32;
+                    let slot_dest_off = offset + i as i32;
+                    let instr = InstructionBuilder::new(STORE_ADD_FP_IMM)
+                        .with_operand(Operand::Literal(slot_src_off))
+                        .with_operand(Operand::Literal(0))
+                        .with_operand(Operand::Literal(slot_dest_off))
+                        .with_comment(format!(
+                            "[fp + {}] = [fp + {}] + 0",
+                            slot_dest_off, slot_src_off
+                        ));
+                    self.instructions.push(instr);
+                }
+                self.touch(offset, size);
             }
             _ => {
                 return Err(CodegenError::UnsupportedInstruction(format!(
@@ -182,10 +209,17 @@ impl CasmBuilder {
                 let instr = InstructionBuilder::new(U32_STORE_ADD_FP_IMM)
                     .with_operand(Operand::Literal(src_off))
                     .with_operand(Operand::Literal(0))
+                    .with_operand(Operand::Literal(0))
                     .with_operand(Operand::Literal(offset))
-                    .with_comment(format!("[fp + {}] = [fp + {}] + 0", offset, src_off));
+                    .with_comment(format!(
+                        "u32([fp + {}], [fp + {}]) = u32([fp + {}], [fp + {}]) + u32(0, 0)",
+                        offset,
+                        offset + 1,
+                        src_off,
+                        src_off + 1
+                    ));
                 self.instructions.push(instr);
-                self.touch(offset, 1);
+                self.touch(offset, 2);
             }
             _ => {
                 return Err(CodegenError::UnsupportedInstruction(format!(
@@ -232,7 +266,7 @@ impl CasmBuilder {
             }
             Value::Literal(Literal::Boolean(b)) => {
                 // Store immediate value
-                self.store_immediate(b as i32, dest_off, format!("[fp + {dest_off}] = {b}"));
+                self.store_immediate(b as u32, dest_off, format!("[fp + {dest_off}] = {b}"));
                 self.touch(dest_off, 1);
             }
 
@@ -268,6 +302,132 @@ impl CasmBuilder {
         self.assign_with_target(dest, source, None)
     }
 
+    /// Generate type-aware assignment instruction
+    ///
+    /// Handles assignments for all types including aggregates (structs, tuples)
+    pub fn assign_typed(
+        &mut self,
+        dest: ValueId,
+        source: Value,
+        ty: &MirType,
+        target_offset: Option<i32>,
+    ) -> CodegenResult<()> {
+        use cairo_m_compiler_mir::layout::DataLayout;
+
+        // DataLayout methods are now static - no instance needed
+        let size = DataLayout::size_of(ty);
+
+        // Determine destination offset
+        let dest_off = if let Some(offset) = target_offset {
+            // Use the provided target offset and map the ValueId to it
+            self.layout.map_value(dest, offset);
+            offset
+        } else {
+            // Get the pre-allocated offset from the layout, or allocate on demand
+            match self.layout.get_offset(dest) {
+                Ok(offset) => offset,
+                Err(_) => {
+                    // Value wasn't pre-allocated, allocate it now
+                    self.layout.allocate_local(dest, size)?
+                }
+            }
+        };
+
+        match source {
+            Value::Literal(Literal::Integer(imm)) => {
+                // Handle immediate values based on size
+                if size == 1 {
+                    // Single slot value (felt, bool, pointer)
+                    self.store_immediate(imm, dest_off, format!("[fp + {dest_off}] = {imm}"));
+                } else if size == 2 && matches!(ty, MirType::U32) {
+                    // U32 value
+                    let value = imm;
+                    self.store_u32_immediate(
+                        value,
+                        dest_off,
+                        format!(
+                            "u32([fp + {dest_off}], [fp + {}]) = u32({value})",
+                            dest_off + 1
+                        ),
+                    );
+                } else {
+                    return Err(CodegenError::UnsupportedInstruction(format!(
+                        "Cannot assign immediate to aggregate type of size {}",
+                        size
+                    )));
+                }
+            }
+
+            Value::Literal(Literal::Boolean(b)) => {
+                if size != 1 {
+                    return Err(CodegenError::UnsupportedInstruction(
+                        "Boolean literal must be single-slot".to_string(),
+                    ));
+                }
+                self.store_immediate(b as u32, dest_off, format!("[fp + {dest_off}] = {b}"));
+            }
+
+            Value::Operand(src_id) => {
+                // Copy from another value
+                let src_off = self.layout.get_offset(src_id)?;
+
+                if size == 1 {
+                    // Single slot copy
+                    let instr = InstructionBuilder::new(STORE_ADD_FP_IMM)
+                        .with_operand(Operand::Literal(src_off))
+                        .with_operand(Operand::Literal(0))
+                        .with_operand(Operand::Literal(dest_off))
+                        .with_comment(format!("[fp + {dest_off}] = [fp + {src_off}] + 0"));
+                    self.instructions.push(instr);
+                    self.touch(dest_off, 1);
+                } else if size == 2 && matches!(ty, MirType::U32) {
+                    // U32 copy using dedicated instruction
+                    let instr = InstructionBuilder::new(U32_STORE_ADD_FP_IMM)
+                        .with_operand(Operand::Literal(src_off))
+                        .with_operand(Operand::Literal(0))  // imm_lo
+                        .with_operand(Operand::Literal(0))  // imm_hi
+                        .with_operand(Operand::Literal(dest_off))
+                        .with_comment(format!(
+                            "u32([fp + {dest_off}], [fp + {}]) = u32([fp + {src_off}], [fp + {}]) + u32(0, 0)",
+                            dest_off + 1, src_off + 1
+                        ));
+                    self.instructions.push(instr);
+                    self.touch(dest_off, 2);
+                } else {
+                    // Multi-slot copy for aggregates (structs, tuples, etc.)
+                    // Copy each slot individually
+                    for i in 0..size {
+                        let slot_src = src_off + i as i32;
+                        let slot_dst = dest_off + i as i32;
+
+                        let instr = InstructionBuilder::new(STORE_ADD_FP_IMM)
+                            .with_operand(Operand::Literal(slot_src))
+                            .with_operand(Operand::Literal(0))
+                            .with_operand(Operand::Literal(slot_dst))
+                            .with_comment(format!(
+                                "[fp + {}] = [fp + {}] + 0 (slot {} of {})",
+                                slot_dst,
+                                slot_src,
+                                i + 1,
+                                size
+                            ));
+                        self.instructions.push(instr);
+                    }
+                    self.touch(dest_off, size);
+                }
+            }
+
+            _ => {
+                return Err(CodegenError::UnsupportedInstruction(format!(
+                    "Unsupported assignment source: {:?}",
+                    source
+                )));
+            }
+        }
+
+        Ok(())
+    }
+
     /// Generate u32 assignment instruction with optional target offset
     ///
     /// If target_offset is provided, writes directly to that location.
@@ -283,8 +443,15 @@ impl CasmBuilder {
             self.layout.map_value(dest, offset);
             offset
         } else {
-            // Get the pre-allocated offset from the layout
-            self.layout.get_offset(dest)?
+            // Get the pre-allocated offset from the layout, or allocate on demand
+            match self.layout.get_offset(dest) {
+                Ok(offset) => offset,
+                Err(_) => {
+                    // Value wasn't pre-allocated (likely an immediate assignment from SSA form)
+                    // Allocate it now (U32 needs 2 slots)
+                    self.layout.allocate_local(dest, 2)?
+                }
+            }
         };
 
         match source {
@@ -527,7 +694,7 @@ impl CasmBuilder {
 
                 let instr = InstructionBuilder::new(self.fp_imm_opcode_for_binary_op(op)?)
                     .with_operand(Operand::Literal(left_off))
-                    .with_operand(Operand::Literal(*imm))
+                    .with_operand(Operand::Literal(*imm as i32))
                     .with_operand(Operand::Literal(dest_off))
                     .with_comment(format!("[fp + {dest_off}] = [fp + {left_off}] op {imm}"));
 
@@ -543,7 +710,7 @@ impl CasmBuilder {
                         let right_off = self.layout.get_offset(*right_id)?;
                         let instr = InstructionBuilder::new(self.fp_imm_opcode_for_binary_op(op)?)
                             .with_operand(Operand::Literal(right_off))
-                            .with_operand(Operand::Literal(*imm))
+                            .with_operand(Operand::Literal(*imm as i32))
                             .with_operand(Operand::Literal(dest_off))
                             .with_comment(format!(
                                 "[fp + {dest_off}] = [fp + {right_off}] op {imm}"
@@ -585,7 +752,14 @@ impl CasmBuilder {
                     BinaryOp::Add => (M31::from(*imm) + M31::from(*imm2)).0,
                     BinaryOp::Sub => (M31::from(*imm) - M31::from(*imm2)).0,
                     BinaryOp::Mul => (M31::from(*imm) * M31::from(*imm2)).0,
-                    BinaryOp::Div => (M31::from(*imm) / M31::from(*imm2)).0,
+                    BinaryOp::Div => {
+                        if *imm2 == 0 {
+                            return Err(CodegenError::InvalidMir(
+                                "Division by zero in felt constant folding".to_string(),
+                            ));
+                        }
+                        (M31::from(*imm) / M31::from(*imm2)).0
+                    }
                     _ => {
                         return Err(CodegenError::UnsupportedInstruction(
                             "Unsupported operation".to_string(),
@@ -593,17 +767,13 @@ impl CasmBuilder {
                     }
                 };
 
-                self.store_immediate(
-                    result as i32,
-                    dest_off,
-                    format!("[fp + {dest_off}] = {result}"),
-                );
+                self.store_immediate(result, dest_off, format!("[fp + {dest_off}] = {result}"));
             }
 
             _ => {
-                return Err(CodegenError::UnsupportedInstruction(
-                    "Unsupported operation".to_string(),
-                ));
+                return Err(CodegenError::UnsupportedInstruction(format!(
+                    "Unsupported operation: {left:?} {op:?} {right:?}"
+                )));
             }
         }
 
@@ -850,7 +1020,11 @@ impl CasmBuilder {
             }
             Value::Literal(Literal::Boolean(imm)) => {
                 // For immediate values, we can directly compute the NOT result
-                self.store_immediate(imm as i32, dest_off, format!("[fp + {dest_off}] = {imm}"));
+                self.store_immediate(
+                    !imm as u32,
+                    dest_off,
+                    format!("[fp + {dest_off}] = {}", !imm),
+                );
                 return Ok(());
             }
             _ => {
@@ -888,7 +1062,7 @@ impl CasmBuilder {
         left: Value,
         right: Value,
     ) -> CodegenResult<()> {
-        // Determine if this is a comparison operation (returns felt) or arithmetic (returns u32)
+        // Determine if this is a comparison operation (returns bool / felt) or arithmetic (returns u32)
         let is_comparison = matches!(
             op,
             BinaryOp::U32Eq
@@ -907,13 +1081,13 @@ impl CasmBuilder {
 
                 let comment = if is_comparison {
                     format!(
-                        "[fp + {dest_off}] = u32([fp + {left_off}], [fp + {}]) op u32([fp + {right_off}], [fp + {}])",
+                        "[fp + {dest_off}] = u32([fp + {left_off}], [fp + {}]) {op} u32([fp + {right_off}], [fp + {}])",
                         left_off + 1,
                         right_off + 1
                     )
                 } else {
                     format!(
-                        "u32([fp + {dest_off}], [fp + {}]) = u32([fp + {left_off}], [fp + {}]) op u32([fp + {right_off}], [fp + {}])",
+                        "u32([fp + {dest_off}], [fp + {}]) = u32([fp + {left_off}], [fp + {}]) {op} u32([fp + {right_off}], [fp + {}])",
                         dest_off + 1,
                         left_off + 1,
                         right_off + 1
@@ -934,8 +1108,20 @@ impl CasmBuilder {
             (Value::Operand(left_id), Value::Literal(Literal::Integer(imm))) => {
                 let left_off = self.layout.get_offset(*left_id)?;
 
-                let imm_16b_low = *imm & 0xFFFF;
-                let imm_16b_high = *imm >> 16;
+                let (imm_16b_low, imm_16b_high) = split_u32_i32(*imm as i32);
+
+                let comment = if is_comparison {
+                    format!(
+                        "[fp + {dest_off}] = u32([fp + {left_off}], [fp + {}]) {op} u32({imm_16b_low}, {imm_16b_high})",
+                        left_off + 1
+                    )
+                } else {
+                    format!(
+                        "u32([fp + {dest_off}], [fp + {}]) = u32([fp + {left_off}], [fp + {}]) {op} u32({imm_16b_low}, {imm_16b_high})",
+                        dest_off + 1,
+                        left_off + 1
+                    )
+                };
 
                 // Use immediate versions
                 let instr = InstructionBuilder::new(self.fp_imm_opcode_for_u32_op(op)?)
@@ -943,19 +1129,14 @@ impl CasmBuilder {
                     .with_operand(Operand::Literal(imm_16b_low))
                     .with_operand(Operand::Literal(imm_16b_high))
                     .with_operand(Operand::Literal(dest_off))
-                    .with_comment(format!(
-                        "u32([fp + {dest_off}], [fp + {}]) = u32([fp + {left_off}], [fp + {}]) op u32({imm_16b_low}, {imm_16b_high})",
-                        dest_off + 1,
-                        left_off + 1
-                    ));
+                    .with_comment(comment);
                 self.instructions.push(instr);
                 self.touch(dest_off, result_size);
             }
 
             // Left is immediate, right is value: use fp_imm variant
             (Value::Literal(Literal::Integer(imm)), Value::Operand(right_id)) => {
-                let imm_16b_low = *imm & 0xFFFF;
-                let imm_16b_high = *imm >> 16;
+                let (imm_16b_low, imm_16b_high) = split_u32_i32(*imm as i32);
 
                 match op {
                     // For addition and multiplication, we can swap the operands
@@ -1037,14 +1218,106 @@ impl CasmBuilder {
                 }
             }
 
-            // TODO: We should have constant folding already. This should be an unreachable case.
             // Both operands are immediate: fold constants
-            // This is a workaround for the fact that we don't have a constant folding pass yet.
             (Value::Literal(Literal::Integer(imm)), Value::Literal(Literal::Integer(imm2))) => {
-                panic!(
-                    "Constant folding not properly made while folding {:?} {:?} {:?}",
-                    imm, op, imm2
-                );
+                // Perform constant folding for U32 operations
+                let left_u32 = { *imm };
+                let right_u32 = { *imm2 };
+
+                match op {
+                    // Arithmetic operations - result is U32
+                    BinaryOp::U32Add => {
+                        let result = left_u32.wrapping_add(right_u32);
+                        self.store_u32_immediate(
+                            result,
+                            dest_off,
+                            format!("u32([fp + {dest_off}], [fp + {}]) = u32({result}) // {left_u32} + {right_u32}", dest_off + 1),
+                        );
+                    }
+                    BinaryOp::U32Sub => {
+                        let result = left_u32.wrapping_sub(right_u32);
+                        self.store_u32_immediate(
+                            result,
+                            dest_off,
+                            format!("u32([fp + {dest_off}], [fp + {}]) = u32({result}) // {left_u32} - {right_u32}", dest_off + 1),
+                        );
+                    }
+                    BinaryOp::U32Mul => {
+                        let result = left_u32.wrapping_mul(right_u32);
+                        self.store_u32_immediate(
+                            result,
+                            dest_off,
+                            format!("u32([fp + {dest_off}], [fp + {}]) = u32({result}) // {left_u32} * {right_u32}", dest_off + 1),
+                        );
+                    }
+                    BinaryOp::U32Div => {
+                        if right_u32 == 0 {
+                            return Err(CodegenError::InvalidMir(
+                                "Division by zero in U32 constant folding".to_string(),
+                            ));
+                        }
+                        let result = left_u32 / right_u32;
+                        self.store_u32_immediate(
+                            result,
+                            dest_off,
+                            format!("u32([fp + {dest_off}], [fp + {}]) = u32({result}) // {left_u32} / {right_u32}", dest_off + 1),
+                        );
+                    }
+                    // Comparison operations - result is felt (1 slot, 1 for true, 0 for false)
+                    BinaryOp::U32Eq => {
+                        let result = if left_u32 == right_u32 { 1 } else { 0 };
+                        self.store_immediate(
+                            result,
+                            dest_off,
+                            format!("[fp + {dest_off}] = {result} // u32({left_u32}) == u32({right_u32})"),
+                        );
+                    }
+                    BinaryOp::U32Neq => {
+                        let result = if left_u32 != right_u32 { 1 } else { 0 };
+                        self.store_immediate(
+                            result,
+                            dest_off,
+                            format!("[fp + {dest_off}] = {result} // u32({left_u32}) != u32({right_u32})"),
+                        );
+                    }
+                    BinaryOp::U32Greater => {
+                        let result = if left_u32 > right_u32 { 1 } else { 0 };
+                        self.store_immediate(
+                            result,
+                            dest_off,
+                            format!("[fp + {dest_off}] = {result} // u32({left_u32}) > u32({right_u32})"),
+                        );
+                    }
+                    BinaryOp::U32GreaterEqual => {
+                        let result = if left_u32 >= right_u32 { 1 } else { 0 };
+                        self.store_immediate(
+                            result,
+                            dest_off,
+                            format!("[fp + {dest_off}] = {result} // u32({left_u32}) >= u32({right_u32})"),
+                        );
+                    }
+                    BinaryOp::U32Less => {
+                        let result = if left_u32 < right_u32 { 1 } else { 0 };
+                        self.store_immediate(
+                            result,
+                            dest_off,
+                            format!("[fp + {dest_off}] = {result} // u32({left_u32}) < u32({right_u32})"),
+                        );
+                    }
+                    BinaryOp::U32LessEqual => {
+                        let result = if left_u32 <= right_u32 { 1 } else { 0 };
+                        self.store_immediate(
+                            result,
+                            dest_off,
+                            format!("[fp + {dest_off}] = {result} // u32({left_u32}) <= u32({right_u32})"),
+                        );
+                    }
+                    _ => {
+                        return Err(CodegenError::UnsupportedInstruction(format!(
+                            "Unsupported U32 operation for constant folding: {op:?}"
+                        )));
+                    }
+                }
             }
 
             _ => {
@@ -1068,13 +1341,9 @@ impl CasmBuilder {
         // Step 1: Pass arguments by storing them in the communication area.
         let args_offset = self.pass_arguments(callee_name, args, signature)?;
         // M is the total number of slots occupied by arguments
-        let m: usize = signature.param_types.iter().map(|ty| ty.size_units()).sum();
+        let m: usize = signature.param_types.iter().map(DataLayout::size_of).sum();
         // K is the total number of slots occupied by return values (U32 takes 2 slots)
-        let k: usize = signature
-            .return_types
-            .iter()
-            .map(|ty| ty.size_units())
-            .sum();
+        let k: usize = signature.return_types.iter().map(DataLayout::size_of).sum();
 
         // Step 2: Reserve space for return values and map the destination `ValueId`.
         // The first return value will be placed at `[fp_c + args_offset + M]`.
@@ -1114,13 +1383,9 @@ impl CasmBuilder {
         // Step 1: Pass arguments by storing them in the communication area.
         let args_offset = self.pass_arguments(callee_name, args, signature)?;
         // M is the total number of slots occupied by arguments
-        let m: usize = signature.param_types.iter().map(|ty| ty.size_units()).sum();
+        let m: usize = signature.param_types.iter().map(DataLayout::size_of).sum();
         // K is the total number of slots occupied by return values (U32 takes 2 slots)
-        let k: usize = signature
-            .return_types
-            .iter()
-            .map(|ty| ty.size_units())
-            .sum();
+        let k: usize = signature.return_types.iter().map(DataLayout::size_of).sum();
 
         // Step 2: Reserve space for return values and map each destination ValueId.
         // Return values are placed after the arguments, accounting for multi-slot types
@@ -1129,7 +1394,7 @@ impl CasmBuilder {
             self.layout.map_value(*dest, current_offset);
             // Move offset by the size of this return type
             if i < signature.return_types.len() {
-                current_offset += signature.return_types[i].size_units() as i32;
+                current_offset += DataLayout::size_of(&signature.return_types[i]) as i32;
             }
         }
         self.layout.reserve_stack(k);
@@ -1166,7 +1431,7 @@ impl CasmBuilder {
 
         let args_offset = self.pass_arguments(callee_name, args, signature)?;
         // M is the total number of slots occupied by arguments
-        let m: usize = signature.param_types.iter().map(|ty| ty.size_units()).sum();
+        let m: usize = signature.param_types.iter().map(DataLayout::size_of).sum();
         let k = 0; // Void calls have no returns
 
         self.layout.reserve_stack(k);
@@ -1245,7 +1510,7 @@ impl CasmBuilder {
 
         for param_type in &signature.param_types {
             arg_offsets.push(current_offset);
-            current_offset += param_type.size_units() as i32;
+            current_offset += DataLayout::size_of(param_type) as i32;
         }
 
         // Check for mismatch in argument count
@@ -1271,7 +1536,7 @@ impl CasmBuilder {
                         let mut all_args_contiguous = true;
 
                         for (arg, param_type) in args.iter().zip(&signature.param_types) {
-                            let size = param_type.size_units();
+                            let size = DataLayout::size_of(param_type);
 
                             if let Value::Operand(arg_id) = arg {
                                 if !self.layout.is_contiguous(*arg_id, expected_offset, size) {
@@ -1286,7 +1551,7 @@ impl CasmBuilder {
                             // With pre-allocated layouts, we can only apply the optimization
                             // if the arguments are at the top of the current frame
                             let total_arg_size: usize =
-                                signature.param_types.iter().map(|ty| ty.size_units()).sum();
+                                signature.param_types.iter().map(DataLayout::size_of).sum();
                             let args_end = first_offset + total_arg_size as i32;
 
                             // Check both conditions:
@@ -1309,7 +1574,7 @@ impl CasmBuilder {
         // Standard path: copy arguments to their positions
         for (i, (arg, param_type)) in args.iter().zip(&signature.param_types).enumerate() {
             let arg_offset = arg_offsets[i];
-            let arg_size = param_type.size_units();
+            let arg_size = DataLayout::size_of(param_type);
 
             match arg {
                 Value::Literal(Literal::Integer(imm)) => {
@@ -1475,55 +1740,39 @@ impl CasmBuilder {
 
     /// Generate a load instruction
     ///
-    /// Translates `dest = *address` to `[fp + dest_off] = [[fp + addr_off]]`.
-    /// This uses the `store_double_deref_fp` opcode.
-    /// TODO: check with VM opcode if this is the expected, desired behavior.
-    /// Load a value from memory to a register.
+    /// Translates `dest = *address` to a **stack-to-stack copy** from the source slots
+    /// starting at `addr_off` into the destination slots starting at `dest_off`.
+    /// In the flattened pointer model, `address` is a compile-time-known fp-relative slot,
+    /// so a load is implemented as one or more `STORE_ADD_FP_IMM` copies.
     ///
-    /// **IMPORTANT: Flattened Pointer Model**
-    ///
-    /// This is NOT a traditional memory load! We use a "flattened pointer model" where
-    /// all pointers are compile-time known offsets from the frame pointer (fp). The
-    /// `address` parameter is not a runtime memory address - it's a ValueId that
-    /// represents a compile-time-known stack slot.
-    ///
-    /// What this means:
-    /// - `stackalloc` creates a stack slot and returns its ValueId (not a pointer)
-    /// - `getelementptr` calculates a new offset at compile time, returning a new ValueId
-    /// - `load` copies data from one stack slot to another (mov [fp+dest], [fp+src])
-    /// - `store` copies data to a stack slot
-    ///
-    /// This model works perfectly for stack-allocated aggregates (structs, arrays) where
-    /// all memory locations are known at compile time. However, it will need significant
-    /// changes to support:
-    /// - Heap allocation (where addresses are runtime values)
-    /// - Function pointers (where addresses must be computed at runtime)
-    /// - Indirect memory access through runtime-computed pointers
-    ///
-    /// The current implementation generates:
-    /// ```ignore
-    /// [fp + dest_offset] = [fp + src_offset] + 0
-    /// ```
-    /// Which is just a stack-to-stack copy, not a memory dereference.
+    /// For multi-slot aggregates (e.g., structs/arrays), this copies **all slots**
+    /// corresponding to the destination's size in the current function layout.
     pub fn load(&mut self, dest: ValueId, address: Value) -> CodegenResult<()> {
         match address {
             Value::Operand(addr_id) => {
                 // The address operand represents a compile-time-known stack slot
-                // In our layout, this was calculated by getelementptr or stackalloc
+                // computed via stackalloc/getelementptr.
                 let src_offset = self.layout.get_offset(addr_id)?;
                 let dest_offset = self.layout.get_offset(dest)?;
+                let size = self.layout.get_value_size(dest).max(1);
 
-                // Generate a copy instruction from source to destination
-                let instr = InstructionBuilder::new(STORE_ADD_FP_IMM)
-                    .with_operand(Operand::Literal(src_offset))
-                    .with_operand(Operand::Literal(0))
-                    .with_operand(Operand::Literal(dest_offset))
-                    .with_comment(format!(
-                        "Load: [fp + {dest_offset}] = [fp + {src_offset}] + 0"
-                    ));
-                self.instructions.push(instr);
-                self.touch(dest_offset, 1);
+                // Copy each slot (handles both single-slot and multi-slot aggregates)
+                for i in 0..size {
+                    let slot_src_off = src_offset + i as i32;
+                    let slot_dest_off = dest_offset + i as i32;
 
+                    let instr = InstructionBuilder::new(STORE_ADD_FP_IMM)
+                        .with_operand(Operand::Literal(slot_src_off))
+                        .with_operand(Operand::Literal(0))
+                        .with_operand(Operand::Literal(slot_dest_off))
+                        .with_comment(format!(
+                            "Load: [fp + {slot_dest_off}] = [fp + {slot_src_off}] + 0"
+                        ));
+                    self.instructions.push(instr);
+                }
+
+                // Track writes for the whole aggregate
+                self.touch(dest_offset, size);
                 Ok(())
             }
             _ => Err(CodegenError::UnsupportedInstruction(format!(
@@ -1572,7 +1821,7 @@ impl CasmBuilder {
     ///
     /// This works because all struct layouts and array indices are known at compile time.
     /// For dynamic indexing or heap pointers, this model would need to be completely redesigned.
-    pub fn get_element_ptr(
+    pub const fn get_element_ptr(
         &mut self,
         _dest: ValueId,
         _base: Value,
@@ -1624,11 +1873,11 @@ impl CasmBuilder {
     ///
     /// This allocates the requested number of slots for the destination. This is a no-op, it just increases
     /// the current frame usage.
-    pub fn allocate_stack(&mut self, dest: ValueId, size: usize) -> CodegenResult<()> {
+    pub fn allocate_frame_slots(&mut self, dest: ValueId, size: usize) -> CodegenResult<()> {
         // Allocate the requested size
         let _dest_off = self.layout.allocate_local(dest, size)?;
 
-        // StackAlloc doesn't generate actual instructions, it just reserves space
+        // FrameAlloc doesn't generate actual instructions, it just reserves space
         // The allocation is tracked in the layout for later use
         Ok(())
     }
@@ -1682,7 +1931,7 @@ impl CasmBuilder {
                     Value::Literal(inner) => {
                         let imm = match inner {
                             Literal::Integer(imm) => imm,
-                            Literal::Boolean(imm) => imm as i32,
+                            Literal::Boolean(imm) => imm as u32,
                             _ => {
                                 return Err(CodegenError::UnsupportedInstruction(format!(
                                     "Unsupported store value type: {:?}",
@@ -1700,17 +1949,24 @@ impl CasmBuilder {
 
                     Value::Operand(val_id) => {
                         let val_offset = self.layout.get_offset(val_id)?;
+                        // Get the size of the value being stored
+                        let size = self.layout.get_value_size(val_id);
 
-                        let instr = InstructionBuilder::new(STORE_ADD_FP_IMM) // StoreAddFpImm
-                            .with_operand(Operand::Literal(val_offset))
-                            .with_operand(Operand::Literal(0))
-                            .with_operand(Operand::Literal(dest_offset))
-                            .with_comment(format!(
-                                "Store: [fp + {dest_offset}] = [fp + {val_offset}] + 0"
-                            ));
+                        // For multi-slot values, copy each slot
+                        for i in 0..size {
+                            let slot_src_off = val_offset + i as i32;
+                            let slot_dest_off = dest_offset + i as i32;
+                            let instr = InstructionBuilder::new(STORE_ADD_FP_IMM) // StoreAddFpImm
+                                .with_operand(Operand::Literal(slot_src_off))
+                                .with_operand(Operand::Literal(0))
+                                .with_operand(Operand::Literal(slot_dest_off))
+                                .with_comment(format!(
+                                    "Store: [fp + {slot_dest_off}] = [fp + {slot_src_off}] + 0"
+                                ));
 
-                        self.instructions.push(instr);
-                        self.touch(dest_offset, 1);
+                            self.instructions.push(instr);
+                        }
+                        self.touch(dest_offset, size);
                     }
 
                     _ => {
@@ -1782,44 +2038,73 @@ impl CasmBuilder {
     /// This is required by the prover, which does not currently support memory operations on the same memory location in a single instruction.
     /// This fix was designed to be as non-invasive as possible to be reverted easily in case of design changes in the prover.
     pub fn resolve_duplicate_offsets(&mut self) -> CodegenResult<()> {
-        // Reserve space for temporary variables
-        // We need at least 4 slots for U32 operations (2 slots per U32 value)
-        let temp_var_offset = self.layout.reserve_stack(2);
-        let temp_var_offset2 = self.layout.reserve_stack(2);
-
         let mut new_instructions = Vec::new();
         // Track how instruction indices change: original_index -> new_index_range
         let mut index_mapping: Vec<Option<std::ops::Range<usize>>> = Vec::new();
+
+        // Reserve space for temporary variables only when needed
+        // Keep separate temps for felt (1-slot) and U32 (2-slot) operations to avoid size conflicts
+        let mut felt_temp1: Option<i32> = None;
+        let mut felt_temp2: Option<i32> = None;
+        let mut u32_temp1: Option<i32> = None;
+        let mut u32_temp2: Option<i32> = None;
 
         for instr in self.instructions.iter() {
             let current_new_index = new_instructions.len();
 
             let replacement_instructions = match instr.opcode {
                 STORE_ADD_FP_FP | STORE_SUB_FP_FP | STORE_MUL_FP_FP | STORE_DIV_FP_FP => {
-                    Self::handle_fp_fp_duplicates(instr, temp_var_offset, temp_var_offset2)
+                    // Reserve temp variables on demand for felt operations (need 2 single-slot temps)
+                    if felt_temp1.is_none() || felt_temp2.is_none() {
+                        felt_temp1 = Some(self.layout.reserve_stack(1));
+                        felt_temp2 = Some(self.layout.reserve_stack(1));
+                    }
+                    Self::handle_fp_fp_duplicates(instr, felt_temp1.unwrap(), felt_temp2.unwrap())
                 }
                 STORE_ADD_FP_IMM | STORE_SUB_FP_IMM | STORE_MUL_FP_IMM | STORE_DIV_FP_IMM => {
-                    Self::handle_fp_imm_duplicates(instr, temp_var_offset)?
+                    // Reserve temp variable on demand for felt operations with immediate (need 1 single-slot temp)
+                    if felt_temp1.is_none() {
+                        felt_temp1 = Some(self.layout.reserve_stack(1));
+                    }
+                    Self::handle_fp_imm_duplicates(instr, felt_temp1.unwrap())?
                 }
                 // U32 arithmetic operations with FP operands
                 U32_STORE_ADD_FP_FP | U32_STORE_SUB_FP_FP | U32_STORE_MUL_FP_FP
                 | U32_STORE_DIV_FP_FP => {
-                    Self::handle_u32_fp_fp_duplicates(instr, temp_var_offset, temp_var_offset2)
+                    // Reserve temp variables on demand for U32 operations (need 2 slots each)
+                    if u32_temp1.is_none() || u32_temp2.is_none() {
+                        u32_temp1 = Some(self.layout.reserve_stack(2));
+                        u32_temp2 = Some(self.layout.reserve_stack(2));
+                    }
+                    Self::handle_u32_fp_fp_duplicates(instr, u32_temp1.unwrap(), u32_temp2.unwrap())
                 }
                 // U32 arithmetic operations with immediate operands
                 U32_STORE_ADD_FP_IMM | U32_STORE_SUB_FP_IMM | U32_STORE_MUL_FP_IMM
                 | U32_STORE_DIV_FP_IMM => {
-                    Self::handle_u32_fp_imm_duplicates(instr, temp_var_offset)?
+                    // Reserve temp variable on demand for U32 operations (need 2 slots)
+                    if u32_temp1.is_none() {
+                        u32_temp1 = Some(self.layout.reserve_stack(2));
+                    }
+                    Self::handle_u32_fp_imm_duplicates(instr, u32_temp1.unwrap())?
                 }
                 // U32 comparison operations with FP operands (result is felt, not u32)
                 U32_STORE_EQ_FP_FP | U32_STORE_NEQ_FP_FP | U32_STORE_GT_FP_FP
                 | U32_STORE_GE_FP_FP | U32_STORE_LT_FP_FP | U32_STORE_LE_FP_FP => {
-                    Self::handle_u32_fp_fp_duplicates(instr, temp_var_offset, temp_var_offset2)
+                    // Reserve temp variables on demand for U32 comparisons (need 2 slots each for operands)
+                    if u32_temp1.is_none() || u32_temp2.is_none() {
+                        u32_temp1 = Some(self.layout.reserve_stack(2));
+                        u32_temp2 = Some(self.layout.reserve_stack(2));
+                    }
+                    Self::handle_u32_fp_fp_duplicates(instr, u32_temp1.unwrap(), u32_temp2.unwrap())
                 }
                 // U32 comparison operations with immediate operands
                 U32_STORE_EQ_FP_IMM | U32_STORE_NEQ_FP_IMM | U32_STORE_GT_FP_IMM
                 | U32_STORE_GE_FP_IMM | U32_STORE_LT_FP_IMM | U32_STORE_LE_FP_IMM => {
-                    Self::handle_u32_fp_imm_duplicates(instr, temp_var_offset)?
+                    // Reserve temp variable on demand for U32 comparisons (need 2 slots)
+                    if u32_temp1.is_none() {
+                        u32_temp1 = Some(self.layout.reserve_stack(2));
+                    }
+                    Self::handle_u32_fp_imm_duplicates(instr, u32_temp1.unwrap())?
                 }
                 _ => {
                     // Keep instruction as-is
@@ -2200,6 +2485,397 @@ impl CasmBuilder {
             // No overlap, keep as-is
             Ok(vec![instr.clone()])
         }
+    }
+
+    // ===== Aggregate Operations =====
+
+    /// Creates a struct by allocating consecutive registers and copying field values
+    pub fn make_struct(
+        &mut self,
+        dest: ValueId,
+        fields: &[(String, Value)],
+        struct_ty: &MirType,
+    ) -> CodegenResult<()> {
+        use cairo_m_compiler_mir::layout::DataLayout;
+
+        let total_size = DataLayout::size_of(struct_ty);
+
+        // Allocate destination
+        let base_offset = self.layout.allocate_local(dest, total_size)?;
+
+        // Copy each field to its offset
+        for (field_name, field_value) in fields {
+            let field_offset =
+                DataLayout::field_offset(struct_ty, field_name).ok_or_else(|| {
+                    CodegenError::InvalidMir(format!(
+                        "Field '{}' not found in struct type",
+                        field_name
+                    ))
+                })?;
+
+            let target_offset = base_offset + field_offset as i32;
+
+            // Get the field type to determine its size
+            let field_ty = struct_ty.field_type(field_name).ok_or_else(|| {
+                CodegenError::InvalidMir(format!("Could not get type for field '{}'", field_name))
+            })?;
+            let field_size = DataLayout::size_of(field_ty);
+
+            // Copy the field value to the target offset
+            self.copy_value_to_offset(field_value, target_offset, field_size)?;
+        }
+
+        Ok(())
+    }
+
+    /// Extracts a field from a struct by mapping the destination to the field's offset
+    pub fn extract_struct_field(
+        &mut self,
+        dest: ValueId,
+        struct_val: Value,
+        field_name: &str,
+        field_ty: &MirType,
+        function: &cairo_m_compiler_mir::MirFunction,
+    ) -> CodegenResult<()> {
+        use cairo_m_compiler_mir::layout::DataLayout;
+
+        // DataLayout methods are now static - no instance needed
+
+        // Get struct base offset and ID
+        let (struct_offset, struct_id) = match struct_val {
+            Value::Operand(id) => (self.layout.get_offset(id)?, id),
+            _ => {
+                return Err(CodegenError::InvalidMir(
+                    "ExtractStructField requires operand source".to_string(),
+                ))
+            }
+        };
+
+        // Get the struct type from the function's value_types
+        let struct_ty = function.value_types.get(&struct_id).ok_or_else(|| {
+            CodegenError::InvalidMir(format!("No type found for struct value {:?}", struct_id))
+        })?;
+
+        // Calculate field offset within the struct
+        let field_offset = DataLayout::field_offset(struct_ty, field_name).ok_or_else(|| {
+            CodegenError::InvalidMir(format!("Field '{}' not found in struct", field_name))
+        })?;
+
+        let field_size = DataLayout::size_of(field_ty);
+        let absolute_offset = struct_offset + field_offset as i32;
+
+        // Map destination to the field's location
+        if field_size == 1 {
+            self.layout.value_layouts.insert(
+                dest,
+                ValueLayout::Slot {
+                    offset: absolute_offset,
+                },
+            );
+        } else {
+            self.layout.value_layouts.insert(
+                dest,
+                ValueLayout::MultiSlot {
+                    offset: absolute_offset,
+                    size: field_size,
+                },
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Inserts a new value into a struct field (in-place update)
+    pub fn insert_struct_field(
+        &mut self,
+        dest: ValueId,
+        struct_val: Value,
+        field_name: &str,
+        new_value: Value,
+        struct_ty: &MirType,
+    ) -> CodegenResult<()> {
+        use cairo_m_compiler_mir::layout::DataLayout;
+
+        // Get struct base offset
+        let struct_offset = match struct_val {
+            Value::Operand(id) => self.layout.get_offset(id)?,
+            _ => {
+                return Err(CodegenError::InvalidMir(
+                    "InsertField requires operand source".to_string(),
+                ))
+            }
+        };
+
+        // Calculate field offset
+        let field_offset = DataLayout::field_offset(struct_ty, field_name).ok_or_else(|| {
+            CodegenError::InvalidMir(format!("Field '{}' not found in struct", field_name))
+        })?;
+
+        // Get field type and size
+        let field_ty = struct_ty.field_type(field_name).ok_or_else(|| {
+            CodegenError::InvalidMir(format!("Could not get type for field '{}'", field_name))
+        })?;
+        let field_size = DataLayout::size_of(field_ty);
+
+        // Calculate target offset for the field
+        let target_offset = struct_offset + field_offset as i32;
+
+        // Overwrite the field with the new value
+        self.copy_value_to_offset(&new_value, target_offset, field_size)?;
+
+        // Map the destination to the same location as the source struct
+        // (since it's an in-place update)
+        let struct_size = DataLayout::size_of(struct_ty);
+        if struct_size == 1 {
+            self.layout.value_layouts.insert(
+                dest,
+                ValueLayout::Slot {
+                    offset: struct_offset,
+                },
+            );
+        } else {
+            self.layout.value_layouts.insert(
+                dest,
+                ValueLayout::MultiSlot {
+                    offset: struct_offset,
+                    size: struct_size,
+                },
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Creates a tuple by allocating consecutive registers and copying element values
+    pub fn make_tuple(
+        &mut self,
+        dest: ValueId,
+        elements: &[Value],
+        function: &cairo_m_compiler_mir::MirFunction,
+    ) -> CodegenResult<()> {
+        use cairo_m_compiler_mir::layout::DataLayout;
+
+        // DataLayout methods are now static - no instance needed
+
+        // Determine the types of elements to calculate sizes
+        let mut total_size = 0;
+        let mut element_offsets = Vec::new();
+        let mut element_sizes = Vec::new();
+
+        for element in elements {
+            element_offsets.push(total_size);
+
+            // Determine element size from type information
+            let element_size = match element {
+                Value::Operand(id) => {
+                    if let Some(ty) = function.value_types.get(id) {
+                        DataLayout::size_of(ty)
+                    } else {
+                        self.layout.get_value_size(*id)
+                    }
+                }
+                Value::Literal(_) => 1, // Literals are always single-slot for now
+                _ => 1,
+            };
+
+            element_sizes.push(element_size);
+            total_size += element_size;
+        }
+
+        // Allocate destination
+        let base_offset = self.layout.allocate_local(dest, total_size)?;
+
+        // Copy each element to its offset
+        for (i, element) in elements.iter().enumerate() {
+            let target_offset = base_offset + element_offsets[i] as i32;
+            let element_size = element_sizes[i];
+
+            self.copy_value_to_offset(element, target_offset, element_size)?;
+        }
+
+        Ok(())
+    }
+
+    /// Extracts an element from a tuple by mapping the destination to the element's offset
+    pub fn extract_tuple_element(
+        &mut self,
+        dest: ValueId,
+        tuple: Value,
+        index: usize,
+        element_ty: &MirType,
+        function: &cairo_m_compiler_mir::MirFunction,
+    ) -> CodegenResult<()> {
+        use cairo_m_compiler_mir::layout::DataLayout;
+
+        // DataLayout methods are now static - no instance needed
+
+        // Get tuple base offset and ID
+        let (tuple_offset, tuple_id) = match tuple {
+            Value::Operand(id) => (self.layout.get_offset(id)?, id),
+            _ => {
+                return Err(CodegenError::InvalidMir(
+                    "ExtractTupleElement requires operand source".to_string(),
+                ))
+            }
+        };
+
+        // Get the tuple type from the function's value_types
+        let tuple_ty = function.value_types.get(&tuple_id).ok_or_else(|| {
+            CodegenError::InvalidMir(format!("No type found for tuple value {:?}", tuple_id))
+        })?;
+
+        // Calculate element offset within the tuple
+        let element_offset = DataLayout::tuple_offset(tuple_ty, index).ok_or_else(|| {
+            CodegenError::InvalidMir(format!("Tuple index {} out of bounds", index))
+        })?;
+
+        let element_size = DataLayout::size_of(element_ty);
+        let absolute_offset = tuple_offset + element_offset as i32;
+
+        // Map destination to the element's location
+        if element_size == 1 {
+            self.layout.value_layouts.insert(
+                dest,
+                ValueLayout::Slot {
+                    offset: absolute_offset,
+                },
+            );
+        } else {
+            self.layout.value_layouts.insert(
+                dest,
+                ValueLayout::MultiSlot {
+                    offset: absolute_offset,
+                    size: element_size,
+                },
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Inserts a new value into a tuple element (in-place update)
+    pub fn insert_tuple_element(
+        &mut self,
+        dest: ValueId,
+        tuple_val: Value,
+        index: usize,
+        new_value: Value,
+        tuple_ty: &MirType,
+    ) -> CodegenResult<()> {
+        use cairo_m_compiler_mir::layout::DataLayout;
+
+        // DataLayout methods are now static - no instance needed
+
+        // Get tuple base offset
+        let tuple_offset = match tuple_val {
+            Value::Operand(id) => self.layout.get_offset(id)?,
+            _ => {
+                return Err(CodegenError::InvalidMir(
+                    "InsertTuple requires operand source".to_string(),
+                ))
+            }
+        };
+
+        // Calculate element offset
+        let element_offset = DataLayout::tuple_offset(tuple_ty, index).ok_or_else(|| {
+            CodegenError::InvalidMir(format!("Tuple index {} out of bounds", index))
+        })?;
+
+        // Get element type and size
+        let element_ty = tuple_ty.tuple_element_type(index).ok_or_else(|| {
+            CodegenError::InvalidMir(format!("Could not get type for tuple element {}", index))
+        })?;
+        let element_size = DataLayout::size_of(element_ty);
+
+        // Calculate target offset for the element
+        let target_offset = tuple_offset + element_offset as i32;
+
+        // Overwrite the element with the new value
+        self.copy_value_to_offset(&new_value, target_offset, element_size)?;
+
+        // Map the destination to the same location as the source tuple
+        // (since it's an in-place update)
+        let tuple_size = DataLayout::size_of(tuple_ty);
+        if tuple_size == 1 {
+            self.layout.value_layouts.insert(
+                dest,
+                ValueLayout::Slot {
+                    offset: tuple_offset,
+                },
+            );
+        } else {
+            self.layout.value_layouts.insert(
+                dest,
+                ValueLayout::MultiSlot {
+                    offset: tuple_offset,
+                    size: tuple_size,
+                },
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Helper method to copy a value to a specific offset
+    fn copy_value_to_offset(
+        &mut self,
+        value: &Value,
+        target_offset: i32,
+        size: usize,
+    ) -> CodegenResult<()> {
+        match value {
+            Value::Literal(Literal::Integer(imm)) => {
+                if size == 1 {
+                    self.store_immediate(
+                        *imm,
+                        target_offset,
+                        format!("[fp + {}] = {}", target_offset, imm),
+                    );
+                } else if size == 2 {
+                    // Handle u32 literal
+                    self.store_u32_immediate(
+                        *imm,
+                        target_offset,
+                        format!(
+                            "[fp + {}], [fp + {}] = u32({})",
+                            target_offset,
+                            target_offset + 1,
+                            imm
+                        ),
+                    );
+                } else {
+                    return Err(CodegenError::UnsupportedInstruction(format!(
+                        "Unsupported literal size: {}",
+                        size
+                    )));
+                }
+            }
+            Value::Operand(src_id) => {
+                let src_offset = self.layout.get_offset(*src_id)?;
+
+                // Copy each slot
+                for i in 0..size {
+                    let slot_src = src_offset + i as i32;
+                    let slot_dst = target_offset + i as i32;
+
+                    let instr = InstructionBuilder::new(STORE_ADD_FP_IMM)
+                        .with_operand(Operand::Literal(slot_src))
+                        .with_operand(Operand::Literal(0))
+                        .with_operand(Operand::Literal(slot_dst))
+                        .with_comment(format!("[fp + {}] = [fp + {}] + 0", slot_dst, slot_src));
+                    self.instructions.push(instr);
+                    self.touch(slot_dst, 1);
+                }
+            }
+            _ => {
+                return Err(CodegenError::UnsupportedInstruction(format!(
+                    "Unsupported value type in aggregate: {:?}",
+                    value
+                )));
+            }
+        }
+
+        Ok(())
     }
 }
 

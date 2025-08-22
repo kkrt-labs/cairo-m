@@ -16,30 +16,23 @@
 #![allow(clippy::option_if_let_else)]
 
 use cairo_m_common::instruction::INSTRUCTION_MAX_SIZE;
-use cairo_m_common::{Instruction, Program};
-use cairo_m_compiler_mir::{BasicBlockId, MirModule};
+use cairo_m_common::Instruction;
+use cairo_m_compiler_mir::BasicBlockId;
 use smallvec::SmallVec;
 use stwo_prover::core::fields::m31::M31;
 
+pub mod backend;
 pub mod builder;
 pub mod db;
 pub mod generator;
 pub mod layout;
 
 // Re-export main components
+pub use backend::{compile_module, validate_for_casm};
 pub use builder::CasmBuilder;
 pub use db::{compile_project as db_compile_project, CodegenDb};
 pub use generator::CodeGenerator;
 pub use layout::FunctionLayout;
-
-/// Main entry point for code generation
-///
-/// Converts a MIR module to a JSON representation of the compiled program
-pub fn compile_module(module: &MirModule) -> Result<Program, CodegenError> {
-    let mut generator = CodeGenerator::new();
-    generator.generate_module(module)?;
-    Ok(generator.compile())
-}
 
 /// Represents an operand that can be either a literal value or a label reference
 #[derive(Debug, Clone, PartialEq, Eq)]

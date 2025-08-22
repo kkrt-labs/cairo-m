@@ -212,8 +212,8 @@ pub struct Parameter {
 pub enum Pattern {
     /// Single identifier pattern (e.g., `x`)
     Identifier(Spanned<String>),
-    /// Tuple pattern for destructuring (e.g., `(x, y, z)`)
-    Tuple(Vec<Spanned<String>>),
+    /// Tuple pattern for destructuring (e.g., `(x, y, z)` or `(x, (y, z))`)
+    Tuple(Vec<Pattern>),
 }
 
 /// Represents a statement in the Cairo-M language.
@@ -668,10 +668,10 @@ where
             .or(boolean_literal)
             .or(struct_literal)
             .or(ident_expr)
-            .or(tuple_expr)
             .or(expr
                 .clone()
-                .delimited_by(just(TokenType::LParen), just(TokenType::RParen)));
+                .delimited_by(just(TokenType::LParen), just(TokenType::RParen)))
+            .or(tuple_expr);
 
         // Postfix operations (left-associative): function calls, member access, indexing
         let postfix_op = choice((
@@ -810,19 +810,14 @@ where
                 let span_rhs = rhs.span();
                 let span = SimpleSpan::from(span_lhs.start..span_rhs.end);
 
-                // Try to evaluate constant expressions
-                if let Some(result) = try_evaluate_binary_op(&lhs, op, &rhs) {
-                    Spanned::new(result, span)
-                } else {
-                    Spanned::new(
-                        Expression::BinaryOp {
-                            op,
-                            left: Box::new(lhs),
-                            right: Box::new(rhs),
-                        },
-                        span,
-                    )
-                }
+                Spanned::new(
+                    Expression::BinaryOp {
+                        op,
+                        left: Box::new(lhs),
+                        right: Box::new(rhs),
+                    },
+                    span,
+                )
             },
         );
 
@@ -839,19 +834,14 @@ where
                 let span_rhs = rhs.span();
                 let span = SimpleSpan::from(span_lhs.start..span_rhs.end);
 
-                // Try to evaluate constant expressions
-                if let Some(result) = try_evaluate_binary_op(&lhs, op, &rhs) {
-                    Spanned::new(result, span)
-                } else {
-                    Spanned::new(
-                        Expression::BinaryOp {
-                            op,
-                            left: Box::new(lhs),
-                            right: Box::new(rhs),
-                        },
-                        span,
-                    )
-                }
+                Spanned::new(
+                    Expression::BinaryOp {
+                        op,
+                        left: Box::new(lhs),
+                        right: Box::new(rhs),
+                    },
+                    span,
+                )
             },
         );
 
@@ -951,9 +941,12 @@ where
     let type_expr = type_expr_parser();
 
     // Pattern parser for destructuring
-    let pattern = {
-        // Tuple pattern: (x, y, z)
-        let tuple_pattern = spanned_ident
+    let pattern = recursive(|pattern| {
+        // Single identifier pattern
+        let ident_pattern = spanned_ident.clone().map(Pattern::Identifier);
+
+        // Tuple pattern: (x, y, z) or (x, (y, z))
+        let tuple_pattern = pattern
             .clone()
             .separated_by(just(TokenType::Comma))
             .at_least(2)
@@ -961,12 +954,9 @@ where
             .delimited_by(just(TokenType::LParen), just(TokenType::RParen))
             .map(Pattern::Tuple);
 
-        // Single identifier pattern
-        let ident_pattern = spanned_ident.clone().map(Pattern::Identifier);
-
         // Try tuple pattern first, then fall back to identifier
         tuple_pattern.or(ident_pattern)
-    };
+    });
 
     recursive(|statement| {
         // Block statement: { stmt1; stmt2; stmt3; }
@@ -1318,57 +1308,6 @@ where
         // Try top-level item alternatives in order
         func_def.or(struct_def).or(const_def).or(use_stmt)
     })
-}
-
-/// Try to evaluate a binary operation on two constant expressions at compile time.
-/// Returns Some(Expression) if both operands are literals and the operation can be evaluated.
-/// Returns None if the expression cannot be evaluated at compile time.
-fn try_evaluate_binary_op(
-    left: &Spanned<Expression>,
-    op: BinaryOp,
-    right: &Spanned<Expression>,
-) -> Option<Expression> {
-    // Extract literal values from both sides
-    let (left_val, left_suffix) = match left.value() {
-        Expression::Literal(val, suffix) => (*val, suffix.as_ref()),
-        _ => return None,
-    };
-
-    let (right_val, right_suffix) = match right.value() {
-        Expression::Literal(val, suffix) => (*val, suffix.as_ref()),
-        _ => return None,
-    };
-
-    // For now, we only evaluate expressions with no suffix or matching suffixes
-    // Type checking will be done in the semantic phase
-    if left_suffix != right_suffix {
-        return None;
-    }
-
-    // Perform the operation
-    // Note: We don't check for overflow here as that will be done in the semantic phase
-    // with proper type information
-    let result = match op {
-        BinaryOp::Add => left_val.checked_add(right_val)?,
-        BinaryOp::Sub => left_val.checked_sub(right_val)?,
-        BinaryOp::Mul => left_val.checked_mul(right_val)?,
-        BinaryOp::Div => {
-            // Check for division by zero
-            if right_val == 0 {
-                return None;
-            }
-            // Check if division is exact (no remainder)
-            if left_val % right_val != 0 {
-                return None;
-            }
-            left_val / right_val
-        }
-        // Other operators don't produce numeric literals
-        _ => return None,
-    };
-
-    // Return the evaluated literal with the same suffix
-    Some(Expression::Literal(result, left_suffix.cloned()))
 }
 
 /// Creates the main parser for Cairo-M source code.

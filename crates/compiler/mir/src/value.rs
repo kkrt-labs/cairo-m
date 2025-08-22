@@ -38,7 +38,7 @@ pub enum Value {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
 pub enum Literal {
     /// Integer literal (felt in Cairo-M)
-    Integer(i32),
+    Integer(u32),
 
     /// Boolean literal
     Boolean(bool),
@@ -49,7 +49,7 @@ pub enum Literal {
 
 impl Value {
     /// Creates a new integer literal value
-    pub const fn integer(value: i32) -> Self {
+    pub const fn integer(value: u32) -> Self {
         Self::Literal(Literal::Integer(value))
     }
 
@@ -113,7 +113,7 @@ impl Value {
     ///
     /// Returns `Some(value)` if this is an integer literal,
     /// `None` otherwise. Useful for constant folding.
-    pub const fn as_const_integer(&self) -> Option<i32> {
+    pub const fn as_const_integer(&self) -> Option<u32> {
         match self {
             Self::Literal(Literal::Integer(value)) => Some(*value),
             _ => None,
@@ -146,7 +146,7 @@ impl Literal {
     }
 
     /// Returns the integer value if this is an integer literal
-    pub const fn as_integer(&self) -> Option<i32> {
+    pub const fn as_integer(&self) -> Option<u32> {
         match self {
             Self::Integer(value) => Some(*value),
             _ => None,
@@ -195,8 +195,8 @@ impl std::fmt::Display for Literal {
 }
 
 // Convenience conversion methods
-impl From<i32> for Value {
-    fn from(value: i32) -> Self {
+impl From<u32> for Value {
+    fn from(value: u32) -> Self {
         Self::integer(value)
     }
 }
@@ -228,7 +228,7 @@ impl From<Literal> for Value {
 /// # Examples
 ///
 /// - Local variables are Places
-/// - Struct fields are Places  
+/// - Struct fields are Places
 /// - Array elements are Places
 /// - Temporary values are NOT Places (they are Values)
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

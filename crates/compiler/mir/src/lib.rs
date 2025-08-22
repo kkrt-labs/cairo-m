@@ -52,29 +52,58 @@ pub use basic_block::BasicBlock;
 pub use builder::{CfgBuilder, CfgState, InstrBuilder};
 pub use function::{MirDefinitionId, MirFunction};
 pub use instruction::{BinaryOp, Instruction, InstructionKind, MirExpressionId};
-pub use mir_types::{MirType, StructField};
+pub use layout::DataLayout;
+pub use mir_types::MirType;
 pub use module::MirModule;
-pub use passes::{DeadCodeElimination, MirPass, PassManager, Validation};
+pub use passes::{
+    arithmetic_simplify::ArithmeticSimplify, constant_folding::ConstantFolding,
+    copy_propagation::CopyPropagation, dead_code_elimination::DeadCodeElimination,
+    fuse_cmp::FuseCmpBranch, local_cse::LocalCSE, simplify_branches::SimplifyBranches,
+    sroa::ScalarReplacementOfAggregates, MirPass, PassManager,
+};
+pub use pipeline::{OptimizationLevel, PipelineConfig};
 pub use terminator::Terminator;
 pub use value::{Literal, Place, Value};
 
 pub mod basic_block;
 pub mod builder;
+pub mod cfg;
 pub mod db;
 pub mod function;
 pub mod instruction;
+pub mod layout;
 pub mod lowering;
 pub mod mir_types;
 pub mod module;
 pub mod passes;
+pub mod pipeline;
 pub mod terminator;
 pub mod value;
+pub mod value_visitor;
 
-pub use db::{generate_mir as db_generate_mir, MirDb};
+pub use db::MirDb;
 pub use lowering::generate_mir;
 
 #[cfg(test)]
 pub mod testing;
+
+#[cfg(test)]
+mod instruction_tests;
+
+#[cfg(test)]
+mod insert_instructions_test;
+
+#[cfg(test)]
+mod conditional_pass_test;
+
+#[cfg(test)]
+mod pretty_print_tests;
+
+#[cfg(test)]
+mod pipeline_tests;
+
+#[cfg(test)]
+mod aggregate_instruction_tests;
 
 // --- Core Identifiers ---
 

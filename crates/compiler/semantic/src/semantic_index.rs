@@ -1252,14 +1252,36 @@ where
                             stmt.span(),
                         );
                     }
-                    Pattern::Tuple(names) => {
-                        for (index, name) in names.iter().enumerate() {
-                            let def_kind = DefinitionKind::Let(LetDefRef::from_destructuring(
-                                name.value(),
-                                statement_type.clone(),
-                                value_expr_id,
-                                index,
-                            ));
+                    Pattern::Tuple(patterns) => {
+                        // Helper to flatten nested patterns and collect all identifiers with their paths
+                        fn collect_pattern_identifiers(
+                            pattern: &Pattern,
+                            path: Vec<usize>,
+                        ) -> Vec<(Spanned<String>, Vec<usize>)> {
+                            match pattern {
+                                Pattern::Identifier(name) => vec![(name.clone(), path)],
+                                Pattern::Tuple(patterns) => {
+                                    let mut result = Vec::new();
+                                    for (i, p) in patterns.iter().enumerate() {
+                                        let mut new_path = path.clone();
+                                        new_path.push(i);
+                                        result.extend(collect_pattern_identifiers(p, new_path));
+                                    }
+                                    result
+                                }
+                            }
+                        }
+
+                        let identifiers =
+                            collect_pattern_identifiers(&Pattern::Tuple(patterns.clone()), vec![]);
+                        for (name, path) in identifiers.iter() {
+                            let def_kind =
+                                DefinitionKind::Let(LetDefRef::from_nested_destructuring(
+                                    name.value(),
+                                    statement_type.clone(),
+                                    value_expr_id,
+                                    path.clone(),
+                                ));
                             self.add_place_with_definition(
                                 name.value(),
                                 PlaceFlags::DEFINED,

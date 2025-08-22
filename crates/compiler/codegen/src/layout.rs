@@ -29,7 +29,7 @@
 //! | ...                        | ...                    |                             |
 //! ```
 
-use cairo_m_compiler_mir::{MirFunction, ValueId};
+use cairo_m_compiler_mir::{DataLayout, MirFunction, ValueId};
 use rustc_hash::FxHashMap;
 
 use crate::{CodegenError, CodegenResult};
@@ -50,6 +50,7 @@ pub enum ValueLayout {
 /// Maps every ValueId in a function to its fp-relative memory offset.
 #[derive(Debug, Clone)]
 pub struct FunctionLayout {
+    name: String,
     /// Maps ValueId to its memory layout.
     pub value_layouts: FxHashMap<ValueId, ValueLayout>,
     /// The total frame size needed for this function.
@@ -66,6 +67,7 @@ impl FunctionLayout {
     /// Creates a new layout for a function, allocating slots for its parameters.
     pub fn new(function: &MirFunction) -> CodegenResult<Self> {
         let mut layout = Self {
+            name: function.name.clone(),
             value_layouts: FxHashMap::default(),
             frame_size: 0,
             num_parameters: function.parameters.len(),
@@ -90,7 +92,7 @@ impl FunctionLayout {
             let ty = function.value_types.get(&param_id).ok_or_else(|| {
                 CodegenError::LayoutError(format!("No type found for parameter {param_id:?}"))
             })?;
-            m_slots += ty.size_units();
+            m_slots += DataLayout::size_of(ty);
         }
 
         let mut k_slots = 0;
@@ -100,7 +102,7 @@ impl FunctionLayout {
             let ty = function.value_types.get(&return_id).ok_or_else(|| {
                 CodegenError::LayoutError(format!("No type found for return value {return_id:?}"))
             })?;
-            let size = ty.size_units();
+            let size = DataLayout::size_of(ty);
             k_slots += size;
         }
 
@@ -113,7 +115,7 @@ impl FunctionLayout {
             let ty = function.value_types.get(&param_id).ok_or_else(|| {
                 CodegenError::LayoutError(format!("No type found for parameter {param_id:?}"))
             })?;
-            let size = ty.size_units();
+            let size = DataLayout::size_of(ty);
 
             // Calculate the offset using the formula from Issue 2
             let offset = -(m_slots as i32) - (k_slots as i32) - 2 + cumulative_param_size as i32;
@@ -134,7 +136,7 @@ impl FunctionLayout {
 
     /// Allocates all locals and temporaries by walking through the function's basic blocks.
     fn allocate_locals_and_temporaries(&mut self, function: &MirFunction) -> CodegenResult<()> {
-        use cairo_m_compiler_mir::{InstructionKind, Literal, Value};
+        use cairo_m_compiler_mir::InstructionKind;
 
         let mut current_offset = 0;
 
@@ -156,7 +158,7 @@ impl FunctionLayout {
                                     "No type found for call return value {dest_id:?}"
                                 ))
                             })?;
-                            let size = ty.size_units();
+                            let size = DataLayout::size_of(ty);
 
                             // Allocate space for the return value
                             if size == 1 {
@@ -179,7 +181,7 @@ impl FunctionLayout {
                             current_offset += size;
                         }
                     }
-                    InstructionKind::StackAlloc { dest, size } => {
+                    InstructionKind::FrameAlloc { dest, ty } => {
                         // Skip if already allocated
                         if self.value_layouts.contains_key(dest) {
                             continue;
@@ -187,60 +189,17 @@ impl FunctionLayout {
 
                         // Allocate a block of memory
                         let offset = current_offset as i32;
-                        self.value_layouts.insert(
-                            *dest,
-                            ValueLayout::MultiSlot {
-                                offset,
-                                size: *size,
-                            },
-                        );
+                        let size = DataLayout::size_of(ty);
+                        self.value_layouts
+                            .insert(*dest, ValueLayout::MultiSlot { offset, size });
                         current_offset += size;
                     }
-                    InstructionKind::GetElementPtr { dest, base, offset } => {
-                        // Skip if already allocated
-                        if self.value_layouts.contains_key(dest) {
-                            continue;
-                        }
-
-                        // Look up the base layout
-                        let base_offset = match base {
-                            Value::Operand(base_id) => match self.value_layouts.get(base_id) {
-                                Some(ValueLayout::Slot { offset }) => *offset,
-                                Some(ValueLayout::MultiSlot { offset, .. }) => *offset,
-                                _ => {
-                                    return Err(CodegenError::LayoutError(format!(
-                                            "Base value {base_id:?} for getelementptr has no memory layout"
-                                        )));
-                                }
-                            },
-                            _ => {
-                                return Err(CodegenError::LayoutError(format!(
-                                    "getelementptr base must be an operand, got {base:?}"
-                                )));
-                            }
-                        };
-
-                        // Evaluate the offset
-                        let offset_value = match offset {
-                            Value::Literal(Literal::Integer(n)) => *n,
-                            _ => {
-                                // For now, we only support literal offsets
-                                return Err(CodegenError::LayoutError(format!(
-                                    "getelementptr offset must be a literal integer, got {offset:?}"
-                                )));
-                            }
-                        };
-
-                        // Calculate the final offset
-                        let final_offset = base_offset + offset_value;
-
-                        // Store this as a pointer to the calculated offset
-                        self.value_layouts.insert(
-                            *dest,
-                            ValueLayout::Slot {
-                                offset: final_offset,
-                            },
-                        );
+                    InstructionKind::GetElementPtr {
+                        dest: _,
+                        base: _,
+                        offset: _,
+                    } => {
+                        panic!("GetElementPtr lowering is not supported");
                     }
                     _ => {
                         // For all other instructions, process destinations normally
@@ -256,7 +215,7 @@ impl FunctionLayout {
                                     "No type found for value {dest_id:?}"
                                 ))
                             })?;
-                            let size = ty.size_units();
+                            let size = DataLayout::size_of(ty);
 
                             // Create appropriate layout based on size
                             if size == 1 {
@@ -317,12 +276,21 @@ impl FunctionLayout {
     /// Manually maps a `ValueId` to a specific offset. Used by the caller to map
     /// return value destinations.
     pub fn map_value(&mut self, value_id: ValueId, offset: i32) {
-        // For now, assume mapped values are single-slot
-        self.value_layouts
-            .insert(value_id, ValueLayout::Slot { offset });
+        // Check if we already have a layout for this value to preserve its size
+        let size = self.get_value_size(value_id);
+
+        if size == 1 {
+            self.value_layouts
+                .insert(value_id, ValueLayout::Slot { offset });
+        } else {
+            self.value_layouts
+                .insert(value_id, ValueLayout::MultiSlot { offset, size });
+        }
+
         // Update frame_size if this offset extends beyond it
-        if offset >= self.frame_size as i32 {
-            self.frame_size = (offset + 1) as usize;
+        let end_offset = offset + size as i32;
+        if end_offset > self.frame_size as i32 {
+            self.frame_size = end_offset as usize;
         }
     }
 
@@ -344,7 +312,8 @@ impl FunctionLayout {
                 CodegenError::LayoutError(format!("Value {value_id:?} has no memory offset")),
             ),
             None => Err(CodegenError::LayoutError(format!(
-                "No layout found for value {value_id:?}"
+                "No layout found for value {value_id:?} in function {}",
+                self.name
             ))),
         }
     }
@@ -381,7 +350,10 @@ impl FunctionLayout {
     /// Gets the value layout for a specific ValueId.
     pub fn get_layout(&self, value_id: ValueId) -> CodegenResult<&ValueLayout> {
         self.value_layouts.get(&value_id).ok_or_else(|| {
-            CodegenError::LayoutError(format!("No layout found for value {value_id:?}"))
+            CodegenError::LayoutError(format!(
+                "No layout found for value {value_id:?} in function {}",
+                self.name
+            ))
         })
     }
 
@@ -419,6 +391,7 @@ impl FunctionLayout {
     /// Creates a new empty layout for testing.
     pub fn new_for_test() -> Self {
         Self {
+            name: "test".to_string(),
             value_layouts: FxHashMap::default(),
             frame_size: 0,
             num_parameters: 0,

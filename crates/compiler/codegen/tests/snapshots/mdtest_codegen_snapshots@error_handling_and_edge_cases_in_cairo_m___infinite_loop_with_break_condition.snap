@@ -27,23 +27,25 @@ Generated CASM:
 loop_with_escape:
 loop_with_escape:
 loop_with_escape_0:
-   0: 23 0 0 0             // u32([fp + 0, fp + 1]) = u32(0)
+   0: 23 0 0 0             // u32([fp + 0], [fp + 1]) = u32(0)
+   1: 19 0 0 0 2           // u32([fp + 2], [fp + 3]) = u32([fp + 0], [fp + 1]) + u32(0, 0)
 loop_with_escape_1:
-   1: 19 0 1 0 0           // u32([fp + 0], [fp + 1]) = u32([fp + 0], [fp + 1]) op u32(1, 0)
-   2: 32 0 1000 0 4        // u32([fp + 4], [fp + 5]) = u32([fp + 0], [fp + 1]) op u32(1000, 0)
-   3: 14 4 5 _             // if [fp + 4] != 0 jmp rel loop_with_escape_3
-   4: 12 11 _ _            // jump abs loop_with_escape_4
+   2: 19 2 1 0 4           // u32([fp + 4], [fp + 5]) = u32([fp + 2], [fp + 3]) U32Add u32(1, 0)
+   3: 32 4 1000 0 6        // [fp + 6] = u32([fp + 4], [fp + 5]) U32Greater u32(1000, 0)
+   4: 14 6 5 _             // if [fp + 6] != 0 jmp rel loop_with_escape_3
+   5: 12 13 _ _            // jump abs loop_with_escape_4
 loop_with_escape_2:
-   5: 4 0 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
-   6: 4 1 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
-   7: 11 _ _ _             // return
+   6: 4 4 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 4] + 0
+   7: 4 5 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 5] + 0
+   8: 11 _ _ _             // return
 loop_with_escape_3:
-   8: 12 7 _ _             // jump abs loop_with_escape_2
+   9: 12 9 _ _             // jump abs loop_with_escape_2
 loop_with_escape_4:
-   9: 20 0 10 0 5          // u32([fp + 5], [fp + 6]) = u32([fp + 0], [fp + 1]) op u32(10, 0)
-  10: 5 0 10 5             // [fp + 5] = [fp + 0] op 10
-  11: 14 5 2 _             // if [fp + 5] != 0 jmp rel loop_with_escape_6
+  10: 30 4 10 0 7          // [fp + 7] = u32([fp + 4], [fp + 5]) U32Eq u32(10, 0)
+  11: 14 7 2 _             // if [fp + 7] != 0 jmp rel loop_with_escape_5
+  12: 12 18 _ _            // jump abs loop_with_escape_6
 loop_with_escape_5:
-  12: 12 7 _ _             // jump abs loop_with_escape_2
+  13: 12 9 _ _             // jump abs loop_with_escape_2
 loop_with_escape_6:
-  13: 12 1 _ _             // jump abs loop_with_escape_1
+  14: 19 4 0 0 2           // u32([fp + 2], [fp + 3]) = u32([fp + 4], [fp + 5]) + u32(0, 0)
+  15: 12 3 _ _             // jump abs loop_with_escape_1

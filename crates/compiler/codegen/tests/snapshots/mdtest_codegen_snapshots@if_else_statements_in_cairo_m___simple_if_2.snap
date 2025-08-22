@@ -1,0 +1,20 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: If-Else Statements in Cairo-M - Simple If 2"
+input_file: mdtest/02-control-flow/01-if-else.md
+---
+Source:
+fn test_simple_if(x: felt) -> felt {
+    if true {
+        return 2;
+    }
+    return 0;
+}
+============================================================
+Generated CASM:
+test_simple_if:
+test_simple_if:
+test_simple_if_0:
+test_simple_if_1:
+   0: 9 2 -3 _             // Return value 0: [fp -3] = 2
+   1: 11 _ _ _             // return

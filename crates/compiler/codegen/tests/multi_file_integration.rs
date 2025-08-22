@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use cairo_m_compiler_codegen::{compile_module, CodegenDb};
+use cairo_m_compiler_diagnostics::DiagnosticCode;
 use cairo_m_compiler_mir::{generate_mir, MirDb};
 use cairo_m_compiler_parser::Upcast;
 use cairo_m_compiler_semantic::db::Crate;
@@ -315,21 +316,10 @@ fn main() -> felt {
 
     // Generate MIR - should succeed with error recovery (generates error values)
     let mir_result = generate_mir(&db, crate_id);
-    assert!(
-        mir_result.is_ok(),
-        "MIR generation should succeed with error recovery"
-    );
-
-    let mir_module = mir_result.unwrap();
-    assert_eq!(mir_module.function_count(), 1);
-    assert!(mir_module.lookup_function("main").is_some());
-
-    // Code generation should fail when encountering error values in MIR
-    let compilation_result = compile_module(&mir_module);
-    assert!(
-        compilation_result.is_err(),
-        "Code generation should fail when MIR contains error values"
-    );
+    assert!(mir_result.is_err());
+    let errors = mir_result.err().unwrap();
+    assert_eq!(errors.len(), 1);
+    assert!(matches!(errors[0].code, DiagnosticCode::InternalError));
 }
 
 /// Test that compilation results are deterministic regardless of module order

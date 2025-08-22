@@ -101,10 +101,56 @@ impl<'f> CfgBuilder<'f> {
 
     /// Checks if the current block is terminated
     pub fn is_terminated(&self) -> bool {
-        self.is_terminated || self.current_block().is_terminated()
+        self.is_terminated || self.current_block().has_terminator()
+    }
+
+    /// Sets the terminator for a block, handling edge cleanup properly
+    ///
+    /// This private helper consolidates terminator setting logic and ensures
+    /// proper edge management for both new and replacement terminators.
+    ///
+    /// ## Arguments
+    /// * `block_id` - The ID of the block to set terminator for
+    /// * `terminator` - The terminator to set
+    fn set_terminator_internal(&mut self, block_id: BasicBlockId, terminator: Terminator) {
+        // First collect the old targets if the block has a terminator
+        let old_targets = {
+            let block = self.function.basic_blocks.get(block_id).unwrap_or_else(|| {
+                panic!("set_terminator_internal: invalid block_id {:?}", block_id)
+            });
+            if block.has_terminator() {
+                block.terminator.target_blocks()
+            } else {
+                vec![]
+            }
+        };
+
+        // Remove old edges
+        for old_target in old_targets {
+            self.function.disconnect(block_id, old_target);
+        }
+
+        // Set new terminator
+        self.function
+            .basic_blocks
+            .get_mut(block_id)
+            .unwrap_or_else(|| {
+                panic!(
+                    "set_terminator_internal: block {:?} disappeared during update",
+                    block_id
+                )
+            })
+            .set_terminator(terminator.clone());
+
+        // Connect new edges
+        let new_targets = terminator.target_blocks();
+        for new_target in new_targets {
+            self.function.connect(block_id, new_target);
+        }
     }
 
     /// Terminates the current block with the given terminator
+    /// Also updates pred/succ edges based on terminator targets
     ///
     /// ## Arguments
     /// * `terminator` - The terminator to set
@@ -119,8 +165,7 @@ impl<'f> CfgBuilder<'f> {
             panic!("Attempting to terminate an already terminated block");
         }
 
-        let block = self.current_block_mut();
-        block.set_terminator(terminator);
+        self.set_terminator_internal(self.current_block_id, terminator);
         self.is_terminated = true;
         self.state()
     }
@@ -219,6 +264,7 @@ impl<'f> CfgBuilder<'f> {
     }
 
     /// Sets the terminator for a specific block
+    /// Also updates edges when replacing an existing terminator
     ///
     /// This is useful when you need to patch up a block that was created earlier.
     ///
@@ -226,9 +272,7 @@ impl<'f> CfgBuilder<'f> {
     /// * `block_id` - The ID of the block to terminate
     /// * `terminator` - The terminator to set
     pub fn set_block_terminator(&mut self, block_id: BasicBlockId, terminator: Terminator) {
-        if let Some(block) = self.get_block_mut(block_id) {
-            block.set_terminator(terminator);
-        }
+        self.set_terminator_internal(block_id, terminator);
     }
 
     /// Creates blocks for an if-then-else pattern
@@ -265,5 +309,31 @@ impl<'f> CfgBuilder<'f> {
         let step = self.new_block(Some("for_step".to_string()));
         let exit = self.new_block(Some("for_exit".to_string()));
         (header, body, step, exit)
+    }
+
+    /// Mark a block as filled (all local statements processed)
+    /// This is used by SSA construction to track when a block is complete
+    pub fn mark_block_filled(&mut self, block_id: BasicBlockId) {
+        let block = self
+            .get_block_mut(block_id)
+            .unwrap_or_else(|| panic!("Block {:?} not found", block_id));
+        block.mark_filled();
+    }
+
+    /// Mark a block as sealed (no more predecessors)
+    /// This is used by SSA construction - when called, it means the predecessor set is final
+    pub fn seal_block(&mut self, block_id: BasicBlockId) {
+        let block = self
+            .get_block_mut(block_id)
+            .unwrap_or_else(|| panic!("Block {:?} not found", block_id));
+        block.seal();
+        // NOTE: SSA builder will also need to track sealed blocks in its own set
+        // This method is just for marking the BasicBlock itself
+    }
+
+    /// Debug helper: verify edge consistency
+    #[cfg(debug_assertions)]
+    pub fn validate_edges(&self) -> Result<(), String> {
+        self.function.validate()
     }
 }
