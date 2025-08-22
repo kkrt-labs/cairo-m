@@ -39,9 +39,9 @@ module {
       %3 = extracttuple %0, 2
       %4 = extracttuple %3, 0
       %5 = extracttuple %3, 1
-      %6 = %1 Add %2
-      %7 = %6 Add %4
-      %8 = %7 Add %5
+      %6 = %1 + %2
+      %7 = %6 + %4
+      %8 = %7 + %5
       return %8
 
   }

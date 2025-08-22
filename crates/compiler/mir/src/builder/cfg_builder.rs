@@ -114,14 +114,15 @@ impl<'f> CfgBuilder<'f> {
     /// * `terminator` - The terminator to set
     fn set_terminator_internal(&mut self, block_id: BasicBlockId, terminator: Terminator) {
         // First collect the old targets if the block has a terminator
-        let old_targets = if let Some(block) = self.function.basic_blocks.get(block_id) {
+        let old_targets = {
+            let block = self.function.basic_blocks.get(block_id).unwrap_or_else(|| {
+                panic!("set_terminator_internal: invalid block_id {:?}", block_id)
+            });
             if block.has_terminator() {
                 block.terminator.target_blocks()
             } else {
                 vec![]
             }
-        } else {
-            return; // Block doesn't exist
         };
 
         // Remove old edges
@@ -130,9 +131,16 @@ impl<'f> CfgBuilder<'f> {
         }
 
         // Set new terminator
-        if let Some(block) = self.function.basic_blocks.get_mut(block_id) {
-            block.set_terminator(terminator.clone());
-        }
+        self.function
+            .basic_blocks
+            .get_mut(block_id)
+            .unwrap_or_else(|| {
+                panic!(
+                    "set_terminator_internal: block {:?} disappeared during update",
+                    block_id
+                )
+            })
+            .set_terminator(terminator.clone());
 
         // Connect new edges
         let new_targets = terminator.target_blocks();

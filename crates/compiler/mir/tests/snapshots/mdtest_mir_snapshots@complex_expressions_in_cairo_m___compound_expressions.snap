@@ -45,7 +45,7 @@ module {
       %10 = %0 U32Greater %1
       %11 = %2 U32Add %0
       %12 = %11 U32Less 25
-      %13 = %10 And %12
+      %13 = %10 && %12
       %14 = %5 U32Add %9
       %16 = %14 (u32)
       if %13 then jump 1 else jump 3

@@ -18,7 +18,11 @@ fn test_return_value_field_with_literal() {
     assert_eq!(func.return_values, vec![return_value_id]);
 
     // Verify function validation passes
-    assert!(func.validate().is_ok());
+    let validation_result = func.validate();
+    if let Err(e) = &validation_result {
+        eprintln!("Validation error: {}", e);
+    }
+    assert!(validation_result.is_ok());
 }
 
 #[test]
@@ -38,5 +42,9 @@ fn test_return_value_field_with_operand() {
     assert_eq!(func.return_values, vec![value_id]);
 
     // Verify function validation passes
-    assert!(func.validate().is_ok());
+    let validation_result = func.validate();
+    if let Err(e) = &validation_result {
+        eprintln!("Validation error: {}", e);
+    }
+    assert!(validation_result.is_ok());
 }

@@ -19,7 +19,7 @@ module {
     entry: 0
 
     0:
-      if %0 Eq 15 then jump 1 else jump 2
+      if %0 == 15 then jump 1 else jump 2
 
     1 (block_1):
       ; block_1

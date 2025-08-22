@@ -42,15 +42,15 @@ module {
     0:
       %2 = extractfield %0, "x"
       %3 = extractfield %1, "x"
-      %4 = %2 Mul %3
+      %4 = %2 * %3
       %5 = extractfield %0, "y"
       %6 = extractfield %1, "y"
-      %7 = %5 Mul %6
-      %8 = %4 Add %7
+      %7 = %5 * %6
+      %8 = %4 + %7
       %9 = extractfield %0, "z"
       %10 = extractfield %1, "z"
-      %11 = %9 Mul %10
-      %12 = %8 Add %11
+      %11 = %9 * %10
+      %12 = %8 + %11
       return %12
 
   }

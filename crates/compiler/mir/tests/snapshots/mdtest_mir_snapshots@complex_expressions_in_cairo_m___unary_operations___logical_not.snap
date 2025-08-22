@@ -23,7 +23,7 @@ module {
       %1 = Not %0
       %3 = Not %1
       %4 = true (bool)
-      %5 = %4 And %3
+      %5 = %4 && %3
       return %5
 
   }

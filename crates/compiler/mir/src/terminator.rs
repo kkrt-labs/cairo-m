@@ -310,9 +310,9 @@ impl PrettyPrint for Terminator {
                 else_target,
             } => {
                 format!(
-                    "if {} {:?} {} then jump {then_target:?} else jump {else_target:?}",
+                    "if {} {} {} then jump {then_target:?} else jump {else_target:?}",
                     left.pretty_print(0),
-                    op,
+                    op, // Use Display trait instead of Debug
                     right.pretty_print(0)
                 )
             }

@@ -42,7 +42,7 @@ module {
 
     2 (block_2):
       ; block_2
-      if %0 Eq 5 then jump 3 else jump 4
+      if %0 == 5 then jump 3 else jump 4
 
     3 (block_3):
       ; block_3
@@ -52,7 +52,7 @@ module {
 
     4 (block_4):
       ; block_4
-      %8 = %7 Add 50
+      %8 = %7 + 50
       %9 = %8
       jump 5
 

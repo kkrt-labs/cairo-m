@@ -299,6 +299,41 @@ impl MirFunction {
             }
         }
 
+        // Validate return statements match function signature
+        for (block_id, block) in self.basic_blocks() {
+            if let crate::Terminator::Return { values } = &block.terminator {
+                // Check count
+                if values.len() != self.return_values.len() {
+                    return Err(format!(
+                        "Block {:?}: return has {} values, expected {}",
+                        block_id,
+                        values.len(),
+                        self.return_values.len()
+                    ));
+                }
+
+                // Check types (only if both types are known)
+                for (i, value) in values.iter().enumerate() {
+                    if let crate::Value::Operand(id) = value {
+                        let actual_type = self.get_value_type(*id);
+                        let expected_id = self.return_values[i];
+                        let expected_type = self.get_value_type(expected_id);
+
+                        // Only validate if both types are known (not None)
+                        if let (Some(actual), Some(expected)) = (actual_type, expected_type) {
+                            if actual != expected {
+                                return Err(format!(
+                                    "Block {:?}: return value {} has type {:?}, expected {:?}",
+                                    block_id, i, actual, expected
+                                ));
+                            }
+                        }
+                        // If either type is unknown, skip validation (happens in tests)
+                    }
+                }
+            }
+        }
+
         Ok(())
     }
 

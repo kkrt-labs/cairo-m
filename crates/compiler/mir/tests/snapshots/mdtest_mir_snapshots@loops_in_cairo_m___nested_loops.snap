@@ -29,7 +29,7 @@ module {
 
     1 (for_header):
       ; for_header
-      if %2 Neq 10 then jump 2 else jump 4
+      if %2 != 10 then jump 2 else jump 4
 
     2 (for_body):
       ; for_body
@@ -40,7 +40,7 @@ module {
 
     3 (for_step):
       ; for_step
-      %13 = %2 Add 1
+      %13 = %2 + 1
       %12 = %7
       %2 = %13
       jump 1
@@ -51,17 +51,17 @@ module {
 
     5 (for_header):
       ; for_header
-      if %5 Neq 10 then jump 6 else jump 8
+      if %5 != 10 then jump 6 else jump 8
 
     6 (for_body):
       ; for_body
-      %9 = %2 Mul %5
-      %10 = %7 Add %9
+      %9 = %2 * %5
+      %10 = %7 + %9
       jump 7
 
     7 (for_step):
       ; for_step
-      %11 = %5 Add 1
+      %11 = %5 + 1
       %5 = %11
       %7 = %10
       jump 5

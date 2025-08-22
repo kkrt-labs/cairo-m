@@ -24,7 +24,7 @@ module {
     entry: 0
 
     0:
-      %1 = %0 Mul 2
+      %1 = %0 * 2
       return %1
 
   }

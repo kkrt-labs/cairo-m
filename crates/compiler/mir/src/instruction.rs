@@ -435,10 +435,12 @@ impl Instruction {
         args: Vec<Value>,
         signature: CalleeSignature,
     ) -> Self {
-        debug_assert_eq!(
+        assert_eq!(
             dests.len(),
             signature.return_types.len(),
-            "Call instruction destination count mismatch with signature return count"
+            "Call instruction: destination count ({}) must match return types ({})",
+            dests.len(),
+            signature.return_types.len()
         );
 
         Self {
@@ -1037,10 +1039,10 @@ impl PrettyPrint for Instruction {
                 right,
             } => {
                 result.push_str(&format!(
-                    "{} = {} {:?} {}",
+                    "{} = {} {} {}",
                     dest.pretty_print(0),
                     left.pretty_print(0),
-                    op,
+                    op, // Use Display trait instead of Debug
                     right.pretty_print(0)
                 ));
             }

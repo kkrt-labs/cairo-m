@@ -171,6 +171,12 @@ impl<'a> TestBlockBuilder<'a> {
 
     /// Sets a return terminator with a value
     pub fn return_value(&mut self, value: Value) {
+        // Also set up the function's return_values field if returning an operand
+        if let Value::Operand(id) = value {
+            if !self.function.return_values.contains(&id) {
+                self.function.return_values.push(id);
+            }
+        }
         self.terminate(Terminator::return_value(value));
     }
 
@@ -274,6 +280,10 @@ mod tests {
             .get_basic_block_mut(block_id)
             .unwrap()
             .push_instruction(instruction);
+
+        // Set up return_values field before setting terminator
+        function.return_values = vec![result];
+
         function
             .get_basic_block_mut(block_id)
             .unwrap()

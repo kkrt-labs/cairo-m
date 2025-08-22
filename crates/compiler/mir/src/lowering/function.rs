@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
 
-use cairo_m_compiler_diagnostics::Diagnostic;
+use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
 use cairo_m_compiler_parser::parse_file;
 use cairo_m_compiler_parser::parser::{FunctionDef, Parameter, Spanned, Statement, TopLevelItem};
 use cairo_m_compiler_semantic::db::Crate;
@@ -54,6 +54,7 @@ pub fn generate_mir(db: &dyn MirDb, crate_id: Crate) -> Result<Arc<MirModule>, V
     let mut mir_module = MirModule::new();
     let mut function_mapping = FxHashMap::default();
     let mut parsed_modules = HashMap::new();
+    let mut lowering_errors: Vec<Diagnostic> = Vec::new();
 
     // First, collect all parsed modules to avoid re-parsing
     for (module_name, file) in crate_id.modules(db) {
@@ -157,8 +158,15 @@ pub fn generate_mir(db: &dyn MirDb, crate_id: Crate) -> Result<Arc<MirModule>, V
                             mir_module.functions[func_id] = mir_function;
                         }
                         Err(e) => {
-                            log::error!("Failed to lower function '{}': {}", def.name, e);
-                            // Continue with other functions even if one fails
+                            // Collect the error instead of just logging
+                            lowering_errors.push(Diagnostic {
+                                code: DiagnosticCode::InternalError,
+                                file_path: file.file_path(db).to_string(),
+                                related_spans: vec![],
+                                severity: DiagnosticSeverity::Error,
+                                message: format!("Failed to lower function '{}': {}", def.name, e),
+                                span: func_ast.value().name.span(),
+                            });
                         }
                     }
                 } else {
@@ -169,6 +177,11 @@ pub fn generate_mir(db: &dyn MirDb, crate_id: Crate) -> Result<Arc<MirModule>, V
                 }
             }
         }
+    }
+
+    // Check if we have any lowering errors
+    if !lowering_errors.is_empty() {
+        return Err(lowering_errors);
     }
 
     // Run optimization pipeline on the entire module

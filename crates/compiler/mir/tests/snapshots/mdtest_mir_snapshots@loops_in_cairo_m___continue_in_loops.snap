@@ -30,15 +30,15 @@ module {
 
     1 (for_header):
       ; for_header
-      if %2 Neq 10 then jump 2 else jump 4
+      if %2 != 10 then jump 2 else jump 4
 
     2 (for_body):
       ; for_body
-      if %2 Eq 5 then jump 5 else jump 6
+      if %2 == 5 then jump 5 else jump 6
 
     3 (for_step):
       ; for_step
-      %8 = %2 Add 1
+      %8 = %2 + 1
       %5 = %9
       %2 = %8
       jump 1
@@ -54,7 +54,7 @@ module {
 
     6 (block_6):
       ; block_6
-      %6 = %5 Add %2
+      %6 = %5 + %2
       %9 = %6
       jump 3
 

@@ -29,12 +29,12 @@ module {
 
     1 (loop_header):
       ; loop_header
-      if %2 Neq 5 then jump 2 else jump 3
+      if %2 != 5 then jump 2 else jump 3
 
     2 (loop_body):
       ; loop_body
-      %5 = %4 Add %2
-      %6 = %2 Add 1
+      %5 = %4 + %2
+      %6 = %2 + 1
       %4 = %5
       %2 = %6
       jump 1

@@ -43,9 +43,9 @@ module {
 
     2 (block_2):
       ; block_2
-      %2 = %0 Sub 1
+      %2 = %0 - 1
       %3 = call 1(%2)
-      %4 = %0 Mul %3
+      %4 = %0 * %3
       return %4
 
   }
