@@ -80,15 +80,15 @@ fn binary_operations_parameterized() {
             in_function("a >= b;"),
             in_function("a && b;"),
             in_function("a || b;"),
+            in_function("a & b;"),
+            in_function("a | b;"),
+            in_function("a ^ b;"),
         ],
         err: [
             in_function("a +;"),
             in_function("+ b;"),
             in_function("a ==;"),
             in_function("&& b;"),
-            in_function("a | b;"),
-            in_function("a & b;"),
-            in_function("a ^ b;"),
             in_function("a << b;"),
             in_function("a >> b;"),
             in_function("a % b;"),
@@ -115,6 +115,27 @@ fn complex_precedence() {
 #[test]
 fn precedence_chain() {
     assert_parses_ok!(&in_function("a || b && c == d + e * f / g - h;"));
+}
+
+#[test]
+fn bitwise_precedence() {
+    // Tests that & has higher precedence than ^ which has higher precedence than |
+    // Expected: ((a & b) ^ c) | d
+    assert_parses_ok!(&in_function("let z = a & b ^ c | d;"));
+}
+
+#[test]
+fn bitwise_vs_logical_precedence() {
+    // Tests that bitwise ops have higher precedence than logical ops
+    // Expected: (a & b) && (c | d)
+    assert_parses_ok!(&in_function("let x = a & b && c | d;"));
+}
+
+#[test]
+fn bitwise_vs_comparison() {
+    // Tests that comparison has higher precedence than bitwise
+    // Expected: (a < b) & (c > d)
+    assert_parses_ok!(&in_function("let y = a < b & c > d;"));
 }
 
 // ===================

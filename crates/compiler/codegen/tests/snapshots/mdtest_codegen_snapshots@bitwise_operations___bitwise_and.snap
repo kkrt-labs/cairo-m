@@ -1,0 +1,17 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Bitwise Operations - Bitwise And"
+input_file: mdtest/01-basics/07-bitwise.md
+---
+Source:
+fn test_bitwise_and(x: u32, y: u32) -> u32 {
+    let result = x & y;
+    return result;
+}
+============================================================
+Generated CASM:
+test_bitwise_and:
+test_bitwise_and:
+test_bitwise_and_0:
+   0: 36 -8 -6 -4          // u32([fp + -4], [fp + -3]) = u32([fp + -8], [fp + -7]) & (u32) u32([fp + -6], [fp + -5])
+   1: 11 _ _ _             // return

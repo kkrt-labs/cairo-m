@@ -25,20 +25,20 @@ fn test() { a || b && c == d + e * f / g - h; }
                         Expression(
                             Spanned(
                                 BinaryOp {
-                                    op: Or,
+                                    op: And,
                                     left: Spanned(
-                                        Identifier(
-                                            Spanned(
-                                                "a",
+                                        BinaryOp {
+                                            op: Or,
+                                            left: Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "a",
+                                                        12..13,
+                                                    ),
+                                                ),
                                                 12..13,
                                             ),
-                                        ),
-                                        12..13,
-                                    ),
-                                    right: Spanned(
-                                        BinaryOp {
-                                            op: And,
-                                            left: Spanned(
+                                            right: Spanned(
                                                 Identifier(
                                                     Spanned(
                                                         "b",
@@ -47,92 +47,92 @@ fn test() { a || b && c == d + e * f / g - h; }
                                                 ),
                                                 17..18,
                                             ),
-                                            right: Spanned(
-                                                BinaryOp {
-                                                    op: Eq,
-                                                    left: Spanned(
-                                                        Identifier(
-                                                            Spanned(
-                                                                "c",
-                                                                22..23,
-                                                            ),
-                                                        ),
+                                        },
+                                        12..18,
+                                    ),
+                                    right: Spanned(
+                                        BinaryOp {
+                                            op: Eq,
+                                            left: Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "c",
                                                         22..23,
                                                     ),
-                                                    right: Spanned(
+                                                ),
+                                                22..23,
+                                            ),
+                                            right: Spanned(
+                                                BinaryOp {
+                                                    op: Sub,
+                                                    left: Spanned(
                                                         BinaryOp {
-                                                            op: Sub,
+                                                            op: Add,
                                                             left: Spanned(
-                                                                BinaryOp {
-                                                                    op: Add,
-                                                                    left: Spanned(
-                                                                        Identifier(
-                                                                            Spanned(
-                                                                                "d",
-                                                                                27..28,
-                                                                            ),
-                                                                        ),
+                                                                Identifier(
+                                                                    Spanned(
+                                                                        "d",
                                                                         27..28,
                                                                     ),
-                                                                    right: Spanned(
+                                                                ),
+                                                                27..28,
+                                                            ),
+                                                            right: Spanned(
+                                                                BinaryOp {
+                                                                    op: Div,
+                                                                    left: Spanned(
                                                                         BinaryOp {
-                                                                            op: Div,
+                                                                            op: Mul,
                                                                             left: Spanned(
-                                                                                BinaryOp {
-                                                                                    op: Mul,
-                                                                                    left: Spanned(
-                                                                                        Identifier(
-                                                                                            Spanned(
-                                                                                                "e",
-                                                                                                31..32,
-                                                                                            ),
-                                                                                        ),
+                                                                                Identifier(
+                                                                                    Spanned(
+                                                                                        "e",
                                                                                         31..32,
                                                                                     ),
-                                                                                    right: Spanned(
-                                                                                        Identifier(
-                                                                                            Spanned(
-                                                                                                "f",
-                                                                                                35..36,
-                                                                                            ),
-                                                                                        ),
-                                                                                        35..36,
-                                                                                    ),
-                                                                                },
-                                                                                31..36,
+                                                                                ),
+                                                                                31..32,
                                                                             ),
                                                                             right: Spanned(
                                                                                 Identifier(
                                                                                     Spanned(
-                                                                                        "g",
-                                                                                        39..40,
+                                                                                        "f",
+                                                                                        35..36,
                                                                                     ),
                                                                                 ),
-                                                                                39..40,
+                                                                                35..36,
                                                                             ),
                                                                         },
-                                                                        31..40,
+                                                                        31..36,
+                                                                    ),
+                                                                    right: Spanned(
+                                                                        Identifier(
+                                                                            Spanned(
+                                                                                "g",
+                                                                                39..40,
+                                                                            ),
+                                                                        ),
+                                                                        39..40,
                                                                     ),
                                                                 },
-                                                                27..40,
-                                                            ),
-                                                            right: Spanned(
-                                                                Identifier(
-                                                                    Spanned(
-                                                                        "h",
-                                                                        43..44,
-                                                                    ),
-                                                                ),
-                                                                43..44,
+                                                                31..40,
                                                             ),
                                                         },
-                                                        27..44,
+                                                        27..40,
+                                                    ),
+                                                    right: Spanned(
+                                                        Identifier(
+                                                            Spanned(
+                                                                "h",
+                                                                43..44,
+                                                            ),
+                                                        ),
+                                                        43..44,
                                                     ),
                                                 },
-                                                22..44,
+                                                27..44,
                                             ),
                                         },
-                                        17..44,
+                                        22..44,
                                     ),
                                 },
                                 12..44,

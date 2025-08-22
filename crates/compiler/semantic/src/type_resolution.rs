@@ -850,6 +850,28 @@ pub fn get_binary_op_signatures<'db>(db: &'db dyn SemanticDb) -> Vec<OperatorSig
             right: bool,
             result: bool,
         },
+        // Bitwise operators for u32 only (not supported for felt or bool)
+        // BitwiseAnd
+        OperatorSignature {
+            op: BinaryOp::BitwiseAnd,
+            left: u32,
+            right: u32,
+            result: u32,
+        },
+        // BitwiseOr
+        OperatorSignature {
+            op: BinaryOp::BitwiseOr,
+            left: u32,
+            right: u32,
+            result: u32,
+        },
+        // BitwiseXor
+        OperatorSignature {
+            op: BinaryOp::BitwiseXor,
+            left: u32,
+            right: u32,
+            result: u32,
+        },
     ]
 }
 

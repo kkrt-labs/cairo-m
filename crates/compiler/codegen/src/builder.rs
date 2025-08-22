@@ -578,7 +578,10 @@ impl CasmBuilder {
             | BinaryOp::U32Less
             | BinaryOp::U32Greater
             | BinaryOp::U32LessEqual
-            | BinaryOp::U32GreaterEqual => {
+            | BinaryOp::U32GreaterEqual
+            | BinaryOp::U32BitwiseAnd
+            | BinaryOp::U32BitwiseOr
+            | BinaryOp::U32BitwiseXor => {
                 self.generate_u32_op(op, dest_off, left, right)?;
             }
         }
@@ -638,6 +641,9 @@ impl CasmBuilder {
             BinaryOp::U32GreaterEqual => Ok(U32_STORE_GE_FP_FP),
             BinaryOp::U32Less => Ok(U32_STORE_LT_FP_FP),
             BinaryOp::U32LessEqual => Ok(U32_STORE_LE_FP_FP),
+            BinaryOp::U32BitwiseAnd => Ok(U32_STORE_AND_FP_FP),
+            BinaryOp::U32BitwiseOr => Ok(U32_STORE_OR_FP_FP),
+            BinaryOp::U32BitwiseXor => Ok(U32_STORE_XOR_FP_FP),
             _ => Err(CodegenError::UnsupportedInstruction(format!(
                 "Invalid binary operation: {op:?}"
             ))),
@@ -656,6 +662,9 @@ impl CasmBuilder {
             BinaryOp::U32GreaterEqual => Ok(U32_STORE_GE_FP_IMM),
             BinaryOp::U32Less => Ok(U32_STORE_LT_FP_IMM),
             BinaryOp::U32LessEqual => Ok(U32_STORE_LE_FP_IMM),
+            BinaryOp::U32BitwiseAnd => Ok(U32_STORE_AND_FP_IMM),
+            BinaryOp::U32BitwiseOr => Ok(U32_STORE_OR_FP_IMM),
+            BinaryOp::U32BitwiseXor => Ok(U32_STORE_XOR_FP_IMM),
             _ => Err(CodegenError::UnsupportedInstruction(format!(
                 "Invalid binary operation: {op:?}"
             ))),
@@ -1310,6 +1319,31 @@ impl CasmBuilder {
                             result,
                             dest_off,
                             format!("[fp + {dest_off}] = {result} // u32({left_u32}) <= u32({right_u32})"),
+                        );
+                    }
+                    // Bitwise operations - result is U32
+                    BinaryOp::U32BitwiseAnd => {
+                        let result = left_u32 & right_u32;
+                        self.store_u32_immediate(
+                            result,
+                            dest_off,
+                            format!("u32([fp + {dest_off}], [fp + {}]) = u32({result}) // u32({left_u32}) & u32({right_u32})", dest_off + 1),
+                        );
+                    }
+                    BinaryOp::U32BitwiseOr => {
+                        let result = left_u32 | right_u32;
+                        self.store_u32_immediate(
+                            result,
+                            dest_off,
+                            format!("u32([fp + {dest_off}], [fp + {}]) = u32({result}) // u32({left_u32}) | u32({right_u32})", dest_off + 1),
+                        );
+                    }
+                    BinaryOp::U32BitwiseXor => {
+                        let result = left_u32 ^ right_u32;
+                        self.store_u32_immediate(
+                            result,
+                            dest_off,
+                            format!("u32([fp + {dest_off}], [fp + {}]) = u32({result}) // u32({left_u32}) ^ u32({right_u32})", dest_off + 1),
                         );
                     }
                     _ => {

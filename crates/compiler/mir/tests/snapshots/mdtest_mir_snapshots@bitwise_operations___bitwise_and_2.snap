@@ -1,0 +1,24 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Bitwise Operations - Bitwise And 2"
+input_file: mdtest/01-basics/07-bitwise.md
+---
+Source:
+fn test_bitwise_and_immediates() -> u32 {
+    let result = 69u32 & 420u32;
+    return result;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_bitwise_and_immediates {
+    entry: 0
+
+    0:
+      %0 = 4 (u32)
+      return %0
+
+  }
+
+}

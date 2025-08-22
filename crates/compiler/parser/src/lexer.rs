@@ -209,6 +209,12 @@ pub enum TokenType<'a> {
     AndAnd,
     #[token("||")]
     OrOr,
+    #[token("&")]
+    BitwiseAnd,
+    #[token("|")]
+    BitwiseOr,
+    #[token("^")]
+    BitwiseXor,
     #[token("==")]
     EqEq,
     #[token("!=")]
@@ -288,6 +294,9 @@ impl<'a> fmt::Display for TokenType<'a> {
             TokenType::Not => write!(f, "!"),
             TokenType::AndAnd => write!(f, "&&"),
             TokenType::OrOr => write!(f, "||"),
+            TokenType::BitwiseAnd => write!(f, "&"),
+            TokenType::BitwiseOr => write!(f, "|"),
+            TokenType::BitwiseXor => write!(f, "^"),
             TokenType::EqEq => write!(f, "=="),
             TokenType::Neq => write!(f, "!="),
             TokenType::LessEqual => write!(f, "<="),
@@ -555,6 +564,50 @@ mod tests {
                 other => panic!("Expected LiteralNumber for input '{input}', got: {other:?}"),
             }
         }
+    }
+
+    #[test]
+    fn test_bitwise_operators() {
+        // Test that bitwise operators are recognized correctly
+        let input = "a & b | c ^ d";
+        let lexer = TokenType::lexer(input);
+        let tokens: Vec<_> = lexer.spanned().map(|(t, _)| t).collect();
+
+        assert_eq!(
+            tokens,
+            vec![
+                Ok(TokenType::Identifier("a")),
+                Ok(TokenType::BitwiseAnd),
+                Ok(TokenType::Identifier("b")),
+                Ok(TokenType::BitwiseOr),
+                Ok(TokenType::Identifier("c")),
+                Ok(TokenType::BitwiseXor),
+                Ok(TokenType::Identifier("d")),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_logical_vs_bitwise_operators() {
+        // Test that logical operators are still recognized correctly and distinct from bitwise
+        let input = "a && b || c & d | e";
+        let lexer = TokenType::lexer(input);
+        let tokens: Vec<_> = lexer.spanned().map(|(t, _)| t).collect();
+
+        assert_eq!(
+            tokens,
+            vec![
+                Ok(TokenType::Identifier("a")),
+                Ok(TokenType::AndAnd),
+                Ok(TokenType::Identifier("b")),
+                Ok(TokenType::OrOr),
+                Ok(TokenType::Identifier("c")),
+                Ok(TokenType::BitwiseAnd),
+                Ok(TokenType::Identifier("d")),
+                Ok(TokenType::BitwiseOr),
+                Ok(TokenType::Identifier("e")),
+            ]
+        );
     }
 
     #[test]

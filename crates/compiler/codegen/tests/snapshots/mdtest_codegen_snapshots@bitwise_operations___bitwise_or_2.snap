@@ -1,0 +1,17 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Bitwise Operations - Bitwise Or 2"
+input_file: mdtest/01-basics/07-bitwise.md
+---
+Source:
+fn test_bitwise_or_immediates() -> u32 {
+    let result = 69u32 | 420u32;
+    return result;
+}
+============================================================
+Generated CASM:
+test_bitwise_or_immediates:
+test_bitwise_or_immediates:
+test_bitwise_or_immediates_0:
+   0: 23 485 0 -4          // u32([fp + -4], [fp + -3]) = u32(485)
+   1: 11 _ _ _             // return
