@@ -757,6 +757,82 @@ fn test_try_from_smallvec() {
             },
             "U32StoreLeFpImm instruction",
         ),
+        // U32 Bitwise operations
+        (
+            smallvec![M31::from(36), M31::from(1), M31::from(2), M31::from(3)],
+            Instruction::U32StoreAndFpFp {
+                src0_off: M31::from(1),
+                src1_off: M31::from(2),
+                dst_off: M31::from(3),
+            },
+            "U32StoreAndFpFp instruction",
+        ),
+        (
+            smallvec![M31::from(37), M31::from(1), M31::from(2), M31::from(3)],
+            Instruction::U32StoreOrFpFp {
+                src0_off: M31::from(1),
+                src1_off: M31::from(2),
+                dst_off: M31::from(3),
+            },
+            "U32StoreOrFpFp instruction",
+        ),
+        (
+            smallvec![M31::from(38), M31::from(1), M31::from(2), M31::from(3)],
+            Instruction::U32StoreXorFpFp {
+                src0_off: M31::from(1),
+                src1_off: M31::from(2),
+                dst_off: M31::from(3),
+            },
+            "U32StoreXorFpFp instruction",
+        ),
+        (
+            smallvec![
+                M31::from(39),
+                M31::from(1),
+                M31::from(0x1234),
+                M31::from(0x5678),
+                M31::from(3)
+            ],
+            Instruction::U32StoreAndFpImm {
+                src_off: M31::from(1),
+                imm_lo: M31::from(0x1234),
+                imm_hi: M31::from(0x5678),
+                dst_off: M31::from(3),
+            },
+            "U32StoreAndFpImm instruction",
+        ),
+        (
+            smallvec![
+                M31::from(40),
+                M31::from(1),
+                M31::from(0x1234),
+                M31::from(0x5678),
+                M31::from(3)
+            ],
+            Instruction::U32StoreOrFpImm {
+                src_off: M31::from(1),
+                imm_lo: M31::from(0x1234),
+                imm_hi: M31::from(0x5678),
+                dst_off: M31::from(3),
+            },
+            "U32StoreOrFpImm instruction",
+        ),
+        (
+            smallvec![
+                M31::from(41),
+                M31::from(1),
+                M31::from(0x1234),
+                M31::from(0x5678),
+                M31::from(3)
+            ],
+            Instruction::U32StoreXorFpImm {
+                src_off: M31::from(1),
+                imm_lo: M31::from(0x1234),
+                imm_hi: M31::from(0x5678),
+                dst_off: M31::from(3),
+            },
+            "U32StoreXorFpImm instruction",
+        ),
     ];
 
     assert_eq!(test_cases.len(), MAX_OPCODE as usize + 1);

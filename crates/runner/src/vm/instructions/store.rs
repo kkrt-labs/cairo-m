@@ -388,6 +388,20 @@ impl_u32_cmp_op_fp_imm!(u32_store_ge_fp_imm, U32StoreGeFpImm, |a, b| a >= b);
 impl_u32_cmp_op_fp_imm!(u32_store_lt_fp_imm, U32StoreLtFpImm, |a, b| a < b);
 impl_u32_cmp_op_fp_imm!(u32_store_le_fp_imm, U32StoreLeFpImm, |a, b| a <= b);
 
+// -------------------------------------------------------------------------------------------------
+// U32 Bitwise operations
+// -------------------------------------------------------------------------------------------------
+
+// -- U32 Bitwise FP-FP variants ------------------------------------------
+impl_u32_store_bin_op_fp_fp!(u32_store_and_fp_fp, U32StoreAndFpFp, |a, b| a & b);
+impl_u32_store_bin_op_fp_fp!(u32_store_or_fp_fp, U32StoreOrFpFp, |a, b| a | b);
+impl_u32_store_bin_op_fp_fp!(u32_store_xor_fp_fp, U32StoreXorFpFp, |a, b| a ^ b);
+
+// -- U32 Bitwise FP-IMM variants ------------------------------------------
+impl_u32_store_bin_op_fp_imm!(u32_store_and_fp_imm, U32StoreAndFpImm, |a, b| a & b);
+impl_u32_store_bin_op_fp_imm!(u32_store_or_fp_imm, U32StoreOrFpImm, |a, b| a | b);
+impl_u32_store_bin_op_fp_imm!(u32_store_xor_fp_imm, U32StoreXorFpImm, |a, b| a ^ b);
+
 #[cfg(test)]
 #[path = "./store_tests.rs"]
 mod store_tests;
