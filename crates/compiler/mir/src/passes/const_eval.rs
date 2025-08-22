@@ -89,19 +89,15 @@ impl ConstEvaluator {
                 Some(Literal::Boolean(a != b))
             }
             (BinaryOp::U32Less, Literal::Integer(a), Literal::Integer(b)) => {
-                // Compare as unsigned u32
                 Some(Literal::Boolean(a < b))
             }
             (BinaryOp::U32Greater, Literal::Integer(a), Literal::Integer(b)) => {
-                // Compare as unsigned u32
                 Some(Literal::Boolean(a > b))
             }
             (BinaryOp::U32LessEqual, Literal::Integer(a), Literal::Integer(b)) => {
-                // Compare as unsigned u32
                 Some(Literal::Boolean(a <= b))
             }
             (BinaryOp::U32GreaterEqual, Literal::Integer(a), Literal::Integer(b)) => {
-                // Compare as unsigned u32
                 Some(Literal::Boolean(a >= b))
             }
 
