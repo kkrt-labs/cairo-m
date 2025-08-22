@@ -2,8 +2,9 @@
 
 use crate::loader::{BlocklessDagModule, WasmLoadError};
 use cairo_m_compiler_mir::{
-    instruction::CalleeSignature, BasicBlock, BasicBlockId, BinaryOp, FunctionId, Instruction,
-    MirFunction, MirModule, MirType, Terminator, Value, ValueId,
+    instruction::{CalleeSignature, InstructionKind},
+    BasicBlock, BasicBlockId, BinaryOp, FunctionId, Instruction, MirFunction, MirModule, MirType,
+    PassManager, Terminator, Value, ValueId,
 };
 use std::collections::HashMap;
 use thiserror::Error;
@@ -15,14 +16,39 @@ use womir::loader::dag::ValueOrigin;
 pub enum DagToMirError {
     #[error("Failed to load Wasm module: {0}")]
     WasmLoadError(#[from] WasmLoadError),
-    #[error("Unsupported WASM operation: {0:?}")]
-    UnsupportedOperation(String),
-    #[error("Invalid control flow: {0}")]
-    InvalidControlFlow(String),
-    #[error("Value mapping error: {0}")]
-    ValueMappingError(String),
-    #[error("Unsupported WASM type: {0:?}")]
-    UnsupportedWasmType(wasmparser::ValType),
+    #[error("Unsupported WASM operation {op:?} in function '{function_name}' at node {node_idx}: {suggestion}")]
+    UnsupportedOperation {
+        op: String,
+        function_name: String,
+        node_idx: usize,
+        suggestion: String,
+    },
+    #[error("Invalid control flow in function '{function_name}': {reason}")]
+    InvalidControlFlow {
+        function_name: String,
+        reason: String,
+        operation_context: String,
+    },
+    #[error("Value mapping error in function '{function_name}' at node {node_idx}: {reason} (available: {available_count} values)")]
+    ValueMappingError {
+        function_name: String,
+        node_idx: usize,
+        reason: String,
+        available_count: usize,
+    },
+    #[error("Unsupported WASM type {wasm_type:?} in function '{function_name}': {context}")]
+    UnsupportedWasmType {
+        wasm_type: wasmparser::ValType,
+        function_name: String,
+        context: String,
+    },
+    #[error("Loop structure error in function '{function_name}' at node {node_idx}: depth {requested_depth} exceeds available {available_depth}")]
+    LoopDepthError {
+        function_name: String,
+        node_idx: usize,
+        requested_depth: u32,
+        available_depth: usize,
+    },
 }
 
 pub struct DagToMir {
@@ -39,26 +65,24 @@ struct DagToMirContext {
     label_map: HashMap<u32, BasicBlockId>,
     /// Current basic block being filled
     current_block_id: Option<BasicBlockId>,
-    /// Track the current loop body block for break targets
-    current_loop_body: Option<BasicBlockId>,
     /// Local variable mapping for LocalGet/LocalSet
     local_map: HashMap<u32, ValueId>,
     /// Current source block for tracking control flow
     current_source_block: Option<BasicBlockId>,
-    /// For each label id, the pre-allocated output ValueIds (one per label parameter)
-    label_output_values: HashMap<u32, Vec<ValueId>>,
-    /// For each loop, the pre-allocated header slot ValueIds (one per loop parameter)
-    loop_header_slots: HashMap<u32, Vec<ValueId>>,
+    /// For each label id, the phi nodes that need to be populated (dest ValueId -> phi instruction)
+    label_phi_nodes: HashMap<u32, Vec<ValueId>>,
     /// Stack of active loops to support continues and loop-carried variables
     loop_stack: Vec<ActiveLoop>,
+    /// Deferred phi operands: (block_id, dest_value_id, source_block_id, source_value)
+    deferred_phi_operands: Vec<(BasicBlockId, ValueId, BasicBlockId, Value)>,
 }
 
 /// Information about an active loop during lowering
 struct ActiveLoop {
-    /// Body basic block for this loop
-    body_block: BasicBlockId,
-    /// Canonical storages (slots) for loop-carried values (header parameters)
-    header_slots: Vec<ValueId>,
+    /// Header basic block for this loop
+    header_block: BasicBlockId,
+    /// Phi nodes in the header for loop-carried values
+    header_phi_nodes: Vec<ValueId>,
 }
 
 impl DagToMirContext {
@@ -70,25 +94,31 @@ impl DagToMirContext {
             label_map: HashMap::new(),
             local_map: HashMap::new(),
             current_source_block: None,
-            label_output_values: HashMap::new(),
-            loop_header_slots: HashMap::new(),
+            label_phi_nodes: HashMap::new(),
+
             mir_function,
             current_block_id: Some(0.into()),
-            current_loop_body: None,
             loop_stack: Vec::new(),
+            deferred_phi_operands: Vec::new(),
         }
     }
 
     fn get_current_block(&mut self) -> Result<&mut BasicBlock, DagToMirError> {
-        let block_id = self.current_block_id.ok_or_else(|| {
-            DagToMirError::InvalidControlFlow("No current block set - invalid state".to_string())
-        })?;
+        let block_id = self
+            .current_block_id
+            .ok_or_else(|| DagToMirError::InvalidControlFlow {
+                function_name: self.mir_function.name.clone(),
+                reason: "No current block set - invalid state".to_string(),
+                operation_context: "attempting to get current block".to_string(),
+            })?;
 
         self.mir_function
             .basic_blocks
             .get_mut(block_id)
-            .ok_or_else(|| {
-                DagToMirError::InvalidControlFlow(format!("Block {:?} does not exist", block_id))
+            .ok_or_else(|| DagToMirError::InvalidControlFlow {
+                function_name: self.mir_function.name.clone(),
+                reason: format!("Block {:?} does not exist", block_id),
+                operation_context: "attempting to access basic block".to_string(),
             })
     }
 
@@ -118,6 +148,66 @@ impl DagToMirContext {
     fn pop_scope(&mut self) {
         self.value_maps.pop();
     }
+
+    /// Add a deferred phi operand to be processed later
+    fn add_deferred_phi_operand(
+        &mut self,
+        dest_block: BasicBlockId,
+        dest_value: ValueId,
+        source_block: BasicBlockId,
+        source_value: Value,
+    ) {
+        self.deferred_phi_operands
+            .push((dest_block, dest_value, source_block, source_value));
+    }
+
+    /// Finalize all phi nodes by adding their operands
+    fn finalize_phi_nodes(&mut self) -> Result<(), DagToMirError> {
+        // Group deferred operands by (block_id, dest_value_id)
+        let mut phi_operands: HashMap<(BasicBlockId, ValueId), Vec<(BasicBlockId, Value)>> =
+            HashMap::new();
+
+        for (dest_block, dest_value, source_block, source_value) in &self.deferred_phi_operands {
+            phi_operands
+                .entry((*dest_block, *dest_value))
+                .or_default()
+                .push((*source_block, *source_value));
+        }
+
+        // Update phi instructions with their operands
+        for ((block_id, dest_value_id), operands) in phi_operands {
+            let function_name = self.mir_function.name.clone();
+            let block = self
+                .mir_function
+                .get_basic_block_mut(block_id)
+                .ok_or_else(|| DagToMirError::InvalidControlFlow {
+                    function_name,
+                    reason: format!("Block {:?} not found when finalizing phi nodes", block_id),
+                    operation_context: "finalizing phi nodes".to_string(),
+                })?;
+
+            // Find the phi instruction with this destination
+            for instruction in block.phi_instructions_mut() {
+                // Get the destination value id before borrowing mutably
+                let phi_dest = if let InstructionKind::Phi { dest, .. } = &instruction.kind {
+                    Some(*dest)
+                } else {
+                    None
+                };
+
+                if let Some(dest) = phi_dest {
+                    if dest == dest_value_id {
+                        if let Some(phi_operands_mut) = instruction.phi_operands_mut() {
+                            *phi_operands_mut = operands.clone();
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl DagToMir {
@@ -127,12 +217,18 @@ impl DagToMir {
 
     /// Convert WASM type to MIR type
     /// For now, we only support i32
-    const fn wasm_type_to_mir_type(
+    fn wasm_type_to_mir_type(
         wasm_type: &wasmparser::ValType,
+        function_name: &str,
+        context: &str,
     ) -> Result<MirType, DagToMirError> {
         match wasm_type {
             wasmparser::ValType::I32 => Ok(MirType::U32),
-            _ => Err(DagToMirError::UnsupportedWasmType(*wasm_type)),
+            _ => Err(DagToMirError::UnsupportedWasmType {
+                wasm_type: *wasm_type,
+                function_name: function_name.to_string(),
+                context: context.to_string(),
+            }),
         }
     }
 
@@ -147,6 +243,7 @@ impl DagToMir {
                 .unwrap_or_else(|| format!("func_{}", func_idx))
         });
 
+        let func_name_clone = func_name.clone();
         let mut context = DagToMirContext::new(func_name);
 
         // Get function type information for parameters and return types
@@ -158,7 +255,7 @@ impl DagToMir {
                 .ty
                 .params()
                 .iter()
-                .map(Self::wasm_type_to_mir_type)
+                .map(|ty| Self::wasm_type_to_mir_type(ty, &func_name_clone, "function parameters"))
                 .collect();
 
             // Handle return types with proper error handling
@@ -166,7 +263,9 @@ impl DagToMir {
                 .ty
                 .results()
                 .iter()
-                .map(Self::wasm_type_to_mir_type)
+                .map(|ty| {
+                    Self::wasm_type_to_mir_type(ty, &func_name_clone, "function return types")
+                })
                 .collect();
 
             (param_types, return_types)
@@ -191,14 +290,22 @@ impl DagToMir {
         // Get the DAG for this function
         let result = self.module.with_program(|program| {
             let func = program.functions.get(func_idx).ok_or_else(|| {
-                DagToMirError::ValueMappingError(format!("Function {} not found", func_idx))
+                DagToMirError::ValueMappingError {
+                    function_name: "unknown".to_string(),
+                    node_idx: 0,
+                    reason: format!("Function {} not found", func_idx),
+                    available_count: 0,
+                }
             })?;
 
             // Preallocate all the blocks associated with DAG labels and loops
-            self.allocate_blocks_and_slots(func, &mut context)?;
+            self.allocate_blocks_and_phi_nodes(func, &mut context)?;
 
             // Generate instructions and control flow
             self.generate_instructions_from_dag(func, &mut context)?;
+
+            // Finalize all phi nodes with their operands
+            context.finalize_phi_nodes()?;
 
             Ok::<(), DagToMirError>(())
         });
@@ -231,59 +338,43 @@ impl DagToMir {
     }
 
     /// Pass 1: Preallocate all the blocks associated with DAG labels and loops
-    /// Allocate variables to block inputs and loop header slots
-    fn allocate_blocks_and_slots(
+    /// Create phi nodes for label outputs that will be populated later
+    fn allocate_blocks_and_phi_nodes(
         &self,
         func: &BlocklessDag,
         context: &mut DagToMirContext,
     ) -> Result<(), DagToMirError> {
         for (node_idx, node) in func.nodes.iter().enumerate() {
-            match &node.operation {
-                Operation::Label { id } => {
-                    let block_id = context.mir_function.add_basic_block();
-                    context.label_map.insert(*id, block_id);
-                    let mut output_value_ids: Vec<ValueId> = Vec::new();
-                    for (output_idx, output_type) in node.output_types.iter().enumerate() {
-                        let mir_type = Self::wasm_type_to_mir_type(output_type)?;
-                        // Pre-allocate the label output value id
-                        let output_value_id =
-                            context.mir_function.new_typed_value_id(mir_type.clone());
-                        context.insert_value(
-                            ValueOrigin {
-                                node: node_idx,
-                                output_idx: output_idx as u32,
-                            },
-                            output_value_id,
-                        );
-                        output_value_ids.push(output_value_id);
+            if let Operation::Label { id } = &node.operation {
+                let block_id = context.mir_function.add_basic_block();
+                context.label_map.insert(*id, block_id);
+                let mut phi_value_ids: Vec<ValueId> = Vec::new();
 
-                        // Allocate a dedicated slot for this label parameter
-                        context.mir_function.new_typed_value_id(mir_type);
-                    }
-                    context.label_output_values.insert(*id, output_value_ids);
-                }
-                Operation::Loop { sub_dag, .. } => {
-                    // Pre-allocate loop header slots from the sub-DAG's Inputs node
-                    let sub_inputs_idx = 0;
-                    let input_node = &sub_dag.nodes[sub_inputs_idx];
-                    assert!(
-                        matches!(input_node.operation, Operation::Inputs),
-                        "Loop sub-DAG must start with Inputs node"
-                    );
+                // Create phi nodes for each label output
+                for (output_idx, output_type) in node.output_types.iter().enumerate() {
+                    let mir_type =
+                        Self::wasm_type_to_mir_type(output_type, "unknown", "label output")?;
+                    let phi_value_id = context.mir_function.new_typed_value_id(mir_type.clone());
 
-                    let mut header_slots = Vec::new();
-                    for output_type in &input_node.output_types {
-                        let mir_type = Self::wasm_type_to_mir_type(output_type)?;
-                        let slot_id = context.mir_function.new_typed_value_id(mir_type);
-                        header_slots.push(slot_id);
-                    }
-
-                    // Use node_idx as the loop identifier
+                    // Create empty phi node that will be populated later
+                    let phi_instruction = Instruction::empty_phi(phi_value_id, mir_type);
                     context
-                        .loop_header_slots
-                        .insert(node_idx as u32, header_slots);
+                        .mir_function
+                        .get_basic_block_mut(block_id)
+                        .unwrap()
+                        .push_phi_front(phi_instruction);
+
+                    // Map the label output to this phi node value
+                    context.insert_value(
+                        ValueOrigin {
+                            node: node_idx,
+                            output_idx: output_idx as u32,
+                        },
+                        phi_value_id,
+                    );
+                    phi_value_ids.push(phi_value_id);
                 }
-                _ => {}
+                context.label_phi_nodes.insert(*id, phi_value_ids);
             }
         }
         Ok(())
@@ -314,7 +405,14 @@ impl DagToMir {
                 }
 
                 Operation::Label { id } => {
-                    context.set_current_block(context.label_map.get(id).copied().unwrap());
+                    let block_id = context.label_map.get(id).copied().ok_or_else(|| {
+                        DagToMirError::InvalidControlFlow {
+                            function_name: context.mir_function.name.clone(),
+                            reason: format!("Label {:?} not found", id),
+                            operation_context: "resolving label".to_string(),
+                        }
+                    })?;
+                    context.set_current_block(block_id);
                 }
 
                 Operation::Br(target) => {
@@ -324,10 +422,10 @@ impl DagToMir {
                     // Edge copies
                     match &target.kind {
                         TargetType::Label(label_id) => {
-                            self.copy_branch_values_to_label(node, *label_id, context)?;
+                            self.record_branch_values_for_label(node, *label_id, context)?;
                         }
                         TargetType::FunctionOrLoop => {
-                            self.copy_branch_values_to_loop(node, target.depth, context)?;
+                            self.record_branch_values_for_loop(node, target.depth, context)?;
                         }
                     }
 
@@ -339,9 +437,11 @@ impl DagToMir {
                 Operation::BrIf(target) => {
                     // Conditional branch - in our DAG, the condition is the last input
                     let cond_idx = node.inputs.len().checked_sub(1).ok_or_else(|| {
-                        DagToMirError::InvalidControlFlow(
-                            "BrIf without condition input".to_string(),
-                        )
+                        DagToMirError::InvalidControlFlow {
+                            function_name: context.mir_function.name.clone(),
+                            reason: "BrIf without condition input".to_string(),
+                            operation_context: "resolving BrIf condition".to_string(),
+                        }
                     })?;
                     let condition_value = self.get_input_value(&node.inputs[cond_idx], context)?;
                     let target_block = self.resolve_break_target(node, target, context)?;
@@ -350,10 +450,10 @@ impl DagToMir {
                     // Edge copies on the taken edge
                     match &target.kind {
                         TargetType::Label(label_id) => {
-                            self.copy_branch_values_to_label(node, *label_id, context)?;
+                            self.record_branch_values_for_label(node, *label_id, context)?;
                         }
                         TargetType::FunctionOrLoop => {
-                            self.copy_branch_values_to_loop(node, target.depth, context)?;
+                            self.record_branch_values_for_loop(node, target.depth, context)?;
                         }
                     }
 
@@ -365,9 +465,11 @@ impl DagToMir {
                 Operation::BrIfZero(target) => {
                     // Inverted conditional branch - condition is the last input
                     let cond_idx = node.inputs.len().checked_sub(1).ok_or_else(|| {
-                        DagToMirError::InvalidControlFlow(
-                            "BrIfZero without condition input".to_string(),
-                        )
+                        DagToMirError::InvalidControlFlow {
+                            function_name: context.mir_function.name.clone(),
+                            reason: "BrIfZero without condition input".to_string(),
+                            operation_context: "resolving BrIfZero condition".to_string(),
+                        }
                     })?;
                     let condition_value = self.get_input_value(&node.inputs[cond_idx], context)?;
                     let else_target = self.resolve_break_target(node, target, context)?;
@@ -376,10 +478,10 @@ impl DagToMir {
                     // Edge copies on the taken edge
                     match &target.kind {
                         TargetType::Label(label_id) => {
-                            self.copy_branch_values_to_label(node, *label_id, context)?;
+                            self.record_branch_values_for_label(node, *label_id, context)?;
                         }
                         TargetType::FunctionOrLoop => {
-                            self.copy_branch_values_to_loop(node, target.depth, context)?;
+                            self.record_branch_values_for_loop(node, target.depth, context)?;
                         }
                     }
 
@@ -397,34 +499,73 @@ impl DagToMir {
                     break_targets: _,
                 } => {
                     // Build a normal loop (header/body/exit) from the sub-DAG
-                    // Create header block and get pre-allocated header slots
+                    // Create header block and allocate phi nodes for loop-carried values
                     let header_block = context.mir_function.add_basic_block();
-                    let header_slots = context
-                        .loop_header_slots
-                        .get(&(node_idx as u32))
-                        .cloned()
-                        .ok_or_else(|| {
-                        DagToMirError::InvalidControlFlow(
-                            "Loop header slots not pre-allocated".to_string(),
-                        )
-                    })?;
+
+                    // Get loop input types from the sub-DAG's Inputs node
+                    let sub_inputs_idx = 0;
+                    let input_node = &sub_dag.nodes[sub_inputs_idx];
+                    assert!(
+                        matches!(input_node.operation, Operation::Inputs),
+                        "Loop sub-DAG must start with Inputs node"
+                    );
+
+                    // Create phi nodes in the header for loop-carried values
+                    let mut header_phi_nodes = Vec::new();
+                    for output_type in &input_node.output_types {
+                        let mir_type = Self::wasm_type_to_mir_type(
+                            output_type,
+                            &context.mir_function.name,
+                            "loop input",
+                        )?;
+                        let phi_value_id =
+                            context.mir_function.new_typed_value_id(mir_type.clone());
+
+                        // Create empty phi node that will be populated later
+                        let phi_instruction = Instruction::empty_phi(phi_value_id, mir_type);
+                        context
+                            .mir_function
+                            .get_basic_block_mut(header_block)
+                            .unwrap()
+                            .push_phi_front(phi_instruction);
+
+                        header_phi_nodes.push(phi_value_id);
+                    }
+
+                    // Record initial phi operands from loop entry
+                    let current_block = context.current_block_id.unwrap();
+                    for (input_idx, input) in node.inputs.iter().enumerate() {
+                        if let Some(phi_value_id) = header_phi_nodes.get(input_idx) {
+                            let source_value_id = context.get_value(input).ok_or_else(|| {
+                                let available_count = context
+                                    .value_maps
+                                    .iter()
+                                    .map(|map| map.len())
+                                    .sum::<usize>();
+                                DagToMirError::ValueMappingError {
+                                    function_name: context.mir_function.name.clone(),
+                                    node_idx: input.node,
+                                    reason: format!(
+                                        "Loop input {} (node {}, output {}) not found in value map",
+                                        input_idx, input.node, input.output_idx
+                                    ),
+                                    available_count,
+                                }
+                            })?;
+
+                            // Add phi operand for loop entry
+                            context.add_deferred_phi_operand(
+                                header_block,
+                                *phi_value_id,
+                                current_block,
+                                Value::operand(source_value_id),
+                            );
+                        }
+                    }
 
                     let terminator = Terminator::jump(header_block);
                     context.get_current_block()?.set_terminator(terminator);
-
-                    // Enter header (no materialization needed since we use slots directly)
                     context.set_current_block(header_block);
-
-                    // Copy the loop inputs into header slots
-                    for (input_idx, input) in node.inputs.iter().enumerate() {
-                        let slot_value_id = header_slots[input_idx];
-                        let source_value_id = context.get_value(input).unwrap();
-                        let assign_instruction =
-                            Instruction::assign_u32(slot_value_id, Value::operand(source_value_id));
-                        context
-                            .get_current_block()?
-                            .push_instruction(assign_instruction);
-                    }
 
                     // Allocate a new block for the loop body
                     let body_block = context.mir_function.add_basic_block();
@@ -432,30 +573,27 @@ impl DagToMir {
                     context.get_current_block()?.set_terminator(terminator);
                     context.set_current_block(body_block);
 
-                    // Push loop on the stack and lower the body sub-DAG
-                    let prev_loop_body = context.current_loop_body;
-                    context.current_loop_body = Some(body_block);
                     context.loop_stack.push(ActiveLoop {
-                        body_block,
-                        header_slots: header_slots.clone(),
+                        header_block,
+                        header_phi_nodes: header_phi_nodes.clone(),
                     });
 
                     // Enter a new value scope for the loop body to avoid ValueOrigin collisions
                     context.push_scope();
 
-                    // Map the sub-DAG's Inputs node (node 0) to header slots
-                    for (output_idx, slot_value_id) in header_slots.iter().enumerate() {
+                    // Map the sub-DAG's Inputs node (node 0) to header phi nodes
+                    for (output_idx, phi_value_id) in header_phi_nodes.iter().enumerate() {
                         context.insert_value(
                             ValueOrigin {
                                 node: 0,
                                 output_idx: output_idx as u32,
                             },
-                            *slot_value_id,
+                            *phi_value_id,
                         );
                     }
 
                     // Pre-allocate labels inside the loop sub-DAG
-                    self.allocate_blocks_and_slots(sub_dag, context)?;
+                    self.allocate_blocks_and_phi_nodes(sub_dag, context)?;
                     // Lower the body
                     self.generate_instructions_from_dag(sub_dag, context)?;
                     // Exit the loop body's value scope
@@ -463,12 +601,55 @@ impl DagToMir {
 
                     // Pop loop and restore state
                     context.loop_stack.pop();
-                    context.current_loop_body = prev_loop_body;
                 }
             }
         }
 
         Ok(())
+    }
+
+    /// Convert a WASM binary opcode to a MIR binary opcode
+    /// TODO : bitshifts, rotations, u8 operations, etc.
+    fn wasm_binary_opcode_to_mir(
+        &self,
+        wasm_op: &Op,
+        context: &DagToMirContext,
+    ) -> Result<BinaryOp, DagToMirError> {
+        match wasm_op {
+            Op::I32Add => Ok(BinaryOp::U32Add),
+            Op::I32Sub => Ok(BinaryOp::U32Sub),
+            Op::I32Mul => Ok(BinaryOp::U32Mul),
+            Op::I32DivU => Ok(BinaryOp::U32Div),
+            Op::I32Eq => Ok(BinaryOp::U32Eq),
+            Op::I32Ne => Ok(BinaryOp::U32Neq),
+            Op::I32LtU => Ok(BinaryOp::U32Less),
+            Op::I32GtU => Ok(BinaryOp::U32Greater),
+            Op::I32LeU => Ok(BinaryOp::U32LessEqual),
+            Op::I32GeU => Ok(BinaryOp::U32GreaterEqual),
+            Op::I32And => Ok(BinaryOp::U32BitwiseAnd),
+            Op::I32Or => Ok(BinaryOp::U32BitwiseOr),
+            Op::I32Xor => Ok(BinaryOp::U32BitwiseXor),
+            _ => Err(DagToMirError::UnsupportedOperation {
+                op: format!("{:?}", wasm_op),
+                function_name: context.mir_function.name.clone(),
+                node_idx: 0,
+                suggestion: "".to_string(),
+            }),
+        }
+    }
+
+    fn convert_wasm_binop_to_mir(
+        &self,
+        wasm_op: &Op,
+        left: Value,
+        right: Value,
+        context: &mut DagToMirContext,
+    ) -> Result<Vec<ValueId>, DagToMirError> {
+        let result_id = context.mir_function.new_typed_value_id(MirType::U32);
+        let wasm_op = self.wasm_binary_opcode_to_mir(wasm_op, context)?;
+        let instruction = Instruction::binary_op(wasm_op, result_id, left, right);
+        context.get_current_block()?.push_instruction(instruction);
+        Ok(vec![result_id])
     }
 
     /// Convert a WASM operation to MIR instructions
@@ -487,95 +668,25 @@ impl DagToMir {
 
         match wasm_op {
             // Arithmetic operations
-            Op::I32Add => {
-                let result_id = context.mir_function.new_typed_value_id(MirType::U32);
-                let instruction =
-                    Instruction::binary_op(BinaryOp::U32Add, result_id, inputs[0], inputs[1]);
-                context.get_current_block()?.push_instruction(instruction);
-                Ok(vec![result_id])
-            }
-
-            Op::I32Sub => {
-                let result_id = context.mir_function.new_typed_value_id(MirType::U32);
-                let instruction =
-                    Instruction::binary_op(BinaryOp::U32Sub, result_id, inputs[0], inputs[1]);
-                context.get_current_block()?.push_instruction(instruction);
-                Ok(vec![result_id])
-            }
-
-            Op::I32Mul => {
-                let result_id = context.mir_function.new_typed_value_id(MirType::U32);
-                let instruction =
-                    Instruction::binary_op(BinaryOp::U32Mul, result_id, inputs[0], inputs[1]);
-                context.get_current_block()?.push_instruction(instruction);
-                Ok(vec![result_id])
-            }
-
-            Op::I32DivU => {
-                let result_id = context.mir_function.new_typed_value_id(MirType::U32);
-                let instruction =
-                    Instruction::binary_op(BinaryOp::U32Div, result_id, inputs[0], inputs[1]);
-                context.get_current_block()?.push_instruction(instruction);
-                Ok(vec![result_id])
-            }
-
-            // Comparison operations
-            Op::I32Eq => {
-                let result_id = context.mir_function.new_typed_value_id(MirType::U32);
-                let instruction =
-                    Instruction::binary_op(BinaryOp::U32Eq, result_id, inputs[0], inputs[1]);
-                context.get_current_block()?.push_instruction(instruction);
-                Ok(vec![result_id])
-            }
-
-            Op::I32Ne => {
-                let result_id = context.mir_function.new_typed_value_id(MirType::U32);
-                let instruction =
-                    Instruction::binary_op(BinaryOp::U32Neq, result_id, inputs[0], inputs[1]);
-                context.get_current_block()?.push_instruction(instruction);
-                Ok(vec![result_id])
-            }
-
-            Op::I32LtU => {
-                let result_id = context.mir_function.new_typed_value_id(MirType::U32);
-                let instruction =
-                    Instruction::binary_op(BinaryOp::U32Less, result_id, inputs[0], inputs[1]);
-                context.get_current_block()?.push_instruction(instruction);
-                Ok(vec![result_id])
-            }
-
-            Op::I32GtU => {
-                let result_id = context.mir_function.new_typed_value_id(MirType::U32);
-                let instruction =
-                    Instruction::binary_op(BinaryOp::U32Greater, result_id, inputs[0], inputs[1]);
-                context.get_current_block()?.push_instruction(instruction);
-                Ok(vec![result_id])
-            }
-
-            Op::I32LeU => {
-                let result_id = context.mir_function.new_typed_value_id(MirType::U32);
-                let instruction =
-                    Instruction::binary_op(BinaryOp::U32LessEqual, result_id, inputs[0], inputs[1]);
-                context.get_current_block()?.push_instruction(instruction);
-                Ok(vec![result_id])
-            }
-
-            Op::I32GeU => {
-                let result_id = context.mir_function.new_typed_value_id(MirType::U32);
-                let instruction = Instruction::binary_op(
-                    BinaryOp::U32GreaterEqual,
-                    result_id,
-                    inputs[0],
-                    inputs[1],
-                );
-                context.get_current_block()?.push_instruction(instruction);
-                Ok(vec![result_id])
-            }
+            Op::I32Add
+            | Op::I32Sub
+            | Op::I32Mul
+            | Op::I32DivU
+            | Op::I32Eq
+            | Op::I32Ne
+            | Op::I32LtU
+            | Op::I32GtU
+            | Op::I32LeU
+            | Op::I32GeU
+            | Op::I32And
+            | Op::I32Or
+            | Op::I32Xor => self.convert_wasm_binop_to_mir(wasm_op, inputs[0], inputs[1], context),
 
             // Constants
             Op::I32Const { value } => {
                 let result_id = context.mir_function.new_typed_value_id(MirType::U32);
-                let instruction = Instruction::assign_u32(result_id, Value::integer(*value));
+                let instruction =
+                    Instruction::assign(result_id, Value::integer(*value as u32), MirType::U32);
                 context.get_current_block()?.push_instruction(instruction);
                 Ok(vec![result_id])
             }
@@ -586,15 +697,24 @@ impl DagToMir {
 
                 // If we have a local variable stored, load its value
                 if let Some(&local_value_id) = context.local_map.get(local_index) {
-                    let instruction =
-                        Instruction::assign_u32(result_id, Value::operand(local_value_id));
+                    let instruction = Instruction::assign(
+                        result_id,
+                        Value::operand(local_value_id),
+                        MirType::U32,
+                    );
                     context.get_current_block()?.push_instruction(instruction);
                 } else {
                     // No local variable set yet, raise an error
-                    return Err(DagToMirError::ValueMappingError(format!(
-                        "Local variable {} not set",
-                        local_index
-                    )));
+                    return Err(DagToMirError::ValueMappingError {
+                        function_name: context.mir_function.name.clone(),
+                        node_idx: 0,
+                        reason: format!(
+                            "Local variable {} not initialized (available locals: {:?})",
+                            local_index,
+                            context.local_map.keys().collect::<Vec<_>>()
+                        ),
+                        available_count: context.local_map.len(),
+                    });
                 }
                 Ok(vec![result_id])
             }
@@ -608,7 +728,8 @@ impl DagToMir {
                     let local_value_id = context.mir_function.new_typed_value_id(MirType::U32);
 
                     // Assign the input value to our local variable
-                    let instruction = Instruction::assign_u32(local_value_id, value_to_store);
+                    let instruction =
+                        Instruction::assign(local_value_id, value_to_store, MirType::U32);
                     context.get_current_block()?.push_instruction(instruction);
 
                     // Store the mapping from local index to ValueId
@@ -626,7 +747,7 @@ impl DagToMir {
                     } else {
                         // Create a new value for the literal
                         let result_id = context.mir_function.new_typed_value_id(MirType::U32);
-                        let instruction = Instruction::assign_u32(result_id, inputs[0]);
+                        let instruction = Instruction::assign(result_id, inputs[0], MirType::U32);
                         context.get_current_block()?.push_instruction(instruction);
                         Ok(vec![result_id])
                     }
@@ -648,7 +769,9 @@ impl DagToMir {
                         .ty
                         .params()
                         .iter()
-                        .map(Self::wasm_type_to_mir_type)
+                        .map(|ty| {
+                            Self::wasm_type_to_mir_type(ty, "unknown", "function call parameters")
+                        })
                         .collect();
 
                     // Handle return types with proper error handling
@@ -656,7 +779,9 @@ impl DagToMir {
                         .ty
                         .results()
                         .iter()
-                        .map(Self::wasm_type_to_mir_type)
+                        .map(|ty| {
+                            Self::wasm_type_to_mir_type(ty, "unknown", "function call return types")
+                        })
                         .collect();
 
                     // Return both results
@@ -680,10 +805,14 @@ impl DagToMir {
 
             _ => {
                 // Unsupported operation
-                Err(DagToMirError::UnsupportedOperation(format!(
-                    "{:?}",
-                    wasm_op
-                )))
+                let suggestion = "This WASM operation is not yet implemented in the compiler";
+
+                Err(DagToMirError::UnsupportedOperation {
+                    op: format!("{:?}", wasm_op),
+                    function_name: context.mir_function.name.clone(),
+                    node_idx: 0,
+                    suggestion: suggestion.to_string(),
+                })
             }
         }
     }
@@ -696,10 +825,20 @@ impl DagToMir {
     ) -> Result<Value, DagToMirError> {
         context.get_value(value_origin).map_or_else(
             || {
-                Err(DagToMirError::ValueMappingError(format!(
-                    "Value not found: node {}, output {}",
-                    value_origin.node, value_origin.output_idx
-                )))
+                let available_count = context
+                    .value_maps
+                    .iter()
+                    .map(|map| map.len())
+                    .sum::<usize>();
+                Err(DagToMirError::ValueMappingError {
+                    function_name: context.mir_function.name.clone(),
+                    node_idx: value_origin.node,
+                    reason: format!(
+                        "Value not found: node {}, output {}",
+                        value_origin.node, value_origin.output_idx
+                    ),
+                    available_count,
+                })
             },
             |value_id| Ok(Value::operand(value_id)),
         )
@@ -717,10 +856,11 @@ impl DagToMir {
                 // Direct jump to a label at current scope
                 context.label_map.get(label_id).map_or_else(
                     || {
-                        Err(DagToMirError::InvalidControlFlow(format!(
-                            "Label {} not found in label_map",
-                            label_id
-                        )))
+                        Err(DagToMirError::InvalidControlFlow {
+                            function_name: context.mir_function.name.clone(),
+                            reason: format!("Label {} not found in label_map", label_id),
+                            operation_context: "resolving break target".to_string(),
+                        })
                     },
                     |block_id| Ok(*block_id),
                 )
@@ -733,7 +873,14 @@ impl DagToMir {
                 if !context.loop_stack.is_empty() && d < context.loop_stack.len() {
                     let idx = context.loop_stack.len() - 1 - d;
                     let loop_info = &context.loop_stack[idx];
-                    Ok(loop_info.body_block)
+                    Ok(loop_info.header_block)
+                } else if d >= context.loop_stack.len() && !context.loop_stack.is_empty() {
+                    return Err(DagToMirError::LoopDepthError {
+                        function_name: context.mir_function.name.clone(),
+                        node_idx: 0,
+                        requested_depth: depth,
+                        available_depth: context.loop_stack.len(),
+                    });
                 } else {
                     // No active loop at this depth: treat as function return
                     let return_block = context.mir_function.add_basic_block();
@@ -746,10 +893,15 @@ impl DagToMir {
 
                     let return_values = return_values?;
                     let terminator = Terminator::return_values(return_values);
+                    let function_name = context.mir_function.name.clone();
                     context
                         .mir_function
                         .get_basic_block_mut(return_block)
-                        .unwrap()
+                        .ok_or_else(|| DagToMirError::InvalidControlFlow {
+                            function_name,
+                            reason: format!("Block {:?} not found", return_block),
+                            operation_context: "setting return terminator".to_string(),
+                        })?
                         .set_terminator(terminator);
                     Ok(return_block)
                 }
@@ -757,106 +909,125 @@ impl DagToMir {
         }
     }
 
-    /// Copy branch values to label output variables when branching to a label
-    fn copy_branch_values_to_label(
+    /// Extract branch values from a node, excluding conditional inputs
+    fn get_branch_values(
+        &self,
+        node: &Node,
+        context: &DagToMirContext,
+    ) -> Result<Vec<Value>, DagToMirError> {
+        // Determine which inputs represent data (exclude condition for conditional branches)
+        // For BrIf / BrIfZero, the last input is the condition; exclude it from data copies
+        let data_inputs_start_index = 0;
+        let data_inputs_end_index = match &node.operation {
+            Operation::BrIf(_) | Operation::BrIfZero(_) => node.inputs.len().saturating_sub(1),
+            _ => node.inputs.len(),
+        };
+
+        node.inputs[data_inputs_start_index..data_inputs_end_index]
+            .iter()
+            .map(|input| self.get_input_value(input, context))
+            .collect()
+    }
+
+    /// Record branch values as phi operands for a label when branching to it
+    fn record_branch_values_for_label(
         &self,
         node: &Node,
         label_id: u32,
         context: &mut DagToMirContext,
     ) -> Result<(), DagToMirError> {
-        // Determine which inputs represent data (exclude condition for conditional branches)
-        // For BrIf / BrIfZero, the last input is the condition; exclude it from data copies
-        let data_inputs_start_index = 0;
-        let data_inputs_end_index = match &node.operation {
-            Operation::BrIf(_) | Operation::BrIfZero(_) => node.inputs.len().saturating_sub(1),
-            _ => node.inputs.len(),
-        };
+        let branch_values = self.get_branch_values(node, context)?;
+        let current_block =
+            context
+                .current_block_id
+                .ok_or_else(|| DagToMirError::InvalidControlFlow {
+                    function_name: context.mir_function.name.clone(),
+                    reason: "No current block when recording phi operands".to_string(),
+                    operation_context: "recording branch values for label".to_string(),
+                })?;
 
-        // Get the values that should be copied to the label's slots
-        let branch_values: Result<Vec<Value>, DagToMirError> = node.inputs
-            [data_inputs_start_index..data_inputs_end_index]
-            .iter()
-            .map(|input| self.get_input_value(input, context))
-            .collect();
-        let branch_values = branch_values?;
-
-        // Copy into the label's dedicated slots
-        let slot_value_ids = context
-            .label_output_values
+        let phi_value_ids = context
+            .label_phi_nodes
             .get(&label_id)
             .cloned()
-            .ok_or_else(|| {
-                DagToMirError::InvalidControlFlow(format!(
-                    "No slots allocated for label {}",
-                    label_id
-                ))
+            .ok_or_else(|| DagToMirError::InvalidControlFlow {
+                function_name: context.mir_function.name.clone(),
+                reason: format!("No phi nodes allocated for label {}", label_id),
+                operation_context: "recording branch values for label".to_string(),
             })?;
 
-        let count = core::cmp::min(branch_values.len(), slot_value_ids.len());
+        let target_block = context.label_map.get(&label_id).copied().ok_or_else(|| {
+            DagToMirError::InvalidControlFlow {
+                function_name: context.mir_function.name.clone(),
+                reason: format!("Label {} not found in label_map", label_id),
+                operation_context: "recording branch values for label".to_string(),
+            }
+        })?;
+
+        // Record phi operands for each value
+        let count = core::cmp::min(branch_values.len(), phi_value_ids.len());
         for i in 0..count {
-            let slot_value_id = slot_value_ids[i];
-            let assign_instruction = Instruction::assign_u32(slot_value_id, branch_values[i]);
-            context
-                .get_current_block()?
-                .push_instruction(assign_instruction);
+            context.add_deferred_phi_operand(
+                target_block,
+                phi_value_ids[i],
+                current_block,
+                branch_values[i],
+            );
         }
 
         Ok(())
     }
 
-    /// Copy branch values to loop header storages when continuing to a loop
-    fn copy_branch_values_to_loop(
+    /// Record branch values as phi operands for loop header when continuing to a loop
+    fn record_branch_values_for_loop(
         &self,
         node: &Node,
         depth: u32,
         context: &mut DagToMirContext,
     ) -> Result<(), DagToMirError> {
-        // Determine which inputs represent data (exclude condition for conditional branches)
-        // For BrIf / BrIfZero, the last input is the condition; exclude it from data copies
-        let data_inputs_start_index = 0;
-        let data_inputs_end_index = match &node.operation {
-            Operation::BrIf(_) | Operation::BrIfZero(_) => node.inputs.len().saturating_sub(1),
-            _ => node.inputs.len(),
-        };
-
         // Compute target loop based on depth
         let d = depth as usize;
         if context.loop_stack.is_empty() || d >= context.loop_stack.len() {
-            return Ok(()); // Treat as return; copies handled by return slots elsewhere
+            return Ok(()); // Treat as return; phi operands handled by return elsewhere
         }
         let idx = context.loop_stack.len() - 1 - d;
         let loop_info = &context.loop_stack[idx];
+        let header_phi_nodes = loop_info.header_phi_nodes.clone();
+        let header_block = loop_info.header_block;
 
-        // Get the header slots for this loop
-        let header_slots = loop_info.header_slots.clone();
-
-        // Get the values that should be copied to the loop header slots
-        let branch_values: Result<Vec<Value>, DagToMirError> = node.inputs
-            [data_inputs_start_index..data_inputs_end_index]
-            .iter()
-            .map(|input| self.get_input_value(input, context))
-            .collect();
-        let branch_values = branch_values?;
-
-        let count = core::cmp::min(branch_values.len(), header_slots.len());
-        for i in 0..count {
-            let slot_value_id = header_slots[i];
-            let assign_instruction = Instruction::assign_u32(slot_value_id, branch_values[i]);
+        let current_block =
             context
-                .get_current_block()?
-                .push_instruction(assign_instruction);
+                .current_block_id
+                .ok_or_else(|| DagToMirError::InvalidControlFlow {
+                    function_name: context.mir_function.name.clone(),
+                    reason: "No current block when recording phi operands".to_string(),
+                    operation_context: "recording branch values for loop".to_string(),
+                })?;
+
+        let branch_values = self.get_branch_values(node, context)?;
+
+        // Record phi operands for each loop-carried value
+        let count = core::cmp::min(branch_values.len(), header_phi_nodes.len());
+        for i in 0..count {
+            context.add_deferred_phi_operand(
+                header_block,
+                header_phi_nodes[i],
+                current_block,
+                branch_values[i],
+            );
         }
 
         Ok(())
     }
 
     /// Convert the DAG representation of the module to MIR
-    pub fn to_mir(&self) -> Result<MirModule, DagToMirError> {
+    pub fn to_mir(&self, mut pipeline: PassManager) -> Result<MirModule, DagToMirError> {
         let mut mir_module = MirModule::new();
         self.module.with_program(|program| {
             for (func_idx, _) in program.functions.iter() {
                 let function_id = FunctionId::new(*func_idx as usize);
-                let mir_function = self.function_to_mir(func_idx)?;
+                let mut mir_function = self.function_to_mir(func_idx)?;
+                pipeline.run(&mut mir_function);
                 mir_module
                     .function_names
                     .insert(mir_function.name.clone(), function_id);
