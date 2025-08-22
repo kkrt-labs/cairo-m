@@ -92,6 +92,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         if let TypeData::Tuple(_) = expr_semantic_type.data(self.ctx.db) {
             let expr_value = self.lower_expression(expr)?;
 
+            // Handle empty tuple case - return() should return no values
+            if matches!(expr_value, Value::Literal(crate::Literal::Unit)) {
+                self.terminate_with_return(vec![]);
+                return Ok(());
+            }
+
             // We expect a tuple value
             if let Value::Operand(value_id) = expr_value {
                 if let Some(MirType::Tuple(elem_types)) =

@@ -668,10 +668,10 @@ where
             .or(boolean_literal)
             .or(struct_literal)
             .or(ident_expr)
-            .or(tuple_expr)
             .or(expr
                 .clone()
-                .delimited_by(just(TokenType::LParen), just(TokenType::RParen)));
+                .delimited_by(just(TokenType::LParen), just(TokenType::RParen)))
+            .or(tuple_expr);
 
         // Postfix operations (left-associative): function calls, member access, indexing
         let postfix_op = choice((

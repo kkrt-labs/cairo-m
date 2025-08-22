@@ -1,11 +1,11 @@
 ---
 source: crates/compiler/mir/tests/mdtest_snapshots.rs
-description: "MIR snapshot for mdtest: Functions in Cairo-M - Simple Function"
+description: "MIR snapshot for mdtest: Functions in Cairo-M - Simple Function 2"
 input_file: mdtest/01-basics/03-functions.md
 ---
 Source:
 fn foo() {
-    return();
+    return;
 }
 ============================================================
 Generated MIR:
