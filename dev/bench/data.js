@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1755870841814,
+  "lastUpdate": 1755873389785,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -1723,6 +1723,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 338746896,
             "range": "± 3822534",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "697794551266c5411c43662b9fa612b8c0475f35",
+          "message": "feat(runner): implement U32 bitwise AND, OR, XOR opcodes (#234)\n\nAdd support for bitwise operations on U32 types in the runner:\n- U32StoreAndFpFp, U32StoreOrFpFp, U32StoreXorFpFp for register-register ops\n- U32StoreAndFpImm, U32StoreOrFpImm, U32StoreXorFpImm for register-immediate ops\n\nFollowing the same implementation pattern as U32 comparison opcodes.",
+          "timestamp": "2025-08-22T16:33:14+02:00",
+          "tree_id": "c440f256b08d40531234ba62af265ac484dc4169",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/697794551266c5411c43662b9fa612b8c0475f35"
+        },
+        "date": 1755873389155,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 340661347,
+            "range": "± 2364152",
             "unit": "ns/iter"
           }
         ]
