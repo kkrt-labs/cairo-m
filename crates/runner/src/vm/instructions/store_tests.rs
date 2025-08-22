@@ -668,3 +668,126 @@ proptest! {
         }));
     }
 }
+
+// -----------------------------------------------------------------------------
+// U32 Bitwise FP-FP instruction tests
+// -----------------------------------------------------------------------------
+
+proptest! {
+    #[test]
+    fn test_u32_store_and_fp_fp(src0_value: u32, src1_value: u32) {
+        let expected_res = src0_value & src1_value;
+        run_u32_fp_fp_test(
+            src0_value,
+            src1_value,
+            Instruction::U32StoreAndFpFp {
+                src0_off: M31(0),
+                src1_off: M31(2),
+                dst_off: M31(4),
+            },
+            u32_store_and_fp_fp,
+            expected_res,
+            4,
+            1,
+        ).unwrap();
+    }
+
+    #[test]
+    fn test_u32_store_or_fp_fp(src0_value: u32, src1_value: u32) {
+        let expected_res = src0_value | src1_value;
+        run_u32_fp_fp_test(
+            src0_value,
+            src1_value,
+            Instruction::U32StoreOrFpFp {
+                src0_off: M31(0),
+                src1_off: M31(2),
+                dst_off: M31(4),
+            },
+            u32_store_or_fp_fp,
+            expected_res,
+            4,
+            1,
+        ).unwrap();
+    }
+
+    #[test]
+    fn test_u32_store_xor_fp_fp(src0_value: u32, src1_value: u32) {
+        let expected_res = src0_value ^ src1_value;
+        run_u32_fp_fp_test(
+            src0_value,
+            src1_value,
+            Instruction::U32StoreXorFpFp {
+                src0_off: M31(0),
+                src1_off: M31(2),
+                dst_off: M31(4),
+            },
+            u32_store_xor_fp_fp,
+            expected_res,
+            4,
+            1,
+        ).unwrap();
+    }
+}
+
+// -----------------------------------------------------------------------------
+// U32 Bitwise FP-IMM instruction tests
+// -----------------------------------------------------------------------------
+
+proptest! {
+    #[test]
+    fn test_u32_store_and_fp_imm(src_value: u32, imm_val_lo in 0..=u16::MAX as u32, imm_val_hi in 0..=u16::MAX as u32) {
+        let imm_value: u32 = (imm_val_hi << U32_LIMB_BITS) | imm_val_lo;
+        let expected_res = src_value & imm_value;
+        run_u32_fp_imm_test(
+            src_value,
+            Instruction::U32StoreAndFpImm {
+                src_off: M31(0),
+                imm_lo: M31(imm_val_lo),
+                imm_hi: M31(imm_val_hi),
+                dst_off: M31(2),
+            },
+            u32_store_and_fp_imm,
+            expected_res,
+            2,
+            2,
+        ).unwrap();
+    }
+
+    #[test]
+    fn test_u32_store_or_fp_imm(src_value: u32, imm_val_lo in 0..=u16::MAX as u32, imm_val_hi in 0..=u16::MAX as u32) {
+        let imm_value: u32 = (imm_val_hi << U32_LIMB_BITS) | imm_val_lo;
+        let expected_res = src_value | imm_value;
+        run_u32_fp_imm_test(
+            src_value,
+            Instruction::U32StoreOrFpImm {
+                src_off: M31(0),
+                imm_lo: M31(imm_val_lo),
+                imm_hi: M31(imm_val_hi),
+                dst_off: M31(2),
+            },
+            u32_store_or_fp_imm,
+            expected_res,
+            2,
+            2,
+        ).unwrap();
+    }
+
+    #[test]
+    fn test_u32_store_xor_fp_imm(src_value: u32, imm_val_lo in 0..=u16::MAX as u32, imm_val_hi in 0..=u16::MAX as u32) {
+        let imm_value: u32 = (imm_val_hi << U32_LIMB_BITS) | imm_val_lo;
+        let expected_res = src_value ^ imm_value;
+        run_u32_fp_imm_test(
+            src_value,
+            Instruction::U32StoreXorFpImm {
+                src_off: M31(0),
+                imm_lo: M31(imm_val_lo),
+                imm_hi: M31(imm_val_hi),
+                dst_off: M31(2),
+            },
+            u32_store_xor_fp_imm,
+            expected_res,
+            2,
+            2,
+        ).unwrap();
+    }
+}

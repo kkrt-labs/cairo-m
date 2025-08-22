@@ -279,7 +279,17 @@ define_instruction!(
     U32StoreGtFpImm = 32, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) > u32(imm_lo, imm_hi)
     U32StoreGeFpImm = 33, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) >= u32(imm_lo, imm_hi)
     U32StoreLtFpImm = 34, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) < u32(imm_lo, imm_hi)
-    U32StoreLeFpImm = 35, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32]  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) <= u32(imm_lo, imm_hi)
+    U32StoreLeFpImm = 35, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) <= u32(imm_lo, imm_hi)
+
+    // U32 Bitwise operations
+    U32StoreAndFpFp = 36, 5, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, U32];                // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) & u32([fp + src1_off], [fp + src1_off + 1])
+    U32StoreOrFpFp = 37, 5, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, U32];                 // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) | u32([fp + src1_off], [fp + src1_off + 1])
+    U32StoreXorFpFp = 38, 5, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, U32];                // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) ^ u32([fp + src1_off], [fp + src1_off + 1])
+
+    // U32 Bitwise operations with immediate
+    U32StoreAndFpImm = 39, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) & u32(imm_lo, imm_hi)
+    U32StoreOrFpImm = 40, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) | u32(imm_lo, imm_hi)
+    U32StoreXorFpImm = 41, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32]  // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) ^ u32(imm_lo, imm_hi)
 );
 
 impl From<Instruction> for SmallVec<[M31; INSTRUCTION_MAX_SIZE]> {
