@@ -1,5 +1,6 @@
 /// These tests compare the output of the compiled cairo-m with result from the womir interpreter
 use cairo_m_compiler_codegen::compile_module;
+use cairo_m_compiler_mir::PassManager;
 use cairo_m_runner::run_cairo_program;
 use cairo_m_wasm::flattening::DagToMir;
 use cairo_m_wasm::loader::BlocklessDagModule;
@@ -71,7 +72,9 @@ fn test_program(path: &str, func_name: &str, inputs: Vec<u32>) {
     let womir_program = load_wasm(GenericIrSetting, &wasm_file).unwrap();
 
     let dag_module = BlocklessDagModule::from_file(path).unwrap();
-    let mir_module = DagToMir::new(dag_module).to_mir().unwrap();
+    let mir_module = DagToMir::new(dag_module)
+        .to_mir(PassManager::standard_pipeline())
+        .unwrap();
 
     let compiled_module = compile_module(&mir_module).unwrap();
 
@@ -122,44 +125,57 @@ fn test_arithmetic() {
 }
 
 #[test]
-fn test_fib() {
+fn run_fib() {
     for i in 0..10 {
         test_program("tests/test_cases/fib.wasm", "fib", vec![i]);
     }
 }
 
 #[test]
-fn test_func_call() {
+fn run_func_call() {
     test_program("tests/test_cases/func_call.wasm", "main", vec![]);
 }
 
 #[test]
-fn test_simple_if() {
+fn run_simple_if() {
     for i in 0..10 {
         test_program("tests/test_cases/simple_if.wasm", "simple_if", vec![i]);
     }
 }
 
 #[test]
-fn test_if_statement() {
+fn run_if_statement() {
     for i in 0..10 {
         test_program("tests/test_cases/if_statement.wasm", "main", vec![i]);
     }
 }
 
 #[test]
-fn test_simple_loop() {
+fn run_simple_loop() {
     test_program("tests/test_cases/simple_loop.wasm", "main", vec![]);
 }
 
 #[test]
-fn test_variables() {
+fn run_variables() {
     test_program("tests/test_cases/variables.wasm", "main", vec![]);
 }
 
 #[test]
-fn test_nested_loop() {
+fn run_nested_loop() {
     for i in 0..10 {
         test_program("tests/test_cases/nested_loop.wasm", "nested_loop", vec![i]);
     }
+}
+
+#[test]
+fn run_bitwise() {
+    test_program("tests/test_cases/bitwise.wasm", "and", vec![42, 69]);
+    test_program("tests/test_cases/bitwise.wasm", "or", vec![42, 69]);
+    test_program("tests/test_cases/bitwise.wasm", "xor", vec![42, 69]);
+}
+
+#[test]
+#[ignore]
+fn run_sha256() {
+    test_program("tests/test_cases/sha256.wasm", "main", vec![]);
 }

@@ -4,7 +4,7 @@ use insta::assert_snapshot;
 use std::path::Path;
 
 // Use the loader from our src module
-use cairo_m_compiler_mir::PrettyPrint;
+use cairo_m_compiler_mir::{PassManager, PrettyPrint};
 use cairo_m_wasm::flattening::DagToMir;
 use cairo_m_wasm::loader::BlocklessDagModule;
 
@@ -21,7 +21,8 @@ macro_rules! wasm_test {
 
             // Load the WASM module
             let module = BlocklessDagModule::from_file(&file_path).unwrap();
-            let mir_module = DagToMir::new(module).to_mir().unwrap();
+            // Flatten to MIR without any optimizations
+            let mir_module = DagToMir::new(module).to_mir(PassManager::new()).unwrap();
 
             // Create snapshot content
             let snapshot_content = {
@@ -52,5 +53,11 @@ wasm_test!(convert_simple_if_wasm, "simple_if.wasm");
 wasm_test!(convert_if_statement_wasm, "if_statement.wasm");
 wasm_test!(convert_func_call_wasm, "func_call.wasm");
 wasm_test!(convert_variables_wasm, "variables.wasm");
+wasm_test!(convert_bitwise_wasm, "bitwise.wasm");
 wasm_test!(convert_simple_loop_wasm, "simple_loop.wasm");
 wasm_test!(convert_nested_loop_wasm, "nested_loop.wasm");
+wasm_test!(
+    #[ignore]
+    convert_sha256_wasm,
+    "sha256.wasm"
+);
