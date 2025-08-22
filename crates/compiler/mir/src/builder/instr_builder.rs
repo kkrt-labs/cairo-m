@@ -129,38 +129,6 @@ impl<'f> InstrBuilder<'f> {
         dest
     }
 
-    /// Create and add a function call instruction
-    ///
-    /// ## Arguments
-    /// * `callee` - The ID of the function to call
-    /// * `args` - The arguments to pass
-    /// * `return_types` - The types of the return values
-    ///
-    /// ## Returns
-    /// Vec of destination ValueIds
-    pub fn call(
-        &mut self,
-        callee: crate::FunctionId,
-        args: Vec<Value>,
-        return_types: Vec<MirType>,
-    ) -> Vec<ValueId> {
-        // Since we don't have param_types here, create a signature with empty param_types
-        // The lowering code should use call_with_signature instead when it has full type info
-        let signature = CalleeSignature {
-            param_types: vec![],
-            return_types: return_types.clone(),
-        };
-
-        let dests: Vec<ValueId> = return_types
-            .iter()
-            .map(|ty| self.function.new_typed_value_id(ty.clone()))
-            .collect();
-
-        let instr = Instruction::call(dests.clone(), callee, args, signature);
-        self.add_instruction(instr);
-        dests
-    }
-
     /// Create and add a frame allocation with automatic destination
     pub fn alloc_frame(&mut self, ty: MirType) -> ValueId {
         let dest = self

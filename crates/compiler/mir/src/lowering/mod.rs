@@ -4,7 +4,6 @@
 //! It's organized into focused submodules that each handle a specific aspect of
 //! the lowering process.
 
-pub mod array_guards;
 pub mod builder;
 pub mod control_flow;
 pub mod expr;

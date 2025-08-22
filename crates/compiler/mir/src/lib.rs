@@ -51,9 +51,7 @@
 pub use basic_block::BasicBlock;
 pub use builder::{CfgBuilder, CfgState, InstrBuilder};
 pub use function::{MirDefinitionId, MirFunction};
-pub use instruction::{
-    AccessPath, BinaryOp, FieldPath, Instruction, InstructionKind, MirExpressionId,
-};
+pub use instruction::{BinaryOp, Instruction, InstructionKind, MirExpressionId};
 pub use layout::DataLayout;
 pub use mir_types::MirType;
 pub use module::MirModule;
@@ -67,7 +65,6 @@ pub use pipeline::{OptimizationLevel, PipelineConfig};
 pub use terminator::Terminator;
 pub use value::{Literal, Place, Value};
 
-pub mod analysis;
 pub mod basic_block;
 pub mod builder;
 pub mod cfg;
@@ -82,6 +79,7 @@ pub mod passes;
 pub mod pipeline;
 pub mod terminator;
 pub mod value;
+pub mod value_visitor;
 
 pub use db::MirDb;
 pub use lowering::generate_mir;

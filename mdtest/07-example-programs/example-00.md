@@ -57,8 +57,18 @@ fn get_character_stats(char: Character) -> (u32, u32, u32) {
 
 // Function with complex struct manipulation and arithmetic
 fn calculate_distance_squared(pos1: Position, pos2: Position) -> u32 {
-    let dx = pos1.x - pos2.x;
-    let dy = pos1.y - pos2.y;
+    let dx: u32 = 0;
+    if (pos1.x >= pos2.x) {
+        dx = pos1.x - pos2.x;
+    } else {
+        dx = pos2.x - pos1.x;
+    }
+    let dy: u32 = 0;
+    if (pos1.y >= pos2.y) {
+        dy = pos1.y - pos2.y;
+    } else {
+        dy = pos2.y - pos1.y;
+    }
     return dx * dx + dy * dy;
 }
 
@@ -253,8 +263,8 @@ fn get_character_stats(char: Character) -> (u32, u32, u32) {
 
 // Function with complex struct manipulation and arithmetic
 fn calculate_distance_squared(pos1: Position, pos2: Position) -> u32 {
-    let dx = pos1.x.wrapping_sub(pos2.x);
-    let dy = pos1.y.wrapping_sub(pos2.y);
+    let dx = if pos1.x >= pos2.x { pos1.x - pos2.x } else { pos2.x - pos1.x };
+    let dy = if pos1.y >= pos2.y { pos1.y - pos2.y } else { pos2.y - pos1.y };
     dx.wrapping_mul(dx).wrapping_add(dy.wrapping_mul(dy))
 }
 

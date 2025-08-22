@@ -51,12 +51,6 @@ impl PipelineConfig {
             debug: true,
         }
     }
-
-    /// Create configuration from environment (simplified)
-    pub fn from_environment() -> Self {
-        // Environment variable configuration removed
-        Self::default()
-    }
 }
 
 /// Run the optimization pipeline on a MIR module

@@ -5,6 +5,7 @@
 
 use std::collections::HashSet;
 
+use crate::value_visitor::{visit_value, visit_values};
 use crate::{BasicBlockId, BinaryOp, PrettyPrint, Value};
 
 /// A terminator ends a basic block and transfers control
@@ -141,26 +142,24 @@ impl Terminator {
             }
 
             Self::If { condition, .. } => {
-                if let Value::Operand(id) = condition {
-                    used.insert(*id);
-                }
+                visit_value(condition, |id| {
+                    used.insert(id);
+                });
             }
 
             Self::BranchCmp { left, right, .. } => {
-                if let Value::Operand(id) = left {
-                    used.insert(*id);
-                }
-                if let Value::Operand(id) = right {
-                    used.insert(*id);
-                }
+                visit_value(left, |id| {
+                    used.insert(id);
+                });
+                visit_value(right, |id| {
+                    used.insert(id);
+                });
             }
 
             Self::Return { values } => {
-                for value in values {
-                    if let Value::Operand(id) = value {
-                        used.insert(*id);
-                    }
-                }
+                visit_values(values, |id| {
+                    used.insert(id);
+                });
             }
 
             Self::Unreachable => {
@@ -177,37 +176,21 @@ impl Terminator {
             return; // No-op
         }
 
+        use crate::value_visitor::{replace_value_id, replace_value_ids};
+
         match self {
             Self::Jump { .. } => {
                 // No values used - nothing to replace
             }
             Self::If { condition, .. } => {
-                if let Value::Operand(id) = condition {
-                    if *id == from {
-                        *id = to;
-                    }
-                }
+                replace_value_id(condition, from, to);
             }
             Self::BranchCmp { left, right, .. } => {
-                if let Value::Operand(id) = left {
-                    if *id == from {
-                        *id = to;
-                    }
-                }
-                if let Value::Operand(id) = right {
-                    if *id == from {
-                        *id = to;
-                    }
-                }
+                replace_value_id(left, from, to);
+                replace_value_id(right, from, to);
             }
             Self::Return { values } => {
-                for value in values {
-                    if let Value::Operand(id) = value {
-                        if *id == from {
-                            *id = to;
-                        }
-                    }
-                }
+                replace_value_ids(values, from, to);
             }
             Self::Unreachable => {
                 // No values used - nothing to replace

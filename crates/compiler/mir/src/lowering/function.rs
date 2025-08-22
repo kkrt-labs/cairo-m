@@ -39,7 +39,7 @@ use super::stmt::LowerStmt;
 /// - Uses placeholder values for unresolved references
 #[salsa::tracked]
 pub fn generate_mir(db: &dyn MirDb, crate_id: Crate) -> Result<Arc<MirModule>, Vec<Diagnostic>> {
-    let pipeline_config = PipelineConfig::from_environment();
+    let pipeline_config = PipelineConfig::default();
 
     // Get semantic index for the entire crate
     let crate_semantic_index =

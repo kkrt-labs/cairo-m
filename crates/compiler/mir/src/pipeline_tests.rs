@@ -24,12 +24,4 @@ mod tests {
         assert_eq!(config.optimization_level, OptimizationLevel::Standard);
         assert!(config.debug);
     }
-
-    #[test]
-    fn test_environment_config() {
-        // Environment variables removed - from_environment() now returns default
-        let config = PipelineConfig::from_environment();
-        assert_eq!(config.optimization_level, OptimizationLevel::Standard);
-        assert!(!config.debug);
-    }
 }

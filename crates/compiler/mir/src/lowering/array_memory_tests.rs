@@ -6,7 +6,6 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::lowering::array_guards::*;
     use crate::mir_types::MirType;
 
     #[test]
@@ -18,8 +17,8 @@ mod tests {
         };
 
         // Verify array uses memory lowering
-        assert!(should_use_memory_lowering(&array_type));
-        assert!(!supports_value_aggregates(&array_type));
+        assert!(array_type.requires_memory_path());
+        assert!(!array_type.uses_value_aggregates());
     }
 
     #[test]
@@ -31,8 +30,8 @@ mod tests {
         };
 
         // Should also use memory path
-        assert!(should_use_memory_lowering(&dynamic_array));
-        assert!(!supports_value_aggregates(&dynamic_array));
+        assert!(dynamic_array.requires_memory_path());
+        assert!(!dynamic_array.uses_value_aggregates());
     }
 
     #[test]
@@ -48,8 +47,8 @@ mod tests {
         };
 
         // Nested arrays should use memory path
-        assert!(should_use_memory_lowering(&outer_array));
-        assert!(!supports_value_aggregates(&outer_array));
+        assert!(outer_array.requires_memory_path());
+        assert!(!outer_array.uses_value_aggregates());
     }
 
     #[test]
@@ -68,8 +67,8 @@ mod tests {
         };
 
         // Array containing structs should still use memory path
-        assert!(should_use_memory_lowering(&array_of_structs));
-        assert!(!supports_value_aggregates(&array_of_structs));
+        assert!(array_of_structs.requires_memory_path());
+        assert!(!array_of_structs.uses_value_aggregates());
     }
 
     #[test]
@@ -77,8 +76,8 @@ mod tests {
         // Tuples should use value path, not memory
         let tuple_type = MirType::Tuple(vec![MirType::felt(), MirType::bool()]);
 
-        assert!(!should_use_memory_lowering(&tuple_type));
-        assert!(supports_value_aggregates(&tuple_type));
+        assert!(!tuple_type.requires_memory_path());
+        assert!(tuple_type.uses_value_aggregates());
     }
 
     #[test]
@@ -92,8 +91,8 @@ mod tests {
             ],
         };
 
-        assert!(!should_use_memory_lowering(&struct_type));
-        assert!(supports_value_aggregates(&struct_type));
+        assert!(!struct_type.requires_memory_path());
+        assert!(struct_type.uses_value_aggregates());
     }
 
     #[test]
@@ -104,17 +103,17 @@ mod tests {
         let u32 = MirType::u32();
         let pointer = MirType::pointer(MirType::felt());
 
-        assert!(!should_use_memory_lowering(&felt));
-        assert!(!supports_value_aggregates(&felt));
+        assert!(!felt.requires_memory_path());
+        assert!(!felt.uses_value_aggregates());
 
-        assert!(!should_use_memory_lowering(&bool_type));
-        assert!(!supports_value_aggregates(&bool_type));
+        assert!(!bool_type.requires_memory_path());
+        assert!(!bool_type.uses_value_aggregates());
 
-        assert!(!should_use_memory_lowering(&u32));
-        assert!(!supports_value_aggregates(&u32));
+        assert!(!u32.requires_memory_path());
+        assert!(!u32.uses_value_aggregates());
 
-        assert!(!should_use_memory_lowering(&pointer));
-        assert!(!supports_value_aggregates(&pointer));
+        assert!(!pointer.requires_memory_path());
+        assert!(!pointer.uses_value_aggregates());
     }
 
     #[test]
@@ -127,12 +126,12 @@ mod tests {
         let tuple_with_array = MirType::Tuple(vec![MirType::felt(), array_type.clone()]);
 
         // The tuple itself uses value path
-        assert!(!should_use_memory_lowering(&tuple_with_array));
-        assert!(supports_value_aggregates(&tuple_with_array));
+        assert!(!tuple_with_array.requires_memory_path());
+        assert!(tuple_with_array.uses_value_aggregates());
 
         // But the array element would use memory path
-        assert!(should_use_memory_lowering(&array_type));
-        assert!(!supports_value_aggregates(&array_type));
+        assert!(array_type.requires_memory_path());
+        assert!(!array_type.uses_value_aggregates());
     }
 
     #[test]
@@ -151,11 +150,11 @@ mod tests {
         };
 
         // The struct uses value path
-        assert!(!should_use_memory_lowering(&struct_with_array));
-        assert!(supports_value_aggregates(&struct_with_array));
+        assert!(!struct_with_array.requires_memory_path());
+        assert!(struct_with_array.uses_value_aggregates());
 
         // But the array field would use memory path
-        assert!(should_use_memory_lowering(&array_type));
-        assert!(!supports_value_aggregates(&array_type));
+        assert!(array_type.requires_memory_path());
+        assert!(!array_type.uses_value_aggregates());
     }
 }

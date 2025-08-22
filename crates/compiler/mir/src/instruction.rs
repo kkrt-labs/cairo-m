@@ -8,21 +8,8 @@ use std::collections::HashSet;
 use cairo_m_compiler_parser::parser::UnaryOp;
 use chumsky::span::SimpleSpan;
 
+use crate::value_visitor::{visit_value, visit_values};
 use crate::{BasicBlockId, MirType, PrettyPrint, Value, ValueId};
-
-/// Access path component for navigating aggregate types
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum AccessPath {
-    /// Access a struct field by name
-    Field(String),
-    /// Access a tuple element or array element by index
-    TupleIndex(usize),
-    // TODO: Add array index support when arrays are implemented
-    // ArrayIndex(Value),
-}
-
-/// A sequence of access path components for nested aggregate access
-pub type FieldPath = Vec<AccessPath>;
 
 /// Binary operators supported in MIR
 ///
@@ -679,47 +666,45 @@ impl Instruction {
 
         match &self.kind {
             InstructionKind::Assign { source, .. } => {
-                if let Value::Operand(id) = source {
-                    used.insert(*id);
-                }
+                visit_value(source, |id| {
+                    used.insert(id);
+                });
             }
 
             InstructionKind::UnaryOp { source, .. } => {
-                if let Value::Operand(id) = source {
-                    used.insert(*id);
-                }
+                visit_value(source, |id| {
+                    used.insert(id);
+                });
             }
 
             InstructionKind::BinaryOp { left, right, .. } => {
-                if let Value::Operand(id) = left {
-                    used.insert(*id);
-                }
-                if let Value::Operand(id) = right {
-                    used.insert(*id);
-                }
+                visit_value(left, |id| {
+                    used.insert(id);
+                });
+                visit_value(right, |id| {
+                    used.insert(id);
+                });
             }
 
             InstructionKind::Call { args, .. } => {
-                for arg in args {
-                    if let Value::Operand(id) = arg {
-                        used.insert(*id);
-                    }
-                }
+                visit_values(args, |id| {
+                    used.insert(id);
+                });
             }
 
             InstructionKind::Load { address, .. } => {
-                if let Value::Operand(id) = address {
-                    used.insert(*id);
-                }
+                visit_value(address, |id| {
+                    used.insert(id);
+                });
             }
 
             InstructionKind::Store { address, value, .. } => {
-                if let Value::Operand(id) = address {
-                    used.insert(*id);
-                }
-                if let Value::Operand(id) = value {
-                    used.insert(*id);
-                }
+                visit_value(address, |id| {
+                    used.insert(id);
+                });
+                visit_value(value, |id| {
+                    used.insert(id);
+                });
             }
 
             InstructionKind::FrameAlloc { .. } => {
@@ -731,33 +716,31 @@ impl Instruction {
             }
 
             InstructionKind::GetElementPtr { base, offset, .. } => {
-                if let Value::Operand(id) = base {
-                    used.insert(*id);
-                }
-                if let Value::Operand(id) = offset {
-                    used.insert(*id);
-                }
+                visit_value(base, |id| {
+                    used.insert(id);
+                });
+                visit_value(offset, |id| {
+                    used.insert(id);
+                });
             }
 
             InstructionKind::Cast { source, .. } => {
-                if let Value::Operand(id) = source {
-                    used.insert(*id);
-                }
+                visit_value(source, |id| {
+                    used.insert(id);
+                });
             }
 
             InstructionKind::Debug { values, .. } => {
-                for value in values {
-                    if let Value::Operand(id) = value {
-                        used.insert(*id);
-                    }
-                }
+                visit_values(values, |id| {
+                    used.insert(id);
+                });
             }
 
             InstructionKind::Phi { sources, .. } => {
                 for (_, value) in sources {
-                    if let Value::Operand(id) = value {
-                        used.insert(*id);
-                    }
+                    visit_value(value, |id| {
+                        used.insert(id);
+                    });
                 }
             }
 
@@ -766,31 +749,29 @@ impl Instruction {
             }
 
             InstructionKind::MakeTuple { elements, .. } => {
-                for element in elements {
-                    if let Value::Operand(id) = element {
-                        used.insert(*id);
-                    }
-                }
+                visit_values(elements, |id| {
+                    used.insert(id);
+                });
             }
 
             InstructionKind::ExtractTupleElement { tuple, .. } => {
-                if let Value::Operand(id) = tuple {
-                    used.insert(*id);
-                }
+                visit_value(tuple, |id| {
+                    used.insert(id);
+                });
             }
 
             InstructionKind::MakeStruct { fields, .. } => {
                 for (_, value) in fields {
-                    if let Value::Operand(id) = value {
-                        used.insert(*id);
-                    }
+                    visit_value(value, |id| {
+                        used.insert(id);
+                    });
                 }
             }
 
             InstructionKind::ExtractStructField { struct_val, .. } => {
-                if let Value::Operand(id) = struct_val {
-                    used.insert(*id);
-                }
+                visit_value(struct_val, |id| {
+                    used.insert(id);
+                });
             }
 
             InstructionKind::InsertField {
@@ -824,66 +805,33 @@ impl Instruction {
     }
 
     /// Replace all occurrences of `from` value with `to` value in this instruction
-    #[allow(clippy::cognitive_complexity)]
     pub fn replace_value_uses(&mut self, from: ValueId, to: ValueId) {
         if from == to {
             return; // No-op
         }
 
+        use crate::value_visitor::{replace_value_id, replace_value_ids};
+
         match &mut self.kind {
             InstructionKind::Assign { source, .. } => {
-                if let Value::Operand(id) = source {
-                    if *id == from {
-                        *id = to;
-                    }
-                }
+                replace_value_id(source, from, to);
             }
             InstructionKind::UnaryOp { source, .. } => {
-                if let Value::Operand(id) = source {
-                    if *id == from {
-                        *id = to;
-                    }
-                }
+                replace_value_id(source, from, to);
             }
             InstructionKind::BinaryOp { left, right, .. } => {
-                if let Value::Operand(id) = left {
-                    if *id == from {
-                        *id = to;
-                    }
-                }
-                if let Value::Operand(id) = right {
-                    if *id == from {
-                        *id = to;
-                    }
-                }
+                replace_value_id(left, from, to);
+                replace_value_id(right, from, to);
             }
             InstructionKind::Call { args, .. } => {
-                for arg in args {
-                    if let Value::Operand(id) = arg {
-                        if *id == from {
-                            *id = to;
-                        }
-                    }
-                }
+                replace_value_ids(args, from, to);
             }
             InstructionKind::Load { address, .. } => {
-                if let Value::Operand(id) = address {
-                    if *id == from {
-                        *id = to;
-                    }
-                }
+                replace_value_id(address, from, to);
             }
             InstructionKind::Store { address, value, .. } => {
-                if let Value::Operand(id) = address {
-                    if *id == from {
-                        *id = to;
-                    }
-                }
-                if let Value::Operand(id) = value {
-                    if *id == from {
-                        *id = to;
-                    }
-                }
+                replace_value_id(address, from, to);
+                replace_value_id(value, from, to);
             }
             InstructionKind::FrameAlloc { .. } => {
                 // Frame allocation doesn't use any values as input - nothing to replace
@@ -894,108 +842,52 @@ impl Instruction {
                 }
             }
             InstructionKind::GetElementPtr { base, offset, .. } => {
-                if let Value::Operand(id) = base {
-                    if *id == from {
-                        *id = to;
-                    }
-                }
-                if let Value::Operand(id) = offset {
-                    if *id == from {
-                        *id = to;
-                    }
-                }
+                replace_value_id(base, from, to);
+                replace_value_id(offset, from, to);
             }
             InstructionKind::Cast { source, .. } => {
-                if let Value::Operand(id) = source {
-                    if *id == from {
-                        *id = to;
-                    }
-                }
+                replace_value_id(source, from, to);
             }
             InstructionKind::Debug { values, .. } => {
-                for value in values {
-                    if let Value::Operand(id) = value {
-                        if *id == from {
-                            *id = to;
-                        }
-                    }
-                }
+                replace_value_ids(values, from, to);
             }
             InstructionKind::Phi { sources, .. } => {
                 for (_, value) in sources {
-                    if let Value::Operand(id) = value {
-                        if *id == from {
-                            *id = to;
-                        }
-                    }
+                    replace_value_id(value, from, to);
                 }
             }
             InstructionKind::Nop => {
                 // No operation - no values to replace
             }
             InstructionKind::MakeTuple { elements, .. } => {
-                for element in elements {
-                    if let Value::Operand(id) = element {
-                        if *id == from {
-                            *id = to;
-                        }
-                    }
-                }
+                replace_value_ids(elements, from, to);
             }
             InstructionKind::ExtractTupleElement { tuple, .. } => {
-                if let Value::Operand(id) = tuple {
-                    if *id == from {
-                        *id = to;
-                    }
-                }
+                replace_value_id(tuple, from, to);
             }
             InstructionKind::MakeStruct { fields, .. } => {
                 for (_, value) in fields {
-                    if let Value::Operand(id) = value {
-                        if *id == from {
-                            *id = to;
-                        }
-                    }
+                    replace_value_id(value, from, to);
                 }
             }
             InstructionKind::ExtractStructField { struct_val, .. } => {
-                if let Value::Operand(id) = struct_val {
-                    if *id == from {
-                        *id = to;
-                    }
-                }
+                replace_value_id(struct_val, from, to);
             }
             InstructionKind::InsertField {
                 struct_val,
                 new_value,
                 ..
             } => {
-                if let Value::Operand(id) = struct_val {
-                    if *id == from {
-                        *id = to;
-                    }
-                }
-                if let Value::Operand(id) = new_value {
-                    if *id == from {
-                        *id = to;
-                    }
-                }
+                replace_value_id(struct_val, from, to);
+                replace_value_id(new_value, from, to);
             }
             InstructionKind::InsertTuple {
                 tuple_val,
                 new_value,
                 ..
             } => {
-                if let Value::Operand(id) = tuple_val {
-                    if *id == from {
-                        *id = to;
-                    }
-                }
-                if let Value::Operand(id) = new_value {
-                    if *id == from {
-                        *id = to;
-                    }
-                }
+                replace_value_id(tuple_val, from, to);
+                replace_value_id(new_value, from, to);
             }
         }
     }

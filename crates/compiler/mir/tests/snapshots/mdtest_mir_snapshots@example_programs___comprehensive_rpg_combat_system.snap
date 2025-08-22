@@ -54,8 +54,18 @@ fn get_character_stats(char: Character) -> (u32, u32, u32) {
 
 // Function with complex struct manipulation and arithmetic
 fn calculate_distance_squared(pos1: Position, pos2: Position) -> u32 {
-    let dx = pos1.x - pos2.x;
-    let dy = pos1.y - pos2.y;
+    let dx: u32 = 0;
+    if (pos1.x >= pos2.x) {
+        dx = pos1.x - pos2.x;
+    } else {
+        dx = pos2.x - pos1.x;
+    }
+    let dy: u32 = 0;
+    if (pos1.y >= pos2.y) {
+        dy = pos1.y - pos2.y;
+    } else {
+        dy = pos2.y - pos1.y;
+    }
     return dx * dx + dy * dy;
 }
 
@@ -229,16 +239,58 @@ module {
     entry: 0
 
     0:
-      %2 = extractfield %0, "x"
-      %3 = extractfield %1, "x"
-      %4 = %2 U32Sub %3
-      %5 = extractfield %0, "y"
-      %6 = extractfield %1, "y"
-      %7 = %5 U32Sub %6
-      %8 = %4 U32Mul %4
-      %9 = %7 U32Mul %7
-      %10 = %8 U32Add %9
-      return %10
+      %2 = 0 (u32)
+      %3 = extractfield %0, "x"
+      %4 = extractfield %1, "x"
+      %5 = %3 U32GreaterEqual %4
+      if %5 then jump 1 else jump 2
+
+    1 (block_1):
+      ; block_1
+      %6 = extractfield %0, "x"
+      %7 = extractfield %1, "x"
+      %8 = %6 U32Sub %7
+      %25 = %8 (u32)
+      jump 3
+
+    2 (block_2):
+      ; block_2
+      %9 = extractfield %1, "x"
+      %10 = extractfield %0, "x"
+      %11 = %9 U32Sub %10
+      %25 = %11 (u32)
+      jump 3
+
+    3 (block_3):
+      ; block_3
+      %12 = 0 (u32)
+      %14 = extractfield %0, "y"
+      %16 = extractfield %1, "y"
+      %17 = %14 U32GreaterEqual %16
+      if %17 then jump 4 else jump 5
+
+    4 (block_4):
+      ; block_4
+      %18 = extractfield %0, "y"
+      %19 = extractfield %1, "y"
+      %20 = %18 U32Sub %19
+      %27 = %20 (u32)
+      jump 6
+
+    5 (block_5):
+      ; block_5
+      %21 = extractfield %1, "y"
+      %22 = extractfield %0, "y"
+      %23 = %21 U32Sub %22
+      %27 = %23 (u32)
+      jump 6
+
+    6 (block_6):
+      ; block_6
+      %26 = %25 U32Mul %25
+      %28 = %27 U32Mul %27
+      %29 = %26 U32Add %28
+      return %29
 
   }
 
