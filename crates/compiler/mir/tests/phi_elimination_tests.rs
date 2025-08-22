@@ -77,6 +77,8 @@ fn create_if_else_function() -> MirFunction {
     function.basic_blocks[merge].terminator = Terminator::Return {
         values: vec![Value::Operand(result)],
     };
+    // Set return_values field to match the return terminator
+    function.return_values = vec![result];
 
     function
 }
@@ -174,6 +176,8 @@ fn create_loop_function() -> MirFunction {
     function.basic_blocks[exit].terminator = Terminator::Return {
         values: vec![Value::Operand(counter)],
     };
+    // Set return_values field to match the return terminator
+    function.return_values = vec![counter];
 
     function
 }

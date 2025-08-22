@@ -310,8 +310,8 @@ fn main() -> felt {
 
 /// Test error handling when imported functions are missing
 ///
-/// The current implementation uses graceful error recovery - it generates MIR
-/// with error values instead of failing completely. This documents current behavior.
+/// After the correctness fix, MIR generation now properly returns errors
+/// instead of silently generating invalid MIR with error values.
 #[test]
 fn test_missing_imported_function_error() {
     let db = TestDatabase::default();
@@ -336,23 +336,24 @@ fn main() -> felt {
         "crate_test".to_string(),
     );
 
-    // Generate MIR - current implementation uses graceful error recovery
+    // Generate MIR - should now fail with proper error reporting
     let mir_result = generate_mir(&db, crate_id);
     assert!(
-        mir_result.is_ok(),
-        "MIR generation should succeed with error recovery"
+        mir_result.is_err(),
+        "MIR generation should fail when imports are missing"
     );
 
-    let mir_module = mir_result.unwrap();
-    assert_eq!(mir_module.function_count(), 1);
-    assert!(mir_module.lookup_function("main").is_some());
+    // Verify the error contains information about the missing function
+    let errors = mir_result.unwrap_err();
+    assert!(!errors.is_empty(), "Should have at least one error");
 
-    // The MIR should contain error values for unresolved calls
-    let mir_text = mir_module.pretty_print(0);
-    println!("MIR with missing imports:\n{}", mir_text);
+    // Check that at least one error mentions the missing function
+    let error_messages: Vec<String> = errors.iter().map(|e| format!("{:?}", e)).collect();
+    let combined_message = error_messages.join("\n");
     assert!(
-        mir_text.contains("unreachable"),
-        "Should contain unreachable for missing imports"
+        combined_message.contains("missing_function") || combined_message.contains("InternalError"),
+        "Error should mention the missing function or be an internal error. Got: {}",
+        combined_message
     );
 }
 
