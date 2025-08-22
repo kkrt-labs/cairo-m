@@ -25,10 +25,6 @@ module {
       ; block_1
       return 2
 
-    2 (block_2):
-      ; block_2
-      unreachable
-
   }
 
 }

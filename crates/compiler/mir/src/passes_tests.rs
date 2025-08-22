@@ -48,10 +48,13 @@ fn test_dead_code_elimination() {
     // Verify the pass made changes
     assert!(modified);
 
-    // Verify the unreachable block was cleaned (instructions cleared and marked unreachable)
-    let cleaned_block = function.get_basic_block(unreachable_block).unwrap();
-    assert!(cleaned_block.instructions.is_empty());
-    assert!(matches!(cleaned_block.terminator, Terminator::Unreachable));
+    // Verify the unreachable block was completely removed (compacted away)
+    // The function should now have only entry and reachable blocks (2 total)
+    assert_eq!(function.basic_blocks.len(), 2);
+
+    // The entry block should still jump to the (now renumbered) reachable block
+    let entry = function.get_basic_block(function.entry_block).unwrap();
+    assert!(matches!(entry.terminator, Terminator::Jump { .. }));
 }
 
 #[test]
@@ -82,7 +85,7 @@ fn test_pass_manager() {
     // Should be modified by DCE
     assert!(modified);
 
-    // Verify unreachable block was cleaned
-    let cleaned_block = function.get_basic_block(unreachable_block).unwrap();
-    assert!(cleaned_block.instructions.is_empty());
+    // Verify unreachable block was completely removed
+    // The function should now only have the entry block
+    assert_eq!(function.basic_blocks.len(), 1);
 }

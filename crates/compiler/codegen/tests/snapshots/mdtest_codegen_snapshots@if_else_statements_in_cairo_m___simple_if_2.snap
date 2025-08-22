@@ -11,7 +11,9 @@ fn test_simple_if(x: felt) -> felt {
     return 0;
 }
 ============================================================
-Result: UNEXPECTED ERROR
-Code generation failed: UnresolvedLabel(
-    "Label test_simple_if_2 has invalid address 2",
-)
+Generated CASM:
+test_simple_if:
+test_simple_if:
+test_simple_if_0:
+   0: 9 2 -3 _             // Return value 0: [fp -3] = 2
+   1: 11 _ _ _             // return
