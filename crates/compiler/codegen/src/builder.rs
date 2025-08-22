@@ -771,9 +771,9 @@ impl CasmBuilder {
             }
 
             _ => {
-                return Err(CodegenError::UnsupportedInstruction(
-                    "Unsupported operation".to_string(),
-                ));
+                return Err(CodegenError::UnsupportedInstruction(format!(
+                    "Unsupported operation: {left:?} {op:?} {right:?}"
+                )));
             }
         }
 

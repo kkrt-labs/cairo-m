@@ -173,3 +173,8 @@ match generate_mir(&db, crate_id) {
     }
 }
 ```
+
+## Debugging
+
+When compiling a program, you can set the `DEBUG_MIR` environment variable to
+`1` to print the MIR to the console.

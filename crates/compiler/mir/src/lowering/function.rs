@@ -19,8 +19,8 @@ use rustc_hash::FxHashMap;
 
 use crate::db::MirDb;
 use crate::pipeline::{optimize_module, PipelineConfig};
-use crate::Value;
 use crate::{MirFunction, MirModule, MirType, ValueId};
+use crate::{PrettyPrint, Value};
 
 use super::builder::MirBuilder;
 use super::stmt::LowerStmt;
@@ -186,6 +186,10 @@ pub fn generate_mir(db: &dyn MirDb, crate_id: Crate) -> Result<Arc<MirModule>, V
 
     // Run optimization pipeline on the entire module
     optimize_module(&mut mir_module, &pipeline_config);
+
+    if std::env::var("DEBUG_MIR").is_ok() {
+        println!("{}", mir_module.pretty_print(0));
+    }
 
     Ok(Arc::new(mir_module))
 }

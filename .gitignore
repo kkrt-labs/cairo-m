@@ -6,3 +6,4 @@ tmp
 tmp.out
 .worktrees
 .repo_ignore
+**/proptest_regressions

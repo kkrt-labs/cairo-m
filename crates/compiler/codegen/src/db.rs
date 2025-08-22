@@ -24,8 +24,14 @@ pub trait CodegenDb: MirDb + Upcast<dyn MirDb> {}
 #[salsa::tracked]
 pub fn compile_project(db: &dyn CodegenDb, crate_id: Crate) -> Result<Arc<Program>, CodegenError> {
     // Get the MIR module
-    let mir_module = cairo_m_compiler_mir::generate_mir(db.upcast(), crate_id)
-        .map_err(|_| CodegenError::InvalidMir("No MIR module generated".to_string()))?;
+    let mir_module = cairo_m_compiler_mir::generate_mir(db.upcast(), crate_id).map_err(|err| {
+        CodegenError::InvalidMir(
+            err.iter()
+                .map(|diag| diag.to_string())
+                .collect::<Vec<_>>()
+                .join("\n"),
+        )
+    })?;
 
     // Use the existing compile_module logic
     let compiled = crate::compile_module(&mir_module)?;
