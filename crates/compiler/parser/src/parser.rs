@@ -120,6 +120,12 @@ pub enum BinaryOp {
     And,
     /// Logical OR operator `||`
     Or,
+    /// Bitwise AND operator `&`
+    BitwiseAnd,
+    /// Bitwise OR operator `|`
+    BitwiseOr,
+    /// Bitwise XOR operator `^`
+    BitwiseXor,
 }
 
 impl std::fmt::Display for BinaryOp {
@@ -137,6 +143,9 @@ impl std::fmt::Display for BinaryOp {
             Self::GreaterEqual => write!(f, ">="),
             Self::And => write!(f, "&&"),
             Self::Or => write!(f, "||"),
+            Self::BitwiseAnd => write!(f, "&"),
+            Self::BitwiseOr => write!(f, "|"),
+            Self::BitwiseXor => write!(f, "^"),
         }
     }
 }
@@ -872,11 +881,15 @@ where
             },
         );
 
-        // Logical AND operator: && (left-associative)
-        let and = cmp.clone().foldl(
-            op(TokenType::AndAnd, BinaryOp::And)
-                .then(cmp.clone())
-                .repeated(),
+        // Bitwise operators: &, |, ^ (left-associative)
+        let bitwise = cmp.clone().foldl(
+            choice((
+                op(TokenType::BitwiseAnd, BinaryOp::BitwiseAnd),
+                op(TokenType::BitwiseOr, BinaryOp::BitwiseOr),
+                op(TokenType::BitwiseXor, BinaryOp::BitwiseXor),
+            ))
+            .then(cmp.clone())
+            .repeated(),
             |lhs, (op, rhs)| {
                 let span_lhs = lhs.span();
                 let span_rhs = rhs.span();
@@ -892,11 +905,14 @@ where
             },
         );
 
-        // Logical OR operator: || (left-associative, lowest precedence)
-        and.clone().foldl(
-            op(TokenType::OrOr, BinaryOp::Or)
-                .then(and.clone())
-                .repeated(),
+        // Logical operators: &&, || (left-associative)
+        bitwise.clone().foldl(
+            choice((
+                op(TokenType::AndAnd, BinaryOp::And),
+                op(TokenType::OrOr, BinaryOp::Or),
+            ))
+            .then(bitwise.clone())
+            .repeated(),
             |lhs, (op, rhs)| {
                 let span_lhs = lhs.span();
                 let span_rhs = rhs.span();

@@ -1,0 +1,19 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+description: "Inline semantic validation error test: expressions::binary_expressions::test_bitwise_operator_precedence_type_checking"
+---
+Fixture: semantic_tests::expressions::binary_expressions::test_bitwise_operator_precedence_type_checking
+============================================================
+Source code:
+fn test() { let a: u32 = 5; let b: u32 = 3; let result = (a < b) & true; return; }
+============================================================
+Found 1 diagnostic(s):
+
+--- Diagnostic 1 ---
+[2001] Error: Operator `&` is not supported for type `bool`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_bitwise_operator_precedence_type_checking:1:58 ]
+   │
+ 1 │ fn test() { let a: u32 = 5; let b: u32 = 3; let result = (a < b) & true; return; }
+   │                                                          ───┬───  
+   │                                                             ╰───── Operator `&` is not supported for type `bool`
+───╯

@@ -1,0 +1,25 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Bitwise Operations - Bitwise Or 3"
+input_file: mdtest/01-basics/07-bitwise.md
+---
+Source:
+fn test_bitwise_or_immediates(x: u32) -> u32 {
+    let result = x | 1234567890;
+    return result;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_bitwise_or_immediates {
+    parameters: [0]
+    entry: 0
+
+    0:
+      %1 = %0 U32BitwiseOr 1234567890
+      return %1
+
+  }
+
+}

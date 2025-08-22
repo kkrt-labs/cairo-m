@@ -1,0 +1,105 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test() { let a: felt = 10; let b: felt = 20; let result = a & b; return; }
+--- Diagnostics ---
+[2001] Error: Operator `&` is not supported for type `felt`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_bitwise_operators:1:62 ]
+   │
+ 1 │ fn test() { let a: felt = 10; let b: felt = 20; let result = a & b; return; }
+   │                                                              ┬  
+   │                                                              ╰── Operator `&` is not supported for type `felt`
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+fn test() { let a: felt = 10; let b: felt = 20; let result = a | b; return; }
+--- Diagnostics ---
+[2001] Error: Operator `|` is not supported for type `felt`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_bitwise_operators:1:62 ]
+   │
+ 1 │ fn test() { let a: felt = 10; let b: felt = 20; let result = a | b; return; }
+   │                                                              ┬  
+   │                                                              ╰── Operator `|` is not supported for type `felt`
+───╯
+
+============================================================
+
+--- Input 3 (ERROR) ---
+fn test() { let a: felt = 10; let b: felt = 20; let result = a ^ b; return; }
+--- Diagnostics ---
+[2001] Error: Operator `^` is not supported for type `felt`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_bitwise_operators:1:62 ]
+   │
+ 1 │ fn test() { let a: felt = 10; let b: felt = 20; let result = a ^ b; return; }
+   │                                                              ┬  
+   │                                                              ╰── Operator `^` is not supported for type `felt`
+───╯
+
+============================================================
+
+--- Input 4 (ERROR) ---
+fn test() { let a: bool = true; let b: bool = false; let result = a & b; return; }
+--- Diagnostics ---
+[2001] Error: Operator `&` is not supported for type `bool`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_bitwise_operators:1:67 ]
+   │
+ 1 │ fn test() { let a: bool = true; let b: bool = false; let result = a & b; return; }
+   │                                                                   ┬  
+   │                                                                   ╰── Operator `&` is not supported for type `bool`
+───╯
+
+============================================================
+
+--- Input 5 (ERROR) ---
+fn test() { let a: bool = true; let b: bool = false; let result = a | b; return; }
+--- Diagnostics ---
+[2001] Error: Operator `|` is not supported for type `bool`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_bitwise_operators:1:67 ]
+   │
+ 1 │ fn test() { let a: bool = true; let b: bool = false; let result = a | b; return; }
+   │                                                                   ┬  
+   │                                                                   ╰── Operator `|` is not supported for type `bool`
+───╯
+
+============================================================
+
+--- Input 6 (ERROR) ---
+fn test() { let x: felt = 42; let y: u32 = 100; let result = x & y; return; }
+--- Diagnostics ---
+[2001] Error: Operator `&` is not supported for type `felt`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_bitwise_operators:1:62 ]
+   │
+ 1 │ fn test() { let x: felt = 42; let y: u32 = 100; let result = x & y; return; }
+   │                                                              ┬  
+   │                                                              ╰── Operator `&` is not supported for type `felt`
+───╯
+
+============================================================
+
+--- Input 7 (ERROR) ---
+fn test() { let x: u32 = 42; let y: felt = 100; let result = x | y; return; }
+--- Diagnostics ---
+[2001] Error: Invalid right operand for arithmetic operator `|`. Expected `u32`, found `felt`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_bitwise_operators:1:66 ]
+   │
+ 1 │ fn test() { let x: u32 = 42; let y: felt = 100; let result = x | y; return; }
+   │                                                                  ┬  
+   │                                                                  ╰── Invalid right operand for arithmetic operator `|`. Expected `u32`, found `felt`
+───╯
+
+============================================================
+
+--- Input 8 (ERROR) ---
+struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = Point { x: 30, y: 40 }; let result = p1 & p2; return; }
+--- Diagnostics ---
+[2001] Error: Operator `&` is not supported for type `Point`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_bitwise_operators:1:126 ]
+   │
+ 1 │ struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = Point { x: 30, y: 40 }; let result = p1 & p2; return; }
+   │                                                                                                                              ─┬  
+   │                                                                                                                               ╰── Operator `&` is not supported for type `Point`
+───╯
