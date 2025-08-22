@@ -136,7 +136,7 @@ impl FunctionLayout {
 
     /// Allocates all locals and temporaries by walking through the function's basic blocks.
     fn allocate_locals_and_temporaries(&mut self, function: &MirFunction) -> CodegenResult<()> {
-        use cairo_m_compiler_mir::{InstructionKind, Literal, Value};
+        use cairo_m_compiler_mir::InstructionKind;
 
         let mut current_offset = 0;
 
@@ -194,7 +194,11 @@ impl FunctionLayout {
                             .insert(*dest, ValueLayout::MultiSlot { offset, size });
                         current_offset += size;
                     }
-                    InstructionKind::GetElementPtr { dest, base, offset } => {
+                    InstructionKind::GetElementPtr {
+                        dest: _,
+                        base: _,
+                        offset: _,
+                    } => {
                         panic!("GetElementPtr lowering is not supported");
                     }
                     _ => {

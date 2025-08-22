@@ -47,7 +47,7 @@ impl PhiElimination {
     /// Create a new phi elimination pass
     pub fn new() -> Self {
         Self {
-            debug: std::env::var("MIR_PHI_DEBUG").is_ok(),
+            debug: false,
             stats: EliminationStats::default(),
         }
     }

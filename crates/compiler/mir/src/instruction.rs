@@ -824,6 +824,7 @@ impl Instruction {
     }
 
     /// Replace all occurrences of `from` value with `to` value in this instruction
+    #[allow(clippy::cognitive_complexity)]
     pub fn replace_value_uses(&mut self, from: ValueId, to: ValueId) {
         if from == to {
             return; // No-op

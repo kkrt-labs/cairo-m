@@ -370,6 +370,7 @@ impl ScalarReplacementOfAggregates {
     }
 
     /// Helper to collect all value uses in an instruction
+    #[allow(clippy::cognitive_complexity)]
     fn collect_value_uses_in_instruction<F>(&self, inst: &InstructionKind, mut callback: F)
     where
         F: FnMut(ValueId),
@@ -524,6 +525,7 @@ impl ScalarReplacementOfAggregates {
 }
 
 impl MirPass for ScalarReplacementOfAggregates {
+    #[allow(clippy::cognitive_complexity)]
     fn run(&mut self, function: &mut MirFunction) -> bool {
         let mut modified_any = false;
 

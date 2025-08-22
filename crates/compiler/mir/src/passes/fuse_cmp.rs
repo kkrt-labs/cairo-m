@@ -1,8 +1,8 @@
 use cairo_m_compiler_parser::parser::UnaryOp;
 
-use crate::{BinaryOp, InstructionKind, Literal, MirFunction, Terminator, Value};
+use crate::{BinaryOp, InstructionKind, MirFunction, Terminator, Value};
 
-use super::MirPass;
+use super::{const_eval::ConstEvaluator, MirPass};
 
 /// Fuse Compare and Branch Pass
 ///
@@ -23,12 +23,16 @@ use super::MirPass;
 ///   if %a Eq %b then jump then_block else jump else_block
 /// ```
 #[derive(Debug, Default)]
-pub struct FuseCmpBranch;
+pub struct FuseCmpBranch {
+    evaluator: ConstEvaluator,
+}
 
 impl FuseCmpBranch {
     /// Create a new pass
     pub const fn new() -> Self {
-        Self
+        Self {
+            evaluator: ConstEvaluator::new(),
+        }
     }
 
     /// Returns true if an op is a comparison that can be fused.
@@ -69,17 +73,12 @@ impl MirPass for FuseCmpBranch {
                             if Self::is_fusible_comparison(*op) {
                                 // We found the pattern! Perform the fusion.
 
-                                // Helper to check if a value represents zero
-                                let is_zero = |v: &Value| {
-                                    matches!(
-                                        v,
-                                        Value::Literal(Literal::Integer(0))
-                                            | Value::Literal(Literal::Boolean(false))
-                                    )
-                                };
-
                                 // We first check for comparisons with 0 which can be optimized
-                                match (*op, is_zero(left), is_zero(right)) {
+                                match (
+                                    *op,
+                                    self.evaluator.is_zero(left),
+                                    self.evaluator.is_zero(right),
+                                ) {
                                     (BinaryOp::Eq | BinaryOp::U32Eq, true, false) => {
                                         // 0 == x is equivalent to !x, so we switch the targets
                                         block.terminator =

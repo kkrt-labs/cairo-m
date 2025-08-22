@@ -289,6 +289,7 @@ impl CodeGenerator {
     }
 
     /// Generate code for a single instruction
+    #[allow(clippy::too_many_arguments)]
     fn generate_instruction(
         &self,
         instruction: &Instruction,

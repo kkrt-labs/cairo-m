@@ -187,7 +187,7 @@ fn test_if_else_phi_elimination() {
     assert_eq!(phi_count_before, 1, "Should have 1 phi node initially");
 
     // Run the standard pipeline which includes phi elimination
-    let mut pass_manager = PassManager::basic_pipeline();
+    let mut pass_manager = PassManager::standard_pipeline();
     pass_manager.run(&mut function);
 
     // Count phi nodes after
@@ -267,7 +267,7 @@ fn test_phi_elimination_preserves_semantics() {
     );
 
     // Run phi elimination
-    let mut pass_manager = PassManager::basic_pipeline();
+    let mut pass_manager = PassManager::standard_pipeline();
     pass_manager.run(&mut function);
 
     // Get a string representation after optimization

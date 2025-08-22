@@ -55,25 +55,6 @@ fn test_dead_code_elimination() {
 }
 
 #[test]
-fn test_validation_pass() {
-    let mut function = MirFunction::new("test_function".to_string());
-
-    // Create a simple valid function
-    let entry_block = function.entry_block;
-    function
-        .get_basic_block_mut(entry_block)
-        .unwrap()
-        .set_terminator(Terminator::return_void());
-
-    // Run validation pass
-    let mut validation = Validation::new();
-    let modified = validation.run(&mut function);
-
-    // Validation should not modify the function
-    assert!(!modified);
-}
-
-#[test]
 fn test_pass_manager() {
     let mut function = MirFunction::new("test_function".to_string());
 

@@ -1,20 +1,8 @@
 use cairo_m_compiler_parser::parser::UnaryOp;
-use stwo_prover::core::fields::m31::{M31, P};
 
-use crate::{BinaryOp, InstructionKind, Literal, MirFunction, MirType, Value};
+use crate::{InstructionKind, MirFunction, MirType, Value};
 
-use super::MirPass;
-
-/// Convert an M31 to an i32
-/// Values from [0, P/2] are considered positive, and values from [P/2, P) are considered negative.
-const fn m31_to_i32(m31: M31) -> i32 {
-    let value = m31.0;
-    if value < P / 2 {
-        value as i32
-    } else {
-        (value as i64 - P as i64) as i32
-    }
-}
+use super::{const_eval::ConstEvaluator, MirPass};
 
 /// Constant Folding Pass
 ///
@@ -27,118 +15,15 @@ const fn m31_to_i32(m31: M31) -> i32 {
 /// - `10 == 5 → false`
 /// - `true && false → false`
 #[derive(Debug, Default)]
-pub struct ConstantFolding;
+pub struct ConstantFolding {
+    evaluator: ConstEvaluator,
+}
 
 impl ConstantFolding {
     /// Create a new constant folding pass
     pub const fn new() -> Self {
-        Self
-    }
-
-    /// Try to fold a binary operation with literal operands
-    fn try_fold_binary_op(&self, op: BinaryOp, left: Literal, right: Literal) -> Option<Literal> {
-        match (op, left, right) {
-            // Felt arithmetic
-            (BinaryOp::Add, Literal::Integer(a), Literal::Integer(b)) => {
-                let a_m31 = M31::from(a);
-                let b_m31 = M31::from(b);
-                let result = a_m31 + b_m31;
-                Some(Literal::Integer(result.0))
-            }
-            (BinaryOp::Sub, Literal::Integer(a), Literal::Integer(b)) => {
-                let a_m31 = M31::from(a);
-                let b_m31 = M31::from(b);
-                let result = a_m31 - b_m31;
-                Some(Literal::Integer(result.0))
-            }
-            (BinaryOp::Mul, Literal::Integer(a), Literal::Integer(b)) => {
-                let a_m31 = M31::from(a);
-                let b_m31 = M31::from(b);
-                let result = a_m31 * b_m31;
-                Some(Literal::Integer(result.0))
-            }
-            (BinaryOp::Div, Literal::Integer(a), Literal::Integer(b)) if b != 0 => {
-                let a_m31 = M31::from(a);
-                let b_m31 = M31::from(b);
-                let result = a_m31 / b_m31;
-                Some(Literal::Integer(result.0))
-            }
-
-            // Felt comparisons
-            (BinaryOp::Eq, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Boolean(a == b))
-            }
-            (BinaryOp::Neq, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Boolean(a != b))
-            }
-            (BinaryOp::Less, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Boolean(a < b))
-            }
-            (BinaryOp::Greater, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Boolean(a > b))
-            }
-            (BinaryOp::LessEqual, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Boolean(a <= b))
-            }
-            (BinaryOp::GreaterEqual, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Boolean(a >= b))
-            }
-
-            // U32 arithmetic (with proper wrapping)
-            (BinaryOp::U32Add, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Integer(a.wrapping_add(b)))
-            }
-            (BinaryOp::U32Sub, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Integer(a.wrapping_sub(b)))
-            }
-            (BinaryOp::U32Mul, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Integer(a.wrapping_mul(b)))
-            }
-            (BinaryOp::U32Div, Literal::Integer(a), Literal::Integer(b)) if b != 0 => {
-                Some(Literal::Integer(a / b))
-            }
-
-            // U32 comparisons
-            (BinaryOp::U32Eq, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Boolean(a == b))
-            }
-            (BinaryOp::U32Neq, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Boolean(a != b))
-            }
-            (BinaryOp::U32Less, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Boolean(a < b))
-            }
-            (BinaryOp::U32Greater, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Boolean(a > b))
-            }
-            (BinaryOp::U32LessEqual, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Boolean(a <= b))
-            }
-            (BinaryOp::U32GreaterEqual, Literal::Integer(a), Literal::Integer(b)) => {
-                Some(Literal::Boolean(a >= b))
-            }
-
-            // Boolean operations
-            (BinaryOp::And, Literal::Boolean(a), Literal::Boolean(b)) => {
-                Some(Literal::Boolean(a && b))
-            }
-            (BinaryOp::Or, Literal::Boolean(a), Literal::Boolean(b)) => {
-                Some(Literal::Boolean(a || b))
-            }
-
-            _ => None, // Cannot fold or unsafe to fold
-        }
-    }
-
-    /// Try to fold a unary operation with literal operand
-    fn try_fold_unary_op(&self, op: UnaryOp, operand: Literal) -> Option<Literal> {
-        match (op, operand) {
-            (UnaryOp::Not, Literal::Boolean(b)) => Some(Literal::Boolean(!b)),
-            (UnaryOp::Neg, Literal::Integer(i)) => {
-                let m31_value = M31::from(i);
-                Some(Literal::Integer((-m31_value).0))
-            }
-            _ => None,
+        Self {
+            evaluator: ConstEvaluator::new(),
         }
     }
 
@@ -152,7 +37,8 @@ impl ConstantFolding {
                 right,
             } => {
                 if let (Value::Literal(left_lit), Value::Literal(right_lit)) = (left, right) {
-                    if let Some(result) = self.try_fold_binary_op(*op, *left_lit, *right_lit) {
+                    if let Some(result) = self.evaluator.eval_binary_op(*op, *left_lit, *right_lit)
+                    {
                         // Replace with assignment to folded result
                         instr.kind = InstructionKind::Assign {
                             dest: *dest,
@@ -169,7 +55,7 @@ impl ConstantFolding {
                 dest,
                 source: Value::Literal(source_lit),
             } => {
-                if let Some(result) = self.try_fold_unary_op(*op, *source_lit) {
+                if let Some(result) = self.evaluator.eval_unary_op(*op, *source_lit) {
                     // Determine result type based on operation
                     let result_ty = match op {
                         UnaryOp::Not => MirType::bool(),
@@ -216,18 +102,8 @@ impl MirPass for ConstantFolding {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{MirType, Terminator};
-    use proptest::prelude::*;
+    use crate::{BinaryOp, MirType, Terminator};
     use stwo_prover::core::fields::m31::{M31, P};
-
-    proptest! {
-        #[test]
-        fn test_m31_to_i32(m31_value in 0..P) {
-            let m31_value = M31::from(m31_value);
-            let i32_value = m31_to_i32(m31_value);
-            assert_eq!(m31_value, M31::from(i32_value));
-        }
-    }
 
     #[test]
     fn test_arithmetic_folding() {
@@ -366,7 +242,7 @@ mod tests {
         let entry = function.add_basic_block();
         function.entry_block = entry;
 
-        // Create: %1 = U32Add -1, 1 (should wrap to 0, since -1 as u32 is u32::MAX)
+        // Create: %1 = U32Add u32::MAX, 1 (should wrap to 0)
         let val_result = function.new_typed_value_id(MirType::u32());
 
         let block = function.get_basic_block_mut(entry).unwrap();
@@ -388,6 +264,72 @@ mod tests {
         if let InstructionKind::Assign { dest, source, .. } = &block.instructions[0].kind {
             assert_eq!(*dest, val_result);
             assert_eq!(*source, Value::integer(0)); // Wrapped result
+        } else {
+            panic!("Expected assignment instruction");
+        }
+    }
+
+    #[test]
+    fn test_felt_modular_arithmetic() {
+        let mut function = MirFunction::new("test".to_string());
+        let entry = function.add_basic_block();
+        function.entry_block = entry;
+
+        // Create: %1 = (P - 1) + 2 (should wrap to 1)
+        let val_result = function.new_typed_value_id(MirType::felt());
+
+        let block = function.get_basic_block_mut(entry).unwrap();
+        block.push_instruction(crate::Instruction::binary_op(
+            BinaryOp::Add,
+            val_result,
+            Value::integer(P - 1),
+            Value::integer(2),
+        ));
+        block.set_terminator(Terminator::return_value(Value::operand(val_result)));
+
+        let mut pass = ConstantFolding::new();
+        let modified = pass.run(&mut function);
+
+        assert!(modified);
+
+        // Check that the addition wrapped correctly in M31
+        let block = function.get_basic_block(entry).unwrap();
+        if let InstructionKind::Assign { dest, source, .. } = &block.instructions[0].kind {
+            assert_eq!(*dest, val_result);
+            assert_eq!(*source, Value::integer(1)); // (P-1) + 2 = 1 mod P
+        } else {
+            panic!("Expected assignment instruction");
+        }
+    }
+
+    #[test]
+    fn test_u32_comparison_unsigned() {
+        let mut function = MirFunction::new("test".to_string());
+        let entry = function.add_basic_block();
+        function.entry_block = entry;
+
+        // Create: %1 = 0x80000000 >u32 0x7FFFFFFF (should be true for unsigned)
+        let val_result = function.new_typed_value_id(MirType::bool());
+
+        let block = function.get_basic_block_mut(entry).unwrap();
+        block.push_instruction(crate::Instruction::binary_op(
+            BinaryOp::U32Greater,
+            val_result,
+            Value::integer(0x80000000),
+            Value::integer(0x7FFFFFFF),
+        ));
+        block.set_terminator(Terminator::return_value(Value::operand(val_result)));
+
+        let mut pass = ConstantFolding::new();
+        let modified = pass.run(&mut function);
+
+        assert!(modified);
+
+        // Check that the comparison was evaluated correctly as unsigned
+        let block = function.get_basic_block(entry).unwrap();
+        if let InstructionKind::Assign { dest, source, .. } = &block.instructions[0].kind {
+            assert_eq!(*dest, val_result);
+            assert_eq!(*source, Value::boolean(true)); // 0x80000000 > 0x7FFFFFFF in unsigned
         } else {
             panic!("Expected assignment instruction");
         }
@@ -459,5 +401,45 @@ mod tests {
             block.instructions[1].kind,
             InstructionKind::BinaryOp { .. }
         ));
+    }
+
+    #[test]
+    fn test_felt_division_inverse() {
+        let mut function = MirFunction::new("test".to_string());
+        let entry = function.add_basic_block();
+        function.entry_block = entry;
+
+        // Create: %1 = 1 / 2 (should use modular inverse)
+        let val_result = function.new_typed_value_id(MirType::felt());
+
+        let block = function.get_basic_block_mut(entry).unwrap();
+        block.push_instruction(crate::Instruction::binary_op(
+            BinaryOp::Div,
+            val_result,
+            Value::integer(1),
+            Value::integer(2),
+        ));
+        block.set_terminator(Terminator::return_value(Value::operand(val_result)));
+
+        let mut pass = ConstantFolding::new();
+        let modified = pass.run(&mut function);
+
+        assert!(modified);
+
+        // Check that division was folded using modular inverse
+        let block = function.get_basic_block(entry).unwrap();
+        if let InstructionKind::Assign { source, .. } = &block.instructions[0].kind {
+            if let Value::Literal(crate::Literal::Integer(inv2)) = source {
+                // Verify that inv2 * 2 = 1 (mod P)
+                let m31_inv2 = M31::from(*inv2);
+                let m31_2 = M31::from(2u32);
+                let product = m31_inv2 * m31_2;
+                assert_eq!(product.0, 1, "2 * (1/2) should equal 1 in M31");
+            } else {
+                panic!("Expected integer literal");
+            }
+        } else {
+            panic!("Expected assignment instruction");
+        }
     }
 }

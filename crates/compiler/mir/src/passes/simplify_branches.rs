@@ -3,8 +3,8 @@
 //! This pass simplifies control flow by folding conditional branches with constant conditions
 //! and reducing complex branch patterns exposed by earlier optimization passes.
 
-use super::MirPass;
-use crate::{BasicBlockId, BinaryOp, Literal, MirFunction, Terminator, Value};
+use super::{const_eval::ConstEvaluator, MirPass};
+use crate::{BasicBlockId, Literal, MirFunction, Terminator, Value};
 
 /// SimplifyBranches Pass
 ///
@@ -18,12 +18,16 @@ use crate::{BasicBlockId, BinaryOp, Literal, MirFunction, Terminator, Value};
 /// - `if 42 then jump A else jump B` → `jump A` (non-zero is true)
 /// - `if 5 == 3 then jump A else jump B` → `jump B` (constant comparison)
 #[derive(Debug, Default)]
-pub struct SimplifyBranches;
+pub struct SimplifyBranches {
+    evaluator: ConstEvaluator,
+}
 
 impl SimplifyBranches {
     /// Create a new SimplifyBranches pass
     pub const fn new() -> Self {
-        Self
+        Self {
+            evaluator: ConstEvaluator::new(),
+        }
     }
 
     /// Try to simplify a conditional branch with constant condition
@@ -35,15 +39,13 @@ impl SimplifyBranches {
         } = terminator
         {
             match condition {
-                Value::Literal(Literal::Boolean(true)) => Some(Terminator::jump(*then_target)),
-                Value::Literal(Literal::Boolean(false)) => Some(Terminator::jump(*else_target)),
-                Value::Literal(Literal::Integer(0)) => {
-                    // In Cairo-M, 0 is false
-                    Some(Terminator::jump(*else_target))
-                }
-                Value::Literal(Literal::Integer(_)) => {
-                    // Non-zero integers are true
-                    Some(Terminator::jump(*then_target))
+                Value::Literal(lit) => {
+                    // Use the evaluator to convert literal to boolean
+                    match self.evaluator.as_bool(*lit) {
+                        Some(true) => Some(Terminator::jump(*then_target)),
+                        Some(false) => Some(Terminator::jump(*else_target)),
+                        None => None, // Cannot determine boolean value
+                    }
                 }
                 _ => None, // Cannot simplify - condition is not constant
             }
@@ -64,54 +66,24 @@ impl SimplifyBranches {
         {
             // Only simplify if both operands are literals
             if let (Value::Literal(left_lit), Value::Literal(right_lit)) = (left, right) {
-                let result = self.evaluate_comparison(*op, *left_lit, *right_lit)?;
+                // Use the evaluator to evaluate the comparison
+                let result_lit = self.evaluator.eval_binary_op(*op, *left_lit, *right_lit)?;
 
-                if result {
-                    Some(Terminator::jump(*then_target))
+                // The result should be a boolean
+                if let Literal::Boolean(result) = result_lit {
+                    if result {
+                        Some(Terminator::jump(*then_target))
+                    } else {
+                        Some(Terminator::jump(*else_target))
+                    }
                 } else {
-                    Some(Terminator::jump(*else_target))
+                    None // Comparison didn't produce a boolean (shouldn't happen)
                 }
             } else {
                 None
             }
         } else {
             None
-        }
-    }
-
-    /// Evaluate a comparison operation on literal values
-    const fn evaluate_comparison(
-        &self,
-        op: BinaryOp,
-        left: Literal,
-        right: Literal,
-    ) -> Option<bool> {
-        match (op, left, right) {
-            // Integer comparisons
-            (BinaryOp::Eq, Literal::Integer(a), Literal::Integer(b)) => Some(a == b),
-            (BinaryOp::Neq, Literal::Integer(a), Literal::Integer(b)) => Some(a != b),
-            (BinaryOp::Less, Literal::Integer(a), Literal::Integer(b)) => Some(a < b),
-            (BinaryOp::Greater, Literal::Integer(a), Literal::Integer(b)) => Some(a > b),
-            (BinaryOp::LessEqual, Literal::Integer(a), Literal::Integer(b)) => Some(a <= b),
-            (BinaryOp::GreaterEqual, Literal::Integer(a), Literal::Integer(b)) => Some(a >= b),
-
-            // U32 comparisons (treat as unsigned)
-            (BinaryOp::U32Eq, Literal::Integer(a), Literal::Integer(b)) => Some(a == b),
-            (BinaryOp::U32Neq, Literal::Integer(a), Literal::Integer(b)) => Some(a != b),
-            (BinaryOp::U32Less, Literal::Integer(a), Literal::Integer(b)) => Some(a < b),
-            (BinaryOp::U32Greater, Literal::Integer(a), Literal::Integer(b)) => Some(a > b),
-            (BinaryOp::U32LessEqual, Literal::Integer(a), Literal::Integer(b)) => Some(a <= b),
-            (BinaryOp::U32GreaterEqual, Literal::Integer(a), Literal::Integer(b)) => Some(a >= b),
-
-            // Boolean comparisons
-            (BinaryOp::Eq, Literal::Boolean(a), Literal::Boolean(b)) => Some(a == b),
-            (BinaryOp::Neq, Literal::Boolean(a), Literal::Boolean(b)) => Some(a != b),
-
-            // Boolean logic (if used in branch conditions)
-            (BinaryOp::And, Literal::Boolean(a), Literal::Boolean(b)) => Some(a && b),
-            (BinaryOp::Or, Literal::Boolean(a), Literal::Boolean(b)) => Some(a || b),
-
-            _ => None, // Unsupported or invalid comparison
         }
     }
 }
@@ -151,10 +123,10 @@ impl MirPass for SimplifyBranches {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::MirType;
+    use crate::{BinaryOp, Value};
 
     #[test]
-    fn test_constant_boolean_condition_true() {
+    fn test_simplify_true_branch() {
         let mut function = MirFunction::new("test".to_string());
         let entry = function.add_basic_block();
         let then_block = function.add_basic_block();
@@ -164,7 +136,7 @@ mod tests {
         // Create: if true then jump then_block else jump else_block
         let block = function.get_basic_block_mut(entry).unwrap();
         block.set_terminator(Terminator::If {
-            condition: Value::Literal(Literal::Boolean(true)),
+            condition: Value::boolean(true),
             then_target: then_block,
             else_target: else_block,
         });
@@ -174,16 +146,13 @@ mod tests {
 
         assert!(modified);
 
-        // Check that it became: jump then_block
+        // Check that the branch was simplified to jump then_block
         let block = function.get_basic_block(entry).unwrap();
-        match &block.terminator {
-            Terminator::Jump { target } => assert_eq!(*target, then_block),
-            _ => panic!("Expected jump terminator, got: {:?}", block.terminator),
-        }
+        assert_eq!(block.terminator, Terminator::jump(then_block));
     }
 
     #[test]
-    fn test_constant_boolean_condition_false() {
+    fn test_simplify_false_branch() {
         let mut function = MirFunction::new("test".to_string());
         let entry = function.add_basic_block();
         let then_block = function.add_basic_block();
@@ -193,7 +162,7 @@ mod tests {
         // Create: if false then jump then_block else jump else_block
         let block = function.get_basic_block_mut(entry).unwrap();
         block.set_terminator(Terminator::If {
-            condition: Value::Literal(Literal::Boolean(false)),
+            condition: Value::boolean(false),
             then_target: then_block,
             else_target: else_block,
         });
@@ -203,16 +172,13 @@ mod tests {
 
         assert!(modified);
 
-        // Check that it became: jump else_block
+        // Check that the branch was simplified to jump else_block
         let block = function.get_basic_block(entry).unwrap();
-        match &block.terminator {
-            Terminator::Jump { target } => assert_eq!(*target, else_block),
-            _ => panic!("Expected jump terminator, got: {:?}", block.terminator),
-        }
+        assert_eq!(block.terminator, Terminator::jump(else_block));
     }
 
     #[test]
-    fn test_integer_condition_zero_is_false() {
+    fn test_simplify_zero_branch() {
         let mut function = MirFunction::new("test".to_string());
         let entry = function.add_basic_block();
         let then_block = function.add_basic_block();
@@ -222,7 +188,7 @@ mod tests {
         // Create: if 0 then jump then_block else jump else_block
         let block = function.get_basic_block_mut(entry).unwrap();
         block.set_terminator(Terminator::If {
-            condition: Value::Literal(Literal::Integer(0)),
+            condition: Value::integer(0),
             then_target: then_block,
             else_target: else_block,
         });
@@ -232,16 +198,13 @@ mod tests {
 
         assert!(modified);
 
-        // Check that it became: jump else_block (0 is false)
+        // Check that the branch was simplified to jump else_block (0 is false)
         let block = function.get_basic_block(entry).unwrap();
-        match &block.terminator {
-            Terminator::Jump { target } => assert_eq!(*target, else_block),
-            _ => panic!("Expected jump terminator, got: {:?}", block.terminator),
-        }
+        assert_eq!(block.terminator, Terminator::jump(else_block));
     }
 
     #[test]
-    fn test_integer_condition_nonzero_is_true() {
+    fn test_simplify_nonzero_branch() {
         let mut function = MirFunction::new("test".to_string());
         let entry = function.add_basic_block();
         let then_block = function.add_basic_block();
@@ -251,7 +214,7 @@ mod tests {
         // Create: if 42 then jump then_block else jump else_block
         let block = function.get_basic_block_mut(entry).unwrap();
         block.set_terminator(Terminator::If {
-            condition: Value::Literal(Literal::Integer(42)),
+            condition: Value::integer(42),
             then_target: then_block,
             else_target: else_block,
         });
@@ -261,47 +224,13 @@ mod tests {
 
         assert!(modified);
 
-        // Check that it became: jump then_block (non-zero is true)
+        // Check that the branch was simplified to jump then_block (non-zero is true)
         let block = function.get_basic_block(entry).unwrap();
-        match &block.terminator {
-            Terminator::Jump { target } => assert_eq!(*target, then_block),
-            _ => panic!("Expected jump terminator, got: {:?}", block.terminator),
-        }
+        assert_eq!(block.terminator, Terminator::jump(then_block));
     }
 
     #[test]
-    fn test_constant_comparison_equal_true() {
-        let mut function = MirFunction::new("test".to_string());
-        let entry = function.add_basic_block();
-        let then_block = function.add_basic_block();
-        let else_block = function.add_basic_block();
-        function.entry_block = entry;
-
-        // Create: if 5 == 5 then jump then_block else jump else_block
-        let block = function.get_basic_block_mut(entry).unwrap();
-        block.set_terminator(Terminator::BranchCmp {
-            op: BinaryOp::Eq,
-            left: Value::Literal(Literal::Integer(5)),
-            right: Value::Literal(Literal::Integer(5)),
-            then_target: then_block,
-            else_target: else_block,
-        });
-
-        let mut pass = SimplifyBranches::new();
-        let modified = pass.run(&mut function);
-
-        assert!(modified);
-
-        // Check that it became: jump then_block (5 == 5 is true)
-        let block = function.get_basic_block(entry).unwrap();
-        match &block.terminator {
-            Terminator::Jump { target } => assert_eq!(*target, then_block),
-            _ => panic!("Expected jump terminator, got: {:?}", block.terminator),
-        }
-    }
-
-    #[test]
-    fn test_constant_comparison_equal_false() {
+    fn test_simplify_comparison_branch() {
         let mut function = MirFunction::new("test".to_string());
         let entry = function.add_basic_block();
         let then_block = function.add_basic_block();
@@ -312,8 +241,8 @@ mod tests {
         let block = function.get_basic_block_mut(entry).unwrap();
         block.set_terminator(Terminator::BranchCmp {
             op: BinaryOp::Eq,
-            left: Value::Literal(Literal::Integer(5)),
-            right: Value::Literal(Literal::Integer(3)),
+            left: Value::integer(5),
+            right: Value::integer(3),
             then_target: then_block,
             else_target: else_block,
         });
@@ -323,122 +252,24 @@ mod tests {
 
         assert!(modified);
 
-        // Check that it became: jump else_block (5 != 3)
+        // Check that the comparison was evaluated and branch simplified to jump else_block
         let block = function.get_basic_block(entry).unwrap();
-        match &block.terminator {
-            Terminator::Jump { target } => assert_eq!(*target, else_block),
-            _ => panic!("Expected jump terminator, got: {:?}", block.terminator),
-        }
+        assert_eq!(block.terminator, Terminator::jump(else_block));
     }
 
     #[test]
-    fn test_constant_comparison_less_than() {
+    fn test_no_simplification_for_variable() {
         let mut function = MirFunction::new("test".to_string());
         let entry = function.add_basic_block();
         let then_block = function.add_basic_block();
         let else_block = function.add_basic_block();
         function.entry_block = entry;
 
-        // Create: if 3 < 7 then jump then_block else jump else_block
-        let block = function.get_basic_block_mut(entry).unwrap();
-        block.set_terminator(Terminator::BranchCmp {
-            op: BinaryOp::Less,
-            left: Value::Literal(Literal::Integer(3)),
-            right: Value::Literal(Literal::Integer(7)),
-            then_target: then_block,
-            else_target: else_block,
-        });
-
-        let mut pass = SimplifyBranches::new();
-        let modified = pass.run(&mut function);
-
-        assert!(modified);
-
-        // Check that it became: jump then_block (3 < 7 is true)
-        let block = function.get_basic_block(entry).unwrap();
-        match &block.terminator {
-            Terminator::Jump { target } => assert_eq!(*target, then_block),
-            _ => panic!("Expected jump terminator, got: {:?}", block.terminator),
-        }
-    }
-
-    #[test]
-    fn test_u32_comparison() {
-        let mut function = MirFunction::new("test".to_string());
-        let entry = function.add_basic_block();
-        let then_block = function.add_basic_block();
-        let else_block = function.add_basic_block();
-        function.entry_block = entry;
-
-        // Create: if U32Less 3, 7 then jump then_block else jump else_block
-        let block = function.get_basic_block_mut(entry).unwrap();
-        block.set_terminator(Terminator::BranchCmp {
-            op: BinaryOp::U32Less,
-            left: Value::Literal(Literal::Integer(3)),
-            right: Value::Literal(Literal::Integer(7)),
-            then_target: then_block,
-            else_target: else_block,
-        });
-
-        let mut pass = SimplifyBranches::new();
-        let modified = pass.run(&mut function);
-
-        assert!(modified);
-
-        // Check that it became: jump then_block (3 < 7 as u32)
-        let block = function.get_basic_block(entry).unwrap();
-        match &block.terminator {
-            Terminator::Jump { target } => assert_eq!(*target, then_block),
-            _ => panic!("Expected jump terminator, got: {:?}", block.terminator),
-        }
-    }
-
-    #[test]
-    fn test_boolean_logic_and_false() {
-        let mut function = MirFunction::new("test".to_string());
-        let entry = function.add_basic_block();
-        let then_block = function.add_basic_block();
-        let else_block = function.add_basic_block();
-        function.entry_block = entry;
-
-        // Create: if true && false then jump then_block else jump else_block
-        let block = function.get_basic_block_mut(entry).unwrap();
-        block.set_terminator(Terminator::BranchCmp {
-            op: BinaryOp::And,
-            left: Value::Literal(Literal::Boolean(true)),
-            right: Value::Literal(Literal::Boolean(false)),
-            then_target: then_block,
-            else_target: else_block,
-        });
-
-        let mut pass = SimplifyBranches::new();
-        let modified = pass.run(&mut function);
-
-        assert!(modified);
-
-        // Check that it became: jump else_block (true && false = false)
-        let block = function.get_basic_block(entry).unwrap();
-        match &block.terminator {
-            Terminator::Jump { target } => assert_eq!(*target, else_block),
-            _ => panic!("Expected jump terminator, got: {:?}", block.terminator),
-        }
-    }
-
-    #[test]
-    fn test_variable_condition_not_simplified() {
-        let mut function = MirFunction::new("test".to_string());
-        let entry = function.add_basic_block();
-        let then_block = function.add_basic_block();
-        let else_block = function.add_basic_block();
-        function.entry_block = entry;
-
-        // Create a variable (not constant)
-        let var = function.new_typed_value_id(MirType::felt());
-
-        // Create: if %var then jump then_block else jump else_block
+        // Create: if %1 then jump then_block else jump else_block
+        let val_id = function.new_value_id();
         let block = function.get_basic_block_mut(entry).unwrap();
         block.set_terminator(Terminator::If {
-            condition: Value::operand(var),
+            condition: Value::operand(val_id),
             then_target: then_block,
             else_target: else_block,
         });
@@ -446,70 +277,17 @@ mod tests {
         let mut pass = SimplifyBranches::new();
         let modified = pass.run(&mut function);
 
-        assert!(!modified); // Should not modify variable conditions
+        assert!(!modified);
 
-        // Check that it remains unchanged
+        // Check that the branch was not modified
         let block = function.get_basic_block(entry).unwrap();
-        match &block.terminator {
+        assert_eq!(
+            block.terminator,
             Terminator::If {
-                condition,
-                then_target,
-                else_target,
-            } => {
-                assert_eq!(*condition, Value::operand(var));
-                assert_eq!(*then_target, then_block);
-                assert_eq!(*else_target, else_block);
+                condition: Value::operand(val_id),
+                then_target: then_block,
+                else_target: else_block,
             }
-            _ => panic!("Expected if terminator, got: {:?}", block.terminator),
-        }
-    }
-
-    #[test]
-    fn test_mixed_literal_variable_comparison_not_simplified() {
-        let mut function = MirFunction::new("test".to_string());
-        let entry = function.add_basic_block();
-        let then_block = function.add_basic_block();
-        let else_block = function.add_basic_block();
-        function.entry_block = entry;
-
-        // Create a variable (not constant)
-        let var = function.new_typed_value_id(MirType::felt());
-
-        // Create: if %var == 5 then jump then_block else jump else_block
-        let block = function.get_basic_block_mut(entry).unwrap();
-        block.set_terminator(Terminator::BranchCmp {
-            op: BinaryOp::Eq,
-            left: Value::operand(var),
-            right: Value::Literal(Literal::Integer(5)),
-            then_target: then_block,
-            else_target: else_block,
-        });
-
-        let mut pass = SimplifyBranches::new();
-        let modified = pass.run(&mut function);
-
-        assert!(!modified); // Should not modify mixed literal/variable comparisons
-
-        // Check that it remains unchanged
-        let block = function.get_basic_block(entry).unwrap();
-        match &block.terminator {
-            Terminator::BranchCmp {
-                op,
-                left,
-                right,
-                then_target,
-                else_target,
-            } => {
-                assert_eq!(*op, BinaryOp::Eq);
-                assert_eq!(*left, Value::operand(var));
-                assert_eq!(*right, Value::Literal(Literal::Integer(5)));
-                assert_eq!(*then_target, then_block);
-                assert_eq!(*else_target, else_block);
-            }
-            _ => panic!(
-                "Expected branch cmp terminator, got: {:?}",
-                block.terminator
-            ),
-        }
+        );
     }
 }

@@ -1,18 +1,14 @@
 //! Simplified MIR optimization pipeline configuration
 
-use crate::{MirModule, PassManager, PrettyPrint};
+use crate::{MirModule, PassManager};
 
 /// Optimization level for the MIR pipeline
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OptimizationLevel {
     /// No optimizations
     None,
-    /// Basic optimizations (dead code elimination)
-    Basic,
     /// Standard optimizations (default)
     Standard,
-    /// Aggressive optimizations
-    Aggressive,
 }
 
 impl Default for OptimizationLevel {
@@ -58,25 +54,8 @@ impl PipelineConfig {
 
     /// Create configuration from environment (simplified)
     pub fn from_environment() -> Self {
-        let mut config = Self::default();
-
-        // Simple optimization level control
-        if let Ok(val) = std::env::var("CAIRO_M_OPT_LEVEL") {
-            config.optimization_level = match val.as_str() {
-                "0" | "none" => OptimizationLevel::None,
-                "1" | "basic" => OptimizationLevel::Basic,
-                "2" | "standard" => OptimizationLevel::Standard,
-                "3" | "aggressive" => OptimizationLevel::Aggressive,
-                _ => OptimizationLevel::Standard,
-            };
-        }
-
-        // Debug flag
-        if let Ok(val) = std::env::var("CAIRO_M_DEBUG") {
-            config.debug = val == "1" || val.to_lowercase() == "true";
-        }
-
-        config
+        // Environment variable configuration removed
+        Self::default()
     }
 }
 
@@ -84,39 +63,21 @@ impl PipelineConfig {
 pub fn optimize_module(module: &mut MirModule, config: &PipelineConfig) {
     let mut pass_manager = match config.optimization_level {
         OptimizationLevel::None => return, // No optimizations
-        OptimizationLevel::Basic => PassManager::basic_pipeline(),
         OptimizationLevel::Standard => PassManager::standard_pipeline(),
-        OptimizationLevel::Aggressive => PassManager::aggressive_pipeline(),
     };
 
     // Apply passes to each function
     for function in module.functions_mut() {
         // Validate before optimization
-        if let Err(e) = function.validate() {
-            eprintln!(
-                "Warning: Function validation failed before optimization: {}",
-                e
-            );
-            // Don't skip optimization - some passes may fix validation issues
-            // continue;
-        }
+        let _ = function.validate();
 
         // Run optimization passes
         pass_manager.run(function);
 
         // Validate after optimization
-        if let Err(e) = function.validate() {
-            eprintln!(
-                "Warning: Function validation failed after optimization: {}",
-                e
-            );
-        }
+        let _ = function.validate();
 
-        // Debug output if requested
-        if config.debug {
-            eprintln!("=== Optimized MIR for {} ===", function.name);
-            eprintln!("{}", function.pretty_print(0));
-        }
+        // Debug output removed - no logging
     }
 }
 
