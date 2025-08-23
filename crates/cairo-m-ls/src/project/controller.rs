@@ -25,7 +25,7 @@ pub enum ProjectUpdate {
         crate_info: CrateInfo,
         files: Vec<PathBuf>,
     },
-    /// No project manifest found, treat as standalone file
+    /// No project manifest found, treat as a standalone file
     Standalone(PathBuf),
     /// Thread error occurred
     ThreadError(String),

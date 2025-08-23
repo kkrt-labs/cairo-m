@@ -47,7 +47,7 @@ component that is failing `store_mul_fp_imm` . To count constraints:
 
 Here are a few common issues.
 
-### [CASE 1] - Incorrect columns order
+### [CASE 1] - Incorrect column order
 
 In `write_trace`, columns are added like so:
 

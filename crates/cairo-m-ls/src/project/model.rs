@@ -189,7 +189,7 @@ impl ProjectModel {
             let mut file_to_project = self.file_to_project.write().await;
             for file_path in files.keys() {
                 if let Ok(url) = Url::from_file_path(file_path) {
-                    // Check if file was in a different project
+                    // Check if the file was in a different project
                     if let Some(old_project) = file_to_project.get(&url) {
                         if old_project != &crate_info.root {
                             moved_files.push(url.clone());

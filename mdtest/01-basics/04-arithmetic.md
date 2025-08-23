@@ -32,7 +32,7 @@ fn field_division() -> felt {
 
 ## Field Wraparound
 
-Numbers wrap around at field prime:
+Numbers wrap around at a field prime:
 
 ```cairo-m
 //! expected: 0
