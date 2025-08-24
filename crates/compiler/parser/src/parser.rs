@@ -61,7 +61,7 @@ impl std::fmt::Display for NamedType {
 /// Represents a type expression in the Cairo-M language.
 ///
 /// Type expressions describe the shape and structure of data, including
-/// basic types, pointers, and tuple types.
+/// basic types, pointers, tuple types, and fixed-size arrays.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeExpr {
     /// A named type (e.g., `felt`, `Vector`)
@@ -70,6 +70,11 @@ pub enum TypeExpr {
     Pointer(Box<Spanned<TypeExpr>>),
     /// A tuple type (e.g., `(felt, felt)`, `(Vector, felt, bool)`)
     Tuple(Vec<Spanned<TypeExpr>>),
+    /// A fixed-size array type (e.g., `[u32; 8]`, `[felt; 100]`)
+    FixedArray {
+        element_type: Box<Spanned<TypeExpr>>,
+        size: Spanned<u64>,
+    },
 }
 
 /// Unary operators supported in expressions.
@@ -192,6 +197,8 @@ pub enum Expression {
         tuple: Box<Spanned<Expression>>,
         index: usize,
     },
+    /// Array literal (e.g., `[1, 2, 3]`, `[0u32; 10]`)
+    ArrayLiteral(Vec<Spanned<Expression>>),
 }
 
 /// Represents a function parameter with its name and type.
@@ -565,7 +572,35 @@ where
                 }
             });
 
-        let base_type = named_type.or(tuple_type);
+        // Fixed-size array types: [u32; 8], [felt; 100], etc.
+        let array_type = just(TokenType::LBrack)
+            .ignore_then(type_expr.clone())
+            .then_ignore(just(TokenType::Semicolon))
+            .then(
+                // Parse any expression, then require it be a plain integer literal
+                expression_parser().try_map_with(|expr, _extra| match expr.value() {
+                    Expression::Literal(value, suffix) if suffix.is_none() => {
+                        Ok(Spanned::new(*value, expr.span()))
+                    }
+                    _ => Err(Rich::custom(
+                        expr.span(),
+                        "Fixed size arrays must have a size known at compile-time",
+                    )),
+                }),
+            )
+            .then_ignore(just(TokenType::RBrack))
+            .map_with(|(element_type, size), extra| {
+                let span = extra.span();
+                Spanned::new(
+                    TypeExpr::FixedArray {
+                        element_type: Box::new(element_type),
+                        size,
+                    },
+                    span,
+                )
+            });
+
+        let base_type = named_type.or(array_type).or(tuple_type);
 
         // Handle pointer types: felt*, Vector**, etc. (right-associative via foldl)
         base_type.foldl(
@@ -663,10 +698,21 @@ where
             })
             .map_with(|expr, extra| Spanned::new(expr, extra.span()));
 
+        // Array literal expressions: "[elem1, elem2, elem3]"
+        let array_literal = expr
+            .clone()
+            .separated_by(just(TokenType::Comma))
+            .allow_trailing()
+            .collect::<Vec<_>>()
+            .delimited_by(just(TokenType::LBrack), just(TokenType::RBrack))
+            .map(Expression::ArrayLiteral)
+            .map_with(|expr, extra| Spanned::new(expr, extra.span()));
+
         // Basic atomic expressions - try each alternative in order
         let atom = literal
             .or(boolean_literal)
             .or(struct_literal)
+            .or(array_literal)
             .or(ident_expr)
             .or(expr
                 .clone()

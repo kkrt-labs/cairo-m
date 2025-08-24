@@ -118,6 +118,8 @@ pub enum DiagnosticCode {
     TupleIndexOutOfBounds,
     InvalidTupleIndexAccess,
     AssignmentToConst,
+    IndexOutOfBounds,
+    TypeInferenceError,
     // TODO: Add more type-related diagnostic codes:
     // - InvalidTypeAnnotation
     // - TypeArgumentMismatch
@@ -180,6 +182,8 @@ impl From<DiagnosticCode> for u32 {
             DiagnosticCode::TupleIndexOutOfBounds => 2012,
             DiagnosticCode::InvalidTupleIndexAccess => 2013,
             DiagnosticCode::AssignmentToConst => 2014,
+            DiagnosticCode::IndexOutOfBounds => 2015,
+            DiagnosticCode::TypeInferenceError => 2016,
             DiagnosticCode::InternalError => 9001,
         }
     }
@@ -465,6 +469,14 @@ impl DiagnosticCollection {
         let mut result = String::new();
         for diagnostic in &self.diagnostics {
             result.push_str(&diagnostic.display_with_source(source));
+        }
+        result
+    }
+
+    pub fn display_without_color(&self, source: &str) -> String {
+        let mut result = String::new();
+        for diagnostic in &self.diagnostics {
+            result.push_str(&build_diagnostic_message(source, diagnostic, false));
         }
         result
     }

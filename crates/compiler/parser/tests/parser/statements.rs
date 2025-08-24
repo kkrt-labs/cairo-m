@@ -33,6 +33,22 @@ fn tuple_destructuring_parameterized() {
 }
 
 #[test]
+fn array_creation_parameterized() {
+    assert_parses_parameterized! {
+        ok: [
+            in_function("let arr = [1, 2, 3];"),
+            in_function("let arr: [felt; 3] = [1, 2, 3];"),
+            in_function("let arr: [u32; 3] = [1, 2, 3];"),
+            in_function("let arr: [MyStruct; 3] = [MyStruct { x: 1, y: 2 }, MyStruct { x: 3, y: 4 }, MyStruct { x: 5, y: 6 }];"),
+        ],
+        err: [
+            in_function("let arr: [felt] = [1, 2, 3];"),
+            in_function("let arr: [3] = [1, 2, 3];"),
+        ]
+    }
+}
+
+#[test]
 fn assignment_statements_parameterized() {
     assert_parses_parameterized! {
         ok: [

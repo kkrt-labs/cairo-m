@@ -17,6 +17,13 @@ impl Format for TypeExpr {
                     .collect::<Vec<_>>();
                 parens(comma_separated(type_docs))
             }
+            Self::FixedArray { element_type, size } => Doc::concat(vec![
+                Doc::text("["),
+                element_type.value().format(ctx),
+                Doc::text("; "),
+                Doc::text(size.value().to_string()),
+                Doc::text("]"),
+            ]),
         }
     }
 }
