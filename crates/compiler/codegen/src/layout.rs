@@ -87,12 +87,17 @@ impl FunctionLayout {
     /// Allocates memory slots for function parameters with proper size handling.
     fn allocate_parameters_with_sizes(&mut self, function: &MirFunction) -> CodegenResult<()> {
         // Calculate total slots needed for parameters and return values
+        // Arrays are passed as pointers (1 slot)
         let mut m_slots = 0;
         for &param_id in &function.parameters {
             let ty = function.value_types.get(&param_id).ok_or_else(|| {
                 CodegenError::LayoutError(format!("No type found for parameter {param_id:?}"))
             })?;
-            m_slots += DataLayout::size_of(ty);
+            let size = match ty {
+                cairo_m_compiler_mir::MirType::FixedArray { .. } => 1,
+                _ => DataLayout::size_of(ty),
+            };
+            m_slots += size;
         }
 
         let mut k_slots = 0;
@@ -102,7 +107,11 @@ impl FunctionLayout {
             let ty = function.value_types.get(&return_id).ok_or_else(|| {
                 CodegenError::LayoutError(format!("No type found for return value {return_id:?}"))
             })?;
-            let size = DataLayout::size_of(ty);
+            // Arrays are stored as pointers (1 slot)
+            let size = match ty {
+                cairo_m_compiler_mir::MirType::FixedArray { .. } => 1,
+                _ => DataLayout::size_of(ty),
+            };
             k_slots += size;
         }
 
@@ -115,7 +124,10 @@ impl FunctionLayout {
             let ty = function.value_types.get(&param_id).ok_or_else(|| {
                 CodegenError::LayoutError(format!("No type found for parameter {param_id:?}"))
             })?;
-            let size = DataLayout::size_of(ty);
+            let size = match ty {
+                cairo_m_compiler_mir::MirType::FixedArray { .. } => 1,
+                _ => DataLayout::size_of(ty),
+            };
 
             // Calculate the offset using the formula from Issue 2
             let offset = -(m_slots as i32) - (k_slots as i32) - 2 + cumulative_param_size as i32;
@@ -158,7 +170,11 @@ impl FunctionLayout {
                                     "No type found for call return value {dest_id:?}"
                                 ))
                             })?;
-                            let size = DataLayout::size_of(ty);
+                            // Arrays are stored as pointers (1 slot)
+                            let size = match ty {
+                                cairo_m_compiler_mir::MirType::FixedArray { .. } => 1,
+                                _ => DataLayout::size_of(ty),
+                            };
 
                             // Allocate space for the return value
                             if size == 1 {
@@ -189,7 +205,11 @@ impl FunctionLayout {
 
                         // Allocate a block of memory
                         let offset = current_offset as i32;
-                        let size = DataLayout::size_of(ty);
+                        // Arrays are stored as pointers (1 slot)
+                        let size = match ty {
+                            cairo_m_compiler_mir::MirType::FixedArray { .. } => 1,
+                            _ => DataLayout::size_of(ty),
+                        };
                         self.value_layouts
                             .insert(*dest, ValueLayout::MultiSlot { offset, size });
                         current_offset += size;
@@ -215,7 +235,11 @@ impl FunctionLayout {
                                     "No type found for value {dest_id:?}"
                                 ))
                             })?;
-                            let size = DataLayout::size_of(ty);
+                            // Arrays are stored as pointers (1 slot)
+                            let size = match ty {
+                                cairo_m_compiler_mir::MirType::FixedArray { .. } => 1,
+                                _ => DataLayout::size_of(ty),
+                            };
 
                             // Create appropriate layout based on size
                             if size == 1 {

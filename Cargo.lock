@@ -458,7 +458,7 @@ dependencies = [
  "logos",
  "num-traits",
  "salsa",
- "sonic-rs 0.3.17",
+ "sonic-rs 0.5.1",
  "tempfile",
  "thiserror",
  "tracing",

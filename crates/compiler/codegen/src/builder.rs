@@ -43,6 +43,14 @@ pub struct CasmBuilder {
     max_written_offset: i32,
 }
 
+/// Represents the type of array operation to perform
+pub enum ArrayOperation {
+    /// Load an element from array into dest
+    Load { dest: ValueId },
+    /// Store a value into an array element, creating a new array in dest
+    Store { dest: ValueId, value: Value },
+}
+
 impl CasmBuilder {
     /// Create a new CASM builder with the required layout
     pub const fn new(layout: FunctionLayout, label_counter: usize) -> Self {
@@ -315,7 +323,11 @@ impl CasmBuilder {
         use cairo_m_compiler_mir::layout::DataLayout;
 
         // DataLayout methods are now static - no instance needed
-        let size = DataLayout::size_of(ty);
+        // Arrays are stored as pointers (1 slot) in the codegen
+        let size = match ty {
+            MirType::FixedArray { .. } => 1,
+            _ => DataLayout::size_of(ty),
+        };
 
         // Determine destination offset
         let dest_off = if let Some(offset) = target_offset {
@@ -328,7 +340,12 @@ impl CasmBuilder {
                 Ok(offset) => offset,
                 Err(_) => {
                     // Value wasn't pre-allocated, allocate it now
-                    self.layout.allocate_local(dest, size)?
+                    // Arrays are stored as pointers (1 slot)
+                    let alloc_size = match ty {
+                        MirType::FixedArray { .. } => 1,
+                        _ => size,
+                    };
+                    self.layout.allocate_local(dest, alloc_size)?
                 }
             }
         };
@@ -371,7 +388,19 @@ impl CasmBuilder {
                 // Copy from another value
                 let src_off = self.layout.get_offset(src_id)?;
 
-                if size == 1 {
+                // Special handling for arrays: only copy the pointer (first slot)
+                if matches!(ty, MirType::FixedArray { .. }) {
+                    // Arrays are stored as pointers - only copy the pointer value (first slot)
+                    let instr = InstructionBuilder::new(STORE_ADD_FP_IMM)
+                        .with_operand(Operand::Literal(src_off))
+                        .with_operand(Operand::Literal(0))
+                        .with_operand(Operand::Literal(dest_off))
+                        .with_comment(format!(
+                            "[fp + {dest_off}] = [fp + {src_off}] + 0 (array pointer)"
+                        ));
+                    self.instructions.push(instr);
+                    self.touch(dest_off, 1);
+                } else if size == 1 {
                     // Single slot copy
                     let instr = InstructionBuilder::new(STORE_ADD_FP_IMM)
                         .with_operand(Operand::Literal(src_off))
@@ -567,7 +596,7 @@ impl CasmBuilder {
                 self.generate_or_op(dest_off, left, right)?;
             }
             BinaryOp::Less | BinaryOp::Greater | BinaryOp::LessEqual | BinaryOp::GreaterEqual => {
-                todo!("Comparison opcodes not yet implemented");
+                todo!("Comparison opcodes not supported on felt type");
             }
             BinaryOp::U32Add
             | BinaryOp::U32Sub
@@ -1340,8 +1369,15 @@ impl CasmBuilder {
     ) -> CodegenResult<()> {
         // Step 1: Pass arguments by storing them in the communication area.
         let args_offset = self.pass_arguments(callee_name, args, signature)?;
-        // M is the total number of slots occupied by arguments
-        let m: usize = signature.param_types.iter().map(DataLayout::size_of).sum();
+        // M is the total number of slots occupied by arguments (arrays as pointers)
+        let m: usize = signature
+            .param_types
+            .iter()
+            .map(|ty| match ty {
+                MirType::FixedArray { .. } => 1,
+                _ => DataLayout::size_of(ty),
+            })
+            .sum();
         // K is the total number of slots occupied by return values (U32 takes 2 slots)
         let k: usize = signature.return_types.iter().map(DataLayout::size_of).sum();
 
@@ -1382,8 +1418,15 @@ impl CasmBuilder {
     ) -> CodegenResult<()> {
         // Step 1: Pass arguments by storing them in the communication area.
         let args_offset = self.pass_arguments(callee_name, args, signature)?;
-        // M is the total number of slots occupied by arguments
-        let m: usize = signature.param_types.iter().map(DataLayout::size_of).sum();
+        // M is the total number of slots occupied by arguments (arrays as pointers)
+        let m: usize = signature
+            .param_types
+            .iter()
+            .map(|ty| match ty {
+                MirType::FixedArray { .. } => 1,
+                _ => DataLayout::size_of(ty),
+            })
+            .sum();
         // K is the total number of slots occupied by return values (U32 takes 2 slots)
         let k: usize = signature.return_types.iter().map(DataLayout::size_of).sum();
 
@@ -1430,8 +1473,15 @@ impl CasmBuilder {
         }
 
         let args_offset = self.pass_arguments(callee_name, args, signature)?;
-        // M is the total number of slots occupied by arguments
-        let m: usize = signature.param_types.iter().map(DataLayout::size_of).sum();
+        // M is the total number of slots occupied by arguments (arrays as pointers)
+        let m: usize = signature
+            .param_types
+            .iter()
+            .map(|ty| match ty {
+                MirType::FixedArray { .. } => 1,
+                _ => DataLayout::size_of(ty),
+            })
+            .sum();
         let k = 0; // Void calls have no returns
 
         self.layout.reserve_stack(k);
@@ -1509,8 +1559,13 @@ impl CasmBuilder {
         let mut current_offset = l;
 
         for param_type in &signature.param_types {
+            // Arrays are passed by pointer (1 slot) in the ABI
+            let abi_slots = match param_type {
+                MirType::FixedArray { .. } => 1,
+                _ => DataLayout::size_of(param_type),
+            } as i32;
             arg_offsets.push(current_offset);
-            current_offset += DataLayout::size_of(param_type) as i32;
+            current_offset += abi_slots;
         }
 
         // Check for mismatch in argument count
@@ -1536,7 +1591,11 @@ impl CasmBuilder {
                         let mut all_args_contiguous = true;
 
                         for (arg, param_type) in args.iter().zip(&signature.param_types) {
-                            let size = DataLayout::size_of(param_type);
+                            // Arrays are passed by pointer (1 slot) in the ABI
+                            let size = match param_type {
+                                MirType::FixedArray { .. } => 1,
+                                _ => DataLayout::size_of(param_type),
+                            };
 
                             if let Value::Operand(arg_id) = arg {
                                 if !self.layout.is_contiguous(*arg_id, expected_offset, size) {
@@ -1550,8 +1609,14 @@ impl CasmBuilder {
                         if all_args_contiguous {
                             // With pre-allocated layouts, we can only apply the optimization
                             // if the arguments are at the top of the current frame
-                            let total_arg_size: usize =
-                                signature.param_types.iter().map(DataLayout::size_of).sum();
+                            let total_arg_size: usize = signature
+                                .param_types
+                                .iter()
+                                .map(|ty| match ty {
+                                    MirType::FixedArray { .. } => 1,
+                                    _ => DataLayout::size_of(ty),
+                                })
+                                .sum();
                             let args_end = first_offset + total_arg_size as i32;
 
                             // Check both conditions:
@@ -1574,26 +1639,37 @@ impl CasmBuilder {
         // Standard path: copy arguments to their positions
         for (i, (arg, param_type)) in args.iter().zip(&signature.param_types).enumerate() {
             let arg_offset = arg_offsets[i];
-            let arg_size = DataLayout::size_of(param_type);
+
+            // Fixed-Size arrays are passed as pointers - size 1.
+            let arg_size = if matches!(param_type, MirType::FixedArray { .. }) {
+                1
+            } else {
+                DataLayout::size_of(param_type)
+            };
 
             match arg {
-                Value::Literal(Literal::Integer(imm)) => {
-                    // For single-slot types, store directly
-                    if arg_size == 1 {
+                Value::Literal(Literal::Integer(imm)) => match param_type {
+                    MirType::Bool | MirType::Felt => {
                         self.store_immediate(
                             *imm,
                             arg_offset,
                             format!("Arg {i}: [fp + {arg_offset}] = {imm}"),
                         );
-                    } else {
-                        // For multi-slot types, we need special handling
-                        // For now, error out as we don't support multi-slot literals
+                    }
+                    MirType::U32 => {
+                        self.store_u32_immediate(
+                            *imm,
+                            arg_offset,
+                            format!("Arg {i}: [fp + {arg_offset}] = {imm}"),
+                        );
+                    }
+                    _ => {
                         return Err(CodegenError::UnsupportedInstruction(format!(
-                            "Multi-slot literal arguments not yet supported (size={})",
-                            arg_size
+                            "Unsupported literal argument type: {:?}",
+                            param_type
                         )));
                     }
-                }
+                },
                 Value::Operand(arg_id) => {
                     let src_off = self.layout.get_offset(*arg_id)?;
 
@@ -2823,6 +2899,10 @@ impl CasmBuilder {
         target_offset: i32,
         size: usize,
     ) -> CodegenResult<()> {
+        // Nothing to copy for zero-sized values (e.g., unit)
+        if size == 0 {
+            return Ok(());
+        }
         match value {
             Value::Literal(Literal::Integer(imm)) => {
                 if size == 1 {
@@ -2850,6 +2930,18 @@ impl CasmBuilder {
                     )));
                 }
             }
+            Value::Literal(Literal::Boolean(b)) => {
+                // Booleans are single-slot values storing 0/1
+                let imm = if *b { 1 } else { 0 };
+                self.store_immediate(
+                    imm,
+                    target_offset,
+                    format!("[fp + {}] = {}", target_offset, imm),
+                );
+            }
+            Value::Literal(Literal::Unit) => {
+                // Unit has size 0 by layout; nothing to store
+            }
             Value::Operand(src_id) => {
                 let src_offset = self.layout.get_offset(*src_id)?;
 
@@ -2875,6 +2967,580 @@ impl CasmBuilder {
             }
         }
 
+        Ok(())
+    }
+
+    /// Create a fixed-size array from elements
+    /// Materializes elements in contiguous locals and returns a pointer (fp + base)
+    pub fn make_fixed_array(
+        &mut self,
+        dest: ValueId,
+        elements: &[Value],
+        element_ty: &MirType,
+    ) -> CodegenResult<()> {
+        use cairo_m_compiler_mir::layout::DataLayout;
+
+        // Calculate per-element size and total size needed for the array
+        let element_size = DataLayout::size_of(element_ty);
+        let total_size = element_size * elements.len();
+
+        // Reserve space for the array elements (anonymous region)
+        let base_offset = if total_size > 0 {
+            self.layout.reserve_stack(total_size)
+        } else {
+            // Zero-sized array: still produce a pointer to the current top (valid but unused)
+            self.layout.current_frame_usage()
+        };
+
+        // Copy each element to its position in the array
+        for (index, element) in elements.iter().enumerate() {
+            let target_offset = base_offset + (index * element_size) as i32;
+            self.copy_value_to_offset(element, target_offset, element_size)?;
+        }
+
+        // Allocate a single-slot destination for the array pointer
+        let dest_offset = self.layout.allocate_local(dest, 1)?;
+        // Store the address (fp + base_offset) into the destination slot
+        let instr = InstructionBuilder::new(STORE_FP_IMM)
+            .with_operand(Operand::Literal(base_offset))
+            .with_operand(Operand::Literal(dest_offset))
+            .with_comment(format!("[fp + {dest_offset}] = fp + {base_offset}"));
+        self.instructions.push(instr);
+        self.touch(dest_offset, 1);
+
+        Ok(())
+    }
+
+    // ===== Unified Array Operations =====
+
+    /// Unified array operation handler that dispatches based on index type and operation
+    pub fn array_operation(
+        &mut self,
+        array: Value,
+        index: Value,
+        element_ty: &MirType,
+        operation: ArrayOperation,
+        function: &cairo_m_compiler_mir::MirFunction,
+    ) -> CodegenResult<()> {
+        use cairo_m_compiler_mir::layout::DataLayout;
+
+        // Get array base pointer (arrays are always stored as pointers)
+        let array_offset = match array {
+            Value::Operand(id) => self.layout.get_offset(id)?,
+            _ => {
+                return Err(CodegenError::InvalidMir(
+                    "Array must be an operand (pointer)".to_string(),
+                ))
+            }
+        };
+
+        // Calculate element size
+        let element_size = DataLayout::size_of(element_ty);
+
+        // Handle based on index type
+        match index {
+            Value::Literal(Literal::Integer(idx)) => {
+                // Static index - compile-time offset calculation
+                let element_offset = (idx as i32) * (element_size as i32);
+
+                match operation {
+                    ArrayOperation::Load { dest } => {
+                        self.load_from_memory_static(
+                            dest,
+                            array_offset,
+                            element_offset,
+                            element_ty,
+                        )?;
+                    }
+                    ArrayOperation::Store { dest, value } => {
+                        self.store_to_memory_static(
+                            dest,
+                            value,
+                            array_offset,
+                            element_offset,
+                            element_ty,
+                            function,
+                        )?;
+                    }
+                }
+            }
+            Value::Operand(idx_id) => {
+                // Dynamic index - runtime offset calculation
+                let _idx_offset = self.layout.get_offset(idx_id)?;
+                let idx_value_layout = self.layout.value_layouts.get(&idx_id).unwrap().clone();
+
+                // Enforce: indexing is only valid with felt (single-slot) values.
+                // This avoids accidental use of multi-slot types (e.g., u32) as an index.
+                if let Some(idx_ty) = function.value_types.get(&idx_id) {
+                    if !matches!(idx_ty, MirType::Felt) {
+                        return Err(CodegenError::InvalidMir(format!(
+                            "Array index must be a felt; got {:?}",
+                            idx_ty
+                        )));
+                    }
+                }
+
+                let indexing_value_offset = match idx_value_layout {
+                    ValueLayout::Slot { offset } => offset,
+                    _ => {
+                        return Err(CodegenError::InternalError(
+                            "Invalid index value layout".to_string(),
+                        ));
+                    }
+                };
+
+                match operation {
+                    ArrayOperation::Load { dest } => {
+                        self.load_from_memory_dynamic(
+                            dest,
+                            array_offset,
+                            indexing_value_offset,
+                            element_ty,
+                        )?;
+                    }
+                    ArrayOperation::Store { dest, value } => {
+                        self.store_to_memory_dynamic(
+                            dest,
+                            value,
+                            array_offset,
+                            indexing_value_offset,
+                            element_ty,
+                            function,
+                        )?;
+                    }
+                }
+            }
+            _ => {
+                return Err(CodegenError::InvalidMir(
+                    "Array index must be literal or operand".to_string(),
+                ))
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Helper for static loads - arrays store pointers so we load from computed address
+    fn load_from_memory_static(
+        &mut self,
+        dest: ValueId,
+        base_offset: i32,
+        element_offset: i32,
+        ty: &MirType,
+    ) -> CodegenResult<()> {
+        use cairo_m_compiler_mir::layout::DataLayout;
+
+        // Arrays store pointers to their data, so we need to dereference:
+        // element N is at memory address [[fp + base_offset] + element_offset]
+        let elem_size = DataLayout::size_of(ty);
+        let dest_off = self.layout.allocate_local(dest, elem_size)?;
+
+        // For static offsets, use StoreDoubleDerefFpImm
+        // Load slot 0: [fp + dest_off] = [[fp + base_offset] + element_offset]
+        let instr0 = InstructionBuilder::new(STORE_DOUBLE_DEREF_FP)
+            .with_operand(Operand::Literal(base_offset))
+            .with_operand(Operand::Literal(element_offset))
+            .with_operand(Operand::Literal(dest_off))
+            .with_comment(format!(
+                "[fp + {}] = [[fp + {}] + {}] (load array element)",
+                dest_off, base_offset, element_offset
+            ));
+        self.instructions.push(instr0);
+        self.touch(dest_off, 1);
+
+        // For multi-slot elements (like u32), load additional slots
+        for s in 1..elem_size {
+            let slot_offset = element_offset + s as i32;
+            let dst_slot = dest_off + s as i32;
+            let instr = InstructionBuilder::new(STORE_DOUBLE_DEREF_FP)
+                .with_operand(Operand::Literal(base_offset))
+                .with_operand(Operand::Literal(slot_offset))
+                .with_operand(Operand::Literal(dst_slot))
+                .with_comment(format!(
+                    "[fp + {}] = [[fp + {}] + {}] (load array element slot {})",
+                    dst_slot, base_offset, slot_offset, s
+                ));
+            self.instructions.push(instr);
+            self.touch(dst_slot, 1);
+        }
+
+        Ok(())
+    }
+
+    /// Helper for dynamic loads - use STORE_DOUBLE_DEREF_FP_FP to load from memory
+    fn load_from_memory_dynamic(
+        &mut self,
+        dest: ValueId,
+        base_offset: i32,
+        indexing_value_offset: i32,
+        ty: &MirType,
+    ) -> CodegenResult<()> {
+        use cairo_m_compiler_mir::layout::DataLayout;
+
+        let elem_size = DataLayout::size_of(ty);
+        let dest_off = self.layout.allocate_local(dest, elem_size)?;
+
+        // If the elem_size is N, then, the value we have to retrieved is located at [fp + base_ptr + [fp + scaled_offset] * N]
+        // e.g. for a array of u32, index 1, the value is located at [fp + base_ptr + (1 * 2)]
+
+        let scaled_offset = if elem_size != 1 {
+            // First, multiply the index by the element size
+            let scaled_offset_ = self.layout.reserve_stack(1);
+            let mul = InstructionBuilder::new(STORE_MUL_FP_IMM)
+                .with_operand(Operand::Literal(indexing_value_offset))
+                .with_operand(Operand::Literal(elem_size as i32))
+                .with_operand(Operand::Literal(scaled_offset_))
+                .with_comment(format!(
+                    "[fp + {scaled_offset_}] = [fp + {indexing_value_offset}] * {elem_size} - Scale index by element size"
+                ));
+            self.instructions.push(mul);
+            self.touch(scaled_offset_, 1);
+            scaled_offset_
+        } else {
+            indexing_value_offset
+        };
+
+        // Load slot 0
+        let instr0 = InstructionBuilder::new(STORE_DOUBLE_DEREF_FP_FP)
+            .with_operand(Operand::Literal(base_offset))
+            .with_operand(Operand::Literal(scaled_offset))
+            .with_operand(Operand::Literal(dest_off))
+            .with_comment(format!(
+                "[fp + {}] = [[fp + {}] + [fp + {}]]",
+                dest_off, base_offset, scaled_offset
+            ));
+        self.instructions.push(instr0);
+        self.touch(dest_off, 1);
+
+        // Additional slots if element spans multiple words (e.g., U32)
+        for s in 1..elem_size {
+            // temp_index = scaled_offset + s
+            let tmp_idx = self.layout.reserve_stack(1);
+            let add = InstructionBuilder::new(STORE_ADD_FP_IMM)
+                .with_operand(Operand::Literal(scaled_offset))
+                .with_operand(Operand::Literal(s as i32))
+                .with_operand(Operand::Literal(tmp_idx))
+                .with_comment(format!(
+                    "[fp + {}] = [fp + {}] + {} (offset for slot {})",
+                    tmp_idx, scaled_offset, s, s
+                ));
+            self.instructions.push(add);
+
+            let dst_slot = dest_off + s as i32;
+            let instr = InstructionBuilder::new(STORE_DOUBLE_DEREF_FP_FP)
+                .with_operand(Operand::Literal(base_offset))
+                .with_operand(Operand::Literal(tmp_idx))
+                .with_operand(Operand::Literal(dst_slot))
+                .with_comment(format!(
+                    "[fp + {}] = [[fp + {}] + [fp + {}]] (slot {})",
+                    dst_slot, base_offset, tmp_idx, s
+                ));
+            self.instructions.push(instr);
+            self.touch(dst_slot, 1);
+        }
+
+        Ok(())
+    }
+
+    /// Helper for static stores using StoreToDoubleDerefFpImm
+    fn store_to_memory_static(
+        &mut self,
+        dest: ValueId,
+        value: Value,
+        base_offset: i32,
+        element_offset: i32,
+        ty: &MirType,
+        _function: &cairo_m_compiler_mir::MirFunction,
+    ) -> CodegenResult<()> {
+        // For static stores, we just copy the pointer (pointer-semantics for arrays)
+        // The dest gets the same pointer as the original array
+        let dest_offset = self.layout.allocate_local(dest, 1)?;
+
+        // Store the array pointer to dest
+        let instr = InstructionBuilder::new(STORE_ADD_FP_IMM)
+            .with_operand(Operand::Literal(base_offset))
+            .with_operand(Operand::Literal(0))
+            .with_operand(Operand::Literal(dest_offset))
+            .with_comment(format!(
+                "[fp + {}] = [fp + {}] + 0 (copy array pointer)",
+                dest_offset, base_offset
+            ));
+        self.instructions.push(instr);
+        self.touch(dest_offset, 1);
+
+        // Now store the value to the array element
+        match value {
+            Value::Operand(src_id) => {
+                let src_offset = self.layout.get_offset(src_id)?;
+                let elem_size = DataLayout::size_of(ty);
+                for i in 0..elem_size {
+                    let instr = InstructionBuilder::new(STORE_TO_DOUBLE_DEREF_FP_IMM)
+                        .with_operand(Operand::Literal(base_offset))
+                        .with_operand(Operand::Literal(element_offset + i as i32))
+                        .with_operand(Operand::Literal(src_offset + i as i32))
+                        .with_comment(format!(
+                            "[[fp + {}] + {}] = [fp + {}] (slot {})",
+                            base_offset,
+                            element_offset + i as i32,
+                            src_offset + i as i32,
+                            i
+                        ));
+                    self.instructions.push(instr);
+                }
+            }
+            Value::Literal(Literal::Integer(val)) => {
+                // Multi-slot immediates require staging in temporaries.
+                let elem_size = DataLayout::size_of(ty);
+                if elem_size == 1 {
+                    // Single-slot element: stage in one temp then store.
+                    let temp_offset = self.layout.reserve_stack(1);
+                    self.store_immediate(
+                        val,
+                        temp_offset,
+                        format!("[fp + {}] = {}", temp_offset, val),
+                    );
+                    let instr = InstructionBuilder::new(STORE_TO_DOUBLE_DEREF_FP_IMM)
+                        .with_operand(Operand::Literal(base_offset))
+                        .with_operand(Operand::Literal(element_offset))
+                        .with_operand(Operand::Literal(temp_offset))
+                        .with_comment(format!(
+                            "[[fp + {}] + {}] = [fp + {}]",
+                            base_offset, element_offset, temp_offset
+                        ));
+                    self.instructions.push(instr);
+                } else if matches!(ty, MirType::U32) && elem_size == 2 {
+                    // Stage u32 immediate into a 2-slot temp and store both slots.
+                    let tmp = self.layout.reserve_stack(2);
+                    self.store_u32_immediate(
+                        val,
+                        tmp,
+                        format!("[fp + {}, fp + {}] = u32({val})", tmp, tmp + 1),
+                    );
+                    for i in 0..2 {
+                        let instr = InstructionBuilder::new(STORE_TO_DOUBLE_DEREF_FP_IMM)
+                            .with_operand(Operand::Literal(base_offset))
+                            .with_operand(Operand::Literal(element_offset + i))
+                            .with_operand(Operand::Literal(tmp + i))
+                            .with_comment(format!(
+                                "[[fp + {}] + {}] = [fp + {}] (u32 slot {})",
+                                base_offset,
+                                element_offset + i,
+                                tmp + i,
+                                i
+                            ));
+                        self.instructions.push(instr);
+                    }
+                } else {
+                    return Err(CodegenError::UnsupportedInstruction(
+                        "Storing immediate into multi-slot element is unsupported".to_string(),
+                    ));
+                }
+            }
+            Value::Literal(Literal::Boolean(b)) => {
+                // Boolean literal only valid for single-slot element types
+                if DataLayout::size_of(ty) != 1 {
+                    return Err(CodegenError::InvalidMir(
+                        "Boolean literal store into multi-slot element".to_string(),
+                    ));
+                }
+                let val = if b { 1 } else { 0 };
+                let temp_offset = self.layout.reserve_stack(1);
+                self.store_immediate(
+                    val,
+                    temp_offset,
+                    format!("[fp + {}] = {}", temp_offset, val),
+                );
+                let instr = InstructionBuilder::new(STORE_TO_DOUBLE_DEREF_FP_IMM)
+                    .with_operand(Operand::Literal(base_offset))
+                    .with_operand(Operand::Literal(element_offset))
+                    .with_operand(Operand::Literal(temp_offset))
+                    .with_comment(format!(
+                        "[[fp + {}] + {}] = [fp + {}]",
+                        base_offset, element_offset, temp_offset
+                    ));
+                self.instructions.push(instr);
+            }
+            _ => {
+                return Err(CodegenError::InvalidMir(
+                    "Invalid value for array store".to_string(),
+                ))
+            }
+        }
+        Ok(())
+    }
+
+    /// Helper for dynamic stores using StoreToDoubleDerefFpFp
+    fn store_to_memory_dynamic(
+        &mut self,
+        dest: ValueId,
+        value: Value,
+        base_offset: i32,
+        indexing_value_offset: i32,
+        ty: &MirType,
+        _function: &cairo_m_compiler_mir::MirFunction,
+    ) -> CodegenResult<()> {
+        // For dynamic stores, we just copy the pointer (pointer-semantics for arrays)
+        // The dest gets the same pointer as the original array
+        let elem_size = DataLayout::size_of(ty);
+        let dest_offset = self.layout.allocate_local(dest, 1)?;
+
+        let scaled_offset = if elem_size != 1 {
+            // First, multiply the index by the element size
+            let scaled_offset_ = self.layout.reserve_stack(1);
+            let mul = InstructionBuilder::new(STORE_MUL_FP_IMM)
+                .with_operand(Operand::Literal(indexing_value_offset))
+                .with_operand(Operand::Literal(elem_size as i32))
+                .with_operand(Operand::Literal(scaled_offset_))
+                .with_comment(format!("[fp + {scaled_offset_}] = [fp + {indexing_value_offset}] * {elem_size} - Scale index by element size"));
+            self.instructions.push(mul);
+            self.touch(scaled_offset_, 1);
+            scaled_offset_
+        } else {
+            indexing_value_offset
+        };
+
+        // Store the array pointer to dest
+        let instr = InstructionBuilder::new(STORE_ADD_FP_IMM)
+            .with_operand(Operand::Literal(base_offset))
+            .with_operand(Operand::Literal(0))
+            .with_operand(Operand::Literal(dest_offset))
+            .with_comment(format!(
+                "[fp + {}] = [fp + {}] + 0 (copy array pointer)",
+                dest_offset, base_offset
+            ));
+        self.instructions.push(instr);
+        self.touch(dest_offset, 1);
+
+        // Now store the value to the array element
+        match value {
+            Value::Operand(src_id) => {
+                let src_offset = self.layout.get_offset(src_id)?;
+
+                for i in 0..elem_size {
+                    // Compute adjusted offset for multi-slot elements
+                    let off_slot = if i == 0 {
+                        scaled_offset
+                    } else {
+                        let adjusted = self.layout.reserve_stack(1);
+                        let add_instr = InstructionBuilder::new(STORE_ADD_FP_IMM)
+                            .with_operand(Operand::Literal(scaled_offset))
+                            .with_operand(Operand::Literal(i as i32))
+                            .with_operand(Operand::Literal(adjusted))
+                            .with_comment(format!(
+                                "[fp + {}] = [fp + {}] + {} (adjust for slot {})",
+                                adjusted, scaled_offset, i, i
+                            ));
+                        self.instructions.push(add_instr);
+                        adjusted
+                    };
+
+                    let store_instr = InstructionBuilder::new(STORE_TO_DOUBLE_DEREF_FP_FP)
+                        .with_operand(Operand::Literal(base_offset))
+                        .with_operand(Operand::Literal(off_slot))
+                        .with_operand(Operand::Literal(src_offset + i as i32))
+                        .with_comment(format!(
+                            "[[fp + {}] + [fp + {}]] = [fp + {}] (slot {})",
+                            base_offset,
+                            off_slot,
+                            src_offset + i as i32,
+                            i
+                        ));
+                    self.instructions.push(store_instr);
+                }
+            }
+            Value::Literal(Literal::Integer(val)) => {
+                if elem_size == 1 {
+                    // Stage single-slot immediate in temp
+                    let temp_offset = self.layout.reserve_stack(1);
+                    self.store_immediate(
+                        val,
+                        temp_offset,
+                        format!("[fp + {}] = {}", temp_offset, val),
+                    );
+
+                    let instr = InstructionBuilder::new(STORE_TO_DOUBLE_DEREF_FP_FP)
+                        .with_operand(Operand::Literal(base_offset))
+                        .with_operand(Operand::Literal(scaled_offset))
+                        .with_operand(Operand::Literal(temp_offset))
+                        .with_comment(format!(
+                            "[[fp + {}] + [fp + {}]] = [fp + {}]",
+                            base_offset, scaled_offset, temp_offset
+                        ));
+                    self.instructions.push(instr);
+                } else if matches!(ty, MirType::U32) && elem_size == 2 {
+                    // Stage u32 immediate in 2-slot temp and store both slots
+                    let tmp = self.layout.reserve_stack(2);
+                    self.store_u32_immediate(
+                        val,
+                        tmp,
+                        format!("[fp + {}, fp + {}] = u32({val})", tmp, tmp + 1),
+                    );
+
+                    for i in 0..2 {
+                        let off_slot = if i == 0 {
+                            scaled_offset
+                        } else {
+                            let adjusted = self.layout.reserve_stack(1);
+                            let add_instr = InstructionBuilder::new(STORE_ADD_FP_IMM)
+                                .with_operand(Operand::Literal(scaled_offset))
+                                .with_operand(Operand::Literal(i))
+                                .with_operand(Operand::Literal(adjusted))
+                                .with_comment(format!(
+                                    "[fp + {}] = [fp + {}] + {} (adjust for slot {})",
+                                    adjusted, scaled_offset, i, i
+                                ));
+                            self.instructions.push(add_instr);
+                            adjusted
+                        };
+
+                        let store_instr = InstructionBuilder::new(STORE_TO_DOUBLE_DEREF_FP_FP)
+                            .with_operand(Operand::Literal(base_offset))
+                            .with_operand(Operand::Literal(off_slot))
+                            .with_operand(Operand::Literal(tmp + i))
+                            .with_comment(format!(
+                                "[[fp + {}] + [fp + {}]] = [fp + {}] (u32 slot {})",
+                                base_offset,
+                                off_slot,
+                                tmp + i,
+                                i
+                            ));
+                        self.instructions.push(store_instr);
+                    }
+                } else {
+                    return Err(CodegenError::UnsupportedInstruction(
+                        "Storing immediate into multi-slot element is unsupported".to_string(),
+                    ));
+                }
+            }
+            Value::Literal(Literal::Boolean(b)) => {
+                if elem_size != 1 {
+                    return Err(CodegenError::InvalidMir(
+                        "Boolean literal store into multi-slot element".to_string(),
+                    ));
+                }
+                let val = if b { 1 } else { 0 };
+                let temp_offset = self.layout.reserve_stack(1);
+                self.store_immediate(
+                    val,
+                    temp_offset,
+                    format!("[fp + {}] = {}", temp_offset, val),
+                );
+                let instr = InstructionBuilder::new(STORE_TO_DOUBLE_DEREF_FP_FP)
+                    .with_operand(Operand::Literal(base_offset))
+                    .with_operand(Operand::Literal(scaled_offset))
+                    .with_operand(Operand::Literal(temp_offset))
+                    .with_comment(format!(
+                        "[[fp + {}] + [fp + {}]] = [fp + {}]",
+                        base_offset, scaled_offset, temp_offset
+                    ));
+                self.instructions.push(instr);
+            }
+            _ => {
+                return Err(CodegenError::InvalidMir(
+                    "Invalid value for array store".to_string(),
+                ))
+            }
+        }
         Ok(())
     }
 }

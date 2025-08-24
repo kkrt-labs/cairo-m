@@ -151,7 +151,11 @@ impl CodeGenerator {
             .iter()
             .enumerate()
             .map(|(i, &value_id)| {
-                let slots = DataLayout::size_of(&function.value_types[&value_id]);
+                let ty = &function.value_types[&value_id];
+                let slots = match ty {
+                    cairo_m_compiler_mir::MirType::FixedArray { .. } => 1, // arrays passed as pointers
+                    _ => DataLayout::size_of(ty),
+                };
                 AbiSlot {
                     name: format!("arg{}", i), // TODO: Get proper names from semantic info
                     slots,
@@ -279,7 +283,11 @@ impl CodeGenerator {
                         if i == arg_index {
                             break;
                         }
-                        arg_offset += DataLayout::size_of(param_type) as i32;
+                        // Arrays are passed as pointers (1 slot)
+                        arg_offset += match param_type {
+                            cairo_m_compiler_mir::MirType::FixedArray { .. } => 1,
+                            _ => DataLayout::size_of(param_type) as i32,
+                        };
                     }
                     return Some(arg_offset);
                 }
@@ -427,7 +435,11 @@ impl CodeGenerator {
                                     if i == arg_index {
                                         break;
                                     }
-                                    arg_offset += DataLayout::size_of(param_type) as i32;
+                                    // Arrays are passed as pointers (1 slot)
+                                    arg_offset += match param_type {
+                                        cairo_m_compiler_mir::MirType::FixedArray { .. } => 1,
+                                        _ => DataLayout::size_of(param_type) as i32,
+                                    };
                                 }
 
                                 // Store the value directly at the argument offset
@@ -480,7 +492,13 @@ impl CodeGenerator {
                                         if i == arg_index {
                                             break;
                                         }
-                                        arg_offset += DataLayout::size_of(param_type) as i32;
+                                        // Arrays are passed as pointers (1 slot)
+                                        arg_offset += match param_type {
+                                            cairo_m_compiler_mir::MirType::FixedArray {
+                                                ..
+                                            } => 1,
+                                            _ => DataLayout::size_of(param_type) as i32,
+                                        };
                                     }
 
                                     match value {
@@ -608,6 +626,65 @@ impl CodeGenerator {
                 tuple_ty,
             } => {
                 builder.insert_tuple_element(*dest, *tuple_val, *index, *new_value, tuple_ty)?;
+            }
+
+            // Array operations - initially treat like tuples/structs (value-based)
+            // TODO: Implement proper array materialization and pointer-based passing
+            InstructionKind::MakeFixedArray {
+                dest,
+                elements,
+                element_ty,
+            } => {
+                // For now, treat arrays like tuples - store elements sequentially
+                // This will need to be updated for proper pointer-based arrays
+                builder.make_fixed_array(*dest, elements, element_ty)?;
+            }
+
+            InstructionKind::ArrayIndex {
+                dest,
+                array,
+                index,
+                element_ty,
+            } => {
+                // Use unified array operation for loading
+                use crate::builder::ArrayOperation;
+                builder.array_operation(
+                    *array,
+                    *index,
+                    element_ty,
+                    ArrayOperation::Load { dest: *dest },
+                    function,
+                )?;
+            }
+
+            InstructionKind::ArrayInsert {
+                dest,
+                array_val,
+                index,
+                new_value,
+                array_ty,
+            } => {
+                // Use unified array operation for storing
+                use crate::builder::ArrayOperation;
+                // Extract element type from array type
+                let element_ty = match array_ty {
+                    MirType::FixedArray { element_type, .. } => element_type.as_ref(),
+                    _ => {
+                        return Err(CodegenError::InvalidMir(
+                            "ArrayInsert requires array type".to_string(),
+                        ))
+                    }
+                };
+                builder.array_operation(
+                    *array_val,
+                    *index,
+                    element_ty,
+                    ArrayOperation::Store {
+                        dest: *dest,
+                        value: *new_value,
+                    },
+                    function,
+                )?;
             }
         }
 

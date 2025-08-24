@@ -37,6 +37,10 @@ lint:
     - taplo@0.9.3
     - trufflehog@3.90.2
     - yamllint@1.37.1
+  ignore:
+    - linters: [ALL]
+      paths:
+        - "**/*.snap"
 actions:
   enabled:
     - trunk-announce
