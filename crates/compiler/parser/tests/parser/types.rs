@@ -23,6 +23,8 @@ fn custom_type() {
 // Pointer Types
 // ===================
 
+// TODO: deprecated, remove.
+
 #[test]
 fn pointer_type() {
     assert_parses_ok!(&with_param("felt*"));
@@ -36,6 +38,25 @@ fn nested_pointer() {
 #[test]
 fn pointer_to_custom_type() {
     assert_parses_ok!(&with_param("MyStruct*"));
+}
+
+// ===================
+// Fixed Size Array Type
+// ===================
+
+#[test]
+fn fixed_size_array_type_felt() {
+    assert_parses_ok!(&with_param("[felt; 3]"));
+}
+
+#[test]
+fn fixed_size_array_type_u32() {
+    assert_parses_ok!(&with_param("[u32; 3]"));
+}
+
+#[test]
+fn fixed_size_array_type_custom_type() {
+    assert_parses_ok!(&with_param("[MyStruct; 3]"));
 }
 
 // ===================

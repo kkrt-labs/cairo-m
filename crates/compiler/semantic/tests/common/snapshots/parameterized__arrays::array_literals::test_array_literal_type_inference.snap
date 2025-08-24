@@ -1,0 +1,184 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test() { let arr = [1, true, 3]; return; }
+--- Diagnostics ---
+[2001] Error: Array element at index 1 has type `bool`, but expected `felt` to match first element
+   ╭─[ semantic_tests::arrays::array_literals::test_array_literal_type_inference:1:27 ]
+   │
+ 1 │ fn test() { let arr = [1, true, 3]; return; }
+   │                           ──┬─  
+   │                             ╰─── Array element at index 1 has type `bool`, but expected `felt` to match first element
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+fn test() { let arr = [1u32, 2, true]; return; }
+--- Diagnostics ---
+[2001] Error: Array element at index 2 has type `bool`, but expected `u32` to match first element
+   ╭─[ semantic_tests::arrays::array_literals::test_array_literal_type_inference:1:33 ]
+   │
+ 1 │ fn test() { let arr = [1u32, 2, true]; return; }
+   │                                 ──┬─  
+   │                                   ╰─── Array element at index 2 has type `bool`, but expected `u32` to match first element
+───╯
+
+============================================================
+
+--- Input 3 (ERROR) ---
+fn test() { let arr = [42, "hello"]; return; }
+--- Diagnostics ---
+[01] Error: Invalid character
+   ╭─[ semantic_tests::arrays::array_literals::test_array_literal_type_inference:1:28 ]
+   │
+ 1 │ fn test() { let arr = [42, "hello"]; return; }
+   │                            ┬  
+   │                            ╰── Invalid character
+───╯
+[01] Error: Invalid character
+   ╭─[ semantic_tests::arrays::array_literals::test_array_literal_type_inference:1:34 ]
+   │
+ 1 │ fn test() { let arr = [42, "hello"]; return; }
+   │                                  ┬  
+   │                                  ╰── Invalid character
+───╯
+
+============================================================
+
+--- Input 4 (ERROR) ---
+fn test() { let arr: [felt; 3] = [1, 2]; return; }
+--- Diagnostics ---
+[2001] Error: Type mismatch for let statement `arr`. Expected `[felt; 3]`, found `[felt; 2]`
+   ╭─[ semantic_tests::arrays::array_literals::test_array_literal_type_inference:1:34 ]
+   │
+ 1 │ fn test() { let arr: [felt; 3] = [1, 2]; return; }
+   │                                  ───┬──  
+   │                                     ╰──── Type mismatch for let statement `arr`. Expected `[felt; 3]`, found `[felt; 2]`
+───╯
+
+============================================================
+
+--- Input 5 (ERROR) ---
+fn test() { let arr: [felt; 2] = [1, 2, 3]; return; }
+--- Diagnostics ---
+[2001] Error: Type mismatch for let statement `arr`. Expected `[felt; 2]`, found `[felt; 3]`
+   ╭─[ semantic_tests::arrays::array_literals::test_array_literal_type_inference:1:34 ]
+   │
+ 1 │ fn test() { let arr: [felt; 2] = [1, 2, 3]; return; }
+   │                                  ────┬────  
+   │                                      ╰────── Type mismatch for let statement `arr`. Expected `[felt; 2]`, found `[felt; 3]`
+───╯
+
+============================================================
+
+--- Input 6 (ERROR) ---
+fn test() { let arr: [u32; 5] = [1, 2, 3]; return; }
+--- Diagnostics ---
+[2001] Error: Type mismatch for let statement `arr`. Expected `[u32; 5]`, found `[felt; 3]`
+   ╭─[ semantic_tests::arrays::array_literals::test_array_literal_type_inference:1:33 ]
+   │
+ 1 │ fn test() { let arr: [u32; 5] = [1, 2, 3]; return; }
+   │                                 ────┬────  
+   │                                     ╰────── Type mismatch for let statement `arr`. Expected `[u32; 5]`, found `[felt; 3]`
+───╯
+
+============================================================
+
+--- Input 7 (ERROR) ---
+fn test() { let arr: [bool; 3] = [1, 2, 3]; return; }
+--- Diagnostics ---
+[2001] Error: Type mismatch for let statement `arr`. Expected `[bool; 3]`, found `[felt; 3]`
+   ╭─[ semantic_tests::arrays::array_literals::test_array_literal_type_inference:1:34 ]
+   │
+ 1 │ fn test() { let arr: [bool; 3] = [1, 2, 3]; return; }
+   │                                  ────┬────  
+   │                                      ╰────── Type mismatch for let statement `arr`. Expected `[bool; 3]`, found `[felt; 3]`
+───╯
+
+============================================================
+
+--- Input 8 (ERROR) ---
+fn test() { let arr: [u32; 2] = [true, false]; return; }
+--- Diagnostics ---
+[2001] Error: Type mismatch for let statement `arr`. Expected `[u32; 2]`, found `[bool; 2]`
+   ╭─[ semantic_tests::arrays::array_literals::test_array_literal_type_inference:1:33 ]
+   │
+ 1 │ fn test() { let arr: [u32; 2] = [true, false]; return; }
+   │                                 ──────┬──────  
+   │                                       ╰──────── Type mismatch for let statement `arr`. Expected `[u32; 2]`, found `[bool; 2]`
+───╯
+
+============================================================
+
+--- Input 9 (ERROR) ---
+fn test() { let arr = []; return; }
+--- Diagnostics ---
+[2016] Error: Empty arrays are not allowed.
+   ╭─[ semantic_tests::arrays::array_literals::test_array_literal_type_inference:1:23 ]
+   │
+ 1 │ fn test() { let arr = []; return; }
+   │                       ─┬  
+   │                        ╰── Empty arrays are not allowed.
+───╯
+
+============================================================
+
+--- Input 10 (ERROR) ---
+fn test() { let arr: [felt; 0] = []; return; }
+--- Diagnostics ---
+[2016] Error: Empty arrays are not allowed.
+   ╭─[ semantic_tests::arrays::array_literals::test_array_literal_type_inference:1:34 ]
+   │
+ 1 │ fn test() { let arr: [felt; 0] = []; return; }
+   │                                  ─┬  
+   │                                   ╰── Empty arrays are not allowed.
+───╯
+
+============================================================
+
+--- Input 11 (ERROR) ---
+fn test() { let arr: [u32; 0] = []; return; }
+--- Diagnostics ---
+[2016] Error: Empty arrays are not allowed.
+   ╭─[ semantic_tests::arrays::array_literals::test_array_literal_type_inference:1:33 ]
+   │
+ 1 │ fn test() { let arr: [u32; 0] = []; return; }
+   │                                 ─┬  
+   │                                  ╰── Empty arrays are not allowed.
+───╯
+
+============================================================
+
+--- Input 12 (ERROR) ---
+fn test() { let arr = [[1, 2], [3, 4]]; return; }
+--- Diagnostics ---
+[2008] Error: Nested arrays are not supported yet
+   ╭─[ semantic_tests::arrays::array_literals::test_array_literal_type_inference:1:23 ]
+   │
+ 1 │ fn test() { let arr = [[1, 2], [3, 4]]; return; }
+   │                       ────────┬───────  
+   │                               ╰───────── Nested arrays are not supported yet
+───╯
+
+============================================================
+
+--- Input 13 (ERROR) ---
+fn test() { let arr: [[felt; 2]; 2] = [[1, 2], [3, 4]]; return; }
+--- Diagnostics ---
+[2008] Error: Nested arrays are not supported yet
+   ╭─[ semantic_tests::arrays::array_literals::test_array_literal_type_inference:1:22 ]
+   │
+ 1 │ fn test() { let arr: [[felt; 2]; 2] = [[1, 2], [3, 4]]; return; }
+   │                      ───────┬──────  
+   │                             ╰──────── Nested arrays are not supported yet
+───╯
+[2008] Error: Nested arrays are not supported yet
+   ╭─[ semantic_tests::arrays::array_literals::test_array_literal_type_inference:1:39 ]
+   │
+ 1 │ fn test() { let arr: [[felt; 2]; 2] = [[1, 2], [3, 4]]; return; }
+   │                                       ────────┬───────  
+   │                                               ╰───────── Nested arrays are not supported yet
+───╯

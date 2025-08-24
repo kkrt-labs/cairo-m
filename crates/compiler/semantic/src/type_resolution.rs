@@ -88,6 +88,35 @@ pub fn resolve_ast_type<'db>(
                 .collect();
             TypeId::new(db, TypeData::Tuple(collected_type_ids))
         }
+        AstTypeExpr::FixedArray { element_type, size } => {
+            // Check for nested arrays (not supported for now)
+            if matches!(element_type.value(), AstTypeExpr::FixedArray { .. }) {
+                // Nested arrays are not supported yet
+                // TODO: Add proper diagnostic here
+                return TypeId::new(db, TypeData::Error);
+            }
+
+            let element_type_id = resolve_ast_type(
+                db,
+                crate_id,
+                file,
+                (**element_type).clone(),
+                context_scope_id,
+            );
+
+            // Also check if the resolved type is an array (could happen indirectly)
+            if matches!(element_type_id.data(db), TypeData::FixedArray { .. }) {
+                return TypeId::new(db, TypeData::Error);
+            }
+
+            TypeId::new(
+                db,
+                TypeData::FixedArray {
+                    element_type: element_type_id,
+                    size: *size.value() as usize,
+                },
+            )
+        }
     }
 }
 
@@ -463,6 +492,8 @@ pub fn expression_semantic_type<'db>(
                 match array_type.data(db) {
                     // For pointer types, return the dereferenced type
                     TypeData::Pointer(inner_type) => inner_type,
+                    // For fixed-size arrays, return the element type
+                    TypeData::FixedArray { element_type, .. } => element_type,
                     // TODO: For tuple types, we could return the element type if all elements are the same
                     // For now, return error for index access on non-pointer types
                     _ => TypeId::new(db, TypeData::Error),
@@ -526,6 +557,92 @@ pub fn expression_semantic_type<'db>(
                     _ => TypeId::new(db, TypeData::Error),
                 },
                 _ => TypeId::new(db, TypeData::Error),
+            }
+        }
+        Expression::ArrayLiteral(elements) => {
+            // If we have a context expected type that's an array, use it to infer element types
+            let (element_type, expected_size) = if let Some(context_type) = context_expected {
+                match context_type.data(db) {
+                    TypeData::FixedArray { element_type, size } => (Some(element_type), Some(size)),
+                    _ => (None, None),
+                }
+            } else {
+                (None, None)
+            };
+
+            if elements.is_empty() {
+                // Empty array - need explicit type annotation or context
+                if let Some(element_type) = element_type {
+                    TypeId::new(
+                        db,
+                        TypeData::FixedArray {
+                            element_type,
+                            size: 0,
+                        },
+                    )
+                } else {
+                    // For empty arrays without context, check if there's an expected type from the AST
+                    if let Some(expected_type_ast) = &expr_info.expected_type_ast {
+                        let resolved_type = resolve_ast_type(
+                            db,
+                            crate_id,
+                            file,
+                            expected_type_ast.clone(),
+                            expr_info.scope_id,
+                        );
+                        if let TypeData::FixedArray { element_type, size } = resolved_type.data(db)
+                        {
+                            if size == 0 {
+                                return TypeId::new(
+                                    db,
+                                    TypeData::FixedArray {
+                                        element_type,
+                                        size: 0,
+                                    },
+                                );
+                            }
+                        }
+                    }
+
+                    // Cannot infer type of empty array without context
+                    TypeId::new(db, TypeData::Error)
+                }
+            } else {
+                // Infer element type from first element, using context if available
+                let first_elem_id = semantic_index
+                    .expression_id_by_span(elements[0].span())
+                    .unwrap();
+                let inferred_element_type =
+                    expression_semantic_type(db, crate_id, file, first_elem_id, element_type);
+
+                // Verify all elements have the same type
+                let all_same_type = elements.iter().skip(1).all(|elem| {
+                    if let Some(elem_id) = semantic_index.expression_id_by_span(elem.span()) {
+                        let elem_type = expression_semantic_type(
+                            db,
+                            crate_id,
+                            file,
+                            elem_id,
+                            Some(inferred_element_type),
+                        );
+                        are_types_compatible(db, elem_type, inferred_element_type)
+                    } else {
+                        false
+                    }
+                });
+
+                if all_same_type {
+                    TypeId::new(
+                        db,
+                        TypeData::FixedArray {
+                            element_type: inferred_element_type,
+                            size: elements.len(),
+                        },
+                    )
+                } else {
+                    // Type mismatch among elements
+                    TypeId::new(db, TypeData::Error)
+                }
             }
         }
     }
@@ -653,6 +770,18 @@ pub fn are_types_compatible<'db>(
         (TypeData::Pointer(actual_inner), TypeData::Pointer(expected_inner)) => {
             are_types_compatible(db, actual_inner, expected_inner)
         }
+
+        // Fixed-size array compatibility
+        (
+            TypeData::FixedArray {
+                element_type: actual_elem,
+                size: actual_size,
+            },
+            TypeData::FixedArray {
+                element_type: expected_elem,
+                size: expected_size,
+            },
+        ) => actual_size == expected_size && are_types_compatible(db, actual_elem, expected_elem),
 
         // Bool is only compatible with Bool (not with Felt or U32)
         (TypeData::Bool, TypeData::Bool) => true,
@@ -849,28 +978,6 @@ pub fn get_binary_op_signatures<'db>(db: &'db dyn SemanticDb) -> Vec<OperatorSig
             left: bool,
             right: bool,
             result: bool,
-        },
-        // Bitwise operators for u32 only (not supported for felt or bool)
-        // BitwiseAnd
-        OperatorSignature {
-            op: BinaryOp::BitwiseAnd,
-            left: u32,
-            right: u32,
-            result: u32,
-        },
-        // BitwiseOr
-        OperatorSignature {
-            op: BinaryOp::BitwiseOr,
-            left: u32,
-            right: u32,
-            result: u32,
-        },
-        // BitwiseXor
-        OperatorSignature {
-            op: BinaryOp::BitwiseXor,
-            left: u32,
-            right: u32,
-            result: u32,
         },
     ]
 }

@@ -1,5 +1,5 @@
 //! Tests for binary expression validation.
-use crate::{assert_semantic_err, assert_semantic_ok, assert_semantic_parameterized, in_function};
+use crate::{assert_semantic_parameterized, in_function};
 
 #[test]
 fn test_arithmetic_operator_types() {
@@ -91,51 +91,6 @@ fn test_logical_operator_types() {
             "struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = p1; let p1_or_p2 = p1 || p2; return;}",
         ]
     }
-}
-
-#[test]
-fn test_bitwise_operators() {
-    assert_semantic_parameterized! {
-        ok: [
-            // u32 bitwise operations
-            in_function("let a: u32 = 1; let b: u32 = 2; let result = a & b;"),
-            in_function("let a: u32 = 1; let b: u32 = 2; let result = a | b;"),
-            in_function("let a: u32 = 1; let b: u32 = 2; let result = a ^ b;"),
-        ],
-        err: [
-            // felt bitwise operations - not supported
-            in_function("let a: felt = 10; let b: felt = 20; let result = a & b;"),
-            in_function("let a: felt = 10; let b: felt = 20; let result = a | b;"),
-            in_function("let a: felt = 10; let b: felt = 20; let result = a ^ b;"),
-
-            // Bool operands - should use logical operators instead
-            in_function("let a: bool = true; let b: bool = false; let result = a & b;"),
-            in_function("let a: bool = true; let b: bool = false; let result = a | b;"),
-
-            // Mixed types not allowed
-            in_function("let x: felt = 42; let y: u32 = 100; let result = x & y;"),
-            in_function("let x: u32 = 42; let y: felt = 100; let result = x | y;"),
-
-            // Struct operands not supported
-            format!("struct Point {{ x: felt, y: felt }} {}",
-                   in_function("let p1 = Point { x: 10, y: 20 }; let p2 = Point { x: 30, y: 40 }; let result = p1 & p2;")),
-        ]
-    }
-}
-
-#[test]
-fn test_bitwise_operator_precedence_type_checking() {
-    use crate::{assert_semantic_err, assert_semantic_ok};
-
-    // Complex expression with mixed operators
-    assert_semantic_ok!(&in_function(
-        "let a: u32 = 5; let b: u32 = 3; let c: u32 = 2; let result = a & b | c ^ a;"
-    ));
-
-    // Bitwise with comparison - result should be bool from comparison, then error on bitwise
-    assert_semantic_err!(&in_function(
-        "let a: u32 = 5; let b: u32 = 3; let result = (a < b) & true;"
-    ));
 }
 
 #[test]

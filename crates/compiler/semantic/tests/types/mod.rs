@@ -15,6 +15,7 @@
 
 mod definition_type_tests;
 mod expression_type_tests;
+mod fixed_array_tests;
 mod function_signature_tests;
 mod literal_range_validation_tests;
 mod literal_type_inference_tests;

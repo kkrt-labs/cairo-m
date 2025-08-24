@@ -1,0 +1,45 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Arrays in Cairo-M - Array Access with Variable Index"
+input_file: mdtest/01-basics/05-arrays.md
+---
+Source:
+fn variable_index_access(index: u32) -> felt {
+    let arr: [felt; 3] = [1, 2, 3];
+    arr[0] = 10;
+    arr[1] = 20;
+    arr[2] = 30;
+    if index < 3u32 {
+        return arr[index];
+    } else {
+        return 0;
+    }
+}
+============================================================
+Generated CASM:
+variable_index_access:
+variable_index_access:
+variable_index_access_0:
+   0: 9 1 6 _              // [fp + 6] = 1
+   1: 9 2 7 _              // [fp + 7] = 2
+   2: 9 3 8 _              // [fp + 8] = 3
+   3: 43 6 0 _             // [fp + 0] = fp + 6
+   4: 4 0 0 1              // [fp + 1] = [fp + 0] + 0 (copy array pointer)
+   5: 9 10 9 _             // [fp + 9] = 10
+   6: 44 0 0 9             // [[fp + 0] + 0] = [fp + 9]
+   7: 4 1 0 2              // [fp + 2] = [fp + 1] + 0 (copy array pointer)
+   8: 9 20 10 _            // [fp + 10] = 20
+   9: 44 1 1 10            // [[fp + 1] + 1] = [fp + 10]
+  10: 4 2 0 3              // [fp + 3] = [fp + 2] + 0 (copy array pointer)
+  11: 9 30 11 _            // [fp + 11] = 30
+  12: 44 2 2 11            // [[fp + 2] + 2] = [fp + 11]
+  13: 34 -5 3 0 4          // [fp + 4] = u32([fp + -5], [fp + -4]) U32Less u32(3, 0)
+  14: 14 4 2 _             // if [fp + 4] != 0 jmp rel variable_index_access_1
+  15: 12 20 _ _            // jump abs variable_index_access_2
+variable_index_access_1:
+  16: 42 3 -5 5            // [fp + 5] = [[fp + 3] + [fp + -5]]
+  17: 4 5 0 -3             // Return value 0: [fp -3] = [fp + 5] + 0
+  18: 11 _ _ _             // return
+variable_index_access_2:
+  19: 9 0 -3 _             // Return value 0: [fp -3] = 0
+  20: 11 _ _ _             // return

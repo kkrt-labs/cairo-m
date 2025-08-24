@@ -135,6 +135,8 @@ pub enum Origin {
     },
     /// Expression is an element within a tuple literal
     TupleElem { parent: ExpressionId, index: usize },
+    /// Expression is an element within an array literal
+    ArrayElem { parent: ExpressionId, index: usize },
     /// Expression is a function argument.
     Arg { callee: ExpressionId, index: usize },
     /// Expression is the RHS of an assignment.
@@ -1182,6 +1184,42 @@ impl<'db, 'sink> SemanticIndexBuilder<'db, 'sink> {
             }
             Expression::TupleIndex { tuple, .. } => {
                 self.visit_expr(tuple);
+            }
+            Expression::ArrayLiteral(elements) => {
+                // If we have an array type hint, propagate the element type to all elements
+                let element_type_hint =
+                    self.expected_type_hint
+                        .as_ref()
+                        .and_then(|hint| match hint.value() {
+                            TypeExpr::FixedArray { element_type, size }
+                                if *size.value() == elements.len() as u64 =>
+                            {
+                                Some(element_type.as_ref().clone())
+                            }
+                            _ => None,
+                        });
+
+                if let Some(element_type) = element_type_hint {
+                    // Visit each element with the element type hint
+                    for (index, elem) in elements.iter().enumerate() {
+                        let elem_origin = Origin::ArrayElem {
+                            parent: expr_id,
+                            index,
+                        };
+                        self.with_expected_type(Some(element_type.clone()), |builder| {
+                            builder.visit_expr_with_origin(elem, elem_origin);
+                        });
+                    }
+                } else {
+                    // No matching array hint or mismatched sizes - visit with origin but no type hints
+                    for (index, elem) in elements.iter().enumerate() {
+                        let elem_origin = Origin::ArrayElem {
+                            parent: expr_id,
+                            index,
+                        };
+                        self.visit_expr_with_origin(elem, elem_origin);
+                    }
+                }
             }
             Expression::Literal(_, _) | Expression::BooleanLiteral(_) => {
                 // Leaf nodes - no sub-expressions

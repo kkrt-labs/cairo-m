@@ -1,0 +1,68 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test() { let arr = [10, 20, 30]; let x = arr[3]; return; }
+--- Diagnostics ---
+[2015] Error: Index 3 out of bounds for array of size 3
+   ╭─[ semantic_tests::arrays::array_indexing::test_array_indexing_bounds:1:49 ]
+   │
+ 1 │ fn test() { let arr = [10, 20, 30]; let x = arr[3]; return; }
+   │                                             ─┬─ ┬  
+   │                                              ╰───── Array has size 3
+   │                                                 │  
+   │                                                 ╰── Index 3 out of bounds for array of size 3
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+fn test() { let x = 42; let y = x[0]; return; }
+--- Diagnostics ---
+[2003] Error: Type `felt` cannot be indexed
+   ╭─[ semantic_tests::arrays::array_indexing::test_array_indexing_bounds:1:33 ]
+   │
+ 1 │ fn test() { let x = 42; let y = x[0]; return; }
+   │                                 ┬  
+   │                                 ╰── Type `felt` cannot be indexed
+───╯
+
+============================================================
+
+--- Input 3 (ERROR) ---
+fn test() { let x = true; let y = x[0]; return; }
+--- Diagnostics ---
+[2003] Error: Type `bool` cannot be indexed
+   ╭─[ semantic_tests::arrays::array_indexing::test_array_indexing_bounds:1:35 ]
+   │
+ 1 │ fn test() { let x = true; let y = x[0]; return; }
+   │                                   ┬  
+   │                                   ╰── Type `bool` cannot be indexed
+───╯
+
+============================================================
+
+--- Input 4 (ERROR) ---
+fn test() { let t = (1, 2, 3); let x = t[0]; return; }
+--- Diagnostics ---
+[2013] Error: tuples must be accessed using `.index` syntax (e.g., `tup.0`), not `[]`
+   ╭─[ semantic_tests::arrays::array_indexing::test_array_indexing_bounds:1:40 ]
+   │
+ 1 │ fn test() { let t = (1, 2, 3); let x = t[0]; return; }
+   │                                        ┬  
+   │                                        ╰── tuples must be accessed using `.index` syntax (e.g., `tup.0`), not `[]`
+───╯
+
+============================================================
+
+--- Input 5 (ERROR) ---
+fn test() { let arr = [10, 20, 30]; let x = arr[true]; return; }
+--- Diagnostics ---
+[2009] Error: Array index must be of type felt or u32, found `bool`
+   ╭─[ semantic_tests::arrays::array_indexing::test_array_indexing_bounds:1:49 ]
+   │
+ 1 │ fn test() { let arr = [10, 20, 30]; let x = arr[true]; return; }
+   │                                                 ──┬─  
+   │                                                   ╰─── Array index must be of type felt or u32, found `bool`
+───╯

@@ -380,7 +380,7 @@ pub fn assert_semantic_parameterized_impl(
                 panic!(
                     "Expected successful semantic validation for input {} (index {}), but got diagnostics:\n{}",
                     match project {
-                        TestProject::Single(_) => "single file".to_string(),
+                        TestProject::Single(content) => content.clone(),
                         TestProject::Multi { main_module, .. } =>
                             format!("multi-file with main '{}'", main_module),
                     },
@@ -393,7 +393,7 @@ pub fn assert_semantic_parameterized_impl(
                 panic!(
                     "Expected semantic validation to fail for input {} (index {}), but it succeeded",
                     match project {
-                        TestProject::Single(_) => "single file".to_string(),
+                        TestProject::Single(content) => content.clone(),
                         TestProject::Multi { main_module, .. } =>
                             format!("multi-file with main '{}'", main_module),
                     },

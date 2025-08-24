@@ -55,6 +55,7 @@ struct RectangleU32 {
 
 fn calculate_area_u32() -> u32 {
     let rect = RectangleU32 { width: 5, height: 10 };
+    rect.width = 7;
     if rect.width == 5 {
         rect.width = rect.width * 3;
     } else {
