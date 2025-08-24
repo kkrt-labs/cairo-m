@@ -627,3 +627,319 @@ fn test_nested_struct_scalarization() {
         }
     }
 }
+
+#[test]
+fn test_dynamic_array_indexing_prevents_sroa() {
+    // Test that arrays with dynamic indexing are NOT scalarized
+    let mut function = MirFunction::new("test_dynamic_array".to_string());
+    let entry = function.entry_block;
+
+    let array_ty = MirType::FixedArray {
+        element_type: Box::new(MirType::Felt),
+        size: 3,
+    };
+
+    // Create array elements
+    let elem0 = function.new_typed_value_id(MirType::Felt);
+    let elem1 = function.new_typed_value_id(MirType::Felt);
+    let elem2 = function.new_typed_value_id(MirType::Felt);
+
+    function
+        .get_basic_block_mut(entry)
+        .unwrap()
+        .push_instruction(Instruction::assign(
+            elem0,
+            Value::Literal(Literal::Integer(10)),
+            MirType::Felt,
+        ));
+    function
+        .get_basic_block_mut(entry)
+        .unwrap()
+        .push_instruction(Instruction::assign(
+            elem1,
+            Value::Literal(Literal::Integer(20)),
+            MirType::Felt,
+        ));
+    function
+        .get_basic_block_mut(entry)
+        .unwrap()
+        .push_instruction(Instruction::assign(
+            elem2,
+            Value::Literal(Literal::Integer(30)),
+            MirType::Felt,
+        ));
+
+    // Create the array: arr = [10, 20, 30]
+    let arr = function.new_typed_value_id(array_ty);
+    function
+        .get_basic_block_mut(entry)
+        .unwrap()
+        .push_instruction(Instruction::make_fixed_array(
+            arr,
+            vec![
+                Value::operand(elem0),
+                Value::operand(elem1),
+                Value::operand(elem2),
+            ],
+            MirType::Felt,
+        ));
+
+    // Create a runtime index value
+    let index = function.new_typed_value_id(MirType::Felt);
+    function
+        .get_basic_block_mut(entry)
+        .unwrap()
+        .push_instruction(Instruction::assign(
+            index,
+            Value::Literal(Literal::Integer(1)),
+            MirType::Felt,
+        ));
+
+    // Dynamic array indexing: result = arr[index]
+    let result = function.new_typed_value_id(MirType::Felt);
+    function
+        .get_basic_block_mut(entry)
+        .unwrap()
+        .push_instruction(Instruction::array_index(
+            result,
+            Value::operand(arr),
+            Value::operand(index),
+            MirType::Felt,
+        ));
+
+    // Set terminator
+    function.get_basic_block_mut(entry).unwrap().terminator = Terminator::Return {
+        values: vec![Value::operand(result)],
+    };
+
+    // Run SROA
+    let mut sroa = ScalarReplacementOfAggregates::new();
+    let _modified = sroa.run(&mut function);
+
+    // The function may be modified for other reasons, but the array should NOT be scalarized
+    let block = function.get_basic_block(entry).unwrap();
+
+    // The MakeFixedArray instruction should still be present
+    let has_make_array = block
+        .instructions
+        .iter()
+        .any(|inst| matches!(inst.kind, InstructionKind::MakeFixedArray { .. }));
+    assert!(
+        has_make_array,
+        "MakeFixedArray should NOT be eliminated when dynamic indexing is present"
+    );
+
+    // The ArrayIndex instruction should still be present
+    let has_array_index = block
+        .instructions
+        .iter()
+        .any(|inst| matches!(inst.kind, InstructionKind::ArrayIndex { .. }));
+    assert!(has_array_index, "ArrayIndex should remain");
+}
+
+#[test]
+fn test_array_family_with_dynamic_indexing() {
+    // Test that the entire SSA family is preserved when any member has dynamic indexing
+    let mut function = MirFunction::new("test_array_family".to_string());
+    let entry = function.entry_block;
+
+    let array_ty = MirType::FixedArray {
+        element_type: Box::new(MirType::Felt),
+        size: 2,
+    };
+
+    // Create initial array: arr1 = [1, 2]
+    let arr1 = function.new_typed_value_id(array_ty.clone());
+    function
+        .get_basic_block_mut(entry)
+        .unwrap()
+        .push_instruction(Instruction::make_fixed_array(
+            arr1,
+            vec![
+                Value::Literal(Literal::Integer(1)),
+                Value::Literal(Literal::Integer(2)),
+            ],
+            MirType::Felt,
+        ));
+
+    // Update array: arr2 = arr1[0] := 10
+    let arr2 = function.new_typed_value_id(array_ty.clone());
+    function
+        .get_basic_block_mut(entry)
+        .unwrap()
+        .push_instruction(Instruction::array_insert(
+            arr2,
+            Value::operand(arr1),
+            Value::Literal(Literal::Integer(0)),
+            Value::Literal(Literal::Integer(10)),
+            array_ty.clone(),
+        ));
+
+    // Copy array: arr3 = arr2
+    let arr3 = function.new_typed_value_id(array_ty.clone());
+    function
+        .get_basic_block_mut(entry)
+        .unwrap()
+        .push_instruction(Instruction::assign(arr3, Value::operand(arr2), array_ty));
+
+    // Dynamic indexing on arr3 (part of the family)
+    let index = function.new_typed_value_id(MirType::Felt);
+    function
+        .get_basic_block_mut(entry)
+        .unwrap()
+        .push_instruction(Instruction::assign(
+            index,
+            Value::Literal(Literal::Integer(0)),
+            MirType::Felt,
+        ));
+
+    let result = function.new_typed_value_id(MirType::Felt);
+    function
+        .get_basic_block_mut(entry)
+        .unwrap()
+        .push_instruction(Instruction::array_index(
+            result,
+            Value::operand(arr3),
+            Value::operand(index),
+            MirType::Felt,
+        ));
+
+    // Set terminator
+    function.get_basic_block_mut(entry).unwrap().terminator = Terminator::Return {
+        values: vec![Value::operand(result)],
+    };
+
+    // Run SROA
+    let mut sroa = ScalarReplacementOfAggregates::new();
+    sroa.run(&mut function);
+
+    let block = function.get_basic_block(entry).unwrap();
+
+    // All array operations in the family should be preserved
+    let has_make_array = block
+        .instructions
+        .iter()
+        .any(|inst| matches!(inst.kind, InstructionKind::MakeFixedArray { .. }));
+    assert!(
+        has_make_array,
+        "MakeFixedArray should be preserved (family has dynamic indexing)"
+    );
+
+    let has_insert = block
+        .instructions
+        .iter()
+        .any(|inst| matches!(inst.kind, InstructionKind::ArrayInsert { .. }));
+    assert!(
+        has_insert,
+        "ArrayInsert should be preserved (family has dynamic indexing)"
+    );
+
+    let array_assign_count = block
+        .instructions
+        .iter()
+        .filter(|inst| {
+            if let InstructionKind::Assign { ty, .. } = &inst.kind {
+                matches!(ty, MirType::FixedArray { .. })
+            } else {
+                false
+            }
+        })
+        .count();
+    assert!(
+        array_assign_count > 0,
+        "Array assignments should be preserved (family has dynamic indexing)"
+    );
+}
+
+#[test]
+fn test_array_without_dynamic_indexing_is_scalarized() {
+    // Test that arrays WITHOUT dynamic indexing CAN be scalarized
+    let mut function = MirFunction::new("test_static_array".to_string());
+    let entry = function.entry_block;
+
+    let array_ty = MirType::FixedArray {
+        element_type: Box::new(MirType::Felt),
+        size: 2,
+    };
+
+    // Create array: arr = [10, 20]
+    let arr = function.new_typed_value_id(array_ty);
+    function
+        .get_basic_block_mut(entry)
+        .unwrap()
+        .push_instruction(Instruction::make_fixed_array(
+            arr,
+            vec![
+                Value::Literal(Literal::Integer(10)),
+                Value::Literal(Literal::Integer(20)),
+            ],
+            MirType::Felt,
+        ));
+
+    // Static indexing only: elem0 = arr[0], elem1 = arr[1]
+    let elem0 = function.new_typed_value_id(MirType::Felt);
+    function
+        .get_basic_block_mut(entry)
+        .unwrap()
+        .push_instruction(Instruction::array_index(
+            elem0,
+            Value::operand(arr),
+            Value::Literal(Literal::Integer(0)),
+            MirType::Felt,
+        ));
+
+    let elem1 = function.new_typed_value_id(MirType::Felt);
+    function
+        .get_basic_block_mut(entry)
+        .unwrap()
+        .push_instruction(Instruction::array_index(
+            elem1,
+            Value::operand(arr),
+            Value::Literal(Literal::Integer(1)),
+            MirType::Felt,
+        ));
+
+    // Add the elements
+    let sum = function.new_typed_value_id(MirType::Felt);
+    function
+        .get_basic_block_mut(entry)
+        .unwrap()
+        .push_instruction(Instruction::binary_op(
+            BinaryOp::Add,
+            sum,
+            Value::operand(elem0),
+            Value::operand(elem1),
+        ));
+
+    // Set terminator
+    function.get_basic_block_mut(entry).unwrap().terminator = Terminator::Return {
+        values: vec![Value::operand(sum)],
+    };
+
+    // Run SROA
+    let mut sroa = ScalarReplacementOfAggregates::new();
+    let modified = sroa.run(&mut function);
+    assert!(
+        modified,
+        "SROA should modify arrays with only static indexing"
+    );
+
+    let block = function.get_basic_block(entry).unwrap();
+
+    // The MakeFixedArray should be eliminated (scalarized)
+    let has_make_array = block
+        .instructions
+        .iter()
+        .any(|inst| matches!(inst.kind, InstructionKind::MakeFixedArray { .. }));
+    assert!(
+        !has_make_array,
+        "MakeFixedArray should be eliminated for static-only arrays"
+    );
+
+    // Extract operations should be replaced with assigns
+    let has_extract = block
+        .instructions
+        .iter()
+        .any(|inst| matches!(inst.kind, InstructionKind::ArrayIndex { .. }));
+    assert!(!has_extract, "ArrayIndex should be replaced with assigns");
+}

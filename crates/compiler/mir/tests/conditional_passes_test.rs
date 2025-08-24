@@ -136,42 +136,6 @@ fn test_mixed_operations_detection() {
 }
 
 #[test]
-fn test_array_operations_trigger_memory_passes() {
-    // Arrays should still trigger memory optimization passes
-    let mut array_function = MirFunction::new("array_ops".to_string());
-
-    // Create value IDs first
-    let array_alloca = array_function.new_value_id();
-    let elem_ptr = array_function.new_value_id();
-
-    let block_id = array_function.add_basic_block();
-    {
-        let block = array_function.get_basic_block_mut(block_id).unwrap();
-
-        // Array allocation uses FrameAlloc
-        block.instructions.push(Instruction::frame_alloc(
-            array_alloca,
-            MirType::Array {
-                element_type: Box::new(MirType::felt()),
-                size: Some(10),
-            },
-        ));
-
-        // Array access uses GetElementPtr + Load/Store
-        block.instructions.push(Instruction::get_element_ptr(
-            elem_ptr,
-            Value::operand(array_alloca),
-            Value::integer(0),
-        ));
-
-        block.set_terminator(Terminator::Return { values: vec![] });
-    }
-
-    // Arrays require memory passes
-    assert!(function_uses_memory(&array_function));
-}
-
-#[test]
 fn test_pointer_operations_trigger_memory_passes() {
     // Explicit pointer operations should trigger memory passes
     let mut ptr_function = MirFunction::new("pointer_ops".to_string());

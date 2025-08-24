@@ -49,14 +49,15 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
             Expression::MemberAccess { object, field } => {
                 self.lower_member_access(object, field, expr_id)
             }
-            Expression::IndexAccess { array: _, index: _ } => {
-                panic!("IndexAccess for arrays is not supported yet.");
+            Expression::IndexAccess { array, index } => {
+                self.lower_array_index(array, index, expr_id)
             }
             Expression::StructLiteral { name: _, fields } => {
                 self.lower_struct_literal(fields, expr_id)
             }
             Expression::Tuple(elements) => self.lower_tuple_literal(elements, expr_id),
             Expression::TupleIndex { tuple, index } => self.lower_tuple_index(tuple, *index),
+            Expression::ArrayLiteral(elements) => self.lower_array_literal(elements, expr_id),
         }
     }
 }
@@ -88,7 +89,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 // Arrays are stored as pointers and need to be loaded
                 // All other types (primitives, structs, tuples) are stored as values
                 if let Some(MirType::Pointer(inner_type)) = value_type {
-                    if matches!(**inner_type, MirType::Array { .. }) {
+                    if matches!(**inner_type, MirType::FixedArray { .. }) {
                         // Array pointer - load the array value
                         let semantic_type =
                             definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
@@ -362,6 +363,57 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // Extract the element using ExtractTupleElement instruction
         let element_dest = self.extract_tuple_element(tuple_val, index, element_mir_type);
 
+        Ok(Value::operand(element_dest))
+    }
+
+    fn lower_array_literal(
+        &mut self,
+        elements: &[Spanned<Expression>],
+        expr_id: ExpressionId,
+    ) -> Result<Value, String> {
+        // Lower each element to a value
+        let mut element_values = Vec::new();
+        for element_expr in elements {
+            let element_val = self.lower_expression(element_expr)?;
+            element_values.push(element_val);
+        }
+
+        // Query semantic type system for the array type
+        let array_type = self.ctx.get_expr_type(expr_id);
+
+        // Get element type from the array type
+        let element_mir_type = match &array_type {
+            MirType::FixedArray { element_type, .. } => (**element_type).clone(),
+            _ => return Err("ArrayLiteral does not have array type".to_string()),
+        };
+
+        // Create the array using MakeFixedArray instruction
+        let array_dest = self.make_fixed_array(element_values, element_mir_type);
+
+        Ok(Value::operand(array_dest))
+    }
+
+    fn lower_array_index(
+        &mut self,
+        array: &Spanned<Expression>,
+        index: &Spanned<Expression>,
+        _expr_id: ExpressionId,
+    ) -> Result<Value, String> {
+        // Lower the array expression to get a value
+        let array_val = self.lower_expression(array)?;
+
+        // Get the MIR type of the array
+        let array_mir_type = self.expr_mir_type(array.span())?;
+
+        // Get element type
+        let element_mir_type = match &array_mir_type {
+            MirType::FixedArray { element_type, .. } => (**element_type).clone(),
+            _ => return Err("IndexAccess on non-array type".to_string()),
+        };
+
+        // Lower index expression and use unified ArrayIndex
+        let index_val = self.lower_expression(index)?;
+        let element_dest = self.array_index(array_val, index_val, element_mir_type);
         Ok(Value::operand(element_dest))
     }
 }

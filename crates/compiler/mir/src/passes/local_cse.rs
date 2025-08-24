@@ -172,10 +172,51 @@ impl PureExpressionKey {
             | InstructionKind::Nop => None,
 
             // Aggregate modification operations - skip for conservatism
-            InstructionKind::InsertField { .. } | InstructionKind::InsertTuple { .. } => None,
+            InstructionKind::InsertField { .. }
+            | InstructionKind::InsertTuple { .. }
+            | InstructionKind::ArrayInsert { .. } => None,
 
             // Cast operations - skip for now
             InstructionKind::Cast { .. } | InstructionKind::AddressOf { .. } => None,
+
+            // Array operations - can be CSE'd similar to tuples
+            InstructionKind::MakeFixedArray { elements, .. } => {
+                // Only handle all-operand arrays
+                let element_ids: Option<Vec<ValueId>> = elements
+                    .iter()
+                    .map(|v| match v {
+                        Value::Operand(id) => Some(*id),
+                        _ => None,
+                    })
+                    .collect();
+
+                element_ids.map(|ids| Self::MakeTuple {
+                    elements: ids,
+                    tuple_type: MirType::Unknown, // Use MakeTuple variant for simplicity
+                })
+            }
+
+            InstructionKind::ArrayIndex {
+                array,
+                index,
+                element_ty,
+                ..
+            } => {
+                // Only CSE when array is operand and index is a constant literal
+                if let (
+                    Value::Operand(array_id),
+                    Value::Literal(crate::value::Literal::Integer(i)),
+                ) = (array, index)
+                {
+                    Some(Self::ExtractTuple {
+                        tuple: *array_id, // Reuse ExtractTuple variant
+                        index: *i as usize,
+                        element_type: element_ty.clone(),
+                    })
+                } else {
+                    None
+                }
+            }
         }
     }
 }

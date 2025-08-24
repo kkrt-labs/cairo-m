@@ -1,0 +1,32 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Arrays in Cairo-M - Array Bounds and Memory Safety"
+input_file: mdtest/01-basics/05-arrays.md
+---
+Source:
+fn array_bounds_example() -> felt {
+    let arr: [felt; 3] = [1, 2, 3];
+    // This may access uninitialized memory
+    // Behavior depends on what's at that memory location
+    return arr[10];        // Out of bounds access
+}
+============================================================
+Result: EXPECTED ERROR
+Semantic validation failed with diagnostics:
+DiagnosticCollection {
+    diagnostics: [
+        Diagnostic {
+            severity: Error,
+            code: IndexOutOfBounds,
+            message: "Index 10 out of bounds for array of size 3",
+            file_path: "Arrays in Cairo-M - Array Bounds and Memory Safety",
+            span: 189..191,
+            related_spans: [
+                (
+                    185..188,
+                    "Array has size 3",
+                ),
+            ],
+        },
+    ],
+}
