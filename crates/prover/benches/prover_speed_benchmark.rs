@@ -2,7 +2,7 @@ use std::fs;
 use std::path::Path;
 use std::time::Duration;
 
-use cairo_m_common::Program;
+use cairo_m_common::{InputValue, Program};
 use cairo_m_compiler::{compile_cairo, CompilerOptions};
 use cairo_m_prover::adapter::import_from_runner_output;
 use cairo_m_prover::prover::prove_cairo_m;
@@ -35,10 +35,10 @@ fn compile_fibonacci() -> Program {
 fn fibonacci_prove_benchmark(c: &mut Criterion) {
     let program = compile_fibonacci();
 
-    let runner_output = run_cairo_program(
+    let (_, runner_output) = run_cairo_program(
         &program,
         "fibonacci_loop",
-        &[M31::from(N_ITERATIONS)],
+        &[InputValue::Number(N_ITERATIONS as i64)],
         Default::default(),
     )
     .expect("Failed to run fibonacci program");

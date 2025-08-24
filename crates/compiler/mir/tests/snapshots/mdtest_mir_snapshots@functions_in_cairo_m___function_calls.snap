@@ -4,21 +4,27 @@ description: "MIR snapshot for mdtest: Functions in Cairo-M - Function Calls"
 input_file: mdtest/01-basics/03-functions.md
 ---
 Source:
+fn test_calls() -> felt {
+    return double(double(5));
+}
 fn double(x: felt) -> felt {
     return x * 2;
-}
-
-fn quadruple(x: felt) -> felt {
-    return double(double(x));
-}
-
-fn test_calls() -> felt {
-    return quadruple(5);
 }
 ============================================================
 Generated MIR:
 module {
   // Function 0
+  fn test_calls {
+    entry: 0
+
+    0:
+      %0 = call 1(5)
+      %1 = call 1(%0)
+      return %1
+
+  }
+
+  // Function 1
   fn double {
     parameters: [0]
     entry: 0
@@ -26,28 +32,6 @@ module {
     0:
       %1 = %0 * 2
       return %1
-
-  }
-
-  // Function 1
-  fn quadruple {
-    parameters: [0]
-    entry: 0
-
-    0:
-      %1 = call 0(%0)
-      %2 = call 0(%1)
-      return %2
-
-  }
-
-  // Function 2
-  fn test_calls {
-    entry: 0
-
-    0:
-      %0 = call 1(5)
-      return %0
 
   }
 

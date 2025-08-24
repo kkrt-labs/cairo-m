@@ -25,19 +25,19 @@ fn third() -> felt {
 ```
 
 ```rust
-fn test_multiple_functions() -> i32 {
+fn test_multiple_functions() -> i64 {
     return first() + second() + third();
 }
 
-fn first() -> i32 {
+fn first() -> i64 {
     return 10;
 }
 
-fn second() -> i32 {
+fn second() -> i64 {
     return 20;
 }
 
-fn third() -> i32 {
+fn third() -> i64 {
     return 30;
 }
 ```
@@ -65,19 +65,19 @@ fn mul(a: felt, b: felt) -> felt {
 ```
 
 ```rust
-fn test_call_chain() -> i32 {
+fn test_call_chain() -> i64 {
     return compute(7);
 }
 
-fn compute(x: i32) -> i32 {
+fn compute(x: i64) -> i64 {
     return add(mul(x, 3), mul(x, 5));
 }
 
-fn add(a: i32, b: i32) -> i32 {
+fn add(a: i64, b: i64) -> i64 {
     return a + b;
 }
 
-fn mul(a: i32, b: i32) -> i32 {
+fn mul(a: i64, b: i64) -> i64 {
     return a * b;
 }
 ```
@@ -113,27 +113,27 @@ fn combine_results(sum: felt, product: felt) -> felt {
 ```
 
 ```rust
-fn test_helpers() -> i32 {
+fn test_helpers() -> i64 {
     let x = 5;
     let y = 3;
     return calculate_result(x, y);
 }
 
-fn calculate_result(a: i32, b: i32) -> i32 {
+fn calculate_result(a: i64, b: i64) -> i64 {
     let sum = add_values(a, b);
     let product = multiply_values(a, b);
     return combine_results(sum, product);
 }
 
-fn add_values(x: i32, y: i32) -> i32 {
+fn add_values(x: i64, y: i64) -> i64 {
     return x + y;
 }
 
-fn multiply_values(x: i32, y: i32) -> i32 {
+fn multiply_values(x: i64, y: i64) -> i64 {
     return x * y;
 }
 
-fn combine_results(sum: i32, product: i32) -> i32 {
+fn combine_results(sum: i64, product: i64) -> i64 {
     return sum * 10 + product;
 }
 ```
@@ -164,19 +164,19 @@ fn is_odd(n: felt) -> felt {
 ```
 
 ```rust
-fn test_mutual_recursion() -> i32 {
+fn test_mutual_recursion() -> i64 {
     let n = 5;
     return is_even(n) * 10 + is_odd(n);
 }
 
-fn is_even(n: i32) -> i32 {
+fn is_even(n: i64) -> i64 {
     if n == 0 {
         return 1;
     }
     return is_odd(n - 1);
 }
 
-fn is_odd(n: i32) -> i32 {
+fn is_odd(n: i64) -> i64 {
     if n == 0 {
         return 0;
     }
@@ -258,26 +258,26 @@ fn factorial(n: felt) -> felt {
 ```
 
 ```rust
-fn test_math_operations() -> i32 {
+fn test_math_operations() -> i64 {
     let x = 4;
     let y = 3;
     return compute_expression(x, y);
 }
 
-fn compute_expression(a: i32, b: i32) -> i32 {
+fn compute_expression(a: i64, b: i64) -> i64 {
     let power_result = power(a, b);
     let factorial_result = factorial(b);
     return power_result + factorial_result;
 }
 
-fn power(base: i32, exp: i32) -> i32 {
+fn power(base: i64, exp: i64) -> i64 {
     if exp == 0 {
         return 1;
     }
     return base * power(base, exp - 1);
 }
 
-fn factorial(n: i32) -> i32 {
+fn factorial(n: i64) -> i64 {
     if n == 0 {
         return 1;
     }

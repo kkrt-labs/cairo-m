@@ -42,20 +42,30 @@ fn add(a: felt, b: felt) -> felt {
 }
 ```
 
+```rust
+fn add(a: i64, b: i64) -> i64 {
+    return a.wrapping_add(b);
+}
+```
+
 ## Function Calls
 
 Functions can call other functions:
 
 ```cairo-m
+fn test_calls() -> felt {
+    return double(double(5));
+}
 fn double(x: felt) -> felt {
     return x * 2;
 }
+```
 
-fn quadruple(x: felt) -> felt {
-    return double(double(x));
+```rust
+fn test_calls() -> i64 {
+    return double(double(5));
 }
-
-fn test_calls() -> felt {
-    return quadruple(5);
+fn double(x: i64) -> i64 {
+    return x.wrapping_mul(2);
 }
 ```

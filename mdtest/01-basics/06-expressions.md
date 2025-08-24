@@ -22,7 +22,7 @@ fn test_binary_ops() -> felt {
 ```
 
 ```rust
-fn test_binary_ops() -> i32 {
+fn test_binary_ops() -> i64 {
     let a = 14;
     let b = 7;
 
@@ -59,7 +59,7 @@ fn test_precedence() -> felt {
 ```
 
 ```rust
-fn test_precedence() -> i32 {
+fn test_precedence() -> i64 {
     let a = 5;
     let b = 3;
     let c = 2;
@@ -233,6 +233,30 @@ fn test_function_expressions() -> felt {
 }
 ```
 
+```rust
+fn compute_base(x: i64) -> i64 {
+    return x.wrapping_mul(2);
+}
+
+fn compute_offset(y: i64) -> i64 {
+    return y.wrapping_add(5);
+}
+
+fn test_function_expressions() -> i64 {
+    let a = 7;
+    let b = 3;
+
+    // Function calls in expressions
+    let result1 = compute_base(a) + compute_offset(b);     // (7 * 2) + (3 + 5) = 14 + 8 = 22
+    let result2 = compute_base(a.wrapping_add(b)) - compute_offset(1); // (10 * 2) - (1 + 5) = 20 - 6 = 14
+
+    // Nested function calls
+    let result3 = compute_base(compute_offset(a));         // compute_base(7 + 5) = compute_base(12) = 24
+
+    return result1.wrapping_add(result2).wrapping_add(result3); // 22 + 14 + 24 = 60
+}
+```
+
 ## Expression Evaluation Order
 
 Left-to-right evaluation with proper precedence:
@@ -257,7 +281,7 @@ fn test_evaluation_order() -> felt {
 ```
 
 ```rust
-fn test_evaluation_order() -> i32 {
+fn test_evaluation_order() -> i64 {
     let a = 2;
     let b = 3;
     let c = 4;
@@ -294,7 +318,7 @@ fn pure_expression() -> felt {
 ```
 
 ```rust
-fn pure_expression() -> i32 {
+fn pure_expression() -> i64 {
     let x = 10;
     let y = 20;
 

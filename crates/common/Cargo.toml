@@ -10,6 +10,10 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 smallvec.workspace = true
+anyhow.workspace = true
 
 # Using workspace dependency for stwo
 stwo-prover.workspace = true
+
+[dev-dependencies]
+proptest = "1.0"

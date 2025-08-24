@@ -41,7 +41,7 @@ fn choose(selector: felt) -> felt {
 ```
 
 ```rust
-fn choose(selector: i32) -> i32 {
+fn choose(selector: i64) -> i64 {
     if selector == 0 {
         return 10;
     } else {

@@ -30,21 +30,21 @@ fn is_odd(n: felt) -> felt {
 ```
 
 ```rust
-fn test_even_odd() -> i32 {
+fn test_even_odd() -> i64 {
     let n = 42;
     let even_result = is_even(n);
     let odd_result = is_odd(n);
     return even_result * 100 + odd_result;
 }
 
-fn is_even(n: i32) -> i32 {
+fn is_even(n: i64) -> i64 {
     if n == 0 {
         return 1;
     }
     return is_odd(n - 1);
 }
 
-fn is_odd(n: i32) -> i32 {
+fn is_odd(n: i64) -> i64 {
     if n == 0 {
         return 0;
     }
@@ -77,12 +77,12 @@ fn process_leaf_node() -> felt {
 ```
 
 ```rust
-fn test_tree_traversal() -> i32 {
+fn test_tree_traversal() -> i64 {
     let depth = 3;
     return process_internal_node(depth);
 }
 
-fn process_internal_node(depth: i32) -> i32 {
+fn process_internal_node(depth: i64) -> i64 {
     if depth == 0 {
         return process_leaf_node();
     }
@@ -91,7 +91,7 @@ fn process_internal_node(depth: i32) -> i32 {
     return left + right + 1;
 }
 
-fn process_leaf_node() -> i32 {
+fn process_leaf_node() -> i64 {
     return 5;
 }
 ```
@@ -122,19 +122,19 @@ fn state_b(remaining: felt) -> felt {
 ```
 
 ```rust
-fn test_state_machine() -> i32 {
+fn test_state_machine() -> i64 {
     let steps = 4;
     return state_a(steps);
 }
 
-fn state_a(remaining: i32) -> i32 {
+fn state_a(remaining: i64) -> i64 {
     if remaining == 0 {
         return 1;
     }
     return state_b(remaining - 1) + 10;
 }
 
-fn state_b(remaining: i32) -> i32 {
+fn state_b(remaining: i64) -> i64 {
     if remaining == 0 {
         return 2;
     }
@@ -173,14 +173,14 @@ fn hofstadter_r(n: felt) -> felt {
 ```
 
 ```rust
-fn test_hofstadter() -> i32 {
+fn test_hofstadter() -> i64 {
     let n = 6;
     let q_result = hofstadter_q(n);
     let r_result = hofstadter_r(n);
     return q_result * 10 + r_result;
 }
 
-fn hofstadter_q(n: i32) -> i32 {
+fn hofstadter_q(n: i64) -> i64 {
     if n == 1 {
         return 1;
     }
@@ -190,7 +190,7 @@ fn hofstadter_q(n: i32) -> i32 {
     return hofstadter_q(n - hofstadter_q(n - 1)) + hofstadter_q(n - hofstadter_q(n - 2));
 }
 
-fn hofstadter_r(n: i32) -> i32 {
+fn hofstadter_r(n: i64) -> i64 {
     if n == 1 {
         return 1;
     }
@@ -233,12 +233,12 @@ fn parse_factor(level: felt) -> felt {
 ```
 
 ```rust
-fn test_expression_parser() -> i32 {
+fn test_expression_parser() -> i64 {
     let complexity = 3;
     return parse_expression(complexity);
 }
 
-fn parse_expression(level: i32) -> i32 {
+fn parse_expression(level: i64) -> i64 {
     if level == 0 {
         return 1;
     }
@@ -246,7 +246,7 @@ fn parse_expression(level: i32) -> i32 {
     return term_value + parse_expression(level - 1);
 }
 
-fn parse_term(level: i32) -> i32 {
+fn parse_term(level: i64) -> i64 {
     if level == 0 {
         return 2;
     }
@@ -254,7 +254,7 @@ fn parse_term(level: i32) -> i32 {
     return factor_value * 2;
 }
 
-fn parse_factor(level: i32) -> i32 {
+fn parse_factor(level: i64) -> i64 {
     if level <= 1 {
         return 3;
     }
@@ -298,19 +298,19 @@ fn func_c(n: felt) -> felt {
 ```
 
 ```rust
-fn test_three_way_recursion() -> i32 {
+fn test_three_way_recursion() -> i64 {
     let n = 5;
     return func_a(n);
 }
 
-fn func_a(n: i32) -> i32 {
+fn func_a(n: i64) -> i64 {
     if n == 0 {
         return 1;
     }
     return func_b(n - 1) + func_c(n - 1);
 }
 
-fn func_b(n: i32) -> i32 {
+fn func_b(n: i64) -> i64 {
     if n == 0 {
         return 2;
     }
@@ -320,7 +320,7 @@ fn func_b(n: i32) -> i32 {
     return func_c(n - 1) + 1;
 }
 
-fn func_c(n: i32) -> i32 {
+fn func_c(n: i64) -> i64 {
     if n == 0 {
         return 3;
     }

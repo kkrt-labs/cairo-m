@@ -1,7 +1,7 @@
 // Common test utilities for mdtest runners
 
-use cairo_m_common::program::AbiSlot;
-use cairo_m_common::CairoMSerialize;
+use cairo_m_common::program::{AbiSlot, AbiType};
+use cairo_m_common::{CairoMValue, InputValue};
 use cairo_m_compiler::{compile_cairo, CompilerError, CompilerOptions};
 use cairo_m_runner::run_cairo_program;
 use cairo_m_test_utils::mdtest;
@@ -76,11 +76,12 @@ pub fn run_mdtest_diff(test: &mdtest::MdTest) -> Result<(), String> {
         .unwrap_or_default();
 
     // Execute Cairo-M program
-    let cairo_result = run_cairo_program(&compiled.program, &entry_point, &args, runner_options)
-        .map_err(|e| format!("Runtime error: {:?}", e))?;
+    let (cairo_values, _cairo_output_info) =
+        run_cairo_program(&compiled.program, &entry_point, &args, runner_options)
+            .map_err(|e| format!("Runtime error: {:?}", e))?;
 
     // Format output
-    let cairo_output = format_output(&cairo_result.return_values, &entrypoint_info.returns);
+    let cairo_output = format_output(&cairo_values, &entrypoint_info.returns);
 
     // Check if we expect a runtime error
     if let Some(expected_error) = &test.metadata.expected_error {
@@ -186,35 +187,72 @@ fn find_test_function(cairo_source: &str) -> String {
         .expect("No function found")
 }
 
-fn generate_random_args(params: &[AbiSlot], rng: &mut StdRng) -> Vec<M31> {
+fn generate_random_args(params: &[AbiSlot], rng: &mut StdRng) -> Vec<InputValue> {
     let mut args = Vec::new();
 
     for param in params {
-        let value: u32 = rng.gen_range(0..2u32.pow(31) - 1);
-        if param.slots == 1 {
-            // Generate a random felt value
-            M31::from(value).encode(&mut args);
-        } else {
-            // Generate a random u32 value
-            value.encode(&mut args);
-        }
+        args.push(generate_random_value(&param.ty, rng, 0));
     }
 
     args
 }
 
-fn format_output(values: &[M31], return_types: &[AbiSlot]) -> String {
+fn generate_random_value(ty: &AbiType, rng: &mut StdRng, depth: u32) -> InputValue {
+    // Limit recursion depth to avoid stack overflow
+    if depth > 3 {
+        panic!("MDTest runner: Recursion depth too high");
+    }
+
+    match ty {
+        AbiType::Felt | AbiType::Pointer(_) => {
+            // Random positive value in a safe range
+            let value: u32 = rng.gen_range(0..(1u32 << 31) - 1);
+            InputValue::Number(value as i64)
+        }
+        AbiType::U32 => {
+            // Random u32 value
+            let value: u32 = rng.gen();
+            InputValue::Number(value as i64)
+        }
+        AbiType::Bool => {
+            let b: bool = rng.gen::<bool>();
+            InputValue::Bool(b)
+        }
+        AbiType::Unit => InputValue::Unit,
+        AbiType::Tuple(types) => {
+            let values: Vec<InputValue> = types
+                .iter()
+                .map(|t| generate_random_value(t, rng, depth + 1))
+                .collect();
+            InputValue::List(values)
+        }
+        AbiType::Struct { fields, .. } => {
+            let values: Vec<InputValue> = fields
+                .iter()
+                .map(|(_, t)| generate_random_value(t, rng, depth + 1))
+                .collect();
+            InputValue::Struct(values)
+        }
+        AbiType::Array { .. } => {
+            // Arrays are not yet supported - return a placeholder
+            panic!("MDTest runner: Fixed-size arrays not yet supported in tests")
+        }
+    }
+}
+
+fn format_output(values: &[CairoMValue], _return_types: &[AbiSlot]) -> String {
     if values.is_empty() {
         return "[]".to_string();
     }
 
-    if return_types.len() == 1 && return_types[0].slots == 1 {
-        // Single felt return
-        values[0].0.to_string()
-    } else if return_types.len() == 1 && return_types[0].slots == 2 {
-        // Single u32 return
-        let (value, _) = u32::decode(values, 0);
-        value.to_string()
+    if values.len() == 1 {
+        match &values[0] {
+            CairoMValue::U32(v) => v.to_string(),
+            CairoMValue::Felt(v) => v.0.to_string(),
+            CairoMValue::Bool(b) => if *b { "1" } else { "0" }.to_string(),
+            CairoMValue::Pointer(p) => p.0.to_string(),
+            _ => format!("{:?}", values[0]),
+        }
     } else {
         // Multiple returns or complex type
         format!("{:?}", values)
@@ -224,9 +262,7 @@ fn format_output(values: &[M31], return_types: &[AbiSlot]) -> String {
 fn convert_cairo_to_rust(cairo_source: &str) -> String {
     use regex::Regex;
 
-    let mut result = cairo_source
-        .replace("-> felt", "-> i32")
-        .replace("felt", "i32");
+    let mut result = cairo_source.replace("felt", "i64");
 
     // Make all variables mutable by default using regex
     let re = Regex::new(r"\blet\s+([a-zA-Z_][a-zA-Z0-9_]*)\b").unwrap();
@@ -244,7 +280,7 @@ fn convert_cairo_to_rust(cairo_source: &str) -> String {
 fn run_rust_differential(
     rust_source: &str,
     entry_point: &str,
-    args: &[M31],
+    args: &[InputValue],
     params: &[AbiSlot],
     _return_types: &[AbiSlot],
 ) -> Result<String, String> {
@@ -269,28 +305,46 @@ fn main() {{
     run_rust_code(&wrapped_code)
 }
 
-fn format_rust_args(args: &[M31], params: &[AbiSlot]) -> String {
+fn format_rust_args(args: &[InputValue], params: &[AbiSlot]) -> String {
     let mut formatted = Vec::new();
-    let mut arg_idx = 0;
 
-    for param in params {
-        if param.slots == 1 {
-            // Single slot - felt/i32
-            if arg_idx < args.len() {
-                formatted.push(args[arg_idx].0.to_string());
-                arg_idx += 1;
-            }
-        } else if param.slots == 2 {
-            // Two slots - u32
-            if arg_idx + 1 < args.len() {
-                let (value, _) = u32::decode(args, arg_idx);
-                formatted.push(value.to_string());
-                arg_idx += 2;
-            }
-        }
+    for (arg, param) in args.iter().zip(params.iter()) {
+        formatted.push(format_rust_value(arg, &param.ty));
     }
 
     formatted.join(", ")
+}
+
+fn format_rust_value(value: &InputValue, ty: &AbiType) -> String {
+    match (value, ty) {
+        (InputValue::Number(n), AbiType::Bool) => {
+            if *n != 0 { "true" } else { "false" }.to_string()
+        }
+        (InputValue::Number(n), _) => n.to_string(),
+        (InputValue::Bool(b), _) => if *b { "true" } else { "false" }.to_string(),
+        (InputValue::Unit, _) => "()".to_string(),
+        (InputValue::List(values), AbiType::Tuple(types)) => {
+            let formatted: Vec<String> = values
+                .iter()
+                .zip(types.iter())
+                .map(|(v, t)| format_rust_value(v, t))
+                .collect();
+            format!("({})", formatted.join(", "))
+        }
+        (InputValue::Struct(values), AbiType::Struct { fields, name }) => {
+            // For Rust, we need to format as a struct literal
+            let field_values: Vec<String> = values
+                .iter()
+                .zip(fields.iter())
+                .map(|(v, (fname, fty))| format!("{}: {}", fname, format_rust_value(v, fty)))
+                .collect();
+            format!("{} {{ {} }}", name, field_values.join(", "))
+        }
+        _ => panic!(
+            "MDTest runner: Type/value mismatch in Rust formatter: {:?} / {:?}",
+            value, ty
+        ),
+    }
 }
 
 fn run_rust_code(rust_source: &str) -> Result<String, String> {
