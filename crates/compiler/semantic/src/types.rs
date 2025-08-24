@@ -46,6 +46,9 @@ impl<'db> TypeId<'db> {
                     format!("({})", formatted_types.join(", "))
                 }
             }
+            TypeData::FixedArray { element_type, size } => {
+                format!("[{}; {}]", Self::format_type(db, element_type), size)
+            }
             TypeData::Function(_sig_id) => {
                 // For now, just show "function" - we'd need to query the signature data
                 "function".to_string()
@@ -78,6 +81,12 @@ pub enum TypeData<'db> {
 
     /// A tuple type containing an ordered list of component types
     Tuple(Vec<TypeId<'db>>),
+
+    /// A fixed-size array type with element type and size
+    FixedArray {
+        element_type: TypeId<'db>,
+        size: usize,
+    },
 
     /// A pointer type pointing to another type
     Pointer(TypeId<'db>),
@@ -194,6 +203,9 @@ impl<'db> TypeData<'db> {
             }
             TypeData::Pointer(inner) => {
                 format!("{}*", inner.data(db).display_name(db))
+            }
+            TypeData::FixedArray { element_type, size } => {
+                format!("[{}; {}]", element_type.data(db).display_name(db), size)
             }
             TypeData::Function(_) => "function".to_string(),
             TypeData::Unknown => "<unknown>".to_string(),

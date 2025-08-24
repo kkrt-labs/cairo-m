@@ -29,14 +29,14 @@ fn test() { let x = 5; let y = x + undefined_var; return; }
 ============================================================
 
 --- Input 3 (ERROR) ---
-fn test() { fn test() -> felt { return undefined_var; } return; }
+fn test() -> felt { return undefined_var; }
 --- Diagnostics ---
-[02] Error: found 'fn' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, identifier, '(', or '}'
-   ╭─[ semantic_tests::scoping::undeclared_variables::test_undeclared_variables_parameterized:1:13 ]
+[1001] Error: Undeclared variable 'undefined_var'
+   ╭─[ semantic_tests::scoping::undeclared_variables::test_undeclared_variables_parameterized:1:28 ]
    │
- 1 │ fn test() { fn test() -> felt { return undefined_var; } return; }
-   │             ─┬  
-   │              ╰── found 'fn' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, identifier, '(', or '}'
+ 1 │ fn test() -> felt { return undefined_var; }
+   │                            ──────┬──────  
+   │                                  ╰──────── Undeclared variable 'undefined_var'
 ───╯
 
 ============================================================
@@ -58,14 +58,21 @@ fn test() { fn test() -> felt { return undefined_var; } return; }
 ============================================================
 
 --- Input 5 (ERROR) ---
-fn test() { fn test() { let result = undefined_function(42); } return; }
+fn test() { let result = undefined_function(42); }
 --- Diagnostics ---
-[02] Error: found 'fn' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, identifier, '(', or '}'
-   ╭─[ semantic_tests::scoping::undeclared_variables::test_undeclared_variables_parameterized:1:13 ]
+[3002] Error: Function 'test' doesn't return on all paths
+   ╭─[ semantic_tests::scoping::undeclared_variables::test_undeclared_variables_parameterized:1:4 ]
    │
- 1 │ fn test() { fn test() { let result = undefined_function(42); } return; }
-   │             ─┬  
-   │              ╰── found 'fn' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, identifier, '(', or '}'
+ 1 │ fn test() { let result = undefined_function(42); }
+   │    ──┬─  
+   │      ╰─── Function 'test' doesn't return on all paths
+───╯
+[1001] Error: Undeclared variable 'undefined_function'
+   ╭─[ semantic_tests::scoping::undeclared_variables::test_undeclared_variables_parameterized:1:26 ]
+   │
+ 1 │ fn test() { let result = undefined_function(42); }
+   │                          ─────────┬────────  
+   │                                   ╰────────── Undeclared variable 'undefined_function'
 ───╯
 
 ============================================================

@@ -19,7 +19,7 @@ use cairo_m_compiler_parser::parser::{
 use crate::db::{module_name_for_file, module_semantic_index, Crate, SemanticDb};
 use crate::definition::{DefinitionKind, FunctionDefRef, ParameterDefRef, StructDefRef};
 use crate::place::FileScopeId;
-use crate::semantic_index::{DefinitionId, ExpressionId};
+use crate::semantic_index::{DefinitionId, ExpressionId, Origin};
 use crate::types::{FunctionSignatureId, StructTypeId, TypeData, TypeId};
 use crate::File;
 
@@ -87,6 +87,35 @@ pub fn resolve_ast_type<'db>(
                 .map(|expr| resolve_ast_type(db, crate_id, file, expr.clone(), context_scope_id))
                 .collect();
             TypeId::new(db, TypeData::Tuple(collected_type_ids))
+        }
+        AstTypeExpr::FixedArray { element_type, size } => {
+            // Check for nested arrays (not supported for now)
+            if matches!(element_type.value(), AstTypeExpr::FixedArray { .. }) {
+                // Nested arrays are not supported yet
+                // TODO: Add proper diagnostic here
+                return TypeId::new(db, TypeData::Error);
+            }
+
+            let element_type_id = resolve_ast_type(
+                db,
+                crate_id,
+                file,
+                (**element_type).clone(),
+                context_scope_id,
+            );
+
+            // Also check if the resolved type is an array (could happen indirectly)
+            if matches!(element_type_id.data(db), TypeData::FixedArray { .. }) {
+                return TypeId::new(db, TypeData::Error);
+            }
+
+            TypeId::new(
+                db,
+                TypeData::FixedArray {
+                    element_type: element_type_id,
+                    size: *size.value() as usize,
+                },
+            )
         }
     }
 }
@@ -270,6 +299,131 @@ pub fn expression_semantic_type<'db>(
         return TypeId::new(db, TypeData::Error);
     };
 
+    // If context_expected is None, try to derive it from origin.
+    // Be careful to avoid cycles: do not derive context from parent container types for
+    // array/tuple elements here, as that can cause recursive calls back into this node.
+    let context_expected = if context_expected.is_none() {
+        match &expr_info.origin {
+            Origin::AssignmentRhs { lhs } => {
+                // Only provide assignment context for direct literals, not complex expressions
+                // This avoids interfering with binary operations' internal type inference
+                match &expr_info.ast_node {
+                    Expression::Literal(_, None) => {
+                        // Only for unsuffixed literals - provide LHS type as context
+                        Some(expression_semantic_type(db, crate_id, file, *lhs, None))
+                    }
+                    _ => {
+                        // For complex expressions like binary ops, let them handle their own inference
+                        None
+                    }
+                }
+            }
+            Origin::Arg { callee, index } => {
+                semantic_index.expression(*callee).and_then(|callee_info| {
+                    match &callee_info.ast_node {
+                        Expression::Identifier(name) => semantic_index
+                            .resolve_name_to_definition(name.value(), callee_info.scope_id)
+                            .and_then(|(def_idx, _)| {
+                                let def_id = DefinitionId::new(db, file, def_idx);
+                                function_semantic_signature(db, crate_id, def_id).and_then(
+                                    |signature_id| {
+                                        let params = signature_id.params(db);
+                                        params.get(*index).map(|(_, param_type)| *param_type)
+                                    },
+                                )
+                            }),
+                        _ => None,
+                    }
+                })
+            }
+            Origin::Condition { .. } => Some(TypeId::new(db, TypeData::Bool)),
+            Origin::ReturnExpr => {
+                // Get the function's return type as context for return expressions
+                // We need to find the containing function to get its return type
+
+                // Walk up the scope hierarchy to find a function scope
+                let expr_scope = expr_info.scope_id;
+                let mut current_scope = Some(expr_scope);
+
+                let mut result = None;
+                while let Some(scope_id) = current_scope {
+                    // Check if this scope has a function definition
+                    for (def_idx, def) in semantic_index.all_definitions() {
+                        if let DefinitionKind::Function(_func_def) = &def.kind {
+                            // Check if this function's scope contains our expression
+                            // Functions create a new scope, so we need to check if our expression
+                            // is within the function's body scope
+                            if def.scope_id == scope_id
+                                || semantic_index
+                                    .scope(expr_scope)
+                                    .and_then(|s| {
+                                        let mut parent = s.parent;
+                                        while let Some(p) = parent {
+                                            if p == def.scope_id {
+                                                return Some(true);
+                                            }
+                                            parent =
+                                                semantic_index.scope(p).and_then(|ps| ps.parent);
+                                        }
+                                        None
+                                    })
+                                    .unwrap_or(false)
+                            {
+                                // Found the containing function, get its signature
+                                let def_id = DefinitionId::new(db, file, def_idx);
+                                if let Some(signature) =
+                                    function_semantic_signature(db, crate_id, def_id)
+                                {
+                                    result = Some(signature.return_type(db));
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if result.is_some() {
+                        break;
+                    }
+
+                    // Move to parent scope
+                    current_scope = semantic_index.scope(scope_id).and_then(|s| s.parent);
+                }
+
+                result
+            }
+            Origin::StructField { parent, field, .. } => {
+                semantic_index.expression(*parent).and_then(|parent_info| {
+                    if let Expression::StructLiteral { name, .. } = &parent_info.ast_node {
+                        semantic_index
+                            .resolve_name_to_definition(name.value(), parent_info.scope_id)
+                            .and_then(|(_def_idx, definition)| match &definition.kind {
+                                DefinitionKind::Struct(struct_def) => struct_def
+                                    .fields_ast
+                                    .iter()
+                                    .find(|(field_name, _)| field_name == field)
+                                    .map(|(_, field_type)| {
+                                        resolve_ast_type(
+                                            db,
+                                            crate_id,
+                                            file,
+                                            field_type.clone(),
+                                            parent_info.scope_id,
+                                        )
+                                    }),
+                                _ => None,
+                            })
+                    } else {
+                        None
+                    }
+                })
+            }
+            // Avoid deriving from TupleElem/ArrayElem origins to prevent cycles.
+            _ => None,
+        }
+    } else {
+        context_expected
+    };
+
     // Access the AST node directly from ExpressionInfo - no lookup needed!
     match &expr_info.ast_node {
         Expression::Literal(_value, literal_suffix) => {
@@ -422,15 +576,44 @@ pub fn expression_semantic_type<'db>(
                 }
             }
         }
-        Expression::FunctionCall { callee, args: _ } => {
+        Expression::FunctionCall { callee, args } => {
             // Get ExpressionId for the callee
             if let Some(callee_expr_id) = semantic_index.expression_id_by_span(callee.span()) {
                 // Infer callee's type recursively
                 let callee_type =
                     expression_semantic_type(db, crate_id, file, callee_expr_id, None);
-                // If it's a function type, return the return type
+                // If it's a function type, infer arguments with parameter types and return the return type
                 match callee_type.data(db) {
-                    TypeData::Function(signature_id) => signature_id.return_type(db),
+                    TypeData::Function(signature_id) => {
+                        // Infer each argument with its corresponding parameter type
+                        let params = signature_id.params(db);
+                        for (index, arg) in args.iter().enumerate() {
+                            if let Some(arg_expr_id) =
+                                semantic_index.expression_id_by_span(arg.span())
+                            {
+                                if let Some((_, param_type)) = params.get(index) {
+                                    // Infer the argument type with the parameter type as context
+                                    let _ = expression_semantic_type(
+                                        db,
+                                        crate_id,
+                                        file,
+                                        arg_expr_id,
+                                        Some(*param_type),
+                                    );
+                                } else {
+                                    // More arguments than parameters - just infer without context
+                                    let _ = expression_semantic_type(
+                                        db,
+                                        crate_id,
+                                        file,
+                                        arg_expr_id,
+                                        None,
+                                    );
+                                }
+                            }
+                        }
+                        signature_id.return_type(db)
+                    }
                     _ => TypeId::new(db, TypeData::Error),
                 }
             } else {
@@ -455,14 +638,29 @@ pub fn expression_semantic_type<'db>(
                 TypeId::new(db, TypeData::Error) // Struct type not found
             }
         }
-        Expression::IndexAccess { array, index: _ } => {
+        Expression::IndexAccess { array, index } => {
             // Infer the array/pointer type
             if let Some(array_expr_id) = semantic_index.expression_id_by_span(array.span()) {
                 let array_type = expression_semantic_type(db, crate_id, file, array_expr_id, None);
 
+                // Provide numeric expectation for the index
+                if let Some(index_expr_id) = semantic_index.expression_id_by_span(index.span()) {
+                    // For now, use felt as the expected index type (current language rule)
+                    let index_expected = TypeId::new(db, TypeData::Felt);
+                    let _ = expression_semantic_type(
+                        db,
+                        crate_id,
+                        file,
+                        index_expr_id,
+                        Some(index_expected),
+                    );
+                }
+
                 match array_type.data(db) {
                     // For pointer types, return the dereferenced type
                     TypeData::Pointer(inner_type) => inner_type,
+                    // For fixed-size arrays, return the element type
+                    TypeData::FixedArray { element_type, .. } => element_type,
                     // TODO: For tuple types, we could return the element type if all elements are the same
                     // For now, return error for index access on non-pointer types
                     _ => TypeId::new(db, TypeData::Error),
@@ -526,6 +724,92 @@ pub fn expression_semantic_type<'db>(
                     _ => TypeId::new(db, TypeData::Error),
                 },
                 _ => TypeId::new(db, TypeData::Error),
+            }
+        }
+        Expression::ArrayLiteral(elements) => {
+            // If we have a context expected type that's an array, use it to infer element types
+            let (element_type, _expected_size) = if let Some(context_type) = context_expected {
+                match context_type.data(db) {
+                    TypeData::FixedArray { element_type, size } => (Some(element_type), Some(size)),
+                    _ => (None, None),
+                }
+            } else {
+                (None, None)
+            };
+
+            if elements.is_empty() {
+                // Empty array - need explicit type annotation or context
+                if let Some(element_type) = element_type {
+                    TypeId::new(
+                        db,
+                        TypeData::FixedArray {
+                            element_type,
+                            size: 0,
+                        },
+                    )
+                } else {
+                    // For empty arrays without context, check if there's an expected type from the AST
+                    if let Some(expected_type_ast) = &expr_info.expected_type_ast {
+                        let resolved_type = resolve_ast_type(
+                            db,
+                            crate_id,
+                            file,
+                            expected_type_ast.clone(),
+                            expr_info.scope_id,
+                        );
+                        if let TypeData::FixedArray { element_type, size } = resolved_type.data(db)
+                        {
+                            if size == 0 {
+                                return TypeId::new(
+                                    db,
+                                    TypeData::FixedArray {
+                                        element_type,
+                                        size: 0,
+                                    },
+                                );
+                            }
+                        }
+                    }
+
+                    // Cannot infer type of empty array without context
+                    TypeId::new(db, TypeData::Error)
+                }
+            } else {
+                // Infer element type from first element, using context if available
+                let first_elem_id = semantic_index
+                    .expression_id_by_span(elements[0].span())
+                    .unwrap();
+                let inferred_element_type =
+                    expression_semantic_type(db, crate_id, file, first_elem_id, element_type);
+
+                // Verify all elements have the same type
+                let all_same_type = elements.iter().skip(1).all(|elem| {
+                    if let Some(elem_id) = semantic_index.expression_id_by_span(elem.span()) {
+                        let elem_type = expression_semantic_type(
+                            db,
+                            crate_id,
+                            file,
+                            elem_id,
+                            Some(inferred_element_type),
+                        );
+                        are_types_compatible(db, elem_type, inferred_element_type)
+                    } else {
+                        false
+                    }
+                });
+
+                if all_same_type {
+                    TypeId::new(
+                        db,
+                        TypeData::FixedArray {
+                            element_type: inferred_element_type,
+                            size: elements.len(),
+                        },
+                    )
+                } else {
+                    // Type mismatch among elements
+                    TypeId::new(db, TypeData::Error)
+                }
             }
         }
     }
@@ -653,6 +937,18 @@ pub fn are_types_compatible<'db>(
         (TypeData::Pointer(actual_inner), TypeData::Pointer(expected_inner)) => {
             are_types_compatible(db, actual_inner, expected_inner)
         }
+
+        // Fixed-size array compatibility
+        (
+            TypeData::FixedArray {
+                element_type: actual_elem,
+                size: actual_size,
+            },
+            TypeData::FixedArray {
+                element_type: expected_elem,
+                size: expected_size,
+            },
+        ) => actual_size == expected_size && are_types_compatible(db, actual_elem, expected_elem),
 
         // Bool is only compatible with Bool (not with Felt or U32)
         (TypeData::Bool, TypeData::Bool) => true,
