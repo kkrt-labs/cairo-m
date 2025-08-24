@@ -66,6 +66,20 @@ impl Validator for TypeValidator {
             self.check_expression_types(db, crate_id, file, index, expr_id, expr_info, sink);
         }
 
+        // Check all function definitions for nested arrays in their signatures
+        for item in parsed_module.items() {
+            if let TopLevelItem::Function(func_spanned) = item {
+                let func_def = func_spanned.value();
+                // Check return type for nested arrays
+                Self::check_for_nested_arrays(db, file, &func_def.return_type, sink);
+
+                // Check parameter types for nested arrays
+                for param in &func_def.params {
+                    Self::check_for_nested_arrays(db, file, &param.type_expr, sink);
+                }
+            }
+        }
+
         for (_def_idx, definition) in index.all_definitions() {
             if let DefinitionKind::Function(_) = &definition.kind {
                 self.analyze_function_statement_types(
@@ -87,6 +101,36 @@ impl Validator for TypeValidator {
 }
 
 impl TypeValidator {
+    /// Check if a type expression contains nested arrays
+    fn check_for_nested_arrays(
+        db: &dyn SemanticDb,
+        file: File,
+        type_expr: &Spanned<TypeExpr>,
+        sink: &dyn DiagnosticSink,
+    ) {
+        match type_expr.value() {
+            TypeExpr::FixedArray { element_type, .. } => {
+                // Check if the element type is also an array
+                if matches!(element_type.value(), TypeExpr::FixedArray { .. }) {
+                    sink.push(
+                        Diagnostic::error(
+                            DiagnosticCode::InvalidTypeDefinition,
+                            "Nested arrays are not supported yet".to_string(),
+                        )
+                        .with_location(file.file_path(db).to_string(), type_expr.span()),
+                    );
+                }
+            }
+            TypeExpr::Tuple(elements) => {
+                // Recursively check tuple elements
+                for elem in elements {
+                    Self::check_for_nested_arrays(db, file, elem, sink);
+                }
+            }
+            _ => {}
+        }
+    }
+
     /// Suggest possible type conversions or fixes for type mismatches
     fn suggest_type_conversion(
         &self,
@@ -184,6 +228,11 @@ impl TypeValidator {
                 index: tuple_index,
             } => {
                 self.check_tuple_index_types(db, crate_id, file, index, tuple, *tuple_index, sink);
+            }
+            Expression::ArrayLiteral(elements) => {
+                self.check_array_literal_types(
+                    db, crate_id, file, index, elements, expr_info, sink,
+                );
             }
             // Literals, identifiers, and tuples don't need additional type validation
             // beyond what's already done in type_resolution.rs
@@ -531,6 +580,50 @@ impl TypeValidator {
 
         // Check if the array expression is indexable
         match array_type {
+            TypeData::FixedArray { size, .. } => {
+                // Check if the index expression is an integer type
+                let Some(index_id) = index.expression_id_by_span(index_expr.span()) else {
+                    return;
+                };
+                let index_type_id = expression_semantic_type(db, crate_id, file, index_id, None);
+                let index_type = index_type_id.data(db);
+
+                if !matches!(index_type, TypeData::Felt) {
+                    sink.push(
+                        Diagnostic::error(
+                            DiagnosticCode::InvalidIndexType,
+                            format!(
+                                "Array index must be of type felt, found `{}`",
+                                index_type_id.data(db).display_name(db)
+                            ),
+                        )
+                        .with_location(file.file_path(db).to_string(), index_expr.span()),
+                    );
+                }
+
+                // Compile-time bounds checking for constant indices
+                if let Expression::Literal(value, _) = index_expr.value() {
+                    let index_value = *value as usize;
+                    if index_value >= size {
+                        sink.push(
+                            Diagnostic::error(
+                                DiagnosticCode::IndexOutOfBounds,
+                                format!(
+                                    "Index {} out of bounds for array of size {}",
+                                    index_value, size
+                                ),
+                            )
+                            .with_location(file.file_path(db).to_string(), index_expr.span())
+                            .with_related_span(
+                                file.file_path(db).to_string(),
+                                array.span(),
+                                format!("Array has size {}", size),
+                            ),
+                        );
+                    }
+                }
+                // TODO: Add bounds checking for compile-time constant expressions
+            }
             TypeData::Tuple(_) => {
                 sink.push(
                     Diagnostic::error(
@@ -577,6 +670,72 @@ impl TypeValidator {
                     )
                     .with_location(file.file_path(db).to_string(), array.span()),
                 );
+            }
+        }
+    }
+
+    /// Check array literal for mixed types and nested arrays
+    fn check_array_literal_types(
+        &self,
+        db: &dyn SemanticDb,
+        crate_id: Crate,
+        file: File,
+        index: &SemanticIndex,
+        elements: &[Spanned<Expression>],
+        expr_info: &ExpressionInfo,
+        sink: &dyn DiagnosticSink,
+    ) {
+        if elements.is_empty() {
+            sink.push(
+                Diagnostic::error(
+                    DiagnosticCode::TypeInferenceError,
+                    "Empty arrays are not allowed.".to_string(),
+                )
+                .with_location(file.file_path(db).to_string(), expr_info.ast_span),
+            );
+            return;
+        }
+
+        // Check for nested array literals
+        for elem in elements {
+            if matches!(elem.value(), Expression::ArrayLiteral(_)) {
+                sink.push(
+                    Diagnostic::error(
+                        DiagnosticCode::InvalidTypeDefinition,
+                        "Nested arrays are not supported yet".to_string(),
+                    )
+                    .with_location(file.file_path(db).to_string(), expr_info.ast_span),
+                );
+                return; // No need to check further
+            }
+        }
+
+        // Get the type of the first element
+        let Some(first_elem_id) = index.expression_id_by_span(elements[0].span()) else {
+            return;
+        };
+        let first_type = expression_semantic_type(db, crate_id, file, first_elem_id, None);
+
+        // Check if all elements have the same type
+        for (idx, elem) in elements.iter().enumerate().skip(1) {
+            if let Some(elem_id) = index.expression_id_by_span(elem.span()) {
+                let elem_type =
+                    expression_semantic_type(db, crate_id, file, elem_id, Some(first_type));
+
+                if !are_types_compatible(db, elem_type, first_type) {
+                    sink.push(
+                        Diagnostic::error(
+                            DiagnosticCode::TypeMismatch,
+                            format!(
+                                "Array element at index {} has type `{}`, but expected `{}` to match first element",
+                                idx,
+                                elem_type.data(db).display_name(db),
+                                first_type.data(db).display_name(db)
+                            ),
+                        )
+                        .with_location(file.file_path(db).to_string(), elem.span()),
+                    );
+                }
             }
         }
     }
@@ -811,6 +970,18 @@ impl TypeValidator {
                         DiagnosticCode::TypeMismatch,
                         format!(
                             "type mismatch for tuple element #{}: expected `{}`, got `{}`",
+                            index, expected_type, actual_type
+                        ),
+                    )
+                    .with_location(file.file_path(db).to_string(), expr_info.ast_span),
+                );
+            }
+            Origin::ArrayElem { index, .. } => {
+                sink.push(
+                    Diagnostic::error(
+                        DiagnosticCode::TypeMismatch,
+                        format!(
+                            "type mismatch for array element #{}: expected `{}`, got `{}`",
                             index, expected_type, actual_type
                         ),
                     )
@@ -1060,6 +1231,10 @@ impl TypeValidator {
         statement_type: &Option<Spanned<TypeExpr>>,
         sink: &dyn DiagnosticSink,
     ) {
+        // Check for nested arrays in type annotation
+        if let Some(ty) = statement_type {
+            Self::check_for_nested_arrays(db, file, ty, sink);
+        }
         let Some(value_expr_id) = index.expression_id_by_span(value.span()) else {
             return;
         };

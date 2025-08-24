@@ -111,6 +111,9 @@ pub fn walk_type_expr<'ast, V: Visitor<'ast> + ?Sized>(
                 visitor.visit_type_expr(element);
             }
         }
+        TypeExpr::FixedArray { element_type, .. } => {
+            visitor.visit_type_expr(element_type);
+        }
         TypeExpr::Named(_) => {
             // Specific to implementing visitors.
         }

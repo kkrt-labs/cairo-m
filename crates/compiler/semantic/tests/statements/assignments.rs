@@ -16,10 +16,10 @@ fn test_assignments() {
             in_function("let mut z: felt = 50; let x: u32 = 100; z = x;"),
             format!("struct Point {{ x: felt, y: felt }} {}", in_function("let x: felt = 42; let p = Point { x: 10, y: 20 }; x = p;")),
 
-            in_function("fn test() { let x = 10; 42 = x; }"),
+            in_function("let x = 10; 42 = x;"),
             "fn get_value() -> felt { 42 } fn test() { let x = 10; get_value() = x; }",
-            in_function("fn test() { let x = 10; (x + 5) = 20; }"),
-            in_function("fn test() { let x = 10; (10 + 20) = x; }"),
+            in_function("let x = 10; (x + 5) = 20;"),
+            in_function("let x = 10; (10 + 20) = x;"),
 
             format!("fn get_tuple() -> (felt, u32, bool) {{ return (42, 100, true); }} {}", in_function("let (a: u32, b: felt, c: bool) = get_tuple();")),
             format!("fn get_tuple() -> (felt, u32, bool) {{ return (42, 100, true); }} {}", in_function("let (x, y) = get_tuple();")),

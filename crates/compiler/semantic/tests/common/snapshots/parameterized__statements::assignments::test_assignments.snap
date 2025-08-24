@@ -46,14 +46,14 @@ struct Point { x: felt, y: felt } fn test() { let x: felt = 42; let p = Point { 
 ============================================================
 
 --- Input 4 (ERROR) ---
-fn test() { fn test() { let x = 10; 42 = x; } return; }
+fn test() { let x = 10; 42 = x; return; }
 --- Diagnostics ---
-[02] Error: found 'fn' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, identifier, '(', or '}'
-   ╭─[ semantic_tests::statements::assignments::test_assignments:1:13 ]
+[2010] Error: Invalid assignment target - must be a variable, field, or array element
+   ╭─[ semantic_tests::statements::assignments::test_assignments:1:25 ]
    │
- 1 │ fn test() { fn test() { let x = 10; 42 = x; } return; }
-   │             ─┬  
-   │              ╰── found 'fn' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, identifier, '(', or '}'
+ 1 │ fn test() { let x = 10; 42 = x; return; }
+   │                         ─┬  
+   │                          ╰── Invalid assignment target - must be a variable, field, or array element
 ───╯
 
 ============================================================
@@ -72,27 +72,27 @@ fn get_value() -> felt { 42 } fn test() { let x = 10; get_value() = x; }
 ============================================================
 
 --- Input 6 (ERROR) ---
-fn test() { fn test() { let x = 10; (x + 5) = 20; } return; }
+fn test() { let x = 10; (x + 5) = 20; return; }
 --- Diagnostics ---
-[02] Error: found 'fn' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, identifier, '(', or '}'
-   ╭─[ semantic_tests::statements::assignments::test_assignments:1:13 ]
+[2010] Error: Invalid assignment target - must be a variable, field, or array element
+   ╭─[ semantic_tests::statements::assignments::test_assignments:1:26 ]
    │
- 1 │ fn test() { fn test() { let x = 10; (x + 5) = 20; } return; }
-   │             ─┬  
-   │              ╰── found 'fn' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, identifier, '(', or '}'
+ 1 │ fn test() { let x = 10; (x + 5) = 20; return; }
+   │                          ──┬──  
+   │                            ╰──── Invalid assignment target - must be a variable, field, or array element
 ───╯
 
 ============================================================
 
 --- Input 7 (ERROR) ---
-fn test() { fn test() { let x = 10; (10 + 20) = x; } return; }
+fn test() { let x = 10; (10 + 20) = x; return; }
 --- Diagnostics ---
-[02] Error: found 'fn' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, identifier, '(', or '}'
-   ╭─[ semantic_tests::statements::assignments::test_assignments:1:13 ]
+[2010] Error: Invalid assignment target - must be a variable, field, or array element
+   ╭─[ semantic_tests::statements::assignments::test_assignments:1:26 ]
    │
- 1 │ fn test() { fn test() { let x = 10; (10 + 20) = x; } return; }
-   │             ─┬  
-   │              ╰── found 'fn' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, identifier, '(', or '}'
+ 1 │ fn test() { let x = 10; (10 + 20) = x; return; }
+   │                          ───┬───  
+   │                             ╰───── Invalid assignment target - must be a variable, field, or array element
 ───╯
 
 ============================================================

@@ -1,0 +1,71 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+
+                fn process(data: [felt; 3]) -> felt {
+                    return 0;
+                }
+                fn test() {
+                    let result = process([1, 2]);
+                    return;
+                }
+            
+--- Diagnostics ---
+[2001] Error: argument type mismatch for parameter `data`: expected `[felt; 3]`, got `[felt; 2]`
+   ╭─[ semantic_tests::arrays::array_literals::test_array_literal_in_expressions:6:42 ]
+   │
+ 2 │                 fn process(data: [felt; 3]) -> felt {
+   │                                  ────┬────  
+   │                                      ╰────── parameter `data` declared here with type `[felt; 3]`
+   │ 
+ 6 │                     let result = process([1, 2]);
+   │                                          ───┬──  
+   │                                             ╰──── argument type mismatch for parameter `data`: expected `[felt; 3]`, got `[felt; 2]`
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+
+                fn process(data: [u32; 3]) -> felt {
+                    return 0;
+                }
+                fn test() {
+                    let result = process([true, false, true]);
+                    return;
+                }
+            
+--- Diagnostics ---
+[2001] Error: argument type mismatch for parameter `data`: expected `[u32; 3]`, got `[bool; 3]`
+   ╭─[ semantic_tests::arrays::array_literals::test_array_literal_in_expressions:6:42 ]
+   │
+ 2 │                 fn process(data: [u32; 3]) -> felt {
+   │                                  ────┬───  
+   │                                      ╰───── parameter `data` declared here with type `[u32; 3]`
+   │ 
+ 6 │                     let result = process([true, false, true]);
+   │                                          ─────────┬─────────  
+   │                                                   ╰─────────── argument type mismatch for parameter `data`: expected `[u32; 3]`, got `[bool; 3]`
+───╯
+
+============================================================
+
+--- Input 3 (ERROR) ---
+
+                fn create_array() -> [felt; 3] {
+                    return [1, 2];
+                }
+            
+--- Diagnostics ---
+[2001] Error: type mismatch in return statement: expected `[felt; 3]`, got `[felt; 2]`
+   ╭─[ semantic_tests::arrays::array_literals::test_array_literal_in_expressions:3:28 ]
+   │
+ 2 │                 fn create_array() -> [felt; 3] {
+   │                                      ────┬────  
+   │                                          ╰────── function `create_array` declared here to return `[felt; 3]`
+ 3 │                     return [1, 2];
+   │                            ───┬──  
+   │                               ╰──── type mismatch in return statement: expected `[felt; 3]`, got `[felt; 2]`
+───╯

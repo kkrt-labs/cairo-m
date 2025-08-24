@@ -135,6 +135,8 @@ pub enum Origin {
     },
     /// Expression is an element within a tuple literal
     TupleElem { parent: ExpressionId, index: usize },
+    /// Expression is an element within an array literal
+    ArrayElem { parent: ExpressionId, index: usize },
     /// Expression is a function argument.
     Arg { callee: ExpressionId, index: usize },
     /// Expression is the RHS of an assignment.
@@ -1054,7 +1056,9 @@ impl<'db, 'sink> SemanticIndexBuilder<'db, 'sink> {
             }
             Expression::IndexAccess { array, index } => {
                 self.visit_expr(array);
-                self.visit_expr(index);
+                self.with_expected_type(None, |builder| {
+                    builder.visit_expr(index);
+                });
             }
             Expression::StructLiteral { name, fields, .. } => {
                 let type_usage = TypeUsage {
@@ -1182,6 +1186,42 @@ impl<'db, 'sink> SemanticIndexBuilder<'db, 'sink> {
             }
             Expression::TupleIndex { tuple, .. } => {
                 self.visit_expr(tuple);
+            }
+            Expression::ArrayLiteral(elements) => {
+                // If we have an array type hint, propagate the element type to all elements
+                let element_type_hint =
+                    self.expected_type_hint
+                        .as_ref()
+                        .and_then(|hint| match hint.value() {
+                            TypeExpr::FixedArray { element_type, size }
+                                if *size.value() == elements.len() as u64 =>
+                            {
+                                Some(element_type.as_ref().clone())
+                            }
+                            _ => None,
+                        });
+
+                if let Some(element_type) = element_type_hint {
+                    // Visit each element with the element type hint
+                    for (index, elem) in elements.iter().enumerate() {
+                        let elem_origin = Origin::ArrayElem {
+                            parent: expr_id,
+                            index,
+                        };
+                        self.with_expected_type(Some(element_type.clone()), |builder| {
+                            builder.visit_expr_with_origin(elem, elem_origin);
+                        });
+                    }
+                } else {
+                    // No matching array hint or mismatched sizes - visit with origin but no type hints
+                    for (index, elem) in elements.iter().enumerate() {
+                        let elem_origin = Origin::ArrayElem {
+                            parent: expr_id,
+                            index,
+                        };
+                        self.visit_expr_with_origin(elem, elem_origin);
+                    }
+                }
             }
             Expression::Literal(_, _) | Expression::BooleanLiteral(_) => {
                 // Leaf nodes - no sub-expressions
@@ -1439,7 +1479,13 @@ where
             }
             Statement::Assignment { lhs, rhs } => {
                 self.visit_expr(lhs);
-                self.visit_expr(rhs);
+                // Get the lhs expression ID to provide context for the RHS
+                if let Some(lhs_expr_id) = self.index.expression_id_by_span(lhs.span()) {
+                    self.visit_expr_with_origin(rhs, Origin::AssignmentRhs { lhs: lhs_expr_id });
+                } else {
+                    // Fallback if lhs expression ID not found
+                    self.visit_expr(rhs);
+                }
             }
             Statement::Return { value } => {
                 if let Some(expr) = value {
@@ -1478,11 +1524,8 @@ where
         // Visit parameters (they don't need the return type hint)
         self.visit_parameters(&func_def.params);
 
-        // Visit function body with return type hint for literal inference
-        let return_hint = Some(func_def.return_type.clone());
-        self.with_expected_type(return_hint, |builder| {
-            builder.visit_body(&func_def.body);
-        });
+        // Visit function body normally - return type hint will be applied only to return statements
+        self.visit_body(&func_def.body);
 
         self.pop_scope();
     }

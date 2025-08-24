@@ -32,7 +32,7 @@ fn test_undeclared_variables_parameterized() {
             in_function("let x = 5; let y = x + undefined_var;"),
 
             // Undeclared in return
-            in_function("fn test() -> felt { return undefined_var; }"),
+            "fn test() -> felt { return undefined_var; }",
 
             // Undeclared in function call
             r#"
@@ -41,7 +41,7 @@ fn test_undeclared_variables_parameterized() {
             "#,
 
             // Undeclared function call
-            in_function("fn test() { let result = undefined_function(42); }"),
+            "fn test() { let result = undefined_function(42); }",
 
             // Multiple undeclared variables
             in_function(

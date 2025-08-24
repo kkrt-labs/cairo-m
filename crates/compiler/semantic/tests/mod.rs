@@ -150,6 +150,7 @@ pub(crate) fn pointer_type(inner: Spanned<TypeExpr>) -> Spanned<TypeExpr> {
     spanned(TypeExpr::Pointer(Box::new(inner)))
 }
 // Test modules organized by concern
+pub mod arrays;
 pub mod control_flow;
 pub mod expressions;
 pub mod functions;

@@ -1,0 +1,20 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test() { 
+                const SIZE = 3;
+                let arr = [1, 2, 3];
+                let x = arr[3];  // Out of bounds
+             return; }
+--- Diagnostics ---
+[2015] Error: Index 3 out of bounds for array of size 3
+   ╭─[ semantic_tests::arrays::array_indexing::test_compile_time_bounds_checking:4:29 ]
+   │
+ 4 │                 let x = arr[3];  // Out of bounds
+   │                         ─┬─ ┬  
+   │                          ╰───── Array has size 3
+   │                             │  
+   │                             ╰── Index 3 out of bounds for array of size 3
+───╯
