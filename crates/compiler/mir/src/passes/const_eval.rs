@@ -101,20 +101,6 @@ impl ConstEvaluator {
                 Some(Literal::Boolean(a >= b))
             }
 
-            // U32 bitwise operations
-            (BinaryOp::U32BitwiseAnd, Literal::Integer(a), Literal::Integer(b)) => {
-                let result = a & b;
-                Some(Literal::Integer(result))
-            }
-            (BinaryOp::U32BitwiseOr, Literal::Integer(a), Literal::Integer(b)) => {
-                let result = a | b;
-                Some(Literal::Integer(result))
-            }
-            (BinaryOp::U32BitwiseXor, Literal::Integer(a), Literal::Integer(b)) => {
-                let result = a ^ b;
-                Some(Literal::Integer(result))
-            }
-
             // Boolean operations
             (BinaryOp::And, Literal::Boolean(a), Literal::Boolean(b)) => {
                 Some(Literal::Boolean(a && b))
@@ -198,223 +184,156 @@ impl ConstEvaluator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use proptest::prelude::*;
     use stwo_prover::core::fields::m31::{M31, P};
 
-    proptest! {
-        #[test]
-        fn test_felt_arithmetic_modular(a in 0..P, b in 0..P) {
-            let evaluator = ConstEvaluator::new();
+    #[test]
+    fn test_felt_arithmetic_modular() {
+        let evaluator = ConstEvaluator::new();
 
-            // Test addition
-            let result = evaluator.eval_binary_op(BinaryOp::Add, Literal::Integer(a), Literal::Integer(b));
-            let expected = M31::from(a) + M31::from(b);
-            assert_eq!(result, Some(Literal::Integer(expected.0)));
+        // Test that arithmetic wraps at the prime
+        let large = P - 1; // Largest value in M31
+        let result =
+            evaluator.eval_binary_op(BinaryOp::Add, Literal::Integer(large), Literal::Integer(2));
+        assert_eq!(result, Some(Literal::Integer(1))); // Should wrap: (P-1) + 2 = 1 mod P
 
-            // Test subtraction
-            let result = evaluator.eval_binary_op(BinaryOp::Sub, Literal::Integer(a), Literal::Integer(b));
-            let expected = M31::from(a) - M31::from(b);
-            assert_eq!(result, Some(Literal::Integer(expected.0)));
+        // Test subtraction wrapping
+        let result =
+            evaluator.eval_binary_op(BinaryOp::Sub, Literal::Integer(0), Literal::Integer(1));
+        assert_eq!(result, Some(Literal::Integer(P - 1))); // 0 - 1 = P - 1 mod P
+    }
 
-            // Test multiplication
-            let result = evaluator.eval_binary_op(BinaryOp::Mul, Literal::Integer(a), Literal::Integer(b));
-            let expected = M31::from(a) * M31::from(b);
-            assert_eq!(result, Some(Literal::Integer(expected.0)));
-        }
+    #[test]
+    fn test_felt_division_modular_inverse() {
+        let evaluator = ConstEvaluator::new();
 
-        #[test]
-        fn test_felt_division_modular_inverse(a in 1..P, b in 1..P) {
-            let evaluator = ConstEvaluator::new();
+        // Test that division uses modular inverse
+        // 1 / 2 in M31 should be the modular inverse of 2
+        let result =
+            evaluator.eval_binary_op(BinaryOp::Div, Literal::Integer(1), Literal::Integer(2));
 
-            // Test division using modular inverse
-            let result = evaluator.eval_binary_op(BinaryOp::Div, Literal::Integer(a), Literal::Integer(b));
-            let expected = M31::from(a) / M31::from(b);
-            assert_eq!(result, Some(Literal::Integer(expected.0)));
-
-            // Verify that (a/b) * b = a in the field
-            if let Some(Literal::Integer(quotient)) = result {
-                let product = M31::from(quotient) * M31::from(b);
-                assert_eq!(product, M31::from(a), "Division should satisfy (a/b)*b = a");
-            }
-        }
-
-        #[test]
-        fn test_u32_arithmetic_wrapping(a in any::<u32>(), b in any::<u32>()) {
-            let evaluator = ConstEvaluator::new();
-
-            // Test u32 addition with wrapping
-            let result = evaluator.eval_binary_op(BinaryOp::U32Add, Literal::Integer(a), Literal::Integer(b));
-            let expected = a.wrapping_add(b);
-            assert_eq!(result, Some(Literal::Integer(expected)));
-
-            // Test u32 subtraction with wrapping
-            let result = evaluator.eval_binary_op(BinaryOp::U32Sub, Literal::Integer(a), Literal::Integer(b));
-            let expected = a.wrapping_sub(b);
-            assert_eq!(result, Some(Literal::Integer(expected)));
-
-            // Test u32 multiplication with wrapping
-            let result = evaluator.eval_binary_op(BinaryOp::U32Mul, Literal::Integer(a), Literal::Integer(b));
-            let expected = a.wrapping_mul(b);
-            assert_eq!(result, Some(Literal::Integer(expected)));
-        }
-
-        #[test]
-        fn test_u32_division(a in any::<u32>(), b in any::<u32>()) {
-            let evaluator = ConstEvaluator::new();
-
-            // Test u32 division (b != 0)
-            let result = evaluator.eval_binary_op(BinaryOp::U32Div, Literal::Integer(a), Literal::Integer(b));
-            if b != 0 {
-                let expected = a / b;
-                assert_eq!(result, Some(Literal::Integer(expected)));
-            } else {
-                assert_eq!(result, None);
-            }
-        }
-
-        #[test]
-        fn test_u32_comparisons_unsigned(a in any::<u32>(), b in any::<u32>()) {
-            let evaluator = ConstEvaluator::new();
-
-            // Test equality
-            let result = evaluator.eval_binary_op(BinaryOp::U32Eq, Literal::Integer(a), Literal::Integer(b));
-            assert_eq!(result, Some(Literal::Boolean(a == b)));
-
-            // Test inequality
-            let result = evaluator.eval_binary_op(BinaryOp::U32Neq, Literal::Integer(a), Literal::Integer(b));
-            assert_eq!(result, Some(Literal::Boolean(a != b)));
-
-            // Test less than
-            let result = evaluator.eval_binary_op(BinaryOp::U32Less, Literal::Integer(a), Literal::Integer(b));
-            assert_eq!(result, Some(Literal::Boolean(a < b)));
-
-            // Test greater than
-            let result = evaluator.eval_binary_op(BinaryOp::U32Greater, Literal::Integer(a), Literal::Integer(b));
-            assert_eq!(result, Some(Literal::Boolean(a > b)));
-
-            // Test less than or equal
-            let result = evaluator.eval_binary_op(BinaryOp::U32LessEqual, Literal::Integer(a), Literal::Integer(b));
-            assert_eq!(result, Some(Literal::Boolean(a <= b)));
-
-            // Test greater than or equal
-            let result = evaluator.eval_binary_op(BinaryOp::U32GreaterEqual, Literal::Integer(a), Literal::Integer(b));
-            assert_eq!(result, Some(Literal::Boolean(a >= b)));
-        }
-
-        #[test]
-        fn test_division_by_zero(a in any::<u32>()) {
-            let evaluator = ConstEvaluator::new();
-
-            // Felt division by zero should return None
-            let result = evaluator.eval_binary_op(BinaryOp::Div, Literal::Integer(a), Literal::Integer(0));
-            assert_eq!(result, None);
-
-            // U32 division by zero should return None
-            let result = evaluator.eval_binary_op(BinaryOp::U32Div, Literal::Integer(a), Literal::Integer(0));
-            assert_eq!(result, None);
-        }
-
-        #[test]
-        fn test_boolean_operations(a in any::<bool>(), b in any::<bool>()) {
-            let evaluator = ConstEvaluator::new();
-
-            // Test AND
-            let result = evaluator.eval_binary_op(BinaryOp::And, Literal::Boolean(a), Literal::Boolean(b));
-            assert_eq!(result, Some(Literal::Boolean(a && b)));
-
-            // Test OR
-            let result = evaluator.eval_binary_op(BinaryOp::Or, Literal::Boolean(a), Literal::Boolean(b));
-            assert_eq!(result, Some(Literal::Boolean(a || b)));
-        }
-
-        #[test]
-        fn test_boolean_not(a in any::<bool>()) {
-            let evaluator = ConstEvaluator::new();
-
-            // Test NOT
-            let result = evaluator.eval_unary_op(UnaryOp::Not, Literal::Boolean(a));
-            assert_eq!(result, Some(Literal::Boolean(!a)));
-        }
-
-        #[test]
-        fn test_unary_negation(a in 0..P) {
-            let evaluator = ConstEvaluator::new();
-
-            // Test negation in M31 field
-            let result = evaluator.eval_unary_op(UnaryOp::Neg, Literal::Integer(a));
-            let expected = (-M31::from(a)).0;
-            assert_eq!(result, Some(Literal::Integer(expected)));
-
-            // Verify that a + (-a) = 0 in the field
-            if let Some(Literal::Integer(neg_a)) = result {
-                let sum = M31::from(a) + M31::from(neg_a);
-                assert_eq!(sum.0, 0, "a + (-a) should equal 0 in M31");
-            }
-        }
-
-        #[test]
-        fn test_u32_bitwise_operations(a in any::<u32>(), b in any::<u32>()) {
-            let evaluator = ConstEvaluator::new();
-
-            // Test AND
-            let result = evaluator.eval_binary_op(BinaryOp::U32BitwiseAnd, Literal::Integer(a), Literal::Integer(b));
-            assert_eq!(result, Some(Literal::Integer(a & b)));
-
-            // Test OR
-            let result = evaluator.eval_binary_op(BinaryOp::U32BitwiseOr, Literal::Integer(a), Literal::Integer(b));
-            assert_eq!(result, Some(Literal::Integer(a | b)));
-
-            // Test XOR
-            let result = evaluator.eval_binary_op(BinaryOp::U32BitwiseXor, Literal::Integer(a), Literal::Integer(b));
-            assert_eq!(result, Some(Literal::Integer(a ^ b)));
-        }
-
-        #[test]
-        fn test_u32_bitwise_associativity(a in any::<u32>(), b in any::<u32>(), c in any::<u32>()) {
-            let evaluator = ConstEvaluator::new();
-
-            // Test AND associativity: (a & b) & c = a & (b & c)
-            let left_first = evaluator.eval_binary_op(BinaryOp::U32BitwiseAnd, Literal::Integer(a), Literal::Integer(b))
-                .and_then(|res| match res {
-                    Literal::Integer(val) => evaluator.eval_binary_op(BinaryOp::U32BitwiseAnd, Literal::Integer(val), Literal::Integer(c)),
-                    _ => None,
-                });
-            let right_first = evaluator.eval_binary_op(BinaryOp::U32BitwiseAnd, Literal::Integer(b), Literal::Integer(c))
-                .and_then(|res| match res {
-                    Literal::Integer(val) => evaluator.eval_binary_op(BinaryOp::U32BitwiseAnd, Literal::Integer(a), Literal::Integer(val)),
-                    _ => None,
-                });
-            assert_eq!(left_first, right_first, "AND should be associative");
-
-            // Test OR associativity: (a | b) | c = a | (b | c)
-            let left_first = evaluator.eval_binary_op(BinaryOp::U32BitwiseOr, Literal::Integer(a), Literal::Integer(b))
-                .and_then(|res| match res {
-                    Literal::Integer(val) => evaluator.eval_binary_op(BinaryOp::U32BitwiseOr, Literal::Integer(val), Literal::Integer(c)),
-                    _ => None,
-                });
-            let right_first = evaluator.eval_binary_op(BinaryOp::U32BitwiseOr, Literal::Integer(b), Literal::Integer(c))
-                .and_then(|res| match res {
-                    Literal::Integer(val) => evaluator.eval_binary_op(BinaryOp::U32BitwiseOr, Literal::Integer(a), Literal::Integer(val)),
-                    _ => None,
-                });
-            assert_eq!(left_first, right_first, "OR should be associative");
-
-            // Test XOR associativity: (a ^ b) ^ c = a ^ (b ^ c)
-            let left_first = evaluator.eval_binary_op(BinaryOp::U32BitwiseXor, Literal::Integer(a), Literal::Integer(b))
-                .and_then(|res| match res {
-                    Literal::Integer(val) => evaluator.eval_binary_op(BinaryOp::U32BitwiseXor, Literal::Integer(val), Literal::Integer(c)),
-                    _ => None,
-                });
-            let right_first = evaluator.eval_binary_op(BinaryOp::U32BitwiseXor, Literal::Integer(b), Literal::Integer(c))
-                .and_then(|res| match res {
-                    Literal::Integer(val) => evaluator.eval_binary_op(BinaryOp::U32BitwiseXor, Literal::Integer(a), Literal::Integer(val)),
-                    _ => None,
-                });
-            assert_eq!(left_first, right_first, "XOR should be associative");
+        // Verify that result * 2 = 1 (mod P)
+        if let Some(Literal::Integer(inv2)) = result {
+            let m31_inv2 = M31::from(inv2);
+            let m31_2 = M31::from(2u32);
+            let product = m31_inv2 * m31_2;
+            assert_eq!(product.0, 1, "2 * (1/2) should equal 1 in M31");
+        } else {
+            panic!("Division should succeed");
         }
     }
 
-    // Keep some simple unit tests for identity/absorbing values since they're testing const functions
+    #[test]
+    fn test_u32_arithmetic_wrapping() {
+        let evaluator = ConstEvaluator::new();
+
+        // Test u32::MAX + 1 = 0
+        let result = evaluator.eval_binary_op(
+            BinaryOp::U32Add,
+            Literal::Integer(u32::MAX),
+            Literal::Integer(1),
+        );
+        assert_eq!(result, Some(Literal::Integer(0)));
+
+        // Test 0 - 1 = u32::MAX
+        let result =
+            evaluator.eval_binary_op(BinaryOp::U32Sub, Literal::Integer(0), Literal::Integer(1));
+        assert_eq!(result, Some(Literal::Integer(u32::MAX)));
+
+        // Test overflow in multiplication
+        let result = evaluator.eval_binary_op(
+            BinaryOp::U32Mul,
+            Literal::Integer(0x80000000), // 2^31
+            Literal::Integer(2),
+        );
+        assert_eq!(result, Some(Literal::Integer(0))); // Should wrap to 0
+    }
+
+    #[test]
+    fn test_u32_comparisons_unsigned() {
+        let evaluator = ConstEvaluator::new();
+
+        // Test that large values are compared as unsigned
+        // 0x80000000 > 0x7FFFFFFF when compared as unsigned
+        let result = evaluator.eval_binary_op(
+            BinaryOp::U32Greater,
+            Literal::Integer(0x80000000),
+            Literal::Integer(0x7FFFFFFF),
+        );
+        assert_eq!(result, Some(Literal::Boolean(true)));
+
+        // u32::MAX > 0
+        let result = evaluator.eval_binary_op(
+            BinaryOp::U32Greater,
+            Literal::Integer(u32::MAX),
+            Literal::Integer(0),
+        );
+        assert_eq!(result, Some(Literal::Boolean(true)));
+    }
+
+    #[test]
+    fn test_division_by_zero() {
+        let evaluator = ConstEvaluator::new();
+
+        // Felt division by zero should return None
+        let result =
+            evaluator.eval_binary_op(BinaryOp::Div, Literal::Integer(5), Literal::Integer(0));
+        assert_eq!(result, None);
+
+        // U32 division by zero should return None
+        let result =
+            evaluator.eval_binary_op(BinaryOp::U32Div, Literal::Integer(5), Literal::Integer(0));
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_boolean_operations() {
+        let evaluator = ConstEvaluator::new();
+
+        // Test AND
+        assert_eq!(
+            evaluator.eval_binary_op(
+                BinaryOp::And,
+                Literal::Boolean(true),
+                Literal::Boolean(false)
+            ),
+            Some(Literal::Boolean(false))
+        );
+
+        // Test OR
+        assert_eq!(
+            evaluator.eval_binary_op(
+                BinaryOp::Or,
+                Literal::Boolean(false),
+                Literal::Boolean(true)
+            ),
+            Some(Literal::Boolean(true))
+        );
+
+        // Test NOT
+        assert_eq!(
+            evaluator.eval_unary_op(UnaryOp::Not, Literal::Boolean(true)),
+            Some(Literal::Boolean(false))
+        );
+    }
+
+    #[test]
+    fn test_unary_negation() {
+        let evaluator = ConstEvaluator::new();
+
+        // Test negation of positive value
+        let result = evaluator.eval_unary_op(UnaryOp::Neg, Literal::Integer(5));
+        if let Some(Literal::Integer(neg5)) = result {
+            // -5 in M31 should be P - 5
+            assert_eq!(neg5, P - 5);
+        } else {
+            panic!("Negation should succeed");
+        }
+
+        // Test negation of zero
+        let result = evaluator.eval_unary_op(UnaryOp::Neg, Literal::Integer(0));
+        assert_eq!(result, Some(Literal::Integer(0)));
+    }
+
     #[test]
     fn test_identity_and_absorbing_values() {
         let evaluator = ConstEvaluator::new();

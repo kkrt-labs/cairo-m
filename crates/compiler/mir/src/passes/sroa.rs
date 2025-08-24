@@ -28,6 +28,16 @@
 //!    aggregate OR passed as an argument to a function call, it can only be scalarized
 //!    if the parent aggregate can also be scalarized
 //!
+//! ### Arrays (FixedArray)
+//!
+//! - A `FixedArray` is treated like a tuple for SROA only if all array indices
+//!   involved are compile-time constants for the array and its SSA family.
+//!   - No `ArrayIndex`/`ArrayInsert` with non-constant `index` in the family
+//!
+//! If any non-constant indexing exists in the SSA family (the original array and all
+//! values derived from it via `Assign` and `ArrayInsert`), the array is not scalarized.
+//! Fixed-index `ArrayIndex`/`ArrayInsert` remain eligible for forwarding like tuples.
+//!
 //! ### Implementation Strategy
 //!
 //! 1. **Analysis Phase**:
@@ -35,19 +45,19 @@
 //!    - Build instruction list for forward-looking analysis
 //!
 //! 2. **Transformation Phase** (per instruction):
-//!    - **MakeStruct/MakeTuple**: Check scalarization conditions recursively
+//!    - **MakeStruct/MakeTuple/MakeFixedArray**: Check scalarization conditions recursively
 //!      - If scalarizable: capture field values in `AggState`, drop instruction
 //!      - If not: keep instruction unchanged
 //!
-//!    - **ExtractField/ExtractTuple**: Replace with direct field access
+//!    - **ExtractField/ExtractTuple/ArrayIndex (const)**: Replace with direct field access
 //!      - Rewrite to simple assignment of the tracked scalar value
 //!
-//!    - **InsertField/InsertTuple**: Forward partial updates
-//!      - Create new `AggState` with updated field
+//!    - **InsertField/InsertTuple/ArrayInsert (const)**: Forward partial updates
+//!      - Create new `AggState` with updated field/element
 //!
 //!    - **Assign**: Propagate aggregate states between values
 //!
-//!    - **Call/Return**: Materialize aggregates as needed
+//!    - **Call/Store/Return**: Materialize aggregates as needed
 //!      - Reconstruct full aggregates from scalar fields at ABI boundaries
 //!
 //! ### Recursive Forward-Looking Analysis
@@ -66,7 +76,7 @@
 //! ## Limitations (Phase 1)
 //!
 //! - No scalarization across basic blocks (requires phi node handling)
-//! - Arrays are not scalarized (remain memory-based)
+//! - Arrays are not scalarized if any dynamic indexing occurs
 //! - Recursive aggregates not supported
 //! - Maximum aggregate size limit (configurable, default 8 fields)
 
@@ -79,13 +89,13 @@ use crate::{
 
 use super::MirPass;
 
-/// Phase-1 SROA: tuples & structs, no arrays, no aggregate PHIs.
+/// Phase-1 SROA: tuples & structs, optional arrays (no dynamic array indexing), no aggregate PHIs.
 ///
 /// Strategy:
-///  - Track aggregates built by MakeTuple/MakeStruct (and copies via Assign)
-///  - Model partial updates (InsertTuple/InsertField) as per-component SSA
+///  - Track aggregates built by MakeTuple/MakeStruct/MakeFixedArray (and copies via Assign)
+///  - Model partial updates (InsertTuple/InsertField/InsertArrayElement) as per-component SSA
 ///  - Rewrite Extract* → Assign of the scalar value
-///  - At uses that REQUIRE a true aggregate (call param typed as aggregate, or Store with aggregate ty),
+///  - At uses that REQUIRE a true aggregate (call param typed as aggregate, Store with aggregate ty),
 ///    materialize right before the use from the latest per-field values
 ///  - Keep PHIs unchanged in v1 (skip blocks that would need per-field PHIs)
 #[derive(Debug, Default)]
@@ -169,6 +179,10 @@ impl ScalarReplacementOfAggregates {
             MirType::Struct { fields, .. } if self.config.enable_structs => {
                 fields.len() <= self.config.max_aggregate_size
             }
+            MirType::FixedArray { size, .. } if self.config.enable_tuples => {
+                // Treat arrays like tuples for SROA purposes
+                *size <= self.config.max_aggregate_size
+            }
             _ => false,
         }
     }
@@ -194,11 +208,12 @@ impl ScalarReplacementOfAggregates {
         }
         visited.insert(*dest);
 
-        // Find the MakeStruct/MakeTuple instruction for this dest
+        // Find the MakeStruct/MakeTuple/MakeFixedArray instruction for this dest
         let Some(make_inst) = instructions.iter().find(|inst| {
             match &inst.kind {
                 InstructionKind::MakeStruct { dest: d, .. } => d == dest,
                 InstructionKind::MakeTuple { dest: d, .. } => d == dest,
+                InstructionKind::MakeFixedArray { dest: d, .. } => d == dest,
                 _ => false,
             }
         }) else {
@@ -240,6 +255,17 @@ impl ScalarReplacementOfAggregates {
                 };
 
                 // Check basic conditions
+                if !self.is_scalarizable(ty) || cross_block_aggregates.contains(dest) {
+                    return false;
+                }
+            }
+            InstructionKind::MakeFixedArray { .. } => {
+                // Get array type
+                let Some(ty @ MirType::FixedArray { .. }) = function.get_value_type(*dest) else {
+                    return false;
+                };
+
+                // Check basic conditions (arrays behave like tuples for SROA)
                 if !self.is_scalarizable(ty) || cross_block_aggregates.contains(dest) {
                     return false;
                 }
@@ -313,6 +339,26 @@ impl ScalarReplacementOfAggregates {
                         }
                     }
                 }
+                // Check if used in array indexing with non-constant index - cannot scalarize
+                InstructionKind::ArrayIndex { array, index, .. } => {
+                    if array.is_operand()
+                        && array.as_operand() == Some(*dest)
+                        && !matches!(index, Value::Literal(crate::value::Literal::Integer(_)))
+                    {
+                        return false;
+                    }
+                }
+                // Check if used in array insert with non-constant index - cannot scalarize
+                InstructionKind::ArrayInsert {
+                    array_val, index, ..
+                } => {
+                    if array_val.is_operand()
+                        && array_val.as_operand() == Some(*dest)
+                        && !matches!(index, Value::Literal(crate::value::Literal::Integer(_)))
+                    {
+                        return false;
+                    }
+                }
                 _ => {}
             }
         }
@@ -320,21 +366,74 @@ impl ScalarReplacementOfAggregates {
         true
     }
 
-    /// Find aggregates that are used across block boundaries.
-    /// In phase 1, we skip scalarizing these to maintain correctness.
-    fn find_cross_block_aggregates(&self, function: &MirFunction) -> FxHashSet<ValueId> {
-        let mut cross_block = FxHashSet::default();
-        let mut defined_in_block: FxHashMap<ValueId, BasicBlockId> = FxHashMap::default();
+    /// Build the SSA family of an aggregate value.
+    ///
+    /// A family consists of the root value and all values derived from it
+    /// via Assign and Insert* operations within the same instruction sequence.
+    fn build_aggregate_family(
+        &self,
+        root: ValueId,
+        instructions: &[Instruction],
+        function: &MirFunction,
+    ) -> FxHashSet<ValueId> {
+        let mut family = FxHashSet::default();
+        family.insert(root);
 
-        // First pass: record where each aggregate is defined
-        for (block_id, block) in function.basic_blocks.iter_enumerated() {
-            for inst in &block.instructions {
+        // Determine the aggregate type to match the right operations
+        let root_ty = function.get_value_type(root);
+
+        // Iteratively expand the family
+        let mut changed = true;
+        while changed {
+            changed = false;
+            for inst in instructions {
                 match &inst.kind {
-                    InstructionKind::MakeTuple { dest, .. }
-                    | InstructionKind::MakeStruct { dest, .. } => {
-                        if let Some(ty) = function.get_value_type(*dest) {
-                            if self.is_scalarizable(ty) {
-                                defined_in_block.insert(*dest, block_id);
+                    // Assign propagates the family membership
+                    InstructionKind::Assign { dest, source, ty } => {
+                        // Check if types match (same aggregate type)
+                        if let (Some(root_ty), Value::Operand(src_id)) = (root_ty.as_ref(), source)
+                        {
+                            let types_match = match (root_ty, ty) {
+                                (MirType::FixedArray { .. }, MirType::FixedArray { .. }) => true,
+                                (MirType::Tuple(_), MirType::Tuple(_)) => true,
+                                (MirType::Struct { .. }, MirType::Struct { .. }) => true,
+                                _ => false,
+                            };
+
+                            if types_match && family.contains(src_id) && !family.contains(dest) {
+                                family.insert(*dest);
+                                changed = true;
+                            }
+                        }
+                    }
+                    // Insert operations create new family members
+                    InstructionKind::ArrayInsert {
+                        dest, array_val, ..
+                    } => {
+                        if let Value::Operand(src_id) = array_val {
+                            if family.contains(src_id) && !family.contains(dest) {
+                                family.insert(*dest);
+                                changed = true;
+                            }
+                        }
+                    }
+                    InstructionKind::InsertTuple {
+                        dest, tuple_val, ..
+                    } => {
+                        if let Value::Operand(src_id) = tuple_val {
+                            if family.contains(src_id) && !family.contains(dest) {
+                                family.insert(*dest);
+                                changed = true;
+                            }
+                        }
+                    }
+                    InstructionKind::InsertField {
+                        dest, struct_val, ..
+                    } => {
+                        if let Value::Operand(src_id) = struct_val {
+                            if family.contains(src_id) && !family.contains(dest) {
+                                family.insert(*dest);
+                                changed = true;
                             }
                         }
                     }
@@ -343,14 +442,97 @@ impl ScalarReplacementOfAggregates {
             }
         }
 
-        // Second pass: check if aggregates are used in different blocks
+        family
+    }
+
+    /// Check if any value in an array's SSA family has non-constant index usage.
+    fn array_family_has_dynamic_index_use(
+        &self,
+        root: ValueId,
+        instructions: &[Instruction],
+        function: &MirFunction,
+    ) -> bool {
+        let family = self.build_aggregate_family(root, instructions, function);
+
+        // Check for non-constant indexing on any member of the family
+        for inst in instructions {
+            match &inst.kind {
+                InstructionKind::ArrayIndex { array, index, .. } => {
+                    if let Value::Operand(id) = array {
+                        if family.contains(id)
+                            && !matches!(index, Value::Literal(crate::value::Literal::Integer(_)))
+                        {
+                            return true;
+                        }
+                    }
+                }
+                InstructionKind::ArrayInsert {
+                    array_val, index, ..
+                } => {
+                    if let Value::Operand(id) = array_val {
+                        if family.contains(id)
+                            && !matches!(index, Value::Literal(crate::value::Literal::Integer(_)))
+                        {
+                            return true;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        false
+    }
+
+    /// Find aggregates that are used across block boundaries.
+    /// In phase 1, we skip scalarizing these to maintain correctness.
+    fn find_cross_block_aggregates(&self, function: &MirFunction) -> FxHashSet<ValueId> {
+        let mut cross_block = FxHashSet::default();
+
+        // Map each aggregate value to its root and defining block
+        // root -> (block_id, family_members)
+        let mut root_definitions: FxHashMap<ValueId, (BasicBlockId, FxHashSet<ValueId>)> =
+            FxHashMap::default();
+
+        // First pass: build families for each block
+        for (block_id, block) in function.basic_blocks.iter_enumerated() {
+            // Find all root aggregates (Make* instructions) in this block
+            let mut block_roots = Vec::new();
+            for inst in &block.instructions {
+                match &inst.kind {
+                    InstructionKind::MakeTuple { dest, .. }
+                    | InstructionKind::MakeStruct { dest, .. }
+                    | InstructionKind::MakeFixedArray { dest, .. } => {
+                        if let Some(ty) = function.get_value_type(*dest) {
+                            if self.is_scalarizable(ty) {
+                                block_roots.push(*dest);
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            // Build families for each root in this block
+            let block_instructions: Vec<_> = block.instructions.clone();
+            for root in block_roots {
+                let family = self.build_aggregate_family(root, &block_instructions, function);
+                root_definitions.insert(root, (block_id, family));
+            }
+        }
+
+        // Second pass: check if any family member is used in a different block
         for (block_id, block) in function.basic_blocks.iter_enumerated() {
             // Check all value uses in instructions
             for inst in &block.instructions {
                 self.collect_value_uses_in_instruction(&inst.kind, |used_value| {
-                    if let Some(&def_block) = defined_in_block.get(&used_value) {
-                        if def_block != block_id {
-                            cross_block.insert(used_value);
+                    // Find if this value belongs to any family
+                    for (def_block, family) in root_definitions.values() {
+                        if family.contains(&used_value) && *def_block != block_id {
+                            // This aggregate family is used across blocks
+                            // Mark all family members as cross-block
+                            for member in family {
+                                cross_block.insert(*member);
+                            }
                         }
                     }
                 });
@@ -358,9 +540,14 @@ impl ScalarReplacementOfAggregates {
 
             // Check terminator uses
             self.collect_value_uses_in_terminator(&block.terminator, |used_value| {
-                if let Some(&def_block) = defined_in_block.get(&used_value) {
-                    if def_block != block_id {
-                        cross_block.insert(used_value);
+                // Find if this value belongs to any family
+                for (def_block, family) in root_definitions.values() {
+                    if family.contains(&used_value) && *def_block != block_id {
+                        // This aggregate family is used across blocks
+                        // Mark all family members as cross-block
+                        for member in family {
+                            cross_block.insert(*member);
+                        }
                     }
                 }
             });
@@ -488,6 +675,38 @@ impl ScalarReplacementOfAggregates {
             }
             InstructionKind::Debug { .. } => {}
             InstructionKind::Nop => {}
+            // Array operations
+            InstructionKind::MakeFixedArray { elements, .. } => {
+                for elem in elements {
+                    if let Value::Operand(id) = elem {
+                        callback(*id);
+                    }
+                }
+            }
+            InstructionKind::ArrayIndex { array, index, .. } => {
+                if let Value::Operand(id) = array {
+                    callback(*id);
+                }
+                if let Value::Operand(id) = index {
+                    callback(*id);
+                }
+            }
+            InstructionKind::ArrayInsert {
+                array_val,
+                index,
+                new_value,
+                ..
+            } => {
+                if let Value::Operand(id) = array_val {
+                    callback(*id);
+                }
+                if let Value::Operand(id) = index {
+                    callback(*id);
+                }
+                if let Value::Operand(id) = new_value {
+                    callback(*id);
+                }
+            }
         }
     }
 
@@ -597,7 +816,6 @@ impl MirPass for ScalarReplacementOfAggregates {
 
                         // For tuples, we scalarize even if used in calls (will materialize later)
                         // Only check for nested aggregate dependencies
-                        // TODO: come back on this later.
                         let mut can_scalarize = true;
                         for future_inst in &all_instructions {
                             if let InstructionKind::MakeTuple {
@@ -678,6 +896,54 @@ impl MirPass for ScalarReplacementOfAggregates {
                         }
                     }
 
+                    // Handle MakeFixedArray like Tuple, but forbid SROA if any dynamic indexing
+                    InstructionKind::MakeFixedArray { dest, elements, .. }
+                        if self.config.enable_tuples =>
+                    {
+                        let Some(ty @ MirType::FixedArray { .. }) = function.get_value_type(*dest) else {
+                            new_instrs.push(inst);
+                            continue;
+                        };
+
+                        if !self.is_scalarizable(ty) {
+                            new_instrs.push(inst);
+                            continue;
+                        }
+
+                        // Skip scalarization if used across blocks in phase 1
+                        if cross_block_aggregates.contains(dest) {
+                            new_instrs.push(inst);
+                            continue;
+                        }
+
+                        // Full decision: general recursive checks AND no dynamic index in the array family
+                        let mut visited = FxHashSet::default();
+                        let can_scalarize_general = self.can_scalarize_aggregate(
+                            dest,
+                            &all_instructions,
+                            function,
+                            &cross_block_aggregates,
+                            &mut visited,
+                        );
+
+                        let family_has_dynamic_index = self.array_family_has_dynamic_index_use(
+                            *dest,
+                            &all_instructions,
+                            function,
+                        );
+
+                        if !(can_scalarize_general && !family_has_dynamic_index) {
+                            // Keep as real array (do not SROA)
+                            new_instrs.push(inst);
+                            continue;
+                        }
+
+                        // Arrays can be scalarized like tuples
+                        agg_states.insert(*dest, AggState::tuple(elements.clone()));
+                        self.stats.scalarized_builds += 1;
+                        block_modified = true;
+                    }
+
                     // 2) Partial updates → produce new aggregate state; drop instruction
                     InstructionKind::InsertTuple {
                         dest,
@@ -733,6 +999,40 @@ impl MirPass for ScalarReplacementOfAggregates {
                         agg_states.insert(*dest, next);
                         self.stats.inserts_forwarded += 1;
                         block_modified = true;
+                    }
+
+                    // Handle ArrayInsert with constant index like InsertTuple; dynamic index keeps instruction
+                    InstructionKind::ArrayInsert {
+                        dest,
+                        array_val,
+                        index,
+                        new_value,
+                        array_ty: _,
+                    } if self.config.enable_tuples => {
+                        // Only forward when index is a literal
+                        if let Value::Literal(crate::value::Literal::Integer(idx)) = index {
+                            let Some(src_id) = array_val.as_operand() else {
+                                new_instrs.push(inst);
+                                continue;
+                            };
+                            let Some(src_state) = agg_states.get(&src_id).cloned() else {
+                                new_instrs.push(inst);
+                                continue;
+                            };
+                            let mut next = src_state;
+                            let i = *idx as usize;
+                            if i >= next.elems.len() {
+                                new_instrs.push(inst);
+                                continue;
+                            }
+                            next.elems[i] = *new_value;
+                            agg_states.insert(*dest, next);
+                            self.stats.inserts_forwarded += 1;
+                            block_modified = true;
+                        } else {
+                            // Dynamic index: keep as-is
+                            new_instrs.push(inst);
+                        }
                     }
 
                     // 3) Extracts → rewrite into Assign of the scalar; drop original
@@ -820,11 +1120,56 @@ impl MirPass for ScalarReplacementOfAggregates {
                         block_modified = true;
                     }
 
+                    // Handle ArrayIndex with constant index like ExtractTupleElement; dynamic index keeps instruction
+                    InstructionKind::ArrayIndex {
+                        dest,
+                        array,
+                        index,
+                        element_ty,
+                    } if self.config.enable_tuples => {
+                        // Only forward when index is a literal
+                        if let Value::Literal(crate::value::Literal::Integer(idx)) = index {
+                            let Some(src_id) = array.as_operand() else {
+                                new_instrs.push(inst);
+                                continue;
+                            };
+                            let Some(state) = agg_states.get(&src_id) else {
+                                new_instrs.push(inst);
+                                continue;
+                            };
+                            let i = *idx as usize;
+                            if i >= state.elems.len() {
+                                new_instrs.push(inst);
+                                continue;
+                            }
+                            let scalar = state.elems[i];
+
+                            // Check if the extracted element is itself an aggregate that's been scalarized
+                            if let Value::Operand(elem_val_id) = &scalar {
+                                if let Some(elem_state) = agg_states.get(elem_val_id) {
+                                    // The extracted element is a scalarized aggregate - propagate its state
+                                    agg_states.insert(*dest, elem_state.clone());
+                                    self.stats.extracts_rewritten += 1;
+                                    block_modified = true;
+                                    continue;
+                                }
+                            }
+
+                            // For non-aggregate elements or non-scalarized aggregates, do normal assignment
+                            new_instrs.push(Instruction::assign(*dest, scalar, element_ty.clone()));
+                            self.stats.extracts_rewritten += 1;
+                            block_modified = true;
+                        } else {
+                            // Dynamic index: keep as-is
+                            new_instrs.push(inst);
+                        }
+                    }
+
                     // 4) Aggregate Assign forwarding (copy-prop for aggregates)
                     InstructionKind::Assign {
                         dest,
                         source,
-                        ty: MirType::Tuple(_) | MirType::Struct { .. },
+                        ty: MirType::Tuple(_) | MirType::Struct { .. } | MirType::FixedArray { .. },
                     } => {
                         if let Value::Operand(src_id) = source {
                             if let Some(state) = agg_states.get(src_id).cloned() {
@@ -856,7 +1201,9 @@ impl MirPass for ScalarReplacementOfAggregates {
 
                             let needs_agg = matches!(
                                 signature.param_types.get(i),
-                                Some(MirType::Tuple(_)) | Some(MirType::Struct { .. })
+                                Some(MirType::Tuple(_))
+                                    | Some(MirType::Struct { .. })
+                                    | Some(MirType::FixedArray { .. })
                             );
                             if !needs_agg {
                                 continue;
@@ -889,7 +1236,10 @@ impl MirPass for ScalarReplacementOfAggregates {
                     }
 
                     InstructionKind::Store { address, value, ty } => {
-                        if matches!(ty, MirType::Tuple(_) | MirType::Struct { .. }) {
+                        if matches!(
+                            ty,
+                            MirType::Tuple(_) | MirType::Struct { .. } | MirType::FixedArray { .. }
+                        ) {
                             if let Value::Operand(src_id) = value {
                                 if let Some(state) = agg_states.get(src_id) {
                                     let mat_id = materialize(function, &mut new_instrs, state, ty);
@@ -1055,6 +1405,23 @@ fn materialize(
             }
             let dest = func.new_typed_value_id(ty.clone());
             sink.push(Instruction::make_struct(dest, pairs, ty.clone()));
+            dest
+        }
+        MirType::FixedArray { element_type, size } => {
+            // Rebuild array from elements. The tracked element count must match the array size.
+            assert_eq!(
+                state.elems.len(),
+                *size,
+                "SROA materialize: array element count mismatch (have {}, want {})",
+                state.elems.len(),
+                size
+            );
+            let dest = func.new_typed_value_id(ty.clone());
+            sink.push(Instruction::make_fixed_array(
+                dest,
+                state.elems.clone(),
+                (**element_type).clone(),
+            ));
             dest
         }
         _ => {
