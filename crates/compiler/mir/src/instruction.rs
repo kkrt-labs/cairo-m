@@ -366,6 +366,33 @@ pub enum InstructionKind {
         new_value: Value,
         tuple_ty: MirType,
     },
+
+    /// Create a fixed-size array from values: `dest = make_fixed_array([v0, v1, ...])`
+    /// Arrays are value-based aggregates in MIR but materialize to memory when necessary
+    MakeFixedArray {
+        dest: ValueId,
+        elements: Vec<Value>,
+        element_ty: MirType,
+    },
+
+    /// Index into a fixed-size array: `dest = arrayindex array, index`
+    /// When `index` is a literal, enables SROA; otherwise materialization paths apply.
+    ArrayIndex {
+        dest: ValueId,
+        array: Value,
+        index: Value,
+        element_ty: MirType,
+    },
+
+    /// Insert/Update array element: `dest = arrayinsert array_val, index, value`
+    /// Creates a new array value with element at `index` replaced.
+    ArrayInsert {
+        dest: ValueId,
+        array_val: Value,
+        index: Value,
+        new_value: Value,
+        array_ty: MirType,
+    },
 }
 
 impl Instruction {
@@ -623,6 +650,66 @@ impl Instruction {
         }
     }
 
+    /// Creates a new make fixed array instruction
+    pub const fn make_fixed_array(
+        dest: ValueId,
+        elements: Vec<Value>,
+        element_ty: MirType,
+    ) -> Self {
+        Self {
+            kind: InstructionKind::MakeFixedArray {
+                dest,
+                elements,
+                element_ty,
+            },
+            source_span: None,
+            source_expr_id: None,
+            comment: None,
+        }
+    }
+
+    /// Creates a new array index instruction
+    pub const fn array_index(
+        dest: ValueId,
+        array: Value,
+        index: Value,
+        element_ty: MirType,
+    ) -> Self {
+        Self {
+            kind: InstructionKind::ArrayIndex {
+                dest,
+                array,
+                index,
+                element_ty,
+            },
+            source_span: None,
+            source_expr_id: None,
+            comment: None,
+        }
+    }
+
+    /// Creates a new array insert instruction
+    pub const fn array_insert(
+        dest: ValueId,
+        array_val: Value,
+        index: Value,
+        new_value: Value,
+        array_ty: MirType,
+    ) -> Self {
+        Self {
+            kind: InstructionKind::ArrayInsert {
+                dest,
+                array_val,
+                index,
+                new_value,
+                array_ty,
+            },
+            source_span: None,
+            source_expr_id: None,
+            comment: None,
+        }
+    }
+
     /// Sets the source span for this instruction
     pub const fn with_span(mut self, span: SimpleSpan<usize>) -> Self {
         self.source_span = Some(span);
@@ -658,7 +745,10 @@ impl Instruction {
             | InstructionKind::MakeStruct { dest, .. }
             | InstructionKind::ExtractStructField { dest, .. }
             | InstructionKind::InsertField { dest, .. }
-            | InstructionKind::InsertTuple { dest, .. } => vec![*dest],
+            | InstructionKind::InsertTuple { dest, .. }
+            | InstructionKind::MakeFixedArray { dest, .. }
+            | InstructionKind::ArrayIndex { dest, .. }
+            | InstructionKind::ArrayInsert { dest, .. } => vec![*dest],
 
             InstructionKind::Call { dests, .. } => dests.clone(),
 
@@ -817,6 +907,38 @@ impl Instruction {
                     used.insert(*id);
                 }
             }
+
+            InstructionKind::MakeFixedArray { elements, .. } => {
+                visit_values(elements, |id| {
+                    used.insert(id);
+                });
+            }
+
+            InstructionKind::ArrayIndex { array, index, .. } => {
+                visit_value(array, |id| {
+                    used.insert(id);
+                });
+                visit_value(index, |id| {
+                    used.insert(id);
+                });
+            }
+
+            InstructionKind::ArrayInsert {
+                array_val,
+                index,
+                new_value,
+                ..
+            } => {
+                visit_value(array_val, |id| {
+                    used.insert(id);
+                });
+                visit_value(index, |id| {
+                    used.insert(id);
+                });
+                visit_value(new_value, |id| {
+                    used.insert(id);
+                });
+            }
         }
 
         used
@@ -907,6 +1029,23 @@ impl Instruction {
                 replace_value_id(tuple_val, from, to);
                 replace_value_id(new_value, from, to);
             }
+            InstructionKind::MakeFixedArray { elements, .. } => {
+                replace_value_ids(elements, from, to);
+            }
+            InstructionKind::ArrayIndex { array, index, .. } => {
+                replace_value_id(array, from, to);
+                replace_value_id(index, from, to);
+            }
+            InstructionKind::ArrayInsert {
+                array_val,
+                index,
+                new_value,
+                ..
+            } => {
+                replace_value_id(array_val, from, to);
+                replace_value_id(index, from, to);
+                replace_value_id(new_value, from, to);
+            }
         }
     }
 
@@ -932,6 +1071,9 @@ impl Instruction {
             InstructionKind::ExtractStructField { .. } => Ok(()),
             InstructionKind::InsertField { .. } => Ok(()),
             InstructionKind::InsertTuple { .. } => Ok(()),
+            InstructionKind::MakeFixedArray { .. } => Ok(()),
+            InstructionKind::ArrayIndex { .. } => Ok(()),
+            InstructionKind::ArrayInsert { .. } => Ok(()),
         }
     }
 
@@ -1267,6 +1409,53 @@ impl PrettyPrint for Instruction {
                     dest.pretty_print(0),
                     tuple_val.pretty_print(0),
                     index,
+                    new_value.pretty_print(0)
+                ));
+            }
+
+            InstructionKind::MakeFixedArray {
+                dest,
+                elements,
+                element_ty: _, // Type info not shown for cleaner output
+            } => {
+                let elements_str = elements
+                    .iter()
+                    .map(|elem| elem.pretty_print(0))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                result.push_str(&format!(
+                    "{} = makefixedarray [{}]",
+                    dest.pretty_print(0),
+                    elements_str
+                ));
+            }
+
+            InstructionKind::ArrayIndex {
+                dest,
+                array,
+                index,
+                element_ty: _, // Type info not shown for cleaner output
+            } => {
+                result.push_str(&format!(
+                    "{} = arrayindex {}, {}",
+                    dest.pretty_print(0),
+                    array.pretty_print(0),
+                    index.pretty_print(0)
+                ));
+            }
+
+            InstructionKind::ArrayInsert {
+                dest,
+                array_val,
+                index,
+                new_value,
+                array_ty: _, // Type info not shown for cleaner output
+            } => {
+                result.push_str(&format!(
+                    "{} = arrayinsert {}, {}, {}",
+                    dest.pretty_print(0),
+                    array_val.pretty_print(0),
+                    index.pretty_print(0),
                     new_value.pretty_print(0)
                 ));
             }

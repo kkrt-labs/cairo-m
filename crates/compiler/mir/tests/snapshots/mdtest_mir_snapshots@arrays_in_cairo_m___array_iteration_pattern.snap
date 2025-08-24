@@ -1,0 +1,51 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Arrays in Cairo-M - Array Iteration Pattern"
+input_file: mdtest/01-basics/05-arrays.md
+---
+Source:
+fn array_sum_loop() -> u32{
+    let arr: [u32; 5] = [1, 2, 3, 4, 5];
+    let sum: u32 = 0;
+    let i = 0;
+    while (i != 5) {
+        sum = sum + arr[i];
+        i = i + 1;
+    }
+    return sum;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn array_sum_loop {
+    entry: 0
+
+    0:
+      %0 = makefixedarray [1, 2, 3, 4, 5]
+      %1 = 0 (u32)
+      %2 = 0
+      %5 = %1 (u32)
+      %3 = %2
+      jump 1
+
+    1 (loop_header):
+      ; loop_header
+      if %3 != 5 then jump 2 else jump 3
+
+    2 (loop_body):
+      ; loop_body
+      %7 = arrayindex %0, %3
+      %8 = %5 U32Add %7
+      %9 = %3 + 1
+      %5 = %8 (u32)
+      %3 = %9
+      jump 1
+
+    3 (loop_exit):
+      ; loop_exit
+      return %5
+
+  }
+
+}

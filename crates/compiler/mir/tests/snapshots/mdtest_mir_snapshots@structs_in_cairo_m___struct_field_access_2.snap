@@ -11,6 +11,7 @@ struct RectangleU32 {
 
 fn calculate_area_u32() -> u32 {
     let rect = RectangleU32 { width: 5, height: 10 };
+    rect.width = 7;
     if rect.width == 5 {
         rect.width = rect.width * 3;
     } else {
@@ -27,30 +28,31 @@ module {
 
     0:
       %0 = makestruct { width: 5, height: 10 }
-      %1 = extractfield %0, "width"
-      if %1 U32Eq 5 then jump 1 else jump 2
+      %1 = insertfield %0, "width", 7
+      %2 = extractfield %1, "width"
+      if %2 U32Eq 5 then jump 1 else jump 2
 
     1 (block_1):
       ; block_1
-      %3 = extractfield %0, "width"
-      %4 = %3 U32Mul 3
-      %5 = insertfield %0, "width", %4
-      %8 = %5 (RectangleU32)
+      %4 = extractfield %1, "width"
+      %5 = %4 U32Mul 3
+      %6 = insertfield %1, "width", %5
+      %9 = %6 (RectangleU32)
       jump 3
 
     2 (block_2):
       ; block_2
-      %6 = extractfield %0, "height"
-      %7 = insertfield %0, "width", %6
-      %8 = %7 (RectangleU32)
+      %7 = extractfield %1, "height"
+      %8 = insertfield %1, "width", %7
+      %9 = %8 (RectangleU32)
       jump 3
 
     3 (block_3):
       ; block_3
-      %9 = extractfield %8, "width"
-      %10 = extractfield %8, "height"
-      %11 = %9 U32Mul %10
-      return %11
+      %10 = extractfield %9, "width"
+      %11 = extractfield %9, "height"
+      %12 = %10 U32Mul %11
+      return %12
 
   }
 

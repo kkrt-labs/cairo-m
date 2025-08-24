@@ -1,0 +1,49 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Arrays in Cairo-M - Array Access with Variable Index"
+input_file: mdtest/01-basics/05-arrays.md
+---
+Source:
+fn variable_index_access(index: felt) -> felt {
+    let arr: [felt; 3] = [1, 2, 3];
+    arr[0] = 10;
+    arr[1] = 20;
+    arr[2] = 30;
+    if index == 0 || index == 1 || index == 2 {
+        return arr[index];
+    } else {
+        return 0;
+    }
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn variable_index_access {
+    parameters: [0]
+    entry: 0
+
+    0:
+      %1 = makefixedarray [1, 2, 3]
+      %2 = arrayinsert %1, 0, 10
+      %3 = arrayinsert %2, 1, 20
+      %4 = arrayinsert %3, 2, 30
+      %5 = %0 == 0
+      %6 = %0 == 1
+      %7 = %5 || %6
+      %8 = %0 == 2
+      %9 = %7 || %8
+      if %9 then jump 1 else jump 2
+
+    1 (block_1):
+      ; block_1
+      %10 = arrayindex %4, %0
+      return %10
+
+    2 (block_2):
+      ; block_2
+      return 0
+
+  }
+
+}
