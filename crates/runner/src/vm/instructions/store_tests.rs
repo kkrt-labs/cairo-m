@@ -248,6 +248,36 @@ proptest! {
     }
 
     #[test]
+    fn test_store_to_double_deref_fp_imm(val_to_store: u32) {
+        run_simple_store_test(
+            &[0, 1, 2, 4, val_to_store],
+            Instruction::StoreToDoubleDerefFpImm {
+                base_off: M31(0), // Base address is 0
+                imm: M31(1), // Offset is 1 -> [fp + 1]
+                src_off: M31(4), // Source value is val_to_store
+            },
+            store_to_double_deref_fp_imm,
+            &[0, val_to_store, 2, 4, val_to_store],
+            1,
+        ).unwrap();
+    }
+
+    #[test]
+    fn test_store_to_double_deref_fp_fp(val_to_store: u32) {
+        run_simple_store_test(
+            &[0, 2, 2, 4, val_to_store],
+            Instruction::StoreToDoubleDerefFpFp {
+                base_off: M31(0), // Base address is 0
+                offset_off: M31(1), // Offset is [fp + 1] -> 2
+                src_off: M31(4), // Source value is val_to_store
+            },
+            store_to_double_deref_fp_fp,
+            &[0, 2, val_to_store, 4, val_to_store],
+            1,
+        ).unwrap();
+    }
+
+    #[test]
     fn test_store_mul_fp_fp(src0_val: u32, src1_val: u32) {
         let src0 = M31::from(src0_val);
         let src1 = M31::from(src1_val);

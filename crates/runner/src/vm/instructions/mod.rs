@@ -184,6 +184,8 @@ pub fn opcode_to_instruction_fn(op: M31) -> Result<InstructionFn, InstructionErr
         U32_STORE_AND_FP_IMM => u32_store_and_fp_imm,
         U32_STORE_OR_FP_IMM => u32_store_or_fp_imm,
         U32_STORE_XOR_FP_IMM => u32_store_xor_fp_imm,
+        STORE_TO_DOUBLE_DEREF_FP_IMM => store_to_double_deref_fp_imm,
+        STORE_TO_DOUBLE_DEREF_FP_FP => store_to_double_deref_fp_fp,
         _ => return Err(InstructionError::InvalidOpcode(op)),
     };
     Ok(f)

@@ -402,6 +402,64 @@ impl_u32_store_bin_op_fp_imm!(u32_store_and_fp_imm, U32StoreAndFpImm, |a, b| a &
 impl_u32_store_bin_op_fp_imm!(u32_store_or_fp_imm, U32StoreOrFpImm, |a, b| a | b);
 impl_u32_store_bin_op_fp_imm!(u32_store_xor_fp_imm, U32StoreXorFpImm, |a, b| a ^ b);
 
+// -------------------------------------------------------------------------------------------------
+// Reverse Double Deref operations - Store TO computed addresses
+// -------------------------------------------------------------------------------------------------
+
+/// CASM equivalent:
+/// ```casm
+/// [[fp + base_off] + imm] = [fp + src_off]
+/// ```
+///
+/// Stores the value at [fp + src_off] TO the address computed as [[fp + base_off] + imm].
+/// This is the reverse of StoreDoubleDerefFp which reads FROM a computed address.
+pub fn store_to_double_deref_fp_imm(
+    memory: &mut Memory,
+    state: State,
+    instruction: &Instruction,
+) -> Result<State, InstructionExecutionError> {
+    let (base_off, imm, src_off) = extract_as!(
+        instruction,
+        StoreToDoubleDerefFpImm,
+        (base_off, imm, src_off)
+    );
+
+    let value = memory.get_data(state.fp + src_off)?;
+    let base_address = memory.get_data(state.fp + base_off)?;
+    let target_address = base_address + imm;
+    memory.insert(target_address, value.into())?;
+
+    Ok(state.advance_by(instruction.size_in_qm31s()))
+}
+
+/// CASM equivalent:
+/// ```casm
+/// [[fp + base_off] + [fp + offset_off]] = [fp + src_off]
+/// ```
+///
+/// Stores the value at [fp + src_off] TO the address computed as [[fp + base_off] + [fp + offset_off]].
+/// This is the reverse of StoreDoubleDerefFpFp which reads FROM a computed address.
+pub fn store_to_double_deref_fp_fp(
+    memory: &mut Memory,
+    state: State,
+    instruction: &Instruction,
+) -> Result<State, InstructionExecutionError> {
+    let (base_off, offset_off, src_off) = extract_as!(
+        instruction,
+        StoreToDoubleDerefFpFp,
+        (base_off, offset_off, src_off)
+    );
+
+    let value = memory.get_data(state.fp + src_off)?;
+    let offset_value = memory.get_data(state.fp + offset_off)?;
+    let base_addr = memory.get_data(state.fp + base_off)?;
+
+    let target_address = base_addr + offset_value;
+    memory.insert(target_address, value.into())?;
+
+    Ok(state.advance_by(instruction.size_in_qm31s()))
+}
+
 #[cfg(test)]
 #[path = "./store_tests.rs"]
 mod store_tests;
