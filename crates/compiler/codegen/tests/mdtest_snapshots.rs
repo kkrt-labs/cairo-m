@@ -6,6 +6,7 @@ mod common;
 
 use cairo_m_compiler_codegen::CodeGenerator;
 use cairo_m_compiler_mir::generate_mir;
+use cairo_m_compiler_semantic::db::project_validate_semantics;
 use cairo_m_test_utils::{mdtest::MdTestRunner, mdtest_path};
 use common::{create_test_crate, TestDatabase};
 
@@ -19,6 +20,15 @@ fn test_mdtest_codegen_snapshots() {
 
         let runner = MdTestRunner::new("CASM", |source, name| {
             let crate_id = create_test_crate(&db, source, name, "mdtest");
+
+            // validate semantics
+            let diagnostics = project_validate_semantics(&db, crate_id);
+            if diagnostics.has_errors() {
+                let formatted_diags = diagnostics.display_without_color(source);
+                return Err(format!(
+                    "Semantic validation failed with diagnostics:\n{formatted_diags}",
+                ));
+            }
 
             // First generate MIR
             let mir_module = match generate_mir(&db, crate_id) {

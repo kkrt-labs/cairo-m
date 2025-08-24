@@ -1,0 +1,17 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Arrays in Cairo-M - Basic Array Creation 2"
+input_file: mdtest/01-basics/05-arrays.md
+---
+Source:
+fn create_array_u32() -> u32 {
+    let arr: [u32; 3] = [1, 2, 3];
+    return arr[0];
+}
+============================================================
+Generated CASM:
+create_array_u32:
+create_array_u32:
+create_array_u32_0:
+   0: 23 1 0 -4            // u32([fp + -4], [fp + -3]) = u32(1)
+   1: 11 _ _ _             // return

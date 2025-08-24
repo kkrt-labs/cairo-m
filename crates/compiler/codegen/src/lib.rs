@@ -225,6 +225,8 @@ pub enum CodegenError {
     LayoutError(String),
     /// Unresolved label reference
     UnresolvedLabel(String),
+
+    InternalError(String),
 }
 
 impl std::fmt::Display for CodegenError {
@@ -235,6 +237,7 @@ impl std::fmt::Display for CodegenError {
             Self::UnsupportedInstruction(msg) => write!(f, "Unsupported instruction: {msg}"),
             Self::LayoutError(msg) => write!(f, "Layout error: {msg}"),
             Self::UnresolvedLabel(msg) => write!(f, "Unresolved label: {msg}"),
+            Self::InternalError(msg) => write!(f, "Internal error: {msg}"),
         }
     }
 }

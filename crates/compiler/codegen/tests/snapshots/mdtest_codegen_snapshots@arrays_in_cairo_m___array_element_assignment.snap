@@ -1,0 +1,19 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Arrays in Cairo-M - Array Element Assignment"
+input_file: mdtest/01-basics/05-arrays.md
+---
+Source:
+fn assign_array_element() -> felt {
+    let arr: [felt; 3] = [1, 2, 3];
+    arr[0] = 42;           // Set first element
+    arr[1] = 24;           // Set second element
+    return arr[0];         // Return first element
+}
+============================================================
+Generated CASM:
+assign_array_element:
+assign_array_element:
+assign_array_element_0:
+   0: 9 42 -3 _            // [fp + -3] = 42
+   1: 11 _ _ _             // return

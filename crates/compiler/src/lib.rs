@@ -1,5 +1,6 @@
 //! Cairo-M compiler library
 #![allow(clippy::option_if_let_else)]
+#![recursion_limit = "512"]
 
 pub mod db;
 use std::collections::HashMap;

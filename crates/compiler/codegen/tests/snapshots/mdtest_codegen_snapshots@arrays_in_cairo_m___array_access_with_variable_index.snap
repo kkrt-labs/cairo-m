@@ -1,0 +1,79 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Arrays in Cairo-M - Array Access with Variable Index"
+input_file: mdtest/01-basics/05-arrays.md
+---
+Source:
+fn variable_index_access(index: felt) -> felt {
+    let arr: [felt; 3] = [1, 2, 3];
+    arr[0] = 10;
+    arr[1] = 20;
+    arr[2] = 30;
+    if index == 0 || index == 1 || index == 2 {
+        return arr[index];
+    } else {
+        return 0;
+    }
+}
+============================================================
+Generated CASM:
+variable_index_access:
+variable_index_access:
+variable_index_access_0:
+   0: 9 1 10 _             // [fp + 10] = 1
+   1: 9 2 11 _             // [fp + 11] = 2
+   2: 9 3 12 _             // [fp + 12] = 3
+   3: 43 10 0 _            // [fp + 0] = fp + 10
+   4: 4 0 0 1              // [fp + 1] = [fp + 0] + 0 (copy array pointer)
+   5: 9 10 13 _            // [fp + 13] = 10
+   6: 44 0 0 13            // [[fp + 0] + 0] = [fp + 13]
+   7: 4 1 0 2              // [fp + 2] = [fp + 1] + 0 (copy array pointer)
+   8: 9 20 14 _            // [fp + 14] = 20
+   9: 44 1 1 14            // [[fp + 1] + 1] = [fp + 14]
+  10: 4 2 0 3              // [fp + 3] = [fp + 2] + 0 (copy array pointer)
+  11: 9 30 15 _            // [fp + 15] = 30
+  12: 44 2 2 15            // [[fp + 2] + 2] = [fp + 15]
+  13: 5 -4 0 4             // [fp + 4] = [fp + -4] op 0
+  14: 14 4 3 _             // if [fp + 4] != 0, jump to not_zero_0
+  15: 9 1 4 _              // [fp + 4] = 1
+  16: 12 18 _ _            // jump to end_1
+not_zero_0:
+  17: 9 0 4 _              // [fp + 4] = 0
+end_1:
+  18: 5 -4 1 5             // [fp + 5] = [fp + -4] op 1
+  19: 14 5 3 _             // if [fp + 5] != 0, jump to not_zero_2
+  20: 9 1 5 _              // [fp + 5] = 1
+  21: 12 23 _ _            // jump to end_3
+not_zero_2:
+  22: 9 0 5 _              // [fp + 5] = 0
+end_3:
+  23: 9 0 6 _              // Initialize OR result to 0
+  24: 14 4 3 _             // if [fp + 4] != 0, jump to or_true_4
+  25: 14 5 2 _             // if [fp + 5] != 0, jump to or_true_4
+  26: 12 28 _ _            // jump to or_end_5
+or_true_4:
+  27: 9 1 6 _              // [fp + 6] = 1
+or_end_5:
+  28: 5 -4 2 7             // [fp + 7] = [fp + -4] op 2
+  29: 14 7 3 _             // if [fp + 7] != 0, jump to not_zero_6
+  30: 9 1 7 _              // [fp + 7] = 1
+  31: 12 33 _ _            // jump to end_7
+not_zero_6:
+  32: 9 0 7 _              // [fp + 7] = 0
+end_7:
+  33: 9 0 8 _              // Initialize OR result to 0
+  34: 14 6 3 _             // if [fp + 6] != 0, jump to or_true_8
+  35: 14 7 2 _             // if [fp + 7] != 0, jump to or_true_8
+  36: 12 38 _ _            // jump to or_end_9
+or_true_8:
+  37: 9 1 8 _              // [fp + 8] = 1
+or_end_9:
+  38: 14 8 2 _             // if [fp + 8] != 0 jmp rel variable_index_access_1
+  39: 12 43 _ _            // jump abs variable_index_access_2
+variable_index_access_1:
+  40: 42 3 -4 9            // [fp + 9] = [[fp + 3] + [fp + -4]]
+  41: 4 9 0 -3             // Return value 0: [fp -3] = [fp + 9] + 0
+  42: 11 _ _ _             // return
+variable_index_access_2:
+  43: 9 0 -3 _             // Return value 0: [fp -3] = 0
+  44: 11 _ _ _             // return
