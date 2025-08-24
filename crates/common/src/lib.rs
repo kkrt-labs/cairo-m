@@ -1,3 +1,4 @@
+#![allow(clippy::option_if_let_else)]
 pub mod abi_codec;
 pub mod execution;
 pub mod instruction;

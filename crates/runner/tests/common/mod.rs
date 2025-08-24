@@ -76,12 +76,12 @@ pub fn run_mdtest_diff(test: &mdtest::MdTest) -> Result<(), String> {
         .unwrap_or_default();
 
     // Execute Cairo-M program
-    let (cairo_values, _cairo_output_info) =
+    let cairo_output_info =
         run_cairo_program(&compiled.program, &entry_point, &args, runner_options)
             .map_err(|e| format!("Runtime error: {:?}", e))?;
 
     // Format output
-    let cairo_output = format_output(&cairo_values, &entrypoint_info.returns);
+    let cairo_output = format_output(&cairo_output_info.return_values, &entrypoint_info.returns);
 
     // Check if we expect a runtime error
     if let Some(expected_error) = &test.metadata.expected_error {

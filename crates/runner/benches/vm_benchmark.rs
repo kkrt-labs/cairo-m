@@ -20,7 +20,7 @@ fn fibonacci_1m_benchmark(c: &mut Criterion) {
     let output = compile_cairo(source_text, source_path, options).unwrap();
     let program = (*output.program).clone();
 
-    let (_, runner_output) = run_cairo_program(
+    let runner_output = run_cairo_program(
         &program,
         "fibonacci_loop",
         &[InputValue::Number(N_ITERATIONS as i64)],
@@ -31,12 +31,14 @@ fn fibonacci_1m_benchmark(c: &mut Criterion) {
     .expect("Execution failed");
 
     let mut group = c.benchmark_group("fibonacci_1m");
-    group.throughput(Throughput::Elements(runner_output.vm.trace.len() as u64));
+    group.throughput(Throughput::Elements(
+        runner_output.vm.segments[0].trace.len() as u64,
+    ));
     group.measurement_time(Duration::from_secs(BENCHMARK_DURATION_SECS));
 
     group.bench_function("execution_only", |b| {
         b.iter(|| {
-            let (_, runner_output) = run_cairo_program(
+            let runner_output = run_cairo_program(
                 &program,
                 "fibonacci_loop",
                 &[InputValue::Number(N_ITERATIONS as i64)],
@@ -46,7 +48,7 @@ fn fibonacci_1m_benchmark(c: &mut Criterion) {
             )
             .expect("Execution failed");
 
-            black_box(runner_output.vm)
+            black_box(runner_output)
         })
     });
 

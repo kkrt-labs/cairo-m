@@ -37,7 +37,7 @@ fn main() {
     eprintln!("Setting up benchmark: Compiling and running fibonacci...");
     let program = compile_fibonacci();
 
-    let (_, runner_output) = run_cairo_program(
+    let runner_output = run_cairo_program(
         &program,
         "fibonacci_loop",
         &[InputValue::Number(N_ITERATIONS as i64)],

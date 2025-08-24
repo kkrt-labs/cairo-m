@@ -81,9 +81,9 @@ fn run_diff_test(test: DiffTest) {
         "Running Cairo-M program: {} with args: {:?}",
         test.entrypoint, test.args
     );
-    let (cairo_values, _cairo_output) =
-        run_cairo_program(&program, test.entrypoint, &test.args, Default::default())
-            .expect("Failed to run Cairo-M program");
+    let cairo_output = run_cairo_program(&program, test.entrypoint, &test.args, Default::default())
+        .expect("Failed to run Cairo-M program");
+    let cairo_values = cairo_output.return_values;
 
     // Run Rust implementation
     let rust_result = (test.rust_fn)();

@@ -52,8 +52,8 @@ impl Default for RunnerOptions {
 /// Result of running a Cairo program
 #[derive(Debug, Clone)]
 pub struct RunnerOutput {
-    /// The return values of the program
-    pub return_values: Vec<M31>,
+    /// The decoded return values of the program
+    pub return_values: Vec<CairoMValue>,
     /// The final VM
     pub vm: VM,
     /// The public address ranges for structured access to program, input, and output data
@@ -67,7 +67,7 @@ pub fn run_cairo_program(
     entrypoint: &str,
     args: &[InputValue],
     options: RunnerOptions,
-) -> Result<(Vec<CairoMValue>, RunnerOutput)> {
+) -> Result<RunnerOutput> {
     let entrypoint_info = program.get_entrypoint(entrypoint).ok_or_else(|| {
         RunnerError::EntryPointNotFound(
             entrypoint.to_string(),
@@ -76,8 +76,7 @@ pub fn run_cairo_program(
     })?;
     let encoded_args = encode_input_args(&entrypoint_info.params, args)?;
     let output = run_cairo_program_raw_args(program, entrypoint, &encoded_args, options)?;
-    let decoded = decode_abi_values(&entrypoint_info.returns, &output.return_values)?;
-    Ok((decoded, output))
+    Ok(output)
 }
 
 /// Runs a compiled Cairo-M program with raw M31 values as arguments.
@@ -151,8 +150,11 @@ fn run_cairo_program_raw_args(
     let public_address_ranges =
         PublicAddressRanges::new(vm.program_length.0, args.len(), ret_slots);
 
+    // Decode the return values and add them to the output
+    let decoded = decode_abi_values(&entrypoint_info.returns, &return_values)?;
+
     Ok(RunnerOutput {
-        return_values,
+        return_values: decoded,
         vm,
         public_address_ranges,
     })

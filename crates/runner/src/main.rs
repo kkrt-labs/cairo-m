@@ -54,7 +54,7 @@ fn main() -> anyhow::Result<()> {
     let compiled_program: Program =
         sonic_rs::from_str(&file_content).context("Failed to parse compiled program")?;
 
-    let (return_values, _) = run_cairo_program(
+    let output = run_cairo_program(
         &compiled_program,
         &args.entrypoint,
         &args.arguments,
@@ -62,7 +62,7 @@ fn main() -> anyhow::Result<()> {
     )
     .context("Execution failed")?;
 
-    println!("Run succeeded and returned: {:?}", return_values);
+    println!("Run succeeded and returned: {:?}", output.return_values);
 
     Ok(())
 }

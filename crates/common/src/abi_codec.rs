@@ -136,8 +136,7 @@ fn encode_input(dst: &mut Vec<M31>, ty: &AbiType, val: &InputValue) -> Result<()
             // They're only used for decoding values from program memory
             Err(AbiCodecError::TypeMismatch(
                 "Pointer types are internal-only and cannot be provided as input.".to_string(),
-            )
-            .into())
+            ))
         }
 
         // Collections
@@ -147,8 +146,7 @@ fn encode_input(dst: &mut Vec<M31>, ty: &AbiType, val: &InputValue) -> Result<()
                     "tuple arity mismatch: expected {} got {}",
                     types.len(),
                     values.len()
-                ))
-                .into());
+                )));
             }
             for (t, v) in types.iter().zip(values.iter()) {
                 encode_input(dst, t, v)?;
@@ -699,7 +697,6 @@ mod tests {
     #[cfg(test)]
     mod proptest_tests {
         use super::*;
-        use proptest::prelude::*;
 
         // Strategy for generating InputValue that matches a given AbiType
         fn arb_input_for_type(ty: &AbiType, depth: u32) -> BoxedStrategy<InputValue> {

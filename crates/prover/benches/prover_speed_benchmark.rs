@@ -35,7 +35,7 @@ fn compile_fibonacci() -> Program {
 fn fibonacci_prove_benchmark(c: &mut Criterion) {
     let program = compile_fibonacci();
 
-    let (_, runner_output) = run_cairo_program(
+    let runner_output = run_cairo_program(
         &program,
         "fibonacci_loop",
         &[InputValue::Number(N_ITERATIONS as i64)],
