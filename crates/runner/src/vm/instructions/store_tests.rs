@@ -221,7 +221,7 @@ proptest! {
             &[0, 1, dst_val, val_to_store],
             Instruction::StoreDoubleDerefFp {
                 base_off: M31(1),
-                offset: M31(2),
+                imm: M31(2),
                 dst_off: M31(2),
             },
             store_double_deref_fp,
@@ -229,6 +229,52 @@ proptest! {
             1,
         )
         .unwrap();
+    }
+
+    #[test]
+    fn test_store_double_deref_fp_fp(val_to_store: u32) {
+        run_simple_store_test(
+            &[0, 1, 2, 4, val_to_store], //
+            Instruction::StoreDoubleDerefFpFp {
+                base_off: M31(0), // -> 0
+                offset_off: M31(3), // -> point to "val_to_store" at index 4
+                dst_off: M31(2),
+            },
+            store_double_deref_fp_fp,
+            &[0, 1, val_to_store, 4, val_to_store],
+            1,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn test_store_to_double_deref_fp_imm(val_to_store: u32) {
+        run_simple_store_test(
+            &[0, 1, 2, 4, val_to_store],
+            Instruction::StoreToDoubleDerefFpImm {
+                base_off: M31(0), // Base address is 0
+                imm: M31(1), // Offset is 1 -> [fp + 1]
+                src_off: M31(4), // Source value is 99
+            },
+            store_to_double_deref_fp_imm,
+            &[0, val_to_store, 2, 4, val_to_store],
+            1,
+        ).unwrap();
+    }
+
+    #[test]
+    fn test_store_to_double_deref_fp_fp(val_to_store: u32) {
+        run_simple_store_test(
+            &[0, 2, 2, 4, val_to_store],
+            Instruction::StoreToDoubleDerefFpFp {
+                base_off: M31(0), // Base address is 0
+                offset_off: M31(1), // Offset is [fp + 1] -> 2
+                src_off: M31(4), // Source value is 99
+            },
+            store_to_double_deref_fp_fp,
+            &[0, 2, val_to_store, 4, val_to_store],
+            1,
+        ).unwrap();
     }
 
     #[test]

@@ -236,8 +236,10 @@ define_instruction!(
     StoreDivFpImm = 7, 2, fields: [src_off, imm, dst_off], size: 4, operands: [Felt, Felt];                // [fp + dst_off] = [fp + src_off] / imm
 
     // Memory operations
-    StoreDoubleDerefFp = 8, 3, fields: [base_off, offset, dst_off], size: 4, operands: [Felt, Felt, Felt]; // [fp + dst_off] = [[fp + base_off] + offset]
+    StoreDoubleDerefFp = 8, 3, fields: [base_off, imm, dst_off], size: 4, operands: [Felt, Felt, Felt]; // [fp + dst_off] = [[fp + base_off] + imm]
+    StoreDoubleDerefFpFp = 42, 3, fields: [base_off, offset_off, dst_off], size: 4, operands: [Felt, Felt, Felt]; // [fp + dst_off] = [[fp + base_off] + [fp + offset_off]]
     StoreImm = 9, 1, fields: [imm, dst_off], size: 3, operands: [Felt];                                    // [fp + dst_off] = imm
+    StoreFpImm = 43, 2, fields: [imm, dst_off], size: 3, operands: [Felt];                                  // [fp + dst_off] = fp + imm
 
     // Call operations
     CallAbsImm = 10, 2, fields: [frame_off, target], size: 3, operands: [Felt, Felt];                      // call abs imm
@@ -289,7 +291,12 @@ define_instruction!(
     // U32 Bitwise operations with immediate
     U32StoreAndFpImm = 39, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) & u32(imm_lo, imm_hi)
     U32StoreOrFpImm = 40, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) | u32(imm_lo, imm_hi)
-    U32StoreXorFpImm = 41, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32]  // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) ^ u32(imm_lo, imm_hi)
+    U32StoreXorFpImm = 41, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) ^ u32(imm_lo, imm_hi)
+
+    // 42 taken by StoreDoubleDerefFpFp; 43 taken by StoreFpImm
+    // Reverse double deref operations - store TO computed addresses
+    StoreToDoubleDerefFpImm = 44, 3, fields: [base_off, imm, src_off], size: 4, operands: [Felt, Felt, Felt]; // [[fp + base_off] + imm] = [fp + src_off]
+    StoreToDoubleDerefFpFp = 45, 3, fields: [base_off, offset_off, src_off], size: 4, operands: [Felt, Felt, Felt] // [[fp + base_off] + [fp + offset_off]] = [fp + src_off]
 );
 
 impl From<Instruction> for SmallVec<[M31; INSTRUCTION_MAX_SIZE]> {

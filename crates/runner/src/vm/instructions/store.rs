@@ -179,18 +179,109 @@ impl_store_bin_op_fp_imm!(store_div_fp_imm, StoreDivFpImm, /);
 
 /// CASM equivalent:
 /// ```casm
-/// [fp + dst_off] = [[fp + base_off] + offset]
+/// [fp + dst_off] = [[fp + base_off] + imm]
 /// ```
 pub fn store_double_deref_fp(
     memory: &mut Memory,
     state: State,
     instruction: &Instruction,
 ) -> Result<State, InstructionExecutionError> {
-    let (base_off, offset, dst_off) =
-        extract_as!(instruction, StoreDoubleDerefFp, (base_off, offset, dst_off));
+    let (base_off, imm, dst_off) =
+        extract_as!(instruction, StoreDoubleDerefFp, (base_off, imm, dst_off));
     let deref_value = memory.get_data(state.fp + base_off)?;
-    let value = memory.get_data(deref_value + offset)?;
+    let value = memory.get_data(deref_value + imm)?;
     memory.insert(state.fp + dst_off, value.into())?;
+
+    Ok(state.advance_by(instruction.size_in_qm31s()))
+}
+
+/// CASM equivalent:
+/// ```casm
+/// [fp + dst_off] = [[fp + base_off] + [fp + offset_off]]
+/// ```
+pub fn store_double_deref_fp_fp(
+    memory: &mut Memory,
+    state: State,
+    instruction: &Instruction,
+) -> Result<State, InstructionExecutionError> {
+    let (base_off, offset_off, dst_off) = extract_as!(
+        instruction,
+        StoreDoubleDerefFpFp,
+        (base_off, offset_off, dst_off)
+    );
+
+    // Get the offset value from memory at [fp + offset_off]
+    let offset_value = memory.get_data(state.fp + offset_off)?;
+
+    // Get the base pointer from memory at [fp + base_off]
+    let base_address = memory.get_data(state.fp + base_off)?;
+
+    // Calculate the final address: base_address + offset_value
+    let final_address = base_address + offset_value;
+
+    // Read the value from the calculated address
+    let value = memory.get_data(final_address)?;
+
+    // Store the value at [fp + dst_off]
+    memory.insert(state.fp + dst_off, value.into())?;
+
+    Ok(state.advance_by(instruction.size_in_qm31s()))
+}
+
+// -------------------------------------------------------------------------------------------------
+// Reverse Double Deref operations - Store TO computed addresses
+// -------------------------------------------------------------------------------------------------
+
+/// CASM equivalent:
+/// ```casm
+/// [[fp + base_off] + imm] = [fp + src_off]
+/// ```
+///
+/// Stores the value at [fp + src_off] TO the address computed as [[fp + base_off] + imm].
+/// This is the reverse of StoreDoubleDerefFp which reads FROM a computed address.
+pub fn store_to_double_deref_fp_imm(
+    memory: &mut Memory,
+    state: State,
+    instruction: &Instruction,
+) -> Result<State, InstructionExecutionError> {
+    let (base_off, imm, src_off) = extract_as!(
+        instruction,
+        StoreToDoubleDerefFpImm,
+        (base_off, imm, src_off)
+    );
+
+    let value = memory.get_data(state.fp + src_off)?;
+    let base_address = memory.get_data(state.fp + base_off)?;
+    let target_address = base_address + imm;
+    memory.insert(target_address, value.into())?;
+
+    Ok(state.advance_by(instruction.size_in_qm31s()))
+}
+
+/// CASM equivalent:
+/// ```casm
+/// [[fp + base_off] + [fp + offset_off]] = [fp + src_off]
+/// ```
+///
+/// Stores the value at [fp + src_off] TO the address computed as [[fp + base_off] + [fp + offset_off]].
+/// This is the reverse of StoreDoubleDerefFpFp which reads FROM a computed address.
+pub fn store_to_double_deref_fp_fp(
+    memory: &mut Memory,
+    state: State,
+    instruction: &Instruction,
+) -> Result<State, InstructionExecutionError> {
+    let (base_off, offset_off, src_off) = extract_as!(
+        instruction,
+        StoreToDoubleDerefFpFp,
+        (base_off, offset_off, src_off)
+    );
+
+    let value = memory.get_data(state.fp + src_off)?;
+    let offset_value = memory.get_data(state.fp + offset_off)?;
+    let base_addr = memory.get_data(state.fp + base_off)?;
+
+    let target_address = base_addr + offset_value;
+    memory.insert(target_address, value.into())?;
 
     Ok(state.advance_by(instruction.size_in_qm31s()))
 }
@@ -206,6 +297,22 @@ pub fn store_imm(
 ) -> Result<State, InstructionExecutionError> {
     let (imm, dst_off) = extract_as!(instruction, StoreImm, (imm, dst_off));
     memory.insert(state.fp + dst_off, imm.into())?;
+
+    Ok(state.advance_by(instruction.size_in_qm31s()))
+}
+
+/// CASM equivalent:
+/// ```casm
+/// [fp + dst_off] = fp + imm
+/// ```
+pub fn store_fp_imm(
+    memory: &mut Memory,
+    state: State,
+    instruction: &Instruction,
+) -> Result<State, InstructionExecutionError> {
+    let (imm, dst_off) = extract_as!(instruction, StoreFpImm, (imm, dst_off));
+    let value = state.fp + imm;
+    memory.insert(state.fp + dst_off, value.into())?;
 
     Ok(state.advance_by(instruction.size_in_qm31s()))
 }
