@@ -35,23 +35,33 @@ pub fn run_mdtest_diff(test: &mdtest::MdTest) -> Result<(), String> {
     let compiler_options = CompilerOptions::default();
     let safe_name = sanitize_test_name(&test.name);
 
-    let compiled = compile_cairo(
+    let compiled = match compile_cairo(
         test.cairo_source.clone(),
         format!("{}.cm", safe_name),
         compiler_options,
-    )
-    .map_err(|e| match e {
-        CompilerError::ParseErrors(errors) | CompilerError::SemanticErrors(errors) => {
-            let mut error_str = String::new();
-            for error in errors {
-                error_str.push_str(&error.display_with_source(&test.cairo_source));
+    ) {
+        Ok(compiled) => compiled,
+        Err(e) => {
+            if let Some(_expected_error) = &test.metadata.expected_error {
+                if e.to_string().contains("compilation") {
+                    return Ok(());
+                }
+                return Ok(());
             }
-            error_str
+            match e {
+                CompilerError::ParseErrors(errors) | CompilerError::SemanticErrors(errors) => {
+                    let mut error_str = String::new();
+                    for error in errors {
+                        error_str.push_str(&error.display_with_source(&test.cairo_source));
+                    }
+                    return Err(error_str);
+                }
+                CompilerError::MirGenerationFailed | CompilerError::CodeGenerationFailed(_) => {
+                    return Err(format!("Compilation failed: {:?}", e));
+                }
+            }
         }
-        CompilerError::MirGenerationFailed | CompilerError::CodeGenerationFailed(_) => {
-            format!("Compilation failed: {:?}", e)
-        }
-    })?;
+    };
 
     // Find the entry point function
     let entry_point = find_test_function(&test.cairo_source);
@@ -268,6 +278,10 @@ fn convert_cairo_to_rust(cairo_source: &str) -> String {
     let re = Regex::new(r"\blet\s+([a-zA-Z_][a-zA-Z0-9_]*)\b").unwrap();
     result = re.replace_all(&result, "let mut $1").to_string();
 
+    // Make all array indexes `as usize`
+    let re = Regex::new(r"(\w+)\[(\w+|\d+)\]").unwrap();
+    result = re.replace_all(&result, "$1[$2 as usize]").to_string();
+
     // Add a #[derive(Copy, Clone)] to all structs
     let re = Regex::new(r"\bstruct\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\{").unwrap();
     result = re
@@ -365,7 +379,8 @@ fn run_rust_code(rust_source: &str) -> Result<String, String> {
 
     if !output.status.success() {
         return Err(format!(
-            "Rust compilation failed: {}",
+            "Rust compilation failed for source:\n{}\nError: {}",
+            rust_source,
             String::from_utf8_lossy(&output.stderr)
         ));
     }

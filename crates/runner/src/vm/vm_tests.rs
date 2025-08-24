@@ -23,7 +23,7 @@ fn test_program_from_vec_instructions() {
         },
         Instruction::StoreDoubleDerefFp {
             base_off: M31(6),
-            offset: M31(7),
+            imm: M31(7),
             dst_off: M31(8),
         },
     ];
@@ -43,7 +43,7 @@ fn test_vm_try_from() {
         },
         Instruction::StoreDoubleDerefFp {
             base_off: M31(6),
-            offset: M31(7),
+            imm: M31(7),
             dst_off: M31(8),
         },
     ];
