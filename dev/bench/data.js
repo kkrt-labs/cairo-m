@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756133993532,
+  "lastUpdate": 1756144998967,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -1813,6 +1813,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 338729356,
             "range": "± 2883700",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "obatirou@gmail.com",
+            "name": "Oba",
+            "username": "obatirou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d00094085499aa2308387200b8c100c767cf23b6",
+          "message": "feat(runner): add PrintM31 and PrintU32 debug opcodes (#250)\n\n* feat(runner): add PrintM31 and PrintU32 debug opcodes\n\nAdd non-tracing print instructions for debugging Cairo-M programs:\n- PrintM31: prints M31 field element at [fp + offset]\n- PrintU32: prints 32-bit unsigned integer at [fp + offset]\n- Output format: [PrintM31/U32] [address] = value\n\nThese are true no-op instructions that don't modify execution trace.\n\n* test: add missing test cases for PrintM31 and PrintU32 opcodes",
+          "timestamp": "2025-08-25T19:59:29+02:00",
+          "tree_id": "c402498b03edd99bd594e8430823452b711d531f",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/d00094085499aa2308387200b8c100c767cf23b6"
+        },
+        "date": 1756144998527,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 337717102,
+            "range": "± 1227943",
             "unit": "ns/iter"
           }
         ]
