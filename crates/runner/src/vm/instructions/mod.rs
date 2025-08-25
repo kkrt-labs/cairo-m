@@ -23,12 +23,14 @@ use stwo_prover::core::fields::m31::M31;
 use crate::vm::instructions::call::*;
 use crate::vm::instructions::jnz::*;
 use crate::vm::instructions::jump::*;
+use crate::vm::instructions::print::*;
 use crate::vm::instructions::store::*;
 use crate::vm::{Memory, MemoryError};
 
 pub mod call;
 pub mod jnz;
 pub mod jump;
+pub mod print;
 pub mod store;
 
 /// Extracts fields from a specific instruction variant or returns an InvalidOpcode error.
@@ -188,10 +190,15 @@ pub fn opcode_to_instruction_fn(op: M31) -> Result<InstructionFn, InstructionErr
         U32_STORE_XOR_FP_IMM => u32_store_xor_fp_imm,
         STORE_TO_DOUBLE_DEREF_FP_IMM => store_to_double_deref_fp_imm,
         STORE_TO_DOUBLE_DEREF_FP_FP => store_to_double_deref_fp_fp,
+        PRINT_M31 => print_m31,
+        PRINT_U32 => print_u32,
         _ => return Err(InstructionError::InvalidOpcode(op)),
     };
     Ok(f)
 }
+
+#[cfg(test)]
+mod print_tests;
 
 #[cfg(test)]
 mod tests {
