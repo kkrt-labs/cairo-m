@@ -335,13 +335,22 @@ fn generate_node_hints(
             .copied()
             .chain(std::iter::repeat(BaseField::zero()).take(padding_length))
             .collect::<Vec<_>>();
+        let n_chunks = padded_values.len() / ELEMENTS_IN_BLOCK;
 
         for chunk in padded_values.chunks(ELEMENTS_IN_BLOCK) {
             // Hash each block using hash_pair iteratively
             values_to_hash.push({
                 // Multiple elements, hash them with hash_pair
                 let mut acc = chunk[0];
-                for value in chunk[1..].iter() {
+                for (i, value) in chunk[1..].iter().enumerate() {
+                    // For the largest layer of the tree (children_hashes.is_none()),
+                    // there might be a single element in values_to_hash
+                    // if there is less than ELEMENTS_IN_BLOCK values in the column (n_chunks == 1).
+                    // In this case, we need to mark the last hash as final.
+                    // This is because the last hash is the root of the tree, and we need to mark it as final.
+                    let is_final = children_hashes.is_none()
+                        && n_chunks == 1
+                        && i == ELEMENTS_IN_BLOCK - 1 - 1;
                     let new_hash = Poseidon31MerkleHasher::hash_pair(acc, *value);
 
                     // Record hint for this pair hash within the block
@@ -352,7 +361,7 @@ fn generate_node_hints(
                         acc,
                         *value,
                         new_hash,
-                        false, // Not final
+                        is_final,
                     );
 
                     acc = new_hash;

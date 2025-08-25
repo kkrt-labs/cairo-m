@@ -51,4 +51,5 @@ fn test_constraints() {
 
     let prover_input = generate_hints(&proof);
     assert_constraints(prover_input);
+    panic!("Constraints passed");
 }

@@ -162,7 +162,7 @@ impl Claim {
                 *lookup_data.merkle[1] = [root, layer_log_size, node_index, x_1];
                 *lookup_data.merkle[2] = [
                     root,
-                    layer_log_size - one,
+                    layer_log_size - final_hash,
                     node_index * (one - final_hash) + quotient * final_hash,
                     parent_hash,
                 ];
@@ -344,7 +344,7 @@ impl FrameworkEval for Eval {
             E::EF::from(enabler),
             &[
                 root,
-                layer_log_size - one.clone(),
+                layer_log_size - final_hash.clone(),
                 node_index * (one - final_hash.clone()) + quotient * final_hash,
                 parent_hash,
             ],
