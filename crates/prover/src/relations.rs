@@ -6,6 +6,11 @@ use stwo_constraint_framework::relation;
 // Structure: value (the field element to range check)
 relation!(RangeCheck20, 1);
 
+// 16-bit range check relation for field arithmetic bounds.
+// Ensures values are within the valid range [0, 2^16).
+// Structure: value (the field element to range check)
+relation!(RangeCheck16, 1);
+
 // Memory access relation for read/write operations.
 // Tracks all memory operations with address, clock, and QM31 values.
 // Structure: addr, clock, value0-3 (QM31 value components)

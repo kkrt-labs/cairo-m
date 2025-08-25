@@ -187,6 +187,7 @@ fn relation_entries(
         memory,
         merkle,
         poseidon2,
+        range_check_16,
         range_check_20,
         opcodes,
         clock_update,
@@ -205,6 +206,7 @@ fn relation_entries(
         add_to_relation_entries(merkle, trace),
         add_to_relation_entries(clock_update, trace),
         add_to_relation_entries(poseidon2, trace),
+        add_to_relation_entries(range_check_16, trace),
         add_to_relation_entries(range_check_20, trace),
     )
     .collect();

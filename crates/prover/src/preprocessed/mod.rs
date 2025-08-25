@@ -62,6 +62,6 @@ impl PreProcessedTraceBuilder {
 
 impl Default for PreProcessedTraceBuilder {
     fn default() -> Self {
-        Self::new().with_range_check(20)
+        Self::new().with_range_check(20).with_range_check(16)
     }
 }
