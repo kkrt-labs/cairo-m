@@ -305,7 +305,7 @@ fn decode_one(
     }
 }
 
-/// Parse a CLI argument string into an InputValue (supports nesting)
+/// Parse an argument string into an InputValue (supports nesting)
 ///
 /// Supported grammar (positional structs):
 ///   Value := Number | Bool | Array | Tuple | Struct
@@ -362,42 +362,30 @@ pub fn parse_cli_arg(s: &str) -> Result<InputValue, AbiCodecError> {
             }
         }
         fn parse_array(&mut self) -> Result<InputValue, AbiCodecError> {
-            assert_eq!(self.next(), Some(b'['));
-            self.skip_ws();
-            let mut items = Vec::new();
-            if self.peek() == Some(b']') {
-                self.next();
-                return Ok(InputValue::List(items));
-            }
-            loop {
-                items.push(self.parse_value()?);
-                self.skip_ws();
-                match self.peek() {
-                    Some(b',') => {
-                        self.next();
-                        self.skip_ws();
-                    }
-                    Some(b']') => {
-                        self.next();
-                        break;
-                    }
-                    _ => {
-                        return Err(AbiCodecError::ParseError(format!(
-                            "Expected ',' or ']' at position {} in array",
-                            self.i
-                        )))
-                    }
-                }
-            }
-            Ok(InputValue::List(items))
+            self.parse_delimited_list(b'[', b']', "array")
+                .map(InputValue::List)
         }
         fn parse_tuple(&mut self) -> Result<InputValue, AbiCodecError> {
-            assert_eq!(self.next(), Some(b'('));
+            self.parse_delimited_list(b'(', b')', "tuple")
+                .map(InputValue::List)
+        }
+        fn parse_struct(&mut self) -> Result<InputValue, AbiCodecError> {
+            self.parse_delimited_list(b'{', b'}', "struct")
+                .map(InputValue::Struct)
+        }
+
+        fn parse_delimited_list(
+            &mut self,
+            open: u8,
+            close: u8,
+            context: &str,
+        ) -> Result<Vec<InputValue>, AbiCodecError> {
+            assert_eq!(self.next(), Some(open));
             self.skip_ws();
             let mut items = Vec::new();
-            if self.peek() == Some(b')') {
+            if self.peek() == Some(close) {
                 self.next();
-                return Ok(InputValue::List(items));
+                return Ok(items);
             }
             loop {
                 items.push(self.parse_value()?);
@@ -407,49 +395,19 @@ pub fn parse_cli_arg(s: &str) -> Result<InputValue, AbiCodecError> {
                         self.next();
                         self.skip_ws();
                     }
-                    Some(b')') => {
+                    Some(c) if c == close => {
                         self.next();
                         break;
                     }
                     _ => {
                         return Err(AbiCodecError::ParseError(format!(
-                            "Expected ',' or ')' at position {} in tuple",
-                            self.i
+                            "Expected ',' or '{}' at position {} in {}",
+                            close as char, self.i, context
                         )))
                     }
                 }
             }
-            Ok(InputValue::List(items))
-        }
-        fn parse_struct(&mut self) -> Result<InputValue, AbiCodecError> {
-            assert_eq!(self.next(), Some(b'{'));
-            self.skip_ws();
-            let mut fields = Vec::new();
-            if self.peek() == Some(b'}') {
-                self.next();
-                return Ok(InputValue::Struct(fields));
-            }
-            loop {
-                fields.push(self.parse_value()?);
-                self.skip_ws();
-                match self.peek() {
-                    Some(b',') => {
-                        self.next();
-                        self.skip_ws();
-                    }
-                    Some(b'}') => {
-                        self.next();
-                        break;
-                    }
-                    _ => {
-                        return Err(AbiCodecError::ParseError(format!(
-                            "Expected ',' or '}}' at position {} in struct",
-                            self.i
-                        )))
-                    }
-                }
-            }
-            Ok(InputValue::Struct(fields))
+            Ok(items)
         }
         fn parse_bool(&mut self) -> Result<InputValue, AbiCodecError> {
             if self
