@@ -79,6 +79,17 @@ impl Format for Expression {
                 Doc::text("."),
                 Doc::text(index.to_string()),
             ]),
+            Self::ArrayLiteral(elements) => {
+                let elem_docs = elements
+                    .iter()
+                    .map(|e| e.value().format(ctx))
+                    .collect::<Vec<_>>();
+                Doc::concat(vec![
+                    Doc::text("["),
+                    comma_separated(elem_docs),
+                    Doc::text("]"),
+                ])
+            }
         }
     }
 }

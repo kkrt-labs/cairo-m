@@ -1,0 +1,53 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+fn test(x: [u32; 3]) { }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [
+                    Parameter {
+                        name: Spanned(
+                            "x",
+                            8..9,
+                        ),
+                        type_expr: Spanned(
+                            FixedArray {
+                                element_type: Spanned(
+                                    Named(
+                                        Spanned(
+                                            U32,
+                                            12..15,
+                                        ),
+                                    ),
+                                    12..15,
+                                ),
+                                size: Spanned(
+                                    3,
+                                    17..18,
+                                ),
+                            },
+                            11..19,
+                        ),
+                    },
+                ],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
+                ),
+                body: [],
+            },
+            0..24,
+        ),
+    ),
+]

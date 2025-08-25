@@ -5,10 +5,10 @@ expression: snapshot
 --- Input 1 (ERROR) ---
 fn test() { if { x = 1; } }
 --- Diagnostics ---
-[02] Error: found '{' expected '(', '!', '-', something else, or identifier
+[02] Error: found '{' expected '(', '!', '-', something else, identifier, or '['
    ╭─[ test.cairo:1:16 ]
    │
  1 │ fn test() { if { x = 1; } }
    │                ┬  
-   │                ╰── found '{' expected '(', '!', '-', something else, or identifier
+   │                ╰── found '{' expected '(', '!', '-', something else, identifier, or '['
 ───╯
