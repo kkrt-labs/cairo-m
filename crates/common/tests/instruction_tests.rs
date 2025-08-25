@@ -129,7 +129,7 @@ fn test_opcode_values() {
         (
             Instruction::StoreDoubleDerefFp {
                 base_off: M31::from(0),
-                offset: M31::from(0),
+                imm: M31::from(0),
                 dst_off: M31::from(0),
             },
             8,
@@ -441,10 +441,19 @@ fn test_try_from_smallvec() {
             smallvec![M31::from(8), M31::from(9), M31::from(10), M31::from(11)],
             Instruction::StoreDoubleDerefFp {
                 base_off: M31::from(9),
-                offset: M31::from(10),
+                imm: M31::from(10),
                 dst_off: M31::from(11),
             },
             "StoreDoubleDerefFp instruction",
+        ),
+        (
+            smallvec![M31::from(42), M31::from(12), M31::from(13), M31::from(14)],
+            Instruction::StoreDoubleDerefFpFp {
+                base_off: M31::from(12),
+                offset_off: M31::from(13),
+                dst_off: M31::from(14),
+            },
+            "StoreDoubleDerefFpFp instruction",
         ),
         (
             smallvec![M31::from(9), M31::from(42), M31::from(3)],
@@ -833,6 +842,32 @@ fn test_try_from_smallvec() {
             },
             "U32StoreXorFpImm instruction",
         ),
+        (
+            smallvec![M31::from(43), M31::from(5), M31::from(7)],
+            Instruction::StoreFpImm {
+                imm: M31::from(5),
+                dst_off: M31::from(7),
+            },
+            "StoreFpImm instruction",
+        ),
+        (
+            smallvec![M31::from(44), M31::from(5), M31::from(7), M31::from(9)],
+            Instruction::StoreToDoubleDerefFpImm {
+                base_off: M31::from(5),
+                imm: M31::from(7),
+                src_off: M31::from(9),
+            },
+            "StoreToDoubleDerefFpImm instruction",
+        ),
+        (
+            smallvec![M31::from(45), M31::from(5), M31::from(7), M31::from(9)],
+            Instruction::StoreToDoubleDerefFpFp {
+                base_off: M31::from(5),
+                offset_off: M31::from(7),
+                src_off: M31::from(9),
+            },
+            "StoreToDoubleDerefFpFp instruction",
+        ),
     ];
 
     assert_eq!(test_cases.len(), MAX_OPCODE as usize + 1);
@@ -1021,8 +1056,13 @@ fn test_roundtrip_all_instructions() {
         },
         Instruction::StoreDoubleDerefFp {
             base_off: M31::from(9),
-            offset: M31::from(10),
+            imm: M31::from(10),
             dst_off: M31::from(11),
+        },
+        Instruction::StoreDoubleDerefFpFp {
+            base_off: M31::from(12),
+            offset_off: M31::from(13),
+            dst_off: M31::from(14),
         },
         Instruction::StoreImm {
             imm: M31::from(300),

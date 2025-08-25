@@ -147,7 +147,9 @@ pub fn opcode_to_instruction_fn(op: M31) -> Result<InstructionFn, InstructionErr
         STORE_SUB_FP_FP => store_sub_fp_fp,
         STORE_SUB_FP_IMM => store_sub_fp_imm,
         STORE_DOUBLE_DEREF_FP => store_double_deref_fp,
+        STORE_DOUBLE_DEREF_FP_FP => store_double_deref_fp_fp,
         STORE_IMM => store_imm,
+        STORE_FP_IMM => store_fp_imm,
         STORE_MUL_FP_FP => store_mul_fp_fp,
         STORE_MUL_FP_IMM => store_mul_fp_imm,
         STORE_DIV_FP_FP => store_div_fp_fp,
@@ -184,6 +186,8 @@ pub fn opcode_to_instruction_fn(op: M31) -> Result<InstructionFn, InstructionErr
         U32_STORE_AND_FP_IMM => u32_store_and_fp_imm,
         U32_STORE_OR_FP_IMM => u32_store_or_fp_imm,
         U32_STORE_XOR_FP_IMM => u32_store_xor_fp_imm,
+        STORE_TO_DOUBLE_DEREF_FP_IMM => store_to_double_deref_fp_imm,
+        STORE_TO_DOUBLE_DEREF_FP_FP => store_to_double_deref_fp_fp,
         _ => return Err(InstructionError::InvalidOpcode(op)),
     };
     Ok(f)
