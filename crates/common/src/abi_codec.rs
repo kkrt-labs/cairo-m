@@ -308,8 +308,9 @@ fn decode_one(
 /// Parse a CLI argument string into an InputValue (supports nesting)
 ///
 /// Supported grammar (positional structs):
-///   Value := Number | Bool | Array | Struct
+///   Value := Number | Bool | Array | Tuple | Struct
 ///   Array := '[' (Value (',' Value)*)? ']'
+///   Tuple := '(' (Value (',' Value)*)? ')'
 ///   Struct := '{' (Value (',' Value)*)? '}'
 pub fn parse_cli_arg(s: &str) -> Result<InputValue, AbiCodecError> {
     struct Parser<'a> {
