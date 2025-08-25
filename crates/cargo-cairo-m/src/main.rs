@@ -84,6 +84,7 @@ cairo-m-common = {{ git = "https://github.com/kkrt-labs/cairo-m" }}
 cairo-m-runner = {{ git = "https://github.com/kkrt-labs/cairo-m" }}
 cairo-m-compiler = {{ git = "https://github.com/kkrt-labs/cairo-m" }}
 anyhow = "1.0"
+proptest = "1.0"
 "#,
         name
     );
@@ -193,14 +194,20 @@ fn write_lib_rs(project_path: &Path) -> Result<()> {
 }
 
 fn write_fibonacci_cm(project_path: &Path) -> Result<()> {
-    let content = r#"fn fibonacci(n: felt) -> felt {
-    if (n == 0) {
-        return 0;
+    let content = r#"// Iterative Fibonacci implementation
+fn fibonacci(n: felt) -> felt {
+    let current = 0;
+    let next = 1;
+
+    let counter = 0;
+    while (counter != n) {
+        let new_next = current + next;
+        current = next;
+        next = new_next;
+        counter = counter + 1;
     }
-    if (n == 1) {
-        return 1;
-    }
-    return fibonacci(n - 1) + fibonacci(n - 2);
+
+    return current;
 }
 "#;
 
@@ -213,20 +220,22 @@ fn write_integration_test(project_path: &Path) -> Result<()> {
     let content = r#"use cairo_m_compiler::{compile_cairo, CompilerOptions};
 use cairo_m_runner::{run_cairo_program, RunnerOptions};
 use cairo_m_common::{InputValue, CairoMValue};
+use proptest::prelude::*;
 
-// Rust reference implementation
+// Rust reference implementation (iterative)
 fn fibonacci_rust(n: u32) -> u32 {
-    if n == 0 {
-        return 0;
+    let mut current = 0;
+    let mut next = 1;
+    for _ in 0..n {
+        let new_next = current + next;
+        current = next;
+        next = new_next;
     }
-    if n == 1 {
-        return 1;
-    }
-    fibonacci_rust(n - 1) + fibonacci_rust(n - 2)
+    current
 }
 
-#[test]
-fn test_fibonacci() -> anyhow::Result<()> {
+// Helper function to run Cairo-M program and compare with Rust
+fn test_fibonacci_value(n: u32) -> anyhow::Result<()> {
     // Compile the Cairo-M source
     let source = std::fs::read_to_string("src/fibonacci.cm")?;
     let output = compile_cairo(
@@ -235,34 +244,38 @@ fn test_fibonacci() -> anyhow::Result<()> {
         CompilerOptions::default()
     )?;
 
-    // Test multiple values
-    for n in 0..=10 {
-        // Prepare arguments
-        let args = vec![InputValue::Number(n as i64)];
+    // Prepare arguments
+    let args = vec![InputValue::Number(n as i64)];
 
-        // Run the Cairo-M program
-        let result = run_cairo_program(
-            &output.program,
-            "fibonacci",
-            &args,
-            RunnerOptions::default()
-        )?;
+    // Run the Cairo-M program
+    let result = run_cairo_program(
+        &output.program,
+        "fibonacci",
+        &args,
+        RunnerOptions::default()
+    )?;
 
-        // Get the Cairo-M result
-        let cairo_result = match &result.return_values[0] {
-            CairoMValue::Felt(value) => value.0 as u32,
-            _ => panic!("Expected Felt return value"),
-        };
+    // Get the Cairo-M result
+    let cairo_result = match &result.return_values[0] {
+        CairoMValue::Felt(value) => value.0 as u32,
+        _ => panic!("Expected Felt return value"),
+    };
 
-        // Compare with Rust implementation
-        let rust_result = fibonacci_rust(n);
-        assert_eq!(
-            cairo_result, rust_result,
-            "Mismatch for fibonacci({n}): Cairo-M returned {cairo_result}, Rust returned {rust_result}"
-        );
-    }
+    // Compare with Rust implementation
+    let rust_result = fibonacci_rust(n);
+    assert_eq!(
+        cairo_result, rust_result,
+        "Mismatch for fibonacci({n}): Cairo-M returned {cairo_result}, Rust returned {rust_result}"
+    );
 
     Ok(())
+}
+
+proptest! {
+    #[test]
+    fn test_fibonacci_property(n in 0u32..30) {
+        test_fibonacci_value(n).unwrap();
+    }
 }
 "#;
 
