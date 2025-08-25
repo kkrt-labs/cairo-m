@@ -36,6 +36,12 @@ impl From<M31> for InputValue {
     }
 }
 
+impl From<u32> for InputValue {
+    fn from(value: u32) -> Self {
+        Self::Number(value.into())
+    }
+}
+
 /// Typed output value decoded from memory
 #[derive(Debug, Clone, PartialEq)]
 pub enum CairoMValue {
@@ -564,11 +570,7 @@ mod tests {
                     size: Some(3),
                 },
             };
-            let input = InputValue::List(vec![
-                InputValue::Number(1),
-                InputValue::Number(2),
-                InputValue::Number(3),
-            ]);
+            let input = InputValue::List(vec![1.into(), 2.into(), 3.into()]);
             let result = encode_input_args(&[slot], &[input]);
             assert!(result.is_err());
             assert!(result
@@ -626,25 +628,25 @@ mod tests {
         parse_test!(empty_tuple, "[]" => Ok(InputValue::List(vec![])));
         parse_test!(empty_parens, "()" => Ok(InputValue::List(vec![])));
 
-        parse_test!(simple_number, "42" => Ok(InputValue::Number(42)));
+        parse_test!(simple_number, "42" => Ok(42.into()));
         parse_test!(negative_number, "-5" => Ok(InputValue::Number(-5)));
         parse_test!(bool_true, "true" => Ok(InputValue::Bool(true)));
         parse_test!(bool_false, "false" => Ok(InputValue::Bool(false)));
 
         parse_test!(nested_structures, "[1,{2,[3,4],(5,6)},false]" => Ok(InputValue::List(vec![
-            InputValue::Number(1),
+            1.into(),
             InputValue::Struct(vec![
-                InputValue::Number(2),
-                InputValue::List(vec![InputValue::Number(3), InputValue::Number(4)]),
-                InputValue::List(vec![InputValue::Number(5), InputValue::Number(6)])
+                2.into(),
+                InputValue::List(vec![3.into(), 4.into()]),
+                InputValue::List(vec![5.into(), 6.into()])
             ]),
             InputValue::Bool(false)
         ])));
 
         parse_test!(whitespace_handling, "  { 1 , 2 , [ 3 , 4 ] }  " => Ok(InputValue::Struct(vec![
-            InputValue::Number(1),
-            InputValue::Number(2),
-            InputValue::List(vec![InputValue::Number(3), InputValue::Number(4)])
+            1.into(),
+            2.into(),
+            InputValue::List(vec![3.into(), 4.into()])
         ])));
 
         // Error cases
@@ -706,7 +708,7 @@ mod tests {
             };
             let input = InputValue::Struct(vec![
                 InputValue::Number(-5),
-                InputValue::List(vec![InputValue::Bool(true), InputValue::Number(7)]),
+                InputValue::List(vec![InputValue::Bool(true), 7.into()]),
             ]);
 
             // Encode
@@ -747,8 +749,8 @@ mod tests {
                 AbiType::Bool => prop_oneof![
                     Just(InputValue::Bool(true)),
                     Just(InputValue::Bool(false)),
-                    Just(InputValue::Number(0)),
-                    Just(InputValue::Number(1)),
+                    Just(0.into()),
+                    Just(1.into()),
                 ]
                 .boxed(),
                 AbiType::U32 => (0u32..=u32::MAX)

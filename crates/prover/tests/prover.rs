@@ -118,13 +118,8 @@ fn test_prove_and_verify_fibonacci_program() {
     )
     .unwrap();
 
-    let runner_output = run_cairo_program(
-        &compiled.program,
-        "fib",
-        &[InputValue::Number(5)],
-        Default::default(),
-    )
-    .unwrap();
+    let runner_output =
+        run_cairo_program(&compiled.program, "fib", &[5.into()], Default::default()).unwrap();
 
     let mut prover_input = import_from_runner_output(
         runner_output.vm.segments.into_iter().next().unwrap(),
@@ -182,13 +177,8 @@ fn test_prove_and_verify_recursive_fibonacci_program() {
     )
     .unwrap();
 
-    let runner_output = run_cairo_program(
-        &compiled.program,
-        "fib",
-        &[InputValue::Number(5)],
-        Default::default(),
-    )
-    .unwrap();
+    let runner_output =
+        run_cairo_program(&compiled.program, "fib", &[5.into()], Default::default()).unwrap();
 
     let mut prover_input = import_from_runner_output(
         runner_output.vm.segments.into_iter().next().unwrap(),
@@ -220,7 +210,7 @@ fn test_hash_continuity_fibonacci() {
     let runner_output = run_cairo_program(
         &compiled.program,
         "fibonacci_loop",
-        &[InputValue::Number(5)],
+        &[5.into()],
         runner_options,
     )
     .unwrap();
