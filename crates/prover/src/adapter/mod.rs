@@ -135,7 +135,7 @@ where
     memory.update_multiplicities(&public_address_ranges);
 
     // Assert that the keys are the same for both initial_memory and final_memory
-    // This is a sanity check that uses memory so it's desactivated in release builds.
+    // This is a sanity check that uses memory so it's deactivated in release builds.
     #[cfg(debug_assertions)]
     {
         let initial_keys: std::collections::HashSet<_> = memory.initial_memory.keys().collect();
