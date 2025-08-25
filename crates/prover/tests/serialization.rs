@@ -30,7 +30,6 @@ pub mod fibonacci {
 
         use cairo_m_prover::adapter::{import_from_runner_artifacts, import_from_runner_output};
         use cairo_m_runner::run_cairo_program;
-        use stwo_prover::core::fields::m31::M31;
         use tempfile::TempDir;
 
         #[test]
