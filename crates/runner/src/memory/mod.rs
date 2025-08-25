@@ -177,6 +177,27 @@ impl Memory {
         Ok(value.0 .0)
     }
 
+    /// Retrieves a value from memory and projects it to a base field element `M31` without recording a trace entry.
+    ///
+    /// This method is used for debugging instructions that should not affect the execution trace.
+    ///
+    /// # Arguments
+    ///
+    /// * `addr` - The `M31` memory address to read from.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`MemoryError::BaseFieldProjectionFailed`] if the value at the address
+    /// cannot be projected to a base field element.
+    pub fn get_data_no_trace(&self, addr: M31) -> Result<M31, MemoryError> {
+        let address = addr.0 as usize;
+        let value = self.data.get(address).copied().unwrap_or_default();
+        if !value.1.is_zero() || !value.0 .1.is_zero() {
+            return Err(MemoryError::BaseFieldProjectionFailed { addr, value });
+        }
+        Ok(value.0 .0)
+    }
+
     /// Inserts a `QM31` value at a specified validated memory address.
     ///
     /// If the address is beyond the current memory size, the memory is
@@ -361,6 +382,23 @@ impl Memory {
     pub fn get_u32(&self, addr: M31) -> Result<u32, MemoryError> {
         let limb_lo = self.get_data(addr)?;
         let limb_hi = self.get_data(addr + M31::one())?;
+
+        if limb_lo.0 > U32_LIMB_MASK || limb_hi.0 > U32_LIMB_MASK {
+            return Err(MemoryError::U32LimbOutOfRange {
+                limb_lo: limb_lo.0,
+                limb_hi: limb_hi.0,
+            });
+        }
+
+        Ok((limb_hi.0 << U32_LIMB_BITS) | limb_lo.0)
+    }
+
+    /// Read a 32-bit value (little-endian) stored as two 16-bit limbs at `addr` without recording a trace entry.
+    ///
+    /// This method is used for debugging instructions that should not affect the execution trace.
+    pub fn get_u32_no_trace(&self, addr: M31) -> Result<u32, MemoryError> {
+        let limb_lo = self.get_data_no_trace(addr)?;
+        let limb_hi = self.get_data_no_trace(addr + M31::one())?;
 
         if limb_lo.0 > U32_LIMB_MASK || limb_hi.0 > U32_LIMB_MASK {
             return Err(MemoryError::U32LimbOutOfRange {
