@@ -48,7 +48,7 @@ pub mod fibonacci {
 
             // Run the program to generate trace and memory data
             let cairo_result =
-                run_cairo_program(&compiled, "fib", &[M31::from(1000)], Default::default())
+                run_cairo_program(&compiled, "fib", &[1000.into()], Default::default())
                     .expect("Failed to run Cairo-M program");
 
             // Create paths for temporary trace and memory files

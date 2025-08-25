@@ -16,6 +16,26 @@ pub enum InputValue {
     Unit,
 }
 
+impl TryFrom<InputValue> for M31 {
+    type Error = AbiCodecError;
+    fn try_from(value: InputValue) -> Result<Self, Self::Error> {
+        match value {
+            InputValue::Number(n) => Ok(m31_from_i64(n)),
+            InputValue::Bool(b) => Ok(Self::from(if b { 1u32 } else { 0u32 })),
+            _ => Err(AbiCodecError::TypeMismatch(format!(
+                "Cannot convert {:?} to M31",
+                value
+            ))),
+        }
+    }
+}
+
+impl From<M31> for InputValue {
+    fn from(value: M31) -> Self {
+        Self::Number(value.0.into())
+    }
+}
+
 /// Typed output value decoded from memory
 #[derive(Debug, Clone, PartialEq)]
 pub enum CairoMValue {
@@ -27,6 +47,21 @@ pub enum CairoMValue {
     Struct(Vec<(String, CairoMValue)>),
     Array(Vec<CairoMValue>),
     Unit,
+}
+
+impl TryFrom<CairoMValue> for M31 {
+    type Error = AbiCodecError;
+    fn try_from(value: CairoMValue) -> Result<Self, Self::Error> {
+        match value {
+            CairoMValue::Felt(m31) => Ok(m31),
+            CairoMValue::Bool(b) => Ok(Self::from(if b { 1u32 } else { 0u32 })),
+            CairoMValue::U32(u) => Ok(Self::from(u)),
+            _ => Err(AbiCodecError::TypeMismatch(format!(
+                "Cannot convert {:?} to M31",
+                value
+            ))),
+        }
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
