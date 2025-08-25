@@ -36,10 +36,9 @@ pub struct Proof<H: MerkleHasher> {
     pub interaction_pow: u64,
 }
 
-impl<H: MerkleHasher> Proof<H>
+impl<H> Proof<H>
 where
-    for<'de> H: Deserialize<'de>,
-    for<'de> H::Hash: Deserialize<'de>,
+    H: MerkleHasher + for<'de> Deserialize<'de>,
 {
     /// Load a proof from a JSON file at the given path
     pub fn from_json_file(path: impl AsRef<std::path::Path>) -> Result<Self, String> {
