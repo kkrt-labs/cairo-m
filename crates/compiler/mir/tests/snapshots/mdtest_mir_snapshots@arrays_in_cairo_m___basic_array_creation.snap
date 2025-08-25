@@ -1,0 +1,24 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Arrays in Cairo-M - Basic Array Creation"
+input_file: mdtest/01-basics/05-arrays.md
+---
+Source:
+fn create_array() -> felt {
+    let arr: [felt; 3] = [1, 2, 3];
+    return arr[0];
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn create_array {
+    entry: 0
+
+    0:
+      %1 = 1
+      return %1
+
+  }
+
+}

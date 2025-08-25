@@ -191,13 +191,27 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             return Ok(());
         }
 
-        // TODO: Handle array assignment (array[index] = value)
-        if let Expression::IndexAccess {
-            array: _array,
-            index: _index,
-        } = &lhs_expr_info.ast_node
-        {
-            panic!("Array assignment not implemented");
+        // Check if this is an array assignment (array[index] = value)
+        if let Expression::IndexAccess { array, index } = &lhs_expr_info.ast_node {
+            let array_val = self.lower_expression(array)?;
+            let index_val = self.lower_expression(index)?;
+            let rhs_value = self.lower_expression(rhs)?;
+            let array_type = self.expr_mir_type(array.span())?;
+
+            // Use unified ArrayInsert, works for constant and dynamic indices
+            let new_array_dest = self.array_insert(array_val, index_val, rhs_value, array_type);
+
+            if let Expression::Identifier(obj_name) = array.value() {
+                // Rebind the array to the new value for pure SSA form
+                self.bind_variable(
+                    obj_name.value(),
+                    array.span(),
+                    Value::operand(new_array_dest),
+                    lhs_expr_info.scope_id,
+                )?;
+            }
+
+            return Ok(());
         }
 
         // Standard assignment

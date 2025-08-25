@@ -5,6 +5,7 @@
 mod common;
 
 use cairo_m_compiler_mir::{generate_mir, PrettyPrint};
+use cairo_m_compiler_semantic::db::project_validate_semantics;
 use cairo_m_test_utils::{mdtest::MdTestRunner, mdtest_path};
 use common::{create_test_crate, TestDatabase};
 
@@ -18,6 +19,15 @@ fn test_mdtest_mir_snapshots() {
 
         let runner = MdTestRunner::new("MIR", |source, name| {
             let crate_id = create_test_crate(&db, source, name, "mdtest");
+
+            // validate semantics
+            let diagnostics = project_validate_semantics(&db, crate_id);
+            if diagnostics.has_errors() {
+                return Err(format!(
+                    "Semantic validation failed with diagnostics:\n{:#?}",
+                    diagnostics
+                ));
+            }
 
             match generate_mir(&db, crate_id) {
                 Ok(module) => Ok(module.pretty_print(0)),

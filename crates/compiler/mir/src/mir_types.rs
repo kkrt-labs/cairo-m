@@ -38,12 +38,12 @@ pub enum MirType {
         fields: Vec<(String, MirType)>,
     },
 
-    /// Array type with element type and optional size
-    /// Arrays are intentionally kept on the memory path, not value-based like tuples/structs
-    /// This allows for address-of operations and complex memory semantics
-    Array {
+    /// Fixed-size array type with element type and compile-time known size
+    /// Fixed-size arrays are treated as value-based aggregates like tuples/structs in MIR
+    /// They only materialize to memory when necessary (function calls, dynamic indexing)
+    FixedArray {
         element_type: Box<MirType>,
-        size: Option<usize>, // None for dynamic arrays
+        size: usize, // Required, compile-time known size
     },
 
     /// Function type with parameter and return types
@@ -140,15 +140,18 @@ impl MirType {
     }
 
     /// Returns true if this type should use memory-based operations
-    /// Arrays always use memory path, while tuples/structs use value-based operations
+    /// Currently no types require memory path by default (fixed arrays use value-based)
     pub const fn requires_memory_path(&self) -> bool {
-        matches!(self, Self::Array { .. })
+        false // Fixed arrays are value-based like tuples/structs
     }
 
     /// Returns true if this type can use value-based aggregate operations
-    /// Only tuples and structs use the new aggregate instructions
+    /// Tuples, structs, and fixed-size arrays use the new aggregate instructions
     pub const fn uses_value_aggregates(&self) -> bool {
-        matches!(self, Self::Tuple(_) | Self::Struct { .. })
+        matches!(
+            self,
+            Self::Tuple(_) | Self::Struct { .. } | Self::FixedArray { .. }
+        )
     }
 
     /// Gets the size in slots (field elements) for this type
@@ -231,6 +234,13 @@ impl MirType {
 
                 Self::struct_type(struct_name, fields)
             }
+            TypeData::FixedArray { element_type, size } => {
+                let element_mir_type = Self::from_semantic_type(db, element_type);
+                Self::FixedArray {
+                    element_type: Box::new(element_mir_type),
+                    size,
+                }
+            }
             TypeData::Function(func_sig) => {
                 let params: Vec<Self> = func_sig
                     .params(db)
@@ -264,13 +274,8 @@ impl std::fmt::Display for MirType {
                 write!(f, ")")
             }
             Self::Struct { name, .. } => write!(f, "{name}"),
-            Self::Array { element_type, size } => {
-                write!(
-                    f,
-                    "[{}; {}]",
-                    element_type,
-                    size.map_or("?".to_string(), |s| s.to_string())
-                )
+            Self::FixedArray { element_type, size } => {
+                write!(f, "[{}; {}]", element_type, size)
             }
             Self::Function {
                 params,

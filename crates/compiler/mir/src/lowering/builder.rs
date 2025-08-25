@@ -761,4 +761,59 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         let mut cfg = self.cfg();
         cfg.mark_block_filled(block_id);
     }
+
+    /// Create a fixed-size array from element values
+    /// Returns the ValueId of the new array
+    pub fn make_fixed_array(&mut self, elements: Vec<Value>, element_type: MirType) -> ValueId {
+        let size = elements.len();
+        let array_type = MirType::FixedArray {
+            element_type: Box::new(element_type.clone()),
+            size,
+        };
+        let dest = self.state.mir_function.new_typed_value_id(array_type);
+        self.instr()
+            .add_instruction(Instruction::make_fixed_array(dest, elements, element_type));
+        dest
+    }
+
+    /// Index into a fixed-size array
+    /// Returns the ValueId of the extracted element
+    pub fn array_index(
+        &mut self,
+        array_val: Value,
+        index_val: Value,
+        element_type: MirType,
+    ) -> ValueId {
+        let dest = self
+            .state
+            .mir_function
+            .new_typed_value_id(element_type.clone());
+        self.instr().add_instruction(Instruction::array_index(
+            dest,
+            array_val,
+            index_val,
+            element_type,
+        ));
+        dest
+    }
+
+    /// Insert/update an element in a fixed-size array
+    /// Returns the ValueId of the new array with the element updated
+    pub fn array_insert(
+        &mut self,
+        array_val: Value,
+        index_val: Value,
+        new_value: Value,
+        array_type: MirType,
+    ) -> ValueId {
+        // Destination is the whole array value being produced
+        let dest = self
+            .state
+            .mir_function
+            .new_typed_value_id(array_type.clone());
+        self.instr().add_instruction(Instruction::array_insert(
+            dest, array_val, index_val, new_value, array_type,
+        ));
+        dest
+    }
 }

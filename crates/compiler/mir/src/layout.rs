@@ -30,6 +30,7 @@ impl DataLayout {
     /// This is the primary method for querying type sizes. It returns
     /// the number of field element slots required to store a value of
     /// the given type.
+    // TODO: before merge: size_of is ambiguous here, what's the size of a fixed array (not the same when passed as a pointer or not!)
     pub fn size_of(ty: &MirType) -> usize {
         match ty {
             MirType::Felt | MirType::Bool | MirType::Pointer(_) => 1,
@@ -45,8 +46,9 @@ impl DataLayout {
                     .map(|(_, field_type)| Self::size_of(field_type))
                     .sum()
             }
-            MirType::Array { .. } => {
-                panic!("Array not implemented yet");
+            MirType::FixedArray { element_type, size } => {
+                // Fixed-size arrays have compile-time known size
+                Self::size_of(element_type) * size
             }
             MirType::Function { .. } => 1, // Function pointers
             MirType::Unit => 0,
