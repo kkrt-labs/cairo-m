@@ -868,6 +868,21 @@ fn test_try_from_smallvec() {
             },
             "StoreToDoubleDerefFpFp instruction",
         ),
+        // Print operations
+        (
+            smallvec![M31::from(46), M31::from(5)],
+            Instruction::PrintM31 {
+                offset: M31::from(5),
+            },
+            "PrintM31 instruction",
+        ),
+        (
+            smallvec![M31::from(47), M31::from(10)],
+            Instruction::PrintU32 {
+                offset: M31::from(10),
+            },
+            "PrintU32 instruction",
+        ),
     ];
 
     assert_eq!(test_cases.len(), MAX_OPCODE as usize + 1);
