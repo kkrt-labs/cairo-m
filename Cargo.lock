@@ -706,6 +706,7 @@ dependencies = [
 name = "cairo-m-wasm"
 version = "0.1.1"
 dependencies = [
+ "cairo-m-common",
  "cairo-m-compiler-codegen",
  "cairo-m-compiler-mir",
  "cairo-m-runner",

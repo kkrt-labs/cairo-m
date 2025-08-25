@@ -243,8 +243,7 @@ impl DagToMir {
                 .unwrap_or_else(|| format!("func_{}", func_idx))
         });
 
-        let func_name_clone = func_name.clone();
-        let mut context = DagToMirContext::new(func_name);
+        let mut context = DagToMirContext::new(func_name.clone());
 
         // Get function type information for parameters and return types
         let (param_types, return_types) = self.module.with_program(|program| {
@@ -255,7 +254,7 @@ impl DagToMir {
                 .ty
                 .params()
                 .iter()
-                .map(|ty| Self::wasm_type_to_mir_type(ty, &func_name_clone, "function parameters"))
+                .map(|ty| Self::wasm_type_to_mir_type(ty, &func_name, "function parameters"))
                 .collect();
 
             // Handle return types with proper error handling
@@ -263,9 +262,7 @@ impl DagToMir {
                 .ty
                 .results()
                 .iter()
-                .map(|ty| {
-                    Self::wasm_type_to_mir_type(ty, &func_name_clone, "function return types")
-                })
+                .map(|ty| Self::wasm_type_to_mir_type(ty, &func_name, "function return types"))
                 .collect();
 
             (param_types, return_types)
@@ -392,7 +389,8 @@ impl DagToMir {
 
                 Operation::WASMOp(wasm_op) => {
                     // Convert WASM operation to MIR instruction
-                    let mir_values = self.convert_wasm_op_to_mir(wasm_op, node, context)?;
+                    let mir_values =
+                        self.convert_wasm_op_to_mir(node_idx, wasm_op, node, context)?;
 
                     // Map output values
                     for (output_idx, mir_value_id) in mir_values.iter().enumerate() {
@@ -417,7 +415,8 @@ impl DagToMir {
 
                 Operation::Br(target) => {
                     // This is either a jump or a return
-                    let target_block = self.resolve_break_target(node, target, context)?;
+                    let target_block =
+                        self.resolve_break_target(node_idx, node, target, context)?;
 
                     // Edge copies
                     match &target.kind {
@@ -444,7 +443,8 @@ impl DagToMir {
                         }
                     })?;
                     let condition_value = self.get_input_value(&node.inputs[cond_idx], context)?;
-                    let target_block = self.resolve_break_target(node, target, context)?;
+                    let target_block =
+                        self.resolve_break_target(node_idx, node, target, context)?;
                     let else_block = context.mir_function.add_basic_block();
 
                     // Edge copies on the taken edge
@@ -472,7 +472,7 @@ impl DagToMir {
                         }
                     })?;
                     let condition_value = self.get_input_value(&node.inputs[cond_idx], context)?;
-                    let else_target = self.resolve_break_target(node, target, context)?;
+                    let else_target = self.resolve_break_target(node_idx, node, target, context)?;
                     let then_target = context.mir_function.add_basic_block();
 
                     // Edge copies on the taken edge
@@ -613,6 +613,7 @@ impl DagToMir {
     fn wasm_binary_opcode_to_mir(
         &self,
         wasm_op: &Op,
+        node_idx: usize,
         context: &DagToMirContext,
     ) -> Result<BinaryOp, DagToMirError> {
         match wasm_op {
@@ -632,7 +633,7 @@ impl DagToMir {
             _ => Err(DagToMirError::UnsupportedOperation {
                 op: format!("{:?}", wasm_op),
                 function_name: context.mir_function.name.clone(),
-                node_idx: 0,
+                node_idx,
                 suggestion: "".to_string(),
             }),
         }
@@ -640,13 +641,14 @@ impl DagToMir {
 
     fn convert_wasm_binop_to_mir(
         &self,
+        node_idx: usize,
         wasm_op: &Op,
         left: Value,
         right: Value,
         context: &mut DagToMirContext,
     ) -> Result<Vec<ValueId>, DagToMirError> {
         let result_id = context.mir_function.new_typed_value_id(MirType::U32);
-        let wasm_op = self.wasm_binary_opcode_to_mir(wasm_op, context)?;
+        let wasm_op = self.wasm_binary_opcode_to_mir(wasm_op, node_idx, context)?;
         let instruction = Instruction::binary_op(wasm_op, result_id, left, right);
         context.get_current_block()?.push_instruction(instruction);
         Ok(vec![result_id])
@@ -655,6 +657,7 @@ impl DagToMir {
     /// Convert a WASM operation to MIR instructions
     fn convert_wasm_op_to_mir(
         &self,
+        node_idx: usize,
         wasm_op: &Op,
         node: &Node,
         context: &mut DagToMirContext,
@@ -680,7 +683,9 @@ impl DagToMir {
             | Op::I32GeU
             | Op::I32And
             | Op::I32Or
-            | Op::I32Xor => self.convert_wasm_binop_to_mir(wasm_op, inputs[0], inputs[1], context),
+            | Op::I32Xor => {
+                self.convert_wasm_binop_to_mir(node_idx, wasm_op, inputs[0], inputs[1], context)
+            }
 
             // Constants
             Op::I32Const { value } => {
@@ -707,7 +712,7 @@ impl DagToMir {
                     // No local variable set yet, raise an error
                     return Err(DagToMirError::ValueMappingError {
                         function_name: context.mir_function.name.clone(),
-                        node_idx: 0,
+                        node_idx,
                         reason: format!(
                             "Local variable {} not initialized (available locals: {:?})",
                             local_index,
@@ -810,7 +815,7 @@ impl DagToMir {
                 Err(DagToMirError::UnsupportedOperation {
                     op: format!("{:?}", wasm_op),
                     function_name: context.mir_function.name.clone(),
-                    node_idx: 0,
+                    node_idx,
                     suggestion: suggestion.to_string(),
                 })
             }
@@ -847,6 +852,7 @@ impl DagToMir {
     /// Resolve a WASM break target to a MIR BasicBlockId
     fn resolve_break_target(
         &self,
+        node_idx: usize,
         node: &Node,
         target: &BreakTarget,
         context: &mut DagToMirContext,
@@ -877,7 +883,7 @@ impl DagToMir {
                 } else if d >= context.loop_stack.len() && !context.loop_stack.is_empty() {
                     return Err(DagToMirError::LoopDepthError {
                         function_name: context.mir_function.name.clone(),
-                        node_idx: 0,
+                        node_idx,
                         requested_depth: depth,
                         available_depth: context.loop_stack.len(),
                     });
