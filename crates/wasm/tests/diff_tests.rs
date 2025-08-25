@@ -1,11 +1,10 @@
+use cairo_m_common::abi_codec::{CairoMValue, InputValue};
 /// These tests compare the output of the compiled cairo-m with result from the womir interpreter
 use cairo_m_compiler_codegen::compile_module;
 use cairo_m_compiler_mir::PassManager;
 use cairo_m_runner::run_cairo_program;
 use cairo_m_wasm::flattening::DagToMir;
 use cairo_m_wasm::loader::BlocklessDagModule;
-
-use stwo_prover::core::fields::m31::M31;
 
 use womir::generic_ir::GenericIrSetting;
 use womir::interpreter::ExternalFunctions;
@@ -41,29 +40,15 @@ impl ExternalFunctions for DataInput {
     }
 }
 
-/// Convert a vector of u32 to a vector of M31, splitting each u32 into 2 u16 limbs
-/// Following Cairo-M VM convention: [low_16_bits, high_16_bits]
-fn u32_to_m31(values: Vec<u32>) -> Vec<M31> {
-    let mut result = Vec::new();
-    for value in values {
-        let low = value & 0xFFFF; // Low 16 bits go first
-        let high = value >> 16; // High 16 bits go second
-        result.push(M31::from(low));
-        result.push(M31::from(high));
-    }
-    result
-}
-
-/// Convert a vector of M31 to a vector of u32, combining each 2 u16 limbs into a u32
-/// Following Cairo-M VM convention: [low_16_bits, high_16_bits]
-fn m31_to_u32(values: Vec<M31>) -> Vec<u32> {
-    let mut result = Vec::new();
-    for i in (0..values.len()).step_by(2) {
-        let low = values[i].0; // First M31 is low 16 bits
-        let high = values[i + 1].0; // Second M31 is high 16 bits
-        result.push((high << 16) | low);
-    }
-    result
+/// Convert a vector of CairoMValue to a vector of u32, assuming each CairoMValue is a u32
+fn cairo_m_value_to_u32(values: Vec<CairoMValue>) -> Vec<u32> {
+    values
+        .iter()
+        .map(|v| match v {
+            CairoMValue::U32(n) => *n,
+            _ => panic!("Expected u32, got {:?}", v),
+        })
+        .collect::<Vec<_>>()
 }
 
 fn test_program(path: &str, func_name: &str, inputs: Vec<u32>) {
@@ -81,18 +66,23 @@ fn test_program(path: &str, func_name: &str, inputs: Vec<u32>) {
     let data_input = DataInput::new(vec![]);
     let mut womir_interpreter = Interpreter::new(womir_program, data_input);
 
+    let cairo_vm_inputs = inputs
+        .iter()
+        .map(|&v| InputValue::Number(v as i64))
+        .collect::<Vec<_>>();
+
     // Test with the provided inputs
     let result_womir_interpreter = womir_interpreter.run(func_name, &inputs);
     let result_cairo_m_interpreter = run_cairo_program(
         &compiled_module,
         func_name,
-        &u32_to_m31(inputs),
+        &cairo_vm_inputs,
         Default::default(),
     )
     .unwrap();
     assert_eq!(
         result_womir_interpreter,
-        m31_to_u32(result_cairo_m_interpreter.return_values)
+        cairo_m_value_to_u32(result_cairo_m_interpreter.return_values)
     );
 }
 
