@@ -296,7 +296,11 @@ define_instruction!(
     // 42 taken by StoreDoubleDerefFpFp; 43 taken by StoreFpImm
     // Reverse double deref operations - store TO computed addresses
     StoreToDoubleDerefFpImm = 44, 3, fields: [base_off, imm, src_off], size: 4, operands: [Felt, Felt, Felt]; // [[fp + base_off] + imm] = [fp + src_off]
-    StoreToDoubleDerefFpFp = 45, 3, fields: [base_off, offset_off, src_off], size: 4, operands: [Felt, Felt, Felt] // [[fp + base_off] + [fp + offset_off]] = [fp + src_off]
+    StoreToDoubleDerefFpFp = 45, 3, fields: [base_off, offset_off, src_off], size: 4, operands: [Felt, Felt, Felt]; // [[fp + base_off] + [fp + offset_off]] = [fp + src_off]
+
+    // Print operations for debugging
+    PrintM31 = 46, 1, fields: [offset], size: 2, operands: [Felt];                      // print [fp + offset] as M31
+    PrintU32 = 47, 2, fields: [offset], size: 2, operands: [U32]                        // print u32([fp + offset], [fp + offset + 1])
 );
 
 impl From<Instruction> for SmallVec<[M31; INSTRUCTION_MAX_SIZE]> {
