@@ -79,10 +79,6 @@ macro_rules! define_opcodes {
             pub fn range_check_20(&self) -> impl ParallelIterator<Item = &PackedM31> {
                 define_opcodes!(@range_check_20 self, $($opcode),*)
             }
-
-            pub fn range_check_16(&self) -> impl ParallelIterator<Item = &PackedM31> {
-                define_opcodes!(@range_check_16 self, $($opcode),*)
-            }
         }
 
         // Implement InteractionClaim methods
@@ -157,43 +153,6 @@ macro_rules! define_opcodes {
         }
     };
 
-    // Helper rule for range_check_16 chaining
-    // This implementation allows for conditional inclusion based on which opcodes have range_check_16
-    (@range_check_16 $self:ident, $first:ident $(, $rest:ident)*) => {
-        {
-            // Start with an empty iterator
-            let empty_iter = rayon::iter::empty::<&PackedM31>();
-
-            // For each opcode, check if it has range_check_16 and chain if it does
-            // You need to manually specify which opcodes have range_check_16
-            // by adding them to this match statement
-            let iter = empty_iter;
-
-            // Add the first opcode if it has range_check_16
-            let iter = match stringify!($first) {
-                // Uncomment and add opcode names that have range_check_16
-                // For example, if "store_div_fp_imm" had range_check_16:
-                // "store_div_fp_imm" => {
-                //     iter.chain($self.$first.lookup_data.range_check_16.par_iter().flatten())
-                // }
-                _ => iter,
-            };
-
-            // Chain the rest
-            $(
-                let iter = match stringify!($rest) {
-                    // Uncomment and add opcode names that have range_check_16
-                    // "some_opcode_with_range_check_16" => {
-                    //     iter.chain($self.$rest.lookup_data.range_check_16.par_iter().flatten())
-                    // }
-                    _ => iter,
-                };
-            )*
-
-            iter
-        }
-    };
-
     // Helper rule for range_check_20 chaining
     (@range_check_20 $self:ident, $first:ident $(, $rest:ident)*) => {
         $self.$first
@@ -258,5 +217,6 @@ define_opcodes!(
         ],
         store_fp_imm
     ),
-    ([const STORE_DOUBLE_DEREF_FP], store_double_deref_fp)
+    ([const STORE_DOUBLE_DEREF_FP], store_double_deref_fp),
+    ([const U32_STORE_ADD_FP_IMM], u32_store_add_fp_imm)
 );
