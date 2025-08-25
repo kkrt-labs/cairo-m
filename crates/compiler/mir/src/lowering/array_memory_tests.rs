@@ -171,7 +171,7 @@ mod tests {
 
         // Using DataLayout for size calculation
         use crate::DataLayout;
-        assert_eq!(DataLayout::size_of(&felt_array), 5); // 5 felts
-        assert_eq!(DataLayout::size_of(&u32_array), 6); // 3 * 2 slots for u32
+        assert_eq!(DataLayout::value_size_of(&felt_array), 5); // 5 felts
+        assert_eq!(DataLayout::value_size_of(&u32_array), 6); // 3 * 2 slots for u32
     }
 }

@@ -68,13 +68,8 @@ means that for an array of size `n`, the receiving function only receives a
 pointer of size `1` to the first element of the array.
 
 ```cairo-m
-fn test_main() -> u32 {
-    let arr: [u32; 3] = [1, 2, 3];
-    return test_array(arr);
-}
-
 fn test_array(arr: [u32; 3]) -> u32 {
-    return arr[0] + arr[1] + arr[2];
+    return arr[0];
 }
 ```
 
