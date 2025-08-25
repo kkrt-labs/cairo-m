@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1755780505335,
+  "lastUpdate": 1756132648874,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -1072,6 +1072,35 @@ window.BENCHMARK_DATA = {
           {
             "name": "fibonacci_prove_peak_mem",
             "value": 2630895862,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "49c46099a63aa946762f1c4c0c4c354932af85af",
+          "message": "refactor(common): replace CairoMSerialize with typed ABI codec layer (#237)\n\n* refactor(abi): replace CairoMSerialize with typed ABI codec layer\n\nReplace the old slot-based serialization system with a proper typed ABI layer\nthat provides better type safety, validation, and maintainability.\n\n## What Changed\n\n- **New ABI codec system** (`abi_codec.rs`):\n  - Typed `AbiType` enum with manual serde for stable JSON format\n  - Type-safe encoding/decoding with `CairoMValue` and `InputValue` enums\n  - Comprehensive validation (bool values 0/1, u32 range checks)\n  - CLI argument parser supporting nested tuples/structs\n  - Proper error types (`AbiCodecError`) instead of anyhow in library code\n\n- **Improved compiler integration**:\n  - MIR types now map directly to ABI types\n  - Program metadata includes typed parameter/return information\n  - Entrypoints carry full ABI slot metadata\n\n- **Enhanced runner/prover**:\n  - Typed value handling throughout execution\n  - Better CLI documentation with examples\n  - Support for tuple syntax: `(1,2,3)` or `[1,2,3]`\n\n- **Testing infrastructure**:\n  - Comprehensive proptest-based round-trip testing\n  - Structured test organization (edge_cases, parser, integration)\n  - Removed redundant tests covered by property testing\n  - Differential test harness supports nested structures\n\n## Why\n\nThe previous `CairoMSerialize` system used untyped \"slot math\" which was error-prone\nand difficult to extend. The new ABI layer provides:\n- Type safety at encode/decode boundaries\n- Better error messages for users\n- Foundation for future features (arrays, more complex types)\n- Cleaner separation between compiler and runtime concerns\n\n## Notes\n\n- Fixed-size arrays marked as unsupported with TODO (Linear issue CORE-1118)\n- All tests passing, including property-based tests\n- Backwards compatible JSON format for programs\n\n* refactor(runner): simplify API to return RunnerOutput directly\n\nRemove tuple return type from run_cairo_program. The function now returns\nRunnerOutput directly, which contains both decoded return_values (Vec<CairoMValue>)\nand the VM state. This simplifies the API and makes it more intuitive to use.\n\nThe raw M31 values are no longer included in RunnerOutput since they can be\nderived from the decoded values when needed for proof generation.\n\nBREAKING CHANGE: run_cairo_program now returns RunnerOutput instead of\n(Vec<CairoMValue>, RunnerOutput). Update call sites to access return_values\nfrom the RunnerOutput struct.\n\n* fix prover tests\n\n* add into impl for InputValue::Number and u32\n\n* Update crates/common/src/abi_codec.rs\n\nCo-authored-by: Oba <obatirou@gmail.com>\n\n* Update crates/common/src/abi_codec.rs\n\nCo-authored-by: Oba <obatirou@gmail.com>\n\n* suggestions\n\n* remove unused import\n\n---------\n\nCo-authored-by: Oba <obatirou@gmail.com>",
+          "timestamp": "2025-08-25T16:23:36+02:00",
+          "tree_id": "b7ae3fec35b1e84304e2d32b1b1b6be1e3a06560",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/49c46099a63aa946762f1c4c0c4c354932af85af"
+        },
+        "date": 1756132648822,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2415357506,
             "unit": "bytes"
           }
         ]
