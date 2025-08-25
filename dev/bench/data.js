@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756132023183,
+  "lastUpdate": 1756133993532,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -1783,6 +1783,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 335568571,
             "range": "± 1466573",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3b2ca46d2beb10c4017d0887af01757106a611ab",
+          "message": "feat(codegen): implement fixed-size array compilation to CASM (#246)\n\nAdd comprehensive code generation for fixed-size arrays:\n\nCore Array Operations:\n- Implement `make_fixed_array` to materialize arrays in contiguous memory\n- Add `extract_array_element` for static index access with offset calculation\n- Implement `dynamic_array_index` with runtime bounds checking and pointer arithmetic\n- Add `insert_array_element` for functional array updates with element copying\n\nMemory & Layout Management:\n- Extend function call ABI to pass arrays as pointers (single slot)\n- Update memory layout calculation to handle array types\n- Add proper handling of zero-sized arrays and unit types\n- Implement efficient element copying with size-aware optimizations\n\nCode Generation Features:\n- Arrays materialize to contiguous stack memory when needed\n- Static indexing compiles to direct memory access\n- Dynamic indexing uses pointer arithmetic with runtime offset calculation\n- Arrays passed to functions as pointers (fp + offset)\n- Proper support for nested types and multi-slot elements (e.g., U32)\n\nTesting & Integration:\n- Add comprehensive test coverage with mdtest snapshots\n- Update compiler dependencies and cargo configuration\n- Extend builder interface for array operations\n- Integrate with existing type system and memory management\n\nThis implementation provides efficient compilation of array operations\nwhile maintaining compatibility with the existing CASM instruction set\nand memory model.\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-08-25T16:52:52+02:00",
+          "tree_id": "9c4180d01963066af1305ca09fced9e854c48f5b",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/3b2ca46d2beb10c4017d0887af01757106a611ab"
+        },
+        "date": 1756133993150,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 338729356,
+            "range": "± 2883700",
             "unit": "ns/iter"
           }
         ]
