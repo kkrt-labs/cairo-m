@@ -1,0 +1,18 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test() { 
+                let arr: [u32; 3] = [1, 2, 3];
+                let x = arr[0];
+                let y: bool = x;  // Type error: u32 != bool
+             return; }
+--- Diagnostics ---
+[2001] Error: Type mismatch for let statement `y`. Expected `bool`, found `u32`
+   ╭─[ semantic_tests::arrays::array_indexing::test_array_indexing_type_propagation:4:31 ]
+   │
+ 4 │                 let y: bool = x;  // Type error: u32 != bool
+   │                               ┬  
+   │                               ╰── Type mismatch for let statement `y`. Expected `bool`, found `u32`
+───╯

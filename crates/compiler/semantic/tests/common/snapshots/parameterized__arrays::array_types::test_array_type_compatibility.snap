@@ -1,0 +1,101 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test() { 
+                let arr1: [felt; 3] = [1, 2, 3];
+                let arr2: [felt; 2] = arr1;  // Size mismatch
+             return; }
+--- Diagnostics ---
+[2001] Error: Type mismatch for let statement `arr2`. Expected `[felt; 2]`, found `[felt; 3]`
+   ╭─[ semantic_tests::arrays::array_types::test_array_type_compatibility:3:39 ]
+   │
+ 3 │                 let arr2: [felt; 2] = arr1;  // Size mismatch
+   │                                       ──┬─  
+   │                                         ╰─── Type mismatch for let statement `arr2`. Expected `[felt; 2]`, found `[felt; 3]`
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+fn test() { 
+                let arr1: [felt; 3] = [1, 2, 3];
+                let arr2: [u32; 3] = arr1;  // Type mismatch
+             return; }
+--- Diagnostics ---
+[2001] Error: Type mismatch for let statement `arr2`. Expected `[u32; 3]`, found `[felt; 3]`
+   ╭─[ semantic_tests::arrays::array_types::test_array_type_compatibility:3:38 ]
+   │
+ 3 │                 let arr2: [u32; 3] = arr1;  // Type mismatch
+   │                                      ──┬─  
+   │                                        ╰─── Type mismatch for let statement `arr2`. Expected `[u32; 3]`, found `[felt; 3]`
+───╯
+
+============================================================
+
+--- Input 3 (ERROR) ---
+fn test() { 
+                let arr1: [bool; 2] = [true, false];
+                let arr2: [felt; 2] = arr1;  // Type mismatch
+             return; }
+--- Diagnostics ---
+[2001] Error: Type mismatch for let statement `arr2`. Expected `[felt; 2]`, found `[bool; 2]`
+   ╭─[ semantic_tests::arrays::array_types::test_array_type_compatibility:3:39 ]
+   │
+ 3 │                 let arr2: [felt; 2] = arr1;  // Type mismatch
+   │                                       ──┬─  
+   │                                         ╰─── Type mismatch for let statement `arr2`. Expected `[felt; 2]`, found `[bool; 2]`
+───╯
+
+============================================================
+
+--- Input 4 (ERROR) ---
+
+                fn process(data: [u32; 3]) -> felt {
+                    return 0;
+                }
+                fn test() {
+                    let arr: [felt; 3] = [1, 2, 3];
+                    let result = process(arr);  // Type mismatch
+                    return;
+                }
+            
+--- Diagnostics ---
+[2001] Error: argument type mismatch for parameter `data`: expected `[u32; 3]`, got `[felt; 3]`
+   ╭─[ semantic_tests::arrays::array_types::test_array_type_compatibility:7:42 ]
+   │
+ 2 │                 fn process(data: [u32; 3]) -> felt {
+   │                                  ────┬───  
+   │                                      ╰───── parameter `data` declared here with type `[u32; 3]`
+   │ 
+ 7 │                     let result = process(arr);  // Type mismatch
+   │                                          ─┬─  
+   │                                           ╰─── argument type mismatch for parameter `data`: expected `[u32; 3]`, got `[felt; 3]`
+───╯
+
+============================================================
+
+--- Input 5 (ERROR) ---
+
+                fn process(data: [felt; 3]) -> felt {
+                    return 0;
+                }
+                fn test() {
+                    let arr: [felt; 4] = [1, 2, 3, 4];
+                    let result = process(arr);  // Size mismatch
+                    return;
+                }
+            
+--- Diagnostics ---
+[2001] Error: argument type mismatch for parameter `data`: expected `[felt; 3]`, got `[felt; 4]`
+   ╭─[ semantic_tests::arrays::array_types::test_array_type_compatibility:7:42 ]
+   │
+ 2 │                 fn process(data: [felt; 3]) -> felt {
+   │                                  ────┬────  
+   │                                      ╰────── parameter `data` declared here with type `[felt; 3]`
+   │ 
+ 7 │                     let result = process(arr);  // Size mismatch
+   │                                          ─┬─  
+   │                                           ╰─── argument type mismatch for parameter `data`: expected `[felt; 3]`, got `[felt; 4]`
+───╯
