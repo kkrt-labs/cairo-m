@@ -383,7 +383,7 @@ pub fn parse_cli_arg(s: &str) -> Result<InputValue, AbiCodecError> {
                     }
                     _ => {
                         return Err(AbiCodecError::ParseError(format!(
-                            "Expected ',' or ']' at position {} in tuple",
+                            "Expected ',' or ']' at position {} in array",
                             self.i
                         )))
                     }
