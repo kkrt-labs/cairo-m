@@ -1,0 +1,16 @@
+[package]
+name = "cargo-cairo-m"
+version = "0.1.0"
+edition = "2021"
+authors = ["Cairo-M Team"]
+description = "Cargo subcommand for creating and managing Cairo-M projects"
+license = "MIT OR Apache-2.0"
+
+[[bin]]
+name = "cargo-cairo-m"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true

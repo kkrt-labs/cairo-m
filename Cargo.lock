@@ -706,6 +706,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cargo-cairo-m"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "thiserror",
+]
+
+[[package]]
 name = "cast"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
