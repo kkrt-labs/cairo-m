@@ -115,7 +115,7 @@ fn test_inference() -> u32 {
 
 ```rust
 fn test_inference() -> u32 {
-    let x = 42;  // Type inferred as i32
+    let x = 42;  // Type inferred as i64
     let y: u32 = 100;
     let z = 200u32;
     return y + z;

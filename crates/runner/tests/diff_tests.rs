@@ -1,28 +1,25 @@
-use cairo_m_common::{CairoMSerialize, Program};
+use cairo_m_common::{CairoMValue, InputValue, Program};
 use cairo_m_compiler::{compile_cairo, CompilerOptions};
 use cairo_m_runner::run_cairo_program;
 use cairo_m_test_utils::read_fixture;
-use stwo_prover::core::fields::m31::M31;
 
 /// Represents a test case for diff-testing
 struct DiffTest {
     name: &'static str,
     cairo_file: &'static str,
     entrypoint: &'static str,
-    args: Vec<M31>,
+    args: Vec<InputValue>,
     rust_fn: fn() -> u32,
     description: &'static str,
 }
 
-/// Macro to encode a list of values into M31 args
+/// Macro to create a list of InputValue args
 macro_rules! args {
     () => { vec![] };
     ($($arg:expr),+ $(,)?) => {{
-        let mut encoded = Vec::new();
-        $(
-            $arg.encode(&mut encoded);
-        )+
-        encoded
+        vec![$(
+            InputValue::Number($arg as i64),
+        )+]
     }};
 }
 
@@ -84,8 +81,9 @@ fn run_diff_test(test: DiffTest) {
         "Running Cairo-M program: {} with args: {:?}",
         test.entrypoint, test.args
     );
-    let cairo_result = run_cairo_program(&program, test.entrypoint, &test.args, Default::default())
+    let cairo_output = run_cairo_program(&program, test.entrypoint, &test.args, Default::default())
         .expect("Failed to run Cairo-M program");
+    let cairo_values = cairo_output.return_values;
 
     // Run Rust implementation
     let rust_result = (test.rust_fn)();
@@ -95,33 +93,46 @@ fn run_diff_test(test: DiffTest) {
     let entrypoint_info = program
         .get_entrypoint(test.entrypoint)
         .expect("Entrypoint not found");
-    let is_u32_return = entrypoint_info.returns.len() == 1 && entrypoint_info.returns[0].slots == 2;
+    let is_u32_return = entrypoint_info.returns.len() == 1
+        && matches!(
+            entrypoint_info.returns[0].ty,
+            cairo_m_common::program::AbiType::U32
+        );
 
     if is_u32_return {
-        // For u32 returns, we expect 2 M31 values
+        // For u32 returns, we expect a U32 value
         assert!(
-            cairo_result.return_values.len() == 2,
-            "Expected exactly two return values for u32, got {}",
-            cairo_result.return_values.len()
+            cairo_values.len() == 1,
+            "Expected exactly one return value for u32, got {}",
+            cairo_values.len()
         );
-        let (cairo_u32, _) = u32::decode(&cairo_result.return_values, 0);
-        assert_eq!(
-            cairo_u32, rust_result,
-            "Results differ! Cairo-M: {}, Rust: {} \n for test: {} \n {}",
-            cairo_u32, rust_result, test.name, test.description
-        );
+        match &cairo_values[0] {
+            CairoMValue::U32(cairo_u32) => {
+                assert_eq!(
+                    *cairo_u32, rust_result,
+                    "Results differ! Cairo-M: {}, Rust: {} \n for test: {} \n {}",
+                    cairo_u32, rust_result, test.name, test.description
+                );
+            }
+            _ => panic!("Expected U32 return value, got {:?}", cairo_values[0]),
+        }
     } else {
-        // For felt returns, we expect 1 M31 value
+        // For felt returns, we expect a Felt value
         assert!(
-            cairo_result.return_values.len() == 1,
+            cairo_values.len() == 1,
             "Expected exactly one return value, got {}",
-            cairo_result.return_values.len()
+            cairo_values.len()
         );
-        assert_eq!(
-            cairo_result.return_values[0].0, rust_result,
-            "Results differ! Cairo-M: {}, Rust: {} \n for test: {} \n {}",
-            cairo_result.return_values[0].0, rust_result, test.name, test.description
-        );
+        match &cairo_values[0] {
+            CairoMValue::Felt(felt) => {
+                assert_eq!(
+                    felt.0, rust_result,
+                    "Results differ! Cairo-M: {}, Rust: {} \n for test: {} \n {}",
+                    felt.0, rust_result, test.name, test.description
+                );
+            }
+            _ => panic!("Expected Felt return value, got {:?}", cairo_values[0]),
+        }
     }
 }
 
@@ -145,7 +156,7 @@ diff_test!(
     test_fibonacci_recursive,
     "fibonacci.cm",
     "fib",
-    args![M31::from(10)],
+    args![10],
     rust_fib_recursive,
     "Recursive Fibonacci computation for n=10"
 );
@@ -169,7 +180,7 @@ diff_test!(
     test_fibonacci_loop,
     "fibonacci_loop.cm",
     "fibonacci_loop",
-    args![M31::from(10)],
+    args![10],
     rust_fibonacci_loop,
     "Fibonacci loop computation for n=10"
 );
@@ -210,7 +221,7 @@ diff_test!(
     test_power,
     "power.cm",
     "power",
-    args![M31::from(3), M31::from(10)],
+    args![3, 10],
     rust_power,
     "3^10 computation"
 );
@@ -472,7 +483,7 @@ diff_test!(
     test_u32_add,
     "u32_operations.cm",
     "add",
-    args![1000000u32, 2345678u32],
+    args![1000000, 2345678],
     rust_u32_add,
     "U32 addition test"
 );
@@ -481,7 +492,7 @@ diff_test!(
     test_u32_sub,
     "u32_operations.cm",
     "sub",
-    args![1000000u32, 2345678u32],
+    args![1000000, 2345678],
     rust_u32_sub,
     "U32 subtraction test"
 );
@@ -490,7 +501,7 @@ diff_test!(
     test_u32_mul,
     "u32_operations.cm",
     "mul",
-    args![1000000u32, 2345678u32],
+    args![1000000, 2345678],
     rust_u32_mul,
     "U32 multiplication test"
 );
@@ -499,7 +510,7 @@ diff_test!(
     test_u32_div,
     "u32_operations.cm",
     "div",
-    args![1000000u32, 2345678u32],
+    args![1000000, 2345678],
     rust_u32_div,
     "U32 division test"
 );

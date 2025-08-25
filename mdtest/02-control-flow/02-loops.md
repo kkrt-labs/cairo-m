@@ -17,7 +17,7 @@ fn sum_to_n() -> felt {
 ```
 
 ```rust
-fn sum_to_n() -> i32 {
+fn sum_to_n() -> i64 {
     let mut sum = 0;
     for i in 0..10 {
         sum = sum + i;
@@ -76,7 +76,7 @@ fn multiply_table() -> felt {
 ```
 
 ```rust
-fn multiply_table() -> i32 {
+fn multiply_table() -> i64 {
     let mut result = 0;
     for i in 1..10 {
         for j in 1..10 {
@@ -105,7 +105,7 @@ fn continue_in_loop() -> felt {
 ```
 
 ```rust
-fn continue_in_loop() -> i32 {
+fn continue_in_loop() -> i64 {
     let mut sum = 0;
     for i in 0..10 {
         if i == 5 {

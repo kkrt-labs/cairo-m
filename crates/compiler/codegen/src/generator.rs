@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 
 use cairo_m_common::instruction::*;
-use cairo_m_common::program::{AbiSlot, EntrypointInfo};
+use cairo_m_common::program::{AbiSlot, AbiType, EntrypointInfo};
 use cairo_m_common::{Program, ProgramMetadata};
 use cairo_m_compiler_mir::{
     BasicBlockId, BinaryOp, DataLayout, Instruction, InstructionKind, Literal, MirFunction,
@@ -145,32 +145,32 @@ impl CodeGenerator {
         // Add function label - but we'll fix the address later
         let func_label = Label::for_function(&function.name);
 
-        // Create entrypoint info for this function with slot information
-        let params = function
+        // Create entrypoint info for this function with type information
+        let params: Vec<AbiSlot> = function
             .parameters
             .iter()
             .enumerate()
             .map(|(i, &value_id)| {
-                let slots = DataLayout::size_of(&function.value_types[&value_id]);
-                AbiSlot {
-                    name: format!("arg{}", i), // TODO: Get proper names from semantic info
-                    slots,
-                }
+                let ty = abi_type_from_mir(&function.value_types[&value_id])?;
+                Ok(AbiSlot {
+                    name: format!("arg{}", i),
+                    ty,
+                })
             })
-            .collect();
+            .collect::<CodegenResult<_>>()?;
 
-        let returns = function
+        let returns: Vec<AbiSlot> = function
             .return_values
             .iter()
             .enumerate()
             .map(|(i, &value_id)| {
-                let slots = DataLayout::size_of(&function.value_types[&value_id]);
-                AbiSlot {
-                    name: format!("ret{}", i), // TODO: Get proper names from semantic info
-                    slots,
-                }
+                let ty = abi_type_from_mir(&function.value_types[&value_id])?;
+                Ok(AbiSlot {
+                    name: format!("ret{}", i),
+                    ty,
+                })
             })
-            .collect();
+            .collect::<CodegenResult<_>>()?;
 
         let entrypoint_info = EntrypointInfo {
             pc: self.instructions.len(),
@@ -998,6 +998,42 @@ impl CodeGenerator {
     pub fn instructions(&self) -> &[InstructionBuilder] {
         &self.instructions
     }
+}
+
+/// Convert MIR types to ABI types for program metadata
+fn abi_type_from_mir(ty: &MirType) -> CodegenResult<AbiType> {
+    let out = match ty {
+        MirType::Felt => AbiType::Felt,
+        MirType::Bool => AbiType::Bool,
+        MirType::U32 => AbiType::U32,
+        MirType::Pointer(inner) => AbiType::Pointer(Box::new(abi_type_from_mir(inner)?)),
+        MirType::Tuple(types) => {
+            let elems: Vec<AbiType> = types
+                .iter()
+                .map(abi_type_from_mir)
+                .collect::<CodegenResult<_>>()?;
+            AbiType::Tuple(elems)
+        }
+        MirType::Struct { name, fields } => AbiType::Struct {
+            name: name.clone(),
+            fields: fields
+                .iter()
+                .map(|(fname, fty)| Ok((fname.clone(), abi_type_from_mir(fty)?)))
+                .collect::<CodegenResult<_>>()?,
+        },
+        MirType::Array { element_type, size } => AbiType::Array {
+            element: Box::new(abi_type_from_mir(element_type)?),
+            size: size.map(|n| n as u32),
+        },
+        MirType::Function { .. } => AbiType::Pointer(Box::new(AbiType::Unit)),
+        MirType::Unit => AbiType::Unit,
+        MirType::Error | MirType::Unknown => {
+            return Err(CodegenError::InvalidMir(
+                "Unsupported ABI type in entrypoint signature".into(),
+            ))
+        }
+    };
+    Ok(out)
 }
 
 impl Default for CodeGenerator {

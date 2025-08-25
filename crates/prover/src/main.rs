@@ -1,14 +1,13 @@
 use std::fs;
 use std::path::PathBuf;
 
-use anyhow::{Context, Error, Result};
-use cairo_m_common::Program;
+use anyhow::Context;
+use cairo_m_common::{parse_cli_arg, InputValue, Program};
 use cairo_m_prover::adapter::import_from_runner_output;
 use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_prover::verifier::verify_cairo_m;
 use cairo_m_runner::run_cairo_program;
 use clap::{Parser, ValueHint};
-use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
 
 #[derive(Parser, Debug)]
@@ -27,16 +26,30 @@ struct Args {
     #[arg(short, long)]
     entrypoint: String,
 
-    /// Arguments to pass to the entrypoint
-    #[arg(short, long)]
-    arguments: Vec<u32>,
+    /// Arguments to pass to the entrypoint function
+    ///
+    /// Supported types:
+    ///   • Numbers: 42, -5 (use quotes for negative: "-5")
+    ///   • Booleans: true, false
+    ///   • Tuples: (1,2,3) or [1,2,3] or [1,[2,3]] for nested
+    ///   • Structs: {1,2,3} or {1,{2,3}} for nested (fields are positional)
+    ///   • Mixed: {1,[true,{2,3}]} combining structs and tuples
+    ///
+    /// Note: Fixed-size arrays are not currently supported as input arguments.
+    ///       See Linear issue CORE-1118 for array support tracking.
+    ///
+    /// Examples:
+    ///   --arguments 42 true "(10,20)"
+    ///   --arguments "{25,true,[10,20]}"
+    #[arg(short, long, value_parser = parse_cli_arg, num_args = 0.., allow_hyphen_values = true, verbatim_doc_comment)]
+    arguments: Vec<InputValue>,
 
     /// Output file to write the proof to
     #[arg(short, long)]
     output: Option<PathBuf>,
 
     /// Whether to verify the proof
-    #[arg(short, long, default_value = "false")]
+    #[arg(long, default_value = "false")]
     verify: bool,
 
     /// Enable verbose output
@@ -44,7 +57,7 @@ struct Args {
     verbose: bool,
 }
 
-fn main() -> Result<(), Error> {
+fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     let file_content = fs::read_to_string(&args.compiled_file)
@@ -53,18 +66,17 @@ fn main() -> Result<(), Error> {
     let compiled_program: Program =
         sonic_rs::from_str(&file_content).context("Failed to parse compiled program")?;
 
-    let fn_args: Vec<M31> = args.arguments.iter().map(|arg| M31::from(*arg)).collect();
-    let output = run_cairo_program(
+    let runner_output = run_cairo_program(
         &compiled_program,
         &args.entrypoint,
-        &fn_args,
+        &args.arguments,
         Default::default(),
     )
     .context("Execution failed")?;
 
     let mut prover_input = import_from_runner_output(
-        output.vm.segments.into_iter().next().unwrap(),
-        output.public_address_ranges,
+        runner_output.vm.segments.into_iter().next().unwrap(),
+        runner_output.public_address_ranges,
     )
     .context("Failed to import from runner output")?;
     let proof: cairo_m_prover::Proof<stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleHasher> =

@@ -6,7 +6,7 @@ static PEAK_ALLOC: PeakAlloc = PeakAlloc;
 use std::fs;
 use std::path::Path;
 
-use cairo_m_common::Program;
+use cairo_m_common::{InputValue, Program};
 use cairo_m_compiler::{compile_cairo, CompilerOptions};
 use cairo_m_prover::adapter::import_from_runner_output;
 use cairo_m_prover::prover::prove_cairo_m;
@@ -40,7 +40,7 @@ fn main() {
     let runner_output = run_cairo_program(
         &program,
         "fibonacci_loop",
-        &[M31::from(N_ITERATIONS)],
+        &[InputValue::Number(N_ITERATIONS as i64)],
         Default::default(),
     )
     .expect("Failed to run fibonacci program");

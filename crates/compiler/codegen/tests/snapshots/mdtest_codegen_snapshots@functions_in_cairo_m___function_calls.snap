@@ -4,32 +4,22 @@ description: "Codegen snapshot for mdtest: Functions in Cairo-M - Function Calls
 input_file: mdtest/01-basics/03-functions.md
 ---
 Source:
+fn test_calls() -> felt {
+    return double(double(5));
+}
 fn double(x: felt) -> felt {
     return x * 2;
 }
-
-fn quadruple(x: felt) -> felt {
-    return double(double(x));
-}
-
-fn test_calls() -> felt {
-    return quadruple(5);
-}
 ============================================================
 Generated CASM:
-double:
-   0: 6 -4 2 -3            // [fp + -3] = [fp + -4] op 2
-   1: 11 _ _ _             // return
-quadruple:
-   2: 4 -4 0 2             // Arg 0 slot 0: [fp + 2] = [fp + -4] + 0
-   3: 10 4 0 _             // call double
-   4: 10 5 0 _             // call double
-   5: 4 4 0 -3             // Return value 0: [fp -3] = [fp + 4] + 0
-   6: 11 _ _ _             // return
 test_calls:
 test_calls:
 test_calls_0:
-   7: 9 5 1 _              // Arg 0: [fp + 1] = 5
-   8: 10 3 2 _             // call quadruple
-   9: 4 2 0 -3             // Return value 0: [fp -3] = [fp + 2] + 0
-  10: 11 _ _ _             // return
+   0: 9 5 2 _              // Arg 0: [fp + 2] = 5
+   1: 10 4 5 _             // call double
+   2: 10 5 5 _             // call double
+   3: 4 4 0 -3             // Return value 0: [fp -3] = [fp + 4] + 0
+   4: 11 _ _ _             // return
+double:
+   5: 6 -4 2 -3            // [fp + -3] = [fp + -4] op 2
+   6: 11 _ _ _             // return

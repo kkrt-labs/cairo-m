@@ -430,8 +430,10 @@ checksum = "d71b6127be86fdcfddb610f7182ac57211d4b18a3e9c82eb2d17662f2227ad6a"
 name = "cairo-m-common"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "num-traits",
  "paste",
+ "proptest",
  "serde",
  "serde_json",
  "smallvec",
@@ -458,6 +460,7 @@ dependencies = [
  "logos",
  "num-traits",
  "salsa",
+ "serde_json",
  "sonic-rs 0.3.17",
  "tempfile",
  "thiserror",

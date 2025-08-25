@@ -1,6 +1,7 @@
 //! Run these tests with feature `relation-tracker` to see the relation tracker output.
 use std::collections::HashMap;
 
+use cairo_m_common::InputValue;
 use cairo_m_compiler::{compile_cairo, CompilerOptions};
 use cairo_m_prover::adapter::memory::Memory;
 use cairo_m_prover::adapter::merkle::{build_partial_merkle_tree, TreeType};
@@ -117,13 +118,8 @@ fn test_prove_and_verify_fibonacci_program() {
     )
     .unwrap();
 
-    let runner_output = run_cairo_program(
-        &compiled.program,
-        "fib",
-        &[M31::from(5)],
-        Default::default(),
-    )
-    .unwrap();
+    let runner_output =
+        run_cairo_program(&compiled.program, "fib", &[5.into()], Default::default()).unwrap();
 
     let mut prover_input = import_from_runner_output(
         runner_output.vm.segments.into_iter().next().unwrap(),
@@ -152,7 +148,7 @@ fn test_prove_and_verify_large_fibonacci_program() {
     let runner_output = run_cairo_program(
         &compiled.program,
         "fibonacci_loop",
-        &[M31::from(1_000_000)],
+        &[InputValue::Number(1_000_000)],
         RunnerOptions {
             max_steps: 2_usize.pow(30),
         },
@@ -181,13 +177,8 @@ fn test_prove_and_verify_recursive_fibonacci_program() {
     )
     .unwrap();
 
-    let runner_output = run_cairo_program(
-        &compiled.program,
-        "fib",
-        &[M31::from(5)],
-        Default::default(),
-    )
-    .unwrap();
+    let runner_output =
+        run_cairo_program(&compiled.program, "fib", &[5.into()], Default::default()).unwrap();
 
     let mut prover_input = import_from_runner_output(
         runner_output.vm.segments.into_iter().next().unwrap(),
@@ -219,7 +210,7 @@ fn test_hash_continuity_fibonacci() {
     let runner_output = run_cairo_program(
         &compiled.program,
         "fibonacci_loop",
-        &[M31::from(5)],
+        &[5.into()],
         runner_options,
     )
     .unwrap();
@@ -314,12 +305,12 @@ fn test_fibonacci_public_memory_contents() {
     let runner_output = run_cairo_program(
         &compiled_fib.program,
         "fib",
-        &[input_arg],
+        &[input_arg.into()],
         Default::default(),
     )
     .unwrap();
 
-    let expected_return_value = runner_output.return_values[0];
+    let expected_return_value: M31 = runner_output.return_values[0].clone().try_into().unwrap();
 
     let mut prover_input = import_from_runner_output(
         runner_output.vm.segments.into_iter().next().unwrap(),

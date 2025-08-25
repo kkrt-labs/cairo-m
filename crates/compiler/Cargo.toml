@@ -23,6 +23,7 @@ logos = "0.15"
 chumsky.workspace = true
 salsa = "0.22"
 sonic-rs = "0.3"
+serde_json.workspace = true
 num-traits.workspace = true
 thiserror.workspace = true
 walkdir = "2.4"

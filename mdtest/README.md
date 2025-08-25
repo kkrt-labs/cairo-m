@@ -66,7 +66,7 @@ fn main() -> felt {
 
 ```rust
 // Optional Rust equivalent for differential testing
-fn main() -> i32 {
+fn main() -> i64 {
     42
 }
 ```
@@ -273,7 +273,7 @@ fn add_numbers() -> felt {
 ```
 
 ```rust
-fn add_numbers() -> i32 {
+fn add_numbers() -> i64 {
     5 + 3
 }
 ```
