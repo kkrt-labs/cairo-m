@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756144998967,
+  "lastUpdate": 1756214809277,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -1843,6 +1843,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 337717102,
             "range": "± 1227943",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "75ef031d2760d3ab05b0cebdc607103cf5078df0",
+          "message": "feat(common): add codec support for fixed-size arrays (#248)\n\n* Adapt AbiCodec for fixed-size arrays\n\n* fix: SROA pass too aggressive on arrays inside structs & tuples\n\n* refactor(runner): improve code readability and naming conventions",
+          "timestamp": "2025-08-26T15:22:39+02:00",
+          "tree_id": "a22b82651f8baa67dcc2d659e80c6420467ad474",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/75ef031d2760d3ab05b0cebdc607103cf5078df0"
+        },
+        "date": 1756214807879,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 336767341,
+            "range": "± 1484332",
             "unit": "ns/iter"
           }
         ]
