@@ -11,7 +11,6 @@ use cairo_m_compiler::{compile_cairo, CompilerOptions};
 use cairo_m_prover::adapter::import_from_runner_output;
 use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_runner::run_cairo_program;
-use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
 
 const N_ITERATIONS: u32 = 100_000; // Same as speed benchmark for consistency

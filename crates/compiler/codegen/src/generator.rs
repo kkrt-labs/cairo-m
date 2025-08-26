@@ -499,7 +499,7 @@ impl CodeGenerator {
                                     match value {
                                         Value::Literal(Literal::Integer(imm)) => {
                                             builder.store_u32_immediate_at(
-                                                *imm as u32,
+                                                *imm,
                                                 arg_offset,
                                                 format!(
                                                     "Direct arg placement: [fp + {}], [fp + {}] = u32({})",
