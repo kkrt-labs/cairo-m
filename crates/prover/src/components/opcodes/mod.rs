@@ -218,5 +218,7 @@ define_opcodes!(
         store_fp_imm
     ),
     ([const STORE_DOUBLE_DEREF_FP], store_double_deref_fp),
-    ([const U32_STORE_ADD_FP_IMM], u32_store_add_fp_imm)
+    ([const U32_STORE_ADD_FP_IMM], u32_store_add_fp_imm),
+    ([const U32_STORE_IMM], u32_store_imm)
+
 );

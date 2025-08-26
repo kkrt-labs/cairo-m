@@ -48,6 +48,11 @@ fn main() -> felt {
     // StoreImm: [fp + off2] = imm (immediate store)
     let immediate = 42;
 
+    // U32StoreAddFpImm
+    let e: u32 = 1;
+    let sum2: u32 = e + 42u32;
+    let sum3: u32 = sum2 + e;
+
     // JnzFpImm
     if (a != 5) {
         a = a + 1;

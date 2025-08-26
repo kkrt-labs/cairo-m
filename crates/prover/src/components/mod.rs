@@ -127,7 +127,15 @@ impl Claim {
             .lookup_data
             .range_check_16
             .par_iter()
-            .flatten();
+            .flatten()
+            .chain(
+                opcodes_interaction_claim_data
+                    .u32_store_imm
+                    .lookup_data
+                    .range_check_16
+                    .par_iter()
+                    .flatten(),
+            );
         let (range_check_16_claim, range_check_16_trace, range_check_16_interaction_claim_data) =
             range_check_16::Claim::write_trace(range_check_data);
 
