@@ -1,5 +1,5 @@
-//! This component is used to prove the U32StoreAddFpImm opcode.
-//! u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) + u32(imm_lo, imm_hi)
+//! This component is used to prove the U32StoreImm opcode.
+//! u32([fp + dst_off], [fp + dst_off + 1]) = u32(imm_lo, imm_hi)
 //!
 //! # Columns
 //!
@@ -8,13 +8,12 @@
 //! - fp
 //! - clock
 //! - inst_prev_clock
-//! - off0
-//! - off1
-//! - off2
-//! - op0_prev_clock
-//! - op0_val
+//! - imm_lo
+//! - imm_hi
+//! - dst_off
+//! - dst_prev_val_lo
+//! - dst_prev_val_hi
 //! - dst_prev_clock
-//! - dst_prev_val
 //!
 //! # Constraints
 //!
@@ -23,14 +22,15 @@
 //! * registers update is regular
 //!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
 //! * read instruction from memory
-//!   * `- [pc, inst_prev_clk, opcode_constant, off0, off1, off2] + [pc, clk, opcode_constant, off0, off1, off2]` in `Memory` relation
+//!   * `- [pc, inst_prev_clk, opcode_constant, imm_lo, imm_hi, dst_off] + [pc, clk, opcode_constant, imm_lo, imm_hi, dst_off]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
-//! * read op0
-//!   * `- [fp + off0, op0_prev_clk, op0_val] + [fp + off0, clk, op0_val]`
-//!   * `- [clk - op0_prev_clk - 1]` in `RangeCheck20` relation
-//! * write dst in [fp + off2]
-//!   * `- [fp + off2, dst_prev_clk, dst_prev_val] + [fp + off2, clk, op0_val + off1]` in `Memory` Relation
+//! * write dst in [fp + dst_off]
+//!   * `- [fp + dst_off, dst_prev_clk, dst_prev_val_lo] + [fp + dst_off, clk, imm_lo]` in `Memory` Relation
+//!   * `- [fp + dst_off + 1, dst_prev_clk, dst_prev_val_hi] + [fp + dst_off + 1, clk, imm_hi]` in `Memory` Relation
 //!   * `- [clk - dst_prev_clk - 1]` in `RangeCheck20` relation
+//! * limbs of each U32 must be in range [0, 2^16)
+//!   * `- [imm_lo]` in `RangeCheck16` relation
+//!   * `- [imm_hi]` in `RangeCheck16` relation
 
 use cairo_m_common::instruction::U32_STORE_IMM;
 use num_traits::{One, Zero};
@@ -156,7 +156,7 @@ impl Claim {
                 let fp = input.fp;
                 let clock = input.clock;
                 let inst_prev_clock = input.inst_prev_clock;
-                // Instruction contains 5 (including opcode id) so here use inst_value_1 to inst_value_4
+
                 let opcode_constant = PackedM31::from(M31::from(U32_STORE_IMM));
                 let imm_lo = input.inst_value_1;
                 let imm_hi = input.inst_value_2;
@@ -181,7 +181,7 @@ impl Claim {
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [input.pc + one, input.fp];
 
-                // Read instruction (single QM31 word for u32_store_imm)
+                // Read instruction
                 *lookup_data.memory[0] = [
                     input.pc,
                     inst_prev_clock,
@@ -193,7 +193,7 @@ impl Claim {
                 *lookup_data.memory[1] =
                     [input.pc, clock, opcode_constant, imm_lo, imm_hi, dst_off];
 
-                // Write first felt word for dst
+                // Write dst_lo
                 *lookup_data.memory[2] = [
                     fp + dst_off,
                     dst_prev_clock,
@@ -204,7 +204,7 @@ impl Claim {
                 ];
                 *lookup_data.memory[3] = [fp + dst_off, clock, imm_lo, zero, zero, zero];
 
-                // Write second felt word for dst
+                // Write dst_hi
                 *lookup_data.memory[4] = [
                     fp + dst_off + one,
                     dst_prev_clock,
@@ -215,7 +215,7 @@ impl Claim {
                 ];
                 *lookup_data.memory[5] = [fp + dst_off + one, clock, imm_hi, zero, zero, zero];
 
-                // Both limbs of each U32 must be in range [0, 2^16)
+                // Limbs of each U32 must be in range [0, 2^16)
                 *lookup_data.range_check_16[0] = imm_lo;
                 *lookup_data.range_check_16[1] = imm_hi;
 
@@ -401,7 +401,7 @@ impl FrameworkEval for Eval {
         let one = E::F::from(M31::one());
         let opcode_constant = E::F::from(M31::from(U32_STORE_IMM));
 
-        // 12 columns
+        // 11 columns
         let enabler = eval.next_trace_mask();
         let pc = eval.next_trace_mask();
         let fp = eval.next_trace_mask();
