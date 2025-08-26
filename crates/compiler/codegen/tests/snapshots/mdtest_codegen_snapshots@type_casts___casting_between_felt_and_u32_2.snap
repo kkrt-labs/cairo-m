@@ -7,24 +7,11 @@ Source:
 fn test_felt_to_u32() -> u32 {
     let x: felt = 10;
     let y: u32 = x as u32;
+    return y;
 }
 ============================================================
 Result: EXPECTED ERROR
 Semantic validation failed with diagnostics:
-[3002] Error: Function 'test_felt_to_u32' doesn't return on all paths
-   ╭─[ Type Casts - Casting between Felt and U32 2:1:4 ]
-   │
- 1 │ fn test_felt_to_u32() -> u32 {
-   │    ────────┬───────  
-   │            ╰───────── Function 'test_felt_to_u32' doesn't return on all paths
-───╯
-[1002] Warning: Unused variable 'y'
-   ╭─[ Type Casts - Casting between Felt and U32 2:3:9 ]
-   │
- 3 │     let y: u32 = x as u32;
-   │         ┬  
-   │         ╰── Unused variable 'y'
-───╯
 [2001] Error: Invalid cast from 'felt' to 'u32'. Only u32 to felt casting is currently supported.
    ╭─[ Type Casts - Casting between Felt and U32 2:3:18 ]
    │

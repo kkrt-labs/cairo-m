@@ -90,6 +90,11 @@ impl Format for Expression {
                     Doc::text("]"),
                 ])
             }
+            Self::Cast { expr, target_type } => Doc::concat(vec![
+                expr.value().format(ctx),
+                Doc::text(" as "),
+                target_type.value().format(ctx),
+            ]),
         }
     }
 }

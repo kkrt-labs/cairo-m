@@ -24,5 +24,6 @@ fn test_u32_to_felt(input: u32) -> i64 {
 fn test_felt_to_u32() -> u32 {
     let x: felt = 10;
     let y: u32 = x as u32;
+    return y;
 }
 ```

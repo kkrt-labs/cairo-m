@@ -7,28 +7,13 @@ Source:
 fn test_felt_to_u32() -> u32 {
     let x: felt = 10;
     let y: u32 = x as u32;
+    return y;
 }
 ============================================================
 Result: EXPECTED ERROR
 Semantic validation failed with diagnostics:
 DiagnosticCollection {
     diagnostics: [
-        Diagnostic {
-            severity: Error,
-            code: MissingReturn,
-            message: "Function 'test_felt_to_u32' doesn't return on all paths",
-            file_path: "Type Casts - Casting between Felt and U32 2",
-            span: 3..19,
-            related_spans: [],
-        },
-        Diagnostic {
-            severity: Warning,
-            code: UnusedVariable,
-            message: "Unused variable 'y'",
-            file_path: "Type Casts - Casting between Felt and U32 2",
-            span: 61..62,
-            related_spans: [],
-        },
         Diagnostic {
             severity: Error,
             code: TypeMismatch,
