@@ -953,7 +953,7 @@ fn test_array_in_struct_not_scalarized() {
     // Create array elements
     let a = function.new_typed_value_id(MirType::Felt);
     let b = function.new_typed_value_id(MirType::Felt);
-    
+
     // Make array: arr = [a, b]
     let array_ty = MirType::FixedArray {
         element_type: Box::new(MirType::Felt),
@@ -968,7 +968,7 @@ fn test_array_in_struct_not_scalarized() {
             vec![Value::operand(a), Value::operand(b)],
             MirType::Felt,
         ));
-    
+
     // Create sum value
     let sum = function.new_typed_value_id(MirType::Felt);
     function
@@ -980,12 +980,12 @@ fn test_array_in_struct_not_scalarized() {
             Value::operand(a),
             Value::operand(b),
         ));
-    
+
     // Make struct: result = { values: arr, sum: sum }
     let struct_ty = MirType::Struct {
         name: "Result".to_string(),
         fields: vec![
-            ("values".to_string(), array_ty.clone()),
+            ("values".to_string(), array_ty),
             ("sum".to_string(), MirType::Felt),
         ],
     };
@@ -1001,23 +1001,26 @@ fn test_array_in_struct_not_scalarized() {
             ],
             struct_ty,
         ));
-    
+
     // Set terminator
     function.get_basic_block_mut(entry).unwrap().terminator = Terminator::Return {
         values: vec![Value::operand(result)],
     };
-    
+
     // Run SROA
     let mut sroa = ScalarReplacementOfAggregates::new();
     let _modified = sroa.run(&mut function);
-    
+
     // The array should NOT be scalarized when used in a struct
     let block = function.get_basic_block(entry).unwrap();
     let has_make_array = block
         .instructions
         .iter()
         .any(|inst| matches!(inst.kind, InstructionKind::MakeFixedArray { .. }));
-    assert!(has_make_array, "MakeFixedArray should NOT be eliminated when array is used in struct");
+    assert!(
+        has_make_array,
+        "MakeFixedArray should NOT be eliminated when array is used in struct"
+    );
 }
 
 #[test]
@@ -1029,7 +1032,7 @@ fn test_array_in_tuple_not_scalarized() {
     // Create array elements
     let x = function.new_typed_value_id(MirType::Felt);
     let y = function.new_typed_value_id(MirType::Felt);
-    
+
     // Make array: arr = [x, y]
     let array_ty = MirType::FixedArray {
         element_type: Box::new(MirType::Felt),
@@ -1044,9 +1047,9 @@ fn test_array_in_tuple_not_scalarized() {
             vec![Value::operand(x), Value::operand(y)],
             MirType::Felt,
         ));
-    
+
     // Make tuple: t = (x, arr)
-    let tuple_ty = MirType::tuple(vec![MirType::Felt, array_ty.clone()]);
+    let tuple_ty = MirType::tuple(vec![MirType::Felt, array_ty]);
     let t = function.new_typed_value_id(tuple_ty);
     function
         .get_basic_block_mut(entry)
@@ -1055,21 +1058,24 @@ fn test_array_in_tuple_not_scalarized() {
             t,
             vec![Value::operand(x), Value::operand(arr)],
         ));
-    
+
     // Set terminator
     function.get_basic_block_mut(entry).unwrap().terminator = Terminator::Return {
         values: vec![Value::operand(t)],
     };
-    
+
     // Run SROA
     let mut sroa = ScalarReplacementOfAggregates::new();
     let _modified = sroa.run(&mut function);
-    
+
     // The array should NOT be scalarized when used in a tuple
     let block = function.get_basic_block(entry).unwrap();
     let has_make_array = block
         .instructions
         .iter()
         .any(|inst| matches!(inst.kind, InstructionKind::MakeFixedArray { .. }));
-    assert!(has_make_array, "MakeFixedArray should NOT be eliminated when array is used in tuple");
+    assert!(
+        has_make_array,
+        "MakeFixedArray should NOT be eliminated when array is used in tuple"
+    );
 }

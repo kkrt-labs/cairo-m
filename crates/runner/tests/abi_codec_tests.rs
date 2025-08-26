@@ -83,27 +83,6 @@ fn test_nested_arrays_in_structs() {
     )
     .expect("Failed to run program");
 
-    for i in 10..20 {
-        if let Ok(val) = output
-            .vm
-            .memory
-            .get_data(stwo_prover::core::fields::m31::M31::from(i as u32))
-        {
-            println!("  M31({}) = M31({})", i, val.0);
-        }
-    }
-    let fp_val = output.vm.state.fp.0 as i32;
-    for offset in -8..4 {
-        let addr = ((fp_val as i64 + offset as i64) as u32) % (1u32 << 31);
-        if let Ok(val) = output
-            .vm
-            .memory
-            .get_data(stwo_prover::core::fields::m31::M31::from(addr))
-        {
-            println!("  fp{:+} (M31({})) = M31({})", offset, addr, val.0);
-        }
-    }
-
     match &output.return_values[0] {
         CairoMValue::Felt(v) => {
             assert_eq!(v.0, 125, "Expected sum of 125");

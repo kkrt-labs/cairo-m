@@ -1,6 +1,9 @@
 use crate::program::{AbiSlot, AbiType};
 use stwo_prover::core::fields::m31::{M31, P};
 
+// Maximum value for the lower/upper 16-bit parts of a U32
+const U16_MAX: u32 = 0xFFFF;
+
 /// Untyped input value that can be interpreted based on AbiType
 #[derive(Debug, Clone, PartialEq)]
 pub enum InputValue {
@@ -150,7 +153,7 @@ fn encode_input(dst: &mut Vec<M31>, ty: &AbiType, val: &InputValue) -> Result<()
                 )));
             }
             let u = *n as u32;
-            let lo = M31::from(u & 0xFFFF);
+            let lo = M31::from(u & U16_MAX);
             let hi = M31::from(u >> 16);
             dst.extend_from_slice(&[lo, hi]);
             Ok(())
@@ -262,10 +265,10 @@ fn decode_one(
             let lo = src[start].0;
             let hi = src[start + 1].0;
             // Validate that each part fits in 16 bits
-            if lo >= (1 << 16) || hi >= (1 << 16) {
+            if lo > U16_MAX || hi > U16_MAX {
                 return Err(AbiCodecError::TypeMismatch(format!(
-                    "Invalid U32 value: lo={}, hi={} (each must be < 65536)",
-                    lo, hi
+                    "Invalid U32 value: lo={}, hi={} (each must be <= {})",
+                    lo, hi, U16_MAX
                 )));
             }
             Ok((CairoMValue::U32(lo | (hi << 16)), start + 2))
@@ -552,8 +555,12 @@ mod tests {
                 },
             }];
             let values = [InputValue::List(vec![0.into(), 1.into()])]; // only 2 provided
-            let err = encode_input_args(&params, &values).unwrap_err().to_string();
-            assert!(err.contains("array size mismatch"));
+            let err = encode_input_args(&params, &values).unwrap_err();
+            assert!(
+                matches!(&err, AbiCodecError::TypeMismatch(msg) if msg.contains("array size mismatch")),
+                "Expected TypeMismatch error with array size mismatch, got: {:?}",
+                err
+            );
         }
 
         #[test]
