@@ -46,7 +46,7 @@ impl Validator for ControlFlowValidator {
         }
         let parsed_module = parsed_program.module;
 
-        // Analyse each function's control-flow in this module only.
+        // Analyze each function's control-flow in this module only.
         for (_def_idx, definition) in index.all_definitions() {
             if let DefinitionKind::Function(_) = &definition.kind {
                 self.analyze_function_control_flow(
@@ -66,7 +66,7 @@ impl Validator for ControlFlowValidator {
 }
 
 impl ControlFlowValidator {
-    /// Analyse the control-flow of a specific function, adding diagnostics as needed.
+    /// Analyze the control-flow of a specific function, adding diagnostics as needed.
     fn analyze_function_control_flow(
         &self,
         db: &dyn SemanticDb,
@@ -118,7 +118,7 @@ impl ControlFlowValidator {
     // Unreachable-code analysis
     // ---------------------------------------------------------------------
 
-    /// Analyse a sequence of statements for unreachable code.
+    /// Analyze a sequence of statements for unreachable code.
     /// Returns `true` if the sequence is guaranteed to terminate.
     fn analyze_for_unreachable_code_in_sequence(
         db: &dyn SemanticDb,
@@ -154,7 +154,7 @@ impl ControlFlowValidator {
         path_has_terminated
     }
 
-    /// Analyse a single statement for unreachable code and check if it terminates.
+    /// Analyze a single statement for unreachable code and check if it terminates.
     fn analyze_for_unreachable_code_in_statement(
         db: &dyn SemanticDb,
         file: File,

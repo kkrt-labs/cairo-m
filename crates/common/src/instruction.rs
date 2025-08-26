@@ -24,7 +24,8 @@ pub const INSTRUCTION_MAX_SIZE: usize = 5;
 macro_rules! define_instruction {
     (
         $(
-            $variant:ident = $opcode:literal, $mem_access:literal,
+            $variant:ident = $opcode:literal,
+            $mem_access:literal,
             fields: [$($field:ident),*],
             size: $size:literal,
             operands: [$($operand_type:ident),*]

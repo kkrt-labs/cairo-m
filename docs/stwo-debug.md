@@ -162,7 +162,7 @@ The `add_to_relation` constraint won’t be satisfied for two reasons:
 
 ### [CASE 3] - Incorrect logup batching
 
-Batching must be consistent accross witness generation and the AIR. So if you
+Batching must be consistent across witness generation and the AIR. So if you
 generate the trace like so (batching):
 
 ```rust
@@ -265,7 +265,7 @@ eval.add_constraint(e * a * b);
 // This won't:
 eval.add_constraint(a * b * c * d);
 
-// Careful to batched lookups that rapidely increase the multiplicity
+// Careful to batched lookups that rapidly increase the multiplicity
 // These two add_to_relations from store_mul_fp_imm can't be batched together
 // because of the op0_val * off1
 eval.add_to_relation(RelationEntry::new(
@@ -295,7 +295,7 @@ You can run
 without getting `Stwo(ConstraintsNotSatisfied)` but now you get
 `Stwo(InvalidLogupSum)`. The root problem is that the sum of all logups sums
 from every component is not equal to 0. This means that an entry for a relation
-is emited but it isn’t consumed.
+is emitted but it isn’t consumed.
 
 The first thing to do there is to run:
 
@@ -336,7 +336,7 @@ Memory:
 ```
 
 This should be interpreted as: _“a component consumed the entry (1) but no one
-produced it, there is an unbalance”_. For the second line: “_a component emited
+produced it, there is an unbalance”_. For the second line: “_a component emitted
 entry (2) but no one used it_”
 
 > **💡 Note**
@@ -370,21 +370,21 @@ of the output. So here are a few tips:
   adapter, the memory component, etc.)
 - `Cmd + F` and `Sort lines ascending` are your best friend, try to find
   patterns in the debugged entries. Say the `CallAbsImm` opcode wrongly inverted
-  the 2 first QM31 values. It woud correctly consume
+  the 2 first QM31 values. It would correctly consume
   `[addr, clk, value0, value1]` but would falsely produce
   `[addr, clk, value1, value0]` . The resulting relation summary would be:
 
 ```rust
 Relation Summary:
 Memory:
-// First CallAbsImm instance uses the inital entry (emited by memory component
+// First CallAbsImm instance uses the initial entry (emitted by memory component
 // But it emits the wrong entry, this is were problems begin
 [addr, clk_1, QM31_value = (target, 10, 0, 0)] -> 1
-// The second instance uses what should be the last emited entry but no such
+// The second instance uses what should be the last emitted entry but no such
 // entry was emitted because of bug. And so on
 [addr, clk_1, QM31_value = (10, target, 0, 0)] -> 2147483646
 [addr, clk_2, QM31_value = (target, 10, 0, 0)] -> 1
-// Memory component tries to consume an unexisting value: error.
+// Memory component tries to consume an non existing value: error.
 [addr, clk_2, QM31_value = (10, target, 0, 0)] -> 2147483646
 ```
 

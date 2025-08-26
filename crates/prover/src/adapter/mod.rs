@@ -60,7 +60,7 @@ pub struct MerkleTrees {
 ///
 /// ## For which component ?
 /// OPCODE COMPONENTS: a row of an opcode component's trace requires only the execution bundle for that opcode.
-/// PUBLIC DATA (not a component): initial and final registers are emited/consumed by the public data.
+/// PUBLIC DATA (not a component): initial and final registers are emitted/consumed by the public data.
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
 pub struct Instructions {
     /// VM register state at the start of execution (PC, FP)
@@ -80,7 +80,7 @@ pub struct Instructions {
 /// 1. **Bundle Generation** - Convert raw traces to execution bundles
 /// 2. **Opcode Grouping** - Organize bundles by opcode for components
 /// 3. **Public Address Handling** - Adjust multiplicities for public data
-/// 4. **Merkle Tree Construction** - Merkle treee data used to prove merkle tree construction
+/// 4. **Merkle Tree Construction** - Merkle tree data used to prove merkle tree construction
 /// 5. **Hash Collection** - Poseidon2 inputs used to prove hash computation
 ///
 /// ## Arguments
@@ -135,7 +135,7 @@ where
     memory.update_multiplicities(&public_address_ranges);
 
     // Assert that the keys are the same for both initial_memory and final_memory
-    // This is a sanity check that uses memory so it's desactivated in release builds.
+    // This is a sanity check that uses memory so it's deactivated in release builds.
     #[cfg(debug_assertions)]
     {
         let initial_keys: std::collections::HashSet<_> = memory.initial_memory.keys().collect();

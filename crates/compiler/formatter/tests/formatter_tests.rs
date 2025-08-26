@@ -51,7 +51,7 @@ fn test_idempotence() {
 }
 
 #[test]
-fn test_should_not_format_unparseable_code() {
+fn test_should_not_format_unparsable_code() {
     let input = r#"fn test(x:felt)->felt{let z; let y=x+1;return y;}"#;
     let formatted = format_code(input);
     assert_eq!(input, formatted);

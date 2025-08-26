@@ -205,7 +205,7 @@ impl CasmBuilder {
 
         match value {
             Value::Literal(Literal::Integer(imm)) => {
-                let value = imm as u32;
+                let value = imm;
                 self.store_u32_immediate(
                     value,
                     offset,
@@ -1192,7 +1192,7 @@ impl CasmBuilder {
                         let temp_off = self.layout.reserve_stack(2);
 
                         self.store_u32_immediate(
-                            *imm as u32,
+                            *imm,
                             temp_off,
                             format!("[fp + {temp_off}, fp + {}] = u32({imm})", temp_off + 1),
                         );
@@ -1222,7 +1222,7 @@ impl CasmBuilder {
                         let temp_off = self.layout.reserve_stack(2);
 
                         self.store_u32_immediate(
-                            *imm as u32,
+                            *imm,
                             temp_off,
                             format!("[fp + {temp_off}, fp + {}] = u32({imm})", temp_off + 1),
                         );
@@ -1748,7 +1748,7 @@ impl CasmBuilder {
                         // Check if this is a U32 return type
                         if matches!(return_type, MirType::U32) {
                             // For U32, we need to use U32_STORE_IMM
-                            let value = *imm as u32;
+                            let value = { *imm };
                             self.store_u32_immediate(value, return_slot_offset, format!("Return value {i}: [fp {return_slot_offset}, fp {return_slot_offset} + 1] = u32({imm})"));
                         } else {
                             // For felt, use regular STORE_IMM
@@ -2082,7 +2082,7 @@ impl CasmBuilder {
                 match value {
                     Value::Literal(Literal::Integer(imm)) => {
                         self.store_u32_immediate(
-                            imm as u32,
+                            imm,
                             dest_offset,
                             format!(
                                 "[fp + {}, fp + {}] = u32({imm})",

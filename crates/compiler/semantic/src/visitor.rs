@@ -9,7 +9,7 @@
 //! The visitor pattern consists of:
 //! - **Visitor trait**: Defines visit methods for each AST node type
 //! - **Walk functions**: Default traversal implementations that visit child nodes
-//! - **Custom visitors**: Implement the trait to perform specific analyses
+//! - **Custom visitors**: Implement the trait to perform specific analyzes
 //!
 //! ## Usage
 //!

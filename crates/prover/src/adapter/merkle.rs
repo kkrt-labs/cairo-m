@@ -1,8 +1,8 @@
 //! # Merkle Tree Construction for Memory Commitments
 //!
 //! This module implements partial Merkle tree construction for Cairo-M memory states.
-//! The initial memory commited is vm.memory before the first step of a segment of execution.
-//! The final memory commited is vm.memory after the last step of a segment of execution.
+//! The initial memory committed is vm.memory before the first step of a segment of execution.
+//! The final memory committed is vm.memory after the last step of a segment of execution.
 //! The memory commitments can contain memory values that are not accessed during the execution (ie not part of the
 //! memory log).
 //! These commitments are used for continuation to attest that the memory is consistent over the overall execution.

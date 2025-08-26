@@ -13,7 +13,7 @@ fn test_felt_literals() {
             // Overflow
             in_function("let x: felt = 2147483648;"),
 
-            // Negative - we dont support negative felt literals yet
+            // Negative - we don't support negative felt literals yet
             in_function("let x: felt = -1;"),
             in_function("const MIN_FELT = -2147483648;"),
         ]

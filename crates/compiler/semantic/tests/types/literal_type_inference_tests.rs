@@ -1,4 +1,4 @@
-//! Parameterised tests for context‑aware numeric literal type inference.
+//! Parameterized tests for context‑aware numeric literal type inference.
 //!
 //! We group all scenarios into `ok` and `err` buckets so they run through the
 //! fast table‑driven macro, mirroring the style of other test modules.

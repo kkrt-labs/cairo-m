@@ -540,7 +540,7 @@ impl Memory {
         // If it's the first time we access the memory cell, we the initial memory with multiplicity 1 at that address.
         // - again if it's a first write, we insert the memory entry value (coming from the memory log) with clock 0
         //   and multiplicity 1.
-        // - for other memory accesses, we simlpy update the multiplicity to 1 since the value and clock were already
+        // - for other memory accesses, we simply update the multiplicity to 1 since the value and clock were already
         //   set in Memory::new.
         // NOTE: currently the VM memory is a continuous Vec where empty cells are filled with zero. For example in the
         // initial memory, outputs are always 0 (since they are written later and before the registers in the memory layout).
@@ -556,9 +556,9 @@ impl Memory {
         };
 
         // Because of sparse memory cases (output example mentioned), we need to use the initial memory entry updated as above.
-        // Indeed when writting the output, memory_entry.value is the output but initial_memory.get(addr) is 0 (filled by VM).
-        // The clock update must consume 0 (emited by the initial memory) and emit 0. The store opcode will be the one consuming
-        // 0 and emitting the acutal output.
+        // Indeed when writing the output, memory_entry.value is the output but initial_memory.get(addr) is 0 (filled by VM).
+        // The clock update must consume 0 (emitted by the initial memory) and emit 0. The store opcode will be the one consuming
+        // 0 and emitting the actual output.
         let initial_memory_entry = self.initial_memory.get(&memory_entry.address);
         // Check for large clock deltas and generate clock update data if needed
         if current_clk.0 > prev_clk.0 {
