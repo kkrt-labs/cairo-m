@@ -68,13 +68,8 @@ means that for an array of size `n`, the receiving function only receives a
 pointer of size `1` to the first element of the array.
 
 ```cairo-m
-fn test_main() -> u32 {
-    let arr: [u32; 3] = [1, 2, 3];
-    return test_array(arr);
-}
-
 fn test_array(arr: [u32; 3]) -> u32 {
-    return arr[0] + arr[1] + arr[2];
+    return arr[0];
 }
 ```
 
@@ -131,5 +126,41 @@ fn array_bounds_example() -> felt {
     // This may access uninitialized memory
     // Behavior depends on what's at that memory location
     return arr[10];        // Out of bounds access
+}
+```
+
+## Array in Structs and Tuples
+
+Fixed size arrays can be members of structs and tuples.
+
+```cairo-m
+struct Result {
+    values: [felt; 2],
+    sum: felt,
+}
+
+fn compute_result(a: felt, b: felt) -> felt {
+    let tuple_ : (felt, [felt; 2]) = (a, [a, b]);
+    let struct_ : Result = Result {
+        values: [a, b],
+        sum: a + b,
+    };
+    return tuple_.1[0] + struct_.values[1];
+}
+```
+
+```rust
+struct Result {
+    values: [i32; 2],
+    sum: i32,
+}
+
+fn compute_result(a: i32, b: i32) -> i32 {
+    let tuple_ : (i32, [i32; 2]) = (a, [a, b]);
+    let struct_ : Result = Result {
+        values: [a, b],
+        sum: a + b,
+    };
+    return tuple_.1[0] + struct_.values[1];
 }
 ```

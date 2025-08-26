@@ -93,10 +93,7 @@ impl FunctionLayout {
             let ty = function.value_types.get(&param_id).ok_or_else(|| {
                 CodegenError::LayoutError(format!("No type found for parameter {param_id:?}"))
             })?;
-            let size = match ty {
-                cairo_m_compiler_mir::MirType::FixedArray { .. } => 1,
-                _ => DataLayout::size_of(ty),
-            };
+            let size = DataLayout::memory_size_of(ty);
             m_slots += size;
         }
 
@@ -107,11 +104,7 @@ impl FunctionLayout {
             let ty = function.value_types.get(&return_id).ok_or_else(|| {
                 CodegenError::LayoutError(format!("No type found for return value {return_id:?}"))
             })?;
-            // Arrays are stored as pointers (1 slot)
-            let size = match ty {
-                cairo_m_compiler_mir::MirType::FixedArray { .. } => 1,
-                _ => DataLayout::size_of(ty),
-            };
+            let size = DataLayout::memory_size_of(ty);
             k_slots += size;
         }
 
@@ -124,10 +117,7 @@ impl FunctionLayout {
             let ty = function.value_types.get(&param_id).ok_or_else(|| {
                 CodegenError::LayoutError(format!("No type found for parameter {param_id:?}"))
             })?;
-            let size = match ty {
-                cairo_m_compiler_mir::MirType::FixedArray { .. } => 1,
-                _ => DataLayout::size_of(ty),
-            };
+            let size = DataLayout::memory_size_of(ty);
 
             // Calculate the offset using the formula from Issue 2
             let offset = -(m_slots as i32) - (k_slots as i32) - 2 + cumulative_param_size as i32;
@@ -170,11 +160,7 @@ impl FunctionLayout {
                                     "No type found for call return value {dest_id:?}"
                                 ))
                             })?;
-                            // Arrays are stored as pointers (1 slot)
-                            let size = match ty {
-                                cairo_m_compiler_mir::MirType::FixedArray { .. } => 1,
-                                _ => DataLayout::size_of(ty),
-                            };
+                            let size = DataLayout::memory_size_of(ty);
 
                             // Allocate space for the return value
                             if size == 1 {
@@ -205,11 +191,7 @@ impl FunctionLayout {
 
                         // Allocate a block of memory
                         let offset = current_offset as i32;
-                        // Arrays are stored as pointers (1 slot)
-                        let size = match ty {
-                            cairo_m_compiler_mir::MirType::FixedArray { .. } => 1,
-                            _ => DataLayout::size_of(ty),
-                        };
+                        let size = DataLayout::memory_size_of(ty);
                         self.value_layouts
                             .insert(*dest, ValueLayout::MultiSlot { offset, size });
                         current_offset += size;
@@ -235,11 +217,7 @@ impl FunctionLayout {
                                     "No type found for value {dest_id:?}"
                                 ))
                             })?;
-                            // Arrays are stored as pointers (1 slot)
-                            let size = match ty {
-                                cairo_m_compiler_mir::MirType::FixedArray { .. } => 1,
-                                _ => DataLayout::size_of(ty),
-                            };
+                            let size = DataLayout::memory_size_of(ty);
 
                             // Create appropriate layout based on size
                             if size == 1 {

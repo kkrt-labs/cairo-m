@@ -19,9 +19,9 @@ pub enum AbiType {
         name: String,
         fields: Vec<(String, AbiType)>,
     },
-    Array {
+    FixedSizeArray {
         element: Box<AbiType>,
-        size: Option<u32>,
+        size: u32,
     },
     Unit,
 }
@@ -34,10 +34,25 @@ impl AbiType {
             Self::U32 => 2,
             Self::Tuple(types) => types.iter().map(|t| t.size_in_slots()).sum(),
             Self::Struct { fields, .. } => fields.iter().map(|(_, t)| t.size_in_slots()).sum(),
-            Self::Array { size, element } => match size {
-                Some(n) => (*n as usize) * element.size_in_slots(),
-                None => panic!("Dynamic arrays are not supported in ABI size calculation"),
-            },
+            Self::FixedSizeArray { size, element } => (*size as usize) * element.size_in_slots(),
+            Self::Unit => 0,
+        }
+    }
+
+    /// Number of call slots this type occupies when flattened.
+    /// CairoM convention:
+    /// - Values and aggregates are passed by values and take N slots
+    /// - FixedSizeArray is passed by reference (pointer) -> 1 slot
+    /// - Unit: 0 slots
+    pub fn call_slot_size(ty: &Self) -> usize {
+        match ty {
+            Self::Felt | Self::Bool | Self::Pointer(_) => 1,
+            Self::U32 => 2,
+            Self::Tuple(ts) => ts.iter().map(Self::call_slot_size).sum(),
+            Self::Struct { fields, .. } => {
+                fields.iter().map(|(_, t)| Self::call_slot_size(t)).sum()
+            }
+            Self::FixedSizeArray { .. } => 1, // passed by pointer
             Self::Unit => 0,
         }
     }
@@ -189,13 +204,11 @@ impl Serialize for AbiType {
                 map.serialize_entry("fields", &fields_ser)?;
                 map.end()
             }
-            Self::Array { element, size } => {
-                let mut map = serializer.serialize_map(Some(if size.is_some() { 3 } else { 2 }))?;
-                map.serialize_entry("kind", "Array")?;
+            Self::FixedSizeArray { element, size } => {
+                let mut map = serializer.serialize_map(Some(2))?;
+                map.serialize_entry("kind", "FixedSizeArray")?;
                 map.serialize_entry("element", element.as_ref())?;
-                if let Some(n) = size {
-                    map.serialize_entry("size", n)?;
-                }
+                map.serialize_entry("size", size)?;
                 map.end()
             }
             Self::Unit => {
@@ -275,11 +288,11 @@ impl<'de> Deserialize<'de> for AbiType {
                         name: name.ok_or_else(|| de::Error::missing_field("name"))?,
                         fields: fields.unwrap_or_default(),
                     }),
-                    "Array" => Ok(AbiType::Array {
+                    "FixedSizeArray" => Ok(AbiType::FixedSizeArray {
                         element: Box::new(
                             element.ok_or_else(|| de::Error::missing_field("element"))?,
                         ),
-                        size,
+                        size: size.ok_or_else(|| de::Error::missing_field("size"))?,
                     }),
                     "Unit" => Ok(AbiType::Unit),
                     other => Err(de::Error::unknown_variant(

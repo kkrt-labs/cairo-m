@@ -25,33 +25,51 @@ impl DataLayout {
         Self
     }
 
-    /// Get the size of a type in slots (field elements)
+    /// Get the value size of a type in field elements
     ///
     /// This is the primary method for querying type sizes. It returns
     /// the number of field element slots required to store a value of
     /// the given type.
-    // TODO: before merge: size_of is ambiguous here, what's the size of a fixed array (not the same when passed as a pointer or not!)
-    pub fn size_of(ty: &MirType) -> usize {
+    pub fn value_size_of(ty: &MirType) -> usize {
         match ty {
             MirType::Felt | MirType::Bool | MirType::Pointer(_) => 1,
             MirType::U32 => 2, // U32 takes 2 field elements (low, high)
             MirType::Tuple(types) => {
                 // Sum of all element sizes
-                types.iter().map(Self::size_of).sum()
+                types.iter().map(Self::value_size_of).sum()
             }
             MirType::Struct { fields, .. } => {
                 // Sum of all field sizes
                 fields
                     .iter()
-                    .map(|(_, field_type)| Self::size_of(field_type))
+                    .map(|(_, field_type)| Self::value_size_of(field_type))
                     .sum()
             }
             MirType::FixedArray { element_type, size } => {
                 // Fixed-size arrays have compile-time known size
-                Self::size_of(element_type) * size
+                Self::value_size_of(element_type) * size
             }
             MirType::Function { .. } => 1, // Function pointers
             MirType::Unit => 0,
+            MirType::Error | MirType::Unknown => 1, // Safe default
+        }
+    }
+
+    /// Get the memory size of a type in field elements
+    ///
+    /// Fixed-size arrays are manipulated as pointers, so they take 1 slot of memory; although the underlying data takes more.
+    /// See `value_size_of` for the value size of the data.
+    pub fn memory_size_of(ty: &MirType) -> usize {
+        match ty {
+            MirType::Felt | MirType::Bool | MirType::Pointer(_) => 1,
+            MirType::U32 => 2,
+            MirType::Tuple(ts) => ts.iter().map(Self::memory_size_of).sum(),
+            MirType::Struct { fields, .. } => {
+                fields.iter().map(|(_, t)| Self::memory_size_of(t)).sum()
+            }
+            MirType::FixedArray { .. } => 1, // passed by pointer
+            MirType::Unit => 0,
+            MirType::Function { .. } => 1, // Function pointers
             MirType::Error | MirType::Unknown => 1, // Safe default
         }
     }
@@ -68,7 +86,7 @@ impl DataLayout {
                     if name == field_name {
                         return Some(offset);
                     }
-                    offset += Self::size_of(field_type);
+                    offset += Self::memory_size_of(field_type);
                 }
                 None
             }
@@ -90,7 +108,7 @@ impl DataLayout {
                 // Calculate cumulative offset
                 let mut offset = 0;
                 for type_at_i in types.iter().take(index) {
-                    offset += Self::size_of(type_at_i);
+                    offset += Self::memory_size_of(type_at_i);
                 }
                 Some(offset)
             }
@@ -113,13 +131,13 @@ impl DataLayout {
             // Small tuples could be promotable with proper multi-slot phi support
             MirType::Tuple(types) => {
                 // For now, only allow single-element tuples until full SROA
-                let size = Self::size_of(ty);
+                let size = Self::memory_size_of(ty);
                 size <= 2 && types.iter().all(Self::is_promotable)
             }
             // Small structs could be promotable with proper multi-slot phi support
             MirType::Struct { fields, .. } => {
                 // For now, keep conservative for complex aggregates
-                let size = Self::size_of(ty);
+                let size = Self::memory_size_of(ty);
                 size <= 2 && fields.iter().all(|(_, t)| Self::is_promotable(t))
             }
             // Don't promote function pointers, error types, units, etc.
@@ -132,7 +150,7 @@ impl DataLayout {
     /// debugging or advanced optimizations.
     pub fn layout_info(ty: &MirType) -> LayoutInfo {
         LayoutInfo {
-            size: Self::size_of(ty),
+            size: Self::memory_size_of(ty),
             is_aggregate: matches!(ty, MirType::Struct { .. } | MirType::Tuple(_)),
             is_scalar: matches!(
                 ty,
@@ -161,11 +179,14 @@ mod tests {
     fn test_basic_type_sizes() {
         // No longer need DataLayout instance - using static methods
 
-        assert_eq!(DataLayout::size_of(&MirType::Felt), 1);
-        assert_eq!(DataLayout::size_of(&MirType::Bool), 1);
-        assert_eq!(DataLayout::size_of(&MirType::U32), 2);
-        assert_eq!(DataLayout::size_of(&MirType::Unit), 0);
-        assert_eq!(DataLayout::size_of(&MirType::pointer(MirType::Felt)), 1);
+        assert_eq!(DataLayout::value_size_of(&MirType::Felt), 1);
+        assert_eq!(DataLayout::value_size_of(&MirType::Bool), 1);
+        assert_eq!(DataLayout::value_size_of(&MirType::U32), 2);
+        assert_eq!(DataLayout::value_size_of(&MirType::Unit), 0);
+        assert_eq!(
+            DataLayout::value_size_of(&MirType::pointer(MirType::Felt)),
+            1
+        );
     }
 
     #[test]
@@ -174,7 +195,7 @@ mod tests {
 
         let tuple = MirType::tuple(vec![MirType::Felt, MirType::U32, MirType::Bool]);
 
-        assert_eq!(DataLayout::size_of(&tuple), 4); // 1 + 2 + 1
+        assert_eq!(DataLayout::value_size_of(&tuple), 4); // 1 + 2 + 1
         assert_eq!(DataLayout::tuple_offset(&tuple, 0), Some(0));
         assert_eq!(DataLayout::tuple_offset(&tuple, 1), Some(1));
         assert_eq!(DataLayout::tuple_offset(&tuple, 2), Some(3));
@@ -194,7 +215,7 @@ mod tests {
             ],
         );
 
-        assert_eq!(DataLayout::size_of(&struct_type), 4); // 1 + 2 + 1
+        assert_eq!(DataLayout::value_size_of(&struct_type), 4); // 1 + 2 + 1
         assert_eq!(DataLayout::field_offset(&struct_type, "x"), Some(0));
         assert_eq!(DataLayout::field_offset(&struct_type, "y"), Some(1));
         assert_eq!(DataLayout::field_offset(&struct_type, "z"), Some(3));
@@ -214,7 +235,7 @@ mod tests {
             ],
         );
 
-        assert_eq!(DataLayout::size_of(&outer_struct), 4); // 2 + (1 + 1)
+        assert_eq!(DataLayout::value_size_of(&outer_struct), 4); // 2 + (1 + 1)
         assert_eq!(DataLayout::field_offset(&outer_struct, "data"), Some(0));
         assert_eq!(DataLayout::field_offset(&outer_struct, "pair"), Some(2));
     }
