@@ -1,0 +1,4 @@
+# Cairo-M project manifest file
+name = "sha256-cairo-m"
+version = "0.1.0"
+entry_point = "sha256.cm"

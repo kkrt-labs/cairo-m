@@ -17,6 +17,7 @@ members = [
   "crates/cargo-cairo-m",
 ]
 resolver = "2"
+exclude = ["examples/sha256-cairo-m"]
 
 [workspace.package]
 version = "0.1.1"
