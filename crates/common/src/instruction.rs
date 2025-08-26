@@ -16,6 +16,8 @@ pub enum InstructionError {
     InvalidOpcode(M31),
     #[error("Size mismatch for instruction: expected {expected}, found {found}")]
     SizeMismatch { expected: usize, found: usize },
+    #[error("Assertion failed: {0} != {1}")]
+    AssertionFailed(M31, M31),
 }
 
 pub const INSTRUCTION_MAX_SIZE: usize = 5;
@@ -301,7 +303,10 @@ define_instruction!(
 
     // Print operations for debugging
     PrintM31 = 46, 1, fields: [offset], size: 2, operands: [Felt];                      // print [fp + offset] as M31
-    PrintU32 = 47, 2, fields: [offset], size: 2, operands: [U32]                        // print u32([fp + offset], [fp + offset + 1])
+    PrintU32 = 47, 2, fields: [offset], size: 2, operands: [U32];                        // print u32([fp + offset], [fp + offset + 1])
+
+    AssertEqFpFp = 49, 2, fields: [src0_off, src1_off], size: 3, operands: [Felt, Felt]; // assert [fp + src0_off] == [fp + src1_off]
+    AssertEqFpImm = 50, 1, fields: [src_off, imm], size: 3, operands: [Felt] // assert [fp + src_off] == imm
 );
 
 impl From<Instruction> for SmallVec<[M31; INSTRUCTION_MAX_SIZE]> {
