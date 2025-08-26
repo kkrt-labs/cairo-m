@@ -713,6 +713,7 @@ dependencies = [
  "clap",
  "insta",
  "ouroboros",
+ "proptest",
  "sonic-rs 0.3.17",
  "stwo-prover",
  "thiserror",

@@ -65,8 +65,6 @@ struct DagToMirContext {
     label_map: HashMap<u32, BasicBlockId>,
     /// Current basic block being filled
     current_block_id: Option<BasicBlockId>,
-    /// Local variable mapping for LocalGet/LocalSet
-    local_map: HashMap<u32, ValueId>,
     /// Current source block for tracking control flow
     current_source_block: Option<BasicBlockId>,
     /// For each label id, the phi nodes that need to be populated (dest ValueId -> phi instruction)
@@ -92,7 +90,6 @@ impl DagToMirContext {
         Self {
             value_maps: vec![HashMap::new()],
             label_map: HashMap::new(),
-            local_map: HashMap::new(),
             current_source_block: None,
             label_phi_nodes: HashMap::new(),
 
@@ -696,69 +693,9 @@ impl DagToMir {
                 Ok(vec![result_id])
             }
 
-            // Local variable operations
-            Op::LocalGet { local_index } => {
-                let result_id = context.mir_function.new_typed_value_id(MirType::U32);
-
-                // If we have a local variable stored, load its value
-                if let Some(&local_value_id) = context.local_map.get(local_index) {
-                    let instruction = Instruction::assign(
-                        result_id,
-                        Value::operand(local_value_id),
-                        MirType::U32,
-                    );
-                    context.get_current_block()?.push_instruction(instruction);
-                } else {
-                    // No local variable set yet, raise an error
-                    return Err(DagToMirError::ValueMappingError {
-                        function_name: context.mir_function.name.clone(),
-                        node_idx,
-                        reason: format!(
-                            "Local variable {} not initialized (available locals: {:?})",
-                            local_index,
-                            context.local_map.keys().collect::<Vec<_>>()
-                        ),
-                        available_count: context.local_map.len(),
-                    });
-                }
-                Ok(vec![result_id])
-            }
-
-            Op::LocalSet { local_index } => {
-                // Get the input value to store
-                if !inputs.is_empty() {
-                    let value_to_store = inputs[0];
-
-                    // Create a new ValueId for this local variable
-                    let local_value_id = context.mir_function.new_typed_value_id(MirType::U32);
-
-                    // Assign the input value to our local variable
-                    let instruction =
-                        Instruction::assign(local_value_id, value_to_store, MirType::U32);
-                    context.get_current_block()?.push_instruction(instruction);
-
-                    // Store the mapping from local index to ValueId
-                    context.local_map.insert(*local_index, local_value_id);
-                }
-                Ok(vec![]) // LocalSet doesn't produce any output values
-            }
-
-            Op::LocalTee { .. } => {
-                // TODO: Implement local tee (set and return value)
-                if !inputs.is_empty() {
-                    // Return the input value for now
-                    if let Value::Operand(value_id) = inputs[0] {
-                        Ok(vec![value_id])
-                    } else {
-                        // Create a new value for the literal
-                        let result_id = context.mir_function.new_typed_value_id(MirType::U32);
-                        let instruction = Instruction::assign(result_id, inputs[0], MirType::U32);
-                        context.get_current_block()?.push_instruction(instruction);
-                        Ok(vec![result_id])
-                    }
-                } else {
-                    Ok(vec![])
-                }
+            // Local variable operations should be eliminated by WOMIR
+            Op::LocalGet { .. } | Op::LocalSet { .. } | Op::LocalTee { .. } => {
+                unreachable!()
             }
 
             Op::Call { function_index } => {

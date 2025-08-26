@@ -11,6 +11,8 @@ use womir::interpreter::ExternalFunctions;
 use womir::interpreter::Interpreter;
 use womir::loader::load_wasm;
 
+use proptest::prelude::*;
+
 struct DataInput {
     values: Vec<u32>,
 }
@@ -41,7 +43,7 @@ impl ExternalFunctions for DataInput {
 }
 
 /// Convert a vector of CairoMValue to a vector of u32, assuming each CairoMValue is a u32
-fn cairo_m_value_to_u32(values: Vec<CairoMValue>) -> Vec<u32> {
+fn collect_u32s(values: Vec<CairoMValue>) -> Vec<u32> {
     values
         .iter()
         .map(|v| match v {
@@ -82,61 +84,47 @@ fn test_program(path: &str, func_name: &str, inputs: Vec<u32>) {
     .unwrap();
     assert_eq!(
         result_womir_interpreter,
-        cairo_m_value_to_u32(result_cairo_m_interpreter.return_values)
+        collect_u32s(result_cairo_m_interpreter.return_values)
     );
 }
 
-#[test]
-fn test_add() {
-    test_program("tests/test_cases/add.wasm", "add", vec![1, 2]);
-    test_program("tests/test_cases/add.wasm", "add", vec![42, 69]);
-    test_program("tests/test_cases/add.wasm", "add", vec![0xFFFF, 0xFFFF]);
-    test_program(
-        "tests/test_cases/add.wasm",
-        "add",
-        vec![0xFFFFFFFF, 0xFFFFFFFF],
-    );
-}
-
-#[test]
-fn test_arithmetic() {
-    test_program("tests/test_cases/arithmetic.wasm", "f", vec![1, 2]);
-    test_program("tests/test_cases/arithmetic.wasm", "f", vec![42, 69]);
-    test_program(
-        "tests/test_cases/arithmetic.wasm",
-        "f",
-        vec![0xFFFF, 0xFFFF],
-    );
-    test_program(
-        "tests/test_cases/arithmetic.wasm",
-        "f",
-        vec![0xFFFFFFFF, 0xFFFFFFFF],
-    );
-}
-
-#[test]
-fn run_fib() {
-    for i in 0..10 {
-        test_program("tests/test_cases/fib.wasm", "fib", vec![i]);
+proptest! {
+    #[test]
+    fn run_add(a: u32, b: u32) {
+        test_program("tests/test_cases/add.wasm", "add", vec![a, b]);
     }
-}
 
-#[test]
-fn run_func_call() {
-    test_program("tests/test_cases/func_call.wasm", "main", vec![]);
-}
-
-#[test]
-fn run_simple_if() {
-    for i in 0..10 {
-        test_program("tests/test_cases/simple_if.wasm", "simple_if", vec![i]);
+    #[test]
+    fn run_arithmetic(a: u32, b: u32) {
+        test_program("tests/test_cases/arithmetic.wasm", "f", vec![a, b]);
     }
-}
 
-#[test]
-fn run_if_statement() {
-    for i in 0..10 {
-        test_program("tests/test_cases/if_statement.wasm", "main", vec![i]);
+    #[test]
+    fn run_bitwise(a: u32, b: u32) {
+        test_program("tests/test_cases/bitwise.wasm", "and", vec![a, b]);
+        test_program("tests/test_cases/bitwise.wasm", "or", vec![a, b]);
+        test_program("tests/test_cases/bitwise.wasm", "xor", vec![a, b]);
+    }
+
+    #[test]
+    fn run_fib(a in 0..10u32) {
+        test_program("tests/test_cases/fib.wasm", "fib", vec![a]);
+    }
+
+
+    #[test]
+    fn run_simple_if(a: u32) {
+        test_program("tests/test_cases/simple_if.wasm", "simple_if", vec![a]);
+    }
+
+    #[test]
+    fn run_if_statement(a: u32) {
+        test_program("tests/test_cases/if_statement.wasm", "main", vec![a]);
+    }
+
+    #[test]
+    fn run_nested_loop(a in 0..10u32) {
+        test_program("tests/test_cases/nested_loop.wasm", "nested_loop", vec![a]);
     }
 }
 
@@ -146,26 +134,11 @@ fn run_simple_loop() {
 }
 
 #[test]
+fn run_func_call() {
+    test_program("tests/test_cases/func_call.wasm", "main", vec![]);
+}
+
+#[test]
 fn run_variables() {
     test_program("tests/test_cases/variables.wasm", "main", vec![]);
-}
-
-#[test]
-fn run_nested_loop() {
-    for i in 0..10 {
-        test_program("tests/test_cases/nested_loop.wasm", "nested_loop", vec![i]);
-    }
-}
-
-#[test]
-fn run_bitwise() {
-    test_program("tests/test_cases/bitwise.wasm", "and", vec![42, 69]);
-    test_program("tests/test_cases/bitwise.wasm", "or", vec![42, 69]);
-    test_program("tests/test_cases/bitwise.wasm", "xor", vec![42, 69]);
-}
-
-#[test]
-#[ignore]
-fn run_sha256() {
-    test_program("tests/test_cases/sha256.wasm", "main", vec![]);
 }

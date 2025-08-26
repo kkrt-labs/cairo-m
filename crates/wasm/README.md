@@ -15,22 +15,83 @@ Cairo-M's MIR (Mid-level Intermediate Representation) using
 
 ## Current Status
 
-✅ **Complete**: Load and parse WASM files into WOMIR BlockLess DAG format ✅
-**Complete**: Convert basic WASM operations to Cairo-M MIR instructions ✅
-**Complete**: Support for arithmetic operations (Add, Sub, Mul, Div), constants,
-and local variables ✅ **Complete**: Bitwise operations (`i32.and`, `i32.or`,
-`i32.xor`) ✨ **NEW** ✅ **Complete**: Function parameter handling and return
-values with optimized ValueIds (0, 1, 2...) ✅ **Complete**: Control flow
-operations (`if`, `else`, `br`, `br_if`, `br_if_zero`) ✅ **Complete**:
-Comparison operations (`i32.eq`, `i32.ne`, `i32.lt_u`, `i32.gt_u`, etc.) ✅
-**Complete**: Local variable operations (`local.get`, `local.set`, `local.tee`)
-✅ **Complete**: Basic function calls with parameter passing ✅ **Complete**:
-Loop structures with proper scoping and variable management ✅ **Complete**:
-Nested loops with complex control flow structures ✅ **Complete**: SSA form with
-phi nodes for proper optimization compatibility ✨ **NEW** ✅ **Complete**:
-Comprehensive test suite with snapshot testing 🚧 **In Progress**: Advanced
-control flow (`br_table`, complex nested constructs) 🚧 **In Progress**: Memory
-operations (`load`, `store`)
+| Feature                   | Supported | Notes                                        |
+| ------------------------- | --------- | -------------------------------------------- |
+| **WASM Types**            |           |                                              |
+| `i32`                     | ✅        | Partial support, maps to `MirType::U32`      |
+| `i64`                     | ❌        | Not yet implemented                          |
+| `f32`                     | ❌        | Not yet implemented                          |
+| `f64`                     | ❌        | Not yet implemented                          |
+| Vector types              | ❌        | Not yet implemented                          |
+| **Arithmetic Operations** |           |                                              |
+| `i32.add`                 | ✅        | Maps to `BinaryOp::U32Add`                   |
+| `i32.sub`                 | ✅        | Maps to `BinaryOp::U32Sub`                   |
+| `i32.mul`                 | ✅        | Maps to `BinaryOp::U32Mul`                   |
+| `i32.div_u`               | ✅        | Maps to `BinaryOp::U32Div`                   |
+| `i32.div_s`               | ❌        | Not yet implemented                          |
+| `i32.rem_u`               | ❌        | Not yet implemented                          |
+| `i32.rem_s`               | ❌        | Not yet implemented                          |
+| **Bitwise Operations**    |           |                                              |
+| `i32.and`                 | ✅        | Maps to `BinaryOp::U32BitwiseAnd`            |
+| `i32.or`                  | ✅        | Maps to `BinaryOp::U32BitwiseOr`             |
+| `i32.xor`                 | ✅        | Maps to `BinaryOp::U32BitwiseXor`            |
+| `i32.shl`                 | ❌        | TODO: bitshifts, rotations, u8 operations    |
+| `i32.shr_u`               | ❌        | TODO: bitshifts, rotations, u8 operations    |
+| `i32.shr_s`               | ❌        | TODO: bitshifts, rotations, u8 operations    |
+| `i32.rotl`                | ❌        | TODO: bitshifts, rotations, u8 operations    |
+| `i32.rotr`                | ❌        | TODO: bitshifts, rotations, u8 operations    |
+| **Comparison Operations** |           |                                              |
+| `i32.eq`                  | ✅        | Maps to `BinaryOp::U32Eq`                    |
+| `i32.ne`                  | ✅        | Maps to `BinaryOp::U32Neq`                   |
+| `i32.lt_u`                | ✅        | Maps to `BinaryOp::U32Less`                  |
+| `i32.gt_u`                | ✅        | Maps to `BinaryOp::U32Greater`               |
+| `i32.le_u`                | ✅        | Maps to `BinaryOp::U32LessEqual`             |
+| `i32.ge_u`                | ✅        | Maps to `BinaryOp::U32GreaterEqual`          |
+| `i32.lt_s`                | ❌        | Not yet implemented                          |
+| `i32.gt_s`                | ❌        | Not yet implemented                          |
+| `i32.le_s`                | ❌        | Not yet implemented                          |
+| `i32.ge_s`                | ❌        | Not yet implemented                          |
+| **Constants**             |           |                                              |
+| `i32.const`               | ✅        | Full support for i32 constants               |
+| **Local Variables**       |           |                                              |
+| `local.get`               | ✅        | Handled by WOMIR preprocessing               |
+| `local.set`               | ✅        | Handled by WOMIR preprocessing               |
+| `local.tee`               | ✅        | Handled by WOMIR preprocessing               |
+| **Global Variables**      |           |                                              |
+| `global.get`              | ❌        | Not yet implemented                          |
+| `global.set`              | ❌        | Not yet implemented                          |
+| **Function Operations**   |           |                                              |
+| Function parameters       | ✅        | Full support with proper type mapping        |
+| Function return values    | ✅        | Full support with proper type mapping        |
+| Function calls            | ✅        | `call` instruction with signature support    |
+| **Control Flow**          |           |                                              |
+| `if` / `else`             | ✅        | Full conditional branching support           |
+| `br`                      | ✅        | Unconditional branch with value passing      |
+| `br_if`                   | ✅        | Conditional branch with value passing        |
+| `br_if_zero`              | ✅        | Inverted conditional branch                  |
+| `br_table`                | ❌        | `todo!()` - not yet implemented              |
+| **Loop Structures**       |           |                                              |
+| Basic loops               | ✅        | Full loop header/body/exit support           |
+| Nested loops              | ✅        | Complete nested loop support with scoping    |
+| Loop-carried values       | ✅        | Phi nodes for loop variables                 |
+| Continue operations       | ✅        | Proper loop continuation handling            |
+| **Memory Operations**     |           |                                              |
+| `i32.load`                | ❌        | Not yet implemented                          |
+| `i32.store`               | ❌        | Not yet implemented                          |
+| `i32.load8_u`             | ❌        | Not yet implemented                          |
+| `i32.store8`              | ❌        | Not yet implemented                          |
+| **Advanced Features**     |           |                                              |
+| SSA form                  | ✅        | Complete SSA with phi nodes                  |
+| Phi nodes                 | ✅        | Proper control flow value merging            |
+| Value scoping             | ✅        | Loop and function scope management           |
+| Type safety               | ✅        | Full type checking and validation            |
+| **WOMIR Integration**     |           |                                              |
+| BlockLess DAG loading     | ✅        | Complete WOMIR integration                   |
+| DAG to MIR conversion     | ✅        | Two-pass algorithm with SSA                  |
+| Error handling            | ✅        | Comprehensive error reporting                |
+| **Testing**               |           |                                              |
+| Snapshot testing          | ✅        | Extensive test coverage                      |
+| Test cases                | ✅        | 20+ test programs including complex examples |
 
 ## Usage
 
@@ -48,12 +109,6 @@ cargo run -- <path-to-wasm-file> --mir-only
 
 # Enable verbose output (shows loading and conversion progress)
 cargo run -- <path-to-wasm-file> --verbose
-
-# Examples
-cargo run -- tests/test_cases/add.wasm
-cargo run -- tests/test_cases/bitwise.wasm --verbose
-cargo run -- tests/test_cases/arithmetic.wasm --mir-only
-cargo run -- tests/test_cases/func_call.wasm --output program.json
 ```
 
 #### Command Line Options
@@ -100,177 +155,69 @@ println!("{}", mir_module.pretty_print(0));
 
 ## Example Output
 
-### WASM Loading
+### Input WebAssembly
 
-```text
-add:
-  Node { operation: Inputs, inputs: [], output_types: [I32, I32] }
-  Node { operation: WASMOp(I32Add), inputs: [ValueOrigin { node: 0, output_idx: 1 }, ValueOrigin { node: 0, output_idx: 0 }], output_types: [I32] }
-  Node { operation: Br(BreakTarget { depth: 0, kind: FunctionOrLoop }), inputs: [ValueOrigin { node: 1, output_idx: 0 }], output_types: [] }
+```WebAssembly
+(module
+  (type (;0;) (func (param i32) (result i32)))
+  (func $simple_if (type 0) (param $x i32) (result i32)
+    ;; Simple if statement: if x > 5, return x + 10, else return x
+    local.get $x
+    i32.const 5
+    i32.gt_u
+
+    if (result i32)
+      ;; If x > 5, return x + 10
+      local.get $x
+      i32.const 10
+      i32.add
+    else
+      ;; If x <= 5, return x as is
+      local.get $x
+    end
+  )
+
+  (export "simple_if" (func $simple_if))
+)
 ```
 
-### MIR Conversion
+### MIR Conversion (before phi node resolution and optimisation passes)
 
 ```text
 module {
   // Function 0
-  fn add {
-    parameters: [0, 1]
+  fn simple_if {
+    parameters: [0]
     entry: 0
 
     0:
-      %2 = %1 Add %0
-      return %2
+      %2 = 5 (u32)
+      %3 = %0 U32Greater %2
+      if %3 then jump 1 else jump 3
+
+    1:
+      %4 = 10 (u32)
+      %5 = %0 U32Add %4
+      jump 2
+
+    2:
+      %1 = φ u32 { [%3]: %0, [%1]: %5 }
+      jump 4
+
+    3:
+      jump 2
+
+    4:
+      return %1
+
   }
+
 }
+
 ```
 
-## Supported WASM Operations
+## What's next?
 
-- **Arithmetic**: `i32.add`, `i32.sub`, `i32.mul`, `i32.div_u`
-- **Bitwise Operations**: `i32.and`, `i32.or`, `i32.xor` ✨ **NEW**
-- **Constants**: `i32.const`
-- **Local Variables**: `local.get`, `local.set`, `local.tee`
-- **Function Parameters**: Parameter handling with optimized ValueId allocation
-  (0, 1, 2...)
-- **Function Calls**: Call operations with proper parameter passing
-- **Comparison Operations**: `i32.eq`, `i32.ne`, `i32.lt_u`, `i32.gt_u`,
-  `i32.le_u`, `i32.ge_u`
-- **Control Flow**: `if`, `else`, `br`, `br_if`, `br_if_zero`
-- **Loops**: Full nested loop support with proper header/body separation and
-  variable scoping ✅ **COMPLETE**
-- **Value Passing**: SSA form with phi nodes for proper dataflow analysis
-
-### Not Yet Supported
-
-- **Advanced Control Flow**: `br_table`, complex nested constructs
-- **Memory Operations**: `load`, `store`
-- **Advanced Operations**: Floating-point operations, SIMD instructions
-
-## Architecture
-
-The crate is organized into two main modules:
-
-1. **`loader`**: Handles WASM file loading and parsing into WOMIR's BlockLess
-   DAG representation
-2. **`flattening`**: Converts the WOMIR DAG to Cairo-M MIR using a two-pass
-   algorithm
-
-### Recent Improvements
-
-**SSA Form with Phi Nodes (Latest)** ✨ **NEW**: Major architectural upgrade for
-better optimization compatibility:
-
-- **Phi Node Implementation**: Replaced slot-based system with proper SSA form
-  using phi nodes
-- **Proper Control Flow**: Labels and loop headers now use phi nodes for value
-  merging
-- **Optimization Ready**: Compatible with standard compiler optimization passes
-- **Deferred Phi Population**: Two-pass algorithm creates empty phi nodes, then
-  populates operands
-- **Better Type Safety**: Improved value flow tracking and type consistency
-
-**Bitwise Operations Support** ✨ **NEW**: Extended instruction set coverage:
-
-- **Complete Bitwise Set**: Support for `i32.and`, `i32.or`, `i32.xor`
-  operations
-- **Optimized Binary Operation Handling**: Streamlined conversion from WASM to
-  MIR binary operations
-- **Test Coverage**: Comprehensive test cases for bitwise operations
-
-**Loop Implementation & Optimization**: Major improvements to control flow and
-value management:
-
-- **Complete Loop Support**: Full implementation of WASM loops with proper
-  header/body separation
-- **Complete Nested Loop Support**: Full support for complex nested loop
-  structures with proper scoping
-- **Phi-based Loop Variables**: Loop-carried values now use phi nodes in loop
-  headers
-- **Proper Scope Management**: Loop sub-DAGs get their own value scopes to avoid
-  ValueOrigin collisions
-
-The conversion process follows these steps:
-
-1. Load WASM bytecode using `wasmparser`
-2. Convert to WOMIR's BlockLess DAG representation
-3. Apply a two-pass algorithm to generate SSA form MIR:
-   - Pass 1: Preallocate function parameters (ValueIds 0,1,2...), basic blocks
-     for labels, and create empty phi nodes for control flow merge points
-   - Pass 2: Generate instructions and control flow, recording deferred phi
-     operands
-   - Pass 3: Finalize phi nodes by populating them with their collected operands
-
-### Control Flow Implementation
-
-The control flow system uses **SSA form with phi nodes** for joining values at
-labels:
-
-- **Phi Nodes**: Each label parameter gets a phi node that merges values from
-  different predecessors
-- **Deferred Population**: Phi nodes are created empty during block allocation,
-  then populated with operands
-- **Proper SSA Form**: Values maintain single-assignment property with explicit
-  control flow dependencies
-- **Loop Headers**: Loop-carried values use phi nodes in loop headers for proper
-  dataflow representation
-
-This approach provides:
-
-- **Optimization Compatibility**: Standard SSA form works with existing compiler
-  optimization passes
-- **Better Analysis**: Explicit dataflow dependencies enable better program
-  analysis
-- **Type Safety**: Proper value flow tracking ensures type consistency
-- **Standards Compliance**: Follows established compiler design patterns
-
-## Testing
-
-```bash
-# Run all tests
-cargo test
-
-# Run with snapshot testing
-cargo insta test
-
-# Review snapshot changes
-cargo insta review
-```
-
-Test cases include:
-
-- `add.wasm` - Simple addition function
-- `arithmetic.wasm` - Complex arithmetic expressions
-- `bitwise.wasm` - Bitwise operations (AND, OR, XOR) ✨ **NEW**
-- `func_call.wasm` - Function call handling
-- `if_statement.wasm` - Conditional branching with robust control flow
-- `simple_if.wasm` - Basic if-else control flow
-- `fib.wasm` - Recursive Fibonacci (complex control flow with loops)
-- `variables.wasm` - Local variable operations
-- `simple_loop.wasm` - Basic loop structure with header/body separation
-- `nested_loop.wasm` - Complex nested loop structures with proper scoping ✅
-  **COMPLETE**
-
-## Dependencies
-
-- **`womir`**: WASM parsing and BlockLess DAG representation
-- **`cairo-m-compiler-mir`**: Cairo-M MIR types and utilities
-- **`wasmparser`**: Low-level WASM parsing
-- **`ouroboros`**: Self-referencing struct support for lifetime management
-
-## Future Enhancements
-
-- **Advanced Control Flow**: `br_table` operations and complex nested constructs
-- **Memory Operations**: Load/store operations with proper memory model
-  integration
-- **Extended Types**: Support for i64, f32, f64, and vector types
-- **Memory Model**: Integration with Cairo-M's memory management system
-- **Additional Bitwise Operations**: Shift operations (`shl`, `shr_u`, `shr_s`)
-  and remainder operations
-- **Optimization Passes**:
-  - Leverage SSA form for advanced optimizations
-  - Dead code elimination and constant folding
-  - Loop optimization and unrolling
-- **Integration**: Full integration with Cairo-M's compilation pipeline
-- **Performance**: Further optimize phi node allocation and SSA construction
-- **Advanced Type System**: Enhanced type checking and inference
+- Missing opcodes for i32
+- Vector types
+- End-to-end compilation from rust of fibonacci and SHA256
