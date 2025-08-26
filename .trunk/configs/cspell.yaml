@@ -75,6 +75,8 @@ words:
   - peekable
   - pointee
   - preds
+  # TODO: remove when stwo is updated
+  - preproccessed
   - println
   - proptest
   - ranlib

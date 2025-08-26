@@ -103,7 +103,7 @@ where
     // Prove stark.
     info!("prove stark");
     let mut tree_span_provider =
-        TraceLocationAllocator::new_with_preprocessed_columns(&preprocessed_trace.ids());
+        TraceLocationAllocator::new_with_preproccessed_columns(&preprocessed_trace.ids());
     let components = Components::new(
         &mut tree_span_provider,
         &claim,
