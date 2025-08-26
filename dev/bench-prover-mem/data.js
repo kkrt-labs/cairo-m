@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756132648874,
+  "lastUpdate": 1756223583500,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -1096,6 +1096,35 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/kkrt-labs/cairo-m/commit/49c46099a63aa946762f1c4c0c4c354932af85af"
         },
         "date": 1756132648822,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2415357506,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "clement0walter@gmail.com",
+            "name": "Clément Walter",
+            "username": "ClementWalter"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "76497906a59705be4dd0fa47b5403974ab39cdc6",
+          "message": "Fix cspell configuration and correct typos across codebase (#252)\n\n* Update config and fix all\n\n* Take stwo typo into account\n\n* Just run trunk check --all --fix\n\n* Move cspell config to root to have it working from trunk and plain cspell checker\n\n* Remove wrong capital letter\n\n---------\n\nCo-authored-by: Mathieu <60658558+enitrat@users.noreply.github.com>",
+          "timestamp": "2025-08-26T18:38:27+03:00",
+          "tree_id": "541e4db86ba9669bda810e2669437d6438efd4c1",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/76497906a59705be4dd0fa47b5403974ab39cdc6"
+        },
+        "date": 1756223583443,
         "tool": "customBiggerIsBetter",
         "benches": [
           {
