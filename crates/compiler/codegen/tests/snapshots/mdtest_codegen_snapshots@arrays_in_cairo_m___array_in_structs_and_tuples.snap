@@ -1,0 +1,37 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Arrays in Cairo-M - Array in Structs and Tuples"
+input_file: mdtest/01-basics/05-arrays.md
+---
+Source:
+struct Result {
+    values: [felt; 2],
+    sum: felt,
+}
+
+fn compute_result(a: felt, b: felt) -> ((felt, [felt; 2]), Result) {
+    let tuple_ : (felt, [felt; 2]) = (a, [a, b]);
+    let struct_ : Result = Result {
+        values: [a, b],
+        sum: a + b,
+    };
+    return (tuple_, struct_);
+}
+============================================================
+Generated CASM:
+compute_result:
+compute_result:
+compute_result_0:
+   0: 4 -8 0 6             // [fp + 6] = [fp + -8] + 0
+   1: 4 -7 0 7             // [fp + 7] = [fp + -7] + 0
+   2: 43 6 0 _             // [fp + 0] = fp + 6
+   3: 0 -8 -7 1            // [fp + 1] = [fp + -8] op [fp + -7]
+   4: 4 -8 0 2             // [fp + 2] = [fp + -8] + 0
+   5: 4 0 0 3              // [fp + 3] = [fp + 0] + 0
+   6: 4 0 0 4              // [fp + 4] = [fp + 0] + 0
+   7: 4 1 0 5              // [fp + 5] = [fp + 1] + 0
+   8: 4 2 0 -6             // Return value 0 slot 0: [fp -6] = [fp + 2] + 0
+   9: 4 3 0 -5             // Return value 0 slot 1: [fp -5] = [fp + 3] + 0
+  10: 4 4 0 -4             // Return value 1 slot 0: [fp -4] = [fp + 4] + 0
+  11: 4 5 0 -3             // Return value 1 slot 1: [fp -3] = [fp + 5] + 0
+  12: 11 _ _ _             // return

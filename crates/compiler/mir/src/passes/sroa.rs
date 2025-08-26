@@ -299,6 +299,13 @@ impl ScalarReplacementOfAggregates {
                     for (_, field_val) in parent_fields {
                         if let Value::Operand(field_id) = field_val {
                             if field_id == dest {
+                                // Arrays must be materialized when used as struct fields
+                                if matches!(
+                                    function.get_value_type(*dest),
+                                    Some(MirType::FixedArray { .. })
+                                ) {
+                                    return false;
+                                }
                                 // Our aggregate is used in parent - recursively check if parent can be scalarized
                                 if !self.can_scalarize_aggregate(
                                     parent_dest,
@@ -326,7 +333,47 @@ impl ScalarReplacementOfAggregates {
 
                     for elem in elements {
                         if elem.is_operand() && elem.as_operand() == Some(*dest) {
+                            // Arrays must be materialized when used as tuple elements
+                            if matches!(
+                                function.get_value_type(*dest),
+                                Some(MirType::FixedArray { .. })
+                            ) {
+                                return false;
+                            }
                             // Our aggregate is used in parent tuple - recursively check
+                            if !self.can_scalarize_aggregate(
+                                parent_dest,
+                                instructions,
+                                function,
+                                cross_block_aggregates,
+                                visited,
+                            ) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+                // Check if used as an element in another array
+                InstructionKind::MakeFixedArray {
+                    dest: parent_dest,
+                    elements,
+                    ..
+                } => {
+                    // Skip self-reference
+                    if parent_dest == dest {
+                        continue;
+                    }
+
+                    for elem in elements {
+                        if elem.is_operand() && elem.as_operand() == Some(*dest) {
+                            // Arrays must be materialized when used as elements in other arrays
+                            if matches!(
+                                function.get_value_type(*dest),
+                                Some(MirType::FixedArray { .. })
+                            ) {
+                                return false;
+                            }
+                            // Our aggregate is used in parent array - recursively check
                             if !self.can_scalarize_aggregate(
                                 parent_dest,
                                 instructions,

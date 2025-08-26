@@ -128,3 +128,39 @@ fn array_bounds_example() -> felt {
     return arr[10];        // Out of bounds access
 }
 ```
+
+## Array in Structs and Tuples
+
+Fixed size arrays can be members of structs and tuples.
+
+```cairo-m
+struct Result {
+    values: [felt; 2],
+    sum: felt,
+}
+
+fn compute_result(a: felt, b: felt) -> felt {
+    let tuple_ : (felt, [felt; 2]) = (a, [a, b]);
+    let struct_ : Result = Result {
+        values: [a, b],
+        sum: a + b,
+    };
+    return tuple_.1[0] + struct_.values[1];
+}
+```
+
+```rust
+struct Result {
+    values: [i32; 2],
+    sum: i32,
+}
+
+fn compute_result(a: i32, b: i32) -> i32 {
+    let tuple_ : (i32, [i32; 2]) = (a, [a, b]);
+    let struct_ : Result = Result {
+        values: [a, b],
+        sum: a + b,
+    };
+    return tuple_.1[0] + struct_.values[1];
+}
+```

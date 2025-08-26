@@ -365,7 +365,6 @@ fn test_array_of_bools() {
     }
 }
 
-#[ignore = "structs with arrays are not working well."]
 #[test]
 fn test_return_struct_with_array() {
     let source = r#"
