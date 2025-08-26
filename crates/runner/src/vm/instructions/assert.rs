@@ -56,8 +56,7 @@ mod assert_tests {
             src0_off: M31::from(1),
             src1_off: M31::from(2),
         };
-        let result = assert_eq_fp_fp(&mut memory, state, &instruction);
-        assert!(result.is_ok());
+        let state = assert_eq_fp_fp(&mut memory, state, &instruction).unwrap();
         assert_eq!(state.pc, M31::from(2));
 
         let mut memory = Memory::from_iter([0, 1, 2].map(Into::into));
@@ -69,9 +68,14 @@ mod assert_tests {
             src0_off: M31::from(1),
             src1_off: M31::from(2),
         };
-        let result = assert_eq_fp_fp(&mut memory, state, &instruction);
-        assert!(result.is_err());
-        assert_eq!(state.pc, M31::from(2));
+        let state = assert_eq_fp_fp(&mut memory, state, &instruction).unwrap_err();
+        match state {
+            InstructionExecutionError::Instruction(InstructionError::AssertionFailed(a, b)) => {
+                assert_eq!(a, M31::from(1));
+                assert_eq!(b, M31::from(2));
+            }
+            _ => panic!("Expected AssertionFailed error, got: {:?}", state),
+        }
     }
 
     #[test]
@@ -85,8 +89,7 @@ mod assert_tests {
             src_off: M31::from(1),
             imm: M31::from(1),
         };
-        let result = assert_eq_fp_imm(&mut memory, state, &instruction);
-        assert!(result.is_ok());
+        let state = assert_eq_fp_imm(&mut memory, state, &instruction).unwrap();
         assert_eq!(state.pc, M31::from(2));
 
         let mut memory = Memory::from_iter([0, 1, 3].map(Into::into));
@@ -98,7 +101,13 @@ mod assert_tests {
             src_off: M31::from(1),
             imm: M31::from(2),
         };
-        let result = assert_eq_fp_imm(&mut memory, state, &instruction);
-        assert!(result.is_err());
+        let state = assert_eq_fp_imm(&mut memory, state, &instruction).unwrap_err();
+        match state {
+            InstructionExecutionError::Instruction(InstructionError::AssertionFailed(a, b)) => {
+                assert_eq!(a, M31::from(1));
+                assert_eq!(b, M31::from(2));
+            }
+            _ => panic!("Expected AssertionFailed error, got: {:?}", state),
+        }
     }
 }
