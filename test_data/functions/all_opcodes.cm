@@ -2,6 +2,10 @@
 // This program exercises all implemented opcodes for comprehensive testing
 
 fn main() -> felt {
+    // ╔══════════════════════════════════════════════════════════════════════════╗
+    // ║                              Regular Opcode Tests                        ║
+    // ╚══════════════════════════════════════════════════════════════════════════╝
+
     // Initialize some values for arithmetic operations
     let a = 10;
     let b = 5;
@@ -48,10 +52,30 @@ fn main() -> felt {
     // StoreImm: [fp + off2] = imm (immediate store)
     let immediate = 42;
 
+    // ╔══════════════════════════════════════════════════════════════════════════╗
+    // ║                              U32 Arithmetics Tests                       ║
+    // ╚══════════════════════════════════════════════════════════════════════════╝
+
+    let MAX_u16: u32 = 65535; // 2**16 - 1
+    let MAX_u32: u32 = 4294967295; // 2**32 - 1
+    let two_pow_16: u32 = 65536;
+    let zero_u32: u32 = 0;
+
     // U32StoreAddFpImm
-    let e: u32 = 1;
-    let sum2: u32 = e + 42u32;
-    let sum3: u32 = sum2 + e;
+    // u16_carry = 0 and u32_carry = 0
+    let u32_sum1: u32 = MAX_u16 + 0u32;
+    // u16_carry = 1 and u32_carry = 0
+    let u32_sum2: u32 = MAX_u16 + 1u32;
+    // u16_carry = 1 and u32_carry = 1
+    let u32_sum3: u32 = MAX_u32 + 1u32;
+
+    // U32StoreSubFpImm
+    // borrow_lo = 0 and borrow_hi = 0
+    let u32_diff1: u32 = MAX_u16 - 42u32;
+    // borrow_lo = 1 and borrow_hi = 0
+    let u32_diff2: u32 = two_pow_16 - 1u32;
+    // borrow_lo = 1 and borrow_hi = 1
+    let u32_diff3: u32 = zero_u32 - 1u32;
 
     // JnzFpImm
     if (a != 5) {

@@ -188,6 +188,13 @@ macro_rules! define_opcodes {
                     .par_iter()
                     .flatten()
             )
+            .chain(
+                $self.u32_store_sub_fp_imm
+                    .lookup_data
+                    .range_check_16
+                    .par_iter()
+                    .flatten()
+            )
     };
 
 }
@@ -240,6 +247,7 @@ define_opcodes!(
     ),
     ([const STORE_DOUBLE_DEREF_FP], store_double_deref_fp),
     ([const U32_STORE_ADD_FP_IMM], u32_store_add_fp_imm),
+    ([const U32_STORE_SUB_FP_IMM], u32_store_sub_fp_imm),
     ([const U32_STORE_IMM], u32_store_imm)
 
 );
