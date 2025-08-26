@@ -54,6 +54,7 @@ fn init_project(name: &str) -> Result<()> {
 
     // Write template files
     write_cargo_toml(project_path, name)?;
+    write_cairom_toml(project_path, name)?;
     write_gitignore(project_path)?;
     write_rust_toolchain(project_path)?;
     write_cargo_config(project_path)?;
@@ -67,6 +68,20 @@ fn init_project(name: &str) -> Result<()> {
     println!("  cd {}", name);
     println!("  cargo test");
 
+    Ok(())
+}
+
+fn write_cairom_toml(project_path: &Path, name: &str) -> Result<()> {
+    let content = format!(
+        r#"# Cairo-M project manifest file
+name = "{}"
+version = "0.1.0"
+entry_point = "fibonacci.cm"
+"#,
+        name
+    );
+
+    fs::write(project_path.join("cairom.toml"), content).context("Failed to write cairom.toml")?;
     Ok(())
 }
 
@@ -136,7 +151,9 @@ A Cairo-M project with integrated Rust testing.
 
 ## Project Structure
 
+- `cairom.toml` - Cairo-M project manifest file
 - `src/` - Cairo-M source files
+  - `fibonacci.cm` - Example fibonacci implementation
 - `tests/` - Rust integration tests
 - `Cargo.toml` - Rust project configuration
 
@@ -170,9 +187,11 @@ Note: The required RUSTFLAGS are automatically configured in `.cargo/config.toml
 ## Adding New Cairo-M Files
 
 1. Create a new `.cm` file in the `src/` directory
-2. Write a corresponding test in `tests/`
-3. Use `run_cairo_program` to execute your Cairo-M code
-4. Compare results with Rust reference implementations
+2. If needed, update the `entry_point` in `cairom.toml` to point to your main file
+3. Write a corresponding test in `tests/`
+4. Use `compile_cairo` with the source directory path (e.g., "src/")
+5. Use `run_cairo_program` to execute your compiled Cairo-M code
+6. Compare results with Rust reference implementations
 
 ## Resources
 
@@ -240,7 +259,7 @@ fn test_fibonacci_value(n: u32) -> anyhow::Result<()> {
     let source = std::fs::read_to_string("src/fibonacci.cm")?;
     let output = compile_cairo(
         source,
-        "fibonacci.cm".to_string(),
+        "src/".to_string(),
         CompilerOptions::default()
     )?;
 
