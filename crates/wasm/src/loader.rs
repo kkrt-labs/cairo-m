@@ -111,3 +111,22 @@ impl Debug for BlocklessDagModule {
         write!(f, "{}", self)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_loader_basic() {
+        // Test basic loading functionality
+        let result = BlocklessDagModule::from_file("tests/test_cases/add.wasm");
+        assert!(result.is_ok(), "Should load add.wasm successfully");
+
+        let module = result.unwrap();
+        let program = module.with_program(|program| program);
+        assert!(
+            !program.functions.is_empty(),
+            "Should have at least one function"
+        );
+    }
+}
