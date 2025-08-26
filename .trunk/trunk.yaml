@@ -42,6 +42,7 @@ lint:
       paths:
         - "**/*.snap"
         - "external/**"
+        - "crates/cargo-cairo-m/templates"
 actions:
   enabled:
     - trunk-announce

@@ -75,7 +75,7 @@ fn test_tuple_return_packing_with_mixed_sizes() {
     assert_eq!(DataLayout::tuple_offset(&tuple_type, 2), Some(3));
 
     // Total size should be 5 slots
-    assert_eq!(DataLayout::size_of(&tuple_type), 5);
+    assert_eq!(DataLayout::value_size_of(&tuple_type), 5);
 }
 
 #[test]
@@ -138,7 +138,7 @@ fn test_struct_field_offsets_with_alignment() {
     assert_eq!(DataLayout::field_offset(&struct_type, "field_c"), Some(3));
 
     // Total size should be 4 slots
-    assert_eq!(DataLayout::size_of(&struct_type), 4);
+    assert_eq!(DataLayout::value_size_of(&struct_type), 4);
 }
 
 #[test]
@@ -157,7 +157,7 @@ fn test_nested_tuple_offsets() {
     // No longer need DataLayout instance - using static methods
 
     // Inner tuple is 3 slots total
-    assert_eq!(DataLayout::size_of(&inner_tuple), 3);
+    assert_eq!(DataLayout::value_size_of(&inner_tuple), 3);
 
     // In outer tuple:
     // Element 0 (inner tuple) at offset 0
@@ -166,5 +166,5 @@ fn test_nested_tuple_offsets() {
     assert_eq!(DataLayout::tuple_offset(&outer_tuple, 1), Some(3));
 
     // Total size is 4 slots
-    assert_eq!(DataLayout::size_of(&outer_tuple), 4);
+    assert_eq!(DataLayout::value_size_of(&outer_tuple), 4);
 }

@@ -243,9 +243,11 @@ fn generate_random_value(ty: &AbiType, rng: &mut StdRng, depth: u32) -> InputVal
                 .collect();
             InputValue::Struct(values)
         }
-        AbiType::Array { .. } => {
-            // Arrays are not yet supported - return a placeholder
-            panic!("MDTest runner: Fixed-size arrays not yet supported in tests")
+        AbiType::FixedSizeArray { element, size } => {
+            let values: Vec<InputValue> = (0..*size)
+                .map(|_| generate_random_value(element, rng, depth + 1))
+                .collect();
+            InputValue::List(values)
         }
     }
 }
@@ -353,6 +355,13 @@ fn format_rust_value(value: &InputValue, ty: &AbiType) -> String {
                 .map(|(v, (fname, fty))| format!("{}: {}", fname, format_rust_value(v, fty)))
                 .collect();
             format!("{} {{ {} }}", name, field_values.join(", "))
+        }
+        (InputValue::List(values), AbiType::FixedSizeArray { element, .. }) => {
+            let formatted: Vec<String> = values
+                .iter()
+                .map(|v| format_rust_value(v, element))
+                .collect();
+            format!("[{}]", formatted.join(", "))
         }
         _ => panic!(
             "MDTest runner: Type/value mismatch in Rust formatter: {:?} / {:?}",

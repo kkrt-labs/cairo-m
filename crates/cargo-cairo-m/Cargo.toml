@@ -1,0 +1,15 @@
+[package]
+name = "cargo-cairo-m"
+version = "0.1.0"
+edition = "2024"
+description = "Binary for creating Cairo-M projects from a default template"
+license = "MIT OR Apache-2.0"
+
+[[bin]]
+name = "cargo-cairo-m"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true

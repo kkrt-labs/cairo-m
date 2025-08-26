@@ -322,12 +322,7 @@ impl CasmBuilder {
     ) -> CodegenResult<()> {
         use cairo_m_compiler_mir::layout::DataLayout;
 
-        // DataLayout methods are now static - no instance needed
-        // Arrays are stored as pointers (1 slot) in the codegen
-        let size = match ty {
-            MirType::FixedArray { .. } => 1,
-            _ => DataLayout::size_of(ty),
-        };
+        let size = DataLayout::memory_size_of(ty);
 
         // Determine destination offset
         let dest_off = if let Some(offset) = target_offset {
@@ -340,11 +335,7 @@ impl CasmBuilder {
                 Ok(offset) => offset,
                 Err(_) => {
                     // Value wasn't pre-allocated, allocate it now
-                    // Arrays are stored as pointers (1 slot)
-                    let alloc_size = match ty {
-                        MirType::FixedArray { .. } => 1,
-                        _ => size,
-                    };
+                    let alloc_size = DataLayout::memory_size_of(ty);
                     self.layout.allocate_local(dest, alloc_size)?
                 }
             }
@@ -1407,13 +1398,14 @@ impl CasmBuilder {
         let m: usize = signature
             .param_types
             .iter()
-            .map(|ty| match ty {
-                MirType::FixedArray { .. } => 1,
-                _ => DataLayout::size_of(ty),
-            })
+            .map(DataLayout::memory_size_of)
             .sum();
         // K is the total number of slots occupied by return values (U32 takes 2 slots)
-        let k: usize = signature.return_types.iter().map(DataLayout::size_of).sum();
+        let k: usize = signature
+            .return_types
+            .iter()
+            .map(DataLayout::memory_size_of)
+            .sum();
 
         // Step 2: Reserve space for return values and map the destination `ValueId`.
         // The first return value will be placed at `[fp_c + args_offset + M]`.
@@ -1456,13 +1448,14 @@ impl CasmBuilder {
         let m: usize = signature
             .param_types
             .iter()
-            .map(|ty| match ty {
-                MirType::FixedArray { .. } => 1,
-                _ => DataLayout::size_of(ty),
-            })
+            .map(DataLayout::memory_size_of)
             .sum();
         // K is the total number of slots occupied by return values (U32 takes 2 slots)
-        let k: usize = signature.return_types.iter().map(DataLayout::size_of).sum();
+        let k: usize = signature
+            .return_types
+            .iter()
+            .map(DataLayout::memory_size_of)
+            .sum();
 
         // Step 2: Reserve space for return values and map each destination ValueId.
         // Return values are placed after the arguments, accounting for multi-slot types
@@ -1471,7 +1464,7 @@ impl CasmBuilder {
             self.layout.map_value(*dest, current_offset);
             // Move offset by the size of this return type
             if i < signature.return_types.len() {
-                current_offset += DataLayout::size_of(&signature.return_types[i]) as i32;
+                current_offset += DataLayout::memory_size_of(&signature.return_types[i]) as i32;
             }
         }
         self.layout.reserve_stack(k);
@@ -1511,10 +1504,7 @@ impl CasmBuilder {
         let m: usize = signature
             .param_types
             .iter()
-            .map(|ty| match ty {
-                MirType::FixedArray { .. } => 1,
-                _ => DataLayout::size_of(ty),
-            })
+            .map(DataLayout::memory_size_of)
             .sum();
         let k = 0; // Void calls have no returns
 
@@ -1594,10 +1584,7 @@ impl CasmBuilder {
 
         for param_type in &signature.param_types {
             // Arrays are passed by pointer (1 slot) in the ABI
-            let abi_slots = match param_type {
-                MirType::FixedArray { .. } => 1,
-                _ => DataLayout::size_of(param_type),
-            } as i32;
+            let abi_slots = DataLayout::memory_size_of(param_type) as i32;
             arg_offsets.push(current_offset);
             current_offset += abi_slots;
         }
@@ -1625,11 +1612,7 @@ impl CasmBuilder {
                         let mut all_args_contiguous = true;
 
                         for (arg, param_type) in args.iter().zip(&signature.param_types) {
-                            // Arrays are passed by pointer (1 slot) in the ABI
-                            let size = match param_type {
-                                MirType::FixedArray { .. } => 1,
-                                _ => DataLayout::size_of(param_type),
-                            };
+                            let size = DataLayout::memory_size_of(param_type);
 
                             if let Value::Operand(arg_id) = arg {
                                 if !self.layout.is_contiguous(*arg_id, expected_offset, size) {
@@ -1646,10 +1629,7 @@ impl CasmBuilder {
                             let total_arg_size: usize = signature
                                 .param_types
                                 .iter()
-                                .map(|ty| match ty {
-                                    MirType::FixedArray { .. } => 1,
-                                    _ => DataLayout::size_of(ty),
-                                })
+                                .map(DataLayout::memory_size_of)
                                 .sum();
                             let args_end = first_offset + total_arg_size as i32;
 
@@ -1675,11 +1655,7 @@ impl CasmBuilder {
             let arg_offset = arg_offsets[i];
 
             // Fixed-Size arrays are passed as pointers - size 1.
-            let arg_size = if matches!(param_type, MirType::FixedArray { .. }) {
-                1
-            } else {
-                DataLayout::size_of(param_type)
-            };
+            let arg_size = DataLayout::memory_size_of(param_type);
 
             match arg {
                 Value::Literal(Literal::Integer(imm)) => match param_type {
@@ -2608,7 +2584,7 @@ impl CasmBuilder {
     ) -> CodegenResult<()> {
         use cairo_m_compiler_mir::layout::DataLayout;
 
-        let total_size = DataLayout::size_of(struct_ty);
+        let total_size = DataLayout::memory_size_of(struct_ty);
 
         // Allocate destination
         let base_offset = self.layout.allocate_local(dest, total_size)?;
@@ -2629,7 +2605,7 @@ impl CasmBuilder {
             let field_ty = struct_ty.field_type(field_name).ok_or_else(|| {
                 CodegenError::InvalidMir(format!("Could not get type for field '{}'", field_name))
             })?;
-            let field_size = DataLayout::size_of(field_ty);
+            let field_size = DataLayout::memory_size_of(field_ty);
 
             // Copy the field value to the target offset
             self.copy_value_to_offset(field_value, target_offset, field_size)?;
@@ -2671,7 +2647,7 @@ impl CasmBuilder {
             CodegenError::InvalidMir(format!("Field '{}' not found in struct", field_name))
         })?;
 
-        let field_size = DataLayout::size_of(field_ty);
+        let field_size = DataLayout::memory_size_of(field_ty);
         let absolute_offset = struct_offset + field_offset as i32;
 
         // Map destination to the field's location
@@ -2725,7 +2701,7 @@ impl CasmBuilder {
         let field_ty = struct_ty.field_type(field_name).ok_or_else(|| {
             CodegenError::InvalidMir(format!("Could not get type for field '{}'", field_name))
         })?;
-        let field_size = DataLayout::size_of(field_ty);
+        let field_size = DataLayout::memory_size_of(field_ty);
 
         // Calculate target offset for the field
         let target_offset = struct_offset + field_offset as i32;
@@ -2735,7 +2711,7 @@ impl CasmBuilder {
 
         // Map the destination to the same location as the source struct
         // (since it's an in-place update)
-        let struct_size = DataLayout::size_of(struct_ty);
+        let struct_size = DataLayout::memory_size_of(struct_ty);
         if struct_size == 1 {
             self.layout.value_layouts.insert(
                 dest,
@@ -2779,7 +2755,7 @@ impl CasmBuilder {
             let element_size = match element {
                 Value::Operand(id) => {
                     if let Some(ty) = function.value_types.get(id) {
-                        DataLayout::size_of(ty)
+                        DataLayout::memory_size_of(ty)
                     } else {
                         self.layout.get_value_size(*id)
                     }
@@ -2839,7 +2815,7 @@ impl CasmBuilder {
             CodegenError::InvalidMir(format!("Tuple index {} out of bounds", index))
         })?;
 
-        let element_size = DataLayout::size_of(element_ty);
+        let element_size = DataLayout::memory_size_of(element_ty);
         let absolute_offset = tuple_offset + element_offset as i32;
 
         // Map destination to the element's location
@@ -2895,7 +2871,7 @@ impl CasmBuilder {
         let element_ty = tuple_ty.tuple_element_type(index).ok_or_else(|| {
             CodegenError::InvalidMir(format!("Could not get type for tuple element {}", index))
         })?;
-        let element_size = DataLayout::size_of(element_ty);
+        let element_size = DataLayout::memory_size_of(element_ty);
 
         // Calculate target offset for the element
         let target_offset = tuple_offset + element_offset as i32;
@@ -2905,7 +2881,7 @@ impl CasmBuilder {
 
         // Map the destination to the same location as the source tuple
         // (since it's an in-place update)
-        let tuple_size = DataLayout::size_of(tuple_ty);
+        let tuple_size = DataLayout::memory_size_of(tuple_ty);
         if tuple_size == 1 {
             self.layout.value_layouts.insert(
                 dest,
@@ -3015,7 +2991,7 @@ impl CasmBuilder {
         use cairo_m_compiler_mir::layout::DataLayout;
 
         // Calculate per-element size and total size needed for the array
-        let element_size = DataLayout::size_of(element_ty);
+        let element_size = DataLayout::value_size_of(element_ty);
         let total_size = element_size * elements.len();
 
         // Reserve space for the array elements (anonymous region)
@@ -3069,7 +3045,7 @@ impl CasmBuilder {
         };
 
         // Calculate element size
-        let element_size = DataLayout::size_of(element_ty);
+        let element_size = DataLayout::value_size_of(element_ty);
 
         // Handle based on index type
         match index {
@@ -3166,7 +3142,7 @@ impl CasmBuilder {
 
         // Arrays store pointers to their data, so we need to dereference:
         // element N is at memory address [[fp + base_offset] + element_offset]
-        let elem_size = DataLayout::size_of(ty);
+        let elem_size = DataLayout::value_size_of(ty);
         let dest_off = self.layout.allocate_local(dest, elem_size)?;
 
         // For static offsets, use StoreDoubleDerefFpImm
@@ -3211,7 +3187,7 @@ impl CasmBuilder {
     ) -> CodegenResult<()> {
         use cairo_m_compiler_mir::layout::DataLayout;
 
-        let elem_size = DataLayout::size_of(ty);
+        let elem_size = DataLayout::value_size_of(ty);
         let dest_off = self.layout.allocate_local(dest, elem_size)?;
 
         // If the elem_size is N, then, the value we have to retrieved is located at [fp + base_ptr + [fp + scaled_offset] * N]
@@ -3306,7 +3282,7 @@ impl CasmBuilder {
         match value {
             Value::Operand(src_id) => {
                 let src_offset = self.layout.get_offset(src_id)?;
-                let elem_size = DataLayout::size_of(ty);
+                let elem_size = DataLayout::value_size_of(ty);
                 for i in 0..elem_size {
                     let instr = InstructionBuilder::new(STORE_TO_DOUBLE_DEREF_FP_IMM)
                         .with_operand(Operand::Literal(base_offset))
@@ -3324,7 +3300,7 @@ impl CasmBuilder {
             }
             Value::Literal(Literal::Integer(val)) => {
                 // Multi-slot immediates require staging in temporaries.
-                let elem_size = DataLayout::size_of(ty);
+                let elem_size = DataLayout::value_size_of(ty);
                 if elem_size == 1 {
                     // Single-slot element: stage in one temp then store.
                     let temp_offset = self.layout.reserve_stack(1);
@@ -3372,7 +3348,7 @@ impl CasmBuilder {
             }
             Value::Literal(Literal::Boolean(b)) => {
                 // Boolean literal only valid for single-slot element types
-                if DataLayout::size_of(ty) != 1 {
+                if DataLayout::value_size_of(ty) != 1 {
                     return Err(CodegenError::InvalidMir(
                         "Boolean literal store into multi-slot element".to_string(),
                     ));
@@ -3415,7 +3391,7 @@ impl CasmBuilder {
     ) -> CodegenResult<()> {
         // For dynamic stores, we just copy the pointer (pointer-semantics for arrays)
         // The dest gets the same pointer as the original array
-        let elem_size = DataLayout::size_of(ty);
+        let elem_size = DataLayout::value_size_of(ty);
         let dest_offset = self.layout.allocate_local(dest, 1)?;
 
         let scaled_offset = if elem_size != 1 {

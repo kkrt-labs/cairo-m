@@ -1,6 +1,9 @@
 use crate::program::{AbiSlot, AbiType};
 use stwo_prover::core::fields::m31::{M31, P};
 
+// Maximum value for the lower/upper 16-bit parts of a U32
+const U16_MAX: u32 = 0xFFFF;
+
 /// Untyped input value that can be interpreted based on AbiType
 #[derive(Debug, Clone, PartialEq)]
 pub enum InputValue {
@@ -123,7 +126,7 @@ pub fn decode_abi_values(
 }
 
 /// Convert an i64 to an M31
-const fn m31_from_i64(n: i64) -> M31 {
+pub const fn m31_from_i64(n: i64) -> M31 {
     // Perform modular reduction over Z, then map to M31 safely.
     // Works for all i64, including large magnitude negatives.
     let p = P as i128;
@@ -150,7 +153,7 @@ fn encode_input(dst: &mut Vec<M31>, ty: &AbiType, val: &InputValue) -> Result<()
                 )));
             }
             let u = *n as u32;
-            let lo = M31::from(u & 0xFFFF);
+            let lo = M31::from(u & U16_MAX);
             let hi = M31::from(u >> 16);
             dst.extend_from_slice(&[lo, hi]);
             Ok(())
@@ -208,12 +211,18 @@ fn encode_input(dst: &mut Vec<M31>, ty: &AbiType, val: &InputValue) -> Result<()
             }
             Ok(())
         }
-        (AbiType::Array { .. }, InputValue::List(_)) => {
-            // TODO: Array support requires parser implementation
-            Err(AbiCodecError::TypeMismatch(
-                "Array types are not yet supported in Cairo-M. Parser implementation pending."
-                    .to_string(),
-            ))
+        (AbiType::FixedSizeArray { element, size }, InputValue::List(values)) => {
+            if *size != values.len() as u32 {
+                return Err(AbiCodecError::TypeMismatch(format!(
+                    "array size mismatch: expected {} got {}",
+                    size,
+                    values.len()
+                )));
+            }
+            for v in values {
+                encode_input(dst, element, v)?;
+            }
+            Ok(())
         }
         (AbiType::Unit, InputValue::Unit) => Ok(()),
         _ => {
@@ -256,10 +265,10 @@ fn decode_one(
             let lo = src[start].0;
             let hi = src[start + 1].0;
             // Validate that each part fits in 16 bits
-            if lo >= (1 << 16) || hi >= (1 << 16) {
+            if lo > U16_MAX || hi > U16_MAX {
                 return Err(AbiCodecError::TypeMismatch(format!(
-                    "Invalid U32 value: lo={}, hi={} (each must be < 65536)",
-                    lo, hi
+                    "Invalid U32 value: lo={}, hi={} (each must be <= {})",
+                    lo, hi, U16_MAX
                 )));
             }
             Ok((CairoMValue::U32(lo | (hi << 16)), start + 2))
@@ -290,8 +299,8 @@ fn decode_one(
             }
             Ok((CairoMValue::Struct(out), cur))
         }
-        AbiType::Array { element, size } => {
-            let n = size.ok_or(AbiCodecError::DynamicArrayUnsupported)? as usize;
+        AbiType::FixedSizeArray { element, size } => {
+            let n = *size as usize;
             let mut cur = start;
             let mut out = Vec::with_capacity(n);
             for _ in 0..n {
@@ -521,21 +530,37 @@ mod tests {
         }
 
         #[test]
-        fn test_arrays_not_supported() {
-            let slot = AbiSlot {
-                name: "arr".into(),
-                ty: AbiType::Array {
+        fn test_invalid_fixed_size_array_decode() {
+            // Two u32 elements require 4 M31 slots; provide only 3 -> insufficient data
+            let src = vec![M31::from(1u32), M31::from(2u32), M31::from(3u32)];
+            let result = decode_one(
+                &AbiType::FixedSizeArray {
                     element: Box::new(AbiType::U32),
-                    size: Some(3),
+                    size: 2,
                 },
-            };
-            let input = InputValue::List(vec![1.into(), 2.into(), 3.into()]);
-            let result = encode_input_args(&[slot], &[input]);
-            assert!(result.is_err());
-            assert!(result
-                .unwrap_err()
-                .to_string()
-                .contains("Array types are not yet supported"));
+                &src,
+                0,
+            );
+            assert!(matches!(result, Err(AbiCodecError::InsufficientData)));
+        }
+
+        #[test]
+        fn test_invalid_fixed_size_array_encode_size_mismatch() {
+            // Encoding should validate array length against the declared fixed size
+            let params = [AbiSlot {
+                name: "arr".into(),
+                ty: AbiType::FixedSizeArray {
+                    element: Box::new(AbiType::Felt),
+                    size: 3,
+                },
+            }];
+            let values = [InputValue::List(vec![0.into(), 1.into()])]; // only 2 provided
+            let err = encode_input_args(&params, &values).unwrap_err();
+            assert!(
+                matches!(&err, AbiCodecError::TypeMismatch(msg) if msg.contains("array size mismatch")),
+                "Expected TypeMismatch error with array size mismatch, got: {:?}",
+                err
+            );
         }
 
         #[test]
@@ -630,9 +655,9 @@ mod tests {
                     ("a".into(), AbiType::Felt),
                     (
                         "b".into(),
-                        AbiType::Array {
+                        AbiType::FixedSizeArray {
                             element: Box::new(AbiType::U32),
-                            size: Some(2),
+                            size: 2,
                         },
                     ),
                     (

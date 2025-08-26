@@ -279,10 +279,7 @@ impl CodeGenerator {
                             break;
                         }
                         // Arrays are passed as pointers (1 slot)
-                        arg_offset += match param_type {
-                            cairo_m_compiler_mir::MirType::FixedArray { .. } => 1,
-                            _ => DataLayout::size_of(param_type) as i32,
-                        };
+                        arg_offset += DataLayout::memory_size_of(param_type) as i32;
                     }
                     return Some(arg_offset);
                 }
@@ -431,10 +428,7 @@ impl CodeGenerator {
                                         break;
                                     }
                                     // Arrays are passed as pointers (1 slot)
-                                    arg_offset += match param_type {
-                                        cairo_m_compiler_mir::MirType::FixedArray { .. } => 1,
-                                        _ => DataLayout::size_of(param_type) as i32,
-                                    };
+                                    arg_offset += DataLayout::memory_size_of(param_type) as i32;
                                 }
 
                                 // Store the value directly at the argument offset
@@ -488,12 +482,7 @@ impl CodeGenerator {
                                             break;
                                         }
                                         // Arrays are passed as pointers (1 slot)
-                                        arg_offset += match param_type {
-                                            cairo_m_compiler_mir::MirType::FixedArray {
-                                                ..
-                                            } => 1,
-                                            _ => DataLayout::size_of(param_type) as i32,
-                                        };
+                                        arg_offset += DataLayout::memory_size_of(param_type) as i32;
                                     }
 
                                     match value {
@@ -529,7 +518,7 @@ impl CodeGenerator {
 
             InstructionKind::FrameAlloc { dest, ty } => {
                 // Allocate the requested frame space dynamically based on type size
-                let size = DataLayout::size_of(ty);
+                let size = DataLayout::memory_size_of(ty);
                 builder.allocate_frame_slots(*dest, size)?;
             }
 
@@ -711,7 +700,7 @@ impl CodeGenerator {
 
                 let k_slots: i32 = return_types
                     .iter()
-                    .map(|ty| DataLayout::size_of(ty) as i32)
+                    .map(|ty| DataLayout::memory_size_of(ty) as i32)
                     .sum();
 
                 // Calculate cumulative slot offsets for each return value
@@ -719,7 +708,7 @@ impl CodeGenerator {
                 let mut cumulative = 0;
                 for ty in &return_types {
                     slot_offsets.push(cumulative);
-                    cumulative += DataLayout::size_of(ty) as i32;
+                    cumulative += DataLayout::memory_size_of(ty) as i32;
                 }
 
                 dests
@@ -1093,9 +1082,9 @@ fn abi_type_from_mir(ty: &MirType) -> CodegenResult<AbiType> {
                 .map(|(fname, fty)| Ok((fname.clone(), abi_type_from_mir(fty)?)))
                 .collect::<CodegenResult<_>>()?,
         },
-        MirType::FixedArray { element_type, size } => AbiType::Array {
+        MirType::FixedArray { element_type, size } => AbiType::FixedSizeArray {
             element: Box::new(abi_type_from_mir(element_type)?),
-            size: Some(*size as u32),
+            size: *size as u32,
         },
         MirType::Function { .. } => AbiType::Pointer(Box::new(AbiType::Unit)),
         MirType::Unit => AbiType::Unit,

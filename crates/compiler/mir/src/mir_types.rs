@@ -155,10 +155,10 @@ impl MirType {
     }
 
     /// Gets the size in slots (field elements) for this type
-    #[deprecated(note = "Use DataLayout::size_of() instead for better centralization")]
+    #[deprecated(note = "Use DataLayout::value_size_of() instead for better centralization")]
     pub fn size_in_slots(&self) -> usize {
         // Delegate to DataLayout for consistency
-        DataLayout::size_of(self)
+        DataLayout::value_size_of(self)
     }
 
     /// Calculates the offset of a struct field by name

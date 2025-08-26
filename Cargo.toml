@@ -14,6 +14,7 @@ members = [
   "crates/cairo-m-ls",
   "crates/wasm",
   "crates/test_utils",
+  "crates/cargo-cairo-m",
 ]
 resolver = "2"
 

@@ -35,6 +35,34 @@ The main design choices are
 To get started with Cairo M, read the
 [getting-started](./docs/getting-started.md)
 
+### Creating a New Cairo-M Project
+
+Cairo-M provides a CLI tool to quickly scaffold new projects with integrated
+testing:
+
+```bash
+# Build and install cargo-cairo-m
+cargo install --path crates/cargo-cairo-m
+
+# Create a new Cairo-M project
+cargo-cairo-m init my-project
+
+# Navigate to your project and run tests
+cd my-project
+cargo test
+```
+
+The generated project includes:
+
+- A sample Cairo-M fibonacci implementation
+- Rust tests that use `run_cairo_program` for differential testing
+- Pre-configured dependencies on cairo-m crates
+- Automatic RUSTFLAGS configuration for optimal performance
+- A README with common commands
+
+This setup allows you to write Cairo-M code and test it against Rust reference
+implementations using familiar Rust testing tools.
+
 ## Getting Started
 
 To get started with Cairo M, clone the repository and build the project using
