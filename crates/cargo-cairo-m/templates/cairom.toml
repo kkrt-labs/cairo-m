@@ -1,0 +1,4 @@
+# Cairo-M project manifest file
+name = "{{name}}"
+version = "0.1.0"
+entry_point = "fibonacci.cm"

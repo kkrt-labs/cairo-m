@@ -1,0 +1,10 @@
+[target.'cfg(target_os = "macos")']
+rustflags = [
+  "-C",
+  "link-arg=-fuse-ld=/opt/homebrew/opt/lld/bin/ld64.lld",
+  "-C",
+  "target-cpu=native",
+]
+
+[target.'cfg(not(target_os = "macos"))']
+rustflags = ["-C", "target-cpu=native"]
