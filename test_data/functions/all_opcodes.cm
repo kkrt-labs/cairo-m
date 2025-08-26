@@ -60,6 +60,7 @@ fn main() -> felt {
     let MAX_u32: u32 = 4294967295; // 2**32 - 1
     let two_pow_16: u32 = 65536;
     let zero_u32: u32 = 0;
+    let x_u32: u32 = 42;
 
     // U32StoreAddFpImm
     // u16_carry = 0 and u32_carry = 0
@@ -76,6 +77,14 @@ fn main() -> felt {
     let u32_diff2: u32 = two_pow_16 - 1u32;
     // borrow_lo = 1 and borrow_hi = 1
     let u32_diff3: u32 = zero_u32 - 1u32;
+
+    // U32StoreMulFpImm
+    // Regular multiplication (overflow_limb = 0)
+    let u32_prod1: u32 = x_u32 * 2u32;
+    // Simple overflow (overflow_limb = 1)
+    let u32_prod2: u32 = MAX_u32 * 2u32;
+    // Big overflow (overflow_limb = 2)
+    let u32_prod3: u32 = MAX_u32 * 4294967295u32;
 
     // JnzFpImm
     if (a != 5) {
