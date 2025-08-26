@@ -29,7 +29,7 @@ pub struct WasmModule {
 
 impl WasmModule {
     /// Converts the WASM module into a WOMIR program.
-    /// This is inefficient, as it will parse the WASM module everytime it is called.
+    /// This is inefficient, as it will parse the WASM module every time it is called.
     /// However we don't plan on using the WOMIR representation in the future.
     pub fn program(&self) -> Result<Program<'_, GenericIrSetting>, WasmLoadError> {
         load_wasm(GenericIrSetting, &self.bytes).map_err(|e| WasmLoadError::ParseError {

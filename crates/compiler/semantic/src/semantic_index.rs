@@ -457,7 +457,7 @@ impl SemanticIndex {
     /// This is the single source of truth for name resolution. It attempts to resolve names in this order:
     /// 1. Current scope and its parents (local resolution)
     /// 2. If not found, check imported items visible from the current scope (cross-module resolution)
-    // TODO: Assess whether it's not dangerous to be doing this here: could we end up resolving something we dont want to?
+    // TODO: Assess whether it's not dangerous to be doing this here: could we end up resolving something we don't want to?
     pub fn resolve_name_with_imports(
         &self,
         db: &dyn SemanticDb,
@@ -1545,7 +1545,7 @@ where
     }
 
     fn visit_struct(&mut self, struct_def: &'ast Spanned<StructDef>) {
-        // The struct is forward-declared - so we dont need to add it to definitions.
+        // The struct is forward-declared - so we don't need to add it to definitions.
         let struct_def_inner = struct_def.value();
 
         // Struct field validation moved to validators

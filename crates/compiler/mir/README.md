@@ -3,7 +3,7 @@
 This crate defines the Mid-level Intermediate Representation (MIR) for the
 Cairo-M compiler. It provides an, SSA-based representation of the program
 structured as a Control Flow Graph (CFG). This MIR is the foundation for
-high-level optimizations before code generation and lowering to Cairo-M-Assmebly
+high-level optimizations before code generation and lowering to Cairo-M-Assembly
 (CASM).
 
 ## Overview

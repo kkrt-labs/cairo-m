@@ -47,7 +47,7 @@ use crate::relations;
 /// Structured public entries for initial and final memory
 ///
 /// This struct is used to store the public entries for the initial and final memory.
-/// It containts:
+/// It contains:
 /// - program: the instructions
 /// - input: the main arguments
 /// - output: the return values

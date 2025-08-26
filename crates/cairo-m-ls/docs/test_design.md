@@ -494,7 +494,7 @@ fn main() {
 
 Wait for `DiagnosticsController` via `wait_for_diagnostics()`.
 
-### Salsa Incrementality
+### Salsa Incremental recompilation
 
 Test changes: Send `didChange`, wait for delta updates.
 

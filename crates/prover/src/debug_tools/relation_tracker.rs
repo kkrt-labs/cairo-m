@@ -17,7 +17,7 @@ use crate::adapter::merkle::TREE_HEIGHT;
 use crate::components::Components;
 use crate::public_data::PublicData;
 
-/// Show emited but unconsummed OR consumed but unemited relation entries.
+/// Show emitted but unconsumed OR consumed but non emitted relation entries.
 pub fn track_and_summarize_relations<MC: MerkleChannel>(
     commitment_scheme: &CommitmentSchemeProver<'_, SimdBackend, MC>,
     components: &Components,
@@ -32,9 +32,9 @@ where
 
 /// Tracks lookup emissions/consumptions
 ///
-/// Goes through each add_to_relation in each component and for each entry it counts how much time it is emited/used:
+/// Goes through each add_to_relation in each component and for each entry it counts how much time it is emitted/used:
 /// - adds `numerator` times for emissions
-/// - substracts `numerator` times for uses
+/// - subtracts `numerator` times for uses
 ///
 /// Most of the logic in the track_relations function reproduces the PublicData::initial_logup_sum logic.
 /// Must be updated when components or public data are modified.
@@ -177,7 +177,7 @@ where
     entries
 }
 
-/// Goes through add_to_relation all and keeps count of each entry used/emited.
+/// Goes through add_to_relation all and keeps count of each entry used/emitted.
 /// Should be updated when components are modified.
 fn relation_entries(
     components: &Components,

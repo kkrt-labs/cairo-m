@@ -309,7 +309,7 @@ pub fn expression_semantic_type<'db>(
                 // This avoids interfering with binary operations' internal type inference
                 match &expr_info.ast_node {
                     Expression::Literal(_, None) => {
-                        // Only for unsuffixed literals - provide LHS type as context
+                        // Only for non suffixed literals - provide LHS type as context
                         Some(expression_semantic_type(db, crate_id, file, *lhs, None))
                     }
                     _ => {
