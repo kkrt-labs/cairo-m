@@ -115,7 +115,9 @@ fn loop_statements_parameterized() {
             in_function("loop { break; }"),
             in_function("loop { continue; }"),
             in_function("while (x != 10) { x = x + 1; }"),
+            in_function("while x != 10 { x = x + 1; }"), // Test without parentheses
             in_function("while (true) { if done { break; } }"),
+            in_function("while true { if done { break; } }"), // Test without parentheses
             in_function("for (let i = 0; i < 10; i = i + 1) { let x = i; }"),
             in_function("for (let item = 0; item < items_len; item = item + 1) { if skip { continue; } process(item); }"),
             in_function("while (outer) { for (let inner = 0; inner < items_len; inner = inner + 1) { if found { break; } } }"),

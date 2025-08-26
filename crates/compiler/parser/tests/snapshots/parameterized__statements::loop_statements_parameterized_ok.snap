@@ -244,6 +244,103 @@ fn test() { while (x != 10) { x = x + 1; } }
 ============================================================
 
 --- Input 5 ---
+fn test() { while x != 10 { x = x + 1; } }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
+                ),
+                body: [
+                    Spanned(
+                        While {
+                            condition: Spanned(
+                                BinaryOp {
+                                    op: Neq,
+                                    left: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "x",
+                                                18..19,
+                                            ),
+                                        ),
+                                        18..19,
+                                    ),
+                                    right: Spanned(
+                                        Literal(
+                                            10,
+                                            None,
+                                        ),
+                                        23..25,
+                                    ),
+                                },
+                                18..25,
+                            ),
+                            body: Spanned(
+                                Block(
+                                    [
+                                        Spanned(
+                                            Assignment {
+                                                lhs: Spanned(
+                                                    Identifier(
+                                                        Spanned(
+                                                            "x",
+                                                            28..29,
+                                                        ),
+                                                    ),
+                                                    28..29,
+                                                ),
+                                                rhs: Spanned(
+                                                    BinaryOp {
+                                                        op: Add,
+                                                        left: Spanned(
+                                                            Identifier(
+                                                                Spanned(
+                                                                    "x",
+                                                                    32..33,
+                                                                ),
+                                                            ),
+                                                            32..33,
+                                                        ),
+                                                        right: Spanned(
+                                                            Literal(
+                                                                1,
+                                                                None,
+                                                            ),
+                                                            36..37,
+                                                        ),
+                                                    },
+                                                    32..37,
+                                                ),
+                                            },
+                                            28..38,
+                                        ),
+                                    ],
+                                ),
+                                26..40,
+                            ),
+                        },
+                        12..40,
+                    ),
+                ],
+            },
+            0..42,
+        ),
+    ),
+]
+============================================================
+
+--- Input 6 ---
 fn test() { while (true) { if done { break; } } }
 --- AST ---
 [
@@ -314,7 +411,78 @@ fn test() { while (true) { if done { break; } } }
 ]
 ============================================================
 
---- Input 6 ---
+--- Input 7 ---
+fn test() { while true { if done { break; } } }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
+                ),
+                body: [
+                    Spanned(
+                        While {
+                            condition: Spanned(
+                                BooleanLiteral(
+                                    true,
+                                ),
+                                18..22,
+                            ),
+                            body: Spanned(
+                                Block(
+                                    [
+                                        Spanned(
+                                            If {
+                                                condition: Spanned(
+                                                    Identifier(
+                                                        Spanned(
+                                                            "done",
+                                                            28..32,
+                                                        ),
+                                                    ),
+                                                    28..32,
+                                                ),
+                                                then_block: Spanned(
+                                                    Block(
+                                                        [
+                                                            Spanned(
+                                                                Break,
+                                                                35..41,
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    33..43,
+                                                ),
+                                                else_block: None,
+                                            },
+                                            25..43,
+                                        ),
+                                    ],
+                                ),
+                                23..45,
+                            ),
+                        },
+                        12..45,
+                    ),
+                ],
+            },
+            0..47,
+        ),
+    ),
+]
+============================================================
+
+--- Input 8 ---
 fn test() { for (let i = 0; i < 10; i = i + 1) { let x = i; } }
 --- AST ---
 [
@@ -451,7 +619,7 @@ fn test() { for (let i = 0; i < 10; i = i + 1) { let x = i; } }
 ]
 ============================================================
 
---- Input 7 ---
+--- Input 9 ---
 fn test() { for (let item = 0; item < items_len; item = item + 1) { if skip { continue; } process(item); } }
 --- AST ---
 [
@@ -625,7 +793,7 @@ fn test() { for (let item = 0; item < items_len; item = item + 1) { if skip { co
 ]
 ============================================================
 
---- Input 8 ---
+--- Input 10 ---
 fn test() { while (outer) { for (let inner = 0; inner < items_len; inner = inner + 1) { if found { break; } } } }
 --- AST ---
 [
@@ -790,7 +958,7 @@ fn test() { while (outer) { for (let inner = 0; inner < items_len; inner = inner
 ]
 ============================================================
 
---- Input 9 ---
+--- Input 11 ---
 fn test() { if condition { loop { work(); if done { break; } } } }
 --- AST ---
 [
@@ -897,7 +1065,7 @@ fn test() { if condition { loop { work(); if done { break; } } } }
 ]
 ============================================================
 
---- Input 10 ---
+--- Input 12 ---
 fn test() { break; }
 --- AST ---
 [
@@ -928,7 +1096,7 @@ fn test() { break; }
 ]
 ============================================================
 
---- Input 11 ---
+--- Input 13 ---
 fn test() { continue; }
 --- AST ---
 [

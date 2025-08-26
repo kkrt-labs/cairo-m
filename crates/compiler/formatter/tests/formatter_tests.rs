@@ -51,6 +51,18 @@ fn test_idempotence() {
 }
 
 #[test]
+fn test_format_while_statement_with_parens() {
+    let input = r#"fn test(){while(i!=n){i=i+1;}}"#;
+    assert_snapshot!(format_code(input));
+}
+
+#[test]
+fn test_format_while_statement_without_parens() {
+    let input = r#"fn test(){while i!=n{i=i+1;}}"#;
+    assert_snapshot!(format_code(input));
+}
+
+#[test]
 fn test_should_not_format_unparsable_code() {
     let input = r#"fn test(x:felt)->felt{let z; let y=x+1;return y;}"#;
     let formatted = format_code(input);
