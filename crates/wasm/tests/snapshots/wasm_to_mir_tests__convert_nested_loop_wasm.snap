@@ -34,7 +34,7 @@ module {
       jump 3
 
     3:
-      %9 = %4 U32Less %3
+      %9 = %3 U32Greater %4
       if %9 then jump 6 else jump 5
 
     4:
@@ -58,7 +58,7 @@ module {
       jump 8
 
     8:
-      %14 = %12 U32Less %11
+      %14 = %11 U32Greater %12
       if %14 then jump 10 else jump 9
 
     9:

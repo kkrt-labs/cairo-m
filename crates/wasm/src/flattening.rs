@@ -386,17 +386,15 @@ impl DagToMir {
 
                 Operation::WASMOp(wasm_op) => {
                     // Convert WASM operation to MIR instruction
-                    let mir_values =
+                    let mir_value =
                         self.convert_wasm_op_to_mir(node_idx, wasm_op, node, context)?;
-
-                    // Map output values
-                    for (output_idx, mir_value_id) in mir_values.iter().enumerate() {
-                        let value_origin = ValueOrigin {
+                    context.insert_value(
+                        ValueOrigin {
                             node: node_idx,
-                            output_idx: output_idx as u32,
-                        };
-                        context.insert_value(value_origin, *mir_value_id);
-                    }
+                            output_idx: 0,
+                        },
+                        mir_value,
+                    );
                 }
 
                 Operation::Label { id } => {
@@ -620,9 +618,7 @@ impl DagToMir {
             Op::I32DivU => Ok(BinaryOp::U32Div),
             Op::I32Eq => Ok(BinaryOp::U32Eq),
             Op::I32Ne => Ok(BinaryOp::U32Neq),
-            Op::I32LtU => Ok(BinaryOp::U32Less),
             Op::I32GtU => Ok(BinaryOp::U32Greater),
-            Op::I32LeU => Ok(BinaryOp::U32LessEqual),
             Op::I32GeU => Ok(BinaryOp::U32GreaterEqual),
             Op::I32And => Ok(BinaryOp::U32BitwiseAnd),
             Op::I32Or => Ok(BinaryOp::U32BitwiseOr),
@@ -642,13 +638,14 @@ impl DagToMir {
         wasm_op: &Op,
         left: Value,
         right: Value,
+        dest_type: MirType,
         context: &mut DagToMirContext,
-    ) -> Result<Vec<ValueId>, DagToMirError> {
-        let result_id = context.mir_function.new_typed_value_id(MirType::U32);
-        let wasm_op = self.wasm_binary_opcode_to_mir(wasm_op, node_idx, context)?;
-        let instruction = Instruction::binary_op(wasm_op, result_id, left, right);
+    ) -> Result<ValueId, DagToMirError> {
+        let result_id = context.mir_function.new_typed_value_id(dest_type);
+        let mir_op = self.wasm_binary_opcode_to_mir(wasm_op, node_idx, context)?;
+        let instruction = Instruction::binary_op(mir_op, result_id, left, right);
         context.get_current_block()?.push_instruction(instruction);
-        Ok(vec![result_id])
+        Ok(result_id)
     }
 
     /// Convert a WASM operation to MIR instructions
@@ -658,7 +655,7 @@ impl DagToMir {
         wasm_op: &Op,
         node: &Node,
         context: &mut DagToMirContext,
-    ) -> Result<Vec<ValueId>, DagToMirError> {
+    ) -> Result<ValueId, DagToMirError> {
         let inputs: Result<Vec<Value>, _> = node
             .inputs
             .iter()
@@ -667,30 +664,118 @@ impl DagToMir {
         let inputs = inputs?;
 
         match wasm_op {
-            // Arithmetic operations
+            // U32 Operations which are immediately convertible to MIR instructions
             Op::I32Add
             | Op::I32Sub
             | Op::I32Mul
             | Op::I32DivU
-            | Op::I32Eq
-            | Op::I32Ne
-            | Op::I32LtU
-            | Op::I32GtU
-            | Op::I32LeU
-            | Op::I32GeU
             | Op::I32And
             | Op::I32Or
-            | Op::I32Xor => {
-                self.convert_wasm_binop_to_mir(node_idx, wasm_op, inputs[0], inputs[1], context)
+            | Op::I32Xor => self.convert_wasm_binop_to_mir(
+                node_idx,
+                wasm_op,
+                inputs[0],
+                inputs[1],
+                MirType::U32,
+                context,
+            ),
+
+            // For comparisons, we produce a boolean result
+            // This is not WASM compliant, but works if these values are only used in conditional branches
+            // TODO : cast everything correctly or sync with VM so that comparisons between u32 produce u32 booleans
+            Op::I32Eq | Op::I32Ne | Op::I32GtU | Op::I32GeU => self.convert_wasm_binop_to_mir(
+                node_idx,
+                wasm_op,
+                inputs[0],
+                inputs[1],
+                MirType::Bool,
+                context,
+            ),
+
+            // For lower than and lower than or equal to, we use the greater than and greater than or equal to opcodes
+            Op::I32LtU | Op::I32LeU => self.convert_wasm_binop_to_mir(
+                node_idx,
+                match wasm_op {
+                    Op::I32LtU => &Op::I32GtU,
+                    Op::I32LeU => &Op::I32GeU,
+                    _ => unreachable!(),
+                },
+                inputs[1],
+                inputs[0],
+                MirType::Bool,
+                context,
+            ),
+
+            // Signed comparison instructions, constructed by shifting the inputs by 2^31 and then comparing the results with unsigned opcodes
+            Op::I32LtS | Op::I32GtS | Op::I32LeS | Op::I32GeS => {
+                let temp1 = context.mir_function.new_typed_value_id(MirType::U32);
+                let instruction1 = Instruction::binary_op(
+                    BinaryOp::U32Add,
+                    temp1,
+                    inputs[0],
+                    Value::integer(0x80000000),
+                );
+                let temp2 = context.mir_function.new_typed_value_id(MirType::U32);
+                let instruction2 = Instruction::binary_op(
+                    BinaryOp::U32Add,
+                    temp2,
+                    inputs[1],
+                    Value::integer(0x80000000),
+                );
+                let result_id = context.mir_function.new_typed_value_id(MirType::Bool);
+                let instruction3 = match wasm_op {
+                    Op::I32LtS => Instruction::binary_op(
+                        BinaryOp::U32Greater,
+                        result_id,
+                        Value::operand(temp2),
+                        Value::operand(temp1),
+                    ),
+                    Op::I32GtS => Instruction::binary_op(
+                        BinaryOp::U32Greater,
+                        result_id,
+                        Value::operand(temp1),
+                        Value::operand(temp2),
+                    ),
+                    Op::I32LeS => Instruction::binary_op(
+                        BinaryOp::U32GreaterEqual,
+                        result_id,
+                        Value::operand(temp2),
+                        Value::operand(temp1),
+                    ),
+                    Op::I32GeS => Instruction::binary_op(
+                        BinaryOp::U32GreaterEqual,
+                        result_id,
+                        Value::operand(temp1),
+                        Value::operand(temp2),
+                    ),
+                    _ => unreachable!(),
+                };
+                context.get_current_block()?.push_instruction(instruction1);
+                context.get_current_block()?.push_instruction(instruction2);
+                context.get_current_block()?.push_instruction(instruction3);
+                Ok(result_id)
             }
 
-            // Constants
+            // Zero comparison instruction, constructed by comparing the input to 0
+            Op::I32Eqz => {
+                let result_id = context.mir_function.new_typed_value_id(MirType::U32);
+                let instruction = Instruction::binary_op(
+                    BinaryOp::U32Eq,
+                    result_id,
+                    inputs[0],
+                    Value::integer(0),
+                );
+                context.get_current_block()?.push_instruction(instruction);
+                Ok(result_id)
+            }
+
+            // Assigning a constant to a variable
             Op::I32Const { value } => {
                 let result_id = context.mir_function.new_typed_value_id(MirType::U32);
                 let instruction =
                     Instruction::assign(result_id, Value::integer(*value as u32), MirType::U32);
                 context.get_current_block()?.push_instruction(instruction);
-                Ok(vec![result_id])
+                Ok(result_id)
             }
 
             // Local variable operations should be eliminated by WOMIR
@@ -742,7 +827,7 @@ impl DagToMir {
 
                 let instruction = Instruction::call(vec![result_id], callee_id, inputs, signature);
                 context.get_current_block()?.push_instruction(instruction);
-                Ok(vec![result_id])
+                Ok(result_id)
             }
 
             _ => {

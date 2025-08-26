@@ -47,10 +47,10 @@ Cairo-M's MIR (Mid-level Intermediate Representation) using
 | `i32.gt_u`                | ✅        | Maps to `BinaryOp::U32Greater`               |
 | `i32.le_u`                | ✅        | Maps to `BinaryOp::U32LessEqual`             |
 | `i32.ge_u`                | ✅        | Maps to `BinaryOp::U32GreaterEqual`          |
-| `i32.lt_s`                | ❌        | Not yet implemented                          |
-| `i32.gt_s`                | ❌        | Not yet implemented                          |
-| `i32.le_s`                | ❌        | Not yet implemented                          |
-| `i32.ge_s`                | ❌        | Not yet implemented                          |
+| `i32.lt_s`                | ✅        | Maps to 3 opcodes                            |
+| `i32.gt_s`                | ✅        | Maps to 3 opcodes                            |
+| `i32.le_s`                | ✅        | Maps to 3 opcodes                            |
+| `i32.ge_s`                | ✅        | Maps to 3 opcodes                            |
 | **Constants**             |           |                                              |
 | `i32.const`               | ✅        | Full support for i32 constants               |
 | **Local Variables**       |           |                                              |
