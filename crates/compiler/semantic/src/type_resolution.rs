@@ -726,6 +726,12 @@ pub fn expression_semantic_type<'db>(
                 _ => TypeId::new(db, TypeData::Error),
             }
         }
+        Expression::Cast { target_type, .. } => {
+            // Resolve the target type
+            let target_type_id =
+                resolve_ast_type(db, crate_id, file, target_type.clone(), expr_info.scope_id);
+            target_type_id
+        }
         Expression::ArrayLiteral(elements) => {
             // If we have a context expected type that's an array, use it to infer element types
             let (element_type, _expected_size) = if let Some(context_type) = context_expected {

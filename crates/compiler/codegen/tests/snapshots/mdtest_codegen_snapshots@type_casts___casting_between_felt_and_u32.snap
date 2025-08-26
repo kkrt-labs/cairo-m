@@ -1,0 +1,21 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Type Casts - Casting between Felt and U32"
+input_file: mdtest/01-basics/08-type-casts.md
+---
+Source:
+fn test_u32_to_felt(input: u32) -> felt {
+    let y: felt = input as felt;
+    return y;
+}
+============================================================
+Generated CASM:
+test_u32_to_felt:
+test_u32_to_felt:
+test_u32_to_felt_0:
+   0: 48 -4 32768 1        // [fp + 1] = [fp + -4] < 32768 // Check u32 hi < 2^15 for cast to felt
+   1: 50 1 1 _             // ASSERT [fp + 1] == 1
+   2: 6 -4 65536 2         // [fp + 2] = [fp + -4] * 65536 // hi * 2^16
+   3: 0 -5 2 0             // [fp + 0] = [fp + -5] + [fp + 2] // Cast u32 to felt: lo + hi * 2^16
+   4: 4 0 0 -3             // Return value 0: [fp -3] = [fp + 0] + 0
+   5: 11 _ _ _             // return

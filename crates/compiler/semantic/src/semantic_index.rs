@@ -1223,6 +1223,13 @@ impl<'db, 'sink> SemanticIndexBuilder<'db, 'sink> {
                     }
                 }
             }
+            Expression::Cast {
+                expr,
+                target_type: _,
+            } => {
+                // Visit the expression being cast
+                self.visit_expr(expr);
+            }
             Expression::Literal(_, _) | Expression::BooleanLiteral(_) => {
                 // Leaf nodes - no sub-expressions
             }

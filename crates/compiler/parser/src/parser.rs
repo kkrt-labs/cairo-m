@@ -208,6 +208,11 @@ pub enum Expression {
     },
     /// Array literal (e.g., `[1, 2, 3]`, `[0u32; 10]`)
     ArrayLiteral(Vec<Spanned<Expression>>),
+    /// Type cast expression (e.g., `x as felt`, `42u32 as felt`)
+    Cast {
+        expr: Box<Spanned<Expression>>,
+        target_type: Spanned<TypeExpr>,
+    },
 }
 
 /// Represents a function parameter with its name and type.
@@ -927,14 +932,45 @@ where
             },
         );
 
+        // Simple type parser for cast expressions - only supports basic named types
+        // This avoids the infinite recursion issue with the full type_expr_parser
+        let simple_cast_type = ident_parser().map_with(|name, extra| {
+            let named_type = match name.as_str() {
+                "felt" => NamedType::Felt,
+                "bool" => NamedType::Bool,
+                "u32" => NamedType::U32,
+                _ => NamedType::Custom(name),
+            };
+            let span = extra.span();
+            Spanned::new(TypeExpr::Named(Spanned::new(named_type, span)), span)
+        });
+
+        // Cast operator: as (lower precedence than comparison, higher than bitwise)
+        // This means "x + 5 as felt" parses as "(x + 5) as felt"
+        let cast = cmp.clone().foldl(
+            just(TokenType::As).ignore_then(simple_cast_type).repeated(),
+            |expr, target_type| {
+                let span_expr = expr.span();
+                let span_type = target_type.span();
+                let span = SimpleSpan::from(span_expr.start..span_type.end);
+                Spanned::new(
+                    Expression::Cast {
+                        expr: Box::new(expr),
+                        target_type,
+                    },
+                    span,
+                )
+            },
+        );
+
         // Bitwise operators: &, |, ^ (left-associative)
-        let bitwise = cmp.clone().foldl(
+        let bitwise = cast.clone().foldl(
             choice((
                 op(TokenType::BitwiseAnd, BinaryOp::BitwiseAnd),
                 op(TokenType::BitwiseOr, BinaryOp::BitwiseOr),
                 op(TokenType::BitwiseXor, BinaryOp::BitwiseXor),
             ))
-            .then(cmp.clone())
+            .then(cast.clone())
             .repeated(),
             |lhs, (op, rhs)| {
                 let span_lhs = lhs.span();

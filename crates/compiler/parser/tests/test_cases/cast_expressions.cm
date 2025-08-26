@@ -1,0 +1,29 @@
+// Test cast expressions
+fn test_cast() {
+    // Basic cast from u32 to felt
+    let x: u32 = 42u32;
+    let y = x as felt;
+    
+    // Cast literal
+    let z = 100u32 as felt;
+    
+    // Cast in expressions
+    let a = (x + 10u32) as felt;
+    let b = x as felt + 5;
+    
+    // Multiple casts
+    let c = x as felt as felt;
+    
+    // Cast with complex expressions
+    let d = (x * 2u32 + 5u32) as felt;
+    
+    // Cast in comparison
+    let e = (x as felt) == 42;
+    
+    // Cast with member access (for future struct support)
+    let f = point.x as felt;
+    
+    // Cast with array index
+    let arr = [1u32, 2u32, 3u32];
+    let g = arr[0] as felt;
+}

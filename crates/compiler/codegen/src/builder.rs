@@ -2732,6 +2732,84 @@ impl CasmBuilder {
         Ok(())
     }
 
+    /// Generates code for type casting operations
+    pub fn generate_cast(
+        &mut self,
+        dest: ValueId,
+        source: Value,
+        source_type: &MirType,
+        target_type: &MirType,
+    ) -> CodegenResult<()> {
+        // Currently only support u32 to felt casting
+        match (source_type, target_type) {
+            (MirType::U32, MirType::Felt) => {
+                // u32 to felt cast implementation:
+                // 1. Load u32 lo and hi limbs
+                // 2. Check hi < 2^15 using StoreLowerThanFpImm
+                // 3. Combine: result = lo + hi * 2^16
+
+                let src_off = match source {
+                    Value::Operand(id) => self.layout.get_offset(id)?,
+                    _ => {
+                        return Err(CodegenError::InvalidMir(
+                            "Cast source must be an operand".to_string(),
+                        ))
+                    }
+                };
+
+                let dest_off = self.layout.allocate_local(dest, 1)?;
+
+                // Reserve temporary stack space for range check
+                let temp_check = self.layout.reserve_stack(1);
+                let temp_hi_shifted = self.layout.reserve_stack(1);
+
+                // Check hi < 2^15 (32768)
+                // StoreLowerThanFpImm: [fp + temp_check] = [fp + src_off + 1] < 32768
+                let check_instr = InstructionBuilder::new(STORE_LOWER_THAN_FP_IMM)
+                    .with_operand(Operand::Literal(src_off + 1))  // hi limb
+                    .with_operand(Operand::Literal(2i32.pow(15)))         // 2^15
+                    .with_operand(Operand::Literal(temp_check))
+                    .with_comment(format!("[fp + {temp_check}] = [fp + {}] < {} // Check u32 hi < 2^15 for cast to felt", src_off + 1, 2i32.pow(15)));
+                self.add_instruction(check_instr);
+
+                // Assert that the check is 1 (OK)
+                self.add_instruction(
+                    InstructionBuilder::new(ASSERT_EQ_FP_IMM)
+                        .with_operand(Operand::Literal(temp_check))
+                        .with_operand(Operand::Literal(1))
+                        .with_comment(format!("ASSERT [fp + {temp_check}] == 1")),
+                );
+
+                // Multiply hi by 2^16 (65536)
+                self.add_instruction(
+                    InstructionBuilder::new(STORE_MUL_FP_IMM)
+                        .with_operand(Operand::Literal(src_off + 1)) // hi limb
+                        .with_operand(Operand::Literal(65536)) // 2^16
+                        .with_operand(Operand::Literal(temp_hi_shifted))
+                        .with_comment(format!(
+                            "[fp + {temp_hi_shifted}] = [fp + {}] * 65536 // hi * 2^16",
+                            src_off + 1
+                        )),
+                );
+
+                // Add lo + (hi * 2^16)
+                self.add_instruction(
+                    InstructionBuilder::new(STORE_ADD_FP_FP)
+                        .with_operand(Operand::Literal(src_off))      // lo limb
+                        .with_operand(Operand::Literal(temp_hi_shifted))
+                        .with_operand(Operand::Literal(dest_off))
+                        .with_comment(format!("[fp + {dest_off}] = [fp + {src_off}] + [fp + {temp_hi_shifted}] // Cast u32 to felt: lo + hi * 2^16"))
+                );
+
+                Ok(())
+            }
+            _ => Err(CodegenError::UnsupportedInstruction(format!(
+                "Unsupported cast from {} to {}",
+                source_type, target_type
+            ))),
+        }
+    }
+
     /// Creates a tuple by allocating consecutive registers and copying element values
     pub fn make_tuple(
         &mut self,

@@ -58,6 +58,10 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
             Expression::Tuple(elements) => self.lower_tuple_literal(elements, expr_id),
             Expression::TupleIndex { tuple, index } => self.lower_tuple_index(tuple, *index),
             Expression::ArrayLiteral(elements) => self.lower_array_literal(elements, expr_id),
+            Expression::Cast {
+                expr,
+                target_type: _,
+            } => self.lower_cast(expr, expr_id),
         }
     }
 }
@@ -391,6 +395,39 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         let array_dest = self.make_fixed_array(element_values, element_mir_type);
 
         Ok(Value::operand(array_dest))
+    }
+
+    fn lower_cast(
+        &mut self,
+        expr: &Spanned<Expression>,
+        expr_id: ExpressionId,
+    ) -> Result<Value, String> {
+        // Lower the source expression
+        let source_value = self.lower_expression(expr)?;
+
+        // Get the source type from semantic analysis
+        let source_expr_id = self.expr_id(expr.span())?;
+        let source_semantic_type = expression_semantic_type(
+            self.ctx.db,
+            self.ctx.crate_id,
+            self.ctx.file,
+            source_expr_id,
+            None,
+        );
+        let source_type = MirType::from_semantic_type(self.ctx.db, source_semantic_type);
+
+        // Get the target type from semantic analysis
+        let target_semantic_type =
+            expression_semantic_type(self.ctx.db, self.ctx.crate_id, self.ctx.file, expr_id, None);
+        let target_type = MirType::from_semantic_type(self.ctx.db, target_semantic_type);
+
+        let dest_id = self
+            .state
+            .mir_function
+            .new_typed_value_id(target_type.clone());
+        let cast_instr = Instruction::cast(dest_id, source_value, source_type, target_type);
+        self.instr().add_instruction(cast_instr);
+        Ok(Value::operand(dest_id))
     }
 
     fn lower_array_index(

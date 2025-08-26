@@ -1,0 +1,20 @@
+// Test casting u32 to felt
+fn test_u32_cast() -> felt {
+    let x: u32 = 42u32;
+    let y: felt = x as felt;
+    return y;
+}
+
+fn test_u32_expr_cast() -> felt {
+    let a: u32 = 10u32;
+    let b: u32 = 20u32;
+    let c: felt = (a + b) as felt;
+    return c;
+}
+
+fn test_cast_in_arithmetic() -> felt {
+    let x: u32 = 100u32;
+    let y: felt = 50;
+    let z = (x as felt) + y;
+    return z;
+}
