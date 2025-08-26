@@ -79,6 +79,10 @@ macro_rules! define_opcodes {
             pub fn range_check_20(&self) -> impl ParallelIterator<Item = &PackedM31> {
                 define_opcodes!(@range_check_20 self, $($opcode),*)
             }
+
+            pub fn range_check_16(&self) -> impl ParallelIterator<Item = &PackedM31> {
+                define_opcodes!(@range_check_16 self)
+            }
         }
 
         // Implement InteractionClaim methods
@@ -167,6 +171,23 @@ macro_rules! define_opcodes {
                     .par_iter()
                     .flatten(),
             ))*
+    };
+
+    // Helper rule for range_check_16 chaining - only for opcodes that have range_check_16
+    // Opcodes must be added here manually
+    (@range_check_16 $self:ident) => {
+        $self.u32_store_add_fp_imm
+            .lookup_data
+            .range_check_16
+            .par_iter()
+            .flatten()
+            .chain(
+                $self.u32_store_imm
+                    .lookup_data
+                    .range_check_16
+                    .par_iter()
+                    .flatten()
+            )
     };
 
 }
