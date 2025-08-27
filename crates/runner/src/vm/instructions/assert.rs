@@ -7,6 +7,10 @@ use crate::extract_as;
 use crate::memory::Memory;
 use crate::vm::state::VmState;
 
+/// CASM equivalent:
+/// ```casm
+/// assert [fp + src0_off] == [fp + src1_off]
+/// ```
 pub fn assert_eq_fp_fp(
     memory: &mut Memory,
     state: State,
@@ -23,6 +27,10 @@ pub fn assert_eq_fp_fp(
     Ok(state.advance_by(instruction.size_in_qm31s()))
 }
 
+/// CASM equivalent:
+/// ```casm
+/// assert [fp + src_off] == imm
+/// ```
 pub fn assert_eq_fp_imm(
     memory: &mut Memory,
     state: State,
@@ -46,9 +54,9 @@ mod assert_tests {
     use stwo_prover::core::fields::m31::M31;
 
     #[test]
-    fn test_assert_eq_fp_fp() {
+    fn test_assert_eq_fp_fp_success() {
         let mut memory = Memory::from_iter([0, 1, 1].map(Into::into));
-        let state = State {
+        let initial_state = State {
             pc: M31::from(1),
             fp: M31::from(0),
         };
@@ -56,11 +64,14 @@ mod assert_tests {
             src0_off: M31::from(1),
             src1_off: M31::from(2),
         };
-        let state = assert_eq_fp_fp(&mut memory, state, &instruction).unwrap();
-        assert_eq!(state.pc, M31::from(2));
+        let returned_state = assert_eq_fp_fp(&mut memory, initial_state, &instruction).unwrap();
+        assert_eq!(returned_state.pc, M31::from(2));
+    }
 
+    #[test]
+    fn test_assert_eq_fp_fp_failure() {
         let mut memory = Memory::from_iter([0, 1, 2].map(Into::into));
-        let state = State {
+        let initial_state = State {
             pc: M31::from(1),
             fp: M31::from(0),
         };
@@ -68,20 +79,20 @@ mod assert_tests {
             src0_off: M31::from(1),
             src1_off: M31::from(2),
         };
-        let state = assert_eq_fp_fp(&mut memory, state, &instruction).unwrap_err();
-        match state {
+        let error = assert_eq_fp_fp(&mut memory, initial_state, &instruction).unwrap_err();
+        match error {
             InstructionExecutionError::Instruction(InstructionError::AssertionFailed(a, b)) => {
                 assert_eq!(a, M31::from(1));
                 assert_eq!(b, M31::from(2));
             }
-            _ => panic!("Expected AssertionFailed error, got: {:?}", state),
+            _ => panic!("Expected AssertionFailed error, got: {:?}", error),
         }
     }
 
     #[test]
-    fn test_assert_eq_fp_imm() {
+    fn test_assert_eq_fp_imm_success() {
         let mut memory = Memory::from_iter([0, 1, 2].map(Into::into));
-        let state = State {
+        let initial_state = State {
             pc: M31::from(1),
             fp: M31::from(0),
         };
@@ -89,11 +100,14 @@ mod assert_tests {
             src_off: M31::from(1),
             imm: M31::from(1),
         };
-        let state = assert_eq_fp_imm(&mut memory, state, &instruction).unwrap();
-        assert_eq!(state.pc, M31::from(2));
+        let returned_state = assert_eq_fp_imm(&mut memory, initial_state, &instruction).unwrap();
+        assert_eq!(returned_state.pc, M31::from(2));
+    }
 
+    #[test]
+    fn test_assert_eq_fp_imm_failure() {
         let mut memory = Memory::from_iter([0, 1, 3].map(Into::into));
-        let state = State {
+        let initial_state = State {
             pc: M31::from(1),
             fp: M31::from(0),
         };
@@ -101,13 +115,13 @@ mod assert_tests {
             src_off: M31::from(1),
             imm: M31::from(2),
         };
-        let state = assert_eq_fp_imm(&mut memory, state, &instruction).unwrap_err();
-        match state {
+        let error = assert_eq_fp_imm(&mut memory, initial_state, &instruction).unwrap_err();
+        match error {
             InstructionExecutionError::Instruction(InstructionError::AssertionFailed(a, b)) => {
                 assert_eq!(a, M31::from(1));
                 assert_eq!(b, M31::from(2));
             }
-            _ => panic!("Expected AssertionFailed error, got: {:?}", state),
+            _ => panic!("Expected AssertionFailed error, got: {:?}", error),
         }
     }
 }

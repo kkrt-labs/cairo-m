@@ -173,6 +173,11 @@ impl_store_bin_op_fp_imm!(store_sub_fp_imm, StoreSubFpImm, -);
 impl_store_bin_op_fp_imm!(store_mul_fp_imm, StoreMulFpImm, *);
 impl_store_bin_op_fp_imm!(store_div_fp_imm, StoreDivFpImm, /);
 
+/// CASM equivalent:
+/// ```casm
+/// [fp + dst_off] = [fp + src_off] < imm
+/// ```
+///
 /// Store the result of a less-than comparison as a felt (0 or 1)
 pub fn store_lower_than_fp_imm(
     memory: &mut Memory,

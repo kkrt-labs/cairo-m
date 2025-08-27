@@ -238,6 +238,13 @@ define_instruction!(
     StoreMulFpImm = 6, 2, fields: [src_off, imm, dst_off], size: 4, operands: [Felt, Felt];                // [fp + dst_off] = [fp + src_off] * imm
     StoreDivFpImm = 7, 2, fields: [src_off, imm, dst_off], size: 4, operands: [Felt, Felt];                // [fp + dst_off] = [fp + src_off] / imm
 
+    // Comparison operations
+    StoreLowerThanFpImm = 48, 2, fields: [src_off, imm, dst_off], size: 4, operands: [Felt, Felt]; // [fp + dst_off] = [fp + src_off] < imm
+
+    // Assertions
+    AssertEqFpFp = 49, 2, fields: [src0_off, src1_off], size: 3, operands: [Felt, Felt]; // assert [fp + src0_off] == [fp + src1_off]
+    AssertEqFpImm = 50, 1, fields: [src_off, imm], size: 3, operands: [Felt]; // assert [fp + src_off] == imm
+
     // Memory operations
     StoreDoubleDerefFp = 8, 3, fields: [base_off, imm, dst_off], size: 4, operands: [Felt, Felt, Felt]; // [fp + dst_off] = [[fp + base_off] + imm]
     StoreDoubleDerefFpFp = 42, 3, fields: [base_off, offset_off, dst_off], size: 4, operands: [Felt, Felt, Felt]; // [fp + dst_off] = [[fp + base_off] + [fp + offset_off]]
@@ -303,11 +310,7 @@ define_instruction!(
 
     // Print operations for debugging
     PrintM31 = 46, 1, fields: [offset], size: 2, operands: [Felt];                      // print [fp + offset] as M31
-    PrintU32 = 47, 2, fields: [offset], size: 2, operands: [U32];                        // print u32([fp + offset], [fp + offset + 1])
-
-    StoreLowerThanFpImm = 48, 2, fields: [src_off, imm, dst_off], size: 4, operands: [Felt, Felt]; // [fp + dst_off] = [fp + src_off] < imm
-    AssertEqFpFp = 49, 2, fields: [src0_off, src1_off], size: 3, operands: [Felt, Felt]; // assert [fp + src0_off] == [fp + src1_off]
-    AssertEqFpImm = 50, 1, fields: [src_off, imm], size: 3, operands: [Felt] // assert [fp + src_off] == imm
+    PrintU32 = 47, 2, fields: [offset], size: 2, operands: [U32]                        // print u32([fp + offset], [fp + offset + 1])
 );
 
 impl From<Instruction> for SmallVec<[M31; INSTRUCTION_MAX_SIZE]> {
