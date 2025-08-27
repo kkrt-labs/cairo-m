@@ -14,7 +14,7 @@
   (func $i32.bswap
   (param $b i32)
   (result i32)
-      
+
   ;; 2 get, 4 const, 5 bitwise
 
   (i32.or
@@ -28,7 +28,7 @@
     (i32.and)
     (i32.rotl (i32.const 8))))
 
-  (func $four_round 
+  (func $four_round
     (param $w0 i32) (param $w1 i32) (param $w2 i32) (param $w3 i32)
     (param $k0 i32) (param $k1 i32) (param $k2 i32) (param $k3 i32)
 
@@ -116,20 +116,20 @@
     (param $w12 i32) (param $w13 i32) (param $w14 i32) (param $w15 i32)
 
     ;; expanded message schedule
-    (local $w16 i32) (local $w17 i32) (local $w18 i32) (local $w19 i32) 
+    (local $w16 i32) (local $w17 i32) (local $w18 i32) (local $w19 i32)
     (local $w20 i32) (local $w21 i32) (local $w22 i32) (local $w23 i32)
-    (local $w24 i32) (local $w25 i32) (local $w26 i32) (local $w27 i32) 
+    (local $w24 i32) (local $w25 i32) (local $w26 i32) (local $w27 i32)
     (local $w28 i32) (local $w29 i32) (local $w30 i32) (local $w31 i32)
-    (local $w32 i32) (local $w33 i32) (local $w34 i32) (local $w35 i32) 
+    (local $w32 i32) (local $w33 i32) (local $w34 i32) (local $w35 i32)
     (local $w36 i32) (local $w37 i32) (local $w38 i32) (local $w39 i32)
-    (local $w40 i32) (local $w41 i32) (local $w42 i32) (local $w43 i32) 
+    (local $w40 i32) (local $w41 i32) (local $w42 i32) (local $w43 i32)
     (local $w44 i32) (local $w45 i32) (local $w46 i32) (local $w47 i32)
-    (local $w48 i32) (local $w49 i32) (local $w50 i32) (local $w51 i32) 
+    (local $w48 i32) (local $w49 i32) (local $w50 i32) (local $w51 i32)
     (local $w52 i32) (local $w53 i32) (local $w54 i32) (local $w55 i32)
-    (local $w56 i32) (local $w57 i32) (local $w58 i32) (local $w59 i32) 
+    (local $w56 i32) (local $w57 i32) (local $w58 i32) (local $w59 i32)
     (local $w60 i32) (local $w61 i32) (local $w62 i32) (local $w63 i32)
 
-    ;;  store inital state
+    ;;  store initial state
     (if (i32.eqz (i32.load offset=104 (get_local $ctx)))
         (then
             (i32.store offset=0  (get_local $ctx) (i32.const 0x6a09e667))
@@ -249,7 +249,7 @@
     (i32.store offset=20 (get_local $ctx) (i32.add (i32.load offset=20 (get_local $ctx)) (get_global $f)))
     (i32.store offset=24 (get_local $ctx) (i32.add (i32.load offset=24 (get_local $ctx)) (get_global $g)))
     (i32.store offset=28 (get_local $ctx) (i32.add (i32.load offset=28 (get_local $ctx)) (get_global $h))))
-        
+
   (func $sha256 (export "sha256") (param $ctx i32) (param $roi i32) (param $length i32) (param $final i32)
     ;;    schema  208 bytes
     ;;     0..32  hash state
@@ -262,8 +262,8 @@
     (local $tail i32)
 
     ;; expanded message schedule
-    (local $w0 i32)  (local $w1 i32)  (local $w2 i32)  (local $w3 i32)  
-    (local $w4 i32)  (local $w5 i32)  (local $w6 i32)  (local $w7 i32) 
+    (local $w0 i32)  (local $w1 i32)  (local $w2 i32)  (local $w3 i32)
+    (local $w4 i32)  (local $w5 i32)  (local $w6 i32)  (local $w7 i32)
     (local $w8 i32)  (local $w9 i32)  (local $w10 i32) (local $w11 i32)
     (local $w12 i32) (local $w13 i32) (local $w14 i32) (local $w15 i32)
 
@@ -407,13 +407,13 @@
                                                                                     (i32.const 2)
                                                                                     (i32.shr_u)
                                                                                     (br_table $0 $1 $2 $3 $4 $5 $6 $7 $8 $9 $10 $11 $12 $13 $14 $15)))
-                                                                                
+
                                                                                 (get_local $last_word)
                                                                                 (get_local $w14)
                                                                                 (i32.or)
                                                                                 (set_local $w14)
                                                                                 (set_local $last_word (i32.const 0)))
-                                                                            
+
                                                                             (get_local $last_word)
                                                                             (get_local $w15)
                                                                             (i32.or)
@@ -459,91 +459,91 @@
                                                                             (set_local $w13 (i32.const 0))
                                                                             (set_local $w14 (i32.const 0))
                                                                             (set_local $w15 (i32.const 0)))
-                                                                        
+
                                                                         (get_local $last_word)
                                                                         (get_local $w0)
                                                                         (i32.or)
                                                                         (set_local $w0)
                                                                         (set_local $last_word (i32.const 0)))
-                                                                    
+
                                                                     (get_local $last_word)
                                                                     (get_local $w1)
                                                                     (i32.or)
                                                                     (set_local $w1)
                                                                     (set_local $last_word (i32.const 0)))
-                                                                
+
                                                                 (get_local $last_word)
                                                                 (get_local $w2)
                                                                 (i32.or)
                                                                 (set_local $w2)
                                                                 (set_local $last_word (i32.const 0)))
-                                                            
+
                                                             (get_local $last_word)
                                                             (get_local $w3)
                                                             (i32.or)
                                                             (set_local $w3)
                                                             (set_local $last_word (i32.const 0)))
-                                                        
+
                                                         (get_local $last_word)
                                                         (get_local $w4)
                                                         (i32.or)
                                                         (set_local $w4)
                                                         (set_local $last_word (i32.const 0)))
-                                                    
+
                                                     (get_local $last_word)
                                                     (get_local $w5)
                                                     (i32.or)
                                                     (set_local $w5)
                                                     (set_local $last_word (i32.const 0)))
-                                                
+
                                                 (get_local $last_word)
                                                 (get_local $w6)
                                                 (i32.or)
                                                 (set_local $w6)
                                                 (set_local $last_word (i32.const 0)))
-                                            
+
                                             (get_local $last_word)
                                             (get_local $w7)
                                             (i32.or)
                                             (set_local $w7)
                                             (set_local $last_word (i32.const 0)))
-                                        
+
                                         (get_local $last_word)
                                         (get_local $w8)
                                         (i32.or)
                                         (set_local $w8)
                                         (set_local $last_word (i32.const 0)))
-                                    
+
                                     (get_local $last_word)
                                     (get_local $w9)
                                     (i32.or)
                                     (set_local $w9)
                                     (set_local $last_word (i32.const 0)))
-                                
+
                                 (get_local $last_word)
                                 (get_local $w10)
                                 (i32.or)
                                 (set_local $w10)
                                 (set_local $last_word (i32.const 0)))
-                            
+
                             (get_local $last_word)
                             (get_local $w11)
                             (i32.or)
                             (set_local $w11)
                             (set_local $last_word (i32.const 0)))
-                        
+
                         (get_local $last_word)
                         (get_local $w12)
                         (i32.or)
                         (set_local $w12)
                         (set_local $last_word (i32.const 0)))
-                    
+
                     (get_local $last_word)
                     (get_local $w13)
                     (i32.or)
                     (set_local $w13)
                     (set_local $last_word (i32.const 0)))
-            
+
             (set_local $w14 (call $i32.bswap (i32.wrap/i64 (i64.shr_u (get_local $bytes_read) (i64.const 29)))))
             (set_local $w15 (call $i32.bswap (i32.wrap/i64 (i64.shl (get_local $bytes_read) (i64.const 3)))))
 

@@ -606,7 +606,7 @@ impl DagToMir {
     }
 
     /// Convert a WASM binary opcode to a MIR binary opcode
-    /// TODO : bitshifts, rotations, u8 operations, etc.
+    /// TODO : bit shifts, rotations, u8 operations, etc.
     fn wasm_binary_opcode_to_mir(
         &self,
         wasm_op: &Op,

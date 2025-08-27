@@ -35,11 +35,11 @@ Cairo-M's MIR (Mid-level Intermediate Representation) using
 | `i32.and`                 | ✅        | Maps to `BinaryOp::U32BitwiseAnd`            |
 | `i32.or`                  | ✅        | Maps to `BinaryOp::U32BitwiseOr`             |
 | `i32.xor`                 | ✅        | Maps to `BinaryOp::U32BitwiseXor`            |
-| `i32.shl`                 | ❌        | TODO: bitshifts, rotations, u8 operations    |
-| `i32.shr_u`               | ❌        | TODO: bitshifts, rotations, u8 operations    |
-| `i32.shr_s`               | ❌        | TODO: bitshifts, rotations, u8 operations    |
-| `i32.rotl`                | ❌        | TODO: bitshifts, rotations, u8 operations    |
-| `i32.rotr`                | ❌        | TODO: bitshifts, rotations, u8 operations    |
+| `i32.shl`                 | ❌        | TODO: bit shifts, rotations, u8 operations   |
+| `i32.shr_u`               | ❌        | TODO: bit shifts, rotations, u8 operations   |
+| `i32.shr_s`               | ❌        | TODO: bit shifts, rotations, u8 operations   |
+| `i32.rotl`                | ❌        | TODO: bit shifts, rotations, u8 operations   |
+| `i32.rotr`                | ❌        | TODO: bit shifts, rotations, u8 operations   |
 | **Comparison Operations** |           |                                              |
 | `i32.eq`                  | ✅        | Maps to `BinaryOp::U32Eq`                    |
 | `i32.ne`                  | ✅        | Maps to `BinaryOp::U32Neq`                   |
@@ -181,7 +181,7 @@ println!("{}", mir_module.pretty_print(0));
 )
 ```
 
-### MIR Conversion (before phi node resolution and optimisation passes)
+### MIR Conversion (before phi node resolution and optimization passes)
 
 ```text
 module {
